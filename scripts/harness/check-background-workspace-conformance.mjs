@@ -31,10 +31,11 @@ const REQUIRED_FILES = [
     detail: 'agent-cli must consume SDK execution workspace snapshots for background UI.',
   },
   {
-    file: 'packages/agent-ui-terminal/src/TuiInteractionChannel.ts',
+    file: 'packages/agent-ui-terminal/src/tui-session-event-projector.ts',
     pattern: /execution_workspace_event/,
     type: 'missing-cli-sdk-workspace-event-consumption',
-    detail: 'agent-cli must consume SDK execution workspace events instead of raw runtime events.',
+    detail:
+      'agent-cli must consume SDK execution workspace events through its TUI event projector.',
   },
   {
     file: 'packages/agent-ui-terminal/src/TuiInteractionChannel.ts',

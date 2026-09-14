@@ -33,17 +33,17 @@ known harness bottleneck.
 
 ## Plan
 
-- [ ] S1 — Introduce a narrow `ITuiAppChannelPort` plus TUI-owned session-event, command-query, status
+- [x] S1 — Introduce a narrow `ITuiAppChannelPort` plus TUI-owned session-event, command-query, status
       and action ports built from the existing session capability contracts. Only the top-level composition
-      shell may receive the concrete channel; React controllers, components and hooks must not receive
+      non-React composition boundary may receive the concrete channel; React controllers, components and hooks must not receive
       `getSession()`, `getRegistry()` or unrestricted `stateManager` access. Retain compatible composition
       APIs for non-React consumers.
-- [ ] S2 — Keep `TuiInteractionChannel` as the public session-owning facade, but extract lifecycle,
+- [x] S2 — Keep `TuiInteractionChannel` as the public session-owning facade, but extract lifecycle,
       event-projection and request-queue responsibilities into named package-local units with one owner
       each.
-- [ ] S3 — Split App coordination from presentation so data projection and callbacks are prepared by a
+- [x] S3 — Split App coordination from presentation so data projection and callbacks are prepared by a
       controller hook and the render tree consumes a bounded view model.
-- [ ] Update the terminal package SPEC class-contract and capability rows before implementation, then
+- [x] Update the terminal package SPEC class-contract and capability rows before implementation, then
       preserve every lifecycle, permission, action, history, status, background-job and shutdown outcome.
 
 ## Explicit Exclusions
@@ -79,20 +79,20 @@ known harness bottleneck.
 - observable rationale: source=public-sdk-return
 - expected observable: result=REFACTOR_025_BOUNDARY_PASS
 - cleanup: the example stops the public TUI channel and removes its temporary workspace before exit
-- evidence: pending Stage 2 execution; record the SDK result token and exit code
+- evidence: `pnpm exec tsx examples/verify-refactor-025-boundary.ts` exited 0 on 2026-09-14 after one scripted provider request and printed `result=REFACTOR_025_BOUNDARY_PASS`
 
 ### Scenario 2: Shipped Robota TUI command and normal exit
 
 - executability: agent-executable
 - product surface: robota-tui
 - surface rationale: shipped-entrypoint=robota
-- prerequisites: current directory is `packages/agent-cli`; the completed CLI build is available; an agent-controlled PTY uses isolated project and user configuration containing a dummy provider key that is never called, waits for the input prompt, enters `/help`, waits for `Available commands`, enters `/exit`, waits for `Exit the session?`, accepts the default Yes action, and awaits process termination
+- prerequisites: the current terminal and CLI packages have been rebuilt; an isolated temporary consumer project links `@robota-sdk/agent-cli` to the local package and installs it offline; `pnpm exec robota --version` reports `3.0.0-beta.79`; an agent-controlled PTY uses an isolated user configuration containing a dummy provider key that is never called, waits for the input prompt, enters `/help`, waits for `Available commands`, enters `/exit`, accepts the displayed confirmation, and awaits process termination
 - command: `pnpm exec robota --name REFACTOR-025-scenario`
 - observable type: ui-state
 - observable rationale: source=rendered-product-ui
-- expected observable: visible=initial input prompt followed by Available commands, Exit the session? confirmation, and normal process exit code 0
+- expected observable: visible=initial input prompt followed by Available commands, Exit the session? confirmation, Exit requested, and normal process exit code 0
 - cleanup: ensure the Robota process has exited, then remove only the isolated project and user-configuration directories
-- evidence: pending Stage 2 execution; record the ordered visible states and final exit code
+- evidence: after rebuilding both affected packages on 2026-09-14, an offline temporary consumer linked the local CLI and `pnpm exec robota --version` reported `3.0.0-beta.79`; one direct `pnpm exec robota --name REFACTOR-025-scenario` PTY process with isolated HOME displayed the input prompt and `Available commands`, then displayed `Exit the session?`, accepted Yes, displayed `Exit requested.`, and exited 0
 
 ### [DONE-GATE-STAGE-1] — ❌ FAIL | 2026-09-14
 
@@ -169,7 +169,7 @@ known harness bottleneck.
       },
       "expectedObservable": "result=REFACTOR_025_BOUNDARY_PASS",
       "cleanup": "the example stops the public TUI channel and removes its temporary workspace before exit",
-      "evidence": "pending Stage 2 execution; record the SDK result token and exit code"
+      "evidence": "2026-09-14: pnpm exec tsx examples/verify-refactor-025-boundary.ts exited 0 after one scripted provider request and printed result=REFACTOR_025_BOUNDARY_PASS"
     },
     {
       "name": "Scenario 2: Shipped Robota TUI command and normal exit",
@@ -177,18 +177,18 @@ known harness bottleneck.
       "surfaceRationale": "shipped-entrypoint=robota",
       "invocation": "pnpm exec robota --name REFACTOR-025-scenario",
       "observableType": "ui-state",
-      "observable": "visible=initial input prompt followed by Available commands, Exit the session? confirmation, and normal process exit code 0",
+      "observable": "visible=initial input prompt followed by Available commands, Exit the session? confirmation, Exit requested, and normal process exit code 0",
       "observableRationale": "source=rendered-product-ui",
       "guardianObservableVerdict": "product-behavior",
       "executability": "agent-executable",
-      "prerequisite": "current directory is `packages/agent-cli`; the completed CLI build is available; an agent-controlled PTY uses isolated project and user configuration containing a dummy provider key that is never called, waits for the input prompt, enters `/help`, waits for `Available commands`, enters `/exit`, waits for `Exit the session?`, accepts the default Yes action, and awaits process termination",
+      "prerequisite": "the current terminal and CLI packages have been rebuilt; an isolated temporary consumer project links @robota-sdk/agent-cli to the local package and installs it offline; pnpm exec robota --version reports 3.0.0-beta.79; an agent-controlled PTY uses an isolated user configuration containing a dummy provider key that is never called, waits for the input prompt, enters /help, waits for Available commands, enters /exit, accepts the displayed confirmation, and awaits process termination",
       "action": {
         "kind": "command",
         "value": "pnpm exec robota --name REFACTOR-025-scenario"
       },
-      "expectedObservable": "visible=initial input prompt followed by Available commands, Exit the session? confirmation, and normal process exit code 0",
+      "expectedObservable": "visible=initial input prompt followed by Available commands, Exit the session? confirmation, Exit requested, and normal process exit code 0",
       "cleanup": "ensure the Robota process has exited, then remove only the isolated project and user-configuration directories",
-      "evidence": "pending Stage 2 execution; record the ordered visible states and final exit code"
+      "evidence": "2026-09-14: after rebuilding both affected packages, an offline temporary consumer linked the local CLI and pnpm exec robota --version reported 3.0.0-beta.79; one direct pnpm exec robota --name REFACTOR-025-scenario PTY process with isolated HOME displayed the input prompt and Available commands, then displayed Exit the session?, accepted Yes, displayed Exit requested., and exited 0"
     }
   ]
 }
@@ -196,24 +196,45 @@ known harness bottleneck.
 
 <!-- checkpoint-evidence:v1:end -->
 
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-14
+
+- Both scenarios retain the complete canonical field set and exact product-surface invocation.
+- Both are `agent-executable`; neither requires a live credential or external service.
+- The guardian confirmed that the SDK example and locally linked shipped CLI are product observables,
+  not engineering-only checks.
+
+**Guardian verdict:** PASS — scenario written.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-09-14
+
+- `pnpm exec tsx examples/verify-refactor-025-boundary.ts` printed
+  `result=REFACTOR_025_BOUNDARY_PASS` and exited 0 after the final source changes.
+- A rebuilt, offline-linked `@robota-sdk/agent-cli@3.0.0-beta.79` consumer ran the exact
+  `pnpm exec robota --name REFACTOR-025-scenario` command in one PTY. It rendered the prompt,
+  `Available commands`, `Exit the session?`, and `Exit requested.`, then exited 0.
+- The isolated consumer and user configuration were moved to the user's Trash after execution.
+
+**Guardian verdict:** PASS — scenario verified.
+
 ## Completion Criteria
 
-- [ ] TC-01: Except for the top-level composition shell, production React controllers, components and
+- [x] TC-01: Except for the top-level composition shell, production React controllers, components and
       hooks import no concrete `TuiInteractionChannel`, `InteractiveSession` or `CommandRegistry` type;
       compile-time probes prove `getSession()`, `getRegistry()`, unrestricted `stateManager` and unrelated
       session/registry operations are unreachable through `ITuiAppChannelPort` and its child ports.
-- [ ] TC-02: The concrete framework objects have one terminal composition owner. Existing public
+- [x] TC-02: The concrete framework objects have one terminal composition owner. Existing public
       `getSession()`, `getRegistry()` and `stateManager` surfaces remain source-compatible; removing any
       of them requires a separate, directly approved public-contract change.
-- [ ] TC-03: Channel lifecycle, event projection and the permission/user-action queues are owned by
+- [x] TC-03: Channel lifecycle, event projection and the permission/user-action queues are owned by
       separate named units, with focused tests for listener identity, idempotent teardown and symmetric
       queue draining on `abort()`, `cancelQueue()`, `shutdown()` and `stop()`.
-- [ ] TC-04: App coordination is separated from its presentation tree without changing visible history,
+- [x] TC-04: App coordination is separated from its presentation tree without changing visible history,
       prompt, status, background-work, picker or shutdown behavior.
-- [ ] TC-05: Existing terminal unit/integration/PTY suites, the provider-injected transcript scenario and
+- [x] TC-05: Existing terminal unit/integration/PTY suites, the provider-injected transcript scenario and
       built CLI PTY launch/exit scenario pass; no file-size scan result is used as delivery evidence.
 - [ ] TC-06: The package SPEC records the new class contracts and ownership boundaries, and the final
-      delivery updates the #2670 parent projection while leaving unrelated product Tasks open.
+      delivery updates the [Issue #2670](https://github.com/woojubb/robota/issues/2670) parent
+      projection while leaving unrelated product Tasks open.
 
 ## Provenance
 
@@ -224,5 +245,7 @@ known harness bottleneck.
 - Recommendation review: 2026-09-14 — after two bounded clarifications to enforce the narrow App port,
   reachable verification paths, all four queue drains and public-surface preservation, the independent
   reviewer returned `REVIEW VERDICT: ENDORSE` with zero actionable findings.
-- Execution authority: the user directed that #2670's next product Task continue after the verified
-  #2732 landing; this record narrows that authorized work to the already-mapped REFACTOR-025 outcome.
+- Execution authority: the user directed that [Issue #2670](https://github.com/woojubb/robota/issues/2670)'s
+  next product Task continue after the verified
+  [Pull Request #2732](https://github.com/woojubb/robota/pull/2732) landing; this record narrows that
+  authorized work to the already-mapped REFACTOR-025 outcome.

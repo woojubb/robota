@@ -104,7 +104,7 @@ function mountHarness(): IHarness {
   // Stage-C fields so the SAME test file compiled red (pre) and green (post).
   const options = {
     cwd: '/tmp',
-    interactiveSession: session,
+    uiEventPort: session,
     commandEffectQueue: {
       enqueueEffects: () => undefined,
       drain: () => undefined,

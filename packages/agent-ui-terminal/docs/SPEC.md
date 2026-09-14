@@ -33,6 +33,14 @@ to this package and never enter the dependency graph of non-TUI consumers.
 agent-ui-terminal
   ├── renderApp              ← mounts the Ink <App/>
   ├── TuiInteractionChannel  ← session-owning TUI presentation surface
+  │   ├── TuiChannelLifecycleCoordinator ← idempotent start/stop/shutdown
+  │   ├── TuiSessionEventProjector       ← exact listener ownership + state projection
+  │   ├── TuiPermissionQueue             ← permission FIFO + deny drains
+  │   └── TuiUserActionQueue             ← action FIFO + cancellation drains
+  ├── ITuiAppChannelPort     ← bounded React-facing channel projection
+  ├── App                    ← React shell receiving only narrow channel ports
+  ├── AppView/controller     ← terminates the channel port and assembles a view model
+  ├── AppPresentation        ← pure bounded-view-model render tree
   └── createDefaultTuiCliAdapter ← wires command/provider UX into the renderer
 ```
 
@@ -45,6 +53,16 @@ Both `IRenderOptions` and `ITuiInteractionChannelOptions` carry the composition 
 framework's explicit Restricted decision and cannot enable project contribution discovery.
 The same surfaces forward an optional `EditCheckpointStore`; trusted project access alone never
 creates checkpoint mutation authority inside the TUI.
+
+REFACTOR-025 keeps `TuiInteractionChannel` as the public session-owning facade and preserves its
+`getSession()`, `getRegistry()`, and `stateManager` compatibility surfaces for non-React
+consumers. `renderApp` is the sole concrete-channel creation boundary and narrows every instance
+immediately to `ITuiAppChannelPort`; the entire React tree is concrete-channel-free. `AppView`
+terminates that port in `useAppController`, and `AppPresentation` receives only an explicit
+`IAppViewModel`. Downstream hooks and components receive immutable channel snapshots, narrow UI-event
+and command-query ports, and explicit actions only. The host's real plugin command adapter is projected
+separately into the controller; an embedding host without that capability receives explicit rejected
+operations rather than successful no-ops.
 
 The status bar renders the active model-effort selection (`auto` or a concrete tier) beside the
 provider/model identity when the live session exposes it. This is a read-only projection of
@@ -65,33 +83,52 @@ observer, the channel appends a visible `delivery-error` notice instead of faili
 `TuiInteractionChannel` owns the interactive session and its render state; its teardown contract is
 authoritative for how the TUI releases resources on session switch and process exit.
 
-- **`start()`** wires the session event listeners selected by the exhaustive
+- **`start()`** delegates idempotency to `TuiChannelLifecycleCoordinator`, shares one in-flight start
+  across concurrent callers, and marks the channel started only after startup succeeds. A failed start
+  unwires its listeners, stops its init poller and rolls back any partially started transports before
+  remaining retryable; the App renders an input-blocking error with an Enter-to-retry action and
+  unmounts overlay input handlers until recovery succeeds. Startup wires the session
+  event listeners selected by the exhaustive
   `TUI_SESSION_EVENT_CLASSIFICATION` map (currently 20 channel-owned bindings) and begins the init
-  poller. It is idempotent (a `sessionStarted` guard). Tests compare the actual `on`/`off` keys and
-  handler identities with the map so a new shared event cannot silently miss the TUI.
-- **`stop()`** is the full, idempotent channel teardown (a `stopped` guard makes repeat calls
-  no-ops). It **unwires every session listener** it registered (each binding is retained and removed
+  poller. It is idempotent. Tests compare the actual `on`/`off` keys and
+  handler identities with the map so a new shared event cannot silently miss the TUI. Listener wiring
+  itself is inside the rollback boundary, and a transport rollback failure is reported together with
+  the original startup failure.
+- **`stop()`** is the full channel teardown. Concurrent callers share one in-flight stop; repeat calls
+  after success are no-ops. A stop requested during startup waits for that attempt and its rollback to
+  settle before teardown, while a cleanup failure still attempts bounded session shutdown and leaves
+  stop retryable rather than claiming success. `TuiSessionEventProjector` **unwires every session listener** it registered (each binding is retained and removed
   with `session.off(...)` — no handler may stay bound to a discarded session), drains the permission
   and user-action queues (see below), stops the init poller, disposes the `TuiStateManager`, stops
   transports, and — unless the channel was already gracefully shut down — **shuts the underlying
   session down** (bounded by `SHUTDOWN_TIMEOUT_MS`) so a discarded or switched-away channel releases
   its background tasks, subagent child processes, and timers. A channel that leaves listeners bound
-  or its session running after `stop()` is a defect.
+  or its session running after `stop()` is a defect. Because transport teardown is best-effort at its
+  own boundary, every returned transport error is promoted to a channel teardown failure before the
+  coordinator can mark the channel stopped.
+- **Render ownership.** React effects start channels and release subscriptions, but do not fire-and-forget
+  asynchronous teardown. `renderApp()` tracks the active channel, awaits its `stop()` after Ink exits,
+  and propagates teardown failure to the embedding caller. An App unmounted during a session switch may
+  not construct a replacement channel after the in-flight old-channel stop settles.
 - **`shutdown({ reason, timeoutMs? })`** is the graceful process-exit path (first Ctrl+C, `/exit`,
-  signal). It marks `isShuttingDown`, drains both queues, renders `Shutting down...`, then awaits the
+  signal). The lifecycle coordinator marks `isShuttingDown`, drains both queues, renders
+  `Shutting down...`, then awaits the
   session shutdown **bounded by a timeout** (`SHUTDOWN_TIMEOUT_MS`, overridable) so a wedged subsystem
   can never block process exit. It is idempotent (`isShuttingDown` guard).
 - **Session switch policy.** The old channel is `stop()`-ed _before_ the new channel becomes active,
   so it can never receive events addressed to the new session and its session is shut down as part of
-  that teardown. This is the single owner of old-session shutdown on switch.
+  that teardown. On failure, the old stopped channel remains selected but input is disabled and the
+  rendered error offers Enter-to-retry for the same target; no replacement is created until retrying
+  stop succeeds. This is the single owner of old-session shutdown on switch.
 
 ### Queue drain on abort / shutdown
 
-The channel serves two independent request queues. Both must be drained on `abort()`, `cancelQueue()`,
-`shutdown()`, and `stop()` so no promise dangles:
+The channel delegates two independent request queues to separate package-local owners. Both must be
+drained on `abort()`, `cancelQueue()`, `shutdown()`, and `stop()` so no promise dangles:
 
-- `cancelAllUserActions()` — resolves every queued/in-flight CMD-004 ask as `{ type: 'cancelled' }`.
-- `cancelAllPermissions()` — resolves every queued/in-flight permission request as `false` (deny):
+- `TuiUserActionQueue.cancelAll()` — resolves every queued/in-flight CMD-004 ask as
+  `{ type: 'cancelled' }`.
+- `TuiPermissionQueue.cancelAll()` — resolves every queued/in-flight permission request as `false` (deny):
   aborting or shutting down must never leave a tool's permission promise unresolved (the tool would
   hang) nor grant it. The two drains are symmetric; a permission queue with no cancel path is a defect.
 
@@ -158,6 +195,15 @@ Owns the TUI rendering/presentation types (`IRenderOptions`, `ITuiInteractionCha
 `renderApp` forwards the same explicit capabilities into the channel and then the real
 `InteractiveSession`. Re-exports the `agent-interface-tui` interaction contracts for convenience at
 the transport boundary.
+
+| Type                        | Location                      | Purpose                                                                       |
+| --------------------------- | ----------------------------- | ----------------------------------------------------------------------------- |
+| `ITuiAppChannelPort`        | `src/tui-app-channel-port.ts` | Complete bounded channel surface accepted by the non-composition React tree   |
+| `ITuiChannelSnapshot`       | `src/tui-app-channel-port.ts` | Immutable render-state projection; excludes unrestricted `TuiStateManager`    |
+| `ITuiCommandQueryPort`      | `src/tui-app-channel-port.ts` | Autocomplete-only command and subcommand lookup                               |
+| `ITuiSessionUiEventPort`    | `src/tui-app-channel-port.ts` | Typed subscription surface for `ui_intent` and `session_renamed` only         |
+| `ITuiRuntimeStatusSnapshot` | `src/tui-app-channel-port.ts` | Permission, preset, effort and session-id projection used by status rendering |
+| `IAppViewModel`             | `src/app-view-model.ts`       | Data and callbacks accepted by the pure presentation tree                     |
 
 ## Public API Surface
 
@@ -436,6 +482,23 @@ fresh process.
 `TuiInteractionChannel.lifecycle.test.ts` mechanically compares actual listener registration and
 teardown with the exhaustive classification and forces a notice projection failure. The notice
 component suite proves deterministic plan/context/branch rendering independently of canonical history.
+REFACTOR-025 adds negative compile-time probes for the React-facing port, focused queue and lifecycle
+tests, channel event-projection coverage, App session-switch/controller coverage, and a deterministic
+public SDK example. The existing built-CLI PTY `/help` plus `/exit` flow remains the product-level
+startup and shutdown check.
+
+## Class Contract Registry
+
+| Class/component                  | Contract or dependency                                                                     | Responsibility                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `TuiInteractionChannel`          | implements `ITuiAppChannelPort`; owns concrete `InteractiveSession` and `CommandRegistry`  | Public compatibility facade and session-owning implementation                 |
+| `TuiChannelLifecycleCoordinator` | receives explicit start, stop and bounded-shutdown callbacks                               | Owns start/stop/shutdown idempotency and graceful-state transitions           |
+| `TuiSessionEventProjector`       | consumes the existing session event capability and `TuiStateManager`                       | Owns exhaustive event binding, projection error isolation and exact unbinding |
+| `TuiPermissionQueue`             | no framework-class dependency                                                              | Owns permission FIFO, prompt dismissal and deny drains                        |
+| `TuiUserActionQueue`             | no framework-class dependency                                                              | Owns unified-action FIFO, prompt dismissal and cancelled drains               |
+| `App`                            | receives an `ITuiAppChannelPort` factory from `renderApp`                                  | Owns active narrowed-port selection and awaits old-session stop on switch     |
+| `useAppController` / `AppView`   | compose focused lifecycle, screen, workspace, input and overlay hooks into `IAppViewModel` | Terminate the channel port and assemble bounded presentation data             |
+| `AppPresentation`                | consumes only `IAppViewModel`                                                              | Render the presentation tree without channel or framework escape hatches      |
 
 ## Dependencies
 

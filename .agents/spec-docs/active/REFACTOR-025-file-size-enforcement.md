@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: BEHAVIOR
 tags: [tui, architecture, typescript]
 lane: L2
@@ -98,25 +98,27 @@ Any removal requires a separate, directly approved public-contract change.
 - interaction queues — FIFO permission and user-action resolution plus symmetric drains on `abort()`,
   `cancelQueue()`, `shutdown()` and `stop()`.
 
-The top-level composition shell may construct and receive the concrete channel, but it immediately narrows
-that object to `ITuiAppChannelPort`. App coordination moves into a controller hook that accepts only that
-port and assembles state, effects and callbacks. A presentation component renders a bounded view model and
-never discovers framework state by reaching through the channel. Extractions are performed in stages
+The non-React `renderApp` composition boundary constructs the concrete channel and immediately narrows it
+to `ITuiAppChannelPort`, so the entire React tree receives only ports. App coordination moves into a
+controller hook that accepts only that port and assembles state, effects and callbacks. `AppPresentation`
+renders an explicit `IAppViewModel` and never discovers framework state by reaching through the channel.
+The host plugin adapter is injected as a separate capability; absent capability rejects explicitly instead
+of reporting successful no-op mutations. Extractions are performed in stages
 behind the existing facade so each stage can be compared to the characterized behavior.
 
 ### Capability Preservation Inventory
 
-| Capability | Current owner/call | Post-refactor owner | Preservation evidence |
-| --- | --- | --- | --- |
-| prompt submit, abort, queued-turn cancel | channel/session | channel action facade | focused channel tests |
-| permission and unified action answers | channel queues | interaction-queue owners | FIFO and drain tests |
-| session events and listener cleanup | channel + side-effect hook | projector + narrow UI-event port | exact event/handler tests |
-| channel state subscription | concrete channel + public state manager | narrow snapshot/subscription port | negative capability probes |
-| command autocomplete | concrete registry in React | command-query port | type probe + autocomplete tests |
-| history and streaming projection | state manager/channel | unchanged state manager behind controller | history/component tests |
-| background job send/detail | App/session and channel | channel action facade | routing tests |
-| permission mode, preset, effort, id, name | App nested session access | immutable channel status projection | status tests |
-| start, switch, stop, bounded shutdown | channel/App | lifecycle coordinator behind channel | teardown and PTY tests |
+| Capability                                | Current owner/call                      | Post-refactor owner                       | Preservation evidence           |
+| ----------------------------------------- | --------------------------------------- | ----------------------------------------- | ------------------------------- |
+| prompt submit, abort, queued-turn cancel  | channel/session                         | channel action facade                     | focused channel tests           |
+| permission and unified action answers     | channel queues                          | interaction-queue owners                  | FIFO and drain tests            |
+| session events and listener cleanup       | channel + side-effect hook              | projector + narrow UI-event port          | exact event/handler tests       |
+| channel state subscription                | concrete channel + public state manager | narrow snapshot/subscription port         | negative capability probes      |
+| command autocomplete                      | concrete registry in React              | command-query port                        | type probe + autocomplete tests |
+| history and streaming projection          | state manager/channel                   | unchanged state manager behind controller | history/component tests         |
+| background job send/detail                | App/session and channel                 | channel action facade                     | routing tests                   |
+| permission mode, preset, effort, id, name | App nested session access               | immutable channel status projection       | status tests                    |
+| start, switch, stop, bounded shutdown     | channel/App                             | lifecycle coordinator behind channel      | teardown and PTY tests          |
 
 ### Architecture Review Checklist
 
@@ -155,6 +157,7 @@ shutdown outcome is a regression, not a supported degraded mode.
 - `packages/agent-ui-terminal/docs/SPEC.md`
 - `packages/agent-ui-terminal/src/TuiInteractionChannel.ts`
 - `packages/agent-ui-terminal/src/App.tsx`
+- `packages/agent-ui-terminal/src/AppPresentation.tsx`
 - `packages/agent-ui-terminal/src/InputArea.tsx`
 - `packages/agent-ui-terminal/src/hooks/useTuiChannel.ts`
 - `packages/agent-ui-terminal/src/hooks/useSideEffects.ts`
@@ -192,41 +195,46 @@ shutdown outcome is a regression, not a supported degraded mode.
 
 ## Test Plan
 
-| TC-ID | Test type | Tool / approach | Notes |
-| --- | --- | --- | --- |
-| TC-01 | Type/static | terminal typecheck plus negative capability probes/import inventory | proves boundary, not line count |
-| TC-02 | Build/consumer | terminal and agent-cli typechecks | preserves public composition consumers |
-| TC-03 | Unit | lifecycle, event-binding and queue-focused Vitest suites | exact identities and drain outcomes |
-| TC-04 | Unit/component | controller and status/background routing tests | no nested session reach-through |
-| TC-05 | Regression | terminal focused + package suite | characterization before extraction |
-| TC-06 | Functional + PTY | provider-injected TUI transcript; built CLI command/exit | two reachable public paths |
-| TC-07 | Spec/conformance | package SPEC contract registry plus repository change verification | no deleted scanner restored |
-| TC-08 | Delivery audit | Git ancestry, PR checks and parent/Task readback | partial parent completion only |
+| TC-ID | Test type        | Tool / approach                                                     | Notes                                  |
+| ----- | ---------------- | ------------------------------------------------------------------- | -------------------------------------- |
+| TC-01 | Type/static      | terminal typecheck plus negative capability probes/import inventory | proves boundary, not line count        |
+| TC-02 | Build/consumer   | terminal and agent-cli typechecks                                   | preserves public composition consumers |
+| TC-03 | Unit             | lifecycle, event-binding and queue-focused Vitest suites            | exact identities and drain outcomes    |
+| TC-04 | Unit/component   | controller and status/background routing tests                      | no nested session reach-through        |
+| TC-05 | Regression       | terminal focused + package suite                                    | characterization before extraction     |
+| TC-06 | Functional + PTY | provider-injected TUI transcript; built CLI command/exit            | two reachable public paths             |
+| TC-07 | Spec/conformance | package SPEC contract registry plus repository change verification  | no deleted scanner restored            |
+| TC-08 | Delivery audit   | Git ancestry, PR checks and parent/Task readback                    | partial parent completion only         |
 
 ## User Execution Test Scenarios
 
 **Author verdict:** `SCENARIO DRAFTED: automatable | 2`
 
-### Scenario 1 — prompt and transcript survive through provider-injected TUI composition
+### Scenario 1: Public SDK TUI boundary and transcript
 
-1. Start the public provider-injected TUI composition with `createScriptedProvider` and one deterministic
-   response.
-2. Submit one prompt through the channel-facing product surface.
-3. Verify the user prompt and assistant response reach the terminal history projection and the scripted
-   provider consumes exactly one turn.
+- **executability:** agent-executable
+- **product surface:** public-sdk-example
+- **surface rationale:** shipped-interface=public-sdk-example
+- **prerequisites:** current directory is `packages/agent-ui-terminal`; the deterministic scripted provider requires no credential, network, or external service
+- **command:** `pnpm exec tsx examples/verify-refactor-025-boundary.ts`
+- **observable type:** sdk-result
+- **expected observable:** result=REFACTOR_025_BOUNDARY_PASS
+- **observable rationale:** source=public-sdk-return
+- **cleanup:** the example stops the public TUI channel and removes its isolated temporary workspace
+- **evidence:** the command exited 0 on 2026-09-14 after one provider request and printed `result=REFACTOR_025_BOUNDARY_PASS`
 
-Expected result: the visible history matches pre-refactor behavior and no extracted package-private unit
-is invoked directly.
+### Scenario 2: Built CLI command and normal exit
 
-### Scenario 2 — built CLI still starts, handles a command and exits cleanly
-
-1. Build the CLI and launch `packages/agent-cli/bin/robota.cjs` in the existing isolated PTY harness with
-   dummy provider configuration that cannot reach a real network provider.
-2. Wait for the prompt, execute a command that does not call the provider, and verify its visible result.
-3. Execute normal exit and await the actual child-process exit within the existing shutdown bound.
-
-Expected result: the built product path renders the command response and exits with no unresolved prompt,
-listener or child handle. This cell does not claim that the built binary supports scripted-provider injection.
+- **executability:** agent-executable
+- **product surface:** robota-tui
+- **surface rationale:** shipped-entrypoint=robota
+- **prerequisites:** the current terminal and CLI packages have been rebuilt; an isolated temporary consumer links the local CLI package and installs it offline; `pnpm exec robota --version` reports `3.0.0-beta.79`; an agent-controlled PTY supplies an isolated user configuration with a dummy provider key that is never called
+- **command:** `pnpm exec robota --name REFACTOR-025-scenario`
+- **observable type:** ui-state
+- **expected observable:** visible=initial input prompt, Available commands after `/help`, Exit the session? confirmation and Exit requested after `/exit`, and process exit code 0
+- **observable rationale:** source=rendered-product-ui
+- **cleanup:** await normal Robota process exit and remove only the isolated user-configuration directory
+- **evidence:** after rebuilding both affected packages, an offline temporary consumer linked the local CLI and `pnpm exec robota --version` reported `3.0.0-beta.79`; one direct `pnpm exec robota` PTY process displayed the prompt and Available commands, then Exit the session?, accepted Yes, displayed Exit requested, and exited 0 on 2026-09-14
 
 ## Tasks
 
@@ -433,6 +441,7 @@ specific and current, CLASS is inapplicable, and the new-surface condition is no
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 4 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -495,7 +504,45 @@ specific and current, CLASS is inapplicable, and the new-surface condition is no
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `e35f26facdf3` · base `origin/develop@e35f26facdf3` · document `.agents/spec-docs/todo/REFACTOR-025-file-size-enforcement.md` blob `f0fe6a1df734` (untracked)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-14
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `ded4e725adf3` · base `origin/develop@e35f26facdf3` · document `.agents/spec-docs/active/REFACTOR-025-file-size-enforcement.md` blob `b8003ea266d1` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-14
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: PASS — the prior terminal gate is GATE-IMPLEMENT PASS and the document is
+  `in-progress`.
+- GATE-VERIFY — every `## Plan` item is complete: PASS — 4/4 Plan checkboxes are `[x]`.
+- GATE-VERIFY — no Plan item is blocked or pending: PASS — the guardian found no unchecked, blocked or
+  pending Plan entry; the remaining Task TC-06 checkbox is a Completion Criterion, not a Plan item.
+- GATE-VERIFY — affected builds pass: PASS —
+  `pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli build` exited 0.
+- GATE-VERIFY — affected tests pass: PASS — `pnpm --filter @robota-sdk/agent-ui-terminal test`
+  completed 94 files and 829 tests with exit 0, and
+  `pnpm exec vitest run scripts/harness/__tests__/check-background-workspace-conformance.test.mjs`
+  completed 7 tests with exit 0.
+
+**Judged by:** `gate.mjs` mechanical evaluator plus `backlog-gate-guard` semantic review
+**Judged at:** HEAD `ded4e725adf3` · base `origin/develop@e35f26facdf3` · guardian verdict 2026-09-14
+
+**Post-gate verification addendum:** after the final teardown-ownership corrections, the terminal suite
+completed 95 files and 834 tests with exit 0, the affected terminal/CLI build exited 0, the full harness
+scan passed 161 scans with one declared skip, both product scenarios passed again, and the independent
+reviewer returned `ACTIONABLE FINDINGS: 0`.

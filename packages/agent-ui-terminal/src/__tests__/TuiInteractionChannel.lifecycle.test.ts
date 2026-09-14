@@ -118,7 +118,7 @@ function makeMockTransportRegistry(): {
   stopAll: ReturnType<typeof vi.fn>;
 } {
   const startAll = vi.fn().mockResolvedValue(undefined);
-  const stopAll = vi.fn().mockResolvedValue(undefined);
+  const stopAll = vi.fn().mockResolvedValue({ errors: [] });
   return {
     registry: { startAll, stopAll } as unknown as ITransportRegistryView<IInteractiveSession>,
     startAll,
@@ -225,6 +225,65 @@ describe('Group A — channel.start() / channel.stop() lifecycle', () => {
     await channel.stop();
 
     expect(stopAll).toHaveBeenCalledOnce();
+  });
+
+  it('A7: rolls back a failed transport start before retrying the real channel', async () => {
+    const { registry, startAll, stopAll } = makeMockTransportRegistry();
+    startAll.mockRejectedValueOnce(new Error('transport start failed'));
+    const channel = makeChannel({ transportRegistry: registry });
+    const session = getMockSession(channel);
+
+    await expect(channel.start()).rejects.toThrow('transport start failed');
+    expect(session._listenerCount()).toBe(0);
+    expect(stopAll).toHaveBeenCalledTimes(1);
+
+    await channel.start();
+    expect(startAll).toHaveBeenCalledTimes(2);
+    expect(session._listenerCount()).toBeGreaterThan(0);
+
+    await channel.stop();
+  });
+
+  it('A8: treats returned transport stop errors as retryable teardown failures', async () => {
+    const { registry, stopAll } = makeMockTransportRegistry();
+    stopAll.mockResolvedValueOnce({ errors: [new Error('transport stop failed')] });
+    const channel = makeChannel({ transportRegistry: registry });
+    await channel.start();
+
+    await expect(channel.stop()).rejects.toThrow('TUI transport teardown failed.');
+    await channel.stop();
+
+    expect(stopAll).toHaveBeenCalledTimes(2);
+  });
+
+  it('A9: unwires a partially connected event projector before start retry', async () => {
+    const channel = makeChannel();
+    const session = getMockSession(channel);
+    const on = session.on.getMockImplementation();
+    if (!on) throw new Error('session.on test implementation is missing');
+    session.on.mockImplementationOnce(on).mockImplementationOnce(() => {
+      throw new Error('listener registration failed');
+    });
+
+    await expect(channel.start()).rejects.toThrow('listener registration failed');
+    expect(session._listenerCount()).toBe(0);
+
+    await channel.start();
+    expect(session._listenerCount()).toBeGreaterThan(0);
+    await channel.stop();
+  });
+
+  it('A10: reports both startup and returned rollback errors', async () => {
+    const { registry, startAll, stopAll } = makeMockTransportRegistry();
+    startAll.mockRejectedValueOnce(new Error('transport start failed'));
+    stopAll.mockResolvedValueOnce({ errors: [new Error('transport rollback failed')] });
+    const channel = makeChannel({ transportRegistry: registry });
+
+    const failure = await channel.start().catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect((failure as AggregateError).errors).toHaveLength(2);
+    expect(String((failure as AggregateError).errors[1])).toContain('transport rollback failed');
   });
 });
 

@@ -11,9 +11,9 @@ import { describe, expect, it } from 'vitest';
 
 import { useTuiChannel } from '../useTuiChannel.js';
 
-import type { TuiInteractionChannel } from '../../TuiInteractionChannel.js';
+import type { ITuiAppChannelPort } from '../../tui-app-channel-port.js';
 
-function makeFakeChannel(): TuiInteractionChannel {
+function makeFakeChannel(): ITuiAppChannelPort & { emitChange: () => void } {
   const manager = {
     history: [],
     streamingText: '',
@@ -26,24 +26,42 @@ function makeFakeChannel(): TuiInteractionChannel {
     contextState: { percentage: 0, usedTokens: 0, maxTokens: 100_000 },
     addEntry: () => undefined,
   };
-  const fake = {
-    onChange: null as (() => void) | null,
-    stateManager: manager,
-    isShuttingDown: false,
-    permissionRequest: null,
-    pendingUserAction: null,
-    // ARCH-012: the hook reads the co-drive queue length live from the session; `{}` no longer
-    // satisfies that, and the `?.()` that used to tolerate it is gone.
-    getSession: () => ({ getPendingCount: () => 0 }),
-    getRegistry: () => ({}),
-    handleInput: () => undefined,
+  let onChange: (() => void) | null = null;
+  return {
+    terminalHandoffController: undefined,
+    sessionName: undefined,
+    start: () => Promise.resolve(),
+    stop: () => Promise.resolve(),
+    subscribe: (handler) => {
+      onChange = handler;
+      return () => {
+        if (onChange === handler) onChange = null;
+      };
+    },
+    emitChange: () => onChange?.(),
+    getSnapshot: () => ({
+      ...manager,
+      lastErrorMessage: null,
+      isStalled: false,
+      sessionEventNotices: [],
+      isShuttingDown: false,
+      pendingCount: 0,
+      permissionRequest: null,
+      pendingUserAction: null,
+    }),
+    getSessionUiEventPort: () => ({ on: () => undefined, off: () => undefined }),
+    getCommandQueryPort: () => ({ getCommands: () => [], getSubcommands: () => [] }),
+    getRuntimeStatusSnapshot: (permissionMode) => ({ permissionMode, sessionId: '' }),
+    addEntry: manager.addEntry,
+    handleInput: () => Promise.resolve(),
     abort: () => undefined,
     cancelQueue: () => undefined,
     shutdown: () => Promise.resolve(),
     selectExecutionWorkspaceEntry: () => undefined,
     readExecutionWorkspaceDetail: () => Promise.resolve({ entryId: 'x', records: [] }),
+    sendAgentJob: () => Promise.resolve(),
+    resolveUserAction: () => undefined,
   };
-  return fake as unknown as TuiInteractionChannel;
 }
 
 async function tick(ms = 25): Promise<void> {
@@ -68,8 +86,8 @@ describe('useTuiChannel callback stability (SCREEN-014 regression)', () => {
     await tick();
 
     // Force a re-render the way the channel does on every state change.
-    channel.onChange?.();
-    channel.onChange?.();
+    channel.emitChange();
+    channel.emitChange();
     await tick();
 
     expect(seen.length).toBeGreaterThanOrEqual(2);

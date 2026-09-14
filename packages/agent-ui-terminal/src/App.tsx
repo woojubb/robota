@@ -1,47 +1,12 @@
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import { listResumableSessionSummaries } from '@robota-sdk/agent-framework';
-import { Box, Static, useApp, useInput } from 'ink';
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { AppBanner } from './app-banner.js';
-import { buildStaticItems } from './app-static-items.js';
-import BackgroundTaskPanel from './BackgroundTaskPanel.js';
-import { ContextWarningBanner } from './ContextWarningBanner.js';
-import {
-  countActiveBackgroundWorkspaceEntries,
-  getDefaultBackgroundWorkspaceEntries,
-} from './execution-workspace-view-model.js';
-import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
-import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
-import { resolveBackgroundFocusKey } from './flows/background-focus-flow.js';
-import { useBackgroundPanel } from './hooks/useBackgroundPanel.js';
-import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
-import { useScreenReaderTurnSignals } from './hooks/useScreenReaderTurnSignals.js';
-import { useSideEffects } from './hooks/useSideEffects.js';
-import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
-import { useTerminalHandoffSuspension } from './hooks/useTerminalHandoffSuspension.js';
-import { useTuiChannel } from './hooks/useTuiChannel.js';
-import InputArea from './InputArea.js';
-import { EntryItem } from './MessageList.js';
-import PendingActionPrompt from './PendingActionPrompt.js';
-import PermissionPrompt from './PermissionPrompt.js';
-import PluginTUI from './PluginTUI.js';
-import { Text } from './SafeText.js';
-import { useScreenReader } from './screen-reader-context.js';
-import SessionEventNotices from './SessionEventNotices.js';
-import SessionPicker from './SessionPicker.js';
-import SessionStatusBar from './SessionStatusBar.js';
-import { handleInterrupt } from './shutdown-signal.js';
-import StreamingIndicator from './StreamingIndicator.js';
-import TransportTUI from './TransportTUI.js';
+import AppView from './AppView.js';
 import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
-import { PALETTE } from './tui-palette.js';
-import UpdateNotice from './UpdateNotice.js';
-import { useTerminalTitle } from './use-terminal-title.js';
 
+import type { ITuiAppChannelPort } from './tui-app-channel-port.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
-import type { TuiInteractionChannel } from './TuiInteractionChannel.js';
-import type { TModelEffortSelection, TPermissionMode } from '@robota-sdk/agent-core';
+import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
@@ -50,11 +15,8 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
 
 interface IProps {
   cwd: string;
-  /**
-   * Sole channel source (CLI-B12): App owns the channel lifecycle in React state.
-   * The initial channel and every session-switch replacement come from this factory.
-   */
-  createChannel: (resumeSessionId?: string) => TuiInteractionChannel;
+  /** The composition root narrows every concrete channel to this port before React receives it. */
+  createChannel: (resumeSessionId?: string) => ITuiAppChannelPort;
   providerOverride?: string | undefined;
   providerType?: string | undefined;
   modelId?: string;
@@ -65,508 +27,93 @@ interface IProps {
   showSessionPickerOnStart?: boolean;
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
+  pluginAdapter?: ICommandPluginAdapter;
   cliAdapter: ITuiCliAdapter;
 }
 
-export default function App(props: IProps): React.ReactElement {
-  // Lazy initializer: channel construction is side-effect-free (object wiring only);
-  // I/O starts in AppInner's effect via channel.start(). Runs once per mount.
-  const [sessionState, setSessionState] = useState<{
-    channel: TuiInteractionChannel;
-    sessionId: string | undefined;
-  }>(() => ({
+interface IActiveChannel {
+  readonly state: { channel: ITuiAppChannelPort; sessionId: string | undefined };
+  readonly showPicker: boolean;
+  readonly error: string | undefined;
+  readonly switching: boolean;
+  readonly switchSession: (sessionId: string) => Promise<void>;
+  readonly retrySwitch: () => void;
+}
+
+function useActiveChannel(props: IProps): IActiveChannel {
+  const [state, setState] = useState(() => ({
     channel: props.createChannel(props.resumeSessionId),
     sessionId: props.resumeSessionId,
   }));
-  const [showInitialSessionPicker, setShowInitialSessionPicker] = useState(
-    props.showSessionPickerOnStart ?? false,
+  const [showPicker, setShowPicker] = useState(props.showSessionPickerOnStart ?? false);
+  const [error, setError] = useState<string | undefined>();
+  const [isSwitching, setIsSwitching] = useState(false);
+  const [failedTarget, setFailedTarget] = useState<string | undefined>();
+  const switching = useRef(false);
+  const mounted = useRef(true);
+  useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    [],
   );
+  const switchSession = useCallback(
+    async (sessionId: string): Promise<void> => {
+      if (switching.current) return;
+      switching.current = true;
+      setIsSwitching(true);
+      try {
+        setShowPicker(false);
+        await state.channel.stop();
+        if (!mounted.current) return;
+        setState({ channel: props.createChannel(sessionId), sessionId });
+        setFailedTarget(undefined);
+        setError(undefined);
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        setError(`Session switch failed: ${message}`);
+        setFailedTarget(sessionId);
+      } finally {
+        switching.current = false;
+        setIsSwitching(false);
+      }
+    },
+    [props.createChannel, state.channel],
+  );
+  const retrySwitch = useCallback((): void => {
+    if (failedTarget !== undefined) void switchSession(failedTarget);
+  }, [failedTarget, switchSession]);
+  return { state, showPicker, error, switching: isSwitching, switchSession, retrySwitch };
+}
+
+/** React composition shell. Concrete framework objects stay outside the React tree. */
+export default function App(props: IProps): React.ReactElement {
+  const active = useActiveChannel(props);
 
   return (
     <TuiCliAdapterProvider value={props.cliAdapter}>
-      <AppInner
-        key={sessionState.sessionId ?? '__new__'}
-        {...props}
-        channel={sessionState.channel}
-        showSessionPickerOnStart={showInitialSessionPicker}
-        resumeSessionId={sessionState.sessionId}
-        onSessionSwitch={(sessionId) => {
-          setShowInitialSessionPicker(false);
-          void sessionState.channel.stop();
-          setSessionState({ channel: props.createChannel(sessionId), sessionId });
-        }}
+      <AppView
+        key={active.state.sessionId ?? '__new__'}
+        cwd={props.cwd}
+        channel={active.state.channel}
+        onSessionSwitch={active.switchSession}
+        onRetrySessionSwitch={active.retrySwitch}
+        sessionSwitchError={active.error}
+        sessionSwitchPending={active.switching}
+        showSessionPickerOnStart={active.showPicker}
+        {...(props.providerType !== undefined ? { providerType: props.providerType } : {})}
+        {...(props.modelId !== undefined ? { modelId: props.modelId } : {})}
+        {...(props.permissionMode !== undefined ? { permissionMode: props.permissionMode } : {})}
+        {...(props.version !== undefined ? { version: props.version } : {})}
+        {...(props.sessionStore !== undefined ? { sessionStore: props.sessionStore } : {})}
+        {...(props.startupUpdateNotice !== undefined
+          ? { startupUpdateNotice: props.startupUpdateNotice }
+          : {})}
+        {...(props.transportRegistry !== undefined
+          ? { transportRegistry: props.transportRegistry }
+          : {})}
+        {...(props.pluginAdapter !== undefined ? { pluginAdapter: props.pluginAdapter } : {})}
       />
     </TuiCliAdapterProvider>
-  );
-}
-
-function AppInner(
-  props: IProps & {
-    channel: TuiInteractionChannel;
-    onSessionSwitch: (sessionId: string) => void;
-  },
-): React.ReactElement {
-  const cwd = props.cwd;
-  const { channel, onSessionSwitch, sessionStore } = props;
-  // TERM-002: terminal-handoff suspension gate (renders nothing while a child owns the terminal).
-  const handoffSuspended = useTerminalHandoffSuspension(channel.terminalHandoffController);
-
-  const {
-    interactiveSession,
-    registry,
-    history,
-    addEntry,
-    streamingText,
-    activeTools,
-    isThinking,
-    lastErrorMessage,
-    isStalled,
-    sessionEventNotices,
-    isAborting,
-    isShuttingDown,
-    pendingPrompt,
-    pendingCount,
-    executionWorkspaceSnapshot,
-    selectedExecutionEntryId,
-    selectExecutionWorkspaceEntry,
-    readExecutionWorkspaceDetail,
-    permissionRequest,
-    pendingUserAction,
-    contextState,
-    handleSubmit: baseHandleSubmit,
-    handleAbort,
-    handleCancelQueue,
-    handleShutdown,
-  } = useTuiChannel(channel);
-
-  const [sessionName, setSessionName] = useState<string | undefined>(channel.sessionName);
-
-  const fallbackPluginCallbacks = usePluginCallbacks(cwd);
-  const pluginCallbacks = interactiveSession
-    ? (undefined as unknown as ReturnType<typeof usePluginCallbacks>)
-    : fallbackPluginCallbacks;
-  const { exit } = useApp();
-  const [updateNotice, setUpdateNotice] = useState<string | undefined>();
-  const [showExecutionWorkspaceSwitcher, setShowExecutionWorkspaceSwitcher] = useState(false);
-  const [statusLineSettings, refreshStatusLineSettings] = useStatusLineSettings();
-  const [gitRefreshToken, setGitRefreshToken] = useState(0);
-  // SCREEN-014: index of the keyboard-focused background-work row, or null when the prompt input is
-  // focused. Drives the inline arrow-key navigation into the background list.
-  const [backgroundFocusIndex, setBackgroundFocusIndex] = useState<number | null>(null);
-  const backgroundWorkspaceEntries = useMemo(
-    () => getDefaultBackgroundWorkspaceEntries(executionWorkspaceSnapshot),
-    [executionWorkspaceSnapshot],
-  );
-  const isBackgroundListFocused = backgroundFocusIndex !== null;
-  // Keep the focused index in range as tasks appear/finish; drop focus when the list empties.
-  useEffect(() => {
-    setBackgroundFocusIndex((index) => {
-      if (index === null) return null;
-      if (backgroundWorkspaceEntries.length === 0) return null;
-      return Math.min(index, backgroundWorkspaceEntries.length - 1);
-    });
-  }, [backgroundWorkspaceEntries.length]);
-  const activeBackgroundTaskCount = countActiveBackgroundWorkspaceEntries(
-    executionWorkspaceSnapshot,
-  );
-  const panel = useBackgroundPanel({
-    selectedEntryId: selectedExecutionEntryId,
-    snapshot: executionWorkspaceSnapshot,
-    read: readExecutionWorkspaceDetail,
-    sessionStore,
-    onSessionSwitch,
-    addEntry,
-  });
-  const { entry: selectedExecutionEntry, detail: executionDetail, attachToFork } = panel;
-
-  const {
-    handleSubmit,
-    showPluginTUI,
-    showSessionPicker,
-    showTransportTUI,
-    setShowPluginTUI,
-    setShowSessionPicker,
-    setShowTransportTUI,
-  } = useSideEffects({
-    interactiveSession,
-    baseHandleSubmit,
-    setSessionName,
-    refreshStatusLineSettings,
-    showSessionPickerOnStart: props.showSessionPickerOnStart,
-    openAgentSwitcher: () => setShowExecutionWorkspaceSwitcher(true),
-  });
-
-  useEffect(() => {
-    void channel.start();
-    return () => {
-      void channel.stop();
-    };
-  }, [channel]);
-
-  const isSelectedEntryInteractive =
-    !selectedExecutionEntry ||
-    selectedExecutionEntry.kind === 'main_thread' ||
-    selectedExecutionEntry.controls.includes('send');
-
-  const activeAgentLabel =
-    selectedExecutionEntry && selectedExecutionEntry.kind !== 'main_thread'
-      ? selectedExecutionEntry.title
-      : undefined;
-
-  const mainThreadEntryId = useMemo(
-    () => executionWorkspaceSnapshot?.entries.find((e) => e.kind === 'main_thread')?.id,
-    [executionWorkspaceSnapshot],
-  );
-
-  const handleSubmitWithRouting = useCallback(
-    async (input: string): Promise<void> => {
-      if (
-        selectedExecutionEntry &&
-        selectedExecutionEntry.kind !== 'main_thread' &&
-        selectedExecutionEntry.controls.includes('send')
-      ) {
-        await interactiveSession.sendAgentJob(selectedExecutionEntry.sourceId, input);
-      } else {
-        await handleSubmit(input);
-      }
-    },
-    [selectedExecutionEntry, handleSubmit, interactiveSession],
-  );
-
-  const handleSubmitWithGitRefresh = useCallback(
-    async (input: string): Promise<void> => {
-      setGitRefreshToken((t) => t + 1);
-      await handleSubmitWithRouting(input);
-    },
-    [handleSubmitWithRouting],
-  );
-
-  // Refresh git branch when AI response completes.
-  const wasThinkingRef = useRef(false);
-  useEffect(() => {
-    if (wasThinkingRef.current && !isThinking) {
-      setGitRefreshToken((t) => t + 1);
-    }
-    wasThinkingRef.current = isThinking;
-  }, [isThinking]);
-
-  // Sync session name from InteractiveSession when resuming
-  useEffect(() => {
-    const name = interactiveSession?.getName?.();
-    if (name && !sessionName) setSessionName(name);
-  }, [interactiveSession, sessionName]);
-
-  useEffect(() => {
-    let isMounted = true;
-    props.startupUpdateNotice
-      ?.then((notice) => {
-        if (isMounted && notice !== undefined) {
-          setUpdateNotice(notice);
-        }
-      })
-      .catch(() => {
-        // Startup update checks are best-effort and must not disrupt the TUI.
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [props.startupUpdateNotice]);
-
-  useTerminalTitle(sessionName);
-
-  // ESC abort
-  useInput((_input: string, key: { escape: boolean }) => {
-    if (!key.escape || !isThinking) return;
-    if (
-      permissionRequest ||
-      pendingUserAction ||
-      showPluginTUI ||
-      showTransportTUI ||
-      showSessionPicker ||
-      showExecutionWorkspaceSwitcher
-    ) {
-      return;
-    }
-    handleAbort();
-  });
-
-  // Ctrl+B toggles the execution workspace switcher.
-  useInput((input: string, key: { ctrl?: boolean }) => {
-    if (!key.ctrl || input !== 'b') return;
-    if (
-      permissionRequest ||
-      pendingUserAction ||
-      showPluginTUI ||
-      showSessionPicker ||
-      isShuttingDown
-    )
-      return;
-    setShowExecutionWorkspaceSwitcher((shown) => !shown);
-  });
-
-  // ESC returns to main thread when a background entry is selected (and not thinking).
-  useInput((_input: string, key: { escape: boolean }) => {
-    if (!key.escape || isThinking) return;
-    if (
-      permissionRequest ||
-      pendingUserAction ||
-      showPluginTUI ||
-      showTransportTUI ||
-      showSessionPicker ||
-      showExecutionWorkspaceSwitcher
-    ) {
-      return;
-    }
-    if (
-      selectedExecutionEntry &&
-      selectedExecutionEntry.kind !== 'main_thread' &&
-      mainThreadEntryId !== undefined
-    ) {
-      selectExecutionWorkspaceEntry(mainThreadEntryId);
-    }
-  });
-
-  // SCREEN-014: inline keyboard navigation of the background-work list (the primary drill-in path).
-  // Active only while the list holds focus (entered via ↓ from the input). ↑/↓ move the highlight,
-  // ↑ past the top returns to the input, Enter opens the task's inline detail, Esc returns to input.
-  useInput(
-    (
-      _input: string,
-      key: { upArrow: boolean; downArrow: boolean; return: boolean; escape: boolean },
-    ) => {
-      if (backgroundFocusIndex === null) return;
-      const entries = backgroundWorkspaceEntries;
-      const action = resolveBackgroundFocusKey(backgroundFocusIndex, entries.length, key);
-      if (action.type === 'move') {
-        setBackgroundFocusIndex(action.index);
-      } else if (action.type === 'open') {
-        const entry = entries[action.index];
-        if (entry) selectExecutionWorkspaceEntry(entry.id);
-        setBackgroundFocusIndex(null);
-      } else if (action.type === 'exit') {
-        setBackgroundFocusIndex(null);
-      }
-    },
-    {
-      isActive:
-        isBackgroundListFocused &&
-        !permissionRequest &&
-        !pendingUserAction &&
-        !showPluginTUI &&
-        !showTransportTUI &&
-        !showSessionPicker &&
-        !showExecutionWorkspaceSwitcher,
-    },
-  );
-
-  // Ctrl+C: first press → graceful shutdown; a second press while already shutting down force-quits
-  // with 130 so a wedged shutdown can always be escaped (CLI-075 / RUNTIME-33).
-  useInput((input: string, key: { ctrl?: boolean }) => {
-    if (!key.ctrl || input !== 'c') return;
-    handleInterrupt({
-      isShuttingDown,
-      graceful: () => void handleShutdown('prompt_input_exit').finally(() => exit()),
-    });
-  });
-
-  useEffect(() => {
-    const onSignal = (): void => {
-      handleInterrupt({
-        isShuttingDown,
-        graceful: () => void handleShutdown('other').finally(() => exit()),
-      });
-    };
-    // `process.on` (not `once`): the effect re-registers with fresh `isShuttingDown` on each change,
-    // so a second signal during shutdown reaches the force-quit branch instead of the default action.
-    process.on('SIGINT', onSignal);
-    process.on('SIGTERM', onSignal);
-    return () => {
-      process.off('SIGINT', onSignal);
-      process.off('SIGTERM', onSignal);
-    };
-  }, [handleShutdown, exit, isShuttingDown]);
-
-  // CLI-2004: the mode's non-visual half — the attention bell and the OSC 133 turn marks. Inert
-  // when the mode is off, so there is one code path rather than a branch here.
-  const screenReader = useScreenReader();
-  useScreenReaderTurnSignals({
-    enabled: screenReader,
-    isThinking,
-    activeTools,
-    awaitingAnswer: permissionRequest !== null || pendingUserAction !== null,
-  });
-
-  // Session may not be initialized yet
-  let permissionMode: TPermissionMode = props.permissionMode ?? 'default';
-  let sessionId = '';
-  let activePresetId: string | undefined;
-  let effort: TModelEffortSelection | undefined;
-  try {
-    // allow-fallback: session initializes asynchronously; use defaults until ready
-    const session = interactiveSession.getSession();
-    permissionMode = session.getPermissionMode();
-    activePresetId = session.getActivePresetId?.();
-    effort = session.getModelEffort();
-    sessionId = session.getSessionId();
-  } catch {
-    // allow-fallback: session initializes asynchronously; use defaults until ready
-  }
-
-  // SCREEN-010: banner + append-only conversation history are committed to the terminal scrollback
-  // via a single Ink <Static> (each item rendered exactly once). The live region below is the only
-  // dynamic part. During a terminal handoff (handoffSuspended) the live region is omitted so Ink
-  // unmounts its input hooks and releases raw mode (TERM-002) — but <Static> stays mounted at the
-  // same tree position, so it does NOT re-print the whole history on resume.
-  const staticItems = useMemo(
-    () => buildStaticItems({ history, version: props.version, screenReader }),
-    [history, props.version, screenReader],
-  );
-
-  return (
-    <Box flexDirection="column">
-      <Static items={staticItems}>
-        {(item) =>
-          item.kind === 'banner' ? (
-            <AppBanner key="logo" version={item.version} />
-          ) : (
-            <EntryItem key={item.entry.id} entry={item.entry} />
-          )
-        }
-      </Static>
-      {!handoffSuspended && (
-        <>
-          {updateNotice && <UpdateNotice message={updateNotice} />}
-          <SessionEventNotices notices={sessionEventNotices} />
-          <Box flexDirection="column" paddingX={1} flexGrow={1}>
-            {selectedExecutionEntry && selectedExecutionEntry.kind !== 'main_thread' && (
-              <ExecutionWorkspaceDetailPane
-                entry={selectedExecutionEntry}
-                page={executionDetail.page}
-                loading={executionDetail.loading}
-                error={executionDetail.error}
-              />
-            )}
-            {isShuttingDown && (
-              <Box marginBottom={1}>
-                <Text color={PALETTE.text.warning}>Shutting down...</Text>
-              </Box>
-            )}
-            {(isThinking || activeTools.length > 0) && (
-              <Box flexDirection="column" marginBottom={1}>
-                <StreamingIndicator
-                  text={streamingText}
-                  activeTools={activeTools}
-                  isThinking={isThinking}
-                />
-                {isStalled && (
-                  <Text color={PALETTE.text.warning}>
-                    ⚠ Still waiting on the provider — the network may be stalled. Esc to interrupt.
-                  </Text>
-                )}
-              </Box>
-            )}
-            {!isThinking && lastErrorMessage && (
-              <Box marginBottom={1}>
-                <Text color={PALETTE.text.error}>
-                  ✖ Last turn failed — the session is alive; type your next prompt when ready.
-                </Text>
-              </Box>
-            )}
-            <BackgroundTaskPanel
-              entries={backgroundWorkspaceEntries}
-              focusedIndex={backgroundFocusIndex}
-            />
-          </Box>
-          {showExecutionWorkspaceSwitcher && (
-            <ExecutionWorkspaceSwitcher
-              snapshot={executionWorkspaceSnapshot}
-              selectedEntryId={selectedExecutionEntryId}
-              onSelect={selectExecutionWorkspaceEntry}
-              onClose={() => setShowExecutionWorkspaceSwitcher(false)}
-              onAttach={attachToFork}
-            />
-          )}
-          {permissionRequest && <PermissionPrompt request={permissionRequest} />}
-          {pendingUserAction && (
-            <PendingActionPrompt
-              request={pendingUserAction}
-              onAnswer={(response) => channel.resolveUserAction(response)}
-            />
-          )}
-          {showPluginTUI && (
-            <PluginTUI
-              callbacks={pluginCallbacks}
-              onClose={() => setShowPluginTUI(false)}
-              addMessage={(msg) =>
-                addEntry(messageToHistoryEntry(createSystemMessage(msg.content)))
-              }
-            />
-          )}
-          {showTransportTUI && props.transportRegistry && (
-            <TransportTUI
-              registry={props.transportRegistry}
-              onClose={() => setShowTransportTUI(false)}
-            />
-          )}
-          {showSessionPicker && (
-            <SessionPicker
-              sessions={listResumableSessionSummaries(props.sessionStore, props.cwd)}
-              onSelect={(id) => {
-                setShowSessionPicker(false);
-                props.onSessionSwitch(id);
-              }}
-              onCancel={() => {
-                setShowSessionPicker(false);
-                addEntry(messageToHistoryEntry(createSystemMessage('Session resume cancelled.')));
-              }}
-            />
-          )}
-          <ContextWarningBanner percentage={contextState.percentage} />
-          <InputArea
-            onSubmit={handleSubmitWithGitRefresh}
-            onCancelQueue={handleCancelQueue}
-            isDisabled={
-              !!permissionRequest ||
-              !!pendingUserAction ||
-              showPluginTUI ||
-              showTransportTUI ||
-              showSessionPicker ||
-              showExecutionWorkspaceSwitcher ||
-              isShuttingDown ||
-              (isThinking && !!pendingPrompt) ||
-              !isSelectedEntryInteractive ||
-              isBackgroundListFocused
-            }
-            isAborting={isAborting}
-            pendingPrompt={pendingPrompt}
-            pendingCount={pendingCount}
-            registry={registry}
-            sessionName={sessionName}
-            history={history}
-            onRequestFocusBackgroundList={() => {
-              if (backgroundWorkspaceEntries.length > 0) setBackgroundFocusIndex(0);
-            }}
-          />
-          <SessionStatusBar
-            cwd={cwd}
-            permissionMode={permissionMode}
-            modelId={props.modelId}
-            providerType={props.providerType}
-            sessionId={sessionId}
-            isThinking={isThinking}
-            activeToolCount={activeTools.length}
-            activeBackgroundTaskCount={activeBackgroundTaskCount}
-            hasPendingPrompt={pendingPrompt !== null}
-            contextState={contextState}
-            sessionName={sessionName}
-            settings={statusLineSettings}
-            activeAgentLabel={activeAgentLabel}
-            activePresetId={activePresetId}
-            effort={effort}
-            gitRefreshToken={gitRefreshToken}
-          />
-        </>
-      )}
-    </Box>
   );
 }

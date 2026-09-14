@@ -29,7 +29,7 @@ function getToolStyle(t: IToolState): {
 
 interface IProps {
   text: string;
-  activeTools: IToolState[];
+  activeTools: readonly IToolState[];
   isThinking?: boolean;
 }
 
@@ -42,7 +42,7 @@ function renderThinkingFallback(isThinking: boolean): React.ReactElement {
   );
 }
 
-function renderTools(activeTools: IToolState[]): React.ReactElement {
+function renderTools(activeTools: readonly IToolState[]): React.ReactElement {
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Text color={PALETTE.text.emphasis} bold>
@@ -75,7 +75,7 @@ function renderTools(activeTools: IToolState[]): React.ReactElement {
  */
 function renderScreenReaderStatus(
   text: string,
-  activeTools: IToolState[],
+  activeTools: readonly IToolState[],
   isThinking: boolean,
 ): React.ReactElement {
   const running = activeTools.map((tool) => humanizeToolName(tool.toolName)).join(', ');

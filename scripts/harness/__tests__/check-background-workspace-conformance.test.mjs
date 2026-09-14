@@ -26,7 +26,9 @@ const baselineFiles = {
   'packages/agent-framework/src/background-tasks/execution-workspace-projection.ts':
     'export function createExecutionWorkspaceSnapshot() { return { entries: [] }; }\n',
   'packages/agent-ui-terminal/src/TuiInteractionChannel.ts':
-    'session.getExecutionWorkspaceSnapshot(); session.on("execution_workspace_event", () => {}); session.readExecutionWorkspaceDetail("main");\n',
+    'session.getExecutionWorkspaceSnapshot(); session.readExecutionWorkspaceDetail("main");\n',
+  'packages/agent-ui-terminal/src/tui-session-event-projector.ts':
+    'session.on("execution_workspace_event", () => {});\n',
   'packages/agent-ui-terminal/src/tui-state-manager.ts':
     'export class TuiStateManager { syncExecutionWorkspaceSnapshot() {} }\n',
   '.agents/specs/architecture-map/agent-system.md':
@@ -164,6 +166,8 @@ describe('findBackgroundWorkspaceConformanceFindings', () => {
       ...baselineFiles,
       'packages/agent-ui-terminal/src/TuiInteractionChannel.ts':
         'session.getFullHistory(); session.readExecutionWorkspaceDetail("main");\n',
+      'packages/agent-ui-terminal/src/tui-session-event-projector.ts':
+        'session.on("other_event", () => {});\n',
     });
 
     const findings = await findBackgroundWorkspaceConformanceFindings(root);

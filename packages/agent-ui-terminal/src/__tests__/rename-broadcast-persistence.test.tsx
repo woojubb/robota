@@ -97,7 +97,7 @@ describe('TC-10 — /rename persists host-side and the TUI title follows the bro
     const setSessionName = vi.fn();
     const options = {
       cwd: process.cwd(),
-      interactiveSession: session,
+      uiEventPort: session,
       commandEffectQueue: {
         enqueueEffects: () => undefined,
         drain: () => undefined,

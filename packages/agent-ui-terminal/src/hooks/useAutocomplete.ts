@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo } from 'react';
 
-import type { CommandRegistry } from '@robota-sdk/agent-framework';
+import type { ITuiCommandQueryPort } from '../tui-app-channel-port.js';
 import type { ICommand } from '@robota-sdk/agent-interface-command';
 
 /** Parse input to determine autocomplete state */
@@ -26,7 +26,7 @@ function parseSlashInput(value: string): {
 /** Hook: manage autocomplete state */
 export function useAutocomplete(
   value: string,
-  registry: CommandRegistry | undefined,
+  commandQueryPort: ITuiCommandQueryPort | undefined,
 ): {
   showPopup: boolean;
   filteredCommands: ICommand[];
@@ -49,16 +49,23 @@ export function useAutocomplete(
   const isSubcommandMode = parsed.isSlash && parsed.parentCommand.length > 0;
 
   const filteredCommands = useMemo(() => {
-    if (!registry || !parsed.isSlash || dismissed) return [];
+    if (!commandQueryPort || !parsed.isSlash || dismissed) return [];
     if (isSubcommandMode) {
-      const subs = registry.getSubcommands(parsed.parentCommand);
+      const subs = commandQueryPort.getSubcommands(parsed.parentCommand);
       if (subs.length === 0) return [];
       if (!parsed.filter) return subs;
       const lower = parsed.filter.toLowerCase();
       return subs.filter((c) => c.name.toLowerCase().startsWith(lower));
     }
-    return registry.getCommands(parsed.filter);
-  }, [registry, parsed.isSlash, parsed.parentCommand, parsed.filter, dismissed, isSubcommandMode]);
+    return commandQueryPort.getCommands(parsed.filter);
+  }, [
+    commandQueryPort,
+    parsed.isSlash,
+    parsed.parentCommand,
+    parsed.filter,
+    dismissed,
+    isSubcommandMode,
+  ]);
 
   const showPopup = parsed.isSlash && filteredCommands.length > 0 && !dismissed;
 
