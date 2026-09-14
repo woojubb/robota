@@ -1680,12 +1680,33 @@ function validatePostMergeRecord(root, before, after, base) {
   );
 }
 
+function validateRemoteCompletionReceipt(root, task, base) {
+  const result = markdownSection(task, '## Result');
+  if (result === null) return false;
+  const prNumber = /github\.com\/[^/\s]+\/[^/\s]+\/pull\/(\d+)/i.exec(result)?.[1];
+  const mergeOid = /\blanded\b[\s\S]{0,400}?\bas\s+`([0-9a-f]{40})`/i.exec(result)?.[1];
+  if (
+    !prNumber ||
+    !mergeOid ||
+    !/github\.com\/[^/\s]+\/[^/\s]+\/issues\/\d+#issuecomment-\d+/i.test(result)
+  )
+    return false;
+  if (
+    runGit(root, ['rev-parse', '--verify', '--quiet', `${mergeOid}^{commit}`]).code !== 0 ||
+    runGit(root, ['merge-base', '--is-ancestor', mergeOid, base]).code !== 0
+  )
+    return false;
+  const subject = runGit(root, ['show', '-s', '--format=%s', mergeOid]);
+  return subject.code === 0 && subject.stdout.includes(`(#${prNumber})`);
+}
+
 /**
  * A delivering PR may be squash-merged before its Task/spec completion records are archived. In
  * that case the old planning checkpoint is not in the new branch's ancestry, so the exact archive
  * itself is the only candidate the guard can inspect. Keep this exception narrower than a generic
  * active-to-done move: both records must move together, the terminal evidence must already be in
- * them, and the same commit must append one verified post-merge ledger record.
+ * them. Current closeouts bind the archived Task's Result to a remote completion receipt and an
+ * actual merge ancestor; historical closeouts may retain their already-supported ledger witness.
  */
 export function postMergeCompletionPaths(paths, parentTextForPath = () => null) {
   // An already archived pair needs delivery evidence, not another archive. Consult the parent
@@ -1732,7 +1753,6 @@ export function postMergeCompletionPaths(paths, parentTextForPath = () => null) 
       `${TASK_PREFIX}completed/${basename}`,
       `${SPEC_PREFIX}active/${basename}`,
       `${SPEC_PREFIX}done/${basename}`,
-      POST_MERGE_LEDGER,
     ].sort(),
     problems: [],
   };
@@ -1808,9 +1828,12 @@ function postMergeCompletionProblems({
       `post-merge completion source Task \`${taskSource}\` must exist at \`status: in-progress\` in the parent tree.`,
     );
   }
-  if (parentSpec === null || frontmatterStatus(parentSpec) !== 'in-progress') {
+  if (
+    parentSpec === null ||
+    !['in-progress', 'verifying'].includes(frontmatterStatus(parentSpec))
+  ) {
     problems.push(
-      `post-merge completion source spec \`${specSource}\` must exist at \`status: in-progress\` in the parent tree.`,
+      `post-merge completion source spec \`${specSource}\` must exist at \`status: in-progress\` or \`status: verifying\` in the parent tree.`,
     );
   }
   if (parentTextForPath(taskDestination) !== null || parentTextForPath(specDestination) !== null) {
@@ -1872,9 +1895,16 @@ function postMergeCompletionProblems({
       );
     }
   }
-  if (!validatePostMergeRecord(root, ledgerBefore, ledgerAfter, base)) {
+  const hasHistoricalLedgerWitness = paths.includes(POST_MERGE_LEDGER);
+  if (
+    hasHistoricalLedgerWitness
+      ? !validatePostMergeRecord(root, ledgerBefore, ledgerAfter, base)
+      : !validateRemoteCompletionReceipt(root, task, base)
+  ) {
     problems.push(
-      'post-merge completion must append exactly one closed, successful ledger record bound to a verified PR merge ancestor of the topic base.',
+      hasHistoricalLedgerWitness
+        ? 'post-merge completion must append exactly one closed, successful ledger record bound to a verified PR merge ancestor of the topic base.'
+        : 'post-merge completion must record one GitHub issue completion receipt and its PR merge ancestor in the archived Task Result.',
     );
   }
   return { basename, problems };
@@ -1936,9 +1966,12 @@ export function isPostMergeDeliveryBatch({
   textAfter,
   isPlainFile,
   historicalClosures = false,
+  requireLedger = true,
 }) {
-  if (!paths.includes(POST_MERGE_LEDGER) || !paths.every(isPlainFile)) return false;
-  if (paths.length === 1) return true;
+  if ((requireLedger && !paths.includes(POST_MERGE_LEDGER)) || !paths.every(isPlainFile))
+    return false;
+  if (!requireLedger && paths.includes(POST_MERGE_LEDGER)) return false;
+  if (paths.length === 1) return requireLedger;
   const tasks = paths.filter((file) => file.startsWith(`${TASK_PREFIX}completed/`));
   if (tasks.length !== 1) return false;
   const basename = taskBasename(tasks[0]);
@@ -2002,18 +2035,22 @@ export function isPostMergeDeliveryBatch({
     }
     if (!pair.has(file)) {
       const parentRecord = taskBasename(file) !== null || specBasename(file) !== null;
-      if (!parentRecord || !before.includes(basename)) return false;
+      const namesSubject = new RegExp(`\\b${escapeRegExp(subject)}\\b`).test(before);
+      if (!parentRecord || (!before.includes(basename) && !namesSubject)) return false;
     }
     if (JSON.stringify(frontmatterObject(before)) !== JSON.stringify(frontmatterObject(after)))
       return false;
     if (
-      !PRESERVED_DELIVERY_SECTIONS.every(
+      !PRESERVED_DELIVERY_SECTIONS.filter(
+        (heading) => !(heading === '## Plan' && !pair.has(file)),
+      ).every(
         (heading) =>
           markdownSection(before, heading, true) === markdownSection(after, heading, true),
       )
     )
       return false;
     for (const heading of [
+      '## Plan',
       '## Completion Criteria',
       '## Independent completion criteria',
       '## Tasks',
@@ -2065,12 +2102,18 @@ export function isPostMergeCompletionBatch({
   const specDestination = `${SPEC_PREFIX}done/${basename}`;
   const sources = new Set([taskSource, specSource]);
   const destinations = new Set([taskDestination, specDestination]);
-  const required = [taskSource, taskDestination, specSource, specDestination, POST_MERGE_LEDGER];
+  const hasHistoricalLedgerWitness = paths.includes(POST_MERGE_LEDGER);
+  const required = [taskSource, taskDestination, specSource, specDestination];
+  if (hasHistoricalLedgerWitness) required.push(POST_MERGE_LEDGER);
   if (new Set(paths).size !== paths.length || required.some((file) => !paths.includes(file)))
     return false;
   if (
     [...sources].some(
-      (file) => frontmatterStatus(textBefore(file)) !== 'in-progress' || textAfter(file) !== null,
+      (file) =>
+        !(
+          frontmatterStatus(textBefore(file)) === 'in-progress' ||
+          (file === specSource && frontmatterStatus(textBefore(file)) === 'verifying')
+        ) || textAfter(file) !== null,
     )
   )
     return false;
@@ -2170,6 +2213,7 @@ export function isPostMergeCompletionBatch({
     textAfter,
     isPlainFile,
     historicalClosures: true,
+    requireLedger: hasHistoricalLedgerWitness,
   });
 }
 

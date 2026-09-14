@@ -791,11 +791,15 @@ function closeoutRunRows(index, closed = false) {
   return `${JSON.stringify(sealed)}\n${JSON.stringify(current)}\n`;
 }
 
-function deliveredCloseoutFixture({ squashed = false, boundRecords = false } = {}) {
+function deliveredCloseoutFixture({
+  squashed = false,
+  boundRecords = false,
+  specStatus = 'in-progress',
+} = {}) {
   const fixture = repository();
   git(fixture.root, ['switch', 'develop']);
   write(fixture.root, CLOSEOUT_TASK_PATH, closeoutTaskText());
-  write(fixture.root, CLOSEOUT_SPEC_PATH, closeoutSpecText());
+  write(fixture.root, CLOSEOUT_SPEC_PATH, closeoutSpecText(specStatus));
   if (boundRecords) {
     write(fixture.root, CLOSEOUT_PARENT_TASK, closeoutParentText('Children', CLOSEOUT_TASK_PATH));
     write(fixture.root, CLOSEOUT_PARENT_SPEC, closeoutParentText('Tasks', CLOSEOUT_SPEC_PATH));
@@ -811,7 +815,13 @@ function deliveredCloseoutFixture({ squashed = false, boundRecords = false } = {
 
 function stageCloseout(
   fixture,
-  { ledger = true, mixed = false, incomplete = false, squash = fixture.squashed } = {},
+  {
+    ledger = true,
+    receipt = false,
+    mixed = false,
+    incomplete = false,
+    squash = fixture.squashed,
+  } = {},
 ) {
   const taskDestination = `.agents/tasks/completed/${CLOSEOUT_TASK_ID}.md`;
   const specDestination = `.agents/spec-docs/done/${CLOSEOUT_TASK_ID}.md`;
@@ -819,13 +829,16 @@ function stageCloseout(
   mkdirSync(path.dirname(path.join(fixture.root, specDestination)), { recursive: true });
   git(fixture.root, ['mv', CLOSEOUT_TASK_PATH, taskDestination]);
   git(fixture.root, ['mv', CLOSEOUT_SPEC_PATH, specDestination]);
+  const task = closeoutTaskText(
+    incomplete ? 'in-progress' : 'done',
+    incomplete ? CLOSEOUT_SPEC_PATH : specDestination,
+  );
   write(
     fixture.root,
     taskDestination,
-    closeoutTaskText(
-      incomplete ? 'in-progress' : 'done',
-      incomplete ? CLOSEOUT_SPEC_PATH : specDestination,
-    ),
+    receipt
+      ? `${task}\n## Result\n\n- [Pull Request #1](https://github.com/example/repo/pull/1) landed as \`${fixture.base}\`.\n- Completion receipt: https://github.com/example/repo/issues/1#issuecomment-1\n`
+      : task,
   );
   write(
     fixture.root,
@@ -3378,6 +3391,12 @@ describe('user-execution PLAN order — branch history', () => {
     const squashed = deliveredCloseoutFixture({ squashed: true });
     stageCloseout(squashed);
     expect(findStagedFindings(squashed.root, squashed.base)).toEqual([]);
+
+    const remoteReceipt = deliveredCloseoutFixture({ specStatus: 'verifying' });
+    stageCloseout(remoteReceipt, { ledger: false, receipt: true });
+    expect(findStagedFindings(remoteReceipt.root, remoteReceipt.base)).toEqual([]);
+    commit(remoteReceipt.root, 'archive closeout with a remote receipt');
+    expect(findHistoryFindingsFromGit(remoteReceipt.root, remoteReceipt.base)).toEqual([]);
   });
 
   it.each([
@@ -3539,7 +3558,11 @@ describe('user-execution PLAN order — branch history', () => {
   });
 
   it.each([
-    ['missing the post-merge ledger record', { ledger: false }, /exactly these paths|ledger/i],
+    [
+      'missing both post-merge evidence forms',
+      { ledger: false },
+      /completion receipt|merge ancestor/i,
+    ],
     ['carrying incomplete terminal evidence', { incomplete: true }, /status: done|completion/i],
     ['mixing an implementation path', { mixed: true }, /exactly these paths|implementation/i],
   ])('rejects a post-merge completion %s', (_name, options, expected) => {
