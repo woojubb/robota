@@ -76,6 +76,7 @@ function Activity({ model }: { model: IAppViewModel }): React.ReactElement {
 function Overlays({ model }: { model: IAppViewModel }): React.ReactElement {
   if (model.coordinationError !== undefined || model.coordinationPending) return <></>;
   const { background, plugin, sessionPicker, transport } = model;
+  const pendingUserAction = model.pendingUserAction;
   return (
     <>
       {background.switcherVisible && (
@@ -88,8 +89,11 @@ function Overlays({ model }: { model: IAppViewModel }): React.ReactElement {
         />
       )}
       {model.permissionRequest && <PermissionPrompt request={model.permissionRequest} />}
-      {model.pendingUserAction && (
-        <PendingActionPrompt request={model.pendingUserAction} onAnswer={model.resolveUserAction} />
+      {pendingUserAction && (
+        <PendingActionPrompt
+          request={pendingUserAction}
+          onAnswer={(response) => model.resolveUserAction(pendingUserAction, response)}
+        />
       )}
       {plugin.visible && (
         <PluginTUI

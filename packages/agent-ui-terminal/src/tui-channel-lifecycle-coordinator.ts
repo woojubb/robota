@@ -12,6 +12,9 @@ export interface ITuiChannelLifecycleOperations {
   shutdownSession(request: ITuiChannelShutdownRequest): Promise<void>;
 }
 
+/** Marks a startup failure whose rollback also failed, so retrying cannot duplicate live resources. */
+export class TuiChannelStartRollbackError extends AggregateError {}
+
 /** Owns channel lifecycle transitions and bounds SDK shutdown without owning presentation state. */
 export class TuiChannelLifecycleCoordinator {
   private started = false;
@@ -19,6 +22,7 @@ export class TuiChannelLifecycleCoordinator {
   private teardownBegun = false;
   private stopped = false;
   private shuttingDown = false;
+  private shutdownPromise: Promise<void> | undefined;
   private stopPromise: Promise<void> | undefined;
 
   constructor(
@@ -39,6 +43,9 @@ export class TuiChannelLifecycleCoordinator {
     try {
       await pendingStart;
       this.started = true;
+    } catch (error) {
+      if (error instanceof TuiChannelStartRollbackError) this.teardownBegun = true;
+      throw error;
     } finally {
       if (this.startPromise === pendingStart) this.startPromise = undefined;
     }
@@ -73,12 +80,11 @@ export class TuiChannelLifecycleCoordinator {
     } catch (error) {
       stopError = error instanceof Error ? error : new Error(String(error));
     }
-    if (!this.shuttingDown) {
-      await this.shutdownSessionBounded(
-        { reason: 'other', message: 'channel stopped' },
-        this.defaultShutdownTimeoutMs,
-      );
-    }
+    this.shutdownPromise ??= this.shutdownSessionBounded(
+      { reason: 'other', message: 'channel stopped' },
+      this.defaultShutdownTimeoutMs,
+    );
+    await this.shutdownPromise;
     if (stopError !== undefined && startError !== undefined) {
       throw new AggregateError(
         [startError, stopError],
@@ -93,9 +99,20 @@ export class TuiChannelLifecycleCoordinator {
 
   async shutdown(options?: { reason?: TSessionEndReason; timeoutMs?: number }): Promise<void> {
     this.teardownBegun = true;
-    if (this.shuttingDown) return;
-    this.shuttingDown = true;
-    this.operations.beginShutdown();
+    if (!this.shuttingDown) {
+      this.shuttingDown = true;
+      this.operations.beginShutdown();
+    }
+    this.shutdownPromise ??= this.performShutdown(options);
+    await this.shutdownPromise;
+  }
+
+  private async performShutdown(options?: {
+    reason?: TSessionEndReason;
+    timeoutMs?: number;
+  }): Promise<void> {
+    const pendingStart = this.startPromise;
+    if (pendingStart !== undefined) await pendingStart.catch(() => undefined);
     await this.shutdownSessionBounded(
       { reason: options?.reason ?? 'prompt_input_exit', message: 'CLI shutdown' },
       options?.timeoutMs ?? this.defaultShutdownTimeoutMs,

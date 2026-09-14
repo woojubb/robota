@@ -71,7 +71,7 @@ describe('TuiInteractionChannel.askUser', () => {
 
   it('resolves the answer when resolveUserAction is called, then clears pendingUserAction', async () => {
     const promise = channel.askUser(SELECT);
-    channel.resolveUserAction({ type: 'answer', values: ['default'] });
+    channel.resolveUserAction(SELECT, { type: 'answer', values: ['default'] });
     const response = await promise;
     expect(response).toEqual({ type: 'answer', values: ['default'] });
     expect(channel.pendingUserAction).toBeNull();
@@ -79,7 +79,7 @@ describe('TuiInteractionChannel.askUser', () => {
 
   it('resolves cancelled', async () => {
     const promise = channel.askUser(SELECT);
-    channel.resolveUserAction({ type: 'cancelled' });
+    channel.resolveUserAction(SELECT, { type: 'cancelled' });
     expect(await promise).toEqual({ type: 'cancelled' });
   });
 
@@ -88,11 +88,11 @@ describe('TuiInteractionChannel.askUser', () => {
     const p2 = channel.askUser(CONFIRM);
     expect(channel.pendingUserAction).toMatchObject({ id: 'mode' });
 
-    channel.resolveUserAction({ type: 'answer', values: ['plan'] });
+    channel.resolveUserAction(SELECT, { type: 'answer', values: ['plan'] });
     await p1;
     expect(channel.pendingUserAction).toMatchObject({ id: 'exit' });
 
-    channel.resolveUserAction({ type: 'answer', values: ['no'] });
+    channel.resolveUserAction(CONFIRM, { type: 'answer', values: ['no'] });
     expect(await p2).toEqual({ type: 'answer', values: ['no'] });
     expect(channel.pendingUserAction).toBeNull();
   });

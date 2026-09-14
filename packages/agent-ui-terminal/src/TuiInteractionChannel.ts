@@ -14,7 +14,10 @@ import {
 
 import { createSessionInitPoller } from './flows/session-init-poller.js';
 import { applySystemCommandResult } from './hooks/command-result-handler.js';
-import { TuiChannelLifecycleCoordinator } from './tui-channel-lifecycle-coordinator.js';
+import {
+  TuiChannelLifecycleCoordinator,
+  TuiChannelStartRollbackError,
+} from './tui-channel-lifecycle-coordinator.js';
 import { TuiPermissionQueue, TuiUserActionQueue } from './tui-interaction-queues.js';
 import { TuiSessionEventProjector } from './tui-session-event-projector.js';
 import { buildTuiSessionOptions } from './tui-session-options.js';
@@ -149,7 +152,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
         } catch (rollbackError) {
           const rollbackErrors =
             rollbackError instanceof AggregateError ? rollbackError.errors : [rollbackError];
-          throw new AggregateError(
+          throw new TuiChannelStartRollbackError(
             [startError, ...rollbackErrors],
             'TUI channel start failed and transport rollback also failed.',
           );
@@ -337,8 +340,8 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
   }
 
   /** Called by App's PendingActionPrompt when the user answers (or cancels) the pending action. */
-  resolveUserAction(response: TUserActionResponse): void {
-    this.userActions.resolveCurrent(response);
+  resolveUserAction(request: IActionRequest, response: TUserActionResponse): void {
+    this.userActions.resolveCurrent(request, response);
   }
 
   /** Resolve every queued/in-flight ask as cancelled (abort, shutdown). */

@@ -33,7 +33,8 @@ export class TuiUserActionQueue {
     });
   }
 
-  resolveCurrent(response: TActionResponse): void {
+  resolveCurrent(expectedRequest: IActionRequest, response: TActionResponse): void {
+    if (this.entries[0]?.request !== expectedRequest) return;
     const pending = this.entries.shift();
     if (!pending) return;
     this.processing = false;
@@ -126,6 +127,7 @@ export class TuiPermissionQueue {
       toolName: next.toolName,
       toolArgs: next.toolArgs,
       resolve: (result) => {
+        if (this.entries[0] !== next) return;
         this.entries.shift();
         this.processing = false;
         this.currentRequest = null;

@@ -26,10 +26,10 @@ describe('TuiUserActionQueue', () => {
     const second = queue.enqueue(SECOND, 'prompt-2');
 
     expect(queue.current).toBe(FIRST);
-    queue.resolveCurrent({ type: 'answer', values: ['yes'] });
+    queue.resolveCurrent(FIRST, { type: 'answer', values: ['yes'] });
     expect(await first).toEqual({ type: 'answer', values: ['yes'] });
     expect(queue.current).toBe(SECOND);
-    queue.resolveCurrent({ type: 'cancelled' });
+    queue.resolveCurrent(SECOND, { type: 'cancelled' });
     expect(await second).toEqual({ type: 'cancelled' });
     expect(queue.current).toBeNull();
   });
@@ -42,6 +42,21 @@ describe('TuiUserActionQueue', () => {
     await expect(first).resolves.toEqual({ type: 'cancelled' });
     await expect(second).resolves.toEqual({ type: 'cancelled' });
     expect(queue.current).toBeNull();
+  });
+
+  it('ignores a stale answer after remote dismissal promotes the next action', async () => {
+    const queue = new TuiUserActionQueue(vi.fn());
+    const first = queue.enqueue(FIRST, 'prompt-1');
+    const second = queue.enqueue(SECOND, 'prompt-2');
+
+    expect(queue.dismissById('prompt-1')).toBe(true);
+    await expect(first).resolves.toEqual({ type: 'cancelled' });
+    expect(queue.current).toBe(SECOND);
+
+    queue.resolveCurrent(FIRST, { type: 'answer', values: ['yes'] });
+    expect(queue.current).toBe(SECOND);
+    queue.resolveCurrent(SECOND, { type: 'answer', values: ['no'] });
+    await expect(second).resolves.toEqual({ type: 'answer', values: ['no'] });
   });
 });
 
@@ -83,5 +98,21 @@ describe('TuiPermissionQueue', () => {
 
     active?.resolve(true);
     await expect(first).resolves.toBe(true);
+  });
+
+  it('ignores a stale permission callback after remote dismissal promotes the next request', async () => {
+    const queue = new TuiPermissionQueue(vi.fn());
+    const first = queue.enqueue('Read', { path: 'a' }, 'permission-1');
+    const second = queue.enqueue('Write', { path: 'b' }, 'permission-2');
+    const stale = queue.current;
+
+    expect(queue.dismissById('permission-1')).toBe(true);
+    await expect(first).resolves.toBe(false);
+    expect(queue.current?.toolName).toBe('Write');
+
+    stale?.resolve(true);
+    expect(queue.current?.toolName).toBe('Write');
+    queue.current?.resolve(true);
+    await expect(second).resolves.toBe(true);
   });
 });

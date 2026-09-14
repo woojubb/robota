@@ -16,7 +16,7 @@
  */
 
 import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import type { IUseSideEffectsOptions, IUseSideEffectsResult } from './side-effects-types.js';
 import type { ITuiSessionUiEventPort } from '../tui-app-channel-port.js';
@@ -95,7 +95,7 @@ export function useSideEffects({
     openAgentSwitcher,
   };
 
-  useEffect(
+  useLayoutEffect(
     () =>
       subscribeToSessionUiEvents(
         uiEventPort,

@@ -43,7 +43,7 @@ export interface IAppViewModel {
   readonly background: IAppBackgroundViewModel;
   readonly permissionRequest: IPendingPermissionRequest | null;
   readonly pendingUserAction: IActionRequest | null;
-  readonly resolveUserAction: (response: TActionResponse) => void;
+  readonly resolveUserAction: (request: IActionRequest, response: TActionResponse) => void;
   readonly plugin: IAppPluginViewModel;
   readonly transport: IAppTransportViewModel;
   readonly sessionPicker: IAppSessionPickerViewModel;

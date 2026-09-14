@@ -284,6 +284,10 @@ describe('Group A — channel.start() / channel.stop() lifecycle', () => {
     expect(failure).toBeInstanceOf(AggregateError);
     expect((failure as AggregateError).errors).toHaveLength(2);
     expect(String((failure as AggregateError).errors[1])).toContain('transport rollback failed');
+    await expect(channel.start()).rejects.toThrow(
+      'Cannot start a channel after teardown has begun.',
+    );
+    expect(startAll).toHaveBeenCalledTimes(1);
   });
 });
 

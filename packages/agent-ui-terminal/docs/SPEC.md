@@ -93,7 +93,8 @@ authoritative for how the TUI releases resources on session switch and process e
   poller. It is idempotent. Tests compare the actual `on`/`off` keys and
   handler identities with the map so a new shared event cannot silently miss the TUI. Listener wiring
   itself is inside the rollback boundary, and a transport rollback failure is reported together with
-  the original startup failure.
+  the original startup failure. Only a fully rolled-back start remains retryable; rollback failure
+  permanently closes the start path so live transport resources cannot be duplicated.
 - **`stop()`** is the full channel teardown. Concurrent callers share one in-flight stop; repeat calls
   after success are no-ops. A stop requested during startup waits for that attempt and its rollback to
   settle before teardown, while a cleanup failure still attempts bounded session shutdown and leaves
@@ -105,16 +106,21 @@ authoritative for how the TUI releases resources on session switch and process e
   its background tasks, subagent child processes, and timers. A channel that leaves listeners bound
   or its session running after `stop()` is a defect. Because transport teardown is best-effort at its
   own boundary, every returned transport error is promoted to a channel teardown failure before the
-  coordinator can mark the channel stopped.
+  coordinator can mark the channel stopped. Session shutdown has one shared completion across stop
+  retries and concurrent graceful shutdown, and stop cannot report completion while that shutdown is
+  still pending.
 - **Render ownership.** React effects start channels and release subscriptions, but do not fire-and-forget
   asynchronous teardown. `renderApp()` tracks the active channel, awaits its `stop()` after Ink exits,
   and propagates teardown failure to the embedding caller. An App unmounted during a session switch may
-  not construct a replacement channel after the in-flight old-channel stop settles.
+  not construct a replacement channel after the in-flight old-channel stop settles. UI-event
+  subscriptions are installed before the passive startup effect, so synchronous startup intents and
+  rename events are observable.
 - **`shutdown({ reason, timeoutMs? })`** is the graceful process-exit path (first Ctrl+C, `/exit`,
   signal). The lifecycle coordinator marks `isShuttingDown`, drains both queues, renders
   `Shutting down...`, then awaits the
   session shutdown **bounded by a timeout** (`SHUTDOWN_TIMEOUT_MS`, overridable) so a wedged subsystem
-  can never block process exit. It is idempotent (`isShuttingDown` guard).
+  can never block process exit. Concurrent callers share the same completion, and an in-flight start
+  settles before session shutdown begins.
 - **Session switch policy.** The old channel is `stop()`-ed _before_ the new channel becomes active,
   so it can never receive events addressed to the new session and its session is shut down as part of
   that teardown. On failure, the old stopped channel remains selected but input is disabled and the
@@ -131,6 +137,10 @@ drained on `abort()`, `cancelQueue()`, `shutdown()`, and `stop()` so no promise 
 - `TuiPermissionQueue.cancelAll()` — resolves every queued/in-flight permission request as `false` (deny):
   aborting or shutting down must never leave a tool's permission promise unresolved (the tool would
   hang) nor grant it. The two drains are symmetric; a permission queue with no cancel path is a defect.
+
+Remote dismissal may promote the next queued request while the old prompt still holds a callback.
+Both queues bind responses to the exact displayed entry and ignore stale callbacks; dismissing a
+non-current permission must also preserve the active request object and its local selection state.
 
 ### Stall-hint suppression during tool execution (ERR-001 G3)
 

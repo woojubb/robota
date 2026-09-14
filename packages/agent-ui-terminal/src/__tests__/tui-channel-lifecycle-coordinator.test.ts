@@ -128,7 +128,7 @@ describe('TuiChannelLifecycleCoordinator', () => {
     expect(ops.stop).toHaveBeenCalledTimes(2);
   });
 
-  it('still shuts down the session after cleanup fails and allows stop to be retried', async () => {
+  it('shares session shutdown while failed transport cleanup remains retryable', async () => {
     const ops = operations();
     ops.stop.mockRejectedValueOnce(new Error('transport stop failed'));
     const lifecycle = new TuiChannelLifecycleCoordinator(ops, 100);
@@ -138,7 +138,7 @@ describe('TuiChannelLifecycleCoordinator', () => {
 
     await lifecycle.stop();
     expect(ops.stop).toHaveBeenCalledTimes(2);
-    expect(ops.shutdownSession).toHaveBeenCalledTimes(2);
+    expect(ops.shutdownSession).toHaveBeenCalledTimes(1);
   });
 
   it('refuses to restart after a failed teardown', async () => {
@@ -165,5 +165,57 @@ describe('TuiChannelLifecycleCoordinator', () => {
     );
 
     expect(ops.start).not.toHaveBeenCalled();
+  });
+
+  it('serializes graceful shutdown after start and shares its completion', async () => {
+    const ops = operations();
+    let releaseStart: (() => void) | undefined;
+    let releaseShutdown: (() => void) | undefined;
+    ops.start.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (releaseStart = resolve)),
+    );
+    ops.shutdownSession.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (releaseShutdown = resolve)),
+    );
+    const lifecycle = new TuiChannelLifecycleCoordinator(ops, 100);
+
+    const start = lifecycle.start();
+    const firstShutdown = lifecycle.shutdown();
+    const secondShutdown = lifecycle.shutdown();
+    await Promise.resolve();
+    expect(ops.shutdownSession).not.toHaveBeenCalled();
+
+    releaseStart?.();
+    await start;
+    await Promise.resolve();
+    expect(ops.shutdownSession).toHaveBeenCalledTimes(1);
+
+    let secondSettled = false;
+    void secondShutdown.then(() => (secondSettled = true));
+    await Promise.resolve();
+    expect(secondSettled).toBe(false);
+
+    releaseShutdown?.();
+    await Promise.all([firstShutdown, secondShutdown]);
+  });
+
+  it('does not finish stop before an in-flight graceful shutdown', async () => {
+    const ops = operations();
+    let releaseShutdown: (() => void) | undefined;
+    ops.shutdownSession.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (releaseShutdown = resolve)),
+    );
+    const lifecycle = new TuiChannelLifecycleCoordinator(ops, 100);
+    await lifecycle.start();
+
+    const shutdown = lifecycle.shutdown();
+    let stopSettled = false;
+    const stop = lifecycle.stop().then(() => (stopSettled = true));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(stopSettled).toBe(false);
+
+    releaseShutdown?.();
+    await Promise.all([shutdown, stop]);
   });
 });

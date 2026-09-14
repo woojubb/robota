@@ -105,6 +105,6 @@ export function useInputAreaKeys(inputs: IUseInputAreaKeysInputs): void {
         inputs.onCancelQueue?.();
       }
     },
-    { isActive: !!pendingPrompt },
+    { isActive: !!pendingPrompt && !isDisabled },
   );
 }

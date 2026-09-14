@@ -78,5 +78,5 @@ export interface ITuiAppChannelPort {
   selectExecutionWorkspaceEntry(entryId: string): void;
   readExecutionWorkspaceDetail(entryId: string): Promise<IExecutionDetailPage>;
   sendAgentJob(taskId: string, input: string): Promise<void>;
-  resolveUserAction(response: TActionResponse): void;
+  resolveUserAction(request: IActionRequest, response: TActionResponse): void;
 }

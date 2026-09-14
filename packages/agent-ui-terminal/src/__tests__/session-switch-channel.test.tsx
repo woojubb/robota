@@ -216,15 +216,24 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
   let created: IFakeChannel[];
   let createChannel: ReturnType<typeof vi.fn>;
   let initialStartError: Error | undefined;
+  let initialStartIntent: boolean;
 
   beforeEach(() => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-b11-'));
     created = [];
     initialStartError = undefined;
+    initialStartIntent = false;
     createChannel = vi.fn((resumeSessionId?: string) => {
       const fake = createFakeChannel(resumeSessionId);
       if (created.length === 0 && initialStartError !== undefined) {
         fake.start.mockRejectedValueOnce(initialStartError);
+      } else if (created.length === 0 && initialStartIntent) {
+        fake.start.mockImplementationOnce(async () => {
+          fake.emitSessionEvent('ui_intent', {
+            intent: { type: 'show-session-picker' },
+            requesterDriverId: 'owner',
+          });
+        });
       }
       created.push(fake);
       return fake;
@@ -392,6 +401,14 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     await tick();
 
     expect(lastFrame()).not.toContain('Execution workspace');
+  });
+
+  it('REFACTOR-025: subscribes to UI events before channel startup', async () => {
+    initialStartIntent = true;
+    const { lastFrame } = renderApp({ showSessionPickerOnStart: false });
+
+    await tick(100);
+    expect(lastFrame()).toContain('Select a session to resume');
   });
 
   it('TC-05: consecutive switches A→B→C create one channel per switch and stop each prior channel', async () => {

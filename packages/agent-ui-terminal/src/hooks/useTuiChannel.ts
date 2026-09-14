@@ -54,7 +54,7 @@ export interface ITuiChannelState {
   handleCancelQueue: () => void;
   handleShutdown: (reason?: TSessionEndReason) => Promise<void>;
   sendAgentJob: (taskId: string, input: string) => Promise<void>;
-  resolveUserAction: (response: TActionResponse) => void;
+  resolveUserAction: (request: IActionRequest, response: TActionResponse) => void;
   getRuntimeStatusSnapshot: (fallback: TPermissionMode) => ITuiRuntimeStatusSnapshot;
   selectExecutionWorkspaceEntry: (entryId: string) => void;
   readExecutionWorkspaceDetail: (entryId: string) => Promise<IExecutionDetailPage>;
@@ -119,7 +119,7 @@ export function useTuiChannel(channel: ITuiAppChannelPort): ITuiChannelState {
     handleCancelQueue: () => channel.cancelQueue(),
     handleShutdown: (reason) => channel.shutdown({ reason }),
     sendAgentJob: (taskId, input) => channel.sendAgentJob(taskId, input),
-    resolveUserAction: (response) => channel.resolveUserAction(response),
+    resolveUserAction: (request, response) => channel.resolveUserAction(request, response),
     getRuntimeStatusSnapshot: (fallback) => channel.getRuntimeStatusSnapshot(fallback),
     selectExecutionWorkspaceEntry,
     readExecutionWorkspaceDetail,
