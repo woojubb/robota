@@ -51,7 +51,7 @@ attention state, stored-history query, palette configuration, OS/IME integration
 ## Plan
 
 - [ ] Complete STRUCT-012 S3-S5 so subsequent TUI work targets the final package names.
-- [ ] Reconcile REFACTOR-025 with Issue #2054, remove the obsolete deleted-scan requirement, and complete its narrow-port and coordinator outcomes.
+- [x] Reconcile REFACTOR-025 with Issue #2054, remove the obsolete deleted-scan requirement, and complete its narrow-port and coordinator outcomes.
 - [ ] Execute each child Task through its own tests and user-visible scenario while preserving the complete source checklist.
 - [ ] Verify all child and prerequisite records are terminal and their delivery commits are ancestors of origin/develop.
 - [ ] Update the Issue #2670 delivery map and close the umbrella only after all eleven source outcomes are evidenced.
