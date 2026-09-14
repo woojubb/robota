@@ -1,12 +1,13 @@
 ---
 title: 'HARNESS-2736: prevent attribution baseline from blocking immutable spec archival'
 issue: https://github.com/woojubb/robota/issues/2736
-status: todo
+status: done
 created: 2026-09-15
 priority: medium
 urgency: soon
 area: scripts/harness
 depends_on: []
+completed: 2026-09-15
 ---
 
 # HARNESS-2736: prevent attribution baseline from blocking immutable spec archival
@@ -17,13 +18,15 @@ Prevent `gate-verdict-attribution` from turning immutable, pre-existing active-s
 unfixable failure only when that spec is archived. Snapshot the exact legacy entry fingerprints while
 continuing to reject any genuinely new or altered unattributed entry.
 
+Spec: `.agents/spec-docs/done/HARNESS-2736-prevent-attribution-baseline-from-blocking-immutable-spec-archival.md`
+
 ## Plan
 
-- [ ] Add an exact-fingerprint legacy baseline and regression coverage for unchanged versus altered
+- [x] Add an exact-fingerprint legacy baseline and regression coverage for unchanged versus altered
       unattributed entries.
-- [ ] Snapshot the currently exposed active-spec debt and prove the attribution scan accepts the
+- [x] Snapshot the currently exposed active-spec debt and prove the attribution scan accepts the
       byte-identical REFACTOR-025 archive.
-- [ ] Run the focused test and affected scan, then complete the Task/spec pair.
+- [x] Run the focused test and affected scan, then complete the Task/spec pair.
 
 ## User Execution Test Scenarios
 
