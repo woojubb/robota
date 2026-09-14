@@ -1,5 +1,5 @@
 ---
-status: done
+status: verifying
 type: BEHAVIOR
 tags: [tui, architecture, typescript]
 lane: L2
@@ -7,8 +7,8 @@ lane: L2
 
 # REFACTOR-025: Narrow TUI runtime ports and split presentation coordinators
 
-Paired with `.agents/tasks/completed/REFACTOR-025-file-size-enforcement.md`. This plan completes the
-remaining Issue #2054 outcome now owned by Issue #2670 without reviving the deleted file-size harness.
+Paired with `.agents/tasks/REFACTOR-025-file-size-enforcement.md`. This plan completes the remaining
+Issue #2054 outcome now owned by Issue #2670 without reviving the deleted file-size harness.
 
 ## Problem
 
@@ -168,43 +168,43 @@ shutdown outcome is a regression, not a supported degraded mode.
 
 ## Completion Criteria
 
-- [x] TC-01: Except for the top-level composition shell, no production React controller, component or hook
+- [ ] TC-01: Except for the top-level composition shell, no production React controller, component or hook
       imports concrete `TuiInteractionChannel`, `InteractiveSession` or `CommandRegistry`; compile-time
       negative probes show `getSession()`, `getRegistry()`, unrestricted `stateManager` and unrelated
       session/registry methods are absent from `ITuiAppChannelPort` and its child ports.
-- [x] TC-02: Concrete framework object creation remains in one terminal composition boundary; existing
+- [ ] TC-02: Concrete framework object creation remains in one terminal composition boundary; existing
       public `getSession()`, `getRegistry()` and `stateManager` surfaces remain source-compatible and no
       public API is removed.
-- [x] TC-03: Lifecycle, event projection, permission queue and user-action queue have named package-local
+- [ ] TC-03: Lifecycle, event projection, permission queue and user-action queue have named package-local
       owners and tests prove exact listener cleanup, idempotent teardown, FIFO resolution and symmetric
       denial/cancellation on `abort()`, `cancelQueue()`, `shutdown()` and `stop()`.
-- [x] TC-04: App obtains name, pending count, runtime status and background-job actions through bounded
+- [ ] TC-04: App obtains name, pending count, runtime status and background-job actions through bounded
       channel projections/actions; its controller is separate from the presentation tree.
-- [x] TC-05: History restoration, prompt submission, command autocomplete, permission/action prompts,
+- [ ] TC-05: History restoration, prompt submission, command autocomplete, permission/action prompts,
       status rendering, background-work routing and bounded shutdown remain behaviorally equivalent in
       focused tests and the package's existing regression suites.
-- [x] TC-06: Two automatable product-path cells pass: (a) the provider-injected public TUI composition
+- [ ] TC-06: Two automatable product-path cells pass: (a) the provider-injected public TUI composition
       submits a scripted prompt and projects its transcript/history; (b) the built CLI PTY starts with an
       isolated dummy provider configuration, handles a non-provider command and exits cleanly within the
       existing bound. The plan does not claim scripted-provider injection into the built binary.
-- [x] TC-07: The terminal package SPEC records each extracted owner's responsibility and dependency; no
+- [ ] TC-07: The terminal package SPEC records each extracted owner's responsibility and dependency; no
       file-size scanner, baseline, ceiling increase or unrelated Playground/framework decomposition is
       introduced.
-- [x] TC-08: REFACTOR-025 archives with exact delivery evidence ancestral to `origin/develop`, and the
+- [ ] TC-08: REFACTOR-025 archives with exact delivery evidence ancestral to `origin/develop`, and the
       AGREEMENT-2670 projection marks only TC-07 complete while retaining the remaining child Tasks.
 
 ## Test Plan
 
-| TC-ID | Test type        | Tool / approach                                                     | Notes                                                                                                                                                                                                                                 |
-| ----- | ---------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Type/static      | terminal typecheck plus negative capability probes/import inventory | Test written: `src/__tests__/tui-app-channel-port.test.ts > TUI React capability boundary > excludes concrete channel and state-manager escape hatches`; terminal and CLI typecheck passed.                                           |
-| TC-02 | Build/consumer   | terminal and agent-cli typechecks                                   | Test written: `src/__tests__/session-switch-channel.test.tsx > TC-02 (REFACTOR-025): waits for the prior stop to finish before constructing the replacement`; both package typechecks passed.                                         |
-| TC-03 | Unit             | lifecycle, event-binding and queue-focused Vitest suites            | Test written: `src/__tests__/tui-channel-lifecycle-coordinator.test.ts > TuiChannelLifecycleCoordinator` and `src/__tests__/tui-interaction-queues.test.ts > TuiUserActionQueue/TuiPermissionQueue`; all focused tests passed.        |
-| TC-04 | Unit/component   | controller and status/background routing tests                      | Test written: `src/__tests__/session-switch-channel.test.tsx > TC-04 (B12): App renders from the factory alone — no channel prop exists`; the focused component suite passed.                                                         |
-| TC-05 | Regression       | terminal focused + package suite                                    | Test written: `src/__tests__/TuiInteractionChannel.lifecycle.test.ts > Group A/B/C/D/E/F` and `src/__tests__/render-lifecycle.test.ts > renderApp lifecycle ownership`; final terminal suite passed 95 files and 847 tests.           |
-| TC-06 | Functional + PTY | provider-injected TUI transcript; built CLI command/exit            | Test written: `src/__tests__/pty/tui-pty.ptytest.ts > TUI through a real PTY (CLI-074) > TC-07/TC-08` verifies built-CLI help and exit; `examples/verify-refactor-025-boundary.ts > main` also printed `REFACTOR_025_BOUNDARY_PASS`.  |
-| TC-07 | Spec/conformance | package SPEC contract registry plus repository change verification  | Test skipped (documentation/conformance, not a unit-test surface): direct read verified `packages/agent-ui-terminal/docs/SPEC.md` ownership and Class Contract Registry entries; repository scans confirmed no file-size gate return. |
-| TC-08 | Delivery audit   | Git ancestry, PR checks and parent/Task readback                    | Test skipped (delivery-state audit, not a unit-test surface): Git/GitHub readback verified PR #2733 landing, exact-head CI, Issue #2670 completion record, and only the parent TC-07 projection checked.                              |
+| TC-ID | Test type        | Tool / approach                                                     | Notes                                  |
+| ----- | ---------------- | ------------------------------------------------------------------- | -------------------------------------- |
+| TC-01 | Type/static      | terminal typecheck plus negative capability probes/import inventory | proves boundary, not line count        |
+| TC-02 | Build/consumer   | terminal and agent-cli typechecks                                   | preserves public composition consumers |
+| TC-03 | Unit             | lifecycle, event-binding and queue-focused Vitest suites            | exact identities and drain outcomes    |
+| TC-04 | Unit/component   | controller and status/background routing tests                      | no nested session reach-through        |
+| TC-05 | Regression       | terminal focused + package suite                                    | characterization before extraction     |
+| TC-06 | Functional + PTY | provider-injected TUI transcript; built CLI command/exit            | two reachable public paths             |
+| TC-07 | Spec/conformance | package SPEC contract registry plus repository change verification  | no deleted scanner restored            |
+| TC-08 | Delivery audit   | Git ancestry, PR checks and parent/Task readback                    | partial parent completion only         |
 
 ## User Execution Test Scenarios
 
@@ -238,8 +238,16 @@ shutdown outcome is a regression, not a supported degraded mode.
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/REFACTOR-025-file-size-enforcement.md` — implementation and delivery verification
-      complete
+Paired Task: `.agents/tasks/REFACTOR-025-file-size-enforcement.md`.
+
+- [ ] TC-01 / S1 — narrow React-facing channel, event and command-query ports with negative probes
+- [ ] TC-02 / S1 — retain public channel compatibility and one concrete composition owner
+- [ ] TC-03 / S2 — extract lifecycle, event projection and both queue owners with four-path drains
+- [ ] TC-04 / S3 — separate App controller state/callback projection from the presentation tree
+- [ ] TC-05 / S1-S3 — preserve history, prompts, status, background routing and shutdown regressions
+- [ ] TC-06 / S4 — add and execute the public SDK example and shipped TUI scenario
+- [ ] TC-07 / S4 — update terminal package contracts and verify no deleted file-size gate returns
+- [ ] TC-08 / S4 — complete delivery ancestry, archive the pair and update only the parent TC-07 row
 
 ## Evidence Log
 
@@ -538,179 +546,3 @@ specific and current, CLASS is inapplicable, and the new-surface condition is no
 completed 95 files and 834 tests with exit 0, the affected terminal/CLI build exited 0, the full harness
 scan passed 161 scans with one declared skip, both product scenarios passed again, and the independent
 reviewer returned `ACTIONABLE FINDINGS: 0`.
-
-### [GATE-COMPLETE] — ❌ FAIL | 2026-09-15
-
-**Status remains:** verifying
-**Failed criteria:**
-
-- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: no `[GATE-COMPLETE: TC-N]` entry for TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08
-  **Required action:** run `gate.mjs record` for each
-- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08: no test reference and no skip reason
-  **Required action:** name the test or record why it was skipped
-- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08: no test reference and no skip reason
-  **Required action:** name the test or record why it was skipped
-- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08: no test reference and no skip reason
-  **Required action:** name the test or record why it was skipped
-
-**Judged by:** `gate.mjs` mechanical evaluator
-**Judged at:** HEAD `4da37774cc50` · base `origin/develop@4da37774cc50` · document `.agents/spec-docs/active/REFACTOR-025-file-size-enforcement.md` blob `6a953f5d7c05` (modified)
-
-### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-15
-
-**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli typecheck`
-**Exit:** 0
-**Output:** (last 5 of 5 line(s))
-
-```
-Scope: 2 of 108 workspace projects
-packages/agent-ui-terminal typecheck$ tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit
-packages/agent-ui-terminal typecheck: Done
-packages/agent-cli typecheck$ tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit
-packages/agent-cli typecheck: Done
-```
-
-**Judged by:** `gate.mjs` mechanical evaluator
-**Judged at:** HEAD `4da37774cc50` · base `origin/develop@4da37774cc50` · document `.agents/spec-docs/active/REFACTOR-025-file-size-enforcement.md` blob `8984544626f2` (modified)
-
-### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-15
-
-**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli typecheck`
-**Exit:** 0
-**Output:** (last 5 of 5 line(s))
-
-```
-Scope: 2 of 108 workspace projects
-packages/agent-ui-terminal typecheck$ tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit
-packages/agent-ui-terminal typecheck: Done
-packages/agent-cli typecheck$ tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit
-packages/agent-cli typecheck: Done
-```
-
-**Judged by:** `gate.mjs` mechanical evaluator
-**Judged at:** HEAD `4da37774cc50` · base `origin/develop@4da37774cc50` · document `.agents/spec-docs/active/REFACTOR-025-file-size-enforcement.md` blob `085ab392dc70` (modified)
-
-### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-15
-
-**Command:** `pnpm exec vitest run packages/agent-ui-terminal/src/__tests__/tui-app-channel-port.test.ts packages/agent-ui-terminal/src/__tests__/tui-channel-lifecycle-coordinator.test.ts packages/agent-ui-terminal/src/__tests__/tui-interaction-queues.test.ts packages/agent-ui-terminal/src/__tests__/session-switch-channel.test.tsx packages/agent-ui-terminal/src/__tests__/render-lifecycle.test.ts`
-**Exit:** 0
-**Output:** (last 10 of 14 line(s))
-
-```
- ✓ packages/agent-ui-terminal/src/__tests__/tui-app-channel-port.test.ts (3 tests) 1ms
- ✓ packages/agent-ui-terminal/src/__tests__/tui-channel-lifecycle-coordinator.test.ts (13 tests) 8ms
- ✓ packages/agent-ui-terminal/src/__tests__/tui-interaction-queues.test.ts (8 tests) 9ms
- ✓ packages/agent-ui-terminal/src/__tests__/render-lifecycle.test.ts (2 tests) 2ms
-]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota ✓ packages/agent-ui-terminal/src/__tests__/session-switch-channel.test.tsx (10 tests) 1278ms
-
- Test Files  5 passed (5)
-      Tests  36 passed (36)
-   Start at  00:28:35
-   Duration  3.42s (transform 474ms, setup 0ms, collect 1.72s, tests 1.30s, environment 0ms, prepare 208ms)
-```
-
-**Judged by:** `gate.mjs` mechanical evaluator
-**Judged at:** HEAD `4da37774cc50` · base `origin/develop@4da37774cc50` · document `.agents/spec-docs/active/REFACTOR-025-file-size-enforcement.md` blob `3e260d80aab0` (modified)
-
-### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-15
-
-**Command:** `pnpm exec vitest run packages/agent-ui-terminal/src/__tests__/tui-app-channel-port.test.ts packages/agent-ui-terminal/src/__tests__/tui-channel-lifecycle-coordinator.test.ts packages/agent-ui-terminal/src/__tests__/tui-interaction-queues.test.ts packages/agent-ui-terminal/src/__tests__/session-switch-channel.test.tsx packages/agent-ui-terminal/src/__tests__/render-lifecycle.test.ts`
-**Exit:** 0
-**Output:** (last 10 of 14 line(s))
-
-```
- ✓ packages/agent-ui-terminal/src/__tests__/tui-app-channel-port.test.ts (3 tests) 1ms
- ✓ packages/agent-ui-terminal/src/__tests__/tui-channel-lifecycle-coordinator.test.ts (13 tests) 8ms
- ✓ packages/agent-ui-terminal/src/__tests__/tui-interaction-queues.test.ts (8 tests) 9ms
- ✓ packages/agent-ui-terminal/src/__tests__/render-lifecycle.test.ts (2 tests) 2ms
-]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota ✓ packages/agent-ui-terminal/src/__tests__/session-switch-channel.test.tsx (10 tests) 1278ms
-
- Test Files  5 passed (5)
-      Tests  36 passed (36)
-   Start at  00:28:35
-   Duration  3.42s (transform 474ms, setup 0ms, collect 1.72s, tests 1.30s, environment 0ms, prepare 208ms)
-```
-
-**Judged by:** `gate.mjs` mechanical evaluator
-**Judged at:** HEAD `4da37774cc50` · base `origin/develop@4da37774cc50` · document `.agents/spec-docs/active/REFACTOR-025-file-size-enforcement.md` blob `6e94e71bee51` (modified)
-
-### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-15
-
-**Command:** `pnpm exec vitest run packages/agent-ui-terminal/src/__tests__/tui-app-channel-port.test.ts packages/agent-ui-terminal/src/__tests__/tui-channel-lifecycle-coordinator.test.ts packages/agent-ui-terminal/src/__tests__/tui-interaction-queues.test.ts packages/agent-ui-terminal/src/__tests__/session-switch-channel.test.tsx packages/agent-ui-terminal/src/__tests__/render-lifecycle.test.ts`
-**Exit:** 0
-**Output:** (last 10 of 14 line(s))
-
-```
- ✓ packages/agent-ui-terminal/src/__tests__/tui-app-channel-port.test.ts (3 tests) 1ms
- ✓ packages/agent-ui-terminal/src/__tests__/tui-channel-lifecycle-coordinator.test.ts (13 tests) 8ms
- ✓ packages/agent-ui-terminal/src/__tests__/tui-interaction-queues.test.ts (8 tests) 9ms
- ✓ packages/agent-ui-terminal/src/__tests__/render-lifecycle.test.ts (2 tests) 2ms
-]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota]0;Robota ✓ packages/agent-ui-terminal/src/__tests__/session-switch-channel.test.tsx (10 tests) 1278ms
-
- Test Files  5 passed (5)
-      Tests  36 passed (36)
-   Start at  00:28:35
-   Duration  3.42s (transform 474ms, setup 0ms, collect 1.72s, tests 1.30s, environment 0ms, prepare 208ms)
-```
-
-**Judged by:** `gate.mjs` mechanical evaluator
-**Judged at:** HEAD `4da37774cc50` · base `origin/develop@4da37774cc50` · document `.agents/spec-docs/active/REFACTOR-025-file-size-enforcement.md` blob `a25fa11f5407` (modified)
-
-### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-15
-
-**Command:** `pnpm exec tsx examples/verify-refactor-025-boundary.ts (cwd packages/agent-ui-terminal)`
-**Exit:** 0
-**Output:** (last 1 of 1 line(s))
-
-```
-result=REFACTOR_025_BOUNDARY_PASS
-```
-
-**Judged by:** `gate.mjs` mechanical evaluator
-**Judged at:** HEAD `4da37774cc50` · base `origin/develop@4da37774cc50` · document `.agents/spec-docs/active/REFACTOR-025-file-size-enforcement.md` blob `0e091d19af53` (modified)
-
-### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-15
-
-**Test skipped:** Documentation/conformance criterion: direct SPEC and repository-scan verification is recorded in the Test Plan; there is no unit-test surface.
-
-**Judged by:** `gate.mjs` mechanical evaluator
-**Judged at:** HEAD `4da37774cc50` · base `origin/develop@4da37774cc50` · document `.agents/spec-docs/active/REFACTOR-025-file-size-enforcement.md` blob `39b268c1490b` (modified)
-
-### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-09-15
-
-**Test skipped:** Delivery-state criterion: Git and GitHub readback evidence is recorded in the Test Plan; there is no unit-test surface.
-
-**Judged by:** `gate.mjs` mechanical evaluator
-**Judged at:** HEAD `4da37774cc50` · base `origin/develop@4da37774cc50` · document `.agents/spec-docs/active/REFACTOR-025-file-size-enforcement.md` blob `49fe470dd88b` (modified)
-
-### [GATE-COMPLETE] — ❌ FAIL | 2026-09-15
-
-**Status remains:** verifying
-**Failed criteria:**
-
-- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-06: no test reference and no skip reason
-  **Required action:** name the test or record why it was skipped
-- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-06: no test reference and no skip reason
-  **Required action:** name the test or record why it was skipped
-- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-06: no test reference and no skip reason
-  **Required action:** name the test or record why it was skipped
-
-**Judged by:** `gate.mjs` mechanical evaluator
-**Judged at:** HEAD `4da37774cc50` · base `origin/develop@4da37774cc50` · document `.agents/spec-docs/active/REFACTOR-025-file-size-enforcement.md` blob `62422985b24f` (modified)
-
-### [GATE-COMPLETE] — ✅ PASS | 2026-09-15
-
-**Status upgrade:** verifying → done
-
-- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-14; status `verifying`
-- GATE-COMPLETE — The checkbox is checked (`[x]`): 8/8 TC checkboxes `[x]`
-- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (8)
-- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (8) carries a test reference or a skip reason
-- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (8) carries a test reference or a skip reason
-- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 8/8 TC checkboxes `[x]`
-- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (8) carries a test reference or a skip reason
-- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/REFACTOR-025-file-size-enforcement.md`, which exists
-- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 10/10 tasks `[x]` in .agents/tasks/REFACTOR-025-file-size-enforcement.md
-
-**Judged by:** `gate.mjs` mechanical evaluator
-**Judged at:** HEAD `4da37774cc50` · base `origin/develop@4da37774cc50` · document `.agents/spec-docs/active/REFACTOR-025-file-size-enforcement.md` blob `39b47a1c6b6d` (modified)
