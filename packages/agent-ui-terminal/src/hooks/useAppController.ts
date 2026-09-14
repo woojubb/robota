@@ -38,6 +38,12 @@ export interface IUseAppControllerOptions {
   onRetrySessionSwitch: () => void;
 }
 
+interface ICoordinationState {
+  readonly error: string | undefined;
+  readonly pending: boolean;
+  readonly blocked: boolean;
+}
+
 interface IComposition {
   readonly props: IUseAppControllerOptions;
   readonly state: ITuiChannelState;
@@ -46,6 +52,16 @@ interface IComposition {
   readonly interaction: IAppInteractionState;
   readonly staticItems: IAppViewModel['staticItems'];
   readonly runtime: ITuiRuntimeStatusSnapshot;
+  readonly coordination: ICoordinationState;
+}
+
+function getCoordinationState(
+  props: IUseAppControllerOptions,
+  lifecycle: IAppLifecycleState,
+): ICoordinationState {
+  const error = props.sessionSwitchError ?? lifecycle.startError;
+  const pending = Boolean(props.sessionSwitchPending || lifecycle.startPending);
+  return { error, pending, blocked: error !== undefined || pending };
 }
 
 function buildInput(composition: IComposition): IAppInputViewModel {
@@ -59,17 +75,11 @@ function buildInput(composition: IComposition): IAppInputViewModel {
     screens.showSessionPicker ||
     workspace.background.switcherVisible,
   );
-  const recoveryBlocked = Boolean(
-    composition.props.sessionSwitchError ||
-    composition.lifecycle.startError ||
-    composition.props.sessionSwitchPending ||
-    composition.lifecycle.startPending,
-  );
   return {
     submit: composition.interaction.submission.submit,
     cancelQueue: state.handleCancelQueue,
     disabled:
-      recoveryBlocked ||
+      composition.coordination.blocked ||
       overlayOpen ||
       state.isShuttingDown ||
       (state.isThinking && state.pendingPrompt !== null) ||
@@ -109,13 +119,13 @@ function buildStatus(composition: IComposition): IAppStatusViewModel {
 }
 
 function buildViewModel(composition: IComposition): IAppViewModel {
-  const { interaction, lifecycle, props, shell, state } = composition;
+  const { interaction, lifecycle, shell, state } = composition;
   return {
     staticItems: composition.staticItems,
     handoffSuspended: lifecycle.handoffSuspended,
     updateNotice: lifecycle.updateNotice,
-    coordinationError: props.sessionSwitchError ?? lifecycle.startError,
-    coordinationPending: Boolean(props.sessionSwitchPending || lifecycle.startPending),
+    coordinationError: composition.coordination.error,
+    coordinationPending: composition.coordination.pending,
     sessionEventNotices: state.sessionEventNotices,
     isShuttingDown: state.isShuttingDown,
     stream: {
@@ -140,12 +150,14 @@ function buildViewModel(composition: IComposition): IAppViewModel {
 export function useAppController(props: IUseAppControllerOptions): IAppViewModel {
   const state = useTuiChannel(props.channel);
   const lifecycle = useAppLifecycleState(props.channel, props.startupUpdateNotice);
+  const coordination = getCoordinationState(props, lifecycle);
   const shell = useAppScreenState({
     state,
     setSessionName: lifecycle.setSessionName,
     sessionStore: props.sessionStore,
     onSessionSwitch: props.onSessionSwitch,
     showSessionPickerOnStart: props.showSessionPickerOnStart,
+    coordinationBlocked: coordination.blocked,
   });
   const interaction = useAppInteractionState({
     cwd: props.cwd,
@@ -155,8 +167,9 @@ export function useAppController(props: IUseAppControllerOptions): IAppViewModel
     onSessionSwitch: props.onSessionSwitch,
     pluginAdapter: props.pluginAdapter,
     transportRegistry: props.transportRegistry,
-    recoveryError: props.sessionSwitchError ?? lifecycle.startError,
-    recoveryPending: Boolean(props.sessionSwitchPending || lifecycle.startPending),
+    recoveryError: coordination.error,
+    recoveryPending: coordination.pending,
+    coordinationBlocked: coordination.blocked,
     retryRecovery:
       props.sessionSwitchError !== undefined ? props.onRetrySessionSwitch : lifecycle.retryStart,
   });
@@ -170,7 +183,16 @@ export function useAppController(props: IUseAppControllerOptions): IAppViewModel
     [interaction.screenReader, props.version, state.history],
   );
   const runtime = state.getRuntimeStatusSnapshot(props.permissionMode ?? 'default');
-  return buildViewModel({ props, state, lifecycle, shell, interaction, staticItems, runtime });
+  return buildViewModel({
+    props,
+    state,
+    lifecycle,
+    shell,
+    interaction,
+    staticItems,
+    runtime,
+    coordination,
+  });
 }
 
 export type { IAppViewModel } from '../app-view-model.js';

@@ -28,6 +28,7 @@ interface IOptions {
   readonly shutdown: (reason?: TSessionEndReason) => Promise<void>;
   readonly recoveryError: string | undefined;
   readonly recoveryPending: boolean;
+  readonly coordinationBlocked: boolean;
   readonly retryRecovery: () => void;
 }
 
@@ -39,7 +40,7 @@ function overlaysBlockKeys(options: IOptions): boolean {
     options.transportVisible ||
     options.sessionPickerVisible ||
     options.workspaceSwitcherVisible ||
-    options.recoveryPending,
+    options.coordinationBlocked,
   );
 }
 
@@ -65,7 +66,7 @@ function useWorkspaceSwitcherBinding(options: IOptions): void {
       options.pendingUserAction ||
       options.pluginVisible ||
       options.sessionPickerVisible ||
-      options.recoveryPending ||
+      options.coordinationBlocked ||
       options.isShuttingDown
     )
       return;

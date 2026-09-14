@@ -235,7 +235,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  function renderApp(options?: { sessionIds?: string[] }) {
+  function renderApp(options?: { sessionIds?: string[]; showSessionPickerOnStart?: boolean }) {
     const ids = options?.sessionIds ?? ['session-aaaaaaaa', 'session-bbbbbbbb'];
     const records = ids.map((id) => sessionRecord(id, cwd));
     const store = createFakeStore(records);
@@ -244,7 +244,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
         cwd={cwd}
         createChannel={createChannel}
         sessionStore={store}
-        showSessionPickerOnStart
+        showSessionPickerOnStart={options?.showSessionPickerOnStart ?? true}
         cliAdapter={createCliAdapter(join(cwd, 'settings.json'))}
       />,
     );
@@ -377,6 +377,21 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     await tick();
     expect(createChannel).toHaveBeenCalledTimes(1);
     expect(lastFrame()).toContain('Select a session to resume');
+  });
+
+  it('REFACTOR-025: ignores workspace shortcuts while recovery owns input', async () => {
+    initialStartError = new Error('transport start failed');
+    const { stdin, lastFrame } = renderApp({ showSessionPickerOnStart: false });
+    await waitForFrame(lastFrame, (frame) =>
+      frame.includes('TUI start failed: transport start failed'),
+    );
+
+    stdin.write('\x02'); // Ctrl+B must not mutate hidden overlay state.
+    stdin.write('\r');
+    await waitForFrame(lastFrame, () => created[0]!.start.mock.calls.length === 2);
+    await tick();
+
+    expect(lastFrame()).not.toContain('Execution workspace');
   });
 
   it('TC-05: consecutive switches A→B→C create one channel per switch and stop each prior channel', async () => {

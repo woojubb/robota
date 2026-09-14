@@ -70,4 +70,18 @@ describe('TuiPermissionQueue', () => {
     await expect(second).resolves.toBe(false);
     expect(queue.current).toBeNull();
   });
+
+  it('preserves the active permission when a queued request is dismissed', async () => {
+    const queue = new TuiPermissionQueue(vi.fn());
+    const first = queue.enqueue('Read', { path: 'a' }, 'permission-1');
+    const second = queue.enqueue('Write', { path: 'b' }, 'permission-2');
+    const active = queue.current;
+
+    expect(queue.dismissById('permission-2')).toBe(true);
+    expect(queue.current).toBe(active);
+    await expect(second).resolves.toBe(false);
+
+    active?.resolve(true);
+    await expect(first).resolves.toBe(true);
+  });
 });

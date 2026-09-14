@@ -140,4 +140,30 @@ describe('TuiChannelLifecycleCoordinator', () => {
     expect(ops.stop).toHaveBeenCalledTimes(2);
     expect(ops.shutdownSession).toHaveBeenCalledTimes(2);
   });
+
+  it('refuses to restart after a failed teardown', async () => {
+    const ops = operations();
+    ops.stop.mockRejectedValueOnce(new Error('transport stop failed'));
+    const lifecycle = new TuiChannelLifecycleCoordinator(ops, 100);
+
+    await lifecycle.start();
+    await expect(lifecycle.stop()).rejects.toThrow('transport stop failed');
+    await expect(lifecycle.start()).rejects.toThrow(
+      'Cannot start a channel after teardown has begun.',
+    );
+
+    expect(ops.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses to start after graceful shutdown has begun', async () => {
+    const ops = operations();
+    const lifecycle = new TuiChannelLifecycleCoordinator(ops, 100);
+
+    await lifecycle.shutdown();
+    await expect(lifecycle.start()).rejects.toThrow(
+      'Cannot start a channel after teardown has begun.',
+    );
+
+    expect(ops.start).not.toHaveBeenCalled();
+  });
 });

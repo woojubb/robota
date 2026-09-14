@@ -23,6 +23,7 @@ interface IOptions {
   readonly transportRegistry: ITransportRegistryView<IInteractiveSession> | undefined;
   readonly recoveryError: string | undefined;
   readonly recoveryPending: boolean;
+  readonly coordinationBlocked: boolean;
   readonly retryRecovery: () => void;
 }
 
@@ -58,6 +59,7 @@ export function useAppInteractionState(options: IOptions): IAppInteractionState 
     shutdown: options.state.handleShutdown,
     recoveryError: options.recoveryError,
     recoveryPending: options.recoveryPending,
+    coordinationBlocked: options.coordinationBlocked,
     retryRecovery: options.retryRecovery,
   });
   const overlays = useAppOverlays({

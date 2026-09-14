@@ -16,6 +16,7 @@ export interface ITuiChannelLifecycleOperations {
 export class TuiChannelLifecycleCoordinator {
   private started = false;
   private startPromise: Promise<void> | undefined;
+  private teardownBegun = false;
   private stopped = false;
   private shuttingDown = false;
   private stopPromise: Promise<void> | undefined;
@@ -30,10 +31,10 @@ export class TuiChannelLifecycleCoordinator {
   }
 
   async start(): Promise<void> {
-    if (this.started) return;
-    if (this.stopped || this.stopPromise !== undefined) {
+    if (this.teardownBegun) {
       throw new Error('Cannot start a channel after teardown has begun.');
     }
+    if (this.started) return;
     const pendingStart = (this.startPromise ??= this.operations.start());
     try {
       await pendingStart;
@@ -44,6 +45,7 @@ export class TuiChannelLifecycleCoordinator {
   }
 
   async stop(): Promise<void> {
+    this.teardownBegun = true;
     if (this.stopped) return;
     this.stopPromise ??= this.performStop();
     try {
@@ -90,6 +92,7 @@ export class TuiChannelLifecycleCoordinator {
   }
 
   async shutdown(options?: { reason?: TSessionEndReason; timeoutMs?: number }): Promise<void> {
+    this.teardownBegun = true;
     if (this.shuttingDown) return;
     this.shuttingDown = true;
     this.operations.beginShutdown();

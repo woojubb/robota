@@ -93,11 +93,14 @@ export class TuiPermissionQueue {
   dismissById(id: string): boolean {
     const dismissed = this.entries.filter((entry) => entry.id === id);
     if (dismissed.length === 0) return false;
+    const dismissedCurrent = this.entries[0]?.id === id;
     this.entries = this.entries.filter((entry) => entry.id !== id);
-    this.processing = false;
-    this.currentRequest = null;
     for (const entry of dismissed) entry.resolve(false);
-    this.processNext();
+    if (dismissedCurrent) {
+      this.processing = false;
+      this.currentRequest = null;
+      this.processNext();
+    }
     return true;
   }
 

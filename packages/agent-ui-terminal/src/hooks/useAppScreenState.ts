@@ -16,6 +16,7 @@ interface IOptions {
   readonly sessionStore: IInteractiveSessionStore | undefined;
   readonly onSessionSwitch: (sessionId: string) => Promise<void>;
   readonly showSessionPickerOnStart: boolean | undefined;
+  readonly coordinationBlocked: boolean;
 }
 
 export interface IAppScreenState {
@@ -41,7 +42,8 @@ export function useAppScreenState(options: IOptions): IAppScreenState {
     !screens.showPluginTUI &&
     !screens.showTransportTUI &&
     !screens.showSessionPicker &&
-    !workspaceSwitcherVisible;
+    !workspaceSwitcherVisible &&
+    !options.coordinationBlocked;
   const workspace = useAppWorkspaceState({
     snapshot: options.state.executionWorkspaceSnapshot,
     selectedEntryId: options.state.selectedExecutionEntryId,
