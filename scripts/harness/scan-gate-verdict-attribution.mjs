@@ -12,6 +12,7 @@
  * Original text is returned, never rewritten. Recognition is disclosure, not identity authentication.
  * Existing canonical entries can contain several judging mechanisms and keep their prior handling.
  */
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
@@ -121,9 +122,17 @@ export function examinedGateEvidenceCount() {
   return examinedEntries;
 }
 
-export function evaluateEntries(entries, cutoffDate) {
+export function entryFingerprint(entry) {
+  return createHash('sha256').update(entry.text).digest('hex');
+}
+
+export function evaluateEntries(entries, cutoffDate, legacyEntryFingerprints = []) {
+  const legacy = new Set(legacyEntryFingerprints);
   const missing = entries.filter((entry) => !entry.judgedBy);
-  const postBaseline = missing.filter((entry) => entry.date && entry.date > cutoffDate);
+  const postBaseline = missing.filter(
+    (entry) =>
+      entry.date && entry.date > cutoffDate && !legacy.has(entryFingerprint(entry)),
+  );
   return {
     total: entries.length,
     attributed: entries.length - missing.length,
@@ -137,7 +146,11 @@ export function main(root = ROOT) {
   const baseline = JSON.parse(
     readFileSync(path.join(root, 'scripts/harness/gate-verdict-attribution-baseline.json'), 'utf8'),
   );
-  const result = evaluateEntries(collectEntries(root), baseline.cutoffDate);
+  const result = evaluateEntries(
+    collectEntries(root),
+    baseline.cutoffDate,
+    (baseline.legacyUnattributedEntries ?? []).map((entry) => entry.sha256),
+  );
   console.log(`::examined:: ${result.total} GATE evidence entries`);
   console.log(
     `gate verdict attribution: ${result.attributed} attributed, ${result.missing} missing, ${result.baselineMissing} historical baseline`,
