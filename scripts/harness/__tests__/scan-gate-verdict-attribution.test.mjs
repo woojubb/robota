@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 import { describe, expect, it, vi } from 'vitest';
@@ -197,6 +198,17 @@ describe('gate verdict attribution scan', () => {
     expect(evaluateEntries(entries, '2026-09-06').violations).toHaveLength(0);
   });
 
+  it('accepts only exact legacy entry fingerprints', () => {
+    const original = evidenceEntries(`## Evidence Log\n\n${entry('2026-09-13')}`)[0];
+    const fingerprint = createHash('sha256').update(original.text).digest('hex');
+    expect(evaluateEntries([original], '2026-09-06', [fingerprint]).violations).toHaveLength(0);
+
+    const altered = evidenceEntries(
+      `## Evidence Log\n\n${entry('2026-09-13')}Historical text changed.\n`,
+    )[0];
+    expect(evaluateEntries([altered], '2026-09-06', [fingerprint]).violations).toEqual([altered]);
+  });
+
   it('reports both supported attribution forms on the failing scanner path', () => {
     const root = makeTemp('robota-attribution-diagnostic-');
     mkdirSync(`${root}/.agents/spec-docs/done`, { recursive: true });
@@ -204,6 +216,10 @@ describe('gate verdict attribution scan', () => {
     writeFileSync(
       `${root}/scripts/harness/gate-verdict-attribution-baseline.json`,
       JSON.stringify({ cutoffDate: '2026-09-06' }),
+    );
+    writeFileSync(
+      `${root}/scripts/harness/immutable-attribution-legacy.json`,
+      JSON.stringify({ entries: [] }),
     );
     writeFileSync(
       `${root}/.agents/spec-docs/done/a.md`,
