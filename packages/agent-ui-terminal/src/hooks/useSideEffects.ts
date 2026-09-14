@@ -16,10 +16,10 @@
  */
 
 import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import type { IUseSideEffectsOptions, IUseSideEffectsResult } from './side-effects-types.js';
-import type { InteractiveSession } from '@robota-sdk/agent-framework';
+import type { ITuiSessionUiEventPort } from '../tui-app-channel-port.js';
 import type { ISessionRenamedEvent, IUiIntentEvent } from '@robota-sdk/agent-interface-session';
 
 interface IUiEventHandlers {
@@ -36,7 +36,7 @@ interface IScreenSetters {
 
 /** Subscribe to `ui_intent` (requester-routed) + `session_renamed` (broadcast); returns cleanup. */
 function subscribeToSessionUiEvents(
-  interactiveSession: InteractiveSession,
+  uiEventPort: ITuiSessionUiEventPort,
   screens: IScreenSetters,
   handlersRef: { current: IUiEventHandlers },
 ): () => void {
@@ -62,16 +62,16 @@ function subscribeToSessionUiEvents(
   const onSessionRenamed = (event: ISessionRenamedEvent): void => {
     handlersRef.current.setSessionName(event.name);
   };
-  interactiveSession.on('ui_intent', onUiIntent);
-  interactiveSession.on('session_renamed', onSessionRenamed);
+  uiEventPort.on('ui_intent', onUiIntent);
+  uiEventPort.on('session_renamed', onSessionRenamed);
   return () => {
-    interactiveSession.off('ui_intent', onUiIntent);
-    interactiveSession.off('session_renamed', onSessionRenamed);
+    uiEventPort.off('ui_intent', onUiIntent);
+    uiEventPort.off('session_renamed', onSessionRenamed);
   };
 }
 
 export function useSideEffects({
-  interactiveSession,
+  uiEventPort,
   baseHandleSubmit,
   setSessionName,
   refreshStatusLineSettings,
@@ -95,14 +95,14 @@ export function useSideEffects({
     openAgentSwitcher,
   };
 
-  useEffect(
+  useLayoutEffect(
     () =>
       subscribeToSessionUiEvents(
-        interactiveSession,
+        uiEventPort,
         { setShowPluginTUI, setShowTransportTUI, setShowSessionPicker },
         handlersRef,
       ),
-    [interactiveSession],
+    [uiEventPort],
   );
 
   const handleSubmit = useCallback(

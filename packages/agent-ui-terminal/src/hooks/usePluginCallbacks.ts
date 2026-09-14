@@ -1,31 +1,38 @@
 /**
- * Hook: returns a no-op ICommandPluginAdapter for when no plugin adapter is provided.
+ * Hook: uses the host plugin adapter, or an explicit unsupported adapter when none is provided.
  *
- * In normal usage, App receives commandHostAdapters.plugin from the CLI (agent-cli), which
- * constructs the real adapter. This fallback exists only for test environments where no adapter
- * is injected.
+ * A missing host capability must fail visibly. Returning successful no-ops would make the plugin
+ * screen claim mutations succeeded while changing nothing.
  */
 
 import { useMemo } from 'react';
 
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 
-function createNoOpPluginAdapter(): ICommandPluginAdapter {
+function unsupported(): Promise<never> {
+  return Promise.reject(new Error('Plugin management is unavailable in this host.'));
+}
+
+function createUnsupportedPluginAdapter(): ICommandPluginAdapter {
   return {
-    listInstalled: async () => [],
-    listAvailablePlugins: async () => [],
-    install: async () => undefined,
-    uninstall: async () => undefined,
-    enable: async () => undefined,
-    disable: async () => undefined,
-    marketplaceAdd: async () => '',
-    marketplaceRemove: async () => undefined,
-    marketplaceUpdate: async () => undefined,
-    marketplaceList: async () => [],
-    reloadPlugins: async () => ({ loadedPluginCount: 0 }),
+    listInstalled: unsupported,
+    listAvailablePlugins: unsupported,
+    install: unsupported,
+    uninstall: unsupported,
+    enable: unsupported,
+    disable: unsupported,
+    marketplaceAdd: unsupported,
+    marketplaceRemove: unsupported,
+    marketplaceUpdate: unsupported,
+    marketplaceList: unsupported,
+    reloadPlugins: unsupported,
   };
 }
 
-export function usePluginCallbacks(_cwd: string): ICommandPluginAdapter {
-  return useMemo(() => createNoOpPluginAdapter(), []);
+export function resolvePluginCallbacks(adapter?: ICommandPluginAdapter): ICommandPluginAdapter {
+  return adapter ?? createUnsupportedPluginAdapter();
+}
+
+export function usePluginCallbacks(adapter?: ICommandPluginAdapter): ICommandPluginAdapter {
+  return useMemo(() => resolvePluginCallbacks(adapter), [adapter]);
 }

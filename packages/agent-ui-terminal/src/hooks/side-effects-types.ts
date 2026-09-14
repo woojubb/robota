@@ -1,4 +1,4 @@
-import type { InteractiveSession } from '@robota-sdk/agent-framework';
+import type { ITuiSessionUiEventPort } from '../tui-app-channel-port.js';
 import type { IStatusLineCommandSettings as TStatusLineSettings } from '@robota-sdk/agent-interface-command';
 
 export type { TStatusLineSettings };
@@ -10,7 +10,7 @@ export type { TStatusLineSettings };
  * executes no command semantics (the session layer applies host actions before the result returns).
  */
 export interface IUseSideEffectsOptions {
-  interactiveSession: InteractiveSession;
+  uiEventPort: ITuiSessionUiEventPort;
   baseHandleSubmit: (input: string) => Promise<void>;
   /** Reflect the host-executed rename (broadcast `session_renamed`) into the rendered title. */
   setSessionName: (name: string) => void;

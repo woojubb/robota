@@ -21,8 +21,8 @@ import { PALETTE } from './tui-palette.js';
 import { expandPasteLabels } from './utils/paste-labels.js';
 import WaveText from './WaveText.js';
 
+import type { ITuiCommandQueryPort } from './tui-app-channel-port.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { CommandRegistry } from '@robota-sdk/agent-framework';
 import type { ICommand } from '@robota-sdk/agent-interface-command';
 
 const PENDING_PROMPT_DISPLAY_MAX = 50;
@@ -32,11 +32,12 @@ interface IProps {
   onSubmit: (value: string) => void;
   onCancelQueue?: () => void;
   isDisabled: boolean;
+  isQueueCancellationDisabled?: boolean;
   isAborting?: boolean;
   pendingPrompt?: string | null;
   /** REMOTE-014 E5: total queued turns (owner + co-drivers); >1 surfaces a co-driver-queued hint. */
   pendingCount?: number;
-  registry?: CommandRegistry;
+  commandQueryPort?: ITuiCommandQueryPort;
   sessionName?: string;
   history?: readonly IHistoryEntry[];
   /**
@@ -70,10 +71,11 @@ export default function InputArea({
   onSubmit,
   onCancelQueue,
   isDisabled,
+  isQueueCancellationDisabled,
   isAborting,
   pendingPrompt,
   pendingCount,
-  registry,
+  commandQueryPort,
   sessionName,
   history,
   onRequestFocusBackgroundList,
@@ -108,7 +110,7 @@ export default function InputArea({
     setSelectedIndex,
     isSubcommandMode,
     setShowPopup,
-  } = useAutocomplete(value, registry);
+  } = useAutocomplete(value, commandQueryPort);
 
   const handlePaste = useCallback((text: string, cursorPosition: number) => {
     pasteIdRef.current += 1;
@@ -196,6 +198,7 @@ export default function InputArea({
   useInputAreaKeys({
     value,
     isDisabled,
+    isQueueCancellationDisabled: isQueueCancellationDisabled ?? isDisabled,
     pendingPrompt,
     showPopup,
     setShowPopup,

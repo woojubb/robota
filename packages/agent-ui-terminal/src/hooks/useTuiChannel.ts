@@ -1,30 +1,37 @@
 /**
- * useTuiChannel — React hook that subscribes to TuiInteractionChannel state changes.
- *
- * Returns the same shape as the former IInteractiveSessionState so that App.tsx
- * changes are minimal.
+ * useTuiChannel — React hook that subscribes to the bounded TUI channel port.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 
+import type {
+  ITuiAppChannelPort,
+  ITuiCommandQueryPort,
+  ITuiRuntimeStatusSnapshot,
+  ITuiSessionUiEventPort,
+} from '../tui-app-channel-port.js';
 import type { ITuiSessionEventNotice } from '../tui-session-events.js';
-import type { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import type { IPendingPermissionRequest } from '../types.js';
-import type { IActionRequest, IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
-import type { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
+import type {
+  IActionRequest,
+  IHistoryEntry,
+  TActionResponse,
+  TPermissionMode,
+  TSessionEndReason,
+} from '@robota-sdk/agent-core';
 import type {
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
 import type { IToolState } from '@robota-sdk/agent-interface-session';
 
-export interface IInteractiveSessionState {
-  interactiveSession: InteractiveSession;
-  registry: CommandRegistry;
-  history: IHistoryEntry[];
+export interface ITuiChannelState {
+  uiEventPort: ITuiSessionUiEventPort;
+  commandQueryPort: ITuiCommandQueryPort;
+  history: readonly IHistoryEntry[];
   addEntry: (entry: IHistoryEntry) => void;
   streamingText: string;
-  activeTools: IToolState[];
+  activeTools: readonly IToolState[];
   isThinking: boolean;
   isAborting: boolean;
   /** ERR-001 G2: humanized message of the last failed turn (null once the next turn starts). */
@@ -46,6 +53,9 @@ export interface IInteractiveSessionState {
   handleAbort: () => void;
   handleCancelQueue: () => void;
   handleShutdown: (reason?: TSessionEndReason) => Promise<void>;
+  sendAgentJob: (taskId: string, input: string) => Promise<void>;
+  resolveUserAction: (request: IActionRequest, response: TActionResponse) => void;
+  getRuntimeStatusSnapshot: (fallback: TPermissionMode) => ITuiRuntimeStatusSnapshot;
   selectExecutionWorkspaceEntry: (entryId: string) => void;
   readExecutionWorkspaceDetail: (entryId: string) => Promise<IExecutionDetailPage>;
 }
@@ -65,17 +75,11 @@ export function applyCompactEventToManager(
   manager.syncHistory(interactiveSession.getFullHistory());
 }
 
-export function useTuiChannel(channel: TuiInteractionChannel): IInteractiveSessionState {
+export function useTuiChannel(channel: ITuiAppChannelPort): ITuiChannelState {
   const [, forceRender] = useState(0);
 
-  useEffect(() => {
-    channel.onChange = () => forceRender((n) => n + 1);
-    return () => {
-      channel.onChange = null;
-    };
-  }, [channel]);
-
-  const manager = channel.stateManager;
+  useEffect(() => channel.subscribe(() => forceRender((n) => n + 1)), [channel]);
+  const snapshot = channel.getSnapshot();
 
   // SCREEN-014 fix: these are consumed in `useEffect` dependency arrays in App. `channel` is stable
   // (created once), so memoize them — a fresh closure each render made the detail-loading effect
@@ -91,32 +95,32 @@ export function useTuiChannel(channel: TuiInteractionChannel): IInteractiveSessi
   );
 
   return {
-    interactiveSession: channel.getSession(),
-    registry: channel.getRegistry(),
-    history: manager.history,
-    addEntry: (e) => manager.addEntry(e),
-    streamingText: manager.streamingText,
-    activeTools: manager.activeTools,
-    isThinking: manager.isThinking,
-    isAborting: manager.isAborting,
-    lastErrorMessage: manager.lastErrorMessage,
-    isStalled: manager.isStalled,
-    sessionEventNotices: manager.sessionEventNotices,
-    isShuttingDown: channel.isShuttingDown,
-    pendingPrompt: manager.pendingPrompt,
-    // Read live from the session — the co-drive queue is session-owned. ARCH-012 made the getter
-    // required, so the `?? (pendingPrompt ? 1 : 0)` that used to sit here for "older mocks" was a
-    // branch nothing could take, and a wrong count if it ever did.
-    pendingCount: channel.getSession().getPendingCount(),
-    executionWorkspaceSnapshot: manager.executionWorkspaceSnapshot,
-    selectedExecutionEntryId: manager.selectedExecutionEntryId,
-    permissionRequest: channel.permissionRequest,
-    pendingUserAction: channel.pendingUserAction ?? null,
-    contextState: manager.contextState,
+    uiEventPort: channel.getSessionUiEventPort(),
+    commandQueryPort: channel.getCommandQueryPort(),
+    history: snapshot.history,
+    addEntry: (entry) => channel.addEntry(entry),
+    streamingText: snapshot.streamingText,
+    activeTools: snapshot.activeTools,
+    isThinking: snapshot.isThinking,
+    isAborting: snapshot.isAborting,
+    lastErrorMessage: snapshot.lastErrorMessage,
+    isStalled: snapshot.isStalled,
+    sessionEventNotices: snapshot.sessionEventNotices,
+    isShuttingDown: snapshot.isShuttingDown,
+    pendingPrompt: snapshot.pendingPrompt,
+    pendingCount: snapshot.pendingCount,
+    executionWorkspaceSnapshot: snapshot.executionWorkspaceSnapshot,
+    selectedExecutionEntryId: snapshot.selectedExecutionEntryId,
+    permissionRequest: snapshot.permissionRequest,
+    pendingUserAction: snapshot.pendingUserAction,
+    contextState: snapshot.contextState,
     handleSubmit: (input) => channel.handleInput(input),
     handleAbort: () => channel.abort(),
     handleCancelQueue: () => channel.cancelQueue(),
     handleShutdown: (reason) => channel.shutdown({ reason }),
+    sendAgentJob: (taskId, input) => channel.sendAgentJob(taskId, input),
+    resolveUserAction: (request, response) => channel.resolveUserAction(request, response),
+    getRuntimeStatusSnapshot: (fallback) => channel.getRuntimeStatusSnapshot(fallback),
     selectExecutionWorkspaceEntry,
     readExecutionWorkspaceDetail,
   };

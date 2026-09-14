@@ -22,7 +22,7 @@ import App from '../App.js';
 import { TuiStateManager } from '../tui-state-manager.js';
 
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
-import type { TuiInteractionChannel } from '../TuiInteractionChannel.js';
+import type { ITuiAppChannelPort } from '../tui-app-channel-port.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
@@ -48,6 +48,11 @@ async function waitForFrame(
   throw new Error(`waitForFrame timeout\n--- frame ---\n${lastFrame() ?? '<none>'}`);
 }
 
+async function waitForSessionPicker(lastFrame: () => string | undefined): Promise<void> {
+  await waitForFrame(lastFrame, (frame) => frame.includes('Select a session to resume'));
+  await tick();
+}
+
 interface IFakeChannel {
   sessionName: string | undefined;
   stateManager: TuiStateManager;
@@ -71,7 +76,7 @@ interface IFakeChannel {
   createdFor: string | undefined;
 }
 
-function createFakeChannel(createdFor: string | undefined): IFakeChannel {
+function createFakeChannel(createdFor: string | undefined): IFakeChannel & ITuiAppChannelPort {
   // CMD-004 Stage C: App subscribes to `ui_intent`/`session_renamed` on the session.
   const sessionListeners = new Map<string, Set<(payload: unknown) => void>>();
   const fakeSession = {
@@ -100,9 +105,12 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel {
     getCommands: (): never[] => [],
     getSubcommands: (): never[] => [],
   };
-  return {
+  const manager = new TuiStateManager();
+  let onChange: (() => void) | null = null;
+  const fake: IFakeChannel & ITuiAppChannelPort = {
+    terminalHandoffController: undefined,
     sessionName: undefined,
-    stateManager: new TuiStateManager(),
+    stateManager: manager,
     onChange: null,
     isShuttingDown: false,
     permissionRequest: null,
@@ -114,18 +122,46 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel {
     cancelQueue: vi.fn(),
     shutdown: vi.fn(async () => {}),
     selectExecutionWorkspaceEntry: vi.fn(),
-    readExecutionWorkspaceDetail: vi.fn(async () => ({ lines: [], title: '' })),
+    readExecutionWorkspaceDetail: vi.fn(async (entryId: string) => ({ entryId, records: [] })),
     getSession: () => fakeSession,
     getRegistry: () => fakeRegistry,
+    subscribe: (handler) => {
+      onChange = handler;
+      fake.onChange = handler;
+      return () => {
+        if (onChange === handler) onChange = null;
+        if (fake.onChange === handler) fake.onChange = null;
+      };
+    },
+    getSnapshot: () => ({
+      history: manager.history,
+      streamingText: manager.streamingText,
+      activeTools: manager.activeTools,
+      isThinking: manager.isThinking,
+      isAborting: manager.isAborting,
+      lastErrorMessage: manager.lastErrorMessage,
+      isStalled: manager.isStalled,
+      sessionEventNotices: manager.sessionEventNotices,
+      isShuttingDown: false,
+      pendingPrompt: manager.pendingPrompt,
+      pendingCount: 0,
+      executionWorkspaceSnapshot: manager.executionWorkspaceSnapshot,
+      permissionRequest: null,
+      pendingUserAction: null,
+      contextState: manager.contextState,
+    }),
+    getSessionUiEventPort: () => fakeSession,
+    getCommandQueryPort: () => fakeRegistry,
+    getRuntimeStatusSnapshot: (permissionMode) => ({ permissionMode, sessionId: '' }),
+    addEntry: (entry) => manager.addEntry(entry),
+    sendAgentJob: vi.fn(async () => {}),
+    resolveUserAction: vi.fn(),
     emitSessionEvent: (event, payload) => {
       for (const handler of [...(sessionListeners.get(event) ?? [])]) handler(payload);
     },
     createdFor,
   };
-}
-
-function asChannel(fake: IFakeChannel): TuiInteractionChannel {
-  return fake as unknown as TuiInteractionChannel;
+  return fake;
 }
 
 function createFakeStore(records: IInteractiveSessionRecord[]): IInteractiveSessionStore {
@@ -179,14 +215,28 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
   let cwd: string;
   let created: IFakeChannel[];
   let createChannel: ReturnType<typeof vi.fn>;
+  let initialStartError: Error | undefined;
+  let initialStartIntent: boolean;
 
   beforeEach(() => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-b11-'));
     created = [];
+    initialStartError = undefined;
+    initialStartIntent = false;
     createChannel = vi.fn((resumeSessionId?: string) => {
       const fake = createFakeChannel(resumeSessionId);
+      if (created.length === 0 && initialStartError !== undefined) {
+        fake.start.mockRejectedValueOnce(initialStartError);
+      } else if (created.length === 0 && initialStartIntent) {
+        fake.start.mockImplementationOnce(async () => {
+          fake.emitSessionEvent('ui_intent', {
+            intent: { type: 'show-session-picker' },
+            requesterDriverId: 'owner',
+          });
+        });
+      }
       created.push(fake);
-      return asChannel(fake);
+      return fake;
     });
   });
 
@@ -194,7 +244,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  function renderApp(options?: { sessionIds?: string[] }) {
+  function renderApp(options?: { sessionIds?: string[]; showSessionPickerOnStart?: boolean }) {
     const ids = options?.sessionIds ?? ['session-aaaaaaaa', 'session-bbbbbbbb'];
     const records = ids.map((id) => sessionRecord(id, cwd));
     const store = createFakeStore(records);
@@ -203,7 +253,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
         cwd={cwd}
         createChannel={createChannel}
         sessionStore={store}
-        showSessionPickerOnStart
+        showSessionPickerOnStart={options?.showSessionPickerOnStart ?? true}
         cliAdapter={createCliAdapter(join(cwd, 'settings.json'))}
       />,
     );
@@ -212,7 +262,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
 
   it('TC-01 (B11) / TC-01 (B12): the factory is the sole channel source — once at mount, once per switch with the selected sessionId', async () => {
     const { stdin, lastFrame } = renderApp();
-    await tick();
+    await waitForSessionPicker(lastFrame);
     expect(lastFrame()).toContain('Select a session to resume');
 
     // CLI-B12 TC-01: initial channel from the useState initializer, exactly once.
@@ -228,16 +278,16 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
   });
 
   it('TC-03 (B11) / TC-02 (B12): the previous channel is stopped before the new one becomes active', async () => {
-    const { stdin } = renderApp();
-    await tick();
+    const { stdin, lastFrame } = renderApp();
+    await waitForSessionPicker(lastFrame);
     const initialChannel = created[0]!;
     expect(initialChannel.start).toHaveBeenCalled();
 
     stdin.write('\r');
     await tick();
 
-    // Old channel released: stopped by the switch handler and by the unmounting
-    // AppInner's effect cleanup (stop() is idempotent by contract).
+    // Old channel released by the switch handler; final App teardown belongs to renderApp's
+    // awaitable composition boundary.
     expect(initialChannel.stop).toHaveBeenCalled();
     expect(created).toHaveLength(2);
     const newChannel = created[1]!;
@@ -249,6 +299,65 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     const stopOrder = initialChannel.stop.mock.invocationCallOrder[0]!;
     const replacementOrder = createChannel.mock.invocationCallOrder[1]!;
     expect(stopOrder).toBeLessThan(replacementOrder);
+  });
+
+  it('TC-02 (REFACTOR-025): waits for the prior stop to finish before constructing the replacement', async () => {
+    const { stdin, lastFrame } = renderApp();
+    await waitForSessionPicker(lastFrame);
+    const initialChannel = created[0]!;
+    let releaseStop: (() => void) | undefined;
+    initialChannel.stop.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (releaseStop = resolve)),
+    );
+
+    stdin.write('\r');
+    await tick();
+    expect(initialChannel.stop).toHaveBeenCalledTimes(1);
+    expect(createChannel).toHaveBeenCalledTimes(1);
+    expect(lastFrame()).not.toContain('Select a session to resume');
+
+    releaseStop?.();
+    await waitForFrame(
+      () => '',
+      () => createChannel.mock.calls.length === 2,
+    );
+    expect(createChannel).toHaveBeenNthCalledWith(2, 'session-aaaaaaaa');
+  });
+
+  it('does not construct a replacement after App unmounts during an in-flight switch', async () => {
+    const { stdin, lastFrame, unmount } = renderApp();
+    await waitForSessionPicker(lastFrame);
+    let releaseStop: (() => void) | undefined;
+    created[0]!.stop.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (releaseStop = resolve)),
+    );
+
+    stdin.write('\r');
+    await tick();
+    unmount();
+    releaseStop?.();
+    await tick();
+
+    expect(createChannel).toHaveBeenCalledTimes(1);
+  });
+
+  it('TC-02 (REFACTOR-025): keeps the old channel selected and renders a stop failure', async () => {
+    const { stdin, lastFrame } = renderApp();
+    await waitForSessionPicker(lastFrame);
+    created[0]!.stop.mockRejectedValueOnce(new Error('transport stop failed'));
+
+    stdin.write('\r');
+    await waitForFrame(lastFrame, (frame) =>
+      frame.includes('Session switch failed: transport stop failed'),
+    );
+
+    expect(createChannel).toHaveBeenCalledTimes(1);
+    expect(lastFrame()).toContain('Press Enter to retry.');
+
+    stdin.write('\r');
+    await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 2);
+    // One failed switch and one successful retry.
+    expect(created[0]!.stop).toHaveBeenCalledTimes(2);
   });
 
   it('TC-04 (B12): App renders from the factory alone — no channel prop exists', async () => {
@@ -264,13 +373,51 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     expect(created[0]!.start).toHaveBeenCalled();
   });
 
+  it('REFACTOR-025: renders a start failure, blocks normal input, and retries on Enter', async () => {
+    initialStartError = new Error('transport start failed');
+    const { stdin, lastFrame } = renderApp();
+    await waitForFrame(lastFrame, (frame) =>
+      frame.includes('TUI start failed: transport start failed'),
+    );
+    expect(lastFrame()).toContain('Press Enter to retry.');
+
+    stdin.write('\r');
+    await waitForFrame(lastFrame, () => created[0]!.start.mock.calls.length === 2);
+    await tick();
+    expect(createChannel).toHaveBeenCalledTimes(1);
+    expect(lastFrame()).toContain('Select a session to resume');
+  });
+
+  it('REFACTOR-025: ignores workspace shortcuts while recovery owns input', async () => {
+    initialStartError = new Error('transport start failed');
+    const { stdin, lastFrame } = renderApp({ showSessionPickerOnStart: false });
+    await waitForFrame(lastFrame, (frame) =>
+      frame.includes('TUI start failed: transport start failed'),
+    );
+
+    stdin.write('\x02'); // Ctrl+B must not mutate hidden overlay state.
+    stdin.write('\r');
+    await waitForFrame(lastFrame, () => created[0]!.start.mock.calls.length === 2);
+    await tick();
+
+    expect(lastFrame()).not.toContain('Execution workspace');
+  });
+
+  it('REFACTOR-025: subscribes to UI events before channel startup', async () => {
+    initialStartIntent = true;
+    const { lastFrame } = renderApp({ showSessionPickerOnStart: false });
+
+    await tick(100);
+    expect(lastFrame()).toContain('Select a session to resume');
+  });
+
   it('TC-05: consecutive switches A→B→C create one channel per switch and stop each prior channel', async () => {
     // Selection always takes the top (newest) entry; arrow-key navigation itself
     // is covered by ListPicker.test.tsx. updatedAt ordering decides the target.
     const ids = ['aaaaaaaa-1111', 'bbbbbbbb-2222', 'cccccccc-3333'];
     const { stdin, lastFrame, records } = renderApp({ sessionIds: ids });
     touch(records, 'aaaaaaaa-1111', '2026-06-13T01:00:00.000Z'); // A on top
-    await waitForFrame(lastFrame, (f) => f.includes('Select a session to resume'));
+    await waitForSessionPicker(lastFrame);
 
     // Mount creates the initial channel (factory call 1, undefined).
     expect(createChannel).toHaveBeenNthCalledWith(1, undefined);
@@ -282,6 +429,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     expect(createChannel).toHaveBeenNthCalledWith(2, 'aaaaaaaa-1111');
     expect(channelInitial.stop).toHaveBeenCalled();
     const channelA = created[1]!;
+    await tick(); // allow the replacement view's session-event subscription to attach
 
     // Switch 2: reopen the picker via the requester-routed ui_intent (real /resume path since
     // CMD-004 Stage C: the session emits `ui_intent` and the owner surface renders it).
@@ -298,6 +446,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     expect(channelA.stop).toHaveBeenCalled();
     const channelB = created[2]!;
     expect(channelB.start).toHaveBeenCalled();
+    await tick(); // allow the replacement view's session-event subscription to attach
 
     // Switch 3: same drill from B to C.
     touch(records, 'cccccccc-3333', '2026-06-13T03:00:00.000Z'); // C on top

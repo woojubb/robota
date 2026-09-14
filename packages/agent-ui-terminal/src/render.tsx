@@ -15,6 +15,7 @@ import { TerminalHandoffController } from './terminal-handoff-controller.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
 
 import type { TScreenReaderChannel } from './screen-reader-announcement.js';
+import type { ITuiAppChannelPort } from './tui-app-channel-port.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
 import type {
@@ -206,6 +207,29 @@ export function toChannelOptions(
   };
 }
 
+export async function waitForRenderAndStop<TResult>(
+  waitUntilExit: () => Promise<TResult>,
+  getActiveChannel: () => Pick<ITuiAppChannelPort, 'stop'> | undefined,
+): Promise<void> {
+  let renderFailure: Error | undefined;
+  try {
+    await waitUntilExit();
+  } catch (cause) {
+    renderFailure = cause instanceof Error ? cause : new Error(String(cause));
+  }
+  let stopFailure: Error | undefined;
+  try {
+    await getActiveChannel()?.stop();
+  } catch (cause) {
+    stopFailure = cause instanceof Error ? cause : new Error(String(cause));
+  }
+  if (renderFailure !== undefined && stopFailure !== undefined) {
+    throw new AggregateError([renderFailure, stopFailure], 'TUI render and teardown both failed.');
+  }
+  if (renderFailure !== undefined) throw renderFailure;
+  if (stopFailure !== undefined) throw stopFailure;
+}
+
 export async function renderApp(options: IRenderOptions): Promise<void> {
   // ERR-001 / Library Neutrality Rule: NO process-level error policy here — process survival
   // is the product assembly's boundary (agent-cli installs the guards via onChannelReady).
@@ -233,9 +257,10 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
   // channel re-creations (session switch) so the handoff capability survives a session swap.
   const handoffController = new TerminalHandoffController();
 
-  // Single-owner lifecycle (CLI-B12): render.tsx supplies only the factory;
-  // App creates, replaces, and stops channels exclusively through React state.
-  const createChannel = (resumeSessionId?: string): TuiInteractionChannel => {
+  // Concrete framework creation has one composition boundary. React receives only the bounded port;
+  // App owns which narrowed channel is active, while each channel owns its own lifecycle.
+  let activeChannel: ITuiAppChannelPort | undefined;
+  const createChannel = (resumeSessionId?: string): ITuiAppChannelPort => {
     const channel = new TuiInteractionChannel({
       ...toChannelOptions(options, resumeSessionId),
       terminalHandoff: handoffController,
@@ -243,6 +268,7 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
     // Expose each live channel (incl. session-switch re-creations) to the embedding product,
     // e.g. for process-level error routing (ERR-001 G1).
     options.onChannelReady?.(channel);
+    activeChannel = channel;
     return channel;
   };
 
@@ -265,6 +291,7 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
         showSessionPickerOnStart={options.showSessionPickerOnStart}
         startupUpdateNotice={options.startupUpdateNotice}
         transportRegistry={options.transportRegistry}
+        pluginAdapter={options.commandHostAdapters?.plugin}
         cliAdapter={options.cliAdapter}
       />
     </ScreenReaderProvider>,
@@ -272,5 +299,8 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
   );
   // The controller needs the Ink instance to clear the frame before a handoff.
   handoffController.setInkInstance(instance);
-  await instance.waitUntilExit();
+  await waitForRenderAndStop(
+    () => instance.waitUntilExit(),
+    () => activeChannel,
+  );
 }

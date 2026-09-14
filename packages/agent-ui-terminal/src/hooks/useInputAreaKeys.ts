@@ -23,6 +23,7 @@ import type { ICommand } from '@robota-sdk/agent-interface-command';
 export interface IUseInputAreaKeysInputs {
   value: string;
   isDisabled: boolean;
+  isQueueCancellationDisabled: boolean;
   pendingPrompt?: string | null;
   showPopup: boolean;
   setShowPopup: (shown: boolean) => void;
@@ -66,7 +67,7 @@ function useAutocompletePopupKeys(inputs: IUseInputAreaKeysInputs): void {
 
 /** Register the autocomplete-popup, prompt-history and queued-prompt bindings. */
 export function useInputAreaKeys(inputs: IUseInputAreaKeysInputs): void {
-  const { showPopup, isDisabled, pendingPrompt } = inputs;
+  const { showPopup, isDisabled, isQueueCancellationDisabled, pendingPrompt } = inputs;
 
   useAutocompletePopupKeys(inputs);
 
@@ -105,6 +106,6 @@ export function useInputAreaKeys(inputs: IUseInputAreaKeysInputs): void {
         inputs.onCancelQueue?.();
       }
     },
-    { isActive: !!pendingPrompt },
+    { isActive: !!pendingPrompt && !isQueueCancellationDisabled },
   );
 }

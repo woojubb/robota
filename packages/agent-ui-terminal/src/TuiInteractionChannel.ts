@@ -12,37 +12,42 @@ import {
   generateSessionName,
 } from '@robota-sdk/agent-framework';
 
-import { attributedUserEcho } from './attributed-user-echo.js';
 import { createSessionInitPoller } from './flows/session-init-poller.js';
 import { applySystemCommandResult } from './hooks/command-result-handler.js';
-import { bindTuiSessionEvent, bindTuiSessionNoticeEvents } from './tui-session-binding.js';
+import {
+  TuiChannelLifecycleCoordinator,
+  TuiChannelStartRollbackError,
+} from './tui-channel-lifecycle-coordinator.js';
+import { TuiPermissionQueue, TuiUserActionQueue } from './tui-interaction-queues.js';
+import { TuiSessionEventProjector } from './tui-session-event-projector.js';
 import { buildTuiSessionOptions } from './tui-session-options.js';
 import { TuiStateManager } from './tui-state-manager.js';
 
 import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-init-poller.js';
 import type { TerminalHandoffController } from './terminal-handoff-controller.js';
+import type {
+  ITuiAppChannelPort,
+  ITuiChannelSnapshot,
+  ITuiCommandQueryPort,
+  ITuiRuntimeStatusSnapshot,
+  ITuiSessionUiEventPort,
+} from './tui-app-channel-port.js';
 import type { ITuiInteractionChannelOptions } from './tui-channel-options.js';
-import type { ITuiSessionEventBinding } from './tui-session-binding.js';
 import type { IPendingPermissionRequest } from './types.js';
-import type { TSessionEndReason } from '@robota-sdk/agent-core';
-import type { TToolArgs } from '@robota-sdk/agent-core';
+import type {
+  IHistoryEntry,
+  TPermissionMode,
+  TSessionEndReason,
+  TToolArgs,
+} from '@robota-sdk/agent-core';
 // CMD-004 unified action contract (SSOT in agent-core).
 import type {
   IActionRequest,
   TActionResponse as TUserActionResponse,
 } from '@robota-sdk/agent-core';
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
-import type {
-  IExecutionDetailPage,
-  IExecutionWorkspaceEvent,
-} from '@robota-sdk/agent-interface-execution';
-import type {
-  ICommandInfo,
-  IExecutionResult,
-  IInteractiveSessionEvents,
-  TInteractiveEventName,
-  TPermissionResultValue,
-} from '@robota-sdk/agent-interface-session';
+import type { IExecutionDetailPage } from '@robota-sdk/agent-interface-execution';
+import type { ICommandInfo, TPermissionResultValue } from '@robota-sdk/agent-interface-session';
 
 const SESSION_INIT_POLL_MS = 200;
 const SESSION_INIT_TIMEOUT_MS = 15000;
@@ -52,7 +57,7 @@ const SHUTDOWN_TIMEOUT_MS = 5000;
 
 export type { ITuiInteractionChannelOptions } from './tui-channel-options.js';
 
-export class TuiInteractionChannel {
+export class TuiInteractionChannel implements ITuiAppChannelPort {
   readonly stateManager: TuiStateManager;
 
   private readonly interactiveSession: InteractiveSession;
@@ -61,45 +66,20 @@ export class TuiInteractionChannel {
 
   private submitHandler: ((text: string) => Promise<void>) | null = null;
 
-  // CMD-004 unified ask path. Handles `ask_request` from InteractiveSession and is rendered by
-  // App's PendingActionPrompt.
-  private userActionQueue: Array<{
-    request: IActionRequest;
-    resolve: (response: TUserActionResponse) => void;
-    /** REMOTE-007: framework prompt id, so `prompt_resolved` can dismiss it on co-drive. */
-    id?: string;
-  }> = [];
-  private processingUserAction = false;
-
-  permissionRequest: IPendingPermissionRequest | null = null;
-  /** CMD-004: the action currently awaiting a user answer, or null. Read by App to render the dialog. */
-  pendingUserAction: IActionRequest | null = null;
+  private readonly userActions: TuiUserActionQueue;
+  private readonly permissions: TuiPermissionQueue;
+  private readonly eventProjector: TuiSessionEventProjector;
+  private readonly lifecycle: TuiChannelLifecycleCoordinator;
   availableCommands: ICommandInfo[] = [];
-  isShuttingDown = false;
   sessionName: string | undefined;
 
   private autoNameTriggered = false;
-  private sessionStarted = false;
   private initPoller: ISessionInitPoller | null = null;
 
   /** TERM-002: the App registers its Ink suspend/resume hooks into this controller. */
   get terminalHandoffController(): TerminalHandoffController | undefined {
     return this.opts.terminalHandoff;
   }
-  private permissionQueue: Array<{
-    toolName: string;
-    toolArgs: TToolArgs;
-    resolve: (result: TPermissionResultValue) => void;
-    /** REMOTE-007: framework prompt id, so `prompt_resolved` can dismiss it on co-drive. */
-    id?: string;
-  }> = [];
-  private processingPermission = false;
-
-  /** Retained session-event bindings so stop() can unwire every listener (CLI-075 RUNTIME-31). */
-  private sessionEventBindings: ITuiSessionEventBinding[] = [];
-  /** Idempotency guard for the full channel teardown (CLI-075). */
-  private stopped = false;
-
   /** Set by React hook to trigger re-render on state change */
   onChange: (() => void) | null = null;
 
@@ -108,9 +88,99 @@ export class TuiInteractionChannel {
     this.sessionName = opts.sessionName;
     this.stateManager = new TuiStateManager();
     this.stateManager.onChange = () => this.onChange?.();
+    this.userActions = new TuiUserActionQueue(() => this.onChange?.());
+    this.permissions = new TuiPermissionQueue(() => this.onChange?.());
 
     this.interactiveSession = this.createSession();
     this.registry = this.createRegistry();
+    this.eventProjector = new TuiSessionEventProjector({
+      session: this.interactiveSession,
+      manager: this.stateManager,
+      onUserMessage: (content) => this.handleAutoNaming(content),
+      requestPermission: (toolName, toolArgs, id) =>
+        this.permissions.enqueue(toolName, toolArgs, id),
+      askUser: (request, id) => this.askUser(request, id),
+      dismissPrompt: (id) => this.dismissPromptById(id),
+      ...(opts.onSessionEventDeliveryError
+        ? { onDeliveryError: opts.onSessionEventDeliveryError }
+        : {}),
+    });
+    this.lifecycle = new TuiChannelLifecycleCoordinator(
+      {
+        start: () => this.startRuntime(),
+        stop: async () => {
+          this.eventProjector.unwire();
+          this.cancelAllPermissions();
+          this.cancelAllUserActions();
+          this.stopInitCheck();
+          this.onChange = null;
+          this.stateManager.dispose();
+          await this.stopTransports();
+        },
+        beginShutdown: () => {
+          this.cancelAllUserActions();
+          this.cancelAllPermissions();
+          this.stateManager.addEntry(
+            messageToHistoryEntry(createSystemMessage('Shutting down...')),
+          );
+          this.onChange?.();
+        },
+        shutdownSession: async ({ reason, message }) => {
+          await this.interactiveSession.shutdown({ reason, message });
+        },
+      },
+      SHUTDOWN_TIMEOUT_MS,
+    );
+  }
+
+  private async startRuntime(): Promise<void> {
+    let transportStartAttempted = false;
+    try {
+      this.eventProjector.wire();
+      this.syncRestoredHistory();
+      this.startInitCheck();
+      if (this.opts.transportRegistry) {
+        transportStartAttempted = true;
+        await this.opts.transportRegistry.startAll(this.interactiveSession);
+      }
+    } catch (startError) {
+      this.eventProjector.unwire();
+      this.stopInitCheck();
+      if (transportStartAttempted && this.opts.transportRegistry) {
+        try {
+          await this.stopTransports();
+        } catch (rollbackError) {
+          const rollbackErrors =
+            rollbackError instanceof AggregateError ? rollbackError.errors : [rollbackError];
+          throw new TuiChannelStartRollbackError(
+            [startError, ...rollbackErrors],
+            'TUI channel start failed and transport rollback also failed.',
+          );
+        }
+      }
+      throw startError;
+    }
+  }
+
+  private async stopTransports(): Promise<void> {
+    if (!this.opts.transportRegistry) return;
+    const result = await this.opts.transportRegistry.stopAll();
+    if (result.errors.length > 0) {
+      throw new AggregateError(result.errors, 'TUI transport teardown failed.');
+    }
+  }
+
+  get permissionRequest(): IPendingPermissionRequest | null {
+    return this.permissions.current;
+  }
+
+  /** CMD-004: the action currently awaiting a user answer, or null. */
+  get pendingUserAction(): IActionRequest | null {
+    return this.userActions.current;
+  }
+
+  get isShuttingDown(): boolean {
+    return this.lifecycle.isShuttingDown;
   }
 
   private createSession(): InteractiveSession {
@@ -140,15 +210,7 @@ export class TuiInteractionChannel {
   }
 
   async start(): Promise<void> {
-    if (this.sessionStarted) return;
-    this.sessionStarted = true;
-    this.wireSessionEvents();
-    this.syncRestoredHistory();
-    this.startInitCheck();
-
-    if (this.opts.transportRegistry) {
-      await this.opts.transportRegistry.startAll(this.interactiveSession);
-    }
+    await this.lifecycle.start();
   }
 
   /**
@@ -158,21 +220,7 @@ export class TuiInteractionChannel {
    * or switched-away channel releases its background tasks, subagent processes, and timers.
    */
   async stop(): Promise<void> {
-    if (this.stopped) return;
-    this.stopped = true;
-    this.sessionStarted = false;
-    this.unwireSessionEvents();
-    this.cancelAllPermissions();
-    this.cancelAllUserActions();
-    this.stopInitCheck();
-    this.onChange = null;
-    this.stateManager.dispose();
-    if (this.opts.transportRegistry) {
-      await this.opts.transportRegistry.stopAll();
-    }
-    if (!this.isShuttingDown) {
-      await this.shutdownSessionBounded('other', 'channel stopped', SHUTDOWN_TIMEOUT_MS);
-    }
+    await this.lifecycle.stop();
   }
 
   // ── Additional methods for App.tsx ───────────────────────────
@@ -183,6 +231,65 @@ export class TuiInteractionChannel {
 
   getRegistry(): CommandRegistry {
     return this.registry;
+  }
+
+  subscribe(onChange: () => void): () => void {
+    this.onChange = onChange;
+    return () => {
+      if (this.onChange === onChange) this.onChange = null;
+    };
+  }
+
+  getSnapshot(): ITuiChannelSnapshot {
+    const manager = this.stateManager;
+    return {
+      history: manager.history,
+      streamingText: manager.streamingText,
+      activeTools: manager.activeTools,
+      isThinking: manager.isThinking,
+      isAborting: manager.isAborting,
+      lastErrorMessage: manager.lastErrorMessage,
+      isStalled: manager.isStalled,
+      sessionEventNotices: manager.sessionEventNotices,
+      isShuttingDown: this.isShuttingDown,
+      pendingPrompt: manager.pendingPrompt,
+      pendingCount: this.interactiveSession.getPendingCount(),
+      executionWorkspaceSnapshot: manager.executionWorkspaceSnapshot,
+      ...(manager.selectedExecutionEntryId !== undefined
+        ? { selectedExecutionEntryId: manager.selectedExecutionEntryId }
+        : {}),
+      permissionRequest: this.permissionRequest,
+      pendingUserAction: this.pendingUserAction,
+      contextState: manager.contextState,
+    };
+  }
+
+  getCommandQueryPort(): ITuiCommandQueryPort {
+    return this.registry;
+  }
+
+  getSessionUiEventPort(): ITuiSessionUiEventPort {
+    return this.interactiveSession;
+  }
+
+  getRuntimeStatusSnapshot(fallbackPermissionMode: TPermissionMode): ITuiRuntimeStatusSnapshot {
+    try {
+      const session = this.interactiveSession.getSession();
+      const activePresetId = session.getActivePresetId?.();
+      const effort = session.getModelEffort();
+      return {
+        permissionMode: session.getPermissionMode(),
+        sessionId: session.getSessionId(),
+        ...(activePresetId !== undefined ? { activePresetId } : {}),
+        ...(effort !== undefined ? { effort } : {}),
+      };
+    } catch {
+      return { permissionMode: fallbackPermissionMode, sessionId: '' };
+    }
+  }
+
+  addEntry(entry: IHistoryEntry): void {
+    this.stateManager.addEntry(entry);
   }
 
   abort(): void {
@@ -200,40 +307,7 @@ export class TuiInteractionChannel {
   }
 
   async shutdown(options?: { reason?: TSessionEndReason; timeoutMs?: number }): Promise<void> {
-    if (this.isShuttingDown) return;
-    this.isShuttingDown = true;
-    this.cancelAllUserActions();
-    this.cancelAllPermissions();
-    this.stateManager.addEntry(messageToHistoryEntry(createSystemMessage('Shutting down...')));
-    this.onChange?.();
-    await this.shutdownSessionBounded(
-      options?.reason ?? 'prompt_input_exit',
-      'CLI shutdown',
-      options?.timeoutMs ?? SHUTDOWN_TIMEOUT_MS,
-    );
-  }
-
-  /**
-   * Await the SDK-owned session shutdown, but never longer than `timeoutMs`. A hung subsystem
-   * (unresolved background task, stuck child process) must not wedge process exit — a second
-   * Ctrl+C force-quits (RUNTIME-33), and this bound guarantees the first one still completes.
-   * Best-effort: shutdown errors are swallowed here (the process is exiting regardless).
-   */
-  private async shutdownSessionBounded(
-    reason: TSessionEndReason,
-    message: string,
-    timeoutMs: number,
-  ): Promise<void> {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<void>((resolve) => {
-      timer = setTimeout(resolve, timeoutMs);
-      timer.unref?.();
-    });
-    await Promise.race([
-      this.interactiveSession.shutdown({ reason, message }).catch(() => undefined), // allow-fallback: best-effort shutdown — process is exiting; a shutdown error must not block exit
-      timeout,
-    ]);
-    if (timer) clearTimeout(timer);
+    await this.lifecycle.shutdown(options);
   }
 
   selectExecutionWorkspaceEntry(entryId: string): void {
@@ -262,47 +336,17 @@ export class TuiInteractionChannel {
    * `IInteractionChannel.askUser` caller (no id).
    */
   async askUser(request: IActionRequest, id?: string): Promise<TUserActionResponse> {
-    return new Promise<TUserActionResponse>((resolve) => {
-      this.userActionQueue.push({ request, resolve, ...(id !== undefined ? { id } : {}) });
-      this.processNextUserAction();
-    });
+    return this.userActions.enqueue(request, id);
   }
 
   /** Called by App's PendingActionPrompt when the user answers (or cancels) the pending action. */
-  resolveUserAction(response: TUserActionResponse): void {
-    const pending = this.userActionQueue[0];
-    if (!pending) return;
-    this.userActionQueue.shift();
-    this.processingUserAction = false;
-    this.pendingUserAction = null;
-    this.onChange?.();
-    pending.resolve(response);
-    this.processNextUserAction();
-  }
-
-  private processNextUserAction(): void {
-    if (this.processingUserAction) return;
-    const next = this.userActionQueue[0];
-    if (!next) {
-      this.pendingUserAction = null;
-      this.onChange?.();
-      return;
-    }
-    this.processingUserAction = true;
-    this.pendingUserAction = next.request;
-    this.onChange?.();
+  resolveUserAction(request: IActionRequest, response: TUserActionResponse): void {
+    this.userActions.resolveCurrent(request, response);
   }
 
   /** Resolve every queued/in-flight ask as cancelled (abort, shutdown). */
   private cancelAllUserActions(): void {
-    const queued = this.userActionQueue;
-    this.userActionQueue = [];
-    this.processingUserAction = false;
-    this.pendingUserAction = null;
-    for (const pending of queued) {
-      pending.resolve({ type: 'cancelled' });
-    }
-    this.onChange?.();
+    this.userActions.cancelAll();
   }
 
   async handleInput(input: string): Promise<void> {
@@ -349,15 +393,7 @@ export class TuiInteractionChannel {
     toolArgs: TToolArgs,
     id?: string,
   ): Promise<TPermissionResultValue> {
-    return new Promise<TPermissionResultValue>((resolve) => {
-      this.permissionQueue.push({
-        toolName,
-        toolArgs,
-        resolve,
-        ...(id !== undefined ? { id } : {}),
-      });
-      this.processNextPermission();
-    });
+    return this.permissions.enqueue(toolName, toolArgs, id);
   }
 
   /**
@@ -366,47 +402,8 @@ export class TuiInteractionChannel {
    * — that id is already settled — but it clears the TUI's queue + render state.
    */
   private dismissPromptById(id: string): void {
-    if (this.userActionQueue.some((entry) => entry.id === id)) {
-      const remaining = this.userActionQueue.filter((entry) => entry.id !== id);
-      const dismissed = this.userActionQueue.filter((entry) => entry.id === id);
-      this.userActionQueue = remaining;
-      this.processingUserAction = false;
-      this.pendingUserAction = null;
-      for (const entry of dismissed) entry.resolve({ type: 'cancelled' });
-      this.processNextUserAction();
-    }
-    if (this.permissionQueue.some((entry) => entry.id === id)) {
-      const remaining = this.permissionQueue.filter((entry) => entry.id !== id);
-      const dismissed = this.permissionQueue.filter((entry) => entry.id === id);
-      this.permissionQueue = remaining;
-      this.processingPermission = false;
-      this.permissionRequest = null;
-      for (const entry of dismissed) entry.resolve(false);
-      this.processNextPermission();
-    }
-  }
-
-  private processNextPermission(): void {
-    if (this.processingPermission) return;
-    const next = this.permissionQueue[0];
-    if (!next) {
-      this.permissionRequest = null;
-      this.onChange?.();
-      return;
-    }
-    this.processingPermission = true;
-    this.permissionRequest = {
-      toolName: next.toolName,
-      toolArgs: next.toolArgs,
-      resolve: (result) => {
-        this.permissionQueue.shift();
-        this.processingPermission = false;
-        this.permissionRequest = null;
-        next.resolve(result);
-        setTimeout(() => this.processNextPermission(), 0);
-      },
-    };
-    this.onChange?.();
+    this.userActions.dismissById(id);
+    this.permissions.dismissById(id);
   }
 
   /**
@@ -415,114 +412,7 @@ export class TuiInteractionChannel {
    * permission promise dangling (the tool would hang) nor silently grant it (CLI-075 RUNTIME-32).
    */
   private cancelAllPermissions(): void {
-    const queued = this.permissionQueue;
-    this.permissionQueue = [];
-    this.processingPermission = false;
-    this.permissionRequest = null;
-    for (const pending of queued) {
-      pending.resolve(false);
-    }
-    this.onChange?.();
-  }
-
-  private wireSessionEvents(): void {
-    const session = this.interactiveSession;
-    const manager = this.stateManager;
-
-    const onUserMessage = (content: string): void => {
-      this.handleAutoNaming(content);
-      manager.addEntry(attributedUserEcho(content, session));
-    };
-    const onComplete = (result: IExecutionResult): void => {
-      manager.onComplete(result);
-      manager.syncHistory(session.getFullHistory());
-    };
-    const onError = (error: Error): void => {
-      manager.onError(error);
-      manager.syncHistory(session.getFullHistory());
-    };
-    const onCompact = (): void => {
-      manager.syncHistory(session.getFullHistory());
-    };
-    const onSkillActivation = (): void => {
-      manager.syncHistory(session.getFullHistory());
-    };
-    const onMemoryEvent = (): void => {
-      manager.syncHistory(session.getFullHistory());
-    };
-    const onExecutionWorkspaceEvent = (event: IExecutionWorkspaceEvent): void => {
-      manager.syncExecutionWorkspaceSnapshot(event.snapshot);
-    };
-    // CMD-004 Stage E: the broadcast `history_cleared` is the transcript-refresh carrier — a clear
-    // performed by ANY surface (co-driving remote /clear included) empties this transcript too.
-    const onHistoryCleared = (): void => {
-      manager.clearHistory();
-    };
-    this.bindSession('user_message', onUserMessage);
-    this.bindSession('text_delta', manager.onTextDelta);
-    this.bindSession('tool_start', manager.onToolStart);
-    this.bindSession('tool_end', manager.onToolEnd);
-    this.bindSession('thinking', manager.onThinking);
-    this.bindSession('complete', onComplete);
-    this.bindSession('interrupted', manager.onInterrupted);
-    this.bindSession('error', onError);
-    this.bindSession('context_update', manager.onContextUpdate);
-    this.bindSession('compact', onCompact);
-    this.bindSession('skill_activation', onSkillActivation);
-    this.bindSession('memory_event', onMemoryEvent);
-    this.bindSession('execution_workspace_event', onExecutionWorkspaceEvent);
-    this.bindSession('history_cleared', onHistoryCleared);
-    bindTuiSessionNoticeEvents(this.bindSession.bind(this), manager);
-
-    // REMOTE-007: the TUI is a subscribed surface for the transport-neutral permission/ask events. It
-    // renders each through its existing Ink queues and answers via `resolvePermission`/`resolveAsk`; a
-    // `prompt_resolved` (from co-drive or the framework's teardown drain) dismisses the local dialog.
-    const onPermissionRequest: IInteractiveSessionEvents['permission_request'] = ({
-      id,
-      toolName,
-      toolArgs,
-    }) => {
-      void this.handlePermissionRequest(toolName, toolArgs, id)
-        .then((result) => session.resolvePermission(id, result))
-        .catch(() => session.resolvePermission(id, false));
-    };
-    const onAskRequest: IInteractiveSessionEvents['ask_request'] = ({ id, request }) => {
-      void this.askUser(request, id)
-        .then((response) => session.resolveAsk(id, response))
-        .catch(() => session.resolveAsk(id, { type: 'cancelled' }));
-    };
-    const onPromptResolved: IInteractiveSessionEvents['prompt_resolved'] = ({ id }) => {
-      this.dismissPromptById(id);
-    };
-    this.bindSession('permission_request', onPermissionRequest);
-    this.bindSession('ask_request', onAskRequest);
-    this.bindSession('prompt_resolved', onPromptResolved);
-  }
-
-  /** Register a session listener and retain the binding so `unwireSessionEvents()` can remove it. */
-  private bindSession<E extends TInteractiveEventName>(
-    event: E,
-    handler: IInteractiveSessionEvents[E],
-  ): void {
-    bindTuiSessionEvent(
-      this.interactiveSession,
-      event,
-      handler,
-      (error) => {
-        const report = this.opts.onSessionEventDeliveryError;
-        if (report) report(error, event);
-        else this.stateManager.addSessionEventDeliveryError(error, event);
-      },
-      this.sessionEventBindings,
-    );
-  }
-
-  /** Detach every session listener registered by `wireSessionEvents()` (CLI-075 RUNTIME-31). */
-  private unwireSessionEvents(): void {
-    for (const { event, handler } of this.sessionEventBindings) {
-      this.interactiveSession.off(event, handler as IInteractiveSessionEvents[typeof event]);
-    }
-    this.sessionEventBindings = [];
+    this.permissions.cancelAll();
   }
 
   private handleAutoNaming(content: string): void {
@@ -551,6 +441,7 @@ export class TuiInteractionChannel {
   }
 
   private startInitCheck(): void {
+    this.stopInitCheck();
     this.initPoller = createSessionInitPoller({
       check: () => this.runInitCheck(),
       intervalMs: SESSION_INIT_POLL_MS,
@@ -564,6 +455,11 @@ export class TuiInteractionChannel {
   /** Throws while the session is not ready; the init poller classifies the error. */
   private runInitCheck(): void {
     const ctx = this.interactiveSession.getContextState();
+    const restoredSessionName = this.interactiveSession.getName();
+    if (restoredSessionName && restoredSessionName !== this.sessionName) {
+      this.sessionName = restoredSessionName;
+      this.onChange?.();
+    }
     this.stateManager.setContextState({
       percentage: ctx.usedPercentage,
       usedTokens: ctx.usedTokens,

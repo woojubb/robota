@@ -41,4 +41,37 @@ describe('InputArea ↓ fall-through into the background list (SCREEN-014)', () 
     await tick();
     expect(onRequestFocusBackgroundList).not.toHaveBeenCalled();
   });
+
+  it('does not cancel a queued prompt while recovery disables the input', async () => {
+    const onCancelQueue = vi.fn();
+    const { stdin } = render(
+      <InputArea
+        onSubmit={vi.fn()}
+        isDisabled
+        pendingPrompt="queued prompt"
+        onCancelQueue={onCancelQueue}
+      />,
+    );
+    await tick();
+    stdin.write('\x7F');
+    await tick();
+    expect(onCancelQueue).not.toHaveBeenCalled();
+  });
+
+  it('keeps queued-prompt cancellation active during ordinary thinking disablement', async () => {
+    const onCancelQueue = vi.fn();
+    const { stdin } = render(
+      <InputArea
+        onSubmit={vi.fn()}
+        isDisabled
+        isQueueCancellationDisabled={false}
+        pendingPrompt="queued prompt"
+        onCancelQueue={onCancelQueue}
+      />,
+    );
+    await tick();
+    stdin.write('\x7F');
+    await tick();
+    expect(onCancelQueue).toHaveBeenCalledTimes(1);
+  });
 });
