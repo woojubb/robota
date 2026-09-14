@@ -105,7 +105,7 @@ export class TuiChannelLifecycleCoordinator {
     }
     const pendingStop = this.stopPromise;
     if (pendingStop !== undefined) {
-      await pendingStop.catch(() => undefined);
+      await pendingStop.catch(() => undefined); // allow-fallback: the stop caller owns teardown failure
       return;
     }
     this.shutdownPromise ??= this.performShutdown(options);
@@ -117,7 +117,9 @@ export class TuiChannelLifecycleCoordinator {
     timeoutMs?: number;
   }): Promise<void> {
     const pendingStart = this.startPromise;
-    if (pendingStart !== undefined) await pendingStart.catch(() => undefined);
+    if (pendingStart !== undefined) {
+      await pendingStart.catch(() => undefined); // allow-fallback: the start caller owns startup failure
+    }
     await this.shutdownSessionBounded(
       { reason: options?.reason ?? 'prompt_input_exit', message: 'CLI shutdown' },
       options?.timeoutMs ?? this.defaultShutdownTimeoutMs,

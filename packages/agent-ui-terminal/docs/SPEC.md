@@ -108,7 +108,9 @@ authoritative for how the TUI releases resources on session switch and process e
   own boundary, every returned transport error is promoted to a channel teardown failure before the
   coordinator can mark the channel stopped. Session shutdown has one shared completion across stop
   retries and concurrent graceful shutdown. Neither stop nor graceful shutdown can report completion
-  while the other teardown path is already pending.
+  while the other teardown path is already pending. When graceful shutdown joins an existing stop, the
+  stop caller remains the owner of any teardown error; the process-exit path observes completion without
+  reporting the same error a second time.
 - **Render ownership.** React effects start channels and release subscriptions, but do not fire-and-forget
   asynchronous teardown. `renderApp()` tracks the active channel, awaits its `stop()` after Ink exits,
   and propagates teardown failure to the embedding caller. An App unmounted during a session switch may
