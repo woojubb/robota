@@ -220,6 +220,10 @@ describe('gate verdict attribution scan', () => {
       JSON.stringify({ cutoffDate: '2026-09-06' }),
     );
     writeFileSync(
+      `${root}/scripts/harness/immutable-attribution-legacy.json`,
+      JSON.stringify({ entries: [] }),
+    );
+    writeFileSync(
       `${root}/.agents/spec-docs/done/a.md`,
       `## Evidence Log\n\n${entry('2026-09-13')}`,
     );

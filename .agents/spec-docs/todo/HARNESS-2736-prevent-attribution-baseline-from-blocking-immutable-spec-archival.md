@@ -27,7 +27,7 @@ Waived: Repository-internal scanner migration correction with no product or exte
 
 - `scripts/harness/scan-gate-verdict-attribution.mjs`
 - `scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`
-- `scripts/harness/gate-verdict-attribution-baseline.json`
+- `scripts/harness/immutable-attribution-legacy.json`
 
 ### Alternatives Considered
 
@@ -38,7 +38,7 @@ Waived: Repository-internal scanner migration correction with no product or exte
    byte-identical matches.
    - Pro: preserves history, fixes all currently latent archive deadlocks, and rejects new or altered
      missing-attribution entries.
-   - Con: adds a bounded migration list to the baseline file.
+   - Con: adds a bounded companion snapshot file.
 
 ### Decision
 
@@ -61,14 +61,15 @@ None
 ## Solution
 
 Hash each gate entry's original text with SHA-256. Extend the migration baseline with the exact
-fingerprints of post-cutoff unattributed entries already present outside `done`, and exclude only those
-exact matches from new violations. Keep the existing date baseline and attribution parsing unchanged.
+fingerprints of post-cutoff unattributed entries already present outside `done` in a companion snapshot,
+and exclude only those exact matches from new violations. Keep the existing date baseline and
+attribution parsing unchanged.
 
 ## Affected Files
 
 - `scripts/harness/scan-gate-verdict-attribution.mjs`
 - `scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`
-- `scripts/harness/gate-verdict-attribution-baseline.json`
+- `scripts/harness/immutable-attribution-legacy.json`
 
 ## Completion Criteria
 

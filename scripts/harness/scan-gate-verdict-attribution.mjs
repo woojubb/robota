@@ -22,7 +22,6 @@ import { resolveWorkspaceRoot } from './shared.mjs';
 
 const ROOT = resolveWorkspaceRoot(import.meta);
 const DONE = path.join(ROOT, '.agents/spec-docs/done');
-const BASELINE = path.join(import.meta.dirname, 'gate-verdict-attribution-baseline.json');
 let examinedEntries = 0;
 
 function entryAttribution(lines, rawLines, previousRawLines) {
@@ -146,10 +145,13 @@ export function main(root = ROOT) {
   const baseline = JSON.parse(
     readFileSync(path.join(root, 'scripts/harness/gate-verdict-attribution-baseline.json'), 'utf8'),
   );
+  const legacyEntries = JSON.parse(
+    readFileSync(path.join(root, 'scripts/harness/immutable-attribution-legacy.json'), 'utf8'),
+  );
   const result = evaluateEntries(
     collectEntries(root),
     baseline.cutoffDate,
-    (baseline.legacyUnattributedEntries ?? []).map((entry) => entry.sha256),
+    legacyEntries.entries.map((entry) => entry.sha256),
   );
   console.log(`::examined:: ${result.total} GATE evidence entries`);
   console.log(
