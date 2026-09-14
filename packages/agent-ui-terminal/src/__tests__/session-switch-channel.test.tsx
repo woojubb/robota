@@ -48,6 +48,11 @@ async function waitForFrame(
   throw new Error(`waitForFrame timeout\n--- frame ---\n${lastFrame() ?? '<none>'}`);
 }
 
+async function waitForSessionPicker(lastFrame: () => string | undefined): Promise<void> {
+  await waitForFrame(lastFrame, (frame) => frame.includes('Select a session to resume'));
+  await tick();
+}
+
 interface IFakeChannel {
   sessionName: string | undefined;
   stateManager: TuiStateManager;
@@ -248,7 +253,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
 
   it('TC-01 (B11) / TC-01 (B12): the factory is the sole channel source — once at mount, once per switch with the selected sessionId', async () => {
     const { stdin, lastFrame } = renderApp();
-    await tick();
+    await waitForSessionPicker(lastFrame);
     expect(lastFrame()).toContain('Select a session to resume');
 
     // CLI-B12 TC-01: initial channel from the useState initializer, exactly once.
@@ -264,8 +269,8 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
   });
 
   it('TC-03 (B11) / TC-02 (B12): the previous channel is stopped before the new one becomes active', async () => {
-    const { stdin } = renderApp();
-    await tick();
+    const { stdin, lastFrame } = renderApp();
+    await waitForSessionPicker(lastFrame);
     const initialChannel = created[0]!;
     expect(initialChannel.start).toHaveBeenCalled();
 
@@ -289,7 +294,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
 
   it('TC-02 (REFACTOR-025): waits for the prior stop to finish before constructing the replacement', async () => {
     const { stdin, lastFrame } = renderApp();
-    await tick();
+    await waitForSessionPicker(lastFrame);
     const initialChannel = created[0]!;
     let releaseStop: (() => void) | undefined;
     initialChannel.stop.mockImplementationOnce(
@@ -311,8 +316,8 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
   });
 
   it('does not construct a replacement after App unmounts during an in-flight switch', async () => {
-    const { stdin, unmount } = renderApp();
-    await tick();
+    const { stdin, lastFrame, unmount } = renderApp();
+    await waitForSessionPicker(lastFrame);
     let releaseStop: (() => void) | undefined;
     created[0]!.stop.mockImplementationOnce(
       () => new Promise<void>((resolve) => (releaseStop = resolve)),
@@ -329,7 +334,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
 
   it('TC-02 (REFACTOR-025): keeps the old channel selected and renders a stop failure', async () => {
     const { stdin, lastFrame } = renderApp();
-    await tick();
+    await waitForSessionPicker(lastFrame);
     created[0]!.stop.mockRejectedValueOnce(new Error('transport stop failed'));
 
     stdin.write('\r');
@@ -380,7 +385,7 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     const ids = ['aaaaaaaa-1111', 'bbbbbbbb-2222', 'cccccccc-3333'];
     const { stdin, lastFrame, records } = renderApp({ sessionIds: ids });
     touch(records, 'aaaaaaaa-1111', '2026-06-13T01:00:00.000Z'); // A on top
-    await waitForFrame(lastFrame, (f) => f.includes('Select a session to resume'));
+    await waitForSessionPicker(lastFrame);
 
     // Mount creates the initial channel (factory call 1, undefined).
     expect(createChannel).toHaveBeenNthCalledWith(1, undefined);
