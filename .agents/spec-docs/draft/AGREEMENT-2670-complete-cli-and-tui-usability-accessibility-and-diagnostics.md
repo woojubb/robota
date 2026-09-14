@@ -126,7 +126,7 @@ None
 - [ ] TC-04: SCREEN-2002 archives with built-in light/dark/daltonized themes, user/plugin themes, live picker, independent syntax highlighting and reduced motion, with no color-only information.
 - [ ] TC-05: BEHAVIOR-2003 archives with schema-backed contextual bindings, hot reload, modifiers, uppercase rules, chords, null unbinding, reserved/conflict diagnostics and derived hints.
 - [ ] TC-06: FLOW-2006 archives with registered allowlisted deep links that select a trusted cwd/repo and prefill without submitting or injecting configuration.
-- [ ] TC-07: REFACTOR-025 archives after Issue #2054's narrow TUI ports and responsibility extractions pass characterization, type-boundary and functional tests; the obsolete deleted scan is explicitly removed from scope.
+- [x] TC-07: REFACTOR-025 archives after Issue #2054's narrow TUI ports and responsibility extractions pass characterization, type-boundary and functional tests; the obsolete deleted scan is explicitly removed from scope.
 - [ ] TC-08: STRUCT-012 archives after S3-S5 consolidate protocol into the parent, rename presentation packages, delete the old protocol package and pass all declared conformance/build tests.
 - [ ] TC-09: BEHAVIOR-2437 archives with argument-safe `/status`, `/diff` and confirmed staged-only `/commit` behavior in a real temporary repository.
 - [ ] TC-10: SCREEN-2442 archives with recorded Terminal.app/iTerm2 Korean IME versions and all four real-cell outcomes, the resulting Apple Terminal policy decision and green regression suites.
