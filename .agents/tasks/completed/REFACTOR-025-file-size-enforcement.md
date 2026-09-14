@@ -1,15 +1,18 @@
 ---
 title: 'REFACTOR-025: Narrow TUI runtime ports and split presentation coordinators'
 issue: https://github.com/woojubb/robota/issues/2670
-status: in-progress
+status: done
 created: 2026-07-04
 priority: high
 urgency: now
 area: packages/agent-ui-terminal
 depends_on: [STRUCT-012]
+completed: 2026-09-15
 ---
 
 # REFACTOR-025: Narrow TUI runtime ports and split presentation coordinators
+
+Spec: `.agents/spec-docs/done/REFACTOR-025-file-size-enforcement.md`
 
 ## Objective
 
@@ -232,9 +235,23 @@ known harness bottleneck.
       prompt, status, background-work, picker or shutdown behavior.
 - [x] TC-05: Existing terminal unit/integration/PTY suites, the provider-injected transcript scenario and
       built CLI PTY launch/exit scenario pass; no file-size scan result is used as delivery evidence.
-- [ ] TC-06: The package SPEC records the new class contracts and ownership boundaries, and the final
+- [x] TC-06: The package SPEC records the new class contracts and ownership boundaries, and the final
       delivery updates the [Issue #2670](https://github.com/woojubb/robota/issues/2670) parent
       projection while leaving unrelated product Tasks open.
+
+## Result
+
+- [Pull Request #2733](https://github.com/woojubb/robota/pull/2733) landed implementation head
+  `3123ddc2104730e569af56330c95fa510b8f2c7f` on `origin/develop` as
+  `4da37774cc50ae84ada434b9a7218ce902013b04`.
+- Exact-head CI passed in runs `34860079241` (CI), `34860079247` (Review Gate), `34860076178`
+  (Workflow Provenance), and `34860079242` (Secret Scan), with `ACTIONABLE FINDINGS: 0` and no review
+  threads.
+- Final verification passed 95 terminal-package files and 847 tests, affected build and typecheck,
+  affected lint with zero errors, the no-fallback scan, and both public-SDK and built-CLI TUI scenarios.
+- Issue #2670 received delivery completion record
+  [#5666346773](https://github.com/woojubb/robota/issues/2670#issuecomment-5666346773) and remains open
+  for its unrelated product Tasks.
 
 ## Provenance
 
