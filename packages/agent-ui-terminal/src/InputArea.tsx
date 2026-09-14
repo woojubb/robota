@@ -32,6 +32,7 @@ interface IProps {
   onSubmit: (value: string) => void;
   onCancelQueue?: () => void;
   isDisabled: boolean;
+  isQueueCancellationDisabled?: boolean;
   isAborting?: boolean;
   pendingPrompt?: string | null;
   /** REMOTE-014 E5: total queued turns (owner + co-drivers); >1 surfaces a co-driver-queued hint. */
@@ -70,6 +71,7 @@ export default function InputArea({
   onSubmit,
   onCancelQueue,
   isDisabled,
+  isQueueCancellationDisabled,
   isAborting,
   pendingPrompt,
   pendingCount,
@@ -196,6 +198,7 @@ export default function InputArea({
   useInputAreaKeys({
     value,
     isDisabled,
+    isQueueCancellationDisabled: isQueueCancellationDisabled ?? isDisabled,
     pendingPrompt,
     showPopup,
     setShowPopup,

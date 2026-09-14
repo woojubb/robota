@@ -125,6 +125,7 @@ function PromptAndStatus({ model }: { model: IAppViewModel }): React.ReactElemen
         onSubmit={input.submit}
         onCancelQueue={input.cancelQueue}
         isDisabled={input.disabled}
+        isQueueCancellationDisabled={input.queueCancellationDisabled}
         isAborting={input.isAborting}
         pendingPrompt={input.pendingPrompt}
         pendingCount={input.pendingCount}

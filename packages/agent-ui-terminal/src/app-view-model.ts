@@ -93,6 +93,7 @@ export interface IAppInputViewModel {
   readonly submit: (input: string) => Promise<void>;
   readonly cancelQueue: () => void;
   readonly disabled: boolean;
+  readonly queueCancellationDisabled: boolean;
   readonly isAborting: boolean;
   readonly pendingPrompt: string | null;
   readonly pendingCount: number;

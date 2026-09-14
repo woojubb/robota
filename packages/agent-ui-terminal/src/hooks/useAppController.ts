@@ -75,16 +75,17 @@ function buildInput(composition: IComposition): IAppInputViewModel {
     screens.showSessionPicker ||
     workspace.background.switcherVisible,
   );
+  const interactionBlocked =
+    composition.coordination.blocked ||
+    overlayOpen ||
+    state.isShuttingDown ||
+    !workspace.isSelectedEntryInteractive ||
+    workspace.isBackgroundListFocused;
   return {
     submit: composition.interaction.submission.submit,
     cancelQueue: state.handleCancelQueue,
-    disabled:
-      composition.coordination.blocked ||
-      overlayOpen ||
-      state.isShuttingDown ||
-      (state.isThinking && state.pendingPrompt !== null) ||
-      !workspace.isSelectedEntryInteractive ||
-      workspace.isBackgroundListFocused,
+    disabled: interactionBlocked || (state.isThinking && state.pendingPrompt !== null),
+    queueCancellationDisabled: interactionBlocked,
     isAborting: state.isAborting,
     pendingPrompt: state.pendingPrompt,
     pendingCount: state.pendingCount,

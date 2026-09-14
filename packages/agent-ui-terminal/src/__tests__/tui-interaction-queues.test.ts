@@ -25,11 +25,13 @@ describe('TuiUserActionQueue', () => {
     const first = queue.enqueue(FIRST, 'prompt-1');
     const second = queue.enqueue(SECOND, 'prompt-2');
 
-    expect(queue.current).toBe(FIRST);
-    queue.resolveCurrent(FIRST, { type: 'answer', values: ['yes'] });
+    const firstPrompt = queue.current;
+    expect(firstPrompt).toEqual(FIRST);
+    queue.resolveCurrent(firstPrompt!, { type: 'answer', values: ['yes'] });
     expect(await first).toEqual({ type: 'answer', values: ['yes'] });
-    expect(queue.current).toBe(SECOND);
-    queue.resolveCurrent(SECOND, { type: 'cancelled' });
+    const secondPrompt = queue.current;
+    expect(secondPrompt).toEqual(SECOND);
+    queue.resolveCurrent(secondPrompt!, { type: 'cancelled' });
     expect(await second).toEqual({ type: 'cancelled' });
     expect(queue.current).toBeNull();
   });
@@ -48,15 +50,34 @@ describe('TuiUserActionQueue', () => {
     const queue = new TuiUserActionQueue(vi.fn());
     const first = queue.enqueue(FIRST, 'prompt-1');
     const second = queue.enqueue(SECOND, 'prompt-2');
+    const stalePrompt = queue.current;
 
     expect(queue.dismissById('prompt-1')).toBe(true);
     await expect(first).resolves.toEqual({ type: 'cancelled' });
-    expect(queue.current).toBe(SECOND);
+    const activePrompt = queue.current;
+    expect(activePrompt).toEqual(SECOND);
 
-    queue.resolveCurrent(FIRST, { type: 'answer', values: ['yes'] });
-    expect(queue.current).toBe(SECOND);
-    queue.resolveCurrent(SECOND, { type: 'answer', values: ['no'] });
+    queue.resolveCurrent(stalePrompt!, { type: 'answer', values: ['yes'] });
+    expect(queue.current).toBe(activePrompt);
+    queue.resolveCurrent(activePrompt!, { type: 'answer', values: ['no'] });
     await expect(second).resolves.toEqual({ type: 'answer', values: ['no'] });
+  });
+
+  it('binds stale-answer protection to an entry when the request object is reused', async () => {
+    const queue = new TuiUserActionQueue(vi.fn());
+    const first = queue.enqueue(FIRST, 'prompt-1');
+    const second = queue.enqueue(FIRST, 'prompt-2');
+    const stalePrompt = queue.current;
+
+    expect(queue.dismissById('prompt-1')).toBe(true);
+    await expect(first).resolves.toEqual({ type: 'cancelled' });
+    const activePrompt = queue.current;
+    expect(activePrompt).not.toBeNull();
+
+    queue.resolveCurrent(stalePrompt!, { type: 'answer', values: ['stale'] });
+    expect(queue.current).toBe(activePrompt);
+    queue.resolveCurrent(activePrompt!, { type: 'answer', values: ['current'] });
+    await expect(second).resolves.toEqual({ type: 'answer', values: ['current'] });
   });
 });
 

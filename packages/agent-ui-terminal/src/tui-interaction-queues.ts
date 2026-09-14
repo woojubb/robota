@@ -3,7 +3,7 @@ import type { IActionRequest, TActionResponse, TToolArgs } from '@robota-sdk/age
 import type { TPermissionResultValue } from '@robota-sdk/agent-interface-session';
 
 interface IUserActionQueueEntry {
-  request: IActionRequest;
+  presentedRequest: IActionRequest;
   resolve: (response: TActionResponse) => void;
   id?: string;
 }
@@ -23,18 +23,22 @@ export class TuiUserActionQueue {
   constructor(private readonly onChange: () => void) {}
 
   get current(): IActionRequest | null {
-    return this.processing ? (this.entries[0]?.request ?? null) : null;
+    return this.processing ? (this.entries[0]?.presentedRequest ?? null) : null;
   }
 
   enqueue(request: IActionRequest, id?: string): Promise<TActionResponse> {
     return new Promise<TActionResponse>((resolve) => {
-      this.entries.push({ request, resolve, ...(id !== undefined ? { id } : {}) });
+      this.entries.push({
+        presentedRequest: { ...request },
+        resolve,
+        ...(id !== undefined ? { id } : {}),
+      });
       this.processNext();
     });
   }
 
   resolveCurrent(expectedRequest: IActionRequest, response: TActionResponse): void {
-    if (this.entries[0]?.request !== expectedRequest) return;
+    if (this.entries[0]?.presentedRequest !== expectedRequest) return;
     const pending = this.entries.shift();
     if (!pending) return;
     this.processing = false;

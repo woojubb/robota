@@ -107,8 +107,8 @@ authoritative for how the TUI releases resources on session switch and process e
   or its session running after `stop()` is a defect. Because transport teardown is best-effort at its
   own boundary, every returned transport error is promoted to a channel teardown failure before the
   coordinator can mark the channel stopped. Session shutdown has one shared completion across stop
-  retries and concurrent graceful shutdown, and stop cannot report completion while that shutdown is
-  still pending.
+  retries and concurrent graceful shutdown. Neither stop nor graceful shutdown can report completion
+  while the other teardown path is already pending.
 - **Render ownership.** React effects start channels and release subscriptions, but do not fire-and-forget
   asynchronous teardown. `renderApp()` tracks the active channel, awaits its `stop()` after Ink exits,
   and propagates teardown failure to the embedding caller. An App unmounted during a session switch may
@@ -141,6 +141,8 @@ drained on `abort()`, `cancelQueue()`, `shutdown()`, and `stop()` so no promise 
 Remote dismissal may promote the next queued request while the old prompt still holds a callback.
 Both queues bind responses to the exact displayed entry and ignore stale callbacks; dismissing a
 non-current permission must also preserve the active request object and its local selection state.
+Normal queued prompts retain their advertised Backspace cancellation while ordinary input is disabled;
+coordination recovery, screen overlays and teardown disable that cancellation independently.
 
 ### Stall-hint suppression during tool execution (ERR-001 G3)
 

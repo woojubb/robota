@@ -103,6 +103,11 @@ export class TuiChannelLifecycleCoordinator {
       this.shuttingDown = true;
       this.operations.beginShutdown();
     }
+    const pendingStop = this.stopPromise;
+    if (pendingStop !== undefined) {
+      await pendingStop.catch(() => undefined);
+      return;
+    }
     this.shutdownPromise ??= this.performShutdown(options);
     await this.shutdownPromise;
   }

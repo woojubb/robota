@@ -218,4 +218,26 @@ describe('TuiChannelLifecycleCoordinator', () => {
     releaseShutdown?.();
     await Promise.all([shutdown, stop]);
   });
+
+  it('does not finish graceful shutdown before an in-flight stop', async () => {
+    const ops = operations();
+    let releaseStop: (() => void) | undefined;
+    ops.stop.mockImplementationOnce(() => new Promise<void>((resolve) => (releaseStop = resolve)));
+    const lifecycle = new TuiChannelLifecycleCoordinator(ops, 100);
+    await lifecycle.start();
+
+    const stop = lifecycle.stop();
+    await Promise.resolve();
+    const shutdown = lifecycle.shutdown();
+    let shutdownSettled = false;
+    void shutdown.then(() => (shutdownSettled = true));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(shutdownSettled).toBe(false);
+    expect(ops.shutdownSession).not.toHaveBeenCalled();
+
+    releaseStop?.();
+    await Promise.all([stop, shutdown]);
+    expect(ops.shutdownSession).toHaveBeenCalledTimes(1);
+  });
 });
