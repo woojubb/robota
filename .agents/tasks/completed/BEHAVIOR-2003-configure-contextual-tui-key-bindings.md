@@ -1,7 +1,8 @@
 ---
 title: 'BEHAVIOR-2003: Configure contextual TUI key bindings'
 issue: https://github.com/woojubb/robota/issues/2003
-status: in-progress
+status: done
+completed: 2026-09-19
 created: 2026-09-14
 priority: high
 urgency: now
@@ -10,6 +11,8 @@ depends_on: [STRUCT-012, REFACTOR-025]
 ---
 
 # BEHAVIOR-2003: Configure contextual TUI key bindings
+
+Spec: `.agents/spec-docs/done/BEHAVIOR-2003-configure-contextual-tui-key-bindings.md`
 
 ## Objective
 
@@ -98,6 +101,100 @@ requires no provider call, credential or external service.
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+## Closeout Verification
+
+Recorded here rather than under `## User Execution Test Scenarios`: the delivery landed (PR #2739)
+before this stage was recorded, and the post-merge completion closeout contract freezes that section
+between the source and the archived Task. The entry is the guardian's own verdict, unchanged.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** scenario written → scenario executed
+
+Ordering: the last `[DONE-GATE-STAGE-1]` entry is ✅ PASS (2026-09-15, recorded in the delivery
+commit `18a560fea`, PR #2739); the Task is `status: in-progress`, every Plan item is ticked, and
+`18a560fea` is an ancestor of this branch's head `e3f31aa15`. The `expected observable` field is
+byte-identical to the `expectedObservable` frozen in the Stage-1 checkpoint JSON, and `git diff
+18a560fea HEAD` on this file is empty (the working-tree copy is unmodified), so the observable was
+not rewritten after the Stage-1 verdict. The built CLI (`node packages/agent-cli/bin/robota.cjs`,
+`robota 3.0.0-beta.79`; `agent-cli`/`agent-ui-terminal`/`agent-command` dist artifacts dated after
+the `e3f31aa15` commit time with no source newer than them, and the active `agent-cli` bundle
+containing the reserved-key diagnostic) was re-run by the guardian with the same driver
+(`node_modules/.bin/tsx scratch/src/behavior-2003-pty-scenario.mts`) in a fresh `mktemp` HOME, with
+`OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/`GOOGLE_API_KEY` unset and only a dummy `openai` provider
+setting present; the driver exited 0 with strippedCharacters 39384 and rawBytes 63229, against the
+record's original run of 40478 / 65734 — the delta being the shorter temp-directory names and the
+record's longer initial capture window, not a change in what was rendered.
+
+- Scenario 1 — `pnpm exec robota --name keybindings-scenario` (driven as `node
+packages/agent-cli/bin/robota.cjs --name keybindings-scenario --disable-update-check
+--no-session-persistence` in a 100×32 xterm-256color PTY): exit 0. Matched, clause by clause:
+  the editor record `editorPath` equals `expectedEditorPath`
+  (`<scenario-home>/.robota/keybindings.json`, byte-identical); the footer first rendered
+  `Ctrl+J Submit` and `/he` → `Ctrl+J Complete` → Ctrl+J rendered `Available commands:`; after the
+  atomic rename to the `ctrl+k` document the footer rendered `Ctrl+K Submit`, `/he` still completed
+  with Ctrl+J, and Ctrl+K rendered `Available commands:`; after the atomic rename to the reserved
+  `ctrl+c` document the diagnostic `Keybindings <scenario-home>/.robota/keybindings.json
+$.bindings.chat-input.submit: Ctrl+C is reserved for two-stage shutdown.` named the full failing
+  path, `Ctrl+K Submit` remained in the footer, `/he` + Ctrl+J + Ctrl+K rendered `Available
+commands:` again, and the process was still alive to take the Ctrl+C exit (exit code 0).
+- Evidence record: `.agents/evals/scenarios/behavior-2003-keybindings-agent-run.md` § Observed
+  (2026-09-19, committed in `18a560fea`) — the original run; the scenario's `evidence:` field points
+  at that path and the path exists (`check-done-evidence` passes). The guardian's closeout re-run on
+  `e3f31aa15` is recorded here rather than in that file, because the post-merge completion closeout
+  contract admits only the Task/spec pair into this commit: driver exit 0; `editorPath` ==
+  `expectedEditorPath`; strippedCharacters 39384 (rawBytes 63229; the record's original run reads
+  40478 / 65734 — the delta is the shorter temp-directory names); bounded captures in order —
+  `Opened keybindings: <scenario-home>/.robota/keybindings.json`, `Ctrl+J Submit`,
+  `Available commands:`, `Ctrl+K Submit`, `Available commands:`, `Keybindings
+<scenario-home>/.robota/keybindings.json $.bindings.chat-input.submit: Ctrl+C is reserved for
+two-stage shutdown.`, `Ctrl+K Submit`, `Available commands:`. The evidence counted is product
+  output only — the command, exit code, editor path record and the bounded PTY captures; the record's
+  "Supporting test suites" lines are engineering verification and were not counted. No
+  capability-absence exception is claimed. Observation, not decisive for this gate: the record's
+  `**Spec:**` line still names the pre-archive `.agents/spec-docs/active/…` path; the next change
+  that may touch that file updates it.
+
+## Completion Criteria
+
+- [x] TC-01: The versioned sparse JSON parser accepts documented aliases, uppercase rules, chords,
+      per-action `null` unbinding and context reuse, and emits one immutable effective map.
+- [x] TC-02: Parse/schema/unknown/reserved/duplicate/prefix conflicts reject the whole replacement with
+      an exact path diagnostic; multiplexer and undeliverable-modifier warnings preserve valid bindings.
+- [x] TC-03: Text contexts never buffer unmodified printable characters as chord prefixes, and chord
+      state resets on timeout, mismatch, Escape, context change and snapshot replacement.
+- [x] TC-04: Every current production input context resolves semantic actions through the registry while
+      printable text, paste, IME composition and the two-stage Ctrl+C shutdown contract are preserved.
+- [x] TC-05: Every active footer derives keys from the current context's effective actions and omits
+      unbound or inactive actions.
+- [x] TC-06: A parent-directory watcher accepts atomic replacement, hot-reloads without restart, retains
+      the last valid map on visible invalid replacement, and disposes on all render exit paths.
+- [x] TC-07: `/keybindings` is registered only with the injected capability, atomically creates a schema-
+      linked sparse document when absent, never overwrites an existing file and opens the exact path.
+- [x] TC-08: The JSON Schema and documentation enumerate current contexts/actions/defaults, grammar,
+      reserved keys, terminal/modal-editor limits and multiplexer warnings.
+- [x] TC-09: The real scripted-provider CLI in a PTY demonstrates context reuse, remapped submit, live
+      atomic reload, derived hint refresh and last-valid preservation after an invalid replacement.
+- [x] TC-10: Focused unit/integration/PTY suites, affected package builds, typecheck and harness scans pass.
+
+## Result
+
+- [Pull Request #2739](https://github.com/woojubb/robota/pull/2739) landed implementation head
+  `6349d990d1069aeb577268ea0f2924576967b900` on `origin/develop` as
+  `18a560fea5fc25d0ff7b4870eea2a27f033ed723` (squash merge, subject
+  `feat(tui): configure contextual TUI key bindings (#2739)`).
+- The PR carried `ACTIONABLE FINDINGS: 0` and its merge decision
+  ([PR #2739 merge decision](https://github.com/woojubb/robota/pull/2739)) bound base
+  `2f096679b75fa09368b05c2a77a88c51657ff382` to that head with green CI.
+- Closeout verification on `origin/develop` `e3f31aa15c21d7d5b9285b8c9b666d0554aa3e0d`: the guardian's
+  own re-run of Scenario 1 against the built CLI matched every clause (DONE-GATE-STAGE-2 PASS); GATE-VERIFY
+  PASS (agent-ui-terminal 98 files / 866 tests, agent-command 46 / 342 passed, 5 skipped, agent-cli 69
+  passed, 1 skipped / 508 passed, 18 skipped; three-package build and typecheck green); GATE-COMPLETE
+  9/9 PASS with TC-01..TC-10 records; `pnpm harness:scan` 157 passed, 5 skipped.
+- Issue #2003 was already closed (2026-09-12 consolidation) and received delivery completion record
+  [#5733539999](https://github.com/woojubb/robota/issues/2003#issuecomment-5733539999) tying that
+  closure to the verified merge.
 
 ## Recommendation Evidence
 
