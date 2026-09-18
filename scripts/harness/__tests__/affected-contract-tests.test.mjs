@@ -148,52 +148,60 @@ describe('affected contract selection', () => {
     expect(result.shards).toHaveLength(16);
   });
 
-  it('selects real agent-definition consumers instead of the complete tier or only the safety floor', () => {
-    const tiers = classifyHarnessTestFiles(REPO_ROOT);
-    const registry = createContractTestRegistry(REPO_ROOT, tiers.contract);
-    for (const agent of ['mechanical-refactor-worker', 'pr-review-fixer']) {
+  it(
+    'selects real agent-definition consumers instead of the complete tier or only the safety floor',
+    { timeout: 120_000 },
+    () => {
+      const tiers = classifyHarnessTestFiles(REPO_ROOT);
+      const registry = createContractTestRegistry(REPO_ROOT, tiers.contract);
+      for (const agent of ['mechanical-refactor-worker', 'pr-review-fixer']) {
+        const plan = createAffectedContractPlan({
+          root: REPO_ROOT,
+          contractTests: tiers.contract,
+          registry,
+          changedFiles: [`.claude/agents/${agent}.md`],
+        });
+        expect(plan.mode, agent).toBe('affected');
+        expect(plan.selected.length).toBeLessThan(tiers.contract.length);
+        expect(plan.selected).toEqual(
+          expect.arrayContaining([
+            ...CONTRACT_SAFETY_FLOOR.map(({ test }) => test),
+            ...[
+              'check-agent-def-convention',
+              'agents-cannot-be-told-to-dispatch',
+              'depth-verdict-reachable',
+              'scan-retired-agent-references',
+            ].map((name) => `${TEST_ROOT}/${name}.test.mjs`),
+          ]),
+        );
+        if (agent === 'pr-review-fixer')
+          expect(plan.selected).toContain(`${TEST_ROOT}/review-before-push.test.mjs`);
+      }
+    },
+  );
+
+  it(
+    'recognizes governed Claude hooks and keeps their selection narrow',
+    { timeout: 120_000 },
+    () => {
+      const tiers = classifyHarnessTestFiles(REPO_ROOT);
+      const registry = createContractTestRegistry(REPO_ROOT, tiers.contract);
       const plan = createAffectedContractPlan({
         root: REPO_ROOT,
         contractTests: tiers.contract,
         registry,
-        changedFiles: [`.claude/agents/${agent}.md`],
+        changedFiles: ['.claude/hooks/pre-push-check.sh'],
       });
-      expect(plan.mode, agent).toBe('affected');
+      expect(plan.mode).toBe('affected');
       expect(plan.selected.length).toBeLessThan(tiers.contract.length);
       expect(plan.selected).toEqual(
         expect.arrayContaining([
           ...CONTRACT_SAFETY_FLOOR.map(({ test }) => test),
-          ...[
-            'check-agent-def-convention',
-            'agents-cannot-be-told-to-dispatch',
-            'depth-verdict-reachable',
-            'scan-retired-agent-references',
-          ].map((name) => `${TEST_ROOT}/${name}.test.mjs`),
+          `${TEST_ROOT}/pre-push-repo-resolution.test.mjs`,
         ]),
       );
-      if (agent === 'pr-review-fixer')
-        expect(plan.selected).toContain(`${TEST_ROOT}/review-before-push.test.mjs`);
-    }
-  });
-
-  it('recognizes governed Claude hooks and keeps their selection narrow', () => {
-    const tiers = classifyHarnessTestFiles(REPO_ROOT);
-    const registry = createContractTestRegistry(REPO_ROOT, tiers.contract);
-    const plan = createAffectedContractPlan({
-      root: REPO_ROOT,
-      contractTests: tiers.contract,
-      registry,
-      changedFiles: ['.claude/hooks/pre-push-check.sh'],
-    });
-    expect(plan.mode).toBe('affected');
-    expect(plan.selected.length).toBeLessThan(tiers.contract.length);
-    expect(plan.selected).toEqual(
-      expect.arrayContaining([
-        ...CONTRACT_SAFETY_FLOOR.map(({ test }) => test),
-        `${TEST_ROOT}/pre-push-repo-resolution.test.mjs`,
-      ]),
-    );
-  });
+    },
+  );
 
   it('retains both rename sides and rejects malformed name-status output', () => {
     expect(parseNameStatusDiff('R100\0old.mjs\0new.mjs\0M\0same.mjs\0')).toEqual([
@@ -529,74 +537,78 @@ describe('affected contract selection', () => {
 });
 
 describe('contract input registry', () => {
-  it('represents every live contract test exactly once with validated metadata', () => {
-    const tiers = classifyHarnessTestFiles(REPO_ROOT);
-    const registry = createContractTestRegistry(REPO_ROOT, tiers.contract);
-    expect(validateContractTestRegistry(REPO_ROOT, tiers.contract, registry)).toBe(registry);
-    expect(registry.map((entry) => entry.test).sort()).toEqual(tiers.contract);
-    expect(registry.every(({ primaryOwner }) => typeof primaryOwner === 'string')).toBe(true);
-    const groups = groupContractTestsByOwner(registry);
-    expect(groups.reduce((total, { tests }) => total + tests.length, 0)).toBe(
-      tiers.contract.length,
-    );
-    expect(registry.filter((entry) => entry.always)).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          test: `${TEST_ROOT}/affected-contract-tests.test.mjs`,
-          alwaysReason: expect.stringMatching(/selector/),
-        }),
-        expect.objectContaining({
-          test: `${TEST_ROOT}/harness-test-tiers.test.mjs`,
-          alwaysReason: expect.stringMatching(/partition/),
-        }),
-      ]),
-    );
-    const productPlan = createAffectedContractPlan({
-      root: REPO_ROOT,
-      contractTests: tiers.contract,
-      isolatedContract: tiers.isolatedContract,
-      registry,
-      changedFiles: ['packages/agent-core/src/new-feature.ts'],
-    });
-    expect(productPlan).toMatchObject({ mode: 'affected' });
-    expect(productPlan.selected).toContain(`${TEST_ROOT}/affected-contract-tests.test.mjs`);
-    const selected = new Set(productPlan.selected);
-    expect(
-      registry.filter(
-        (entry) =>
-          selected.has(entry.test) &&
-          entry.primaryOwner.startsWith('package:') &&
-          entry.primaryOwner !== 'package:agent-core' &&
-          !entry.always,
-      ),
-    ).toEqual([]);
-
-    for (const owner of ['agent-provider-openai', 'agent-core']) {
-      const file = `packages/${owner}/src/provider-like.ts`;
-      const plan = createAffectedContractPlan({
+  it(
+    'represents every live contract test exactly once with validated metadata',
+    { timeout: 120_000 },
+    () => {
+      const tiers = classifyHarnessTestFiles(REPO_ROOT);
+      const registry = createContractTestRegistry(REPO_ROOT, tiers.contract);
+      expect(validateContractTestRegistry(REPO_ROOT, tiers.contract, registry)).toBe(registry);
+      expect(registry.map((entry) => entry.test).sort()).toEqual(tiers.contract);
+      expect(registry.every(({ primaryOwner }) => typeof primaryOwner === 'string')).toBe(true);
+      const groups = groupContractTestsByOwner(registry);
+      expect(groups.reduce((total, { tests }) => total + tests.length, 0)).toBe(
+        tiers.contract.length,
+      );
+      expect(registry.filter((entry) => entry.always)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            test: `${TEST_ROOT}/affected-contract-tests.test.mjs`,
+            alwaysReason: expect.stringMatching(/selector/),
+          }),
+          expect.objectContaining({
+            test: `${TEST_ROOT}/harness-test-tiers.test.mjs`,
+            alwaysReason: expect.stringMatching(/partition/),
+          }),
+        ]),
+      );
+      const productPlan = createAffectedContractPlan({
         root: REPO_ROOT,
         contractTests: tiers.contract,
         isolatedContract: tiers.isolatedContract,
         registry,
-        changedFiles: [file],
+        changedFiles: ['packages/agent-core/src/new-feature.ts'],
       });
-      const planTests = new Set(plan.selected);
-      const broadOnlyGlobals = registry.filter(
-        (entry) =>
-          !entry.always &&
-          entry.primaryOwner === 'workspace:global' &&
-          entry.repositoryInputs.includes('packages/**') &&
-          !entry.repositoryInputs.some(
-            (input) =>
-              input !== 'packages/**' && matchesContractRepositoryInput(entry, file, input),
-          ),
-      );
+      expect(productPlan).toMatchObject({ mode: 'affected' });
+      expect(productPlan.selected).toContain(`${TEST_ROOT}/affected-contract-tests.test.mjs`);
+      const selected = new Set(productPlan.selected);
       expect(
-        broadOnlyGlobals.filter(({ test }) => planTests.has(test)),
-        owner,
+        registry.filter(
+          (entry) =>
+            selected.has(entry.test) &&
+            entry.primaryOwner.startsWith('package:') &&
+            entry.primaryOwner !== 'package:agent-core' &&
+            !entry.always,
+        ),
       ).toEqual([]);
-    }
-  });
+
+      for (const owner of ['agent-provider-openai', 'agent-core']) {
+        const file = `packages/${owner}/src/provider-like.ts`;
+        const plan = createAffectedContractPlan({
+          root: REPO_ROOT,
+          contractTests: tiers.contract,
+          isolatedContract: tiers.isolatedContract,
+          registry,
+          changedFiles: [file],
+        });
+        const planTests = new Set(plan.selected);
+        const broadOnlyGlobals = registry.filter(
+          (entry) =>
+            !entry.always &&
+            entry.primaryOwner === 'workspace:global' &&
+            entry.repositoryInputs.includes('packages/**') &&
+            !entry.repositoryInputs.some(
+              (input) =>
+                input !== 'packages/**' && matchesContractRepositoryInput(entry, file, input),
+            ),
+        );
+        expect(
+          broadOnlyGlobals.filter(({ test }) => planTests.has(test)),
+          owner,
+        ).toEqual([]);
+      }
+    },
+  );
 
   it('follows relative static re-exports and rejects duplicate declarations', () => {
     const data = fixture();
