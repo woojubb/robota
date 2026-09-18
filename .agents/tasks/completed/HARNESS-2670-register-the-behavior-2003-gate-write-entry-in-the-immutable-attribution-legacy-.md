@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-2670: Register the BEHAVIOR-2003 GATE-WRITE entry in the immutable attribution legacy list'
 issue: https://github.com/woojubb/robota/issues/2670
-status: todo
+status: done
+completed: 2026-09-19
 created: 2026-09-19
 priority: medium
 urgency: soon
@@ -20,9 +21,17 @@ rewriting historical evidence. Uses the issue #2736 mechanism as built; no scan 
 
 ## Plan
 
-- [ ] TC-01: Add the fingerprint-pinning test case and the legacy entry; prove the case red without the entry.
-- [ ] TC-02: Run the affected scan suite in PR context.
-- [ ] TC-03: Run the whole attribution scan test file.
+- [x] TC-01: Add the fingerprint-pinning test case and the legacy entry; prove the case red without the entry.
+- [x] TC-02: Run the affected scan suite in PR context.
+- [x] TC-03: Run the whole attribution scan test file.
+
+## Results
+
+- TC-01 — the new fingerprint case passes (1 passed, 13 skipped); with `HEAD~1`'s legacy JSON restored the same
+  case fails (`reverted-run exit 1`), so the entry is what makes the scan accept the immutable text.
+- TC-02 — `run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`: 62 scans passed, 1 skipped.
+- TC-03 — the whole attribution scan test file: 14 passed.
+- GATE-DONE PASS (guardian + mechanical) on `55377f5c4`; the spec is archived under `spec-docs/done`.
 
 ## User Execution Test Scenarios
 

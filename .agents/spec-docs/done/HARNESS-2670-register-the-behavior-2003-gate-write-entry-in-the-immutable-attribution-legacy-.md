@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [harness]
 lane: L1
@@ -80,9 +80,9 @@ for that entry — it fails with the JSON entry absent and cannot pass on an alt
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs -t HARNESS-2670` → exits 0, and exits 1 with `immutable-attribution-legacy.json` reverted
-- [ ] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
-- [ ] TC-03: `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs` → exits 0 on the whole file, not only the new case
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs -t HARNESS-2670` → exits 0, and exits 1 with `immutable-attribution-legacy.json` reverted
+- [x] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
+- [x] TC-03: `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs` → exits 0 on the whole file, not only the new case
 
 ## Test Plan
 
@@ -94,13 +94,14 @@ for that entry — it fails with the JSON entry absent and cannot pass on an alt
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-03).
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Reason:** Nothing a person runs changes — no command, screen, output or setting; only the repository's
+own evidence-attribution scan stops reporting one immutable historical entry as a new violation.
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-2670-register-the-behavior-2003-gate-write-entry-in-the-immutable-attribution-legacy-.md` — todo
+- [x] `.agents/tasks/completed/HARNESS-2670-register-the-behavior-2003-gate-write-entry-in-the-immutable-attribution-legacy-.md` — done 2026-09-19
 
 ## Evidence Log
 
@@ -111,7 +112,7 @@ Recorded as the rule's required choice rather than skipped.
 **Class:** `LANE-L0-L1`
 **Instruction (verbatim):** "좋아 모두 승인한다. 빠르게 적용해줘. 필요하면 병렬 에이전트와 workflow를 적극 적용해줘"
 **Given:** 2026-08-28, given 2026-08-28 in reply to the proposed row text 'L0·L1 레인 항목은 spec-workflow.md의 레인 정의대로 사전 승인한다' (registry row LANE-L0-L1, registered 2026-08-28)
-**Evidence condition met:** `node scripts/harness/scan-lane-declaration.mjs --changed <2 path(s)> --diff-file <diff vs origin/develop> --trailers-file <Lane: L1>` over 2 changed path(s) — committed and working-tree changes vs origin/develop (merge base e3f31aa15c21) → exit 0, `lane-declaration summary: violations=0 result=PASS` (Lane L1 (spec-doc frontmatter .agents/spec-docs/draft/HARNESS-2670-register-the-behavior-2003-gate-write-entry-in-the-immutable-attribution-legacy-.md) is at or above the floor L0) — note: scan-lane-declaration exits 0 on this branch (lane-declaration summary: violations=0 result=PASS) and the spec declares lane: L1; every changed path (scripts/harness/immutable-attribution-legacy.json, scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs) sits at or below floor L1
+**Evidence condition met:** `node scripts/harness/scan-lane-declaration.mjs --changed <2 path(s)> --diff-file <diff vs origin/develop> --trailers-file <Lane: L1>` over 2 changed path(s) — committed and working-tree changes vs origin/develop (merge base e3f31aa15c21) → exit 0, `lane-declaration summary: violations=0 result=PASS` (Lane L1 (spec-doc frontmatter .agents/spec-docs/draft/HARNESS-2670-register-the-behavior-2003-gate-write-entry-in-the-immutable-attribution-legacy-.md) is at or above the floor L0) — note: scan-lane-declaration exits 0 on this branch (lane-declaration summary: violations=0 result=PASS) and the spec declares lane: L1; every changed path (scripts/harness/immutable-attribution-legacy.json, scripts/harness/**tests**/scan-gate-verdict-attribution.test.mjs) sits at or below floor L1
 **Review fingerprint:** 098386a002e8 (review 25eb66d0, type/tags cf40db57)
 
 - GATE-APPROVAL — User has provided explicit approval in the current conversation: route CLASS, so the Route DIRECT criterion does not apply
@@ -171,3 +172,90 @@ Recorded as the rule's required choice rather than skipped.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `e3f31aa15c21` · base `origin/develop@e3f31aa15c21` · document `.agents/spec-docs/draft/HARNESS-2670-register-the-behavior-2003-gate-write-entry-in-the-immutable-attribution-legacy-.md` blob `8db725fa6287` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-19
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs -t HARNESS-2670; echo '--- red-proof: with the JSON entry reverted'; git show HEAD~1:scripts/harness/immutable-attribution-legacy.json > scripts/harness/immutable-attribution-legacy.json; pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs -t HARNESS-2670; echo "reverted-run exit $?"; git checkout -- scripts/harness/immutable-attribution-legacy.json`
+**Exit:** 0
+**Output:** (last 10 of 61 line(s))
+
+```
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 13 skipped (14)
+   Start at  07:22:02
+   Duration  268ms (transform 76ms, setup 0ms, collect 116ms, tests 9ms, environment 0ms, prepare 27ms)
+
+reverted-run exit 1
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `55377f5c47af` · base `origin/develop@e3f31aa15c21` · document `.agents/spec-docs/todo/HARNESS-2670-register-the-behavior-2003-gate-write-entry-in-the-immutable-attribution-legacy-.md` blob `5d9451a539db` (tracked)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-19
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 110 line(s))
+
+```
+✓ test-module-mocks
+✓ backlog-placement
+✓ llms-txt
+✓ orphan-exports
+✓ rule-statement-floor
+✓ test-plans
+✓ doc-folder-status
+✓ package-boundary-ownership
+62 scans passed, 1 skipped (63 declared what they examined)
+scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/todo/HARNESS-2670-register-the-behavior-2003-gate-write-entry-in-the-immutable-attribution-legacy-.md
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `55377f5c47af` · base `origin/develop@e3f31aa15c21` · document `.agents/spec-docs/todo/HARNESS-2670-register-the-behavior-2003-gate-write-entry-in-the-immutable-attribution-legacy-.md` blob `7b85322f5643` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-19
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+7:22:16 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+ ✓ scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs (14 tests) 47ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  07:22:16
+   Duration  305ms (transform 76ms, setup 0ms, collect 117ms, tests 47ms, environment 0ms, prepare 27ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `55377f5c47af` · base `origin/develop@e3f31aa15c21` · document `.agents/spec-docs/todo/HARNESS-2670-register-the-behavior-2003-gate-write-entry-in-the-immutable-attribution-legacy-.md` blob `0784c7b39462` (modified)
+
+### [GATE-DONE] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** approved → done
+
+- GATE-DONE — ordering: prior gate GATE-PLAN PASS and status `approved`: `[GATE-PLAN] — ✅ PASS | 2026-09-19` present with `**Status upgrade:** draft → approved`; document `status: approved` (recorded-pass rule satisfied)
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): Task `## Plan` holds 3 items (TC-01, TC-02, TC-03), 3/3 `[x]`; `node scripts/harness/scan-task-plan-items.mjs` → `task-plan-items scan passed.` (316 Task Plan sections examined)
+- GATE-VERIFY — No Plan item is blocked or pending: no Plan item carries a blocked/pending marker or note; the words "blocked"/"pending" occur 0 times in the Task; no item is a self-disposition (merge/close/publish)
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): branch diff vs `origin/develop` touches only `scripts/harness/immutable-attribution-legacy.json`, `scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs` and the HARNESS-2670 Task/spec; `pnpm build:affected` → `workspace-affected-run: build mode=none packages=0 … PASS tasks=0` (no workspace package affected)
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm test:affected` → `workspace-affected-run: test mode=none packages=0 … PASS tasks=0`; the touched test surface re-run directly: `pnpm exec vitest run scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs` → 14 passed (14); red-proof reproduced by the guardian: with `HEAD~1:scripts/harness/immutable-attribution-legacy.json` in place the `-t HARNESS-2670` case fails (`expected [ { …(5) } ] to have a length of +0 but got 1`), with the committed JSON restored it passes (1 passed, 13 skipped); JSON restored byte-identically, `git status` unchanged
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 3/3 TC checkboxes `[x]` in `## Completion Criteria`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with command, output and exit code: `[GATE-COMPLETE: TC-01]`, `[TC-02]`, `[TC-03]` entries present, each with `**Command:**`, `**Exit:** 0` and captured output; TC-01's output shows the reverted run exiting 1 (red) and the mechanical exit 0 (green)
+- GATE-COMPLETE — One of test reference / test skipped is recorded per Test Plan row: TC-01 and TC-03 name `scripts/harness/__tests__/scan-gate-verdict-attribution.test.mjs` (TC-01 with `-t HARNESS-2670`), TC-02 names `run-all-scans.mjs --affected --context pr` as the suite; no row is empty
+- GATE-COMPLETE — No TC-N is silently unaddressed: 3 Test Plan rows = 3 TC criteria, each with a tool reference
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 3/3 `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: all 3 rows carry a Tool/Approach reference and Notes
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: names `.agents/tasks/HARNESS-2670-register-the-behavior-2003-gate-write-entry-in-the-immutable-attribution-legacy-.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: Task `status: in-progress`, 3/3 Plan items `[x]`, no pending or blocked item
+
+**Judged by:** `backlog-gate-guard` (semantic) + `gate.mjs` (mechanical)
+**Judged at:** HEAD `55377f5c47af` · base `origin/develop@e3f31aa15c21` · document `.agents/spec-docs/todo/HARNESS-2670-register-the-behavior-2003-gate-write-entry-in-the-immutable-attribution-legacy-.md` blob `93e191d62062` (modified)
