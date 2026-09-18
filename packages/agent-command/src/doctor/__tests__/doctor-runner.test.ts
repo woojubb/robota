@@ -314,6 +314,23 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(text).toContain('[provider.security] warn');
   });
 
+  it('a throwing endpoint probe is a provider fail check, not a rejected run', async () => {
+    const f = fixture({ env: {} });
+    f.mkdir('.robota');
+    f.mkdir('.robota/sessions');
+    f.write('.robota/settings.json', JSON.stringify(CLEAN_SETTINGS));
+    const deps = {
+      ...f.deps,
+      probeEndpoint: () => Promise.reject(new RangeError('socket table exhausted')),
+    };
+    const report = await runDoctor(f.inputs, deps);
+    expect(byId(report, 'provider')).toMatchObject({
+      status: 'fail',
+      cause: expect.stringContaining('RangeError'),
+    });
+    expect(report.exitCode).toBe(1);
+  });
+
   it('renders a composition failure as a fail check instead of crashing', async () => {
     const f = fixture({ env: {} });
     const report = await runDoctor(
