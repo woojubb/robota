@@ -35,6 +35,14 @@ Every runtime export of the package entry (`src/index.ts`). Provider option/conf
 | `@robota-sdk/agent-core` | `IAIProvider`, `IProviderDefinition`, hook types |
 | `@anthropic-ai/sdk`      | Anthropic API client                             |
 
+## Diagnostic endpoint (OBSERVABILITY-1991)
+
+The definition declares `endpoint: { host: 'api.anthropic.com', port: 443 }` — the vendor SDK's embedded
+endpoint, stated on the Robota side for the pre-session doctor's TCP reachability check only. It is
+deliberately **not** `defaults.baseURL`: that field is runtime-effective (it is persisted into created
+profiles and passed to `createProvider`), while `endpoint` is read by no setup, persistence or
+provider-construction path. A profile that sets its own `baseURL` is probed at that host instead.
+
 ## Circular Dependency Policy
 
 This package depends on `@robota-sdk/agent-core` only among framework packages (plus its one vendor SDK where applicable). `agent-framework`, `agent-session`, and all higher-layer packages must never be imported.

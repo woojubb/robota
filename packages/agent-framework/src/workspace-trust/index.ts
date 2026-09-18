@@ -31,6 +31,7 @@ export {
 
 export type {
   IRestrictedWorkspaceProjectAccess,
+  IWorkspaceTrustCause,
   ITrustedWorkspaceProjectAccess,
   IWorkspaceAncestorTextEntry,
   IWorkspaceDirectoryEntry,

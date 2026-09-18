@@ -229,20 +229,21 @@ Whitebox internals are not specified here. See:
 
 ## Type Ownership
 
-| Type                | Location                          | Purpose                                                                                                             |
-| ------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| ITerminalOutput     | `@robota-sdk/agent-core`          | Terminal I/O DI interface — SSOT is `@robota-sdk/agent-core` (domain port)                                          |
-| ISpinner            | `@robota-sdk/agent-core`          | Spinner handle — SSOT is `@robota-sdk/agent-core` (domain port)                                                     |
-| IPermissionRequest  | `agent-ui-terminal/src/types.ts`  | Permission prompt React state (owned by agent-ui-terminal)                                                          |
-| ICommand            | `@robota-sdk/agent-framework`     | SDK-owned command palette and slash command entry                                                                   |
-| ICommandSource      | `@robota-sdk/agent-framework`     | SDK-owned command source contract                                                                                   |
-| IParsedCliArgs      | `src/utils/cli-args.ts`           | Parsed CLI argument structure returned by `parseCliArgs()`                                                          |
-| IStartCliOptions    | `src/startup/command-setup.ts`    | Options for the `startCli()` public entry point, including optional MCP activation and managed output-style sources |
-| ICliSetup           | `src/startup/command-setup.ts`    | Assembled command modules, adapters, provider definitions, and org policy                                           |
-| IDiagnoseContext    | `src/startup/diagnose-command.ts` | Context (`version`, `terminal`, `cwd`) passed to `runDiagnoseCommand()`                                             |
-| IDiagnosticCheck    | `src/startup/diagnose-command.ts` | Single diagnostic result (`label`, `status`, `message`)                                                             |
-| IInitCommandOptions | `src/init/init-command.ts`        | Options for the `runInitCommand()` function                                                                         |
-| usage command types | `src/usage/usage-command.ts`      | Internal period/timezone/format parsing and injected local-store reporting                                          |
+| Type                      | Location                         | Purpose                                                                                                                   |
+| ------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| ITerminalOutput           | `@robota-sdk/agent-core`         | Terminal I/O DI interface — SSOT is `@robota-sdk/agent-core` (domain port)                                                |
+| ISpinner                  | `@robota-sdk/agent-core`         | Spinner handle — SSOT is `@robota-sdk/agent-core` (domain port)                                                           |
+| IPermissionRequest        | `agent-ui-terminal/src/types.ts` | Permission prompt React state (owned by agent-ui-terminal)                                                                |
+| ICommand                  | `@robota-sdk/agent-framework`    | SDK-owned command palette and slash command entry                                                                         |
+| ICommandSource            | `@robota-sdk/agent-framework`    | SDK-owned command source contract                                                                                         |
+| IParsedCliArgs            | `src/utils/cli-args.ts`          | Parsed CLI argument structure returned by `parseCliArgs()`                                                                |
+| IStartCliOptions          | `src/startup/command-setup.ts`   | Options for the `startCli()` public entry point, including optional MCP activation and managed output-style sources       |
+| ICliSetup                 | `src/startup/command-setup.ts`   | Assembled command modules, adapters, provider definitions, and org policy                                                 |
+| IDoctorRouteArgs          | `src/startup/doctor-route.ts`    | The doctor route's own flags (`--repair <check-id>`, `--yes`) parsed before the strict global parser                      |
+| IDoctorRouteContext       | `src/startup/doctor-route.ts`    | What the shell hands the doctor route (`version`, `terminal`, `cwd`, options, TTY state, env)                             |
+| IBuildDoctorInputsOptions | `src/startup/doctor-inputs.ts`   | Host facts composed into `@robota-sdk/agent-command`'s `IDoctorInputs` (composition inside the doctor's failure boundary) |
+| IInitCommandOptions       | `src/init/init-command.ts`       | Options for the `runInitCommand()` function                                                                               |
+| usage command types       | `src/usage/usage-command.ts`     | Internal period/timezone/format parsing and injected local-store reporting                                                |
 
 ## Public API Surface
 
@@ -373,7 +374,7 @@ Interactive startup may continue in Restricted mode with project contributions d
 `--goal`, and `--serve` fail closed for `untrusted`, `revoked`, `stale/replaced`, and
 `store-unavailable` decisions before provider construction, with a safe recovery message. All trust
 diagnostics expose only state and canonical display path; credentials and project-controlled content are
-never printed. `robota diagnose` additionally reports a redacted provider-endpoint quarantine when a
+never printed. `robota doctor` additionally reports a redacted provider-endpoint quarantine when a
 lower settings layer changes an endpoint without supplying its own credential.
 
 > **Contained — [ARCH-048](../../../.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
@@ -795,7 +796,7 @@ into the sealed npm/Node generation.
 | --------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
 | Argument parse error  | Invalid CLI flag or value in `parseCliArgs()`                                     | Written to stderr; `process.exit(1)` in `startCli()` parse catch                                                                                                                                                      | 1             |
 | Provider config error | `ProviderConfigError` from `ensureConfig`/`readProviderSettings` at session start | Written to stderr; `process.exit(3)` in `cli.ts` when print mode, `process.exit(1)` otherwise (TTY runs the interactive setup flow instead)                                                                           | 3 (print) / 1 |
-| Settings parse error  | `SettingsParseError` — an existing settings file contains invalid JSON (CLI-069)  | Fail-fast at session start: message names the file path + parse error + remediation (fix/delete or `robota diagnose`); written to stderr; `process.exit(1)` — never silently treated as a missing file                | 1             |
+| Settings parse error  | `SettingsParseError` — an existing settings file contains invalid JSON (CLI-069)  | Fail-fast at session start: message names the file path + parse error + remediation (fix/delete or `robota doctor`); written to stderr; `process.exit(1)` — never silently treated as a missing file                  | 1             |
 | Provider API error    | Network or auth failure during model call                                         | Execution result marked failed (`providerError` metadata → `success: false`); `robotaRun` throws; headless runner `onError` writes stderr (text) or `subtype: "error"` envelope (json/stream-json); `process.exit(1)` | 1             |
 | User-local cmd error  | Exception thrown by user-local command handler                                    | Written to stderr via `terminal.writeError()`; `process.exit(1)`                                                                                                                                                      | 1             |
 | Org policy violation  | Provider not in `orgPolicy.allowedProviders`                                      | Surfaced as a failed command result (`provider-command-profile-operations.ts` in agent-command) or session-level rejection (`interactive-session.ts` in agent-framework); the process keeps running — no exit         | —             |
@@ -849,17 +850,17 @@ isolated versioned session store and drives the built `robota usage` binary in J
 argument modes. It asserts totals, privacy (a persisted content sentinel is absent), and nonzero exit
 for invalid input without requiring a provider or network.
 
-| Layer               | Test file(s)                                 | Strategy                                                                 |
-| ------------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
-| CLI arg parsing     | `cli-args.test.ts`                           | Unit tests for `parseCliArgs()` — valid flags, invalid flags, edge cases |
-| Update check        | `cli-update-check.test.ts`                   | Unit tests for version comparison and cache TTL logic                    |
-| Diagnose command    | `diagnose-command.test.ts`                   | Unit tests for diagnostics output and error paths                        |
-| Init command        | `init-command.test.ts`                       | Unit tests for file creation, migration, and yes-flag bypass             |
-| Provider factory    | `provider-factory-integration.test.ts`       | Integration: resolves provider definitions against settings              |
-| Provider startup    | `startup/__tests__/provider-startup.test.ts` | Unit: interactive provider setup state machine                           |
-| Print mode          | `print-mode-integration.test.ts`             | Integration: headless transport output and exit code for given prompts   |
-| Headless e2e        | `headless-e2e.test.ts`                       | End-to-end: full CLI invocation in print mode against a mock provider    |
-| Command composition | `cli-command-composition.test.ts`            | Integration: command modules are registered and command list is correct  |
+| Layer               | Test file(s)                                 | Strategy                                                                                                          |
+| ------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| CLI arg parsing     | `cli-args.test.ts`                           | Unit tests for `parseCliArgs()` — valid flags, invalid flags, edge cases                                          |
+| Update check        | `cli-update-check.test.ts`                   | Unit tests for version comparison and cache TTL logic                                                             |
+| Doctor route        | `startup/__tests__/doctor-route.test.ts`     | Route flags, three names, exit contract, composition-throw → check, `--repair`/`--yes` gates (OBSERVABILITY-1991) |
+| Init command        | `init-command.test.ts`                       | Unit tests for file creation, migration, and yes-flag bypass                                                      |
+| Provider factory    | `provider-factory-integration.test.ts`       | Integration: resolves provider definitions against settings                                                       |
+| Provider startup    | `startup/__tests__/provider-startup.test.ts` | Unit: interactive provider setup state machine                                                                    |
+| Print mode          | `print-mode-integration.test.ts`             | Integration: headless transport output and exit code for given prompts                                            |
+| Headless e2e        | `headless-e2e.test.ts`                       | End-to-end: full CLI invocation in print mode against a mock provider                                             |
+| Command composition | `cli-command-composition.test.ts`            | Integration: command modules are registered and command list is correct                                           |
 
 Testing rules:
 
@@ -887,7 +888,8 @@ robota init                          # Initialize project (AGENTS.md + .robota/s
 robota trust status                  # Inspect canonical workspace trust
 robota trust --yes                   # Grant trust for the current Git workspace
 robota trust revoke --yes            # Revoke the current workspace grant
-robota diagnose                      # Check setup and print diagnostics
+robota doctor                        # Diagnose configuration and runtime readiness (aliases: checkup, diagnose)
+robota doctor --repair <check-id> -y # Apply one allowlisted repair without a prompt
 robota usage                         # 7-day personal usage summary from local session stores
 robota usage --period 30d            # 30-day complete calendar buckets
 robota usage --timezone UTC --format json # Versioned machine-readable projection
@@ -1040,7 +1042,7 @@ First-run detection uses an onboarded marker file at `userPaths().onboarded` (re
 On the first TUI invocation:
 
 1. `printFirstRunWelcome()` writes a welcome banner to stderr showing example prompts and key slash
-   commands (`/help`, `/cost`, `/clear`) plus the `robota diagnose` tip.
+   commands (`/help`, `/cost`, `/clear`) plus the `robota doctor` tip.
 2. `markOnboarded()` creates the marker file so the welcome is shown exactly once.
 
 No provider API key or language is prompted at first run. Provider setup is done separately via
@@ -1092,33 +1094,33 @@ different-authority mutation fails with `WorkspaceAuthorityRequiredError` before
 never overwrites existing files. The non-TTY error message never mentions API keys (the prior
 behavior fell through to unrelated API-key guidance).
 
-#### `robota diagnose`
+#### `robota doctor` (aliases: `checkup`, `diagnose`)
 
-`robota diagnose` checks the current environment and prints a diagnostics report. It is
-dispatched inline by `startCli()` before provider setup and returns without starting a session.
+`robota doctor` diagnoses configuration and runtime readiness before a session exists
+(OBSERVABILITY-1991). It is matched in the pre-parse route (`src/startup/preparsed-command-routing.ts`)
+**before** the route's shared workspace composition and before `parseCliArgs()`, so a broken
+configuration cannot make it unreachable and its own flags are never rejected by the strict global
+parser. The shell composes the inputs (`src/startup/doctor-inputs.ts`) — the workspace composition it
+would have built, inside the doctor's failure boundary, plus the host-only checks — and hands them to
+the runner owned by `@robota-sdk/agent-command` (`runDoctor`), which `/doctor` shares. The shell
+constructs no provider, preset or session for this command.
 
-Checks performed (CLI-067):
+Host-only checks the shell supplies: **Node.js version** (`>=22`, `fail` below), **robota version**,
+**Terminal** (known-problem terminal `warn`). A composition that throws is rendered as the
+`workspace.composition` `fail` check and the user-level sources stand in.
 
-- **Node.js version** — `>=22` required.
-- **CLI version** — informational.
-- **API key** — runs the runtime's own provider resolution (`readProviderSettings`:
-  settings profiles with `$ENV:` references first, then env-default synthesis per
-  §Zero-Config Startup). Diagnose therefore always agrees with session start: ✓ names the
-  resolved provider, model, and source (`settings profile` or `env-default via <ENV_NAME>`);
-  ✗ carries the runtime's own resolution error plus configure guidance. Key values are
-  never printed.
-- **Settings file(s)** — every explicit source in the runtime merge chain is validated independently.
-  Restricted composition supplies only host-owned managed/user sources; trusted composition appends
-  project sources derived from the accepted reader. A corrupt user source is flagged even when a valid
-  project source exists. Missing sources are a warning at most, never a failure.
-- **Terminal** — known-problem terminal warning.
-- **Network** — TCP reachability of the active provider endpoint.
-- **Workspace trust** — the canonical trust state and whether project sources are admitted.
-- **Provider security** — warns when a lower-trust endpoint change caused an inherited credential to be
-  quarantined; the credential itself is never shown.
+Everything else — settings layers and provenance, provider resolution and reachability, workspace
+trust, storage, plugins, skills, hooks, MCP, redaction, the repair allowlist — is the runner's
+contract; see `packages/agent-command/docs/SPEC.md` § Doctor.
 
-**Exit-code contract**: `0` when no check fails (warnings allowed), `1` when one or more
-checks fail — `robota diagnose` can gate CI and scripts.
+**Flags:** `--repair <check-id>` applies one allowlisted repair (`settings.user.robota`,
+`storage.user`) after a `[y/N]` prompt on a TTY; `--yes` / `-y` skips the prompt and is required in
+a non-interactive shell (without it the repair is refused with exit `1` and nothing is written). The
+report is re-run after a repair.
+
+**Exit-code contract** (unchanged from CLI-067): `0` when no check is `fail` (`warn`,
+`not-configured` and `not-probed` do not raise it), `1` when one or more checks fail —
+`robota doctor` can gate CI and scripts.
 
 ### Slash Commands
 
@@ -1926,11 +1928,12 @@ and listeners. The following table lists the other primary runtime constructs.
 
 | Construct                                                   | Kind     | Owner file                                 | Contract summary                                                                                                                                                                                                                                                               |
 | ----------------------------------------------------------- | -------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `startCli(options?)`                                        | function | `src/cli.ts`                               | Resolve one workspace-trust decision → parse args → dispatch pre-session commands inline (`trust`, `init`, `diagnose`, `session analyze`, `user-local`, flags) → assemble layers → print or TUI mode                                                                           |
+| `startCli(options?)`                                        | function | `src/cli.ts`                               | Resolve one workspace-trust decision → parse args → dispatch pre-session commands inline (`trust`, `doctor`/`checkup`/`diagnose`, `init`, `session analyze`, `user-local`, flags) → assemble layers → print or TUI mode                                                        |
 | `runWorkspaceTrustCommand(argv, cwd, service?)`             | function | `src/startup/workspace-trust-command.ts`   | Pre-parse `status`/`grant`/`revoke` lifecycle command; emits state/path-only output and requires `--yes` for headless mutation                                                                                                                                                 |
 | `requiresHeadlessWorkspaceTrust(access)`                    | function | `src/startup/workspace-trust-admission.ts` | Identifies restricted trust states that must fail closed before print, goal, or serve startup                                                                                                                                                                                  |
 | `buildCommandSetup(cwd, args, opts, v)`                     | factory  | `src/startup/command-setup.ts`             | Returns `ICliSetup` with command modules, adapters, provider defs, and startup update notice                                                                                                                                                                                   |
-| `runDiagnoseCommand(ctx, deps?)`                            | function | `src/startup/diagnose-command.ts`          | Prints the 6-check diagnostics report via injected `ITerminalOutput`; network check injectable for tests                                                                                                                                                                       |
+| `runDoctorRoute(ctx, args, name?)`                          | function | `src/startup/doctor-route.ts`              | Pre-parse `doctor`/`checkup`/`diagnose` route: parses `--repair`/`--yes`, composes `IDoctorInputs`, runs the `agent-command` doctor, renders, returns the exit code (OBSERVABILITY-1991)                                                                                       |
+| `buildDoctorInputs(opts)`                                   | function | `src/startup/doctor-inputs.ts`             | Composes the host's `IDoctorInputs` (workspace composition inside the doctor's failure boundary, plugin scope dirs, host-only checks); shared by the route and `/doctor` registration                                                                                          |
 | `runPrintMode(...)`                                         | function | `src/modes/print-mode.ts`                  | Creates `HeadlessInteractionChannel`, calls `channel.run(prompt)`, exits with channel exit code                                                                                                                                                                                |
 | `runInitCommand(cwd, terminal, opts?)`                      | function | `src/init/init-command.ts`                 | Creates AGENTS.md and `.robota/settings.json`; optionally migrates `.claude/` settings                                                                                                                                                                                         |
 | `isFirstRun(markerPath?)`                                   | function | `src/startup/first-run.ts`                 | Returns `true` when the onboarded marker file (default `userPaths().onboarded`) is absent                                                                                                                                                                                      |

@@ -14,6 +14,35 @@ export * from './plan/index.js';
 export * from './compact/index.js';
 export * from './context/index.js';
 export * from './editor/index.js';
+// OBSERVABILITY-1991: named rather than `export *` — the star form is frozen debt in this barrel.
+export {
+  STORAGE_REPAIR_ID,
+  doctorRepairAllowlist,
+  DoctorCommandSource,
+  applyDoctorRepair,
+  buildDoctorReport,
+  collectSettingsSecrets,
+  createDoctorCommandEntry,
+  createDoctorCommandModule,
+  createNodeDoctorDeps,
+  isDoctorRepairId,
+  planDoctorRepair,
+  redactDiagnosticText,
+  renderDoctorReport,
+  resolveCommandOnPath,
+  runDoctor,
+  type IDoctorCheck,
+  type IDoctorDeps,
+  type IDoctorEndpointProbeResult,
+  type IDoctorInputs,
+  type IDoctorPathFacts,
+  type IDoctorRepairPlan,
+  type IDoctorReport,
+  type TDoctorCheckStatus,
+  type TDoctorNotProbed,
+  type TDoctorRepairOutcome,
+  type TDoctorRepairPlanResult,
+} from './doctor/index.js';
 export {
   EffortCommandSource,
   createEffortCommandEntry,
@@ -58,4 +87,7 @@ export * from './skills/index.js';
 export * from './statusline/index.js';
 export * from './user-local/index.js';
 export { createDefaultPluginCommandAdapter } from './plugins/default-plugin-command-adapter.js';
-export { reloadPluginCommandSource } from './plugins/default-plugin-command-source-loader.js';
+export {
+  pluginScopeDirs,
+  reloadPluginCommandSource,
+} from './plugins/default-plugin-command-source-loader.js';

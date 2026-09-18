@@ -109,7 +109,8 @@ const HookGroupSchema = z.object({
  * a `hooks.PermissionDecision` command hook never fired while the `permissions` block beside it in
  * the same file took effect, in every mode.
  */
-const HooksSchema = z
+/** Exported for the plugin loader's inspection (OBSERVABILITY-1991); the schema stays owned here. */
+export const HooksSchema = z
   .object({
     PreToolUse: z.array(HookGroupSchema).optional(),
     PostToolUse: z.array(HookGroupSchema).optional(),

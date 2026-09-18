@@ -52,7 +52,8 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
 
 Commands:
   robota init                      Initialize AGENTS.md and .robota/settings.json
-  robota diagnose                  Check setup and print a diagnostics report
+  robota doctor                    Diagnose configuration and runtime readiness (aliases: checkup, diagnose)
+  robota doctor --repair <id> [-y] Apply one allowlisted repair after confirmation
   robota trust [status|grant|revoke] [--yes]
                                   Inspect or change the current workspace trust grant
   robota usage [options]           Show 7/30-day cross-session personal usage (text or JSON)

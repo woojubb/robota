@@ -61,4 +61,4 @@ contract) and implemented to match.
   ```
 
   Key value occurrences in full output: 0. CI tests:
-  `packages/agent-cli/src/startup/__tests__/diagnose-accuracy.test.ts` (TC-01~TC-06, 6/6).
+  `packages/agent-cli/src/startup/__tests__/diagnose-accuracy.test.ts` (TC-01~TC-06, 6/6). <!-- evidence-superseded: OBSERVABILITY-1991 replaced the diagnose runner with the agent-command doctor (packages/agent-command/src/doctor/) and moved its tests to packages/agent-cli/src/startup/__tests__/doctor-route.test.ts -->

@@ -33,6 +33,8 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
       model: DEFAULT_GEMINI_PROVIDER_MODEL,
       apiKey: DEFAULT_GEMINI_PROVIDER_API_KEY_REFERENCE,
     },
+    // OBSERVABILITY-1991: the SDK embeds this endpoint; declared here for the pre-session doctor only.
+    endpoint: { host: 'generativelanguage.googleapis.com', port: 443 },
     modelCatalog: {
       status: 'fallback',
       sourceUrl: GEMINI_MODEL_SOURCE_URL,

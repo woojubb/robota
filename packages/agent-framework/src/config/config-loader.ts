@@ -10,15 +10,11 @@
  *   6. .claude/settings.local.json   (project-local, highest priority)
  */
 import { mergeSettings } from './config-merge.js';
-import {
-  SettingsSchema,
-  type TSettings,
-  type TEnvResolvedSettings,
-  type IResolvedConfig,
-} from './config-types.js';
+import { readSettingsLayers } from './settings-inspection.js';
 import { SettingsParseError } from './settings-parse-error.js';
-import { readSettingsSourceText } from './settings-source.js';
 
+import type { TSettings, TEnvResolvedSettings, IResolvedConfig } from './config-types.js';
+import type { IReadSettingsLayer } from './settings-inspection.js';
 import type { TSettingsSource } from './settings-source.js';
 
 /** Default resolved config values */
@@ -37,41 +33,26 @@ const DEFAULTS: IResolvedConfig = {
 };
 
 /**
- * Read and parse a JSON file. Returns undefined if the file does not exist.
- * Throws on parse errors.
+ * Raise the loader's read-phase error for a classified layer.
+ *
+ * The classification itself lives in `settings-inspection.ts` (`readSettingsLayers`) so the doctor
+ * and the loader read one implementation (OBSERVABILITY-1991); the errors raised here are the ones
+ * this loader has always raised, at the same layer:
+ * - an existing but empty file is corrupt, not absent (`settings-io.readSettings` reaches
+ *   `JSON.parse('')` for the same file, and a crash during write is precisely how a settings file
+ *   becomes empty);
+ * - a corrupt layer is refused rather than skipped — CONFIG-002 / issue #2023: returning `undefined`
+ *   let a truncated project file that had carried a deny list come back as a config with none;
+ * - an unreadable existing file propagates the reader's own error.
  */
-function readJsonSource(source: TSettingsSource): unknown {
-  const content = readSettingsSourceText(source, 'load configuration settings');
-  // A file that is not there was never a layer. Absence stays absence — that is the ONLY case that
-  // may answer `undefined`, because it is the only one where nothing was lost.
-  if (content === undefined) return undefined;
-
-  const raw = content.trim();
-  if (raw.length === 0) {
-    // An existing but empty file is corrupt, not absent. `settings-io.readSettings` in this
-    // directory reaches `JSON.parse('')` and throws for the same file, so treating empty as missing
-    // was this loader disagreeing with its neighbour rather than a considered policy — and a crash
-    // during write is precisely how a settings file becomes empty.
-    throw new SettingsParseError(source.displayName, 'the settings file is empty');
+function throwReadPhaseError(layer: IReadSettingsLayer): void {
+  if (layer.state === 'empty') {
+    throw new SettingsParseError(layer.source.displayName, 'the settings file is empty');
   }
-
-  try {
-    return JSON.parse(raw) as unknown;
-  } catch (error) {
-    // CONFIG-002 / issue #2023. This returned `undefined`, and `loadConfig` skips a layer whose raw
-    // value is `undefined` — so a corrupt layer never reached `SettingsSchema`. Shape validation is
-    // fail-closed; this step was fail-open; and the fail-open path therefore routed around the
-    // fail-closed one inside a single function.
-    //
-    // The direction is what makes it a security defect rather than a lost setting:
-    // `toResolvedConfig` resolves `merged.permissions?.deny ?? DEFAULTS.permissions.deny`, and that
-    // default is `[]`. A truncated project settings file that had carried a deny list came back as
-    // a config with none, and no caller could tell that from a file which never had one.
-    throw new SettingsParseError(
-      source.displayName,
-      error instanceof Error ? error.message : String(error),
-    );
+  if (layer.state === 'invalid-json') {
+    throw new SettingsParseError(layer.source.displayName, layer.error?.message ?? 'invalid JSON');
   }
+  if (layer.state === 'unreadable') throw layer.error;
 }
 
 /**
@@ -202,21 +183,18 @@ function toResolvedConfig(merged: TEnvResolvedSettings): IResolvedConfig {
  * Load and merge all settings files, validate with Zod, return resolved config.
  */
 export async function loadConfig(sources: readonly TSettingsSource[]): Promise<IResolvedConfig> {
-  const rawEntries: Array<{ raw: unknown; source: TSettingsSource }> = [];
-  for (const source of sources) {
-    const raw = readJsonSource(source);
-    if (raw !== undefined) {
-      rawEntries.push({ raw, source });
+  const layers = readSettingsLayers(sources);
+  // Read-phase errors first, across every layer, then the first schema failure — the order the
+  // two-phase loader always had (see `throwReadPhaseError`).
+  for (const layer of layers) throwReadPhaseError(layer);
+  const parsedLayers: TEnvResolvedSettings[] = [];
+  for (const layer of layers) {
+    if (layer.state === 'absent') continue;
+    if (layer.state === 'schema-invalid' || layer.settings === undefined) {
+      throw new Error(`Invalid settings in ${layer.source.displayName}: ${layer.schemaMessage}`);
     }
+    parsedLayers.push(resolveEnvRefs(layer.settings));
   }
-
-  const parsedLayers: TEnvResolvedSettings[] = rawEntries.map(({ raw, source }) => {
-    const result = SettingsSchema.safeParse(raw);
-    if (!result.success) {
-      throw new Error(`Invalid settings in ${source.displayName}: ${result.error.message}`);
-    }
-    return resolveEnvRefs(result.data);
-  });
 
   const merged = mergeSettings(parsedLayers);
   return toResolvedConfig(merged);

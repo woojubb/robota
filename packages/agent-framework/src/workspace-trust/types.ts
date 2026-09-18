@@ -127,11 +127,22 @@ export interface ITrustedWorkspaceProjectAccess {
   readonly grantedAt?: string;
 }
 
+/**
+ * The owner error behind an `identity-unavailable` or `store-unavailable` trust state
+ * (OBSERVABILITY-1991). Name and message only — never file content.
+ */
+export interface IWorkspaceTrustCause {
+  readonly name: string;
+  readonly message: string;
+}
+
 export interface IRestrictedWorkspaceProjectAccess {
   readonly status: 'restricted';
   readonly reason: 'WorkspaceAuthorityRequired';
   readonly trustState: Exclude<TWorkspaceTrustState, 'trusted'>;
   readonly displayPath?: string;
+  /** Present when the state was caused by a swallowed identity/store error a diagnostic should name. */
+  readonly cause?: IWorkspaceTrustCause;
 }
 
 export type TWorkspaceProjectAccess =

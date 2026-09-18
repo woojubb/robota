@@ -47,6 +47,7 @@ export {
 } from './workspace-trust/index.js';
 export type {
   IRestrictedWorkspaceProjectAccess,
+  IWorkspaceTrustCause,
   ITrustedWorkspaceProjectAccess,
   IWorkspaceAncestorTextEntry,
   IWorkspaceDirectoryEntry,
@@ -119,6 +120,7 @@ export {
   BuiltinCommandSource,
   createBuiltinCommandModule,
   SkillCommandSource,
+  inspectSkillSources,
   PluginCommandSource,
   SystemCommandExecutor,
   createSystemCommands,
@@ -474,6 +476,7 @@ export {
   NodeHostPluginSettingsStore,
   BundlePluginLoader,
   createHostBundlePluginLoader,
+  loadHostBundlePluginInspectionFromScopes,
   loadHostBundlePluginsFromScopes,
 } from './plugins/index.js';
 export type { IHostBundlePluginLoaderOptions } from './plugins/index.js';
@@ -490,10 +493,16 @@ export type {
   IMarketplaceClientOptions,
   IKnownMarketplaceEntry,
   TKnownMarketplacesRegistry,
-  IBundlePluginManifest,
   IBundlePluginFeatures,
+  IBundlePluginHookIssue,
+  IBundlePluginInspection,
+  IBundlePluginManifest,
+  IBundlePluginMcpFault,
+  IBundlePluginMcpServer,
+  IBundlePluginSkip,
   IBundleSkill,
   ILoadedBundlePlugin,
+  TBundlePluginSkipReason,
   TEnabledPlugins,
 } from './plugins/index.js';
 
@@ -739,6 +748,23 @@ export {
   deleteSettings,
 } from './config/settings-io.js';
 export type { TSettingsData, TSettingsScope } from './config/settings-io.js';
+export { inspectSettingsLayers } from './config/settings-inspection.js';
+export type {
+  ISettingsInspection,
+  ISettingsKeyProvenance,
+  ISettingsLayerCause,
+  ISettingsLayerInspection,
+  ISettingsSchemaIssue,
+  TSettingsLayerState,
+} from './config/settings-inspection.js';
+export type { TSettingsMergeRule } from './config/config-merge.js';
+export type { TSettings } from './config/config-types.js';
+export type {
+  ISkillRootInspection,
+  ISkillSourceInspection,
+  ISkillSourceSkip,
+  TSkillSkipReason,
+} from './commands/index.js';
 export { SettingsParseError } from './config/settings-parse-error.js';
 export { NoCurrentProviderProfileError } from './config/no-current-provider-profile-error.js';
 export { resetUserConfig } from './config/reset-user-config.js';

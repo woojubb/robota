@@ -32,6 +32,10 @@ regexes = [
   '''\$ENV:[A-Z0-9_]+''',
   '''(?i)(example|placeholder|dummy|fake|test|your-?)[-_]?(api[-_]?key|token|secret)''',
   '''sk-(ant-)?(example|test|placeholder|xxx)[A-Za-z0-9-]*''',
+  # OBSERVABILITY-1991 — the doctor's redaction sentinels (`sk-doctor-marker-<slot>-<6 hex>`, defined in
+  # packages/agent-command/src/doctor/__tests__/doctor-fixture.ts). They exist to be planted in an isolated
+  # HOME and then proven ABSENT from the doctor's output, so the Task/spec scenario text has to spell one.
+  '''sk-doctor-marker-[a-z]+-[0-9a-f]{6}''',
 ]
 # Build outputs and vendored trees are not source: dist/ and the Electron release bundle contain third-party
 # JWTs, and pnpm-lock.yaml carries integrity hashes that look like high-entropy secrets.

@@ -58,7 +58,7 @@ attention state, stored-history query, palette configuration, OS/IME integration
 
 ## Children
 
-- [ ] OBSERVABILITY-1991 — todo — `.agents/tasks/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md`
+- [x] OBSERVABILITY-1991 — done — `.agents/tasks/completed/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md`
 - [ ] SCREEN-1992 — todo — `.agents/tasks/SCREEN-1992-recap-unattended-session-and-background-activity.md`
 - [ ] SCREEN-1993 — todo — `.agents/tasks/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md`
 - [ ] SCREEN-2002 — todo — `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`

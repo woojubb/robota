@@ -45,5 +45,5 @@ and exits with a structured report, matching the PM-024/PM-035 completed scope.
   "✗ API key: No API key found", "✓ Settings file: ~/.robota/settings.json (global)",
   "⚠ Terminal: macOS Terminal.app", "✓ Network (api.anthropic.com): reachable (15ms)" and summary
   "✗ 1 issue(s) found." — then exited without TUI (exit 0). Module restored at
-  `packages/agent-cli/src/startup/diagnose-command.ts` with `IDiagnoseContext` + injectable network
+  `packages/agent-cli/src/startup/diagnose-command.ts` with `IDiagnoseContext` + injectable network <!-- evidence-superseded: OBSERVABILITY-1991 replaced the diagnose runner with the agent-command doctor (packages/agent-command/src/doctor/) and moved its tests to packages/agent-cli/src/startup/__tests__/doctor-route.test.ts -->
   check; unit tests in `src/startup/__tests__/diagnose-command.test.ts`.

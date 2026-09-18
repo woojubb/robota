@@ -4,6 +4,7 @@ import { createAgentCommandModule } from '../agent/index.js';
 import { createBackgroundCommandModule } from '../background/index.js';
 import { createCompactCommandModule } from '../compact/index.js';
 import { createContextCommandModule } from '../context/index.js';
+import { createDoctorCommandModule } from '../doctor/index.js';
 import { createEditorCommandModule } from '../editor/index.js';
 import { createEffortCommandModule } from '../effort/index.js';
 import { createExitCommandModule } from '../exit/index.js';
@@ -34,6 +35,7 @@ import { createSkillsCommandModule } from '../skills/index.js';
 import { createStatusLineCommandModule } from '../statusline/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
 
+import type { IDoctorInputs } from '../doctor/index.js';
 import type { IKeybindingsFilePort } from '../keybindings/index.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
@@ -60,6 +62,8 @@ export interface IDefaultCommandModulesOptions {
   orgPolicy?: IOrgPolicy;
   /** Optional TUI-owned file capability; absence means `/keybindings` is not registered. */
   keybindingsFilePort?: IKeybindingsFilePort;
+  /** OBSERVABILITY-1991: host-composed doctor inputs; absence means `/doctor` is not registered. */
+  doctorInputs?: IDoctorInputs;
   /**
    * Whitelist of module `name`s to keep. When provided, only modules whose `name`
    * appears here survive. Omitted → all modules kept (no-regression).
@@ -107,6 +111,7 @@ export function createDefaultCommandModules({
   providerSettingsAdapter,
   orgPolicy,
   keybindingsFilePort,
+  doctorInputs,
   enabledCommandModules,
   disabledCommandModules,
 }: IDefaultCommandModulesOptions): IDefaultCommandModulesResult {
@@ -131,6 +136,7 @@ export function createDefaultCommandModules({
     ...(keybindingsFilePort === undefined
       ? []
       : [createKeybindingsCommandModule(keybindingsFilePort)]),
+    ...(doctorInputs === undefined ? [] : [createDoctorCommandModule(doctorInputs)]),
     createMemoryCommandModule(),
     createMCPActivationCommandModule(),
     createUserLocalCommandModule(),

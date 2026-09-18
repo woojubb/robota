@@ -11,6 +11,31 @@
 import type { TEnvResolvedSettings } from './config-types.js';
 
 /**
+ * How a later layer combines with an earlier one for a given top-level key (OBSERVABILITY-1991).
+ *
+ * Declared beside `mergeLayer` because that function is the only place these rules are executed;
+ * `settings-inspection.ts` reads this table to report provenance instead of describing the merge a
+ * second time. A key absent from the table follows the top-level spread: `replace`.
+ */
+export type TSettingsMergeRule =
+  'replace' | 'most-restrictive' | 'union' | 'per-event' | 'object-merge' | 'accumulate';
+
+export const SETTINGS_MERGE_RULES: Readonly<Record<string, TSettingsMergeRule>> = Object.freeze({
+  defaultTrustLevel: 'most-restrictive',
+  disabledHooks: 'accumulate',
+  provider: 'object-merge',
+  'permissions.allow': 'replace',
+  'permissions.deny': 'union',
+  env: 'object-merge',
+  providers: 'object-merge',
+  enabledPlugins: 'object-merge',
+  extraKnownMarketplaces: 'replace',
+  autoCompactThreshold: 'replace',
+  hooks: 'per-event',
+  taskContext: 'object-merge',
+});
+
+/**
  * Deep-merge settings objects. Later entries in the array win.
  *
  * Arrays are replaced (not concatenated) so that project settings fully override user settings for

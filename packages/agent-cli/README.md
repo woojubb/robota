@@ -195,6 +195,25 @@ Use `--period 7d` (the default) or `--period 30d`, choose an IANA timezone with 
 report; a supplied store set containing no readable records exits with an error instead of silently
 reporting zero usage.
 
+### Doctor
+
+`robota doctor` (aliases: `checkup`, `diagnose`) diagnoses configuration and runtime readiness
+before any session exists, so a broken configuration cannot make the diagnostic unreachable. It reports
+every settings layer in precedence order with its state and cause, the merged keys with the layer that
+contributed each, provider resolution and endpoint reachability, workspace trust, storage, plugins,
+skills, hooks and MCP declarations — naming the exact file and cause, never a credential. Exit code
+`0` means no check failed (warnings allowed); `1` means at least one did.
+
+```bash
+robota doctor                                   # full report
+robota doctor --repair settings.user.robota     # one allowlisted repair, asks [y/N] first
+robota doctor --repair storage.user --yes       # no prompt (required in a non-interactive shell)
+```
+
+Repairs are limited to an empty user settings file (rewritten as `{}`) and a missing or too-open
+user storage directory; everything else is reported with the path to fix. `/doctor` runs the same
+report inside a session, and `/doctor repair <check-id>` asks before writing.
+
 ### CLI Updates
 
 Robota can check npm for a newer `@robota-sdk/agent-cli` version:
@@ -591,7 +610,7 @@ robota trust revoke --yes
 
 The grant survives process restart and is invalidated by repository replacement, revocation, or a
 trust-store error. Symlink aliases resolve to the canonical workspace; a different repository at the
-same textual path does not inherit the grant. `robota diagnose` reports trust and endpoint provenance
+same textual path does not inherit the grant. `robota doctor` reports trust and endpoint provenance
 without printing credentials. If a lower-trust settings layer changes a provider endpoint without
 providing its own key, Robota removes the inherited key and reports `provider endpoint quarantined`.
 
