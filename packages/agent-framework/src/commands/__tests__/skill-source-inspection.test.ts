@@ -55,6 +55,12 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
       join(skills, 'bad-effort', 'SKILL.md'),
       '---\nname: bad\neffort: extreme\n---\nbody\n',
     );
+    // No closing fence: the parser still reads the refused value, so the session still throws.
+    mkdirSync(join(skills, 'bad-effort-open'), { recursive: true });
+    writeFileSync(
+      join(skills, 'bad-effort-open', 'SKILL.md'),
+      '---\nname: open\neffort: extreme\nbody\n',
+    );
     const sources = [createNodeHostContributionSource(home)];
 
     // The premise: the session's own discovery does not tolerate this file.
@@ -67,6 +73,11 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
     expect(robota?.skipped).toEqual([
       {
         path: join('.robota', 'skills', 'bad-effort', 'SKILL.md'),
+        reason: 'frontmatter-invalid',
+        detail: expect.stringContaining('received "extreme"'),
+      },
+      {
+        path: join('.robota', 'skills', 'bad-effort-open', 'SKILL.md'),
         reason: 'frontmatter-invalid',
         detail: expect.stringContaining('received "extreme"'),
       },

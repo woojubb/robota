@@ -260,21 +260,22 @@ function inspectRoot(
       skipped.push({ path: file, reason: 'unreadable' });
       continue;
     }
+    // The same parse the session runs, first: it reads to EOF whether or not the block is closed,
+    // so a refused value throws there even in an unterminated block. Its throw ends discovery, so
+    // here it is the finding, reported by file, and the entry is not counted as discovered.
+    try {
+      parseFrontmatter(content);
+    } catch (error) {
+      // allow-fallback: the parser's refusal is the finding, never a discovered entry
+      const detail = error instanceof Error ? error.message : String(error);
+      skipped.push({ path: file, reason: 'frontmatter-invalid', detail });
+      continue;
+    }
     const reason = frontmatterSkip(content);
     if (reason !== undefined) {
       // Discovery still registers such a file under its directory name; the finding is that its
       // frontmatter contributes nothing, which is what a user who wrote one wants to know.
       skipped.push({ path: file, reason });
-    } else {
-      try {
-        parseFrontmatter(content);
-      } catch (error) {
-        // allow-fallback: the same parse the session runs; its throw ends discovery there, so
-        // here it is the finding, reported by file, and the entry is not counted as discovered
-        const detail = error instanceof Error ? error.message : String(error);
-        skipped.push({ path: file, reason: 'frontmatter-invalid', detail });
-        continue;
-      }
     }
     discovered.push(kind === 'skills' ? basename(join(file, '..')) : basename(entry.name, '.md'));
   }

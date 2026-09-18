@@ -280,7 +280,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     ).toMatchObject({ applied: false });
   });
 
-  it('TC-05: a skill definition session discovery throws on is a fail check, not a warning', async () => {
+  it('TC-05 (skills): a skill definition session discovery throws on is a fail check, not a warning', async () => {
     const f = fixture({ env: {} });
     f.mkdir('.robota');
     f.mkdir('.robota/sessions');
@@ -301,7 +301,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(report.exitCode).toBe(1);
   });
 
-  it('TC-05: a trust service that swallowed an error is a fail check naming the cause', async () => {
+  it('TC-05 (workspace.trust): a trust service that swallowed an error is a fail check naming the cause', async () => {
     const f = fixture({ env: {} });
     const report = await runDoctor(
       {
