@@ -71,6 +71,8 @@ export class TerminalHandoffController implements ITerminalHandoff {
     } finally {
       // Always reclaim the screen, even when the child failed. Re-rendering re-mounts the input
       // hooks, which is what restores raw mode and resumes the parent's stdin reader.
+      if (stdin.isTTY && typeof stdin.setRawMode === 'function') stdin.setRawMode(true);
+      stdin.resume();
       hooks.resume();
     }
   }

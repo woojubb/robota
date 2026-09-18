@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import AppView from './AppView.js';
-import { useTerminalHandoffSuspension } from './hooks/useTerminalHandoffSuspension.js';
 import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
 
 import type { ITuiAppChannelPort } from './tui-app-channel-port.js';
@@ -90,13 +89,6 @@ function useActiveChannel(props: IProps): IActiveChannel {
 /** React composition shell. Concrete framework objects stay outside the React tree. */
 export default function App(props: IProps): React.ReactElement {
   const active = useActiveChannel(props);
-  // TERM-002: keep the suspend hook above every input-bearing AppView hook. Returning an empty tree
-  // here unmounts all Ink useInput registrations so they can reclaim stdin when the TUI resumes.
-  const handoffSuspended = useTerminalHandoffSuspension(
-    active.state.channel.terminalHandoffController,
-  );
-
-  if (handoffSuspended) return <></>;
 
   return (
     <TuiCliAdapterProvider value={props.cliAdapter}>

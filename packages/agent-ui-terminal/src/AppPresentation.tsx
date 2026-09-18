@@ -150,24 +150,30 @@ export default function AppPresentation({
   return (
     <Box flexDirection="column">
       <Transcript model={viewModel} />
-      {viewModel.updateNotice && <UpdateNotice message={viewModel.updateNotice} />}
-      {viewModel.coordinationError && (
-        <Text color={PALETTE.text.error}>{viewModel.coordinationError} Press Enter to retry.</Text>
+      {!viewModel.handoffSuspended && (
+        <>
+          {viewModel.updateNotice && <UpdateNotice message={viewModel.updateNotice} />}
+          {viewModel.coordinationError && (
+            <Text color={PALETTE.text.error}>
+              {viewModel.coordinationError} Press Enter to retry.
+            </Text>
+          )}
+          {keybindings.diagnostic && (
+            <Text color={PALETTE.text.error}>
+              {`Keybindings ${keybindings.diagnostic.file} ${keybindings.diagnostic.path}: ${keybindings.diagnostic.message} Last valid bindings remain active.`}
+            </Text>
+          )}
+          {keybindings.warnings.map((warning) => (
+            <Text key={`${warning.path}:${warning.code}`} color={PALETTE.text.warning}>
+              {`Keybindings ${warning.path}: ${warning.message}`}
+            </Text>
+          ))}
+          <SessionEventNotices notices={viewModel.sessionEventNotices} />
+          <Activity model={viewModel} />
+          <Overlays model={viewModel} />
+          <PromptAndStatus model={viewModel} />
+        </>
       )}
-      {keybindings.diagnostic && (
-        <Text color={PALETTE.text.error}>
-          {`Keybindings ${keybindings.diagnostic.file} ${keybindings.diagnostic.path}: ${keybindings.diagnostic.message} Last valid bindings remain active.`}
-        </Text>
-      )}
-      {keybindings.warnings.map((warning) => (
-        <Text key={`${warning.path}:${warning.code}`} color={PALETTE.text.warning}>
-          {`Keybindings ${warning.path}: ${warning.message}`}
-        </Text>
-      ))}
-      <SessionEventNotices notices={viewModel.sessionEventNotices} />
-      <Activity model={viewModel} />
-      <Overlays model={viewModel} />
-      <PromptAndStatus model={viewModel} />
     </Box>
   );
 }

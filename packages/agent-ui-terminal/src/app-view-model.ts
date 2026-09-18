@@ -27,6 +27,7 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
 
 export interface IAppViewModel {
   readonly staticItems: TStaticItem[];
+  readonly handoffSuspended: boolean;
   readonly updateNotice: string | undefined;
   readonly coordinationError: string | undefined;
   readonly coordinationPending: boolean;
