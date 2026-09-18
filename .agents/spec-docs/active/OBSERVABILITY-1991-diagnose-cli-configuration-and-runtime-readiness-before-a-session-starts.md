@@ -197,7 +197,7 @@ returns skipped entries `{ pluginId, manifestPath, reason }`, `hooks/hooks.json`
 owner's `HooksSchema` (issue paths only), and `.mcp.json` parsed into typed entries
 `{ name, transport: 'stdio' | 'http', command?, url? }` with environment maps reduced to key names.
 `loadPluginsSync()` behaviour is unchanged by the `HooksSchema` inspection — it is report-only; a plugin
-whose hooks fail the schema still loads as today, and root item 5 (runtime enforcement, recorded on #2670) stays open.
+whose hooks fail the schema still loads as today, and root item 5 (runtime enforcement, recorded on issue #2670) stays open.
 `inspectSkillSources(sources)` returns per root the discovered names, subdirectories lacking `SKILL.md`,
 unreadable files and frontmatter decode failures. `command` hooks are checked for `PATH` resolvability.
 MCP structural faults are `warn` until the CLI has an MCP consumer; the activation adapter is
@@ -275,9 +275,9 @@ not the repairable state, or when confirmation is unavailable and `--yes` was no
    refusal/idempotence/re-check, `/doctor` without a provider turn; one built CLI isolated-HOME scenario
    recorded in `.agents/evals/scenarios/observability-1991-doctor-agent-run.md`.
 5. The five separate root items the review surfaced are recorded, per the 90 → 10 Issue consolidation
-   (no new Issues), as a [comment on umbrella #2670](https://github.com/woojubb/robota/issues/2670#issuecomment-5734212465).
+   (no new Issues), as a [comment on umbrella issue #2670](https://github.com/woojubb/robota/issues/2670#issuecomment-5734212465).
 
-### Separate root items (recorded on #2670, not folded in)
+### Separate root items (recorded on issue #2670, not folded in)
 
 1. Two settings merge chains — `config/config-merge.ts` (`loadConfig`) and
    `command-api/provider/provider-merge.ts` (`readProviderSettings`) — give session start two owners of
@@ -372,11 +372,48 @@ not the repairable state, or when confirmation is unavailable and `--yes` was no
 
 ## User Execution Test Scenarios
 
-To be authored in PLAN mode by the user-execution scenario pipeline before implementation; the intended
-surface is the built `robota doctor` command run against an isolated `HOME` with a zero-byte user
-settings file, a schema-invalid `~/.claude/settings.json`, a plugin whose manifest is unparseable, a
-plugin `.mcp.json` naming a missing command and marker secrets, followed by
-`--repair settings.user.robota --yes` and a clean run after the broken fixtures are removed.
+Authored in PLAN mode before implementation (DONE-GATE-STAGE-1 PASS 2026-09-19) and executed against
+the built CLI after it (DONE-GATE-STAGE-2 PASS 2026-09-19); the paired Task holds the gate records and
+`.agents/evals/scenarios/observability-1991-doctor-agent-run.md` the transcripts.
+
+### Scenario 1: broken isolated HOME — doctor names every failing path and cause, prints no secret, offers only the settings repair, exits 1
+
+- executability: agent-executable
+- product surface: robota-cli
+- surface rationale: shipped-entrypoint=robota
+- prerequisites: `packages/agent-cli` is built from this branch and `pnpm exec robota` resolves to that build (the equivalent direct form is `node <repo>/packages/agent-cli/bin/robota.cjs`); HOME is an empty temporary directory that the executor owns; the working directory is a separate empty temporary directory initialised with `git init -q` (so workspace trust is a plain `untrusted`, not `identity-unavailable`); `HOME/.robota` and `HOME/.robota/sessions` are created with mode 0700; `HOME/.robota/settings.json` is a zero-byte file; `HOME/.claude/settings.json` contains exactly `{"defaultTrustLevel":42}`; `HOME/.robota/plugins/cache/fixture-market/broken-plugin/1.0.0/.claude-plugin/plugin.json` contains exactly `{`; `HOME/.robota/plugins/cache/fixture-market/mcp-plugin/1.0.0/.claude-plugin/plugin.json` contains exactly `{"name":"mcp-plugin","version":"1.0.0","description":"doctor fixture"}` and `HOME/.robota/plugins/cache/fixture-market/mcp-plugin/1.0.0/.mcp.json` contains exactly `{"mcpServers":{"ghost":{"command":"robota-doctor-missing-binary","env":{"GHOST_TOKEN":"sk-doctor-marker-mcp-9f8e7d"}}}}`; the environment exports `ROBOTA_DOCTOR_MARKER=sk-doctor-marker-env-1a2b3c` and no `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GEMINI_API_KEY`; stdout and stderr are captured together to a transcript file; no live credential, provider request or external service is required because the run has no resolvable provider and the doctor constructs no session or turn (the provider line may report `fail` or `warn`; only its redaction is asserted)
+- command: `pnpm exec robota doctor`
+- observable type: product-output
+- observable rationale: source=product-process
+- expected observable: exit=1; output-contains=a settings line naming `HOME/.robota/settings.json` with state `empty` and status `fail`; a settings line naming `HOME/.claude/settings.json` with state `schema-invalid`, status `fail` and the issue path `defaultTrustLevel` (no received value, no parser snippet); a plugin line naming `HOME/.robota/plugins/cache/fixture-market/broken-plugin/1.0.0/.claude-plugin/plugin.json` as skipped with its cause; an MCP line naming server `ghost` and command `robota-doctor-missing-binary` with status `warn`; an MCP activation line with status `not-configured`; a repair offer containing `--repair settings.user.robota`; `storage.user` with status `ok`; and `grep -c sk-doctor-marker` over the transcript returns 0
+- cleanup: none between scenarios (Scenario 2 continues on the same HOME); after the whole sequence remove only the isolated HOME, the temporary project directory and the transcript files
+- evidence: recorded — exit 1, full transcript (24 check lines) and `grep -c sk-doctor-marker` = 0 in `.agents/evals/scenarios/observability-1991-doctor-agent-run.md` § Run 1 (2026-09-19)
+
+### Scenario 2: `--repair settings.user.robota --yes` rewrites the zero-byte user settings file to `{}` and the check turns ok while the schema-invalid layer still fails
+
+- executability: agent-executable
+- product surface: robota-cli
+- surface rationale: shipped-entrypoint=robota
+- prerequisites: Scenario 1 has just run and its HOME, working directory, environment (`ROBOTA_DOCTOR_MARKER` exported, no provider key variables) and fixtures are unchanged: `HOME/.robota/settings.json` is still zero bytes, `HOME/.claude/settings.json` still contains `{"defaultTrustLevel":42}`, both fixture plugins are still installed; stdin is not a TTY (the command is run non-interactively, so `--yes` is the only confirmation path); stdout and stderr are captured together to a transcript file; no live credential, provider request or external service is required
+- command: `pnpm exec robota doctor --repair settings.user.robota --yes`
+- observable type: product-output
+- observable rationale: source=product-process
+- expected observable: exit=1; output-contains=a line for check `settings.user.robota` with status `ok` after the repair; a settings line still naming `HOME/.claude/settings.json` with state `schema-invalid` and status `fail`; no repair offer for `settings.user.robota` remains; `HOME/.robota/settings.json` afterwards contains exactly `{}` (read back by the executor after the process exits) and `HOME/.claude/settings.json` is byte-identical to before; and `grep -c sk-doctor-marker` over the transcript returns 0
+- cleanup: none between scenarios (Scenario 3 continues on the same HOME); after the whole sequence remove only the isolated HOME, the temporary project directory and the transcript files
+- evidence: recorded — exit 1, `Repaired settings.user.robota` line, `[settings.user.robota] ok`, post-run `HOME/.robota/settings.json` = `{}`, `~/.claude/settings.json` byte-identical (`cmp` exit 0), marker count 0 in `.agents/evals/scenarios/observability-1991-doctor-agent-run.md` § Run 2 (2026-09-19)
+
+### Scenario 3: broken fixtures removed and marker-bearing valid settings in place — checkup alias exits 0 and prints no secret
+
+- executability: agent-executable
+- product surface: robota-cli
+- surface rationale: shipped-entrypoint=robota
+- prerequisites: Scenario 2 has run on the same HOME and working directory; the executor then deletes `HOME/.claude/settings.json` and the whole `HOME/.robota/plugins` directory, and overwrites `HOME/.robota/settings.json` with exactly `{"currentProvider":"doctor-env","providers":{"doctor-env":{"type":"anthropic","model":"claude-sonnet-4-6","apiKey":"$ENV:ROBOTA_DOCTOR_MARKER","baseURL":"http://127.0.0.1:9"},"doctor-inactive":{"type":"anthropic","model":"claude-sonnet-4-6","apiKey":"sk-doctor-marker-profile-4d5e6f"}}}`; `HOME/.robota` and `HOME/.robota/sessions` still have mode 0700; the environment still exports `ROBOTA_DOCTOR_MARKER=sk-doctor-marker-env-1a2b3c` and no provider key variables; nothing listens on `127.0.0.1:9`, so the reachability probe derived from the profile `baseURL` is refused locally; stdout and stderr are captured together to a transcript file; no live credential, provider request or external service is required because the credential resolves from the exported marker variable, the only network probe is a TCP connect to a closed loopback port, and no session or turn is created
+- command: `pnpm exec robota checkup`
+- observable type: product-output
+- observable rationale: source=product-process
+- expected observable: exit=0; output-contains=a settings line naming `HOME/.robota/settings.json` with state `ok`; no line naming `HOME/.claude/settings.json` with a `fail` status; a provider line naming `anthropic` and `claude-sonnet-4-6`; a reachability line naming `127.0.0.1` with status `warn`; an MCP activation line with status `not-configured`; `storage.user` with status `ok`; no line with status `fail`; and `grep -c sk-doctor-marker` over the transcript returns 0 although the transcript inputs carried the marker in the environment variable and in the inactive profile
+- cleanup: remove the isolated HOME, the temporary project directory and the transcript files; unset `ROBOTA_DOCTOR_MARKER`
+- evidence: recorded — exit 0, full transcript with `anthropic (claude-sonnet-4-6)`, `127.0.0.1:9 … unreachable` at `warn`, zero `fail` lines and marker count 0 in `.agents/evals/scenarios/observability-1991-doctor-agent-run.md` § Run 3 (2026-09-19)
 
 ## Tasks
 
@@ -400,7 +437,7 @@ plugin `.mcp.json` naming a missing command and marker secrets, followed by
 - GATE-WRITE — Decision references the driving trade-off: alternative 3 chosen over 2 (CLI re-reads that let diagnose disagree with session start — the CLI-067 class) and over 4 (command behaviour in the product shell, forbidden by `project-structure.md` § Implementation Owner Boundaries) at the cost of touching `agent-framework`, `agent-command`, `agent-cli` and their SPECs; the `endpoint`-versus-`defaults.baseURL` choice names the five runtime-effective consumer seams that made `defaults.baseURL` unsafe.
 - GATE-WRITE — New-surface placement (applicable: new command module `packages/agent-command/src/doctor/` that could plausibly live in `agent-cli`): (a) analog named — the `user-local-direct-command.ts` / `provider-startup.ts` dual-surface command family, classified as a built-in configuration/diagnostic command beside `/settings`, `/reset`, `/provider`; (b) reuse at the `agent-framework` inspection-contract level with no dependency on the `agent-cli` product — confirmed against `packages/agent-command/package.json`, whose `@robota-sdk` dependencies are agent-core, agent-framework, the three interface packages and agent-preset only; the independent placement verdict is recorded below.
 - GATE-WRITE — Completion Criteria: 8 items, all `TC-NN:` prefixed; none uses a banned phrase.
-- GATE-WRITE — At least 1 criterion per feature: pre-parse route, aliases and exit code (TC-01); settings provenance and structured causes (TC-02); redaction (TC-03); provider readiness, definition `endpoint` and host-table removal (TC-04); plugin/skill/hook/storage/MCP/workspace-trust checks (TC-05); `/doctor` and `/doctor repair` (TC-06); the `--repair` allowlist and refusals (TC-07); the isolated-HOME scenario and the migrated diagnose tests (TC-08). Solution item 5 (root items recorded on #2670) is a documentation act, not a feature, and needs no TC.
+- GATE-WRITE — At least 1 criterion per feature: pre-parse route, aliases and exit code (TC-01); settings provenance and structured causes (TC-02); redaction (TC-03); provider readiness, definition `endpoint` and host-table removal (TC-04); plugin/skill/hook/storage/MCP/workspace-trust checks (TC-05); `/doctor` and `/doctor repair` (TC-06); the `--repair` allowlist and refusals (TC-07); the isolated-HOME scenario and the migrated diagnose tests (TC-08). Solution item 5 (root items recorded on issue #2670) is a documentation act, not a feature, and needs no TC.
 - GATE-WRITE — Command/Observable form: every TC names the command or surface run and the observable output, status, exit code or file state expected; no vague language.
 - GATE-WRITE — Test Plan: 8 rows = 8 TC criteria; every row has a Test Type and Tool/Approach; 0 manual rows.
 - GATE-WRITE — Structure: `## Tasks` present with the paired-Task placeholder; `## Evidence Log` present and empty at judgement; no `## Status` / `## Classification` body sections.

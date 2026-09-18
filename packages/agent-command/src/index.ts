@@ -16,7 +16,8 @@ export * from './context/index.js';
 export * from './editor/index.js';
 // OBSERVABILITY-1991: named rather than `export *` — the star form is frozen debt in this barrel.
 export {
-  DOCTOR_REPAIR_ALLOWLIST,
+  STORAGE_REPAIR_ID,
+  doctorRepairAllowlist,
   DoctorCommandSource,
   applyDoctorRepair,
   buildDoctorReport,

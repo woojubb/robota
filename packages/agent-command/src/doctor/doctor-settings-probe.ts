@@ -21,11 +21,23 @@ import type {
 const HTTP_PORT = 80;
 const HTTPS_PORT = 443;
 
-/** `settings.<scope>.<robota|claude>` — the id a user types into `--repair`. */
+/**
+ * `settings.<scope>.<family>` — the id a user types into `--repair`. The family is the name of the
+ * directory the file lives in, without its leading dot, so the id follows whatever layout the host
+ * composed rather than a product name written here.
+ */
 export function settingsCheckId(source: TSettingsSource): string {
   const path = source.kind === 'host' ? source.path : source.relativePath;
-  const family = basename(dirname(path)) === '.claude' ? 'claude' : 'robota';
+  const family = basename(dirname(path)).replace(/^\./, '');
   return `settings.${source.scope}.${family}`;
+}
+
+/** The check id of the host's own user settings file — the settings repair target. */
+export function userSettingsCheckId(inputs: IDoctorInputs): string | undefined {
+  const source = inputs.settingsSources.find(
+    (candidate) => candidate.kind === 'host' && candidate.path === inputs.userSettingsPath,
+  );
+  return source === undefined ? undefined : settingsCheckId(source);
 }
 
 function layerCause(layer: ISettingsLayerInspection): string {
@@ -43,19 +55,26 @@ function layerCause(layer: ISettingsLayerInspection): string {
   }
 }
 
-/** The user-scope `~/.robota/settings.json` layer is the only settings repair target. */
-export function isRepairableSettingsLayer(layer: ISettingsLayerInspection): boolean {
-  return layer.kind === 'host' && layer.scope === 'user' && layer.state === 'empty';
+/** Only the host's own user settings file, and only when it is empty, is a settings repair target. */
+export function isRepairableSettingsLayer(
+  layer: ISettingsLayerInspection,
+  inputs: IDoctorInputs,
+): boolean {
+  return (
+    layer.source.kind === 'host' &&
+    layer.source.path === inputs.userSettingsPath &&
+    layer.state === 'empty'
+  );
 }
 
-function layerCheck(layer: ISettingsLayerInspection): IDoctorCheck {
+function layerCheck(layer: ISettingsLayerInspection, inputs: IDoctorInputs): IDoctorCheck {
   const id = settingsCheckId(layer.source);
   const path = layer.source.kind === 'host' ? layer.source.path : layer.source.relativePath;
   if (layer.state === 'absent') {
     return { id, label: 'Settings layer', status: 'not-configured', path, cause: 'absent' };
   }
   if (layer.state === 'ok') return { id, label: 'Settings layer', status: 'ok', path, cause: 'ok' };
-  const repairable = isRepairableSettingsLayer(layer) && id === 'settings.user.robota';
+  const repairable = isRepairableSettingsLayer(layer, inputs);
   return {
     id,
     label: 'Settings layer',
@@ -101,7 +120,10 @@ export function probeSettings(inputs: IDoctorInputs): ISettingsProbeResult {
   const inspection = inspectSettingsLayers(inputs.settingsSources);
   return {
     inspection,
-    checks: [...inspection.layers.map(layerCheck), provenanceCheck(inspection)],
+    checks: [
+      ...inspection.layers.map((layer) => layerCheck(layer, inputs)),
+      provenanceCheck(inspection),
+    ],
   };
 }
 

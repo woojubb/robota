@@ -7,7 +7,8 @@ export { createNodeDoctorDeps, resolveCommandOnPath } from './doctor-node-deps.j
 export { renderDoctorReport } from './doctor-render.js';
 export { collectSettingsSecrets, redactDiagnosticText } from './doctor-redaction.js';
 export {
-  DOCTOR_REPAIR_ALLOWLIST,
+  STORAGE_REPAIR_ID,
+  doctorRepairAllowlist,
   applyDoctorRepair,
   isDoctorRepairId,
   planDoctorRepair,

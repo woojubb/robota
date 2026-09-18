@@ -144,6 +144,15 @@ function scanCommandsDir(commandsDir: string, source: IContributionSource): ICom
   return commands;
 }
 
+/** The four discovery roots, in precedence order — shared by discovery and by `inspectSkillSources`. */
+const SKILL_ROOTS: ReadonlyArray<{ readonly root: string; readonly kind: 'skills' | 'commands' }> =
+  [
+    { root: join('.robota', 'skills'), kind: 'skills' },
+    { root: join('.claude', 'skills'), kind: 'skills' },
+    { root: join('.claude', 'commands'), kind: 'commands' },
+    { root: join('.agents', 'skills'), kind: 'skills' },
+  ];
+
 /** Command source that discovers skills from multiple directories */
 export class SkillCommandSource implements ICommandSource {
   readonly name = 'skill';
@@ -154,12 +163,11 @@ export class SkillCommandSource implements ICommandSource {
   getCommands(): ICommand[] {
     if (this.cachedCommands) return this.cachedCommands;
 
-    const discovered = this.sources.flatMap((source) => [
-      scanSkillsDir(join('.robota', 'skills'), source),
-      scanSkillsDir(join('.claude', 'skills'), source),
-      scanCommandsDir(join('.claude', 'commands'), source),
-      scanSkillsDir(join('.agents', 'skills'), source),
-    ]);
+    const discovered = this.sources.flatMap((source) =>
+      SKILL_ROOTS.map(({ root, kind }) =>
+        kind === 'skills' ? scanSkillsDir(root, source) : scanCommandsDir(root, source),
+      ),
+    );
 
     const seen = new Set<string>();
     const merged: ICommand[] = [];
@@ -208,15 +216,6 @@ export interface ISkillRootInspection {
 export interface ISkillSourceInspection {
   readonly roots: readonly ISkillRootInspection[];
 }
-
-/** The four discovery roots `SkillCommandSource.getCommands()` scans, in the same order. */
-const SKILL_ROOTS: ReadonlyArray<{ readonly root: string; readonly kind: 'skills' | 'commands' }> =
-  [
-    { root: join('.robota', 'skills'), kind: 'skills' },
-    { root: join('.claude', 'skills'), kind: 'skills' },
-    { root: join('.claude', 'commands'), kind: 'commands' },
-    { root: join('.agents', 'skills'), kind: 'skills' },
-  ];
 
 function frontmatterSkip(content: string): TSkillSkipReason | undefined {
   const lines = content.split('\n');

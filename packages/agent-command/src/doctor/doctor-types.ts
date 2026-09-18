@@ -21,7 +21,7 @@ export type TDoctorCheckStatus = 'ok' | 'warn' | 'fail' | 'not-configured' | 'no
 export type TDoctorNotProbed = 'mcp-connection' | 'hook-execution' | 'owner-only-mode';
 
 export interface IDoctorCheck {
-  /** Stable, user-typeable id (`settings.user.robota`, `storage.user`, `mcp.plugin.<id>.<server>`). */
+  /** Stable, user-typeable id (`settings.<scope>.<family>`, `storage.user`, `mcp.plugin.<id>.<server>`). */
   readonly id: string;
   readonly label: string;
   readonly status: TDoctorCheckStatus;
@@ -56,6 +56,15 @@ export interface IDoctorEndpointProbeResult {
 export interface IDoctorInputs {
   readonly cwd: string;
   readonly userHome: string;
+  /**
+   * The product's own user settings file — the only settings layer the repair allowlist may rewrite.
+   * The host names it; this library knows no product layout.
+   */
+  readonly userSettingsPath: string;
+  /** The product's user store root and its sessions directory, as the host lays them out. */
+  readonly userStorage: { readonly root: string; readonly sessions: string };
+  /** The project state root under a trusted workspace, when the host has one. */
+  readonly projectStorageRoot?: string;
   /** Every settings source the runtime merge chain reads, in precedence order. */
   readonly settingsSources: readonly TSettingsSource[];
   readonly projectAccess: TWorkspaceProjectAccess;

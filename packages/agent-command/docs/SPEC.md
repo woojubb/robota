@@ -56,26 +56,26 @@ No circular dependencies. This package does not depend on any other `agent-comma
 
 Types defined (SSOT) in this package:
 
-| Type                             | Location                                        | Purpose                                                                                                  |
-| -------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `IDefaultCommandModulesOptions`  | `src/default/default-command-modules.ts`        | Options for `createDefaultCommandModules`                                                                |
-| `ISkillsCommandModuleOptions`    | `src/skills/skills-command-module.ts`           | Options for `createSkillsCommandModule` (explicit contribution sources)                                  |
-| `IProviderSetupFlowState`        | `src/provider/provider-setup-flow.ts`           | Immutable state machine for the provider setup wizard                                                    |
-| `IProviderSetupFlowOptions`      | `src/provider/provider-setup-flow.ts`           | Initial options for `createProviderSetupFlow`                                                            |
-| `IProviderSetupPromptStep`       | `src/provider/provider-setup-flow.ts`           | One step in the provider setup wizard                                                                    |
-| `TProviderSetupFlowSubmitResult` | `src/provider/provider-setup-flow.ts`           | Union result of `submitProviderSetupValue`                                                               |
-| `TProviderSetupType`             | `src/provider/provider-setup-flow.ts`           | String alias for provider type identifier                                                                |
-| `TPromptInput`                   | `src/provider/provider-setup-flow.ts`           | Callback signature for interactive text prompts                                                          |
-| `IDoctorCheck`                   | `src/doctor/doctor-types.ts`                    | One doctor finding: stable `id`, `status`, exact `path`, structured `cause`, optional `repair` id        |
-| `IDoctorReport`                  | `src/doctor/doctor-types.ts`                    | Every check plus `failCount`, `warnCount`, repairable ids and the `exitCode` (`fail` alone raises it)    |
-| `IDoctorInputs`                  | `src/doctor/doctor-types.ts`                    | What the host composes for the runner: sources, access, definitions, env, plugin dirs, host checks       |
-| `IDoctorDeps`                    | `src/doctor/doctor-types.ts`                    | Injected side effects: endpoint probe, path facts, PATH resolution, owner-only guarantee                 |
-| `TDoctorCheckStatus`             | `src/doctor/doctor-types.ts`                    | `ok \| warn \| fail \| not-configured \| not-probed`; `not-probed` is the closed list `TDoctorNotProbed` |
-| `IDoctorRepairPlan`              | `src/doctor/doctor-repair.ts`                   | An allowlisted repair the current state admits: id, description, target path                             |
-| `IKeybindingsFilePort`           | `src/keybindings/keybindings-command-module.ts` | Minimal consumer-owned capability that ensures and returns the user keybindings path                     |
-| `IProviderStartupContext`        | `src/provider/provider-startup.ts`              | Context passed to `runProviderStartupSetup`                                                              |
-| `IEnsureProviderConfigOptions`   | `src/provider/provider-startup.ts`              | Options for `ensureProviderConfig`                                                                       |
-| `IUserLocalDirectCommandOptions` | `src/user-local/user-local-command.ts`          | Options for `executeUserLocalDirectCommand`                                                              |
+| Type                             | Location                                        | Purpose                                                                                                                                               |
+| -------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IDefaultCommandModulesOptions`  | `src/default/default-command-modules.ts`        | Options for `createDefaultCommandModules`                                                                                                             |
+| `ISkillsCommandModuleOptions`    | `src/skills/skills-command-module.ts`           | Options for `createSkillsCommandModule` (explicit contribution sources)                                                                               |
+| `IProviderSetupFlowState`        | `src/provider/provider-setup-flow.ts`           | Immutable state machine for the provider setup wizard                                                                                                 |
+| `IProviderSetupFlowOptions`      | `src/provider/provider-setup-flow.ts`           | Initial options for `createProviderSetupFlow`                                                                                                         |
+| `IProviderSetupPromptStep`       | `src/provider/provider-setup-flow.ts`           | One step in the provider setup wizard                                                                                                                 |
+| `TProviderSetupFlowSubmitResult` | `src/provider/provider-setup-flow.ts`           | Union result of `submitProviderSetupValue`                                                                                                            |
+| `TProviderSetupType`             | `src/provider/provider-setup-flow.ts`           | String alias for provider type identifier                                                                                                             |
+| `TPromptInput`                   | `src/provider/provider-setup-flow.ts`           | Callback signature for interactive text prompts                                                                                                       |
+| `IDoctorCheck`                   | `src/doctor/doctor-types.ts`                    | One doctor finding: stable `id`, `status`, exact `path`, structured `cause`, optional `repair` id                                                     |
+| `IDoctorReport`                  | `src/doctor/doctor-types.ts`                    | Every check plus `failCount`, `warnCount`, repairable ids and the `exitCode` (`fail` alone raises it)                                                 |
+| `IDoctorInputs`                  | `src/doctor/doctor-types.ts`                    | What the host composes for the runner: sources, access, definitions, env, plugin dirs, the product's user settings path / storage layout, host checks |
+| `IDoctorDeps`                    | `src/doctor/doctor-types.ts`                    | Injected side effects: endpoint probe, path facts, PATH resolution, owner-only guarantee                                                              |
+| `TDoctorCheckStatus`             | `src/doctor/doctor-types.ts`                    | `ok \| warn \| fail \| not-configured \| not-probed`; `not-probed` is the closed list `TDoctorNotProbed`                                              |
+| `IDoctorRepairPlan`              | `src/doctor/doctor-repair.ts`                   | An allowlisted repair the current state admits: id, description, target path                                                                          |
+| `IKeybindingsFilePort`           | `src/keybindings/keybindings-command-module.ts` | Minimal consumer-owned capability that ensures and returns the user keybindings path                                                                  |
+| `IProviderStartupContext`        | `src/provider/provider-startup.ts`              | Context passed to `runProviderStartupSetup`                                                                                                           |
+| `IEnsureProviderConfigOptions`   | `src/provider/provider-startup.ts`              | Options for `ensureProviderConfig`                                                                                                                    |
+| `IUserLocalDirectCommandOptions` | `src/user-local/user-local-command.ts`          | Options for `executeUserLocalDirectCommand`                                                                                                           |
 
 Types re-exported from `agent-framework` (not owned here):
 
@@ -121,7 +121,23 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 | `createDoctorCommandModule`         | function | Creates the `/doctor` command module over host-composed `IDoctorInputs`                                                                                                             |
 | `createDoctorCommandEntry`          | function | The operator-only `/doctor` command entry                                                                                                                                           |
 | `DoctorCommandSource`               | class    | Command source exposing `/doctor`                                                                                                                                                   |
-| `DOCTOR_REPAIR_ALLOWLIST`           | const    | `['settings.user.robota', 'storage.user']` — the only ids `--repair` / `/doctor repair` may write for                                                                               |
+| `doctorRepairAllowlist`             | function | The closed allowlist for one composition: the host's user settings layer id (`settings.user.<family>`) and `storage.user`                                                           |
+| `STORAGE_REPAIR_ID`                 | const    | `'storage.user'` — the storage repair id                                                                                                                                            |
+| `isDoctorRepairId`                  | function | Whether an id is in the composition's allowlist                                                                                                                                     |
+| `buildDoctorReport`                 | function | Aggregates checks into `IDoctorReport` (`fail` alone raises the exit code)                                                                                                          |
+| `resolveCommandOnPath`              | function | `PATH` resolution used by the hook and MCP probes (bare name via `PATH`; path form must exist)                                                                                      |
+| `IDoctorCheck`                      | type     | One doctor finding                                                                                                                                                                  |
+| `IDoctorReport`                     | type     | The aggregated report                                                                                                                                                               |
+| `IDoctorInputs`                     | type     | Host-composed inputs (sources, access, definitions, env, plugin dirs, product layout, host checks)                                                                                  |
+| `IDoctorDeps`                       | type     | Injected side effects                                                                                                                                                               |
+| `IDoctorEndpointProbeResult`        | type     | Result of one TCP reachability probe                                                                                                                                                |
+| `IDoctorPathFacts`                  | type     | Read-only facts about one path                                                                                                                                                      |
+| `IDoctorRepairPlan`                 | type     | An admissible repair: id, description, target path                                                                                                                                  |
+| `TDoctorCheckStatus`                | type     | `ok \| warn \| fail \| not-configured \| not-probed`                                                                                                                                |
+| `TDoctorNotProbed`                  | type     | The closed `not-probed` list                                                                                                                                                        |
+| `TDoctorRepairId`                   | type     | A repair id (string; membership is judged by `isDoctorRepairId`)                                                                                                                    |
+| `TDoctorRepairOutcome`              | type     | `applied` with its plan, or refused with the reason                                                                                                                                 |
+| `TDoctorRepairPlanResult`           | type     | `ok` with a plan, or refused with the reason                                                                                                                                        |
 | `pluginScopeDirs`                   | function | The plugin scope directories (project first, then user) the plugin loader reads; consumed by the doctor so the layout has one owner                                                 |
 | `createKeybindingsCommandModule`    | function | Creates the `/keybindings` command module for opening or initializing the user keybindings document                                                                                 |
 | `createKeybindingsCommandEntry`     | function | The operator-only `/keybindings` command entry                                                                                                                                      |
@@ -253,9 +269,10 @@ string passes `redactDiagnosticText` with the secrets `collectSettingsSecrets` g
 literal `apiKey` in any layer, every `$ENV:`-referenced value, every `env` map value) plus the
 resolved credential. URL userinfo, bearer tokens and vendor-key shapes are masked unconditionally.
 
-**Repair.** `DOCTOR_REPAIR_ALLOWLIST` is closed: `settings.user.robota` when the user settings file is
-`empty` (`writeSettings(path, {})`) and `storage.user` when `~/.robota` or `~/.robota/sessions` is
-missing or not owner-only (`ensureOwnerOnlyDirectory`). `applyDoctorRepair` plans, confirms through
+**Repair.** The allowlist (`doctorRepairAllowlist(inputs)`) is closed and product-neutral: the host's
+own user settings layer (`inputs.userSettingsPath`, id `settings.user.<family>`) when it is `empty`
+(`writeSettings(path, {})`) and `storage.user` when the host's `inputs.userStorage` root or sessions
+directory is missing or not owner-only (`ensureOwnerOnlyDirectory`). `applyDoctorRepair` plans, confirms through
 the caller's prompt, **re-plans immediately before writing**, and refuses an unknown id, a
 non-repairable state, a state that changed, or an already-clean check — with no write.
 

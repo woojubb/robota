@@ -13,11 +13,10 @@ In-repo mirror (memory-mirroring rule). Host mirror: `no-new-github-issues`.
 ## How to apply
 
 - Do not open a new Issue, even for a root item an independent review surfaces and says "must be filed".
-- Record the finding as a comment on the closest existing umbrella Issue (#1989, #1999, #2138, #2163,
-  #2423, #2525, #2664, #2670, #2680, #2726) or extend that Issue's body, and link the comment from the
+- Record the finding as a comment on the closest existing umbrella Issue (issue #1989, issue #1999, issue #2138, issue #2163, issue #2423, issue #2525, issue #2664, issue #2670, issue #2680, issue #2726) or extend that Issue's body, and link the comment from the
   spec/Task that owns the discovery.
 - The consolidation register lives in each umbrella's body (`robota-90-to-10-register`); the
   Issue ↔ Task boundary is owned by `.agents/rules/backlog-execution.md`.
 
-Origin: five Issues (#2740–#2744) were opened during OBSERVABILITY-1991 on 2026-09-19 and closed the
-same hour; their content moved to a comment on #2670.
+Origin: five Issues (issue #2740 through issue #2744) were opened during OBSERVABILITY-1991 on 2026-09-19 and closed the
+same hour; their content moved to a comment on issue #2670.

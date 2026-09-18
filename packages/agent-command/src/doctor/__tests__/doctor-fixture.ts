@@ -92,6 +92,8 @@ export function createDoctorFixture(options: IDoctorFixtureOptions = {}): IDocto
   const inputs: IDoctorInputs = {
     cwd: home,
     userHome: home,
+    userSettingsPath: join(home, '.robota', 'settings.json'),
+    userStorage: { root: join(home, '.robota'), sessions: join(home, '.robota', 'sessions') },
     settingsSources: createDefaultUserSettingsSources(home),
     projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
     providerDefinitions: options.providerDefinitions ?? [fixtureProviderDefinition()],

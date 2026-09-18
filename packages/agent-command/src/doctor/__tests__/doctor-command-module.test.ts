@@ -11,7 +11,8 @@ import {
 } from './doctor-fixture.js';
 
 import type { IDoctorFixture } from './doctor-fixture.js';
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+
 import type { IUserInteraction, TActionResponse } from '@robota-sdk/agent-core';
 
 const fixtures: IDoctorFixture[] = [];
@@ -19,8 +20,9 @@ afterEach(() => {
   for (const fixture of fixtures.splice(0)) fixture.cleanup();
 });
 
-function contextWith(interaction: IUserInteraction | undefined): ICommandHostContext {
-  return { getUserInteraction: () => interaction } as unknown as ICommandHostContext;
+/** The published conformant double, with only the interaction port overridden. */
+function contextWith(interaction: IUserInteraction | undefined) {
+  return createTestCommandHost({ overrides: { getUserInteraction: () => interaction } });
 }
 
 function answering(

@@ -25,7 +25,7 @@ import type { IStartCliOptions } from './command-setup.js';
 import type { IDoctorRepairPlan } from '@robota-sdk/agent-command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
-export const DOCTOR_COMMAND_NAMES = ['doctor', 'checkup', 'diagnose'] as const;
+const DOCTOR_COMMAND_NAMES = ['doctor', 'checkup', 'diagnose'] as const;
 
 export function isDoctorCommandName(name: string | undefined): boolean {
   return name !== undefined && (DOCTOR_COMMAND_NAMES as readonly string[]).includes(name);

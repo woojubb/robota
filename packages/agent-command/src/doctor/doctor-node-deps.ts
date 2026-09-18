@@ -21,7 +21,10 @@ export function probeEndpointViaSocket(
     const socket = createConnection({ host, port });
     const timeout = setTimeout(() => {
       socket.destroy();
-      resolve({ reachable: false, error: `timeout (${NETWORK_CHECK_TIMEOUT_MS / MS_PER_SECOND}s)` });
+      resolve({
+        reachable: false,
+        error: `timeout (${NETWORK_CHECK_TIMEOUT_MS / MS_PER_SECOND}s)`,
+      });
     }, NETWORK_CHECK_TIMEOUT_MS);
     socket.on('connect', () => {
       clearTimeout(timeout);

@@ -6,8 +6,6 @@
  * `warn` until the CLI has an MCP consumer; MCP connection and hook execution are the enumerated
  * `not-probed` exclusions of a read-only doctor.
  */
-import { join } from 'node:path';
-
 import {
   inspectSkillSources,
   loadHostBundlePluginInspectionFromScopes,
@@ -288,7 +286,7 @@ export function probeExtensions(
   // plugin settings store — so the doctor and the session agree even where that store's own policy is
   // a separate open item (recorded on #2670).
   const plugins = loadHostBundlePluginInspectionFromScopes(inputs.pluginsDirs, {
-    settingsPath: join(inputs.userHome, '.robota', 'settings.json'),
+    settingsPath: inputs.userSettingsPath,
   });
   return [
     ...pluginChecks(plugins),

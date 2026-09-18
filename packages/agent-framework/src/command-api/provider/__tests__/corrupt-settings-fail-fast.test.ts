@@ -117,7 +117,7 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     }
     expect(thrown).toBeInstanceOf(SettingsParseError);
     expect((thrown as SettingsParseError).message).toMatch(
-      /Fix or delete the file, or run robota diagnose/,
+      /Fix or delete the file, or run robota doctor/,
     );
     expect(stderrSpy).not.toHaveBeenCalled();
     stderrSpy.mockRestore();

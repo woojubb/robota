@@ -2,26 +2,16 @@
  * Storage, workspace-trust and provider-security probes (OBSERVABILITY-1991). Read-only: existence,
  * `W_OK` access and mode bits are inspected, never written.
  */
-import { join } from 'node:path';
-
-import { getWorkspaceProjectIdentity } from '@robota-sdk/agent-framework';
-
 import type { IDoctorCheck, IDoctorDeps, IDoctorInputs } from './doctor-types.js';
 import type { ISettingsInspection } from '@robota-sdk/agent-framework';
 
 const FORBIDDEN_MODE_BITS = 0o077;
 
-/** `~/.robota` and `~/.robota/sessions` — the user store the restricted-workspace fallback writes. */
-export function userStoragePaths(userHome: string): { root: string; sessions: string } {
-  const root = join(userHome, '.robota');
-  return { root, sessions: join(root, 'sessions') };
-}
-
 export type TUserStorageState = 'ok' | 'missing' | 'unwritable' | 'too-open' | 'mode-not-probed';
 
 /** The state the repair allowlist re-reads immediately before writing. */
 export function userStorageState(inputs: IDoctorInputs, deps: IDoctorDeps): TUserStorageState {
-  const { root, sessions } = userStoragePaths(inputs.userHome);
+  const { root, sessions } = inputs.userStorage;
   const facts = [deps.inspectPath(root), deps.inspectPath(sessions)];
   if (facts.some((f) => !f.exists)) return 'missing';
   if (facts.some((f) => !f.isDirectory || !f.writable)) return 'unwritable';
@@ -32,7 +22,7 @@ export function userStorageState(inputs: IDoctorInputs, deps: IDoctorDeps): TUse
 }
 
 function userStorageCheck(inputs: IDoctorInputs, deps: IDoctorDeps): IDoctorCheck {
-  const { root, sessions } = userStoragePaths(inputs.userHome);
+  const { root, sessions } = inputs.userStorage;
   const base = { id: 'storage.user', label: 'User storage', path: root } as const;
   switch (userStorageState(inputs, deps)) {
     case 'missing':
@@ -79,7 +69,15 @@ function projectStorageCheck(inputs: IDoctorInputs, deps: IDoctorDeps): IDoctorC
       cause: 'project sources are disabled in an untrusted workspace',
     };
   }
-  const root = join(getWorkspaceProjectIdentity(access.authority).worktreeRoot, '.robota');
+  const root = inputs.projectStorageRoot;
+  if (root === undefined) {
+    return {
+      id: 'storage.project',
+      label: 'Project storage',
+      status: 'not-configured',
+      cause: 'the host names no project state root',
+    };
+  }
   const facts = deps.inspectPath(root);
   if (!facts.exists) {
     return {

@@ -5,12 +5,14 @@
  * check instead of an exit. Shared by the pre-parse route and by `/doctor`.
  */
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 import { pluginScopeDirs } from '@robota-sdk/agent-command';
 import {
   createContributionSourcesForProjectAccess,
   createDefaultUserSettingsSources,
   createRestrictedWorkspaceProjectAccess,
+  getWorkspaceProjectIdentity,
 } from '@robota-sdk/agent-framework';
 
 import {
@@ -43,11 +45,11 @@ export function checkNodeVersion(nodeVersion: string = process.versions.node): I
   };
 }
 
-export function checkCliVersion(version: string): IDoctorCheck {
+function checkCliVersion(version: string): IDoctorCheck {
   return { id: 'host.cli', label: 'robota version', status: 'ok', cause: version };
 }
 
-export function checkTerminal(
+function checkTerminal(
   env: Readonly<Record<string, string | undefined>>,
   platform: string = process.platform,
 ): IDoctorCheck {
@@ -130,9 +132,18 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
       failure = compositionFailure(error instanceof Error ? error : new Error(String(error)));
     }
   }
+  // The product's own layout is the host's knowledge: the runner receives it and names nothing.
+  const userRoot = join(userHome, '.robota');
+  const projectStorageRoot =
+    projectAccess.status === 'trusted'
+      ? join(getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot, '.robota')
+      : undefined;
   return {
     cwd: opts.cwd,
     userHome,
+    userSettingsPath: join(userRoot, 'settings.json'),
+    userStorage: { root: userRoot, sessions: join(userRoot, 'sessions') },
+    ...(projectStorageRoot === undefined ? {} : { projectStorageRoot }),
     settingsSources,
     projectAccess,
     providerDefinitions: opts.providerDefinitions,

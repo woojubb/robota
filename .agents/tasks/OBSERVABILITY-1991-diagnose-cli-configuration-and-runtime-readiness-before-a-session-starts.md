@@ -168,6 +168,45 @@ from the shipped bin.
 
 <!-- checkpoint-evidence:v1:end -->
 
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** scenario written → scenario executed
+
+Ordering: the last `[DONE-GATE-STAGE-1]` entry is ✅ PASS (2026-09-19); every Plan item is ticked and
+the implementation commit `39b0e1d59` follows the planning checkpoint `63d95de1b` on this branch. The
+three `expected observable` fields are byte-identical between `63d95de1b` and HEAD — only the
+`evidence:` fields changed. The built CLI (`node packages/agent-cli/bin/robota.cjs`, `robota
+3.0.0-beta.79`, dist newer than every source it contains) was re-run by the guardian in a fresh
+`mktemp -d` HOME and a fresh `git init` project with `ROBOTA_DOCTOR_MARKER` exported, no provider key
+variables, stdin from `/dev/null`; the transcripts reproduced the record modulo temp-directory names.
+
+- Scenario 1 — `robota doctor`: exit 1. Matched: `[settings.user.robota] fail: empty` naming
+  `HOME/.robota/settings.json`; `[settings.user.claude] fail: schema-invalid: defaultTrustLevel
+(invalid_type)` naming `HOME/.claude/settings.json` with no `42` and no parser snippet;
+  `[plugin.broken-plugin@fixture-market] fail: manifest could not be parsed` naming
+  `…/broken-plugin/1.0.0/.claude-plugin/plugin.json` with its SyntaxError cause;
+  `[mcp.plugin.mcp-plugin@fixture-market.ghost] warn: stdio command robota-doctor-missing-binary not
+found on PATH`; `[mcp.activation] not-configured`; `repairable: settings.user.robota — run with
+--repair` plus `repair: robota doctor --repair settings.user.robota`; `[storage.user] ok`;
+  `grep -c sk-doctor-marker` = 0 (the `env keys: GHOST_TOKEN` line shows the key, not the value).
+- Scenario 2 — `robota doctor --repair settings.user.robota --yes` (non-TTY): exit 1. Matched:
+  `Repaired settings.user.robota: rewrite the empty user settings file as {}.`;
+  `[settings.user.robota] ok`; `[settings.user.claude] fail: schema-invalid` still present; no
+  `--repair settings.user.robota` offer remains (count 0); post-run `HOME/.robota/settings.json` reads
+  exactly `{}`; `HOME/.claude/settings.json` byte-identical to the pre-run copy (`cmp` exit 0);
+  marker count 0.
+- Scenario 3 — `robota checkup` (fixtures removed, marker-bearing valid settings, port 9 confirmed
+  closed): exit 0. Matched: `[settings.user.robota] ok`; `[settings.user.claude] not-configured:
+absent` (no `fail`); `[provider.resolution] ok: anthropic (claude-sonnet-4-6)`;
+  `[provider.reachability] warn: 127.0.0.1:9 (profile baseURL) unreachable`; `[mcp.activation]
+not-configured`; `[storage.user] ok`; `fail` lines 0; marker count 0 although the environment
+  variable and the inactive profile (`sk-doctor-marker-profile-4d5e6f`) carried markers.
+- Evidence record: `.agents/evals/scenarios/observability-1991-doctor-agent-run.md` § Run 1 / § Run
+  2 / § Run 3 (committed in `39b0e1d59`); each scenario's `evidence:` field points at it. Every
+  referenced repository path (the record, the spec, the six test files) exists. The evidence cited
+  is product output and exit codes only; the record's test-suite list satisfies the durable-artifact
+  rule and was not counted as user-execution evidence.
+
 ## Recommendation Evidence
 
 - `DEPTH VERDICT: LOCAL` — 2026-09-19. The premises hold against code (no provenance, no
@@ -188,10 +227,7 @@ from the shipped bin.
   `inspectSkillSources`, trust `cause`), an `agent-command`-owned provider-neutral runner with a
   closed repair allowlist, `agent-cli` composing inputs on the pre-parse route before the shared
   workspace composition, and a diagnostic-only `IProviderDefinition.endpoint` in `agent-core`.
-- Standing authorization (verbatim, 2026-09-19): "GitHub 이슈 #2670의 남은 범위를 모두 구현하고, PR을
-  origin/develop에 병합한 뒤 관련 이슈를 닫아줘. 최신 origin/develop과 현재 저장소 하네스를 먼저
-  확인해. 제품 기능 범위에 집중하고 보안·하네스 개선은 우선순위가 낮아. 멀티에이전트는 허용하지만
-  워크트리는 사용하지 마." — covers the decisions inside agent authority above; the `agent-core`
+- Standing authorization (verbatim, 2026-09-19): `GitHub 이슈 #2670의 남은 범위를 모두 구현하고, PR을 origin/develop에 병합한 뒤 관련 이슈를 닫아줘. 최신 origin/develop과 현재 저장소 하네스를 먼저 확인해. 제품 기능 범위에 집중하고 보안·하네스 개선은 우선순위가 낮아. 멀티에이전트는 허용하지만 워크트리는 사용하지 마.` — covers the decisions inside agent authority above; the `agent-core`
   contract addition (`endpoint`) and the spec itself are put to the user directly at GATE-APPROVAL.
 - Separate root items the review surfaced are recorded, per the owner's no-new-Issues policy, as a
-  [comment on umbrella #2670](https://github.com/woojubb/robota/issues/2670#issuecomment-5734212465).
+  [comment on umbrella issue #2670](https://github.com/woojubb/robota/issues/2670#issuecomment-5734212465).
