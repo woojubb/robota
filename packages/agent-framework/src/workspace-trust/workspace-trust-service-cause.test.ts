@@ -54,6 +54,31 @@ describe('WorkspaceTrustService restricted-access cause (OBSERVABILITY-1991 TC-0
     });
   });
 
+  it('names the error when the trusted re-resolve of the identity throws', async () => {
+    let calls = 0;
+    const service = new WorkspaceTrustService({
+      identityResolver: {
+        resolve: () => {
+          calls += 1;
+          if (calls === 1) return identity;
+          throw new TypeError('worktree vanished');
+        },
+      },
+      store: {
+        inspect: () => Promise.resolve({ state: 'trusted', generation: 1 }),
+        grant: () => Promise.reject(new Error('unused')),
+        revoke: () => Promise.reject(new Error('unused')),
+      },
+    });
+    const access = await service.inspect('/workspace');
+    expect(access).toMatchObject({
+      status: 'restricted',
+      trustState: 'identity-unavailable',
+      displayPath: '/workspace',
+      cause: { name: 'TypeError', message: 'worktree vanished' },
+    });
+  });
+
   it('carries no cause when the state is a plain trust decision', async () => {
     const service = new WorkspaceTrustService({
       identityResolver: { resolve: () => identity },

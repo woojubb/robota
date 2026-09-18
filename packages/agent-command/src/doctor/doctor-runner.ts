@@ -4,7 +4,11 @@
  * session; the host supplies what it composed and the checks only it can make.
  */
 import { probeExtensions } from './doctor-extensions-probe.js';
-import { collectSettingsSecrets, redactDiagnosticText } from './doctor-redaction.js';
+import {
+  collectSettingsSecrets,
+  describeDiagnosticError,
+  redactDiagnosticText,
+} from './doctor-redaction.js';
 import { probeProvider, probeSettings } from './doctor-settings-probe.js';
 import { probeStorageAndTrust } from './doctor-storage-probe.js';
 
@@ -13,7 +17,7 @@ import type { IDoctorCheck, IDoctorDeps, IDoctorInputs, IDoctorReport } from './
 
 /** A probe that throws is a `fail` check carrying the owner's error class — never a default value. */
 function probeFailure(id: string, label: string, error: Error): IDoctorCheck {
-  return { id, label, status: 'fail', cause: `${error.name}: ${error.message}` };
+  return { id, label, status: 'fail', cause: describeDiagnosticError(error) };
 }
 
 async function guarded<T>(

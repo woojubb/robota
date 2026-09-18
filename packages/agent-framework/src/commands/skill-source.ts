@@ -198,11 +198,17 @@ export class SkillCommandSource implements ICommandSource {
 
 /** Why an entry under a skill or command root produced no command. */
 export type TSkillSkipReason =
-  'missing-skill-file' | 'unreadable' | 'frontmatter-missing' | 'frontmatter-unterminated';
+  | 'missing-skill-file'
+  | 'unreadable'
+  | 'frontmatter-missing'
+  | 'frontmatter-unterminated'
+  | 'frontmatter-invalid';
 
 export interface ISkillSourceSkip {
   readonly path: string;
   readonly reason: TSkillSkipReason;
+  /** For `frontmatter-invalid`: the parser's message — the value set that was expected and the value seen. */
+  readonly detail?: string;
 }
 
 export interface ISkillRootInspection {
@@ -259,6 +265,16 @@ function inspectRoot(
       // Discovery still registers such a file under its directory name; the finding is that its
       // frontmatter contributes nothing, which is what a user who wrote one wants to know.
       skipped.push({ path: file, reason });
+    } else {
+      try {
+        parseFrontmatter(content);
+      } catch (error) {
+        // allow-fallback: the same parse the session runs; its throw ends discovery there, so
+        // here it is the finding, reported by file, and the entry is not counted as discovered
+        const detail = error instanceof Error ? error.message : String(error);
+        skipped.push({ path: file, reason: 'frontmatter-invalid', detail });
+        continue;
+      }
     }
     discovered.push(kind === 'skills' ? basename(join(file, '..')) : basename(entry.name, '.md'));
   }

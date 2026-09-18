@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { inspectSkillSources } from '../skill-source.js';
+import { SkillCommandSource, inspectSkillSources } from '../skill-source.js';
 import { createNodeHostContributionSource } from '../../contributions/node-host-contribution-source.js';
 
 const roots: string[] = [];
@@ -44,5 +44,32 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
     expect(absent).toEqual(
       expect.objectContaining({ present: false, discovered: [], skipped: [] }),
     );
+  });
+
+  it('reports the frontmatter value session discovery throws on, as a skip and not a discovery', () => {
+    const home = mkdtempSync(join(tmpdir(), 'robota-skill-inspection-'));
+    roots.push(home);
+    const skills = join(home, '.robota', 'skills');
+    mkdirSync(join(skills, 'bad-effort'), { recursive: true });
+    writeFileSync(
+      join(skills, 'bad-effort', 'SKILL.md'),
+      '---\nname: bad\neffort: extreme\n---\nbody\n',
+    );
+    const sources = [createNodeHostContributionSource(home)];
+
+    // The premise: the session's own discovery does not tolerate this file.
+    expect(() => new SkillCommandSource(sources).getCommands()).toThrow(/effort/);
+
+    const robota = inspectSkillSources(sources).roots.find(
+      (root) => root.root === join('.robota', 'skills'),
+    );
+    expect(robota?.discovered).toEqual([]);
+    expect(robota?.skipped).toEqual([
+      {
+        path: join('.robota', 'skills', 'bad-effort', 'SKILL.md'),
+        reason: 'frontmatter-invalid',
+        detail: expect.stringContaining('received "extreme"'),
+      },
+    ]);
   });
 });

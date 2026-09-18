@@ -417,7 +417,7 @@ the built CLI after it (DONE-GATE-STAGE-2 PASS 2026-09-19); the paired Task hold
 
 ## Tasks
 
-- [ ] `.agents/tasks/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` — paired Task
+- [x] `.agents/tasks/completed/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` — paired Task, done 2026-09-19
 
 ## Evidence Log
 

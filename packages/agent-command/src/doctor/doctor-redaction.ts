@@ -8,6 +8,8 @@
  * because the settings layers or the environment say so.
  */
 
+import { SettingsParseError } from '@robota-sdk/agent-framework';
+
 import type { TSettings } from '@robota-sdk/agent-framework';
 
 const REDACTED = '[redacted]';
@@ -21,6 +23,8 @@ const KEY_SHAPES =
   /\b(?:sk-[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{20,}|ghp_[A-Za-z0-9]{20,}|xox[abprs]-[A-Za-z0-9-]{10,})\b/g;
 
 const MIN_SECRET_LENGTH = 4;
+/** The quoted excerpt of the input a JSON parser embeds in its message: `..."<snippet>"...`. */
+const PARSER_SNIPPET = /\.\.\."[^"]*"\.\.\./g;
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -47,6 +51,19 @@ export function redactDiagnosticText(text: string, secrets: Iterable<string> = [
   out = out.replace(BEARER_TOKEN, `$1 ${REDACTED}`);
   out = out.replace(KEY_SHAPES, REDACTED);
   return out;
+}
+
+/**
+ * An owner error as the doctor may show it. A parse error is named by its class and file only —
+ * its message quotes the file around the fault, which is exactly the content a broken settings
+ * layer never had a chance to contribute to the secret list. Any other message loses a parser
+ * snippet it may carry; the redactor still runs over the result.
+ */
+export function describeDiagnosticError(error: Error): string {
+  if (error instanceof SettingsParseError) {
+    return `${error.name}: ${error.filePath} is not valid JSON (see the settings check)`;
+  }
+  return `${error.name}: ${error.message.replace(PARSER_SNIPPET, '…')}`;
 }
 
 /**

@@ -106,6 +106,27 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(byId(report, 'provider.resolution').cause).toContain('fixture (fixture-model)');
   });
 
+  it('TC-03: a parse error in a settings layer never renders the file excerpt around the fault', async () => {
+    const f = fixture({ env: {} });
+    f.mkdir('.robota');
+    f.mkdir('.robota/sessions');
+    // Unquoted value: JSON.parse's message quotes the bytes around the fault, i.e. the credential.
+    f.write(
+      '.robota/settings.json',
+      `{"currentProvider":"p","providers":{"p":{"apiKey": ${MARKERS.adjacent}}}}`,
+    );
+    const report = await runDoctor(f.inputs, f.deps);
+    const text = renderDoctorReport(report, 'robota doctor').join('\n');
+    expect(text).not.toContain(MARKERS.adjacent);
+    expect(text).not.toContain(MARKERS.adjacent.slice(0, 10));
+    expect(text).not.toContain('..."');
+    expect(byId(report, 'provider.resolution')).toMatchObject({
+      status: 'fail',
+      cause: expect.stringContaining('SettingsParseError'),
+    });
+    expect(byId(report, 'settings.user.robota')).toMatchObject({ status: 'fail' });
+  });
+
   it('TC-04: derives the reachability host from profile baseURL, then defaults.baseURL, then endpoint', async () => {
     const profile = fixture({ env: {} });
     profile.write(
@@ -257,6 +278,27 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(
       await applyDoctorRepair('storage.user', f.inputs, f.deps, async () => true),
     ).toMatchObject({ applied: false });
+  });
+
+  it('TC-05: a skill definition session discovery throws on is a fail check, not a warning', async () => {
+    const f = fixture({ env: {} });
+    f.mkdir('.robota');
+    f.mkdir('.robota/sessions');
+    f.write('.robota/settings.json', JSON.stringify(CLEAN_SETTINGS));
+    f.write('.robota/skills/bad-effort/SKILL.md', '---\nname: bad\neffort: extreme\n---\nbody\n');
+    f.write('.robota/skills/no-frontmatter/SKILL.md', 'just text\n');
+    const report = await runDoctor(f.inputs, f.deps);
+    expect(
+      byId(report, `skill.${join('.robota', 'skills', 'bad-effort', 'SKILL.md')}`),
+    ).toMatchObject({
+      status: 'fail',
+      cause: 'frontmatter-invalid',
+      detail: [expect.stringContaining('received "extreme"')],
+    });
+    expect(
+      byId(report, `skill.${join('.robota', 'skills', 'no-frontmatter', 'SKILL.md')}`).status,
+    ).toBe('warn');
+    expect(report.exitCode).toBe(1);
   });
 
   it('TC-05: a trust service that swallowed an error is a fail check naming the cause', async () => {

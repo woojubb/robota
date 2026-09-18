@@ -97,12 +97,14 @@ function skillChecks(inputs: IDoctorInputs): IDoctorCheck[] {
   ];
   for (const root of present) {
     for (const skip of root.skipped) {
+      // A value the parser refuses ends session discovery with a throw; every other skip is tolerated.
       checks.push({
         id: `skill.${skip.path}`,
         label: 'Skill definition',
-        status: 'warn',
+        status: skip.reason === 'frontmatter-invalid' ? 'fail' : 'warn',
         path: `${root.sourceDisplayName}: ${skip.path}`,
         cause: skip.reason,
+        ...(skip.detail === undefined ? {} : { detail: [skip.detail] }),
       });
     }
   }

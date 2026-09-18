@@ -10,6 +10,8 @@ import { basename, dirname } from 'node:path';
 import { findProviderDefinition } from '@robota-sdk/agent-core';
 import { inspectSettingsLayers, readProviderSettings } from '@robota-sdk/agent-framework';
 
+import { describeDiagnosticError } from './doctor-redaction.js';
+
 import type { IDoctorCheck, IDoctorDeps, IDoctorInputs } from './doctor-types.js';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type {
@@ -216,7 +218,7 @@ export async function probeProvider(
           id: 'provider.resolution',
           label: 'Provider',
           status: 'fail',
-          cause: error instanceof Error ? error.message : String(error),
+          cause: describeDiagnosticError(error instanceof Error ? error : new Error(String(error))),
           detail: ['Run: robota --configure, or set the provider API key variable.'],
         },
       ],

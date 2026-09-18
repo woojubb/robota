@@ -1,7 +1,7 @@
 # OBSERVABILITY-1991 — Pre-session doctor: broken HOME, repair, clean run (agent-run)
 
-**Spec:** `.agents/spec-docs/active/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md`
-**Task:** `.agents/tasks/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md`
+**Spec:** `.agents/spec-docs/done/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md`
+**Task:** `.agents/tasks/completed/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md`
 **Type:** agent-executable — the agent drives the built CLI (`node packages/agent-cli/bin/robota.cjs`, the
 shipped `robota` entrypoint, built from this branch) non-interactively against an isolated `HOME`; no
 live LLM, provider call, credential or external service. The only network step is a TCP connect to the
