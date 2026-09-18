@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { renderDoctorReport } from '../doctor-render.js';
@@ -256,6 +257,61 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(
       await applyDoctorRepair('storage.user', f.inputs, f.deps, async () => true),
     ).toMatchObject({ applied: false });
+  });
+
+  it('TC-05: a trust service that swallowed an error is a fail check naming the cause', async () => {
+    const f = fixture({ env: {} });
+    const report = await runDoctor(
+      {
+        ...f.inputs,
+        projectAccess: createRestrictedWorkspaceProjectAccess(
+          'store-unavailable',
+          f.home,
+          new RangeError('trust store is corrupt'),
+        ),
+      },
+      f.deps,
+    );
+    const trust = byId(report, 'workspace.trust');
+    expect(trust.status).toBe('fail');
+    expect(trust.cause).toBe('store-unavailable: RangeError: trust store is corrupt');
+    expect(trust.path).toBe(f.home);
+    expect(report.exitCode).toBe(1);
+
+    const untrusted = byId(await runDoctor(f.inputs, f.deps), 'workspace.trust');
+    expect(untrusted).toMatchObject({ status: 'warn', cause: 'untrusted' });
+  });
+
+  it('TC-05: reports the quarantined provider endpoint without printing either credential', async () => {
+    const f = fixture({ env: {} });
+    f.mkdir('.robota');
+    f.mkdir('.robota/sessions');
+    f.write(
+      '.robota/settings.json',
+      JSON.stringify({
+        currentProvider: 'q',
+        providers: {
+          q: {
+            type: 'fixture',
+            model: 'm',
+            apiKey: MARKERS.profile,
+            baseURL: 'http://127.0.0.1:9',
+          },
+        },
+      }),
+    );
+    f.write(
+      '.claude/settings.json',
+      JSON.stringify({ providers: { q: { baseURL: 'http://127.0.0.1:10' } } }),
+    );
+    const report = await runDoctor(f.inputs, f.deps);
+    expect(byId(report, 'provider.security')).toMatchObject({
+      status: 'warn',
+      cause: expect.stringContaining('quarantined'),
+    });
+    const text = renderDoctorReport(report, 'robota doctor').join('\n');
+    expect(text).not.toContain(MARKERS.profile);
+    expect(text).toContain('[provider.security] warn');
   });
 
   it('renders a composition failure as a fail check instead of crashing', async () => {

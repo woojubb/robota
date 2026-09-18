@@ -4,6 +4,7 @@
  * A BundlePlugin is a directory-based plugin package that bundles
  * skills, hooks, agents, and MCP server configurations.
  */
+import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 /** Feature flags indicating what a bundle plugin provides. */
 export interface IBundlePluginFeatures {
@@ -36,7 +37,8 @@ export interface ILoadedBundlePlugin {
   skills: IBundleSkill[];
   commands: IBundleSkill[];
   hooks: Record<string, unknown>;
-  mcpConfig?: unknown;
+  /** The parsed `.mcp.json` document, when the plugin ships one. */
+  mcpConfig?: TUniversalValue;
   agents: string[];
   pluginDir: string;
 }
@@ -77,7 +79,7 @@ export interface IBundlePluginMcpServer {
 export interface IBundlePluginMcpFault {
   readonly pluginId: string;
   readonly mcpPath: string;
-  readonly reason: 'unparseable' | 'not-an-object' | 'no-servers';
+  readonly reason: 'not-an-object' | 'no-servers';
 }
 
 /**

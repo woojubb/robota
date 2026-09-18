@@ -54,35 +54,46 @@ export function buildDoctorReport(checks: readonly IDoctorCheck[]): IDoctorRepor
   };
 }
 
+/** The settings probe under its own boundary: its failure is a `fail` check and later probes run without layers. */
+function guardedSettings(inputs: IDoctorInputs): {
+  checks: readonly IDoctorCheck[];
+  result?: ISettingsProbeResult;
+} {
+  try {
+    const result = probeSettings(inputs);
+    return { checks: result.checks, result };
+  } catch (error) {
+    // allow-fallback: the settings probe's own failure is a `fail` check; later probes run without layers
+    const cause = error instanceof Error ? error : new Error(String(error));
+    return { checks: [probeFailure('settings', 'Settings', cause)] };
+  }
+}
+
 /** Run every probe and return the redacted report. */
 export async function runDoctor(inputs: IDoctorInputs, deps: IDoctorDeps): Promise<IDoctorReport> {
   const checks: IDoctorCheck[] = [...inputs.hostChecks];
   if (inputs.compositionFailure !== undefined) checks.push(inputs.compositionFailure);
 
-  let settingsResult: ISettingsProbeResult | undefined;
-  try {
-    settingsResult = probeSettings(inputs);
-    checks.push(...settingsResult.checks);
-  } catch (error) {
-    // allow-fallback: the settings probe's own failure is a `fail` check; later probes run without layers
-    checks.push(
-      probeFailure(
-        'settings',
-        'Settings',
-        error instanceof Error ? error : new Error(String(error)),
-      ),
-    );
-  }
-  const inspection = settingsResult?.inspection;
+  const settings = guardedSettings(inputs);
+  checks.push(...settings.checks);
+  const inspection = settings.result?.inspection;
 
   const secrets = collectSettingsSecrets(
     (inspection?.layers ?? []).map((layer) => layer.settings),
     inputs.env,
   );
 
-  const provider = await probeProvider(inputs, deps);
-  checks.push(...provider.checks);
-  if (provider.resolvedApiKey !== undefined) secrets.push(provider.resolvedApiKey);
+  checks.push(
+    ...(await guarded(
+      'provider',
+      'Provider',
+      () => probeProvider(inputs, deps),
+      (provider) => {
+        if (provider.resolvedApiKey !== undefined) secrets.push(provider.resolvedApiKey);
+        return provider.checks;
+      },
+    )),
+  );
 
   if (inspection !== undefined) {
     checks.push(

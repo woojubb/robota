@@ -15,7 +15,6 @@ export {
 } from './doctor-repair.js';
 export type {
   IDoctorRepairPlan,
-  TDoctorRepairId,
   TDoctorRepairOutcome,
   TDoctorRepairPlanResult,
 } from './doctor-repair.js';

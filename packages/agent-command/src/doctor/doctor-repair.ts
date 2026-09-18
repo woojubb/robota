@@ -32,10 +32,8 @@ export function doctorRepairAllowlist(inputs: IDoctorInputs): readonly string[] 
   return settings === undefined ? [STORAGE_REPAIR_ID] : [settings, STORAGE_REPAIR_ID];
 }
 
-export type TDoctorRepairId = string;
-
 export interface IDoctorRepairPlan {
-  readonly id: TDoctorRepairId;
+  readonly id: string;
   /** What the writer will do, for the confirmation prompt. */
   readonly description: string;
   readonly path: string;

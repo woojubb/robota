@@ -444,6 +444,7 @@ the built CLI after it (DONE-GATE-STAGE-2 PASS 2026-09-19); the paired Task hold
 - GATE-WRITE — Mechanical evaluation: 20 criteria PASS and 0 FAIL (`gate.mjs judge --dry-run`).
 - GATE-WRITE — Semantic evaluation: all 7 pending guardian criteria PASS.
 
+**Judged by:** `backlog-gate-guard` (semantic) + `gate.mjs` (mechanical)
 **Judged at:** HEAD `18a560fea5fc25d0ff7b4870eea2a27f033ed723` · base `origin/develop@18a560fea5fc25d0ff7b4870eea2a27f033ed723` · document `.agents/spec-docs/draft/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `7828524e55685857ded9e64a09b188804780aa2d` (untracked)
 
 **Independent review evidence:** `proposal-reviewer` returned `REVIEW VERDICT: ENDORSE` on 2026-09-19 (round 3, after two bounded revision rounds; placement ENDORSED, six non-blocking wording notes folded in) and `finding-depth-triager` returned `DEPTH VERDICT: LOCAL` on 2026-09-19, as the paired Task's `## Recommendation Evidence` records; the endorsed placement is the one stated in Architecture Review › Decision above.

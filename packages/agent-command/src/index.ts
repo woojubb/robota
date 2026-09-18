@@ -40,7 +40,6 @@ export {
   type IDoctorReport,
   type TDoctorCheckStatus,
   type TDoctorNotProbed,
-  type TDoctorRepairId,
   type TDoctorRepairOutcome,
   type TDoctorRepairPlanResult,
 } from './doctor/index.js';
