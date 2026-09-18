@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -235,6 +237,30 @@ describe('gate verdict attribution scan', () => {
       output.mockRestore();
       error.mockRestore();
     }
+  });
+
+  it('keeps the immutable BEHAVIOR-2003 GATE-WRITE entry registered by exact fingerprint (HARNESS-2670)', () => {
+    // The entry was judged on 2026-09-15 in an active spec, outside the done-only population, and
+    // predates its guardian writing an attribution line. The closeout that archives the spec may not
+    // rewrite it (the Evidence Log is append-only), so the legacy list has to carry its fingerprint
+    // BEFORE the archive lands — otherwise the archive PR turns the scan red on immutable text.
+    const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+    const spec = ['active', 'done']
+      .map(
+        (folder) =>
+          `${repo}/.agents/spec-docs/${folder}/BEHAVIOR-2003-configure-contextual-tui-key-bindings.md`,
+      )
+      .find((file) => existsSync(file));
+    expect(spec).toBeDefined();
+    const target = evidenceEntries(readFileSync(spec, 'utf8'), spec).find(
+      (candidate) => candidate.heading === '### [GATE-WRITE] — ✅ PASS | 2026-09-15',
+    );
+    expect(target).toBeDefined();
+    expect(target.judgedBy).toBeNull();
+    const legacy = JSON.parse(
+      readFileSync(`${repo}/scripts/harness/immutable-attribution-legacy.json`, 'utf8'),
+    ).entries.map((item) => item.sha256);
+    expect(evaluateEntries([target], '2026-09-06', legacy).violations).toHaveLength(0);
   });
 
   it('resets the exported examined counter on each collection', () => {

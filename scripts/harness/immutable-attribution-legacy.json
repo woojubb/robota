@@ -66,6 +66,11 @@
       "source": ".agents/spec-docs/active/REFACTOR-025-file-size-enforcement.md",
       "heading": "### [GATE-WRITE] — ✅ PASS | 2026-09-14",
       "sha256": "03674a2c012f5bedb67bc850b5ef6a45b6375c2d17028da3106f38b96aa55176"
+    },
+    {
+      "source": ".agents/spec-docs/active/BEHAVIOR-2003-configure-contextual-tui-key-bindings.md",
+      "heading": "### [GATE-WRITE] — ✅ PASS | 2026-09-15",
+      "sha256": "6e3835d7a06bf3ae891313ee5492adff31d150a550b86517538c9738d251cb9f"
     }
   ]
 }
