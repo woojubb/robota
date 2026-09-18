@@ -21,8 +21,15 @@ function pluginsDirUnder(base: string): string {
   return join(base, '.robota', 'plugins');
 }
 
-function pluginScopeDirs(cwd: string | undefined): string[] {
-  const user = pluginsDirUnder(getHomeDir());
+/**
+ * The plugin scope directories, most specific first. Exported (OBSERVABILITY-1991) so the doctor
+ * reads the same layout this loader reads instead of computing a third copy.
+ */
+export function pluginScopeDirs(
+  cwd: string | undefined,
+  userHome: string = getHomeDir(),
+): string[] {
+  const user = pluginsDirUnder(userHome);
   return cwd === undefined ? [user] : [pluginsDirUnder(cwd), user];
 }
 

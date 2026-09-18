@@ -81,7 +81,13 @@ export {
   resolveEnvDefaultProvider,
 } from '../command-api/provider/provider-factory.js';
 export { commandToCapabilityDescriptor } from './capability-descriptors.js';
-export { SkillCommandSource, parseFrontmatter } from './skill-source.js';
+export { SkillCommandSource, inspectSkillSources, parseFrontmatter } from './skill-source.js';
+export type {
+  ISkillRootInspection,
+  ISkillSourceInspection,
+  ISkillSourceSkip,
+  TSkillSkipReason,
+} from './skill-source.js';
 export { PluginCommandSource } from './plugin-source.js';
 export { SystemCommandExecutor, createSystemCommands } from './system-command.js';
 export { selectCommandModules, findUnknownModuleNames } from './command-module-selection.js';

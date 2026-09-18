@@ -20,14 +20,14 @@ mechanical repairs. Preserve the already-delivered runtime-equivalent provider c
 
 ## Plan
 
-- [ ] TC-01: Route `doctor`, `checkup` and `diagnose` through the pre-parse CLI route — matched before the shared workspace composition — with `--repair <id>` and `--yes`, before provider, preset or session construction, keeping the CLI-067 exit contract.
-- [ ] TC-02: Add `inspectSettingsLayers` to the framework config owner (loader derives its layers from it, throw behaviour unchanged), and render per-layer state, structured cause and per-key merge rule + contributing layers.
-- [ ] TC-03: Add the single `redactDiagnosticText` rendering boundary and keep every probe free of credential values.
-- [ ] TC-04: Derive provider reachability from the resolved profile `baseURL`, then definition `defaults.baseURL`, then the definition's diagnostic-only `endpoint` (declared by anthropic, openai, gemini), report `warn` otherwise, and delete the hard-coded host table.
-- [ ] TC-05: Add plugin, skill/command, hook, storage and MCP probes over owner inspection APIs with explicit `not-configured` / `not-probed` states.
-- [ ] TC-06: Add the `/doctor` command module over the `agent-command`-owned runner with confirmation through the user-interaction port, registered when `agent-cli` supplies the doctor inputs.
-- [ ] TC-07: Implement the closed repair allowlist (zero-byte user settings, user storage directory) with state, TTY/`--yes` and idempotence gates.
-- [ ] TC-08: Add focused tests, update the seven package SPECs (agent-core, three providers, agent-framework, agent-command, agent-cli), and run the built CLI isolated-HOME scenario recording its evidence.
+- [x] TC-01: Route `doctor`, `checkup` and `diagnose` through the pre-parse CLI route — matched before the shared workspace composition — with `--repair <id>` and `--yes`, before provider, preset or session construction, keeping the CLI-067 exit contract.
+- [x] TC-02: Add `inspectSettingsLayers` to the framework config owner (loader derives its layers from it, throw behaviour unchanged), and render per-layer state, structured cause and per-key merge rule + contributing layers.
+- [x] TC-03: Add the single `redactDiagnosticText` rendering boundary and keep every probe free of credential values.
+- [x] TC-04: Derive provider reachability from the resolved profile `baseURL`, then definition `defaults.baseURL`, then the definition's diagnostic-only `endpoint` (declared by anthropic, openai, gemini), report `warn` otherwise, and delete the hard-coded host table.
+- [x] TC-05: Add plugin, skill/command, hook, storage and MCP probes over owner inspection APIs with explicit `not-configured` / `not-probed` states.
+- [x] TC-06: Add the `/doctor` command module over the `agent-command`-owned runner with confirmation through the user-interaction port, registered when `agent-cli` supplies the doctor inputs.
+- [x] TC-07: Implement the closed repair allowlist (zero-byte user settings, user storage directory) with state, TTY/`--yes` and idempotence gates.
+- [x] TC-08: Add focused tests, update the seven package SPECs (agent-core, three providers, agent-framework, agent-command, agent-cli), and run the built CLI isolated-HOME scenario recording its evidence.
 
 ## Test Plan
 
@@ -55,7 +55,7 @@ temporary configuration.
 - observable rationale: source=product-process
 - expected observable: exit=1; output-contains=a settings line naming `HOME/.robota/settings.json` with state `empty` and status `fail`; a settings line naming `HOME/.claude/settings.json` with state `schema-invalid`, status `fail` and the issue path `defaultTrustLevel` (no received value, no parser snippet); a plugin line naming `HOME/.robota/plugins/cache/fixture-market/broken-plugin/1.0.0/.claude-plugin/plugin.json` as skipped with its cause; an MCP line naming server `ghost` and command `robota-doctor-missing-binary` with status `warn`; an MCP activation line with status `not-configured`; a repair offer containing `--repair settings.user.robota`; `storage.user` with status `ok`; and `grep -c sk-doctor-marker` over the transcript returns 0
 - cleanup: none between scenarios (Scenario 2 continues on the same HOME); after the whole sequence remove only the isolated HOME, the temporary project directory and the transcript files
-- evidence: pending — record the exit code, the full transcript and the `grep -c sk-doctor-marker` count in `.agents/evals/scenarios/observability-1991-doctor-agent-run.md`
+- evidence: recorded — exit 1, full transcript (24 check lines) and `grep -c sk-doctor-marker` = 0 in `.agents/evals/scenarios/observability-1991-doctor-agent-run.md` § Run 1 (2026-09-19)
 
 ### Scenario 2: `--repair settings.user.robota --yes` rewrites the zero-byte user settings file to `{}` and the check turns ok while the schema-invalid layer still fails
 
@@ -68,7 +68,7 @@ temporary configuration.
 - observable rationale: source=product-process
 - expected observable: exit=1; output-contains=a line for check `settings.user.robota` with status `ok` after the repair; a settings line still naming `HOME/.claude/settings.json` with state `schema-invalid` and status `fail`; no repair offer for `settings.user.robota` remains; `HOME/.robota/settings.json` afterwards contains exactly `{}` (read back by the executor after the process exits) and `HOME/.claude/settings.json` is byte-identical to before; and `grep -c sk-doctor-marker` over the transcript returns 0
 - cleanup: none between scenarios (Scenario 3 continues on the same HOME); after the whole sequence remove only the isolated HOME, the temporary project directory and the transcript files
-- evidence: pending — record the exit code, the full transcript, the post-run byte content of `HOME/.robota/settings.json` and the marker grep count in `.agents/evals/scenarios/observability-1991-doctor-agent-run.md`
+- evidence: recorded — exit 1, `Repaired settings.user.robota` line, `[settings.user.robota] ok`, post-run `HOME/.robota/settings.json` = `{}`, `~/.claude/settings.json` byte-identical (`cmp` exit 0), marker count 0 in `.agents/evals/scenarios/observability-1991-doctor-agent-run.md` § Run 2 (2026-09-19)
 
 ### Scenario 3: broken fixtures removed and marker-bearing valid settings in place — checkup alias exits 0 and prints no secret
 
@@ -81,7 +81,7 @@ temporary configuration.
 - observable rationale: source=product-process
 - expected observable: exit=0; output-contains=a settings line naming `HOME/.robota/settings.json` with state `ok`; no line naming `HOME/.claude/settings.json` with a `fail` status; a provider line naming `anthropic` and `claude-sonnet-4-6`; a reachability line naming `127.0.0.1` with status `warn`; an MCP activation line with status `not-configured`; `storage.user` with status `ok`; no line with status `fail`; and `grep -c sk-doctor-marker` over the transcript returns 0 although the transcript inputs carried the marker in the environment variable and in the inactive profile
 - cleanup: remove the isolated HOME, the temporary project directory and the transcript files; unset `ROBOTA_DOCTOR_MARKER`
-- evidence: pending — record the exit code, the full transcript and the marker grep count in `.agents/evals/scenarios/observability-1991-doctor-agent-run.md`
+- evidence: recorded — exit 0, full transcript with `anthropic (claude-sonnet-4-6)`, `127.0.0.1:9 … unreachable` at `warn`, zero `fail` lines and marker count 0 in `.agents/evals/scenarios/observability-1991-doctor-agent-run.md` § Run 3 (2026-09-19)
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-19
 

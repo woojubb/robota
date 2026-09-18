@@ -25,6 +25,13 @@ Each command domain lives in its own subdirectory (`src/<command>/`) with a cons
 Two cross-cutting subdirectories:
 
 - `src/default/` — `createDefaultCommandModules` assembles all 32 standard command modules and returns `IDefaultCommandModulesResult` (`{ modules, unknownModuleNames }`, INFRA-032). Consumers pass `cwd`, explicit `contributionSources`, `providerDefinitions`, `providerSettingsAdapter`, and optionally `enabledCommandModules` / `disabledCommandModules` (allow-then-deny module name filters). Skills discovery consumes only those sources; it never reconstructs project reads from `cwd`. The allow-then-deny filtering is delegated to agent-framework's `selectCommandModules` (the single filter implementation — the local `applyModuleSelection` is a thin delegator, INFRA-032), and `unknownModuleNames` is computed via the framework's `findUnknownModuleNames(builtModuleNames, enabled, disabled)`: any `enabled`/`disabled` name that matched no built module (a short form like `editor` instead of `agent-command-editor`, or a typo) is returned as data — not silently dropped — so the CLI startup path can surface a non-fatal notice. `orgPolicy` is not an option here — it is wired at the provider-command-module level via `createProviderCommandModule`.
+- `src/doctor/` — owns the pre-session doctor (OBSERVABILITY-1991): the `IDoctorCheck` evidence model,
+  the probes over `agent-framework`'s read-only inspection APIs, the single redaction boundary, the
+  closed repair allowlist, `runDoctor(inputs, deps)`, the plain-text renderer, and the `/doctor` command
+  module. The host (`agent-cli`) composes `IDoctorInputs` — the workspace composition it would have
+  built, the plugin scope layout from `pluginScopeDirs`, and host-only checks — and either renders the
+  report on its shell route or registers `/doctor` by passing `doctorInputs` to
+  `createDefaultCommandModules`. See § Doctor below for the contract.
 - `src/keybindings/` — owns `/keybindings` and only its consumer-side
   `IKeybindingsFilePort`. When that optional port is injected, the command asks it to atomically
   ensure the user document and opens the exact returned path through the existing terminal-handoff
@@ -49,20 +56,26 @@ No circular dependencies. This package does not depend on any other `agent-comma
 
 Types defined (SSOT) in this package:
 
-| Type                             | Location                                        | Purpose                                                                              |
-| -------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `IDefaultCommandModulesOptions`  | `src/default/default-command-modules.ts`        | Options for `createDefaultCommandModules`                                            |
-| `ISkillsCommandModuleOptions`    | `src/skills/skills-command-module.ts`           | Options for `createSkillsCommandModule` (explicit contribution sources)              |
-| `IProviderSetupFlowState`        | `src/provider/provider-setup-flow.ts`           | Immutable state machine for the provider setup wizard                                |
-| `IProviderSetupFlowOptions`      | `src/provider/provider-setup-flow.ts`           | Initial options for `createProviderSetupFlow`                                        |
-| `IProviderSetupPromptStep`       | `src/provider/provider-setup-flow.ts`           | One step in the provider setup wizard                                                |
-| `TProviderSetupFlowSubmitResult` | `src/provider/provider-setup-flow.ts`           | Union result of `submitProviderSetupValue`                                           |
-| `TProviderSetupType`             | `src/provider/provider-setup-flow.ts`           | String alias for provider type identifier                                            |
-| `TPromptInput`                   | `src/provider/provider-setup-flow.ts`           | Callback signature for interactive text prompts                                      |
-| `IKeybindingsFilePort`           | `src/keybindings/keybindings-command-module.ts` | Minimal consumer-owned capability that ensures and returns the user keybindings path |
-| `IProviderStartupContext`        | `src/provider/provider-startup.ts`              | Context passed to `runProviderStartupSetup`                                          |
-| `IEnsureProviderConfigOptions`   | `src/provider/provider-startup.ts`              | Options for `ensureProviderConfig`                                                   |
-| `IUserLocalDirectCommandOptions` | `src/user-local/user-local-command.ts`          | Options for `executeUserLocalDirectCommand`                                          |
+| Type                             | Location                                        | Purpose                                                                                                  |
+| -------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `IDefaultCommandModulesOptions`  | `src/default/default-command-modules.ts`        | Options for `createDefaultCommandModules`                                                                |
+| `ISkillsCommandModuleOptions`    | `src/skills/skills-command-module.ts`           | Options for `createSkillsCommandModule` (explicit contribution sources)                                  |
+| `IProviderSetupFlowState`        | `src/provider/provider-setup-flow.ts`           | Immutable state machine for the provider setup wizard                                                    |
+| `IProviderSetupFlowOptions`      | `src/provider/provider-setup-flow.ts`           | Initial options for `createProviderSetupFlow`                                                            |
+| `IProviderSetupPromptStep`       | `src/provider/provider-setup-flow.ts`           | One step in the provider setup wizard                                                                    |
+| `TProviderSetupFlowSubmitResult` | `src/provider/provider-setup-flow.ts`           | Union result of `submitProviderSetupValue`                                                               |
+| `TProviderSetupType`             | `src/provider/provider-setup-flow.ts`           | String alias for provider type identifier                                                                |
+| `TPromptInput`                   | `src/provider/provider-setup-flow.ts`           | Callback signature for interactive text prompts                                                          |
+| `IDoctorCheck`                   | `src/doctor/doctor-types.ts`                    | One doctor finding: stable `id`, `status`, exact `path`, structured `cause`, optional `repair` id        |
+| `IDoctorReport`                  | `src/doctor/doctor-types.ts`                    | Every check plus `failCount`, `warnCount`, repairable ids and the `exitCode` (`fail` alone raises it)    |
+| `IDoctorInputs`                  | `src/doctor/doctor-types.ts`                    | What the host composes for the runner: sources, access, definitions, env, plugin dirs, host checks       |
+| `IDoctorDeps`                    | `src/doctor/doctor-types.ts`                    | Injected side effects: endpoint probe, path facts, PATH resolution, owner-only guarantee                 |
+| `TDoctorCheckStatus`             | `src/doctor/doctor-types.ts`                    | `ok \| warn \| fail \| not-configured \| not-probed`; `not-probed` is the closed list `TDoctorNotProbed` |
+| `IDoctorRepairPlan`              | `src/doctor/doctor-repair.ts`                   | An allowlisted repair the current state admits: id, description, target path                             |
+| `IKeybindingsFilePort`           | `src/keybindings/keybindings-command-module.ts` | Minimal consumer-owned capability that ensures and returns the user keybindings path                     |
+| `IProviderStartupContext`        | `src/provider/provider-startup.ts`              | Context passed to `runProviderStartupSetup`                                                              |
+| `IEnsureProviderConfigOptions`   | `src/provider/provider-startup.ts`              | Options for `ensureProviderConfig`                                                                       |
+| `IUserLocalDirectCommandOptions` | `src/user-local/user-local-command.ts`          | Options for `executeUserLocalDirectCommand`                                                              |
 
 Types re-exported from `agent-framework` (not owned here):
 
@@ -98,6 +111,18 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 | `createMCPActivationCommandEntry`   | function | The operator-only `/mcp` command entry                                                                                                                                              |
 | `MCPActivationCommandSource`        | class    | Command source exposing `/mcp`                                                                                                                                                      |
 | `executeMCPActivationCommand`       | function | Lists secret-free MCP status or requests approve/reject/revoke via the host adapter; never connects a server                                                                        |
+| `runDoctor`                         | function | Runs every doctor probe over `IDoctorInputs` and returns the redacted `IDoctorReport` (OBSERVABILITY-1991)                                                                          |
+| `renderDoctorReport`                | function | Renders a report as the plain-text lines both `robota doctor` and `/doctor` print                                                                                                   |
+| `applyDoctorRepair`                 | function | Plan → confirm → re-plan → write for one allowlisted repair id; refuses everything else with no write                                                                               |
+| `planDoctorRepair`                  | function | Re-reads the state and says whether a repair id is admissible now; never writes                                                                                                     |
+| `createNodeDoctorDeps`              | function | Node defaults for `IDoctorDeps` (TCP connect probe, path facts, PATH resolution)                                                                                                    |
+| `redactDiagnosticText`              | function | The rendering boundary: masks known secret values, URL userinfo, bearer tokens and vendor-key shapes                                                                                |
+| `collectSettingsSecrets`            | function | Gathers literal credentials and env-referenced values from parsed settings layers to feed the redactor                                                                              |
+| `createDoctorCommandModule`         | function | Creates the `/doctor` command module over host-composed `IDoctorInputs`                                                                                                             |
+| `createDoctorCommandEntry`          | function | The operator-only `/doctor` command entry                                                                                                                                           |
+| `DoctorCommandSource`               | class    | Command source exposing `/doctor`                                                                                                                                                   |
+| `DOCTOR_REPAIR_ALLOWLIST`           | const    | `['settings.user.robota', 'storage.user']` — the only ids `--repair` / `/doctor repair` may write for                                                                               |
+| `pluginScopeDirs`                   | function | The plugin scope directories (project first, then user) the plugin loader reads; consumed by the doctor so the layout has one owner                                                 |
 | `createKeybindingsCommandModule`    | function | Creates the `/keybindings` command module for opening or initializing the user keybindings document                                                                                 |
 | `createKeybindingsCommandEntry`     | function | The operator-only `/keybindings` command entry                                                                                                                                      |
 | `KeybindingsCommandSource`          | class    | Command source exposing `/keybindings`                                                                                                                                              |
@@ -120,6 +145,7 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 | goal           | `createGoalCommandModule`          | `GoalCommandSource`          | `executeGoalCommand` (GOAL-001: `/goal <objective>` \| `status` \| `cancel`; delegates to the framework goal controller via `ICommandHostContext.setGoal`/`getGoalState`/`cancelGoal`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | plan           | `createPlanCommandModule`          | PlanCommandSource            | executePlanCommand (SELFHOST-002: `/plan <objective>` \| `status` \| `approve` \| `revert`; delegates to the framework PlanController via ICommandHostContext.setPlan/getPlanState/approvePlan/revertPlan)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | help           | `createHelpCommandModule`          | `HelpCommandSource`          | `executeHelpCommand`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| doctor         | `createDoctorCommandModule`        | `DoctorCommandSource`        | `executeDoctorCommand` (OBSERVABILITY-1991: `/doctor` renders the shared runner's report; `/doctor repair <check-id>` confirms through the CMD-004 ask seam and applies one allowlisted writer; never creates a provider turn)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | keybindings    | `createKeybindingsCommandModule`   | `KeybindingsCommandSource`   | `executeKeybindingsCommand` (BEHAVIOR-2003: `/keybindings` opens or initializes the user keybindings document via the host-injected file port)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | language       | `createLanguageCommandModule`      | `LanguageCommandSource`      | `executeLanguageCommand`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | memory         | `createMemoryCommandModule`        | `MemoryCommandSource`        | `executeMemoryCommand`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -196,6 +222,46 @@ that command value, while the framework projection follows the declaration.
 - **`IProviderCommandSettingsAdapter`** (from `agent-framework`): consumers implement this interface to connect provider command operations to their settings backend. Startup helpers additionally accept discriminated `settingsSources` and `settingsStores`; project writes require an authority-backed store, while an unavailable requested project-local target fails with `WorkspaceAuthorityRequiredError` rather than deriving a path from `cwd`.
 - **`IOrgPolicy`** (from `agent-framework`): passed to `createProviderCommandModule` and `createDefaultCommandModules`; gates provider switching and API key configuration per org policy.
 - **CMD-004 ask seam** (`context.getUserInteraction()?.ask(IActionRequest)`, contract owned by `agent-core`): a command that needs input (mode/preset/language selection, the provider setup/edit/duplicate/delete wizard, exit/clear confirmation) asks for it inline at the top of `execute`. The host renders the `IActionRequest` per-environment; with no interactive renderer attached (headless/automation), `getUserInteraction()` returns `undefined` and the command takes its explicit no-human path. The CLI does not hard-code command-specific dialog logic.
+
+### Doctor (OBSERVABILITY-1991)
+
+**Check model.** `IDoctorCheck { id, label, status, path?, cause?, detail?, repair? }` with
+`status ∈ ok | warn | fail | not-configured | not-probed`. `fail` is the only status that raises the
+report's `exitCode` to `1` (the CLI-067 contract). `not-configured` names an absent optional
+capability out loud. `not-probed` is the **closed** list `TDoctorNotProbed` — `mcp-connection`,
+`hook-execution`, `owner-only-mode` (on a platform whose guarantee is not `posix-mode`); an
+unexpected inability to probe is `warn` with its reason. A probe that throws becomes a `fail` check
+carrying the owner's error class and path — never a default value. Every check carries the exact
+`path` and a `cause` built from owner-reported facts (a state word, an issue path, an errno).
+
+**Probes and their owners.** Settings layers and per-key provenance — `inspectSettingsLayers`
+(`settings.<scope>.<robota|claude>`, `settings.merge`); provider resolution — `readProviderSettings`
+(`provider.resolution`); reachability — a TCP connect to the host derived from the resolved profile
+`baseURL`, else the definition's `defaults.baseURL`, else the definition's diagnostic-only
+`endpoint`, else `warn` (`provider.reachability`; an unreachable host is `warn`, so an offline
+doctor exits `0`); credential quarantine (`provider.security`); workspace trust with the owner's
+`cause` (`workspace.trust`); user and project storage — existence, `W_OK`, owner-only mode
+(`storage.user`, `storage.project`); plugins — `inspectPluginsSync` per scope (`plugins`,
+`plugin.<id>` `fail` for a plugin that cannot load, `plugin.<id>.hooks` `warn` report-only); skills
+and commands — `inspectSkillSources` (`skills`, `skill.<path>`); hooks — every `command` hook's
+executable on `PATH` (`hooks`, `hooks.execution` `not-probed`); MCP — the activation adapter when the
+host supplies one (`mcp.activation`, `mcp.<serverId>`) and plugin-declared servers with a structural
+check at `warn` severity (`mcp.plugin.<id>.<server>`), plus `mcp.connection` `not-probed`.
+
+**Redaction.** Two layers: the inspection APIs return facts, never file content; and every rendered
+string passes `redactDiagnosticText` with the secrets `collectSettingsSecrets` gathered (every
+literal `apiKey` in any layer, every `$ENV:`-referenced value, every `env` map value) plus the
+resolved credential. URL userinfo, bearer tokens and vendor-key shapes are masked unconditionally.
+
+**Repair.** `DOCTOR_REPAIR_ALLOWLIST` is closed: `settings.user.robota` when the user settings file is
+`empty` (`writeSettings(path, {})`) and `storage.user` when `~/.robota` or `~/.robota/sessions` is
+missing or not owner-only (`ensureOwnerOnlyDirectory`). `applyDoctorRepair` plans, confirms through
+the caller's prompt, **re-plans immediately before writing**, and refuses an unknown id, a
+non-repairable state, a state that changed, or an already-clean check — with no write.
+
+**Read-only claim, stated honestly.** The doctor performs no write of its own outside an explicit
+repair; the host's trust-store read that precedes it tightens the store's mode (SEC-020), which is
+the host's pre-existing behaviour, not the doctor's.
 
 ### Org-policy enforcement in `provider`
 
@@ -298,6 +364,7 @@ Coverage gaps: `src/default/` and `src/plugins/` subdirectories have no dedicate
 | ---------------------------- | ---------------- | ----------------------------------------------------- |
 | `AgentCommandSource`         | `ICommandSource` | `src/agent/agent-command-module.ts`                   |
 | `BackgroundCommandSource`    | `ICommandSource` | `src/background/background-command-module.ts`         |
+| `DoctorCommandSource`        | `ICommandSource` | `src/doctor/doctor-command-module.ts`                 |
 | `CompactCommandSource`       | `ICommandSource` | `src/compact/compact-command-module.ts`               |
 | `ContextCommandSource`       | `ICommandSource` | `src/context/context-command-module.ts`               |
 | `EditorCommandSource`        | `ICommandSource` | `src/editor/editor-command-module.ts`                 |

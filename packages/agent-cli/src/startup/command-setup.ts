@@ -38,6 +38,7 @@ import {
   createWorkflowsCommandModule,
 } from '@robota-sdk/agent-command-workflows';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+import { buildDoctorInputs } from './doctor-inputs.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
 import type { IOutputStyleRegistry, IOutputStyleSource } from '@robota-sdk/agent-preset';
 import {
@@ -216,12 +217,23 @@ export function buildCommandSetup(
   // sites have been unreachable since. Nothing failed, because the parameter is optional and its
   // consumers read absence as "no policy configured".
   const orgPolicy = loadOrgPolicy();
+  // OBSERVABILITY-1991: `/doctor` runs the same runner as `robota doctor`, over the inputs this host
+  // composed; the shell supplies them, the command package owns the behaviour.
+  const doctorInputs = buildDoctorInputs({
+    cwd,
+    version,
+    options,
+    projectAccess: workspaceComposition.projectAccess,
+    providerDefinitions,
+    env: process.env,
+  });
   const { modules: baseCommandModules } = createDefaultCommandModules({
     cwd,
     providerDefinitions,
     providerSettingsAdapter,
     contributionSources: workspaceComposition.contributionSources,
     ...(keybindingsFilePort === undefined ? {} : { keybindingsFilePort }),
+    doctorInputs,
     ...(orgPolicy === null ? {} : { orgPolicy }),
     ...(packCommandModuleNames.length > 0
       ? { disabledCommandModules: packCommandModuleNames }

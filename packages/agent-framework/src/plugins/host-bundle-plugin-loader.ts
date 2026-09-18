@@ -24,7 +24,11 @@ import { BundlePluginLoader } from './bundle-plugin-loader.js';
 import { NodeHostPluginSettingsStore } from './plugin-settings-store.js';
 import { getUserSettingsPath } from '../config/settings-io.js';
 
-import type { ILoadedBundlePlugin, TEnabledPlugins } from './bundle-plugin-types.js';
+import type {
+  IBundlePluginInspection,
+  ILoadedBundlePlugin,
+  TEnabledPlugins,
+} from './bundle-plugin-types.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /**
@@ -72,6 +76,20 @@ export function createHostBundlePluginLoader(
  * first directory that holds it, by manifest name. Each directory gets its own loader from the
  * composition root above, so the enablement treatment is not bypassed.
  */
+/**
+ * The inspection counterpart of {@link loadHostBundlePluginsFromScopes} (OBSERVABILITY-1991): one
+ * inspection per scope directory, in the same order, with the same enablement treatment. Plugins
+ * shadowed by an earlier scope are not deduplicated here — a diagnostic wants to see both copies.
+ */
+export function loadHostBundlePluginInspectionFromScopes(
+  pluginsDirs: readonly string[],
+  options: Omit<IHostBundlePluginLoaderOptions, 'pluginsDir'> = {},
+): IBundlePluginInspection[] {
+  return [...new Set(pluginsDirs)].map((pluginsDir) =>
+    createHostBundlePluginLoader({ ...options, pluginsDir }).inspectPluginsSync(),
+  );
+}
+
 export function loadHostBundlePluginsFromScopes(
   pluginsDirs: readonly string[],
   options: Omit<IHostBundlePluginLoaderOptions, 'pluginsDir'> = {},

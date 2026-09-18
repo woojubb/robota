@@ -57,7 +57,8 @@ import type { IPreset } from '@robota-sdk/agent-preset';
  * beside `/background` because the two spawn the same kind of child and differ only in what context
  * it starts from.
  * `agent-command-mcp-activation` was added by MCP-2520 to expose the explicit trust-admission
- * lifecycle without constructing or connecting an MCP client.
+ * lifecycle without constructing or connecting an MCP client. `agent-command-doctor` was added by
+ * OBSERVABILITY-1991: `/doctor` shares the pre-session doctor runner with `robota doctor`.
  * `agent-command-output-style` was added by CLI-1988 to expose provider-neutral response-style
  * selection through the same command host used by interactive and headless surfaces.
  * `agent-command-effort` was added by FLOW-008 to expose active model-effort selection through the
@@ -77,6 +78,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-plan',
   'agent-command-shell',
   'agent-command-editor',
+  'agent-command-doctor',
   'agent-command-memory',
   'agent-command-mcp-activation',
   'agent-command-output-style',

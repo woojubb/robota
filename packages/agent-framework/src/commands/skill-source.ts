@@ -185,3 +185,98 @@ export class SkillCommandSource implements ICommandSource {
     return this.getCommands().filter((cmd) => cmd.userInvocable !== false);
   }
 }
+
+// ── Read-only inspection (OBSERVABILITY-1991) ─────────────────────────────────────────────────────
+
+/** Why an entry under a skill or command root produced no command. */
+export type TSkillSkipReason =
+  'missing-skill-file' | 'unreadable' | 'frontmatter-missing' | 'frontmatter-unterminated';
+
+export interface ISkillSourceSkip {
+  readonly path: string;
+  readonly reason: TSkillSkipReason;
+}
+
+export interface ISkillRootInspection {
+  readonly sourceDisplayName: string;
+  readonly root: string;
+  readonly present: boolean;
+  readonly discovered: readonly string[];
+  readonly skipped: readonly ISkillSourceSkip[];
+}
+
+export interface ISkillSourceInspection {
+  readonly roots: readonly ISkillRootInspection[];
+}
+
+/** The four discovery roots `SkillCommandSource.getCommands()` scans, in the same order. */
+const SKILL_ROOTS: ReadonlyArray<{ readonly root: string; readonly kind: 'skills' | 'commands' }> =
+  [
+    { root: join('.robota', 'skills'), kind: 'skills' },
+    { root: join('.claude', 'skills'), kind: 'skills' },
+    { root: join('.claude', 'commands'), kind: 'commands' },
+    { root: join('.agents', 'skills'), kind: 'skills' },
+  ];
+
+function frontmatterSkip(content: string): TSkillSkipReason | undefined {
+  const lines = content.split('\n');
+  if (lines[0]?.trim() !== '---') return 'frontmatter-missing';
+  return lines.slice(1).some((line) => line.trim() === '---')
+    ? undefined
+    : 'frontmatter-unterminated';
+}
+
+function inspectRoot(
+  source: IContributionSource,
+  root: string,
+  kind: 'skills' | 'commands',
+): ISkillRootInspection {
+  const base = { sourceDisplayName: source.displayName, root };
+  if (source.inspectKind(root, 'inspect skill directory') !== 'directory') {
+    return { ...base, present: false, discovered: [], skipped: [] };
+  }
+  const discovered: string[] = [];
+  const skipped: ISkillSourceSkip[] = [];
+  for (const entry of source.listDirectory(root, 'inspect skills')) {
+    let file: string;
+    if (kind === 'skills') {
+      if (entry.kind !== 'directory') continue;
+      file = join(root, entry.name, 'SKILL.md');
+      if (source.inspectKind(file, 'inspect skill definition') !== 'file') {
+        skipped.push({ path: join(root, entry.name), reason: 'missing-skill-file' });
+        continue;
+      }
+    } else {
+      if (entry.kind !== 'file' || !entry.name.endsWith('.md')) continue;
+      file = join(root, entry.name);
+    }
+    const content = source.readText(file, 'inspect skill definition');
+    if (content === undefined) {
+      skipped.push({ path: file, reason: 'unreadable' });
+      continue;
+    }
+    const reason = frontmatterSkip(content);
+    if (reason !== undefined) {
+      // Discovery still registers such a file under its directory name; the finding is that its
+      // frontmatter contributes nothing, which is what a user who wrote one wants to know.
+      skipped.push({ path: file, reason });
+    }
+    discovered.push(kind === 'skills' ? basename(join(file, '..')) : basename(entry.name, '.md'));
+  }
+  return { ...base, present: true, discovered, skipped };
+}
+
+/**
+ * The read-only counterpart of `SkillCommandSource.getCommands()`: the same four roots over the same
+ * contribution sources, reporting what discovery silently skips — a skill directory without
+ * `SKILL.md`, an unreadable definition, a definition whose frontmatter is missing or unterminated.
+ */
+export function inspectSkillSources(
+  sources: readonly IContributionSource[],
+): ISkillSourceInspection {
+  return {
+    roots: sources.flatMap((source) =>
+      SKILL_ROOTS.map(({ root, kind }) => inspectRoot(source, root, kind)),
+    ),
+  };
+}

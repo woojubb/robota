@@ -49,7 +49,6 @@ import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js
 import { runEvalCommand } from './eval/eval-command.js';
 import { readVersion } from './startup/version.js';
 import { runResetConfig } from './startup/reset-config.js';
-import { runDiagnoseCommand } from './startup/diagnose-command.js';
 import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first-run.js';
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
@@ -122,20 +121,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       yes: args.yes,
       isTTY: process.stdin.isTTY === true,
     });
-    return;
-  }
-
-  if (args.positional[0] === 'diagnose') {
-    const diagnosticWorkspace = createInitialCliWorkspaceComposition(cwd, startupOptions);
-    // Exit contract (CLI-067): 0 = no issues, 1 = one or more failed checks.
-    const failCount = await runDiagnoseCommand({
-      version,
-      terminal,
-      cwd,
-      settingsSources: diagnosticWorkspace.settingsSources,
-      projectAccess: diagnosticWorkspace.projectAccess,
-    });
-    process.exitCode = failCount > 0 ? 1 : 0;
     return;
   }
 

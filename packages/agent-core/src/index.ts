@@ -42,6 +42,7 @@ export type {
   IProviderProbeResult,
   IProviderProfileConfig,
   IProviderProfileDefaults,
+  IProviderEndpoint,
   IProviderSetupHelpLink,
   IProviderSetupStepDefinition,
   TProviderCredentialField,

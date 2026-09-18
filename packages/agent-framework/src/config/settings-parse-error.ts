@@ -10,7 +10,7 @@ export class SettingsParseError extends Error {
   constructor(filePath: string, parseMessage: string) {
     super(
       `Settings file ${filePath} contains invalid JSON: ${parseMessage}. ` +
-        'Fix or delete the file, or run robota diagnose.',
+        'Fix or delete the file, or run robota doctor.',
     );
     this.name = 'SettingsParseError';
     this.filePath = filePath;

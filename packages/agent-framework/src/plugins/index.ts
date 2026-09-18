@@ -6,14 +6,21 @@ export type { IPluginSettings } from './plugin-settings-store.js';
 export { BundlePluginLoader } from './bundle-plugin-loader.js';
 export {
   createHostBundlePluginLoader,
+  loadHostBundlePluginInspectionFromScopes,
   loadHostBundlePluginsFromScopes,
 } from './host-bundle-plugin-loader.js';
 export type { IHostBundlePluginLoaderOptions } from './host-bundle-plugin-loader.js';
 export type {
-  IBundlePluginManifest,
   IBundlePluginFeatures,
+  IBundlePluginHookIssue,
+  IBundlePluginInspection,
+  IBundlePluginManifest,
+  IBundlePluginMcpFault,
+  IBundlePluginMcpServer,
+  IBundlePluginSkip,
   IBundleSkill,
   ILoadedBundlePlugin,
+  TBundlePluginSkipReason,
   TEnabledPlugins,
 } from './bundle-plugin-types.js';
 
