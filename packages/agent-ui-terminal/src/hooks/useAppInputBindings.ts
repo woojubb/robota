@@ -1,6 +1,7 @@
 import { useApp, useInput } from 'ink';
 import { useEffect } from 'react';
 
+import { useKeybindingActions } from '../keybindings/keybindings-context.js';
 import { useScreenReader } from '../screen-reader-context.js';
 import { handleInterrupt } from '../shutdown-signal.js';
 import { useScreenReaderTurnSignals } from './useScreenReaderTurnSignals.js';
@@ -45,22 +46,28 @@ function overlaysBlockKeys(options: IOptions): boolean {
 }
 
 function useEscapeBindings(options: IOptions): void {
-  useInput((_input, key) => {
-    if (!key.escape || overlaysBlockKeys(options)) return;
-    if (options.isThinking) {
+  const context = options.isThinking ? 'thinking' : 'background-detail';
+  useKeybindingActions(context, (actions) => {
+    if (overlaysBlockKeys(options)) return;
+    if (actions.includes('abort') && options.isThinking) {
       options.abort();
       return;
     }
     const selected = options.selectedEntry;
-    if (selected && selected.kind !== 'main_thread' && options.mainThreadEntryId) {
+    if (
+      actions.includes('return-to-main') &&
+      selected &&
+      selected.kind !== 'main_thread' &&
+      options.mainThreadEntryId
+    ) {
       options.selectWorkspaceEntry(options.mainThreadEntryId);
     }
   });
 }
 
 function useWorkspaceSwitcherBinding(options: IOptions): void {
-  useInput((input, key) => {
-    if (!key.ctrl || input !== 'b') return;
+  useKeybindingActions('app', (actions) => {
+    if (!actions.includes('open-workspace-switcher')) return;
     if (
       options.permissionRequest ||
       options.pendingUserAction ||
@@ -75,8 +82,12 @@ function useWorkspaceSwitcherBinding(options: IOptions): void {
 }
 
 function useRecoveryBinding(options: IOptions): void {
-  useInput((_input, key) => {
-    if (options.recoveryError !== undefined && !options.recoveryPending && key.return) {
+  useKeybindingActions('recovery', (actions) => {
+    if (
+      options.recoveryError !== undefined &&
+      !options.recoveryPending &&
+      actions.includes('retry')
+    ) {
       options.retryRecovery();
     }
   });

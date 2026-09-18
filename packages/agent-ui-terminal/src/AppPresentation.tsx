@@ -7,6 +7,7 @@ import { ContextWarningBanner } from './ContextWarningBanner.js';
 import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
 import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
 import InputArea from './InputArea.js';
+import { useKeybindings } from './keybindings/keybindings-context.js';
 import { EntryItem } from './MessageList.js';
 import PendingActionPrompt from './PendingActionPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
@@ -145,6 +146,7 @@ export default function AppPresentation({
 }: {
   viewModel: IAppViewModel;
 }): React.ReactElement {
+  const keybindings = useKeybindings();
   return (
     <Box flexDirection="column">
       <Transcript model={viewModel} />
@@ -156,6 +158,16 @@ export default function AppPresentation({
               {viewModel.coordinationError} Press Enter to retry.
             </Text>
           )}
+          {keybindings.diagnostic && (
+            <Text color={PALETTE.text.error}>
+              {`Keybindings ${keybindings.diagnostic.file} ${keybindings.diagnostic.path}: ${keybindings.diagnostic.message} Last valid bindings remain active.`}
+            </Text>
+          )}
+          {keybindings.warnings.map((warning) => (
+            <Text key={`${warning.path}:${warning.code}`} color={PALETTE.text.warning}>
+              {`Keybindings ${warning.path}: ${warning.message}`}
+            </Text>
+          ))}
           <SessionEventNotices notices={viewModel.sessionEventNotices} />
           <Activity model={viewModel} />
           <Overlays model={viewModel} />

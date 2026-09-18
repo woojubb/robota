@@ -1,10 +1,9 @@
 import { consentScopeFor } from '@robota-sdk/agent-framework';
-import { Box, useInput } from 'ink';
+import { Box } from 'ink';
 import React from 'react';
 
 import {
   applyPermissionPromptInput,
-  getPermissionPromptInputAction,
   permissionPromptOptionsFor,
   type TPermissionPromptInputAction,
 } from './flows/permission-prompt-flow.js';
@@ -16,6 +15,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindings-context.js';
 import { NumberedList } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
@@ -87,15 +87,32 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
     },
   });
 
-  useInput(
-    (input, key) => {
-      const action = getPermissionPromptInputAction(input, key);
-      if (action !== undefined) {
-        applyAction(action);
+  useKeybindingActions(
+    'permission-prompt',
+    (actions) => {
+      const shortcutIndex = {
+        'allow-once': 0,
+        'allow-session': 1,
+        'allow-project': 2,
+        deny: 3,
+      } as const;
+      for (const action of actions) {
+        if (action in shortcutIndex) {
+          applyAction({
+            type: 'shortcut',
+            index: shortcutIndex[action as keyof typeof shortcutIndex],
+          });
+        } else if (action === 'previous' || action === 'next' || action === 'confirm') {
+          applyAction(action === 'confirm' ? 'select' : action);
+        }
       }
     },
     { isActive: !screenReader },
   );
+  const footerHints = useKeybindingHints('permission-prompt', [
+    [['previous', 'next'], 'Navigate'],
+    ['confirm', 'Confirm'],
+  ]);
 
   if (screenReader) {
     return (
@@ -143,7 +160,7 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
           ),
         )}
       </Box>
-      <KeyHintFooter hints={PERMISSION_PROMPT_FOOTER_HINTS} />
+      <KeyHintFooter hints={footerHints} />
     </Box>
   );
 }

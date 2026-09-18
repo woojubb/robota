@@ -62,6 +62,8 @@ describe('command handoff PTY E2E', () => {
       await session.sendKeys('shell-input', 10);
       session.write('\r');
       await session.waitFor('CMD_DONE', 10_000);
+      session.write('r');
+      await session.waitFor('INPUT_AFTER_HANDOFF r', 10_000);
       expect(await session.expectExit(5_000)).toBe(0);
 
       expect(session.snapshot()).toContain('SHELL_GOT:[shell-input]');
@@ -92,6 +94,8 @@ describe('command handoff PTY E2E', () => {
       await session.sendKeys('composed-in-editor', 10);
       session.write('\r');
       await session.waitFor('CMD_DONE', 10_000);
+      session.write('r');
+      await session.waitFor('INPUT_AFTER_HANDOFF r', 10_000);
       expect(await session.expectExit(5_000)).toBe(0);
 
       const result = readResult(outputPath);

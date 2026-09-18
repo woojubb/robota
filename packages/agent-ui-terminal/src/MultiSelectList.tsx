@@ -8,7 +8,7 @@
  * viewport is a follow-up if long multi-select lists appear.
  */
 
-import { Box, useInput } from 'ink';
+import { Box } from 'ink';
 import React, { useState } from 'react';
 
 import { useNumberedSelection } from './hooks/useNumberedSelection.js';
@@ -18,6 +18,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindings-context.js';
 import { NumberedSelectionPrompt, numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
@@ -98,18 +99,21 @@ function useChecklistArrowKeys(inputs: {
   onCancel: () => void;
 }): void {
   const { active, itemCount, setCursor } = inputs;
-  useInput(
-    (input, key) => {
-      if (key.upArrow) {
-        setCursor((c) => (c <= 0 ? itemCount - 1 : c - 1));
-      } else if (key.downArrow) {
-        setCursor((c) => (c >= itemCount - 1 ? 0 : c + 1));
-      } else if (input === ' ') {
-        inputs.onToggleAtCursor();
-      } else if (key.return) {
-        inputs.onConfirm();
-      } else if (key.escape) {
-        inputs.onCancel();
+  useKeybindingActions(
+    'multi-select',
+    (actions) => {
+      for (const action of actions) {
+        if (action === 'previous') {
+          setCursor((c) => (c <= 0 ? itemCount - 1 : c - 1));
+        } else if (action === 'next') {
+          setCursor((c) => (c >= itemCount - 1 ? 0 : c + 1));
+        } else if (action === 'toggle') {
+          inputs.onToggleAtCursor();
+        } else if (action === 'confirm') {
+          inputs.onConfirm();
+        } else if (action === 'cancel') {
+          inputs.onCancel();
+        }
       }
     },
     { isActive: active },
@@ -124,6 +128,12 @@ function ChecklistAnswer(props: {
   canConfirm: boolean;
   minSelect: number;
 }): React.ReactElement {
+  const hints = useKeybindingHints('multi-select', [
+    [['previous', 'next'], 'Navigate'],
+    ['toggle', 'Toggle'],
+    ['confirm', props.canConfirm ? 'Confirm' : `Confirm (min ${props.minSelect})`],
+    ['cancel', 'Cancel'],
+  ]);
   if (props.screenReader) {
     return (
       <NumberedSelectionPrompt
@@ -134,14 +144,7 @@ function ChecklistAnswer(props: {
       />
     );
   }
-  return (
-    <KeyHintFooter
-      hints={getMultiSelectFooterHints({
-        canConfirm: props.canConfirm,
-        minSelect: props.minSelect,
-      })}
-    />
-  );
+  return <KeyHintFooter hints={hints} />;
 }
 
 /** The rendered checklist: the rows, and whichever answer affordance the mode calls for. */

@@ -89,6 +89,16 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     expect(names).toHaveLength(2);
   });
 
+  it('BEHAVIOR-2003: registers /keybindings only when the file capability is injected', () => {
+    expect(moduleNames(baseOptions)).not.toContain('agent-command-keybindings');
+    expect(
+      moduleNames({
+        ...baseOptions,
+        keybindingsFilePort: { ensureFile: async () => '/tmp/keybindings.json' },
+      }),
+    ).toContain('agent-command-keybindings');
+  });
+
   it('TC-02: disabledCommandModules blacklist removes the named module', () => {
     const full = moduleNames(baseOptions);
     const names = moduleNames({ ...baseOptions, disabledCommandModules: [BACKGROUND] });

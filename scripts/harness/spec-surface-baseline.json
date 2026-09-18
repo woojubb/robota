@@ -68,17 +68,11 @@
   "@robota-sdk/agent-tools": {
     "type": 49
   },
-  "@robota-sdk/agent-ui-web": {
-    "type": 3
-  },
   "@robota-sdk/agent-transport-http": {
     "type": 4
   },
   "@robota-sdk/agent-transport-mcp": {
     "type": 2
-  },
-  "@robota-sdk/agent-ui-terminal": {
-    "type": 6
   },
   "@robota-sdk/agent-transport-webrtc": {
     "type": 3
@@ -87,6 +81,9 @@
     "type": 3
   },
   "@robota-sdk/agent-transport-ws": {
+    "type": 3
+  },
+  "@robota-sdk/agent-ui-web": {
     "type": 3
   },
   "@robota-sdk/dag-adapters-sqlite": {

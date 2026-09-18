@@ -8,6 +8,7 @@
 - [Embedding agent-framework](./embedding.md) — HTTP servers, bots, serverless, and batch pipelines
 - [Deployment](./deployment.md) — One agent definition served over many channels (WS/HTTP/…) via the transport registry, no gateway
 - [CLI Reference](./cli.md) — Interactive TUI, slash commands, providers, permission modes
+- [TUI Keybindings](./keybindings.md) — Contextual shortcuts, hot reload, chords, and terminal limits
 - [Local LLM Setup](./local-llm.md) — Ollama, LM Studio, and llama.cpp — no API key needed
 - [Release Notes: 2026-05-02](./release-2026-05-02.md) — Beta.59 snapshot covering agents, CLI, providers, CI/deploy, publish, and replay work
 - [Permissions and Hooks](./permissions-and-hooks.md) — Security model and lifecycle hooks

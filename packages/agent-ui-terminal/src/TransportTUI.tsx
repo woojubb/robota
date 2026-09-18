@@ -14,9 +14,11 @@
  * with the row unchanged.
  */
 
-import { Box, useInput } from 'ink';
+import { Box } from 'ink';
 import React, { useState, useCallback } from 'react';
 
+import { KeyHintFooter } from './key-hint-footer.js';
+import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindings-context.js';
 import { Text } from './SafeText.js';
 import { PALETTE } from './tui-palette.js';
 
@@ -49,8 +51,6 @@ function TransportEntryRow({ entry, selected }: IEntryRowProps): React.ReactElem
   );
 }
 
-type TKey = { upArrow: boolean; downArrow: boolean; escape: boolean; return: boolean };
-
 function useTransportInput(
   entries: ITransportEntry<IInteractiveSession>[],
   cursor: number,
@@ -62,23 +62,24 @@ function useTransportInput(
   onClose: () => void,
   refresh: () => void,
 ): void {
-  useInput(
+  useKeybindingActions(
+    'transport-settings',
     useCallback(
-      (_input: string, key: TKey) => {
+      (actions: readonly ('previous' | 'next' | 'toggle' | 'close')[]) => {
         if (saving) return;
-        if (key.upArrow) {
+        if (actions.includes('previous')) {
           setCursor((c) => Math.max(0, c - 1));
           return;
         }
-        if (key.downArrow) {
+        if (actions.includes('next')) {
           setCursor((c) => Math.min(entries.length - 1, c + 1));
           return;
         }
-        if (key.escape || key.return) {
+        if (actions.includes('close')) {
           onClose();
           return;
         }
-        if (_input === ' ') {
+        if (actions.includes('toggle')) {
           const entry = entries[cursor];
           if (!entry) return;
           setSaving(true);
@@ -115,6 +116,11 @@ export default function TransportTUI({ registry, onClose }: IProps): React.React
   const refresh = useCallback((): void => {
     setEntries(registry.getAll());
   }, [registry]);
+  const footerHints = useKeybindingHints('transport-settings', [
+    [['previous', 'next'], 'Select'],
+    ['toggle', 'Toggle'],
+    ['close', 'Close'],
+  ]);
 
   useTransportInput(
     entries,
@@ -137,7 +143,7 @@ export default function TransportTUI({ registry, onClose }: IProps): React.React
         ))}
       </Box>
       <Box marginTop={1} flexDirection="column">
-        <Text dimColor>↑↓ select space toggle enter/esc close</Text>
+        <KeyHintFooter hints={footerHints} />
         <Text dimColor>A toggle is saved now and applies the next time Robota starts.</Text>
       </Box>
       {saving && (

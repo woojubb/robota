@@ -1,4 +1,3 @@
-import { useInput } from 'ink';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
@@ -7,6 +6,7 @@ import {
 } from '../execution-workspace-view-model.js';
 import { useBackgroundPanel } from './useBackgroundPanel.js';
 import { resolveBackgroundFocusKey } from '../flows/background-focus-flow.js';
+import { useKeybindingActions } from '../keybindings/keybindings-context.js';
 
 import type { IAppBackgroundViewModel } from '../app-view-model.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
@@ -54,10 +54,16 @@ function useBackgroundListKeys(
   select: (entryId: string) => void,
   enabled: boolean,
 ): void {
-  useInput(
-    (_input, key) => {
+  useKeybindingActions(
+    'background-list',
+    (actions) => {
       if (focusedIndex === null) return;
-      const action = resolveBackgroundFocusKey(focusedIndex, entryIds.length, key);
+      const action = resolveBackgroundFocusKey(focusedIndex, entryIds.length, {
+        upArrow: actions.includes('previous'),
+        downArrow: actions.includes('next'),
+        return: actions.includes('open'),
+        escape: actions.includes('close'),
+      });
       if (action.type === 'move') setFocusedIndex(action.index);
       if (action.type === 'open') {
         const entryId = entryIds[action.index];

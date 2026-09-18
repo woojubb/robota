@@ -14,6 +14,8 @@ import {
 import { useAutocomplete } from './hooks/useAutocomplete.js';
 import { useInputAreaKeys } from './hooks/useInputAreaKeys.js';
 import { DeletionAnnouncement, InputBottomRule, InputTopRule } from './input-area-rules.js';
+import { KeyHintFooter } from './key-hint-footer.js';
+import { useKeybindingHints } from './keybindings/keybindings-context.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
@@ -102,6 +104,7 @@ export default function InputArea({
   const terminalColumns = columns > 0 ? columns : DEFAULT_TERMINAL_COLUMNS;
   const availableWidth = Math.max(1, terminalColumns - INPUT_AREA_OVERHEAD);
   const pasteIdRef = useRef(0);
+  const submitHint = useKeybindingHints('chat-input', [['submit', 'Submit']]);
 
   const {
     showPopup,
@@ -277,10 +280,12 @@ export default function InputArea({
               availableWidth={availableWidth}
               cursorHint={cursorHint}
               enableVerticalNavigation={false}
+              keybindingContext={showPopup ? 'autocomplete-menu' : 'chat-input'}
             />
           </Box>
         )}
       </Box>
+      {!screenReader && !isDisabled && !pendingPrompt && <KeyHintFooter hints={submitHint} />}
       <InputBottomRule
         screenReader={screenReader}
         innerWidth={innerWidth}

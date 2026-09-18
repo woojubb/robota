@@ -4,19 +4,19 @@
  * Shows a limited number of items at a time; scrolls as the cursor moves.
  */
 
-import { Box, useInput } from 'ink';
+import { Box } from 'ink';
 import React, { useState, useRef, useCallback } from 'react';
 
 import {
   applySelectionInput,
   createSelectionFlowState,
-  getVerticalSelectionInputAction,
   normalizeSelectionState,
   type ISelectionFlowState,
   type TSelectionInputAction,
 } from './flows/selection-flow.js';
 import { useNumberedSelection } from './hooks/useNumberedSelection.js';
 import { KeyHintFooter, type IKeyHint } from './key-hint-footer.js';
+import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindings-context.js';
 import { formatNumberedSelectionPrompt, numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
@@ -90,15 +90,14 @@ export default function ListPicker<T>({
     onCancel,
   });
 
-  useInput(
-    (_input, key) => {
-      const action = getVerticalSelectionInputAction(key);
-      if (action !== undefined) {
-        applyAction(action);
-      }
-    },
-    { isActive: !screenReader },
-  );
+  useKeybindingActions('list-picker', (actions) => actions.forEach(applyAction), {
+    isActive: !screenReader,
+  });
+  const effectiveFooterHints = useKeybindingHints('list-picker', [
+    [['previous', 'next'], 'Navigate'],
+    ['select', 'Select'],
+    ['cancel', 'Cancel'],
+  ]);
 
   if (items.length === 0) {
     return <Box />;
@@ -141,7 +140,11 @@ export default function ListPicker<T>({
         </Box>
       ))}
       {hasMore && <Text dimColor> ↓ {items.length - scrollOffset - maxVisible} more below</Text>}
-      <KeyHintFooter hints={footerHints} />
+      <KeyHintFooter
+        hints={
+          footerHints === LIST_PICKER_DEFAULT_FOOTER_HINTS ? effectiveFooterHints : footerHints
+        }
+      />
     </Box>
   );
 }
