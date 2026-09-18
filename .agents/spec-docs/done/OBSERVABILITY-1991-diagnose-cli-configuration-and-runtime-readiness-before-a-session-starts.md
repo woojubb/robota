@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: OBSERVABILITY
 tags: [cli, typescript, async]
 lane: L2
@@ -313,20 +313,20 @@ not the repairable state, or when confirmation is unavailable and `--yes` was no
 
 ## Completion Criteria
 
-- [ ] TC-01: `robota doctor`, `robota checkup` and `robota diagnose` dispatch from the pre-parse route
+- [x] TC-01: `robota doctor`, `robota checkup` and `robota diagnose` dispatch from the pre-parse route
       before provider, preset or session construction, print the same check set, and exit `0` when no
       check is `fail` and `1` otherwise; `--repair x --yes` is accepted by the route, not rejected by
       the global parser; a workspace-composition throw is rendered as a `fail` check.
-- [ ] TC-02: the settings section lists every source in precedence order with
+- [x] TC-02: the settings section lists every source in precedence order with
       `absent | ok | empty | unreadable | invalid-json | schema-invalid`, a structured cause (errno, offset
       or issue paths, never parser text), then each merged top-level key with its merge rule and contributing layers,
       labelled partial when any layer is broken; a schema-invalid user layer that current `diagnose`
       passes is reported `fail` with its path.
-- [ ] TC-03: no rendered line contains the resolved credential, any `$ENV:`-referenced environment
+- [x] TC-03: no rendered line contains the resolved credential, any `$ENV:`-referenced environment
       value, URL userinfo, a bearer token, or file content quoted by the JSON parser, including when a
       fixture places a marker secret in a settings file adjacent to a syntax error, in an environment
       variable, in a non-active provider profile and in a plugin `.mcp.json` `env` map.
-- [ ] TC-04: provider readiness reports the resolved provider, model and source, probes the host derived
+- [x] TC-04: provider readiness reports the resolved provider, model and source, probes the host derived
       from profile `baseURL`, then definition `defaults.baseURL`, then the definition's diagnostic-only
       `endpoint`, reports `warn` when none exists; anthropic, openai and gemini declare `endpoint`; with a
       definition declaring `endpoint` and no `defaults.baseURL`, `normalizeProviderConfig` /
@@ -334,23 +334,23 @@ not the repairable state, or when confirmation is unavailable and `--yes` was no
       (agent-framework), `buildSetupSteps` (agent-command) and the CLI help builder produce no
       `baseURL` / `--base-url`; and the prefix-matched host table with its anthropic default no longer
       exists.
-- [ ] TC-05: plugins, skills, commands, hooks, storage, MCP and workspace trust each produce explicit
+- [x] TC-05: plugins, skills, commands, hooks, storage, MCP and workspace trust each produce explicit
       checks: an unparseable plugin manifest, a skill directory without `SKILL.md`, a plugin
       `hooks/hooks.json` failing `HooksSchema`, a `command` hook whose executable is not on `PATH`, an
       unwritable existing storage root (`fail`), a missing user storage root (`warn`), an absent MCP
       activation adapter (`not-configured`), a plugin `.mcp.json` whose stdio command is not on `PATH`
       (`warn`) and a `store-unavailable` trust state are each reported with path and cause, and
       `not-probed` appears only for the enumerated exclusions.
-- [ ] TC-06: `/doctor` renders the same check set inside an interactive session without creating a
+- [x] TC-06: `/doctor` renders the same check set inside an interactive session without creating a
       provider turn or submitting user input; `/doctor repair <id>` asks for confirmation through the
       user-interaction port and treats an absent port or a cancelled answer as no write.
-- [ ] TC-07: `--repair <id>` writes only for an allowlisted id whose state is re-read as repairable
+- [x] TC-07: `--repair <id>` writes only for an allowlisted id whose state is re-read as repairable
       immediately before the write, after confirmation (or `--yes`); an unknown id, a non-repairable
       state, a state that changed between report and repair, a non-TTY without `--yes`, and a repeated
       repair of an already-clean check are refused with exit `1` and no file change; a repaired check
       is `ok` on the next run; the mode check is `not-probed` with reason where `ownerOnlyGuarantee()`
       is not `posix-mode`.
-- [ ] TC-08: the built CLI isolated-HOME scenario (zero-byte user settings, schema-invalid second
+- [x] TC-08: the built CLI isolated-HOME scenario (zero-byte user settings, schema-invalid second
       layer, unparseable plugin manifest, plugin `.mcp.json` with a missing command, marker secrets)
       runs without a session or turn, names every failing path and cause, prints no secret, offers the
       settings repair, exits `1`; after `--repair settings.user.robota --yes` the settings check is
@@ -359,16 +359,16 @@ not the repairable state, or when confirmation is unavailable and `--yes` was no
 
 ## Test Plan
 
-| TC-ID | Test Type           | Tool / Approach                                                                     | Notes                                                                                                     |
-| ----- | ------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| TC-01 | integration         | Vitest over `runPreparsedCliCommand` with argv fixtures + built spawn               | all three names, exit codes, flag acceptance, composition throw → check, no provider factory reached      |
-| TC-02 | unit                | Vitest over `inspectSettingsLayers`, `loadConfig` parity and the settings probe     | layers: absent, `{}`, zero-byte, unreadable, `{`, `{"defaultTrustLevel":42}`; rule + contributors per key |
-| TC-03 | unit                | Vitest over inspection outputs, `redactDiagnosticText` and the full rendered report | marker `sk-doctor-marker-…` beside a syntax error, in env, in an inactive profile, in `.mcp.json` `env`   |
-| TC-04 | unit                | Vitest with injected provider definitions and a network dependency double           | host tiers, none → `warn`; the five `defaults` consumer seams ignore `endpoint`; table removed by grep    |
-| TC-05 | unit                | Vitest over each probe with temp fixtures / injected deps                           | one failing fixture per subsystem with the stated status; `not-probed` only on the closed list            |
-| TC-06 | component           | Vitest over `createDoctorCommandModule` with runner and interaction doubles         | provider factory spy never called; cancelled / absent interaction → no repair                             |
-| TC-07 | integration         | Vitest over the repair path with a temp HOME                                        | allowlist, pre-write re-read, TTY/`--yes`, idempotence, second run clean, non-posix mode branch           |
-| TC-08 | scenario/regression | built `agent-cli` spawn in an isolated HOME + package suites                        | evidence recorded in `.agents/evals/scenarios/observability-1991-doctor-agent-run.md`                     |
+| TC-ID | Test Type           | Tool / Approach                                                                     | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----- | ------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | integration         | Vitest over `runPreparsedCliCommand` with argv fixtures + built spawn               | all three names, exit codes, flag acceptance, composition throw → check, no provider factory reached — Test written: `packages/agent-cli/src/startup/__tests__/doctor-route.test.ts > robota doctor route (OBSERVABILITY-1991 TC-01)`                                                                                                                                                                                                     |
+| TC-02 | unit                | Vitest over `inspectSettingsLayers`, `loadConfig` parity and the settings probe     | layers: absent, `{}`, zero-byte, unreadable, `{`, `{"defaultTrustLevel":42}`; rule + contributors per key — Test written: `packages/agent-framework/src/config/__tests__/settings-inspection.test.ts > inspectSettingsLayers (OBSERVABILITY-1991 TC-02)`                                                                                                                                                                                  |
+| TC-03 | unit                | Vitest over inspection outputs, `redactDiagnosticText` and the full rendered report | marker `sk-doctor-marker-…` beside a syntax error, in env, in an inactive profile, in `.mcp.json` `env` — Test written: `packages/agent-command/src/doctor/__tests__/doctor-runner.test.ts > runDoctor > TC-03`                                                                                                                                                                                                                           |
+| TC-04 | unit                | Vitest with injected provider definitions and a network dependency double           | host tiers, none → `warn`; the five `defaults` consumer seams ignore `endpoint`; table removed by grep — Test written: `packages/agent-command/src/doctor/__tests__/doctor-runner.test.ts > runDoctor > TC-04`                                                                                                                                                                                                                            |
+| TC-05 | unit                | Vitest over each probe with temp fixtures / injected deps                           | one failing fixture per subsystem with the stated status; `not-probed` only on the closed list — Test written: `packages/agent-framework/src/plugins/__tests__/bundle-plugin-inspection.test.ts`, `packages/agent-framework/src/commands/__tests__/skill-source-inspection.test.ts`, `packages/agent-command/src/doctor/__tests__/doctor-runner.test.ts > runDoctor > TC-05`                                                              |
+| TC-06 | component           | Vitest over `createDoctorCommandModule` with runner and interaction doubles         | provider factory spy never called; cancelled / absent interaction → no repair — Test written: `packages/agent-command/src/doctor/__tests__/doctor-command-module.test.ts > /doctor command module (OBSERVABILITY-1991 TC-06)`                                                                                                                                                                                                             |
+| TC-07 | integration         | Vitest over the repair path with a temp HOME                                        | allowlist, pre-write re-read, TTY/`--yes`, idempotence, second run clean, non-posix mode branch — Test written: `packages/agent-command/src/doctor/__tests__/doctor-runner.test.ts > runDoctor > TC-07`                                                                                                                                                                                                                                   |
+| TC-08 | scenario/regression | built `agent-cli` spawn in an isolated HOME + package suites                        | evidence recorded in `.agents/evals/scenarios/observability-1991-doctor-agent-run.md` — Test written: `scratch/src/observability-1991-doctor-scenario.sh` (built CLI, three runs) with evidence in `.agents/evals/scenarios/observability-1991-doctor-agent-run.md`; regression: `packages/agent-cli/src/__tests__/robota-assembly-equivalence.test.ts` (baseline includes `agent-command-doctor`) plus the seven affected package suites |
 
 ## User Execution Test Scenarios
 
@@ -541,3 +541,241 @@ the built CLI after it (DONE-GATE-STAGE-2 PASS 2026-09-19); the paired Task hold
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `18a560fea5fc` · base `origin/develop@18a560fea5fc` · document `.agents/spec-docs/todo/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `f487f178804e` (untracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: the LAST `[GATE-IMPLEMENT]` entry in this Evidence Log is `✅ PASS | 2026-09-19` (`approved → in-progress`); frontmatter `status: in-progress`; document under `.agents/spec-docs/active/`; `gate.mjs judge --gate GATE-VERIFY` reports the same ordering PASS.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): `.agents/tasks/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` `## Plan` (lines 21–30) holds exactly 8 items, `TC-01:` through `TC-08:`, all `- [x]`; 0 `- [ ]` boxes in that section. Only the `## Plan` section was read — `## Test Plan`, `## User Execution Test Scenarios` and `## Recommendation Evidence` were not consulted for this criterion.
+- GATE-VERIFY — No Plan item is blocked or pending: none of the 8 items carries `blocked`, `pending`, or any deferral marker; none is a disposition item (no merge/land/close/publish item — the words "merge rule" in TC-02 and "closed repair allowlist" in TC-07 describe implementation content, not a disposition). Task frontmatter `status: in-progress`.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): affected set per Task `area:` is agent-core, agent-provider-anthropic, agent-provider-openai, agent-provider-gemini, agent-framework, agent-command, agent-cli; `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-provider-anthropic --filter @robota-sdk/agent-provider-openai --filter @robota-sdk/agent-provider-gemini --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-command --filter @robota-sdk/agent-cli build` → exit 0, all seven packages `build: Done` (recorded by `gate.mjs judge --verify-cmd` in `/tmp/gate-verify.log` and independently re-run by the guardian at HEAD `dd5644934`; only the pre-existing `INEFFECTIVE_DYNAMIC_IMPORT` rollup notice in agent-cli, no error).
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-provider-anthropic --filter @robota-sdk/agent-provider-openai --filter @robota-sdk/agent-provider-gemini --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-command --filter @robota-sdk/agent-cli test` → exit 0 (recorded by `gate.mjs judge --verify-cmd` and independently re-run by the guardian): agent-core 109 files / 1350 tests passed; anthropic 8 / 100; gemini 9 / 156; openai 14 / 174; agent-framework 225 files passed, 6 skipped / 1727 passed, 77 skipped; agent-command 46 / 337 passed, 5 skipped; agent-cli 69 passed, 1 skipped / 508 passed, 18 skipped; 0 failures.
+
+**Judged by:** `backlog-gate-guard` (semantic) + `gate.mjs` (mechanical)
+**Judged at:** HEAD `dd5644934b4bdf8e538cb62e69d1860d3ae68261` · base `origin/develop@18a560fea5fc25d0ff7b4870eea2a27f033ed723` · document `.agents/spec-docs/active/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `b232d9bf94428f32af5761a3d02096a39c8cee9c` (tracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-19
+
+**Command:** `pnpm --filter @robota-sdk/agent-cli exec vitest run src/startup/__tests__/doctor-route.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 112 line(s))
+
+```
+
+✗ 1 issue(s) found. Fix the items above to use robota.
+  repairable: storage.user — run with --repair <check-id> (asks before writing; --yes skips the prompt)
+
+ ✓ src/startup/__tests__/doctor-route.test.ts (5 tests) 16ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  04:30:56
+   Duration  725ms (transform 385ms, setup 0ms, collect 587ms, tests 16ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd5644934b4b` · base `origin/develop@18a560fea5fc` · document `.agents/spec-docs/active/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `327afa39a705` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-19
+
+**Command:** `pnpm --filter @robota-sdk/agent-framework exec vitest run src/config/__tests__/settings-inspection.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+4:30:57 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-framework
+
+ ✓ src/config/__tests__/settings-inspection.test.ts (4 tests) 7ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  04:30:57
+   Duration  229ms (transform 64ms, setup 0ms, collect 98ms, tests 7ms, environment 0ms, prepare 30ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd5644934b4b` · base `origin/develop@18a560fea5fc` · document `.agents/spec-docs/active/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `8d29ec260e36` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-19
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/doctor/__tests__/doctor-runner.test.ts -t TC-03`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+4:30:58 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-command
+
+ ✓ src/doctor/__tests__/doctor-runner.test.ts (10 tests | 8 skipped) 9ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 8 skipped (10)
+   Start at  04:30:58
+   Duration  518ms (transform 290ms, setup 0ms, collect 387ms, tests 9ms, environment 0ms, prepare 30ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd5644934b4b` · base `origin/develop@18a560fea5fc` · document `.agents/spec-docs/active/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `8412d61fa923` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-19
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/doctor/__tests__/doctor-runner.test.ts -t TC-04`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+4:30:59 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-command
+
+ ✓ src/doctor/__tests__/doctor-runner.test.ts (10 tests | 8 skipped) 9ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 8 skipped (10)
+   Start at  04:30:59
+   Duration  530ms (transform 294ms, setup 0ms, collect 399ms, tests 9ms, environment 0ms, prepare 30ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd5644934b4b` · base `origin/develop@18a560fea5fc` · document `.agents/spec-docs/active/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `d73d2d7da481` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-19
+
+**Command:** `pnpm --filter @robota-sdk/agent-framework exec vitest run src/plugins/__tests__/bundle-plugin-inspection.test.ts src/commands/__tests__/skill-source-inspection.test.ts && pnpm --filter @robota-sdk/agent-command exec vitest run src/doctor/__tests__/doctor-runner.test.ts -t TC-05`
+**Exit:** 0
+**Output:** (last 10 of 22 line(s))
+
+```
+4:31:01 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-command
+
+ ✓ src/doctor/__tests__/doctor-runner.test.ts (10 tests | 7 skipped) 10ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed | 7 skipped (10)
+   Start at  04:31:01
+   Duration  523ms (transform 289ms, setup 0ms, collect 395ms, tests 10ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd5644934b4b` · base `origin/develop@18a560fea5fc` · document `.agents/spec-docs/active/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `1ad7d9546c9f` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-19
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/doctor/__tests__/doctor-command-module.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+4:31:02 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-command
+
+ ✓ src/doctor/__tests__/doctor-command-module.test.ts (3 tests) 16ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  04:31:02
+   Duration  546ms (transform 302ms, setup 0ms, collect 409ms, tests 16ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd5644934b4b` · base `origin/develop@18a560fea5fc` · document `.agents/spec-docs/active/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `4cd468cbf30f` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-19
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/doctor/__tests__/doctor-runner.test.ts -t TC-07`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+4:31:04 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-command
+
+ ✓ src/doctor/__tests__/doctor-runner.test.ts (10 tests | 8 skipped) 12ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 8 skipped (10)
+   Start at  04:31:04
+   Duration  642ms (transform 303ms, setup 0ms, collect 511ms, tests 12ms, environment 0ms, prepare 31ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd5644934b4b` · base `origin/develop@18a560fea5fc` · document `.agents/spec-docs/active/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `3aacb0e4e005` (modified)
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-09-19
+
+**Command:** `bash scratch/src/observability-1991-doctor-scenario.sh`
+**Exit:** 0
+**Output:** (last 10 of 119 line(s))
+
+```
+  ○ Skills and commands [skills] not-configured: no skill or command root present
+  ○ Hooks [hooks] not-configured: no command hooks configured
+  – Hook execution [hooks.execution] not-probed: the doctor does not run hooks
+  ○ MCP activation [mcp.activation] not-configured: this CLI composes no MCP activation adapter
+  – MCP connection [mcp.connection] not-probed: the doctor does not connect to MCP servers
+
+⚠ 2 warning(s). robota may work but check the items above.
+
+exit=0
+== marker hits in this transcript are counted by the caller
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd5644934b4b` · base `origin/develop@18a560fea5fc` · document `.agents/spec-docs/active/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `b6006a446bdc` (modified)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-19
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-08: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-08: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-08: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd5644934b4b` · base `origin/develop@18a560fea5fc` · document `.agents/spec-docs/active/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `e89f44b76548` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-19; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 8/8 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (8)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (8) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (8) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 8/8 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (8) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 8/8 tasks `[x]` in .agents/tasks/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd5644934b4b` · base `origin/develop@18a560fea5fc` · document `.agents/spec-docs/active/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `f02b2ee3547e` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-19; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 8/8 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (8)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (8) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (8) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 8/8 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (8) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 8/8 tasks `[x]` in .agents/tasks/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd5644934b4b` · base `origin/develop@18a560fea5fc` · document `.agents/spec-docs/active/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md` blob `968b85ac2d4f` (modified)
