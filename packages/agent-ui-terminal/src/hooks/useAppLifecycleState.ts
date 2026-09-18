@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useTerminalTitle } from '../use-terminal-title.js';
-import { useTerminalHandoffSuspension } from './useTerminalHandoffSuspension.js';
 
 import type { ITuiAppChannelPort } from '../tui-app-channel-port.js';
 
 export interface IAppLifecycleState {
   readonly sessionName: string | undefined;
   readonly setSessionName: (name: string) => void;
-  readonly handoffSuspended: boolean;
   readonly updateNotice: string | undefined;
   readonly startError: string | undefined;
   readonly startPending: boolean;
@@ -69,12 +67,10 @@ export function useAppLifecycleState(
     }
   }, [channel, channel.sessionName, sessionName]);
   useTerminalTitle(sessionName);
-  const handoffSuspended = useTerminalHandoffSuspension(channel.terminalHandoffController);
   const updateNotice = useStartupUpdateNotice(startupUpdateNotice);
   return {
     sessionName,
     setSessionName,
-    handoffSuspended,
     updateNotice,
     ...channelLifecycle,
   };

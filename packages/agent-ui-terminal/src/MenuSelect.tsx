@@ -1,10 +1,9 @@
-import { Box, useInput } from 'ink';
+import { Box } from 'ink';
 import React, { useState, useCallback, useRef } from 'react';
 
 import {
   applySelectionInput,
   createSelectionFlowState,
-  getVerticalSelectionInputAction,
   normalizeSelectionState,
   type ISelectionFlowState,
   type TSelectionInputAction,
@@ -16,6 +15,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindings-context.js';
 import { NumberedList } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
@@ -88,15 +88,17 @@ export default function MenuSelect({
     [isEnabled, items, onBack, onSelect],
   );
 
-  useInput(
-    (input, key) => {
-      const action = getVerticalSelectionInputAction(key);
-      if (action !== undefined) {
-        applyAction(action);
-      }
-    },
+  useKeybindingActions(
+    'menu-select',
+    (actions) => actions.forEach((action) => applyAction(action === 'back' ? 'cancel' : action)),
     { isActive: !screenReader },
   );
+  const menuHints = useKeybindingHints('menu-select', [
+    [['previous', 'next'], 'Navigate'],
+    ['select', 'Select'],
+    ['back', 'Back'],
+  ]);
+  const errorHints = useKeybindingHints('menu-select', [['back', 'Back']]);
 
   const normalizedState = normalizeSelectionState(state, { itemCount: items.length });
   if (normalizedState !== state) {
@@ -150,9 +152,7 @@ export default function MenuSelect({
           ))}
         </Box>
       )}
-      <KeyHintFooter
-        hints={loading ? [] : error ? MENU_SELECT_ERROR_FOOTER_HINTS : MENU_SELECT_FOOTER_HINTS}
-      />
+      <KeyHintFooter hints={loading ? [] : error ? errorHints : menuHints} />
     </Box>
   );
 }

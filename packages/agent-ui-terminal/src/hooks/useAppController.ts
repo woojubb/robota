@@ -123,7 +123,6 @@ function buildViewModel(composition: IComposition): IAppViewModel {
   const { interaction, lifecycle, shell, state } = composition;
   return {
     staticItems: composition.staticItems,
-    handoffSuspended: lifecycle.handoffSuspended,
     updateNotice: lifecycle.updateNotice,
     coordinationError: composition.coordination.error,
     coordinationPending: composition.coordination.pending,

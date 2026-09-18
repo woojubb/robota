@@ -7,6 +7,7 @@ import { render } from 'ink';
 import React from 'react';
 
 import App from './App.js';
+import { KeybindingsProvider } from './keybindings/keybindings-context.js';
 import { writeScreenReaderAnnouncement } from './screen-reader-announcement.js';
 import { ScreenReaderProvider } from './screen-reader-context.js';
 import { awaitStartupQuietPeriod, resolvePacing } from './screen-reader-pacing.js';
@@ -14,6 +15,7 @@ import { isInteractiveColorTerminal } from './terminal-capabilities.js';
 import { TerminalHandoffController } from './terminal-handoff-controller.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
 
+import type { IKeybindingsSource } from './keybindings/node-keybindings-source.js';
 import type { TScreenReaderChannel } from './screen-reader-announcement.js';
 import type { ITuiAppChannelPort } from './tui-app-channel-port.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
@@ -147,6 +149,8 @@ export interface IRenderOptions {
   screenReaderChannel?: TScreenReaderChannel | undefined;
   /** CLI-2004: mode off, but the environment suggests a reader is running ⇒ one advisory line. */
   screenReaderHint?: boolean | undefined;
+  /** BEHAVIOR-2003: one watched source shared with the optional `/keybindings` command. */
+  keybindingsSource?: IKeybindingsSource;
 }
 
 /** Map render options to TuiInteractionChannel constructor options. */
@@ -233,7 +237,15 @@ export async function waitForRenderAndStop<TResult>(
 export async function renderApp(options: IRenderOptions): Promise<void> {
   // ERR-001 / Library Neutrality Rule: NO process-level error policy here — process survival
   // is the product assembly's boundary (agent-cli installs the guards via onChannelReady).
+  try {
+    await options.keybindingsSource?.start();
+    await renderStartedApp(options);
+  } finally {
+    options.keybindingsSource?.dispose();
+  }
+}
 
+async function renderStartedApp(options: IRenderOptions): Promise<void> {
   // CLI-2004: one resolved boolean drives Ink's own screen-reader support AND the React context
   // every component reads. Both are set here so they can never disagree.
   const screenReader = options.screenReader === true;
@@ -277,24 +289,26 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
   await awaitStartupQuietPeriod(pacing.startupQuietMs, process.stdin);
 
   const instance = render(
-    <ScreenReaderProvider enabled={screenReader}>
-      <App
-        cwd={options.cwd}
-        createChannel={createChannel}
-        providerOverride={options.providerOverride}
-        providerType={options.providerType}
-        modelId={options.modelId}
-        permissionMode={options.permissionMode}
-        version={options.version}
-        sessionStore={options.sessionStore}
-        resumeSessionId={options.resumeSessionId}
-        showSessionPickerOnStart={options.showSessionPickerOnStart}
-        startupUpdateNotice={options.startupUpdateNotice}
-        transportRegistry={options.transportRegistry}
-        pluginAdapter={options.commandHostAdapters?.plugin}
-        cliAdapter={options.cliAdapter}
-      />
-    </ScreenReaderProvider>,
+    <KeybindingsProvider source={options.keybindingsSource}>
+      <ScreenReaderProvider enabled={screenReader}>
+        <App
+          cwd={options.cwd}
+          createChannel={createChannel}
+          providerOverride={options.providerOverride}
+          providerType={options.providerType}
+          modelId={options.modelId}
+          permissionMode={options.permissionMode}
+          version={options.version}
+          sessionStore={options.sessionStore}
+          resumeSessionId={options.resumeSessionId}
+          showSessionPickerOnStart={options.showSessionPickerOnStart}
+          startupUpdateNotice={options.startupUpdateNotice}
+          transportRegistry={options.transportRegistry}
+          pluginAdapter={options.commandHostAdapters?.plugin}
+          cliAdapter={options.cliAdapter}
+        />
+      </ScreenReaderProvider>
+    </KeybindingsProvider>,
     { exitOnCtrlC: false, isScreenReaderEnabled: screenReader },
   );
   // The controller needs the Ink instance to clear the frame before a handoff.

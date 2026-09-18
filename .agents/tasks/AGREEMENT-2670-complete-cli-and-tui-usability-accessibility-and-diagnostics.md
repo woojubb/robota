@@ -62,7 +62,7 @@ attention state, stored-history query, palette configuration, OS/IME integration
 - [ ] SCREEN-1992 — todo — `.agents/tasks/SCREEN-1992-recap-unattended-session-and-background-activity.md`
 - [ ] SCREEN-1993 — todo — `.agents/tasks/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md`
 - [ ] SCREEN-2002 — todo — `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`
-- [ ] BEHAVIOR-2003 — todo — `.agents/tasks/BEHAVIOR-2003-configure-contextual-tui-key-bindings.md`
+- [ ] BEHAVIOR-2003 — in-progress — `.agents/tasks/BEHAVIOR-2003-configure-contextual-tui-key-bindings.md`
 - [ ] FLOW-2006 — todo — `.agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`
 - [ ] BEHAVIOR-2437 — todo — `.agents/tasks/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md`
 - [ ] SCREEN-2442 — todo — `.agents/tasks/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md`

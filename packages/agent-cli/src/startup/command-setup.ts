@@ -30,6 +30,7 @@ import {
   createDefaultCommandModules,
   createDefaultPluginCommandAdapter,
 } from '@robota-sdk/agent-command';
+import type { IKeybindingsFilePort } from '@robota-sdk/agent-command';
 import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-preset';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import {
@@ -158,6 +159,7 @@ export function buildCommandSetup(
   options: IStartCliOptions,
   version: string,
   packCommandModuleNames: readonly string[] = [],
+  keybindingsFilePort?: IKeybindingsFilePort,
 ): ICliSetup {
   const workspaceComposition = createCliWorkspaceComposition({
     cwd,
@@ -219,6 +221,7 @@ export function buildCommandSetup(
     providerDefinitions,
     providerSettingsAdapter,
     contributionSources: workspaceComposition.contributionSources,
+    ...(keybindingsFilePort === undefined ? {} : { keybindingsFilePort }),
     ...(orgPolicy === null ? {} : { orgPolicy }),
     ...(packCommandModuleNames.length > 0
       ? { disabledCommandModules: packCommandModuleNames }

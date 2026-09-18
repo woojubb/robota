@@ -10,7 +10,8 @@
  * and `runWithTerminal` returning so the TUI resumes.
  *
  * argv: [mode ('shell'|'editor'), outputPath, commandArg?]. Markers: `@@READY canHandoff=…@@`,
- * `@@CMD_DONE@@`. A JSON result `{ success, exitCode?, message }` is written to outputPath.
+ * `@@CMD_DONE@@`, `@@INPUT_AFTER_HANDOFF …@@`. A JSON result
+ * `{ success, exitCode?, message }` is written to outputPath.
  */
 import { writeFileSync } from 'node:fs';
 
@@ -33,6 +34,7 @@ const OUTPUT_PATH = process.argv[3];
 const COMMAND_ARG = process.argv[4] ?? '';
 
 const controller = new TerminalHandoffController();
+let resolveInputAfterHandoff: ((input: string) => void) | undefined;
 
 /** Minimal host context — the shell/editor executors only read these three members. */
 const context = {
@@ -42,7 +44,7 @@ const context = {
 } satisfies ICommandHostTerminalHandoff & Pick<ICommandHostWorkspace, 'getCwd'>;
 
 function InputCapture(): React.ReactElement {
-  useInput(() => {});
+  useInput((input) => resolveInputAfterHandoff?.(input));
   return <Text>READY</Text>;
 }
 
@@ -81,6 +83,10 @@ async function main(): Promise<void> {
       : await executeShellCommand(ctx, COMMAND_ARG);
 
   marker('CMD_DONE');
+  const inputAfterHandoff = await new Promise<string>((resolve) => {
+    resolveInputAfterHandoff = resolve;
+  });
+  marker(`INPUT_AFTER_HANDOFF ${inputAfterHandoff}`);
   instance.unmount();
   await new Promise((resolve) => setTimeout(resolve, 150));
 

@@ -7,6 +7,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { useKeybindingHints } from './keybindings/keybindings-context.js';
 import { numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
@@ -101,6 +102,12 @@ export default function SlashAutocomplete({
 }: IProps): React.ReactElement | null {
   const rowWidth = useRowWidth();
   const screenReader = useScreenReader();
+  const footerHints = useKeybindingHints('autocomplete-menu', [
+    [['previous', 'next'], 'Navigate'],
+    ['accept', 'Complete'],
+    ['execute', 'Select'],
+    ['close', 'Close'],
+  ]);
 
   if (!visible || commands.length === 0) return null;
 
@@ -131,7 +138,7 @@ export default function SlashAutocomplete({
           {...(screenReader ? { rowNumber: scrollOffset + i } : {})}
         />
       ))}
-      <KeyHintFooter hints={SLASH_AUTOCOMPLETE_FOOTER_HINTS} />
+      <KeyHintFooter hints={footerHints} />
     </Box>
   );
 }

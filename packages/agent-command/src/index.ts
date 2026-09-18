@@ -22,6 +22,12 @@ export {
 } from './effort/index.js';
 export * from './exit/index.js';
 export * from './help/index.js';
+export {
+  createKeybindingsCommandEntry,
+  createKeybindingsCommandModule,
+  KeybindingsCommandSource,
+  type IKeybindingsFilePort,
+} from './keybindings/index.js';
 export * from './language/index.js';
 export * from './memory/index.js';
 export {

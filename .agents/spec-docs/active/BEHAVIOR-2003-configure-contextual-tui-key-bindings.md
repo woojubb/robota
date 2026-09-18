@@ -35,18 +35,18 @@ formatter remain the execution foundations rather than being replaced.
 
 Checklist disposition:
 
-| Reference outcome | Robota verdict |
-| --- | --- |
-| Known JSON path created/opened by a command | Adopt: `/keybindings` creates the default sparse document when absent and opens it through terminal handoff. |
-| Hot reload | Adopt: watch the containing directory so atomic editor renames are observed. |
-| Context/action vocabulary and defaults | Adopt for every current production context; future screens add their actions when implemented. |
-| Modifier aliases and terminal limits | Adopt with canonical serialization and warnings for combinations the current terminal cannot deliver. |
-| Uppercase semantics | Adopt: bare uppercase implies Shift; modified letters are normalized without an implicit second Shift. |
-| Chords and null unbinding | Adopt with bounded state, explicit prefix-conflict validation and sparse `null` removal of one action's defaults. |
-| Reserved keys and multiplexer conflicts | Adopt; reserved violations reject the snapshot, while environment conflicts are visible non-fatal warnings. |
-| Visible and debug diagnostics | Adopt through the TUI diagnostic projection and injected logger. |
-| JSON Schema URL | Adopt as the document's `$schema` and publish the schema with the product documentation. |
-| Modal editor interaction | Adapt as documentation: Robota does not implement a modal editor, and documents which terminal controls remain outside the registry. |
+| Reference outcome                           | Robota verdict                                                                                                                       |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Known JSON path created/opened by a command | Adopt: `/keybindings` creates the default sparse document when absent and opens it through terminal handoff.                         |
+| Hot reload                                  | Adopt: watch the containing directory so atomic editor renames are observed.                                                         |
+| Context/action vocabulary and defaults      | Adopt for every current production context; future screens add their actions when implemented.                                       |
+| Modifier aliases and terminal limits        | Adopt with canonical serialization and warnings for combinations the current terminal cannot deliver.                                |
+| Uppercase semantics                         | Adopt: bare uppercase implies Shift; modified letters are normalized without an implicit second Shift.                               |
+| Chords and null unbinding                   | Adopt with bounded state, explicit prefix-conflict validation and sparse `null` removal of one action's defaults.                    |
+| Reserved keys and multiplexer conflicts     | Adopt; reserved violations reject the snapshot, while environment conflicts are visible non-fatal warnings.                          |
+| Visible and debug diagnostics               | Adopt through the TUI diagnostic projection and injected logger.                                                                     |
+| JSON Schema URL                             | Adopt as the document's `$schema` and publish the schema with the product documentation.                                             |
+| Modal editor interaction                    | Adapt as documentation: Robota does not implement a modal editor, and documents which terminal controls remain outside the registry. |
 
 ## Architecture Review
 
@@ -170,26 +170,33 @@ the active configuration.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| ----- | --------- | --------------- | ----- |
-| TC-01 | Unit / JSON Schema | Vitest parser and generated-schema fixture tests | Exact normalized map assertions |
-| TC-02 | Unit | Vitest validation matrix | Error and warning severity are separate assertions |
-| TC-03 | Async state | Vitest fake-timer chord tests | Includes mismatch single re-evaluation |
-| TC-04 | Component / regression | Existing reducer tests plus registry-routed Ink input tests | Covers the full production-handler inventory |
-| TC-05 | Component | Ink render tests over effective snapshots | Footer must match executable actions |
-| TC-06 | Integration / async | Temporary-directory `fs.watch` tests and render teardown tests | Exercises atomic rename and disposal |
-| TC-07 | Functional command | Real command module with fake editor and temporary HOME | Existing files remain byte-identical |
-| TC-08 | Contract / docs | JSON Schema validation and documentation conformance | Published schema asset resolves locally |
-| TC-09 | Process / PTY | Agent-controlled PTY over `pnpm exec robota --name keybindings-scenario` | Product-surface evidence, not a unit-test substitute; any disposable orchestration script lives under `scratch/src/` and is not committed |
-| TC-10 | Engineering verification | package build, test, typecheck and affected harness scans | Run after focused suites |
+| TC-ID | Test Type                | Tool / Approach                                                                                                                                | Notes                                                                                                                                     |
+| ----- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit / JSON Schema       | Vitest parser and generated-schema fixture tests                                                                                               | Exact normalized map assertions                                                                                                           |
+| TC-02 | Unit                     | Vitest validation matrix                                                                                                                       | Error and warning severity are separate assertions                                                                                        |
+| TC-03 | Async state              | Vitest fake-timer chord tests                                                                                                                  | Includes mismatch single re-evaluation                                                                                                    |
+| TC-04 | Component / regression   | Existing reducer tests plus registry-routed Ink input tests                                                                                    | Covers the full production-handler inventory                                                                                              |
+| TC-05 | Component                | Ink render tests over effective snapshots                                                                                                      | Footer must match executable actions                                                                                                      |
+| TC-06 | Integration / async      | Temporary-directory `fs.watch` tests and render teardown tests                                                                                 | Exercises atomic rename and disposal                                                                                                      |
+| TC-07 | Functional command       | Real command module with fake editor and temporary HOME                                                                                        | Existing files remain byte-identical                                                                                                      |
+| TC-08 | Contract / docs          | JSON Schema validation and documentation conformance                                                                                           | Published schema asset resolves locally                                                                                                   |
+| TC-09 | Process / PTY            | Agent-controlled PTY over `node packages/agent-cli/bin/robota.cjs --name keybindings-scenario --disable-update-check --no-session-persistence` | Product-surface evidence, not a unit-test substitute; any disposable orchestration script lives under `scratch/src/` and is not committed |
+| TC-10 | Engineering verification | package build, test, typecheck and affected harness scans                                                                                      | Run after focused suites                                                                                                                  |
 
 ## User Execution Test Scenarios
 
-Run the paired Task's canonical `robota-tui` Scenario 1 against a 100×32 PTY and the shipped
-`pnpm exec robota --name keybindings-scenario` entrypoint. It uses only built-in `/keybindings` and
-`/help`, so no provider call or credential is required. The exact canonical fields, PTY action order,
-expected UI state, cleanup and evidence destination are recorded in the paired Task and
-`.agents/evals/scenarios/behavior-2003-keybindings-agent-run.md`.
+### Scenario 1: remap, hot-reload and reject an invalid replacement without restart
+
+- executability: agent-executable
+- product surface: robota-tui
+- surface rationale: shipped-entrypoint=robota
+- prerequisites: affected packages are built; an isolated temporary HOME contains a dummy provider setting that is never called; an agent-controlled 100×32 PTY starts the command; EDITOR is a temporary executable that records its single path argument and writes a sparse override binding chat-input.submit and autocomplete-menu.accept to ctrl+j; a second shell can atomically rename valid and invalid documents over HOME/.robota/keybindings.json; the PTY enters `/keybindings`, `/he`, Ctrl+J/Ctrl+J, applies the valid ctrl+k replacement, repeats `/he`, Ctrl+J/Ctrl+K, applies the invalid replacement, repeats those keys, and exits normally; no live credential, provider request or external service is required because every submitted value is the built-in /help command
+- command: `pnpm exec robota --name keybindings-scenario`
+- observable type: ui-state
+- observable rationale: source=rendered-product-ui
+- expected observable: visible=the editor receives the exact isolated HOME/.robota/keybindings.json path; the footer first shows ctrl+j for submit and /help renders Available commands; after the valid rename the footer shows ctrl+k, Ctrl+J still completes /help in the slash menu and Ctrl+K renders Available commands; after the invalid rename a diagnostic names the failing path, ctrl+k remains in the footer, /help still renders Available commands, and the TUI stays alive
+- cleanup: exit the Robota process normally, confirm the watcher released the temporary directory, then remove only the isolated HOME, project and captured transcript directories
+- evidence: recorded — raw (65,734 bytes) and stripped (40,478 chars) PTY transcripts, editor path record, and three bounded captures in `.agents/evals/scenarios/behavior-2003-keybindings-agent-run.md`
 
 ## Tasks
 
@@ -266,6 +273,7 @@ recorded in Architecture Review above and in the paired Task's Recommendation Ev
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 4 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -328,6 +336,7 @@ recorded in Architecture Review above and in the paired Task's Recommendation Ev
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator

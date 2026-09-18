@@ -58,6 +58,11 @@
       "test": "packages/agent-command/src/editor/__tests__/editor-command-functional.test.ts"
     },
     {
+      "id": "keybindings-command",
+      "description": "BEHAVIOR-2003: /keybindings ensures the TUI-owned file, opens its exact path through terminal handoff, and stays unavailable without an interactive terminal.",
+      "test": "packages/agent-command/src/keybindings/__tests__/keybindings-command-module.test.ts"
+    },
+    {
       "id": "session-log-external-payload-replay",
       "description": "ARCH-014: a real InteractiveSession log externalizes a large response, and a second real session replays it byte-exactly without shifting the next response.",
       "test": "packages/agent-framework/src/testing/__tests__/session-log-external-payload-replay-functional.test.ts"

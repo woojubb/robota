@@ -19,16 +19,16 @@ while diagnosing unknown contexts/actions, reserved keys, duplicates and multipl
 
 ## Plan
 
-- [ ] TC-01, TC-02: Define the sparse override document, context/action vocabulary, defaults, grammar,
+- [x] TC-01, TC-02: Define the sparse override document, context/action vocabulary, defaults, grammar,
       JSON Schema, reserved-key policy and error-versus-warning rules.
-- [ ] TC-06, TC-07: Build one Node keybinding source at the CLI composition boundary, inject it into the
+- [x] TC-06, TC-07: Build one Node keybinding source at the CLI composition boundary, inject it into the
       TUI and the `/keybindings` command, and dispose its directory watcher with the rendered app.
-- [ ] TC-03, TC-04: Resolve action keys and bounded chords through one registry across every current
+- [x] TC-03, TC-04: Resolve action keys and bounded chords through one registry across every current
       production input context while leaving printable text, paste, Korean IME composition and Ctrl+C
       on their preserved paths.
-- [ ] TC-05: Reject invalid replacement documents atomically, retain the last valid effective map,
+- [x] TC-05: Reject invalid replacement documents atomically, retain the last valid effective map,
       surface the diagnostic, and derive every active key hint from that effective map.
-- [ ] TC-08, TC-09, TC-10: Document the file path, action catalogue, schema, terminal/modal-editor limits
+- [x] TC-08, TC-09, TC-10: Document the file path, action catalogue, schema, terminal/modal-editor limits
       and multiplexer warnings, then execute the live PTY hot-reload scenario and engineering checks.
 
 ## Test Plan
@@ -56,7 +56,7 @@ then modify the keybindings file during a live PTY session and observe a remappe
 - observable rationale: source=rendered-product-ui
 - expected observable: visible=the editor receives the exact isolated HOME/.robota/keybindings.json path; the footer first shows ctrl+j for submit and /help renders Available commands; after the valid rename the footer shows ctrl+k, Ctrl+J still completes /help in the slash menu and Ctrl+K renders Available commands; after the invalid rename a diagnostic names the failing path, ctrl+k remains in the footer, /help still renders Available commands, and the TUI stays alive
 - cleanup: exit the Robota process normally, confirm the watcher released the temporary directory, then remove only the isolated HOME, project and captured transcript directories
-- evidence: pending — record the raw and stripped PTY transcript, the editor path record and three bounded captures in `.agents/evals/scenarios/behavior-2003-keybindings-agent-run.md`
+- evidence: recorded — raw (65,734 bytes) and stripped (40,478 chars) PTY transcripts, editor path record, and three bounded captures in `.agents/evals/scenarios/behavior-2003-keybindings-agent-run.md`
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-15
 
@@ -108,4 +108,4 @@ requires no provider call, credential or external service.
   TUI contract in `agent-ui-terminal`, gives `agent-command` only a consumer-owned file port, and lets
   `agent-cli` inject one Node source into both surfaces without leaking presentation concepts into
   `agent-framework`.
-- User direction (verbatim): “브랜치 정리와 부분 완료 기록을 수행하고 #2670의 다음 제품 Task를 계속 진행하세요.”
+- User direction (verbatim): “브랜치 정리와 부분 완료 기록을 수행하고 Issue #2670의 다음 제품 Task를 계속 진행하세요.”

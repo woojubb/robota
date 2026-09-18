@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docs.robota.io/schemas/keybindings.schema.json",
+  "title": "Robota TUI keybindings",
+  "description": "Sparse contextual keybinding overrides for the Robota terminal UI.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "bindings"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "app": { "$ref": "#/$defs/app" },
+        "thinking": { "$ref": "#/$defs/thinking" },
+        "background-detail": { "$ref": "#/$defs/background-detail" },
+        "recovery": { "$ref": "#/$defs/recovery" },
+        "chat-input": { "$ref": "#/$defs/chat-input" },
+        "text-input": { "$ref": "#/$defs/text-input" },
+        "autocomplete-menu": { "$ref": "#/$defs/autocomplete-menu" },
+        "queued-prompt": { "$ref": "#/$defs/queued-prompt" },
+        "confirm-prompt": { "$ref": "#/$defs/confirm-prompt" },
+        "permission-prompt": { "$ref": "#/$defs/permission-prompt" },
+        "text-prompt": { "$ref": "#/$defs/text-prompt" },
+        "list-picker": { "$ref": "#/$defs/list-picker" },
+        "menu-select": { "$ref": "#/$defs/menu-select" },
+        "multi-select": { "$ref": "#/$defs/multi-select" },
+        "workspace-switcher": { "$ref": "#/$defs/workspace-switcher" },
+        "background-list": { "$ref": "#/$defs/background-list" },
+        "transport-settings": { "$ref": "#/$defs/transport-settings" }
+      }
+    }
+  },
+  "$defs": {
+    "binding": {
+      "anyOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        { "type": "null" }
+      ]
+    },
+    "app": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "open-workspace-switcher": { "$ref": "#/$defs/binding" } }
+    },
+    "thinking": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "abort": { "$ref": "#/$defs/binding" } }
+    },
+    "background-detail": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "return-to-main": { "$ref": "#/$defs/binding" } }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "retry": { "$ref": "#/$defs/binding" } }
+    },
+    "chat-input": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "submit": { "$ref": "#/$defs/binding" },
+        "history-previous": { "$ref": "#/$defs/binding" },
+        "history-next": { "$ref": "#/$defs/binding" },
+        "cursor-left": { "$ref": "#/$defs/binding" },
+        "cursor-right": { "$ref": "#/$defs/binding" },
+        "delete-backward": { "$ref": "#/$defs/binding" },
+        "delete-word": { "$ref": "#/$defs/binding" },
+        "delete-line": { "$ref": "#/$defs/binding" }
+      }
+    },
+    "text-input": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "submit": { "$ref": "#/$defs/binding" },
+        "cursor-left": { "$ref": "#/$defs/binding" },
+        "cursor-right": { "$ref": "#/$defs/binding" },
+        "cursor-up": { "$ref": "#/$defs/binding" },
+        "cursor-down": { "$ref": "#/$defs/binding" },
+        "delete-backward": { "$ref": "#/$defs/binding" },
+        "delete-word": { "$ref": "#/$defs/binding" },
+        "delete-line": { "$ref": "#/$defs/binding" }
+      }
+    },
+    "autocomplete-menu": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "previous": { "$ref": "#/$defs/binding" },
+        "next": { "$ref": "#/$defs/binding" },
+        "close": { "$ref": "#/$defs/binding" },
+        "accept": { "$ref": "#/$defs/binding" },
+        "execute": { "$ref": "#/$defs/binding" }
+      }
+    },
+    "queued-prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "cancel": { "$ref": "#/$defs/binding" } }
+    },
+    "confirm-prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "previous": { "$ref": "#/$defs/binding" },
+        "next": { "$ref": "#/$defs/binding" },
+        "confirm": { "$ref": "#/$defs/binding" },
+        "choose-yes": { "$ref": "#/$defs/binding" },
+        "choose-no": { "$ref": "#/$defs/binding" }
+      }
+    },
+    "permission-prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "previous": { "$ref": "#/$defs/binding" },
+        "next": { "$ref": "#/$defs/binding" },
+        "confirm": { "$ref": "#/$defs/binding" },
+        "allow-once": { "$ref": "#/$defs/binding" },
+        "allow-session": { "$ref": "#/$defs/binding" },
+        "allow-project": { "$ref": "#/$defs/binding" },
+        "deny": { "$ref": "#/$defs/binding" }
+      }
+    },
+    "text-prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "submit": { "$ref": "#/$defs/binding" },
+        "cancel": { "$ref": "#/$defs/binding" },
+        "delete-backward": { "$ref": "#/$defs/binding" }
+      }
+    },
+    "list-picker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "previous": { "$ref": "#/$defs/binding" },
+        "next": { "$ref": "#/$defs/binding" },
+        "select": { "$ref": "#/$defs/binding" },
+        "cancel": { "$ref": "#/$defs/binding" }
+      }
+    },
+    "menu-select": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "previous": { "$ref": "#/$defs/binding" },
+        "next": { "$ref": "#/$defs/binding" },
+        "select": { "$ref": "#/$defs/binding" },
+        "back": { "$ref": "#/$defs/binding" }
+      }
+    },
+    "multi-select": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "previous": { "$ref": "#/$defs/binding" },
+        "next": { "$ref": "#/$defs/binding" },
+        "toggle": { "$ref": "#/$defs/binding" },
+        "confirm": { "$ref": "#/$defs/binding" },
+        "cancel": { "$ref": "#/$defs/binding" }
+      }
+    },
+    "workspace-switcher": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "previous": { "$ref": "#/$defs/binding" },
+        "next": { "$ref": "#/$defs/binding" },
+        "select": { "$ref": "#/$defs/binding" },
+        "close": { "$ref": "#/$defs/binding" },
+        "attach": { "$ref": "#/$defs/binding" }
+      }
+    },
+    "background-list": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "previous": { "$ref": "#/$defs/binding" },
+        "next": { "$ref": "#/$defs/binding" },
+        "open": { "$ref": "#/$defs/binding" },
+        "close": { "$ref": "#/$defs/binding" }
+      }
+    },
+    "transport-settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "previous": { "$ref": "#/$defs/binding" },
+        "next": { "$ref": "#/$defs/binding" },
+        "toggle": { "$ref": "#/$defs/binding" },
+        "close": { "$ref": "#/$defs/binding" }
+      }
+    }
+  }
+}

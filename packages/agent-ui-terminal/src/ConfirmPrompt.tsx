@@ -10,7 +10,6 @@ import {
   applyConfirmPromptInput,
   applyTypedConfirmInput,
   createTypedConfirmState,
-  getConfirmPromptInputAction,
   type ITypedConfirmState,
   type TConfirmPromptInputAction,
 } from './flows/confirm-prompt-flow.js';
@@ -21,6 +20,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindings-context.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { PALETTE } from './tui-palette.js';
@@ -80,15 +80,25 @@ export default function ConfirmPrompt({
     { isActive: screenReader },
   );
 
-  useInput(
-    (input, key) => {
-      const action = getConfirmPromptInputAction(input, key, options.length);
-      if (action !== undefined) {
-        applyAction(action);
+  useKeybindingActions(
+    'confirm-prompt',
+    (actions) => {
+      for (const action of actions) {
+        if (action === 'choose-yes' && options.length === 2) {
+          applyAction({ type: 'shortcut', index: 0 });
+        } else if (action === 'choose-no' && options.length === 2) {
+          applyAction({ type: 'shortcut', index: 1 });
+        } else if (action === 'previous' || action === 'next' || action === 'confirm') {
+          applyAction(action === 'confirm' ? 'select' : action);
+        }
       }
     },
     { isActive: !screenReader },
   );
+  const footerHints = useKeybindingHints('confirm-prompt', [
+    [['previous', 'next'], 'Navigate'],
+    ['confirm', 'Confirm'],
+  ]);
 
   if (screenReader) {
     return (
@@ -123,7 +133,7 @@ export default function ConfirmPrompt({
           </Box>
         ))}
       </Box>
-      <KeyHintFooter hints={CONFIRM_PROMPT_FOOTER_HINTS} />
+      <KeyHintFooter hints={footerHints} />
     </Box>
   );
 }

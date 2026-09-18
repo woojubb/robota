@@ -1,9 +1,8 @@
-import { Box, useInput } from 'ink';
+import { Box } from 'ink';
 import React from 'react';
 
 import { useWorkspaceSwitcherSelection } from './execution-workspace-switcher-selection.js';
 import { formatExecutionWorkspaceEntryRow } from './execution-workspace-view-model.js';
-import { getVerticalSelectionInputAction } from './flows/selection-flow.js';
 import { useNumberedSelection } from './hooks/useNumberedSelection.js';
 import {
   KeyHintFooter,
@@ -11,6 +10,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindings-context.js';
 import { formatNumberedSelectionPrompt, numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
@@ -33,9 +33,6 @@ export const EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS: readonly IKeyHint[] = [
  * present, because a key that does nothing on most rows reads as a broken key, not an unused one.
  */
 export const EXECUTION_WORKSPACE_ATTACH_HINT: IKeyHint = { keys: 'a', label: 'Attach' };
-
-/** The key that attaches to a forked session. Lower-case only; `A` is left free. */
-const ATTACH_KEY = 'a';
 
 interface IProps {
   snapshot: IExecutionWorkspaceSnapshot | null;
@@ -84,28 +81,30 @@ export default function ExecutionWorkspaceSwitcher({
     onCancel: onClose,
   });
 
-  useInput(
-    (input, key) => {
-      // CLI-1994: `a` attaches to the focused fork. Guarded against the modifiers because Ink
-      // reports Ctrl+A as the letter with `ctrl` set, and a chord must not attach silently.
-      if (
-        canAttach &&
-        input === ATTACH_KEY &&
-        key.ctrl !== true &&
-        key.meta !== true &&
-        focusedEntry
-      ) {
-        // Attaching replaces what the terminal is looking at, so the switcher has nothing left to
-        // switch between — it closes itself rather than making every caller remember to.
-        onAttach(focusedEntry);
-        onClose();
-        return;
+  useKeybindingActions(
+    'workspace-switcher',
+    (actions) => {
+      for (const action of actions) {
+        if (action === 'attach' && canAttach && focusedEntry) {
+          // Attaching replaces what the terminal is looking at, so the switcher has nothing left to
+          // switch between — it closes itself rather than making every caller remember to.
+          onAttach(focusedEntry);
+          onClose();
+        } else if (action === 'previous' || action === 'next' || action === 'select') {
+          applyAction(action);
+        } else if (action === 'close') {
+          applyAction('cancel');
+        }
       }
-      const action = getVerticalSelectionInputAction(key);
-      if (action !== undefined) applyAction(action);
     },
     { isActive: !screenReader },
   );
+  const footerHints = useKeybindingHints('workspace-switcher', [
+    [['previous', 'next'], 'Navigate'],
+    ['select', 'Switch'],
+    ['close', 'Close'],
+  ]);
+  const attachHint = useKeybindingHints('workspace-switcher', [['attach', 'Attach']]);
 
   return (
     <Box
@@ -149,13 +148,7 @@ export default function ExecutionWorkspaceSwitcher({
           invalid={numbered.invalid}
         />
       ) : (
-        <KeyHintFooter
-          hints={
-            canAttach
-              ? [...EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS, EXECUTION_WORKSPACE_ATTACH_HINT]
-              : EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS
-          }
-        />
+        <KeyHintFooter hints={canAttach ? [...footerHints, ...attachHint] : footerHints} />
       )}
     </Box>
   );

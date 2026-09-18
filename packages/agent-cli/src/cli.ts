@@ -30,7 +30,11 @@ import {
   selectProductCommandModules,
   createChannelReadyHandler,
 } from './product/robota-plumbing.js';
-import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-ui-terminal';
+import {
+  renderApp,
+  createDefaultTuiCliAdapter,
+  createNodeKeybindingsSource,
+} from '@robota-sdk/agent-ui-terminal';
 import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
@@ -195,6 +199,15 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const selectedPresetId = preset.presetId;
 
   const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd);
+  const keybindingsSource =
+    args.printMode || args.goal !== undefined || args.serve
+      ? undefined
+      : createNodeKeybindingsSource({
+          onDiagnostic: (diagnostic) =>
+            process.stderr.write(
+              `Keybindings ${diagnostic.file} ${diagnostic.path}: ${diagnostic.message}\n`,
+            ),
+        });
   const {
     commandHostAdapters,
     outputStyleRegistry,
@@ -207,7 +220,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     remoteCommandPolicy,
     workspaceComposition,
     orgPolicy,
-  } = buildCommandSetupOrExit(cwd, args, startupOptions, version, packCommandModules);
+  } = buildCommandSetupOrExit(
+    cwd,
+    args,
+    startupOptions,
+    version,
+    packCommandModules,
+    keybindingsSource,
+  );
   for (const { file, error } of outputStyleLoadErrors) {
     terminal.writeError(`Skipped output style "${file}": ${error}`);
   }
@@ -521,6 +541,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
     }),
     reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
+    keybindingsSource,
     ...toSessionOptions(presetSurface),
   });
   process.exit(0);

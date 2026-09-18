@@ -22,6 +22,7 @@ import {
 import { toChannelOptions } from '../render.js';
 
 import type { IRenderOptions } from '../render.js';
+import type { IKeybindingsSource } from '../keybindings/node-keybindings-source.js';
 import type { IHistoryEntry, IAIProvider } from '@robota-sdk/agent-core';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 
@@ -80,6 +81,26 @@ describe('TC-02: the mode reaches Ink AND the channel projection', () => {
 
   it('toChannelOptions leaves screenReader undefined when the option is absent', () => {
     expect(toChannelOptions(baseOptions()).screenReader).toBeUndefined();
+  });
+});
+
+describe('BEHAVIOR-2003: keybinding source lifecycle', () => {
+  it('disposes the source when initialization fails before Ink starts', async () => {
+    const startupFailure = new Error('watcher startup failed');
+    const dispose = vi.fn();
+    const source = {
+      start: vi.fn().mockRejectedValue(startupFailure),
+      dispose,
+    } as unknown as IKeybindingsSource;
+    inkRender.mockClear();
+
+    const { renderApp } = await import('../render.js');
+    await expect(renderApp({ ...baseOptions(), keybindingsSource: source })).rejects.toBe(
+      startupFailure,
+    );
+
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(inkRender).not.toHaveBeenCalled();
   });
 });
 

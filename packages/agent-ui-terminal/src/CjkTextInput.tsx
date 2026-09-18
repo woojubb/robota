@@ -12,7 +12,7 @@
  */
 
 import chalk from 'chalk';
-import { Box, useInput, usePaste } from 'ink';
+import { Box, usePaste } from 'ink';
 import React, { useEffect, useRef, useState } from 'react';
 
 import {
@@ -29,10 +29,12 @@ import {
   type IDeferSubmitState,
 } from './flows/defer-submit.js';
 import { useRealCursorPosition } from './hooks/useRealCursorPosition.js';
+import { useKeybindingActions } from './keybindings/keybindings-context.js';
 import { RenderedText } from './SafeText.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { supportsImeCursorPositioning } from './terminal-capabilities.js';
 
+import type { IKeyInput, TKeybindingContext } from './keybindings/keybinding-registry.js';
 import type { DOMElement } from 'ink';
 
 interface IProps {
@@ -54,6 +56,8 @@ interface IProps {
    * the line, so the removed text is the one thing it cannot tell you.
    */
   onDeletedText?: (deleted: string) => void;
+  /** Semantic key context; autocomplete consumes its own actions without invoking text actions. */
+  keybindingContext?: 'chat-input' | 'text-input' | 'autocomplete-menu';
 }
 
 interface IInputHandlerOptions {
@@ -68,6 +72,7 @@ interface IInputHandlerOptions {
   forceRender: React.Dispatch<React.SetStateAction<number>>;
   /** CLI-061: deferred-submit state (timer + submit guard). The input pipeline stays live during the window. */
   deferState: IDeferSubmitState;
+  keybindingContext: 'chat-input' | 'text-input' | 'autocomplete-menu';
 }
 
 export default function CjkTextInput({
@@ -82,6 +87,7 @@ export default function CjkTextInput({
   cursorHint = null,
   enableVerticalNavigation = true,
   onDeletedText,
+  keybindingContext = 'text-input',
 }: IProps): React.ReactElement {
   const stateRef = useRef<ICjkTextInputFlowState>(createCjkTextInputFlowState(value));
   const [, forceRender] = useState(0);
@@ -104,6 +110,7 @@ export default function CjkTextInput({
     ...(onDeletedText !== undefined ? { onDeletedText } : {}),
     forceRender,
     deferState: deferRef.current,
+    keybindingContext,
   });
 
   // CLI-062: real terminal cursor positioning so the OS IME composition window appears AT the
@@ -145,14 +152,61 @@ function useCjkTextInputHandlers(options: IInputHandlerOptions): void {
     { isActive: options.focus },
   );
 
-  useInput(
-    (input, key) => {
+  useKeybindingActions(
+    options.keybindingContext,
+    (actions, input, key, consumed) => {
+      const translated = translateCjkInput(
+        options.keybindingContext,
+        actions,
+        input,
+        key,
+        consumed,
+      );
+      if (translated === undefined) return;
       applyCjkFlowSafely(options, () =>
-        applyCjkTextInput(options.stateRef.current, input, key, createFlowOptions(options)),
+        applyCjkTextInput(
+          options.stateRef.current,
+          translated.input,
+          translated.key,
+          createFlowOptions(options),
+        ),
       );
     },
     { isActive: options.focus },
   );
+}
+
+function translateCjkInput(
+  context: TKeybindingContext,
+  actions: readonly string[],
+  input: string,
+  key: IKeyInput,
+  consumed: boolean,
+): { input: string; key: IKeyInput } | undefined {
+  const action = actions[0];
+  if (action === 'submit' || action === 'execute') return { input: '', key: { return: true } };
+  if (context === 'autocomplete-menu' && consumed) return undefined;
+  if (action === 'cursor-left') return { input: '', key: { leftArrow: true } };
+  if (action === 'cursor-right') return { input: '', key: { rightArrow: true } };
+  if (action === 'cursor-up') return { input: '', key: { upArrow: true } };
+  if (action === 'cursor-down') return { input: '', key: { downArrow: true } };
+  if (action === 'delete-backward') return { input: '', key: { backspace: true } };
+  if (action === 'delete-word') return { input: 'w', key: { ctrl: true } };
+  if (action === 'delete-line') return { input: 'u', key: { ctrl: true } };
+  if (consumed) return undefined;
+  const rawText =
+    key.ctrl !== true &&
+    key.meta !== true &&
+    !key.return &&
+    !key.escape &&
+    !key.tab &&
+    !key.upArrow &&
+    !key.downArrow &&
+    !key.leftArrow &&
+    !key.rightArrow &&
+    !key.backspace &&
+    !key.delete;
+  return rawText || (key.ctrl === true && input === 'c') || key.tab ? { input, key } : undefined;
 }
 
 function createFlowOptions(options: IInputHandlerOptions): {

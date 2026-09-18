@@ -1,14 +1,14 @@
-import { Box, useInput } from 'ink';
+import { Box } from 'ink';
 import React, { useState, useRef, useCallback } from 'react';
 
 import {
   applyTextPromptInput,
   createTextPromptFlowState,
-  getTextPromptInputAction,
   type ITextPromptFlowState,
   type TTextPromptInputAction,
 } from './flows/text-prompt-flow.js';
 import { KeyHintFooter, type IKeyHint } from './key-hint-footer.js';
+import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindings-context.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { PALETTE } from './tui-palette.js';
@@ -58,10 +58,20 @@ export default function TextPrompt({
 
   const screenReader = useScreenReader();
 
-  useInput((input, key) => {
-    const action = getTextPromptInputAction(input, key);
-    if (action !== undefined) applyAction(action);
+  useKeybindingActions('text-prompt', (actions, input, key, consumed) => {
+    for (const action of actions) {
+      if (action === 'submit') applyAction({ type: 'submit' });
+      else if (action === 'cancel') applyAction({ type: 'cancel' });
+      else if (action === 'delete-backward') applyAction({ type: 'delete' });
+    }
+    if (actions.length === 0 && !consumed && input && key.ctrl !== true && key.meta !== true) {
+      applyAction({ type: 'insert', value: input });
+    }
   });
+  const footerHints = useKeybindingHints('text-prompt', [
+    ['submit', 'Submit'],
+    ['cancel', 'Cancel'],
+  ]);
 
   // CLI-2004: the box is dropped rather than restyled — the mode omits the prop, so no colour
   // literal is introduced and the palette floor stays green.
@@ -87,7 +97,7 @@ export default function TextPrompt({
         <Text color={PALETTE.text.accent}>█</Text>
       </Box>
       {state.error && <Text color={PALETTE.text.error}>{state.error}</Text>}
-      <KeyHintFooter hints={TEXT_PROMPT_FOOTER_HINTS} />
+      <KeyHintFooter hints={footerHints} />
     </Box>
   );
 }

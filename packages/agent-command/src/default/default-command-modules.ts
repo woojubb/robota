@@ -11,6 +11,7 @@ import { createForkCommandModule } from '../fork/index.js';
 import { createGoalCommandModule } from '../goal/index.js';
 import { createHandoffCommandModule } from '../handoff/index.js';
 import { createHelpCommandModule } from '../help/index.js';
+import { createKeybindingsCommandModule } from '../keybindings/index.js';
 import { createLanguageCommandModule } from '../language/index.js';
 import { createMCPActivationCommandModule } from '../mcp-activation/index.js';
 import { createMemoryCommandModule } from '../memory/index.js';
@@ -33,6 +34,7 @@ import { createSkillsCommandModule } from '../skills/index.js';
 import { createStatusLineCommandModule } from '../statusline/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
 
+import type { IKeybindingsFilePort } from '../keybindings/index.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
   IOrgPolicy,
@@ -56,6 +58,8 @@ export interface IDefaultCommandModulesOptions {
    * red when the producer dropped it.
    */
   orgPolicy?: IOrgPolicy;
+  /** Optional TUI-owned file capability; absence means `/keybindings` is not registered. */
+  keybindingsFilePort?: IKeybindingsFilePort;
   /**
    * Whitelist of module `name`s to keep. When provided, only modules whose `name`
    * appears here survive. Omitted → all modules kept (no-regression).
@@ -102,6 +106,7 @@ export function createDefaultCommandModules({
   providerDefinitions,
   providerSettingsAdapter,
   orgPolicy,
+  keybindingsFilePort,
   enabledCommandModules,
   disabledCommandModules,
 }: IDefaultCommandModulesOptions): IDefaultCommandModulesResult {
@@ -123,6 +128,9 @@ export function createDefaultCommandModules({
     createPlanCommandModule(),
     createShellCommandModule(),
     createEditorCommandModule(),
+    ...(keybindingsFilePort === undefined
+      ? []
+      : [createKeybindingsCommandModule(keybindingsFilePort)]),
     createMemoryCommandModule(),
     createMCPActivationCommandModule(),
     createUserLocalCommandModule(),

@@ -221,16 +221,33 @@ the transport boundary.
 
 ## Public API Surface
 
-| Export                                                                      | Kind        | Description                                                                                                                                                                                          |
-| --------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `renderApp`                                                                 | function    | Mount the Ink application                                                                                                                                                                            |
-| `createDefaultTuiCliAdapter`                                                | function    | Default CLI adapter for the renderer                                                                                                                                                                 |
-| `TuiInteractionChannel` + option types                                      | class/types | Session-owning TUI surface and its delivery-error callback seam                                                                                                                                      |
-| `ITuiCliAdapter` + option types                                             | types       | Adapter contracts                                                                                                                                                                                    |
-| `ITuiPickerItem`                                                            | type        | One selectable item in a TUI picker interaction                                                                                                                                                      |
-| `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction` | types       | Command/picker/confirm interaction contracts (`command-interaction.ts`)                                                                                                                              |
-| `TAnyTuiCommandInteraction`, `TOnMissingArgsAction`                         | types       | Union of interaction contracts; missing-args action discriminator                                                                                                                                    |
-| `TScreenReaderChannel`                                                      | type        | Which input turned screen-reader mode on (`flag`/`env`/`settings`) — declared here because this package PRINTS it, and imported by the surface that resolves it, so one union exists for one concept |
+| Export                          | Kind     | Description                                                                                                                                                                                          |
+| ------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `renderApp`                     | function | Mount the Ink application                                                                                                                                                                            |
+| `IRenderOptions`                | type     | Options interface for `renderApp`                                                                                                                                                                    |
+| `createDefaultTuiCliAdapter`    | function | Default CLI adapter for the renderer                                                                                                                                                                 |
+| `IDefaultTuiCliAdapterOptions`  | type     | Options interface for `createDefaultTuiCliAdapter`                                                                                                                                                   |
+| `TuiInteractionChannel`         | class    | Session-owning TUI surface and its delivery-error callback seam                                                                                                                                      |
+| `ITuiInteractionChannelOptions` | type     | Options interface for `TuiInteractionChannel`                                                                                                                                                        |
+| `ITuiCliAdapter`                | type     | Adapter contracts for TUI CLI integration                                                                                                                                                            |
+| `ITuiPickerItem`                | type     | One selectable item in a TUI picker interaction                                                                                                                                                      |
+| `ITuiCommandInteraction`        | type     | Command interaction contract                                                                                                                                                                         |
+| `ITuiPickerInteraction`         | type     | Picker interaction contract                                                                                                                                                                          |
+| `ITuiConfirmInteraction`        | type     | Confirmation interaction contract                                                                                                                                                                    |
+| `TAnyTuiCommandInteraction`     | type     | Union of interaction contracts                                                                                                                                                                       |
+| `TOnMissingArgsAction`          | type     | Missing-arguments action discriminator                                                                                                                                                               |
+| `TScreenReaderChannel`          | type     | Which input turned screen-reader mode on (`flag`/`env`/`settings`) — declared here because this package PRINTS it, and imported by the surface that resolves it, so one union exists for one concept |
+| `createNodeKeybindingsSource`   | function | Watched user-file capability creating an `IKeybindingsSource`                                                                                                                                        |
+| `DEFAULT_KEYBINDINGS_DOCUMENT`  | const    | The canonical default keybindings document structure                                                                                                                                                 |
+| `KEYBINDINGS_SCHEMA_URL`        | const    | The canonical documentation URL for the keybindings JSON schema                                                                                                                                      |
+| `IKeybindingsFilePort`          | type     | Minimal file resolution capability interface for keybindings                                                                                                                                         |
+| `IKeybindingsSource`            | type     | Watched user-file keybinding source contract providing reactive snapshots and disposal                                                                                                               |
+| `INodeKeybindingsSourceOptions` | type     | Options interface for `createNodeKeybindingsSource`                                                                                                                                                  |
+| `IKeybindingDiagnostic`         | type     | Diagnostic error contract for invalid keybinding replacements                                                                                                                                        |
+| `IKeybindingSnapshot`           | type     | Immutable effective keybinding map snapshot                                                                                                                                                          |
+| `IKeybindingWarning`            | type     | Non-fatal warning contract for keybinding limitations                                                                                                                                                |
+| `TKeybindingAction`             | type     | Semantic action identifier union per context                                                                                                                                                         |
+| `TKeybindingContext`            | type     | Interaction context identifier union                                                                                                                                                                 |
 
 ## Interaction Affordance Contract (SCREEN-005)
 
@@ -246,6 +263,26 @@ suppression is `footerHints={[]}`; there is no config surface). Hint order is
 Esc Cancel`). Every footer call site declares its hints as an exported `IKeyHint[]` constant and the
 `key-hint-consistency` test asserts the full inventory round-trips through `formatKeyHints` in that
 order — a new footer dialect cannot re-appear silently.
+
+### Contextual keybindings (BEHAVIOR-2003)
+
+`src/keybindings/` is the sole owner of terminal context/action identifiers, default bindings,
+normalization, validation, chord state, effective hint projection, the published JSON Schema and the
+Node file source. The version-1 user document is a sparse override at `~/.robota/keybindings.json`:
+each known context maps known actions to one binding, a binding list, or `null` to remove that action's
+defaults. Modifier aliases and uppercase spelling normalize to one canonical representation. Unknown
+contexts/actions, malformed bindings, reserved controls, duplicates, and single-key/chord-prefix
+collisions reject the whole replacement with a path-bearing diagnostic. Multiplexer and modifier
+delivery limitations are warnings and preserve the otherwise-valid snapshot.
+
+The Node source watches the parent directory so atomic editor replacement is observed, publishes
+immutable effective snapshots, retains and visibly diagnoses the last valid snapshot after an invalid
+replacement, and releases the watcher on renderer exit or failed initialization. React input owners
+consume semantic actions from the current context; printable text, paste and IME composition stay on
+the existing text pipeline. Pending chords reset on timeout, mismatch, Escape, context change, or
+snapshot replacement, and a mismatching stroke is evaluated once as a fresh input. Ctrl+C and
+screen-reader numeric entry remain reserved product controls. Footer hints are derived from the same
+effective action map and omit unbound actions.
 
 **Esc-suppression invariant.** The footer lists **exactly the keys that do something** — the absence
 of Esc IS the affordance; no "(Esc disabled)" noise text. A prompt that must resolve explicitly

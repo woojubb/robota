@@ -1294,6 +1294,14 @@ The Node process adapters behind these are
 
 ### Keyboard Controls
 
+#### Contextual keybinding composition (BEHAVIOR-2003)
+
+Interactive startup creates one `agent-ui-terminal` Node keybinding source and passes that same
+identity to `createDefaultCommandModules` as the optional `/keybindings` file capability and to
+`renderApp` as the live semantic-input source. The CLI does not parse binding documents or duplicate
+defaults. Hosts that omit the capability do not advertise `/keybindings`. Renderer teardown owns
+disposal, including startup failure, so process paths do not retain an orphaned directory watcher.
+
 #### Message Display Order (fixed)
 
 The display order is **Tool → Robota**, fixed and identical for streaming, normal completion, and ESC abort:
