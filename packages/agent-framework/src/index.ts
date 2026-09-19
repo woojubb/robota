@@ -95,6 +95,7 @@ export {
   createProjectSessionStore,
   createNodeHostSessionStore,
   createUserSessionStore,
+  createUserPromptHistoryFile,
   listResumableSessionSummaries,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
@@ -407,6 +408,8 @@ export type {
   IMemoryExtractorPolicy,
   IMemoryExtractorTrigger,
 } from './memory/index.js';
+// ── Prompt history (SCREEN-1993) ────────────────────────────
+export type { IPromptHistoryOptions } from './interactive/interactive-session-prompt-history.js';
 // ── Edit checkpointing ─────────────────────────────────────
 export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
 export type {

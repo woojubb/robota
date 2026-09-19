@@ -80,6 +80,7 @@ session-logger.ts         -- ISessionLogger interface + sink-driven FileSessionL
 session-log-sources.ts    -- neutral log/payload read ports + explicit Node host adapters
 session-log-sinks.ts      -- neutral log/payload write ports + explicit Node host adapter
 session-log-replay.ts     -- source-driven parsing, hydration, replay, and validation
+prompt-history-file.ts    -- SCREEN-1993: the owner-only ~/.robota/history.jsonl writer + newest-first tail reader
 external-payload-resolution-contracts.ts -- Public resolver options and stable typed error contract
 external-payload-file-reader.ts -- Internal exact-shape, containment, I/O, and integrity primitives
 external-payload-resolver.ts -- Bounded recursive JSON sidecar hydration at the read boundary
@@ -183,6 +184,10 @@ Types consumed from other packages (not owned here):
 | `FileSessionLogger`                         | Class                | Sink-driven JSONL session event logger; it opens no path itself                                                                                                                                                                                                         |
 | `NodeSessionLogSource`                      | Class                | Explicit host filesystem adapter for one JSONL file and its relative payload sidecars                                                                                                                                                                                   |
 | `NodeSessionLogSink`                        | Class                | Explicit host filesystem adapter for append/flush and owner-only payload sidecars                                                                                                                                                                                       |
+| `NodePromptHistoryFile`                     | Class                | SCREEN-1993: implements `IPromptHistoryWriter` and `IPromptHistorySource` over one owner-only JSONL file — see § Prompt History File                                                                                                                                    |
+| `parsePromptHistoryLine`                    | Function             | SCREEN-1993: one line → `IPromptHistoryEntry`, or `undefined` for a line that is not a well-formed entry                                                                                                                                                                |
+| `DEFAULT_PROMPT_HISTORY_BLOCK_BYTES`        | Constant             | SCREEN-1993: the 64 KiB read block the tail reader yields between                                                                                                                                                                                                       |
+| `INodePromptHistoryFileOptions`             | Interface            | SCREEN-1993: `NodePromptHistoryFile` options — the owned root tightened with the directory (`ownedRoot`) and the test-seam read block size (`blockBytes`)                                                                                                               |
 | `NodeExternalPayloadSource`                 | Class                | Explicit host filesystem adapter for bounded relative external-payload reads                                                                                                                                                                                            |
 | `createSessionLogExternalPayloadReference`  | Function             | SSOT that validates a safe session id and exact lowercase content digest before constructing a sidecar reference                                                                                                                                                        |
 | `SilentSessionLogger`                       | Class                | No-op session logger                                                                                                                                                                                                                                                    |
@@ -501,6 +506,28 @@ at least one `provider_native_raw_payload` event for the same `executionId`/`rou
 `response` or `stream_event`, plus the existing `provider_response_raw` and resolved
 `provider_response_normalized` events. References in unrelated observability/tool payloads do not make the
 replay substrate unresolved.
+
+## Prompt History File (SCREEN-1993)
+
+`~/.robota/history.jsonl` is a **derived, append-only projection** of the prompts a person typed — one
+JSON object per line, `{ at, sessionId, project, text }` (`IPromptHistoryEntry`). The session record
+remains the owner of every message; the file exists so a search can run across sessions and projects
+without decoding a record and without crossing a workspace boundary. It is rebuildable in principle and
+never authoritative.
+
+**Writes** (`NodePromptHistoryFile.append`) follow the `NodeSessionLogSink` regime (SEC-020): the
+directory is made owner-only with the user root passed as OWNED, the file is tightened before every
+append, and the line is appended with the owner-only mode. A failed append throws to the caller — the
+session reports it once as a visible notice and never lets it abort the turn (the framework SPEC owns
+that rule).
+
+**Reads** (`NodePromptHistoryFile.read({ signal })`) walk the file BACKWARDS in 64 KiB blocks
+(`blockBytes` is a test seam) so the newest prompts are yielded first and the surface renders them
+before the rest is read; a line cut by a block boundary is carried into the next block; each block
+reports `skippedLines` for the lines it could not parse or that failed the entry shape — counted,
+never silently dropped; the abort signal is honoured between blocks. The file is opened no-follow.
+**Only `ENOENT` is the empty state** (a fresh install, or prompt history turned off); every other
+open or read failure is thrown so the surface renders it instead of an empty list.
 
 ## Hook Lifecycle
 

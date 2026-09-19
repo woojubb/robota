@@ -73,6 +73,14 @@ export type {
   TSessionCapabilityHost,
   TSessionCapabilityReadResult,
 } from './session-capability-contracts.js';
+// ── Prompt history (SCREEN-1993) ────────────────────────────
+export type {
+  IPromptHistoryBlock,
+  IPromptHistoryEntry,
+  IPromptHistoryReadOptions,
+  IPromptHistorySource,
+  IPromptHistoryWriter,
+} from './prompt-history-contracts.js';
 // ── Driver identity + driver-routed event contracts ─────────
 // REMOTE-014 E5: co-drive driver-id constants (values, not types).
 export { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from './driver-contracts.js';

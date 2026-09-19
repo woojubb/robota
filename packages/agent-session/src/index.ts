@@ -55,6 +55,12 @@ export type {
   TSessionLogValue,
 } from './session-logger.js';
 export { NodeExternalPayloadSource, NodeSessionLogSource } from './session-log-sources.js';
+export {
+  DEFAULT_PROMPT_HISTORY_BLOCK_BYTES,
+  NodePromptHistoryFile,
+  parsePromptHistoryLine,
+} from './prompt-history-file.js';
+export type { INodePromptHistoryFileOptions } from './prompt-history-file.js';
 export type { IExternalPayloadSource, ISessionLogSource } from './session-log-sources.js';
 export {
   resolveSessionLogExternalPayloads,

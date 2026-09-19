@@ -50,6 +50,7 @@ export function useAppInteractionState(options: IOptions): IAppInteractionState 
     transportVisible: screens.showTransportTUI,
     sessionPickerVisible: screens.showSessionPicker,
     workspaceSwitcherVisible: workspace.background.switcherVisible,
+    historySearchOpen: options.shell.historySearchOpen,
     selectedEntry: workspace.background.selectedEntry,
     mainThreadEntryId: workspace.mainThreadEntryId,
     activeTools: options.state.activeTools,

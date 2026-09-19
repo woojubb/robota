@@ -91,7 +91,7 @@ itself says neither is needed.
 - `packages/agent-session` — new `prompt-history-file.ts`: `NodePromptHistoryFile` implementing both contracts over one owner-only JSONL file under the owned user root (the `NodeSessionLogSink` write regime and the `session-log-sources.ts` no-follow positional-read boundary); SPEC file-format section.
 - `packages/agent-framework` — `paths.ts` (`userPaths().history`); `interactive/interactive-session-execution-controller.ts` appends through an injected `promptHistoryWriter` at the point that emits `turn_source`/`user_message`; session options thread the writer like `memoryStore`; a failed append is reported once per session as a visible notice; `workspace-trust/types.ts`: `IRestrictedWorkspaceProjectAccess` exposes the resolved `identity` when one resolved, so the project key has one derivation; SPEC seam paragraph.
 - `packages/agent-cli` — `startup/prompt-history-enablement.ts` (settings `promptHistory`, `ROBOTA_PROMPT_HISTORY=0` kill switch, project key derivation), composition in `cli.ts` (writer into the TUI session options only; source + project key into `renderApp`); README section.
-- `packages/agent-ui-terminal` — keybinding catalogue (`chat-input.history-search`, context `history-search`, `TEXT_ENTRY_CONTEXTS`), `history-search/history-search-flow.ts` (pure), `hooks/useHistorySearch.ts`, `HistorySearchOverlay.tsx`, `AppPresentation.tsx` overlay slot, `app-view-model.ts`, `hooks/useAppOverlays.ts`, `InputArea.tsx` open action + draft snapshot/restore helper, `render.tsx`/`tui-channel-options.ts` options; `apps/docs/public/schemas/keybindings.schema.json`; SPEC section.
+- `packages/agent-ui-terminal` — keybinding catalogue (`chat-input.history-search`, context `history-search`, `TEXT_ENTRY_CONTEXTS`), `history-search/history-search-flow.ts` (pure), `history-search/useHistorySearch.ts`, `HistorySearchOverlay.tsx` inside `InputArea.tsx` (the `SlashAutocomplete` pattern), `hooks/useInputAreaHistorySearch.ts` open action, the open flag lifted through `app-view-model.ts` / `hooks/useAppScreenState.ts` / `hooks/useAppInputBindings.ts`, `render.tsx`/`tui-channel-options.ts`/`tui-session-options.ts` options; `apps/docs/public/schemas/keybindings.schema.json`; SPEC section.
 - No new package, app or presentation surface; one new user-home file (`~/.robota/history.jsonl`) beside the existing `~/.robota/sessions`.
 
 ### Alternatives Considered
@@ -228,13 +228,17 @@ One PR: the contracts and the file are observable only through the overlay.
 6. `packages/agent-ui-terminal/src/history-search/history-search-flow.ts` (pure): `filterPrompts`
    (case-insensitive substring, match ranges), `collapseToNewest` (by trimmed text), `cycleScope`
    (`all → session → project → all`), scope predicate, draft snapshot/restore types.
-7. `packages/agent-ui-terminal/src/hooks/useHistorySearch.ts`: overlay state, one loader per open with an
-   `AbortController`, blocks appended through the pure filter, `session` scope from the live list,
-   `insert`/`execute`/`cancel`, `skippedLines` and `error` surfaced, screen-reader render gating.
-8. `packages/agent-ui-terminal/src/HistorySearchOverlay.tsx` + `AppPresentation.tsx` slot +
-   `app-view-model.ts` + `hooks/useAppOverlays.ts` (`overlaysBlockKeys`) + `InputArea.tsx` open action and
-   exact draft snapshot/restore through `input-area-history-search.ts`; `render.tsx` /
-   `tui-channel-options.ts` carry `promptHistorySource` and `promptHistoryProject`.
+7. `packages/agent-ui-terminal/src/history-search/useHistorySearch.ts`: overlay state, one loader per
+   open with an `AbortController`, blocks appended through the pure filter, `session` scope from the live
+   list, `insert`/`execute`/`cancel`, `skippedLines` and `error` surfaced, screen-reader render gating.
+8. `packages/agent-ui-terminal/src/HistorySearchOverlay.tsx`, rendered inside `InputArea.tsx` on the
+   `SlashAutocomplete` pattern (the overlay owns the composer's keys and the composer is never written
+   while it is open, which is what restores the draft exactly); `hooks/useInputAreaHistorySearch.ts`
+   owns the `chat-input.history-search` open action and the insert/execute effects; the open flag is
+   lifted to `hooks/useAppScreenState.ts` so `hooks/useAppInputBindings.ts` (`overlaysBlockKeys`) keeps
+   Esc-abort and the switcher key off while it is open; `app-view-model.ts` carries the search surface
+   to the input; `render.tsx` / `tui-channel-options.ts` / `tui-session-options.ts` carry `promptHistory`,
+   `promptHistorySource` and `promptHistoryProject`.
 9. `packages/agent-ui-terminal/docs/SPEC.md`: keys and fixed keys, scopes, ordering, dedup, loading,
    screen-reader behaviour, and the transcript decision with its reason.
 10. PTY scenario and the scrollback check (TC-09, TC-10).
@@ -245,7 +249,7 @@ One PR: the contracts and the file are observable only through the overlay.
 - `packages/agent-session/src/prompt-history-file.ts`, `src/index.ts`, `docs/SPEC.md`, tests
 - `packages/agent-framework/src/paths.ts`, `src/workspace-trust/types.ts`, `src/workspace-trust/workspace-trust-service.ts`, `src/interactive/interactive-session-execution-controller.ts` (+ the session options it reads), `docs/SPEC.md`, tests
 - `packages/agent-cli/src/startup/prompt-history-enablement.ts`, `src/cli.ts`, `README.md`, tests
-- `packages/agent-ui-terminal/src/keybindings/keybinding-catalogue.ts`, `src/history-search/history-search-flow.ts`, `src/hooks/useHistorySearch.ts`, `src/HistorySearchOverlay.tsx`, `src/AppPresentation.tsx`, `src/app-view-model.ts`, `src/hooks/useAppOverlays.ts`, `src/InputArea.tsx`, `src/input-area-history-search.ts`, `src/render.tsx`, `src/tui-channel-options.ts`, `docs/SPEC.md`, tests, PTY tests
+- `packages/agent-ui-terminal/src/keybindings/keybinding-catalogue.ts`, `src/history-search/history-search-flow.ts`, `src/history-search/useHistorySearch.ts`, `src/HistorySearchOverlay.tsx`, `src/hooks/useInputAreaHistorySearch.ts`, `src/InputArea.tsx`, `src/hooks/useInputAreaKeys.ts`, `src/hooks/useAppScreenState.ts`, `src/hooks/useAppInputBindings.ts`, `src/hooks/useAppInteractionState.ts`, `src/hooks/useAppController.ts`, `src/app-view-model.ts`, `src/AppPresentation.tsx`, `src/App.tsx`, `src/render.tsx`, `src/tui-channel-options.ts`, `src/tui-session-options.ts`, `docs/SPEC.md`, tests, PTY tests
 - `apps/docs/public/schemas/keybindings.schema.json`
 
 ## Completion Criteria

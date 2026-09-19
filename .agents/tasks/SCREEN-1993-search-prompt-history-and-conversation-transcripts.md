@@ -155,7 +155,7 @@ fixture, the highest-preference executable surface for a TUI keybinding feature.
   `packages/agent-framework/src/workspace-trust/node-host-workspace-trust.ts:145` produces). TODO
   assertions unmet today — all 11, as expected because `ctrl+r`, `ctrl+s`, `ctrl+e` are unbound and
   `escape` does nothing in the composer: the keys were typed into the composer as text (`enter` submitted
-  `first draftdeploy` to the stub as request #2; the cancel frame read
+  `first draftdeploy` to the stub as the second request; the cancel frame read
   `> third draft: keep me byte-identical  helm`). Unmet list: overlay with scope label `all`; newest-first
   order; skipped-line count `1`; `deploy` narrowing; duplicate collapsed to one row; match highlighted;
   `ctrl+s` → `session`; `ctrl+s` → `project`; `enter` inserts without sending; `ctrl+e` sends the match;

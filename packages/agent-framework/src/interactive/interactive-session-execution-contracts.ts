@@ -11,6 +11,7 @@
  * change already made for `turn-contracts.ts` one package over.
  */
 
+import type { TPromptHistoryRecorder } from './interactive-session-prompt-history.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
@@ -48,6 +49,12 @@ export interface IExecutionControllerCallbacks {
    * notice never renders ahead of the user message that triggered it.
    */
   recallMemory?: (query: string) => Promise<{ context: string; events: IMemoryEvent[] }>;
+  /**
+   * SCREEN-1993: optional prompt-history append, called once per prompt turn right after
+   * `user_message` is emitted, with the turn's source and driver so the recorder can keep only what
+   * the owner typed. Absent ⇒ prompt history OFF.
+   */
+  recordPrompt?: TPromptHistoryRecorder;
 }
 
 /** Options threaded through submit/executePrompt for non-user turns (FLOW-002). */

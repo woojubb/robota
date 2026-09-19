@@ -64,5 +64,7 @@ export function buildTuiSessionOptions(
     ...(opts.memoryStore ? { memoryStore: opts.memoryStore } : {}),
     ...(opts.automaticMemory ? { automaticMemory: opts.automaticMemory } : {}),
     ...(opts.recallMemory ? { recallMemory: opts.recallMemory } : {}),
+    // SCREEN-1993: the owner-prompt append (absent ⇒ the controller records nothing).
+    ...(opts.promptHistory ? { promptHistory: opts.promptHistory } : {}),
   };
 }

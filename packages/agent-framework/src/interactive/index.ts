@@ -4,6 +4,7 @@ export {
   createProjectSessionStore,
   createNodeHostSessionStore,
   createUserSessionStore,
+  createUserPromptHistoryFile,
   listResumableSessionSummaries,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,

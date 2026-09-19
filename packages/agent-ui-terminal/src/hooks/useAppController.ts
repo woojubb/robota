@@ -18,6 +18,7 @@ import type {
   IInteractiveSession,
   IInteractiveSessionStore,
 } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistorySource } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 export interface IUseAppControllerOptions {
@@ -36,6 +37,9 @@ export interface IUseAppControllerOptions {
   channel: ITuiAppChannelPort;
   onSessionSwitch: (sessionId: string) => Promise<void>;
   onRetrySessionSwitch: () => void;
+  /** SCREEN-1993: the stored-prompt source and this run's project key; both or neither. */
+  promptHistorySource?: IPromptHistorySource;
+  promptHistoryProject?: string;
 }
 
 interface ICoordinationState {
@@ -62,6 +66,19 @@ function getCoordinationState(
   const error = props.sessionSwitchError ?? lifecycle.startError;
   const pending = Boolean(props.sessionSwitchPending || lifecycle.startPending);
   return { error, pending, blocked: error !== undefined || pending };
+}
+
+function buildHistorySearch(
+  composition: IComposition,
+): IAppInputViewModel['historySearch'] {
+  const { promptHistorySource, promptHistoryProject } = composition.props;
+  if (promptHistorySource === undefined || promptHistoryProject === undefined) return undefined;
+  return {
+    source: promptHistorySource,
+    project: promptHistoryProject,
+    sessionId: composition.runtime.sessionId,
+    onOpenChange: composition.shell.setHistorySearchOpen,
+  };
 }
 
 function buildInput(composition: IComposition): IAppInputViewModel {
@@ -93,6 +110,7 @@ function buildInput(composition: IComposition): IAppInputViewModel {
     sessionName: composition.lifecycle.sessionName,
     history: state.history,
     focusBackgroundList: workspace.focusBackgroundList,
+    historySearch: buildHistorySearch(composition),
   };
 }
 

@@ -20,6 +20,8 @@ interface IOptions {
   readonly transportVisible: boolean;
   readonly sessionPickerVisible: boolean;
   readonly workspaceSwitcherVisible: boolean;
+  /** SCREEN-1993: the history-search overlay owns Esc and the switcher key while open. */
+  readonly historySearchOpen: boolean;
   readonly selectedEntry: IExecutionWorkspaceEntry | undefined;
   readonly mainThreadEntryId: string | undefined;
   readonly activeTools: readonly IToolState[];
@@ -41,6 +43,7 @@ function overlaysBlockKeys(options: IOptions): boolean {
     options.transportVisible ||
     options.sessionPickerVisible ||
     options.workspaceSwitcherVisible ||
+    options.historySearchOpen ||
     options.coordinationBlocked,
   );
 }
@@ -73,6 +76,7 @@ function useWorkspaceSwitcherBinding(options: IOptions): void {
       options.pendingUserAction ||
       options.pluginVisible ||
       options.sessionPickerVisible ||
+      options.historySearchOpen ||
       options.coordinationBlocked ||
       options.isShuttingDown
     )

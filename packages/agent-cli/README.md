@@ -327,6 +327,25 @@ Every background row carries its state word beside the glyph (`working`, `needs-
 `in 59s` countdown. `ROBOTA_FOCUS_EVENTS=0` turns focus reporting off (idle detection remains);
 `=1` requests it even where the TUI would not.
 
+### Prompt history
+
+`Ctrl+R` searches every prompt you have typed — in this session, in this project, or anywhere —
+the way a shell's reverse search does. Type to narrow the list (newest first, matches highlighted),
+`Ctrl+S` cycles the scope `all → session → project`, `Enter` or `Tab` puts the highlighted prompt back
+in the input, `Ctrl+E` runs it, `Esc` returns you to exactly the draft you had. Every key is
+rebindable in `~/.robota/keybindings.json` (context `history-search`, and `chat-input.history-search`
+for the opener).
+
+What is written, where, and how to turn it off: the interactive TUI appends each prompt you submit
+to `~/.robota/history.jsonl` (one JSON line — timestamp, session id, project root, text; readable by
+you only). Prompts are already kept verbatim in the session record; this file is a searchable index
+of them across sessions. `--serve` and print mode never write it. Set `"promptHistory": false` in
+`~/.robota/settings.json` to turn it off, or `ROBOTA_PROMPT_HISTORY=0` for one run (`=1` overrides
+the setting). Delete the file to forget everything.
+
+Searching the conversation itself needs no viewer: the TUI never switches to the alternate screen,
+so every message of a resumed session is in your terminal's own scrollback and search.
+
 ## Permission System
 
 Every tool call passes through a three-step permission gate:
@@ -380,6 +399,7 @@ Pattern syntax: `ToolName` matches any invocation; `ToolName(pattern)` matches o
 | Key        | Action                                                      |
 | ---------- | ----------------------------------------------------------- |
 | Enter      | Submit input                                                |
+| Ctrl+R     | Search prompt history (see "Prompt history")                |
 | ESC        | Abort current execution (graceful — saves partial response) |
 | Ctrl+C     | Exit process immediately                                    |
 | Up/Down    | Navigate visual lines in wrapped multi-line input           |

@@ -40,6 +40,7 @@ import type {
   TShellExecFn,
   CommandRegistry,
   IMemoryStore,
+  IPromptHistoryOptions,
   IAutomaticMemoryConfig,
   IPerTurnRecallConfig,
   TWorkspaceProjectAccess,
@@ -49,6 +50,7 @@ import type {
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
+  IPromptHistorySource,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
@@ -159,6 +161,15 @@ export interface IRenderOptions {
    * `true` forces DECSET 1004 on, `false` is the kill switch, absent ⇒ on for an interactive TTY.
    */
   focusReporting?: boolean | undefined;
+  /**
+   * SCREEN-1993: prompt history, resolved by the product shell. `promptHistory` is the session-side
+   * writer (forwarded to the channel like `memoryStore`); `promptHistorySource` and
+   * `promptHistoryProject` feed the input area's Ctrl+R search. DECLARED, not spread through — the
+   * projection below copies field by field. Absent ⇒ nothing is written and `ctrl+r` is inert.
+   */
+  promptHistory?: IPromptHistoryOptions;
+  promptHistorySource?: IPromptHistorySource;
+  promptHistoryProject?: string;
 }
 
 /** Map render options to TuiInteractionChannel constructor options. */
@@ -216,6 +227,8 @@ export function toChannelOptions(
     // CLI-2004: declared above AND projected here — the hand-maintained copy is the exact place an
     // undeclared option disappears, so both halves are asserted by one test.
     ...(options.screenReader !== undefined ? { screenReader: options.screenReader } : {}),
+    // SCREEN-1993: the session-side writer (absent ⇒ nothing is recorded).
+    promptHistory: options.promptHistory,
   };
 }
 
@@ -342,6 +355,8 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
           transportRegistry={options.transportRegistry}
           pluginAdapter={options.commandHostAdapters?.plugin}
           cliAdapter={options.cliAdapter}
+          promptHistorySource={options.promptHistorySource}
+          promptHistoryProject={options.promptHistoryProject}
         />
       </ScreenReaderProvider>
     </KeybindingsProvider>,

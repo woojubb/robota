@@ -1,6 +1,6 @@
 import { dirname } from 'node:path';
 
-import { NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodePromptHistoryFile, NodeSessionStore } from '@robota-sdk/agent-session';
 
 import { userPaths } from '../paths.js';
 import { WorkspaceProjectSessionStore } from './workspace-session-store.js';
@@ -9,6 +9,8 @@ import { WorkspaceProjectSessionStore } from './workspace-session-store.js';
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
+  IPromptHistorySource,
+  IPromptHistoryWriter,
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   IResumableSessionSummary,
@@ -37,6 +39,16 @@ export function createNodeHostSessionStore(
   ownedRoot?: string,
 ): IInteractiveSessionStore {
   return new NodeSessionStore(baseDirectory, ownedRoot);
+}
+
+/**
+ * SCREEN-1993: the user-level prompt-history file (`userPaths().history`), one object serving
+ * both the session-side writer and the surface's newest-first source. SEC-020: the user root is
+ * passed as OWNED, exactly as `createUserSessionStore` does, so it is tightened along with the file.
+ */
+export function createUserPromptHistoryFile(): IPromptHistoryWriter & IPromptHistorySource {
+  const history = userPaths().history;
+  return new NodePromptHistoryFile(history, { ownedRoot: dirname(history) });
 }
 
 /**
