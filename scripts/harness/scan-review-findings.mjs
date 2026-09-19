@@ -5,11 +5,14 @@
  *
  * The pipeline is only as reliable as its machine contracts. This scan fails loudly if:
  *  (1) the REVIEWER agent stops declaring the `ACTIONABLE FINDINGS: <n>` output contract (the
- *      convergence signal the orchestrator routes on), or
- *  (2) the orchestrator stops expressing the merge gate mechanically — the MUST/SHOULD Pre-Merge
+ *      convergence signal the orchestrator routes on) or its resumed-delta contract, or
+ *  (2) either local-review orchestrator stops preserving one reviewer context and limiting
+ *      follow-up review to the repair delta after the first pass, or
+ *  (3) execution cadence stops owning that same repair-review invariant, or
+ *  (4) the orchestrator stops expressing the merge gate mechanically — the MUST/SHOULD Pre-Merge
  *      gate (no silent deferral, per git-branch.md), the never-merge-`main` rule, and the
  *      `merge-verifier` post-check on develop, or
- *  (3) the merge verifier stops judging the current required-check projection fail-closed and starts
+ *  (5) the merge verifier stops judging the current required-check projection fail-closed and starts
  *      treating raw history or acknowledgement metadata as a second merge policy.
  *
  * It checks CONTRACT PRESENCE (that the pieces still say what the design requires) — not the
@@ -42,6 +45,8 @@ export function readExamined() {
 export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
   const reviewer = path.join(root, '.claude/agents/pr-review-reviewer.md');
   const orch = path.join(root, '.agents/skills/pr-finding-resolution-loop/SKILL.md');
+  const delegated = path.join(root, '.agents/skills/delegated-refactor-green-gate/SKILL.md');
+  const cadence = path.join(root, '.agents/rules/execution-cadence.md');
   const verifier = path.join(root, '.claude/agents/merge-verifier.md');
 
   const findings = [];
@@ -69,8 +74,44 @@ export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
     /ACTIONABLE FINDINGS:\s*<n>|ACTIONABLE FINDINGS:\s*`?<n>/i,
     'no longer declares the `ACTIONABLE FINDINGS: <n>` output contract (the orchestrator routes on it).',
   );
+  must(
+    reviewer,
+    'pr-review-reviewer',
+    /follow-up[\s\S]{0,240}prior findings[\s\S]{0,160}source[\s\S]{0,160}git diff\s+<?previous-head>?\.\.HEAD/i,
+    'no longer defines source-based closure verification for resumed delta reviews.',
+  );
+  must(
+    orch,
+    'pr-finding-resolution-loop',
+    /agentId[\s\S]{0,240}SendMessage|SendMessage[\s\S]{0,240}agentId/i,
+    'no longer preserves the first reviewer context through follow-up rounds.',
+  );
+  must(
+    orch,
+    'pr-finding-resolution-loop',
+    /git diff\s+<?previous-head>?\.\.HEAD/i,
+    'no longer limits follow-up review to the repair delta since the previous reviewed head.',
+  );
+  must(
+    delegated,
+    'delegated-refactor-green-gate',
+    /agentId[\s\S]{0,240}SendMessage|SendMessage[\s\S]{0,240}agentId/i,
+    'no longer preserves the first reviewer context through follow-up rounds.',
+  );
+  must(
+    delegated,
+    'delegated-refactor-green-gate',
+    /prior\s+finding\s+closure[\s\S]{0,160}named\s+repair\s+locations[\s\S]{0,160}newly\s+changed\s+hunks[\s\S]{0,160}prior\s+review\s+snapshot/i,
+    'no longer scopes follow-up review to named repairs against the retained prior snapshot.',
+  );
+  must(
+    cadence,
+    'execution-cadence',
+    /first[\s\S]{0,120}(?:whole-branch|complete branch)[\s\S]{0,180}same reviewer context[\s\S]{0,180}git diff\s+<?previous-head>?\.\.HEAD/i,
+    'no longer requires same-reviewer context and previous-head delta review after the first pass.',
+  );
 
-  // (2) Orchestrator merge-gate contracts.
+  // (4) Orchestrator merge-gate contracts.
   must(
     orch,
     'pr-finding-resolution-loop',
@@ -96,7 +137,7 @@ export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
     'no longer anchors the merge gate to git-branch.md (silent-deferral risk).',
   );
 
-  // (3) Post-merge verifier uses the same effective decision as the merge gate.
+  // (5) Post-merge verifier uses the same effective decision as the merge gate.
   must(
     verifier,
     'merge-verifier',

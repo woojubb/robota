@@ -84,6 +84,15 @@ introduced, and edits that are in-scope by path but not by intent, are its findi
 to eyeball. Do not ask it for **missed** sites: a site that was never edited is not in the changed set,
 and exhaustiveness is the worker's contract, checked from its reported target-set enumeration.
 
+Capture the first reviewer's `agentId` and reviewed snapshot. If a repair returns from step 2, resume
+that reviewer through `SendMessage`; never spawn a fresh reviewer for the follow-up. Give it the prior
+finding summaries and each claimed fix at `file:symbol`. On follow-up, require prior finding closure at
+the named repair locations and inspect only newly changed hunks against the retained prior review
+snapshot. The worker intentionally returns an uncommitted tree, so do not invent a HEAD-to-HEAD range;
+the retained reviewer context is the baseline. Repeat the complete working-tree review only when the
+repair materially widens the changed set, and preserve the reviewer's focused execution and test-
+truthfulness checks.
+
 **Route:** `ACTIONABLE FINDINGS: 0` → step 5. `> 0` → back to step 2 with the findings (bounded to 2
 rounds); if the same findings recur unchanged, or the bound is exhausted, terminate and report.
 

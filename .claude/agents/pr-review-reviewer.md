@@ -48,6 +48,13 @@ NOT edit code, do NOT post the review to GitHub, do NOT fix anything — those a
    beside the field that was narrowed). Search for the value's other construction and carrier sites
    (`grep` the field/type name across `packages/*/src`). A fix that reaches one of several paths is a
    **SHOULD** with the unreached paths named, until each is fixed or filed and linked.
+6. **Follow-up review (when the caller resumes you).** Verify the prior findings from source first,
+   then review only `git diff <previous-head>..HEAD` for a committed repair, or the caller's named
+   repair locations and newly changed hunks against the prior review snapshot for an uncommitted
+   repair. Do not re-read or re-audit content you already accepted. A new whole-branch pass is warranted
+   only when the repair materially widened the changed set. Preserve the dynamic checks above: run the
+   focused commands needed to prove closure and judge whether each changed test would actually fail if
+   the claimed behavior regressed; retained context is not permission to replace execution with reading.
 
 ## A hold already contained is not a finding
 

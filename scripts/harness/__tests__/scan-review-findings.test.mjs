@@ -13,6 +13,8 @@ const SCAN_SCRIPT = fileURLToPath(new URL('../scan-review-findings.mjs', import.
 
 const REVIEWER_PATH = '.claude/agents/pr-review-reviewer.md';
 const ORCH_PATH = '.agents/skills/pr-finding-resolution-loop/SKILL.md';
+const DELEGATED_PATH = '.agents/skills/delegated-refactor-green-gate/SKILL.md';
+const CADENCE_PATH = '.agents/rules/execution-cadence.md';
 const VERIFIER_PATH = '.claude/agents/merge-verifier.md';
 
 const GREEN_REVIEWER = `---
@@ -20,13 +22,29 @@ name: pr-review-reviewer
 ---
 
 End every report with the machine line \`ACTIONABLE FINDINGS: <n>\`.
+On a follow-up, verify prior findings from source and review only \`git diff <previous-head>..HEAD\`.
 `;
 
 const GREEN_ORCH = `# PR Review Orchestration
 
+Capture the first reviewer's agentId and reviewed head. Resume the same reviewer with SendMessage.
+Follow-up review is limited to \`git diff <previous-head>..HEAD\` plus prior finding closure.
 Merge gate: no unresolved MUST findings (per git-branch.md, no silent deferral).
 The agent never merges \`main\` — do NOT merge main.
 After merging to develop, dispatch merge-verifier and require MERGE VERIFIED.
+`;
+
+const GREEN_DELEGATED = `# Delegated Review
+
+Capture the first reviewer's agentId and reviewed snapshot. Resume it through SendMessage.
+On follow-up, inspect prior finding closure at named repair locations and newly changed hunks
+against the retained prior review snapshot.
+`;
+
+const GREEN_CADENCE = `# Execution Cadence
+
+After the first whole-branch pass, preserve the same reviewer context and review only
+\`git diff <previous-head>..HEAD\` plus prior finding closure.
 `;
 
 const GREEN_VERIFIER = `# Merge Verifier
@@ -46,6 +64,8 @@ async function createFixture(overrides = {}) {
   const files = {
     [REVIEWER_PATH]: GREEN_REVIEWER,
     [ORCH_PATH]: GREEN_ORCH,
+    [DELEGATED_PATH]: GREEN_DELEGATED,
+    [CADENCE_PATH]: GREEN_CADENCE,
     [VERIFIER_PATH]: GREEN_VERIFIER,
     ...overrides,
   };
@@ -65,24 +85,24 @@ describe('collectReviewFindingsFindings', () => {
   });
 
   it('reports exactly the artifacts it read, and the same number on a second walk (#2325)', async () => {
-    // Three files are read; several assertions run against each. The population is the files, not
-    // the assertions — 3, not 9 — and a second walk must report 3 again, not 6: the count is reset
+    // Five files are read; several assertions run against each. The population is the files, not
+    // the assertions — 5, not the assertion count — and a second walk must report 5 again: the count is reset
     // at the walk boundary rather than accumulated across calls.
     const root = await createFixture();
     collectReviewFindingsFindings(root);
-    expect(readExamined()).toBe(3);
+    expect(readExamined()).toBe(5);
     collectReviewFindingsFindings(root);
-    expect(readExamined()).toBe(3);
+    expect(readExamined()).toBe(5);
   });
 
   it('counts a missing artifact as unread, and forgets the previous walk (#2325)', async () => {
     const full = await createFixture();
     collectReviewFindingsFindings(full);
-    expect(readExamined()).toBe(3);
+    expect(readExamined()).toBe(5);
 
     const root = await createFixture({ [VERIFIER_PATH]: null });
     collectReviewFindingsFindings(root);
-    expect(readExamined()).toBe(2);
+    expect(readExamined()).toBe(4);
   });
 
   it('flags a missing reviewer agent file (RED)', async () => {
@@ -95,12 +115,48 @@ describe('collectReviewFindingsFindings', () => {
 
   it('flags a reviewer that dropped the ACTIONABLE FINDINGS contract (RED)', async () => {
     const root = await createFixture({
-      [REVIEWER_PATH]: '---\nname: pr-review-reviewer\n---\n\nJust review the code.\n',
+      [REVIEWER_PATH]: GREEN_REVIEWER.replace(
+        'End every report with the machine line `ACTIONABLE FINDINGS: <n>`.\n',
+        '',
+      ),
     });
 
     const findings = collectReviewFindingsFindings(root);
     expect(findings).toEqual([
       'pr-review-reviewer: no longer declares the `ACTIONABLE FINDINGS: <n>` output contract (the orchestrator routes on it).',
+    ]);
+  });
+
+  it('requires resumed delta review contracts', async () => {
+    const root = await createFixture({
+      [ORCH_PATH]: GREEN_ORCH.replace(
+        "Capture the first reviewer's agentId and reviewed head. Resume the same reviewer with SendMessage.\n" +
+          'Follow-up review is limited to `git diff <previous-head>..HEAD` plus prior finding closure.\n',
+        'Dispatch a fresh reviewer over the whole branch after every repair.\n',
+      ),
+    });
+
+    expect(collectReviewFindingsFindings(root)).toEqual([
+      'pr-finding-resolution-loop: no longer preserves the first reviewer context through follow-up rounds.',
+      'pr-finding-resolution-loop: no longer limits follow-up review to the repair delta since the previous reviewed head.',
+    ]);
+  });
+
+  it('requires resumed delta review across the reviewer and delegated pipeline', async () => {
+    const root = await createFixture({
+      [REVIEWER_PATH]: GREEN_REVIEWER.replace(
+        'On a follow-up, verify prior findings from source and review only `git diff <previous-head>..HEAD`.\n',
+        '',
+      ),
+      [DELEGATED_PATH]: '# Delegated Review\n\nDispatch a fresh reviewer after every repair.\n',
+      [CADENCE_PATH]: '# Execution Cadence\n\nRepeat the whole-branch review after every repair.\n',
+    });
+
+    expect(collectReviewFindingsFindings(root)).toEqual([
+      'pr-review-reviewer: no longer defines source-based closure verification for resumed delta reviews.',
+      'delegated-refactor-green-gate: no longer preserves the first reviewer context through follow-up rounds.',
+      'delegated-refactor-green-gate: no longer scopes follow-up review to named repairs against the retained prior snapshot.',
+      'execution-cadence: no longer requires same-reviewer context and previous-head delta review after the first pass.',
     ]);
   });
 
@@ -273,7 +329,7 @@ describe('scan-review-findings CLI', () => {
   it('exits 0 with a pass message on a green fixture', async () => {
     const { root, scriptCopy } = await createCliFixture();
     const result = runScan(scriptCopy, root);
-    expect(result.stdout).toContain('::examined:: 3 review artifacts');
+    expect(result.stdout).toContain('::examined:: 5 review artifacts');
     expect(result.stdout).toContain('review-findings scan passed.');
     expect(result.status).toBe(0);
   });
