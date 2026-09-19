@@ -28,6 +28,7 @@ Waived: repository-internal orchestration efficiency change grounded by the supp
 - `.agents/rules/execution-cadence.md` and `.agents/rules/index.md` — own and route the repair-review cadence invariant.
 - `.agents/skills/pr-finding-resolution-loop/SKILL.md` — preserve the first reviewer handle and resume it for local repair rounds.
 - `.agents/skills/delegated-refactor-green-gate/SKILL.md` — apply the same continuation contract to its bounded repair loop.
+- `.agents/skills/index.md` and `.agents/specs/orchestration-map.md` — keep manual routing and the authoritative orchestration registry aligned with the retained-reviewer flow.
 - `.claude/agents/pr-review-reviewer.md` — define the resumed follow-up review contract without weakening dynamic verification.
 - `scripts/harness/scan-review-findings.mjs` and its Vitest file — refuse removal of context reuse or delta scoping.
 - No product package or public contract changes.
@@ -89,6 +90,8 @@ None
 - `.agents/rules/index.md`
 - `.agents/skills/pr-finding-resolution-loop/SKILL.md`
 - `.agents/skills/delegated-refactor-green-gate/SKILL.md`
+- `.agents/skills/index.md`
+- `.agents/specs/orchestration-map.md`
 - `.claude/agents/pr-review-reviewer.md`
 - `scripts/harness/scan-review-findings.mjs`
 - `scripts/harness/__tests__/scan-review-findings.test.mjs`
