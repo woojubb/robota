@@ -19,9 +19,7 @@ document states only what must hold, wherever those run.
 
 GitHub issues and Task files are complementary records, not duplicate work queues. **Child Issues are
 exception-only.** One GitHub Issue remains the durable external problem record while internal cause
-decomposition belongs in Task/spec records. A finding made during work is recorded on the existing
-Issue that owns its scope (comment or body), never as a new Issue —
-[finding-depth.md](finding-depth.md) § "A finding never opens a new GitHub issue" owns that rule.
+decomposition belongs in Task/spec records.
 
 - A **GitHub issue** captures externally trackable intent or a problem: user value, constraints, scope,
   non-goals, discussion, and links. The Issue body owns the current external problem, constraints, and

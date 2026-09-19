@@ -32,7 +32,6 @@ Waived: rule amendment on the owner's direct instruction; no external product su
 ### Affected Scope
 
 - `.agents/rules/finding-depth.md` — new § "A finding never opens a new GitHub issue"; the FOUNDATIONAL bullet and the root-item filing paragraph point at it
-- `.agents/rules/backlog-execution.md` — § GitHub Issue ↔ Task Boundary cites the rule
 - `.agents/tasks/README.md` — the registering-Issue paragraph and the allocation step name the existing umbrella, not `gh issue create`
 - `.agents/skills/find-to-issue/SKILL.md` — the "still allowed" section becomes "not opened for a finding"
 - `scripts/harness/work-item-issue-binding.mjs`, `scripts/harness/allocate-work-item-id.mjs` — the refusal message and header comment name the umbrella route
@@ -75,15 +74,15 @@ None
    FOUNDATIONAL bullet and the "Where a root item lives" filing paragraph reference it. The section states
    the invariant; the directive itself stays verbatim in `.agents/memory/no-new-github-issues.md`
    (rule documents carry no case narrative).
-2. `backlog-execution.md` § GitHub Issue ↔ Task Boundary, `.agents/tasks/README.md` and the
-   `find-to-issue` skill point at the rule and stop naming `gh issue create` as an option.
+2. `.agents/tasks/README.md` and the `find-to-issue` skill point at the rule and stop naming
+   `gh issue create` as an option. (`backlog-execution.md` is a gate document — an L2 floor — and
+   its Issue ↔ Task Boundary already defers filing depth to `finding-depth.md`, so it is untouched.)
 3. `work-item-issue-binding.mjs` refuses an unmatched title by naming the umbrella route; the test TC-01
    names pins that the message names the existing umbrella and never `gh issue create`.
 
 ## Affected Files
 
 - `.agents/rules/finding-depth.md`
-- `.agents/rules/backlog-execution.md`
 - `.agents/tasks/README.md`
 - `.agents/skills/find-to-issue/SKILL.md`
 - `.agents/memory/no-new-github-issues.md`
