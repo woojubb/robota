@@ -137,12 +137,16 @@ export function useAppThemeState(options: IOptions): IAppThemeViewModel {
       activeThemeId: options.appearance.theme,
       syntaxHighlighting: options.appearance.syntaxHighlighting,
       reducedMotion: options.appearance.reducedMotion,
-      ...(options.reducedMotionOverride === undefined
+      // Both halves or neither. A tier with no resolved value would have to be paired with the
+      // PERSISTED one, which is the contradiction this pair exists to stop — so a caller that
+      // supplies only the tier gets no pin rather than a wrong one, and the row simply says
+      // nothing about a pin instead of naming the wrong direction.
+      ...(options.reducedMotionOverride === undefined || options.reducedMotion === undefined
         ? {}
         : {
             reducedMotionPin: {
               tier: options.reducedMotionOverride,
-              reducedMotion: reducedMotionForRun,
+              reducedMotion: options.reducedMotion,
             },
           }),
       preview: setPreviewId,

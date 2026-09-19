@@ -44,7 +44,7 @@ const THEME_FILE_SUFFIX = '.json';
  * than not loading it: the file appears to work everywhere except the one place it matters. A name
  * outside this set is skipped with a reason, the same policy an already-taken id gets.
  */
-const MAX_ID_SEGMENT = 24;
+export const MAX_ID_SEGMENT = 24;
 // Built FROM the constant, not beside it: two copies of one number drift, and the direction that
 // drifts silently is the regex narrowing while the message keeps promising the old bound.
 const SAFE_SLUG = new RegExp(`^[A-Za-z0-9._-]{1,${MAX_ID_SEGMENT}}$`, 'u');

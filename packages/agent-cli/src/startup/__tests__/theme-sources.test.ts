@@ -11,7 +11,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { loadThemeSources } from '../theme-sources.js';
+import { loadThemeSources, MAX_ID_SEGMENT } from '../theme-sources.js';
 
 const temporaryRoots: string[] = [];
 
@@ -228,15 +228,12 @@ describe('a file name that cannot become an id', () => {
     // The bound is on the ID SEGMENT, not only on a document-supplied name: the id is rendered
     // beside the name whether or not the file supplies one.
     const home = temporaryDirectory('robota-theme-home-');
-    writeTheme(join(home, '.robota', 'themes'), `${'x'.repeat(25)}.json`, '{}');
+    writeTheme(join(home, '.robota', 'themes'), `${'x'.repeat(MAX_ID_SEGMENT + 1)}.json`, '{}');
 
     const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
 
     expect(sources.themes).toEqual([]);
-    expect(sources.skipped[0]?.reason).toMatch(/at most 24 characters/u);
-    // The composite an id can reach — `custom:` + a plugin segment + `:` + a file segment — has to
-    // fit the name bound the parser enforces, because the id IS the name when a file supplies none.
-    expect(`custom:${'x'.repeat(24)}:${'x'.repeat(24)}`.length).toBeLessThanOrEqual(60);
+    expect(sources.skipped[0]?.reason).toContain(`at most ${MAX_ID_SEGMENT} characters`);
   });
 
   it('gates the PLUGIN half of an id too, and loads none of that plugin s themes', () => {
@@ -281,12 +278,14 @@ describe('a file name that cannot become an id', () => {
     // file segment must be a legal NAME, because it IS the name when the file supplies none.
     const home = temporaryDirectory('robota-theme-home-');
     const pluginDir = temporaryDirectory('robota-theme-plugin-');
-    writeTheme(join(pluginDir, 'themes'), `${'s'.repeat(24)}.json`, '{}');
+    // Derived from the bound, not transcribed: raising `MAX_ID_SEGMENT` past what the parser's
+    // name bound allows must turn THIS red, which a hardcoded 24 would not.
+    writeTheme(join(pluginDir, 'themes'), `${'s'.repeat(MAX_ID_SEGMENT)}.json`, '{}');
 
     const sources = loadThemeSources({
       cwd: undefined,
       userHome: home,
-      plugins: [{ name: 'p'.repeat(24), pluginDir }],
+      plugins: [{ name: 'p'.repeat(MAX_ID_SEGMENT), pluginDir }],
     });
 
     expect(sources.skipped).toEqual([]);

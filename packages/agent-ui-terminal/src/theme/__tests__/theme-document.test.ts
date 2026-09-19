@@ -125,10 +125,12 @@ describe('parseThemeDocument', () => {
     if (tooLong.ok) throw new Error('expected a refusal');
     expect(tooLong.error).toMatch(/^\$\.name: the minted id must be at most 60 characters$/u);
 
-    // The composite `agent-cli` can mint — `custom:` + 24 + `:` + 24 — is inside that bound, which
-    // is the relation the two constants are sized against.
+    // A 60-character id is accepted, which is the bound itself rather than a value near it. The
+    // RELATION to what `agent-cli` can mint is not asserted here — this package does not depend on
+    // that one — but in `theme-sources.test.ts`, where the longest mintable id is loaded end to end
+    // with its fixture derived from `MAX_ID_SEGMENT`, so widening that bound turns it red.
     const composite = parseThemeDocument({
-      id: `custom:${'p'.repeat(24)}:${'s'.repeat(24)}`,
+      id: `custom:${'p'.repeat(53)}`,
       fileName: 'mine.json',
       source: 'plugin',
       text: '{}',
