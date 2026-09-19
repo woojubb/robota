@@ -25,6 +25,7 @@
  */
 
 import type { IActionRequest, TActionResponse, TToolArgs } from '@robota-sdk/agent-core';
+import type { IExecutionPendingRequest } from '@robota-sdk/agent-interface-execution';
 import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
@@ -41,6 +42,8 @@ type TGatingEvent = 'permission_request' | 'ask_request';
 
 interface IParkedPrompt {
   kind: TParkedKind;
+  /** SCREEN-1992: the question a surface can show while the prompt is parked. */
+  text: string;
   /** Settle the awaiting promise with a real answer or the fail-closed default. */
   resolve: (value: TPermissionResultValue | TActionResponse) => void;
   /** Backstop timer (cleared on settle), when a backstop is configured. */
@@ -83,7 +86,12 @@ export class SessionPromptRegistry {
     }
     const requesterDriverId = this.deps.getActiveDriverId?.() ?? undefined;
     return new Promise<TPermissionResultValue>((resolve) => {
-      this.park(id, 'permission', resolve as (v: TPermissionResultValue | TActionResponse) => void);
+      this.park(
+        id,
+        'permission',
+        `Allow ${toolName}?`,
+        resolve as (v: TPermissionResultValue | TActionResponse) => void,
+      );
       this.emitOrFailClosed(id, 'permission', () =>
         this.deps.emitPermissionRequest({
           id,
@@ -103,7 +111,12 @@ export class SessionPromptRegistry {
     }
     const requesterDriverId = this.deps.getActiveDriverId?.() ?? undefined;
     return new Promise<TActionResponse>((resolve) => {
-      this.park(id, 'ask', resolve as (v: TPermissionResultValue | TActionResponse) => void);
+      this.park(
+        id,
+        'ask',
+        request.title,
+        resolve as (v: TPermissionResultValue | TActionResponse) => void,
+      );
       this.emitOrFailClosed(id, 'ask', () =>
         this.deps.emitAskRequest({
           id,
@@ -160,6 +173,12 @@ export class SessionPromptRegistry {
     return this.parked.size;
   }
 
+  /** SCREEN-1992: the oldest parked prompt as the question a surface shows, or undefined. */
+  pending(): IExecutionPendingRequest | undefined {
+    const first = this.parked.values().next();
+    return first.done ? undefined : { kind: first.value.kind, text: first.value.text };
+  }
+
   /**
    * Emit the prompt event, but if a subscribed surface's synchronous handler THROWS, settle the
    * already-parked prompt fail-closed instead of letting the reject propagate out of the Promise
@@ -177,6 +196,7 @@ export class SessionPromptRegistry {
   private park(
     id: string,
     kind: TParkedKind,
+    text: string,
     resolve: (value: TPermissionResultValue | TActionResponse) => void,
   ): void {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -185,7 +205,7 @@ export class SessionPromptRegistry {
       // Never keep the process alive purely to fire a backstop.
       (timer as { unref?: () => void }).unref?.();
     }
-    this.parked.set(id, { kind, resolve, timer });
+    this.parked.set(id, { kind, text, resolve, timer });
   }
 
   private settle(

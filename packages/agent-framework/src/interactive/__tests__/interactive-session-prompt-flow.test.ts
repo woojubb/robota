@@ -106,3 +106,30 @@ describe('InteractiveSession transport-neutral ask flow (REMOTE-007)', () => {
     expect(() => session.resolveAsk('nope', { type: 'cancelled' })).not.toThrow();
   });
 });
+
+describe('SCREEN-1992 main-thread needs-input (TC-05)', () => {
+  it('a parked ask flips the main-thread entry to needs-input with a question headline, and settling clears it', async () => {
+    const session = new InteractiveSession({ session: createSessionStub() });
+    const asks: IAskRequestEvent[] = [];
+    const states: string[] = [];
+    session.on('ask_request', (event) => asks.push(event));
+    session.on('execution_workspace_event', (event) => {
+      const main = event.snapshot.entries.find((entry) => entry.kind === 'main_thread');
+      states.push(`${main?.state}:${main?.headline?.kind ?? '-'}:${main?.headline?.text ?? '-'}`);
+    });
+
+    const pending = session.getUserInteraction()!.ask({ id: 'req-2', title: 'Deploy to prod?' });
+    expect(states.at(-1)).toBe('needs-input:question:Deploy to prod?');
+    const page = await session.readExecutionWorkspaceDetail(
+      session.getExecutionWorkspaceSnapshot().entries[0]!.id,
+    );
+    expect(page.records[0]).toMatchObject({
+      kind: 'message',
+      text: expect.stringContaining('Deploy to prod?'),
+    });
+
+    session.resolveAsk(asks[0]!.id, { type: 'cancelled' });
+    await pending;
+    expect(states.at(-1)?.startsWith('needs-input')).toBe(false);
+  });
+});

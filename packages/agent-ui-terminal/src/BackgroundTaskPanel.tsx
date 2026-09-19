@@ -2,6 +2,7 @@ import { Box } from 'ink';
 import React from 'react';
 
 import { formatBackgroundTaskRow } from './background-task-row-format.js';
+import { useCountdownTick } from './hooks/useCountdownTick.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { PALETTE } from './tui-palette.js';
@@ -19,6 +20,11 @@ export default function BackgroundTaskPanel({
   focusedIndex = null,
 }: IProps): React.ReactElement | null {
   const screenReader = useScreenReader();
+  // SCREEN-1992: ticks once a second only while a schedule sleeps, never in screen-reader mode.
+  const now = useCountdownTick(
+    entries.some((entry) => entry.nextFireAt !== undefined),
+    screenReader,
+  );
   if (entries.length === 0) return null;
 
   // SCREEN-014: the hint is focus-aware — it tells you how to enter the list, then how to move/open.
@@ -37,6 +43,7 @@ export default function BackgroundTaskPanel({
         const row = formatBackgroundTaskRow(entry, {
           isLast: index === entries.length - 1,
           screenReader,
+          now,
         });
         const isFocused = index === focusedIndex;
         return (
@@ -44,12 +51,14 @@ export default function BackgroundTaskPanel({
           // SCREEN-014: the keyboard-focused row is inverse-highlighted.
           <Text key={entry.id} wrap="truncate-end" inverse={isFocused}>
             {`${row.connector} `}
-            <Text color={row.color}>{row.marker}</Text>
+            <Text color={row.color}>{`${row.marker} ${row.state}`}</Text>
             {` ${row.label}`}
             {row.segments.map((segment, segmentIndex) => (
               <Text key={`${segment}-${segmentIndex}`} dimColor>{` · ${segment}`}</Text>
             ))}
+            {row.headline ? <Text dimColor>{` · ${row.headline}`}</Text> : null}
             {row.preview ? <Text dimColor>{` · ${row.preview}`}</Text> : null}
+            {row.countdown ? <Text color={row.color}>{` · ${row.countdown}`}</Text> : null}
           </Text>
         );
       })}

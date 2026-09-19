@@ -63,6 +63,7 @@ function makeSnapshot(): IExecutionWorkspaceSnapshot {
         kind: 'main_thread',
         origin: { kind: 'user_prompt', sessionId: 's1' },
         status: 'idle',
+        state: 'completed',
         title: 'Main thread',
         unread: false,
         attention: 'none',

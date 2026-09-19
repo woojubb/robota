@@ -33,6 +33,7 @@ import type {
   IExecutionDetailCursor,
   IExecutionDetailPage,
   IExecutionOrigin,
+  IExecutionPendingRequest,
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceFilter,
   IExecutionWorkspaceSnapshot,
@@ -85,6 +86,8 @@ export abstract class InteractiveSessionBase {
   protected abstract ensureInitialized(): Promise<void>;
   protected abstract getCwd(): string;
   protected abstract getProjectAccess(): TWorkspaceProjectAccess;
+  /** SCREEN-1992: the parked permission/ask the main thread waits on; the subclass owns the registry. */
+  protected abstract getPendingRequest(): IExecutionPendingRequest | undefined;
 
   isExecuting(): boolean {
     return this.execCtrl.executing;
@@ -266,6 +269,7 @@ export abstract class InteractiveSessionBase {
         execCtrl: this.execCtrl,
         histTracker: this.histTracker,
         bgTracker: this.bgTracker,
+        pendingRequest: () => this.getPendingRequest(),
       },
       options,
     );
@@ -287,6 +291,7 @@ export abstract class InteractiveSessionBase {
       this.bgTracker,
       this.getSessionOrThrow().getSessionId(),
       cursor,
+      this.getPendingRequest(),
     );
   }
   createExecutionWorkspaceTaskSpawner(origin: IExecutionOrigin): IExecutionWorkspaceTaskSpawner {

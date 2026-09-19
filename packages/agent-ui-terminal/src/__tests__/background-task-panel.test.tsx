@@ -12,6 +12,7 @@ function makeEntry(overrides: Partial<IExecutionWorkspaceEntry>): IExecutionWork
     origin: { kind: 'slash_command', sessionId: 'session_1', commandName: 'agent' },
     taskKind: 'agent',
     status: 'running',
+    state: 'working',
     title: 'general-purpose',
     subtitle: 'agent',
     preview: 'Analyze backlog',
@@ -30,10 +31,16 @@ describe('BackgroundTaskPanel', () => {
       <BackgroundTaskPanel
         entries={[
           makeEntry({ id: 'task:agent_1', status: 'running' }),
-          makeEntry({ id: 'task:agent_2', status: 'completed', preview: 'Done' }),
+          makeEntry({
+            id: 'task:agent_2',
+            status: 'completed',
+            state: 'completed',
+            preview: 'Done',
+          }),
           makeEntry({
             id: 'task:agent_3',
             status: 'failed',
+            state: 'failed',
             attention: 'failed',
             preview: 'Timed out',
           }),
@@ -43,9 +50,10 @@ describe('BackgroundTaskPanel', () => {
 
     const frame = lastFrame()!;
     expect(frame).toContain('Background work');
-    expect(frame).toContain('├ ⟳ general-purpose agent');
-    expect(frame).toContain('├ ✓ general-purpose agent · completed');
-    expect(frame).toContain('└ ✗ general-purpose agent · failed');
+    // SCREEN-1992: the state word sits beside the glyph, so a reader hears it and no-color sees it.
+    expect(frame).toContain('├ ⟳ working general-purpose agent');
+    expect(frame).toContain('├ ✓ completed general-purpose agent · completed');
+    expect(frame).toContain('└ ✗ failed general-purpose agent · failed');
     expect(frame).not.toContain('agent_1');
     expect(frame).not.toContain('agent_2');
     expect(frame).not.toContain('agent_3');
@@ -85,6 +93,6 @@ describe('BackgroundTaskPanel', () => {
     const rowLines = frame.split('\n').filter((line) => line.includes('⟳'));
     expect(rowLines).toHaveLength(1);
     // The connector + glyph still lead the single row line.
-    expect(rowLines[0]).toMatch(/└ ⟳ general-purpose agent/);
+    expect(rowLines[0]).toMatch(/└ ⟳ working general-purpose agent/);
   });
 });

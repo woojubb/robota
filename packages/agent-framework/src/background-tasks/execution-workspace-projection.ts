@@ -1,6 +1,15 @@
 import { isTerminalBackgroundTaskStatus } from '@robota-sdk/agent-executor';
 
 import {
+  groupHeadline,
+  groupState,
+  mainThreadHeadline,
+  mainThreadState,
+  taskHeadline,
+  taskState,
+  trimPreview,
+} from './execution-workspace-state.js';
+import {
   EXECUTION_ORIGIN_METADATA_KEYS,
   createBackgroundGroupExecutionEntryId,
   createBackgroundTaskExecutionEntryId,
@@ -15,6 +24,7 @@ import {
   type TExecutionControl,
   type TExecutionOriginKind,
   type TExecutionWorkspaceVisibility,
+  type IExecutionHeadline,
 } from './execution-workspace-types.js';
 
 import type { IBackgroundJobGroupState } from './background-job-orchestrator.js';
@@ -23,7 +33,6 @@ import type {
   TBackgroundPrimitive,
 } from '@robota-sdk/agent-interface-execution';
 
-const PREVIEW_MAX_LENGTH = 120;
 const SUCCESS_EXIT_CODE = 0;
 
 export function createExecutionWorkspaceSnapshot(
@@ -59,10 +68,12 @@ function createMainThreadEntry(input: ICreateMainThreadEntryInput): IExecutionWo
     subtitle: input.hasPendingPrompt ? 'prompt queued' : `${input.historyLength} history entries`,
     preview: trimPreview(input.preview),
     unread: false,
-    attention: 'none',
+    attention: input.pendingRequest !== undefined ? 'permission' : 'none',
     visibility: 'default',
     updatedAt: input.updatedAt,
     controls: ['select'],
+    state: mainThreadState(input),
+    ...withHeadline(mainThreadHeadline(input)),
   };
 }
 
@@ -95,6 +106,12 @@ function createBackgroundTaskEntry(
     controls: createTaskControls(state),
     // CLI-1994: the forked session record an `attach` control switches the view onto.
     ...(state.resumeSessionId !== undefined ? { resumeSessionId: state.resumeSessionId } : {}),
+    state: taskState(state),
+    ...withHeadline(taskHeadline(state)),
+    // SCREEN-1992: the timestamp, so a surface can tick its own countdown (never baked text).
+    ...(state.status === 'sleeping' && state.nextFireAt !== undefined
+      ? { nextFireAt: state.nextFireAt }
+      : {}),
   };
 }
 
@@ -117,6 +134,8 @@ function createBackgroundGroupEntry(group: IBackgroundJobGroupState): IExecution
     visibility: group.status === 'completed' ? 'collapsed' : 'default',
     updatedAt: group.updatedAt,
     controls: group.status === 'running' ? ['select', 'wait'] : ['select'],
+    state: groupState(group),
+    ...withHeadline(groupHeadline(group)),
   };
 }
 
@@ -161,16 +180,17 @@ const WAKE_PREVIEW_LENGTH = 32;
 function createTaskSubtitle(state: IBackgroundTaskState): string | undefined {
   if (state.kind === 'agent') return state.agentType ?? state.cwd;
   // FLOW-006: distinguish an agent-wake schedule (carries an instruction) from a shell-only
-  // schedule with a `↻ wake` marker + a truncated instruction preview, beside `next: Xm`.
+  // schedule with a `↻ wake` marker + a truncated instruction preview. SCREEN-1992: the next fire
+  // is no longer baked here as text — the entry carries `nextFireAt` for a live countdown.
   const wakeInstruction = state.schedule?.agentInstruction;
-  if (state.status === 'sleeping' && state.nextFireAt !== undefined) {
-    const next = `next: ${formatNextFireAt(state.nextFireAt)}`;
-    if (wakeInstruction !== undefined) {
-      return `↻ wake "${truncateWakePreview(wakeInstruction)}" · ${next}`;
-    }
-    return next;
+  if (state.status === 'sleeping' && wakeInstruction !== undefined) {
+    return `↻ wake "${truncateWakePreview(wakeInstruction)}"`;
   }
   return state.cwd;
+}
+
+function withHeadline(value: IExecutionHeadline | undefined): { headline?: IExecutionHeadline } {
+  return value === undefined ? {} : { headline: value };
 }
 
 function truncateWakePreview(instruction: string): string {
@@ -178,23 +198,6 @@ function truncateWakePreview(instruction: string): string {
   return trimmed.length > WAKE_PREVIEW_LENGTH
     ? `${trimmed.slice(0, WAKE_PREVIEW_LENGTH)}…`
     : trimmed;
-}
-
-/** Seconds in a minute, and minutes in an hour — the two rollovers below. */
-const SECONDS_PER_MINUTE = 60;
-const MINUTES_PER_HOUR = 60;
-const MS_PER_SECOND = 1000;
-
-function formatNextFireAt(isoString: string): string {
-  const date = new Date(isoString);
-  const now = new Date();
-  const diffMs = date.getTime() - now.getTime();
-  if (diffMs <= 0) return 'now';
-  const diffSec = Math.round(diffMs / MS_PER_SECOND);
-  if (diffSec < SECONDS_PER_MINUTE) return `${diffSec}s`;
-  const diffMin = Math.round(diffSec / SECONDS_PER_MINUTE);
-  if (diffMin < MINUTES_PER_HOUR) return `${diffMin}m`;
-  return `${Math.round(diffMin / MINUTES_PER_HOUR)}h`;
 }
 
 function createTaskPreview(state: IBackgroundTaskState): string | undefined {
@@ -259,14 +262,6 @@ function sortTasks(tasks: readonly IBackgroundTaskState[]): IBackgroundTaskState
 function sortGroups(groups: readonly IBackgroundJobGroupState[]): IBackgroundJobGroupState[] {
   // Stable order too (SCREEN-010): groups carry no start time, so order by their creation id.
   return [...groups].sort((left, right) => left.id.localeCompare(right.id));
-}
-
-function trimPreview(value: string | undefined): string | undefined {
-  const normalized = value?.trim().replace(/\s+/g, ' ');
-  if (!normalized) return undefined;
-  return normalized.length > PREVIEW_MAX_LENGTH
-    ? `${normalized.slice(0, PREVIEW_MAX_LENGTH)}...`
-    : normalized;
 }
 
 function toStringValue(value: TBackgroundPrimitive | undefined): string | undefined {

@@ -59,3 +59,21 @@ export function supportsTurnMarks(): boolean {
   if (process.env.TERM_PROGRAM === 'WezTerm') return false;
   return Boolean(process.stdout.isTTY);
 }
+
+/**
+ * SCREEN-1992 — may this process ask the terminal to report focus changes (DECSET 1004)?
+ *
+ * The mode is harmless where unimplemented (the request is discarded and no `CSI I`/`CSI O` ever
+ * arrives), so the gate is the interactive-TTY check plus an override the product shell injects from
+ * its own environment — this package reads no product-named literal for it.
+ *
+ * Precedence:
+ *  - `override === true` → on; `override === false` → off (kill switch).
+ *  - otherwise → on only when BOTH stdin and stdout are interactive TTYs: the sequences arrive on
+ *    stdin, and nothing sends them in a pipe.
+ */
+export function supportsFocusReporting(options: { override?: boolean | undefined } = {}): boolean {
+  if (options.override === true) return true;
+  if (options.override === false) return false;
+  return Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY);
+}

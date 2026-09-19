@@ -18,6 +18,16 @@ export interface ITuiSuspendHooks {
   resume(): void;
 }
 
+/**
+ * SCREEN-1992: terminal modes the TUI negotiated (focus reporting) are released before a child owns
+ * the terminal and re-negotiated once it is reclaimed, so the child never receives `CSI I`/`CSI O`
+ * and a child that reset the mode does not leave the TUI blind afterwards.
+ */
+export interface ITerminalModeHooks {
+  preSuspend(): void;
+  postResume(): void;
+}
+
 /** Minimal slice of the Ink render instance the controller needs. */
 export interface IInkClearable {
   clear(): void;
@@ -26,6 +36,7 @@ export interface IInkClearable {
 export class TerminalHandoffController implements ITerminalHandoff {
   private hooks?: ITuiSuspendHooks;
   private instance?: IInkClearable;
+  private modeHooks?: ITerminalModeHooks;
 
   /**
    * The App registers how to suspend/resume Ink. Returns an unregister function for cleanup on
@@ -36,6 +47,11 @@ export class TerminalHandoffController implements ITerminalHandoff {
     return () => {
       if (this.hooks === hooks) this.hooks = undefined;
     };
+  }
+
+  /** render.tsx registers the terminal-mode bracket (SCREEN-1992) before `render()`. */
+  setTerminalModeHooks(hooks: ITerminalModeHooks | undefined): void {
+    this.modeHooks = hooks;
   }
 
   /** render.tsx supplies the Ink instance (for `clear()`) after `render()` returns. */
@@ -57,6 +73,7 @@ export class TerminalHandoffController implements ITerminalHandoff {
       );
     }
     await hooks.suspend();
+    this.modeHooks?.preSuspend();
     this.instance?.clear();
     // Releasing Ink's React input hooks (empty render) is not enough: the parent process still holds
     // a raw-mode TTY read on stdin, which (a) steals input from the inherited child and (b) starves
@@ -74,6 +91,7 @@ export class TerminalHandoffController implements ITerminalHandoff {
       if (stdin.isTTY && typeof stdin.setRawMode === 'function') stdin.setRawMode(true);
       stdin.resume();
       hooks.resume();
+      this.modeHooks?.postResume();
     }
   }
 }

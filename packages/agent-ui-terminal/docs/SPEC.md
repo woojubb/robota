@@ -486,6 +486,83 @@ would withhold, `=0` withholds where it would emit.
   so `ROBOTA_SCREEN_READER_PREPARK_MS` is not read at all. Reaching it needs an owned write path
   (an Ink `stdout` wrapper that can defer a frame), which is its own change.
 
+## Attention & Interval Recap (SCREEN-1992)
+
+The TUI knows whether the user is at the terminal and, when they come back, says in one line what
+happened while they were away. Attention is observed here — the terminal is this package's — and
+the recap is derived from channel events the TUI already receives; the session is never asked to
+summarize and no provider call is made. A recap does not survive a restart, by design.
+
+**Attention sources** (`src/attention/attention-tracker.ts`). Two sources feed one level-triggered
+`attended` boolean, and the tracker records which one is deciding (`source: 'focus' | 'idle'`) so a
+degraded run is never a silent default:
+
+| Source  | When                                                               | Away means                                           | Back means                |
+| ------- | ------------------------------------------------------------------ | ---------------------------------------------------- | ------------------------- |
+| `focus` | the first `CSI I`/`CSI O` has arrived after `DECSET 1004` was sent | the terminal sent `CSI O`                            | the terminal sent `CSI I` |
+| `idle`  | until then, and wherever the mode is off                           | no keystroke for `DEFAULT_IDLE_THRESHOLD_MS` (5 min) | the next keystroke        |
+
+Requested is not confirmed: a terminal that does not implement mode 1004 discards the request and
+never answers, so the idle source stays armed until the first focus event, and from that event on
+focus is the **sole** source — a focused reader who typed nothing must not receive a recap of what
+they watched. Repeated `CSI O` is one interval. A focus event while the mode is off is an invariant
+violation and throws rather than being absorbed.
+
+**Focus reporting** (`src/terminal-focus-reporting.ts`, `src/terminal-capabilities.ts`).
+`supportsFocusReporting({ override })` is on for an interactive TTY pair, and the override the
+product shell injects (`renderApp({ focusReporting })`) forces it either way — this package reads no
+product-named environment literal for it. The `DECSET 1004` request is written outside Ink (the
+`terminal-marks.ts` carve-out; the two sequences are constants), `DECRST 1004` on exit and around a
+terminal handoff (`TerminalHandoffController.setTerminalModeHooks`: released after the App
+suspends, re-negotiated after it resumes, so a child never receives focus sequences and a child that
+reset the mode leaves nothing blind).
+
+| Terminal                                                                                          | Behaviour                                                                                                    |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Alacritty, foot, Ghostty, iTerm2, Kitty, Konsole, VTE, WezTerm, Windows Terminal, xterm, xterm.js | focus events reported; attention follows terminal focus                                                      |
+| tmux                                                                                              | needs `set -g focus-events on` (off by default); without it the request is absorbed and the idle source runs |
+| Zellij ≥ 0.33                                                                                     | focus synthesized per pane                                                                                   |
+| macOS Terminal.app, PuTTY, GNU Screen                                                             | request discarded; no events arrive, so the idle source is the only one that ever fires                      |
+| Non-TTY stdin or stdout                                                                           | **not requested** — nothing sends the sequences in a pipe                                                    |
+
+The shell's `ROBOTA_FOCUS_EVENTS` (agent-cli) overrides the table in either direction: `=1` requests
+where this package would not, `=0` is the kill switch.
+
+**The stdin proxy** (`src/attention/focus-input-filter.ts`). Ink tokenizes `ESC [ I` as a keypress
+and every `useInput` listener would receive `[I`, so the composer would type it. `renderApp` hands
+Ink a `FocusReportingStdin` in `render({ stdin })`: it strips `CSI I`/`CSI O` only while mode 1004 is
+negotiated, reports them and every other keystroke to the tracker, and forwards the rest
+byte-identical (a split escape sequence and a bracketed paste are Ink's to parse). It forwards
+`isTTY`, `setRawMode`, `ref` and `unref` to the real stdin and is attached only after the startup
+quiet period, which consumes its own keystroke.
+
+**Interval recap** (`src/attention/interval-recap.ts`, `attention-coordinator.ts`). While
+unattended the coordinator counts, from the channel events the projector already binds: `complete`
+by the preceding `turn_source` (a wake is `agent-wakeup`), `permission_request`/`ask_request` as
+needs-input, `error`, and background entries (never the main thread, whose turns are already
+counted) whose `state` REACHED `completed`/`failed`/`stopped` during the interval — the states at
+the moment attention was lost are the baseline, so an entry that was already finished is old news
+and one that left the terminal state again is dropped. On return it pushes one bounded line into the notice store under the
+TUI-originated `attention-recap` kind, or nothing for an empty interval:
+
+```
+While away 12m: 2 turns finished (1 wake) · 1 needs input · 1 failed
+```
+
+`turn_source` is therefore classified `channel` in `TUI_SESSION_EVENT_CLASSIFICATION`.
+
+**Rows** (`src/background-task-row-format.ts`). Every row renders the entry's five-word `state`
+beside the glyph (`⟳ working`, `◴ needs-input`, `✓ completed`, `✗ failed`, `⊗ stopped`), the
+`headline` when it says more than the preview (`? Allow Bash?` for a question), and for a sleeping
+schedule a countdown from `nextFireAt` (`in 59s`, `in 4m 59s`, `now`) that `useCountdownTick`
+advances once a second while such an entry exists — never in screen-reader mode, where the row is
+read once and the recap is a plain notice line. `accessibleText` carries the same words.
+
+**Known limitation.** A background task's `needs-input` is defined in the state mapping but
+unreachable today: no runtime path fires `background_task_permission_request` or enters
+`waiting_permission`, and a subagent's permission routes through the parent registry as a plain
+`permission_request` (recorded on issue #2670).
+
 ## IME Real-Cursor Contract (CLI-062)
 
 During focused text entry, `CjkTextInput` positions the REAL terminal cursor at the composition
@@ -530,6 +607,10 @@ Terminal.app-force-on, and supported-force-off cells, both viewport geometries w
 enabled, plus the dedicated real-tmux suite; it does not repeat every pure capability cell through a
 fresh process.
 
+SCREEN-1992's attention modules are pure and tested under `src/attention/__tests__` (fake timers
+for the idle source and the countdown tick, fixture event streams for the recap, byte fixtures for
+the stdin filter); the terminal-mode bracket is pinned in `terminal-handoff-controller.test.ts`.
+
 `TuiInteractionChannel.lifecycle.test.ts` mechanically compares actual listener registration and
 teardown with the exhaustive classification and forces a notice projection failure. The notice
 component suite proves deterministic plan/context/branch rendering independently of canonical history.
@@ -545,6 +626,9 @@ startup and shutdown check.
 | `TuiInteractionChannel`          | implements `ITuiAppChannelPort`; owns concrete `InteractiveSession` and `CommandRegistry`  | Public compatibility facade and session-owning implementation                 |
 | `TuiChannelLifecycleCoordinator` | receives explicit start, stop and bounded-shutdown callbacks                               | Owns start/stop/shutdown idempotency and graceful-state transitions           |
 | `TuiSessionEventProjector`       | consumes the existing session event capability and `TuiStateManager`                       | Owns exhaustive event binding, projection error isolation and exact unbinding |
+| `AttentionTracker`               | `IAttentionSource`; injected clock; focus or idle source                                   | Level-triggered attended/away, one change per transition (SCREEN-1992)        |
+| `AttentionCoordinator`           | `IAttentionSource` + the channel events the projector feeds it                             | Counts one unattended interval and pushes the recap line (SCREEN-1992)        |
+| `FocusReportingStdin`            | wraps the real stdin; `Readable` handed to `render({ stdin })`                             | Strips focus sequences while negotiated, reports focus and keystrokes         |
 | `TuiPermissionQueue`             | no framework-class dependency                                                              | Owns permission FIFO, prompt dismissal and deny drains                        |
 | `TuiUserActionQueue`             | no framework-class dependency                                                              | Owns unified-action FIFO, prompt dismissal and cancelled drains               |
 | `App`                            | receives an `ITuiAppChannelPort` factory from `renderApp`                                  | Owns active narrowed-port selection and awaits old-session stop on switch     |

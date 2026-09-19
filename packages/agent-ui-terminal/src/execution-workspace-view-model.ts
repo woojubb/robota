@@ -26,6 +26,8 @@ const PREVIEW_SEPARATOR = ' ';
 export interface IExecutionWorkspaceEntryRow {
   id: string;
   radio: '●' | '○';
+  /** SCREEN-1992: the five-word state, rendered beside the radio and carried in the accessible text. */
+  state: string;
   title: string;
   subtitle?: string;
   statusLabel: string;
@@ -63,6 +65,7 @@ export function formatExecutionWorkspaceEntryRow(
   const row = {
     id: entry.id,
     radio: isSelected ? '●' : '○',
+    state: entry.state,
     title: formatEntryTitle(entry),
     subtitle: formatEntrySubtitle(entry),
     statusLabel: formatStatusLabel(entry.status),
@@ -120,7 +123,13 @@ function trimPreview(value: string | undefined): string | undefined {
 }
 
 function formatAccessibleText(row: Omit<IExecutionWorkspaceEntryRow, 'accessibleText'>): string {
-  const parts = [row.radio, row.title, row.statusLabel, row.subtitle, row.preview];
+  const parts = [
+    `${row.radio} ${row.state}`,
+    row.title,
+    row.statusLabel,
+    row.subtitle,
+    row.preview,
+  ];
   return parts
     .filter((part): part is string => typeof part === 'string' && part.length > 0)
     .join(' · ');

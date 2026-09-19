@@ -12,6 +12,8 @@ import {
   generateSessionName,
 } from '@robota-sdk/agent-framework';
 
+import { AttentionCoordinator } from './attention/attention-coordinator.js';
+import { MS_PER_SECOND } from './attention/time-units.js';
 import { createSessionInitPoller } from './flows/session-init-poller.js';
 import { applySystemCommandResult } from './hooks/command-result-handler.js';
 import {
@@ -23,6 +25,7 @@ import { TuiSessionEventProjector } from './tui-session-event-projector.js';
 import { buildTuiSessionOptions } from './tui-session-options.js';
 import { TuiStateManager } from './tui-state-manager.js';
 
+import type { IAttentionSource } from './attention/attention-tracker.js';
 import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-init-poller.js';
 import type { TerminalHandoffController } from './terminal-handoff-controller.js';
 import type {
@@ -69,6 +72,8 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
   private readonly userActions: TuiUserActionQueue;
   private readonly permissions: TuiPermissionQueue;
   private readonly eventProjector: TuiSessionEventProjector;
+  /** SCREEN-1992: joins the terminal's attention to this channel's recap; absent without a source. */
+  private readonly attention: AttentionCoordinator | undefined;
   private readonly lifecycle: TuiChannelLifecycleCoordinator;
   availableCommands: ICommandInfo[] = [];
   sessionName: string | undefined;
@@ -93,9 +98,11 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
 
     this.interactiveSession = this.createSession();
     this.registry = this.createRegistry();
+    this.attention = this.createAttention(opts.attention);
     this.eventProjector = new TuiSessionEventProjector({
       session: this.interactiveSession,
       manager: this.stateManager,
+      ...(this.attention ? { attention: this.attention } : {}),
       onUserMessage: (content) => this.handleAutoNaming(content),
       requestPermission: (toolName, toolArgs, id) =>
         this.permissions.enqueue(toolName, toolArgs, id),
@@ -472,10 +479,19 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
     this.syncExecutionWorkspace();
   }
 
+  /** SCREEN-1992: the recap lands in this channel's notice store; no source ⇒ no coordinator. */
+  private createAttention(source: IAttentionSource | undefined): AttentionCoordinator | undefined {
+    if (!source) return undefined;
+    return new AttentionCoordinator({
+      source,
+      onRecap: (line) => this.stateManager.addAttentionRecap(line),
+    });
+  }
+
   private onInitFailure(failure: TSessionInitFailure): void {
     const message =
       failure.kind === 'timeout'
-        ? `Session initialization timed out after ${SESSION_INIT_TIMEOUT_MS / 1000}s${
+        ? `Session initialization timed out after ${SESSION_INIT_TIMEOUT_MS / MS_PER_SECOND}s${
             failure.lastError ? ` (last error: ${failure.lastError.message})` : ''
           }`
         : `Session initialization failed: ${failure.error.message}`;

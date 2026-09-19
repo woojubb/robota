@@ -1,6 +1,6 @@
 # BEHAVIOR-2003 — Contextual TUI key bindings and hot reload (agent-run)
 
-**Spec:** `.agents/spec-docs/active/BEHAVIOR-2003-configure-contextual-tui-key-bindings.md`
+**Spec:** `.agents/spec-docs/done/BEHAVIOR-2003-configure-contextual-tui-key-bindings.md`
 **Type:** agent-executable — the agent drives the Scenario 1 PTY run against the built CLI binary in an isolated environment; no live LLM, provider call, or credential required.
 
 ## Scenario
