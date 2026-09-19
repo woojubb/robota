@@ -106,9 +106,11 @@ None
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-03).
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Reason:** Nothing a person runs in the product changes — no command, screen, output or setting; only
+the repository's own rule documents and the harness allocator's refusal message change what an agent
+is told to do with a finding.
 
 ## Tasks
 
