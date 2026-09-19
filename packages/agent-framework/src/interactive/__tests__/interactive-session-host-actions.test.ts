@@ -202,6 +202,97 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
     expect(result?.hostActions).toBeUndefined(); // consumed
   });
 
+  /**
+   * SCREEN-2002. These three keys live at the settings document's ROOT, beside the provider
+   * profiles and their credentials — unlike `statusline`, which is contained by its own nesting.
+   * So the tests that matter are the ones about what does NOT get written.
+   */
+  describe('appearance-settings-patch (SCREEN-2002)', () => {
+    it('merges the patch over what is stored and leaves every other setting alone', async () => {
+      const settings = stubSettings({
+        language: 'ko',
+        theme: 'dark',
+        syntaxHighlighting: true,
+        reducedMotion: false,
+      });
+      const session = createSession({ settings }, [
+        moduleReturning('theme', {
+          success: true,
+          message: 'Applied.',
+          hostActions: [{ type: 'appearance-settings-patch', patch: { theme: 'light' } }],
+        }),
+      ]);
+
+      const result = await session.executeCommand('theme', 'light');
+
+      expect(settings.write).toHaveBeenCalledTimes(1);
+      expect(settings.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          language: 'ko',
+          theme: 'light',
+          syntaxHighlighting: true,
+          reducedMotion: false,
+        }),
+      );
+      expect(result?.hostActions).toBeUndefined();
+    });
+
+    it('REFUSES a patch carrying a key that is not an appearance key, and writes nothing', async () => {
+      const settings = stubSettings({ providers: { openai: { apiKey: 'secret' } } });
+      const session = createSession({ settings }, [
+        moduleReturning('theme', {
+          success: true,
+          message: 'Applied.',
+          hostActions: [
+            {
+              type: 'appearance-settings-patch',
+              // The shape the widened patch type permits and the document must never receive.
+              patch: { theme: 'light', providers: {} } as never,
+            },
+          ],
+        }),
+      ]);
+
+      const result = await session.executeCommand('theme', 'light');
+
+      expect(settings.write).not.toHaveBeenCalled();
+      expect(result?.success).toBe(false);
+      expect(result?.message).toContain('invalid appearance settings patch');
+    });
+
+    it('refuses a wrong-typed value rather than writing it', async () => {
+      const settings = stubSettings({ theme: 'dark' });
+      const session = createSession({ settings }, [
+        moduleReturning('theme', {
+          success: true,
+          message: 'Applied.',
+          hostActions: [
+            { type: 'appearance-settings-patch', patch: { reducedMotion: 'yes' } as never },
+          ],
+        }),
+      ]);
+
+      await session.executeCommand('theme', 'motion off');
+
+      expect(settings.write).not.toHaveBeenCalled();
+    });
+
+    it('reports the missing capability when no settings adapter is attached', async () => {
+      const session = createSession({}, [
+        moduleReturning('theme', {
+          success: true,
+          message: 'Applied.',
+          hostActions: [{ type: 'appearance-settings-patch', patch: { theme: 'light' } }],
+        }),
+      ]);
+
+      const result = await session.executeCommand('theme', 'light');
+
+      expect(result?.success).toBe(false);
+      expect(result?.message).toContain("Cannot apply 'appearance-settings-patch'");
+    });
+  });
+
   it('output-style-change persists the id and applies the resolved prompt style', async () => {
     const settings = stubSettings({ theme: 'dark' });
     const applyOutputStyle = vi.fn();

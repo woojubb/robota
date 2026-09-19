@@ -11,7 +11,7 @@ import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { SCREEN_READER_LABELS, type TScreenReaderLabelKind } from './screen-reader-labels.js';
 import { STATUS_SYMBOL, statusGlyphColor } from './status-glyph.js';
-import { usePalette, useTheme } from './theme/index.js';
+import { usePalette, useSyntaxHighlighting, useTheme } from './theme/index.js';
 import { getToolSummaryLabel, toolSummaryStatusKind } from './tool-summary-status.js';
 import ToolCommandOutput from './ToolCommandOutput.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
@@ -147,6 +147,7 @@ const MessageItem = React.memo(function MessageItem({
   // Every hook this component uses runs BEFORE the early returns: a message whose role or kind
   // changes in place would otherwise render a different NUMBER of hooks and React would throw.
   const theme = useTheme();
+  const syntaxHighlighting = useSyntaxHighlighting();
   const screenReader = useScreenReader();
 
   if (isToolMessage(message)) {
@@ -178,6 +179,7 @@ const MessageItem = React.memo(function MessageItem({
             {renderMarkdown(content + (isInterrupted ? '\n\n_(interrupted)_' : ''), {
               screenReader,
               theme,
+              syntaxHighlighting,
             })}
           </RenderedText>
         ) : (

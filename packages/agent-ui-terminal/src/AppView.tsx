@@ -15,7 +15,11 @@ export default function AppView(props: IAppViewProps): React.ReactElement {
   // theme is part of the view model — a provider higher up would have to be fed a theme nobody had
   // resolved yet, and the controller's own hooks read no colours.
   return (
-    <ThemeProvider theme={viewModel.theme.resolved} reducedMotion={viewModel.theme.reducedMotion}>
+    <ThemeProvider
+      theme={viewModel.theme.resolved}
+      reducedMotion={viewModel.theme.reducedMotion}
+      syntaxHighlighting={viewModel.theme.syntaxHighlighting}
+    >
       <AppPresentation viewModel={viewModel} />
     </ThemeProvider>
   );

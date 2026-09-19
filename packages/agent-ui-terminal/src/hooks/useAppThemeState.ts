@@ -6,15 +6,27 @@ import type { ITuiTheme } from '../theme/theme-contracts.js';
 import type { IThemeRegistry } from '../theme/theme-registry.js';
 import type { IAppearanceSettings } from '@robota-sdk/agent-interface-command';
 
+export interface IThemeToggles {
+  readonly syntaxHighlighting: boolean;
+  readonly reducedMotion: boolean;
+}
+
 export interface IAppThemePickerViewModel {
   readonly visible: boolean;
   readonly themes: readonly ITuiTheme[];
   /** The id that is PERSISTED — the row the picker returns to when it is cancelled. */
   readonly activeThemeId: string;
+  /** The PERSISTED toggles the picker seeds itself from and submits alongside the theme. */
+  readonly syntaxHighlighting: boolean;
+  readonly reducedMotion: boolean;
   /** Move the highlight: the live region re-renders in that theme, nothing is written. */
   readonly preview: (id: string) => void;
-  /** Commit: submits `/theme <id>`, because the HOST owns writing the settings document. */
-  readonly select: (id: string) => void;
+  /**
+   * Commit: submits `/theme <id> syntax <on|off> motion <on|off>` — ONE patch through the command
+   * path, because the HOST owns writing the settings document. Three separate submissions would be
+   * three chances to half-apply what the user saw as one decision.
+   */
+  readonly select: (id: string, toggles: IThemeToggles) => void;
   /** Leave: the preview is dropped and the persisted theme is what remains. */
   readonly cancel: () => void;
 }
@@ -24,6 +36,8 @@ export interface IAppThemeViewModel {
   readonly resolved: ITuiTheme;
   /** Whether motion is suppressed for this run, after the flag/env/settings chain. */
   readonly reducedMotion: boolean;
+  /** Whether fenced code blocks are highlighted. Every markdown render site reads this. */
+  readonly syntaxHighlighting: boolean;
   /** Present once, when the persisted id names a theme this build does not have. */
   readonly unknownThemeNotice?: string;
   readonly picker: IAppThemePickerViewModel;
@@ -65,10 +79,14 @@ export function useAppThemeState(options: IOptions): IAppThemeViewModel {
     setVisible(false);
   }, [setVisible]);
   const select = useCallback(
-    (id: string): void => {
+    (id: string, toggles: IThemeToggles): void => {
       setPreviewId(undefined);
       setVisible(false);
-      submit(`/theme ${id}`);
+      const syntax = toggles.syntaxHighlighting ? 'on' : 'off';
+      // `motion on` means ANIMATE, which is `reducedMotion: false` — the inversion lives in the
+      // command's parser, and this is the one place that has to speak its vocabulary.
+      const motion = toggles.reducedMotion ? 'off' : 'on';
+      submit(`/theme ${id} syntax ${syntax} motion ${motion}`);
     },
     [setVisible, submit],
   );
@@ -80,11 +98,14 @@ export function useAppThemeState(options: IOptions): IAppThemeViewModel {
   return {
     resolved: resolution.theme,
     reducedMotion: options.reducedMotion ?? options.appearance.reducedMotion,
+    syntaxHighlighting: options.appearance.syntaxHighlighting,
     ...(unknownId === undefined ? {} : { unknownThemeNotice: formatUnknownThemeNotice(unknownId) }),
     picker: {
       visible: options.visible,
       themes: registry.list(),
       activeThemeId: options.appearance.theme,
+      syntaxHighlighting: options.appearance.syntaxHighlighting,
+      reducedMotion: options.appearance.reducedMotion,
       preview: setPreviewId,
       select,
       cancel,

@@ -206,10 +206,17 @@ async function applyOneHostAction(
         if (!isAppearanceSettingsPatch(action.patch))
           return actionErrorFailure(action.type, new Error('invalid appearance settings patch'));
         const document = settings.read();
-        // SCREEN-2002: three FLAT keys, spread onto the document rather than nested under one —
-        // the shape `screenReader` and `outputStyle` already use, and the shape a user editing the
-        // file by hand expects.
-        settings.write({ ...document, ...readAppearanceSettings(document), ...action.patch });
+        // SCREEN-2002: three FLAT keys, written BY NAME rather than by spreading the patch. These
+        // keys sit at the document's root, beside the provider profiles and their credentials, so a
+        // spread would let any extra key the guard let through reach them. The guard refuses
+        // unknown keys; writing by name means it does not have to be the only thing that does.
+        const next = { ...readAppearanceSettings(document), ...action.patch };
+        settings.write({
+          ...document,
+          theme: next.theme,
+          syntaxHighlighting: next.syntaxHighlighting,
+          reducedMotion: next.reducedMotion,
+        });
         return null;
       }
       case 'remote-control-enable': {

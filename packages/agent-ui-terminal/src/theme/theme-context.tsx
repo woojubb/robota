@@ -16,20 +16,25 @@ import type { IThemeColors, IThemeMotion, ITuiTheme } from './theme-contracts.js
 
 const ThemeContext = createContext<ITuiTheme>(DARK_THEME);
 const ReducedMotionContext = createContext<boolean>(false);
+const SyntaxHighlightingContext = createContext<boolean>(true);
 
 export function ThemeProvider({
   theme,
   reducedMotion = false,
+  syntaxHighlighting = true,
   children,
 }: {
   theme?: ITuiTheme;
   reducedMotion?: boolean;
+  syntaxHighlighting?: boolean;
   children: React.ReactNode;
 }): React.ReactElement {
   return (
     <ThemeContext.Provider value={resolveTheme(theme)}>
       <ReducedMotionContext.Provider value={reducedMotion}>
-        {children}
+        <SyntaxHighlightingContext.Provider value={syntaxHighlighting}>
+          {children}
+        </SyntaxHighlightingContext.Provider>
       </ReducedMotionContext.Provider>
     </ThemeContext.Provider>
   );
@@ -63,4 +68,14 @@ export function useMotion(): boolean {
   // would have to omit `isInteractiveColorTerminal()`, which reads process state rather than React
   // state. Hiding a non-reactive read inside a memo is how a stale gate gets written later.
   return isInteractiveColorTerminal() && !screenReader && !reducedMotion;
+}
+
+/**
+ * SCREEN-2002: whether a fenced code block is highlighted. It travels with the theme rather than as
+ * a prop because every markdown render site already reads the theme from here, and a setting that
+ * reaches only some of them is worse than one that reaches none — `/theme syntax off` would report
+ * success while a block somewhere kept its colours.
+ */
+export function useSyntaxHighlighting(): boolean {
+  return useContext(SyntaxHighlightingContext);
 }

@@ -12,6 +12,7 @@ export {
   useMotion,
   useMotionTokens,
   usePalette,
+  useSyntaxHighlighting,
   useTheme,
 } from './theme-context.js';
 export {

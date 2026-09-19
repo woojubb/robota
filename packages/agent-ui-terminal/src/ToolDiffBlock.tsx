@@ -5,7 +5,7 @@ import { renderMarkdown } from './render-markdown.js';
 import { RenderedText, Text } from './SafeText.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { useScreenReader } from './screen-reader-context.js';
-import { usePalette, useTheme } from './theme/index.js';
+import { usePalette, useSyntaxHighlighting, useTheme } from './theme/index.js';
 import { buildToolDiffSummary } from './utils/tool-diff-summary.js';
 
 import type { IDiffLine } from './utils/edit-diff.js';
@@ -18,6 +18,7 @@ interface IProps {
 export default function ToolDiffBlock({ file, lines }: IProps): React.ReactElement {
   const palette = usePalette();
   const theme = useTheme();
+  const syntaxHighlighting = useSyntaxHighlighting();
   const summary = buildToolDiffSummary({ file, lines });
   // CLI-2004: the `\u2502` gutter is a vertical rule a reader announces on every line it prefixes.
   // The mode drops it — indentation already separates the block from the surrounding transcript.
@@ -33,7 +34,9 @@ export default function ToolDiffBlock({ file, lines }: IProps): React.ReactEleme
         </Text>
       )}
       {/* `renderMarkdown` sanitizes its input and then styles it; the SGR in its output is ours. */}
-      <RenderedText>{renderMarkdown(summary.markdown, { screenReader, theme })}</RenderedText>
+      <RenderedText>
+        {renderMarkdown(summary.markdown, { screenReader, theme, syntaxHighlighting })}
+      </RenderedText>
       {summary.truncated && (
         <Text color={palette.text.emphasis} dimColor>
           {gutter}... and {summary.remainingLineCount} more lines

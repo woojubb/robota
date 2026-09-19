@@ -20,9 +20,10 @@ import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindi
 import { formatNumberedSelectionPrompt, numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
+import { isInteractiveColorTerminal } from './terminal-capabilities.js';
 import { usePalette } from './theme/index.js';
 
-import type { IAppThemePickerViewModel } from './hooks/useAppThemeState.js';
+import type { IAppThemePickerViewModel, IThemeToggles } from './hooks/useAppThemeState.js';
 import type { ITuiTheme } from './theme/index.js';
 
 function describeTheme(theme: ITuiTheme, isActive: boolean): string {
@@ -92,11 +93,21 @@ function focusedIndexOf(themes: readonly ITuiTheme[], activeThemeId: string): nu
 function useThemePickerSelection(
   picker: IAppThemePickerViewModel,
   screenReader: boolean,
-): { focusedIndex: number; numbered: ReturnType<typeof useNumberedSelection> } {
+): {
+  focusedIndex: number;
+  toggles: IThemeToggles;
+  numbered: ReturnType<typeof useNumberedSelection>;
+} {
   const { themes, activeThemeId, preview, select, cancel } = picker;
   const [focusedIndex, setFocusedIndex] = React.useState(() =>
     focusedIndexOf(themes, activeThemeId),
   );
+  // Pending, not applied: the toggles travel with the selection and are submitted WITH it, so
+  // escape abandons them exactly as it abandons the previewed theme.
+  const [toggles, setToggles] = React.useState<IThemeToggles>(() => ({
+    syntaxHighlighting: picker.syntaxHighlighting,
+    reducedMotion: picker.reducedMotion,
+  }));
   const move = React.useCallback(
     (delta: number): void => {
       if (themes.length === 0) return;
@@ -109,10 +120,12 @@ function useThemePickerSelection(
     },
     [preview, themes],
   );
+  const togglesRef = React.useRef(toggles);
+  togglesRef.current = toggles;
   const applyAt = React.useCallback(
     (index: number): void => {
       const theme = themes[index];
-      if (theme) select(theme.id);
+      if (theme) select(theme.id, togglesRef.current);
     },
     [select, themes],
   );
@@ -135,12 +148,19 @@ function useThemePickerSelection(
         if (action === 'previous') move(-1);
         else if (action === 'next') move(1);
         else if (action === 'select') applyAt(focusedIndex);
+        else if (action === 'toggle-syntax')
+          setToggles((current) => ({
+            ...current,
+            syntaxHighlighting: !current.syntaxHighlighting,
+          }));
+        else if (action === 'toggle-motion')
+          setToggles((current) => ({ ...current, reducedMotion: !current.reducedMotion }));
         else if (action === 'cancel') cancel();
       }
     },
     { isActive: !screenReader },
   );
-  return { focusedIndex, numbered };
+  return { focusedIndex, toggles, numbered };
 }
 
 function ThemeRows({
@@ -170,6 +190,27 @@ function ThemeRows({
   );
 }
 
+/**
+ * Under the colour gate a preview shows nothing, so the picker says so in words rather than letting
+ * the user conclude the highlight is broken. The gate is the degradation rule this package has
+ * always had; this is the one place that has to ADMIT it.
+ */
+function ColourGateNotice(): React.ReactElement {
+  if (isInteractiveColorTerminal()) return <></>;
+  return (
+    <Text dimColor>Colour is off for this terminal — themes apply, previews cannot show.</Text>
+  );
+}
+
+function TogglesRow({ toggles }: { toggles: IThemeToggles }): React.ReactElement {
+  const on = (value: boolean): string => (value ? 'on' : 'off');
+  return (
+    <Text dimColor>
+      {`syntax ${on(toggles.syntaxHighlighting)} · motion ${on(!toggles.reducedMotion)}`}
+    </Text>
+  );
+}
+
 function ThemePickerFooter({
   screenReader,
   itemCount,
@@ -183,6 +224,8 @@ function ThemePickerFooter({
   const footerHints = useKeybindingHints('theme-picker', [
     [['previous', 'next'], 'Preview'],
     ['select', 'Apply'],
+    ['toggle-syntax', 'Syntax'],
+    ['toggle-motion', 'Motion'],
     ['cancel', 'Cancel'],
   ]);
   if (!screenReader) return <KeyHintFooter hints={footerHints} />;
@@ -203,7 +246,7 @@ export default function ThemePicker({
   const palette = usePalette();
   const screenReader = useScreenReader();
   const { themes, activeThemeId } = picker;
-  const { focusedIndex, numbered } = useThemePickerSelection(picker, screenReader);
+  const { focusedIndex, toggles, numbered } = useThemePickerSelection(picker, screenReader);
 
   return (
     <Box
@@ -216,6 +259,8 @@ export default function ThemePicker({
       <Text color={palette.text.accent} bold>
         Theme
       </Text>
+      <ColourGateNotice />
+      <TogglesRow toggles={toggles} />
       <Box flexDirection="column" marginTop={1}>
         <ThemeRows
           themes={themes}

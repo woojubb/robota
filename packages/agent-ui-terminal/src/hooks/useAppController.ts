@@ -96,6 +96,7 @@ function buildInput(composition: IComposition): IAppInputViewModel {
     screens.showPluginTUI ||
     screens.showTransportTUI ||
     screens.showSessionPicker ||
+    screens.showThemePicker ||
     workspace.background.switcherVisible,
   );
   const interactionBlocked =

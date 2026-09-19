@@ -162,6 +162,24 @@ describe('SCREEN-006 palette consistency floor', () => {
     expect(consumers.map((file) => relative(SRC_ROOT, file)).sort()).toEqual(['WaveText.tsx']);
   });
 
+  /**
+   * SCREEN-2002: the provider's three inputs must all be WIRED, not merely accepted.
+   *
+   * `/theme syntax off` shipped in this package's first draft persisting a setting that reached no
+   * render site — the command reported success for a no-op, and every context-level test still
+   * passed because the context was fine; it was the one line feeding it that was missing. A prop
+   * that can be dropped without a red test is a setting that can stop working silently.
+   */
+  it('SCREEN-2002: AppView feeds the theme provider all three resolved inputs', () => {
+    const appView = readFileSync(join(SRC_ROOT, 'AppView.tsx'), 'utf8');
+    for (const prop of ['theme', 'reducedMotion', 'syntaxHighlighting']) {
+      expect(
+        new RegExp(`${prop}=\\{viewModel\\.theme\\.`, 'u').test(appView),
+        `AppView must pass ${prop} to <ThemeProvider> — the resolved value reaches components only here`,
+      ).toBe(true);
+    }
+  });
+
   it('both ratchets actually fire on a violating fixture', () => {
     const violation = [
       "import { DARK_THEME } from './theme/built-in-themes.js';",

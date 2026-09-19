@@ -40,13 +40,20 @@ export const DEFAULT_APPEARANCE_SETTINGS: Readonly<IAppearanceSettings> = Object
 });
 
 /**
- * Whether a patch carries only appearance fields of the right type. A patch that fails this is
- * REFUSED by the host applier rather than partially written — the same rule the statusline patch
- * follows, and the reason a malformed `/theme` result cannot corrupt the settings document.
+ * Whether a patch carries ONLY appearance fields, each of the right type. A patch that fails this is
+ * REFUSED by the host applier rather than partially written.
+ *
+ * The unknown-key half is load-bearing, not tidiness. `TAppearanceSettingsPatch` widens to
+ * `Record<string, TUniversalValue>`, and these three keys live at the settings document's ROOT
+ * rather than nested under an object of their own — so a patch carrying an extra key would reach
+ * the document's top level, where the provider profiles and their credentials are. The statusline
+ * sibling is contained by its nesting; this one is contained by this guard.
  */
 export function isAppearanceSettingsPatch(
   value: Record<string, TUniversalValue>,
 ): value is TAppearanceSettingsPatch {
+  const known = new Set<string>(Object.values(APPEARANCE_SETTINGS_KEYS));
+  if (Object.keys(value).some((key) => !known.has(key))) return false;
   return (
     (value.theme === undefined || (typeof value.theme === 'string' && value.theme.length > 0)) &&
     (value.syntaxHighlighting === undefined || typeof value.syntaxHighlighting === 'boolean') &&
