@@ -12,6 +12,12 @@
  */
 import { DEFAULT_THEME_ID, listBuiltInThemes, resolveTheme } from './built-in-themes.js';
 
+// The registry's default source, re-exported from the module that USES it: a composition root that
+// must enumerate the built-ins asks here rather than naming the data module, which the anti-drift
+// floor refuses outside `src/theme/` — and which is also how the package's public surface avoids
+// re-exporting through the `.tsx` barrel.
+export { listBuiltInThemes } from './built-in-themes.js';
+
 import type { ITuiTheme } from './theme-contracts.js';
 import type {
   IThemeAppearanceState,
@@ -93,6 +99,8 @@ export interface IThemeCataloguePortOptions {
   readonly readAppearance: () => IThemeAppearanceState['settings'];
   /** The tier that pinned reduced motion for this run, when one did. */
   readonly reducedMotionOverride?: TReducedMotionOverride | undefined;
+  /** What that tier pinned it TO. A tier alone does not say which way it went. */
+  readonly reducedMotionForRun?: boolean | undefined;
 }
 
 export function createThemeCataloguePort(options: IThemeCataloguePortOptions): IThemeCataloguePort {
@@ -106,7 +114,10 @@ export function createThemeCataloguePort(options: IThemeCataloguePortOptions): I
       settings: options.readAppearance(),
       ...(options.reducedMotionOverride === undefined
         ? {}
-        : { reducedMotionOverride: options.reducedMotionOverride }),
+        : {
+            reducedMotionOverride: options.reducedMotionOverride,
+            reducedMotionForRun: options.reducedMotionForRun ?? true,
+          }),
     }),
   };
 }

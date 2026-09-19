@@ -23,13 +23,16 @@ function formatToggle(value: boolean): string {
 }
 
 function formatCatalogue(catalogue: IThemeCataloguePort): string {
-  const { settings, reducedMotionOverride } = catalogue.getAppearance();
+  const { settings, reducedMotionOverride, reducedMotionForRun } = catalogue.getAppearance();
   const rows = catalogue.listThemes().map((theme) => {
     const marker = theme.id === settings.theme ? '* ' : '  ';
     return `${marker}${theme.id} — ${theme.name} (${theme.appearance}, ${theme.source})`;
   });
+  // Two facts, never one: what this run does, and what is saved. Reporting the SAVED value beside
+  // the tier reads as a contradiction on a `--no-reduced-motion` run over a `true` setting, and as
+  // an outright wrong answer to "is motion reduced right now".
   const motion = reducedMotionOverride
-    ? `${formatToggle(settings.reducedMotion)} (this run: reduced motion pinned by ${reducedMotionOverride})`
+    ? `${formatToggle(reducedMotionForRun ?? settings.reducedMotion)} for this run (pinned by ${reducedMotionOverride}; saved ${formatToggle(settings.reducedMotion)})`
     : formatToggle(settings.reducedMotion);
   return [
     'Available themes:',

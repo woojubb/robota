@@ -18,14 +18,15 @@ export { createThemeCataloguePort, createThemeRegistry } from './theme/theme-reg
 // parse the files that join them. Both come through the theme module's own barrel, which exports
 // the ACCESSORS and never the colour data — the anti-drift floor forbids naming the data outside
 // `src/theme/`, and re-exporting it from here would be the way around that.
-export { listBuiltInThemes, parseThemeDocument } from './theme/index.js';
+export { listBuiltInThemes } from './theme/theme-registry.js';
+export { parseThemeDocument } from './theme/theme-document.js';
 export type {
   IThemeCataloguePortOptions,
   IThemeRegistry,
   IThemeResolution,
   IThemeSkip,
 } from './theme/theme-registry.js';
-export type { IThemeDocumentInput, TThemeDocumentResult } from './theme/index.js';
+export type { IThemeDocumentInput, TThemeDocumentResult } from './theme/theme-document.js';
 // `createThemeRegistry` takes themes, so a caller must be able to name one.
 export type { ITuiTheme, TThemeSource } from './theme/theme-contracts.js';
 export type {

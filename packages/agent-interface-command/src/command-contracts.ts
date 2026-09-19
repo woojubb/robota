@@ -138,6 +138,16 @@ export interface IThemeAppearanceState {
   readonly settings: IAppearanceSettings;
   /** Set when something outside the settings decided reduced motion for this run. */
   readonly reducedMotionOverride?: TReducedMotionOverride;
+  /**
+   * What reduced motion actually IS for this run, present exactly when an override is.
+   *
+   * The tier alone cannot be rendered: `--reduced-motion` and `--no-reduced-motion` are both
+   * overrides and they pin opposite values, so a surface that prints the persisted value beside the
+   * tier can say `reduced motion: off (pinned by flag)` on a run whose motion is pinned OFF — a
+   * line that contradicts itself. The two facts are reported separately: what this run does, and
+   * what is saved.
+   */
+  readonly reducedMotionForRun?: boolean;
 }
 
 /**

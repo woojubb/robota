@@ -254,6 +254,12 @@ the transport boundary.
 | `IThemeResolution`              | type     | A resolved theme, plus the id it could not find when it fell back                                                                                                                                    |
 | `IThemeCataloguePortOptions`    | type     | Options interface for `createThemeCataloguePort`                                                                                                                                                     |
 | `ITuiTheme`                     | type     | SCREEN-2002: one theme's colour, markdown, syntax and motion tokens                                                                                                                                  |
+| `listBuiltInThemes`             | function | SCREEN-2002: the built-ins, for a composition root that must put them in a registry beside user and plugin themes — the accessor, never the colour data                                              |
+| `parseThemeDocument`            | function | SCREEN-2002: one theme FILE, applied whole or refused whole with a `$.`-path diagnostic                                                                                                              |
+| `IThemeDocumentInput`           | type     | Parameter interface for `parseThemeDocument`: the minted id, the file name, and which source read it                                                                                                 |
+| `TThemeDocumentResult`          | type     | Return type of `parseThemeDocument`: a theme, or the refusal's reason                                                                                                                                |
+| `IThemeSkip`                    | type     | A theme file that was found and refused — carried beside the themes so a surface can show it without ever resolving to it                                                                            |
+| `TThemeSource`                  | type     | Where a theme came from (`built-in` / `user` / `plugin`), which every catalogue row reports                                                                                                          |
 
 ## Interaction Affordance Contract (SCREEN-005)
 

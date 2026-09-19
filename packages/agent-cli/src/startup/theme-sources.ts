@@ -113,14 +113,31 @@ function collectFrom(
   }
 }
 
-function installedPlugins(cwd: string | undefined, userHome: string): IThemePluginDirectory[] {
-  // allow-fallback: a plugin scope that cannot be read yields no plugin themes, never a failed start
+/**
+ * The installed plugins, or a SKIP that says the scopes could not be read.
+ *
+ * A plugin scope that cannot be enumerated must not fail the start — a broken plugin directory is
+ * not a reason to refuse a terminal — but it must not be silent either, or plugin themes simply are
+ * not there and nothing says why. It becomes a skip beside the file-level ones, so it is printed at
+ * startup and shown in the picker on the same terms.
+ */
+function installedPlugins(
+  cwd: string | undefined,
+  userHome: string,
+  collector: ICollector,
+): IThemePluginDirectory[] {
+  const scopes = pluginScopeDirs(cwd, userHome);
   try {
-    return loadHostBundlePluginsFromScopes(pluginScopeDirs(cwd, userHome)).map((plugin) => ({
+    return loadHostBundlePluginsFromScopes(scopes).map((plugin) => ({
       name: plugin.manifest.name,
       pluginDir: plugin.pluginDir,
     }));
-  } catch {
+  } catch (error) {
+    collector.skipped.push({
+      id: 'custom:<plugins>',
+      fileName: scopes.join(', '),
+      reason: `$: the plugin scopes could not be read — ${error instanceof Error ? error.message : String(error)}`,
+    });
     return [];
   }
 }
@@ -134,7 +151,7 @@ export function loadThemeSources(options: IThemeSourcesOptions): IThemeSources {
     source: 'user',
     idPrefix: 'custom:',
   });
-  const plugins = options.plugins ?? installedPlugins(options.cwd, options.userHome);
+  const plugins = options.plugins ?? installedPlugins(options.cwd, options.userHome, collector);
   for (const plugin of plugins) {
     collectFrom(collector, {
       root: plugin.pluginDir,

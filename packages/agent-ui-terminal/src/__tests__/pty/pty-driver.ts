@@ -43,6 +43,12 @@ export interface IPtySession {
   pressEnter(): Promise<void>;
   /** Send a raw Escape keystroke (cancels a pending Ink prompt). */
   pressEscape(): void;
+  /**
+   * Write bytes verbatim, with no per-character pacing. An escape SEQUENCE must come this way:
+   * `sendKeys` paces character by character, so `\x1b[B` arrives as a lone Escape — which an
+   * overlay reads as "cancel" — followed by the literal text `[B` typed into the composer.
+   */
+  writeRaw(data: string): void;
   waitFor(pattern: RegExp, timeoutMs?: number): Promise<void>;
   /**
    * Mark for `waitForSince`/`snapshotSince`. `snapshot()` is a CUMULATIVE transcript (old frames +
@@ -132,6 +138,7 @@ export function spawnTui(options: ISpawnTuiOptions): IPtySession {
     sendKeys: (text, perKeyDelayMs): Promise<void> => session.sendKeys(text, perKeyDelayMs),
     pressEnter: (): Promise<void> => session.pressEnter(),
     pressEscape: (): void => session.write('\x1b'),
+    writeRaw: (data): void => session.write(data),
     waitFor: (pattern, timeoutMs): Promise<void> => session.waitFor(pattern, timeoutMs),
     outputOffset: (): number => session.outputOffset(),
     waitForSince: (since, pattern, timeoutMs): Promise<void> =>

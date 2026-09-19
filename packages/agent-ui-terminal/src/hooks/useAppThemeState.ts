@@ -26,6 +26,8 @@ export interface IAppThemePickerViewModel {
   readonly reducedMotion: boolean;
   /** Set when a tier above the settings pinned motion for this run; the picker admits it. */
   readonly reducedMotionOverride?: TReducedMotionOverride | undefined;
+  /** What that tier pinned it TO — present exactly when the override is. */
+  readonly reducedMotionForRun?: boolean | undefined;
   /** Move the highlight: the live region re-renders in that theme, nothing is written. */
   readonly preview: (id: string) => void;
   /**
@@ -128,7 +130,10 @@ export function useAppThemeState(options: IOptions): IAppThemeViewModel {
       reducedMotion: options.appearance.reducedMotion,
       ...(options.reducedMotionOverride === undefined
         ? {}
-        : { reducedMotionOverride: options.reducedMotionOverride }),
+        : {
+            reducedMotionOverride: options.reducedMotionOverride,
+            reducedMotionForRun: options.reducedMotion ?? options.appearance.reducedMotion,
+          }),
       preview: setPreviewId,
       select,
       cancel,

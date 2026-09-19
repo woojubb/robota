@@ -176,10 +176,35 @@ describe('the theme picker (SCREEN-2002 TC-10)', () => {
   it('admits a motion pin, so the row cannot read `motion on` on a visibly still run', () => {
     const frame =
       render(
-        <ThemePicker picker={picker({ reducedMotion: true, reducedMotionOverride: 'flag' })} />,
+        <ThemePicker
+          picker={picker({
+            reducedMotion: false,
+            reducedMotionOverride: 'flag',
+            reducedMotionForRun: true,
+          })}
+        />,
       ).lastFrame() ?? '';
 
-    expect(frame).toContain('motion off (pinned by flag)');
+    // The saved choice and what THIS RUN does are different facts and are shown as two. A tier
+    // alone cannot say which way it went — `--no-reduced-motion` is an override that pins the
+    // opposite value — so rendering the saved value beside the tier is how the row ends up reading
+    // `motion on (pinned by flag)` on a visibly still run.
+    expect(frame).toContain('motion on (this run: motion off, pinned by flag)');
+  });
+
+  it('shows the opposite pin the same way, so the two runs are told apart', () => {
+    const frame =
+      render(
+        <ThemePicker
+          picker={picker({
+            reducedMotion: true,
+            reducedMotionOverride: 'environment',
+            reducedMotionForRun: false,
+          })}
+        />,
+      ).lastFrame() ?? '';
+
+    expect(frame).toContain('motion off (this run: motion on, pinned by environment)');
   });
 
   it('says previews cannot show when colour is off, rather than looking broken', () => {

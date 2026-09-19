@@ -90,7 +90,10 @@ export function createThemeSurface(options: IThemeSurfaceOptions): IThemeSurface
       resolveAppearanceRenderFields(readSettings(getUserSettingsPath()), undefined, {}).appearance,
     ...(resolved.reducedMotionOverride === undefined
       ? {}
-      : { reducedMotionOverride: resolved.reducedMotionOverride }),
+      : {
+          reducedMotionOverride: resolved.reducedMotionOverride,
+          reducedMotionForRun: resolved.reducedMotion,
+        }),
   });
   return { registry, cataloguePort, skipped: sources.skipped, ...motion };
 }

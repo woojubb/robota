@@ -251,16 +251,23 @@ function SkippedRows({ skipped }: { skipped: readonly IThemeSkip[] }): React.Rea
 function TogglesRow({
   toggles,
   reducedMotionOverride,
+  reducedMotionForRun,
   screenReader,
 }: {
   toggles: IThemeToggles;
   reducedMotionOverride?: TReducedMotionOverride | undefined;
+  reducedMotionForRun?: boolean | undefined;
   screenReader: boolean;
 }): React.ReactElement {
   const on = (value: boolean): string => (value ? 'on' : 'off');
-  // The pin is admitted here as it is by `/theme list` and `/theme motion`. Without it this row can
-  // read `motion on` on a visibly still run — the one surface of the three that hides the pin.
-  const pinned = reducedMotionOverride === undefined ? '' : ` (pinned by ${reducedMotionOverride})`;
+  // The pin is admitted here as it is by `/theme list` and `/theme motion` — and it names what THIS
+  // RUN does, not only who decided it. The tier alone is not enough: `--no-reduced-motion` is an
+  // override too and pins the opposite value, so a row carrying the chosen value beside the tier
+  // can read `motion on (pinned by flag)` on a visibly still run.
+  const pinned =
+    reducedMotionOverride === undefined
+      ? ''
+      : ` (this run: motion ${on(!(reducedMotionForRun ?? toggles.reducedMotion))}, pinned by ${reducedMotionOverride})`;
   return (
     <Box flexDirection="column">
       <Text dimColor>
@@ -330,6 +337,7 @@ export default function ThemePicker({
       <TogglesRow
         toggles={toggles}
         reducedMotionOverride={picker.reducedMotionOverride}
+        reducedMotionForRun={picker.reducedMotionForRun}
         screenReader={screenReader}
       />
       <Box flexDirection="column" marginTop={1}>
