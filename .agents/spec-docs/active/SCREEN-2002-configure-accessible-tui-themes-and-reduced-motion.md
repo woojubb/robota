@@ -645,3 +645,48 @@ correctness umbrella: it is the same defect, in the two consumers that sweep mis
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `b1689aa8541b` · base `origin/develop@b1689aa8541b` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `2f01efc0d89e` (modified)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-19; status `in-progress`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (13)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 685 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: automatable | 2`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 1 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementContinuation",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    "packages/agent-ui-terminal/src/theme/theme-contracts.ts",
+    "packages/agent-ui-terminal/src/theme/built-in-themes.ts",
+    "packages/agent-ui-terminal/src/theme/theme-context.tsx",
+    "packages/agent-ui-terminal/src/render.tsx",
+    "packages/agent-ui-terminal/docs/SPEC.md",
+    "packages/agent-cli/src/cli.ts"
+  ],
+  "priorPass": "sha256:8fa6dba06e042607a92085d4d8b43a491280020adc48e5119c1c0bc7449f3c56",
+  "ancestorSha": "c6e3014e71b9fbd32933cdd61a06f686a44bd404",
+  "taskPath": ".agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md",
+  "specPath": ".agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md",
+  "plan": {
+    "outcome": "automatable",
+    "count": 2
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md",
+    ".agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `c6e3014e71b9` · base `origin/develop@c6e3014e71b9` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `5429da892c89` (tracked)
