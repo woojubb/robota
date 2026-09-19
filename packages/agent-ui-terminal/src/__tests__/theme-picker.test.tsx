@@ -37,6 +37,7 @@ function picker(overrides: Partial<IAppThemePickerViewModel> = {}): IAppThemePic
   return {
     visible: true,
     themes: listBuiltInThemes(),
+    skipped: [],
     activeThemeId: 'dark',
     syntaxHighlighting: true,
     reducedMotion: false,
@@ -241,5 +242,81 @@ describe('the theme picker in screen-reader mode (SCREEN-2002 TC-10)', () => {
 
     expect(view.cancel).toHaveBeenCalledTimes(1);
     expect(view.select).not.toHaveBeenCalled();
+  });
+});
+
+describe('the theme picker over files it refused (SCREEN-2002 TC-11)', () => {
+  const skipped = [
+    { id: 'custom:broken', fileName: 'broken.json', reason: '$.overrides.colors.text.accent: bad' },
+  ];
+
+  it('shows a refused file as a row that carries its reason and cannot be chosen', async () => {
+    const view = picker({ skipped });
+    const { lastFrame, stdin } = render(<ThemePicker picker={view} />);
+    const frame = lastFrame() ?? '';
+
+    expect(frame).toContain('broken.json');
+    expect(frame).toContain('$.overrides.colors.text.accent: bad');
+
+    // Walking past the end of the applicable rows wraps to the first one; it never lands on a file
+    // the run has already refused, because selecting it could only fail.
+    await tick();
+    for (let index = 0; index <= listBuiltInThemes().length; index += 1) {
+      stdin.write(ARROW_DOWN);
+      await tick();
+    }
+    stdin.write(ENTER);
+    await tick();
+
+    expect(view.select).toHaveBeenCalledTimes(1);
+    const [selectedId] = (view.select as ReturnType<typeof vi.fn>).mock.calls[0] ?? [];
+    expect(listBuiltInThemes().map((theme) => theme.id)).toContain(selectedId);
+  });
+
+  it('says nothing about skipped files when there are none', () => {
+    expect(render(<ThemePicker picker={picker()} />).lastFrame() ?? '').not.toContain('Skipped');
+  });
+
+  it('numbers only the applicable rows in screen-reader mode', async () => {
+    const view = picker({ skipped });
+    const { lastFrame, stdin } = render(
+      <ScreenReaderProvider enabled>
+        <ThemePicker picker={view} />
+      </ScreenReaderProvider>,
+    );
+    const frame = lastFrame() ?? '';
+
+    expect(frame).toContain('broken.json');
+    expect(frame).not.toMatch(/5\.\s*Skipped/u);
+
+    await tick();
+    stdin.write('5');
+    await tick();
+    stdin.write(ENTER);
+    await tick();
+
+    expect(view.select).not.toHaveBeenCalled();
+  });
+});
+
+describe('the toggles row names a route the mode can take (SCREEN-2002 TC-11)', () => {
+  it('names the commands in screen-reader mode, where `s` and `m` are not bound', () => {
+    const frame =
+      render(
+        <ScreenReaderProvider enabled>
+          <ThemePicker picker={picker()} />
+        </ScreenReaderProvider>,
+      ).lastFrame() ?? '';
+
+    expect(frame).toContain('syntax on · motion on');
+    expect(frame).toContain('/theme syntax on|off');
+    expect(frame).toContain('/theme motion on|off');
+  });
+
+  it('does NOT name them in sighted mode, where the keys are bound and hinted', () => {
+    const frame = render(<ThemePicker picker={picker()} />).lastFrame() ?? '';
+
+    expect(frame).toContain('syntax on · motion on');
+    expect(frame).not.toContain('/theme syntax');
   });
 });

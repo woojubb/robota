@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { DARK_THEME, LIGHT_THEME } from '../built-in-themes.js';
+import { DARK_THEME, LIGHT_THEME, listBuiltInThemes } from '../built-in-themes.js';
 import {
   createThemeCataloguePort,
   createThemeRegistry,
@@ -116,5 +116,21 @@ describe('the catalogue port (SCREEN-2002 TC-09)', () => {
     });
 
     expect(port.getAppearance().reducedMotionOverride).toBe('flag');
+  });
+});
+
+describe('a registry that also carries what it could not load (SCREEN-2002 TC-11)', () => {
+  const skip = { id: 'custom:broken', fileName: 'broken.json', reason: '$.overrides: boom' };
+
+  it('keeps skipped files out of the themes it can resolve', () => {
+    const registry = createThemeRegistry(listBuiltInThemes(), [skip]);
+    expect(registry.get('custom:broken')).toBeUndefined();
+    expect(registry.list().some((theme) => theme.id === 'custom:broken')).toBe(false);
+    expect(registry.resolve('custom:broken').unknownId).toBe('custom:broken');
+  });
+
+  it('reports them separately, so a surface can SHOW a file it will not apply', () => {
+    expect(createThemeRegistry(listBuiltInThemes(), [skip]).skipped()).toEqual([skip]);
+    expect(createThemeRegistry().skipped()).toEqual([]);
   });
 });

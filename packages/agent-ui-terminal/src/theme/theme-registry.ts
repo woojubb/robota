@@ -20,6 +20,19 @@ import type {
   TReducedMotionOverride,
 } from '@robota-sdk/agent-interface-command';
 
+/**
+ * A theme file that was found and refused. It is carried BESIDE the themes rather than among them,
+ * because a surface must be able to show the file without ever resolving to it — an id that can be
+ * listed and cannot be applied is the shape of the bug this avoids.
+ */
+export interface IThemeSkip {
+  /** The id the file WOULD have had. Shown so a `/theme <id>` that fails has a visible reason. */
+  readonly id: string;
+  readonly fileName: string;
+  /** The path-named diagnostic, verbatim from `parseThemeDocument`. */
+  readonly reason: string;
+}
+
 export interface IThemeResolution {
   readonly theme: ITuiTheme;
   /** The id that was asked for and not found. Absent ⇒ the request was satisfied. */
@@ -31,14 +44,18 @@ export interface IThemeRegistry {
   get(id: string): ITuiTheme | undefined;
   /** The theme for an id, falling back to the default and NAMING what it could not find. */
   resolve(id: string | undefined): IThemeResolution;
+  /** The theme files that were found and refused, with the reason each was refused for. */
+  skipped(): readonly IThemeSkip[];
 }
 
 export function createThemeRegistry(
   themes: readonly ITuiTheme[] = listBuiltInThemes(),
+  skipped: readonly IThemeSkip[] = [],
 ): IThemeRegistry {
   const byId = new Map(themes.map((theme) => [theme.id, theme]));
   return {
     list: () => themes,
+    skipped: () => skipped,
     get: (id) => byId.get(id),
     resolve: (id) => {
       if (id === undefined || id === DEFAULT_THEME_ID) {

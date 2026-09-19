@@ -1,0 +1,124 @@
+/**
+ * SCREEN-2002 TC-11 — the theme file boundary.
+ *
+ * Everything a user or a plugin can put in a theme file arrives here as text. The contract is
+ * whole-file refusal with a path-named diagnostic: a file is either applied entirely or skipped
+ * entirely, because a partially-applied theme is the state where a reader cannot tell which colours
+ * are theirs and which are the base's.
+ */
+import { describe, expect, it } from 'vitest';
+
+import { DARK_THEME, LIGHT_THEME } from '../built-in-themes.js';
+import { parseThemeDocument } from '../theme-document.js';
+
+import type { TThemeDocumentResult } from '../theme-document.js';
+
+function parse(text: string, id = 'custom:mine'): TThemeDocumentResult {
+  return parseThemeDocument({ id, fileName: 'mine.json', source: 'user', text });
+}
+
+function expectRefusal(text: string): string {
+  const result = parse(text);
+  expect(result.ok).toBe(false);
+  if (result.ok) throw new Error('expected a refusal');
+  return result.error;
+}
+
+describe('parseThemeDocument', () => {
+  it('applies a sparse override over its base and leaves every other token alone', () => {
+    const result = parse(
+      JSON.stringify({
+        name: 'Mine',
+        base: 'light',
+        overrides: { colors: { text: { accent: '#56b4e9' } } },
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected a theme');
+    expect(result.theme.id).toBe('custom:mine');
+    expect(result.theme.name).toBe('Mine');
+    expect(result.theme.source).toBe('user');
+    expect(result.theme.appearance).toBe(LIGHT_THEME.appearance);
+    expect(result.theme.colors.text.accent).toBe('#56b4e9');
+    expect(result.theme.colors.text.muted).toBe(LIGHT_THEME.colors.text.muted);
+    expect(result.theme.syntax).toEqual(LIGHT_THEME.syntax);
+    expect(result.theme.motion).toEqual(LIGHT_THEME.motion);
+  });
+
+  it('defaults to the dark base and to the id as a name', () => {
+    const result = parse('{}');
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected a theme');
+    expect(result.theme.name).toBe('custom:mine');
+    expect(result.theme.colors).toEqual(DARK_THEME.colors);
+  });
+
+  it('refuses an unknown token path, naming it', () => {
+    const error = expectRefusal(
+      JSON.stringify({ overrides: { colors: { text: { accnt: 'red' } } } }),
+    );
+    expect(error).toBe('$.overrides.colors.text.accnt is not a theme token');
+  });
+
+  it('refuses an invalid colour value, naming its path and the value', () => {
+    const error = expectRefusal(
+      JSON.stringify({ overrides: { colors: { text: { accent: 'not-a-colour' } } } }),
+    );
+    expect(error).toMatch(/^\$\.overrides\.colors\.text\.accent: "not-a-colour" is not a colour/u);
+  });
+
+  it('refuses a raw SGR string — the grammar is the injection floor', () => {
+    const sgr = `${String.fromCharCode(27)}[31m`;
+    const error = expectRefusal(JSON.stringify({ overrides: { markdown: { code: sgr } } }));
+    expect(error).toMatch(/^\$\.overrides\.markdown\.code: /u);
+  });
+
+  it('refuses a background chalk name as a foreground token value', () => {
+    const error = expectRefusal(
+      JSON.stringify({ overrides: { colors: { border: { focused: 'bgRed' } } } }),
+    );
+    expect(error).toMatch(/^\$\.overrides\.colors\.border\.focused: "bgRed" is not a colour/u);
+  });
+
+  it('refuses a malformed file WHOLE, naming the file root', () => {
+    expect(expectRefusal('{ not json')).toMatch(/^\$: /u);
+  });
+
+  it('refuses an unknown base', () => {
+    expect(expectRefusal(JSON.stringify({ base: 'solarized' }))).toBe(
+      '$.base: "solarized" is not a built-in theme',
+    );
+  });
+
+  it('refuses an unknown top-level key', () => {
+    expect(expectRefusal(JSON.stringify({ colors: {} }))).toBe('$.colors is not a theme token');
+  });
+
+  it('refuses a token group replaced by a scalar, and a colour replaced by an object', () => {
+    expect(expectRefusal(JSON.stringify({ overrides: { colors: 'red' } }))).toMatch(
+      /^\$\.overrides\.colors: /u,
+    );
+    expect(
+      expectRefusal(JSON.stringify({ overrides: { colors: { text: { accent: {} } } } })),
+    ).toMatch(/^\$\.overrides\.colors\.text\.accent: /u);
+  });
+
+  it('refuses a motion ramp that is not exactly four colours', () => {
+    expect(
+      expectRefusal(JSON.stringify({ overrides: { motion: { wave: ['red', 'blue'] } } })),
+    ).toMatch(/^\$\.overrides\.motion\.wave: /u);
+    const ok = parse(
+      JSON.stringify({ overrides: { motion: { wave: ['red', 'blue', 'green', 'cyan'] } } }),
+    );
+    expect(ok.ok).toBe(true);
+  });
+
+  it('refuses a name that is not a non-empty string', () => {
+    expect(expectRefusal(JSON.stringify({ name: '' }))).toBe('$.name: expected a non-empty string');
+  });
+
+  it('never lets a document reach the prototype', () => {
+    const error = expectRefusal('{"overrides":{"colors":{"text":{"__proto__":{"a":true}}}}}');
+    expect(error).toBe('$.overrides.colors.text.__proto__ is not a theme token');
+  });
+});

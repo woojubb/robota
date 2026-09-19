@@ -1,3 +1,5 @@
+import { homedir } from 'node:os';
+
 import { PrintTerminal } from './print-terminal.js';
 import {
   resolveLatestSessionId,
@@ -198,6 +200,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
         });
   // SCREEN-2002: one registry, reaching both `/theme` (through its port) and `renderApp`.
   const theme = createThemeSurface({
+    cwd,
+    userHome: homedir(),
     enabled: keybindingsSource !== undefined,
     settings: userSettings,
     reducedMotionFlag: args.reducedMotion,
@@ -226,6 +230,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   );
   for (const { file, error } of outputStyleLoadErrors) {
     terminal.writeError(`Skipped output style "${file}": ${error}`);
+  }
+  // SCREEN-2002: a theme file that was refused says so ONCE, here, with the path that refused it.
+  // Silence would leave a user editing a file the run has already decided to ignore.
+  for (const { fileName, reason } of theme.skipped) {
+    terminal.writeError(`Skipped theme "${fileName}": ${reason}`);
   }
   const outputStyleId = selectOutputStyleId(args, userSettings.outputStyle);
   let outputStyle;

@@ -1,0 +1,172 @@
+/**
+ * SCREEN-2002 TC-11 — where theme files come from, and what happens to the ones that are wrong.
+ *
+ * The user directory is HOME-only, the plugin directories come from the installed plugins, and a
+ * file that does not parse is skipped by name with its diagnostic rather than taking its neighbours
+ * with it.
+ */
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { loadThemeSources } from '../theme-sources.js';
+
+const temporaryRoots: string[] = [];
+
+function temporaryDirectory(prefix: string): string {
+  const root = mkdtempSync(join(tmpdir(), prefix));
+  temporaryRoots.push(root);
+  return root;
+}
+
+function writeTheme(directory: string, fileName: string, body: string): void {
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(join(directory, fileName), body);
+}
+
+afterEach(() => {
+  for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
+
+describe('loadThemeSources', () => {
+  it('reads the user directory through the host contribution source and namespaces its ids', () => {
+    const home = temporaryDirectory('robota-theme-home-');
+    writeTheme(
+      join(home, '.robota', 'themes'),
+      'mine.json',
+      JSON.stringify({
+        name: 'Mine',
+        base: 'light',
+        overrides: { colors: { text: { accent: 'red' } } },
+      }),
+    );
+
+    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+
+    expect(sources.skipped).toEqual([]);
+    expect(sources.themes).toHaveLength(1);
+    expect(sources.themes[0]?.id).toBe('custom:mine');
+    expect(sources.themes[0]?.source).toBe('user');
+    expect(sources.themes[0]?.colors.text.accent).toBe('red');
+  });
+
+  it('cannot shadow a built-in, whatever the file is called', () => {
+    const home = temporaryDirectory('robota-theme-home-');
+    writeTheme(join(home, '.robota', 'themes'), 'dark.json', '{}');
+
+    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+
+    expect(sources.themes[0]?.id).toBe('custom:dark');
+  });
+
+  it('skips a file it cannot apply, by name and with its diagnostic, and keeps its neighbours', () => {
+    const home = temporaryDirectory('robota-theme-home-');
+    const directory = join(home, '.robota', 'themes');
+    writeTheme(directory, 'good.json', '{}');
+    writeTheme(
+      directory,
+      'broken.json',
+      JSON.stringify({ overrides: { colors: { text: { accent: 'not-a-colour' } } } }),
+    );
+    writeTheme(directory, 'garbage.json', '{ not json');
+
+    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+
+    expect(sources.themes.map((theme) => theme.id)).toEqual(['custom:good']);
+    expect(sources.skipped.map((skip) => skip.fileName).sort()).toEqual([
+      'broken.json',
+      'garbage.json',
+    ]);
+    const broken = sources.skipped.find((skip) => skip.fileName === 'broken.json');
+    expect(broken?.id).toBe('custom:broken');
+    expect(broken?.reason).toMatch(/^\$\.overrides\.colors\.text\.accent: /u);
+  });
+
+  it('ignores anything that is not a .json file', () => {
+    const home = temporaryDirectory('robota-theme-home-');
+    writeTheme(join(home, '.robota', 'themes'), 'notes.md', 'not a theme');
+
+    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+
+    expect(sources.themes).toEqual([]);
+    expect(sources.skipped).toEqual([]);
+  });
+
+  it('is the empty state, not an error, when the directory is absent', () => {
+    const home = temporaryDirectory('robota-theme-home-');
+
+    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+
+    expect(sources).toEqual({ themes: [], skipped: [] });
+  });
+
+  it('reads a plugin directory and namespaces its ids under the plugin', () => {
+    const home = temporaryDirectory('robota-theme-home-');
+    const pluginDir = temporaryDirectory('robota-theme-plugin-');
+    writeTheme(join(pluginDir, 'themes'), 'plugged.json', JSON.stringify({ name: 'Plugged' }));
+
+    const sources = loadThemeSources({
+      cwd: undefined,
+      userHome: home,
+      plugins: [{ name: 'theme-fixture', pluginDir }],
+    });
+
+    expect(sources.themes).toHaveLength(1);
+    expect(sources.themes[0]?.id).toBe('custom:theme-fixture:plugged');
+    expect(sources.themes[0]?.name).toBe('Plugged');
+    expect(sources.themes[0]?.source).toBe('plugin');
+  });
+
+  it('keeps the first file to claim an id and skips the second, rather than silently replacing it', () => {
+    const home = temporaryDirectory('robota-theme-home-');
+    const first = temporaryDirectory('robota-theme-plugin-a-');
+    const second = temporaryDirectory('robota-theme-plugin-b-');
+    writeTheme(join(first, 'themes'), 'one.json', JSON.stringify({ name: 'First' }));
+    writeTheme(join(second, 'themes'), 'one.json', JSON.stringify({ name: 'Second' }));
+
+    const sources = loadThemeSources({
+      cwd: undefined,
+      userHome: home,
+      plugins: [
+        { name: 'same', pluginDir: first },
+        { name: 'same', pluginDir: second },
+      ],
+    });
+
+    expect(sources.themes.map((theme) => theme.name)).toEqual(['First']);
+    expect(sources.skipped[0]?.id).toBe('custom:same:one');
+    expect(sources.skipped[0]?.reason).toMatch(/already/u);
+  });
+  it('finds a plugin theme through the REAL scope layout, not only through an injected list', () => {
+    // The injected `plugins` list above proves the reading; it cannot prove the discovery. Without
+    // this, `pluginScopeDirs` could name the wrong directory and every test would still be green.
+    const home = temporaryDirectory('robota-theme-home-');
+    const versionDir = join(
+      home,
+      '.robota',
+      'plugins',
+      'cache',
+      'fixtures',
+      'theme-fixture',
+      '1.0.0',
+    );
+    mkdirSync(join(versionDir, '.claude-plugin'), { recursive: true });
+    writeFileSync(
+      join(versionDir, '.claude-plugin', 'plugin.json'),
+      JSON.stringify({
+        name: 'theme-fixture',
+        version: '1.0.0',
+        description: 'themes only',
+        features: {},
+      }),
+    );
+    writeTheme(join(versionDir, 'themes'), 'plugged.json', JSON.stringify({ name: 'Plugged' }));
+
+    const sources = loadThemeSources({ cwd: undefined, userHome: home });
+
+    expect(sources.themes.map((theme) => theme.id)).toEqual(['custom:theme-fixture:plugged']);
+    expect(sources.themes[0]?.source).toBe('plugin');
+  });
+});

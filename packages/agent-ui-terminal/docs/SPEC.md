@@ -440,6 +440,35 @@ everything rendered after it, while entries already in scrollback keep the theme
 in. This is the same property that makes the transcript survivable at all (SCREEN-1993), and it is
 the reason a picker previews against the live region rather than the transcript.
 
+**User and plugin themes: one strict policy** (`src/theme/theme-document.ts`). A theme FILE is
+`{ name?, base?, overrides? }`: `base` names a built-in, and `overrides` is a sparse map over the
+same token paths the built-ins use. The paths are not listed in the parser — they are WALKED from
+the base theme, so `ITuiTheme` gaining a key makes it overridable and losing one makes it refused,
+and there is no second declaration of the token model to drift from the first. Values go through
+`isThemeColor`, the one place the grammar is decided.
+
+The file is applied WHOLE or not at all. The first unknown token path, non-colour value, wrong shape
+or parse failure refuses the entire file with a `$.`-prefixed diagnostic naming what was wrong — the
+keybindings document's contract, for the same reason: a partially-applied theme is the state where a
+reader cannot tell which colours are theirs and which the base's. A refused file is carried in the
+registry BESIDE the themes (`IThemeSkip`), never among them, so a surface can SHOW it without ever
+being able to resolve to it; `agent-cli` prints it once at startup and the picker renders it as a
+row that carries the same reason and cannot be chosen. Its neighbours still load — one unreadable
+file does not take the rest down with it (the CORE-029 lesson, applied here).
+
+The document never names itself. The `id` is minted by the loader from WHERE the file was found
+(`custom:<slug>`, `custom:<plugin>:<slug>`), the `source` is which loader read it, and the
+`appearance` follows the base it extends — so no file can claim a built-in's id whatever it is
+called, and `id` is not a thing a theme author can get wrong.
+
+**An unencodable colour throws, and says which one.** `foreground()` and `background()` REFUSE a
+value outside the grammar rather than answering with a default style. Before SCREEN-2002's third
+work unit they gave two different silent answers to the same question — the caller's base, and
+`chalk.reset` — so one bad value rendered as unstyled text in one place and as a reset in another.
+The value is unreachable in practice (built-ins are checked by the TC-01 tests, files are refused
+whole above), which is exactly why reaching it is a defect in this package and not something to
+paper over: the one behaviour it must not have is rendering a theme nobody can see is wrong.
+
 **De-emphasis rule.** The canonical muted treatment is Ink's `dimColor` (terminal-theme-relative,
 degrades for free) — including `KeyHintFooter`'s footers. `colors.text.muted` exists only where an
 actual colour VALUE is required (the static WaveText frame, the idle status, the idle activity, the

@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { createThemeRegistry, formatUnknownThemeNotice } from '../theme/theme-registry.js';
 
 import type { ITuiTheme } from '../theme/theme-contracts.js';
-import type { IThemeRegistry } from '../theme/theme-registry.js';
+import type { IThemeRegistry, IThemeSkip } from '../theme/theme-registry.js';
 import type {
   IAppearanceSettings,
   TReducedMotionOverride,
@@ -17,6 +17,8 @@ export interface IThemeToggles {
 export interface IAppThemePickerViewModel {
   readonly visible: boolean;
   readonly themes: readonly ITuiTheme[];
+  /** Theme files that were found and refused — shown as rows that cannot be chosen. */
+  readonly skipped: readonly IThemeSkip[];
   /** The id that is PERSISTED — the row the picker returns to when it is cancelled. */
   readonly activeThemeId: string;
   /** The PERSISTED toggles the picker seeds itself from and submits alongside the theme. */
@@ -120,6 +122,7 @@ export function useAppThemeState(options: IOptions): IAppThemeViewModel {
     picker: {
       visible: options.visible,
       themes: registry.list(),
+      skipped: registry.skipped(),
       activeThemeId: options.appearance.theme,
       syntaxHighlighting: options.appearance.syntaxHighlighting,
       reducedMotion: options.appearance.reducedMotion,

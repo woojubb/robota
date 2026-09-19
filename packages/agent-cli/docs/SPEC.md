@@ -661,6 +661,39 @@ automaticMemory: { policy, retrieval: budget } }` with a default budget
   inspectable via the existing `/memory` command (list / pending / approve); recalled memory is rendered
   into the turn as a distinct `<recalled-memory>` block (P3).
 
+### Theme Surface Composition (SCREEN-2002)
+
+`src/startup/theme-surface.ts` assembles ONE theme registry per run and hands the same instance to
+both consumers — the `/theme` command, through its catalogue port, and `renderApp` — so a listing
+and a switch can never disagree about which themes exist. This is the arrangement `keybindingsSource`
+already uses, for the same reason.
+
+- **Enablement.** A run that renders no terminal UI (print mode, `--goal`, `--serve`) gets no
+  registry, no command and reads no theme file at all — the same absence that leaves `/keybindings`
+  unregistered there. It must not spend a directory walk, and must not print a skip line about a
+  file nothing was going to use.
+- **Reduced motion** resolves settings ← `ROBOTA_REDUCED_MOTION` ← `--reduced-motion` /
+  `--no-reduced-motion` (`src/startup/appearance-enablement.ts`); only the env/flag tier is carried
+  onward as `reducedMotionOverride`, and it reaches the RENDERER as well as the command port, so the
+  picker admits a pin instead of showing `motion on` on a visibly still run.
+- **Appearance is re-read per call**, never captured at startup: the host writes the settings
+  document when it applies an `appearance-settings-patch`, so a snapshot would make `/theme list`
+  report the change the user just made as not having happened.
+
+`src/startup/theme-sources.ts` owns WHERE theme files come from. The user directory is
+`~/.robota/themes`, read through the same root-bounded host contribution source
+`~/.robota/output-styles` is read through — home-only, because a theme is a preference of the person
+at the terminal rather than of the checkout. Plugin themes come from `<pluginDir>/themes` for each
+installed plugin, via `pluginScopeDirs`, which INCLUDES the project scope; that asymmetry is
+deliberate. Ids are minted here from where the file was found (`custom:<slug>`,
+`custom:<plugin>:<slug>`), so no file can claim a built-in's id whatever it is called, and the first
+file to claim an id keeps it while a later claimant is skipped rather than silently replacing it.
+
+Parsing and refusal belong to `agent-ui-terminal` (that package's SPEC, § Color & Motion Contract).
+This package prints each refusal once at startup as `Skipped theme "<file>": <diagnostic>`, beside
+the identical line output styles already print, and carries the same list on the registry so the
+picker shows the same file as a row it cannot choose.
+
 ### Screen Reader Mode Enablement (CLI-2004)
 
 The TUI's plain-text screen-reader mode is **opt-in, default OFF**, and this package owns the

@@ -177,8 +177,20 @@ describe('the dark theme reproduces todays rendering (SCREEN-2002 TC-02)', () =>
   it('refuses a background name where a foreground was asked for', () => {
     // `isThemeColor` refuses `bgRed` as a token value; the builder must agree rather than hand back
     // a background style. The style table holds the `bg…` entries for `background()`'s use.
-    expect(foreground('bgRed')('x')).toBe(chalk('x'));
+    expect(() => foreground('bgRed')).toThrow(/bgRed/u);
     expect(background('red')('x')).toBe(chalk.bgRed('x'));
+  });
+
+  it('THROWS on a value outside the grammar rather than answering with a default style', () => {
+    // SCREEN-2002 work unit 3. These two answered the same question differently and silently —
+    // `foreground` with its base, `background` with `chalk.reset` — so a value neither could encode
+    // rendered as unstyled text in one place and as a reset in another. Unreachable while every
+    // value came from a validated built-in; reachable the moment a parsed file reaches the builder,
+    // which is why `parseThemeDocument` refuses a file WHOLE and this refuses what gets past it.
+    expect(() => foreground('not-a-colour')).toThrow(/not-a-colour/u);
+    expect(() => background('not-a-colour')).toThrow(/not-a-colour/u);
+    // The refusal names the grammar, because the value came from a file someone has to fix.
+    expect(() => foreground('not-a-colour')).toThrow(/#rrggbb/u);
   });
 
   it('keeps the terminals own colour DEPTH for diff rows when there is one', () => {

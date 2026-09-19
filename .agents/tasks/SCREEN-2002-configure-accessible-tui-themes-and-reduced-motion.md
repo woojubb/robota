@@ -30,7 +30,7 @@ Three work units under one design gate (the PR Unit Rule), delivered in order, e
       `tui-palette.ts` and `tui-ansi-palette.ts`, the two consistency ratchets, `useMotion` with its two
       recorded carve-outs, and the SPEC § Color & Motion rewrite. Colour-identical output with four
       recorded byte exceptions.
-- [ ] Unit 2 — TC-07, TC-08, TC-09, TC-10: the three settings keys with ONE framework reader and guard,
+- [x] Unit 2 — TC-07, TC-08, TC-09, TC-10: the three settings keys with ONE framework reader and guard,
       the `appearance-settings-patch` host action, `/theme` behind `IThemeCataloguePort`, the
       settings ← env ← flag resolution with the override tier threaded into `renderApp`, and the picker
       with its `theme-picker` keybinding context, published schema and guide entry.
@@ -39,8 +39,11 @@ Three work units under one design gate (the PR Unit Rule), delivered in order, e
 - [ ] TC-13: the PTY scenario over the built CLI.
 
 Unit 1 delivered in PR #2752, merged to `develop` as `b1689aa8541ba03010053bd5452ba30bebfe4bcd`
-(reviewed head `f16d5c7630b5db8feeac9b59781ee33afacacaf6`). This Task stays `in-progress`: the item
-spans three pull requests by design (`**Delivery mode:** sequenced`), and units 2 and 3 are open.
+(reviewed head `f16d5c7630b5db8feeac9b59781ee33afacacaf6`). Unit 2 delivered in PR #2753, merged to
+`develop` as `c6e3014e71b9fbd32933cdd61a06f686a44bd404` (reviewed head
+`795b26bd1a5f381155b366fc5271ae4a37b5a15a`); the landing was verified against the remote ref, and the
+68 files the PR changed are the 68 the merge brought onto `develop`. This Task stays `in-progress`:
+the item spans three pull requests by design (`**Delivery mode:** sequenced`), and unit 3 is open.
 
 - [ ] TC-12: Engineering verification.
 
@@ -54,6 +57,28 @@ no approved criterion — either the mode gets its own way to reach the toggles,
 numbered menu means, or the row stops rendering an affordance the mode cannot reach. Carried here
 rather than decided inside a review fold, because unit 3 reopens this component for user and plugin
 rows and for Scenario 1's disabled row, so the decision lands with a criterion attached.
+
+**Decided for unit 3 — the toggles row names its route instead of implying a key.** Of the two
+options recorded above, the second is taken, in the form that keeps the state visible: in
+screen-reader mode the row renders `syntax on · motion off — change with /theme syntax on|off or
+/theme motion on|off` and the sighted row is unchanged. The state is information a reader wants
+before choosing; only the implication that `s` and `m` will do something is removed, and the
+sentence that replaces it names a route that mode can actually take. The alternative — numbering the
+toggles into the menu — was refused because the numbered prompt means "pick a theme", and an answer
+that sometimes picks a theme and sometimes flips a switch is a worse affordance than a named
+command. **Criterion (TC-11):** in screen-reader mode the picker's toggles row names `/theme syntax`
+and `/theme motion`, and in sighted mode it does not; the `s`/`m` hints appear only where the keys
+are bound.
+
+**Decided for unit 3 — the two silent colour fallbacks are closed by refusing, not by defaulting.**
+`foreground()` answered an unknown value with its `base` and `background()`'s helper answered with
+`chalk.reset`: two different silent answers to the same question, unreachable while every value came
+from a TC-01-validated built-in and reachable the moment a parsed file reaches the builder. Both
+become a thrown error naming the value, because after `parseThemeDocument` refuses a file WHOLE, a
+value the builder cannot encode is a defect in this package rather than in the user's file — and the
+one thing it must not do is render a theme the user cannot see is wrong. **Criterion (TC-11):** the
+builder throws, naming the value, for a colour outside Ink's grammar, and no code path returns a
+style for one.
 
 ## Test Plan
 
