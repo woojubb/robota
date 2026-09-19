@@ -44,3 +44,16 @@ Not applicable.
 
 **Reason:** The behavior is private repository gate enforcement used by contributors; it exposes no
 Robota product CLI, TUI, browser, public SDK, or installed-package interaction for an end user.
+
+## Standing Authorization
+
+**Instruction (verbatim):** "승인합니다. 그리고 앞으로 타당한 근거와 함께 추천안을 제시하면 근거가 타당할 경우 자동으로 승인합니다."
+
+**Given:** 2026-09-20, this conversation.
+
+This authorizes decisions in this initiative that already sit inside agent authority when the
+recommendation records its grounds and receives the independent validation required by
+`backlog-execution.md` § "Validated recommendations and bounded gate-FAIL corrections". It does not
+create a delegated GATE-APPROVAL class, approve a future spec by resemblance, or cover product
+direction, a published contract, repository-wide policy files, a user-authored document, or a
+protected-branch merge requiring a fresh decision.
