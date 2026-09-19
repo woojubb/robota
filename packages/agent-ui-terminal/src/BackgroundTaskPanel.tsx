@@ -53,7 +53,9 @@ export default function BackgroundTaskPanel({
           // SCREEN-014: the keyboard-focused row is inverse-highlighted.
           <Text key={entry.id} wrap="truncate-end" inverse={isFocused}>
             {`${row.connector} `}
-            <Text color={statusGlyphColor(palette, row.statusKind)}>{`${row.marker} ${row.state}`}</Text>
+            <Text
+              color={statusGlyphColor(palette, row.statusKind)}
+            >{`${row.marker} ${row.state}`}</Text>
             {` ${row.label}`}
             {row.segments.map((segment, segmentIndex) => (
               <Text key={`${segment}-${segmentIndex}`} dimColor>{` · ${segment}`}</Text>

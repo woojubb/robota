@@ -27,7 +27,8 @@ export default function ToolCommandOutput({ tool }: IProps): React.ReactElement 
   ) {
     return null;
   }
-  const color = summary.status === 'error' ? statusGlyphColor(palette, 'error') : palette.text.emphasis;
+  const color =
+    summary.status === 'error' ? statusGlyphColor(palette, 'error') : palette.text.emphasis;
 
   return (
     <Box flexDirection="column" marginLeft={4}>
