@@ -412,10 +412,20 @@ colour off and WaveText static. Components add no per-call-site degradation bran
 divergence, unchanged: the gate treats an EMPTY `NO_COLOR` as set (off), stricter than
 no-color.org's "present and not an empty string" — the strict direction is the safe one. The diff
 rows are the one exception to chalk's ambient detection: they are this package's own output and
-their caller decides with its `color` flag, so they are styled through a level-forced chalk
-instance, exactly as the hand-written escapes behaved. Their one byte difference from those escapes
-is recorded: chalk closes a background+foreground pair with `ESC[39m ESC[49m` rather than the
-blanket `ESC[0m`.
+their caller decides with its `color` flag, so when chalk detects NO colour at all they are styled
+through a level-forced instance, exactly as the hand-written escapes behaved. Only the OFF case is
+overridden — a DETECTED level is kept, because forcing truecolor over a 256-colour terminal would
+emit a depth for these rows that the rest of the frame downsamples away. Their byte difference from
+the hand-written escapes is recorded: chalk closes each style with its own paired closer rather
+than the blanket `ESC[0m` — `ESC[39m ESC[49m` for a background+foreground pair, `ESC[39m` for the
+hunk header, `ESC[22m` for the dim `diff `/`index ` metadata rows.
+
+**The anti-drift floor matches the SYMBOL, not the module path.** `palette-consistency.test.ts`
+refuses any file outside `src/theme/` that NAMES a built-in theme constant, however it is imported:
+matching the `built-in-themes.js` path alone would leave the `src/theme/index.js` barrel — the route
+every migrated component already imports through — as a way around the floor. A non-React caller
+that must render without a resolved theme (`renderMarkdown`) asks `resolveTheme()`, which is where
+"no theme was resolved" is answered, rather than reaching for the data itself.
 
 **A theme change does not repaint scrollback.** Committed transcript entries go through Ink's
 `<Static>` (see "Architecture Overview") and are emitted once; the terminal owns them from then on.

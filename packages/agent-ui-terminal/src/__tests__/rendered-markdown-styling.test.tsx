@@ -2,7 +2,7 @@
  * SCREEN-006 × #2222: the markdown renderer's own SGR must SURVIVE to the frame.
  *
  * `renderMarkdown` sanitizes untrusted markdown BEFORE `marked-terminal` styles it, so the escape
- * codes in its OUTPUT are this package's own — the `tui-ansi-palette` diff pairs, heading emphasis.
+ * codes in its OUTPUT are this package's own — the theme's diff pairs, heading emphasis.
  * Routing that output back through `SafeText` sanitizes it a second time and strips exactly those
  * codes, and it does so silently: the text still renders, just colourless. Every assertion in
  * `streaming-indicator.test.tsx` and the tool-diff suite is on TEXT, so all of them stay green
@@ -17,7 +17,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import StreamingIndicator from '../StreamingIndicator.js';
 import ToolDiffBlock from '../ToolDiffBlock.js';
-import { DARK_THEME, foreground } from '../theme/index.js';
+import { DARK_THEME } from '../theme/built-in-themes.js';
+import { foreground } from '../theme/index.js';
 
 import type { IDiffLine } from '@robota-sdk/agent-interface-session';
 

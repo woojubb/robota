@@ -12,7 +12,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { AppBanner } from '../../app-banner.js';
 import WaveText from '../../WaveText.js';
-import { LIGHT_THEME } from '../built-in-themes.js';
+import { DARK_THEME, LIGHT_THEME } from '../built-in-themes.js';
 import { ThemeProvider } from '../theme-context.js';
 import { foreground } from '../theme-styles.js';
 
@@ -31,6 +31,15 @@ afterEach(() => {
 });
 
 describe('reduced motion (SCREEN-2002 TC-06)', () => {
+  const originalLevel = chalk.level;
+  const TRUECOLOR = 3;
+  beforeAll(() => {
+    chalk.level = TRUECOLOR;
+  });
+  afterAll(() => {
+    chalk.level = originalLevel;
+  });
+
   it('stops the animation without stopping colour, and schedules no interval at all', () => {
     vi.useFakeTimers();
     const { lastFrame, unmount } = render(
@@ -45,8 +54,13 @@ describe('reduced motion (SCREEN-2002 TC-06)', () => {
     const later = lastFrame() ?? '';
     unmount();
     expect(later).toBe(first);
-    // Colour is untouched — reduced motion is orthogonal to the colour gate.
+    // Colour is untouched — reduced motion is orthogonal to the colour gate. The frame is the
+    // canonical MUTED token, not an uncoloured one and not a stopped ramp stop.
     expect(first).toContain('Waiting');
+    expect(first).toContain(openCode(DARK_THEME.colors.text.muted));
+    for (const stop of DARK_THEME.motion.wave) {
+      expect(first).not.toContain(openCode(stop));
+    }
   });
 
   it('animates when reduced motion is off', () => {

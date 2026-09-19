@@ -315,3 +315,13 @@ export const BUILT_IN_THEMES: readonly ITuiTheme[] = [
 
 /** The theme a run uses when nothing is configured: today's colours. */
 export const DEFAULT_THEME_ID = DARK_THEME.id;
+
+/**
+ * The one place "no theme was resolved" is answered. A caller outside `src/theme/` asks this instead
+ * of importing the built-in data, so the anti-drift floor can keep the colour DATA inside this
+ * module and still let a non-React entry point — `renderMarkdown`, which is called with a theme or
+ * without one — render at all.
+ */
+export function resolveTheme(theme: ITuiTheme | undefined): ITuiTheme {
+  return theme ?? DARK_THEME;
+}

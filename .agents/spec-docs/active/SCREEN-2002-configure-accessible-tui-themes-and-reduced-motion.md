@@ -127,6 +127,11 @@ Three named work units under this one design gate (the PR Unit Rule and the batc
 **Unit 3 — user and plugin themes.**
 
 13. `packages/agent-ui-terminal/src/theme/theme-document.ts`: `parseThemeDocument` — `{ name?, base?, overrides? }`, whole-file refusal with a path-named diagnostic.
+    - Carried from work unit 1's review: `foreground()` and `chalkNamed()` currently answer an
+      unknown colour name with two DIFFERENT silent fallbacks (`base` and `chalk.reset`). Unreachable
+      with the built-ins — every value there is validated by TC-01 — but `parseThemeDocument` is the
+      boundary where an unknown value becomes reachable, so the refusal it introduces is what closes
+      it, and neither fallback may stay silent behind it.
 14. `packages/agent-cli/src/startup/theme-sources.ts`: the user directory through `createNodeHostContributionSource`, the plugin directories through `loadHostBundlePluginsFromScopes(pluginScopeDirs(cwd, home))`; load errors printed as `Skipped theme "<file>": …`; the picker's disabled rows.
 
 ## Affected Files

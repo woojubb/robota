@@ -8,7 +8,7 @@
  */
 import React, { createContext, useContext, useMemo } from 'react';
 
-import { DARK_THEME } from './built-in-themes.js';
+import { DARK_THEME, resolveTheme } from './built-in-themes.js';
 import { useScreenReader } from '../screen-reader-context.js';
 import { isInteractiveColorTerminal } from '../terminal-capabilities.js';
 
@@ -27,7 +27,7 @@ export function ThemeProvider({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <ThemeContext.Provider value={theme ?? DARK_THEME}>
+    <ThemeContext.Provider value={resolveTheme(theme)}>
       <ReducedMotionContext.Provider value={reducedMotion}>
         {children}
       </ReducedMotionContext.Provider>

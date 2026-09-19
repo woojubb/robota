@@ -1,5 +1,10 @@
 /** SCREEN-2002 — the theme module's internal surface (the package exports nothing from here yet). */
-export { BUILT_IN_THEMES, DARK_THEME, DEFAULT_THEME_ID } from './built-in-themes.js';
+/**
+ * The colour DATA (`DARK_THEME` and its siblings) is deliberately NOT re-exported: the anti-drift
+ * floor forbids it outside `src/theme/`, and a barrel re-export would be the way around that. A
+ * caller that needs a theme it did not receive asks {@link resolveTheme}.
+ */
+export { BUILT_IN_THEMES, DEFAULT_THEME_ID, resolveTheme } from './built-in-themes.js';
 export {
   ThemeProvider,
   useMotion,

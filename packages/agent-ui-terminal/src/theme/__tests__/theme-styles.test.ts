@@ -75,6 +75,10 @@ describe('theme colour grammar (SCREEN-2002 TC-01)', () => {
       'rgb(1,2)',
       `${SGR}31m`,
       'cyan bold',
+      // A chalk BACKGROUND name is a real chalk style but never a token value: every token in the
+      // model is a foreground, and `background()` derives the `bg…` name from it.
+      'bgRed',
+      'bgCyan',
     ]) {
       expect(isThemeColor(value)).toBe(false);
     }
@@ -167,6 +171,27 @@ describe('the dark theme reproduces todays rendering (SCREEN-2002 TC-02)', () =>
     expect(added.endsWith(`${SGR}0m`)).toBe(false);
     expect(added).toContain(`${SGR}39m`);
     expect(added).toContain(`${SGR}49m`);
+  });
+
+  it('keeps the terminals own colour DEPTH for diff rows when there is one', () => {
+    const daltonized = BUILT_IN_THEMES.find((theme) => theme.id === 'dark-daltonized');
+    expect(daltonized).toBeDefined();
+    const ANSI256 = 2;
+    const previous = chalk.level;
+    try {
+      // A 256-colour terminal: the row must downsample with the rest of the frame, not emit
+      // truecolor on its own because the diff renderer forced a level.
+      chalk.level = ANSI256;
+      const row = diffRowStyles(daltonized ?? DARK_THEME).added('+row');
+      expect(row).toContain(`${SGR}38;5;`);
+      expect(row).not.toContain(`${SGR}38;2;`);
+      // Colour OFF is the one case that IS overridden — the caller asked for colour.
+      chalk.level = 0;
+      const forced = diffRowStyles(daltonized ?? DARK_THEME).added('+row');
+      expect(forced).toContain(`${SGR}38;2;`);
+    } finally {
+      chalk.level = previous;
+    }
   });
 
   it('renders a light theme in different bytes from the dark one', () => {

@@ -144,7 +144,11 @@ const MessageItem = React.memo(function MessageItem({
 }: {
   message: TUniversalMessage;
 }): React.ReactElement {
+  // Every hook this component uses runs BEFORE the early returns: a message whose role or kind
+  // changes in place would otherwise render a different NUMBER of hooks and React would throw.
   const theme = useTheme();
+  const screenReader = useScreenReader();
+
   if (isToolMessage(message)) {
     return <ToolMessage message={message} />;
   }
@@ -155,7 +159,6 @@ const MessageItem = React.memo(function MessageItem({
 
   const content = message.content ?? '';
   const isInterrupted = message.state === 'interrupted';
-  const screenReader = useScreenReader();
 
   return (
     <Box flexDirection="column" marginBottom={1}>

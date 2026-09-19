@@ -1,16 +1,16 @@
 /**
  * SCREEN-006 anti-drift consistency floor — the mechanical floor for the color-token SSOT.
  *
- * Every component must consume `PALETTE`/`MOTION` tokens (src/tui-palette.ts) instead of
- * spelling Ink color names or hex values inline. This scan reads every source file in the
- * package (excluding the two token modules themselves and tests) and fails on any
+ * Every component must consume the resolved theme (`usePalette()` / `useMotionTokens()`, whose data
+ * lives in `src/theme/`) instead of spelling Ink color names or hex values inline. This scan reads
+ * every source file in the package (excluding `src/theme/` itself and tests) and fails on any
  * `color="…"` / `borderColor="…"` / `backgroundColor="…"` JSX string literal and on any
  * `#rrggbb` hex literal. Precedent: `key-hint-consistency.test.tsx` (the SCREEN-005 floor).
  *
  * SCREEN-2002 added the two ratchets the SCREEN-006 limit predicted. The deferred case — "a future
- * TS helper returning a bare color-name string" — recurred twice (`getContextColor`,
- * `STATUS_GLYPH[...].color`), so the floor now also refuses any file outside `src/theme/` that
- * imports the built-in theme data or calls a chalk COLOUR function. `chalk.inverse` (a modifier, the
+ * TS helper returning a bare color-name string" — recurred twice (`getContextColor`, the status
+ * glyph's colour), so the floor now also refuses any file outside `src/theme/` that names the
+ * built-in theme data or calls a chalk COLOUR function. `chalk.inverse` (a modifier, the
  * drawn cursor) and `chalk.level` (the colour gate) are deliberately untouched: they choose no colour.
  *
  * What the floor still cannot see: a colour-name string returned from a helper that neither imports
@@ -32,8 +32,14 @@ const SOURCE_EXTENSIONS = ['.ts', '.tsx'];
 
 const COLOR_ATTR_LITERAL = /\b(?:color|borderColor|backgroundColor)="[^"]*"/g;
 const HEX_LITERAL = /#[0-9a-fA-F]{6}\b/g;
-/** SCREEN-2002: the built-in colour DATA may be imported only from inside `src/theme/`. */
-const BUILT_IN_THEME_IMPORT = /from\s+'[^']*built-in-themes\.js'/g;
+/**
+ * SCREEN-2002: the built-in colour DATA may be imported only from inside `src/theme/`. The SYMBOL is
+ * what the ratchet matches, not the module path — matching the path alone let the `src/theme/index.js`
+ * barrel re-export the data straight past the floor, which is exactly the route every migrated
+ * component already imports through.
+ */
+const BUILT_IN_THEME_IMPORT =
+  /\b(?:BUILT_IN_THEMES|DARK_THEME|LIGHT_THEME|DARK_DALTONIZED_THEME|LIGHT_DALTONIZED_THEME)\b|from\s+'[^']*built-in-themes\.js'/g;
 /** SCREEN-2002: a chalk COLOUR call outside `src/theme/` decides a colour the theme should own. */
 const CHALK_COLOR_CALL = /\bchalk\.(?!inverse\b|level\b|reset\b)[A-Za-z]+[.(]/g;
 
@@ -119,14 +125,33 @@ describe('SCREEN-006 palette consistency floor', () => {
     ).toEqual([]);
   });
 
+  /**
+   * SCREEN-2002 TC-06 carve-out, made mechanical. The motion gate has exactly ONE consumer, and the
+   * carve-outs depend on that: the sleeping-task countdown still advances under reduced motion
+   * (it reports a fact, it is not decoration) and `StreamingIndicator`'s collapse follows
+   * screen-reader mode alone. A second consumer would quietly widen what the setting turns off.
+   */
+  it('SCREEN-2002: the motion gate has one consumer', () => {
+    const consumers = sourceFiles.filter((file) =>
+      /\buseMotion\(\)/u.test(readFileSync(file, 'utf8')),
+    );
+    expect(consumers.map((file) => relative(SRC_ROOT, file)).sort()).toEqual(['WaveText.tsx']);
+  });
+
   it('both ratchets actually fire on a violating fixture', () => {
     const violation = [
       "import { DARK_THEME } from './theme/built-in-themes.js';",
       "const label = chalk.cyan('x');",
     ].join('\n');
-    expect([...violation.matchAll(BUILT_IN_THEME_IMPORT)]).toHaveLength(1);
+    // Two matches: the symbol and the path. Either alone is a violation.
+    expect([...violation.matchAll(BUILT_IN_THEME_IMPORT)]).toHaveLength(2);
     expect([...violation.matchAll(CHALK_COLOR_CALL)]).toHaveLength(1);
+    // The route the path-only ratchet could not see: the barrel re-exporting the same data.
+    const throughTheBarrel = "import { DARK_THEME } from './theme/index.js';";
+    expect([...throughTheBarrel.matchAll(BUILT_IN_THEME_IMPORT)]).toHaveLength(1);
     // The two deliberate exemptions stay green.
     expect([...'chalk.inverse(c) + (chalk.level = 0)'.matchAll(CHALK_COLOR_CALL)]).toHaveLength(0);
+    // `resolveTheme` is the sanctioned way to ask for a theme one did not receive.
+    expect([...'resolveTheme(options.theme)'.matchAll(BUILT_IN_THEME_IMPORT)]).toHaveLength(0);
   });
 });

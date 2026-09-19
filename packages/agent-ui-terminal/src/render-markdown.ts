@@ -5,9 +5,9 @@ import TerminalRenderer from 'marked-terminal';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { isInteractiveColorTerminal } from './terminal-capabilities.js';
 import {
-  DARK_THEME,
   diffRowStyles,
   markdownRendererOptions,
+  resolveTheme,
   syntaxHighlightTheme,
 } from './theme/index.js';
 
@@ -33,10 +33,6 @@ interface IRenderMarkdownOptions {
   screenReader?: boolean;
 }
 
-interface ITerminalRendererOptions {
-  code?: (text: string) => string;
-}
-
 interface IHighlightOptions {
   ignoreIllegals?: boolean;
   /** The cli-highlight theme marked-terminal forwards; absent ⇒ its red/green defaults. */
@@ -44,7 +40,8 @@ interface IHighlightOptions {
 }
 
 type TTerminalRendererConstructor = new (
-  options?: ITerminalRendererOptions | Record<string, (text: string) => string>,
+  /** `marked-terminal`'s style options: one chalk instance per token it colours. */
+  options?: Record<string, (text: string) => string>,
   highlightOptions?: IHighlightOptions,
 ) => Renderer;
 
@@ -204,7 +201,7 @@ export function renderMarkdown(md: string, options: IRenderMarkdownOptions = {})
       shouldUseColor(options.color),
       options.codeBlockWidth,
       options.screenReader === true,
-      options.theme ?? DARK_THEME,
+      resolveTheme(options.theme),
       options.syntaxHighlighting !== false,
     ),
   });

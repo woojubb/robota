@@ -14,7 +14,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import WaveText from '../WaveText.js';
 import { ScreenReaderProvider } from '../screen-reader-context.js';
-import { DARK_THEME, foreground } from '../theme/index.js';
+import { DARK_THEME } from '../theme/built-in-themes.js';
+import { foreground } from '../theme/index.js';
 
 /** Cadence is not themed; the component owns it (SCREEN-2002). */
 const WAVE_INTERVAL_MS = 400;

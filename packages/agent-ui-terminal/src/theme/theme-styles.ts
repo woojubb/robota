@@ -85,12 +85,21 @@ export function background(color: TThemeColor, base: ChalkInstance = chalk): Cha
 
 /**
  * The diff rows are written by this package, not by a dependency, and their caller decides colour
- * with its own `color` flag — so they are styled through a level-forced instance rather than
- * chalk's ambient detection. That is the behaviour the renderer had when it wrote the escapes by
- * hand, and the reason `renderMarkdown(md, { color: true })` still emits them off a TTY.
+ * with its own `color` flag — so a caller that asked for colour gets it even where chalk's own
+ * detection says level 0. That is the behaviour the renderer had when it wrote the escapes by hand,
+ * and the reason `renderMarkdown(md, { color: true })` still emits them off a TTY.
+ *
+ * What is forced is colour, NOT depth. Overriding a DETECTED level would downsample the rest of the
+ * frame while these rows alone emit truecolor — visible on a 256-colour terminal with a hex-valued
+ * theme, where `#56b4e9` is `ESC[38;5;117m` at level 2 and `ESC[38;2;86;180;233m` at level 3. So the
+ * ambient level is kept whenever there is one, and only the OFF case is overridden.
  */
 const TRUECOLOR = 3;
 const FORCED_CHALK = new Chalk({ level: TRUECOLOR });
+
+function diffRowBase(): ChalkInstance {
+  return chalk.level === 0 ? FORCED_CHALK : chalk;
+}
 
 /** The `marked-terminal` constructor options: theme colour + the structure that is not themed. */
 export function markdownRendererOptions(markdown: IThemeMarkdown): Record<string, ChalkInstance> {
@@ -130,7 +139,7 @@ export interface IDiffRowStyles {
 
 export function diffRowStyles(theme: ITuiTheme): IDiffRowStyles {
   const { markdown } = theme;
-  const base = FORCED_CHALK;
+  const base = diffRowBase();
   const addedBackground = background(markdown.diffAddedBackground, base);
   const addedForeground = foreground(markdown.diffAdded, base);
   const removedBackground = background(markdown.diffRemovedBackground, base);
