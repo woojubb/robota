@@ -91,8 +91,8 @@ location — no production judgement is left to make, and `enforcement-architect
 for reliability buys none. The orchestrator that routes the verdict files the item under
 [`.agents/tasks/README.md`](../tasks/README.md)'s format and registers it on the existing GitHub
 issue that owns the scope, as the next section requires. `backlog-writer` remains the author of
-gate-pipeline spec documents; when the root item is later picked up it enters that pipeline and gains a spec-doc under the same ID,
-which is the pairing the two trees already have.
+gate-pipeline spec documents; when the root item is later picked up it enters that pipeline and
+gains a spec-doc under the same ID, which is the pairing the two trees already have.
 
 ## A finding never opens a new GitHub issue
 
