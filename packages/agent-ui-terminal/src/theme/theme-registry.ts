@@ -32,7 +32,11 @@ import type {
  * listed and cannot be applied is the shape of the bug this avoids.
  */
 export interface IThemeSkip {
-  /** The id the file WOULD have had. Shown so a `/theme <id>` that fails has a visible reason. */
+  /**
+   * The id the file WOULD have had, so a `/theme <id>` that fails has a visible reason — or, when
+   * the file's own NAME is what made an id impossible, the quoted name in its place. It is a label,
+   * not a key: two files can carry the same one.
+   */
   readonly id: string;
   readonly fileName: string;
   /** The path-named diagnostic, verbatim from `parseThemeDocument`. */
@@ -97,10 +101,14 @@ export interface IThemeCataloguePortOptions {
    * happened.
    */
   readonly readAppearance: () => IThemeAppearanceState['settings'];
-  /** The tier that pinned reduced motion for this run, when one did. */
-  readonly reducedMotionOverride?: TReducedMotionOverride | undefined;
-  /** What that tier pinned it TO. A tier alone does not say which way it went. */
-  readonly reducedMotionForRun?: boolean | undefined;
+  /**
+   * The pin on reduced motion for this run, when something above the settings applied one — WHICH
+   * tier and WHAT it pinned, as one value. Two optional fields would let a caller supply the tier
+   * alone, and a default for the missing half is exactly the wrong answer this pair exists to stop:
+   * `--no-reduced-motion` is an override too and pins the opposite value.
+   */
+  readonly reducedMotionPin?:
+    { readonly tier: TReducedMotionOverride; readonly reducedMotion: boolean } | undefined;
 }
 
 export function createThemeCataloguePort(options: IThemeCataloguePortOptions): IThemeCataloguePort {
@@ -112,11 +120,11 @@ export function createThemeCataloguePort(options: IThemeCataloguePortOptions): I
     },
     getAppearance: () => ({
       settings: options.readAppearance(),
-      ...(options.reducedMotionOverride === undefined
+      ...(options.reducedMotionPin === undefined
         ? {}
         : {
-            reducedMotionOverride: options.reducedMotionOverride,
-            reducedMotionForRun: options.reducedMotionForRun ?? true,
+            reducedMotionOverride: options.reducedMotionPin.tier,
+            reducedMotionForRun: options.reducedMotionPin.reducedMotion,
           }),
     }),
   };

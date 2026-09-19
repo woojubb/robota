@@ -92,6 +92,36 @@ describe('parseThemeDocument', () => {
     expect(errors[0]).toContain('\\u001b[2J');
   });
 
+  it('escapes the 8-BIT spelling too, which JSON.stringify leaves standing', () => {
+    // A terminal accepts `ESC [` and the single byte U+009B as the same CSI, and `JSON.stringify`
+    // escapes only U+0000-U+001F — so quoting the 7-bit spelling alone leaves the other one's
+    // parameters as a live sequence. `sanitize-terminal-text.ts` states the same rule.
+    const csi = String.fromCharCode(0x9b);
+    const osc = String.fromCharCode(0x9d);
+    const del = String.fromCharCode(0x7f);
+    const errors = [
+      expectRefusal(JSON.stringify({ overrides: { markdown: { code: `${csi}2J` } } })),
+      expectRefusal(JSON.stringify({ base: `${osc}0;x` })),
+      expectRefusal(JSON.stringify({ [`${del}x`]: 1 })),
+    ];
+    for (const error of errors) {
+      expect(error).not.toContain(csi);
+      expect(error).not.toContain(osc);
+      expect(error).not.toContain(del);
+    }
+    expect(errors[0]).toContain('\\u009b2J');
+  });
+
+  it('checks the MINTED id on the same terms as a name the file supplied', () => {
+    const result = parseThemeDocument({
+      id: `custom:${String.fromCharCode(0x9b)}2J`,
+      fileName: 'mine.json',
+      source: 'user',
+      text: '{}',
+    });
+    expect(result.ok).toBe(false);
+  });
+
   it('refuses a name it would then render for the whole session', () => {
     // Unlike a diagnostic, a name is APPLIED: it is drawn on every `/theme list` row and every
     // picker row until the setting changes.

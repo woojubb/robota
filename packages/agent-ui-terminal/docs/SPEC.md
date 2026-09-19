@@ -256,6 +256,8 @@ the transport boundary.
 | `ITuiTheme`                     | type     | SCREEN-2002: one theme's colour, markdown, syntax and motion tokens                                                                                                                                  |
 | `listBuiltInThemes`             | function | SCREEN-2002: the built-ins, for a composition root that must put them in a registry beside user and plugin themes — the accessor, never the colour data                                              |
 | `parseThemeDocument`            | function | SCREEN-2002: one theme FILE, applied whole or refused whole with a `$.`-path diagnostic                                                                                                              |
+| `quoteThemeText`                | function | SCREEN-2002: the escaping policy for untrusted text in a diagnostic a terminal will print — both spellings of every control character, escaped rather than stripped                                  |
+| `sanitizeThemeProse`            | function | SCREEN-2002: the same policy for a sentence (a dependency's message, a path from the environment), which is sanitized rather than quoted                                                             |
 | `IThemeDocumentInput`           | type     | Parameter interface for `parseThemeDocument`: the minted id, the file name, and which source read it                                                                                                 |
 | `TThemeDocumentResult`          | type     | Return type of `parseThemeDocument`: a theme, or the refusal's reason                                                                                                                                |
 | `IThemeSkip`                    | type     | A theme file that was found and refused — carried beside the themes so a surface can show it without ever resolving to it                                                                            |
@@ -452,6 +454,21 @@ same token paths the built-ins use. The paths are not listed in the parser — t
 the base theme, so `ITuiTheme` gaining a key makes it overridable and losing one makes it refused,
 and there is no second declaration of the token model to drift from the first. Values go through
 `isThemeColor`, the one place the grammar is decided.
+
+**The diagnostic is part of the boundary, not a report on it.** A refused file's message is the one
+thing that reaches the terminal, and it quotes what was wrong — so interpolating the rejected value
+raw defeats the injection floor with the message that reports a violation of it. `quoteThemeText`
+and `sanitizeThemeProse` are that policy, exported because `agent-cli` builds diagnostics of its own
+(an unusable file name, an unreadable plugin scope) and a second copy is how the two drift.
+`JSON.stringify` alone is not the policy: it escapes U+0000–U+001F and leaves U+007F and the C1
+range literal, including the single-byte spellings of CSI and OSC that a terminal accepts exactly as
+it accepts `ESC [`.
+
+A theme's NAME goes further than a diagnostic: it is APPLIED, and drawn on every `/theme list` row
+and picker row until the setting changes. A name carrying a control character, or longer than the
+box it is drawn in, refuses the file — including the minted id used when a document supplies no
+name, because "the caller already made it safe" is the assumption that puts an unchecked string on a
+row.
 
 The file is applied WHOLE or not at all. The first unknown token path, non-colour value, wrong shape
 or parse failure refuses the entire file with a `$.`-prefixed diagnostic naming what was wrong — the

@@ -689,6 +689,18 @@ deliberate. Ids are minted here from where the file was found (`custom:<slug>`,
 `custom:<plugin>:<slug>`), so no file can claim a built-in's id whatever it is called, and the first
 file to claim an id keeps it while a later claimant is skipped rather than silently replacing it.
 
+Both segments are constrained to `[A-Za-z0-9._-]`, and a file or plugin whose name falls outside it
+is SKIPPED with a reason rather than loaded. An id is typed — `/theme <id>` splits its arguments on
+whitespace and the picker commits through that same command — so a slug the command grammar cannot
+carry produces a theme that is listed, is shown as a selectable row, and answers the usage line when
+chosen: worse than a file that does not load, because it appears to work everywhere except the one
+place it matters. The plugin segment matters for a second reason: a manifest `name` is only checked
+for being a string, so it is third-party text on its way to a rendered row.
+
+Every diagnostic this module builds goes through `quoteThemeText` / `sanitizeThemeProse`, the
+escaping policy `agent-ui-terminal` owns, rather than re-deriving one here — including the
+plugin-scope read failure, whose message embeds paths from the environment.
+
 Parsing and refusal belong to `agent-ui-terminal` (that package's SPEC, § Color & Motion Contract).
 This package prints each refusal once at startup as `Skipped theme "<file>": <diagnostic>`, beside
 the identical line output styles already print, and carries the same list on the registry so the

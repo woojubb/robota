@@ -91,8 +91,10 @@ export function createThemeSurface(options: IThemeSurfaceOptions): IThemeSurface
     ...(resolved.reducedMotionOverride === undefined
       ? {}
       : {
-          reducedMotionOverride: resolved.reducedMotionOverride,
-          reducedMotionForRun: resolved.reducedMotion,
+          reducedMotionPin: {
+            tier: resolved.reducedMotionOverride,
+            reducedMotion: resolved.reducedMotion,
+          },
         }),
   });
   return { registry, cataloguePort, skipped: sources.skipped, ...motion };

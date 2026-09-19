@@ -239,8 +239,13 @@ function SkippedRows({ skipped }: { skipped: readonly IThemeSkip[] }): React.Rea
   if (skipped.length === 0) return <></>;
   return (
     <Box flexDirection="column" marginTop={1}>
-      {skipped.map((skip) => (
-        <Text key={skip.id} dimColor>
+      {/*
+        Keyed by POSITION, not by id: a file whose NAME could not become an id has no id of its own,
+        so several of them in one directory would share a key — and React's duplicate-key warning
+        goes to stderr from inside the live frame, corrupting the frame it is complaining about.
+      */}
+      {skipped.map((skip, index) => (
+        <Text key={index} dimColor>
           {`${SELECTION_INDICATOR_NONE}Skipped "${skip.fileName}" — ${skip.reason}`}
         </Text>
       ))}

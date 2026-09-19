@@ -40,30 +40,42 @@ const MAX_NAME_LENGTH = 60;
 // eslint-disable-next-line no-control-regex -- matching the control range IS the point here
 const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/u;
 
+const CONTROL_CHARACTERS = new RegExp(CONTROL_CHARACTER.source, 'gu');
+
 /**
- * A value from the FILE, on its way into a line a terminal will print.
+ * Untrusted text on its way into a line a terminal will print — the one escaping policy, exported
+ * so the surfaces that build their OWN diagnostics use it rather than re-deriving it.
  *
- * The diagnostic is the one part of a refused file that reaches the terminal, and it quotes what
- * was wrong — so without this the injection floor the grammar provides is defeated by the message
- * that reports a violation of it. `JSON.stringify` escapes every control character, which both
- * disarms it and SHOWS the author what their file actually contains (`"\u001b[31m"`), where
- * stripping the bytes would leave them looking at a value that seems fine.
+ * A diagnostic is the one part of a refused file that reaches the terminal, and it quotes what was
+ * wrong — so without this the injection floor the grammar provides is defeated by the message that
+ * reports a violation of it. Escaped rather than stripped, because an author has to SEE what their
+ * file contains (`"\u001b[31m"`) instead of a value that looks fine.
+ *
+ * `JSON.stringify` alone is NOT enough, and that is the whole reason this is a function: it escapes
+ * U+0000–U+001F and leaves U+007F and the C1 range literal — including U+009B and U+009D, the
+ * single-byte spellings of CSI and OSC. A terminal accepts both spellings (`sanitize-terminal-text.ts`
+ * says so and handles both), so quoting only the 7-bit one leaves the 8-bit one's parameters
+ * standing as a live sequence.
  */
-function quoteFromFile(value: string): string {
-  return JSON.stringify(value);
+export function quoteThemeText(value: string): string {
+  return JSON.stringify(value).replace(
+    CONTROL_CHARACTERS,
+    (character) => `\\u${(character.codePointAt(0) ?? 0).toString(16).padStart(4, '0')}`,
+  );
+}
+
+/**
+ * Prose a surface did not write — a dependency's message, a path from the environment. Sanitized
+ * rather than quoted, because it is a sentence; `sanitizeTerminalText` removes both spellings of
+ * every sequence, and the tab/newline it keeps are flattened so one diagnostic stays one line.
+ */
+export function sanitizeThemeProse(message: string): string {
+  return sanitizeTerminalText(message).replaceAll('\n', ' ').replaceAll('\t', ' ').trim();
 }
 
 /** A path SEGMENT taken from the file. Plain keys read as themselves; anything else is quoted. */
 function pathSegment(key: string): string {
-  return CONTROL_CHARACTER.test(key) ? quoteFromFile(key) : key;
-}
-
-/**
- * Prose from a dependency — V8's parse message, which embeds a snippet of the file, so the same
- * hazard arrives without a value to quote. Sanitized rather than quoted, because it is a sentence.
- */
-function proseFromFile(message: string): string {
-  return sanitizeTerminalText(message).replaceAll('\n', ' ').replaceAll('\t', ' ').trim();
+  return CONTROL_CHARACTER.test(key) ? quoteThemeText(key) : key;
 }
 
 function refuse(error: string): TThemeDocumentResult {
@@ -80,7 +92,7 @@ function mergeColor(override: TJsonValue, path: string): TMergeResult {
   if (!isThemeColor(override)) {
     return {
       ok: false,
-      error: `${path}: ${quoteFromFile(override)} is not a colour in Ink's grammar (${THEME_COLOR_GRAMMAR})`,
+      error: `${path}: ${quoteThemeText(override)} is not a colour in Ink's grammar (${THEME_COLOR_GRAMMAR})`,
     };
   }
   return { ok: true, value: override };
@@ -108,7 +120,11 @@ function mergeRecord(base: IJsonRecord, override: TJsonValue, path: string): TMe
     if (!Object.prototype.hasOwnProperty.call(base, key)) {
       return { ok: false, error: `${path}.${pathSegment(key)} is not a theme token` };
     }
-    const result = mergeNode(base[key] ?? null, override[key] ?? null, `${path}.${pathSegment(key)}`);
+    const result = mergeNode(
+      base[key] ?? null,
+      override[key] ?? null,
+      `${path}.${pathSegment(key)}`,
+    );
     if (!result.ok) return result;
     merged[key] = result.value;
   }
@@ -158,7 +174,7 @@ function readDocument(text: string): TMergeResult {
   } catch (cause) {
     return {
       ok: false,
-      error: `$: ${cause instanceof Error ? proseFromFile(cause.message) : 'invalid JSON'}`,
+      error: `$: ${cause instanceof Error ? sanitizeThemeProse(cause.message) : 'invalid JSON'}`,
     };
   }
   if (!isJsonRecord(parsed)) return { ok: false, error: '$: expected an object' };
@@ -172,7 +188,14 @@ function readDocument(text: string): TMergeResult {
 
 function readName(document: IJsonRecord, fallback: string): TMergeResult {
   const name = document.name;
-  if (name === undefined) return { ok: true, value: fallback };
+  // The FALLBACK is checked on the same terms. It is the id the loader minted, which is constrained
+  // where it is minted — but "the caller already made it safe" is the assumption that put an
+  // unchecked string on every list row once, and this is the function that renders the answer.
+  if (name === undefined) {
+    return CONTROL_CHARACTER.test(fallback)
+      ? { ok: false, error: '$.name: the minted id must not contain control characters' }
+      : { ok: true, value: fallback };
+  }
   if (typeof name !== 'string' || name.trim().length === 0) {
     return { ok: false, error: '$.name: expected a non-empty string' };
   }
@@ -199,7 +222,7 @@ function readBase(
   const id = document.base === undefined ? DEFAULT_THEME_ID : document.base;
   if (typeof id !== 'string') return { ok: false, error: '$.base: expected a built-in theme id' };
   const base = BUILT_IN_THEMES.find((theme) => theme.id === id);
-  if (!base) return { ok: false, error: `$.base: ${quoteFromFile(id)} is not a built-in theme` };
+  if (!base) return { ok: false, error: `$.base: ${quoteThemeText(id)} is not a built-in theme` };
   return { ok: true, theme: base };
 }
 

@@ -248,6 +248,10 @@ describe('SCREEN-2002 themes through the real binary', () => {
       // same line carries strictly fewer distinct sequences than the highlighted first.
       const plain = session.raw().slice(secondRawMark);
       expect(session.snapshotSince(secondMark)).toContain('const answer = 42;');
+      // Both lines must actually be there. Without this the comparison is asymmetric toward green:
+      // a missing second line measures zero sequences and every assertion below passes.
+      expect(snippetLine(highlighted)).not.toBe('');
+      expect(snippetLine(plain)).not.toBe('');
       const highlightedLine = sgrVocabulary(snippetLine(highlighted));
       const plainLine = sgrVocabulary(snippetLine(plain));
       expect(highlightedLine.size).toBeGreaterThan(plainLine.size);

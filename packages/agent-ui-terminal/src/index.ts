@@ -19,7 +19,7 @@ export { createThemeCataloguePort, createThemeRegistry } from './theme/theme-reg
 // the ACCESSORS and never the colour data — the anti-drift floor forbids naming the data outside
 // `src/theme/`, and re-exporting it from here would be the way around that.
 export { listBuiltInThemes } from './theme/theme-registry.js';
-export { parseThemeDocument } from './theme/theme-document.js';
+export { parseThemeDocument, quoteThemeText, sanitizeThemeProse } from './theme/theme-document.js';
 export type {
   IThemeCataloguePortOptions,
   IThemeRegistry,

@@ -25,7 +25,7 @@ const RGB = /^rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)$/iu;
 const ANSI256_MAX = 255;
 
 /** The grammar, written once: the validator, the refusal below and the file parser all quote it. */
-export const THEME_COLOR_GRAMMAR = '<chalk name> | #rrggbb | ansi256(n) | rgb(r,g,b)';
+export const THEME_COLOR_GRAMMAR = '<chalk name> | #rgb | #rrggbb | ansi256(n) | rgb(r,g,b)';
 
 /**
  * chalk's own name tables, which it exports; its styles are prototype getters, so a table has to be

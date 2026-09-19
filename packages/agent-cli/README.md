@@ -369,7 +369,9 @@ All three persist to `~/.robota/settings.json` as the flat keys `theme`, `syntax
 
 #### Writing your own
 
-Drop a `.json` file in `~/.robota/themes/` and it appears in the list as `custom:<file-name>`:
+Drop a `.json` file in `~/.robota/themes/` and it appears in the list as `custom:<file-name>`. The
+name becomes part of an id you type, so it may use letters, digits, `.`, `-` and `_` — a file named
+anything else is skipped with a line saying so, rather than listed as a theme no command can apply:
 
 ```json
 {
@@ -385,7 +387,8 @@ the rest. Values use Ink's colour grammar: a chalk colour name, `#rrggbb`, `ansi
 `rgb(r,g,b)`. A raw escape sequence is not in that grammar, so it cannot enter through a theme.
 
 A plugin ships themes the same way, in its own `themes/` directory; they are listed as
-`custom:<plugin>:<file-name>`. Both namespaces start with `custom:`, so a file can never take a
+`custom:<plugin>:<file-name>`, and the plugin's own name has to satisfy the same rule for the same
+reason. Both namespaces start with `custom:`, so a file can never take a
 built-in's name whatever it is called.
 
 A file is applied whole or not at all. An unknown token, a value that is not a colour, or JSON that

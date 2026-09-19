@@ -21,7 +21,11 @@ import {
   createNodeHostContributionSource,
   loadHostBundlePluginsFromScopes,
 } from '@robota-sdk/agent-framework';
-import { parseThemeDocument } from '@robota-sdk/agent-ui-terminal';
+import {
+  parseThemeDocument,
+  quoteThemeText,
+  sanitizeThemeProse,
+} from '@robota-sdk/agent-ui-terminal';
 
 import type { IContributionSource } from '@robota-sdk/agent-framework';
 import type { IThemeSkip, ITuiTheme, TThemeSource } from '@robota-sdk/agent-ui-terminal';
@@ -31,7 +35,7 @@ const PLUGIN_THEME_DIRECTORY = 'themes';
 const THEME_FILE_SUFFIX = '.json';
 
 /**
- * What a file name may contribute to an id.
+ * What a file NAME or a PLUGIN name may contribute to an id.
  *
  * An id is TYPED — `/theme <id>` splits its arguments on whitespace, and the picker commits by
  * submitting that same command — so a slug the command grammar cannot carry produces a theme that
@@ -96,12 +100,14 @@ function collectFrom(
   for (const file of readThemeDirectory(reader, options.directory, purpose)) {
     const slug = file.fileName.slice(0, -THEME_FILE_SUFFIX.length);
     if (!SAFE_SLUG.test(slug)) {
+      // Quoted through the parser's own policy: the name is the untrusted part, it is about to be
+      // printed to a terminal and shown in the picker, and this is the one skip whose file name is
+      // not a safe slug. Re-deriving the escaping here is how the two would drift.
+      const quoted = quoteThemeText(file.fileName);
       collector.skipped.push({
-        id: `${options.idPrefix}?`,
-        // Quoted, because the name is the untrusted part: it is about to be printed to a terminal
-        // and shown in the picker, and this is the one skip whose file name is not a safe slug.
-        fileName: JSON.stringify(file.fileName),
-        reason: `$: the file name ${JSON.stringify(file.fileName)} cannot be a theme id — use letters, digits, dot, dash or underscore`,
+        id: `${options.idPrefix}${quoted}`,
+        fileName: quoted,
+        reason: `$: the file name ${quoted} cannot be a theme id — use letters, digits, dot, dash or underscore`,
       });
       continue;
     }
@@ -154,10 +160,15 @@ function installedPlugins(
       pluginDir: plugin.pluginDir,
     }));
   } catch (error) {
+    // The scope paths come from the environment and the error message embeds them, so this line
+    // gets the same treatment as every other diagnostic rather than being the one route that
+    // reaches the terminal unescaped.
+    const where = sanitizeThemeProse(scopes.join(', '));
+    const why = sanitizeThemeProse(error instanceof Error ? error.message : String(error));
     collector.skipped.push({
       id: 'custom:<plugins>',
-      fileName: scopes.join(', '),
-      reason: `$: the plugin scopes could not be read — ${error instanceof Error ? error.message : String(error)}`,
+      fileName: where,
+      reason: `$: the plugin scopes could not be read — ${why}`,
     });
     return [];
   }
@@ -174,6 +185,15 @@ export function loadThemeSources(options: IThemeSourcesOptions): IThemeSources {
   });
   const plugins = options.plugins ?? installedPlugins(options.cwd, options.userHome, collector);
   for (const plugin of plugins) {
+    if (!SAFE_SLUG.test(plugin.name)) {
+      const quoted = quoteThemeText(plugin.name);
+      collector.skipped.push({
+        id: `custom:${quoted}`,
+        fileName: quoted,
+        reason: `$: the plugin name ${quoted} cannot be part of a theme id — its themes are not loaded`,
+      });
+      continue;
+    }
     collectFrom(collector, {
       root: plugin.pluginDir,
       directory: PLUGIN_THEME_DIRECTORY,

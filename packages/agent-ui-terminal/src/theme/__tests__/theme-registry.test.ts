@@ -108,14 +108,17 @@ describe('the catalogue port (SCREEN-2002 TC-09)', () => {
     expect('reducedMotionOverride' in port.getAppearance()).toBe(false);
   });
 
-  it('reports the tier that pinned reduced motion', () => {
+  it('reports the tier that pinned reduced motion AND what it pinned', () => {
+    // One pair, not two optional fields: a tier alone cannot say which way a run went, because
+    // `--no-reduced-motion` is an override too. The shape makes the half-supplied case unwritable.
     const port = createThemeCataloguePort({
       registry: createThemeRegistry(),
       readAppearance: () => APPEARANCE,
-      reducedMotionOverride: 'flag',
+      reducedMotionPin: { tier: 'flag', reducedMotion: false },
     });
 
     expect(port.getAppearance().reducedMotionOverride).toBe('flag');
+    expect(port.getAppearance().reducedMotionForRun).toBe(false);
   });
 });
 

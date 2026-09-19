@@ -25,7 +25,7 @@ export {
 } from './theme-styles.js';
 export { THEME_SYNTAX_KEYS } from './theme-contracts.js';
 export { simulate, simulatedDistance, toRgb } from './color-vision.js';
-export { parseThemeDocument } from './theme-document.js';
+export { parseThemeDocument, quoteThemeText, sanitizeThemeProse } from './theme-document.js';
 export type { IThemeDocumentInput, TThemeDocumentResult } from './theme-document.js';
 export type { IDiffRowStyles } from './theme-styles.js';
 export type {
