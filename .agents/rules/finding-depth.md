@@ -90,8 +90,8 @@ Filing is not a separate worker's. The content is the guardian's finding, alread
 location — no production judgement is left to make, and `enforcement-architecture.md` says a tier bought
 for reliability buys none. The orchestrator that routes the verdict files the item under
 [`.agents/tasks/README.md`](../tasks/README.md)'s format and registers it on the existing GitHub
-issue that owns the scope, as the next section requires. `backlog-writer` remains the author of gate-pipeline spec documents;
-when the root item is later picked up it enters that pipeline and gains a spec-doc under the same ID,
+issue that owns the scope, as the next section requires. `backlog-writer` remains the author of
+gate-pipeline spec documents; when the root item is later picked up it enters that pipeline and gains a spec-doc under the same ID,
 which is the pairing the two trees already have.
 
 ## A finding never opens a new GitHub issue
@@ -116,6 +116,9 @@ filed" — is recorded on an EXISTING issue, never as a new one:
 - "It is foundational", "the reviewer said file it" and "no umbrella fits exactly" are not the
   owner's instruction to open one; the last is answered by the closest umbrella plus a note that the
   fit is loose.
+- A child Issue for an item with an independent external lifecycle is a different question, owned by
+  [backlog-execution.md](backlog-execution.md) § "GitHub Issue ↔ Task Boundary"; nothing there is a
+  route for a finding.
 
 The owner's directive that amended this rule, and the incident behind it, are recorded verbatim in
 [`.agents/memory/no-new-github-issues.md`](../memory/no-new-github-issues.md); this section states

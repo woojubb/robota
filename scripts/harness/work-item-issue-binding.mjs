@@ -1,7 +1,8 @@
 /**
  * The GitHub-issue half of `allocate-work-item-id.mjs`: resolving the EXISTING issue a work item is
- * bound to, by number or by an exact title match. It never creates or closes one — a person opens
- * the Issue (`gh issue create` or the web UI) before allocating against it.
+ * bound to, by number or by an exact title match. It never creates or closes one — the item is
+ * allocated against the existing umbrella Issue whose scope contains it, and a new Issue exists only
+ * when the owner opened one on their direct decision.
  *
  * Its own module because it is the only part of the allocator that leaves the machine. Every function
  * here shells out to `gh` and fails for network and authentication reasons the ID arithmetic never
