@@ -370,8 +370,8 @@ All three persist to `~/.robota/settings.json` as the flat keys `theme`, `syntax
 #### Writing your own
 
 Drop a `.json` file in `~/.robota/themes/` and it appears in the list as `custom:<file-name>`. The
-name becomes part of an id you type, so it may use letters, digits, `.`, `-` and `_` — a file named
-anything else is skipped with a line saying so, rather than listed as a theme no command can apply:
+name becomes part of an id you type, so it may use up to 24 characters from letters, digits, `.`,
+`-` and `_` — a file named anything else is skipped with a line saying so, rather than listed as a theme no command can apply:
 
 ```json
 {

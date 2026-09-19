@@ -119,6 +119,30 @@ describe('loadThemeSources', () => {
     expect(sources.themes[0]?.source).toBe('plugin');
   });
 
+  it('does not report an id as taken by a theme that was itself refused', () => {
+    // Claiming before the parse made a second file read "already taken by a theme loaded earlier"
+    // when the first was refused and nothing was loaded — a reason naming a theme the run has not
+    // got, and a second file that could have been fine.
+    const home = temporaryDirectory('robota-theme-home-');
+    const first = temporaryDirectory('robota-theme-plugin-a-');
+    const second = temporaryDirectory('robota-theme-plugin-b-');
+    writeTheme(join(first, 'themes'), 'one.json', '{ not json');
+    writeTheme(join(second, 'themes'), 'one.json', JSON.stringify({ name: 'Second' }));
+
+    const sources = loadThemeSources({
+      cwd: undefined,
+      userHome: home,
+      plugins: [
+        { name: 'same', pluginDir: first },
+        { name: 'same', pluginDir: second },
+      ],
+    });
+
+    expect(sources.themes.map((theme) => theme.name)).toEqual(['Second']);
+    expect(sources.skipped.map((skip) => skip.reason)).toEqual([expect.stringMatching(/^\$: /u)]);
+    expect(sources.skipped[0]?.reason).not.toMatch(/already/u);
+  });
+
   it('keeps the first file to claim an id and skips the second, rather than silently replacing it', () => {
     const home = temporaryDirectory('robota-theme-home-');
     const first = temporaryDirectory('robota-theme-plugin-a-');
@@ -195,18 +219,24 @@ describe('a file name that cannot become an id', () => {
     expect(sources.themes).toEqual([]);
     expect(sources.skipped).toHaveLength(1);
     expect(sources.skipped[0]?.reason).toMatch(/cannot be a theme id/u);
+    // Escaped but NOT quoted: both consumers wrap this field in quotes of their own, so a quoted
+    // value here prints as `Skipped theme ""My Theme.json"": …`.
+    expect(sources.skipped[0]?.fileName).toBe('My Theme.json');
   });
 
   it('refuses a name too long to be drawn in the row it lands in', () => {
     // The bound is on the ID SEGMENT, not only on a document-supplied name: the id is rendered
     // beside the name whether or not the file supplies one.
     const home = temporaryDirectory('robota-theme-home-');
-    writeTheme(join(home, '.robota', 'themes'), `${'x'.repeat(41)}.json`, '{}');
+    writeTheme(join(home, '.robota', 'themes'), `${'x'.repeat(25)}.json`, '{}');
 
     const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
 
     expect(sources.themes).toEqual([]);
-    expect(sources.skipped[0]?.reason).toMatch(/at most 40/u);
+    expect(sources.skipped[0]?.reason).toMatch(/at most 24 characters/u);
+    // The composite an id can reach — `custom:` + a plugin segment + `:` + a file segment — has to
+    // fit the name bound the parser enforces, because the id IS the name when a file supplies none.
+    expect(`custom:${'x'.repeat(24)}:${'x'.repeat(24)}`.length).toBeLessThanOrEqual(60);
   });
 
   it('gates the PLUGIN half of an id too, and loads none of that plugin s themes', () => {

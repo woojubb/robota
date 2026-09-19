@@ -137,7 +137,7 @@ describe('the theme surface over real theme files (SCREEN-2002 TC-11)', () => {
     expect(surface.registry?.skipped()).toEqual(surface.skipped);
   });
 
-  it('reads no theme file at all when this run renders no terminal UI', () => {
+  it('composes no registry and reports no skip when this run renders no terminal UI', () => {
     const home = emptyHome();
     const directory = join(home, '.robota', 'themes');
     mkdirSync(directory, { recursive: true });
@@ -152,7 +152,11 @@ describe('the theme surface over real theme files (SCREEN-2002 TC-11)', () => {
       env: {},
     });
 
+    // The assertion is on the COMPOSITION, not on whether a directory was walked: a read whose
+    // result is discarded would satisfy both of these, and the observable contract is that a print
+    // run has no theme registry and prints no skip line about a file nothing was going to use.
     expect(surface.registry).toBeUndefined();
+    expect(surface.cataloguePort).toBeUndefined();
     expect(surface.skipped).toEqual([]);
   });
 });

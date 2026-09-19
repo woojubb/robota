@@ -200,9 +200,16 @@ function readName(document: IJsonRecord, fallback: string): TMergeResult {
   // where it is minted — but "the caller already made it safe" is the assumption that put an
   // unchecked string on every list row once, and this is the function that renders the answer.
   if (name === undefined) {
-    return CONTROL_CHARACTER.test(fallback)
-      ? { ok: false, error: '$.name: the minted id must not contain control characters' }
-      : { ok: true, value: fallback };
+    if (CONTROL_CHARACTER.test(fallback)) {
+      return { ok: false, error: '$.name: the minted id must not contain control characters' };
+    }
+    if (fallback.length > MAX_NAME_LENGTH) {
+      return {
+        ok: false,
+        error: `$.name: the minted id must be at most ${MAX_NAME_LENGTH} characters`,
+      };
+    }
+    return { ok: true, value: fallback };
   }
   if (typeof name !== 'string' || name.trim().length === 0) {
     return { ok: false, error: '$.name: expected a non-empty string' };

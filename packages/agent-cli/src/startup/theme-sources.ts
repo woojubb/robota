@@ -44,8 +44,10 @@ const THEME_FILE_SUFFIX = '.json';
  * than not loading it: the file appears to work everywhere except the one place it matters. A name
  * outside this set is skipped with a reason, the same policy an already-taken id gets.
  */
-const MAX_ID_SEGMENT = 40;
-const SAFE_SLUG = /^[A-Za-z0-9._-]{1,40}$/u;
+const MAX_ID_SEGMENT = 24;
+// Built FROM the constant, not beside it: two copies of one number drift, and the direction that
+// drifts silently is the regex narrowing while the message keeps promising the old bound.
+const SAFE_SLUG = new RegExp(`^[A-Za-z0-9._-]{1,${MAX_ID_SEGMENT}}$`, 'u');
 
 /** One installed plugin, reduced to what a theme needs from it. */
 export interface IThemePluginDirectory {
@@ -110,7 +112,7 @@ function collectFrom(
         id: `${options.idPrefix}${quoted}`,
         // Escaped but NOT quoted: both consumers wrap this field in quotes of their own.
         fileName: escapeThemeText(file.fileName),
-        reason: `$: the file name ${quoted} cannot be a theme id — use at most ${MAX_ID_SEGMENT} of letters, digits, dot, dash or underscore`,
+        reason: `$: the file name ${quoted} cannot be a theme id — use at most ${MAX_ID_SEGMENT} characters from letters, digits, dot, dash and underscore`,
       });
       continue;
     }
@@ -123,7 +125,6 @@ function collectFrom(
       });
       continue;
     }
-    collector.claimed.add(id);
     if (file.text === undefined) {
       collector.skipped.push({
         id,
@@ -138,8 +139,16 @@ function collectFrom(
       source: options.source,
       text: file.text,
     });
-    if (parsed.ok) collector.themes.push(parsed.theme);
-    else collector.skipped.push({ id, fileName: file.fileName, reason: parsed.error });
+    if (parsed.ok) {
+      // Claimed only once a theme actually EXISTS under the id. Claiming before the parse made a
+      // second file with the same name read "already taken by a theme loaded earlier" when the
+      // first was refused and nothing was loaded — a reason that names a theme the run does not
+      // have.
+      collector.claimed.add(id);
+      collector.themes.push(parsed.theme);
+    } else {
+      collector.skipped.push({ id, fileName: file.fileName, reason: parsed.error });
+    }
   }
 }
 

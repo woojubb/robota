@@ -467,9 +467,10 @@ it accepts `ESC [`.
 
 A theme's NAME goes further than a diagnostic: it is APPLIED, and drawn on every `/theme list` row
 and picker row until the setting changes. A name carrying a control character, or longer than the
-box it is drawn in, refuses the file — including the minted id used when a document supplies no
-name, because "the caller already made it safe" is the assumption that puts an unchecked string on a
-row.
+box it is drawn in (60 characters), refuses the file — and the minted id used when a document
+supplies no name is held to BOTH bounds, because "the caller already made it safe" is the assumption
+that puts an unchecked string on a row. `agent-cli` sizes the id segments so the composite fits that
+same 60.
 
 The file is applied WHOLE or not at all. The first unknown token path, non-colour value, wrong shape
 or parse failure refuses the entire file with a `$.`-prefixed diagnostic naming what was wrong — the
