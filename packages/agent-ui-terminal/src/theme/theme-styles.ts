@@ -70,7 +70,10 @@ export function foreground(color: TThemeColor, base: ChalkInstance = chalk): Cha
   if (ansi) return base.ansi256(Number(ansi[1]));
   const rgb = RGB.exec(color);
   if (rgb) return base.rgb(Number(rgb[1]), Number(rgb[2]), Number(rgb[3]));
-  const named = CHALK_STYLES.get(color);
+  // Gated on the FOREGROUND names, not on the shared table: the table also holds the `bg…` entries
+  // that `background()` needs, so asking it alone would answer `foreground('bgRed')` with a
+  // background style — a name `isThemeColor` already refuses as a token value.
+  const named = isChalkColorName(color) ? CHALK_STYLES.get(color) : undefined;
   if (named === undefined) return base;
   // A named colour continues the chain through chalk's own getter on the base instance.
   const chained = Reflect.get(base, color) as ChalkInstance | undefined;

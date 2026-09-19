@@ -13,6 +13,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BUILT_IN_THEMES, DARK_THEME } from '../built-in-themes.js';
 import { THEME_SYNTAX_KEYS } from '../theme-contracts.js';
 import {
+  background,
   diffRowStyles,
   foreground,
   isThemeColor,
@@ -171,6 +172,13 @@ describe('the dark theme reproduces todays rendering (SCREEN-2002 TC-02)', () =>
     expect(added.endsWith(`${SGR}0m`)).toBe(false);
     expect(added).toContain(`${SGR}39m`);
     expect(added).toContain(`${SGR}49m`);
+  });
+
+  it('refuses a background name where a foreground was asked for', () => {
+    // `isThemeColor` refuses `bgRed` as a token value; the builder must agree rather than hand back
+    // a background style. The style table holds the `bg…` entries for `background()`'s use.
+    expect(foreground('bgRed')('x')).toBe(chalk('x'));
+    expect(background('red')('x')).toBe(chalk.bgRed('x'));
   });
 
   it('keeps the terminals own colour DEPTH for diff rows when there is one', () => {
