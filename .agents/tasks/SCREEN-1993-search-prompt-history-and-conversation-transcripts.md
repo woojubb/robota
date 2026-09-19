@@ -137,6 +137,84 @@ fixture, the highest-preference executable surface for a TUI keybinding feature.
 
 <!-- checkpoint-evidence:v1:end -->
 
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** scenario written → scenario executed
+
+Ordering: the last (and only) `[DONE-GATE-STAGE-1]` entry is ✅ PASS (2026-09-19), frozen with its
+`doneGateStageOne` JSON in the planning checkpoint `eef2c0dda`, which is an ancestor of HEAD
+`eea4c2152`; the two commits after the checkpoint on `feat/screen-1993-transcript-search` above
+`origin/develop` `295f48655` are the implementation `366e5aad8` and the evidence/plan-tick commit
+`eea4c2152`. Task `status: in-progress` in the root (not `done`); every `## Plan` item is ticked; no
+prior Stage-2 entry. Scenario 1's `expected observable` field is byte-identical to the checkpoint's
+(sha256 of the line from `git show eef2c0dda:<Task>` equals the working copy's, `386815433a…`); the only
+Task changes since the checkpoint are the five Plan ticks, the `- evidence:` line, and one wording
+change in `## Recommendation Evidence` (`request #2` → `the second request`), none of them scenario
+fields. Build freshness: the CLI bundle `packages/agent-cli/dist/node/bin.js` (artifact `46702f65`,
+15:12:28) inlines `agent-ui-terminal` (the `reverse-i-search` string is in `bin.js`; the only
+`@robota-sdk/agent-ui-terminal` reference is in the source map) and was OLDER than five inlined sources
+modified 15:15:44–15:15:52 (`HistorySearchOverlay.tsx`, `history-search/history-search-flow.ts`,
+`interactive/session-persistence.ts`, `interactive/interactive-session-init-options.ts`,
+`prompt-history-file.ts`); the `agent-ui-terminal`, `agent-framework`, `agent-session` and
+`agent-interface-session` dists were already newer than their newest `src/` file, so the guardian ran
+only `pnpm --filter @robota-sdk/agent-cli build` (artifact `084b50a7`, `bin.js` 15:22:38) before the
+run. The guardian then re-executed the scenario itself:
+`HISTORY_SCENARIO_STRICT=1 pnpm --dir scratch exec tsx src/screen-1993-history-scenario.mts` → exit 0,
+report `command: node …/packages/agent-cli/bin/robota.cjs --name history-scenario --disable-update-check
+--no-session-persistence` (the `robota` bin of `packages/agent-cli/package.json` is `./bin/robota.cjs`),
+`terminal: 100x32 xterm-256color PTY`, `exitCode: 0`, `seeded.lines: 122` (120 + 1 malformed + the
+session's own `hello` append), three project values with `currentProjectKey` equal to the temp
+project's realpath, stub requests `hello` then `rotate the staging secrets` (both
+`POST /v1/chat/completions`, `stream: true`), `harness.cliStarted/providerTurnCompleted/
+seededHistoryFileExists: true`, all 11 strict checks `matched: true`.
+
+- Scenario 1 — `pnpm exec robota --name history-scenario --disable-update-check
+  --no-session-persistence` (100×32 xterm-256color PTY, `NO_COLOR=1`, isolated HOME with the
+  `openai`-type stub profile, git-initialised temp project, seeded `~/.robota/history.jsonl`, local stub
+  on 127.0.0.1): exit 0. Matched clause by clause against `expected observable` from the guardian's own
+  strict run (`todo[].observed`): (a) after `first draft` + `ctrl+r` an overlay opens with scope label
+  `all` — observed `│ (reverse-i-search) scope: all · query:` with the composer row `> first draft`
+  still below it; (b) newest-first, `tidy the changelog headings` before `write the release notes for
+  3.1` — observed stream indices `{"newest":1140,"secondNewest":1241}` and the visible rows descending
+  `prompt 116 … prompt 113`; (c) skipped-line count `1` — observed
+  `│ 120 matches · 1 unreadable line skipped`; (d) `deploy` narrows to the three deploy prompts with
+  the newest non-match gone — observed `{"otherA":true,"current":true,"otherB":true,
+  "newestNonMatchStillVisible":false}`; (e) the duplicate listed once — observed `{"occurrences":1}`;
+  (f) the match highlighted in each row — observed under `NO_COLOR` as the visible marker
+  `│ > re[deploy] after the [deploy] hook fails`, `│   [deploy] staging with helm chart v3`,
+  `│   [deploy] the canary to eu-west`; (g) first `ctrl+s` → `session` listing none of the three —
+  observed `│ (reverse-i-search) scope: session · query: deploy` with `anyDeployVisible: false`; (h)
+  second `ctrl+s` → `project` listing only `deploy staging with helm chart v3` — observed
+  `scope: project · query: deploy` with `{"current":true,"otherA":false,"otherB":false}`; (i) `enter`
+  closes the overlay, the composer shows exactly `deploy staging with helm chart v3`, stub count
+  unchanged — observed `{"composer":["> deploy staging with helm chart v3"],"overlayStillOpen":false,
+  "stubRequestsBefore":1,"stubRequestsAfter":1}`; (j) `ctrl+r`, `rotate`, `ctrl+e` sends the match and
+  the canned reply renders — observed stub request 2 `lastUserContent: "rotate the staging secrets"`,
+  `replyRendered: true`; (k) `ctrl+r` with the draft `third draft: keep me byte-identical  `, `helm`,
+  `escape` closes the overlay and restores the draft byte-identically with no `helm` — observed
+  `{"composer":["> third draft: keep me byte-identical"],"overlayStillOpen":false}` and no `helm` in the
+  frame. Because the caret is `chalk.inverse(' ')` (invisible under `NO_COLOR`) the stripped frame
+  cannot show the two trailing spaces, so the guardian corroborated the clause from the raw PTY stream
+  of a second identical run (a scratchpad copy of the driver that only dumps the unstripped cancel
+  frame): the real-cursor placement after `escape` is `ESC[5A ESC[41G` — column 41 on the composer row
+  ` > third draft: keep me byte-identical` (38 visible cells), i.e. 40 cells before the caret = 38
+  visible + 2 trailing spaces; a dropped trailing pair would have put the caret at column 39. The draft
+  is restored byte-identically in the rendered UI.
+- Evidence record: `.agents/evals/scenarios/screen-1993-history-search-agent-run.md` § Observed
+  (2026-09-19), committed in `eea4c2152`; its `checks[].observed` values equal the guardian's run
+  verbatim (the same overlay line, indices `1140`/`1241`, the same `[deploy]` rows, the same
+  `session`/`project` labels, `stubRequestsBefore/After: 1/1`, `rotate the staging secrets`,
+  `> third draft: keep me byte-identical`). The `- evidence:` field cites that record and quotes product
+  output only; referenced paths `.agents/evals/scenarios/screen-1993-history-search-agent-run.md`,
+  `scratch/src/screen-1993-history-scenario.mts` and `packages/agent-cli/bin/robota.cjs` exist;
+  `pnpm harness:scan:done-evidence` passes. No exception (`manual-only`) or capability-absence claim
+  was made, so none needed a probe. The record's `### Supporting test suites` list and the ticked
+  `TC-08: Engineering verification` Plan item are engineering verification and were not counted as
+  user-execution evidence. Observation for the orchestrator, not a criterion of this gate: the record's
+  `**Spec:**` header names `.agents/spec-docs/done/…` while the spec currently sits in
+  `.agents/spec-docs/active/` with `status: in-progress`, the same pre-completion state the sibling
+  SCREEN-1992 record was in at this stage.
+
 ## Recommendation Evidence
 
 - Executability proof (PLAN mode, 2026-09-19, `user-execution-scenario-author`): the driver

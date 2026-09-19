@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: SCREEN
 tags: [tui, session, search]
 lane: L2
@@ -444,3 +444,16 @@ One PR: the contracts and the file are observable only through the overlay.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `295f48655add` · base `origin/develop@295f48655add` · document `.agents/spec-docs/todo/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `a4a8b9b7814e` (untracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: the LAST `[GATE-IMPLEMENT]` entry in this Evidence Log is `✅ PASS | 2026-09-19` (`approved → in-progress`); frontmatter `status: in-progress`; document under `.agents/spec-docs/active/`; `gate.mjs judge --gate GATE-VERIFY --dry-run` re-run by the guardian reports the same ordering PASS (`[GATE-IMPLEMENT] — ✅ PASS | 2026-09-19; status in-progress`). Branch `feat/screen-1993-transcript-search` carries three commits above `origin/develop` `295f48655` (`eef2c0dda` planning checkpoint, `366e5aad8` implementation, `eea4c2152` scenario evidence + plan ticks); `git status --porcelain` shows only the paired Task (its uncommitted `[DONE-GATE-STAGE-2]` entry) and `.agents/loop-runs/backlog-execution-orchestrator.jsonl`.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): `.agents/tasks/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` `## Plan` (lines 23–36) holds exactly 5 items — `TC-01, TC-02`, `TC-03, TC-04`, `TC-05, TC-06, TC-07`, `TC-09, TC-10`, `TC-08` — all `- [x]`; 0 `- [ ]` boxes and 0 other box states in that section; the five items together name every TC id TC-01 … TC-10 that the GATE-IMPLEMENT checkpoint's `taskItems` lists. The ticks are committed in `eea4c2152`; the Task's uncommitted diff changes no checkbox line. Only the `## Plan` section was read — `## Test Plan`, `## User Execution Test Scenarios` and `## Recommendation Evidence` were not consulted for this criterion. `node scripts/harness/scan-task-plan-items.mjs` → exit 0 (`::examined:: 317 Task Plan sections`, `task-plan-items scan passed.`). `gate.mjs` bound no mechanical judgement to this wording (PENDING-GUARDIAN); judged here.
+- GATE-VERIFY — No Plan item is blocked or pending: none of the 5 items carries `blocked`, `pending`, `deferred`, `todo` or any other deferral marker (case-insensitive grep over the `## Plan` section returns 0 hits); none is a disposition item — no merge/land/close/publish item; "Engineering verification" in the TC-08 item is the build/test/typecheck/scan work that TC-08 names, not a disposition. Task frontmatter `status: in-progress`. Judged here (PENDING-GUARDIAN from `gate.mjs`).
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): affected set per Task `area:` and spec `## Affected Files` is agent-interface-session, agent-session, agent-framework, agent-cli, agent-ui-terminal; `pnpm --filter @robota-sdk/agent-interface-session --filter @robota-sdk/agent-session --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-cli --filter @robota-sdk/agent-ui-terminal build` → exit 0, re-run by the guardian at HEAD `eea4c2152` (the earlier `gate.mjs judge --verify-cmd` run of the same command reported exit 0 but wrote no entry, so it is not cited as evidence); all five packages `build: Done`, no error lines in the log; `git status --porcelain` unchanged afterwards.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm --filter @robota-sdk/agent-interface-session --filter @robota-sdk/agent-session --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-cli --filter @robota-sdk/agent-ui-terminal test` → exit 0, re-run by the guardian at HEAD `eea4c2152`: agent-interface-session 7 files / 33 tests passed; agent-session 52 files passed, 2 skipped / 387 passed, 20 skipped; agent-framework 227 files passed, 6 skipped / 1747 passed, 77 skipped; agent-ui-terminal 106 / 903 passed; agent-cli 71 passed, 1 skipped / 515 passed, 18 skipped; 0 failures; every package `test: Done`. Additionally the same five-package `typecheck` → exit 0 (all five `typecheck: Done`).
+
+**Judged by:** `backlog-gate-guard` (semantic) + `gate.mjs` (ordering, dry-run)
+**Judged at:** HEAD `eea4c21526da957addcb0e90c53eff97c56c72b9` · base `origin/develop@295f48655addb42b0c6c06bf9d0df2a6c162f3ac` · document `.agents/spec-docs/active/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `78d4d4d3d9a5ee35818a082d7bdd352288bbe6e0` (tracked)
