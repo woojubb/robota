@@ -22,17 +22,17 @@ rather than creating a second in-memory transcript copy.
 
 ## Plan
 
-- [ ] TC-01, TC-02: Prompt-history contracts (`IPromptHistoryEntry`, writer, streamed newest-first source),
+- [x] TC-01, TC-02: Prompt-history contracts (`IPromptHistoryEntry`, writer, streamed newest-first source),
       the owner-only `~/.robota/history.jsonl` file with its tail reader, and the session-side append on
       user-originated turns with its once-per-session failure notice.
-- [ ] TC-03, TC-04: The pure search flow (substring match with ranges, collapse-to-newest, scope cycle) and
+- [x] TC-03, TC-04: The pure search flow (substring match with ranges, collapse-to-newest, scope cycle) and
       the reverse-search overlay with progressive results, insert/execute actions and exact draft restore
       on cancel.
-- [ ] TC-05, TC-06, TC-07: The `history-search` keybinding context and schema, the CLI enablement and
+- [x] TC-05, TC-06, TC-07: The `history-search` keybinding context and schema, the CLI enablement and
       project-key resolution, and the composition that injects the writer and source.
-- [ ] TC-09, TC-10: The PTY search scenario, and the scrollback check that records why native full
+- [x] TC-09, TC-10: The PTY search scenario, and the scrollback check that records why native full
       scrollback is the transcript decision.
-- [ ] TC-08: Engineering verification.
+- [x] TC-08: Engineering verification.
 
 ## Test Plan
 
@@ -59,7 +59,7 @@ progressive acceptance and cancellation in unit/component tests, then execute a 
 - observable rationale: source=rendered-product-ui
 - expected observable: visible=after `first draft` and `ctrl+r`, an overlay lists stored prompts newest-first (`tidy the changelog headings` before `write the release notes for 3.1`) with the scope label `all` and the skipped-line count `1` (`1 unreadable line skipped`); typing `deploy` narrows the list to the prompts containing it — `deploy the canary to eu-west`, `deploy staging with helm chart v3` (listed once, its duplicate collapsed) and `redeploy after the deploy hook fails` — with `tidy the changelog headings` no longer shown and the matched `deploy` highlighted in each row; the first `ctrl+s` changes the scope label to `session` and lists none of those three; the second `ctrl+s` changes it to `project` and lists only `deploy staging with helm chart v3`; `enter` closes the overlay, the composer shows exactly `deploy staging with helm chart v3` and the stub's request count is unchanged; `ctrl+r`, `rotate`, `ctrl+e` sends the match — the stub receives a new request whose last user content equals `rotate the staging secrets` and the canned reply renders; `ctrl+r` with the composer holding `third draft: keep me byte-identical  `, typing `helm`, then `escape` closes the overlay and the composer shows `third draft: keep me byte-identical  ` byte-identically with no `helm` in it
 - cleanup: exit the Robota process normally with Ctrl+C and confirm it exited, stop the stub server, then remove only the isolated HOME, project and captured transcript directories
-- evidence: pending
+- evidence: recorded — strict driver run, exit 0: `ctrl+r` rendered `(reverse-i-search) scope: all · query:` with `120 matches · 1 unreadable line skipped` and the seeded prompts newest-first; `deploy` narrowed to the three deploy rows with the visible `[deploy]` highlight (`> re[deploy] after the [deploy] hook fails`) and the duplicate collapsed to one; `ctrl+s` read `scope: session` (no seeded deploy row) then `scope: project` (only `deploy staging with helm chart v3`); `enter` left the composer at `> deploy staging with helm chart v3` with the stub still at 1 request; `ctrl+r`, `rotate`, `ctrl+e` produced the stub's second request with last user content `rotate the staging secrets` and the canned reply rendered; `escape` left the composer at `> third draft: keep me byte-identical` with no `helm` — in `.agents/evals/scenarios/screen-1993-history-search-agent-run.md` (2026-09-19)
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-19
 
