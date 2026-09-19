@@ -180,8 +180,20 @@ describe('SCREEN-006 palette consistency floor', () => {
   const themeProviderElement = (source: string): string =>
     /<ThemeProvider\b[\s\S]*?>/u.exec(blankComments(source))?.[0] ?? '';
 
-  /** The consumer end: every call site that renders markdown must pass the toggle. */
-  const RENDER_MARKDOWN_CALL = /renderMarkdown\(/gu;
+  /**
+   * The consumer end: every call site that renders markdown must pass the toggle.
+   *
+   * A fresh regex per use, and CALL SITES counted rather than files tested. Two reasons, both of
+   * which this floor got wrong on its first attempt: `.test()` on a `g`-flagged regex advances
+   * `lastIndex`, so a shared object silently reports `false` for a file whose match sits before the
+   * previous file's offset — the floor would skip the very file it exists to catch. And a
+   * file-level `includes` check passes a file that renders markdown twice and passes the option
+   * once, while the failure message claims every render site.
+   */
+  const renderMarkdownCalls = (source: string): number =>
+    source.match(/renderMarkdown\(/gu)?.length ?? 0;
+  const syntaxHighlightingArgs = (source: string): number =>
+    source.match(/\bsyntaxHighlighting\b\s*[,}]/gu)?.length ?? 0;
 
   it('SCREEN-2002: AppView feeds the theme provider all three resolved inputs', () => {
     const element = themeProviderElement(readFileSync(join(SRC_ROOT, 'AppView.tsx'), 'utf8'));
@@ -198,10 +210,16 @@ describe('SCREEN-006 palette consistency floor', () => {
   it('SCREEN-2002: every markdown render site reads the syntax-highlighting setting', () => {
     const offenders = sourceFiles
       .filter((file) => relative(SRC_ROOT, file) !== 'render-markdown.ts')
-      .map((file) => ({ file, source: blankComments(readFileSync(file, 'utf8')) }))
-      .filter(({ source }) => RENDER_MARKDOWN_CALL.test(source))
-      .filter(({ source }) => !source.includes('syntaxHighlighting'))
-      .map(({ file }) => relative(SRC_ROOT, file));
+      .map((file) => {
+        const source = blankComments(readFileSync(file, 'utf8'));
+        return {
+          file: relative(SRC_ROOT, file),
+          calls: renderMarkdownCalls(source),
+          passes: syntaxHighlightingArgs(source),
+        };
+      })
+      .filter((entry) => entry.calls > entry.passes)
+      .map((entry) => `${entry.file} (${entry.calls} call(s), ${entry.passes} passing the option)`);
 
     expect(
       offenders,
@@ -233,9 +251,15 @@ describe('SCREEN-006 palette consistency floor', () => {
     for (const prop of THEME_PROVIDER_PROPS) {
       expect(new RegExp(`${prop}=\\{viewModel\\.theme\\.`, 'u').test(element)).toBe(true);
     }
-    // (d) The consumer half: a call site without the option is what the scan looks for.
-    expect(RENDER_MARKDOWN_CALL.test('renderMarkdown(text, { theme })')).toBe(true);
-    expect('renderMarkdown(text, { theme })'.includes('syntaxHighlighting')).toBe(false);
+    // (d) The consumer half counts CALL SITES, so a file that renders twice and passes once fails.
+    const half = 'renderMarkdown(a, { theme, syntaxHighlighting });\nrenderMarkdown(b, { theme });';
+    expect(renderMarkdownCalls(half)).toBe(2);
+    expect(syntaxHighlightingArgs(half)).toBe(1);
+    // (e) And the count is not carried between calls: a shared `g` regex would report 0 here.
+    const single = 'renderMarkdown(text, { theme })';
+    expect(renderMarkdownCalls(single)).toBe(1);
+    expect(renderMarkdownCalls(single)).toBe(1);
+    expect(syntaxHighlightingArgs(single)).toBe(0);
   });
 
   it('both ratchets actually fire on a violating fixture', () => {

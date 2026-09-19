@@ -13,10 +13,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ScreenReaderProvider } from '../screen-reader-context.js';
 
 const gateMock = vi.hoisted(() => ({ value: true }));
-vi.mock('../terminal-capabilities.js', () => ({
+// Spread the real module and override ONE export: a hand-listed factory silently drops whatever
+// the module gains later, and the failure lands as "not a function" in an unrelated file.
+vi.mock('../terminal-capabilities.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../terminal-capabilities.js')>()),
   isInteractiveColorTerminal: (): boolean => gateMock.value,
-  supportsImeCursorPositioning: (): boolean => false,
-  supportsFocusReporting: (): boolean => false,
 }));
 
 afterEach(() => {

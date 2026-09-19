@@ -551,6 +551,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     // never disagree about which themes exist.
     themeRegistry: theme.registry,
     reducedMotion: theme.reducedMotion,
+    reducedMotionOverride: theme.reducedMotionOverride,
     ...toSessionOptions(presetSurface),
   });
   process.exit(0);

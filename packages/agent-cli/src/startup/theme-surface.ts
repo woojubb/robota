@@ -15,7 +15,7 @@ import { resolveAppearanceRenderFields } from './appearance-enablement.js';
 
 import type { IThemeRegistry } from '@robota-sdk/agent-ui-terminal';
 import type { TSettingsData } from '@robota-sdk/agent-framework';
-import type { IThemeCataloguePort } from '@robota-sdk/agent-command';
+import type { IThemeCataloguePort, TReducedMotionOverride } from '@robota-sdk/agent-command';
 
 export interface IThemeSurfaceOptions {
   /**
@@ -36,6 +36,12 @@ export interface IThemeSurface {
   readonly cataloguePort: IThemeCataloguePort | undefined;
   /** What this run renders with, after settings ← env ← flag. */
   readonly reducedMotion: boolean;
+  /**
+   * Which tier decided it, when that was not the settings. The picker renders this, the same way
+   * `/theme list` and `/theme motion` report it — without it the picker is the one surface of the
+   * three that can show `motion on` on a visibly still run.
+   */
+  readonly reducedMotionOverride?: TReducedMotionOverride | undefined;
 }
 
 export function createThemeSurface(options: IThemeSurfaceOptions): IThemeSurface {
@@ -44,8 +50,14 @@ export function createThemeSurface(options: IThemeSurfaceOptions): IThemeSurface
     options.reducedMotionFlag,
     options.env,
   );
+  const motion = {
+    reducedMotion: resolved.reducedMotion,
+    ...(resolved.reducedMotionOverride === undefined
+      ? {}
+      : { reducedMotionOverride: resolved.reducedMotionOverride }),
+  };
   if (!options.enabled) {
-    return { registry: undefined, cataloguePort: undefined, reducedMotion: resolved.reducedMotion };
+    return { registry: undefined, cataloguePort: undefined, ...motion };
   }
   const registry = createThemeRegistry();
   const cataloguePort = createThemeCataloguePort({
@@ -59,5 +71,5 @@ export function createThemeSurface(options: IThemeSurfaceOptions): IThemeSurface
       ? {}
       : { reducedMotionOverride: resolved.reducedMotionOverride }),
   });
-  return { registry, cataloguePort, reducedMotion: resolved.reducedMotion };
+  return { registry, cataloguePort, ...motion };
 }
