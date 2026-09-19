@@ -46,9 +46,10 @@ export function resolvePromptHistoryEnablement(inputs: {
 
 /**
  * The project key every entry of this run carries: the workspace identity's worktree root whenever
- * an identity resolved (trusted, untrusted or revoked alike — the resolver is trust-independent);
- * only `identity-unavailable` / `store-unavailable` without an identity fall back to the real path of
- * the cwd. The trust service already resolved the identity at startup, so nothing is resolved twice.
+ * an identity resolved (trusted, untrusted, revoked or store-unavailable alike — the resolver is
+ * trust-independent and the service attaches the identity to every state it reached); only
+ * `identity-unavailable`, the one state with no identity, falls back to the real path of the cwd.
+ * The trust service already resolved the identity at startup, so nothing is resolved twice.
  */
 export function resolvePromptHistoryProject(access: TWorkspaceProjectAccess, cwd: string): string {
   if (access.status === 'trusted')

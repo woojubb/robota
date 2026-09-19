@@ -59,7 +59,9 @@ function MatchRow(props: {
       : selected
         ? SELECTION_INDICATOR
         : SELECTION_INDICATOR_NONE;
-  const runs = splitByRanges(match.entry.text, match.ranges);
+  // A stored prompt may span lines; one visible glyph per newline keeps the row a row and the
+  // match ranges aligned (same length).
+  const runs = splitByRanges(match.entry.text.replace(/\n/gu, '↵'), match.ranges);
   return (
     <Text
       color={selected ? PALETTE.text.accent : undefined}

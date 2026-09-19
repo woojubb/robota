@@ -722,10 +722,10 @@ the prompts the owner typed, and this package owns the two product decisions aro
   or nothing when disabled. `runPrintMode` and `runServeMode` receive no writer: prompt intake is TUI
   state, and neither has a composer.
 - **Project key.** `resolvePromptHistoryProject()` returns the resolved workspace identity's
-  `worktreeRoot` whenever the identity resolved — trusted, untrusted or revoked alike, because the
-  resolver is trust-independent and `IRestrictedWorkspaceProjectAccess` now carries the `identity`
-  the trust service already resolved (no second `git rev-parse`); only `identity-unavailable` /
-  `store-unavailable` without an identity fall back to `realpath(cwd)`.
+  `worktreeRoot` whenever the identity resolved — trusted, untrusted, revoked or store-unavailable
+  alike, because the resolver is trust-independent and `IRestrictedWorkspaceProjectAccess` now carries
+  the `identity` the trust service attaches to every state it reached (no second `git rev-parse`);
+  only `identity-unavailable`, the one state without an identity, falls back to `realpath(cwd)`.
 
 ### Transport Settings
 

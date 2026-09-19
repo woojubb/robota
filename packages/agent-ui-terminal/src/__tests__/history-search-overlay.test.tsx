@@ -123,6 +123,28 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     unmount();
   });
 
+  it('a source with a synchronous body still renders the first block before the second lands', async () => {
+    // `NodePromptHistoryFile.read` is an async generator whose body is `readSync` all the way down:
+    // between two blocks there is only a microtask. Without a macrotask yield in the loader, Ink's
+    // throttled write never runs between publishes and the user sees the whole file at once.
+    const source: IPromptHistorySource = {
+      async *read() {
+        yield { entries: [entry('newest block prompt')], skippedLines: 0 };
+        yield { entries: [entry('older block prompt')], skippedLines: 0 };
+      },
+    };
+    const { stdin, frames, lastFrame, unmount } = renderWith(source);
+    await tick();
+    stdin.write(CTRL_R);
+    await tick(100);
+    expect(lastFrame()).toContain('older block prompt');
+    const firstBlockFrame = frames.find(
+      (frame) => frame.includes('newest block prompt') && !frame.includes('older block prompt'),
+    );
+    expect(firstBlockFrame).toBeDefined();
+    unmount();
+  });
+
   it('narrows as the query is typed with the match marked, and enter inserts without submitting', async () => {
     const gate = gatedSource([
       {

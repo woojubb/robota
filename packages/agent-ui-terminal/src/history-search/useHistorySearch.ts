@@ -19,6 +19,7 @@ import {
   filterPrompts,
   inScope,
   type IHistorySearchMatch,
+  type IHistorySearchScopeContext,
   type THistorySearchScope,
 } from './history-search-flow.js';
 
@@ -74,11 +75,11 @@ function isPrintable(input: string, key: IKeyInput): boolean {
 
 function liveEntries(
   prompts: readonly string[],
-  surface: IHistorySearchSurface,
+  context: IHistorySearchScopeContext,
 ): IPromptHistoryEntry[] {
   return [...prompts]
     .reverse()
-    .map((text) => ({ at: '', sessionId: surface.sessionId, project: surface.project, text }));
+    .map((text) => ({ at: '', sessionId: context.sessionId, project: context.project, text }));
 }
 
 interface ILoader {
@@ -101,6 +102,12 @@ interface ILoaderRun {
   readonly setLoading: (loading: boolean) => void;
 }
 
+/**
+ * A real source reads synchronously and yields blocks with only a microtask between them; Ink's
+ * throttled write never runs inside that, so without this the whole file lands in one frame.
+ */
+const yieldToTerminal = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
 async function runLoader(run: ILoaderRun): Promise<void> {
   try {
     for await (const block of run.source.read({ signal: run.signal })) {
@@ -109,7 +116,10 @@ async function runLoader(run: ILoaderRun): Promise<void> {
         entries: [...run.pending.current.entries, ...block.entries],
         skippedLines: run.pending.current.skippedLines + block.skippedLines,
       };
-      if (run.publishEachBlock) run.publish();
+      if (run.publishEachBlock) {
+        run.publish();
+        await yieldToTerminal();
+      }
     }
     if (!run.signal.aborted) run.publish();
   } catch (cause) {
@@ -133,6 +143,7 @@ function useHistoryLoader(
   const stop = useCallback(() => {
     controller.current?.abort();
     controller.current = undefined;
+    setLoading(false);
   }, []);
   const start = useCallback(() => {
     stop();
@@ -209,16 +220,21 @@ function useHistorySearchKeys(deps: ISearchKeysDeps): void {
 
 /** The candidate list for the scope: the live list for `session`, the collapsed file otherwise. */
 function useCandidates(
+  open: boolean,
   surface: IHistorySearchSurface | undefined,
   scope: THistorySearchScope,
   sessionPrompts: readonly string[],
   entries: readonly IPromptHistoryEntry[],
 ): IPromptHistoryEntry[] {
+  // Keyed on the surface's values, not its identity: the app rebuilds the object every render.
+  const sessionId = surface?.sessionId;
+  const project = surface?.project;
   return useMemo(() => {
-    if (surface === undefined) return [];
-    if (scope === 'session') return liveEntries(sessionPrompts, surface);
-    return collapseToNewest(entries.filter((entry) => inScope(entry, scope, surface)));
-  }, [entries, scope, sessionPrompts, surface]);
+    if (!open || sessionId === undefined || project === undefined) return [];
+    const context = { sessionId, project };
+    if (scope === 'session') return liveEntries(sessionPrompts, context);
+    return collapseToNewest(entries.filter((entry) => inScope(entry, scope, context)));
+  }, [entries, open, project, scope, sessionId, sessionPrompts]);
 }
 
 interface IQueryState {
@@ -270,7 +286,13 @@ export function useHistorySearch(options: IUseHistorySearchOptions): {
     options.onOpenChange,
   );
 
-  const candidates = useCandidates(surface, scope, options.sessionPrompts, loader.loaded.entries);
+  const candidates = useCandidates(
+    open,
+    surface,
+    scope,
+    options.sessionPrompts,
+    loader.loaded.entries,
+  );
   const matches = useMemo(() => filterPrompts(candidates, query), [candidates, query]);
   const selected = Math.min(state.selectedIndex, Math.max(0, matches.length - 1));
   const setScope = (next: THistorySearchScope): void => setState((s) => ({ ...s, scope: next }));
