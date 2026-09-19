@@ -44,6 +44,17 @@ spans three pull requests by design (`**Delivery mode:** sequenced`), and units 
 
 - [ ] TC-12: Engineering verification.
 
+**Carried into unit 3 from work unit 2's review.** In screen-reader mode the picker's
+`toggle-syntax` (`s`) and `toggle-motion` (`m`) are unreachable — the mode takes a typed answer
+instead of live keys — while the toggles row still renders their state and the footer shows the
+numbered prompt rather than the hints. The affordance is displayed, not offered, and not announced.
+This is not drift: TC-10's clauses are mode-separated and `/theme syntax off` stays reachable in the
+mode. But it is an accessibility seam in an accessibility item, and the fix is a design choice with
+no approved criterion — either the mode gets its own way to reach the toggles, which changes what its
+numbered menu means, or the row stops rendering an affordance the mode cannot reach. Carried here
+rather than decided inside a review fold, because unit 3 reopens this component for user and plugin
+rows and for Scenario 1's disabled row, so the decision lands with a criterion attached.
+
 ## Test Plan
 
 Test token completeness (every `markdown` key marked-terminal colours, every one of cli-highlight's 17

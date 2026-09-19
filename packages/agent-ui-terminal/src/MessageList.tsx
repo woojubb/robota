@@ -3,15 +3,15 @@ import { Box } from 'ink';
 import React from 'react';
 
 import { formatCommandOutputSummary } from './command-output-summary.js';
+import { useRenderMarkdown } from './hooks/useRenderMarkdown.js';
 import { humanizeToolName } from './humanize-tool-name.js';
-import { renderMarkdown } from './render-markdown.js';
 import { RoleLabel } from './RoleLabel.js';
 import { RenderedText, Text } from './SafeText.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { SCREEN_READER_LABELS, type TScreenReaderLabelKind } from './screen-reader-labels.js';
-import { STATUS_SYMBOL, statusGlyphColor } from './status-glyph.js';
-import { usePalette, useSyntaxHighlighting, useTheme } from './theme/index.js';
+import { statusGlyphColor } from './status-glyph.js';
+import { usePalette } from './theme/index.js';
 import { getToolSummaryLabel, toolSummaryStatusKind } from './tool-summary-status.js';
 import ToolCommandOutput from './ToolCommandOutput.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
@@ -146,9 +146,7 @@ const MessageItem = React.memo(function MessageItem({
 }): React.ReactElement {
   // Every hook this component uses runs BEFORE the early returns: a message whose role or kind
   // changes in place would otherwise render a different NUMBER of hooks and React would throw.
-  const theme = useTheme();
-  const syntaxHighlighting = useSyntaxHighlighting();
-  const screenReader = useScreenReader();
+  const renderMarkdown = useRenderMarkdown();
 
   if (isToolMessage(message)) {
     return <ToolMessage message={message} />;
@@ -176,11 +174,7 @@ const MessageItem = React.memo(function MessageItem({
         {isAssistantMessage(message) ? (
           // `renderMarkdown` sanitizes its input and then styles it; the SGR in its output is ours.
           <RenderedText wrap="wrap">
-            {renderMarkdown(content + (isInterrupted ? '\n\n_(interrupted)_' : ''), {
-              screenReader,
-              theme,
-              syntaxHighlighting,
-            })}
+            {renderMarkdown(content + (isInterrupted ? '\n\n_(interrupted)_' : ''))}
           </RenderedText>
         ) : (
           <Text wrap="wrap">{content}</Text>

@@ -47,6 +47,42 @@ function submissionOf(toggles: IThemeToggles, appearance: IAppearanceSettings = 
   return submit.mock.calls[0]?.[0] as string;
 }
 
+/**
+ * The middle link. `createThemeSurface` is tested at the producer end and `ThemePicker` at the
+ * consumer end with an injected value — so deleting these three lines left the whole suite green,
+ * which is the same both-ends-pinned-middle-severed shape that made the pin dead wiring one round
+ * earlier, one hop further in.
+ */
+describe('the motion pin reaches the picker (SCREEN-2002 TC-08)', () => {
+  function overrideSeenBy(
+    reducedMotionOverride?: 'flag' | 'environment' | 'screen-reader',
+  ): string | undefined {
+    let seen: string | undefined;
+    function Harness(): React.ReactElement {
+      const theme = useAppThemeState({
+        appearance: PERSISTED,
+        ...(reducedMotionOverride === undefined ? {} : { reducedMotionOverride }),
+        visible: true,
+        setVisible: vi.fn(),
+        submit: vi.fn(),
+      });
+      seen = theme.picker.reducedMotionOverride;
+      return <></>;
+    }
+    render(<Harness />);
+    return seen;
+  }
+
+  it('carries the tier that pinned motion through to the picker', () => {
+    expect(overrideSeenBy('flag')).toBe('flag');
+    expect(overrideSeenBy('environment')).toBe('environment');
+  });
+
+  it('leaves it absent when the settings decided', () => {
+    expect(overrideSeenBy()).toBeUndefined();
+  });
+});
+
 describe('what the picker submits (SCREEN-2002 TC-10)', () => {
   it('sends the theme ALONE when neither toggle was touched', () => {
     expect(submissionOf({ syntaxHighlighting: true, reducedMotion: false })).toBe('/theme light');

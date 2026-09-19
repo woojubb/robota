@@ -181,19 +181,20 @@ describe('SCREEN-006 palette consistency floor', () => {
     /<ThemeProvider\b[\s\S]*?>/u.exec(blankComments(source))?.[0] ?? '';
 
   /**
-   * The consumer end: every call site that renders markdown must pass the toggle.
+   * The consumer end, as a PROPERTY rather than a proxy for one.
    *
-   * A fresh regex per use, and CALL SITES counted rather than files tested. Two reasons, both of
-   * which this floor got wrong on its first attempt: `.test()` on a `g`-flagged regex advances
-   * `lastIndex`, so a shared object silently reports `false` for a file whose match sits before the
-   * previous file's offset — the floor would skip the very file it exists to catch. And a
-   * file-level `includes` check passes a file that renders markdown twice and passes the option
-   * once, while the failure message claims every render site.
+   * `/theme syntax off` shipped persisting a setting no render site passed, so the command reported
+   * success and changed nothing. Four guards were written for it, and each measured something
+   * standing in for "every call site passes the setting" — the prop appears in the file, the file
+   * matched the regex, the identifier occurs N times. Each held for exactly one review round,
+   * because a closer proxy is still a proxy.
+   *
+   * So the obligation is gone instead: `useRenderMarkdown()` binds the theme, the setting and
+   * screen-reader mode, and there is no per-call-site argument left to forget. What remains to
+   * check is that nothing goes around it — the single-consumer shape the motion gate already uses
+   * below.
    */
-  const renderMarkdownCalls = (source: string): number =>
-    source.match(/renderMarkdown\(/gu)?.length ?? 0;
-  const syntaxHighlightingArgs = (source: string): number =>
-    source.match(/\bsyntaxHighlighting\b\s*[,}]/gu)?.length ?? 0;
+  const RENDER_MARKDOWN_OWNER = 'hooks/useRenderMarkdown.ts';
 
   it('SCREEN-2002: AppView feeds the theme provider all three resolved inputs', () => {
     const element = themeProviderElement(readFileSync(join(SRC_ROOT, 'AppView.tsx'), 'utf8'));
@@ -207,25 +208,22 @@ describe('SCREEN-006 palette consistency floor', () => {
     }
   });
 
-  it('SCREEN-2002: every markdown render site reads the syntax-highlighting setting', () => {
-    const offenders = sourceFiles
-      .filter((file) => relative(SRC_ROOT, file) !== 'render-markdown.ts')
-      .map((file) => {
-        const source = blankComments(readFileSync(file, 'utf8'));
-        return {
-          file: relative(SRC_ROOT, file),
-          calls: renderMarkdownCalls(source),
-          passes: syntaxHighlightingArgs(source),
-        };
-      })
-      .filter((entry) => entry.calls > entry.passes)
-      .map((entry) => `${entry.file} (${entry.calls} call(s), ${entry.passes} passing the option)`);
+  it('SCREEN-2002: the markdown renderer has one consumer, which binds the appearance', () => {
+    const importers = sourceFiles
+      .map((file) => ({
+        file: relative(SRC_ROOT, file),
+        source: blankComments(readFileSync(file, 'utf8')),
+      }))
+      .filter(({ file }) => file !== 'render-markdown.ts')
+      .filter(({ source }) => /from '[^']*render-markdown\.js'/u.test(source))
+      .map(({ file }) => file);
 
     expect(
-      offenders,
-      `These render markdown without passing \`syntaxHighlighting\`, so \`/theme syntax off\` would ` +
-        `report success and change nothing there:\n${offenders.join('\n')}`,
-    ).toEqual([]);
+      importers,
+      `Only ${RENDER_MARKDOWN_OWNER} may import the raw renderer — everything else goes through ` +
+        `\`useRenderMarkdown()\`, which binds the theme, the syntax-highlighting setting and ` +
+        `screen-reader mode. A direct import is a call site that can forget one of them.`,
+    ).toEqual([RENDER_MARKDOWN_OWNER]);
   });
 
   it('the wiring floors fire on a violating fixture', () => {
@@ -251,15 +249,12 @@ describe('SCREEN-006 palette consistency floor', () => {
     for (const prop of THEME_PROVIDER_PROPS) {
       expect(new RegExp(`${prop}=\\{viewModel\\.theme\\.`, 'u').test(element)).toBe(true);
     }
-    // (d) The consumer half counts CALL SITES, so a file that renders twice and passes once fails.
-    const half = 'renderMarkdown(a, { theme, syntaxHighlighting });\nrenderMarkdown(b, { theme });';
-    expect(renderMarkdownCalls(half)).toBe(2);
-    expect(syntaxHighlightingArgs(half)).toBe(1);
-    // (e) And the count is not carried between calls: a shared `g` regex would report 0 here.
-    const single = 'renderMarkdown(text, { theme })';
-    expect(renderMarkdownCalls(single)).toBe(1);
-    expect(renderMarkdownCalls(single)).toBe(1);
-    expect(syntaxHighlightingArgs(single)).toBe(0);
+    // (d) The consumer half is an IMPORT check, so it cannot be satisfied by an identifier that
+    // merely occurs — a dependency array, a destructure, a sibling component's props.
+    const direct = "import { renderMarkdown } from './render-markdown.js';";
+    expect(/from '[^']*render-markdown\.js'/u.test(direct)).toBe(true);
+    const throughTheHook = "import { useRenderMarkdown } from './hooks/useRenderMarkdown.js';";
+    expect(/from '[^']*render-markdown\.js'/u.test(throughTheHook)).toBe(false);
   });
 
   it('both ratchets actually fire on a violating fixture', () => {

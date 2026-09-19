@@ -6,13 +6,13 @@
 import { Box } from 'ink';
 import React from 'react';
 
+import { useRenderMarkdown } from './hooks/useRenderMarkdown.js';
 import { humanizeToolArgument, humanizeToolName } from './humanize-tool-name.js';
-import { renderMarkdown } from './render-markdown.js';
 import { RenderedText, Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { SCREEN_READER_LABELS } from './screen-reader-labels.js';
 import { STATUS_SYMBOL, statusGlyphColor, toolStateStatusKind } from './status-glyph.js';
-import { usePalette, useSyntaxHighlighting, useTheme } from './theme/index.js';
+import { usePalette } from './theme/index.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
 
 import type { IThemeColors } from './theme/index.js';
@@ -102,8 +102,7 @@ export default function StreamingIndicator({
   isThinking = false,
 }: IProps): React.ReactElement {
   const palette = usePalette();
-  const theme = useTheme();
-  const syntaxHighlighting = useSyntaxHighlighting();
+  const renderMarkdown = useRenderMarkdown();
   const hasTools = activeTools.length > 0;
   const hasText = text.length > 0;
   const screenReader = useScreenReader();
@@ -127,9 +126,7 @@ export default function StreamingIndicator({
           <Text> </Text>
           <Box marginLeft={2}>
             {/* `renderMarkdown` sanitizes its input and then styles it; the SGR in its output is ours. */}
-            <RenderedText wrap="wrap">
-              {renderMarkdown(text, { theme, syntaxHighlighting })}
-            </RenderedText>
+            <RenderedText wrap="wrap">{renderMarkdown(text)}</RenderedText>
           </Box>
         </Box>
       )}
