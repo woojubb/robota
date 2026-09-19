@@ -263,6 +263,20 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     unmount();
   });
 
+  it('keeps a multi-line prompt on one row with a visible newline glyph', async () => {
+    const source: IPromptHistorySource = {
+      async *read() {
+        yield { entries: [entry('first line\nsecond line')], skippedLines: 0 };
+      },
+    };
+    const { stdin, lastFrame, unmount } = renderWith(source);
+    await tick();
+    stdin.write(CTRL_R);
+    await tick();
+    expect(lastFrame()).toContain('first line↵second line');
+    unmount();
+  });
+
   it('renders a read error instead of an empty list', async () => {
     const source: IPromptHistorySource = {
       // eslint-disable-next-line require-yield -- the failure is the whole behaviour under test.
