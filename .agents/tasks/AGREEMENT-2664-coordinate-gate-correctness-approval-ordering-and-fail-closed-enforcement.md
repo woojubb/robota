@@ -43,6 +43,8 @@ AGREEMENT-013, or AGREEMENT-2698.
 - [ ] TC-03 — Reconcile inherited source rows against their child or external owner with no duplicate execution record.
 - [ ] TC-04 — Verify all child and dependency outcomes, then update the umbrella register with exact delivery evidence.
 - [ ] TC-05 — Reconcile issue #2664 only after every retained criterion has a delivered or explicitly terminal owner.
+- [ ] TC-06 — Preserve each child's approved scope and route every cross-owner finding to its existing owner.
+- [ ] TC-07 — Read back one terminal owner and landing witness for every umbrella register row.
 
 ## Children
 
