@@ -48,6 +48,7 @@ import type {
   EditCheckpointStore,
   IOrgPolicy,
 } from '@robota-sdk/agent-framework';
+import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
@@ -164,6 +165,8 @@ export interface IRenderOptions {
   themeRegistry?: IThemeRegistry;
   /** SCREEN-2002: reduced motion as the product shell resolved it (settings ← env ← flag). */
   reducedMotion?: boolean | undefined;
+  /** SCREEN-2002: which tier decided it, when that was not the settings. */
+  reducedMotionOverride?: TReducedMotionOverride | undefined;
   /**
    * SCREEN-1992: the focus-reporting override the product shell resolved from its own environment.
    * `true` forces DECSET 1004 on, `false` is the kill switch, absent ⇒ on for an interactive TTY.
@@ -367,6 +370,7 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
           promptHistoryProject={options.promptHistoryProject}
           themeRegistry={options.themeRegistry}
           reducedMotion={options.reducedMotion}
+          reducedMotionOverride={options.reducedMotionOverride}
         />
       </ScreenReaderProvider>
     </KeybindingsProvider>,

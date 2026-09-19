@@ -25,6 +25,7 @@ import { usePalette } from './theme/index.js';
 
 import type { IAppThemePickerViewModel, IThemeToggles } from './hooks/useAppThemeState.js';
 import type { ITuiTheme } from './theme/index.js';
+import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 
 function describeTheme(theme: ITuiTheme, isActive: boolean): string {
   const active = isActive ? ' (current)' : '';
@@ -90,24 +91,34 @@ function focusedIndexOf(themes: readonly ITuiTheme[], activeThemeId: string): nu
  * Navigation PREVIEWS and only `select` applies, so the highlight and the live region move together
  * without anything being written until the user says so.
  */
-function useThemePickerSelection(
-  picker: IAppThemePickerViewModel,
-  screenReader: boolean,
-): {
-  focusedIndex: number;
+/**
+ * Pending, not applied: the toggles travel with the selection and are submitted WITH it, so escape
+ * abandons them exactly as it abandons the previewed theme. Applying them live would make escape
+ * mean two different things for two controls in the same overlay.
+ */
+function usePendingToggles(picker: IAppThemePickerViewModel): {
   toggles: IThemeToggles;
-  numbered: ReturnType<typeof useNumberedSelection>;
+  setToggles: React.Dispatch<React.SetStateAction<IThemeToggles>>;
 } {
-  const { themes, activeThemeId, preview, select, cancel } = picker;
-  const [focusedIndex, setFocusedIndex] = React.useState(() =>
-    focusedIndexOf(themes, activeThemeId),
-  );
-  // Pending, not applied: the toggles travel with the selection and are submitted WITH it, so
-  // escape abandons them exactly as it abandons the previewed theme.
   const [toggles, setToggles] = React.useState<IThemeToggles>(() => ({
     syntaxHighlighting: picker.syntaxHighlighting,
     reducedMotion: picker.reducedMotion,
   }));
+  return { toggles, setToggles };
+}
+
+/**
+ * The highlight, and the preview that follows it. Moving WRAPS at both ends rather than stopping —
+ * four themes is a short list, and a dead end at the bottom reads as a broken key.
+ */
+function useFocusedRow(picker: IAppThemePickerViewModel): {
+  focusedIndex: number;
+  move: (delta: number) => void;
+} {
+  const { themes, activeThemeId, preview } = picker;
+  const [focusedIndex, setFocusedIndex] = React.useState(() =>
+    focusedIndexOf(themes, activeThemeId),
+  );
   const move = React.useCallback(
     (delta: number): void => {
       if (themes.length === 0) return;
@@ -120,6 +131,20 @@ function useThemePickerSelection(
     },
     [preview, themes],
   );
+  return { focusedIndex, move };
+}
+
+function useThemePickerSelection(
+  picker: IAppThemePickerViewModel,
+  screenReader: boolean,
+): {
+  focusedIndex: number;
+  toggles: IThemeToggles;
+  numbered: ReturnType<typeof useNumberedSelection>;
+} {
+  const { themes, select, cancel } = picker;
+  const { focusedIndex, move } = useFocusedRow(picker);
+  const { toggles, setToggles } = usePendingToggles(picker);
   const togglesRef = React.useRef(toggles);
   togglesRef.current = toggles;
   const applyAt = React.useCallback(
@@ -141,6 +166,13 @@ function useThemePickerSelection(
     onCancel: cancel,
   });
 
+  const toggle = React.useCallback(
+    (key: keyof IThemeToggles): void => {
+      setToggles((current) => ({ ...current, [key]: !current[key] }));
+    },
+    [setToggles],
+  );
+
   useKeybindingActions(
     'theme-picker',
     (actions) => {
@@ -148,13 +180,8 @@ function useThemePickerSelection(
         if (action === 'previous') move(-1);
         else if (action === 'next') move(1);
         else if (action === 'select') applyAt(focusedIndex);
-        else if (action === 'toggle-syntax')
-          setToggles((current) => ({
-            ...current,
-            syntaxHighlighting: !current.syntaxHighlighting,
-          }));
-        else if (action === 'toggle-motion')
-          setToggles((current) => ({ ...current, reducedMotion: !current.reducedMotion }));
+        else if (action === 'toggle-syntax') toggle('syntaxHighlighting');
+        else if (action === 'toggle-motion') toggle('reducedMotion');
         else if (action === 'cancel') cancel();
       }
     },
@@ -202,11 +229,20 @@ function ColourGateNotice(): React.ReactElement {
   );
 }
 
-function TogglesRow({ toggles }: { toggles: IThemeToggles }): React.ReactElement {
+function TogglesRow({
+  toggles,
+  reducedMotionOverride,
+}: {
+  toggles: IThemeToggles;
+  reducedMotionOverride?: TReducedMotionOverride | undefined;
+}): React.ReactElement {
   const on = (value: boolean): string => (value ? 'on' : 'off');
+  // The pin is admitted here as it is by `/theme list` and `/theme motion`. Without it this row can
+  // read `motion on` on a visibly still run — the one surface of the three that hides the pin.
+  const pinned = reducedMotionOverride === undefined ? '' : ` (pinned by ${reducedMotionOverride})`;
   return (
     <Text dimColor>
-      {`syntax ${on(toggles.syntaxHighlighting)} · motion ${on(!toggles.reducedMotion)}`}
+      {`syntax ${on(toggles.syntaxHighlighting)} · motion ${on(!toggles.reducedMotion)}${pinned}`}
     </Text>
   );
 }
@@ -260,7 +296,7 @@ export default function ThemePicker({
         Theme
       </Text>
       <ColourGateNotice />
-      <TogglesRow toggles={toggles} />
+      <TogglesRow toggles={toggles} reducedMotionOverride={picker.reducedMotionOverride} />
       <Box flexDirection="column" marginTop={1}>
         <ThemeRows
           themes={themes}

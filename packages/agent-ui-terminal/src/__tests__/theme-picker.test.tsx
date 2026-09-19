@@ -8,9 +8,20 @@
  */
 import { render } from 'ink-testing-library';
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ScreenReaderProvider } from '../screen-reader-context.js';
+
+const gateMock = vi.hoisted(() => ({ value: true }));
+vi.mock('../terminal-capabilities.js', () => ({
+  isInteractiveColorTerminal: (): boolean => gateMock.value,
+  supportsImeCursorPositioning: (): boolean => false,
+  supportsFocusReporting: (): boolean => false,
+}));
+
+afterEach(() => {
+  gateMock.value = true;
+});
 import { DARK_THEME, LIGHT_THEME, listBuiltInThemes } from '../theme/built-in-themes.js';
 import ThemePicker from '../ThemePicker.js';
 
@@ -158,6 +169,23 @@ describe('the theme picker (SCREEN-2002 TC-10)', () => {
     await tick();
 
     expect(lastFrame() ?? '').toContain('syntax off · motion off');
+  });
+
+  it('admits a motion pin, so the row cannot read `motion on` on a visibly still run', () => {
+    const frame =
+      render(
+        <ThemePicker picker={picker({ reducedMotion: true, reducedMotionOverride: 'flag' })} />,
+      ).lastFrame() ?? '';
+
+    expect(frame).toContain('motion off (pinned by flag)');
+  });
+
+  it('says previews cannot show when colour is off, rather than looking broken', () => {
+    gateMock.value = false;
+
+    const frame = render(<ThemePicker picker={picker()} />).lastFrame() ?? '';
+
+    expect(frame).toContain('Colour is off for this terminal');
   });
 
   it('renders the empty state rather than an empty box', () => {

@@ -7,6 +7,7 @@ import type { IThemeRegistry } from './theme/theme-registry.js';
 import type { ITuiAppChannelPort } from './tui-app-channel-port.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 import type {
   IInteractiveSession,
@@ -38,6 +39,8 @@ interface IProps {
   themeRegistry?: IThemeRegistry;
   /** SCREEN-2002: reduced motion as the product shell resolved it (settings ← env ← flag). */
   reducedMotion?: boolean | undefined;
+  /** SCREEN-2002: which tier decided it, when that was not the settings. */
+  reducedMotionOverride?: TReducedMotionOverride | undefined;
 }
 
 interface IActiveChannel {
@@ -130,6 +133,9 @@ export default function App(props: IProps): React.ReactElement {
           : {})}
         {...(props.themeRegistry !== undefined ? { themeRegistry: props.themeRegistry } : {})}
         {...(props.reducedMotion !== undefined ? { reducedMotion: props.reducedMotion } : {})}
+        {...(props.reducedMotionOverride !== undefined
+          ? { reducedMotionOverride: props.reducedMotionOverride }
+          : {})}
       />
     </TuiCliAdapterProvider>
   );

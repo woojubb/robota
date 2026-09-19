@@ -46,6 +46,8 @@ const BUILT_IN_THEME_IMPORT =
   /\b(?:BUILT_IN_THEMES|DARK_THEME|LIGHT_THEME|DARK_DALTONIZED_THEME|LIGHT_DALTONIZED_THEME)\b|from\s+'[^']*built-in-themes\.js'/g;
 /** SCREEN-2002: a chalk COLOUR call outside `src/theme/` decides a colour the theme should own. */
 const CHALK_COLOR_CALL = /\bchalk\.(?!inverse\b|level\b)[A-Za-z]+[.(]/g;
+/** SCREEN-2002: the three inputs `<ThemeProvider>` must be fed from the resolved view model. */
+const THEME_PROVIDER_PROPS = ['theme', 'reducedMotion', 'syntaxHighlighting'] as const;
 
 interface IFinding {
   file: string;
@@ -163,21 +165,77 @@ describe('SCREEN-006 palette consistency floor', () => {
   });
 
   /**
-   * SCREEN-2002: the provider's three inputs must all be WIRED, not merely accepted.
+   * SCREEN-2002: the provider's three inputs must all be WIRED, and every markdown render site must
+   * READ the one that is not a colour.
    *
    * `/theme syntax off` shipped in this package's first draft persisting a setting that reached no
    * render site — the command reported success for a no-op, and every context-level test still
-   * passed because the context was fine; it was the one line feeding it that was missing. A prop
-   * that can be dropped without a red test is a setting that can stop working silently.
+   * passed, because the context was fine; it was the one line feeding it that was missing.
+   *
+   * The first version of this floor was itself half-real: it matched `prop={viewModel.theme.` on the
+   * RAW file, so a commented-out provider stayed green and so did moving all three props onto a
+   * different element. Both halves below are anchored and comment-blind, and the fixture test at the
+   * end proves each one fires.
    */
+  const themeProviderElement = (source: string): string =>
+    /<ThemeProvider\b[\s\S]*?>/u.exec(blankComments(source))?.[0] ?? '';
+
+  /** The consumer end: every call site that renders markdown must pass the toggle. */
+  const RENDER_MARKDOWN_CALL = /renderMarkdown\(/gu;
+
   it('SCREEN-2002: AppView feeds the theme provider all three resolved inputs', () => {
-    const appView = readFileSync(join(SRC_ROOT, 'AppView.tsx'), 'utf8');
-    for (const prop of ['theme', 'reducedMotion', 'syntaxHighlighting']) {
+    const element = themeProviderElement(readFileSync(join(SRC_ROOT, 'AppView.tsx'), 'utf8'));
+
+    expect(element, 'AppView must render a <ThemeProvider> — it is the only live one').not.toBe('');
+    for (const prop of THEME_PROVIDER_PROPS) {
       expect(
-        new RegExp(`${prop}=\\{viewModel\\.theme\\.`, 'u').test(appView),
-        `AppView must pass ${prop} to <ThemeProvider> — the resolved value reaches components only here`,
+        new RegExp(`${prop}=\\{viewModel\\.theme\\.`, 'u').test(element),
+        `<ThemeProvider> must be passed ${prop} — the resolved value reaches components only here`,
       ).toBe(true);
     }
+  });
+
+  it('SCREEN-2002: every markdown render site reads the syntax-highlighting setting', () => {
+    const offenders = sourceFiles
+      .filter((file) => relative(SRC_ROOT, file) !== 'render-markdown.ts')
+      .map((file) => ({ file, source: blankComments(readFileSync(file, 'utf8')) }))
+      .filter(({ source }) => RENDER_MARKDOWN_CALL.test(source))
+      .filter(({ source }) => !source.includes('syntaxHighlighting'))
+      .map(({ file }) => relative(SRC_ROOT, file));
+
+    expect(
+      offenders,
+      `These render markdown without passing \`syntaxHighlighting\`, so \`/theme syntax off\` would ` +
+        `report success and change nothing there:\n${offenders.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('the wiring floors fire on a violating fixture', () => {
+    // (a) A commented-out provider is not a provider.
+    expect(themeProviderElement('// <ThemeProvider theme={viewModel.theme.resolved}>')).toBe('');
+    expect(themeProviderElement('/* <ThemeProvider theme={viewModel.theme.resolved}> */')).toBe('');
+    // (b) The props must be on the PROVIDER, not on whatever element happens to follow it.
+    const moved = [
+      '<ThemeProvider>',
+      '  <AppPresentation theme={viewModel.theme.resolved} />',
+      '</ThemeProvider>',
+    ].join('\n');
+    expect(/theme=\{viewModel\.theme\./u.test(themeProviderElement(moved))).toBe(false);
+    // (c) The real shape passes.
+    const wired = [
+      '<ThemeProvider',
+      '  theme={viewModel.theme.resolved}',
+      '  reducedMotion={viewModel.theme.reducedMotion}',
+      '  syntaxHighlighting={viewModel.theme.syntaxHighlighting}',
+      '>',
+    ].join('\n');
+    const element = themeProviderElement(wired);
+    for (const prop of THEME_PROVIDER_PROPS) {
+      expect(new RegExp(`${prop}=\\{viewModel\\.theme\\.`, 'u').test(element)).toBe(true);
+    }
+    // (d) The consumer half: a call site without the option is what the scan looks for.
+    expect(RENDER_MARKDOWN_CALL.test('renderMarkdown(text, { theme })')).toBe(true);
+    expect('renderMarkdown(text, { theme })'.includes('syntaxHighlighting')).toBe(false);
   });
 
   it('both ratchets actually fire on a violating fixture', () => {

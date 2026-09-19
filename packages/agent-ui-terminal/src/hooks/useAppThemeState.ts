@@ -4,7 +4,10 @@ import { createThemeRegistry, formatUnknownThemeNotice } from '../theme/theme-re
 
 import type { ITuiTheme } from '../theme/theme-contracts.js';
 import type { IThemeRegistry } from '../theme/theme-registry.js';
-import type { IAppearanceSettings } from '@robota-sdk/agent-interface-command';
+import type {
+  IAppearanceSettings,
+  TReducedMotionOverride,
+} from '@robota-sdk/agent-interface-command';
 
 export interface IThemeToggles {
   readonly syntaxHighlighting: boolean;
@@ -19,6 +22,8 @@ export interface IAppThemePickerViewModel {
   /** The PERSISTED toggles the picker seeds itself from and submits alongside the theme. */
   readonly syntaxHighlighting: boolean;
   readonly reducedMotion: boolean;
+  /** Set when a tier above the settings pinned motion for this run; the picker admits it. */
+  readonly reducedMotionOverride?: TReducedMotionOverride | undefined;
   /** Move the highlight: the live region re-renders in that theme, nothing is written. */
   readonly preview: (id: string) => void;
   /**
@@ -47,6 +52,8 @@ interface IOptions {
   readonly appearance: IAppearanceSettings;
   readonly registry?: IThemeRegistry | undefined;
   readonly reducedMotion?: boolean | undefined;
+  /** Which tier decided it, when that was not the settings. */
+  readonly reducedMotionOverride?: TReducedMotionOverride | undefined;
   readonly visible: boolean;
   readonly setVisible: (visible: boolean) => void;
   readonly submit: (input: string) => void;
@@ -78,17 +85,27 @@ export function useAppThemeState(options: IOptions): IAppThemeViewModel {
     setPreviewId(undefined);
     setVisible(false);
   }, [setVisible]);
+  const { syntaxHighlighting, reducedMotion } = options.appearance;
   const select = useCallback(
     (id: string, toggles: IThemeToggles): void => {
       setPreviewId(undefined);
       setVisible(false);
-      const syntax = toggles.syntaxHighlighting ? 'on' : 'off';
-      // `motion on` means ANIMATE, which is `reducedMotion: false` — the inversion lives in the
-      // command's parser, and this is the one place that has to speak its vocabulary.
-      const motion = toggles.reducedMotion ? 'off' : 'on';
-      submit(`/theme ${id} syntax ${syntax} motion ${motion}`);
+      const parts = [`/theme ${id}`];
+      // Only what the user actually CHANGED. Sending all three would make choosing a theme report
+      // "syntax highlighting on, motion on" as applied to someone who touched neither — and on a
+      // run with a reduced-motion flag it would also drag out the pinned-for-this-run notice for a
+      // setting they never asked about.
+      if (toggles.syntaxHighlighting !== syntaxHighlighting) {
+        parts.push(`syntax ${toggles.syntaxHighlighting ? 'on' : 'off'}`);
+      }
+      if (toggles.reducedMotion !== reducedMotion) {
+        // `motion on` means ANIMATE, which is `reducedMotion: false` — the inversion lives in the
+        // command's parser, and this is the one place that has to speak its vocabulary.
+        parts.push(`motion ${toggles.reducedMotion ? 'off' : 'on'}`);
+      }
+      submit(parts.join(' '));
     },
-    [setVisible, submit],
+    [reducedMotion, setVisible, submit, syntaxHighlighting],
   );
 
   // A preview of an unknown id is impossible (the rows come from the registry), so the notice can
@@ -106,6 +123,9 @@ export function useAppThemeState(options: IOptions): IAppThemeViewModel {
       activeThemeId: options.appearance.theme,
       syntaxHighlighting: options.appearance.syntaxHighlighting,
       reducedMotion: options.appearance.reducedMotion,
+      ...(options.reducedMotionOverride === undefined
+        ? {}
+        : { reducedMotionOverride: options.reducedMotionOverride }),
       preview: setPreviewId,
       select,
       cancel,

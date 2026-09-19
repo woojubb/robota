@@ -16,6 +16,7 @@ import type { IAppThemeViewModel } from './useAppThemeState.js';
 import type { ITuiChannelState } from './useTuiChannel.js';
 import type { IThemeRegistry } from '../theme/theme-registry.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 import type {
   IInteractiveSession,
@@ -47,6 +48,8 @@ export interface IUseAppControllerOptions {
   themeRegistry?: IThemeRegistry;
   /** SCREEN-2002: reduced motion as the product shell resolved it (settings ← env ← flag). */
   reducedMotion?: boolean | undefined;
+  /** SCREEN-2002: which tier decided it, when that was not the settings. */
+  reducedMotionOverride?: TReducedMotionOverride | undefined;
 }
 
 interface ICoordinationState {
@@ -182,6 +185,7 @@ function useControllerTheme(
     appearance: shell.appearance,
     registry: props.themeRegistry,
     reducedMotion: props.reducedMotion,
+    reducedMotionOverride: props.reducedMotionOverride,
     visible: shell.screens.showThemePicker,
     setVisible: shell.screens.setShowThemePicker,
     submit: (input) => void shell.screens.handleSubmit(input),
