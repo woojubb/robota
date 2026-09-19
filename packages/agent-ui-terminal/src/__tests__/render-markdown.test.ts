@@ -5,7 +5,11 @@ const ANSI_LIGHT_RED = '\u001b[38;5;210m';
 const ANSI_LIGHT_GREEN = '\u001b[38;5;120m';
 const ANSI_DARK_RED_BACKGROUND = '\u001b[48;5;52m';
 const ANSI_DARK_GREEN_BACKGROUND = '\u001b[48;5;22m';
-const ANSI_RESET = '\u001b[0m';
+// SCREEN-2002: the rows are styled through chalk now, which closes a background+foreground pair with
+// its own paired resets instead of the blanket `ESC[0m` the hand-written escapes used. The colours
+// and their order are unchanged; this is the one recorded byte difference.
+const ANSI_RESET_FOREGROUND = '\u001b[39m';
+const ANSI_RESET_BACKGROUND = '\u001b[49m';
 const CODE_BLOCK_INDENT = '    ';
 
 describe('renderMarkdown', () => {
@@ -33,10 +37,10 @@ describe('renderMarkdown', () => {
     });
 
     expect(output).toContain(
-      `${ANSI_DARK_RED_BACKGROUND}${ANSI_LIGHT_RED}${removedRow}${ANSI_RESET}`,
+      `${ANSI_DARK_RED_BACKGROUND}${ANSI_LIGHT_RED}${removedRow}${ANSI_RESET_FOREGROUND}${ANSI_RESET_BACKGROUND}`,
     );
     expect(output).toContain(
-      `${ANSI_DARK_GREEN_BACKGROUND}${ANSI_LIGHT_GREEN}${addedRow}${ANSI_RESET}`,
+      `${ANSI_DARK_GREEN_BACKGROUND}${ANSI_LIGHT_GREEN}${addedRow}${ANSI_RESET_FOREGROUND}${ANSI_RESET_BACKGROUND}`,
     );
   });
 

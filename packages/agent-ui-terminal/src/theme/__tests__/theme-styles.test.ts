@@ -1,0 +1,175 @@
+/**
+ * SCREEN-2002 TC-01/TC-02 — the token model and the style builder.
+ *
+ * The load-bearing assertion is the `dark` theme against the values the package shipped before the
+ * theme existed: the whole unit is only safe if a user who sets nothing sees the same colours. The
+ * four recorded byte exceptions (chalk's paired closers, the builder's SGR chain order, `type` keeping
+ * `dim`, and `strong`/`em`/`listitem` not being theme tokens) are asserted by name here rather than
+ * discovered later.
+ */
+import chalk from 'chalk';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { BUILT_IN_THEMES, DARK_THEME } from '../built-in-themes.js';
+import { THEME_SYNTAX_KEYS } from '../theme-contracts.js';
+import {
+  diffRowStyles,
+  foreground,
+  isThemeColor,
+  markdownRendererOptions,
+  syntaxHighlightTheme,
+} from '../theme-styles.js';
+
+/** cli-highlight's own coloured keys, read from the dependency when this test was written. */
+const CLI_HIGHLIGHT_COLOURED_KEYS = [
+  'keyword',
+  'built_in',
+  'type',
+  'literal',
+  'number',
+  'regexp',
+  'string',
+  'class',
+  'function',
+  'comment',
+  'doctag',
+  'meta',
+  'tag',
+  'name',
+  'attr',
+  'addition',
+  'deletion',
+];
+
+const SGR = '\u001b[';
+const TRUECOLOR = 3;
+
+// chalk emits nothing when the test process has no TTY; these assertions are ABOUT the bytes, so the
+// level is forced for the file and restored afterwards.
+const originalLevel = chalk.level;
+beforeAll(() => {
+  chalk.level = TRUECOLOR;
+});
+afterAll(() => {
+  chalk.level = originalLevel;
+});
+
+describe('theme colour grammar (SCREEN-2002 TC-01)', () => {
+  it('accepts Inks grammar and nothing else', () => {
+    for (const value of [
+      'cyan',
+      'yellowBright',
+      'gray',
+      '#abc',
+      '#123456',
+      'ansi256(22)',
+      'rgb(1, 2, 3)',
+    ]) {
+      expect(isThemeColor(value)).toBe(true);
+    }
+    for (const value of [
+      '',
+      'nosuchcolour',
+      '#12345',
+      'ansi256(256)',
+      'rgb(1,2)',
+      `${SGR}31m`,
+      'cyan bold',
+    ]) {
+      expect(isThemeColor(value)).toBe(false);
+    }
+  });
+
+  it('builds a complete cli-highlight theme so no key falls back to its red/green default', () => {
+    expect([...THEME_SYNTAX_KEYS]).toEqual(CLI_HIGHLIGHT_COLOURED_KEYS);
+    for (const theme of BUILT_IN_THEMES) {
+      const built = syntaxHighlightTheme(theme.syntax);
+      expect(Object.keys(built).sort()).toEqual([...CLI_HIGHLIGHT_COLOURED_KEYS].sort());
+    }
+  });
+});
+
+describe('the dark theme reproduces todays rendering (SCREEN-2002 TC-02)', () => {
+  it('keeps every Ink colour value the package shipped', () => {
+    expect(DARK_THEME.colors).toEqual({
+      text: {
+        accent: 'cyan',
+        emphasis: 'white',
+        success: 'green',
+        warning: 'yellow',
+        error: 'red',
+        session: 'magenta',
+        muted: 'gray',
+        onAccent: 'black',
+      },
+      border: {
+        attention: 'yellow',
+        focused: 'cyan',
+        active: 'green',
+        muted: 'gray',
+        error: 'red',
+      },
+      status: {
+        running: 'yellow',
+        success: 'green',
+        error: 'red',
+        denied: 'yellowBright',
+        waiting: 'yellow',
+        cancelled: 'yellow',
+        idle: 'gray',
+      },
+    });
+    expect(DARK_THEME.motion.wave).toEqual(['#555555', '#777777', '#999999', '#bbbbbb']);
+  });
+
+  it('renders each markdown token in marked-terminals own colour, with its structure fixed', () => {
+    const options = markdownRendererOptions(DARK_THEME.markdown);
+    // Byte equality against marked-terminal's own defaults: the builder reproduces each chain in the
+    // dependency's order, so the `dark` theme leaves markdown rendering untouched.
+    expect(options.heading?.('H')).toBe(chalk.green.bold('H'));
+    expect(options.code?.('C')).toBe(chalk.yellow('C'));
+    expect(options.codespan?.('C')).toBe(chalk.yellow('C'));
+    expect(options.link?.('L')).toBe(chalk.blue('L'));
+    expect(options.html?.('X')).toBe(chalk.gray('X'));
+    expect(options.firstHeading?.('F')).toBe(chalk.magenta.underline.bold('F'));
+    expect(options.blockquote?.('B')).toBe(chalk.gray.italic('B'));
+    expect(options.del?.('D')).toBe(chalk.dim.gray.strikethrough('D'));
+    expect(options.href?.('A')).toBe(chalk.blue.underline('A'));
+    // `strong`, `em`, `listitem` and `hr` are NOT theme tokens: the builder never supplies them, so
+    // marked-terminal keeps `chalk.bold` / `chalk.italic` / `chalk.reset` under every theme.
+    expect(options.strong).toBeUndefined();
+    expect(options.em).toBeUndefined();
+    expect(options.listitem).toBeUndefined();
+    expect(options.hr).toBeUndefined();
+  });
+
+  it('keeps cli-highlights `type` dim while taking its colour from the theme', () => {
+    const syntax = syntaxHighlightTheme(DARK_THEME.syntax);
+    expect(syntax.type?.('T')).toBe(chalk.cyan.dim('T'));
+    expect(syntax.keyword?.('K')).toBe(chalk.blue('K'));
+    expect(syntax.string?.('S')).toBe(chalk.red('S'));
+  });
+
+  it('paints diff rows with the former ANSI background/foreground pair', () => {
+    const styles = diffRowStyles(DARK_THEME);
+    const added = styles.added('+row');
+    // The former literal escapes: 48;5;22 background, 38;5;120 foreground.
+    expect(added).toContain(`${SGR}48;5;22m`);
+    expect(added).toContain(`${SGR}38;5;120m`);
+    const removed = styles.removed('-row');
+    expect(removed).toContain(`${SGR}48;5;52m`);
+    expect(removed).toContain(`${SGR}38;5;210m`);
+    // Recorded exception: chalk closes with the paired resets, not the blanket reset.
+    expect(added.endsWith(`${SGR}0m`)).toBe(false);
+    expect(added).toContain(`${SGR}39m`);
+    expect(added).toContain(`${SGR}49m`);
+  });
+
+  it('renders a light theme in different bytes from the dark one', () => {
+    const light = BUILT_IN_THEMES.find((theme) => theme.id === 'light');
+    expect(light).toBeDefined();
+    expect(foreground(light?.colors.text.accent ?? 'cyan')('x')).not.toBe(
+      foreground(DARK_THEME.colors.text.accent)('x'),
+    );
+  });
+});

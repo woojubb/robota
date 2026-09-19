@@ -1,5 +1,7 @@
-import { PALETTE } from './tui-palette.js';
-
+/**
+ * SCREEN-2002: this module is pure, so it names a colour TOKEN, not a colour. `StatusBar` resolves
+ * the token against the live theme — a pure function that returned a chalk name could not follow one.
+ */
 export type TStatusActivityKind = 'tools' | 'thinking' | 'background' | 'queued' | 'idle';
 
 export interface IStatusActivityInput {
@@ -9,10 +11,13 @@ export interface IStatusActivityInput {
   hasPendingPrompt: boolean;
 }
 
+/** The `IThemeColors['text']` key a status activity is rendered in. */
+export type TStatusActivityTone = 'accent' | 'warning' | 'muted';
+
 export interface IStatusActivity {
   kind: TStatusActivityKind;
   label: string;
-  color: string;
+  tone: TStatusActivityTone;
   segments: string[];
   text: string;
 }
@@ -33,33 +38,33 @@ function getPrimaryActivity(
     return {
       kind: 'tools',
       label: `Tools (${input.activeToolCount})`,
-      color: PALETTE.text.accent,
+      tone: 'accent',
     };
   }
   if (input.isThinking) {
     return {
       kind: 'thinking',
       label: 'Thinking',
-      color: PALETTE.text.warning,
+      tone: 'warning',
     };
   }
   if (input.activeBackgroundTaskCount > NO_ACTIVE_ITEMS) {
     return {
       kind: 'background',
       label: `Background (${input.activeBackgroundTaskCount})`,
-      color: PALETTE.text.accent,
+      tone: 'accent',
     };
   }
   if (input.hasPendingPrompt) {
     return {
       kind: 'queued',
       label: 'Queued',
-      color: PALETTE.text.warning,
+      tone: 'warning',
     };
   }
   return {
     kind: 'idle',
     label: 'Idle',
-    color: PALETTE.text.muted,
+    tone: 'muted',
   };
 }

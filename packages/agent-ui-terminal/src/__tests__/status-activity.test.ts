@@ -12,7 +12,7 @@ describe('formatStatusActivity', () => {
 
     expect(activity.kind).toBe('tools');
     expect(activity.label).toBe('Tools (2)');
-    expect(activity.color).toBe('cyan');
+    expect(activity.tone).toBe('accent');
     expect(activity.segments).toEqual(['queued']);
     expect(activity.text).toBe('Tools (2) · queued');
   });
@@ -40,7 +40,7 @@ describe('formatStatusActivity', () => {
 
     expect(activity.kind).toBe('background');
     expect(activity.label).toBe('Background (1)');
-    expect(activity.color).toBe('cyan');
+    expect(activity.tone).toBe('accent');
   });
 
   it('shows queued prompt before idle when no work is active', () => {
@@ -53,7 +53,7 @@ describe('formatStatusActivity', () => {
 
     expect(activity.kind).toBe('queued');
     expect(activity.label).toBe('Queued');
-    expect(activity.color).toBe('yellow');
+    expect(activity.tone).toBe('warning');
   });
 
   it('keeps idle compact and dim', () => {
@@ -66,6 +66,6 @@ describe('formatStatusActivity', () => {
 
     expect(activity.kind).toBe('idle');
     expect(activity.text).toBe('Idle');
-    expect(activity.color).toBe('gray');
+    expect(activity.tone).toBe('muted');
   });
 });

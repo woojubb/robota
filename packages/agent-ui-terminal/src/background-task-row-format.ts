@@ -1,7 +1,8 @@
 import { formatCountdown } from './attention/countdown.js';
 import { formatExecutionWorkspaceEntryRow } from './execution-workspace-view-model.js';
-import { STATUS_GLYPH, workspaceStatusKind } from './status-glyph.js';
+import { STATUS_SYMBOL, workspaceStatusKind } from './status-glyph.js';
 
+import type { TUiStatusKind } from './status-glyph.js';
 import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
 
 /**
@@ -19,7 +20,8 @@ export interface IBackgroundTaskRow {
   marker: string;
   /** SCREEN-1992: the five-word state beside the glyph — the word a reader hears, not a colour. */
   state: string;
-  color: string;
+  /** SCREEN-2002: the status KIND; the component resolves its colour from the live theme. */
+  statusKind: TUiStatusKind;
   label: string;
   segments: string[];
   preview?: string;
@@ -62,9 +64,9 @@ export function formatBackgroundTaskRow(
   options: IBackgroundTaskRowOptions = {},
 ): IBackgroundTaskRow {
   const row = formatExecutionWorkspaceEntryRow(entry);
-  // Symbol from the same (status, attention) classification that drives row.color,
+  // Symbol from the same (status, attention) classification that drives row.statusKind,
   // so the marker's glyph and colour always agree (SCREEN-007).
-  const marker = STATUS_GLYPH[workspaceStatusKind(entry.status, entry.attention)].symbol;
+  const marker = STATUS_SYMBOL[workspaceStatusKind(entry.status, entry.attention)];
   const segments = [row.statusLabel, row.subtitle].filter(
     (segment): segment is string => typeof segment === 'string' && segment.length > 0,
   );
@@ -78,7 +80,7 @@ export function formatBackgroundTaskRow(
     connector,
     marker,
     state: entry.state,
-    color: row.color,
+    statusKind: row.statusKind,
     label: row.title,
     segments,
     preview: row.preview,

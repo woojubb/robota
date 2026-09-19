@@ -13,7 +13,8 @@ import chalk from 'chalk';
 import { render } from 'ink-testing-library';
 import { describe, it, expect } from 'vitest';
 import MessageList from '../MessageList.js';
-import { STATUS_GLYPH } from '../status-glyph.js';
+import { STATUS_SYMBOL, statusGlyphColor } from '../status-glyph.js';
+import { DARK_THEME } from '../theme/built-in-themes.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import {
   createUserMessage,
@@ -71,9 +72,9 @@ describe('MessageList rendering', () => {
     expect(output).toContain('Edit(file.ts)');
   });
 
-  // ── SCREEN-006: status colors come from the STATUS_GLYPH SSOT ─
+  // ── SCREEN-006: status colors come from the status symbol + theme colour SSOT ─
 
-  it('denied tool summary renders the STATUS_GLYPH.denied color (yellowBright) and glyph', () => {
+  it('denied tool summary renders the denied status colour (yellowBright) and glyph', () => {
     // Pin color bytes regardless of the test process's TTY detection (cjk-fallback precedent).
     const originalChalkLevel = chalk.level;
     chalk.level = 3;
@@ -93,8 +94,8 @@ describe('MessageList rendering', () => {
       const { lastFrame } = render(<MessageList history={history} />);
       const output = lastFrame() ?? '';
 
-      expect(STATUS_GLYPH.denied.color).toBe('yellowBright');
-      expect(output).toContain(STATUS_GLYPH.denied.symbol);
+      expect(statusGlyphColor(DARK_THEME.colors, 'denied')).toBe('yellowBright');
+      expect(output).toContain(STATUS_SYMBOL.denied);
       // chalk yellowBright opens with ESC[93m; the old hand-rolled mapping drifted to
       // plain yellow (ESC[33m) — this pins the tool summary to the SSOT color.
       expect(output).toContain('\u001b[93m');

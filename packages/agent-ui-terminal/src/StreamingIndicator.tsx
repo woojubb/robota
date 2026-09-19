@@ -11,20 +11,27 @@ import { renderMarkdown } from './render-markdown.js';
 import { RenderedText, Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { SCREEN_READER_LABELS } from './screen-reader-labels.js';
-import { STATUS_GLYPH, toolStateStatusKind } from './status-glyph.js';
+import { STATUS_SYMBOL, statusGlyphColor, toolStateStatusKind } from './status-glyph.js';
+import { usePalette, useTheme } from './theme/index.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
-import { PALETTE } from './tui-palette.js';
 
+import type { IThemeColors } from './theme/index.js';
 import type { IToolState } from '@robota-sdk/agent-interface-session';
 
-function getToolStyle(t: IToolState): {
+function getToolStyle(
+  t: IToolState,
+  palette: IThemeColors,
+): {
   color: string;
   icon: string;
   strikethrough: boolean;
 } {
   const kind = toolStateStatusKind(t);
-  const { color, symbol } = STATUS_GLYPH[kind];
-  return { color, icon: symbol, strikethrough: kind === 'error' || kind === 'denied' };
+  return {
+    color: statusGlyphColor(palette, kind),
+    icon: STATUS_SYMBOL[kind],
+    strikethrough: kind === 'error' || kind === 'denied',
+  };
 }
 
 interface IProps {
@@ -33,24 +40,26 @@ interface IProps {
   isThinking?: boolean;
 }
 
-function renderThinkingFallback(isThinking: boolean): React.ReactElement {
+function ThinkingFallback({ isThinking }: { isThinking: boolean }): React.ReactElement {
+  const palette = usePalette();
   if (!isThinking) return <></>;
   return (
     <Box marginBottom={1}>
-      <Text color={PALETTE.text.warning}>Thinking...</Text>
+      <Text color={palette.text.warning}>Thinking...</Text>
     </Box>
   );
 }
 
-function renderTools(activeTools: readonly IToolState[]): React.ReactElement {
+function ActiveTools({ activeTools }: { activeTools: readonly IToolState[] }): React.ReactElement {
+  const palette = usePalette();
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text color={PALETTE.text.emphasis} bold>
+      <Text color={palette.text.emphasis} bold>
         Tools:
       </Text>
       <Text> </Text>
       {activeTools.map((t, i) => {
-        const { color, icon, strikethrough } = getToolStyle(t);
+        const { color, icon, strikethrough } = getToolStyle(t, palette);
         return (
           <Box key={`${t.toolName}-${i}`} flexDirection="column">
             <Text color={color} strikethrough={strikethrough}>
@@ -92,6 +101,8 @@ export default function StreamingIndicator({
   activeTools,
   isThinking = false,
 }: IProps): React.ReactElement {
+  const palette = usePalette();
+  const theme = useTheme();
   const hasTools = activeTools.length > 0;
   const hasText = text.length > 0;
   const screenReader = useScreenReader();
@@ -101,21 +112,21 @@ export default function StreamingIndicator({
   }
 
   if (!hasTools && !hasText) {
-    return renderThinkingFallback(isThinking);
+    return <ThinkingFallback isThinking={isThinking} />;
   }
 
   return (
     <Box flexDirection="column">
-      {hasTools && renderTools(activeTools)}
+      {hasTools && <ActiveTools activeTools={activeTools} />}
       {hasText && (
         <Box flexDirection="column" marginBottom={1}>
-          <Text color={PALETTE.text.accent} bold>
+          <Text color={palette.text.accent} bold>
             Robota:
           </Text>
           <Text> </Text>
           <Box marginLeft={2}>
             {/* `renderMarkdown` sanitizes its input and then styles it; the SGR in its output is ours. */}
-            <RenderedText wrap="wrap">{renderMarkdown(text)}</RenderedText>
+            <RenderedText wrap="wrap">{renderMarkdown(text, { theme })}</RenderedText>
           </Box>
         </Box>
       )}

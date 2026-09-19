@@ -20,7 +20,7 @@ import React, { useState, useCallback } from 'react';
 import { KeyHintFooter } from './key-hint-footer.js';
 import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindings-context.js';
 import { Text } from './SafeText.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
@@ -36,6 +36,7 @@ interface IEntryRowProps {
 }
 
 function TransportEntryRow({ entry, selected }: IEntryRowProps): React.ReactElement {
+  const palette = usePalette();
   const enabled = entry.config.enabled;
   const dot = enabled ? '●' : '○';
   // The saved setting, not a running state — see the file header.
@@ -44,7 +45,7 @@ function TransportEntryRow({ entry, selected }: IEntryRowProps): React.ReactElem
   const portHint = typeof portOpt === 'number' ? `port: ${portOpt}` : '';
   return (
     <Box>
-      <Text color={selected ? PALETTE.text.accent : undefined} bold={selected}>
+      <Text color={selected ? palette.text.accent : undefined} bold={selected}>
         {`${dot} ${entry.transport.name.padEnd(TRANSPORT_NAME_WIDTH)} ${badge}  ${portHint}`}
       </Text>
     </Box>
@@ -109,6 +110,7 @@ interface IProps {
 }
 
 export default function TransportTUI({ registry, onClose }: IProps): React.ReactElement {
+  const palette = usePalette();
   const [entries, setEntries] = useState(() => registry.getAll());
   const [cursor, setCursor] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -148,12 +150,12 @@ export default function TransportTUI({ registry, onClose }: IProps): React.React
       </Box>
       {saving && (
         <Box marginTop={1}>
-          <Text color={PALETTE.text.warning}>Saving…</Text>
+          <Text color={palette.text.warning}>Saving…</Text>
         </Box>
       )}
       {error !== undefined && (
         <Box marginTop={1}>
-          <Text color={PALETTE.text.error}>{`Not saved — ${error}`}</Text>
+          <Text color={palette.text.error}>{`Not saved — ${error}`}</Text>
         </Box>
       )}
     </Box>

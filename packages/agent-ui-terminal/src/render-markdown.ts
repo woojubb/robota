@@ -4,8 +4,14 @@ import TerminalRenderer from 'marked-terminal';
 
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { isInteractiveColorTerminal } from './terminal-capabilities.js';
-import { ANSI } from './tui-ansi-palette.js';
+import {
+  DARK_THEME,
+  diffRowStyles,
+  markdownRendererOptions,
+  syntaxHighlightTheme,
+} from './theme/index.js';
 
+import type { IDiffRowStyles, ITuiTheme } from './theme/index.js';
 import type { Renderer } from 'marked';
 
 const CODE_BLOCK_INDENT = '    ';
@@ -13,6 +19,13 @@ const CODE_BLOCK_INDENT = '    ';
 interface IRenderMarkdownOptions {
   color?: boolean;
   codeBlockWidth?: number;
+  /**
+   * SCREEN-2002: the resolved theme. Absent ⇒ the `dark` built-in, which is byte-identical to what
+   * this renderer produced before themes existed.
+   */
+  theme?: ITuiTheme;
+  /** SCREEN-2002: `false` renders code blocks as plain indented text, with no highlight SGR. */
+  syntaxHighlighting?: boolean;
   /**
    * CLI-2004: flatten tables to `Header: value` sentences. A box-drawn grid is unreadable aloud —
    * a reader announces the rules, not the relationship between a heading and its cell.
@@ -26,10 +39,12 @@ interface ITerminalRendererOptions {
 
 interface IHighlightOptions {
   ignoreIllegals?: boolean;
+  /** The cli-highlight theme marked-terminal forwards; absent ⇒ its red/green defaults. */
+  theme?: Record<string, (text: string) => string>;
 }
 
 type TTerminalRendererConstructor = new (
-  options?: ITerminalRendererOptions,
+  options?: ITerminalRendererOptions | Record<string, (text: string) => string>,
   highlightOptions?: IHighlightOptions,
 ) => Renderer;
 
@@ -46,34 +61,36 @@ function isDiffLanguage(language: string | undefined): boolean {
   return language?.trim().toLowerCase() === 'diff';
 }
 
-function styleAddedOrRemovedDiffRow(line: string, rowWidth: number, color: boolean): string {
+function styleAddedOrRemovedDiffRow(
+  line: string,
+  rowWidth: number,
+  color: boolean,
+  styles: IDiffRowStyles,
+): string {
   const row = `${CODE_BLOCK_INDENT}${line}`.padEnd(rowWidth);
   if (!color) {
     return row.trimEnd();
   }
-  if (line.startsWith('+')) {
-    return `${ANSI.darkGreenBackground}${ANSI.lightGreen}${row}${ANSI.reset}`;
-  }
-  if (line.startsWith('-')) {
-    return `${ANSI.darkRedBackground}${ANSI.lightRed}${row}${ANSI.reset}`;
-  }
+  if (line.startsWith('+')) return styles.added(row);
+  if (line.startsWith('-')) return styles.removed(row);
   return row.trimEnd();
 }
 
-function colorizeDiffLine(line: string, color: boolean, rowWidth: number): string {
+function colorizeDiffLine(
+  line: string,
+  color: boolean,
+  rowWidth: number,
+  styles: IDiffRowStyles,
+): string {
   if (line.startsWith('+') || line.startsWith('-')) {
-    return styleAddedOrRemovedDiffRow(line, rowWidth, color);
+    return styleAddedOrRemovedDiffRow(line, rowWidth, color, styles);
   }
   const row = `${CODE_BLOCK_INDENT}${line}`;
   if (!color) {
     return row;
   }
-  if (line.startsWith('@@')) {
-    return `${ANSI.cyan}${row}${ANSI.reset}`;
-  }
-  if (line.startsWith('diff ') || line.startsWith('index ')) {
-    return `${ANSI.dim}${row}${ANSI.reset}`;
-  }
+  if (line.startsWith('@@')) return styles.hunk(row);
+  if (line.startsWith('diff ') || line.startsWith('index ')) return styles.meta(row);
   return row;
 }
 
@@ -92,10 +109,11 @@ function renderDiffCodeBlock(
   code: string,
   color: boolean,
   codeBlockWidth: number | undefined,
+  styles: IDiffRowStyles,
 ): string {
   const lines = code.split('\n');
   const rowWidth = resolveDiffRowWidth(lines, codeBlockWidth);
-  const body = lines.map((line) => colorizeDiffLine(line, color, rowWidth)).join('\n');
+  const body = lines.map((line) => colorizeDiffLine(line, color, rowWidth, styles)).join('\n');
   return `${body}\n\n`;
 }
 
@@ -137,13 +155,28 @@ function createTerminalRenderer(
   color: boolean,
   codeBlockWidth: number | undefined,
   screenReader: boolean,
+  theme: ITuiTheme,
+  syntaxHighlighting: boolean,
 ): Renderer {
-  const renderer = new TerminalRendererConstructor(undefined, { ignoreIllegals: true });
+  // SCREEN-2002: both dependencies are told what to colour with. Left to their own defaults, a
+  // daltonized theme would still get green/red code blocks from cli-highlight's own theme.
+  const renderer = new TerminalRendererConstructor(markdownRendererOptions(theme.markdown), {
+    ignoreIllegals: true,
+    theme: syntaxHighlightTheme(theme.syntax),
+  });
   const renderCode = renderer.code.bind(renderer);
+  const styles = diffRowStyles(theme);
 
   renderer.code = (code: string, language: string | undefined, escaped: boolean): string => {
     if (isDiffLanguage(language)) {
-      return renderDiffCodeBlock(code, color, codeBlockWidth);
+      return renderDiffCodeBlock(code, color, codeBlockWidth, styles);
+    }
+    // Highlighting off: the block renders as plain indented text, the shape the diff path uses.
+    if (!syntaxHighlighting) {
+      return `${code
+        .split('\n')
+        .map((line) => `${CODE_BLOCK_INDENT}${line}`)
+        .join('\n')}\n\n`;
     }
     return renderCode(code, language, escaped);
   };
@@ -171,6 +204,8 @@ export function renderMarkdown(md: string, options: IRenderMarkdownOptions = {})
       shouldUseColor(options.color),
       options.codeBlockWidth,
       options.screenReader === true,
+      options.theme ?? DARK_THEME,
+      options.syntaxHighlighting !== false,
     ),
   });
   return typeof result === 'string' ? result.trimEnd() : safe;

@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { spawnTui, writeTuiProviderSettings } from './pty-driver.js';
-import { ANSI } from '../../tui-ansi-palette.js';
+import { DARK_THEME, background, foreground } from '../../theme/index.js';
 
 import type { IPtySession } from './pty-driver.js';
 
@@ -127,9 +127,11 @@ describe('SCREEN-006 color/motion through the real binary', () => {
     // eslint-disable-next-line no-control-regex -- asserting on raw SGR escape bytes by design
     expect(raw).toMatch(/\x1b\[36m(?:\x1b\[[0-9;]*m)*Robota:/);
 
-    // Markdown diff block carries the tui-ansi-palette SGR pairs (added line: light green
-    // on dark green background).
-    expect(raw).toContain(`${ANSI.darkGreenBackground}${ANSI.lightGreen}`);
+    // Markdown diff block carries the resolved theme's SGR pair (added line: light green on a dark
+    // green background) — SCREEN-2002 moved the values into the theme, the bytes are unchanged.
+    const addedBackground = background(DARK_THEME.markdown.diffAddedBackground)('x').split('x')[0];
+    const addedForeground = foreground(DARK_THEME.markdown.diffAdded)('x').split('x')[0];
+    expect(raw).toContain(`${addedBackground}${addedForeground}`);
     expect(stripped).toContain('+ added line');
   }, 60_000);
 });

@@ -17,7 +17,7 @@ import ListPicker from './ListPicker.js';
 import MultiSelectList from './MultiSelectList.js';
 import { Text } from './SafeText.js';
 import TextPrompt from './TextPrompt.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
 import type { IActionOption, IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
 
@@ -36,6 +36,7 @@ export default function PendingActionPrompt({
   request,
   onAnswer,
 }: IPendingActionPromptProps): React.ReactElement {
+  const palette = usePalette();
   const [freeTextMode, setFreeTextMode] = useState(false);
 
   const options = request.options ?? [];
@@ -90,7 +91,7 @@ export default function PendingActionPrompt({
         items={pickerItems}
         maxVisible={request.maxVisible}
         renderItem={(option, isSelected) => (
-          <Text color={isSelected ? PALETTE.text.accent : undefined}>
+          <Text color={isSelected ? palette.text.accent : undefined}>
             {isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
             {option.label}
           </Text>

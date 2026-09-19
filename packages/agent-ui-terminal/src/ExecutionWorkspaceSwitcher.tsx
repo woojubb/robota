@@ -14,7 +14,8 @@ import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindi
 import { formatNumberedSelectionPrompt, numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
-import { PALETTE } from './tui-palette.js';
+import { statusGlyphColor } from './status-glyph.js';
+import { usePalette } from './theme/index.js';
 
 import type {
   IExecutionWorkspaceEntry,
@@ -58,6 +59,7 @@ export default function ExecutionWorkspaceSwitcher({
   onClose,
   onAttach,
 }: IProps): React.ReactElement {
+  const palette = usePalette();
   const entries = [...(snapshot?.entries ?? [])];
   const { normalized, visibleEntries, applyAction } = useWorkspaceSwitcherSelection({
     entries,
@@ -111,10 +113,10 @@ export default function ExecutionWorkspaceSwitcher({
       flexDirection="column"
       {...(screenReader
         ? {}
-        : { borderStyle: 'round' as const, borderColor: PALETTE.border.focused })}
+        : { borderStyle: 'round' as const, borderColor: palette.border.focused })}
       paddingX={1}
     >
-      <Text color={PALETTE.text.accent} bold>
+      <Text color={palette.text.accent} bold>
         Execution workspace
       </Text>
       <Box flexDirection="column" marginTop={1}>
@@ -187,19 +189,20 @@ function ExecutionWorkspaceSwitcherRow({
   selectedEntryId?: string;
   rowNumber?: number;
 }): React.ReactElement {
+  const palette = usePalette();
   const row = formatExecutionWorkspaceEntryRow(entry, { selectedEntryId });
   return (
     <Text>
-      <Text color={isFocused ? PALETTE.text.accent : undefined} bold={isFocused}>
+      <Text color={isFocused ? palette.text.accent : undefined} bold={isFocused}>
         {rowNumber !== undefined
           ? numberedRowPrefix(rowNumber)
           : isFocused
             ? SELECTION_INDICATOR
             : SELECTION_INDICATOR_NONE}
       </Text>
-      <Text color={row.color}>{`${row.radio} ${row.state}`}</Text>
+      <Text color={statusGlyphColor(palette, row.statusKind)}>{`${row.radio} ${row.state}`}</Text>
       <Text
-        color={isFocused ? PALETTE.text.accent : undefined}
+        color={isFocused ? palette.text.accent : undefined}
         bold={isFocused}
       >{` ${row.title}`}</Text>
       <Text dimColor>{` · ${row.statusLabel}`}</Text>

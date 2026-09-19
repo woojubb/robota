@@ -23,7 +23,7 @@ import {
 import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindings-context.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
 /** The typed-answer prompt. Authored here beside the reducer that accepts it. */
 export const CONFIRM_PROMPT_TYPED_LITERAL = 'Answer y or n and press Enter';
@@ -52,6 +52,7 @@ export default function ConfirmPrompt({
   options = ['Yes', 'No'],
   onSelect,
 }: IProps): React.ReactElement {
+  const palette = usePalette();
   const [state, setState] = useState<ISelectionFlowState>(() => createSelectionFlowState());
   const stateRef = useRef(state);
   const applyAction = useCallback(
@@ -116,15 +117,15 @@ export default function ConfirmPrompt({
     <Box
       flexDirection="column"
       borderStyle="round"
-      borderColor={PALETTE.border.attention}
+      borderColor={palette.border.attention}
       paddingX={1}
     >
-      <Text color={PALETTE.text.warning}>{message}</Text>
+      <Text color={palette.text.warning}>{message}</Text>
       <Box marginTop={1}>
         {options.map((opt, i) => (
           <Box key={opt} marginRight={2}>
             <Text
-              color={i === state.selectedIndex ? PALETTE.text.accent : undefined}
+              color={i === state.selectedIndex ? palette.text.accent : undefined}
               bold={i === state.selectedIndex}
             >
               {i === state.selectedIndex ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}

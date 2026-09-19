@@ -4,7 +4,7 @@ import React from 'react';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { screenReaderLabelForRole } from './screen-reader-labels.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
@@ -30,6 +30,7 @@ export function RoleLabel({
   role: TUniversalMessage['role'];
   driverId?: string;
 }): React.ReactElement {
+  const palette = usePalette();
   const screenReader = useScreenReader();
   if (screenReader) {
     // CLI-2004: the label comes from the ROLE, never the vendor — `assistant:` under every
@@ -43,25 +44,25 @@ export function RoleLabel({
   switch (role) {
     case 'user':
       return (
-        <Text color={PALETTE.text.success} bold>
+        <Text color={palette.text.success} bold>
           {driverId !== undefined ? driverLabel(driverId) : 'You'}:{' '}
         </Text>
       );
     case 'assistant':
       return (
-        <Text color={PALETTE.text.accent} bold>
+        <Text color={palette.text.accent} bold>
           Robota:{' '}
         </Text>
       );
     case 'system':
       return (
-        <Text color={PALETTE.text.warning} bold>
+        <Text color={palette.text.warning} bold>
           System:{' '}
         </Text>
       );
     case 'tool':
       return (
-        <Text color={PALETTE.text.emphasis} bold>
+        <Text color={palette.text.emphasis} bold>
           Tool:{' '}
         </Text>
       );

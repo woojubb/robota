@@ -17,9 +17,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import StreamingIndicator from '../StreamingIndicator.js';
 import ToolDiffBlock from '../ToolDiffBlock.js';
-import { ANSI } from '../tui-ansi-palette.js';
+import { DARK_THEME, foreground } from '../theme/index.js';
 
 import type { IDiffLine } from '@robota-sdk/agent-interface-session';
+
+/** The opening SGR a theme colour produces, for an assertion about the rendered bytes. */
+function openCode(color: string): string {
+  const [open] = foreground(color)('x').split('x');
+  return open ?? '';
+}
 
 const DIFF_LINES: IDiffLine[] = [
   { type: 'hunk', text: '@@ -1,2 +1,2 @@', lineNumber: 1 },
@@ -59,9 +65,11 @@ describe('markdown styling survives the render site (SCREEN-006)', () => {
     const frame = lastFrame() ?? '';
 
     expect(frame).toContain('const a = 2;');
-    expect(frame).toContain(ANSI.lightGreen);
-    expect(frame).toContain(ANSI.lightRed);
-    expect(frame).toContain(ANSI.cyan); // the @@ hunk header
+    // SCREEN-2002: the diff colours come from the resolved theme; the default theme's values are the
+    // ones this suite pinned before the theme existed.
+    expect(frame).toContain(openCode(DARK_THEME.markdown.diffAdded));
+    expect(frame).toContain(openCode(DARK_THEME.markdown.diffRemoved));
+    expect(frame).toContain(openCode(DARK_THEME.markdown.diffHunk)); // the @@ hunk header
   });
 
   it('StreamingIndicator keeps the colours of a diff block in streamed text', () => {
@@ -69,8 +77,8 @@ describe('markdown styling survives the render site (SCREEN-006)', () => {
     const frame = lastFrame() ?? '';
 
     expect(frame).toContain('const a = 2;');
-    expect(frame).toContain(ANSI.lightGreen);
-    expect(frame).toContain(ANSI.lightRed);
+    expect(frame).toContain(openCode(DARK_THEME.markdown.diffAdded));
+    expect(frame).toContain(openCode(DARK_THEME.markdown.diffRemoved));
   });
 
   it('StreamingIndicator still sanitizes what arrives from OUTSIDE the renderer', () => {
