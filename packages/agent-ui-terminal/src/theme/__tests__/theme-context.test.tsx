@@ -14,7 +14,11 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { AppBanner } from '../../app-banner.js';
 import WaveText from '../../WaveText.js';
 import { DARK_THEME, LIGHT_THEME } from '../built-in-themes.js';
-import { ThemeProvider, useSyntaxHighlighting } from '../theme-context.js';
+// Through the BARREL, deliberately: the module's export surface is what every consumer outside
+// `src/theme/` reaches, and an export dropped from it is a runtime `undefined` rather than a type
+// error at the call site. Importing from `theme-context.js` here would leave that surface unguarded.
+import { useSyntaxHighlighting } from '../index.js';
+import { ThemeProvider } from '../theme-context.js';
 import { foreground } from '../theme-styles.js';
 
 const gateMock = vi.hoisted(() => ({ value: true }));
