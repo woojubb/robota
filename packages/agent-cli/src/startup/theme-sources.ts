@@ -30,6 +30,17 @@ const USER_THEME_DIRECTORY = join('.robota', 'themes');
 const PLUGIN_THEME_DIRECTORY = 'themes';
 const THEME_FILE_SUFFIX = '.json';
 
+/**
+ * What a file name may contribute to an id.
+ *
+ * An id is TYPED — `/theme <id>` splits its arguments on whitespace, and the picker commits by
+ * submitting that same command — so a slug the command grammar cannot carry produces a theme that
+ * is listed, is shown as a selectable row, and answers the usage line when chosen. That is worse
+ * than not loading it: the file appears to work everywhere except the one place it matters. A name
+ * outside this set is skipped with a reason, the same policy an already-taken id gets.
+ */
+const SAFE_SLUG = /^[A-Za-z0-9._-]+$/u;
+
 /** One installed plugin, reduced to what a theme needs from it. */
 export interface IThemePluginDirectory {
   readonly name: string;
@@ -84,6 +95,16 @@ function collectFrom(
   const reader = createNodeHostContributionSource(options.root);
   for (const file of readThemeDirectory(reader, options.directory, purpose)) {
     const slug = file.fileName.slice(0, -THEME_FILE_SUFFIX.length);
+    if (!SAFE_SLUG.test(slug)) {
+      collector.skipped.push({
+        id: `${options.idPrefix}?`,
+        // Quoted, because the name is the untrusted part: it is about to be printed to a terminal
+        // and shown in the picker, and this is the one skip whose file name is not a safe slug.
+        fileName: JSON.stringify(file.fileName),
+        reason: `$: the file name ${JSON.stringify(file.fileName)} cannot be a theme id — use letters, digits, dot, dash or underscore`,
+      });
+      continue;
+    }
     const id = `${options.idPrefix}${slug}`;
     if (collector.claimed.has(id)) {
       collector.skipped.push({

@@ -67,10 +67,52 @@ describe('parseThemeDocument', () => {
     expect(error).toMatch(/^\$\.overrides\.colors\.text\.accent: "not-a-colour" is not a colour/u);
   });
 
+  const ESCAPE = String.fromCharCode(27);
+
   it('refuses a raw SGR string — the grammar is the injection floor', () => {
-    const sgr = `${String.fromCharCode(27)}[31m`;
-    const error = expectRefusal(JSON.stringify({ overrides: { markdown: { code: sgr } } }));
+    const error = expectRefusal(
+      JSON.stringify({ overrides: { markdown: { code: `${ESCAPE}[31m` } } }),
+    );
     expect(error).toMatch(/^\$\.overrides\.markdown\.code: /u);
+  });
+
+  it('keeps the refusal itself off the terminal — the message quotes what it rejected', () => {
+    // The diagnostic is the one part of a refused file that reaches a terminal, and it quotes the
+    // value. Interpolating it raw defeats the grammar's injection floor with the very message that
+    // reports a violation of it — and a plugin's theme file is third-party content.
+    const errors = [
+      expectRefusal(JSON.stringify({ overrides: { markdown: { code: `${ESCAPE}[2J` } } })),
+      expectRefusal(JSON.stringify({ overrides: { [`${ESCAPE}[2Jx`]: {} } })),
+      expectRefusal(JSON.stringify({ [`${ESCAPE}[2Jx`]: 1 })),
+      expectRefusal(`{ ${ESCAPE}[2J not json`),
+      expectRefusal(JSON.stringify({ base: `${ESCAPE}[2J` })),
+    ];
+    for (const error of errors) expect(error).not.toContain(ESCAPE);
+    // Escaped, not dropped: an author has to be able to SEE what their file holds.
+    expect(errors[0]).toContain('\\u001b[2J');
+  });
+
+  it('refuses a name it would then render for the whole session', () => {
+    // Unlike a diagnostic, a name is APPLIED: it is drawn on every `/theme list` row and every
+    // picker row until the setting changes.
+    expect(expectRefusal(JSON.stringify({ name: `${ESCAPE}[2JPWNED` }))).toBe(
+      '$.name: must not contain control characters',
+    );
+    expect(expectRefusal(JSON.stringify({ name: 'two\nlines' }))).toBe(
+      '$.name: must not contain control characters',
+    );
+    expect(expectRefusal(JSON.stringify({ name: 'x'.repeat(61) }))).toMatch(
+      /^\$\.name: must be at most 60 characters$/u,
+    );
+  });
+
+  it('refuses an explicit null rather than reading it as "unset"', () => {
+    expect(expectRefusal(JSON.stringify({ base: null }))).toBe(
+      '$.base: expected a built-in theme id',
+    );
+    expect(expectRefusal(JSON.stringify({ overrides: null }))).toMatch(
+      /^\$\.overrides: expected an object of tokens$/u,
+    );
   });
 
   it('refuses a background chalk name as a foreground token value', () => {

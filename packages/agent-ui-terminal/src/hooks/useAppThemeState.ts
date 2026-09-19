@@ -116,9 +116,12 @@ export function useAppThemeState(options: IOptions): IAppThemeViewModel {
   // only be about what is PERSISTED — and it is suppressed while previewing so it does not read as
   // a complaint about the row the user is looking at.
   const unknownId = previewId === undefined ? resolution.unknownId : undefined;
+  // One expression for "what motion IS for this run", read by both the view model and the picker:
+  // two copies of the same `??` chain are two things to keep in step.
+  const reducedMotionForRun = options.reducedMotion ?? options.appearance.reducedMotion;
   return {
     resolved: resolution.theme,
-    reducedMotion: options.reducedMotion ?? options.appearance.reducedMotion,
+    reducedMotion: reducedMotionForRun,
     syntaxHighlighting: options.appearance.syntaxHighlighting,
     ...(unknownId === undefined ? {} : { unknownThemeNotice: formatUnknownThemeNotice(unknownId) }),
     picker: {
@@ -132,7 +135,7 @@ export function useAppThemeState(options: IOptions): IAppThemeViewModel {
         ? {}
         : {
             reducedMotionOverride: options.reducedMotionOverride,
-            reducedMotionForRun: options.reducedMotion ?? options.appearance.reducedMotion,
+            reducedMotionForRun,
           }),
       preview: setPreviewId,
       select,

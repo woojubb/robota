@@ -38,6 +38,13 @@ const HEX_LITERAL = /#[0-9a-fA-F]{6}\b/g;
  * barrel re-export the data straight past the floor, which is exactly the route every migrated
  * component already imports through.
  *
+ * Recorded limit (widened by SCREEN-2002 work unit 3): the package now EXPORTS `listBuiltInThemes`,
+ * so a caller can obtain a built-in's colour values through the accessor without naming a constant
+ * or the data module — the floor does not see that, exactly as it does not see a colour-name string
+ * returned by a pure helper. The accessor exists for one composition root, which puts the built-ins
+ * in a registry; reading a colour off it is the case this floor cannot catch, and it is written down
+ * rather than claimed away.
+ *
  * Recorded limit: a bare word matches anywhere, so PROSE naming a theme constant in a comment
  * outside `src/theme/` fails the floor too. That is the strict direction — it fails loudly and is
  * rewritten in a sentence, rather than passing silently — so it is left as is.

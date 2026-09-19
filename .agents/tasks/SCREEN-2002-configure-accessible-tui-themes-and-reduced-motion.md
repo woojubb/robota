@@ -60,8 +60,10 @@ rows and for Scenario 1's disabled row, so the decision lands with a criterion a
 
 **Decided for unit 3 — the toggles row names its route instead of implying a key.** Of the two
 options recorded above, the second is taken, in the form that keeps the state visible: in
-screen-reader mode the row renders `syntax on · motion off — change with /theme syntax on|off or
-/theme motion on|off` and the sighted row is unchanged. The state is information a reader wants
+screen-reader mode the state row is followed by `Change with /theme syntax on|off or /theme motion
+on|off` and the sighted row is unchanged. (Shipped as a second line rather than a suffix on the
+first: the mode's reader takes the row as one utterance, and a state that ends in an instruction is
+harder to re-hear than two short ones.) The state is information a reader wants
 before choosing; only the implication that `s` and `m` will do something is removed, and the
 sentence that replaces it names a route that mode can actually take. The alternative — numbering the
 toggles into the menu — was refused because the numbered prompt means "pick a theme", and an answer

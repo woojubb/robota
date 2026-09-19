@@ -16,6 +16,7 @@
  * in Ink's grammar, so it cannot enter through a theme.
  */
 import { isJsonRecord } from '../json-value.js';
+import { sanitizeTerminalText } from '../sanitize-terminal-text.js';
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID } from './built-in-themes.js';
 import { isThemeColor, THEME_COLOR_GRAMMAR } from './theme-styles.js';
 
@@ -35,6 +36,35 @@ export type TThemeDocumentResult =
   { readonly ok: true; readonly theme: ITuiTheme } | { readonly ok: false; readonly error: string };
 
 const DOCUMENT_KEYS = new Set(['name', 'base', 'overrides']);
+const MAX_NAME_LENGTH = 60;
+// eslint-disable-next-line no-control-regex -- matching the control range IS the point here
+const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/u;
+
+/**
+ * A value from the FILE, on its way into a line a terminal will print.
+ *
+ * The diagnostic is the one part of a refused file that reaches the terminal, and it quotes what
+ * was wrong — so without this the injection floor the grammar provides is defeated by the message
+ * that reports a violation of it. `JSON.stringify` escapes every control character, which both
+ * disarms it and SHOWS the author what their file actually contains (`"\u001b[31m"`), where
+ * stripping the bytes would leave them looking at a value that seems fine.
+ */
+function quoteFromFile(value: string): string {
+  return JSON.stringify(value);
+}
+
+/** A path SEGMENT taken from the file. Plain keys read as themselves; anything else is quoted. */
+function pathSegment(key: string): string {
+  return CONTROL_CHARACTER.test(key) ? quoteFromFile(key) : key;
+}
+
+/**
+ * Prose from a dependency — V8's parse message, which embeds a snippet of the file, so the same
+ * hazard arrives without a value to quote. Sanitized rather than quoted, because it is a sentence.
+ */
+function proseFromFile(message: string): string {
+  return sanitizeTerminalText(message).replaceAll('\n', ' ').replaceAll('\t', ' ').trim();
+}
 
 function refuse(error: string): TThemeDocumentResult {
   return { ok: false, error };
@@ -50,7 +80,7 @@ function mergeColor(override: TJsonValue, path: string): TMergeResult {
   if (!isThemeColor(override)) {
     return {
       ok: false,
-      error: `${path}: "${override}" is not a colour in Ink's grammar (${THEME_COLOR_GRAMMAR})`,
+      error: `${path}: ${quoteFromFile(override)} is not a colour in Ink's grammar (${THEME_COLOR_GRAMMAR})`,
     };
   }
   return { ok: true, value: override };
@@ -76,9 +106,9 @@ function mergeRecord(base: IJsonRecord, override: TJsonValue, path: string): TMe
     // Own-property only: a JSON document can carry a literal `__proto__` key, and the base theme
     // has no own property by that name, so the same check that catches a typo catches that too.
     if (!Object.prototype.hasOwnProperty.call(base, key)) {
-      return { ok: false, error: `${path}.${key} is not a theme token` };
+      return { ok: false, error: `${path}.${pathSegment(key)} is not a theme token` };
     }
-    const result = mergeNode(base[key] ?? null, override[key] ?? null, `${path}.${key}`);
+    const result = mergeNode(base[key] ?? null, override[key] ?? null, `${path}.${pathSegment(key)}`);
     if (!result.ok) return result;
     merged[key] = result.value;
   }
@@ -126,11 +156,16 @@ function readDocument(text: string): TMergeResult {
   try {
     parsed = JSON.parse(text) as TJsonValue;
   } catch (cause) {
-    return { ok: false, error: `$: ${cause instanceof Error ? cause.message : 'invalid JSON'}` };
+    return {
+      ok: false,
+      error: `$: ${cause instanceof Error ? proseFromFile(cause.message) : 'invalid JSON'}`,
+    };
   }
   if (!isJsonRecord(parsed)) return { ok: false, error: '$: expected an object' };
   for (const key of Object.keys(parsed)) {
-    if (!DOCUMENT_KEYS.has(key)) return { ok: false, error: `$.${key} is not a theme token` };
+    if (!DOCUMENT_KEYS.has(key)) {
+      return { ok: false, error: `$.${pathSegment(key)} is not a theme token` };
+    }
   }
   return { ok: true, value: parsed };
 }
@@ -141,6 +176,16 @@ function readName(document: IJsonRecord, fallback: string): TMergeResult {
   if (typeof name !== 'string' || name.trim().length === 0) {
     return { ok: false, error: '$.name: expected a non-empty string' };
   }
+  // A name is APPLIED, so unlike a diagnostic it is rendered on every `/theme list` row and every
+  // picker row for the whole session. A control character there is an escape the terminal acts on,
+  // and a newline breaks the box the row is drawn in — so the file is refused rather than the name
+  // repaired, which is this module's one policy.
+  if (CONTROL_CHARACTER.test(name)) {
+    return { ok: false, error: '$.name: must not contain control characters' };
+  }
+  if (name.length > MAX_NAME_LENGTH) {
+    return { ok: false, error: `$.name: must be at most ${MAX_NAME_LENGTH} characters` };
+  }
   return { ok: true, value: name };
 }
 
@@ -149,10 +194,12 @@ function readBase(
 ):
   | { readonly ok: true; readonly theme: ITuiTheme }
   | { readonly ok: false; readonly error: string } {
-  const id = document.base ?? DEFAULT_THEME_ID;
+  // `=== undefined`, not `??`: an explicit `null` is a value the file states, and "applied whole or
+  // refused whole" means it is refused rather than silently read as "unset".
+  const id = document.base === undefined ? DEFAULT_THEME_ID : document.base;
   if (typeof id !== 'string') return { ok: false, error: '$.base: expected a built-in theme id' };
   const base = BUILT_IN_THEMES.find((theme) => theme.id === id);
-  if (!base) return { ok: false, error: `$.base: "${id}" is not a built-in theme` };
+  if (!base) return { ok: false, error: `$.base: ${quoteFromFile(id)} is not a built-in theme` };
   return { ok: true, theme: base };
 }
 
@@ -172,7 +219,7 @@ export function parseThemeDocument(input: IThemeDocumentInput): TThemeDocumentRe
   const name = readName(fields, input.id);
   if (!name.ok) return refuse(name.error);
 
-  const overrides = fields.overrides ?? {};
+  const overrides = fields.overrides === undefined ? {} : fields.overrides;
   const tokens = mergeNode(themeTokens(base.theme), overrides, '$.overrides');
   if (!tokens.ok) return refuse(tokens.error);
 

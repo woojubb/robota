@@ -164,9 +164,48 @@ describe('loadThemeSources', () => {
     );
     writeTheme(join(versionDir, 'themes'), 'plugged.json', JSON.stringify({ name: 'Plugged' }));
 
-    const sources = loadThemeSources({ cwd: undefined, userHome: home });
+    // HOME is redirected for the call: plugin ENABLEMENT is read from the user settings document,
+    // which `getUserSettingsPath()` resolves from the environment — so without this the case reads
+    // the developer's own settings and a locally-disabled plugin would turn it red.
+    const previousHome = process.env['HOME'];
+    process.env['HOME'] = home;
+    let sources;
+    try {
+      sources = loadThemeSources({ cwd: undefined, userHome: home });
+    } finally {
+      if (previousHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = previousHome;
+    }
 
     expect(sources.themes.map((theme) => theme.id)).toEqual(['custom:theme-fixture:plugged']);
     expect(sources.themes[0]?.source).toBe('plugin');
+  });
+});
+
+describe('a file name that cannot become an id', () => {
+  it('skips it with a reason rather than listing a theme no surface can apply', () => {
+    // `/theme <id>` splits its arguments on whitespace and the picker commits through that same
+    // command, so a slug with a space is listed, is selectable, and answers the usage line when
+    // chosen — the one failure mode worse than not loading the file at all.
+    const home = temporaryDirectory('robota-theme-home-');
+    writeTheme(join(home, '.robota', 'themes'), 'My Theme.json', '{}');
+
+    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+
+    expect(sources.themes).toEqual([]);
+    expect(sources.skipped).toHaveLength(1);
+    expect(sources.skipped[0]?.reason).toMatch(/cannot be a theme id/u);
+  });
+
+  it('keeps a control character in a file name off the terminal', () => {
+    const home = temporaryDirectory('robota-theme-home-');
+    const escape = String.fromCharCode(27);
+    writeTheme(join(home, '.robota', 'themes'), `${escape}[2J.json`, '{}');
+
+    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+
+    expect(sources.skipped).toHaveLength(1);
+    expect(sources.skipped[0]?.reason).not.toContain(escape);
+    expect(sources.skipped[0]?.fileName).not.toContain(escape);
   });
 });

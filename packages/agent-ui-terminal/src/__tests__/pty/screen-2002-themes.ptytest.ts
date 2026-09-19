@@ -44,6 +44,11 @@ function sgrVocabulary(raw: string): Set<string> {
   return found;
 }
 
+/** The raw bytes of the rendered line that holds the snippet, if the frame carried it. */
+function snippetLine(raw: string): string {
+  return raw.split(/\r?\n/u).find((line) => line.includes('answer') && line.includes('42')) ?? '';
+}
+
 function seedThemeFiles(homeDir: string): void {
   const themes = join(homeDir, '.robota', 'themes');
   mkdirSync(themes, { recursive: true });
@@ -187,10 +192,17 @@ describe('SCREEN-2002 themes through the real binary', () => {
       const after = sgrVocabulary(session.raw().slice(moveRawMark));
       expect([...after].some((sequence) => !before.has(sequence))).toBe(true);
 
-      // Escape leaves the persisted theme in place: the picker closes and nothing was applied.
+      // Escape leaves the persisted theme in place. Not only "nothing was applied": the colours the
+      // PREVIEW introduced are gone from the frame, which is what "restores" has to mean when the
+      // preview was visible rather than merely recorded.
+      const previewed = [...after].filter((sequence) => !before.has(sequence));
+      expect(previewed.length).toBeGreaterThan(0);
       const escapeMark = session.outputOffset();
+      const escapeRawMark = session.raw().length;
       session.pressEscape();
       await session.waitForSince(escapeMark, PROMPT, STEP_MS);
+      const restored = sgrVocabulary(session.raw().slice(escapeRawMark));
+      expect(previewed.filter((sequence) => restored.has(sequence))).toEqual([]);
       expect(session.snapshotSince(escapeMark)).not.toContain('Applied: theme');
     },
     CASE_MS,
@@ -225,12 +237,21 @@ describe('SCREEN-2002 themes through the real binary', () => {
       await session.waitForSince(offMark, /syntax highlighting off/, STEP_MS);
 
       const secondMark = session.outputOffset();
+      const secondRawMark = session.raw().length;
       await session.sendKeys('show me a snippet');
       await session.pressEnter();
       await session.waitForSince(secondMark, SNIPPET_DONE, TURN_MS);
-      // The new render is plain; the earlier one is already in the terminal's scrollback and was
-      // never repainted, which is the `<Static>` property this item records rather than implies.
+
+      // The same source, rendered again. Asserting only that the TEXT is there would pass whether
+      // or not `/theme syntax off` reached a render site — which is the defect this package has
+      // already shipped once — so the assertion is on the line's own SGR: the second render of the
+      // same line carries strictly fewer distinct sequences than the highlighted first.
+      const plain = session.raw().slice(secondRawMark);
       expect(session.snapshotSince(secondMark)).toContain('const answer = 42;');
+      const highlightedLine = sgrVocabulary(snippetLine(highlighted));
+      const plainLine = sgrVocabulary(snippetLine(plain));
+      expect(highlightedLine.size).toBeGreaterThan(plainLine.size);
+      expect([...highlightedLine].some((sequence) => !plainLine.has(sequence))).toBe(true);
     },
     CASE_MS,
   );
