@@ -134,6 +134,7 @@ function PromptAndStatus({ model }: { model: IAppViewModel }): React.ReactElemen
         sessionName={input.sessionName}
         history={input.history}
         onRequestFocusBackgroundList={input.focusBackgroundList}
+        historySearch={input.historySearch}
       />
       <SessionStatusBar {...model.status} />
     </>

@@ -7,6 +7,7 @@ export const KEYBINDING_ACTIONS = {
     'submit',
     'history-previous',
     'history-next',
+    'history-search',
     'cursor-left',
     'cursor-right',
     'delete-backward',
@@ -42,6 +43,8 @@ export const KEYBINDING_ACTIONS = {
   'workspace-switcher': ['previous', 'next', 'select', 'close', 'attach'],
   'background-list': ['previous', 'next', 'open', 'close'],
   'transport-settings': ['previous', 'next', 'toggle', 'close'],
+  /** SCREEN-1993: the reverse prompt-history search overlay. */
+  'history-search': ['previous', 'next', 'cycle-scope', 'insert', 'execute', 'cancel'],
 } as const;
 
 export type TKeybindingContext = keyof typeof KEYBINDING_ACTIONS;
@@ -63,6 +66,7 @@ export const DEFAULT_KEYBINDINGS = {
     submit: ['enter'],
     'history-previous': ['up'],
     'history-next': ['down'],
+    'history-search': ['ctrl+r'],
     'cursor-left': ['left'],
     'cursor-right': ['right'],
     'delete-backward': ['backspace', 'delete'],
@@ -136,10 +140,19 @@ export const DEFAULT_KEYBINDINGS = {
     toggle: ['space'],
     close: ['enter', 'escape'],
   },
+  'history-search': {
+    previous: ['up'],
+    next: ['down', 'ctrl+r'],
+    'cycle-scope': ['ctrl+s'],
+    insert: ['enter', 'tab'],
+    execute: ['ctrl+e'],
+    cancel: ['escape'],
+  },
 } as const satisfies TDefaultKeybindings;
 
 export const TEXT_ENTRY_CONTEXTS: ReadonlySet<TKeybindingContext> = new Set([
   'chat-input',
   'text-input',
   'text-prompt',
+  'history-search',
 ]);

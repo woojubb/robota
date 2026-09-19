@@ -563,6 +563,64 @@ unreachable today: no runtime path fires `background_task_permission_request` or
 `waiting_permission`, and a subagent's permission routes through the parent registry as a plain
 `permission_request` (recorded on issue #2670).
 
+## Prompt History Search (SCREEN-1993)
+
+`Ctrl+R` in the composer opens a reverse search over the prompts the user has typed — in this
+session, in this project, or in every project — and puts the chosen one back in the composer or
+runs it. The stored prompts come from `~/.robota/history.jsonl`, the user-level append-only
+projection the interactive session writes on every owner turn (`@robota-sdk/agent-session`
+`NodePromptHistoryFile`; the append rules are the framework's, see its SPEC). This package only
+reads it, through the `IPromptHistorySource` the product shell injects (`IRenderOptions`
+`promptHistorySource` + `promptHistoryProject`); the session-side writer travels the same route as
+`memoryStore` (`IRenderOptions.promptHistory` → `ITuiInteractionChannelOptions.promptHistory` →
+`buildTuiSessionOptions`). Absent the source, `ctrl+r` is inert and nothing else changes.
+
+**Keys.** `chat-input.history-search` (`ctrl+r`) opens the overlay. Inside it, context
+`history-search`: `previous` (`up`), `next` (`down`, `ctrl+r`), `cycle-scope` (`ctrl+s`), `insert`
+(`enter`, `tab`), `execute` (`ctrl+e`), `cancel` (`escape`). Every one of them is rebindable through
+`~/.robota/keybindings.json`; Ctrl+C stays reserved. Any other printable key appends to the query and
+Backspace removes from it — the query is a search string, not a composer, so it has no cursor. The
+footer is derived from the effective bindings (`HISTORY_SEARCH_FOOTER_HINTS` is the default
+rendering) and lists exactly the live keys.
+
+**Scopes.** `all → session → project → all` on each `cycle-scope`; a search opens in `all`. `session`
+is the composer's own live prompt list (the same list Up/Down recall walks) and never reads the
+file; `project` keeps entries whose `project` equals the injected key; `all` keeps everything.
+
+**Ordering, dedup, loading.** The file is read backwards in blocks and rendered newest-first as
+each block lands, so the first frame shows the newest prompts before the rest of the file is read
+(`loading…` stays in the state line until the read ends). In every scope an entry equal to an
+earlier (newer) one after trimming is dropped — the newest occurrence wins. Matching is a
+case-insensitive substring; every occurrence in a row is highlighted, and under the colour gate
+(`NO_COLOR`, non-TTY) the highlight is a visible `[match]` marker rather than an SGR attribute
+nothing would render. Exactly one loader runs per open under one `AbortController`; insert,
+execute and cancel all abort it, and a cancel mid-load is a cancel, not a wait.
+
+**Insert, execute, cancel.** `insert` closes the overlay and replaces the composer text with the
+match (cursor at the end); `execute` closes it and submits the match through the composer's normal
+submit path, so it joins the live prompt list like any typed prompt; `cancel` closes it. The
+composer is never written while the overlay is open — that is what makes cancel restore the draft
+byte-identically, including its cursor, with nothing copied and nothing restored.
+
+**Fallbacks.** A missing file is the empty state (`no stored prompts yet` in `all`/`project`;
+`session` is unaffected). Any other read failure is rendered in the overlay
+(`History could not be read: …`) — never an empty list. A malformed line is skipped and counted
+(`N unreadable line(s) skipped` in the state line). While another overlay or a disabled composer
+takes the keys, an open search closes.
+
+**Screen-reader mode.** The `SlashAutocomplete` precedent, not the switcher's: the keys stay
+active, rows are numbered for announcement only, and digits are query text — not a selection.
+Streaming blocks are not published while loading; the list is re-rendered per keystroke and once at
+load end, so a reader is not interrupted by every block that lands.
+
+**The transcript decision.** The item also asked for conversation-transcript search. No in-app
+transcript viewer ships: every committed message is emitted through Ink's `<Static>` into the
+terminal's native scrollback, the TUI never enters the alternate screen (which has no scrollback),
+so a resumed session's whole transcript is already readable and searchable with the terminal's own
+tools. That reason is proven on the real binary, not asserted
+(`src/__tests__/pty/screen-1993-scrollback.ptytest.ts` resumes a 120-message session and finds
+every message in the capture with no key pressed and no `ESC [ ? 1049 h`).
+
 ## IME Real-Cursor Contract (CLI-062)
 
 During focused text entry, `CjkTextInput` positions the REAL terminal cursor at the composition
@@ -610,6 +668,13 @@ fresh process.
 SCREEN-1992's attention modules are pure and tested under `src/attention/__tests__` (fake timers
 for the idle source and the countdown tick, fixture event streams for the recap, byte fixtures for
 the stdin filter); the terminal-mode bracket is pinned in `terminal-handoff-controller.test.ts`.
+
+SCREEN-1993's search flow is pure (`src/history-search/history-search-flow.ts`, unit-tested); the
+overlay is exercised through `InputArea` with a gated async source whose blocks the test releases
+one at a time (`history-search-overlay.test.tsx`: one loader per open, first block before the second
+lands, insert/execute/cancel, read error, screen-reader publish gating); the keybinding surface is
+covered by the catalogue/schema parity test, a document-rebinding case and the footer inventory; the
+product-level scenario and the scrollback proof run in the PTY project.
 
 `TuiInteractionChannel.lifecycle.test.ts` mechanically compares actual listener registration and
 teardown with the exhaustive classification and forces a notice projection failure. The notice

@@ -11,6 +11,7 @@ import type {
   IInteractiveSession,
   IInteractiveSessionStore,
 } from '@robota-sdk/agent-interface-session';
+import type { IPromptHistorySource } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 interface IProps {
@@ -29,6 +30,9 @@ interface IProps {
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   pluginAdapter?: ICommandPluginAdapter;
   cliAdapter: ITuiCliAdapter;
+  /** SCREEN-1993: the stored-prompt source and project key for the input area's search. */
+  promptHistorySource?: IPromptHistorySource;
+  promptHistoryProject?: string;
 }
 
 interface IActiveChannel {
@@ -113,6 +117,12 @@ export default function App(props: IProps): React.ReactElement {
           ? { transportRegistry: props.transportRegistry }
           : {})}
         {...(props.pluginAdapter !== undefined ? { pluginAdapter: props.pluginAdapter } : {})}
+        {...(props.promptHistorySource !== undefined
+          ? { promptHistorySource: props.promptHistorySource }
+          : {})}
+        {...(props.promptHistoryProject !== undefined
+          ? { promptHistoryProject: props.promptHistoryProject }
+          : {})}
       />
     </TuiCliAdapterProvider>
   );

@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { EditCheckpointStore } from '@robota-sdk/agent-framework';
+import type { EditCheckpointStore, IPromptHistoryOptions } from '@robota-sdk/agent-framework';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import { toChannelOptions } from '../render.js';
+import { buildTuiSessionOptions } from '../tui-session-options.js';
 import type { IRenderOptions } from '../render.js';
 
 describe('toChannelOptions', () => {
@@ -61,5 +62,31 @@ describe('toChannelOptions', () => {
     });
 
     expect(channelOptions.editCheckpointStore).toBe(editCheckpointStore);
+  });
+
+  it('SCREEN-1993: projects the prompt-history writer to the channel and on to the session options', () => {
+    const promptHistory = { writer: { append: () => undefined }, project: '/p' };
+    const channelOptions = toChannelOptions({
+      cwd: '/tmp/project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      promptHistory,
+    });
+    expect(channelOptions.promptHistory).toBe(promptHistory);
+    // The session-options union hides standard-only fields; read the projected field by name.
+    const session = (
+      options: ReturnType<typeof toChannelOptions>,
+    ): { promptHistory?: IPromptHistoryOptions } =>
+      buildTuiSessionOptions(options) as { promptHistory?: IPromptHistoryOptions };
+    expect(session(channelOptions).promptHistory).toBe(promptHistory);
+    expect(
+      session(
+        toChannelOptions({
+          cwd: '/tmp/project',
+          provider: {} as IAIProvider,
+          cliAdapter: {} as ITuiCliAdapter,
+        }),
+      ).promptHistory,
+    ).toBeUndefined();
   });
 });

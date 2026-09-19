@@ -11,7 +11,9 @@ import {
   resolveTabCompletion,
   shouldSubmitInput,
 } from './flows/input-area-flow.js';
+import HistorySearchOverlay from './HistorySearchOverlay.js';
 import { useAutocomplete } from './hooks/useAutocomplete.js';
+import { useInputAreaHistorySearch } from './hooks/useInputAreaHistorySearch.js';
 import { useInputAreaKeys } from './hooks/useInputAreaKeys.js';
 import { DeletionAnnouncement, InputBottomRule, InputTopRule } from './input-area-rules.js';
 import { KeyHintFooter } from './key-hint-footer.js';
@@ -23,6 +25,7 @@ import { PALETTE } from './tui-palette.js';
 import { expandPasteLabels } from './utils/paste-labels.js';
 import WaveText from './WaveText.js';
 
+import type { IInputAreaHistorySearch } from './hooks/useInputAreaHistorySearch.js';
 import type { ITuiCommandQueryPort } from './tui-app-channel-port.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { ICommand } from '@robota-sdk/agent-interface-command';
@@ -47,6 +50,8 @@ interface IProps {
    * parent can move focus into the background-work list (a no-op for the input today).
    */
   onRequestFocusBackgroundList?: () => void;
+  /** SCREEN-1993: the stored-prompt search surface; absent ⇒ `ctrl+r` is inert. */
+  historySearch?: IInputAreaHistorySearch | undefined;
 }
 
 /**
@@ -81,6 +86,7 @@ export default function InputArea({
   sessionName,
   history,
   onRequestFocusBackgroundList,
+  historySearch,
 }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
   const [cursorHint, setCursorHint] = useState<number | null>(null);
@@ -198,9 +204,19 @@ export default function InputArea({
     [showPopup, filteredCommands, selectedIndex, enterSelectCommand, submitPrompt],
   );
 
+  const search = useInputAreaHistorySearch({
+    historySearch,
+    sessionPrompts: promptHistory,
+    composerActive: !showPopup && !isDisabled && !pendingPrompt,
+    setValue,
+    setCursorHint,
+    submitPrompt,
+  });
+
   useInputAreaKeys({
     value,
     isDisabled,
+    searchOpen: search.open,
     isQueueCancellationDisabled: isQueueCancellationDisabled ?? isDisabled,
     pendingPrompt,
     showPopup,
@@ -237,6 +253,7 @@ export default function InputArea({
           isSubcommandMode={isSubcommandMode}
         />
       )}
+      <HistorySearchOverlay view={search} />
       <DeletionAnnouncement deleted={screenReader ? deletedText : null} />
       <InputTopRule
         screenReader={screenReader}
@@ -281,11 +298,14 @@ export default function InputArea({
               cursorHint={cursorHint}
               enableVerticalNavigation={false}
               keybindingContext={showPopup ? 'autocomplete-menu' : 'chat-input'}
+              focus={!search.open}
             />
           </Box>
         )}
       </Box>
-      {!screenReader && !isDisabled && !pendingPrompt && <KeyHintFooter hints={submitHint} />}
+      {!screenReader && !isDisabled && !pendingPrompt && !search.open && (
+        <KeyHintFooter hints={submitHint} />
+      )}
       <InputBottomRule
         screenReader={screenReader}
         innerWidth={innerWidth}

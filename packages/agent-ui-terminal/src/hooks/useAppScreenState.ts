@@ -23,10 +23,14 @@ export interface IAppScreenState {
   readonly screens: IUseSideEffectsResult;
   readonly workspace: IAppWorkspaceState;
   readonly statusSettings: IStatusLineCommandSettings;
+  /** SCREEN-1993: the input area's history-search overlay is open and owns the keys. */
+  readonly historySearchOpen: boolean;
+  readonly setHistorySearchOpen: (open: boolean) => void;
 }
 
 export function useAppScreenState(options: IOptions): IAppScreenState {
   const [workspaceSwitcherVisible, setWorkspaceSwitcherVisible] = useState(false);
+  const [historySearchOpen, setHistorySearchOpen] = useState(false);
   const [statusSettings, refreshStatusSettings] = useStatusLineSettings();
   const screens = useSideEffects({
     uiEventPort: options.state.uiEventPort,
@@ -43,6 +47,7 @@ export function useAppScreenState(options: IOptions): IAppScreenState {
     !screens.showTransportTUI &&
     !screens.showSessionPicker &&
     !workspaceSwitcherVisible &&
+    !historySearchOpen &&
     !options.coordinationBlocked;
   const workspace = useAppWorkspaceState({
     snapshot: options.state.executionWorkspaceSnapshot,
@@ -56,5 +61,5 @@ export function useAppScreenState(options: IOptions): IAppScreenState {
     switcherVisible: workspaceSwitcherVisible,
     setSwitcherVisible: setWorkspaceSwitcherVisible,
   });
-  return { screens, workspace, statusSettings };
+  return { screens, workspace, statusSettings, historySearchOpen, setHistorySearchOpen };
 }

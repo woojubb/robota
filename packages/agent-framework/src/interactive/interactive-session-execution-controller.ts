@@ -242,6 +242,13 @@ export class SessionExecutionController {
       // prompt from an agent-wakeup re-entry.
       this.callbacks.emit('turn_source', turnOptions.turnSource ?? 'user');
       this.callbacks.emit('user_message', displayInput ?? input);
+      // SCREEN-1993: what the owner typed, recorded after the message is on the channel.
+      this.callbacks.recordPrompt?.({
+        input,
+        rawInput,
+        turnSource: turnOptions.turnSource ?? 'user',
+        driverId: turnOptions.driverId,
+      });
       this.callbacks.emit('thinking', true);
       this.histTracker.resetUsedMemoryReferences(); // MEM-2055: before recall — old order lost it
       if (this.callbacks.recallMemory) {

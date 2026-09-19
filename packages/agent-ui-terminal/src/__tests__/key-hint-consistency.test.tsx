@@ -25,6 +25,7 @@ import MultiSelectList, { getMultiSelectFooterHints } from '../MultiSelectList.j
 import PermissionPrompt, { PERMISSION_PROMPT_FOOTER_HINTS } from '../PermissionPrompt.js';
 import SlashAutocomplete, { SLASH_AUTOCOMPLETE_FOOTER_HINTS } from '../SlashAutocomplete.js';
 import TextPrompt, { TEXT_PROMPT_FOOTER_HINTS } from '../TextPrompt.js';
+import HistorySearchOverlay, { HISTORY_SEARCH_FOOTER_HINTS } from '../HistorySearchOverlay.js';
 import { formatKeyHints, type IKeyHint } from '../key-hint-footer.js';
 
 import type { ICommand } from '@robota-sdk/agent-interface-command';
@@ -40,7 +41,10 @@ const KEY_RANK: Record<string, number> = {
   '←→': 0, // navigate
   Space: 1, // modify
   Tab: 1, // modify
+  'Ctrl+S': 1, // modify (SCREEN-1993: the search scope)
   Enter: 2, // primary
+  'Enter/Tab': 2, // primary (SCREEN-1993: insert the match)
+  'Ctrl+E': 2, // primary (SCREEN-1993: run the match)
   Esc: 3, // dismiss
   'Ctrl+B/Esc': 3, // dismiss
 };
@@ -170,6 +174,25 @@ const FOOTER_INVENTORY: readonly IFooterInventoryEntry[] = [
     renderFrame: () =>
       render(
         <PermissionPrompt request={{ toolName: 'tool', toolArgs: {}, resolve: noop }} />,
+      ).lastFrame()!,
+  },
+  {
+    name: 'HistorySearchOverlay',
+    hints: HISTORY_SEARCH_FOOTER_HINTS,
+    renderFrame: () =>
+      render(
+        <HistorySearchOverlay
+          view={{
+            open: true,
+            query: '',
+            scope: 'all',
+            selectedIndex: 0,
+            matches: [],
+            loading: false,
+            skippedLines: 0,
+            error: undefined,
+          }}
+        />,
       ).lastFrame()!,
   },
   {

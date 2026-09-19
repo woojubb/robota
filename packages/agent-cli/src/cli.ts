@@ -64,6 +64,7 @@ import { runPrintMode } from './modes/print-mode.js';
 import { runServeMode } from './modes/serve-mode.js';
 import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
 import { resolveFocusReportingOverride } from './startup/focus-reporting-enablement.js';
+import { resolvePromptHistoryRenderFields } from './startup/prompt-history-enablement.js';
 import { resolveScreenReaderRenderFields } from './startup/screen-reader-enablement.js';
 import {
   formatHeadlessWorkspaceTrustError,
@@ -524,6 +525,13 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     ...screenReader,
     // SCREEN-1992: the focus-reporting kill switch is the shell's; the TUI's TTY gate decides otherwise.
     focusReporting: resolveFocusReportingOverride(process.env),
+    // SCREEN-1993: prompt history is a TUI-only surface (print and serve above receive no writer).
+    ...resolvePromptHistoryRenderFields({
+      settings: userSettings,
+      env: process.env,
+      access: workspaceComposition.projectAccess,
+      cwd,
+    }),
     cliAdapter: createDefaultTuiCliAdapter({
       providerDefinitions,
       reloadPluginCommandSource: reloadPluginCommandSourceInCwd,

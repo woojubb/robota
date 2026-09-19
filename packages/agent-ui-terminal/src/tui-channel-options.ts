@@ -16,6 +16,7 @@ import type {
   ICreateSessionOptions,
   EditCheckpointStore,
   IMemoryStore,
+  IPromptHistoryOptions,
   IPerTurnRecallConfig,
   IRemoteCommandPolicy,
   TShellExecFn,
@@ -125,4 +126,6 @@ export interface ITuiInteractionChannelOptions {
    * asserted rather than assumed. Absent ⇒ OFF.
    */
   screenReader?: boolean;
+  /** SCREEN-1993: the session-side prompt-history writer and project key; absent ⇒ nothing recorded. */
+  promptHistory?: IPromptHistoryOptions | undefined;
 }

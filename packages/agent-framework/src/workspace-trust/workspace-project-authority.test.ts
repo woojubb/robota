@@ -102,6 +102,9 @@ describe('WorkspaceTrustService project authority', () => {
       reason: 'WorkspaceAuthorityRequired',
       trustState: 'untrusted',
       displayPath: root,
+      // SCREEN-1993: the resolved identity rides on a restricted access so a consumer needing the
+      // worktree root reads the one resolution already made.
+      identity: { repositoryKey: `test:${root}`, displayPath: root, worktreeRoot: root },
     });
 
     const granted = await service.grant(root);

@@ -141,6 +141,12 @@ export interface IRestrictedWorkspaceProjectAccess {
   readonly reason: 'WorkspaceAuthorityRequired';
   readonly trustState: Exclude<TWorkspaceTrustState, 'trusted'>;
   readonly displayPath?: string;
+  /**
+   * SCREEN-1993: the identity the trust service resolved before deciding the state — present for
+   * every state except `identity-unavailable`, so a consumer that needs the worktree root (the
+   * prompt-history project key) reads the one resolution already made instead of resolving again.
+   */
+  readonly identity?: IWorkspaceIdentity;
   /** Present when the state was caused by a swallowed identity/store error a diagnostic should name. */
   readonly cause?: IWorkspaceTrustCause;
 }

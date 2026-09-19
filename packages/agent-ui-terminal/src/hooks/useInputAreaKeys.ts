@@ -19,6 +19,8 @@ import type { ICommand } from '@robota-sdk/agent-interface-command';
 export interface IUseInputAreaKeysInputs {
   value: string;
   isDisabled: boolean;
+  /** SCREEN-1993: the history-search overlay owns the keys while it is open. */
+  searchOpen: boolean;
   isQueueCancellationDisabled: boolean;
   pendingPrompt?: string | null;
   showPopup: boolean;
@@ -62,7 +64,7 @@ function useAutocompletePopupKeys(inputs: IUseInputAreaKeysInputs): void {
 
 /** Register the autocomplete-popup, prompt-history and queued-prompt bindings. */
 export function useInputAreaKeys(inputs: IUseInputAreaKeysInputs): void {
-  const { showPopup, isDisabled, isQueueCancellationDisabled, pendingPrompt } = inputs;
+  const { showPopup, isDisabled, isQueueCancellationDisabled, pendingPrompt, searchOpen } = inputs;
 
   useAutocompletePopupKeys(inputs);
 
@@ -96,7 +98,7 @@ export function useInputAreaKeys(inputs: IUseInputAreaKeysInputs): void {
       inputs.setCursorHint(result.cursorHint);
       inputs.setHistoryState(result.state);
     },
-    { isActive: !showPopup && !isDisabled && !pendingPrompt },
+    { isActive: !showPopup && !isDisabled && !pendingPrompt && !searchOpen },
   );
 
   // Backspace cancels queued prompt

@@ -14,6 +14,7 @@ import {
 } from './interactive-session-host-actions.js';
 import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
 import { persistSession } from './interactive-session-persistence.js';
+import { createPromptHistoryRecorder } from './interactive-session-prompt-history.js';
 import { resolveUserSettingsProviderSwitch } from './interactive-session-provider-switch.js';
 import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
@@ -203,6 +204,7 @@ export class InteractiveSession
     this.injectedMemoryStore = 'memoryStore' in options ? options.memoryStore : undefined;
     this.automaticMemory = 'automaticMemory' in options ? options.automaticMemory : undefined;
     this.recallMemory = 'recallMemory' in options ? options.recallMemory : undefined;
+    const promptHistory = 'promptHistory' in options ? options.promptHistory : undefined;
     this.turnMemory = new SessionTurnMemory({
       automaticMemory: this.automaticMemory,
       recallMemory: this.recallMemory,
@@ -296,6 +298,18 @@ export class InteractiveSession
       // `recallMemory` policy (absent ⇒ undefined ⇒ recall OFF, startup-only injection unchanged).
       ...(this.recallMemory
         ? { recallMemory: (query: string) => this.turnMemory.recall(query) }
+        : {}),
+      // SCREEN-1993: adapter-gated — only wire the prompt-history append when the surface supplied
+      // a writer (absent ⇒ undefined ⇒ nothing is written).
+      ...(promptHistory
+        ? {
+            recordPrompt: createPromptHistoryRecorder({
+              ...promptHistory,
+              getSessionId: () => this.sessionId,
+              notify: (message) =>
+                this.histTracker.append(messageToHistoryEntry(createSystemMessage(message))),
+            }),
+          }
         : {}),
     });
 

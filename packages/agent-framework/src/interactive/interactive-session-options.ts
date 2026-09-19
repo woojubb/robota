@@ -6,6 +6,7 @@
  * IInitOptions: internal async init shape passed to createInteractiveSession().
  */
 
+import type { IPromptHistoryOptions } from './interactive-session-prompt-history.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
@@ -133,6 +134,12 @@ export interface IInteractiveSessionStandardOptions {
    * injection; absence leaves project memory inaccessible.
    */
   memoryStore?: IMemoryStore;
+  /**
+   * SCREEN-1993: optional prompt-history projection. When present, every turn the owner typed is
+   * appended (`{ at, sessionId, project, text }`) through the writer; absent ⇒ nothing is written.
+   * Enablement and the project key are surface-owned.
+   */
+  promptHistory?: IPromptHistoryOptions;
   /**
    * SELFHOST-008 P2: optional automatic post-turn memory-capture policy. When present, the dormant
    * capture pipeline is wired into the live turn (awaited in the controller's finally before persist),

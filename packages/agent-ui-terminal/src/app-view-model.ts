@@ -1,4 +1,5 @@
 import type { TStaticItem } from './app-static-items.js';
+import type { IInputAreaHistorySearch } from './hooks/useInputAreaHistorySearch.js';
 import type { ITuiCommandQueryPort } from './tui-app-channel-port.js';
 import type { ITuiSessionEventNotice } from './tui-session-events.js';
 import type { IPendingPermissionRequest } from './types.js';
@@ -101,6 +102,8 @@ export interface IAppInputViewModel {
   readonly sessionName: string | undefined;
   readonly history: readonly IHistoryEntry[];
   readonly focusBackgroundList: () => void;
+  /** SCREEN-1993: the stored-prompt search surface; absent ⇒ the feature is off. */
+  readonly historySearch: IInputAreaHistorySearch | undefined;
 }
 
 export interface IAppStatusViewModel {

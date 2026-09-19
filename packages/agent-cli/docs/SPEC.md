@@ -704,6 +704,29 @@ input turned it on, so the confirmation line the TUI prints cannot lie about why
 The rendered behaviour of the mode (labels, numbered menus, bell, OSC 133 support table, known
 limitations) is `packages/agent-ui-terminal/docs/SPEC.md`.
 
+### Prompt History Enablement (SCREEN-1993)
+
+The TUI's `Ctrl+R` search reads `~/.robota/history.jsonl`, the user-level append-only projection of
+the prompts the owner typed, and this package owns the two product decisions around it
+(`src/startup/prompt-history-enablement.ts`):
+
+- **Default ON, stated.** Prompts are already persisted verbatim per session, the file is owner-only
+  (SEC-020 regime, written by `@robota-sdk/agent-session`), and the shell-history analogue is
+  default-on; the README says what is written, where, and how to turn it off. Precedence, lowest →
+  highest: `settings.json` `promptHistory: false` (`readPromptHistorySetting()`, non-boolean values
+  ignored) ← `ROBOTA_PROMPT_HISTORY=1|0` — **env wins**, the memory resolver's direction: it is a
+  machine-level policy, not a per-invocation accessibility switch.
+- **TUI only.** `resolvePromptHistoryRenderFields()` is called once in `src/cli.ts` on the `renderApp`
+  path and yields `{ promptHistory, promptHistorySource, promptHistoryProject }` — the session-side
+  writer (forwarded on the `memoryStore` route to `buildRuntimeSession`) and the overlay's source —
+  or nothing when disabled. `runPrintMode` and `runServeMode` receive no writer: prompt intake is TUI
+  state, and neither has a composer.
+- **Project key.** `resolvePromptHistoryProject()` returns the resolved workspace identity's
+  `worktreeRoot` whenever the identity resolved — trusted, untrusted, revoked or store-unavailable
+  alike, because the resolver is trust-independent and `IRestrictedWorkspaceProjectAccess` now carries
+  the `identity` the trust service attaches to every state it reached (no second `git rev-parse`);
+  only `identity-unavailable`, the one state without an identity, falls back to `realpath(cwd)`.
+
 ### Transport Settings
 
 Transport enabled/disabled state and options are persisted in `settings.json` under the `transports`
