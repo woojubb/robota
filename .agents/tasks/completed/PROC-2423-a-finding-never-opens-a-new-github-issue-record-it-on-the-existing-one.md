@@ -1,7 +1,8 @@
 ---
 title: 'PROC-2423: A finding never opens a new GitHub issue — record it on the existing one'
 issue: https://github.com/woojubb/robota/issues/2423
-status: todo
+status: done
+completed: 2026-09-19
 created: 2026-09-19
 priority: medium
 urgency: soon
@@ -36,3 +37,12 @@ the one allocator message that still named `gh issue create` point at it instead
 **Reason:** Nothing a person runs in the product changes — no command, screen, output or setting; only the
 repository's own rule documents and the harness allocator's refusal message change what an agent is told
 to do with a finding.
+
+## Results
+
+- TC-01 — the refusal-message case passes (1 passed, 40 skipped); with the planning checkpoint's
+  `work-item-issue-binding.mjs` restored the same case fails (`reverted-run exit 1`), so the message
+  is what tells an agent to register on the existing umbrella instead of opening an issue.
+- TC-02 — `run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`: 74 scans passed, 1 skipped.
+- TC-03 — the whole allocator test file: 41 passed.
+- GATE-DONE PASS (guardian + mechanical) on `4f2754c2f`; the spec is archived under `spec-docs/done`.
