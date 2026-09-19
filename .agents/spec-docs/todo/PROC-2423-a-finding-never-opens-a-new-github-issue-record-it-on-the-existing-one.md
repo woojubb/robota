@@ -92,9 +92,9 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.ts -t "names the existing umbrella"` → exits 0, and exits 1 with `scripts/harness/work-item-issue-binding.mjs` reverted to `HEAD~1`
-- [ ] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
-- [ ] TC-03: `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs` → exits 0 on the whole file, not only the new case
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs -t "names the existing umbrella"` → exits 0, and exits 1 with `scripts/harness/work-item-issue-binding.mjs` reverted to the planning checkpoint `7d306094b`
+- [x] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
+- [x] TC-03: `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs` → exits 0 on the whole file, not only the new case
 
 ## Test Plan
 
@@ -206,3 +206,100 @@ Recorded as the rule's required choice rather than skipped.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `724f4138e375` · base `origin/develop@724f4138e375` · document `.agents/spec-docs/draft/PROC-2423-a-finding-never-opens-a-new-github-issue-record-it-on-the-existing-one.md` blob `581e38a75045` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-19
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs -t "names the existing umbrella" (then again with scripts/harness/work-item-issue-binding.mjs reverted to 7d306094b)`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+✓ scripts/harness/__tests__/allocate-work-item-id.test.mjs (41 tests | 40 skipped) 1ms
+      Tests  1 passed | 40 skipped (41)
+--- with scripts/harness/work-item-issue-binding.mjs reverted to the planning checkpoint 7d306094b (pre-fix):
+   × the issue source > the refusal names the existing umbrella Issue as the route, never opening a new one (PROC-2423) 4ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 40 skipped (41)
+reverted-run exit 1
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `4f2754c2f857` · base `origin/develop@724f4138e375` · document `.agents/spec-docs/todo/PROC-2423-a-finding-never-opens-a-new-github-issue-record-it-on-the-existing-one.md` blob `c7c861d7c414` (tracked)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-19
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 129 line(s))
+
+```
+✓ package-boundary-ownership
+
+⚑ 3 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ spec-whitebox-leakage: packages/agent-framework/docs/SPEC.md: 2285/3223 lines (70.9%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-ui-terminal/docs/SPEC.md: 456/643 lines (70.9%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-session/docs/SPEC.md: 354/829 lines (42.7%) outside the standard sections — consider extracting to docs/design/
+
+74 scans passed, 1 skipped (75 declared what they examined)
+scan receipt written: an unchanged tree will not be re-scanned.
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `4f2754c2f857` · base `origin/develop@724f4138e375` · document `.agents/spec-docs/todo/PROC-2423-a-finding-never-opens-a-new-github-issue-record-it-on-the-existing-one.md` blob `07a6abda1fb4` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-19
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 12 line(s))
+
+```
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+ ✓ scripts/harness/__tests__/allocate-work-item-id.test.mjs (41 tests) 1133ms
+
+ Test Files  1 passed (1)
+      Tests  41 passed (41)
+   Start at  12:10:49
+   Duration  1.34s (transform 37ms, setup 0ms, collect 52ms, tests 1.13s, environment 0ms, prepare 29ms)
+
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `4f2754c2f857` · base `origin/develop@724f4138e375` · document `.agents/spec-docs/todo/PROC-2423-a-finding-never-opens-a-new-github-issue-record-it-on-the-existing-one.md` blob `b64a20ba7edc` (modified)
+
+### [GATE-DONE] — ❌ FAIL | 2026-09-19
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `4f2754c2f857` · base `origin/develop@724f4138e375` · document `.agents/spec-docs/todo/PROC-2423-a-finding-never-opens-a-new-github-issue-record-it-on-the-existing-one.md` blob `c605a15d4153` (modified)
+
+### [GATE-DONE] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** approved → done
+
+- GATE-DONE — ordering: prior gate GATE-PLAN PASS and status `approved`: `[GATE-PLAN] — ✅ PASS | 2026-09-19` present with `**Status upgrade:** draft → approved`; document `status: approved` (recorded-pass rule satisfied); the earlier `[GATE-DONE] — ❌ FAIL` entry (no `--verify-cmd` supplied) stands as history and is superseded by this run
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): Task `## Plan` holds 3 items (TC-01, TC-02, TC-03), 3/3 `[x]`; `node scripts/harness/scan-task-plan-items.mjs` → `task-plan-items scan passed.` (317 Task Plan sections examined)
+- GATE-VERIFY — No Plan item is blocked or pending: no Plan item carries a blocked/pending marker or note; the words "blocked"/"pending" occur 0 times in the Task; no item is a self-disposition (merge/close/publish) — TC-02's "run the affected scan suite in PR context" is a verification step, not a landing
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): branch diff vs `origin/develop` (724f4138e) touches only `.agents/**` docs, the PROC-2423 Task/spec and `scripts/harness/**`; `pnpm build:affected` → `workspace-affected-run: build mode=none packages=0 … PASS tasks=0` (no workspace package affected)
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm test:affected` → `workspace-affected-run: test mode=none packages=0 … PASS tasks=0`; the touched test surface re-run directly: `pnpm exec vitest run scripts/harness/__tests__/allocate-work-item-id.test.mjs` → 41 passed (41), exit 0; red-proof reproduced by the guardian: with `7d306094b:scripts/harness/work-item-issue-binding.mjs` (planning checkpoint, pre-fix) in place the `-t "names the existing umbrella"` case fails (`AssertionError: expected 'no open or closed GitHub Issue titled…' to match /existing umbrella Issue/`, `1 failed | 40 skipped`, exit 1); with the HEAD content restored it passes (`1 passed | 40 skipped`, exit 0); file restored byte-identically (blob `45d56b07b4e9` before and after), `git status` unchanged
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 3/3 TC checkboxes `[x]` in `## Completion Criteria`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with command, output and exit code: `[GATE-COMPLETE: TC-01]`, `[TC-02]`, `[TC-03]` entries present, each with `**Command:**`, `**Exit:** 0` and captured output; TC-01's output shows the reverted run exiting 1 (red) and the mechanical run exiting 0 (green); TC-02 shows `74 scans passed, 1 skipped`, exit 0; TC-03 shows 41 passed. Observation: the TC-01 criterion text names `allocate-work-item-id.test.ts` (no such file — the Test Plan row, `## Affected Files` and the evidence all name `.test.mjs`) and `HEAD~1` (a relative ref that now resolves to the fix commit e17712e3e); the evidence and the guardian's reproduction verify the pre-fix checkpoint `7d306094b`, which is the state the criterion describes
+- GATE-COMPLETE — One of test reference / test skipped is recorded per Test Plan row: TC-01 and TC-03 name `scripts/harness/__tests__/allocate-work-item-id.test.mjs` (TC-01 with the "names the existing umbrella" case), TC-02 names `run-all-scans.mjs --affected --context pr` as the suite; no row is empty
+- GATE-COMPLETE — No TC-N is silently unaddressed: 3 Test Plan rows = 3 TC criteria, each with a tool reference and Notes
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 3/3 `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: all 3 rows carry a Tool/Approach reference and Notes
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: names `.agents/tasks/PROC-2423-a-finding-never-opens-a-new-github-issue-record-it-on-the-existing-one.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: Task `status: todo` (terminal status/date is a post-PASS handoff output), 3/3 Plan items `[x]`, no pending or blocked item
+
+**Judged by:** `backlog-gate-guard` (semantic + re-verification) + `gate.mjs` (mechanical, 11 PASS / 2 PENDING-GUARDIAN)
+**Judged at:** HEAD `4f2754c2f857` · base `origin/develop@724f4138e375` · document `.agents/spec-docs/todo/PROC-2423-a-finding-never-opens-a-new-github-issue-record-it-on-the-existing-one.md` blob `fde686c7f14b` (modified)

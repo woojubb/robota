@@ -20,9 +20,9 @@ the one allocator message that still named `gh issue create` point at it instead
 
 ## Plan
 
-- [ ] TC-01: Correct the allocator's refusal message and pin it with a test case; prove the case red with the message reverted.
-- [ ] TC-02: Amend the rule, the boundary, the tasks README, the skill and the memory note, and run the affected scan suite in PR context.
-- [ ] TC-03: Run the whole allocator test file.
+- [x] TC-01: Correct the allocator's refusal message and pin it with a test case; prove the case red with the message reverted.
+- [x] TC-02: Amend the rule, the boundary, the tasks README, the skill and the memory note, and run the affected scan suite in PR context.
+- [x] TC-03: Run the whole allocator test file.
 
 ## User Execution Test Scenarios
 
