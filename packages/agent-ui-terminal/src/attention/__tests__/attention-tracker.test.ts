@@ -18,9 +18,12 @@ describe('AttentionTracker (SCREEN-1992 TC-01)', () => {
     try {
       vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
       const { instance, events } = tracker({ focusReporting: true });
+      instance.start();
       expect(instance.attended).toBe(true);
-      expect(instance.source).toBe('focus');
+      // Requested is not confirmed: until a focus event arrives the idle source decides.
+      expect(instance.source).toBe('idle');
       instance.focusOut();
+      expect(instance.source).toBe('focus');
       instance.focusOut();
       expect(instance.attended).toBe(false);
       expect(events).toEqual(['lost@2026-01-01T00:00:00.000Z']);
@@ -38,6 +41,34 @@ describe('AttentionTracker (SCREEN-1992 TC-01)', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('with focus reporting requested but never answered, the idle source still runs', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const { instance, events } = tracker({ focusReporting: true });
+      instance.start();
+      vi.advanceTimersByTime(DEFAULT_IDLE_THRESHOLD_MS);
+      expect(instance.attended).toBe(false);
+      expect(instance.source).toBe('idle');
+      instance.keystroke();
+      expect(instance.attended).toBe(true);
+      expect(events.map((event) => event.split('@')[0])).toEqual(['lost', 'returned']);
+      // The first focus event disarms the idle source for good.
+      instance.focusIn();
+      vi.advanceTimersByTime(DEFAULT_IDLE_THRESHOLD_MS * 2);
+      expect(instance.attended).toBe(true);
+      expect(instance.source).toBe('focus');
+      instance.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('refuses a focus event when focus reporting is off', () => {
+    const { instance } = tracker({ focusReporting: false });
+    expect(() => instance.focusIn()).toThrow(/focus reporting is off/u);
   });
 
   it('without focus reporting, the idle threshold marks unattended and the next keystroke marks attended', () => {

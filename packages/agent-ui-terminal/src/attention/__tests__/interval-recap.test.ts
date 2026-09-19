@@ -10,7 +10,10 @@ describe('IntervalRecap (SCREEN-1992 TC-02)', () => {
     recap.turnCompleted();
     expect(recap.onReturned('2026-01-01T00:00:00.000Z')).toBeUndefined();
 
+    // Already terminal before the interval: old news, never counted.
+    recap.entryState('task:old', 'completed');
     recap.onLost('2026-01-01T00:00:00.000Z');
+    recap.entryState('task:old', 'completed');
     recap.turnSource('agent-wakeup');
     recap.turnCompleted();
     recap.turnSource('user');
@@ -20,6 +23,8 @@ describe('IntervalRecap (SCREEN-1992 TC-02)', () => {
     recap.entryState('task:1', 'failed');
     recap.entryState('task:1', 'failed'); // same terminal state twice counts once
     recap.entryState('task:2', 'completed');
+    recap.entryState('task:3', 'completed');
+    recap.entryState('task:3', 'working'); // left the terminal state again: dropped
     recap.error();
     const line = recap.onReturned('2026-01-01T00:12:00.000Z');
     expect(line).toBe(

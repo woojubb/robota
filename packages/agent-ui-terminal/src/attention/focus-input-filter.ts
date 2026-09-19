@@ -53,6 +53,18 @@ export interface IFocusReportingStdinHooks {
 
 type TStdinDataListener = (chunk: Buffer | string) => void;
 
+/** What ink 7.1.1 reads from the stream it is given (`App.js` input handling, `ink.js` kitty probe). */
+type TInkStdinSurface = Pick<
+  Readable,
+  'read' | 'setEncoding' | 'unshift' | 'on' | 'addListener' | 'removeListener'
+> & {
+  readonly isTTY: boolean;
+  // `tty.ReadStream` types these as returning itself; Ink discards the return value.
+  setRawMode(mode: boolean): TInkStdinSurface;
+  ref(): TInkStdinSurface;
+  unref(): TInkStdinSurface;
+};
+
 /** The subset of the real stdin the proxy touches (what `process.stdin` provides). */
 export interface IFocusReportingStdinSource {
   readonly isTTY?: boolean;
@@ -103,13 +115,13 @@ export class FocusReportingStdin extends Readable {
 
   /**
    * Ink declares `stdin?: NodeJS.ReadStream` (a `tty.ReadStream`, which cannot be constructed
-   * without an fd) but touches only the readable surface plus `isTTY`, `setRawMode`, `ref` and
-   * `unref` — verified against ink 7.1.1's App and Ink classes, and every one of them is a member
-   * this class implements (the proxy test exercises each). Not a blind assertion: the narrowing is
-   * to the members Ink reads, which the class provides.
+   * without an fd) but touches only the members named in `TInkStdinSurface` — verified against ink
+   * 7.1.1's App and Ink classes. Assigning `this` to that surface is a typed check that every one of
+   * them exists here; the final narrowing is from the surface Ink reads to the type it declares.
    */
   asInkStdin(): NodeJS.ReadStream {
-    return this as unknown as NodeJS.ReadStream;
+    const surface: TInkStdinSurface = this;
+    return surface as NodeJS.ReadStream;
   }
 
   /** Detach from the underlying stdin; the proxy emits nothing afterwards. */

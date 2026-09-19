@@ -1,9 +1,11 @@
 /**
  * SCREEN-1992: whether the user is at the terminal.
  *
- * Two sources feed one boolean. When the terminal negotiated focus reporting (DECSET 1004) the
- * focus events are authoritative and keystrokes carry no attention meaning. Without it, the only
- * signal is input: silence past the idle threshold means "away", the next keystroke means "back".
+ * Two sources feed one boolean. Focus reporting (DECSET 1004) was REQUESTED, not confirmed — a
+ * terminal that does not implement the mode discards the request and never answers — so focus
+ * becomes authoritative only once the first `CSI I`/`CSI O` has actually arrived; from then on
+ * keystrokes carry no attention meaning. Until then, and wherever the mode is off, the only signal
+ * is input: silence past the idle threshold means "away", the next keystroke means "back".
  */
 import { MS_PER_MINUTE } from './time-units.js';
 
@@ -23,12 +25,13 @@ export type TAttentionListener = (change: IAttentionChange) => void;
 /** What a consumer of attention sees: the level, and every transition. */
 export interface IAttentionSource {
   readonly attended: boolean;
-  /** Which source decides the level — recorded so a degraded run is never a silent default. */
+  /** Which source decides the level right now — recorded so a degraded run is never a silent default. */
   readonly source: 'focus' | 'idle';
   subscribe(listener: TAttentionListener): () => void;
 }
 
 export interface IAttentionTrackerOptions {
+  /** Whether DECSET 1004 was requested; the first focus event is what makes it authoritative. */
   readonly focusReporting: boolean;
   readonly now: () => number;
   readonly idleThresholdMs?: number;
@@ -36,6 +39,7 @@ export interface IAttentionTrackerOptions {
 
 export class AttentionTracker implements IAttentionSource {
   private attendedState = true;
+  private focusObserved = false;
   private readonly listeners = new Set<TAttentionListener>();
   private idleTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly idleThresholdMs: number;
@@ -49,7 +53,7 @@ export class AttentionTracker implements IAttentionSource {
   }
 
   get source(): 'focus' | 'idle' {
-    return this.options.focusReporting ? 'focus' : 'idle';
+    return this.focusObserved ? 'focus' : 'idle';
   }
 
   subscribe(listener: TAttentionListener): () => void {
@@ -59,27 +63,37 @@ export class AttentionTracker implements IAttentionSource {
     };
   }
 
-  /** Arms the idle fallback. A no-op when focus reporting is authoritative. */
+  /** Arms the idle fallback; the first focus event disarms it for good. */
   start(): void {
-    if (this.options.focusReporting) return;
+    if (this.focusObserved) return;
     this.armIdleTimer();
   }
 
   focusIn(): void {
-    if (!this.options.focusReporting) return;
+    this.observeFocus();
     this.transition(true);
   }
 
   focusOut(): void {
-    if (!this.options.focusReporting) return;
+    this.observeFocus();
     this.transition(false);
   }
 
   /** Any key the user pressed. Only the idle source reads it. */
   keystroke(): void {
-    if (this.options.focusReporting) return;
+    if (this.focusObserved) return;
     this.transition(true);
     this.armIdleTimer();
+  }
+
+  private observeFocus(): void {
+    if (!this.options.focusReporting) {
+      throw new Error('AttentionTracker: a focus event arrived although focus reporting is off.');
+    }
+    if (this.focusObserved) return;
+    this.focusObserved = true;
+    if (this.idleTimer !== undefined) clearTimeout(this.idleTimer);
+    this.idleTimer = undefined;
   }
 
   dispose(): void {

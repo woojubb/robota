@@ -494,16 +494,19 @@ the recap is derived from channel events the TUI already receives; the session i
 summarize and no provider call is made. A recap does not survive a restart, by design.
 
 **Attention sources** (`src/attention/attention-tracker.ts`). Two sources feed one level-triggered
-`attended` boolean, and the tracker records which one is active (`source: 'focus' | 'idle'`) so a
+`attended` boolean, and the tracker records which one is deciding (`source: 'focus' | 'idle'`) so a
 degraded run is never a silent default:
 
-| Source  | When                                                        | Away means                                           | Back means                |
-| ------- | ----------------------------------------------------------- | ---------------------------------------------------- | ------------------------- |
-| `focus` | focus reporting negotiated (`DECSET 1004`, see table below) | the terminal sent `CSI O`                            | the terminal sent `CSI I` |
-| `idle`  | otherwise                                                   | no keystroke for `DEFAULT_IDLE_THRESHOLD_MS` (5 min) | the next keystroke        |
+| Source  | When                                                               | Away means                                           | Back means                |
+| ------- | ------------------------------------------------------------------ | ---------------------------------------------------- | ------------------------- |
+| `focus` | the first `CSI I`/`CSI O` has arrived after `DECSET 1004` was sent | the terminal sent `CSI O`                            | the terminal sent `CSI I` |
+| `idle`  | until then, and wherever the mode is off                           | no keystroke for `DEFAULT_IDLE_THRESHOLD_MS` (5 min) | the next keystroke        |
 
-While focus reporting is negotiated, focus is the **sole** source: a focused reader who typed
-nothing must not receive a recap of what they watched. Repeated `CSI O` is one interval.
+Requested is not confirmed: a terminal that does not implement mode 1004 discards the request and
+never answers, so the idle source stays armed until the first focus event, and from that event on
+focus is the **sole** source — a focused reader who typed nothing must not receive a recap of what
+they watched. Repeated `CSI O` is one interval. A focus event while the mode is off is an invariant
+violation and throws rather than being absorbed.
 
 **Focus reporting** (`src/terminal-focus-reporting.ts`, `src/terminal-capabilities.ts`).
 `supportsFocusReporting({ override })` is on for an interactive TTY pair, and the override the
@@ -536,8 +539,10 @@ quiet period, which consumes its own keystroke.
 **Interval recap** (`src/attention/interval-recap.ts`, `attention-coordinator.ts`). While
 unattended the coordinator counts, from the channel events the projector already binds: `complete`
 by the preceding `turn_source` (a wake is `agent-wakeup`), `permission_request`/`ask_request` as
-needs-input, `error`, and workspace entries whose `state` reached `completed`/`failed`/`stopped`
-(by entry id, once). On return it pushes one bounded line into the notice store under the
+needs-input, `error`, and background entries (never the main thread, whose turns are already
+counted) whose `state` REACHED `completed`/`failed`/`stopped` during the interval — the states at
+the moment attention was lost are the baseline, so an entry that was already finished is old news
+and one that left the terminal state again is dropped. On return it pushes one bounded line into the notice store under the
 TUI-originated `attention-recap` kind, or nothing for an empty interval:
 
 ```

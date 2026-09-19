@@ -27,7 +27,11 @@ class FakeSource implements IAttentionSource {
 }
 
 function snapshot(
-  entries: ReadonlyArray<{ id: string; state: 'working' | 'completed' | 'failed' }>,
+  entries: ReadonlyArray<{
+    id: string;
+    state: 'working' | 'completed' | 'failed';
+    kind?: 'main_thread' | 'background_task';
+  }>,
 ) {
   return {
     sessionId: 's1',
@@ -35,7 +39,7 @@ function snapshot(
     entries: entries.map((entry) => ({
       id: entry.id,
       sourceId: entry.id,
-      kind: 'background_task' as const,
+      kind: entry.kind ?? ('background_task' as const),
       origin: { kind: 'slash_command' as const, sessionId: 's1' },
       status: 'running' as const,
       state: entry.state,
@@ -58,12 +62,32 @@ describe('AttentionCoordinator (SCREEN-1992 TC-02 wiring)', () => {
     coordinator.wire();
     expect(source.listenerCount).toBe(1);
 
+    // Before the interval: an idle main thread and a task that already finished.
+    coordinator.onWorkspaceSnapshot(
+      snapshot([
+        { id: 'main:s1', state: 'completed', kind: 'main_thread' },
+        { id: 'task:done', state: 'completed' },
+        { id: 'task:a', state: 'working' },
+      ]),
+    );
     source.lost('2026-01-01T00:00:00.000Z');
     coordinator.onTurnSource('agent-wakeup');
+    coordinator.onWorkspaceSnapshot(
+      snapshot([
+        { id: 'main:s1', state: 'working', kind: 'main_thread' },
+        { id: 'task:done', state: 'completed' },
+        { id: 'task:a', state: 'working' },
+      ]),
+    );
     coordinator.onComplete();
     coordinator.onNeedsInput();
-    coordinator.onWorkspaceSnapshot(snapshot([{ id: 'task:a', state: 'working' }]));
-    coordinator.onWorkspaceSnapshot(snapshot([{ id: 'task:a', state: 'failed' }]));
+    coordinator.onWorkspaceSnapshot(
+      snapshot([
+        { id: 'main:s1', state: 'completed', kind: 'main_thread' },
+        { id: 'task:done', state: 'completed' },
+        { id: 'task:a', state: 'failed' },
+      ]),
+    );
     source.returned('2026-01-01T00:03:00.000Z');
     expect(recaps).toEqual(['While away 3m: 1 turn finished (1 wake) · 1 needs input · 1 failed']);
 

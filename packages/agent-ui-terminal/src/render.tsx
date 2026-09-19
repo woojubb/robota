@@ -279,15 +279,12 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
 
   // SCREEN-1992: focus reporting is negotiated once for the process; the tracker outlives channels.
   // Screen-reader mode keeps the recap (a plain notice line) — only the row countdown tick is off.
-  const focusReporting = createFocusReportingWriter({
-    supported: () => supportsFocusReporting({ override: options.focusReporting }),
-  });
-  focusReporting.enable();
+  const focusReportingSupported = supportsFocusReporting({ override: options.focusReporting });
+  const focusReporting = createFocusReportingWriter({ supported: () => focusReportingSupported });
   const attention = new AttentionTracker({
-    focusReporting: focusReporting.negotiated,
+    focusReporting: focusReportingSupported,
     now: Date.now,
   });
-  attention.start();
   handoffController.setTerminalModeHooks({
     preSuspend: () => focusReporting.disable(),
     postResume: () => focusReporting.enable(),
@@ -322,6 +319,10 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
     onKeystroke: () => attention.keystroke(),
   });
   process.stdin.resume();
+  // Requested only now, so a focus event the terminal answers with lands in the proxy, never in
+  // the quiet period's keypress wait; the tracker's idle source runs until the first one arrives.
+  focusReporting.enable();
+  attention.start();
 
   const instance = render(
     <KeybindingsProvider source={options.keybindingsSource}>

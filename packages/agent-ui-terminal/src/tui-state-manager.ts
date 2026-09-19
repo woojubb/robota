@@ -158,8 +158,6 @@ export class TuiStateManager {
   };
 
   onComplete = (result: IExecutionResult): void => {
-    // Tool summary is now in messages (pushed by InteractiveSession)
-    // Clear streaming display
     this.clearStallTimer();
     this.debouncedStreamNotify.flush();
     this.streamBuf = '';
@@ -174,7 +172,6 @@ export class TuiStateManager {
   };
 
   onInterrupted = (): void => {
-    // Tool summary is now in messages
     this.clearStallTimer();
     this.debouncedStreamNotify.flush();
     this.streamBuf = '';

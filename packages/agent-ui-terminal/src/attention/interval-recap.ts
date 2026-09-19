@@ -10,7 +10,8 @@ import type { TExecutionNormalizedState } from '@robota-sdk/agent-interface-exec
  */
 export const RECAP_MAX_WIDTH = 120;
 
-type TTurnSource = 'user' | 'agent-wakeup' | 'peer' | string;
+/** The framework's `TTurnSource` plus whatever a future source adds; only `agent-wakeup` is special here. */
+type TTurnSource = string;
 
 const TERMINAL_STATES: ReadonlySet<TExecutionNormalizedState> = new Set([
   'completed',
@@ -25,7 +26,11 @@ export class IntervalRecap {
   private wakeTurnsFinished = 0;
   private needsInputCount = 0;
   private errorCount = 0;
-  private readonly terminalEntries = new Map<string, TExecutionNormalizedState>();
+  /** Every entry's latest state, attended or not — the baseline an interval starts from. */
+  private readonly currentStates = new Map<string, TExecutionNormalizedState>();
+  /** Entries that were not terminal when attention was lost and are terminal now. */
+  private readonly reachedTerminal = new Map<string, TExecutionNormalizedState>();
+  private baseline = new Map<string, TExecutionNormalizedState>();
 
   get away(): boolean {
     return this.lostAt !== undefined;
@@ -34,6 +39,7 @@ export class IntervalRecap {
   onLost(atIso: string): void {
     this.lostAt = Date.parse(atIso);
     this.reset();
+    this.baseline = new Map(this.currentStates);
   }
 
   /** The recap line for the interval just ended, or undefined when there is nothing to say. */
@@ -65,14 +71,21 @@ export class IntervalRecap {
     if (this.away) this.errorCount += 1;
   }
 
-  /** A workspace entry's current state; only a transition INTO a terminal state is counted. */
+  /**
+   * A workspace entry's current state. Only an entry that REACHED a terminal state during the
+   * interval is counted: one already terminal when attention was lost is old news, and one that
+   * left the terminal state again (a resumed schedule) is dropped.
+   */
   entryState(entryId: string, state: TExecutionNormalizedState): void {
+    this.currentStates.set(entryId, state);
     if (!this.away) return;
-    if (!TERMINAL_STATES.has(state)) {
-      this.terminalEntries.delete(entryId);
+    const before = this.baseline.get(entryId);
+    const wasTerminal = before !== undefined && TERMINAL_STATES.has(before);
+    if (!TERMINAL_STATES.has(state) || wasTerminal) {
+      this.reachedTerminal.delete(entryId);
       return;
     }
-    this.terminalEntries.set(entryId, state);
+    this.reachedTerminal.set(entryId, state);
   }
 
   private parts(): string[] {
@@ -83,7 +96,7 @@ export class IntervalRecap {
     }
     if (this.needsInputCount > 0) parts.push(`${this.needsInputCount} needs input`);
     const byState = { completed: 0, failed: 0, stopped: 0 };
-    for (const state of this.terminalEntries.values()) {
+    for (const state of this.reachedTerminal.values()) {
       if (state in byState) byState[state as keyof typeof byState] += 1;
     }
     for (const state of ['completed', 'failed', 'stopped'] as const) {
@@ -100,7 +113,7 @@ export class IntervalRecap {
     this.wakeTurnsFinished = 0;
     this.needsInputCount = 0;
     this.errorCount = 0;
-    this.terminalEntries.clear();
+    this.reachedTerminal.clear();
   }
 }
 

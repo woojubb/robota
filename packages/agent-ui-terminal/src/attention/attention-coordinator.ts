@@ -61,6 +61,10 @@ export class AttentionCoordinator {
   };
 
   onWorkspaceSnapshot = (snapshot: IExecutionWorkspaceSnapshot): void => {
-    for (const entry of snapshot.entries) this.recap.entryState(entry.id, entry.state);
+    for (const entry of snapshot.entries) {
+      // The main thread's turns are counted from `complete`; its idle `completed` is not an event.
+      if (entry.kind === 'main_thread') continue;
+      this.recap.entryState(entry.id, entry.state);
+    }
   };
 }
