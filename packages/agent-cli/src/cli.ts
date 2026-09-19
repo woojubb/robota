@@ -15,6 +15,7 @@ import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.j
 import { resolveShellPreset } from './startup/preset-selection.js';
 import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
+import { createThemeSurface } from './startup/theme-surface.js';
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
 import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
@@ -195,6 +196,13 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
               `Keybindings ${diagnostic.file} ${diagnostic.path}: ${diagnostic.message}\n`,
             ),
         });
+  // SCREEN-2002: one registry, reaching both `/theme` (through its port) and `renderApp`.
+  const theme = createThemeSurface({
+    enabled: keybindingsSource !== undefined,
+    settings: userSettings,
+    reducedMotionFlag: args.reducedMotion,
+    env: process.env,
+  });
   const {
     commandHostAdapters,
     outputStyleRegistry,
@@ -214,6 +222,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     version,
     packCommandModules,
     keybindingsSource,
+    theme.cataloguePort,
   );
   for (const { file, error } of outputStyleLoadErrors) {
     terminal.writeError(`Skipped output style "${file}": ${error}`);
@@ -538,6 +547,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     }),
     reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
     keybindingsSource,
+    // SCREEN-2002: the same registry the `/theme` command lists from, so a switch and a listing can
+    // never disagree about which themes exist.
+    themeRegistry: theme.registry,
+    reducedMotion: theme.reducedMotion,
+    reducedMotionOverride: theme.reducedMotionOverride,
     ...toSessionOptions(presetSurface),
   });
   process.exit(0);

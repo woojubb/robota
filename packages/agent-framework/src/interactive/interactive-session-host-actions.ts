@@ -14,6 +14,10 @@
 
 import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 
+import {
+  isAppearanceSettingsPatch,
+  readAppearanceSettings,
+} from '../command-api/appearance/appearance-command-api.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
 import {
   isStatusLineCommandSettingsPatch,
@@ -194,6 +198,25 @@ async function applyOneHostAction(
         const document = settings.read();
         const next = { ...readStatusLineSettings(document), ...action.patch };
         settings.write({ ...document, statusline: next });
+        return null;
+      }
+      case 'appearance-settings-patch': {
+        const settings = adapters.settings;
+        if (!settings) return missingCapabilityFailure(action.type, 'a settings adapter');
+        if (!isAppearanceSettingsPatch(action.patch))
+          return actionErrorFailure(action.type, new Error('invalid appearance settings patch'));
+        const document = settings.read();
+        // SCREEN-2002: three FLAT keys, written BY NAME rather than by spreading the patch. These
+        // keys sit at the document's root, beside the provider profiles and their credentials, so a
+        // spread would let any extra key the guard let through reach them. The guard refuses
+        // unknown keys; writing by name means it does not have to be the only thing that does.
+        const next = { ...readAppearanceSettings(document), ...action.patch };
+        settings.write({
+          ...document,
+          theme: next.theme,
+          syntaxHighlighting: next.syntaxHighlighting,
+          reducedMotion: next.reducedMotion,
+        });
         return null;
       }
       case 'remote-control-enable': {

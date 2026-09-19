@@ -59,6 +59,7 @@ alias `meta`. A bare uppercase letter means Shift, so `A` becomes `shift+a`.
 | `background-list`    | `previous`: `up`; `next`: `down`; `open`: `enter`; `close`: `escape`                                                                                                                                                                        |
 | `transport-settings` | `previous`: `up`; `next`: `down`; `toggle`: `space`; `close`: `enter`, `escape`                                                                                                                                                             |
 | `history-search`     | `previous`: `up`; `next`: `down`, `ctrl+r`; `cycle-scope`: `ctrl+s`; `insert`: `enter`, `tab`; `execute`: `ctrl+e`; `cancel`: `escape`                                                                                                      |
+| `theme-picker`       | `previous`: `up`; `next`: `down`; `select`: `enter`; `toggle-syntax`: `s`; `toggle-motion`: `m`; `cancel`: `escape`                                                                                                                         |
 
 Bindings can be reused by different contexts. Within one context, every received physical input can
 belong to only one action.

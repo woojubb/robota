@@ -40,6 +40,9 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
                              role-labelled transcript, numbered menus, bell + OSC 133 turn marks.
                              Overrides ROBOTA_SCREEN_READER=1|0 and settings.json screenReader
   --no-screen-reader         Force screen-reader mode off for this run
+  --reduced-motion           Suppress animation for this run; colour is unaffected.
+                             Overrides ROBOTA_REDUCED_MOTION=1|0 and settings.json reducedMotion
+  --no-reduced-motion        Allow animation for this run, overriding a persisted reducedMotion
   --json-schema <schema>     Print mode: instruct the model to respond with JSON matching this schema
   --dry-run                  Alias for --permission-mode plan (plan only, no execution)
   --reset                    Delete ~/.robota/settings.json (provider profiles and preferences).

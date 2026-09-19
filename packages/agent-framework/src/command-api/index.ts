@@ -194,6 +194,17 @@ export type {
   IStatusLineCommandSettings,
   TStatusLineCommandSettingsPatch,
 } from './statusline/statusline-command-api.js';
+export type {
+  IAppearanceSettings,
+  TAppearanceSettingsPatch,
+} from './appearance/appearance-command-api.js';
+export {
+  APPEARANCE_SETTINGS_KEYS,
+  applyAppearanceSettings,
+  DEFAULT_APPEARANCE_SETTINGS,
+  isAppearanceSettingsPatch,
+  readAppearanceSettings,
+} from './appearance/appearance-command-api.js';
 export {
   buildLanguageCommandSubcommands,
   formatLanguageUsageMessage,

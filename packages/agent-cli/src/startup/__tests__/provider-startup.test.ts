@@ -175,6 +175,7 @@ function baseArgs(): IParsedCliArgs {
     memory: undefined,
     memoryAutoSave: false,
     screenReader: undefined,
+    reducedMotion: undefined,
   };
 }
 

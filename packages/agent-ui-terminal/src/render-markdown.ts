@@ -16,7 +16,7 @@ import type { Renderer } from 'marked';
 
 const CODE_BLOCK_INDENT = '    ';
 
-interface IRenderMarkdownOptions {
+export interface IRenderMarkdownOptions {
   color?: boolean;
   codeBlockWidth?: number;
   /**

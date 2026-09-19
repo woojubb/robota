@@ -89,6 +89,12 @@ export interface IParsedCliArgs {
    * wins if both. Unlike memory, the FLAG is the top tier: see `startup/screen-reader-enablement.ts`.
    */
   screenReader: boolean | undefined;
+  /**
+   * SCREEN-2002: tri-state reduced-motion override — `true` (`--reduced-motion`), `false`
+   * (`--no-reduced-motion`), or `undefined` (neither given, defer to env/settings).
+   * `--no-reduced-motion` wins if both. The FLAG is the top tier, like the screen-reader pair.
+   */
+  reducedMotion: boolean | undefined;
 }
 
 // CLI-2004: the help catalogue is its own module; re-exported so every import site is unchanged.
@@ -187,6 +193,10 @@ const PARSE_ARGS_CONFIG = {
     // CLI-2004: same tri-state shape — absence must stay distinguishable from an explicit `false`.
     'screen-reader': { type: 'boolean' },
     'no-screen-reader': { type: 'boolean' },
+    // SCREEN-2002: the same tri-state shape again. `--no-reduced-motion` exists so a run can
+    // override a PERSISTED `reducedMotion: true` for once, which a bare `--reduced-motion` cannot.
+    'reduced-motion': { type: 'boolean' },
+    'no-reduced-motion': { type: 'boolean' },
   },
 } as const;
 
@@ -219,10 +229,25 @@ function resolveScreenReaderArgs(values: TParsedArgValues): Pick<IParsedCliArgs,
   return { screenReader };
 }
 
+/**
+ * SCREEN-2002: `--reduced-motion` / `--no-reduced-motion`, tri-state like the pair above —
+ * `--no-reduced-motion` wins if both are given, and absence stays `undefined` so the resolver can
+ * tell "no opinion" from "explicitly animate".
+ */
+function resolveReducedMotionArgs(values: TParsedArgValues): Pick<IParsedCliArgs, 'reducedMotion'> {
+  const reducedMotion =
+    values['no-reduced-motion'] === true
+      ? false
+      : values['reduced-motion'] === true
+        ? true
+        : undefined;
+  return { reducedMotion };
+}
+
 function mapParsedValues(
   values: TParsedArgValues,
   positionals: string[],
-): Omit<IParsedCliArgs, 'memory' | 'memoryAutoSave' | 'screenReader'> {
+): Omit<IParsedCliArgs, 'memory' | 'memoryAutoSave' | 'screenReader' | 'reducedMotion'> {
   return {
     positional: positionals,
     help: values['help'] ?? false,
@@ -279,6 +304,7 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     ...mapParsedValues(values, positionals),
     ...resolveMemoryArgs(values),
     ...resolveScreenReaderArgs(values),
+    ...resolveReducedMotionArgs(values),
   };
   if (args.printMode) {
     if (args.resumeId === '') {

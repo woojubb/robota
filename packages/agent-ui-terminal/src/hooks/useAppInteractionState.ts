@@ -51,6 +51,7 @@ export function useAppInteractionState(options: IOptions): IAppInteractionState 
     sessionPickerVisible: screens.showSessionPicker,
     workspaceSwitcherVisible: workspace.background.switcherVisible,
     historySearchOpen: options.shell.historySearchOpen,
+    themePickerVisible: screens.showThemePicker,
     selectedEntry: workspace.background.selectedEntry,
     mainThreadEntryId: workspace.mainThreadEntryId,
     activeTools: options.state.activeTools,

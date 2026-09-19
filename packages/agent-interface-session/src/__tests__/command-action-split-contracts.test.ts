@@ -35,6 +35,7 @@ describe('CMD-004 Phase 2 split command contract (TC-01)', () => {
       | 'session-restart'
       | 'session-rename'
       | 'statusline-settings-patch'
+      | 'appearance-settings-patch'
       | 'remote-control-enable'
       | 'remote-control-stop'
       | 'output-style-change'
@@ -43,7 +44,11 @@ describe('CMD-004 Phase 2 split command contract (TC-01)', () => {
 
   it('exports TCommandUiIntent with UI-neutral names (no UI-technology token)', () => {
     expectTypeOf<TCommandUiIntent['type']>().toEqualTypeOf<
-      'show-plugin-manager' | 'show-settings' | 'show-session-picker' | 'show-agent-switcher'
+      | 'show-plugin-manager'
+      | 'show-settings'
+      | 'show-session-picker'
+      | 'show-agent-switcher'
+      | 'show-theme-picker'
     >();
     // Grep-floor at the type level: no intent name may embed a renderer technology.
     type TTechnologyToken =

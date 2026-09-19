@@ -11,6 +11,16 @@ export {
   DEFAULT_KEYBINDINGS_DOCUMENT,
   KEYBINDINGS_SCHEMA_URL,
 } from './keybindings/node-keybindings-source.js';
+// SCREEN-2002: the product shell assembles one registry and hands it to both `/theme` and
+// `renderApp`. The theme DATA stays unexported — a caller asks the registry, never a built-in.
+export { createThemeCataloguePort, createThemeRegistry } from './theme/theme-registry.js';
+export type {
+  IThemeCataloguePortOptions,
+  IThemeRegistry,
+  IThemeResolution,
+} from './theme/theme-registry.js';
+// `createThemeRegistry` takes themes, so a caller must be able to name one.
+export type { ITuiTheme } from './theme/theme-contracts.js';
 export type {
   IKeybindingsFilePort,
   IKeybindingsSource,

@@ -4,6 +4,7 @@ import { buildStaticItems } from '../app-static-items.js';
 import { useAppInteractionState } from './useAppInteractionState.js';
 import { useAppLifecycleState } from './useAppLifecycleState.js';
 import { useAppScreenState } from './useAppScreenState.js';
+import { useAppThemeState } from './useAppThemeState.js';
 import { useTuiChannel } from './useTuiChannel.js';
 
 import type { IAppInputViewModel, IAppStatusViewModel, IAppViewModel } from '../app-view-model.js';
@@ -11,8 +12,11 @@ import type { ITuiAppChannelPort, ITuiRuntimeStatusSnapshot } from '../tui-app-c
 import type { IAppInteractionState } from './useAppInteractionState.js';
 import type { IAppLifecycleState } from './useAppLifecycleState.js';
 import type { IAppScreenState } from './useAppScreenState.js';
+import type { IAppThemeViewModel } from './useAppThemeState.js';
 import type { ITuiChannelState } from './useTuiChannel.js';
+import type { IThemeRegistry } from '../theme/theme-registry.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 import type {
   IInteractiveSession,
@@ -40,6 +44,12 @@ export interface IUseAppControllerOptions {
   /** SCREEN-1993: the stored-prompt source and this run's project key; both or neither. */
   promptHistorySource?: IPromptHistorySource;
   promptHistoryProject?: string;
+  /** SCREEN-2002: the catalogue this surface renders from; absent ⇒ the built-ins. */
+  themeRegistry?: IThemeRegistry;
+  /** SCREEN-2002: reduced motion as the product shell resolved it (settings ← env ← flag). */
+  reducedMotion?: boolean | undefined;
+  /** SCREEN-2002: which tier decided it, when that was not the settings. */
+  reducedMotionOverride?: TReducedMotionOverride | undefined;
 }
 
 interface ICoordinationState {
@@ -57,6 +67,7 @@ interface IComposition {
   readonly staticItems: IAppViewModel['staticItems'];
   readonly runtime: ITuiRuntimeStatusSnapshot;
   readonly coordination: ICoordinationState;
+  readonly theme: IAppThemeViewModel;
 }
 
 function getCoordinationState(
@@ -88,6 +99,7 @@ function buildInput(composition: IComposition): IAppInputViewModel {
     screens.showPluginTUI ||
     screens.showTransportTUI ||
     screens.showSessionPicker ||
+    screens.showThemePicker ||
     workspace.background.switcherVisible,
   );
   const interactionBlocked =
@@ -157,10 +169,27 @@ function buildViewModel(composition: IComposition): IAppViewModel {
     pendingUserAction: state.pendingUserAction,
     resolveUserAction: state.resolveUserAction,
     ...interaction.overlays,
+    theme: composition.theme,
     contextPercentage: state.contextState.percentage,
     input: buildInput(composition),
     status: buildStatus(composition),
   };
+}
+
+/** The live theme and its picker, composed from the shell's persisted appearance and the shell's props. */
+function useControllerTheme(
+  props: IUseAppControllerOptions,
+  shell: IAppScreenState,
+): IAppThemeViewModel {
+  return useAppThemeState({
+    appearance: shell.appearance,
+    registry: props.themeRegistry,
+    reducedMotion: props.reducedMotion,
+    reducedMotionOverride: props.reducedMotionOverride,
+    visible: shell.screens.showThemePicker,
+    setVisible: shell.screens.setShowThemePicker,
+    submit: (input) => void shell.screens.handleSubmit(input),
+  });
 }
 
 /** Compose responsibility-specific hooks into the only view model accepted by presentation. */
@@ -200,6 +229,7 @@ export function useAppController(props: IUseAppControllerOptions): IAppViewModel
     [interaction.screenReader, props.version, state.history],
   );
   const runtime = state.getRuntimeStatusSnapshot(props.permissionMode ?? 'default');
+  const theme = useControllerTheme(props, shell);
   return buildViewModel({
     props,
     state,
@@ -209,6 +239,7 @@ export function useAppController(props: IUseAppControllerOptions): IAppViewModel
     staticItems,
     runtime,
     coordination,
+    theme,
   });
 }
 

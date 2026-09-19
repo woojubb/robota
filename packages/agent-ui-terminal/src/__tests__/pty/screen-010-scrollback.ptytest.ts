@@ -25,6 +25,18 @@ import { spawnTui, writeTuiProviderSettings } from './pty-driver.js';
 
 import type { IPtySession } from './pty-driver.js';
 
+/**
+ * The heading of the COMMITTED `/help` output, and the reason it is this precise.
+ *
+ * `Available commands` without the colon is also `/help`'s own DESCRIPTION, which the slash
+ * autocomplete renders while the command is still being typed — four times over, before Enter is
+ * handled at all. Waiting on that returns immediately and leaves the snapshot below racing the
+ * commit; the case then asserts "the prompt is below the committed output" against a frame in which
+ * nothing has been committed yet. It passed only because the commit usually won that race, and a
+ * loaded runner is where it does not. The colon appears only in the committed block.
+ */
+const COMMITTED_HELP_HEADING = /Available commands:/;
+
 /** Wait budgets: one `waitFor`, and a whole case, on a loaded CI runner. */
 const PROMPT_WAIT_MS = 30_000;
 const COMMANDS_WAIT_MS = 20_000;
@@ -57,12 +69,12 @@ describe('SCREEN-010 chat-window scrollback layout (real binary)', () => {
       // /help commits a long command list (> 16 rows) to history → Ink <Static> → scrollback.
       await session.sendKeys('/help');
       await session.pressEnter();
-      await session.waitFor(/Available commands|\/exit/i, COMMANDS_WAIT_MS);
+      await session.waitFor(COMMITTED_HELP_HEADING, COMMANDS_WAIT_MS);
 
       const snap = session.snapshot();
 
       // Committed content is present (emitted to scrollback), and the banner committed at boot remains.
-      const committedIdx = snap.search(/Available commands|\/exit/i);
+      const committedIdx = snap.search(COMMITTED_HELP_HEADING);
       expect(committedIdx).toBeGreaterThanOrEqual(0);
       expect((snap.match(/v\d+\.\d+\.\d+/g) ?? []).length).toBeGreaterThanOrEqual(1);
 

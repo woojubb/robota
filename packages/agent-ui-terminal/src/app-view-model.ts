@@ -1,4 +1,5 @@
 import type { TStaticItem } from './app-static-items.js';
+import type { IAppThemeViewModel } from './hooks/useAppThemeState.js';
 import type { IInputAreaHistorySearch } from './hooks/useInputAreaHistorySearch.js';
 import type { ITuiCommandQueryPort } from './tui-app-channel-port.js';
 import type { ITuiSessionEventNotice } from './tui-session-events.js';
@@ -48,10 +49,14 @@ export interface IAppViewModel {
   readonly plugin: IAppPluginViewModel;
   readonly transport: IAppTransportViewModel;
   readonly sessionPicker: IAppSessionPickerViewModel;
+  /** SCREEN-2002: the live theme, the resolved motion setting, and the picker over them. */
+  readonly theme: IAppThemeViewModel;
   readonly contextPercentage: number;
   readonly input: IAppInputViewModel;
   readonly status: IAppStatusViewModel;
 }
+
+export type { IAppThemePickerViewModel, IAppThemeViewModel } from './hooks/useAppThemeState.js';
 
 export interface IAppBackgroundViewModel {
   readonly entries: IExecutionWorkspaceEntry[];

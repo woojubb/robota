@@ -32,6 +32,8 @@ interface IOptions {
   readonly recoveryError: string | undefined;
   readonly recoveryPending: boolean;
   readonly coordinationBlocked: boolean;
+  /** SCREEN-2002: the theme picker owns its keys while it is open, like every sibling overlay. */
+  readonly themePickerVisible: boolean;
   readonly retryRecovery: () => void;
 }
 
@@ -44,6 +46,7 @@ function overlaysBlockKeys(options: IOptions): boolean {
     options.sessionPickerVisible ||
     options.workspaceSwitcherVisible ||
     options.historySearchOpen ||
+    options.themePickerVisible ||
     options.coordinationBlocked,
   );
 }
@@ -77,6 +80,7 @@ function useWorkspaceSwitcherBinding(options: IOptions): void {
       options.pluginVisible ||
       options.sessionPickerVisible ||
       options.historySearchOpen ||
+      options.themePickerVisible ||
       options.coordinationBlocked ||
       options.isShuttingDown
     )

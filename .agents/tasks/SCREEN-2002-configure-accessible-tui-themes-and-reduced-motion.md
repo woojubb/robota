@@ -24,7 +24,7 @@ persists three flat settings keys and the TUI never writes them.
 
 Three work units under one design gate (the PR Unit Rule), delivered in order, each as its own PR.
 
-- [ ] Unit 1 — TC-01, TC-02, TC-03, TC-04, TC-05, TC-06: the `ITuiTheme` token model and its chalk style
+- [x] Unit 1 — TC-01, TC-02, TC-03, TC-04, TC-05, TC-06: the `ITuiTheme` token model and its chalk style
       builder, the four built-ins (daltonized in hex, CVD-guarded), the provider and hooks, the ~31-file
       `PALETTE` migration with the non-React consumers returning token keys, the deletion of
       `tui-palette.ts` and `tui-ansi-palette.ts`, the two consistency ratchets, `useMotion` with its two
@@ -37,7 +37,23 @@ Three work units under one design gate (the PR Unit Rule), delivered in order, e
 - [ ] Unit 3 — TC-11: user themes from `~/.robota/themes` and plugin themes from the plugin scopes, the
       whole-file-refusal validator with path-named diagnostics, and the visible skip lines.
 - [ ] TC-13: the PTY scenario over the built CLI.
+
+Unit 1 delivered in PR #2752, merged to `develop` as `b1689aa8541ba03010053bd5452ba30bebfe4bcd`
+(reviewed head `f16d5c7630b5db8feeac9b59781ee33afacacaf6`). This Task stays `in-progress`: the item
+spans three pull requests by design (`**Delivery mode:** sequenced`), and units 2 and 3 are open.
+
 - [ ] TC-12: Engineering verification.
+
+**Carried into unit 3 from work unit 2's review.** In screen-reader mode the picker's
+`toggle-syntax` (`s`) and `toggle-motion` (`m`) are unreachable — the mode takes a typed answer
+instead of live keys — while the toggles row still renders their state and the footer shows the
+numbered prompt rather than the hints. The affordance is displayed, not offered, and not announced.
+This is not drift: TC-10's clauses are mode-separated and `/theme syntax off` stays reachable in the
+mode. But it is an accessibility seam in an accessibility item, and the fix is a design choice with
+no approved criterion — either the mode gets its own way to reach the toggles, which changes what its
+numbered menu means, or the row stops rendering an affordance the mode cannot reach. Carried here
+rather than decided inside a review fold, because unit 3 reopens this component for user and plugin
+rows and for Scenario 1's disabled row, so the decision lands with a criterion attached.
 
 ## Test Plan
 

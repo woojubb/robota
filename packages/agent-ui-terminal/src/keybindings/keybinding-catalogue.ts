@@ -45,6 +45,11 @@ export const KEYBINDING_ACTIONS = {
   'transport-settings': ['previous', 'next', 'toggle', 'close'],
   /** SCREEN-1993: the reverse prompt-history search overlay. */
   'history-search': ['previous', 'next', 'cycle-scope', 'insert', 'execute', 'cancel'],
+  /**
+   * SCREEN-2002: the theme picker. Navigation PREVIEWS; only `select` applies. Printable keys are
+   * fine here because the picker takes no text.
+   */
+  'theme-picker': ['previous', 'next', 'select', 'toggle-syntax', 'toggle-motion', 'cancel'],
 } as const;
 
 export type TKeybindingContext = keyof typeof KEYBINDING_ACTIONS;
@@ -146,6 +151,14 @@ export const DEFAULT_KEYBINDINGS = {
     'cycle-scope': ['ctrl+s'],
     insert: ['enter', 'tab'],
     execute: ['ctrl+e'],
+    cancel: ['escape'],
+  },
+  'theme-picker': {
+    previous: ['up'],
+    next: ['down'],
+    select: ['enter'],
+    'toggle-syntax': ['s'],
+    'toggle-motion': ['m'],
     cancel: ['escape'],
   },
 } as const satisfies TDefaultKeybindings;

@@ -180,6 +180,8 @@ robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip interactive startup update check for this run
 robota --version                    # Show version
+robota --reduced-motion             # Suppress animation for this run (colour is unaffected)
+robota --no-reduced-motion          # Allow animation, overriding a persisted reducedMotion
 ```
 
 ### Personal Usage
@@ -345,6 +347,31 @@ the setting). Delete the file to forget everything.
 
 Searching the conversation itself needs no viewer: the TUI never switches to the alternate screen,
 so every message of a resumed session is in your terminal's own scrollback and search.
+
+### Themes
+
+`/theme` opens a picker: moving the highlight previews that theme in the live region — the input
+frame, the status bar and the overlay itself — so you judge a colour scheme against the thing it
+applies to rather than a swatch. `Enter` applies it, `Esc` leaves the previous one in place. The
+transcript above keeps the colours it was written in, because the terminal owns those lines once
+they are printed.
+
+Four built-ins ship: `dark` (what Robota has always looked like), `light`, and `dark-daltonized` /
+`light-daltonized`, which avoid the red/green distinction entirely — blue for "good", orange for
+"bad" — for the roughly 1 in 12 men with a colour-vision deficiency. The daltonized pair is checked
+mechanically: a test simulates protanopia and deuteranopia over the pairs whose difference in colour
+carries meaning and fails if any of them come too close.
+
+Without the picker: `/theme list` shows what is installed and what is active, `/theme <id>` switches,
+`/theme syntax on|off` toggles code-block highlighting, and `/theme motion on|off` toggles animation.
+All three persist to `~/.robota/settings.json` as the flat keys `theme`, `syntaxHighlighting` and
+`reducedMotion`.
+
+Motion can also be decided per run: `--reduced-motion` / `--no-reduced-motion` beat
+`ROBOTA_REDUCED_MOTION=1|0`, which beats the setting. A run that pins it says so — `/theme motion on`
+reports that it saved the setting and that this run keeps what pinned it, rather than appearing to
+do nothing. `NO_COLOR`, `FORCE_COLOR=0`, a non-TTY stdout and screen-reader mode still win over
+every theme: no colour and no animation, exactly as before.
 
 ## Permission System
 

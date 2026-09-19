@@ -46,6 +46,8 @@ const BUILT_IN_THEME_IMPORT =
   /\b(?:BUILT_IN_THEMES|DARK_THEME|LIGHT_THEME|DARK_DALTONIZED_THEME|LIGHT_DALTONIZED_THEME)\b|from\s+'[^']*built-in-themes\.js'/g;
 /** SCREEN-2002: a chalk COLOUR call outside `src/theme/` decides a colour the theme should own. */
 const CHALK_COLOR_CALL = /\bchalk\.(?!inverse\b|level\b)[A-Za-z]+[.(]/g;
+/** SCREEN-2002: the three inputs `<ThemeProvider>` must be fed from the resolved view model. */
+const THEME_PROVIDER_PROPS = ['theme', 'reducedMotion', 'syntaxHighlighting'] as const;
 
 interface IFinding {
   file: string;
@@ -67,9 +69,29 @@ function collectSourceFiles(dir: string): string[] {
   return files;
 }
 
+/**
+ * Blank out comment CONTENT before scanning, keeping every newline and every character position so
+ * a finding's line number still points at the real line.
+ *
+ * The floor is about CODE. Matching a bare symbol anywhere was recorded as a known limit when these
+ * ratchets were written — "it fails loudly rather than passing silently, so leave it" — and then it
+ * failed on a comment that correctly EXPLAINS the rule it was named in (`useMotion()` in a docblock
+ * about the motion gate). A guard that fires on correct work is how a guard stops being read, so
+ * the limit is closed rather than re-recorded.
+ */
+function blankComments(source: string): string {
+  const blank = (match: string): string => match.replace(/[^\n]/gu, ' ');
+  return source
+    .replace(/\/\*[\s\S]*?\*\//gu, blank)
+    .replace(
+      /(^|[^:])\/\/[^\n]*/gu,
+      (match, prefix: string) => prefix + blank(match.slice(prefix.length)),
+    );
+}
+
 function scanFile(filePath: string, pattern: RegExp): IFinding[] {
   const findings: IFinding[] = [];
-  const lines = readFileSync(filePath, 'utf8').split('\n');
+  const lines = blankComments(readFileSync(filePath, 'utf8')).split('\n');
   lines.forEach((line, index) => {
     for (const match of line.matchAll(pattern)) {
       findings.push({
@@ -137,9 +159,131 @@ describe('SCREEN-006 palette consistency floor', () => {
    */
   it('SCREEN-2002: the motion gate has one consumer', () => {
     const consumers = sourceFiles.filter((file) =>
-      /\buseMotion\(\)/u.test(readFileSync(file, 'utf8')),
+      /\buseMotion\(\)/u.test(blankComments(readFileSync(file, 'utf8'))),
     );
     expect(consumers.map((file) => relative(SRC_ROOT, file)).sort()).toEqual(['WaveText.tsx']);
+  });
+
+  /**
+   * SCREEN-2002: the provider's three inputs must all be WIRED, and every markdown render site must
+   * READ the one that is not a colour.
+   *
+   * `/theme syntax off` shipped in this package's first draft persisting a setting that reached no
+   * render site — the command reported success for a no-op, and every context-level test still
+   * passed, because the context was fine; it was the one line feeding it that was missing.
+   *
+   * The first version of this floor was itself half-real: it matched `prop={viewModel.theme.` on the
+   * RAW file, so a commented-out provider stayed green and so did moving all three props onto a
+   * different element. Both halves below are anchored and comment-blind, and the fixture test at the
+   * end proves each one fires.
+   */
+  const themeProviderElement = (source: string): string =>
+    /<ThemeProvider\b[\s\S]*?>/u.exec(blankComments(source))?.[0] ?? '';
+
+  /**
+   * The consumer end, as a PROPERTY rather than a proxy for one.
+   *
+   * `/theme syntax off` shipped persisting a setting no render site passed, so the command reported
+   * success and changed nothing. Four guards were written for it, and each measured something
+   * standing in for "every call site passes the setting" — the prop appears in the file, the file
+   * matched the regex, the identifier occurs N times. Each held for exactly one review round,
+   * because a closer proxy is still a proxy.
+   *
+   * So the obligation is gone instead: `useRenderMarkdown()` binds the theme, the setting and
+   * screen-reader mode, and there is no per-call-site argument left to forget. What remains to
+   * check is that nothing goes around it — the single-consumer shape the motion gate already uses
+   * below.
+   */
+  const RENDER_MARKDOWN_OWNER = 'hooks/useRenderMarkdown.ts';
+  const RAW_RENDERER_SPECIFIER = /(?:from|import\()\s*'[^']*render-markdown\.js'/u;
+  /**
+   * `from` AND `import(` — a dynamic import reaches the same function, and a check whose whole job
+   * is that there is no way around it must see one. A TYPE-only import is exempt: it reaches no
+   * call, and a guard that fires on correct work is how a guard stops being read.
+   */
+  const importsRawRenderer = (source: string): boolean =>
+    source
+      .split('\n')
+      .some(
+        (line) =>
+          RAW_RENDERER_SPECIFIER.test(line) && !/^\s*(?:import|export)\s+type\b/u.test(line),
+      );
+  const RAW_RENDERER_IMPORT = /(?<!import type )(?:from|import\()\s*'[^']*render-markdown\.js'/u;
+
+  it('SCREEN-2002: AppView feeds the theme provider all three resolved inputs', () => {
+    const element = themeProviderElement(readFileSync(join(SRC_ROOT, 'AppView.tsx'), 'utf8'));
+
+    expect(element, 'AppView must render a <ThemeProvider> — it is the only live one').not.toBe('');
+    for (const prop of THEME_PROVIDER_PROPS) {
+      expect(
+        new RegExp(`${prop}=\\{viewModel\\.theme\\.`, 'u').test(element),
+        `<ThemeProvider> must be passed ${prop} — the resolved value reaches components only here`,
+      ).toBe(true);
+    }
+  });
+
+  it('SCREEN-2002: the markdown renderer has one consumer, which binds the appearance', () => {
+    const importers = sourceFiles
+      .map((file) => ({
+        file: relative(SRC_ROOT, file),
+        source: blankComments(readFileSync(file, 'utf8')),
+      }))
+      .filter(({ file }) => file !== 'render-markdown.ts')
+      // `from` AND `import(` — a dynamic import is a way around a check whose whole job is that
+      // there is no way around it. A TYPE-only import is exempt: it reaches no call, and a guard
+      // that fires on correct work is how a guard stops being read (the reason `blankComments`
+      // exists a few lines up).
+      .filter(({ source }) => importsRawRenderer(source))
+      .map(({ file }) => file)
+      .sort();
+
+    expect(
+      importers,
+      `Only ${RENDER_MARKDOWN_OWNER} may import the raw renderer — everything else goes through ` +
+        `\`useRenderMarkdown()\`, which binds the theme, the syntax-highlighting setting and ` +
+        `screen-reader mode. A direct import is a call site that can forget one of them.`,
+    ).toEqual([RENDER_MARKDOWN_OWNER]);
+  });
+
+  it('the wiring floors fire on a violating fixture', () => {
+    // (a) A commented-out provider is not a provider.
+    expect(themeProviderElement('// <ThemeProvider theme={viewModel.theme.resolved}>')).toBe('');
+    expect(themeProviderElement('/* <ThemeProvider theme={viewModel.theme.resolved}> */')).toBe('');
+    // (b) The props must be on the PROVIDER, not on whatever element happens to follow it.
+    const moved = [
+      '<ThemeProvider>',
+      '  <AppPresentation theme={viewModel.theme.resolved} />',
+      '</ThemeProvider>',
+    ].join('\n');
+    expect(/theme=\{viewModel\.theme\./u.test(themeProviderElement(moved))).toBe(false);
+    // (c) The real shape passes.
+    const wired = [
+      '<ThemeProvider',
+      '  theme={viewModel.theme.resolved}',
+      '  reducedMotion={viewModel.theme.reducedMotion}',
+      '  syntaxHighlighting={viewModel.theme.syntaxHighlighting}',
+      '>',
+    ].join('\n');
+    const element = themeProviderElement(wired);
+    for (const prop of THEME_PROVIDER_PROPS) {
+      expect(new RegExp(`${prop}=\\{viewModel\\.theme\\.`, 'u').test(element)).toBe(true);
+    }
+    // (d) The consumer half is an IMPORT check, so it cannot be satisfied by an identifier that
+    // merely occurs — a dependency array, a destructure, a sibling component's props.
+    const shapes: [string, boolean][] = [
+      ["import { renderMarkdown } from './render-markdown.js';", true],
+      ["import * as md from './render-markdown.js';", true],
+      ["import { renderMarkdown } from '../../render-markdown.js';", true],
+      ["export { renderMarkdown } from './render-markdown.js';", true],
+      // A dynamic import reaches the same function; the check must see it.
+      ["const { renderMarkdown } = await import('./render-markdown.js');", true],
+      // A TYPE-only import reaches no call, so flagging it would be a false red.
+      ["import type { IRenderMarkdownOptions } from './render-markdown.js';", false],
+      ["import { useRenderMarkdown } from './hooks/useRenderMarkdown.js';", false],
+    ];
+    for (const [shape, flagged] of shapes) {
+      expect(importsRawRenderer(shape), shape).toBe(flagged);
+    }
   });
 
   it('both ratchets actually fire on a violating fixture', () => {
@@ -160,5 +304,20 @@ describe('SCREEN-006 palette consistency floor', () => {
     expect([...'chalk.reset(row)'.matchAll(CHALK_COLOR_CALL)]).toHaveLength(1);
     // `resolveTheme` is the sanctioned way to ask for a theme one did not receive.
     expect([...'resolveTheme(options.theme)'.matchAll(BUILT_IN_THEME_IMPORT)]).toHaveLength(0);
+  });
+
+  it('reads CODE, not the comments that explain it', () => {
+    const explained = [
+      '// `useMotion()` gates on the colour gate above this.',
+      '/* DARK_THEME is the default; see built-in-themes.ts. */',
+      'const label = value; // chalk.cyan(x) would be a violation here',
+    ].join('\n');
+    const code = blankComments(explained);
+
+    expect([...code.matchAll(BUILT_IN_THEME_IMPORT)]).toHaveLength(0);
+    expect([...code.matchAll(CHALK_COLOR_CALL)]).toHaveLength(0);
+    expect(/\buseMotion\(\)/u.test(code)).toBe(false);
+    // Line positions survive, so a finding still points at the line it came from.
+    expect(code.split('\n')).toHaveLength(3);
   });
 });

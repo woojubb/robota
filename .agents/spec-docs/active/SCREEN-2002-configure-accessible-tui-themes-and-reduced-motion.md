@@ -398,3 +398,250 @@ Three named work units under this one design gate (the PR Unit Rule and the batc
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `9cced2d93c94` · base `origin/develop@9cced2d93c94` · document `.agents/spec-docs/todo/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `7920f0b06824` (untracked)
+
+### [GATE-COMPLETE] — 🔴 NON-COMPLIANCE | 2026-09-19
+
+**Status remains:** in-progress
+**Violation:** GATE-COMPLETE was dispatched with its prior gate unrun. The ordering check
+(`gate-catalogue.md` § Prior-gate map) requires, for GATE-COMPLETE, a recorded `GATE-VERIFY` PASS on
+this document and an input `status: verifying`. Neither holds:
+
+- Prior gate — the Evidence Log holds five entries and none is GATE-VERIFY:
+  `[GATE-WRITE] ✅ PASS | 2026-09-19`, `[GATE-APPROVAL] ✅ PASS | 2026-09-19` (×3),
+  `[GATE-IMPLEMENT] ✅ PASS | 2026-09-19` (`approved → in-progress`). No GATE-VERIFY entry exists in
+  any form, so there is no prior-gate verdict to read and the default last-entry re-run rule has no
+  subject.
+- Input status — frontmatter reads `status: in-progress`; GATE-COMPLETE's declared input is
+  `verifying`. The folder (`.agents/spec-docs/active/`) agrees with `in-progress`, so this is a
+  skipped gate, not a misplaced document.
+
+Per the guardian's ordering discipline, this gate's own criteria were **not** evaluated. TC-01 …
+TC-06 are recorded here as UNJUDGED, not as passing. No `[GATE-COMPLETE: TC-N]` entry was written,
+because a per-TC entry is a sub-record of an ordered GATE-COMPLETE run and writing six of them now
+would plant a partial completion record the `scan-user-execution-plan-order` GATE-COMPLETE matcher
+would later read as a genuine run.
+
+**Second, independent finding — the requested scope is not a gate in this catalogue.** The dispatch
+asked for GATE-COMPLETE over six of the thirteen completion criteria (work unit 1 only). GATE-COMPLETE
+is defined as the whole-document `verifying → done` transition and its terminal criteria are
+"`## Completion Criteria` checkboxes are all `[x]`" and one evidence entry per TC-N — over every TC-N,
+not a subset. The catalogue provides exactly one per-work-unit re-judgement route for a `**Delivery
+mode:** sequenced` item, and it belongs to GATE-IMPLEMENT
+(`**Status upgrade:** in-progress → in-progress (continuation)`), not to GATE-COMPLETE. With TC-07 …
+TC-13 undelivered, no form of GATE-COMPLETE is open to this document yet.
+
+Observed document state at the time of this run, recorded so a later reader need not re-derive it:
+all thirteen `## Completion Criteria` checkboxes are `[ ]`; `## Tasks` reads
+`- [ ] .agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md — todo`; the
+paired Task's `## Plan` has unit 1 `[x]` and units 2, 3, TC-12 and TC-13 `[ ]`; `## Test Plan` rows
+carry design-time Tool/Approach text and no test references or skip reasons; both User Execution Test
+Scenarios record `evidence: pending`.
+
+**Required action:** for work unit 1, run `GATE-IMPLEMENT (continuation)` for unit 2's branch if that
+checkpoint is what is outstanding, and carry unit 1's merged delivery forward as TC evidence when the
+sequenced delivery completes. GATE-COMPLETE becomes runnable only after units 2 and 3 land and
+`GATE-VERIFY` records a PASS that moves this document to `status: verifying` — at which point one
+GATE-COMPLETE run judges TC-01 … TC-13 together. Deciding whether to re-dispatch, hold, or route this
+item elsewhere is the orchestrator's call, not this guardian's.
+
+**Judged by:** `backlog-gate-guard`
+**Judged at:** HEAD `b1689aa85419` · base `origin/develop@b1689aa85419` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `f88828fbfa03` (tracked)
+
+<!-- STRUCK 2026-09-19 by the item owner, on the guardian's finding.
+A `### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-19` continuation entry stood here. It was produced by
+`gate.mjs judge --continuation` against a worktree in which the two auto-generated lessons files
+were dirty, so its `worktreePaths` recorded four paths. `worktreeError`
+(scripts/harness/gate-implement-entry-results.mjs:96) admits only the paired Task/spec plus PLAN
+ledger paths and applies no auto-generated-churn exemption, while the producer
+`checkpointWorktreePaths` (scripts/harness/gate-checkpoint-evidence-common.mjs:22) copies
+`git status --porcelain` unfiltered — so the entry could never bind, and
+`validatedPriorCheckpoint` (gate-checkpoint-evidence.mjs:23) fails CLOSED on it, blocking every
+later continuation run from opening at all.
+
+Struck rather than left because it is an unusable artefact of a defective tool, not a verdict:
+the guardian FAIL immediately below records the same run and its reasoning in full, so the
+history is preserved. The underlying producer/consumer divergence is recorded on issue #2376,
+whose earlier sweep fixed two consumers of the same rule and missed these two. -->
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-09-19
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- Continuation item 4 — "The exact Task and its PLAN terminal outcome are unchanged from the prior
+  entry — the scan's exact-signal binding depends on it" (`gate-catalogue.md` § GATE-IMPLEMENT >
+  Continuation): the PLAN terminal outcome IS unchanged (`SCENARIO DRAFTED: automatable | 2`, Task
+  path and `plan: {outcome: automatable, count: 2}` identical to the prior entry), but the exact
+  Task is NOT. `git diff --numstat HEAD` reports `6 1` on
+  `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`: `## Plan`
+  unit 1 `[ ]`→`[x]` plus a three-line note recording PR #2752 and merge sha
+  `b1689aa8541ba03010053bd5452ba30bebfe4bcd`. A continuation checkpoint requires the Task to carry
+  NO diff in the checkpoint commit — `scan-user-execution-plan-order.mjs:720-721` gates
+  `passDeltaIsOne` on `(task === parentTask || resumedTask)`, where `task`/`parentTask` are the
+  Task text in the commit's tree and its parent's tree (`checkpointTransitions`, l.762-770). The
+  `resumedTask` escape does not apply: it requires the parent Task frontmatter to read
+  `status: blocked`, and this Task reads `status: in-progress` at both HEAD and in the worktree.
+  `isBlockedTaskResume`'s contract states the rule outright — "No other Task byte may change there;
+  implementation evidence belongs after the checkpoint."
+  **Required action:** restore the paired Task to its HEAD content so the checkpoint commit carries
+  the spec diff alone, then re-run `GATE-IMPLEMENT (continuation)`. The unit-1 tick and the PR #2752
+  landing note are delivery bookkeeping, not planning: commit them AFTER the checkpoint. No other
+  criterion is outstanding — with a two-path worktree and an unmodified Task, all seven gate criteria
+  and continuation items 1, 2, 3 and 5 are satisfied.
+
+**Criteria that passed, recorded so the re-run is not re-derived from scratch:**
+
+- Ordering: prior gate `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-19` is the last GATE-IMPLEMENT entry and
+  status is `in-progress`; the `[GATE-COMPLETE] — 🔴 NON-COMPLIANCE` entry between them is not an
+  entry for the prior gate named in the row and transitioned nothing, so it does not block this row.
+- Worktree inventory: `git status --porcelain` is exactly the paired spec and Task (2 paths). The
+  `.agents/evals/lessons/` churn present at the previous run has been reverted.
+- Continuation items 1, 2, 3, 5: prior PASS present; § Decision carries `**Delivery mode:** sequenced`
+  with its six-path `**Continuation artifacts:**` line; `b1689aa8541ba03010053bd5452ba30bebfe4bcd`
+  (PR #2752) is an ancestor of the branch base; inventory as above.
+
+**Superseded entry — left in place deliberately.** The `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-19`
+continuation entry above this one records a four-path inventory and cannot bind. It is NOT removed:
+the Evidence Log is append-only, and deleting a recorded verdict is the falsification the catalogue's
+re-run rule exists to avoid (issue #2588). It is inert rather than harmful —
+`gateImplementEntryResults` returns `ok=false` for it (`gateImplementContinuation.worktreePaths must
+be the paired Task/spec plus only PLAN ledger paths`), and both `gateImplementPassCount` and
+`gateImplementContinuationCount` count only `ok` entries, so it contributes 0 to the deltas a later
+valid continuation must satisfy.
+
+**Harness finding — the criterion and the reader of its output disagree.** GATE-IMPLEMENT's inventory
+criterion exempts the `AUTO_GENERATED_CHURN` pair (`verification-receipt-storage.mjs:6-9`) from the
+worktree it judges, but the checkpoint binding applies no such exemption to the array that criterion
+causes to be WRITTEN: `worktreeError` (`gate-implement-entry-results.mjs:96-107`) admits only
+`taskPath`, `specPath` and `.agents/loop-runs/` entries, while the producer
+`checkpointWorktreePaths` (`gate-checkpoint-evidence-common.mjs:22-30`) copies raw
+`git status --porcelain` with no churn filter — unlike `realDirtyLines`, which does filter it. So
+whenever those two generated files are dirty, GATE-IMPLEMENT passes and necessarily emits a record
+that can never bind. The earlier PASS was a correct reading of the criterion and still produced an
+unusable record; the defect is the producer/consumer divergence, not the reading. This needs its own
+backlog item — it is not fixable inside this gate run and does not change this verdict.
+
+**Judged by:** `backlog-gate-guard`
+**Judged at:** HEAD `b1689aa8541b` · base `origin/develop@b1689aa8541b` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `0604025baeb4` (modified)
+
+### [GATE-IMPLEMENT] — 🔴 NON-COMPLIANCE | 2026-09-19
+
+**Status remains:** in-progress
+**Violation:** the Evidence Log carries a `✅ PASS` entry that the harness itself refuses as invalid,
+and while it stands no continuation record can be produced at all. `gate.mjs judge --continuation`
+does not reach its criteria; it aborts:
+
+```
+❌ GATE-IMPLEMENT continuation prior PASS is invalid: gateImplementContinuation.worktreePaths must be the paired Task/spec plus only PLAN ledger paths
+```
+
+`validatedPriorCheckpoint` (`gate-checkpoint-evidence.mjs:23-37`) reads EVERY prior GATE-IMPLEMENT
+entry and throws on the first `!result.ok` — `results.find((result) => !result.ok)`. The superseded
+`[GATE-IMPLEMENT] — ✅ PASS` entry (the four-path inventory recorded before the churn was reverted)
+is that entry. The gate cannot open, so its criteria are recorded here as UNJUDGED, not as passing.
+
+**This corrects my own prior ruling, which was wrong.** In the FAIL entry above I wrote that the
+superseded entry was "inert rather than harmful" and should be left in place. I verified that against
+the COUNTING functions only — `gateImplementPassCount` and `gateImplementContinuationCount` do filter
+on `ok`, so the entry contributes 0 to those deltas, and that much was true. I did not check the
+PRODUCER path, which does not filter but fails closed. A claim I could have checked and did not is
+not evidence, and the advice built on it cost a round trip.
+
+**Required action — not this guardian's to perform.** The superseded entry must be struck from the
+Evidence Log before any continuation can be recorded. Verified, on a scratch copy and never on this
+file: with lines 450-496 removed, `gateImplementEntryResults` returns exactly one entry, `ok=true`,
+form `gateImplementFirst` — precisely what `validatedPriorCheckpoint` requires (no invalid entry, and
+`results[0].payload.form === 'gateImplementFirst'`). Striking a recorded verdict is an owner decision,
+not a guardian's edit, and it is defensible here only because the entry was produced by a defective
+tool and because the FAIL entry above preserves the full history of what happened. It is recorded, not
+erased. If the owner declines, the alternative is to fix the producer first, which
+`gate-catalogue.md` § Tool-defect closure disposition forbids doing inside this item.
+
+With that entry gone, the tree must also be returned to the ONE-PATH shape — spec modified, paired
+Task byte-identical to HEAD, lessons pair reverted — for the reasons under item 3 below.
+
+**Rulings on the three questions raised in dispatch, since they will govern the re-run:**
+
+1. **Does item 4 hold when the staged set excludes the Task? YES — the reading is correct.**
+   `checkpointTransitions` (`scan-user-execution-plan-order.mjs:762-770`) resolves text through
+   `textAt`, which in staged mode is `indexText` (`findStagedFindings`, l.2862) and in history mode
+   the commit tree. A modified-but-unstaged Task is invisible to both, so `task === parentTask` holds.
+2. **Does `worktreeError` accept a two-path array of exactly the paired spec and Task? YES — but the
+   premise behind the question is wrong, and it is the reason the tree was changed unnecessarily.**
+   `expected` is exactly `[TASK_PREFIX+basename, SPEC_PREFIX+<specFolder>/+basename]` sorted, plus
+   `.agents/loop-runs/` entries. The Task does NOT need to be dirty for the array to list it:
+   `continuationCheckpointEvidence` (`gate-checkpoint-evidence.mjs:179`) unions both paths in
+   unconditionally — `[...new Set([taskRel, specRel, ...checkpointWorktreePaths(root)])]`. The
+   one-path worktree that preceded this dispatch would have produced a correct two-path array.
+3. **Is a checkpoint commit that stages only one of the two recorded paths legitimate? NO — this is
+   the part that would have been a workaround, and the scan catches it.** `findStagedFindings`
+   (l.3089-3094) computes `const outside = worktreePaths(root)` and raises
+   `non-planning worktree path(s) exist during checkpoint: …` for any non-empty residue;
+   `worktreePaths` (l.318-329) is unstaged + untracked minus `AUTO_GENERATED_CHURN`. A
+   modified-but-unstaged Task is unstaged residue and would be named in that finding. The checkpoint
+   commit must therefore be made with the Task CLEAN, not with it dirty and held back from the index.
+   The unit-1 tick and the PR #2752 landing note belong in a commit after the checkpoint, as already
+   stated.
+
+**Harness finding, refined — it has an owner issue already.** `worktreePaths`'s own contract comment
+(l.309-317) names the defect family and its issue: "`verification-receipt-storage.mjs` is the single
+owner of which dirt does not count and `pre-push.mjs` already honours it; this scan and the catalogue
+criterion were the two consumers that did not (issue #2376)." That sweep fixed the scan and the
+criterion. It did not reach two further consumers, which is the defect hit here: the producer
+`checkpointWorktreePaths` (`gate-checkpoint-evidence-common.mjs:22-30`) copies raw
+`git status --porcelain` with no churn filter, and the binding reader `worktreeError`
+(`gate-implement-entry-results.mjs:96-107`) admits only the paired paths and `.agents/loop-runs/`.
+So whenever the churn is dirty — and it regenerates on every judging run, including this one — the
+gate emits a record that can never bind, and that record then wedges every later continuation. This
+belongs on **issue #2376**, the churn-exemption consumer sweep, rather than on a general gate-
+correctness umbrella: it is the same defect, in the two consumers that sweep missed.
+
+**Judged by:** `backlog-gate-guard`
+**Judged at:** HEAD `b1689aa8541b` · base `origin/develop@b1689aa8541b` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `a1fc8e012cc7` (modified)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-19; status `in-progress`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (13)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 685 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: automatable | 2`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 1 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementContinuation",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    "packages/agent-ui-terminal/src/theme/theme-contracts.ts",
+    "packages/agent-ui-terminal/src/theme/built-in-themes.ts",
+    "packages/agent-ui-terminal/src/theme/theme-context.tsx",
+    "packages/agent-ui-terminal/src/render.tsx",
+    "packages/agent-ui-terminal/docs/SPEC.md",
+    "packages/agent-cli/src/cli.ts"
+  ],
+  "priorPass": "sha256:cb22adeb97ec8c74c1d7bfb1832a3b830b10e4764bf1e417f358e21d2fa5a986",
+  "ancestorSha": "b1689aa8541ba03010053bd5452ba30bebfe4bcd",
+  "taskPath": ".agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md",
+  "specPath": ".agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md",
+  "plan": {
+    "outcome": "automatable",
+    "count": 2
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md",
+    ".agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `b1689aa8541b` · base `origin/develop@b1689aa8541b` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `2f01efc0d89e` (modified)

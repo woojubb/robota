@@ -6,6 +6,7 @@
  * stop scheduling entirely, not merely look still.
  */
 import chalk from 'chalk';
+import { Text } from 'ink';
 import { render } from 'ink-testing-library';
 import React from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -13,6 +14,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { AppBanner } from '../../app-banner.js';
 import WaveText from '../../WaveText.js';
 import { DARK_THEME, LIGHT_THEME } from '../built-in-themes.js';
+// Through the BARREL, deliberately: the module's export surface is what every consumer outside
+// `src/theme/` reaches, and an export dropped from it is a runtime `undefined` rather than a type
+// error at the call site. Importing from `theme-context.js` here would leave that surface unguarded.
+import { useSyntaxHighlighting } from '../index.js';
 import { ThemeProvider } from '../theme-context.js';
 import { foreground } from '../theme-styles.js';
 
@@ -114,3 +119,28 @@ function openCode(color: string): string {
   const [open] = foreground(color)('x').split('x');
   return open ?? '';
 }
+
+/**
+ * SCREEN-2002: `/theme syntax off` persisted a setting that reached nothing until this travelled
+ * with the theme — the command reported success for a no-op. So the assertion is that the value
+ * ARRIVES at a consumer, not merely that the provider accepts it.
+ */
+describe('syntax highlighting travels with the theme (SCREEN-2002 TC-03)', () => {
+  function Probe(): React.ReactElement {
+    return <Text>{`syntax:${String(useSyntaxHighlighting())}`}</Text>;
+  }
+
+  it('defaults to on outside a provider, so today s rendering is unchanged', () => {
+    expect(render(<Probe />).lastFrame()).toContain('syntax:true');
+  });
+
+  it('carries false to a consumer when the appearance says off', () => {
+    const frame = render(
+      <ThemeProvider syntaxHighlighting={false}>
+        <Probe />
+      </ThemeProvider>,
+    ).lastFrame();
+
+    expect(frame).toContain('syntax:false');
+  });
+});

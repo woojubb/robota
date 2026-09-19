@@ -33,6 +33,7 @@ import { createSettingsCommandModule } from '../settings/index.js';
 import { createShellCommandModule } from '../shell/index.js';
 import { createSkillsCommandModule } from '../skills/index.js';
 import { createStatusLineCommandModule } from '../statusline/index.js';
+import { createThemeCommandModule } from '../theme/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
 
 import type { IDoctorInputs } from '../doctor/index.js';
@@ -45,6 +46,7 @@ import type {
   IProviderCommandSettingsAdapter,
   IUnknownCommandModuleName,
 } from '@robota-sdk/agent-framework';
+import type { IThemeCataloguePort } from '@robota-sdk/agent-interface-command';
 
 export interface IDefaultCommandModulesOptions {
   cwd: string;
@@ -62,6 +64,12 @@ export interface IDefaultCommandModulesOptions {
   orgPolicy?: IOrgPolicy;
   /** Optional TUI-owned file capability; absence means `/keybindings` is not registered. */
   keybindingsFilePort?: IKeybindingsFilePort;
+  /**
+   * SCREEN-2002: the surface's theme catalogue. Absence means `/theme` is not registered at all —
+   * print mode and `--serve` render no themes, and a command that cannot do anything is better
+   * missing than present-and-failing.
+   */
+  themeCataloguePort?: IThemeCataloguePort;
   /** OBSERVABILITY-1991: host-composed doctor inputs; absence means `/doctor` is not registered. */
   doctorInputs?: IDoctorInputs;
   /**
@@ -111,6 +119,7 @@ export function createDefaultCommandModules({
   providerSettingsAdapter,
   orgPolicy,
   keybindingsFilePort,
+  themeCataloguePort,
   doctorInputs,
   enabledCommandModules,
   disabledCommandModules,
@@ -136,6 +145,7 @@ export function createDefaultCommandModules({
     ...(keybindingsFilePort === undefined
       ? []
       : [createKeybindingsCommandModule(keybindingsFilePort)]),
+    ...(themeCataloguePort === undefined ? [] : [createThemeCommandModule(themeCataloguePort)]),
     ...(doctorInputs === undefined ? [] : [createDoctorCommandModule(doctorInputs)]),
     createMemoryCommandModule(),
     createMCPActivationCommandModule(),
