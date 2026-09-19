@@ -49,8 +49,10 @@ describe('daltonized built-ins survive simulated colour-vision deficiency (SCREE
         label,
         distance: simulatedDistance(first, second, vision),
       }))
-      // A pair the guard could not simulate is a failure, not a skip.
-      .filter((pair) => pair.distance === undefined || pair.distance < MIN_DISTANCE);
+      // A pair the guard could not simulate is a failure, not a skip — and a NON-FINITE distance is
+      // the same hole wearing a number: `NaN < MIN_DISTANCE` is false, so one bad coefficient would
+      // turn this guard green for every pair at once.
+      .filter((pair) => !Number.isFinite(pair.distance) || (pair.distance ?? 0) < MIN_DISTANCE);
     expect(tooClose).toEqual([]);
   });
 

@@ -6,7 +6,7 @@
  * theme existed. Components read `usePalette()` where they used to import `PALETTE`; nothing takes the
  * theme as a prop, so a missed prop cannot leave one component on another theme.
  */
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext } from 'react';
 
 import { DARK_THEME, resolveTheme } from './built-in-themes.js';
 import { useScreenReader } from '../screen-reader-context.js';
@@ -59,8 +59,8 @@ export function useMotionTokens(): IThemeMotion {
 export function useMotion(): boolean {
   const screenReader = useScreenReader();
   const reducedMotion = useContext(ReducedMotionContext);
-  return useMemo(
-    () => isInteractiveColorTerminal() && !screenReader && !reducedMotion,
-    [reducedMotion, screenReader],
-  );
+  // No `useMemo`: the value is a boolean, so memoizing it buys nothing — and a dependency array
+  // would have to omit `isInteractiveColorTerminal()`, which reads process state rather than React
+  // state. Hiding a non-reactive read inside a memo is how a stale gate gets written later.
+  return isInteractiveColorTerminal() && !screenReader && !reducedMotion;
 }

@@ -45,7 +45,7 @@ const HEX_LITERAL = /#[0-9a-fA-F]{6}\b/g;
 const BUILT_IN_THEME_IMPORT =
   /\b(?:BUILT_IN_THEMES|DARK_THEME|LIGHT_THEME|DARK_DALTONIZED_THEME|LIGHT_DALTONIZED_THEME)\b|from\s+'[^']*built-in-themes\.js'/g;
 /** SCREEN-2002: a chalk COLOUR call outside `src/theme/` decides a colour the theme should own. */
-const CHALK_COLOR_CALL = /\bchalk\.(?!inverse\b|level\b|reset\b)[A-Za-z]+[.(]/g;
+const CHALK_COLOR_CALL = /\bchalk\.(?!inverse\b|level\b)[A-Za-z]+[.(]/g;
 
 interface IFinding {
   file: string;
@@ -153,8 +153,11 @@ describe('SCREEN-006 palette consistency floor', () => {
     // The route the path-only ratchet could not see: the barrel re-exporting the same data.
     const throughTheBarrel = "import { DARK_THEME } from './theme/index.js';";
     expect([...throughTheBarrel.matchAll(BUILT_IN_THEME_IMPORT)]).toHaveLength(1);
-    // The two deliberate exemptions stay green.
+    // The two deliberate exemptions — and only those two — stay green.
     expect([...'chalk.inverse(c) + (chalk.level = 0)'.matchAll(CHALK_COLOR_CALL)]).toHaveLength(0);
+    // `chalk.reset` is NOT among them: it clears whatever style the caller established, which is a
+    // rendering decision, not a colour-free modifier.
+    expect([...'chalk.reset(row)'.matchAll(CHALK_COLOR_CALL)]).toHaveLength(1);
     // `resolveTheme` is the sanctioned way to ask for a theme one did not receive.
     expect([...'resolveTheme(options.theme)'.matchAll(BUILT_IN_THEME_IMPORT)]).toHaveLength(0);
   });

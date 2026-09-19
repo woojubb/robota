@@ -6,6 +6,11 @@
  * `DEFAULT_THEME`. Making those defaults explicit is what lets a theme change them at all; it is also
  * why a user who sets nothing sees the same colours as before.
  *
+ * Over the 300-line file ceiling, deliberately. The file is ONE concern — four colour tables of the
+ * same shape — and the ceiling exists to break up files that do several things. Splitting per theme
+ * would put the dark and light values that must correspond in different files, which is the drift
+ * the token model was built to stop.
+ *
  * The daltonized pair is specified in hex rather than colour names on purpose: a name is whatever the
  * terminal says it is, so a colour-vision-deficiency simulation cannot compute it, and the guard
  * REFUSES what it cannot simulate. Their status and diff pairs avoid red/green entirely — blue for

@@ -28,8 +28,14 @@ const ANSI256_MAX = 255;
  * chalk's own name tables, which it exports; its styles are prototype getters, so a table has to be
  * built from the names rather than from `Object.keys(chalk)`. This is the same set Ink's `colorize`
  * accepts, which is why the grammar needs no list of its own.
+ *
+ * A `Map`, not an object literal: an object built by `Object.fromEntries` inherits `Object.prototype`,
+ * so a lookup of `constructor`, `toString`, `valueOf` or `__proto__` answers TRUTHY and the
+ * `undefined` guard below never fires — a value that is not a colour name would be handed back as
+ * though it were a style. That value becomes reachable the moment a parsed user theme (work unit 3)
+ * reaches this builder.
  */
-const CHALK_STYLES: Record<string, ChalkInstance | undefined> = Object.fromEntries(
+const CHALK_STYLES = new Map<string, ChalkInstance>(
   [...foregroundColorNames, ...backgroundColorNames].map((name) => [name, chalk[name]]),
 );
 const FOREGROUND_NAMES = new Set<string>(foregroundColorNames);
@@ -50,7 +56,7 @@ export function isThemeColor(value: string): boolean {
 }
 
 function chalkNamed(name: string): ChalkInstance {
-  return CHALK_STYLES[name] ?? chalk.reset;
+  return CHALK_STYLES.get(name) ?? chalk.reset;
 }
 
 /**
@@ -64,7 +70,7 @@ export function foreground(color: TThemeColor, base: ChalkInstance = chalk): Cha
   if (ansi) return base.ansi256(Number(ansi[1]));
   const rgb = RGB.exec(color);
   if (rgb) return base.rgb(Number(rgb[1]), Number(rgb[2]), Number(rgb[3]));
-  const named = CHALK_STYLES[color];
+  const named = CHALK_STYLES.get(color);
   if (named === undefined) return base;
   // A named colour continues the chain through chalk's own getter on the base instance.
   const chained = Reflect.get(base, color) as ChalkInstance | undefined;
