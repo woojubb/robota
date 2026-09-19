@@ -232,8 +232,11 @@ function useCandidates(
   return useMemo(() => {
     if (!open || sessionId === undefined || project === undefined) return [];
     const context = { sessionId, project };
-    if (scope === 'session') return liveEntries(sessionPrompts, context);
-    return collapseToNewest(entries.filter((entry) => inScope(entry, scope, context)));
+    const scoped =
+      scope === 'session'
+        ? liveEntries(sessionPrompts, context)
+        : entries.filter((entry) => inScope(entry, scope, context));
+    return collapseToNewest(scoped);
   }, [entries, open, project, scope, sessionId, sessionPrompts]);
 }
 
@@ -244,6 +247,26 @@ interface IQueryState {
 }
 
 const FRESH_QUERY: IQueryState = { query: '', scope: 'all', selectedIndex: 0 };
+
+/** The query, scope and selection as one state, with the setters the key handler needs. */
+function useQueryState(): {
+  readonly state: IQueryState;
+  readonly reset: () => void;
+  readonly setters: Pick<ISearchKeysDeps, 'setScope' | 'setSelectedIndex' | 'setQuery'>;
+} {
+  const [state, setState] = useState<IQueryState>(FRESH_QUERY);
+  const reset = useCallback(() => setState(FRESH_QUERY), []);
+  const setters = useMemo(
+    () => ({
+      setScope: (scope: THistorySearchScope): void => setState((s) => ({ ...s, scope })),
+      setSelectedIndex: (selectedIndex: number): void => setState((s) => ({ ...s, selectedIndex })),
+      setQuery: (update: (current: string) => string): void =>
+        setState((s) => ({ ...s, query: update(s.query) })),
+    }),
+    [],
+  );
+  return { state, reset, setters };
+}
 
 /** Open and close: one loader start per open, one stop per close, the app told of both. */
 function useOverlayVisibility(
@@ -275,10 +298,9 @@ export function useHistorySearch(options: IUseHistorySearchOptions): {
 } {
   const screenReader = useScreenReader();
   const loader = useHistoryLoader(options.surface, screenReader);
-  const [state, setState] = useState<IQueryState>(FRESH_QUERY);
+  const { state, reset, setters } = useQueryState();
   const { query, scope } = state;
   const { surface, onInsert, onExecute } = options;
-  const reset = useCallback(() => setState(FRESH_QUERY), []);
   const { open, openSearch, closeSearch } = useOverlayVisibility(
     loader,
     surface !== undefined,
@@ -295,27 +317,20 @@ export function useHistorySearch(options: IUseHistorySearchOptions): {
   );
   const matches = useMemo(() => filterPrompts(candidates, query), [candidates, query]);
   const selected = Math.min(state.selectedIndex, Math.max(0, matches.length - 1));
-  const setScope = (next: THistorySearchScope): void => setState((s) => ({ ...s, scope: next }));
-  const setSelectedIndex = (index: number): void =>
-    setState((s) => ({ ...s, selectedIndex: index }));
-  const setQuery = (update: (current: string) => string): void =>
-    setState((s) => ({ ...s, query: update(s.query) }));
   useHistorySearchKeys({
-    ...{ open, matches, selected, scope, screenReader, loader, close: closeSearch },
-    ...{ setScope, setSelectedIndex, setQuery, onInsert, onExecute },
+    open,
+    matches,
+    selected,
+    scope,
+    screenReader,
+    loader,
+    close: closeSearch,
+    onInsert,
+    onExecute,
+    ...setters,
   });
 
-  const { loading, error } = loader;
-  const { skippedLines } = loader.loaded;
-  const view = {
-    open,
-    query,
-    scope,
-    selectedIndex: selected,
-    matches,
-    loading,
-    skippedLines,
-    error,
-  };
-  return { view, openSearch, closeSearch };
+  const { loading, error, loaded } = loader;
+  const view = { ...state, open, selectedIndex: selected, matches, loading, error };
+  return { view: { ...view, skippedLines: loaded.skippedLines }, openSearch, closeSearch };
 }

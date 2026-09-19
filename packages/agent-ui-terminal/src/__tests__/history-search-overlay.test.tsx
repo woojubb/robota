@@ -24,6 +24,7 @@ const CTRL_E = '\x05';
 const ESCAPE = '\x1b';
 const ENTER = '\r';
 const ARROW_DOWN = '\x1b[B';
+const SUBMIT_SETTLE_MS = 150;
 
 async function tick(ms = 25): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -239,10 +240,13 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     ]);
     const { stdin, lastFrame, unmount } = renderWith(gate.source);
     await tick();
-    stdin.write('typed this session');
-    await tick();
-    stdin.write(ENTER);
-    await tick(50);
+    for (const prompt of ['typed this session', 'another prompt', 'typed this session']) {
+      stdin.write(prompt);
+      await tick();
+      stdin.write(ENTER);
+      // Past the deferred-submit window, so the next prompt starts from an empty composer.
+      await tick(SUBMIT_SETTLE_MS);
+    }
     stdin.write(CTRL_R);
     gate.release();
     await tick();
@@ -251,6 +255,8 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     await tick();
     expect(lastFrame()).toContain('scope: session');
     expect(lastFrame()).toContain('typed this session');
+    // Collapsed to the newest occurrence in the session scope too.
+    expect((lastFrame() ?? '').split('typed this session').length - 1).toBe(1);
     expect(lastFrame()).not.toContain('stored elsewhere');
     stdin.write(CTRL_S);
     await tick();

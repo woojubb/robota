@@ -589,8 +589,8 @@ file; `project` keeps entries whose `project` equals the injected key; `all` kee
 
 **Ordering, dedup, loading.** The file is read backwards in blocks and rendered newest-first as
 each block lands, so the first frame shows the newest prompts before the rest of the file is read
-(`loading…` stays in the state line until the read ends). Within the file scopes an entry equal to
-an earlier (newer) one after trimming is dropped — the newest occurrence wins. Matching is a
+(`loading…` stays in the state line until the read ends). In every scope an entry equal to an
+earlier (newer) one after trimming is dropped — the newest occurrence wins. Matching is a
 case-insensitive substring; every occurrence in a row is highlighted, and under the colour gate
 (`NO_COLOR`, non-TTY) the highlight is a visible `[match]` marker rather than an SGR attribute
 nothing would render. Exactly one loader runs per open under one `AbortController`; insert,
