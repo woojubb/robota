@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [harness, cli]
 lane: L2
@@ -61,6 +61,8 @@ Choose alternative 1. `runApprove` will resolve the GATE-APPROVAL ordering throu
 ordering FAIL returns a deterministic non-zero refusal naming the missing prior PASS or expected status
 and leaves the document byte-identical; only an ordering PASS may proceed to the existing mechanical
 approval criteria and standing-entry write.
+
+**Delivery mode:** `single`
 
 Reachability is verified through `gate-cli.mjs`, which routes both DIRECT and CLASS `approve` invocations
 to `runApprove`. Capability preservation keeps the route fields, verbatim instruction, measured CLASS
@@ -267,3 +269,72 @@ Paired execution record:
 
 **Judged by:** `backlog-gate-guard` (semantic) + `gate.mjs` (mechanical)
 **Judged at:** HEAD `5356cd7cd55cb3b4a5b6c75feaedbaa24d17ba21` · base `origin/develop@c81dd4ff75695e3f6a72566d4b3256f42e6479e7` · document `.agents/spec-docs/backlog/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md` blob `0912861c241178324af5e5e8bb8c5e5742a62e35` (untracked)
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-09-20
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names 4/5 TC ids and carries 4 checkbox task(s)
+  **Required action:** one task per TC-N
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7e5a5643aa67` · base `origin/develop@c81dd4ff7569` · document `.agents/spec-docs/todo/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md` blob `d706dcbaf8ed` (tracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-20; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 291 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md",
+  "specPath": ".agents/spec-docs/todo/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md",
+    ".agents/tasks/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7e5a5643aa67` · base `origin/develop@c81dd4ff7569` · document `.agents/spec-docs/todo/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md` blob `b845aa6a86e0` (modified)

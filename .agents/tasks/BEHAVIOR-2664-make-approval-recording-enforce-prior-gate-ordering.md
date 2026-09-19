@@ -1,7 +1,7 @@
 ---
 title: 'BEHAVIOR-2664: Make approval recording enforce prior-gate ordering'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: in-progress
 created: 2026-09-20
 priority: critical
 urgency: now
@@ -29,6 +29,7 @@ passed or the document is not `review-ready`.
 - [ ] TC-02 — Route `runApprove` through the same catalogue ordering judgement as `runJudge`.
 - [ ] TC-03 — Cover missing prior PASS, wrong status, and the valid review-ready path for DIRECT and CLASS evidence.
 - [ ] TC-04 — Run focused gate tests and affected harness verification.
+- [ ] TC-05 — Run `node scripts/harness/run-all-scans.mjs --affected --context pr` and require exit 0.
 
 ## Test Plan
 
