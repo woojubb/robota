@@ -67,9 +67,29 @@ function collectSourceFiles(dir: string): string[] {
   return files;
 }
 
+/**
+ * Blank out comment CONTENT before scanning, keeping every newline and every character position so
+ * a finding's line number still points at the real line.
+ *
+ * The floor is about CODE. Matching a bare symbol anywhere was recorded as a known limit when these
+ * ratchets were written — "it fails loudly rather than passing silently, so leave it" — and then it
+ * failed on a comment that correctly EXPLAINS the rule it was named in (`useMotion()` in a docblock
+ * about the motion gate). A guard that fires on correct work is how a guard stops being read, so
+ * the limit is closed rather than re-recorded.
+ */
+function blankComments(source: string): string {
+  const blank = (match: string): string => match.replace(/[^\n]/gu, ' ');
+  return source
+    .replace(/\/\*[\s\S]*?\*\//gu, blank)
+    .replace(
+      /(^|[^:])\/\/[^\n]*/gu,
+      (match, prefix: string) => prefix + blank(match.slice(prefix.length)),
+    );
+}
+
 function scanFile(filePath: string, pattern: RegExp): IFinding[] {
   const findings: IFinding[] = [];
-  const lines = readFileSync(filePath, 'utf8').split('\n');
+  const lines = blankComments(readFileSync(filePath, 'utf8')).split('\n');
   lines.forEach((line, index) => {
     for (const match of line.matchAll(pattern)) {
       findings.push({
@@ -137,7 +157,7 @@ describe('SCREEN-006 palette consistency floor', () => {
    */
   it('SCREEN-2002: the motion gate has one consumer', () => {
     const consumers = sourceFiles.filter((file) =>
-      /\buseMotion\(\)/u.test(readFileSync(file, 'utf8')),
+      /\buseMotion\(\)/u.test(blankComments(readFileSync(file, 'utf8'))),
     );
     expect(consumers.map((file) => relative(SRC_ROOT, file)).sort()).toEqual(['WaveText.tsx']);
   });
@@ -160,5 +180,20 @@ describe('SCREEN-006 palette consistency floor', () => {
     expect([...'chalk.reset(row)'.matchAll(CHALK_COLOR_CALL)]).toHaveLength(1);
     // `resolveTheme` is the sanctioned way to ask for a theme one did not receive.
     expect([...'resolveTheme(options.theme)'.matchAll(BUILT_IN_THEME_IMPORT)]).toHaveLength(0);
+  });
+
+  it('reads CODE, not the comments that explain it', () => {
+    const explained = [
+      '// `useMotion()` gates on the colour gate above this.',
+      '/* DARK_THEME is the default; see built-in-themes.ts. */',
+      'const label = value; // chalk.cyan(x) would be a violation here',
+    ].join('\n');
+    const code = blankComments(explained);
+
+    expect([...code.matchAll(BUILT_IN_THEME_IMPORT)]).toHaveLength(0);
+    expect([...code.matchAll(CHALK_COLOR_CALL)]).toHaveLength(0);
+    expect(/\buseMotion\(\)/u.test(code)).toBe(false);
+    // Line positions survive, so a finding still points at the line it came from.
+    expect(code.split('\n')).toHaveLength(3);
   });
 });

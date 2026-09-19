@@ -16,11 +16,11 @@ import { awaitStartupQuietPeriod, resolvePacing } from './screen-reader-pacing.j
 import { isInteractiveColorTerminal, supportsFocusReporting } from './terminal-capabilities.js';
 import { createFocusReportingWriter } from './terminal-focus-reporting.js';
 import { TerminalHandoffController } from './terminal-handoff-controller.js';
-import { ThemeProvider } from './theme/index.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
 
 import type { IKeybindingsSource } from './keybindings/node-keybindings-source.js';
 import type { TScreenReaderChannel } from './screen-reader-announcement.js';
+import type { IThemeRegistry } from './theme/theme-registry.js';
 import type { ITuiAppChannelPort } from './tui-app-channel-port.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
@@ -157,6 +157,13 @@ export interface IRenderOptions {
   screenReaderHint?: boolean | undefined;
   /** BEHAVIOR-2003: one watched source shared with the optional `/keybindings` command. */
   keybindingsSource?: IKeybindingsSource;
+  /**
+   * SCREEN-2002: the theme catalogue this run renders from, shared with the optional `/theme`
+   * command. DECLARED, not spread — see the `screenReader` note above. Absent ⇒ the built-ins.
+   */
+  themeRegistry?: IThemeRegistry;
+  /** SCREEN-2002: reduced motion as the product shell resolved it (settings ← env ← flag). */
+  reducedMotion?: boolean | undefined;
   /**
    * SCREEN-1992: the focus-reporting override the product shell resolved from its own environment.
    * `true` forces DECSET 1004 on, `false` is the kill switch, absent ⇒ on for an interactive TTY.
@@ -341,26 +348,26 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
   const instance = render(
     <KeybindingsProvider source={options.keybindingsSource}>
       <ScreenReaderProvider enabled={screenReader}>
-        <ThemeProvider>
-          <App
-            cwd={options.cwd}
-            createChannel={createChannel}
-            providerOverride={options.providerOverride}
-            providerType={options.providerType}
-            modelId={options.modelId}
-            permissionMode={options.permissionMode}
-            version={options.version}
-            sessionStore={options.sessionStore}
-            resumeSessionId={options.resumeSessionId}
-            showSessionPickerOnStart={options.showSessionPickerOnStart}
-            startupUpdateNotice={options.startupUpdateNotice}
-            transportRegistry={options.transportRegistry}
-            pluginAdapter={options.commandHostAdapters?.plugin}
-            cliAdapter={options.cliAdapter}
-            promptHistorySource={options.promptHistorySource}
-            promptHistoryProject={options.promptHistoryProject}
-          />
-        </ThemeProvider>
+        <App
+          cwd={options.cwd}
+          createChannel={createChannel}
+          providerOverride={options.providerOverride}
+          providerType={options.providerType}
+          modelId={options.modelId}
+          permissionMode={options.permissionMode}
+          version={options.version}
+          sessionStore={options.sessionStore}
+          resumeSessionId={options.resumeSessionId}
+          showSessionPickerOnStart={options.showSessionPickerOnStart}
+          startupUpdateNotice={options.startupUpdateNotice}
+          transportRegistry={options.transportRegistry}
+          pluginAdapter={options.commandHostAdapters?.plugin}
+          cliAdapter={options.cliAdapter}
+          promptHistorySource={options.promptHistorySource}
+          promptHistoryProject={options.promptHistoryProject}
+          themeRegistry={options.themeRegistry}
+          reducedMotion={options.reducedMotion}
+        />
       </ScreenReaderProvider>
     </KeybindingsProvider>,
     { exitOnCtrlC: false, isScreenReaderEnabled: screenReader, stdin: stdin.asInkStdin() },

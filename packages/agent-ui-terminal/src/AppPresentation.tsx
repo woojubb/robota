@@ -18,6 +18,7 @@ import SessionPicker from './SessionPicker.js';
 import SessionStatusBar from './SessionStatusBar.js';
 import StreamingIndicator from './StreamingIndicator.js';
 import { usePalette } from './theme/index.js';
+import ThemePicker from './ThemePicker.js';
 import TransportTUI from './TransportTUI.js';
 import UpdateNotice from './UpdateNotice.js';
 
@@ -114,6 +115,7 @@ function Overlays({ model }: { model: IAppViewModel }): React.ReactElement {
           onCancel={sessionPicker.cancel}
         />
       )}
+      {model.theme.picker.visible && <ThemePicker picker={model.theme.picker} />}
     </>
   );
 }
@@ -171,6 +173,9 @@ export default function AppPresentation({
               {`Keybindings ${warning.path}: ${warning.message}`}
             </Text>
           ))}
+          {viewModel.theme.unknownThemeNotice !== undefined && (
+            <Text color={palette.text.warning}>{viewModel.theme.unknownThemeNotice}</Text>
+          )}
           <SessionEventNotices notices={viewModel.sessionEventNotices} />
           <Activity model={viewModel} />
           <Overlays model={viewModel} />

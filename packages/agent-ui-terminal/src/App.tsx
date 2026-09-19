@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AppView from './AppView.js';
 import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
 
+import type { IThemeRegistry } from './theme/theme-registry.js';
 import type { ITuiAppChannelPort } from './tui-app-channel-port.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
@@ -33,6 +34,10 @@ interface IProps {
   /** SCREEN-1993: the stored-prompt source and project key for the input area's search. */
   promptHistorySource?: IPromptHistorySource;
   promptHistoryProject?: string;
+  /** SCREEN-2002: the theme catalogue this run renders from; absent ⇒ the built-ins. */
+  themeRegistry?: IThemeRegistry;
+  /** SCREEN-2002: reduced motion as the product shell resolved it (settings ← env ← flag). */
+  reducedMotion?: boolean | undefined;
 }
 
 interface IActiveChannel {
@@ -123,6 +128,8 @@ export default function App(props: IProps): React.ReactElement {
         {...(props.promptHistoryProject !== undefined
           ? { promptHistoryProject: props.promptHistoryProject }
           : {})}
+        {...(props.themeRegistry !== undefined ? { themeRegistry: props.themeRegistry } : {})}
+        {...(props.reducedMotion !== undefined ? { reducedMotion: props.reducedMotion } : {})}
       />
     </TuiCliAdapterProvider>
   );

@@ -8,7 +8,9 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { BUILT_IN_THEMES, DARK_THEME } from '../built-in-themes.js';
+import { DEFAULT_APPEARANCE_SETTINGS } from '@robota-sdk/agent-framework';
+
+import { BUILT_IN_THEMES, DARK_THEME, DEFAULT_THEME_ID } from '../built-in-themes.js';
 import { isThemeColor } from '../theme-styles.js';
 import { STATUS_SYMBOL, statusGlyphColor, type TUiStatusKind } from '../../status-glyph.js';
 
@@ -94,5 +96,22 @@ describe('status is never colour alone (SCREEN-2002 TC-05)', () => {
       cancelled: 'yellow',
       idle: 'gray',
     });
+  });
+});
+
+/**
+ * SCREEN-2002: the settings document's default theme id and this package's default built-in are two
+ * declarations of one fact, in two packages, because the dependency runs one way — `agent-framework`
+ * cannot read the catalogue. A silent divergence would not crash: it would resolve to "theme
+ * `<id>` is not installed" on every startup for a user who set nothing, which is the failure mode
+ * hardest to attribute. So it is pinned here, where both are importable.
+ */
+describe('the default theme id has one meaning across packages', () => {
+  it('matches the appearance settings default', () => {
+    expect(DEFAULT_THEME_ID).toBe(DEFAULT_APPEARANCE_SETTINGS.theme);
+  });
+
+  it('names a theme the catalogue actually holds', () => {
+    expect(BUILT_IN_THEMES.map((theme) => theme.id)).toContain(DEFAULT_APPEARANCE_SETTINGS.theme);
   });
 });

@@ -57,6 +57,20 @@ export {
   KeybindingsCommandSource,
   type IKeybindingsFilePort,
 } from './keybindings/index.js';
+export {
+  createThemeCommandEntry,
+  createThemeCommandModule,
+  executeThemeCommand,
+  ThemeCommandSource,
+} from './theme/index.js';
+// Re-exported from the contract package so a composition root that depends on this package — the
+// CLI — can name the port it injects without also depending on the interface package directly.
+export type {
+  IThemeAppearanceState,
+  IThemeCatalogueEntry,
+  IThemeCataloguePort,
+  TReducedMotionOverride,
+} from './theme/index.js';
 export * from './language/index.js';
 export * from './memory/index.js';
 export {

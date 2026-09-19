@@ -194,6 +194,8 @@ export type {
   IContextReferenceAddResult,
   IContextReferenceClearResult,
   IContextReferenceRemoveResult,
+  IAppearanceSettings,
+  TAppearanceSettingsPatch,
 } from './commands/index.js';
 export { parseModelEffort, resolveModelEffort } from './effort/index.js';
 export type {
@@ -307,6 +309,11 @@ export {
   isStatusLineCommandSettingsPatch,
   readStatusLineSettings,
   applyStatusLineSettings,
+  APPEARANCE_SETTINGS_KEYS,
+  applyAppearanceSettings,
+  DEFAULT_APPEARANCE_SETTINGS,
+  isAppearanceSettingsPatch,
+  readAppearanceSettings,
   isCommandMemoryType,
   inspectCommandEditCheckpoint,
   listCommandEditCheckpoints,

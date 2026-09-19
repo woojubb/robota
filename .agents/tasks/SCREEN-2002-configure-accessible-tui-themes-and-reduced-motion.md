@@ -24,7 +24,7 @@ persists three flat settings keys and the TUI never writes them.
 
 Three work units under one design gate (the PR Unit Rule), delivered in order, each as its own PR.
 
-- [ ] Unit 1 — TC-01, TC-02, TC-03, TC-04, TC-05, TC-06: the `ITuiTheme` token model and its chalk style
+- [x] Unit 1 — TC-01, TC-02, TC-03, TC-04, TC-05, TC-06: the `ITuiTheme` token model and its chalk style
       builder, the four built-ins (daltonized in hex, CVD-guarded), the provider and hooks, the ~31-file
       `PALETTE` migration with the non-React consumers returning token keys, the deletion of
       `tui-palette.ts` and `tui-ansi-palette.ts`, the two consistency ratchets, `useMotion` with its two
@@ -37,6 +37,11 @@ Three work units under one design gate (the PR Unit Rule), delivered in order, e
 - [ ] Unit 3 — TC-11: user themes from `~/.robota/themes` and plugin themes from the plugin scopes, the
       whole-file-refusal validator with path-named diagnostics, and the visible skip lines.
 - [ ] TC-13: the PTY scenario over the built CLI.
+
+Unit 1 delivered in PR #2752, merged to `develop` as `b1689aa8541ba03010053bd5452ba30bebfe4bcd`
+(reviewed head `f16d5c7630b5db8feeac9b59781ee33afacacaf6`). This Task stays `in-progress`: the item
+spans three pull requests by design (`**Delivery mode:** sequenced`), and units 2 and 3 are open.
+
 - [ ] TC-12: Engineering verification.
 
 ## Test Plan

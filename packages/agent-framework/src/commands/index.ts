@@ -204,6 +204,17 @@ export {
   readStatusLineSettings,
   applyStatusLineSettings,
 } from '../command-api/statusline/statusline-command-api.js';
+export {
+  APPEARANCE_SETTINGS_KEYS,
+  applyAppearanceSettings,
+  DEFAULT_APPEARANCE_SETTINGS,
+  isAppearanceSettingsPatch,
+  readAppearanceSettings,
+} from '../command-api/appearance/appearance-command-api.js';
+export type {
+  IAppearanceSettings,
+  TAppearanceSettingsPatch,
+} from '../command-api/appearance/appearance-command-api.js';
 export type {
   ICommandAvailablePlugin,
   ICommandInstalledPlugin,

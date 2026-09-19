@@ -14,6 +14,10 @@
 
 import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 
+import {
+  isAppearanceSettingsPatch,
+  readAppearanceSettings,
+} from '../command-api/appearance/appearance-command-api.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
 import {
   isStatusLineCommandSettingsPatch,
@@ -194,6 +198,18 @@ async function applyOneHostAction(
         const document = settings.read();
         const next = { ...readStatusLineSettings(document), ...action.patch };
         settings.write({ ...document, statusline: next });
+        return null;
+      }
+      case 'appearance-settings-patch': {
+        const settings = adapters.settings;
+        if (!settings) return missingCapabilityFailure(action.type, 'a settings adapter');
+        if (!isAppearanceSettingsPatch(action.patch))
+          return actionErrorFailure(action.type, new Error('invalid appearance settings patch'));
+        const document = settings.read();
+        // SCREEN-2002: three FLAT keys, spread onto the document rather than nested under one —
+        // the shape `screenReader` and `outputStyle` already use, and the shape a user editing the
+        // file by hand expects.
+        settings.write({ ...document, ...readAppearanceSettings(document), ...action.patch });
         return null;
       }
       case 'remote-control-enable': {

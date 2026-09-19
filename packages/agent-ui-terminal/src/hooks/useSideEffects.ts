@@ -25,6 +25,8 @@ import type { ISessionRenamedEvent, IUiIntentEvent } from '@robota-sdk/agent-int
 interface IUiEventHandlers {
   setSessionName: (name: string) => void;
   refreshStatusLineSettings: () => void;
+  /** SCREEN-2002: re-read the persisted appearance after a slash command may have patched it. */
+  refreshAppearanceSettings: () => void;
   openAgentSwitcher?: (() => void) | undefined;
 }
 
@@ -32,6 +34,7 @@ interface IScreenSetters {
   setShowPluginTUI: (show: boolean) => void;
   setShowTransportTUI: (show: boolean) => void;
   setShowSessionPicker: (show: boolean) => void;
+  setShowThemePicker: (show: boolean) => void;
 }
 
 /** Subscribe to `ui_intent` (requester-routed) + `session_renamed` (broadcast); returns cleanup. */
@@ -57,6 +60,9 @@ function subscribeToSessionUiEvents(
       case 'show-agent-switcher':
         handlersRef.current.openAgentSwitcher?.();
         return;
+      case 'show-theme-picker':
+        screens.setShowThemePicker(true);
+        return;
     }
   };
   const onSessionRenamed = (event: ISessionRenamedEvent): void => {
@@ -70,36 +76,42 @@ function subscribeToSessionUiEvents(
   };
 }
 
+/**
+ * Latest-callback refs so the session subscription binds exactly once per session: App recreates
+ * some callbacks every render, and re-subscribing on each identity change would churn listeners.
+ */
+function useLatestHandlers(handlers: IUiEventHandlers): { current: IUiEventHandlers } {
+  const ref = useRef(handlers);
+  ref.current = handlers;
+  return ref;
+}
+
 export function useSideEffects({
   uiEventPort,
   baseHandleSubmit,
   setSessionName,
   refreshStatusLineSettings,
+  refreshAppearanceSettings,
   showSessionPickerOnStart,
   openAgentSwitcher,
 }: IUseSideEffectsOptions): IUseSideEffectsResult {
   const [showPluginTUI, setShowPluginTUI] = useState(false);
   const [showSessionPicker, setShowSessionPicker] = useState(showSessionPickerOnStart ?? false);
   const [showTransportTUI, setShowTransportTUI] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
 
-  // Latest-callback refs so the session subscription binds exactly once per session (App recreates
-  // some callbacks every render; re-subscribing on each identity change would churn listeners).
-  const handlersRef = useRef({
+  const handlersRef = useLatestHandlers({
     setSessionName,
     refreshStatusLineSettings,
+    refreshAppearanceSettings,
     openAgentSwitcher,
   });
-  handlersRef.current = {
-    setSessionName,
-    refreshStatusLineSettings,
-    openAgentSwitcher,
-  };
 
   useLayoutEffect(
     () =>
       subscribeToSessionUiEvents(
         uiEventPort,
-        { setShowPluginTUI, setShowTransportTUI, setShowSessionPicker },
+        { setShowPluginTUI, setShowTransportTUI, setShowSessionPicker, setShowThemePicker },
         handlersRef,
       ),
     [uiEventPort],
@@ -112,6 +124,7 @@ export function useSideEffects({
       // persisted statusline settings — re-read them for the status bar.
       if (input.trimStart().startsWith('/')) {
         handlersRef.current.refreshStatusLineSettings();
+        handlersRef.current.refreshAppearanceSettings();
       }
     },
     [baseHandleSubmit],
@@ -122,8 +135,10 @@ export function useSideEffects({
     showPluginTUI,
     showSessionPicker,
     showTransportTUI,
+    showThemePicker,
     setShowPluginTUI,
     setShowSessionPicker,
     setShowTransportTUI,
+    setShowThemePicker,
   };
 }

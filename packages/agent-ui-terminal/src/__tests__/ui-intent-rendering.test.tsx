@@ -85,6 +85,7 @@ interface IHarness {
   spies: {
     setSessionName: ReturnType<typeof vi.fn>;
     refreshStatusLineSettings: ReturnType<typeof vi.fn>;
+    refreshAppearanceSettings: ReturnType<typeof vi.fn>;
     openAgentSwitcher: ReturnType<typeof vi.fn>;
     baseHandleSubmit: ReturnType<typeof vi.fn>;
   };
@@ -95,6 +96,7 @@ function mountHarness(): IHarness {
   const spies = {
     setSessionName: vi.fn(),
     refreshStatusLineSettings: vi.fn(),
+    refreshAppearanceSettings: vi.fn(),
     openAgentSwitcher: vi.fn(),
     baseHandleSubmit: vi.fn(async () => {}),
   };
@@ -115,6 +117,7 @@ function mountHarness(): IHarness {
     setSessionName: spies.setSessionName,
     setStatusLineSettings: vi.fn(),
     refreshStatusLineSettings: spies.refreshStatusLineSettings,
+    refreshAppearanceSettings: spies.refreshAppearanceSettings,
     showSessionPickerOnStart: false,
     openAgentSwitcher: spies.openAgentSwitcher,
   } as unknown as IUseSideEffectsOptions;
@@ -240,6 +243,9 @@ describe('statusline refresh-on-result (CMD-004 Stage C)', () => {
     await h.result().handleSubmit('/statusline off');
     expect(h.spies.baseHandleSubmit).toHaveBeenCalledWith('/statusline off');
     expect(h.spies.refreshStatusLineSettings).toHaveBeenCalledTimes(1);
+    // SCREEN-2002: the appearance is re-read on the same signal — a `/theme` result has already
+    // been written to the settings document by the host when this fires.
+    expect(h.spies.refreshAppearanceSettings).toHaveBeenCalledTimes(1);
     h.unmount();
   });
 
@@ -247,6 +253,7 @@ describe('statusline refresh-on-result (CMD-004 Stage C)', () => {
     const h = mountHarness();
     await h.result().handleSubmit('hello there');
     expect(h.spies.refreshStatusLineSettings).not.toHaveBeenCalled();
+    expect(h.spies.refreshAppearanceSettings).not.toHaveBeenCalled();
     h.unmount();
   });
 });

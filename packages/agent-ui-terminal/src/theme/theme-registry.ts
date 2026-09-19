@@ -1,0 +1,95 @@
+/**
+ * SCREEN-2002 — the theme catalogue, and the port the command layer asks through.
+ *
+ * The registry is the only thing that turns an ID into a theme. Work unit 1 put the built-ins
+ * behind `listBuiltInThemes()`; work unit 3 adds user and plugin themes to the same list, and
+ * nothing downstream has to learn where a theme came from — a row carries its `source` so the
+ * picker and `/theme list` can SAY where it came from, which is a different question.
+ *
+ * An unknown id resolves to the default and reports the id it could not find. Resolving silently
+ * would make a removed plugin look like a theme that stopped working, and the id is the only thing
+ * that can name the cause.
+ */
+import { DEFAULT_THEME_ID, listBuiltInThemes, resolveTheme } from './built-in-themes.js';
+
+import type { ITuiTheme } from './theme-contracts.js';
+import type {
+  IThemeAppearanceState,
+  IThemeCatalogueEntry,
+  IThemeCataloguePort,
+  TReducedMotionOverride,
+} from '@robota-sdk/agent-interface-command';
+
+export interface IThemeResolution {
+  readonly theme: ITuiTheme;
+  /** The id that was asked for and not found. Absent ⇒ the request was satisfied. */
+  readonly unknownId?: string;
+}
+
+export interface IThemeRegistry {
+  list(): readonly ITuiTheme[];
+  get(id: string): ITuiTheme | undefined;
+  /** The theme for an id, falling back to the default and NAMING what it could not find. */
+  resolve(id: string | undefined): IThemeResolution;
+}
+
+export function createThemeRegistry(
+  themes: readonly ITuiTheme[] = listBuiltInThemes(),
+): IThemeRegistry {
+  const byId = new Map(themes.map((theme) => [theme.id, theme]));
+  return {
+    list: () => themes,
+    get: (id) => byId.get(id),
+    resolve: (id) => {
+      if (id === undefined || id === DEFAULT_THEME_ID) {
+        return { theme: resolveTheme(byId.get(DEFAULT_THEME_ID)) };
+      }
+      const found = byId.get(id);
+      if (found) return { theme: found };
+      return { theme: resolveTheme(byId.get(DEFAULT_THEME_ID)), unknownId: id };
+    },
+  };
+}
+
+/** The line a run prints once when its persisted theme is not installed. */
+export function formatUnknownThemeNotice(id: string): string {
+  return `Theme "${id}" is not installed — using "${DEFAULT_THEME_ID}".`;
+}
+
+function toEntry(theme: ITuiTheme): IThemeCatalogueEntry {
+  return {
+    id: theme.id,
+    name: theme.name,
+    appearance: theme.appearance,
+    source: theme.source,
+  };
+}
+
+export interface IThemeCataloguePortOptions {
+  readonly registry: IThemeRegistry;
+  /**
+   * Re-read on every call, not captured once: `/theme` reports what is PERSISTED, and the host
+   * applies a patch by writing the settings document. A snapshot would answer with the appearance
+   * the process started with, so the command would report the change it just made as not having
+   * happened.
+   */
+  readonly readAppearance: () => IThemeAppearanceState['settings'];
+  /** The tier that pinned reduced motion for this run, when one did. */
+  readonly reducedMotionOverride?: TReducedMotionOverride | undefined;
+}
+
+export function createThemeCataloguePort(options: IThemeCataloguePortOptions): IThemeCataloguePort {
+  return {
+    listThemes: () => options.registry.list().map(toEntry),
+    getTheme: (id) => {
+      const theme = options.registry.get(id);
+      return theme ? toEntry(theme) : undefined;
+    },
+    getAppearance: () => ({
+      settings: options.readAppearance(),
+      ...(options.reducedMotionOverride === undefined
+        ? {}
+        : { reducedMotionOverride: options.reducedMotionOverride }),
+    }),
+  };
+}

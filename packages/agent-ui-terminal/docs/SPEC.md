@@ -248,6 +248,12 @@ the transport boundary.
 | `IKeybindingWarning`            | type     | Non-fatal warning contract for keybinding limitations                                                                                                                                                |
 | `TKeybindingAction`             | type     | Semantic action identifier union per context                                                                                                                                                         |
 | `TKeybindingContext`            | type     | Interaction context identifier union                                                                                                                                                                 |
+| `createThemeRegistry`           | function | SCREEN-2002: the catalogue of themes this surface can render, built from the built-ins                                                                                                               |
+| `createThemeCataloguePort`      | function | SCREEN-2002: the catalogue as the `/theme` command asks it — ids and the persisted appearance, never colours                                                                                         |
+| `IThemeRegistry`                | type     | Return type of `createThemeRegistry`: list, get, and resolve-with-a-named-miss                                                                                                                       |
+| `IThemeResolution`              | type     | A resolved theme, plus the id it could not find when it fell back                                                                                                                                    |
+| `IThemeCataloguePortOptions`    | type     | Options interface for `createThemeCataloguePort`                                                                                                                                                     |
+| `ITuiTheme`                     | type     | SCREEN-2002: one theme's colour, markdown, syntax and motion tokens                                                                                                                                  |
 
 ## Interaction Affordance Contract (SCREEN-005)
 

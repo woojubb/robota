@@ -70,6 +70,9 @@
         },
         "history-search": {
           "$ref": "#/$defs/history-search"
+        },
+        "theme-picker": {
+          "$ref": "#/$defs/theme-picker"
         }
       }
     }
@@ -418,6 +421,24 @@
           "$ref": "#/$defs/binding"
         },
         "execute": {
+          "$ref": "#/$defs/binding"
+        },
+        "cancel": {
+          "$ref": "#/$defs/binding"
+        }
+      }
+    },
+    "theme-picker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "previous": {
+          "$ref": "#/$defs/binding"
+        },
+        "next": {
+          "$ref": "#/$defs/binding"
+        },
+        "select": {
           "$ref": "#/$defs/binding"
         },
         "cancel": {
