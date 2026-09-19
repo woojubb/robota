@@ -1,3 +1,4 @@
+import { isJsonRecord } from '../json-value.js';
 import {
   DEFAULT_KEYBINDINGS,
   KEYBINDING_ACTIONS,
@@ -12,6 +13,8 @@ import {
   normalizeBinding,
   type IKeyInput,
 } from './keybinding-syntax.js';
+
+import type { TJsonValue } from '../json-value.js';
 
 export { DEFAULT_KEYBINDINGS } from './keybinding-catalogue.js';
 export type { IKeyInput } from './keybinding-syntax.js';
@@ -43,19 +46,10 @@ export type TParseKeybindingsResult =
   | { readonly ok: true; readonly snapshot: IKeybindingSnapshot }
   | { readonly ok: false; readonly diagnostic: IKeybindingDiagnostic };
 
-type TJsonValue = string | number | boolean | null | TJsonValue[] | TJsonRecord;
-interface TJsonRecord {
-  [key: string]: TJsonValue;
-}
-
 const CHORD_TIMEOUT_MS = 1_000;
 
 function diagnostic(file: string, path: string, message: string): TParseKeybindingsResult {
   return { ok: false, diagnostic: { file, path, message } };
-}
-
-function isRecord(value: TJsonValue): value is TJsonRecord {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function cloneDefaults(): Record<TKeybindingContext, Record<string, string[]>> {
@@ -148,9 +142,9 @@ export function parseKeybindingsDocument(text: string, file: string): TParseKeyb
   } catch (cause) {
     return diagnostic(file, '$', cause instanceof Error ? cause.message : 'Invalid JSON.');
   }
-  if (!isRecord(value)) return diagnostic(file, '$', 'Expected an object.');
+  if (!isJsonRecord(value)) return diagnostic(file, '$', 'Expected an object.');
   if (value.version !== 1) return diagnostic(file, '$.version', 'Expected version 1.');
-  if (!isRecord(value.bindings)) return diagnostic(file, '$.bindings', 'Expected an object.');
+  if (!isJsonRecord(value.bindings)) return diagnostic(file, '$.bindings', 'Expected an object.');
 
   const effective = cloneDefaults();
   const warnings: IKeybindingWarning[] = [];
@@ -159,7 +153,7 @@ export function parseKeybindingsDocument(text: string, file: string): TParseKeyb
       return diagnostic(file, `$.bindings.${rawContext}`, 'Unknown keybinding context.');
     }
     const context = rawContext as TKeybindingContext;
-    if (!isRecord(rawActions)) {
+    if (!isJsonRecord(rawActions)) {
       return diagnostic(file, `$.bindings.${context}`, 'Expected an action object.');
     }
     for (const [action, rawBindings] of Object.entries(rawActions)) {

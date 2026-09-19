@@ -9,15 +9,24 @@
  * because a composition belongs beside its siblings in `startup/`, not in the shell that calls it.
  */
 import { getUserSettingsPath, readSettings } from '@robota-sdk/agent-framework';
-import { createThemeCataloguePort, createThemeRegistry } from '@robota-sdk/agent-ui-terminal';
+import {
+  createThemeCataloguePort,
+  createThemeRegistry,
+  listBuiltInThemes,
+} from '@robota-sdk/agent-ui-terminal';
 
 import { resolveAppearanceRenderFields } from './appearance-enablement.js';
+import { loadThemeSources } from './theme-sources.js';
 
-import type { IThemeRegistry } from '@robota-sdk/agent-ui-terminal';
+import type { IThemeRegistry, IThemeSkip } from '@robota-sdk/agent-ui-terminal';
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 import type { IThemeCataloguePort, TReducedMotionOverride } from '@robota-sdk/agent-command';
 
 export interface IThemeSurfaceOptions {
+  /** Where the run was started, for the plugin scopes. `undefined` leaves the user scope alone. */
+  readonly cwd: string | undefined;
+  /** The home directory `~/.robota/themes` is read from. Home-only, like `~/.robota/output-styles`. */
+  readonly userHome: string;
   /**
    * Whether this run renders a terminal UI at all. Print mode, `--goal` and `--serve` render no
    * themes, so they get no registry and no command — the same absence that keeps `/keybindings`
@@ -33,6 +42,12 @@ export interface IThemeSurfaceOptions {
 
 export interface IThemeSurface {
   readonly registry: IThemeRegistry | undefined;
+  /**
+   * The theme files that were found and refused. Printed once at startup, and carried on the
+   * registry so the picker can show the same file as a disabled row — one list, two surfaces,
+   * rather than a printed line the picker knows nothing about.
+   */
+  readonly skipped: readonly IThemeSkip[];
   readonly cataloguePort: IThemeCataloguePort | undefined;
   /** What this run renders with, after settings ← env ← flag. */
   readonly reducedMotion: boolean;
@@ -57,9 +72,15 @@ export function createThemeSurface(options: IThemeSurfaceOptions): IThemeSurface
       : { reducedMotionOverride: resolved.reducedMotionOverride }),
   };
   if (!options.enabled) {
-    return { registry: undefined, cataloguePort: undefined, ...motion };
+    // No terminal UI, so no theme is rendered and no file is read: a print-mode run must not spend
+    // a directory walk, and must not print a skip line about a file nothing was going to use.
+    return { registry: undefined, cataloguePort: undefined, skipped: [], ...motion };
   }
-  const registry = createThemeRegistry();
+  const sources = loadThemeSources({ cwd: options.cwd, userHome: options.userHome });
+  const registry = createThemeRegistry(
+    [...listBuiltInThemes(), ...sources.themes],
+    sources.skipped,
+  );
   const cataloguePort = createThemeCataloguePort({
     registry,
     // Re-read per call, never the startup snapshot: the host writes the settings document when it
@@ -69,7 +90,12 @@ export function createThemeSurface(options: IThemeSurfaceOptions): IThemeSurface
       resolveAppearanceRenderFields(readSettings(getUserSettingsPath()), undefined, {}).appearance,
     ...(resolved.reducedMotionOverride === undefined
       ? {}
-      : { reducedMotionOverride: resolved.reducedMotionOverride }),
+      : {
+          reducedMotionPin: {
+            tier: resolved.reducedMotionOverride,
+            reducedMotion: resolved.reducedMotion,
+          },
+        }),
   });
-  return { registry, cataloguePort, ...motion };
+  return { registry, cataloguePort, skipped: sources.skipped, ...motion };
 }

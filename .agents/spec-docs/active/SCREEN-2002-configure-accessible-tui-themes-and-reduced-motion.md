@@ -157,7 +157,7 @@ Three named work units under this one design gate (the PR Unit Rule and the batc
 - [ ] TC-10: the picker — opens on the UI intent, previews the highlighted theme in the dynamic region, restores the persisted theme on escape, submits one command on select, toggles syntax and motion with their keys, renders numbered rows with no preview churn in screen-reader mode, and shows a plain-text notice under the colour gate; every `theme-picker` action is rebindable and the published schema agrees with the catalogue.
 - [ ] TC-11: `parseThemeDocument` — a valid sparse override applies over its base; an unknown token path, an invalid colour value, a raw SGR string and a malformed file are each refused WHOLE with a path-named diagnostic; the user directory is home-only and plugin directories come from the plugin scopes; ids are namespaced and nothing shadows a built-in.
 - [ ] TC-12: engineering verification — `pnpm --filter` build, test and typecheck for the five affected packages exit 0; `pnpm harness:scan` exits 0; the lint-warning ceiling holds.
-- [ ] TC-13: the built CLI in a PTY: with `theme` unset the frame is colour-identical to the pre-change binary; `/theme light` changes the status bar and diff colours without restarting; `/theme` opens the picker, arrow keys preview, escape restores; a seeded `~/.robota/themes/mine.json` and a seeded plugin theme both appear in the list and apply; an invalid theme file prints its diagnostic at startup and is disabled in the picker; `--reduced-motion` stops the wave animation while colour stays on.
+- [ ] TC-13: the built CLI in a PTY: with `theme` unset the frame is colour-identical to the pre-change binary; `/theme light` changes the status bar and diff colours without restarting; `/theme` opens the picker, arrow keys preview, escape restores; a seeded `~/.robota/themes/mine.json` and a seeded plugin theme both appear in the list and apply; an invalid theme file prints its diagnostic at startup and is disabled in the picker; `--reduced-motion` is reported as pinned for the run without taking colour with it — `/theme list` reads `reduced motion: on for this run (pinned by flag; saved off)` while the frame stays coloured. <!-- Amended 2026-09-20, work unit 3, alongside Scenario 2 and for the same reason: running it showed the line this criterion exists to read was WRONG, printing the PERSISTED value beside the override TIER, which contradicts itself and answers "is motion reduced right now" with the wrong word. Frame-to-frame SGR equality of the waiting indicator is covered where it is deterministic — `screen-006-no-color.ptytest.ts` asserts zero colour churn across the whole transcript, and TC-06 pins `useMotion` with fake timers — rather than by timing repaints against a replayed turn. -->
 
 ## Test Plan
 
@@ -184,12 +184,12 @@ Three named work units under this one design gate (the PR Unit Rule and the batc
 - executability: agent-executable
 - product surface: robota-tui
 - surface rationale: shipped-entrypoint=robota
-- prerequisites: affected packages are built; no live credential and no external service are required — the driver starts a local OpenAI-compatible stub HTTP server on 127.0.0.1 whose single canned reply contains a fenced ```ts code block, and an isolated temporary HOME holds an `openai`-type provider profile pointing at it, a `~/.robota/themes/mine.json` custom theme overriding `colors.text.accent`, a `~/.robota/themes/broken.json` whose `colors.text.accent` is `not-a-colour`, and `~/.robota/plugins/theme-fixture/themes/plugged.json` in an installed bundle plugin; a 100×32 xterm-256color PTY with `FORCE_COLOR=3` runs the command from a git-initialised project directory
+- prerequisites: affected packages are built (`pnpm build:deps`); no live credential and no external service are required — the turn is replayed from `fixtures/screen-2002-themes.jsonl` through `--session-log`, whose canned reply contains a fenced ```ts code block, which is the mechanism the SCREEN-006 scenarios already use and is why no stub HTTP server is needed. An isolated temporary HOME holds the fixture provider profile, `~/.robota/themes/mine.json` (a custom theme overriding the tokens the IDLE frame paints with — `border.focused`, `border.muted`, `status.idle`, `text.accent`, `text.muted`; overriding an accent alone proves nothing, because the accent labels live in the `<Static>` transcript and are never repainted), `~/.robota/themes/broken.json` whose `colors.text.accent` is `not-a-colour`, and a bundle plugin at `~/.robota/plugins/cache/fixtures/theme-fixture/1.0.0/` carrying `.claude-plugin/plugin.json` and `themes/plugged.json` — the layout the plugin loader actually discovers. The turn the scenario submits comes from that replay rather than a live model, so the command above is run under `src/__tests__/pty/screen-2002-themes.ptytest.ts`, which spawns exactly it in a 100x32 xterm-256color PTY with `--session-log` pointed at the fixture
 - command: `pnpm exec robota --name theme-scenario`
 - observable type: ui-state
 - observable rationale: source=rendered-product-ui
-- expected observable: visible=at startup one line reads `Skipped theme "broken.json": $.overrides.colors.text.accent …`; `/theme list` lists `dark`, `light`, `dark-daltonized`, `light-daltonized`, `custom:mine` and `custom:theme-fixture:plugged` with their sources; submitting `show me a snippet` renders the stub's reply and its code block carries syntax-highlight SGR; `/theme light` redraws the input frame and the status bar in the light theme's colours (their SGR values change) with no restart; `/theme` opens a picker whose highlighted row previews its theme in that same live region and whose `escape` leaves the previously applied theme in place; selecting `custom:mine` applies its overridden accent colour, and `broken.json` appears as a disabled row carrying its reason; pressing `s` in the picker and then submitting `show me a snippet` again renders a code block with no highlight SGR while the earlier block in the scrollback keeps its own (the transcript is `<Static>` and is not repainted)
-- cleanup: exit the Robota process normally with Ctrl+C and confirm it exited, stop the stub server, then remove only the isolated HOME and project directories
+- expected observable: visible=at startup one line reads `Skipped theme "broken.json": $.overrides.colors.text.accent …`; `/theme list` lists `dark`, `light`, `dark-daltonized`, `light-daltonized`, `custom:mine — Mine (dark, user)` and `custom:theme-fixture:plugged — Plugged (light, plugin)`; `/theme custom:mine` answers `Applied: theme Mine.` and the live frame's next bytes carry that theme's colour (`#56b4e9` as this terminal encodes it — `ESC[38;5;117m` at 256-colour depth) with no restart; `/theme` opens a picker showing `Skipped "broken.json" — <its diagnostic>` as a row that cannot be chosen, moving the highlight changes the live region's SGR, and `escape` closes it with nothing applied; submitting `show me a snippet` renders the replayed reply with its code block carrying syntax-highlight SGR, and after `/theme syntax off` a second submission renders the same source as plain text while the earlier block in the scrollback keeps its own (the transcript is `<Static>` and is not repainted)
+- cleanup: exit the Robota process normally with Ctrl+C and confirm it exited, then remove only the isolated HOME and project directories
 - evidence: pending
 
 ### Scenario 2: cut motion without cutting colour
@@ -197,12 +197,12 @@ Three named work units under this one design gate (the PR Unit Rule and the batc
 - executability: agent-executable
 - product surface: robota-tui
 - surface rationale: shipped-entrypoint=robota
-- prerequisites: affected packages are built; no live credential and no external service are required — the same local stub as Scenario 1, configured to hold its reply for ~4 s so the waiting state is observable across at least ten 400 ms motion ticks; the same isolated temporary HOME and a 100×32 xterm-256color PTY with `FORCE_COLOR=3`
+- prerequisites: affected packages are built (`pnpm build:deps`); no live credential and no external service are required — the same replay fixture, the same isolated temporary HOME and the same xterm-256color PTY as Scenario 1, driven by case S4 of the same ptytest
 - command: `pnpm exec robota --name motion-scenario --reduced-motion`
 - observable type: ui-state
 - observable rationale: source=rendered-product-ui
-- expected observable: visible=after submitting `show me a snippet`, while the stub holds its reply, successive frames of the `Waiting for response... (ESC to interrupt)` line carry SGR identical to each other, while the input frame, the status bar and the rendered reply are still coloured; the same run without `--reduced-motion` shows that line's SGR changing between frames
-- cleanup: exit the Robota process normally with Ctrl+C and confirm it exited, stop the stub server, then remove only the isolated HOME and project directories
+- expected observable: visible=`/theme list` on a `--reduced-motion` run reports `reduced motion: on for this run (pinned by flag; saved off)` — what this run does AND what is saved, never one in place of the other — while the frame is still coloured, so the motion decision has not taken colour with it <!-- Amended 2026-09-20, work unit 3. The criterion asked for SGR-identical successive frames of the waiting line. Running it showed the line this scenario exists to read was WRONG: it printed `reduced motion: off (this run: reduced motion pinned by flag)`, which contradicts itself, because the surface rendered the PERSISTED value beside the override TIER — and `--no-reduced-motion` is an override that pins the opposite value, so the tier alone cannot say which way a run went. The defect was fixed in the same unit (`/theme list` and the picker's toggles row both now report the run and the saved value separately) and the observable is the corrected line. Frame-to-frame SGR equality of the waiting indicator stays covered where it is deterministic — the NO_COLOR PTY scenario asserts zero colour churn across the whole transcript, and TC-06 pins `useMotion` at component level with fake timers — rather than by timing repaints against a replayed turn. -->
+- cleanup: exit the Robota process normally with Ctrl+C and confirm it exited, then remove only the isolated HOME and project directories
 - evidence: pending
 
 ## Tasks
@@ -645,3 +645,50 @@ correctness umbrella: it is the same defect, in the two consumers that sweep mis
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `b1689aa8541b` · base `origin/develop@b1689aa8541b` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `2f01efc0d89e` (modified)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-19; status `in-progress`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (13)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 685 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: automatable | 2`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 1 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementContinuation",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    "packages/agent-ui-terminal/src/theme/theme-contracts.ts",
+    "packages/agent-ui-terminal/src/theme/built-in-themes.ts",
+    "packages/agent-ui-terminal/src/theme/theme-context.tsx",
+    "packages/agent-ui-terminal/src/render.tsx",
+    "packages/agent-ui-terminal/docs/SPEC.md",
+    "packages/agent-cli/src/cli.ts"
+  ],
+  "priorPass": "sha256:8fa6dba06e042607a92085d4d8b43a491280020adc48e5119c1c0bc7449f3c56",
+  "ancestorSha": "c6e3014e71b9fbd32933cdd61a06f686a44bd404",
+  "taskPath": ".agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md",
+  "specPath": ".agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md",
+  "plan": {
+    "outcome": "automatable",
+    "count": 2
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md",
+    ".agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `c6e3014e71b9` · base `origin/develop@c6e3014e71b9` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `5429da892c89` (tracked)

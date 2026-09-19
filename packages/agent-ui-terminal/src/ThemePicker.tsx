@@ -25,7 +25,7 @@ import { usePalette } from './theme/index.js';
 
 import type { IAppThemePickerViewModel, IThemeToggles } from './hooks/useAppThemeState.js';
 import type { ITuiTheme } from './theme/index.js';
-import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
+import type { IThemeSkip } from './theme/theme-registry.js';
 
 function describeTheme(theme: ITuiTheme, isActive: boolean): string {
   const active = isActive ? ' (current)' : '';
@@ -229,21 +229,67 @@ function ColourGateNotice(): React.ReactElement {
   );
 }
 
+/**
+ * The theme files this run found and refused. They are shown, never offered: a row a user cannot
+ * pick is still the only place that says why the theme they wrote is not in the list — without it
+ * the file just silently is not there, and the startup line has long since scrolled away.
+ */
+function SkippedRows({ skipped }: { skipped: readonly IThemeSkip[] }): React.ReactElement {
+  if (skipped.length === 0) return <></>;
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      {/*
+        Keyed by POSITION, not by id. `IThemeSkip.id` is a LABEL and its contract says so: a
+        scope-level failure carries one id for a whole scope, and two scopes can both fail, so two
+        rows can share it. A duplicate React key would put a warning on stderr from inside the live
+        frame, corrupting the frame it is complaining about.
+
+        Recorded limit: no test pins this. Rendering two same-id rows under ink-testing-library
+        produced both rows and no warning on `console.error`, so a test asserting the warning's
+        ABSENCE is green either way — an unfalsifiable guard, which is worse than none. The reason
+        is written here instead of measured.
+      */}
+      {skipped.map((skip, index) => (
+        <Text key={index} dimColor>
+          {`${SELECTION_INDICATOR_NONE}Skipped "${skip.fileName}" — ${skip.reason}`}
+        </Text>
+      ))}
+    </Box>
+  );
+}
+
 function TogglesRow({
   toggles,
-  reducedMotionOverride,
+  reducedMotionPin,
+  screenReader,
 }: {
   toggles: IThemeToggles;
-  reducedMotionOverride?: TReducedMotionOverride | undefined;
+  reducedMotionPin?: IAppThemePickerViewModel['reducedMotionPin'];
+  screenReader: boolean;
 }): React.ReactElement {
   const on = (value: boolean): string => (value ? 'on' : 'off');
-  // The pin is admitted here as it is by `/theme list` and `/theme motion`. Without it this row can
-  // read `motion on` on a visibly still run — the one surface of the three that hides the pin.
-  const pinned = reducedMotionOverride === undefined ? '' : ` (pinned by ${reducedMotionOverride})`;
+  // The pin is admitted here as it is by `/theme list` and `/theme motion` — and it names what THIS
+  // RUN does, not only who decided it. The tier alone is not enough: `--no-reduced-motion` is an
+  // override too and pins the opposite value, so a row carrying the chosen value beside the tier
+  // can read `motion on (pinned by flag)` on a visibly still run.
+  const pinned =
+    reducedMotionPin === undefined
+      ? ''
+      : ` (this run: motion ${on(!reducedMotionPin.reducedMotion)}, pinned by ${reducedMotionPin.tier})`;
   return (
-    <Text dimColor>
-      {`syntax ${on(toggles.syntaxHighlighting)} · motion ${on(!toggles.reducedMotion)}${pinned}`}
-    </Text>
+    <Box flexDirection="column">
+      <Text dimColor>
+        {`syntax ${on(toggles.syntaxHighlighting)} · motion ${on(!toggles.reducedMotion)}${pinned}`}
+      </Text>
+      {/*
+        The mode takes a typed answer, so `s` and `m` are not bound in it — but the state above is
+        still worth reading before choosing. So the state stays and the AFFORDANCE changes: this
+        names a route the mode can actually take, instead of leaving two keys silently inert.
+      */}
+      {screenReader && (
+        <Text dimColor>Change with /theme syntax on|off or /theme motion on|off</Text>
+      )}
+    </Box>
   );
 }
 
@@ -296,7 +342,11 @@ export default function ThemePicker({
         Theme
       </Text>
       <ColourGateNotice />
-      <TogglesRow toggles={toggles} reducedMotionOverride={picker.reducedMotionOverride} />
+      <TogglesRow
+        toggles={toggles}
+        reducedMotionPin={picker.reducedMotionPin}
+        screenReader={screenReader}
+      />
       <Box flexDirection="column" marginTop={1}>
         <ThemeRows
           themes={themes}
@@ -305,6 +355,7 @@ export default function ThemePicker({
           screenReader={screenReader}
         />
       </Box>
+      <SkippedRows skipped={picker.skipped} />
       <ThemePickerFooter
         screenReader={screenReader}
         itemCount={themes.length}

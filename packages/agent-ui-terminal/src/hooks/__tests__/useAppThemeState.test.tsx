@@ -54,32 +54,49 @@ function submissionOf(toggles: IThemeToggles, appearance: IAppearanceSettings = 
  * earlier, one hop further in.
  */
 describe('the motion pin reaches the picker (SCREEN-2002 TC-08)', () => {
-  function overrideSeenBy(
+  function pinSeenBy(
     reducedMotionOverride?: 'flag' | 'environment' | 'screen-reader',
-  ): string | undefined {
-    let seen: string | undefined;
+    reducedMotion?: boolean,
+  ): { tier: string; reducedMotion: boolean } | undefined {
+    let seen: { tier: string; reducedMotion: boolean } | undefined;
     function Harness(): React.ReactElement {
       const theme = useAppThemeState({
         appearance: PERSISTED,
         ...(reducedMotionOverride === undefined ? {} : { reducedMotionOverride }),
+        ...(reducedMotion === undefined ? {} : { reducedMotion }),
         visible: true,
         setVisible: vi.fn(),
         submit: vi.fn(),
       });
-      seen = theme.picker.reducedMotionOverride;
+      seen = theme.picker.reducedMotionPin;
       return <></>;
     }
     render(<Harness />);
     return seen;
   }
 
-  it('carries the tier that pinned motion through to the picker', () => {
-    expect(overrideSeenBy('flag')).toBe('flag');
-    expect(overrideSeenBy('environment')).toBe('environment');
+  it('carries the tier AND what it pinned, which is not what is persisted', () => {
+    // The persisted value is `false`. A run pinned to `true` must report `true` — reading the
+    // persisted half here is the contradiction the pair exists to stop, and asserting only the
+    // tier leaves that rewrite green.
+    expect(PERSISTED.reducedMotion).toBe(false);
+    expect(pinSeenBy('flag', true)).toEqual({ tier: 'flag', reducedMotion: true });
+    // `--no-reduced-motion` over a persisted `true` is the opposite direction, which a tier alone
+    // cannot tell apart.
+    expect(pinSeenBy('environment', false)).toEqual({
+      tier: 'environment',
+      reducedMotion: false,
+    });
+  });
+
+  it('reports no pin at all when a caller supplies a tier without what it pinned', () => {
+    // Both halves or neither: pairing the tier with the PERSISTED value would name a direction the
+    // run may not have taken.
+    expect(pinSeenBy('flag')).toBeUndefined();
   });
 
   it('leaves it absent when the settings decided', () => {
-    expect(overrideSeenBy()).toBeUndefined();
+    expect(pinSeenBy()).toBeUndefined();
   });
 });
 

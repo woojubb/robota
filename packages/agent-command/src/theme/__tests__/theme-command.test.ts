@@ -33,6 +33,7 @@ const THEMES: IThemeCatalogueEntry[] = [
 function catalogue(
   state: Partial<IThemeAppearanceState['settings']> = {},
   reducedMotionOverride?: TReducedMotionOverride,
+  reducedMotionForRun?: boolean,
 ): IThemeCataloguePort {
   const settings = {
     theme: 'dark',
@@ -45,7 +46,14 @@ function catalogue(
     getTheme: (id) => THEMES.find((theme) => theme.id === id),
     getAppearance: () => ({
       settings,
-      ...(reducedMotionOverride === undefined ? {} : { reducedMotionOverride }),
+      ...(reducedMotionOverride === undefined
+        ? {}
+        : {
+            reducedMotionPin: {
+              tier: reducedMotionOverride,
+              reducedMotion: reducedMotionForRun ?? true,
+            },
+          }),
     }),
   };
 }
@@ -92,11 +100,23 @@ describe('/theme list (SCREEN-2002 TC-09)', () => {
     expect(result.hostActions).toBeUndefined();
   });
 
-  it('says so when this run s motion is pinned by something outside the settings', () => {
-    const result = executeThemeCommand(catalogue({ reducedMotion: false }, 'flag'), 'list');
+  it('reports what THIS RUN does and what is saved, never one in place of the other', () => {
+    // SCREEN-2002 TC-13 found this at the PTY level: reporting the persisted value beside the tier
+    // printed `reduced motion: off (… pinned by flag)` on a `--reduced-motion` run — a line that
+    // contradicts itself, and that answers "is motion reduced right now" with the wrong word.
+    const pinnedOn = executeThemeCommand(catalogue({ reducedMotion: false }, 'flag', true), 'list');
+    expect(pinnedOn.message).toContain(
+      'reduced motion: on for this run (pinned by flag; saved off)',
+    );
 
-    expect(result.message).toContain(
-      'reduced motion: off (this run: reduced motion pinned by flag)',
+    // `--no-reduced-motion` is an override too, and it pins the opposite value: a surface that
+    // renders the TIER alone cannot tell these two runs apart.
+    const pinnedOff = executeThemeCommand(
+      catalogue({ reducedMotion: true }, 'flag', false),
+      'list',
+    );
+    expect(pinnedOff.message).toContain(
+      'reduced motion: off for this run (pinned by flag; saved on)',
     );
   });
 });

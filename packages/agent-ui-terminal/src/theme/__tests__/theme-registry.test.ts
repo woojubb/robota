@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { DARK_THEME, LIGHT_THEME } from '../built-in-themes.js';
+import { DARK_THEME, LIGHT_THEME, listBuiltInThemes } from '../built-in-themes.js';
 import {
   createThemeCataloguePort,
   createThemeRegistry,
@@ -105,16 +105,34 @@ describe('the catalogue port (SCREEN-2002 TC-09)', () => {
       readAppearance: () => APPEARANCE,
     });
 
-    expect('reducedMotionOverride' in port.getAppearance()).toBe(false);
+    expect('reducedMotionPin' in port.getAppearance()).toBe(false);
   });
 
-  it('reports the tier that pinned reduced motion', () => {
+  it('reports the tier that pinned reduced motion AND what it pinned', () => {
+    // One pair, not two optional fields: a tier alone cannot say which way a run went, because
+    // `--no-reduced-motion` is an override too. The shape makes the half-supplied case unwritable.
     const port = createThemeCataloguePort({
       registry: createThemeRegistry(),
       readAppearance: () => APPEARANCE,
-      reducedMotionOverride: 'flag',
+      reducedMotionPin: { tier: 'flag', reducedMotion: false },
     });
 
-    expect(port.getAppearance().reducedMotionOverride).toBe('flag');
+    expect(port.getAppearance().reducedMotionPin).toEqual({ tier: 'flag', reducedMotion: false });
+  });
+});
+
+describe('a registry that also carries what it could not load (SCREEN-2002 TC-11)', () => {
+  const skip = { id: 'custom:broken', fileName: 'broken.json', reason: '$.overrides: boom' };
+
+  it('keeps skipped files out of the themes it can resolve', () => {
+    const registry = createThemeRegistry(listBuiltInThemes(), [skip]);
+    expect(registry.get('custom:broken')).toBeUndefined();
+    expect(registry.list().some((theme) => theme.id === 'custom:broken')).toBe(false);
+    expect(registry.resolve('custom:broken').unknownId).toBe('custom:broken');
+  });
+
+  it('reports them separately, so a surface can SHOW a file it will not apply', () => {
+    expect(createThemeRegistry(listBuiltInThemes(), [skip]).skipped()).toEqual([skip]);
+    expect(createThemeRegistry().skipped()).toEqual([]);
   });
 });

@@ -24,6 +24,9 @@ const ANSI256 = /^ansi256\((\d{1,3})\)$/iu;
 const RGB = /^rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)$/iu;
 const ANSI256_MAX = 255;
 
+/** The grammar, written once: the validator, the refusal below and the file parser all quote it. */
+export const THEME_COLOR_GRAMMAR = '<chalk name> | #rgb | #rrggbb | ansi256(n) | rgb(r,g,b)';
+
 /**
  * chalk's own name tables, which it exports; its styles are prototype getters, so a table has to be
  * built from the names rather than from `Object.keys(chalk)`. This is the same set Ink's `colorize`
@@ -55,8 +58,18 @@ export function isThemeColor(value: string): boolean {
   return isChalkColorName(value);
 }
 
-function chalkNamed(name: string): ChalkInstance {
-  return CHALK_STYLES.get(name) ?? chalk.reset;
+/**
+ * A value that reached the builder without being a colour is a DEFECT IN THIS PACKAGE, not in a
+ * user's file: `parseThemeDocument` refuses a theme file whole, and every built-in value is checked
+ * by TC-01. Before work unit 3 this case had two different silent answers — `foreground` handed
+ * back its base, `background`'s helper handed back `chalk.reset` — so the same bad value rendered
+ * as unstyled text in one place and as a reset in another, and neither said anything. Throwing is
+ * the one behaviour that cannot render a theme nobody can see is wrong.
+ */
+function refuseThemeColor(value: string): never {
+  throw new Error(
+    `Theme colour ${JSON.stringify(value)} is not in Ink's colour grammar (${THEME_COLOR_GRAMMAR}).`,
+  );
 }
 
 /**
@@ -74,7 +87,7 @@ export function foreground(color: TThemeColor, base: ChalkInstance = chalk): Cha
   // that `background()` needs, so asking it alone would answer `foreground('bgRed')` with a
   // background style — a name `isThemeColor` already refuses as a token value.
   const named = isChalkColorName(color) ? CHALK_STYLES.get(color) : undefined;
-  if (named === undefined) return base;
+  if (named === undefined) refuseThemeColor(color);
   // A named colour continues the chain through chalk's own getter on the base instance.
   const chained = Reflect.get(base, color) as ChalkInstance | undefined;
   return chained ?? named;
@@ -89,7 +102,7 @@ export function background(color: TThemeColor, base: ChalkInstance = chalk): Cha
   if (rgb) return base.bgRgb(Number(rgb[1]), Number(rgb[2]), Number(rgb[3]));
   const capitalised = `bg${color.charAt(0).toUpperCase()}${color.slice(1)}`;
   const chained = Reflect.get(base, capitalised) as ChalkInstance | undefined;
-  return chained ?? chalkNamed(capitalised);
+  return chained ?? refuseThemeColor(color);
 }
 
 /**

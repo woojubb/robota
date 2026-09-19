@@ -12,6 +12,11 @@
  */
 import { DEFAULT_THEME_ID, listBuiltInThemes, resolveTheme } from './built-in-themes.js';
 
+// The registry's default source, re-exported from the module that USES it. The package's public
+// surface takes this route rather than the theme barrel: the barrel re-exports `theme-context.tsx`,
+// and a public re-export chain that reaches a `.tsx` is what `sdk-public-surface` refuses.
+export { listBuiltInThemes } from './built-in-themes.js';
+
 import type { ITuiTheme } from './theme-contracts.js';
 import type {
   IThemeAppearanceState,
@@ -19,6 +24,23 @@ import type {
   IThemeCataloguePort,
   TReducedMotionOverride,
 } from '@robota-sdk/agent-interface-command';
+
+/**
+ * A theme file that was found and refused. It is carried BESIDE the themes rather than among them,
+ * because a surface must be able to show the file without ever resolving to it — an id that can be
+ * listed and cannot be applied is the shape of the bug this avoids.
+ */
+export interface IThemeSkip {
+  /**
+   * The id the file WOULD have had, so a `/theme <id>` that fails has a visible reason — or, when
+   * the file's own NAME is what made an id impossible, the quoted name in its place. It is a label,
+   * not a key: two files can carry the same one.
+   */
+  readonly id: string;
+  readonly fileName: string;
+  /** The path-named diagnostic, verbatim from `parseThemeDocument`. */
+  readonly reason: string;
+}
 
 export interface IThemeResolution {
   readonly theme: ITuiTheme;
@@ -31,14 +53,18 @@ export interface IThemeRegistry {
   get(id: string): ITuiTheme | undefined;
   /** The theme for an id, falling back to the default and NAMING what it could not find. */
   resolve(id: string | undefined): IThemeResolution;
+  /** The theme files that were found and refused, with the reason each was refused for. */
+  skipped(): readonly IThemeSkip[];
 }
 
 export function createThemeRegistry(
   themes: readonly ITuiTheme[] = listBuiltInThemes(),
+  skipped: readonly IThemeSkip[] = [],
 ): IThemeRegistry {
   const byId = new Map(themes.map((theme) => [theme.id, theme]));
   return {
     list: () => themes,
+    skipped: () => skipped,
     get: (id) => byId.get(id),
     resolve: (id) => {
       if (id === undefined || id === DEFAULT_THEME_ID) {
@@ -74,8 +100,14 @@ export interface IThemeCataloguePortOptions {
    * happened.
    */
   readonly readAppearance: () => IThemeAppearanceState['settings'];
-  /** The tier that pinned reduced motion for this run, when one did. */
-  readonly reducedMotionOverride?: TReducedMotionOverride | undefined;
+  /**
+   * The pin on reduced motion for this run, when something above the settings applied one — WHICH
+   * tier and WHAT it pinned, as one value. Two optional fields would let a caller supply the tier
+   * alone, and a default for the missing half is exactly the wrong answer this pair exists to stop:
+   * `--no-reduced-motion` is an override too and pins the opposite value.
+   */
+  readonly reducedMotionPin?:
+    { readonly tier: TReducedMotionOverride; readonly reducedMotion: boolean } | undefined;
 }
 
 export function createThemeCataloguePort(options: IThemeCataloguePortOptions): IThemeCataloguePort {
@@ -87,9 +119,9 @@ export function createThemeCataloguePort(options: IThemeCataloguePortOptions): I
     },
     getAppearance: () => ({
       settings: options.readAppearance(),
-      ...(options.reducedMotionOverride === undefined
+      ...(options.reducedMotionPin === undefined
         ? {}
-        : { reducedMotionOverride: options.reducedMotionOverride }),
+        : { reducedMotionPin: options.reducedMotionPin }),
     }),
   };
 }

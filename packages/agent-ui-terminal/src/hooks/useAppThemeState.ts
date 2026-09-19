@@ -3,11 +3,15 @@ import { useCallback, useMemo, useState } from 'react';
 import { createThemeRegistry, formatUnknownThemeNotice } from '../theme/theme-registry.js';
 
 import type { ITuiTheme } from '../theme/theme-contracts.js';
-import type { IThemeRegistry } from '../theme/theme-registry.js';
+import type { IThemeRegistry, IThemeSkip } from '../theme/theme-registry.js';
 import type {
   IAppearanceSettings,
+  IThemeAppearanceState,
   TReducedMotionOverride,
 } from '@robota-sdk/agent-interface-command';
+
+/** The tier that pinned motion for this run and what it pinned — the contract's own pair. */
+type IReducedMotionPin = NonNullable<IThemeAppearanceState['reducedMotionPin']>;
 
 export interface IThemeToggles {
   readonly syntaxHighlighting: boolean;
@@ -17,13 +21,19 @@ export interface IThemeToggles {
 export interface IAppThemePickerViewModel {
   readonly visible: boolean;
   readonly themes: readonly ITuiTheme[];
+  /** Theme files that were found and refused — shown as rows that cannot be chosen. */
+  readonly skipped: readonly IThemeSkip[];
   /** The id that is PERSISTED — the row the picker returns to when it is cancelled. */
   readonly activeThemeId: string;
   /** The PERSISTED toggles the picker seeds itself from and submits alongside the theme. */
   readonly syntaxHighlighting: boolean;
   readonly reducedMotion: boolean;
-  /** Set when a tier above the settings pinned motion for this run; the picker admits it. */
-  readonly reducedMotionOverride?: TReducedMotionOverride | undefined;
+  /**
+   * Set when a tier above the settings pinned motion for this run — the tier AND what it pinned,
+   * as one value, for the reason `IThemeAppearanceState` states: the tier alone cannot say which
+   * way a run went.
+   */
+  readonly reducedMotionPin?: IReducedMotionPin | undefined;
   /** Move the highlight: the live region re-renders in that theme, nothing is written. */
   readonly preview: (id: string) => void;
   /**
@@ -112,20 +122,33 @@ export function useAppThemeState(options: IOptions): IAppThemeViewModel {
   // only be about what is PERSISTED — and it is suppressed while previewing so it does not read as
   // a complaint about the row the user is looking at.
   const unknownId = previewId === undefined ? resolution.unknownId : undefined;
+  // One expression for "what motion IS for this run", read by both the view model and the picker:
+  // two copies of the same `??` chain are two things to keep in step.
+  const reducedMotionForRun = options.reducedMotion ?? options.appearance.reducedMotion;
   return {
     resolved: resolution.theme,
-    reducedMotion: options.reducedMotion ?? options.appearance.reducedMotion,
+    reducedMotion: reducedMotionForRun,
     syntaxHighlighting: options.appearance.syntaxHighlighting,
     ...(unknownId === undefined ? {} : { unknownThemeNotice: formatUnknownThemeNotice(unknownId) }),
     picker: {
       visible: options.visible,
       themes: registry.list(),
+      skipped: registry.skipped(),
       activeThemeId: options.appearance.theme,
       syntaxHighlighting: options.appearance.syntaxHighlighting,
       reducedMotion: options.appearance.reducedMotion,
-      ...(options.reducedMotionOverride === undefined
+      // Both halves or neither. A tier with no resolved value would have to be paired with the
+      // PERSISTED one, which is the contradiction this pair exists to stop — so a caller that
+      // supplies only the tier gets no pin rather than a wrong one, and the row simply says
+      // nothing about a pin instead of naming the wrong direction.
+      ...(options.reducedMotionOverride === undefined || options.reducedMotion === undefined
         ? {}
-        : { reducedMotionOverride: options.reducedMotionOverride }),
+        : {
+            reducedMotionPin: {
+              tier: options.reducedMotionOverride,
+              reducedMotion: options.reducedMotion,
+            },
+          }),
       preview: setPreviewId,
       select,
       cancel,

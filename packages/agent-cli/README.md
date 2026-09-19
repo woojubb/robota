@@ -367,6 +367,35 @@ Without the picker: `/theme list` shows what is installed and what is active, `/
 All three persist to `~/.robota/settings.json` as the flat keys `theme`, `syntaxHighlighting` and
 `reducedMotion`.
 
+#### Writing your own
+
+Drop a `.json` file in `~/.robota/themes/` and it appears in the list as `custom:<file-name>`. The
+name becomes part of an id you type, so it may use up to 24 characters from letters, digits, `.`,
+`-` and `_` — a file named anything else is skipped with a line saying so, rather than listed as a theme no command can apply:
+
+```json
+{
+  "name": "Mine",
+  "base": "light",
+  "overrides": { "colors": { "text": { "accent": "#56b4e9" } } }
+}
+```
+
+`base` is any built-in and `overrides` is a sparse map over the same token paths the built-ins use —
+`colors`, `markdown`, `syntax` and `motion` — so you change the colours you care about and inherit
+the rest. Values use Ink's colour grammar: a chalk colour name, `#rgb`, `#rrggbb`, `ansi256(n)` or
+`rgb(r,g,b)`. A raw escape sequence is not in that grammar, so it cannot enter through a theme.
+
+A plugin ships themes the same way, in its own `themes/` directory; they are listed as
+`custom:<plugin>:<file-name>`, and the plugin's own name has to satisfy the same rule for the same
+reason. Both namespaces start with `custom:`, so a file can never take a
+built-in's name whatever it is called.
+
+A file is applied whole or not at all. An unknown token, a value that is not a colour, or JSON that
+does not parse skips the WHOLE file with the path that refused it — printed once at startup as
+`Skipped theme "mine.json": $.overrides.colors.text.accent: "nope" is not a colour …`, and shown in
+the picker as a row that carries the same reason and cannot be chosen. Its neighbours still load.
+
 Motion can also be decided per run: `--reduced-motion` / `--no-reduced-motion` beat
 `ROBOTA_REDUCED_MOTION=1|0`, which beats the setting. A run that pins it says so — `/theme motion on`
 reports that it saved the setting and that this run keeps what pinned it, rather than appearing to

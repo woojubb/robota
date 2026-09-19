@@ -14,13 +14,26 @@ export {
 // SCREEN-2002: the product shell assembles one registry and hands it to both `/theme` and
 // `renderApp`. The theme DATA stays unexported — a caller asks the registry, never a built-in.
 export { createThemeCataloguePort, createThemeRegistry } from './theme/theme-registry.js';
+// The product shell composes the registry, so it must be able to enumerate the built-ins, parse the
+// files that join them, and build its OWN diagnostics through the same escaping policy. The
+// accessor comes from the module that USES it rather than from the data module, which the
+// anti-drift floor forbids naming outside `src/theme/`.
+export { listBuiltInThemes } from './theme/theme-registry.js';
+export {
+  escapeThemeText,
+  parseThemeDocument,
+  quoteThemeText,
+  sanitizeThemeProse,
+} from './theme/theme-document.js';
 export type {
   IThemeCataloguePortOptions,
   IThemeRegistry,
   IThemeResolution,
+  IThemeSkip,
 } from './theme/theme-registry.js';
+export type { IThemeDocumentInput, TThemeDocumentResult } from './theme/theme-document.js';
 // `createThemeRegistry` takes themes, so a caller must be able to name one.
-export type { ITuiTheme } from './theme/theme-contracts.js';
+export type { ITuiTheme, TThemeSource } from './theme/theme-contracts.js';
 export type {
   IKeybindingsFilePort,
   IKeybindingsSource,
