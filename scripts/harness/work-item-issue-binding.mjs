@@ -72,10 +72,11 @@ function defaultIssueView(number) {
 
 /**
  * Resolve an EXISTING Issue only. This allocator never creates one (issue-registration policy,
- * 2026-09): a finding is recorded in `.agents/learn.md` as it is noticed, and a GitHub Issue is
- * opened by a person — with `gh issue create` or the web UI — only when the work is ready to be
- * tracked externally. Auto-creating one here, silently, on every title that had no exact match was
- * the mechanism driving Issue-count growth the policy exists to stop.
+ * 2026-09): a finding is recorded in `.agents/learn.md` as it is noticed, or registered as a comment
+ * on the existing umbrella Issue whose scope contains it and allocated against THAT number; a new
+ * GitHub Issue is opened only on the owner's direct instruction (finding-depth.md § "A finding never
+ * opens a new GitHub issue"). Auto-creating one here, silently, on every title that had no exact
+ * match was the mechanism driving Issue-count growth the policy exists to stop.
  */
 export function resolveIssueNumber({
   requestedIssue = null,
@@ -107,8 +108,9 @@ export function resolveIssueNumber({
   if (matches.length === 1) return { number: matches[0].number, source: 'existing-title' };
   throw new Error(
     `no open or closed GitHub Issue titled "${normalizedTitle}" was found in ${ISSUE_REPOSITORY}. ` +
-      'This allocator no longer files one automatically — open it yourself (`gh issue create`) and ' +
-      'pass its number with --issue, or record the finding in .agents/learn.md instead of allocating ' +
-      'a Task for it yet.',
+      'This allocator never files one — pass the existing umbrella Issue whose scope contains the ' +
+      'work with --issue (register the finding there as a comment), or record it in .agents/learn.md ' +
+      "instead of allocating a Task for it yet. A new Issue is opened only on the owner's direct " +
+      'instruction (finding-depth.md).',
   );
 }
