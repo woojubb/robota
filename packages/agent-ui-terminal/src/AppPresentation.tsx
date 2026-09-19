@@ -17,8 +17,8 @@ import SessionEventNotices from './SessionEventNotices.js';
 import SessionPicker from './SessionPicker.js';
 import SessionStatusBar from './SessionStatusBar.js';
 import StreamingIndicator from './StreamingIndicator.js';
+import { usePalette } from './theme/index.js';
 import TransportTUI from './TransportTUI.js';
-import { PALETTE } from './tui-palette.js';
 import UpdateNotice from './UpdateNotice.js';
 
 import type { IAppViewModel } from './app-view-model.js';
@@ -38,6 +38,7 @@ function Transcript({ model }: { model: IAppViewModel }): React.ReactElement {
 }
 
 function Activity({ model }: { model: IAppViewModel }): React.ReactElement {
+  const palette = usePalette();
   const { background, stream } = model;
   return (
     <Box flexDirection="column" paddingX={1} flexGrow={1}>
@@ -49,7 +50,7 @@ function Activity({ model }: { model: IAppViewModel }): React.ReactElement {
           error={background.detail.error}
         />
       )}
-      {model.isShuttingDown && <Text color={PALETTE.text.warning}>Shutting down...</Text>}
+      {model.isShuttingDown && <Text color={palette.text.warning}>Shutting down...</Text>}
       {(stream.isThinking || stream.activeTools.length > 0) && (
         <Box flexDirection="column" marginBottom={1}>
           <StreamingIndicator
@@ -58,14 +59,14 @@ function Activity({ model }: { model: IAppViewModel }): React.ReactElement {
             isThinking={stream.isThinking}
           />
           {stream.isStalled && (
-            <Text color={PALETTE.text.warning}>
+            <Text color={palette.text.warning}>
               ⚠ Still waiting on the provider — the network may be stalled. Esc to interrupt.
             </Text>
           )}
         </Box>
       )}
       {!stream.isThinking && stream.lastErrorMessage && (
-        <Text color={PALETTE.text.error}>
+        <Text color={palette.text.error}>
           ✖ Last turn failed — the session is alive; type your next prompt when ready.
         </Text>
       )}
@@ -147,6 +148,7 @@ export default function AppPresentation({
 }: {
   viewModel: IAppViewModel;
 }): React.ReactElement {
+  const palette = usePalette();
   const keybindings = useKeybindings();
   return (
     <Box flexDirection="column">
@@ -155,17 +157,17 @@ export default function AppPresentation({
         <>
           {viewModel.updateNotice && <UpdateNotice message={viewModel.updateNotice} />}
           {viewModel.coordinationError && (
-            <Text color={PALETTE.text.error}>
+            <Text color={palette.text.error}>
               {viewModel.coordinationError} Press Enter to retry.
             </Text>
           )}
           {keybindings.diagnostic && (
-            <Text color={PALETTE.text.error}>
+            <Text color={palette.text.error}>
               {`Keybindings ${keybindings.diagnostic.file} ${keybindings.diagnostic.path}: ${keybindings.diagnostic.message} Last valid bindings remain active.`}
             </Text>
           )}
           {keybindings.warnings.map((warning) => (
-            <Text key={`${warning.path}:${warning.code}`} color={PALETTE.text.warning}>
+            <Text key={`${warning.path}:${warning.code}`} color={palette.text.warning}>
               {`Keybindings ${warning.path}: ${warning.message}`}
             </Text>
           ))}

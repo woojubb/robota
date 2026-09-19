@@ -8,14 +8,14 @@
  *   waiting-state frames show zero WaveText color churn (motion is static: the
  *   `isInteractiveColorTerminal()` gate creates no interval under NO_COLOR).
  * Scenario 2 (normal-run consistency): color on → the persisted tool summary renders the
- *   `STATUS_GLYPH.success` glyph in the palette's status color (green, ESC[32m — sourced from
- *   `PALETTE.status` through the status SSOT), the assistant label renders the accent token
- *   (cyan, ESC[36m), and the markdown diff block carries the `tui-ansi-palette` SGR pairs
- *   (38;5;120 on 48;5;22 for added lines).
+ *   `STATUS_SYMBOL.success` glyph in the resolved theme's status color (green, ESC[32m — sourced
+ *   from `colors.status` through `statusGlyphColor`), the assistant label renders the accent token
+ *   (cyan, ESC[36m), and the markdown diff block carries the theme's diff SGR pairs (38;5;120 on
+ *   48;5;22 for added lines under the default `dark` theme).
  *   Reachability note (recorded limit): a permission DENY short-circuits before tool-start, so the
  *   framework emits no tool-summary entry for it — the denied (`yellowBright`) unification is
  *   therefore pinned at component level (`message-list-rendering.test.tsx`), while this scenario
- *   evidences the same STATUS_GLYPH→PALETTE.status sourcing end-to-end via the success kind.
+ *   evidences the same glyph→status-colour sourcing end-to-end via the success kind.
  */
 
 import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
@@ -26,7 +26,8 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { spawnTui, writeTuiProviderSettings } from './pty-driver.js';
-import { ANSI } from '../../tui-ansi-palette.js';
+import { DARK_THEME } from '../../theme/built-in-themes.js';
+import { background, foreground } from '../../theme/index.js';
 
 import type { IPtySession } from './pty-driver.js';
 
@@ -94,7 +95,7 @@ describe('SCREEN-006 color/motion through the real binary', () => {
     expect(sgrColorParams(session.raw())).toEqual([]);
   }, 60_000);
 
-  it('S2: color on → tool summary uses the palette status color, labels use accent, diff uses tui-ansi-palette', async () => {
+  it('S2: color on → tool summary uses the themes status color, labels use accent, diff uses the themes pairs', async () => {
     session = spawnTui({
       projectDir,
       homeDir: join(projectDir, 'home'),
@@ -117,8 +118,8 @@ describe('SCREEN-006 color/motion through the real binary', () => {
     const stripped = session.snapshot();
     const raw = session.raw();
 
-    // Persisted tool summary: SSOT glyph + the palette's status color (success → green, ESC[32m)
-    // rendered by the SCREEN-006 unified MessageList path (STATUS_GLYPH → PALETTE.status).
+    // Persisted tool summary: SSOT glyph + the theme's status colour (success → green, ESC[32m)
+    // rendered by the unified MessageList path (STATUS_SYMBOL + statusGlyphColor).
     expect(stripped).toContain('✓ Shell');
     // eslint-disable-next-line no-control-regex -- asserting on raw SGR escape bytes by design
     expect(raw).toMatch(/\x1b\[32m[^\x1b]*✓ Shell/);
@@ -127,9 +128,11 @@ describe('SCREEN-006 color/motion through the real binary', () => {
     // eslint-disable-next-line no-control-regex -- asserting on raw SGR escape bytes by design
     expect(raw).toMatch(/\x1b\[36m(?:\x1b\[[0-9;]*m)*Robota:/);
 
-    // Markdown diff block carries the tui-ansi-palette SGR pairs (added line: light green
-    // on dark green background).
-    expect(raw).toContain(`${ANSI.darkGreenBackground}${ANSI.lightGreen}`);
+    // Markdown diff block carries the resolved theme's SGR pair (added line: light green on a dark
+    // green background) — SCREEN-2002 moved the values into the theme, the bytes are unchanged.
+    const addedBackground = background(DARK_THEME.markdown.diffAddedBackground)('x').split('x')[0];
+    const addedForeground = foreground(DARK_THEME.markdown.diffAdded)('x').split('x')[0];
+    expect(raw).toContain(`${addedBackground}${addedForeground}`);
     expect(stripped).toContain('+ added line');
   }, 60_000);
 });

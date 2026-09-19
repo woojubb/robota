@@ -11,7 +11,7 @@ import { KeyHintFooter, type IKeyHint } from './key-hint-footer.js';
 import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindings-context.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
 /** Footer for the free-text prompt. */
 export const TEXT_PROMPT_FOOTER_HINTS: readonly IKeyHint[] = [
@@ -40,6 +40,7 @@ export default function TextPrompt({
   allowEmpty = false,
   masked = false,
 }: IProps): React.ReactElement {
+  const palette = usePalette();
   const [state, setState] = useState<ITextPromptFlowState>(() => createTextPromptFlowState());
   const stateRef = useRef(state);
   const applyAction = useCallback(
@@ -80,23 +81,23 @@ export default function TextPrompt({
       flexDirection="column"
       {...(screenReader
         ? {}
-        : { borderStyle: 'round' as const, borderColor: PALETTE.border.attention })}
+        : { borderStyle: 'round' as const, borderColor: palette.border.attention })}
       paddingX={1}
     >
-      <Text color={PALETTE.text.warning} bold>
+      <Text color={palette.text.warning} bold>
         {title}
       </Text>
       <PromptDescription description={description} />
       <Box marginTop={1}>
-        <Text color={PALETTE.text.accent}>&gt; </Text>
+        <Text color={palette.text.accent}>&gt; </Text>
         {state.value ? (
           <Text>{masked ? '*'.repeat(state.value.length) : state.value}</Text>
         ) : placeholder ? (
           <Text dimColor>{placeholder}</Text>
         ) : null}
-        <Text color={PALETTE.text.accent}>█</Text>
+        <Text color={palette.text.accent}>█</Text>
       </Box>
-      {state.error && <Text color={PALETTE.text.error}>{state.error}</Text>}
+      {state.error && <Text color={palette.text.error}>{state.error}</Text>}
       <KeyHintFooter hints={footerHints} />
     </Box>
   );

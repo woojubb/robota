@@ -5,8 +5,9 @@ import React from 'react';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { formatStatusActivity } from './status-activity.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
+import type { IThemeColors } from './theme/index.js';
 import type { TModelEffortSelection, TPermissionMode } from '@robota-sdk/agent-core';
 
 /** Threshold boundaries for context percentage color coding */
@@ -55,10 +56,10 @@ interface IStatusLeftProps {
 }
 
 /** Return the color for the context percentage indicator */
-function getContextColor(percentage: number): string {
-  if (percentage >= CONTEXT_RED_THRESHOLD) return PALETTE.text.error;
-  if (percentage >= CONTEXT_YELLOW_THRESHOLD) return PALETTE.text.warning;
-  return PALETTE.text.success;
+function getContextColor(percentage: number, palette: IThemeColors): string {
+  if (percentage >= CONTEXT_RED_THRESHOLD) return palette.text.error;
+  if (percentage >= CONTEXT_YELLOW_THRESHOLD) return palette.text.warning;
+  return palette.text.success;
 }
 
 function StatusActivityText({
@@ -70,6 +71,7 @@ function StatusActivityText({
   IStatusLeftProps,
   'isThinking' | 'activeToolCount' | 'activeBackgroundTaskCount' | 'hasPendingPrompt'
 >): React.ReactElement {
+  const palette = usePalette();
   const activity = formatStatusActivity({
     isThinking,
     activeToolCount,
@@ -78,7 +80,7 @@ function StatusActivityText({
   });
 
   return (
-    <Text color={activity.color} bold={activity.kind !== 'idle'}>
+    <Text color={palette.text[activity.tone]} bold={activity.kind !== 'idle'}>
       {activity.text}
     </Text>
   );
@@ -93,8 +95,9 @@ function ContextText({
   usedTokens: number;
   maxTokens: number;
 }): React.ReactElement {
+  const palette = usePalette();
   return (
-    <Text color={getContextColor(percentage)}>
+    <Text color={getContextColor(percentage, palette)}>
       Context: {Math.round(percentage)}% ({formatTokenCount(usedTokens)}/
       {formatTokenCount(maxTokens)} tokens)
     </Text>
@@ -102,9 +105,10 @@ function ContextText({
 }
 
 function ModeText({ permissionMode }: { permissionMode: TPermissionMode }): React.ReactElement {
+  const palette = usePalette();
   return (
     <>
-      <Text color={PALETTE.text.accent} bold>
+      <Text color={palette.text.accent} bold>
         Mode:
       </Text>{' '}
       <Text>{permissionMode}</Text>
@@ -122,9 +126,10 @@ function shouldShowPermissionMode(permissionMode: TPermissionMode, screenReader:
 }
 
 function PresetText({ activePresetId }: { activePresetId: string }): React.ReactElement {
+  const palette = usePalette();
   return (
     <>
-      <Text color={PALETTE.text.accent} bold>
+      <Text color={palette.text.accent} bold>
         Preset:
       </Text>{' '}
       <Text>{activePresetId}</Text>
@@ -164,6 +169,7 @@ function ProviderText({
 }
 
 function StatusLeft(props: IStatusLeftProps): React.ReactElement {
+  const palette = usePalette();
   const shouldShowGitBranch =
     props.showGitBranch && props.gitBranch !== undefined && props.gitBranch.length > 0;
   // CLI-2004 § Solution 13: one rule applied to fields of different VOLATILITY. The activity text
@@ -200,7 +206,7 @@ function StatusLeft(props: IStatusLeftProps): React.ReactElement {
       {props.sessionName && (
         <>
           {SEP}
-          <Text color={PALETTE.text.session}>{props.sessionName}</Text>
+          <Text color={palette.text.session}>{props.sessionName}</Text>
         </>
       )}
       {shouldShowGitBranch && (
@@ -248,6 +254,7 @@ export default function StatusBar({
   activePresetId,
   effort,
 }: IProps): React.ReactElement {
+  const palette = usePalette();
   return (
     <Box paddingLeft={1} paddingRight={1} justifyContent="space-between">
       <StatusLeft
@@ -268,7 +275,7 @@ export default function StatusBar({
         effort={effort}
       />
       {activeAgentLabel !== undefined && (
-        <Text color={PALETTE.text.warning} bold>
+        <Text color={palette.text.warning} bold>
           [{activeAgentLabel}]
         </Text>
       )}

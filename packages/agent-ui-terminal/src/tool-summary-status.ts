@@ -3,12 +3,12 @@
  *
  * MessageList used to hand-roll its own glyph/color mapping for tool summaries, which drifted
  * from `status-glyph.ts` (denied rendered plain yellow vs the SSOT's yellowBright). These
- * helpers route the persisted summary items through `toolStateStatusKind` + `STATUS_GLYPH`
+ * helpers route the persisted summary items through `toolStateStatusKind` + `STATUS_SYMBOL`
  * so tool status renders one way everywhere.
  */
 
 import { humanizeToolArgument, humanizeToolName } from './humanize-tool-name.js';
-import { STATUS_GLYPH, toolStateStatusKind } from './status-glyph.js';
+import { STATUS_SYMBOL, toolStateStatusKind } from './status-glyph.js';
 
 import type { TUiStatusKind } from './status-glyph.js';
 import type { IToolCallSummary } from './utils/tool-call-extractor.js';
@@ -51,5 +51,5 @@ export function toolSummaryStatusKind(
 /** One-line summary label: SSOT glyph + humanized tool name + first argument. */
 export function getToolSummaryLabel(tool: TToolSummaryItem, kind: TUiStatusKind): string {
   const argument = humanizeToolArgument(tool.firstArg);
-  return `${STATUS_GLYPH[kind].symbol} ${humanizeToolName(tool.toolName)}${argument ? `(${argument})` : ''}`;
+  return `${STATUS_SYMBOL[kind]} ${humanizeToolName(tool.toolName)}${argument ? `(${argument})` : ''}`;
 }

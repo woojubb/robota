@@ -21,7 +21,7 @@ import { useKeybindingHints } from './keybindings/keybindings-context.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 import { expandPasteLabels } from './utils/paste-labels.js';
 import WaveText from './WaveText.js';
 
@@ -88,6 +88,7 @@ export default function InputArea({
   onRequestFocusBackgroundList,
   historySearch,
 }: IProps): React.ReactElement {
+  const palette = usePalette();
   const [value, setValue] = useState('');
   const [cursorHint, setCursorHint] = useState<number | null>(null);
   // CLI-2004: the text the last word/line delete removed, announced once and cleared on the next
@@ -235,12 +236,12 @@ export default function InputArea({
   });
 
   const borderColor = isAborting
-    ? PALETTE.border.attention
+    ? palette.border.attention
     : pendingPrompt
-      ? PALETTE.border.focused
+      ? palette.border.focused
       : isDisabled
-        ? PALETTE.border.muted
-        : PALETTE.border.active;
+        ? palette.border.muted
+        : palette.border.active;
   const innerWidth = Math.max(1, terminalColumns - BORDER_HORIZONTAL);
 
   return (
@@ -263,9 +264,9 @@ export default function InputArea({
       />
       <Box paddingLeft={1}>
         {isAborting ? (
-          <Text color={PALETTE.text.warning}> Interrupting...</Text>
+          <Text color={palette.text.warning}> Interrupting...</Text>
         ) : pendingPrompt ? (
-          <Text color={PALETTE.text.accent}>
+          <Text color={palette.text.accent}>
             {' '}
             Queued:{' '}
             {pendingPrompt.length > PENDING_PROMPT_DISPLAY_MAX
@@ -280,7 +281,7 @@ export default function InputArea({
           <WaveText text="  Waiting for response... (ESC to interrupt)" />
         ) : (
           <Box>
-            <Text color={PALETTE.text.success} bold>
+            <Text color={palette.text.success} bold>
               {'> '}
             </Text>
             <CjkTextInput

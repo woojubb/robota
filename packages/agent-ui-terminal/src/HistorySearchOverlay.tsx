@@ -21,7 +21,7 @@ import { numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { isInteractiveColorTerminal } from './terminal-capabilities.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
 import type { IHistorySearchView } from './history-search/useHistorySearch.js';
 
@@ -52,6 +52,7 @@ function MatchRow(props: {
   readonly rowNumber: number | undefined;
   readonly color: boolean;
 }): React.ReactElement {
+  const palette = usePalette();
   const { match, selected, rowNumber, color } = props;
   const indicator =
     rowNumber !== undefined
@@ -67,7 +68,7 @@ function MatchRow(props: {
   );
   return (
     <Text
-      color={selected ? PALETTE.text.accent : undefined}
+      color={selected ? palette.text.accent : undefined}
       dimColor={!selected}
       wrap="truncate-end"
     >
@@ -86,8 +87,9 @@ function MatchRow(props: {
 }
 
 function StateLine({ view }: { readonly view: IHistorySearchView }): React.ReactElement {
+  const palette = usePalette();
   if (view.error !== undefined) {
-    return <Text color={PALETTE.text.error}>History could not be read: {view.error}</Text>;
+    return <Text color={palette.text.error}>History could not be read: {view.error}</Text>;
   }
   const parts: string[] = [];
   if (view.matches.length === 0) {
@@ -107,6 +109,7 @@ export default function HistorySearchOverlay({
 }: {
   readonly view: IHistorySearchView;
 }): React.ReactElement | null {
+  const palette = usePalette();
   const screenReader = useScreenReader();
   const color = isInteractiveColorTerminal();
   const footerHints = useKeybindingHints('history-search', [
@@ -124,11 +127,11 @@ export default function HistorySearchOverlay({
       flexDirection="column"
       {...(screenReader
         ? {}
-        : { borderStyle: 'round' as const, borderColor: PALETTE.border.muted })}
+        : { borderStyle: 'round' as const, borderColor: palette.border.muted })}
       paddingX={1}
     >
       <Text>
-        <Text color={PALETTE.text.accent}>(reverse-i-search)</Text> scope: {view.scope} · query:{' '}
+        <Text color={palette.text.accent}>(reverse-i-search)</Text> scope: {view.scope} · query:{' '}
         {view.query}
       </Text>
       {visible.map((match, index) => (

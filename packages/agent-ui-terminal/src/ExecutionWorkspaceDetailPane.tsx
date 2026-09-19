@@ -6,9 +6,10 @@ import {
   formatExecutionWorkspaceEntryRow,
 } from './execution-workspace-view-model.js';
 import { Text } from './SafeText.js';
-import { STATUS_GLYPH } from './status-glyph.js';
-import { PALETTE } from './tui-palette.js';
+import { STATUS_SYMBOL, statusGlyphColor } from './status-glyph.js';
+import { usePalette } from './theme/index.js';
 
+import type { IThemeColors } from './theme/index.js';
 import type {
   IExecutionDetailPage,
   IExecutionWorkspaceEntry,
@@ -30,12 +31,13 @@ export default function ExecutionWorkspaceDetailPane({
   loading,
   error,
 }: IProps): React.ReactElement {
+  const palette = usePalette();
   const row = formatExecutionWorkspaceEntryRow(entry, { selectedEntryId: entry.id });
   const records = page?.records.slice(-MAX_VISIBLE_DETAIL_RECORDS) ?? [];
 
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text color={PALETTE.text.accent} bold>
+      <Text color={palette.text.accent} bold>
         {`Viewing ${row.title}`}
       </Text>
       <Text dimColor>
@@ -44,12 +46,12 @@ export default function ExecutionWorkspaceDetailPane({
         {row.preview ? ` · ${row.preview}` : ''}
       </Text>
       {loading ? <Text dimColor>Loading workspace detail...</Text> : null}
-      {error ? <Text color={PALETTE.text.error}>{error}</Text> : null}
+      {error ? <Text color={palette.text.error}>{error}</Text> : null}
       {!loading && !error && records.length === 0 ? <Text dimColor>No detail yet</Text> : null}
       {!loading &&
         !error &&
         records.map((record) => {
-          const { symbol, color } = getDetailRecordGlyph(record.kind);
+          const { symbol, color } = getDetailRecordGlyph(record.kind, palette);
           return (
             <Text key={record.id} color={color}>
               {symbol ? `${symbol} ` : ''}
@@ -66,15 +68,18 @@ export default function ExecutionWorkspaceDetailPane({
  * Symbol + color per detail-record kind. A symbol always accompanies the color
  * so status is legible without color (SCREEN-005 — no color-only encoding).
  */
-function getDetailRecordGlyph(kind: TExecutionDetailRecordKind): {
+function getDetailRecordGlyph(
+  kind: TExecutionDetailRecordKind,
+  palette: IThemeColors,
+): {
   symbol: string;
   color: string | undefined;
 } {
   if (kind === 'error')
-    return { symbol: STATUS_GLYPH.error.symbol, color: STATUS_GLYPH.error.color };
+    return { symbol: STATUS_SYMBOL.error, color: statusGlyphColor(palette, 'error') };
   if (kind === 'result')
-    return { symbol: STATUS_GLYPH.success.symbol, color: STATUS_GLYPH.success.color };
-  if (kind === 'group_summary') return { symbol: '▸', color: PALETTE.text.accent };
-  if (kind === 'process_output') return { symbol: '·', color: PALETTE.text.emphasis };
+    return { symbol: STATUS_SYMBOL.success, color: statusGlyphColor(palette, 'success') };
+  if (kind === 'group_summary') return { symbol: '▸', color: palette.text.accent };
+  if (kind === 'process_output') return { symbol: '·', color: palette.text.emphasis };
   return { symbol: '', color: undefined };
 }

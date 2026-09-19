@@ -20,7 +20,7 @@ import { NumberedList } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { SCREEN_READER_LABELS } from './screen-reader-labels.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
 import type { IPendingPermissionRequest } from './types.js';
 import type { TToolArgs } from '@robota-sdk/agent-core';
@@ -48,6 +48,7 @@ function formatArgs(args: TToolArgs): string {
 }
 
 export default function PermissionPrompt({ request }: IProps): React.ReactElement {
+  const palette = usePalette();
   const [state, setState] = React.useState<ISelectionFlowState>(() => createSelectionFlowState());
   const stateRef = React.useRef(state);
   const prevRequestRef = React.useRef(request);
@@ -130,15 +131,15 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
     <Box
       flexDirection="column"
       borderStyle="round"
-      borderColor={PALETTE.border.attention}
+      borderColor={palette.border.attention}
       paddingX={1}
     >
-      <Text color={PALETTE.text.warning} bold>
+      <Text color={palette.text.warning} bold>
         [Permission Required]
       </Text>
       <Text>
         Tool:{' '}
-        <Text color={PALETTE.text.accent} bold>
+        <Text color={palette.text.accent} bold>
           {request.toolName}
         </Text>
       </Text>
@@ -150,7 +151,7 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
           (opt, i) => (
             <Box key={opt}>
               <Text
-                color={i === state.selectedIndex ? PALETTE.text.accent : undefined}
+                color={i === state.selectedIndex ? palette.text.accent : undefined}
                 bold={i === state.selectedIndex}
               >
                 {i === state.selectedIndex ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}

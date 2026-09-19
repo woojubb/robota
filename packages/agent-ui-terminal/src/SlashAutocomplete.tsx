@@ -11,7 +11,7 @@ import { useKeybindingHints } from './keybindings/keybindings-context.js';
 import { numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
 import type { ICommand } from '@robota-sdk/agent-interface-command';
 
@@ -70,6 +70,7 @@ function CommandRow(props: {
   /** CLI-2004: row number in the mode, replacing the `> ` cursor. */
   rowNumber?: number;
 }): React.ReactElement {
+  const palette = usePalette();
   const { cmd, isSelected, showSlash, rowWidth, nameColWidth, rowNumber } = props;
   const indicator =
     rowNumber !== undefined
@@ -77,7 +78,7 @@ function CommandRow(props: {
       : isSelected
         ? SELECTION_INDICATOR
         : SELECTION_INDICATOR_NONE;
-  const nameColor = isSelected ? PALETTE.text.accent : undefined;
+  const nameColor = isSelected ? palette.text.accent : undefined;
   const dimmed = !isSelected;
   const namePart = capName(cmd.name, nameColWidth);
   const text = showSlash
@@ -100,6 +101,7 @@ export default function SlashAutocomplete({
   visible,
   isSubcommandMode,
 }: IProps): React.ReactElement | null {
+  const palette = usePalette();
   const rowWidth = useRowWidth();
   const screenReader = useScreenReader();
   const footerHints = useKeybindingHints('autocomplete-menu', [
@@ -124,7 +126,7 @@ export default function SlashAutocomplete({
       flexDirection="column"
       {...(screenReader
         ? {}
-        : { borderStyle: 'round' as const, borderColor: PALETTE.border.muted })}
+        : { borderStyle: 'round' as const, borderColor: palette.border.muted })}
       paddingX={1}
     >
       {visibleCommands.map((cmd, i) => (

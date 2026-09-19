@@ -10,7 +10,7 @@
 import React from 'react';
 
 import { Text } from './SafeText.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 import { buildInputTopBorder } from './utils/input-top-border.js';
 
 /** The announcement's exact shape, so the input and its test cannot disagree about it. */
@@ -30,13 +30,14 @@ export function InputTopRule({
   borderColor: string;
   sessionName?: string;
 }): React.ReactElement | null {
+  const palette = usePalette();
   if (screenReader) return null;
   const topBorder = buildInputTopBorder(innerWidth, sessionName);
   return (
     <Text color={borderColor}>
       {topBorder.left}
       {topBorder.label ? (
-        <Text backgroundColor={borderColor} color={PALETTE.text.onAccent} bold>
+        <Text backgroundColor={borderColor} color={palette.text.onAccent} bold>
           {topBorder.label}
         </Text>
       ) : null}

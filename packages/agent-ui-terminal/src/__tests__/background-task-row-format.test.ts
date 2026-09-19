@@ -34,7 +34,7 @@ describe('formatBackgroundTaskRow', () => {
     expect(row.marker).toBe('⟳'); // running → shared status glyph (SCREEN-005)
     // marker symbol AND colour come from the same glyph now (SCREEN-007): the running
     // glyph is yellow, so the row colour is yellow (was cyan via the old view-model rule).
-    expect(row.color).toBe('yellow');
+    expect(row.statusKind).toBe('running');
     expect(row.label).toBe('Explore agent');
     expect(row.segments).toEqual(['running', 'agent · general-purpose']);
     expect(row.preview).toBe('Analyze backlog');
@@ -57,10 +57,10 @@ describe('formatBackgroundTaskRow', () => {
 
     expect(failed.connector).toBe('├');
     expect(failed.marker).toBe('✗'); // failed → error glyph (SCREEN-005)
-    expect(failed.color).toBe('red');
+    expect(failed.statusKind).toBe('error');
     expect(failed.preview).toBe('Timed out');
     expect(completed.marker).toBe('✓'); // completed → success glyph (SCREEN-005)
-    expect(completed.color).toBe('green');
+    expect(completed.statusKind).toBe('success');
     expect(completed.preview).toBe('Summary ready');
   });
 });

@@ -10,11 +10,11 @@ import { RenderedText, Text } from './SafeText.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { SCREEN_READER_LABELS, type TScreenReaderLabelKind } from './screen-reader-labels.js';
-import { STATUS_GLYPH } from './status-glyph.js';
+import { STATUS_SYMBOL, statusGlyphColor } from './status-glyph.js';
+import { usePalette, useTheme } from './theme/index.js';
 import { getToolSummaryLabel, toolSummaryStatusKind } from './tool-summary-status.js';
 import ToolCommandOutput from './ToolCommandOutput.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
-import { PALETTE } from './tui-palette.js';
 import UsageSummaryEntry from './UsageSummaryEntry.js';
 
 import type { TToolSummaryItem } from './tool-summary-status.js';
@@ -47,6 +47,7 @@ function EntryLabel({
 }
 
 function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactElement {
+  const palette = usePalette();
   if (!isToolMessage(message)) {
     return <></>;
   }
@@ -68,9 +69,9 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
     return (
       <Box flexDirection="column" marginBottom={1}>
         <Box>
-          <EntryLabel kind="tool" text="Tool: " color={PALETTE.text.emphasis} />
+          <EntryLabel kind="tool" text="Tool: " color={palette.text.emphasis} />
           {toolName && (
-            <Text color={PALETTE.text.emphasis} dimColor>
+            <Text color={palette.text.emphasis} dimColor>
               [{humanizeToolName(toolName)}]
             </Text>
           )}
@@ -78,7 +79,7 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
         <Text> </Text>
         {summaries.map((s, i) => (
           <Box key={i} flexDirection="column">
-            <Text color={PALETTE.text.success}>
+            <Text color={palette.text.success}>
               {'  '}
               {'✓'} {sanitizeTerminalText(s.line)}
             </Text>
@@ -96,16 +97,16 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <EntryLabel kind="tool" text="Tool: " color={PALETTE.text.emphasis} />
+        <EntryLabel kind="tool" text="Tool: " color={palette.text.emphasis} />
         {toolName && (
-          <Text color={PALETTE.text.emphasis} dimColor>
+          <Text color={palette.text.emphasis} dimColor>
             [{sanitizeTerminalText(toolName)}]
           </Text>
         )}
       </Box>
       <Text> </Text>
       {lines.map((line, i) => (
-        <Text key={i} color={PALETTE.text.success}>
+        <Text key={i} color={palette.text.success}>
           {'  '}
           {'✓'} {sanitizeTerminalText(line)}
         </Text>
@@ -116,6 +117,7 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
 
 /** ERR-001 G2: a failed turn renders as a styled error block, not a plain system note. */
 function ErrorEntryBlock({ message }: { message: TUniversalMessage }): React.ReactElement {
+  const palette = usePalette();
   // SEC-019: an error message is untrusted text — it carries provider responses, tool stderr and
   // file contents — and it reaches `<Text>` without going through the markdown renderer, so it does
   // not inherit that path's sanitization.
@@ -123,10 +125,10 @@ function ErrorEntryBlock({ message }: { message: TUniversalMessage }): React.Rea
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <EntryLabel kind="error" text="✖ Error: " color={PALETTE.text.error} />
+        <EntryLabel kind="error" text="✖ Error: " color={palette.text.error} />
       </Box>
       <Box marginLeft={2} flexDirection="column">
-        <Text color={PALETTE.text.error} wrap="wrap">
+        <Text color={palette.text.error} wrap="wrap">
           {content}
         </Text>
         <Text dimColor wrap="wrap">
@@ -142,6 +144,11 @@ const MessageItem = React.memo(function MessageItem({
 }: {
   message: TUniversalMessage;
 }): React.ReactElement {
+  // Every hook this component uses runs BEFORE the early returns: a message whose role or kind
+  // changes in place would otherwise render a different NUMBER of hooks and React would throw.
+  const theme = useTheme();
+  const screenReader = useScreenReader();
+
   if (isToolMessage(message)) {
     return <ToolMessage message={message} />;
   }
@@ -152,7 +159,6 @@ const MessageItem = React.memo(function MessageItem({
 
   const content = message.content ?? '';
   const isInterrupted = message.state === 'interrupted';
-  const screenReader = useScreenReader();
 
   return (
     <Box flexDirection="column" marginBottom={1}>
@@ -171,6 +177,7 @@ const MessageItem = React.memo(function MessageItem({
           <RenderedText wrap="wrap">
             {renderMarkdown(content + (isInterrupted ? '\n\n_(interrupted)_' : ''), {
               screenReader,
+              theme,
             })}
           </RenderedText>
         ) : (
@@ -182,6 +189,7 @@ const MessageItem = React.memo(function MessageItem({
 });
 
 function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
+  const palette = usePalette();
   const data = entry.data as
     | {
         summary?: string;
@@ -195,7 +203,7 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
     return (
       <Box flexDirection="column" marginBottom={1}>
         <Box>
-          <EntryLabel kind="tool" text="Tool: " color={PALETTE.text.emphasis} />
+          <EntryLabel kind="tool" text="Tool: " color={palette.text.emphasis} />
         </Box>
         <Text> </Text>
         {tools.map((tool, i) => {
@@ -205,7 +213,7 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
           );
           return (
             <Box key={i} flexDirection="column">
-              <Text color={STATUS_GLYPH[kind].color}>
+              <Text color={statusGlyphColor(palette, kind)}>
                 {'  '}
                 {getToolSummaryLabel(tool, kind)}
               </Text>
@@ -223,11 +231,11 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <EntryLabel kind="tool" text="Tool: " color={PALETTE.text.emphasis} />
+        <EntryLabel kind="tool" text="Tool: " color={palette.text.emphasis} />
       </Box>
       <Text> </Text>
       {lines.map((line, i) => (
-        <Text key={i} color={PALETTE.text.success}>
+        <Text key={i} color={palette.text.success}>
           {'  '}
           {sanitizeTerminalText(line)}
         </Text>
@@ -237,6 +245,7 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
 }
 
 function EventEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
+  const palette = usePalette();
   const eventData = entry.data as Record<string, TUniversalValue> | undefined;
   // SEC-019: an event message is BUILT by a neutral package from untrusted parts — a skill name that
   // may come from a plugin, a memory topic the model chose — and interpolated into a sentence. The
@@ -253,7 +262,7 @@ function EventEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <EntryLabel kind="warning" text="System: " color={PALETTE.text.warning} />
+        <EntryLabel kind="warning" text="System: " color={palette.text.warning} />
       </Box>
       <Text> </Text>
       <Box marginLeft={2}>

@@ -5,7 +5,8 @@ import { formatBackgroundTaskRow } from './background-task-row-format.js';
 import { useCountdownTick } from './hooks/useCountdownTick.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
-import { PALETTE } from './tui-palette.js';
+import { statusGlyphColor } from './status-glyph.js';
+import { usePalette } from './theme/index.js';
 
 import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
 
@@ -19,6 +20,7 @@ export default function BackgroundTaskPanel({
   entries,
   focusedIndex = null,
 }: IProps): React.ReactElement | null {
+  const palette = usePalette();
   const screenReader = useScreenReader();
   // SCREEN-1992: ticks once a second only while a schedule sleeps, never in screen-reader mode.
   const now = useCountdownTick(
@@ -34,7 +36,7 @@ export default function BackgroundTaskPanel({
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color={PALETTE.text.accent} bold>
+        <Text color={palette.text.accent} bold>
           Background work
         </Text>
         <Text dimColor>{hint}</Text>
@@ -51,14 +53,18 @@ export default function BackgroundTaskPanel({
           // SCREEN-014: the keyboard-focused row is inverse-highlighted.
           <Text key={entry.id} wrap="truncate-end" inverse={isFocused}>
             {`${row.connector} `}
-            <Text color={row.color}>{`${row.marker} ${row.state}`}</Text>
+            <Text
+              color={statusGlyphColor(palette, row.statusKind)}
+            >{`${row.marker} ${row.state}`}</Text>
             {` ${row.label}`}
             {row.segments.map((segment, segmentIndex) => (
               <Text key={`${segment}-${segmentIndex}`} dimColor>{` · ${segment}`}</Text>
             ))}
             {row.headline ? <Text dimColor>{` · ${row.headline}`}</Text> : null}
             {row.preview ? <Text dimColor>{` · ${row.preview}`}</Text> : null}
-            {row.countdown ? <Text color={row.color}>{` · ${row.countdown}`}</Text> : null}
+            {row.countdown ? (
+              <Text color={statusGlyphColor(palette, row.statusKind)}>{` · ${row.countdown}`}</Text>
+            ) : null}
           </Text>
         );
       })}

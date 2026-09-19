@@ -1,8 +1,8 @@
 /**
  * SCREEN-006 WaveText token-sourcing tests.
  *
- * WaveText's color ramp and cadence must come from the MOTION tokens in
- * `src/tui-palette.ts` (not component-private literals), and the gated/static
+ * WaveText's color ramp comes from the resolved theme's motion tokens (its cadence is its own) in
+ * `src/theme/built-in-themes.ts` (not component-private literals), and the gated/static
  * frame must use the canonical muted token. Reduced-motion behavior is
  * re-asserted against the token source: when `isInteractiveColorTerminal()` is
  * false there is no interval and no color churn.
@@ -14,7 +14,11 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import WaveText from '../WaveText.js';
 import { ScreenReaderProvider } from '../screen-reader-context.js';
-import { MOTION, PALETTE } from '../tui-palette.js';
+import { DARK_THEME } from '../theme/built-in-themes.js';
+import { foreground } from '../theme/index.js';
+
+/** Cadence is not themed; the component owns it (SCREEN-2002). */
+const WAVE_INTERVAL_MS = 400;
 
 const gateMock = vi.hoisted(() => ({ value: true }));
 
@@ -50,10 +54,10 @@ afterEach(() => {
 });
 
 describe('WaveText motion tokens (SCREEN-006)', () => {
-  it('animated frames draw only from MOTION.waveColors', () => {
+  it('animated frames draw only from the theme’s wave ramp', () => {
     gateMock.value = true;
     const allowed = new Set<string>(['39', '0']);
-    for (const stop of MOTION.waveColors) {
+    for (const stop of DARK_THEME.motion.wave) {
       for (const code of chalkOpenCodes((s) => chalk.hex(stop)(s))) {
         allowed.add(code);
       }
@@ -69,7 +73,7 @@ describe('WaveText motion tokens (SCREEN-006)', () => {
     expect(outside).toEqual([]);
   });
 
-  it('gated/static frame renders with PALETTE.text.muted and no color churn', () => {
+  it('gated/static frame renders with the theme’s muted token and no color churn', () => {
     gateMock.value = false;
     vi.useFakeTimers();
 
@@ -77,18 +81,13 @@ describe('WaveText motion tokens (SCREEN-006)', () => {
     const first = lastFrame() ?? '';
 
     // The muted token (not a wave hex stop) styles the static frame.
-    const mutedCodes = chalkOpenCodes((s) => {
-      const colorize = (chalk as unknown as Record<string, (v: string) => string>)[
-        PALETTE.text.muted
-      ];
-      return colorize ? colorize(s) : chalk.hex(PALETTE.text.muted)(s);
-    });
+    const mutedCodes = chalkOpenCodes((s) => foreground(DARK_THEME.colors.text.muted)(s));
     for (const code of mutedCodes) {
       expect(first).toContain(`\u001b[${code}m`);
     }
 
     // No interval ⇒ no motion: advancing time produces the identical frame.
-    vi.advanceTimersByTime(MOTION.waveIntervalMs * 5);
+    vi.advanceTimersByTime(WAVE_INTERVAL_MS * 5);
     const later = lastFrame() ?? '';
     unmount();
     expect(later).toBe(first);
@@ -114,7 +113,7 @@ describe('CLI-2004 TC-19: WaveText in screen-reader mode', () => {
     // No pending timer at all — not merely a frame that happens to look the same.
     expect(vi.getTimerCount()).toBe(0);
 
-    vi.advanceTimersByTime(MOTION.waveIntervalMs * 5);
+    vi.advanceTimersByTime(WAVE_INTERVAL_MS * 5);
     const later = lastFrame() ?? '';
     unmount();
 

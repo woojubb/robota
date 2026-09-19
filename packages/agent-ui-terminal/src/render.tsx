@@ -16,6 +16,7 @@ import { awaitStartupQuietPeriod, resolvePacing } from './screen-reader-pacing.j
 import { isInteractiveColorTerminal, supportsFocusReporting } from './terminal-capabilities.js';
 import { createFocusReportingWriter } from './terminal-focus-reporting.js';
 import { TerminalHandoffController } from './terminal-handoff-controller.js';
+import { ThemeProvider } from './theme/index.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
 
 import type { IKeybindingsSource } from './keybindings/node-keybindings-source.js';
@@ -340,24 +341,26 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
   const instance = render(
     <KeybindingsProvider source={options.keybindingsSource}>
       <ScreenReaderProvider enabled={screenReader}>
-        <App
-          cwd={options.cwd}
-          createChannel={createChannel}
-          providerOverride={options.providerOverride}
-          providerType={options.providerType}
-          modelId={options.modelId}
-          permissionMode={options.permissionMode}
-          version={options.version}
-          sessionStore={options.sessionStore}
-          resumeSessionId={options.resumeSessionId}
-          showSessionPickerOnStart={options.showSessionPickerOnStart}
-          startupUpdateNotice={options.startupUpdateNotice}
-          transportRegistry={options.transportRegistry}
-          pluginAdapter={options.commandHostAdapters?.plugin}
-          cliAdapter={options.cliAdapter}
-          promptHistorySource={options.promptHistorySource}
-          promptHistoryProject={options.promptHistoryProject}
-        />
+        <ThemeProvider>
+          <App
+            cwd={options.cwd}
+            createChannel={createChannel}
+            providerOverride={options.providerOverride}
+            providerType={options.providerType}
+            modelId={options.modelId}
+            permissionMode={options.permissionMode}
+            version={options.version}
+            sessionStore={options.sessionStore}
+            resumeSessionId={options.resumeSessionId}
+            showSessionPickerOnStart={options.showSessionPickerOnStart}
+            startupUpdateNotice={options.startupUpdateNotice}
+            transportRegistry={options.transportRegistry}
+            pluginAdapter={options.commandHostAdapters?.plugin}
+            cliAdapter={options.cliAdapter}
+            promptHistorySource={options.promptHistorySource}
+            promptHistoryProject={options.promptHistoryProject}
+          />
+        </ThemeProvider>
       </ScreenReaderProvider>
     </KeybindingsProvider>,
     { exitOnCtrlC: false, isScreenReaderEnabled: screenReader, stdin: stdin.asInkStdin() },

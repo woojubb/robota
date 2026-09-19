@@ -11,7 +11,7 @@ import { Box } from 'ink';
 import React from 'react';
 
 import { Text } from './SafeText.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
 /** The ASCII art itself. */
 export const BANNER_ART = `
@@ -30,9 +30,10 @@ export const BANNER_GLYPHS: readonly string[] = ['_', '|', '\\', '/', '<'];
 
 /** The banner as it is committed to scrollback: the art plus the version line. */
 export function AppBanner({ version }: { version: string }): React.ReactElement {
+  const palette = usePalette();
   return (
     <Box flexDirection="column" paddingX={1} marginBottom={1}>
-      <Text color={PALETTE.text.accent} bold>
+      <Text color={palette.text.accent} bold>
         {BANNER_ART}
       </Text>
       <Text dimColor> v{version}</Text>

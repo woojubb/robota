@@ -1,12 +1,22 @@
-import { describe, expect, it } from 'vitest';
+import chalk from 'chalk';
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { renderMarkdown } from '../render-markdown.js';
+import { DARK_DALTONIZED_THEME, DARK_THEME } from '../theme/built-in-themes.js';
+import { foreground } from '../theme/index.js';
 
 const ANSI_LIGHT_RED = '\u001b[38;5;210m';
 const ANSI_LIGHT_GREEN = '\u001b[38;5;120m';
 const ANSI_DARK_RED_BACKGROUND = '\u001b[48;5;52m';
 const ANSI_DARK_GREEN_BACKGROUND = '\u001b[48;5;22m';
-const ANSI_RESET = '\u001b[0m';
+// SCREEN-2002: the rows are styled through chalk now, which closes a background+foreground pair with
+// its own paired resets instead of the blanket `ESC[0m` the hand-written escapes used. The colours
+// and their order are unchanged; this is the one recorded byte difference.
+const ANSI_RESET_FOREGROUND = '\u001b[39m';
+const ANSI_RESET_BACKGROUND = '\u001b[49m';
 const CODE_BLOCK_INDENT = '    ';
+/** Any SGR introducer — a plain block must carry none. */
+const SGR_ANY = '\u001b[';
 
 describe('renderMarkdown', () => {
   it('renders diff fenced code blocks with addition and removal colors', () => {
@@ -33,10 +43,10 @@ describe('renderMarkdown', () => {
     });
 
     expect(output).toContain(
-      `${ANSI_DARK_RED_BACKGROUND}${ANSI_LIGHT_RED}${removedRow}${ANSI_RESET}`,
+      `${ANSI_DARK_RED_BACKGROUND}${ANSI_LIGHT_RED}${removedRow}${ANSI_RESET_FOREGROUND}${ANSI_RESET_BACKGROUND}`,
     );
     expect(output).toContain(
-      `${ANSI_DARK_GREEN_BACKGROUND}${ANSI_LIGHT_GREEN}${addedRow}${ANSI_RESET}`,
+      `${ANSI_DARK_GREEN_BACKGROUND}${ANSI_LIGHT_GREEN}${addedRow}${ANSI_RESET_FOREGROUND}${ANSI_RESET_BACKGROUND}`,
     );
   });
 
@@ -61,6 +71,55 @@ describe('renderMarkdown', () => {
     });
 
     expect(output).toContain('const value: string = "ok";');
+  });
+
+  /**
+   * SCREEN-2002 TC-03 — the theme reaches `cli-highlight`.
+   *
+   * This is the unit's most dependency-fragile claim, and the failure it guards against is SILENT:
+   * `cli-highlight` falls back PER KEY to its own `DEFAULT_THEME`, whose `keyword` is red and whose
+   * `addition` is green. If the theme stopped reaching it, a daltonized run would quietly get the
+   * red/green pair back with every other surface still daltonized, and nothing else in the suite
+   * would notice.
+   */
+  describe('SCREEN-2002 TC-03: syntax highlighting follows the theme', () => {
+    const TS_BLOCK = ['```ts', 'const value = 1;', '```'].join('\n');
+    const TRUECOLOR = 3;
+    const previousLevel = chalk.level;
+    afterEach(() => {
+      chalk.level = previousLevel;
+    });
+
+    const openCode = (color: string): string => foreground(color)('x').split('x')[0] ?? '';
+
+    it('colours a keyword with the theme s value, not cli-highlight s default', () => {
+      chalk.level = TRUECOLOR;
+      const daltonized = renderMarkdown(TS_BLOCK, {
+        color: true,
+        theme: DARK_DALTONIZED_THEME,
+      });
+
+      expect(daltonized).toContain(openCode(DARK_DALTONIZED_THEME.syntax.keyword));
+      // Recorded, because it bounds what this test can prove: `cli-highlight` depends on chalk 4 and
+      // resolves to its OWN instance, so `chalk.level` set here does not reach it and its per-key
+      // fallback emits nothing in-process — it is only coloured in a real terminal. The positive
+      // assertion above is therefore the whole guard; a `not.toContain` on the fallback's colour
+      // would be inert. The end-to-end colour is evidenced by the PTY scenario instead.
+      expect(DARK_THEME.syntax.keyword).not.toBe(DARK_DALTONIZED_THEME.syntax.keyword);
+    });
+
+    it('renders a code block as plain indented text when highlighting is off', () => {
+      chalk.level = TRUECOLOR;
+      const plain = renderMarkdown(TS_BLOCK, {
+        color: true,
+        theme: DARK_DALTONIZED_THEME,
+        syntaxHighlighting: false,
+      });
+
+      expect(plain).toContain(`${CODE_BLOCK_INDENT}const value = 1;`);
+      expect(plain).not.toContain(openCode(DARK_DALTONIZED_THEME.syntax.keyword));
+      expect(plain).not.toContain(SGR_ANY);
+    });
   });
 
   /**

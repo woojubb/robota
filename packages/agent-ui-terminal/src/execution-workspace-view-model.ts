@@ -1,5 +1,6 @@
-import { STATUS_GLYPH, workspaceStatusKind } from './status-glyph.js';
+import { workspaceStatusKind } from './status-glyph.js';
 
+import type { TUiStatusKind } from './status-glyph.js';
 import type {
   IExecutionDetailRecord,
   IExecutionWorkspaceEntry,
@@ -32,7 +33,8 @@ export interface IExecutionWorkspaceEntryRow {
   subtitle?: string;
   statusLabel: string;
   preview?: string;
-  color: string;
+  /** SCREEN-2002: the status KIND; the component resolves its colour from the live theme. */
+  statusKind: TUiStatusKind;
   isSelected: boolean;
   accessibleText: string;
 }
@@ -70,7 +72,7 @@ export function formatExecutionWorkspaceEntryRow(
     subtitle: formatEntrySubtitle(entry),
     statusLabel: formatStatusLabel(entry.status),
     preview: trimPreview(entry.preview ?? entry.currentAction),
-    color: getEntryColor(entry),
+    statusKind: getEntryStatusKind(entry),
     isSelected,
   } satisfies Omit<IExecutionWorkspaceEntryRow, 'accessibleText'>;
   return { ...row, accessibleText: formatAccessibleText(row) };
@@ -111,10 +113,11 @@ function formatStatusLabel(status: TExecutionWorkspaceStatus): string {
   return status.replace(/_/g, ' ');
 }
 
-// Colour comes from the shared status glyph so an entry's colour always matches the
-// glyph/symbol shown for the same status everywhere (SCREEN-007). Single source of truth.
-function getEntryColor(entry: IExecutionWorkspaceEntry): string {
-  return STATUS_GLYPH[workspaceStatusKind(entry.status, entry.attention)].color;
+// SCREEN-2002: the view model names the status KIND, not a colour — a colour belongs to the theme
+// resolved at render time, and the kind is what keeps an entry's colour matching the glyph shown for
+// the same status everywhere (SCREEN-007). The component resolves it through `statusGlyphColor`.
+function getEntryStatusKind(entry: IExecutionWorkspaceEntry): TUiStatusKind {
+  return workspaceStatusKind(entry.status, entry.attention);
 }
 
 function trimPreview(value: string | undefined): string | undefined {

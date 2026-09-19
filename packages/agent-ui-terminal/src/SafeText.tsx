@@ -44,7 +44,7 @@ export function SafeText(props: TInkTextProps): React.JSX.Element {
  * Ink's `Text` for a string THIS PACKAGE'S OWN RENDERER produced from already-sanitized input.
  *
  * `renderMarkdown` sanitizes the untrusted markdown BEFORE `marked-terminal` styles it, and the
- * SGR colour in its output (the `tui-ansi-palette` diff pairs, heading emphasis) is the renderer's
+ * SGR colour in its output (the theme's diff pairs, heading emphasis) is the renderer's
  * own, not the model's. Routing that output through `SafeText` would strip the styling the renderer
  * just applied — the SCREEN-006 diff colours vanished exactly that way. The boundary still holds:
  * the only string that reaches this component is one the renderer built from sanitized text, and

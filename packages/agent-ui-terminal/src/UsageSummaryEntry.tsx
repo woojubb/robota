@@ -3,7 +3,7 @@ import { Box } from 'ink';
 import React from 'react';
 
 import { Text } from './SafeText.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IUsageSnapshot } from '@robota-sdk/agent-interface-analytics';
@@ -11,6 +11,7 @@ import type { IUsageSnapshot } from '@robota-sdk/agent-interface-analytics';
 const TOKEN_COMPACT_THRESHOLD = 1000;
 
 export default function UsageSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
+  const palette = usePalette();
   const usage = entry.data as IUsageSnapshot | undefined;
   if (!usage) return <></>;
   const prompt = usage.promptTokens !== undefined ? formatUsageTokenCount(usage.promptTokens) : '?';
@@ -25,7 +26,7 @@ export default function UsageSummaryEntry({ entry }: { entry: IHistoryEntry }): 
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color={PALETTE.text.emphasis} bold>
+        <Text color={palette.text.emphasis} bold>
           Usage:{' '}
         </Text>
         <Text dimColor>

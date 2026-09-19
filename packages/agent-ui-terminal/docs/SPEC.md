@@ -189,7 +189,7 @@ sites found across six review rounds).
 The one deliberate pass-through is `RenderedText`, exported from the same module: Ink's `Text`
 without the sanitizing step, for a string this package's OWN renderer produced from input it already
 sanitized. `renderMarkdown` runs `sanitizeTerminalText` on the markdown BEFORE `marked-terminal`
-styles it, so the SGR in its output (the `tui-ansi-palette` diff pairs) is the renderer's, and
+styles it, so the SGR in its output (the theme's diff pairs) is the renderer's, and
 routing it through `SafeText` would strip exactly that styling. `MessageList` uses it for the
 assistant markdown branch only; every other string still goes through `SafeText`.
 
@@ -342,48 +342,109 @@ terminal status (the reason names the status), when the record is gone from the 
 when this surface was composed without a session store at all. Leaving the terminal pointed at
 nothing is the one outcome the operator could not diagnose.
 
-## Color & Motion Contract (SCREEN-006)
+## Color & Motion Contract (SCREEN-006, SCREEN-2002)
 
-Colors and motion values live in exactly three token modules; components never spell color names
-or hex inline (mechanical floor: `src/__tests__/palette-consistency.test.ts` fails on any
-`color="…"` / `borderColor="…"` / `backgroundColor="…"` JSX string literal or `#rrggbb` hex
-outside the token modules). Token names are semantic slots (accent/muted/attention) — never
-product vocabulary; values are plain constants (no theming framework, no runtime switching, no
-config surface).
+One theme decides every colour this package emits, and components never spell a colour. The
+mechanical floor is `src/__tests__/palette-consistency.test.ts`: it fails on any `color="…"` /
+`borderColor="…"` / `backgroundColor="…"` JSX string literal or `#rrggbb` hex outside `src/theme/`,
+on any import of the built-in theme data from outside `src/theme/`, and on any `chalk.<colour>(`
+call outside it (`chalk.inverse`, the drawn cursor, and `chalk.level`, the colour gate, choose no
+colour and are exempt). Token names are semantic slots (accent/muted/attention) — never product
+vocabulary.
 
-**Token-module boundary (three modules, one-way color flow):**
+**The token model** (`src/theme/theme-contracts.ts`). `ITuiTheme` carries `colors` (`text`,
+`border`, `status`), `markdown` (every key `marked-terminal` colours by default, including `html`),
+`syntax` (a REQUIRED complete map over `cli-highlight`'s seventeen coloured keys) and `motion` (the
+WaveText ramp). Every value is a colour in **Ink's own grammar** — `<chalk name> | #rrggbb |
+ansi256(n) | rgb(r,g,b)` — one grammar for built-ins, user files and components alike, which
+doubles as the injection floor: no raw escape can enter through a theme.
 
-- `src/tui-palette.ts` — the Ink-side semantic palette: `PALETTE.text` (accent/emphasis/success/
-  warning/error/session/muted/onAccent), `PALETTE.border` (attention/focused/active/muted/error),
-  `PALETTE.status` (the 7 status kinds), and `MOTION` (WaveText ramp + cadence + grouping).
-  Values are Ink/chalk color names (hex only in `MOTION.waveColors`).
-- `src/status-glyph.ts` — remains the status SSOT (kinds, symbols, `toolStateStatusKind`,
-  `workspaceStatusKind`); its colors are sourced from `PALETTE.status.*` (dependency direction:
-  `status-glyph` → `tui-palette`, never the reverse).
-- `src/tui-ansi-palette.ts` — raw SGR escapes for the `marked-terminal` markdown/diff pipeline —
-  a different encoding with a different consumer. Its values are deliberately NOT derived from
-  `PALETTE` (a name→SGR mapping layer would be invented complexity).
+**Every encoding is derived, through chalk** (`src/theme/theme-styles.ts`). Ink reads `colors`
+directly; `marked-terminal` receives chalk style functions; `cli-highlight` receives the `syntax`
+map as `highlightOptions.theme`. SCREEN-006 recorded the opposite ("`tui-ansi-palette.ts` values are
+deliberately NOT derived from `PALETTE` — a name→SGR mapping layer would be invented complexity");
+SCREEN-2002 reverses it, because chalk IS that layer, is already a direct dependency, and Ink's own
+`colorize` performs the same mapping. `tui-palette.ts` and `tui-ansi-palette.ts` are gone; the
+`dark` literal lives only in `src/theme/built-in-themes.ts`.
+
+Deriving them is also what makes the theme complete. Left to their defaults, `marked-terminal`
+(`heading` green, `codespan` yellow, `link` blue, `html` gray) and `cli-highlight` (`string`,
+`regexp`, `deletion` red; `number`, `comment`, `doctag`, `addition` green — applied PER KEY, so one
+missing key restores them) would keep deciding colours a theme is supposed to own, and a daltonized
+theme would still render red/green code blocks.
+
+**Structure is not themed.** The style builder fixes each token's non-colour chain in the
+dependency's own order — `heading` bold, `firstHeading` underline+bold, `blockquote` italic, `del`
+dim+strikethrough, `href` underline, `syntax.type` dim — so a theme changes colour and nothing else.
+`strong`, `em`, `listitem` and `hr` are NOT theme tokens: they carry no colour today
+(`chalk.bold` / `chalk.italic` / `chalk.reset`), and giving them one would change rendering rather
+than theme it.
+
+**Built-ins.** `dark` (today's values — a user who sets nothing sees the same colours), `light`,
+`dark-daltonized`, `light-daltonized`. The daltonized pair is specified in hex rather than colour
+names so the guard can COMPUTE it: `src/theme/color-vision.ts` simulates protanopia and
+deuteranopia (a Viénot-style linear-RGB projection) and `color-vision.test.ts` requires every pair
+whose colour difference carries meaning — success/error, diff added/removed, syntax
+addition/deletion — to stay at least 50 CIE76 units apart under both. The floor is empirical for
+that projection, not a published perceptual constant, and is recorded as such; the shipped pairs sit
+at 56–88, while the green/red pair the default theme uses for the same distinction measures 41.7.
+The guard REFUSES a value it cannot simulate (a colour name, a system ANSI index) rather than
+passing it.
+
+**Reading the theme.** `ThemeProvider` publishes the resolved theme; components call `usePalette()`
+(the former `PALETTE`), `useTheme()` (for `renderMarkdown`) and `useMotionTokens()` (the former
+`MOTION`). Outside a provider the hooks return the `dark` built-in, so a component rendered in a
+test behaves exactly as it did before themes existed. Pure modules never hold a colour: `status-glyph.ts`
+keeps `STATUS_SYMBOL` and offers `statusGlyphColor(colors, kind)`, `status-activity.ts` returns a
+token key, and `execution-workspace-view-model.ts` returns a status KIND the component resolves.
+
+**Motion has one owner and one consumer.** `useMotion()` = the colour gate ∧ not screen-reader mode
+∧ not the reduced-motion setting, read by `WaveText` — the package's only animation. Deliberately
+NOT gated by it: the background countdown (a once-a-second number is content; freezing it would show
+a stale `in 59s`) and the `StreamingIndicator` screen-reader collapse (it drops content, which a
+sighted reduced-motion user still wants) — both remain `useScreenReader()` rules. Cadence
+(400 ms) and grouping are the component's, not the theme's: a theme changes colour, not how often
+the terminal repaints.
+
+**Colour+motion gate.** `terminal-capabilities.ts` (`isInteractiveColorTerminal()`) remains the
+single degradation gate and wins over every theme: NO_COLOR / `FORCE_COLOR=0` / non-TTY ⇒ markdown
+colour off and WaveText static. Components add no per-call-site degradation branches. Noted
+divergence, unchanged: the gate treats an EMPTY `NO_COLOR` as set (off), stricter than
+no-color.org's "present and not an empty string" — the strict direction is the safe one. The diff
+rows are the one exception to chalk's ambient detection: they are this package's own output and
+their caller decides with its `color` flag, so when chalk detects NO colour at all they are styled
+through a level-forced instance, exactly as the hand-written escapes behaved. Only the OFF case is
+overridden — a DETECTED level is kept, because forcing truecolor over a 256-colour terminal would
+emit a depth for these rows that the rest of the frame downsamples away. Their byte difference from
+the hand-written escapes is recorded: chalk closes each style with its own paired closer rather
+than the blanket `ESC[0m` — `ESC[39m ESC[49m` for a background+foreground pair, `ESC[39m` for the
+hunk header, `ESC[22m` for the dim `diff `/`index ` metadata rows.
+
+**The anti-drift floor matches the SYMBOL, not the module path.** `palette-consistency.test.ts`
+refuses any file outside `src/theme/` that NAMES a built-in theme constant, however it is imported:
+matching the `built-in-themes.js` path alone would leave the `src/theme/index.js` barrel — the route
+every migrated component already imports through — as a way around the floor. A non-React caller
+that must render without a resolved theme (`renderMarkdown`) asks `resolveTheme()`, which is where
+"no theme was resolved" is answered, rather than reaching for the data itself.
+
+**A theme change does not repaint scrollback.** Committed transcript entries go through Ink's
+`<Static>` (see "Architecture Overview") and are emitted once; the terminal owns them from then on.
+So a theme applies to the live region — input, status bar, streaming text, overlays — and to
+everything rendered after it, while entries already in scrollback keep the theme they were written
+in. This is the same property that makes the transcript survivable at all (SCREEN-1993), and it is
+the reason a picker previews against the live region rather than the transcript.
 
 **De-emphasis rule.** The canonical muted treatment is Ink's `dimColor` (terminal-theme-relative,
-degrades for free) — including `KeyHintFooter`'s footers. `PALETTE.text.muted` exists only where an
-actual color VALUE is required (the static WaveText frame, `STATUS_GLYPH.idle`, the
-`status-activity` idle color).
+degrades for free) — including `KeyHintFooter`'s footers. `colors.text.muted` exists only where an
+actual colour VALUE is required (the static WaveText frame, the idle status, the idle activity, the
+composer's placeholder).
 
-**Color+motion gate.** `terminal-capabilities.ts` (`isInteractiveColorTerminal()`) is the single
-degradation gate: NO_COLOR / `FORCE_COLOR=0` / non-TTY ⇒ markdown color off and WaveText static
-(zero intervals, zero color churn). Components add no per-call-site degradation branches. Noted
-divergence: the gate treats an EMPTY `NO_COLOR` as set (off), stricter than no-color.org's
-"present and not an empty string" — the strict direction is the safe one.
-
-**Motion tokens.** WaveText is the package's one animation; its ramp (`MOTION.waveColors`,
-4-stop `#555555→#bbbbbb`), cadence (`MOTION.waveIntervalMs`, 400ms) and grouping
-(`MOTION.waveCharsPerGroup`) are tokens so motion is visible to palette audits. Perceptibility
-comes from the ramp's contrast span, not faster flicker.
-
-**Known floor limit (recorded decision).** The consistency floor catches JSX attribute literals
-and hex, but not a future TS helper returning a bare color-name string (the old `getContextColor`
-shape); today's instances of that shape were removed by the SCREEN-006 adoption pass, and
-extending the floor to bare strings is deferred until one actually recurs.
+**Known floor limit (recorded decision).** The two SCREEN-2002 ratchets closed the case SCREEN-006
+deferred ("a future TS helper returning a bare color-name string"), which recurred twice
+(`getContextColor`, `STATUS_GLYPH[...].color`). What the floor still cannot see is a colour-name
+string returned by a helper that neither imports the theme data nor calls chalk — a literal `'cyan'`
+returned from a pure function. The type system covers the tokens such a value would flow into; the
+gap is recorded rather than claimed away.
 
 ## Screen Reader Mode (CLI-2004)
 

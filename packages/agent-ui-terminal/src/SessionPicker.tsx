@@ -9,7 +9,7 @@ import React from 'react';
 import { SELECTION_INDICATOR, SELECTION_INDICATOR_NONE } from './key-hint-footer.js';
 import ListPicker from './ListPicker.js';
 import { Text } from './SafeText.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
 import type { IResumableSessionSummary } from '@robota-sdk/agent-interface-session';
 
@@ -27,9 +27,10 @@ export default function SessionPicker({
   onSelect,
   onCancel,
 }: IProps): React.ReactElement {
+  const palette = usePalette();
   return (
     <Box flexDirection="column" paddingX={1} marginBottom={1}>
-      <Text bold color={PALETTE.text.accent}>
+      <Text bold color={palette.text.accent}>
         Select a session to resume:
       </Text>
       <ListPicker<IResumableSessionSummary>

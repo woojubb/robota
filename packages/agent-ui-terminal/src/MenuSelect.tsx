@@ -19,7 +19,7 @@ import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindi
 import { NumberedList } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
 /** Footer for the interactive menu state. */
 export const MENU_SELECT_FOOTER_HINTS: readonly IKeyHint[] = [
@@ -54,6 +54,7 @@ export default function MenuSelect({
   loading,
   error,
 }: IProps): React.ReactElement {
+  const palette = usePalette();
   const [state, setState] = useState<ISelectionFlowState>(() => createSelectionFlowState());
   const stateRef = useRef(state);
   const isEnabled = !loading && !error;
@@ -123,10 +124,10 @@ export default function MenuSelect({
     <Box
       flexDirection="column"
       borderStyle="round"
-      borderColor={PALETTE.border.attention}
+      borderColor={palette.border.attention}
       paddingX={1}
     >
-      <Text color={PALETTE.text.warning} bold>
+      <Text color={palette.text.warning} bold>
         {title}
       </Text>
       {loading && (
@@ -136,14 +137,14 @@ export default function MenuSelect({
       )}
       {error && (
         <Box marginTop={1}>
-          <Text color={PALETTE.text.error}>{error}</Text>
+          <Text color={palette.text.error}>{error}</Text>
         </Box>
       )}
       {!loading && !error && (
         <Box flexDirection="column" marginTop={1}>
           {items.map((item, i) => (
             <Box key={item.value}>
-              <Text color={i === selected ? PALETTE.text.accent : undefined} bold={i === selected}>
+              <Text color={i === selected ? palette.text.accent : undefined} bold={i === selected}>
                 {i === selected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
                 {item.label}
               </Text>

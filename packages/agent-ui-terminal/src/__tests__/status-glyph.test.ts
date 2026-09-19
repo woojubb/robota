@@ -4,23 +4,27 @@
  * for colorblind users. A new status kind that omits the symbol fails here.
  */
 import { describe, it, expect } from 'vitest';
-import { STATUS_GLYPH, workspaceStatusKind } from '../status-glyph';
+import { STATUS_SYMBOL, statusGlyphColor, workspaceStatusKind } from '../status-glyph';
+
+import type { TUiStatusKind } from '../status-glyph';
+import { DARK_THEME } from '../theme/built-in-themes.js';
 
 describe('status-glyph SSOT (SCREEN-009)', () => {
   it('every status kind has a non-empty symbol AND color (no color-only state)', () => {
-    const entries = Object.entries(STATUS_GLYPH);
+    const entries = Object.entries(STATUS_SYMBOL) as [TUiStatusKind, string][];
     expect(entries.length).toBeGreaterThan(0);
-    for (const [kind, glyph] of entries) {
-      expect(glyph.symbol, `${kind} must have a symbol`).toBeTruthy();
-      expect(glyph.symbol.length, `${kind} symbol must be non-empty`).toBeGreaterThan(0);
-      expect(glyph.color, `${kind} must have a color`).toBeTruthy();
+    for (const [kind, symbol] of entries) {
+      expect(symbol, `${kind} must have a symbol`).toBeTruthy();
+      expect(symbol.length, `${kind} symbol must be non-empty`).toBeGreaterThan(0);
+      // SCREEN-2002: the colour comes from the live theme, so the pairing is checked against one.
+      expect(statusGlyphColor(DARK_THEME.colors, kind), `${kind} must have a color`).toBeTruthy();
     }
   });
 
   it('workspaceStatusKind maps to a glyph that exists in the SSOT', () => {
     const kind = workspaceStatusKind('completed');
     expect(kind).toBe('success');
-    expect(STATUS_GLYPH[kind]).toBeDefined();
-    expect(STATUS_GLYPH[kind].symbol).toBeTruthy();
+    expect(STATUS_SYMBOL[kind]).toBeTruthy();
+    expect(statusGlyphColor(DARK_THEME.colors, kind)).toBeTruthy();
   });
 });

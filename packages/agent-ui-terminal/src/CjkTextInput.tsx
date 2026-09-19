@@ -13,7 +13,7 @@
 
 import chalk from 'chalk';
 import { Box, usePaste } from 'ink';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   applyCjkTextInput,
@@ -33,6 +33,7 @@ import { useKeybindingActions } from './keybindings/keybindings-context.js';
 import { RenderedText } from './SafeText.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { supportsImeCursorPositioning } from './terminal-capabilities.js';
+import { foreground, usePalette } from './theme/index.js';
 
 import type { IKeyInput, TKeybindingContext } from './keybindings/keybinding-registry.js';
 import type { DOMElement } from 'ink';
@@ -117,6 +118,9 @@ export default function CjkTextInput({
   // input position. The historical Terminal.app SIGSEGV came from a hardcoded `y: 0` (logo area);
   // the hook only positions with a y measured from the live yoga layout and refuses the ink
   // fullscreen geometry (invariants I1–I5 — see flows/real-cursor-flow.ts and the hook itself).
+  // SCREEN-2002: the placeholder's muted colour comes from the resolved theme, not a chalk literal.
+  const palette = usePalette();
+  const mutedPlaceholder = useMemo(() => foreground(palette.text.muted), [palette.text.muted]);
   const boxRef = useRef<DOMElement | null>(null);
   const { realCursorActive } = useRealCursorPosition({
     boxRef,
@@ -136,6 +140,7 @@ export default function CjkTextInput({
           // I4: the drawn inverse cursor is suppressed ONLY while real positioning is active;
           // any guard failure falls back to exactly today's rendering.
           showCursor && focus && !realCursorActive,
+          mutedPlaceholder,
         )}
       </RenderedText>
     </Box>
@@ -261,7 +266,7 @@ function applyCjkTextInputEffect(
  * Render text with an inverse-style cursor at the correct position.
  *
  * #2222: the input is sanitized BEFORE the cursor is drawn, and the result renders through
- * `RenderedText` — the SGR here (inverse cursor, gray placeholder) is this component's own styling,
+ * `RenderedText` — the SGR here (inverse cursor, muted placeholder) is this component's own styling,
  * and `SafeText` would strip it along with everything else, which is exactly how the drawn cursor
  * disappeared (CLI-062 byte-identical rendering).
  */
@@ -270,16 +275,17 @@ function renderWithCursor(
   cursorOffset: number,
   rawPlaceholder: string,
   showCursor: boolean,
+  mutedPlaceholder: (text: string) => string,
 ): string {
   const value = sanitizeTerminalText(rawValue);
   const placeholder = sanitizeTerminalText(rawPlaceholder);
   if (!showCursor) {
-    return value.length > 0 ? value : placeholder ? chalk.gray(placeholder) : '';
+    return value.length > 0 ? value : placeholder ? mutedPlaceholder(placeholder) : '';
   }
 
   if (value.length === 0) {
     if (placeholder.length > 0) {
-      return chalk.inverse(placeholder[0]) + chalk.gray(placeholder.slice(1));
+      return chalk.inverse(placeholder[0]) + mutedPlaceholder(placeholder.slice(1));
     }
     return chalk.inverse(' ');
   }

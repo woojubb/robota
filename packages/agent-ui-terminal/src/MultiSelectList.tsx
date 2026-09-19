@@ -22,7 +22,7 @@ import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindi
 import { NumberedSelectionPrompt, numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
-import { PALETTE } from './tui-palette.js';
+import { usePalette } from './theme/index.js';
 
 import type { IActionOption } from '@robota-sdk/agent-core';
 
@@ -59,6 +59,7 @@ function ChecklistRow({
   isChecked: boolean;
   screenReader: boolean;
 }): React.ReactElement {
+  const palette = usePalette();
   const box = isChecked ? '[x] ' : '[ ] ';
   if (screenReader) {
     return (
@@ -70,7 +71,7 @@ function ChecklistRow({
     );
   }
   return (
-    <Text color={isCursor ? PALETTE.text.accent : undefined}>
+    <Text color={isCursor ? palette.text.accent : undefined}>
       {isCursor ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
       {box}
       {label}
@@ -159,16 +160,17 @@ function ChecklistView(props: {
   minSelect: number;
   numbered: { buffer: string; invalid: boolean };
 }): React.ReactElement {
+  const palette = usePalette();
   const { title, description, options, cursor, selected, screenReader, numbered } = props;
   return (
     <Box
       flexDirection="column"
       {...(screenReader
         ? {}
-        : { borderStyle: 'round' as const, borderColor: PALETTE.border.attention })}
+        : { borderStyle: 'round' as const, borderColor: palette.border.attention })}
       paddingX={1}
     >
-      <Text color={PALETTE.text.warning} bold>
+      <Text color={palette.text.warning} bold>
         {title}
       </Text>
       {description !== undefined && description.length > 0 && <Text dimColor>{description}</Text>}
