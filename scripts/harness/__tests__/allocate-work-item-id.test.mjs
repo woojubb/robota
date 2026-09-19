@@ -179,6 +179,18 @@ describe('the issue source', () => {
       /no open or closed GitHub Issue titled/,
     );
   });
+
+  it('the refusal names the existing umbrella Issue as the route, never opening a new one (PROC-2423)', () => {
+    let message = '';
+    try {
+      resolveIssueNumber({ title: 'new title', issueList: () => [] });
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).toMatch(/existing umbrella Issue/);
+    expect(message).toMatch(/owner's direct instruction/);
+    expect(message).not.toMatch(/gh issue create/);
+  });
 });
 
 describe('the record it writes', () => {

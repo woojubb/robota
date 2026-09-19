@@ -17,6 +17,9 @@ In-repo mirror (memory-mirroring rule). Host mirror: `no-new-github-issues`.
   spec/Task that owns the discovery.
 - The consolidation register lives in each umbrella's body (`robota-90-to-10-register`); the
   Issue ↔ Task boundary is owned by `.agents/rules/backlog-execution.md`.
+- Since 2026-09-19 this is a RULE, not only a memory: `.agents/rules/finding-depth.md` § "A finding
+  never opens a new GitHub issue" (amended on the owner's direct instruction; `.agents/tasks/README.md`
+  and the `find-to-issue` skill point at it).
 
 Origin: five Issues (issue #2740 through issue #2744) were opened during OBSERVABILITY-1991 on 2026-09-19 and closed the
 same hour; their content moved to a comment on issue #2670.

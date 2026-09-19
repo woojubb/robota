@@ -64,13 +64,14 @@ Seeing the same thing again is not a new record — add a dated evidence line un
 If you cannot find the existing ID with a quick search, record a new one anyway; reconciling
 near-duplicates happens in batch, at lesson time, not here.
 
-## A GitHub issue is still allowed — just not automatic
+## A GitHub issue is not opened for a finding
 
-Nothing here removes anyone's ability to open a GitHub Issue directly (`gh issue create` or the web
-UI) for a finding that is ready to be tracked externally right now. What this skill removes is the
-default reflex of filing one for every mid-task observation. When a person does open one afterward,
-[`github-issue-triage`](../github-issue-triage/SKILL.md) and
-[`issue-to-backlog`](../issue-to-backlog/SKILL.md) still own everything from that point on.
+A finding that must be visible outside the tree right now goes onto the EXISTING issue whose scope
+contains it — a comment, or a body update — never a new one; the rule and the choice of issue are
+owned by [finding-depth.md](../../rules/finding-depth.md) § "A finding never opens a new GitHub
+issue" (owner directive, 2026-09-19). Opening a new Issue is the owner's decision, given directly
+for that issue. When the owner does open one, [`github-issue-triage`](../github-issue-triage/SKILL.md)
+and [`issue-to-backlog`](../issue-to-backlog/SKILL.md) still own everything from that point on.
 
 ## Recording is not authorization
 

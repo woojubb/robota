@@ -27,8 +27,9 @@ owns when a phase reopens. Four verdicts, because offering only the first two fo
 - **LOCAL** — the defect is in this change. Fix it here, test-first: write the case against the
   unfixed code and watch it fail (`tdd-and-planning`, `check-regression-red-proof`).
 - **FOUNDATIONAL** — the finding is reachable only because something underneath is wrong. It MUST NOT
-  be patched in place. File the root item, register its GitHub issue, and choose **re-plan** or
-  **labelled containment** — never a third option. The registered issue is not a filing cabinet: an
+  be patched in place. File the root item, register it on the EXISTING GitHub issue whose scope
+  contains it (see § "A finding never opens a new GitHub issue"), and choose **re-plan** or
+  **labelled containment** — never a third option. The registering issue is not a filing cabinet: an
   OPEN GitHub issue outranks unfiled backlog work when choosing what to do next, and stays ahead of
   it until it is closed. A foundational defect that everyone agrees is foundational and nobody
   schedules is the same defect, now with a paper trail.
@@ -88,10 +89,41 @@ and "a root item exists" would then be true of a plan somebody declined.
 Filing is not a separate worker's. The content is the guardian's finding, already produced, plus a
 location — no production judgement is left to make, and `enforcement-architecture.md` says a tier bought
 for reliability buys none. The orchestrator that routes the verdict files the item under
-[`.agents/tasks/README.md`](../tasks/README.md)'s format and registers its GitHub issue, exactly as
-it already registers the issue. `backlog-writer` remains the author of gate-pipeline spec documents;
-when the root item is later picked up it enters that pipeline and gains a spec-doc under the same ID,
-which is the pairing the two trees already have.
+[`.agents/tasks/README.md`](../tasks/README.md)'s format and registers it on the existing GitHub
+issue that owns the scope, as the next section requires. `backlog-writer` remains the author of
+gate-pipeline spec documents; when the root item is later picked up it enters that pipeline and
+gains a spec-doc under the same ID, which is the pairing the two trees already have.
+
+## A finding never opens a new GitHub issue
+
+The issue tracker is a small, fixed set of umbrella issues, one per area, and it stays that size: a
+new issue is the owner's decision, given directly for that issue. A finding made during work — a
+foundational root item, an out-of-scope defect, a follow-up an independent review says "must be
+filed" — is recorded on an EXISTING issue, never as a new one:
+
+- Choose the open issue whose scope contains the finding: the issue the current work is done under,
+  else the umbrella whose title names the area. Every umbrella's body carries its consolidation
+  register, so the choice is a read, not a guess.
+- Record it as a **comment** (a dated finding with its evidence and the record it came from), or as
+  a **body update** when the umbrella's Issue/Task map or scope itself changes. A comment is
+  append-only chronological evidence; the body owns the current scope — the split
+  [backlog-execution.md](backlog-execution.md) § "GitHub Issue ↔ Task Boundary" already defines.
+- The Task record that files the root item cites that issue (`issue:` in its frontmatter, the
+  comment URL in its evidence), and its ID is allocated against that issue
+  ([`.agents/tasks/README.md`](../tasks/README.md) § Process). When the prefix-plus-issue-number ID
+  is already claimed under that umbrella: the same cause is a dated entry on the record that holds
+  it, and a distinct cause takes a different, accurate prefix (the allocator's refusal says so) —
+  one ID names one cause, and neither case is a new Issue.
+- "It is foundational", "the reviewer said file it" and "no umbrella fits exactly" are not the
+  owner's instruction to open one; the last is answered by the closest umbrella plus a note that the
+  fit is loose.
+- A child Issue for an item with an independent external lifecycle is a different question, owned by
+  [backlog-execution.md](backlog-execution.md) § "GitHub Issue ↔ Task Boundary"; nothing there is a
+  route for a finding.
+
+The owner's directive that amended this rule, and the incident behind it, are recorded verbatim in
+[`.agents/memory/no-new-github-issues.md`](../memory/no-new-github-issues.md); this section states
+the invariant, not the case.
 
 ## The cause's location does not decide the depth — the corrected claim does
 

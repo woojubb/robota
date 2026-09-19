@@ -71,9 +71,15 @@ Two things it deliberately does not treat as collisions, and one it cannot see:
 **So a NEW record is Issue-backed.** Before creating a Task or its paired spec, resolve the registering
 GitHub Issue. If one exists, pass its number; if none exists, `allocate-work-item-id.mjs` searches for
 an exact title match and uses it — it does not file a new Issue itself (issue-registration policy,
-2026-09): open one by hand (`gh issue create`) first, or record the finding in `.agents/learn.md`
-instead of allocating a Task for it yet. The new ID is `<PREFIX>-<issue-number>` (for example,
-`HARNESS-2401`), so it is not derived from a local counter.
+2026-09). A finding made during work never opens a new Issue
+([finding-depth.md](../rules/finding-depth.md) § "A finding never opens a new GitHub issue"): register
+it on the existing Issue whose scope contains it — the umbrella the work is done under — as a comment
+or a body update, and allocate against THAT number (`--issue <umbrella>`; `HARNESS-2670` under
+issue #2670 is the precedent), or record the finding in `.agents/learn.md` instead of allocating a
+Task for it yet. The new ID is `<PREFIX>-<issue-number>` (for example, `HARNESS-2401`), so it is not
+derived from a local counter; when that ID is already claimed under the same Issue, the same cause
+is a dated entry on the record that holds it and a distinct cause takes a different, accurate prefix
+(one ID names one cause).
 The Task must still cite the Issue URL. Existing legacy IDs remain valid and are not renamed; a legacy
 record may be scaffolded explicitly with `new-spec.mjs … --legacy-id`.
 
@@ -102,9 +108,9 @@ record's ID".
    ```
 
    Omit `--issue` to reuse an exact existing Issue title; it never creates one — allocation stops
-   and names the two remaining options (`gh issue create` yourself and pass `--issue`, or a
-   `.agents/learn.md` record) if no exact title match exists. The returned ID is
-   `<PREFIX>-<issue-number>`.
+   and names the two remaining options (pass `--issue` with the existing umbrella Issue whose scope
+   contains the work, or a `.agents/learn.md` record) if no exact title match exists. A new Issue is
+   not one of them (owner directive, 2026-09-19). The returned ID is `<PREFIX>-<issue-number>`.
 
    The allocator still reads records, citations, and issue titles/bodies to refuse a legacy-ID
    collision. It never uses their highest number for a new allocation. Add `--dry-run` with an

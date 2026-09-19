@@ -12,10 +12,11 @@
  * GitHub already has the atomic allocator we need: an Issue number. This script resolves an
  * EXISTING registering Issue — by `--issue`, or by an exact title match — then writes
  * `<PREFIX>-<issue-number>`. It never files a new Issue itself (issue-registration policy, 2026-09):
- * open one by hand first (`gh issue create`) when the title matches nothing, or record the finding
- * in `.agents/learn.md` instead of allocating a Task for it yet. The old counter helpers remain
- * exported for historical compatibility tests, but the production path never allocates a new number
- * by scanning the tree.
+ * when the title matches nothing, pass the existing umbrella Issue whose scope contains the work
+ * (the finding is registered there as a comment), or record the finding in `.agents/learn.md`
+ * instead of allocating a Task for it yet — a new Issue is the owner's decision alone. The old
+ * counter helpers remain exported for historical compatibility tests, but the production path never
+ * allocates a new number by scanning the tree.
  *
  * ## What "claimed" means here, measured
  *
