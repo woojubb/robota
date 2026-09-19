@@ -343,3 +343,50 @@ describe('SCREEN-1992 normalized state, headline and next fire (TC-03)', () => {
     ).toBe('failed');
   });
 });
+
+describe('SCREEN-1992 headline is one bounded line', () => {
+  const mainThread = {
+    sessionId: 'session_parent',
+    isExecuting: false,
+    hasPendingPrompt: false,
+    historyLength: 1,
+    updatedAt: '2026-05-09T00:00:00.000Z',
+  };
+
+  it('collapses newlines and cuts a long result exactly like the preview, so the two compare equal', () => {
+    const output = `[stdout] line one\n[stdout] ${'x'.repeat(200)}\n[system] done`;
+    const entry = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread,
+      groups: [],
+      tasks: [
+        createTask({
+          status: 'completed',
+          result: { taskId: 'agent_1', kind: 'agent', output },
+        }),
+      ],
+    }).entries.find((candidate) => candidate.kind === 'background_task')!;
+    expect(entry.headline?.text).not.toContain('\n');
+    expect(entry.headline?.text.length).toBeLessThanOrEqual(123);
+    expect(entry.headline?.text).toBe(entry.preview);
+  });
+
+  it('falls back to the task count when no group result carries a summary', () => {
+    const entry = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread,
+      groups: [
+        createGroup({
+          status: 'running',
+          results: [
+            { taskId: 'agent_1', label: 'Review', status: 'completed' },
+            { taskId: 'agent_2', label: 'Audit', status: 'completed' },
+          ],
+          taskIds: ['agent_1', 'agent_2', 'agent_3'],
+        }),
+      ],
+      tasks: [],
+    }).entries.find((candidate) => candidate.kind === 'background_group')!;
+    expect(entry.headline).toEqual({ kind: 'activity', text: '2/3 tasks' });
+  });
+});

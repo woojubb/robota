@@ -134,3 +134,19 @@ describe('formatBackgroundTaskRow state, headline and countdown', () => {
     expect(formatBackgroundTaskRow(makeEntry({}), { now }).countdown).toBeUndefined();
   });
 });
+
+describe('formatBackgroundTaskRow headline dedup against the subtitle (PR #2749 review)', () => {
+  it('drops a headline the subtitle already carries, such as a wake instruction', () => {
+    const row = formatBackgroundTaskRow(
+      makeEntry({
+        taskKind: 'scheduled',
+        status: 'sleeping',
+        subtitle: '↻ wake "say hello"',
+        preview: undefined,
+        headline: { kind: 'activity', text: 'say hello' },
+      }),
+      { now: new Date('2026-01-01T00:00:00.000Z') },
+    );
+    expect(row.headline).toBeUndefined();
+  });
+});

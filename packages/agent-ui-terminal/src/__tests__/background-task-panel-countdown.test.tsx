@@ -52,10 +52,19 @@ describe('BackgroundTaskPanel countdown tick', () => {
     expect(lastFrame()).not.toContain('in ');
   });
 
-  it('never starts the tick in screen-reader mode', async () => {
-    const { lastFrame } = render(
+  it('never starts the tick in screen-reader mode, yet renders against the current clock', async () => {
+    // Mounted at app start with nothing scheduled, as the real panel is.
+    const { lastFrame, rerender } = render(
       <ScreenReaderProvider enabled>
-        <BackgroundTaskPanel entries={[makeEntry({ nextFireAt: '2026-01-01T00:01:00.000Z' })]} />
+        <BackgroundTaskPanel entries={[makeEntry({ status: 'completed', state: 'completed' })]} />
+      </ScreenReaderProvider>,
+    );
+    // Half an hour later a schedule for one minute out appears: the reader must hear `in 1m`,
+    // not the thirty minutes since mount.
+    vi.setSystemTime(new Date('2026-01-01T00:30:00.000Z'));
+    rerender(
+      <ScreenReaderProvider enabled>
+        <BackgroundTaskPanel entries={[makeEntry({ nextFireAt: '2026-01-01T00:31:00.000Z' })]} />
       </ScreenReaderProvider>,
     );
     expect(lastFrame()).toContain('in 1m 0s');

@@ -38,12 +38,15 @@ export interface IBackgroundTaskRowOptions {
   now?: Date;
 }
 
+/** The headline earns its place only when the row does not already say it (preview or subtitle). */
 function resolveHeadline(
   entry: IExecutionWorkspaceEntry,
   preview: string | undefined,
+  subtitle: string | undefined,
 ): string | undefined {
   const text = entry.headline?.text;
   if (text === undefined || text.length === 0 || text === preview) return undefined;
+  if (subtitle !== undefined && subtitle.includes(text)) return undefined;
   return entry.headline?.kind === 'question' ? `? ${text}` : text;
 }
 
@@ -66,7 +69,7 @@ export function formatBackgroundTaskRow(
     (segment): segment is string => typeof segment === 'string' && segment.length > 0,
   );
   const connector = resolveConnector(options);
-  const headline = resolveHeadline(entry, row.preview);
+  const headline = resolveHeadline(entry, row.preview, row.subtitle);
   const countdown =
     entry.nextFireAt === undefined
       ? undefined

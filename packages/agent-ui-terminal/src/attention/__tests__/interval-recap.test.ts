@@ -39,6 +39,7 @@ describe('IntervalRecap (SCREEN-1992 TC-02)', () => {
     recap.onLost('2026-01-01T00:00:00.000Z');
     expect(recap.onReturned('2026-01-01T01:00:00.000Z')).toBeUndefined();
 
+    recap.entryState('task:seed', 'working'); // a snapshot has been seen: the baseline is known
     recap.onLost('2026-01-01T02:00:00.000Z');
     for (let i = 0; i < 1000; i += 1) recap.entryState(`task:${i}`, 'completed');
     const line = recap.onReturned('2026-01-01T03:30:00.000Z')!;

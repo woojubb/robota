@@ -66,5 +66,6 @@ export class AttentionCoordinator {
       if (entry.kind === 'main_thread') continue;
       this.recap.entryState(entry.id, entry.state);
     }
+    this.recap.snapshotComplete();
   };
 }

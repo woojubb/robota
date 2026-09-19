@@ -31,6 +31,7 @@ export class IntervalRecap {
   /** Entries that were not terminal when attention was lost and are terminal now. */
   private readonly reachedTerminal = new Map<string, TExecutionNormalizedState>();
   private baseline = new Map<string, TExecutionNormalizedState>();
+  private baselinePending = false;
 
   get away(): boolean {
     return this.lostAt !== undefined;
@@ -40,6 +41,9 @@ export class IntervalRecap {
     this.lostAt = Date.parse(atIso);
     this.reset();
     this.baseline = new Map(this.currentStates);
+    // Lost before any snapshot arrived (a channel wired while the user is already away): the first
+    // snapshot is the baseline, so a resumed session's restored terminal tasks are not "news".
+    this.baselinePending = this.currentStates.size === 0;
   }
 
   /** The recap line for the interval just ended, or undefined when there is nothing to say. */
@@ -79,6 +83,10 @@ export class IntervalRecap {
   entryState(entryId: string, state: TExecutionNormalizedState): void {
     this.currentStates.set(entryId, state);
     if (!this.away) return;
+    if (this.baselinePending) {
+      this.baseline.set(entryId, state);
+      return;
+    }
     const before = this.baseline.get(entryId);
     const wasTerminal = before !== undefined && TERMINAL_STATES.has(before);
     if (!TERMINAL_STATES.has(state) || wasTerminal) {
@@ -86,6 +94,11 @@ export class IntervalRecap {
       return;
     }
     this.reachedTerminal.set(entryId, state);
+  }
+
+  /** The end of one snapshot: a pending baseline is now complete. */
+  snapshotComplete(): void {
+    this.baselinePending = false;
   }
 
   private parts(): string[] {

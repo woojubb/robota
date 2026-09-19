@@ -117,6 +117,33 @@ describe('AttentionCoordinator (SCREEN-1992 TC-02 wiring)', () => {
     expect(recaps).toEqual(['While away 5m: 1 turn finished']);
   });
 
+  it('takes the first snapshot as the baseline when wired while already away', () => {
+    const source = new FakeSource();
+    source.attended = false;
+    const recaps: string[] = [];
+    const coordinator = new AttentionCoordinator({
+      source,
+      onRecap: (line) => recaps.push(line),
+      now: () => Date.parse('2026-01-01T00:00:00.000Z'),
+    });
+    coordinator.wire();
+    // A resumed session restores an already-finished task: not news.
+    coordinator.onWorkspaceSnapshot(
+      snapshot([
+        { id: 'task:restored', state: 'completed' },
+        { id: 'task:live', state: 'working' },
+      ]),
+    );
+    coordinator.onWorkspaceSnapshot(
+      snapshot([
+        { id: 'task:restored', state: 'completed' },
+        { id: 'task:live', state: 'failed' },
+      ]),
+    );
+    source.returned('2026-01-01T00:04:00.000Z');
+    expect(recaps).toEqual(['While away 4m: 1 failed']);
+  });
+
   it('never reports the main thread finishing a turn as a completed entry', () => {
     const source = new FakeSource();
     const recaps: string[] = [];

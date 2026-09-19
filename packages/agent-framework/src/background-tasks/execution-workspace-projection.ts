@@ -7,6 +7,7 @@ import {
   mainThreadState,
   taskHeadline,
   taskState,
+  trimPreview,
 } from './execution-workspace-state.js';
 import {
   EXECUTION_ORIGIN_METADATA_KEYS,
@@ -32,7 +33,6 @@ import type {
   TBackgroundPrimitive,
 } from '@robota-sdk/agent-interface-execution';
 
-const PREVIEW_MAX_LENGTH = 120;
 const SUCCESS_EXIT_CODE = 0;
 
 export function createExecutionWorkspaceSnapshot(
@@ -262,14 +262,6 @@ function sortTasks(tasks: readonly IBackgroundTaskState[]): IBackgroundTaskState
 function sortGroups(groups: readonly IBackgroundJobGroupState[]): IBackgroundJobGroupState[] {
   // Stable order too (SCREEN-010): groups carry no start time, so order by their creation id.
   return [...groups].sort((left, right) => left.id.localeCompare(right.id));
-}
-
-function trimPreview(value: string | undefined): string | undefined {
-  const normalized = value?.trim().replace(/\s+/g, ' ');
-  if (!normalized) return undefined;
-  return normalized.length > PREVIEW_MAX_LENGTH
-    ? `${normalized.slice(0, PREVIEW_MAX_LENGTH)}...`
-    : normalized;
 }
 
 function toStringValue(value: TBackgroundPrimitive | undefined): string | undefined {

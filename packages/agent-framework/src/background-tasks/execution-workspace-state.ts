@@ -40,12 +40,26 @@ export function groupState(group: IBackgroundJobGroupState): TExecutionNormalize
   return 'working';
 }
 
+const PREVIEW_MAX_LENGTH = 120;
+
+/**
+ * One line, bounded: whitespace (including newlines) collapsed and the text cut at the row width.
+ * The headline and the preview share this rule so a surface can tell them apart by equality.
+ */
+export function trimPreview(value: string | undefined): string | undefined {
+  const normalized = value?.trim().replace(/\s+/g, ' ');
+  if (!normalized) return undefined;
+  return normalized.length > PREVIEW_MAX_LENGTH
+    ? `${normalized.slice(0, PREVIEW_MAX_LENGTH)}...`
+    : normalized;
+}
+
 function headline(
   kind: IExecutionHeadline['kind'],
   text: string | undefined,
 ): IExecutionHeadline | undefined {
-  const trimmed = text?.trim();
-  return trimmed ? { kind, text: trimmed } : undefined;
+  const line = trimPreview(text);
+  return line ? { kind, text: line } : undefined;
 }
 
 /** Question for a waiting task, result for a terminal one, activity otherwise. */
@@ -82,7 +96,9 @@ export function groupHeadline(group: IBackgroundJobGroupState): IExecutionHeadli
   const kind = group.status === 'completed' ? 'result' : 'activity';
   return headline(
     kind,
-    group.results.map((result) => result.summary ?? result.error?.message).join(' ') ||
-      `${group.results.length}/${group.taskIds.length} tasks`,
+    group.results
+      .map((result) => result.summary ?? result.error?.message)
+      .join(' ')
+      .trim() || `${group.results.length}/${group.taskIds.length} tasks`,
   );
 }
