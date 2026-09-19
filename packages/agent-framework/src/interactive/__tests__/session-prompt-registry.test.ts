@@ -236,3 +236,21 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     }
   });
 });
+
+describe('SCREEN-1992 pending request (TC-05)', () => {
+  it('exposes the oldest parked prompt as a question text and clears it on settle', async () => {
+    const h = harness();
+    expect(h.registry.pending()).toBeUndefined();
+    const permission = h.registry.requestPermission('Bash', { command: 'ls' });
+    expect(h.registry.pending()).toEqual({ kind: 'permission', text: 'Allow Bash?' });
+    const ask = h.registry.requestAsk({ id: 'q1', title: 'Which branch?' });
+    // First parked wins until it settles.
+    expect(h.registry.pending()).toEqual({ kind: 'permission', text: 'Allow Bash?' });
+    h.registry.resolvePermission(h.permissionEvents[0]!.id, true);
+    await permission;
+    expect(h.registry.pending()).toEqual({ kind: 'ask', text: 'Which branch?' });
+    h.registry.drain();
+    await ask;
+    expect(h.registry.pending()).toBeUndefined();
+  });
+});

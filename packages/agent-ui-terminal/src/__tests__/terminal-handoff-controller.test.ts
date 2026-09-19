@@ -86,3 +86,36 @@ describe('TerminalHandoffController', () => {
     expect(fn).not.toHaveBeenCalled();
   });
 });
+
+/** SCREEN-1992 TC-06: the negotiated terminal modes bracket the handoff. */
+describe('TerminalHandoffController terminal-mode hooks', () => {
+  it('runs preSuspend after suspend and postResume after resume, even when the child throws', async () => {
+    const order: string[] = [];
+    const c = new TerminalHandoffController();
+    setTty(true, true);
+    c.registerSuspendHooks({
+      suspend: async () => {
+        order.push('suspend');
+      },
+      resume: () => order.push('resume'),
+    });
+    c.setInkInstance({ clear: () => order.push('clear') });
+    c.setTerminalModeHooks({
+      preSuspend: () => order.push('mode-off'),
+      postResume: () => order.push('mode-on'),
+    });
+
+    await expect(
+      c.runWithTerminal(async () => {
+        order.push('child');
+        throw new Error('child failed');
+      }),
+    ).rejects.toThrow('child failed');
+    expect(order).toEqual(['suspend', 'mode-off', 'clear', 'child', 'resume', 'mode-on']);
+
+    c.setTerminalModeHooks(undefined);
+    order.length = 0;
+    await c.runWithTerminal(async () => order.push('child'));
+    expect(order).toEqual(['suspend', 'clear', 'child', 'resume']);
+  });
+});

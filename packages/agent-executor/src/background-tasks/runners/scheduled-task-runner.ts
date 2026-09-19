@@ -38,6 +38,8 @@ interface IScheduledTaskState {
   cancelled: boolean;
   /** SELFHOST-012: non-destructively paused via croner `.pause()`; a paused schedule fires nothing. */
   paused: boolean;
+  /** SCREEN-1992: at least one fire ran — distinguishes a finished one-shot from a never-fired one. */
+  fired: boolean;
   job: Cron;
   emit: (event: TBackgroundTaskRunnerEvent) => void;
   resolve: (result: IBackgroundTaskResult) => void;
@@ -98,6 +100,7 @@ function startScheduledTask(
     logs,
     cancelled: false,
     paused: false,
+    fired: false,
     emit,
     resolve: resolveResult,
     job: new Cron(request.cronExpression, cronOptions, fire),
@@ -155,6 +158,7 @@ function startScheduledTask(
 
 function runOneFire(state: IScheduledTaskState): void {
   if (state.cancelled || state.paused) return;
+  state.fired = true;
 
   // FLOW-001: carry the agent-wake instruction (if any) so an upper layer can wake the agent loop.
   state.emit(
@@ -233,11 +237,29 @@ function runOneFire(state: IScheduledTaskState): void {
   });
 }
 
+/**
+ * Re-arm after a fire (or on start). SCREEN-1992: when the cron has no next run — a one-shot
+ * `in <N>` / ISO schedule that has just fired — the schedule is finished, so the handle resolves
+ * and the manager moves the task to `completed`. Before this, such a task stayed `running` with
+ * no `nextFireAt` forever, because only `cancel` ever resolved the handle.
+ */
 function emitSleeping(state: IScheduledTaskState): void {
   const nextRun = state.job.nextRun();
-  if (nextRun === null) return;
+  if (nextRun === null) {
+    if (!state.cancelled && !state.paused && state.fired) finishOneShot(state);
+    return;
+  }
   state.emit({
     type: 'background_task_sleeping',
     nextFireAt: nextRun.toISOString(),
+  });
+}
+
+function finishOneShot(state: IScheduledTaskState): void {
+  state.job.stop();
+  state.resolve({
+    taskId: state.taskId,
+    kind: 'scheduled',
+    output: state.logs.join('\n'),
   });
 }

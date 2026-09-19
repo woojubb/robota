@@ -18,6 +18,7 @@ function makeEntry(overrides: Partial<IExecutionWorkspaceEntry>): IExecutionWork
     origin: { kind: 'slash_command', sessionId: 'session_1', commandName: 'agent' },
     taskKind: 'agent',
     status: 'running',
+    state: 'working',
     title: 'Explore',
     subtitle: 'general-purpose',
     preview: 'Map the CLI state manager',

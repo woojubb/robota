@@ -1,3 +1,4 @@
+import type { IAttentionSource } from './attention/attention-tracker.js';
 import type { TerminalHandoffController } from './terminal-handoff-controller.js';
 import type {
   IAIProvider,
@@ -104,6 +105,8 @@ export interface ITuiInteractionChannelOptions {
   selfVerification?: boolean;
   /** TERM-002: process-shared terminal-handoff controller (the TUI implementation of ITerminalHandoff). */
   terminalHandoff?: TerminalHandoffController;
+  /** SCREEN-1992: the terminal's attention level; absent ⇒ no interval recap. */
+  attention?: IAttentionSource;
   /**
    * SELFHOST-008 P6: optional durable-memory store injected by the surface (agent-cli). Forwarded into
    * `buildRuntimeSession`; absent ⇒ memory OFF (today's behavior). Enablement/policy is surface-owned.

@@ -194,3 +194,152 @@ describe('execution workspace projection', () => {
     expect(order(later)).toEqual(['task_a', 'task_b', 'task_c']);
   });
 });
+
+describe('SCREEN-1992 normalized state, headline and next fire (TC-03)', () => {
+  const mainThread = {
+    sessionId: 'session_parent',
+    isExecuting: false,
+    hasPendingPrompt: false,
+    historyLength: 1,
+    updatedAt: '2026-05-09T00:00:00.000Z',
+  };
+  const entryFor = (task: IBackgroundTaskState) =>
+    createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread,
+      groups: [],
+      tasks: [task],
+    }).entries.find((entry) => entry.kind === 'background_task')!;
+
+  it('maps every task status onto the five-word state, never calling a cancelled task completed', () => {
+    const expected: Record<IBackgroundTaskState['status'], string> = {
+      queued: 'working',
+      running: 'working',
+      sleeping: 'working',
+      waiting_permission: 'needs-input',
+      paused: 'stopped',
+      completed: 'completed',
+      failed: 'failed',
+      cancelled: 'stopped',
+    };
+    for (const [status, state] of Object.entries(expected)) {
+      expect(entryFor(createTask({ status: status as IBackgroundTaskState['status'] })).state).toBe(
+        state,
+      );
+    }
+  });
+
+  it('gives the main thread working while executing, needs-input on a parked prompt, completed when idle', () => {
+    const snapshotFor = (
+      input: Partial<typeof mainThread> & {
+        pendingRequest?: { kind: 'permission' | 'ask'; text: string };
+      },
+    ) =>
+      createExecutionWorkspaceSnapshot({
+        sessionId: 'session_parent',
+        mainThread: { ...mainThread, ...input },
+        groups: [],
+        tasks: [],
+      }).entries[0]!;
+    expect(snapshotFor({ isExecuting: true }).state).toBe('working');
+    expect(snapshotFor({ isExecuting: false }).state).toBe('completed');
+    // A queued co-drive prompt is "a turn waiting to run", not "waiting for you".
+    expect(snapshotFor({ isExecuting: true, hasPendingPrompt: true }).state).toBe('working');
+    const parked = snapshotFor({
+      isExecuting: true,
+      pendingRequest: { kind: 'permission', text: 'Allow tool Bash?' },
+    });
+    expect(parked.state).toBe('needs-input');
+    expect(parked.headline).toEqual({ kind: 'question', text: 'Allow tool Bash?' });
+  });
+
+  it('chooses the headline kind by state: question, result, or activity', () => {
+    expect(
+      entryFor(createTask({ status: 'running', currentAction: 'Edit src/app.ts' })).headline,
+    ).toEqual({
+      kind: 'activity',
+      text: 'Edit src/app.ts',
+    });
+    expect(
+      entryFor(
+        createTask({
+          status: 'completed',
+          result: { taskId: 'agent_1', kind: 'agent', output: 'Reviewed 3 files' },
+        }),
+      ).headline,
+    ).toEqual({
+      kind: 'result',
+      text: 'Reviewed 3 files',
+    });
+    expect(
+      entryFor(
+        createTask({
+          status: 'failed',
+          error: { category: 'runner', message: 'boom', recoverable: false },
+        }),
+      ).headline,
+    ).toEqual({
+      kind: 'result',
+      text: 'boom',
+    });
+    expect(
+      entryFor(
+        createTask({
+          kind: 'scheduled',
+          status: 'sleeping',
+          nextFireAt: '2999-01-01T00:00:00.000Z',
+          schedule: { cronExpression: '0 0 * * *', agentInstruction: 'summarize logs' },
+        }),
+      ).headline,
+    ).toEqual({ kind: 'activity', text: 'summarize logs' });
+  });
+
+  it('carries nextFireAt only for a sleeping schedule and no longer bakes it into the subtitle', () => {
+    const sleeping = entryFor(
+      createTask({
+        kind: 'scheduled',
+        status: 'sleeping',
+        nextFireAt: '2999-01-01T00:00:00.000Z',
+        schedule: { cronExpression: '0 0 * * *' },
+      }),
+    );
+    expect(sleeping.nextFireAt).toBe('2999-01-01T00:00:00.000Z');
+    expect(sleeping.subtitle ?? '').not.toMatch(/next:/);
+    expect(
+      entryFor(
+        createTask({
+          kind: 'scheduled',
+          status: 'paused',
+          schedule: { cronExpression: '0 0 * * *' },
+        }),
+      ).nextFireAt,
+    ).toBeUndefined();
+  });
+
+  it('maps a group by the same table', () => {
+    const groupEntry = (group: IBackgroundJobGroupState) =>
+      createExecutionWorkspaceSnapshot({
+        sessionId: 'session_parent',
+        mainThread,
+        groups: [group],
+        tasks: [],
+      }).entries.find((entry) => entry.kind === 'background_group')!;
+    expect(groupEntry(createGroup({ status: 'running' })).state).toBe('working');
+    expect(groupEntry(createGroup({ status: 'completed' })).state).toBe('completed');
+    expect(
+      groupEntry(
+        createGroup({
+          status: 'completed',
+          results: [
+            {
+              taskId: 'agent_1',
+              label: 'Review',
+              status: 'failed',
+              error: { category: 'runner', message: 'x', recoverable: false },
+            },
+          ],
+        }),
+      ).state,
+    ).toBe('failed');
+  });
+});

@@ -72,6 +72,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { ISession } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
+import type { IExecutionPendingRequest } from '@robota-sdk/agent-interface-execution';
 import type {
   IGoalState,
   ITurnHandle,
@@ -173,10 +174,21 @@ export class InteractiveSession
 
     // REMOTE-007: the framework owns one event-emitting prompt registry. Attached surfaces subscribe
     // to requests and answer through resolvePermission/resolveAsk; with none subscribed it fails closed.
+    // SCREEN-1992: a prompt parking or settling changes the main thread's normalized state, so the
+    // workspace snapshot is re-emitted right after each prompt event (`park` precedes the emit).
     this.promptRegistry = new SessionPromptRegistry({
-      emitPermissionRequest: (event) => this.emit('permission_request', event),
-      emitAskRequest: (event) => this.emit('ask_request', event),
-      emitPromptResolved: (event) => this.emit('prompt_resolved', event),
+      emitPermissionRequest: (event) => {
+        this.emit('permission_request', event);
+        this.execCtrl.emitExecutionWorkspaceUpdated('main_thread');
+      },
+      emitAskRequest: (event) => {
+        this.emit('ask_request', event);
+        this.execCtrl.emitExecutionWorkspaceUpdated('main_thread');
+      },
+      emitPromptResolved: (event) => {
+        this.emit('prompt_resolved', event);
+        this.execCtrl.emitExecutionWorkspaceUpdated('main_thread');
+      },
       countListeners: (event) => this.listeners.get(event)?.size ?? 0,
       // REMOTE-014 E5: stamp the active turn's driver as the prompt's requester (display-only attribution).
       getActiveDriverId: () => this.execCtrl.activeDriverId,
@@ -308,6 +320,10 @@ export class InteractiveSession
     if (this.initialized) this.bgTracker.subscribe(this.session!);
     if (this.initialized) this.persistCurrentSession();
     this.resumeGoalIfActive();
+  }
+
+  protected getPendingRequest(): IExecutionPendingRequest | undefined {
+    return this.promptRegistry.pending();
   }
 
   getProjectAccess(): TWorkspaceProjectAccess {

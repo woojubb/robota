@@ -16,6 +16,7 @@ function makeEntry(overrides: Partial<IExecutionWorkspaceEntry>): IExecutionWork
     kind: 'main_thread',
     origin: { kind: 'user_prompt', sessionId: 'session_1' },
     status: 'idle',
+    state: 'completed',
     title: 'Main thread',
     subtitle: '2 history entries',
     unread: false,
@@ -40,6 +41,7 @@ function makeSnapshot(): IExecutionWorkspaceSnapshot {
         kind: 'background_task',
         taskKind: 'agent',
         status: 'running',
+        state: 'working',
         title: 'Explore',
         subtitle: 'general-purpose',
         preview: 'Inspect task layer',
@@ -62,8 +64,9 @@ describe('ExecutionWorkspaceSwitcher', () => {
 
     const frame = lastFrame()!;
     expect(frame).toContain('Execution workspace');
-    expect(frame).toContain('○ Main thread');
-    expect(frame).toContain('● Explore agent');
+    // SCREEN-1992: the state word sits beside the radio.
+    expect(frame).toContain('○ completed Main thread');
+    expect(frame).toContain('● working Explore agent');
     expect(frame).toContain('Inspect task layer');
   });
 

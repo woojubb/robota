@@ -1,6 +1,7 @@
 import { attributedUserEcho } from './attributed-user-echo.js';
 import { bindTuiSessionEvent, bindTuiSessionNoticeEvents } from './tui-session-binding.js';
 
+import type { AttentionCoordinator } from './attention/attention-coordinator.js';
 import type { ITuiSessionEventBinding } from './tui-session-binding.js';
 import type { TuiStateManager } from './tui-state-manager.js';
 import type { IActionRequest, TActionResponse, TToolArgs } from '@robota-sdk/agent-core';
@@ -25,6 +26,8 @@ export interface ITuiSessionEventProjectorOptions {
   askUser: (request: IActionRequest, id: string) => Promise<TActionResponse>;
   dismissPrompt: (id: string) => void;
   onDeliveryError?: (error: Error, event: TInteractiveEventName) => void;
+  /** SCREEN-1992: fed the events the interval recap counts; absent ⇒ nothing is counted. */
+  attention?: AttentionCoordinator;
 }
 
 /** Projects runtime session events into TUI state and owns the complete listener lifecycle. */
@@ -35,7 +38,7 @@ export class TuiSessionEventProjector {
 
   wire(): void {
     if (this.bindings.length > 0) return;
-    const { session, manager } = this.options;
+    const { session, manager, attention } = this.options;
 
     const onUserMessage = (content: string): void => {
       this.options.onUserMessage(content);
@@ -44,14 +47,17 @@ export class TuiSessionEventProjector {
     const syncHistory = (): void => manager.syncHistory(session.getFullHistory());
     const onComplete = (result: IExecutionResult): void => {
       manager.onComplete(result);
+      attention?.onComplete();
       syncHistory();
     };
     const onError = (error: Error): void => {
       manager.onError(error);
+      attention?.onError();
       syncHistory();
     };
     const onExecutionWorkspaceEvent = (event: IExecutionWorkspaceEvent): void => {
       manager.syncExecutionWorkspaceSnapshot(event.snapshot);
+      attention?.onWorkspaceSnapshot(event.snapshot);
     };
 
     this.bind('user_message', onUserMessage);
@@ -68,6 +74,8 @@ export class TuiSessionEventProjector {
     this.bind('memory_event', syncHistory);
     this.bind('execution_workspace_event', onExecutionWorkspaceEvent);
     this.bind('history_cleared', () => manager.clearHistory());
+    // SCREEN-1992: subscribed regardless, so the channel's subscribed set equals the classification.
+    this.bind('turn_source', (source) => attention?.onTurnSource(source));
     bindTuiSessionNoticeEvents(this.bind.bind(this), manager);
 
     const onPermissionRequest: IInteractiveSessionEvents['permission_request'] = ({
@@ -75,12 +83,14 @@ export class TuiSessionEventProjector {
       toolName,
       toolArgs,
     }) => {
+      attention?.onNeedsInput();
       void this.options
         .requestPermission(toolName, toolArgs, id)
         .then((result) => session.resolvePermission(id, result))
         .catch(() => session.resolvePermission(id, false));
     };
     const onAskRequest: IInteractiveSessionEvents['ask_request'] = ({ id, request }) => {
+      attention?.onNeedsInput();
       void this.options
         .askUser(request, id)
         .then((response) => session.resolveAsk(id, response))
@@ -89,10 +99,12 @@ export class TuiSessionEventProjector {
     this.bind('permission_request', onPermissionRequest);
     this.bind('ask_request', onAskRequest);
     this.bind('prompt_resolved', ({ id }) => this.options.dismissPrompt(id));
+    attention?.wire();
   }
 
   unwire(): void {
     const { session } = this.options;
+    this.options.attention?.unwire();
     for (const { event, handler } of this.bindings) {
       session.off(event, handler as IInteractiveSessionEvents[typeof event]);
     }

@@ -7,11 +7,14 @@ import { render } from 'ink';
 import React from 'react';
 
 import App from './App.js';
+import { AttentionTracker } from './attention/attention-tracker.js';
+import { FocusReportingStdin } from './attention/focus-input-filter.js';
 import { KeybindingsProvider } from './keybindings/keybindings-context.js';
 import { writeScreenReaderAnnouncement } from './screen-reader-announcement.js';
 import { ScreenReaderProvider } from './screen-reader-context.js';
 import { awaitStartupQuietPeriod, resolvePacing } from './screen-reader-pacing.js';
-import { isInteractiveColorTerminal } from './terminal-capabilities.js';
+import { isInteractiveColorTerminal, supportsFocusReporting } from './terminal-capabilities.js';
+import { createFocusReportingWriter } from './terminal-focus-reporting.js';
 import { TerminalHandoffController } from './terminal-handoff-controller.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
 
@@ -151,6 +154,11 @@ export interface IRenderOptions {
   screenReaderHint?: boolean | undefined;
   /** BEHAVIOR-2003: one watched source shared with the optional `/keybindings` command. */
   keybindingsSource?: IKeybindingsSource;
+  /**
+   * SCREEN-1992: the focus-reporting override the product shell resolved from its own environment.
+   * `true` forces DECSET 1004 on, `false` is the kill switch, absent ⇒ on for an interactive TTY.
+   */
+  focusReporting?: boolean | undefined;
 }
 
 /** Map render options to TuiInteractionChannel constructor options. */
@@ -269,6 +277,22 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
   // channel re-creations (session switch) so the handoff capability survives a session swap.
   const handoffController = new TerminalHandoffController();
 
+  // SCREEN-1992: focus reporting is negotiated once for the process; the tracker outlives channels.
+  // Screen-reader mode keeps the recap (a plain notice line) — only the row countdown tick is off.
+  const focusReporting = createFocusReportingWriter({
+    supported: () => supportsFocusReporting({ override: options.focusReporting }),
+  });
+  focusReporting.enable();
+  const attention = new AttentionTracker({
+    focusReporting: focusReporting.negotiated,
+    now: Date.now,
+  });
+  attention.start();
+  handoffController.setTerminalModeHooks({
+    preSuspend: () => focusReporting.disable(),
+    postResume: () => focusReporting.enable(),
+  });
+
   // Concrete framework creation has one composition boundary. React receives only the bounded port;
   // App owns which narrowed channel is active, while each channel owns its own lifecycle.
   let activeChannel: ITuiAppChannelPort | undefined;
@@ -276,6 +300,7 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
     const channel = new TuiInteractionChannel({
       ...toChannelOptions(options, resumeSessionId),
       terminalHandoff: handoffController,
+      attention,
     });
     // Expose each live channel (incl. session-switch re-creations) to the embedding product,
     // e.g. for process-level error routing (ERR-001 G1).
@@ -287,6 +312,16 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
   // The startup quiet period sits between the confirmation line and the first frame, so a reader
   // finishes announcing the mode before the prompt lands. A keypress ends it early; `0` skips it.
   await awaitStartupQuietPeriod(pacing.startupQuietMs, process.stdin);
+
+  // The filtering proxy is attached only now: the quiet period consumed its own keystroke above, and
+  // from here on every byte reaches Ink through the proxy, minus the focus sequences.
+  const stdin = new FocusReportingStdin(process.stdin, {
+    negotiated: () => focusReporting.negotiated,
+    onFocusIn: () => attention.focusIn(),
+    onFocusOut: () => attention.focusOut(),
+    onKeystroke: () => attention.keystroke(),
+  });
+  process.stdin.resume();
 
   const instance = render(
     <KeybindingsProvider source={options.keybindingsSource}>
@@ -309,12 +344,21 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
         />
       </ScreenReaderProvider>
     </KeybindingsProvider>,
-    { exitOnCtrlC: false, isScreenReaderEnabled: screenReader },
+    { exitOnCtrlC: false, isScreenReaderEnabled: screenReader, stdin: stdin.asInkStdin() },
   );
   // The controller needs the Ink instance to clear the frame before a handoff.
   handoffController.setInkInstance(instance);
-  await waitForRenderAndStop(
-    () => instance.waitUntilExit(),
-    () => activeChannel,
-  );
+  try {
+    await waitForRenderAndStop(
+      () => instance.waitUntilExit(),
+      () => activeChannel,
+    );
+  } finally {
+    // Leave the terminal as it was found: no focus sequences after exit, no reader on stdin.
+    handoffController.setTerminalModeHooks(undefined);
+    focusReporting.disable();
+    attention.dispose();
+    stdin.detach();
+    process.stdin.pause();
+  }
 }

@@ -27,6 +27,10 @@ export type {
   IExecutionWorkspaceEntryRef,
   ICreateMainThreadDetailPageInput,
   ICreateLineDetailPageInput,
+  IExecutionHeadline,
+  IExecutionPendingRequest,
+  TExecutionHeadlineKind,
+  TExecutionNormalizedState,
 } from '@robota-sdk/agent-interface-execution';
 import type { TBackgroundPrimitive } from '@robota-sdk/agent-interface-execution';
 

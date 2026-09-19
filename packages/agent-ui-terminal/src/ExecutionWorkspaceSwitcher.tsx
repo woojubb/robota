@@ -197,7 +197,7 @@ function ExecutionWorkspaceSwitcherRow({
             ? SELECTION_INDICATOR
             : SELECTION_INDICATOR_NONE}
       </Text>
-      <Text color={row.color}>{row.radio}</Text>
+      <Text color={row.color}>{`${row.radio} ${row.state}`}</Text>
       <Text
         color={isFocused ? PALETTE.text.accent : undefined}
         bold={isFocused}

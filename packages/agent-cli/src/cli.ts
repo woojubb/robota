@@ -63,6 +63,7 @@ import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-acti
 import { runPrintMode } from './modes/print-mode.js';
 import { runServeMode } from './modes/serve-mode.js';
 import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
+import { resolveFocusReportingOverride } from './startup/focus-reporting-enablement.js';
 import { resolveScreenReaderRenderFields } from './startup/screen-reader-enablement.js';
 import {
   formatHeadlessWorkspaceTrustError,
@@ -521,6 +522,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     ...memorySessionOptions,
     // CLI-2004: off ⇒ today's byte stream is unchanged.
     ...screenReader,
+    // SCREEN-1992: the focus-reporting kill switch is the shell's; the TUI's TTY gate decides otherwise.
+    focusReporting: resolveFocusReportingOverride(process.env),
     cliAdapter: createDefaultTuiCliAdapter({
       providerDefinitions,
       reloadPluginCommandSource: reloadPluginCommandSourceInCwd,

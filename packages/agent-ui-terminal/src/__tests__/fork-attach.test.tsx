@@ -36,6 +36,7 @@ function makeForkEntry(
     taskKind: 'agent',
     origin: { kind: 'slash_command', sessionId: 'session_parent' },
     status: 'running',
+    state: 'working',
     title: 'experiment',
     subtitle: 'general-purpose',
     unread: false,

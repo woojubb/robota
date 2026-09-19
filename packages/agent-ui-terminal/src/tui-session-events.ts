@@ -23,7 +23,7 @@ export const TUI_SESSION_EVENT_CLASSIFICATION = {
   background_job_group_event: 'non-surface',
   execution_workspace_event: 'channel',
   user_message: 'channel',
-  turn_source: 'non-surface',
+  turn_source: 'channel',
   context_file_refreshed: 'channel',
   memory_event: 'channel',
   goal_event: 'non-surface',
@@ -39,7 +39,13 @@ export const TUI_SESSION_EVENT_CLASSIFICATION = {
 
 export interface ITuiSessionEventNotice {
   id: string;
-  event: 'plan_event' | 'context_file_refreshed' | 'branch_event' | 'delivery-error';
+  event:
+    | 'plan_event'
+    | 'context_file_refreshed'
+    | 'branch_event'
+    | 'delivery-error'
+    /** SCREEN-1992: TUI-originated — the interval recap on return, not a session event. */
+    | 'attention-recap';
   message: string;
 }
 

@@ -13,6 +13,7 @@ function makeEntry(overrides: Partial<IExecutionWorkspaceEntry>): IExecutionWork
     origin: { kind: 'slash_command', sessionId: 'session_1', commandName: 'agent' },
     taskKind: 'agent',
     status: 'running',
+    state: 'working',
     title: 'Explore',
     subtitle: 'general-purpose',
     preview: 'Analyze backlog',
@@ -82,5 +83,54 @@ describe('formatBackgroundTaskRow in screen-reader mode', () => {
     expect(formatBackgroundTaskRow(makeEntry({}), { isLast: true }).connector).toBe(
       BACKGROUND_TASK_CONNECTORS.last,
     );
+  });
+});
+
+/** SCREEN-1992 TC-07: the state word beside the glyph, the headline and the countdown. */
+describe('formatBackgroundTaskRow state, headline and countdown', () => {
+  const now = new Date('2026-01-01T00:00:00.000Z');
+
+  it('places the state word beside the glyph and carries it in the accessible text', () => {
+    const row = formatBackgroundTaskRow(makeEntry({ status: 'cancelled', state: 'stopped' }), {
+      isLast: true,
+      now,
+    });
+    expect(row.state).toBe('stopped');
+    expect(row.accessibleText.startsWith('└ ⊗ stopped Explore agent')).toBe(true);
+  });
+
+  it('adds the headline only when it says more than the preview, marking a question', () => {
+    const same = formatBackgroundTaskRow(
+      makeEntry({ headline: { kind: 'activity', text: 'Analyze backlog' } }),
+      { now },
+    );
+    expect(same.headline).toBeUndefined();
+    const question = formatBackgroundTaskRow(
+      makeEntry({
+        status: 'waiting_permission',
+        state: 'needs-input',
+        attention: 'permission',
+        headline: { kind: 'question', text: 'Allow Bash?' },
+      }),
+      { now },
+    );
+    expect(question.headline).toBe('? Allow Bash?');
+    expect(question.accessibleText).toContain('needs-input');
+    expect(question.accessibleText).toContain('? Allow Bash?');
+  });
+
+  it('renders a countdown against the given clock for a sleeping schedule only', () => {
+    const sleeping = formatBackgroundTaskRow(
+      makeEntry({
+        taskKind: 'scheduled',
+        status: 'sleeping',
+        state: 'working',
+        nextFireAt: '2026-01-01T00:04:59.000Z',
+      }),
+      { now },
+    );
+    expect(sleeping.countdown).toBe('in 4m 59s');
+    expect(sleeping.accessibleText.endsWith('in 4m 59s')).toBe(true);
+    expect(formatBackgroundTaskRow(makeEntry({}), { now }).countdown).toBeUndefined();
   });
 });

@@ -254,6 +254,11 @@ export class TuiStateManager {
     this.notify();
   }
 
+  addAttentionRecap(line: string): void {
+    this.sessionNoticeStore.addAttentionRecap(line);
+    this.notify();
+  }
+
   addSessionEventDeliveryError(error: Error, event: TInteractiveEventName): void {
     this.sessionNoticeStore.addDeliveryError(error, event);
     this.notify();

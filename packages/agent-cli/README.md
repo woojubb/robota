@@ -311,6 +311,22 @@ The AI agent can invoke 9 distinct local tools (the runtime registers 10 tool na
 - Background subagents are real runtime jobs with transcripts and resumable task snapshots.
 - Explicit multi-agent requests use the `/agent` command module batch path through the SDK runtime.
 
+### Recap when you come back
+
+The TUI notices when you leave the terminal — by focus, where the terminal reports it (iTerm2,
+Kitty, WezTerm, Alacritty, Ghostty, VS Code, Windows Terminal, tmux with `focus-events on`), or
+after five minutes without a keystroke elsewhere — and on your return prints one line for the
+interval, or nothing if nothing happened:
+
+```
+While away 12m: 2 turns finished (1 wake) · 1 needs input · 1 failed
+```
+
+Every background row carries its state word beside the glyph (`working`, `needs-input`,
+`completed`, `failed`, `stopped`), the one-line headline, and for a sleeping `/schedule` a live
+`in 59s` countdown. `ROBOTA_FOCUS_EVENTS=0` turns focus reporting off (idle detection remains);
+`=1` requests it even where the TUI would not.
+
 ## Permission System
 
 Every tool call passes through a three-step permission gate:

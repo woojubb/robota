@@ -19,6 +19,16 @@ export function createMainThreadDetailPage(
     timestamp: entry.timestamp.toISOString(),
     sourceId: entry.type,
   }));
+  // SCREEN-1992: the blocking question leads the first page, so a peek answers "what does it need".
+  if (input.pendingRequest !== undefined && offset === 0) {
+    records.unshift({
+      id: `${input.entryId}:pending`,
+      kind: 'message' as const,
+      text: `Waiting for ${input.pendingRequest.kind}: ${input.pendingRequest.text}`,
+      timestamp: new Date().toISOString(),
+      sourceId: 'pending_request',
+    });
+  }
   return {
     entryId: input.entryId,
     ...(input.cursor ? { cursor: input.cursor } : {}),

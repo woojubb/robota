@@ -66,13 +66,14 @@ A `kind: 'scheduled'` request carries **no `permissionPolicy`, by decision** (is
 | `ISubagentJobState`, `ISubagentJobResult`, `ISubagentSpawnRequest` | `src/subagent-contracts.ts` | a subagent job as a data record |
 | `IExecutionWorkspaceSnapshot`, `IExecutionWorkspaceEntry`, `IExecutionWorkspaceEvent` | `src/workspace-contracts.ts` | the switchable view over running work |
 | `IExecutionDetailRecord`, `IExecutionDetailPage`, `IExecutionDetailCursor` | `src/workspace-contracts.ts` | the detail pane behind one workspace entry |
+| `TExecutionNormalizedState`, `IExecutionHeadline`, `TExecutionHeadlineKind`, `IExecutionPendingRequest` | `src/workspace-contracts.ts` | SCREEN-1992: the five-word state (`working` / `needs-input` / `completed` / `failed` / `stopped`), the row's one-line text (activity / question / result) and the parked prompt the main thread waits on — carried on `IExecutionWorkspaceEntry` (`state`, `headline`, `nextFireAt`) and `ICreateMainThreadEntryInput` (`pendingRequest`), derived once by the projection |
 
 An agent request's optional `effort` is typed by `@robota-sdk/agent-core` and is carried unchanged
 through `ISubagentSpawnRequest`. An explicit request value is more specific than the selected agent
 definition; when both are absent, the framework supplies the parent's effective effort before a
 runner projection.
 
-60 declarations in total. `src/index.ts` is the single entry point; there is no subpath export.
+64 declarations in total. `src/index.ts` is the single entry point; there is no subpath export.
 
 ### Forking a conversation into a background task (CLI-1994)
 
@@ -92,9 +93,13 @@ carries the `resumeSessionId` the view switches onto.
 
 ## Public API Surface
 
-| Export           | Kind | Description                               |
-| ---------------- | ---- | ----------------------------------------- |
-| every name above | type | contract declarations; see Type Ownership |
+| Export                      | Kind | Description                                                                            |
+| --------------------------- | ---- | -------------------------------------------------------------------------------------- |
+| every name above            | type | contract declarations; see Type Ownership                                              |
+| `TExecutionNormalizedState` | type | SCREEN-1992: the five-word state every workspace entry carries (`working` … `stopped`) |
+| `TExecutionHeadlineKind`    | type | SCREEN-1992: `activity` / `question` / `result` — which kind of line the headline is   |
+| `IExecutionHeadline`        | type | SCREEN-1992: the entry's one-line text, the row-text SSOT                              |
+| `IExecutionPendingRequest`  | type | SCREEN-1992: the parked permission/ask the main thread waits on (`kind`, `text`)       |
 
 **No runtime value is exported.** The Interface Package Rule permits a package's entry to publish its
 contracts' vocabulary (a `const` holding a value) and their discriminators (a type predicate); this

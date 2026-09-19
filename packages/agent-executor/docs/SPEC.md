@@ -201,6 +201,13 @@ wiring croner's own `.pause()`/`.resume()` on the handle (`IBackgroundTaskHandle
 in place (same task id + `schedule`). No new scheduler is introduced — this is a thin lifecycle extension over
 the existing runner. (Persistence of `paused` across restart is the FLOW-003 re-arm path — a later slice.)
 
+**SCREEN-1992 — a one-shot schedule finishes.** After a fire, when croner reports no next run (an ISO
+timestamp / `in <N>` schedule that has just fired) and the schedule is neither paused nor cancelled, the
+runner resolves its handle with the accumulated log as output, and the manager moves the task through
+its ordinary `running → completed` transition. A recurring schedule re-arms to `sleeping` with a new
+`nextFireAt` exactly as before. Previously such a task stayed `running` with no `nextFireAt` forever,
+because only `cancel` resolved the handle.
+
 ### Public API: Subagents
 
 | Export                         | Kind     | Description                                                                                                                                                                                                                                                             |

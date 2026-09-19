@@ -204,5 +204,5 @@ vacuously today (no recap exists at all) and only carries weight once the first 
 - Root items recorded on the umbrella (issue #2670 comment), not filed as issues: background
   `needs-input` is declared but unreachable (no path fires `background_task_permission_request`);
   `ROBOTA_*` environment literals in `agent-ui-terminal/src/terminal-capabilities.ts` (NEUT-009 family).
-- Standing authorization: the session goal of 2026-09-19 — "GitHub 이슈 #2670의 남은 범위를 모두 구현하고,
+- Standing authorization: the session goal of 2026-09-19 — "GitHub 이슈 `#2670`의 남은 범위를 모두 구현하고,
   PR을 origin/develop에 병합한 뒤 관련 이슈를 닫아줘".
