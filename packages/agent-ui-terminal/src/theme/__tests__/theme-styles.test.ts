@@ -159,6 +159,10 @@ describe('the dark theme reproduces todays rendering (SCREEN-2002 TC-02)', () =>
     const removed = styles.removed('-row');
     expect(removed).toContain(`${SGR}48;5;52m`);
     expect(removed).toContain(`${SGR}38;5;210m`);
+    // The hunk header takes the theme's colour; the `diff `/`index ` metadata rows take dim over the
+    // INHERITED foreground, exactly as this renderer always wrote them — no colour, no exception.
+    expect(styles.hunk('@@ -1 +1 @@')).toBe(chalk.cyan('@@ -1 +1 @@'));
+    expect(styles.meta('diff --git a/x b/x')).toBe(chalk.dim('diff --git a/x b/x'));
     // Recorded exception: chalk closes with the paired resets, not the blanket reset.
     expect(added.endsWith(`${SGR}0m`)).toBe(false);
     expect(added).toContain(`${SGR}39m`);

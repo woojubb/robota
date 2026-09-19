@@ -26,8 +26,8 @@ export type TUiStatusKind =
  * SCREEN-2002 split the colour out: a symbol is the same in every theme, a colour is not, and a
  * module-level constant cannot follow a theme resolved at render time. The symbol stays here (this
  * module remains the SSOT for status kinds and their glyphs); the colour comes from the live theme
- * through {@link statusGlyphColor} or the `useStatusGlyph` hook, so the pairing survives — no caller
- * gets one without the other.
+ * through {@link statusGlyphColor}, which every call site reaches with `usePalette()`, so the pairing
+ * survives — no caller gets one without the other.
  */
 export const STATUS_SYMBOL: Record<TUiStatusKind, string> = {
   running: '⟳',

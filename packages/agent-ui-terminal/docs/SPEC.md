@@ -189,7 +189,7 @@ sites found across six review rounds).
 The one deliberate pass-through is `RenderedText`, exported from the same module: Ink's `Text`
 without the sanitizing step, for a string this package's OWN renderer produced from input it already
 sanitized. `renderMarkdown` runs `sanitizeTerminalText` on the markdown BEFORE `marked-terminal`
-styles it, so the SGR in its output (the `tui-ansi-palette` diff pairs) is the renderer's, and
+styles it, so the SGR in its output (the theme's diff pairs) is the renderer's, and
 routing it through `SafeText` would strip exactly that styling. `MessageList` uses it for the
 assistant markdown branch only; every other string still goes through `SafeText`.
 
@@ -416,6 +416,13 @@ their caller decides with its `color` flag, so they are styled through a level-f
 instance, exactly as the hand-written escapes behaved. Their one byte difference from those escapes
 is recorded: chalk closes a background+foreground pair with `ESC[39m ESC[49m` rather than the
 blanket `ESC[0m`.
+
+**A theme change does not repaint scrollback.** Committed transcript entries go through Ink's
+`<Static>` (see "Architecture Overview") and are emitted once; the terminal owns them from then on.
+So a theme applies to the live region — input, status bar, streaming text, overlays — and to
+everything rendered after it, while entries already in scrollback keep the theme they were written
+in. This is the same property that makes the transcript survivable at all (SCREEN-1993), and it is
+the reason a picker previews against the live region rather than the transcript.
 
 **De-emphasis rule.** The canonical muted treatment is Ink's `dimColor` (terminal-theme-relative,
 degrades for free) — including `KeyHintFooter`'s footers. `colors.text.muted` exists only where an

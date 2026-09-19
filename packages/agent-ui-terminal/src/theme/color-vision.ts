@@ -43,7 +43,7 @@ const ANSI_CUBE_STEPS = coefficients('0 95 135 175 215 255');
 const GRAY_STEP = 10;
 const GRAY_BASE = 8;
 
-/** An Ink-grammar colour as linear-light RGB, or `undefined` when it cannot be simulated. */
+/** An Ink-grammar colour as 0–255 sRGB, or `undefined` when it cannot be simulated. */
 export function toRgb(color: TThemeColor): IRgb | undefined {
   const long = HEX_LONG.exec(color);
   if (long?.[1]) {

@@ -2,7 +2,7 @@
  * SCREEN-006 WaveText token-sourcing tests.
  *
  * WaveText's color ramp comes from the resolved theme's motion tokens (its cadence is its own) in
- * `src/tui-palette.ts` (not component-private literals), and the gated/static
+ * `src/theme/built-in-themes.ts` (not component-private literals), and the gated/static
  * frame must use the canonical muted token. Reduced-motion behavior is
  * re-asserted against the token source: when `isInteractiveColorTerminal()` is
  * false there is no interval and no color churn.

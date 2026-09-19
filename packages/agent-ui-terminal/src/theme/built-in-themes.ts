@@ -67,7 +67,6 @@ export const DARK_THEME: ITuiTheme = {
     diffAddedBackground: 'ansi256(22)',
     diffRemovedBackground: 'ansi256(52)',
     diffHunk: 'cyan',
-    diffMeta: 'gray',
   },
   // cli-highlight's DEFAULT_THEME, written down for the same reason.
   syntax: {
@@ -141,7 +140,6 @@ export const LIGHT_THEME: ITuiTheme = {
     diffAddedBackground: 'ansi256(194)',
     diffRemovedBackground: 'ansi256(224)',
     diffHunk: 'ansi256(24)',
-    diffMeta: 'ansi256(243)',
   },
   syntax: {
     keyword: 'ansi256(26)',
@@ -214,7 +212,6 @@ export const DARK_DALTONIZED_THEME: ITuiTheme = {
     diffAddedBackground: '#00335c',
     diffRemovedBackground: '#5c3000',
     diffHunk: '#56b4e9',
-    diffMeta: '#999999',
   },
   syntax: {
     keyword: '#56b4e9',
@@ -286,7 +283,6 @@ export const LIGHT_DALTONIZED_THEME: ITuiTheme = {
     diffAddedBackground: '#d6ecf9',
     diffRemovedBackground: '#fbe5cd',
     diffHunk: '#0072b2',
-    diffMeta: '#5c5c5c',
   },
   syntax: {
     keyword: '#0072b2',

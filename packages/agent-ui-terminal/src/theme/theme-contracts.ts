@@ -48,9 +48,12 @@ export interface IThemeColors {
 
 /**
  * Every key `marked-terminal` colours by default, including `html` — a key left out would keep that
- * dependency's own gray under every theme. `strong`, `em`, `listitem` and `hr` are deliberately
- * absent: they carry no colour today (`chalk.bold` / `chalk.italic` / `chalk.reset` / `chalk.reset`),
- * so giving them one would change rendering rather than theme it.
+ * dependency's own gray under every theme.
+ *
+ * Deliberately absent, because they carry no colour today and giving them one would change rendering
+ * rather than theme it: `strong` (`chalk.bold`), `em` (`chalk.italic`), `listitem` and `hr`
+ * (`chalk.reset`), and a diff's `diff `/`index ` metadata rows, which this package writes itself as
+ * dim over the inherited foreground.
  */
 export interface IThemeMarkdown {
   readonly heading: TThemeColor;
@@ -67,7 +70,6 @@ export interface IThemeMarkdown {
   readonly diffAddedBackground: TThemeColor;
   readonly diffRemovedBackground: TThemeColor;
   readonly diffHunk: TThemeColor;
-  readonly diffMeta: TThemeColor;
 }
 
 /**

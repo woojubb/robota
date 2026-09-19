@@ -32,10 +32,11 @@ const ANSI256_MAX = 255;
 const CHALK_STYLES: Record<string, ChalkInstance | undefined> = Object.fromEntries(
   [...foregroundColorNames, ...backgroundColorNames].map((name) => [name, chalk[name]]),
 );
+const FOREGROUND_NAMES = new Set<string>(foregroundColorNames);
 
-/** A chalk name Ink would accept. */
+/** A FOREGROUND chalk name Ink would accept — a `bg…` name is not a token value. */
 function isChalkColorName(value: string): boolean {
-  return typeof CHALK_STYLES[value] === 'function';
+  return FOREGROUND_NAMES.has(value);
 }
 
 /** Whether a string is a colour in Ink's grammar. The one place the grammar is decided. */
@@ -111,9 +112,8 @@ export function markdownRendererOptions(markdown: IThemeMarkdown): Record<string
 export function syntaxHighlightTheme(syntax: IThemeSyntax): Record<string, ChalkInstance> {
   const theme: Record<string, ChalkInstance> = {};
   for (const key of THEME_SYNTAX_KEYS) {
-    // `type` is dim in cli-highlight's own theme; the modifier is structure, the colour is the theme's.
-    // `type` is `<colour>.dim` in cli-highlight's own theme — the modifier is structure, the colour
-    // is the theme's, and the order is the dependency's so the `dark` theme is byte-identical.
+    // `type` is `<colour>.dim` in cli-highlight's own theme: the modifier is structure, the colour is
+    // the theme's, and the order is the dependency's, so the `dark` theme is byte-identical.
     theme[key] = key === 'type' ? foreground(syntax[key]).dim : foreground(syntax[key]);
   }
   return theme;
@@ -124,6 +124,7 @@ export interface IDiffRowStyles {
   readonly added: (row: string) => string;
   readonly removed: (row: string) => string;
   readonly hunk: (row: string) => string;
+  /** Structure only: dim over the inherited foreground, never a theme colour. */
   readonly meta: (row: string) => string;
 }
 
@@ -138,6 +139,8 @@ export function diffRowStyles(theme: ITuiTheme): IDiffRowStyles {
     added: (row) => addedBackground(addedForeground(row)),
     removed: (row) => removedBackground(removedForeground(row)),
     hunk: foreground(markdown.diffHunk, base),
-    meta: foreground(markdown.diffMeta, base).dim,
+    // Dim over the INHERITED foreground, as this renderer always wrote it — colouring it would be a
+    // rendering change dressed as a theme.
+    meta: (row) => base.dim(row),
   };
 }
