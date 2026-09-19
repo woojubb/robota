@@ -116,4 +116,24 @@ describe('AttentionCoordinator (SCREEN-1992 TC-02 wiring)', () => {
     source.returned('2026-01-01T00:05:00.000Z');
     expect(recaps).toEqual(['While away 5m: 1 turn finished']);
   });
+
+  it('never reports the main thread finishing a turn as a completed entry', () => {
+    const source = new FakeSource();
+    const recaps: string[] = [];
+    const coordinator = new AttentionCoordinator({ source, onRecap: (line) => recaps.push(line) });
+    coordinator.wire();
+    // The user leaves mid-turn: the main thread is `working` when attention is lost …
+    coordinator.onWorkspaceSnapshot(
+      snapshot([{ id: 'main:s1', state: 'working', kind: 'main_thread' }]),
+    );
+    source.lost('2026-01-01T00:00:00.000Z');
+    coordinator.onTurnSource('user');
+    coordinator.onComplete();
+    // … and idle (`completed`) when they return. That is the turn, already counted, not an entry.
+    coordinator.onWorkspaceSnapshot(
+      snapshot([{ id: 'main:s1', state: 'completed', kind: 'main_thread' }]),
+    );
+    source.returned('2026-01-01T00:02:00.000Z');
+    expect(recaps).toEqual(['While away 2m: 1 turn finished']);
+  });
 });
