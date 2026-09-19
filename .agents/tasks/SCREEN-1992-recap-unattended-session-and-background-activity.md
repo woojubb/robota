@@ -20,15 +20,15 @@ a model response.
 
 ## Plan
 
-- [ ] TC-01, TC-06: Attention tracker with focus-event and input-idle sources, the stdin filter, the
+- [x] TC-01, TC-06: Attention tracker with focus-event and input-idle sources, the stdin filter, the
       focus-reporting gate and its DECSET/DECRST writer bracketed with raw mode and handoff.
-- [ ] TC-02, TC-07: Interval recap accumulator (turns by source, needs-input, terminal entries), the
+- [x] TC-02, TC-07: Interval recap accumulator (turns by source, needs-input, terminal entries), the
       recap notice, `turn_source` on the channel, and the row's state word + headline rendering.
-- [ ] TC-03, TC-05: Contract fields `state`/`headline`/`nextFireAt` and `pendingRequest`, the
+- [x] TC-03, TC-05: Contract fields `state`/`headline`/`nextFireAt` and `pendingRequest`, the
       framework projection with the total mapping, the parked-prompt seam and its workspace emit.
-- [ ] TC-04, TC-08: Live countdown from `nextFireAt` and the executor fix that lets a one-shot
+- [x] TC-04, TC-08: Live countdown from `nextFireAt` and the executor fix that lets a one-shot
       schedule reach `completed`.
-- [ ] TC-09, TC-10: The PTY scenario on the built CLI and engineering verification.
+- [x] TC-09, TC-10: The PTY scenario on the built CLI and engineering verification.
 
 ## Test Plan
 
@@ -55,7 +55,7 @@ that backgrounds work, marks the surface unattended, emits activity and confirms
 - observable rationale: source=rendered-product-ui
 - expected observable: visible=after `/schedule in 1m say hello` the background row shows `working` with a countdown that decreases at least twice (e.g. `in 58s` then `in 55s`); after `ESC [ O` and the wake firing, `ESC [ I` renders exactly one line starting `While away` that names 1 turn finished (1 wake); the main-thread row read `working` during the wake turn and the schedule row reads `completed` after its fire; a second `ESC [ O` then `ESC [ I` with no activity renders no further `While away` line
 - cleanup: exit the Robota process normally with Ctrl+C and confirm it exited, stop the stub server, then remove only the isolated HOME, project and captured transcript directories
-- evidence: pending
+- evidence: recorded — strict driver run, exit 0: countdown samples `[58,57,56,55,54,53,52]`, `● working Main thread` read through the switcher during the held wake turn, exactly one `While away <1m: 1 turn finished (1 wake) · 1 completed` line on `ESC [ I`, the schedule row `✓ completed`, zero `While away` lines for the empty second interval — in `.agents/evals/scenarios/screen-1992-attention-recap-agent-run.md` (2026-09-19)
 
 ### [DONE-GATE-STAGE-1] — ❌ FAIL | 2026-09-19
 
@@ -173,6 +173,53 @@ line starting `While away` naming 1 turn / 1 wake, schedule row `completed`, and
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** scenario written → scenario executed
+
+Ordering: the last `[DONE-GATE-STAGE-1]` entry is ✅ PASS (2026-09-19), frozen with its
+`doneGateStageOne` JSON in the planning checkpoint `ec79030f5`, which is an ancestor of HEAD
+`52431286f`; the implementation commit `52431286f` is the only commit after the checkpoint on
+`feat/screen-1992-attention-recap` above `origin/develop` `960af3e10`. Task `status: in-progress`;
+every `## Plan` item is ticked. Scenario 1's `expected observable` field is byte-identical to the
+checkpoint's `expectedObservable` (compared against `git show ec79030f5:<Task>`); the only Task
+changes since the checkpoint are the five Plan ticks and the `- evidence:` line. Build freshness:
+`packages/agent-ui-terminal/dist` was older than `src/attention/interval-recap.ts` (and the
+`agent-cli` bundle inlines ui-terminal), so the guardian ran `pnpm --filter @robota-sdk/agent-ui-terminal
+build` then `pnpm --filter @robota-sdk/agent-cli build` (exit 0) before the run; `agent-framework`,
+`agent-executor` and `agent-interface-execution` dists were already newer than their newest `src/`
+file. The guardian then re-executed the scenario itself:
+`RECAP_SCENARIO_STRICT=1 pnpm --dir scratch exec tsx src/screen-1992-recap-scenario.mts` → exit 0,
+report `command: node …/packages/agent-cli/bin/robota.cjs --name recap-scenario --disable-update-check
+--no-session-persistence`, `scheduleDelay: 1m`, `exitCode: 0`, stub requests `hello` then `say hello`
+(both `stream: true`), `harness.cliStarted: true`, `harness.wakeFired: "say hello"`.
+
+- Scenario 1 — `pnpm exec robota --name recap-scenario` (100×32 xterm-256color PTY, `NO_COLOR=1`,
+  isolated HOME with the `openai`-type stub profile, local stub on 127.0.0.1): exit 0. Matched clause by
+  clause against `expected observable` from the guardian's own strict run (`todo[].observed`):
+  (a) background row shows `working` with a countdown decreasing at least twice — observed
+  `[58,57,56,55,54,53,52]` and rows `└ ⟳ working Scheduled: say hello · sleeping · scheduled · ↻ wake
+"say hello" · say hello · in 55s` … `in 52s`; (b) after `ESC [ O` and the wake firing, `ESC [ I`
+  renders exactly one line starting `While away` naming 1 turn finished (1 wake) — observed
+  `["While away <1m: 1 turn finished (1 wake) · 1 completed"]`; (c) main-thread row read `working`
+  during the wake turn — observed `["│ > ● working Main thread · active · 5 history entries · user │"]`
+  (read through the Ctrl+B switcher while the stub held the wake reply); (d) schedule row reads
+  `completed` after its fire — observed `└ ✓ completed Scheduled: say hello · completed · scheduled · …`;
+  (e) a second `ESC [ O` / `ESC [ I` with no activity renders no further `While away` line — observed
+  `[]`, asserted after the first recap had rendered (driver lines 350–379), so not vacuous. All six
+  strict checks `matched: true`.
+- Evidence record: `.agents/evals/scenarios/screen-1992-attention-recap-agent-run.md` § Observed
+  (2026-09-19), committed in `52431286f`; its `checks[].observed` values equal the guardian's run
+  (countdown `[58,57,56,55,54,53,52]`, the same `working` rows, the same single `While away` line,
+  `✓ completed`, `[]`). The `- evidence:` field cites that record and quotes product output only;
+  referenced paths `scratch/src/screen-1992-recap-scenario.mts` and `packages/agent-cli/bin/robota.cjs`
+  exist. No exception (`manual-only`) or capability-absence claim was made, so none needed a probe.
+  The record's `### Supporting test suites` list is engineering verification and was not counted as
+  user-execution evidence. Observation for the orchestrator, not a criterion of this gate: the record's
+  `**Spec:**` header names `.agents/spec-docs/done/…` while the spec currently sits in
+  `.agents/spec-docs/active/`; the sibling record named `active/` at this stage and was retargeted in
+  the completion commit that moves the spec.
 
 ## Recommendation Evidence
 
