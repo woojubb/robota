@@ -1,7 +1,8 @@
 ---
 title: 'SCREEN-1993: Search prompt history and conversation transcripts'
 issue: https://github.com/woojubb/robota/issues/1993
-status: in-progress
+status: done
+completed: 2026-09-19
 created: 2026-09-14
 priority: high
 urgency: now

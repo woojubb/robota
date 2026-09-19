@@ -60,7 +60,7 @@ attention state, stored-history query, palette configuration, OS/IME integration
 
 - [x] OBSERVABILITY-1991 — done — `.agents/tasks/completed/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md`
 - [x] SCREEN-1992 — done — `.agents/tasks/completed/SCREEN-1992-recap-unattended-session-and-background-activity.md`
-- [ ] SCREEN-1993 — in-progress — `.agents/tasks/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md`
+- [x] SCREEN-1993 — done — `.agents/tasks/completed/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md`
 - [ ] SCREEN-2002 — todo — `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`
 - [x] BEHAVIOR-2003 — done — `.agents/tasks/completed/BEHAVIOR-2003-configure-contextual-tui-key-bindings.md`
 - [ ] FLOW-2006 — todo — `.agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`

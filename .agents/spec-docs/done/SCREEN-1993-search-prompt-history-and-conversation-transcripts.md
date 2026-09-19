@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: done
 type: SCREEN
 tags: [tui, session, search]
 lane: L2
@@ -254,31 +254,31 @@ One PR: the contracts and the file are observable only through the overlay.
 
 ## Completion Criteria
 
-- [ ] TC-01: `NodePromptHistoryFile` — appends one JSON line per entry with owner-only mode (directory and file), and reads a fixture file of >100 lines newest-first in more than one block with a partial line carried across a block boundary; a malformed line is counted in `skippedLines` and not yielded; aborting the signal between blocks stops the iteration; a missing file yields nothing; a file that cannot be opened (a directory at the path) throws.
-- [ ] TC-02: the execution controller appends `{ at, sessionId, project, text }` for a `'user'` turn with no `driverId` or `OWNER_DRIVER_ID`, using `rawInput` trimmed; does NOT append for `agent-wakeup`, `peer`, or a remote `driverId`; suppresses an immediate consecutive duplicate; a throwing writer produces exactly one visible notice per session and the turn still completes.
-- [ ] TC-03: `history-search-flow` — `filterPrompts` matches case-insensitively with correct match ranges; `collapseToNewest` keeps the newest occurrence of a trimmed text and preserves newest-first order; `cycleScope` cycles `all → session → project → all`; the scope predicate selects by `project` equality and by `sessionId`.
-- [ ] TC-04: `useHistorySearch` / overlay — opening starts exactly one loader; results from the first block render before the second is yielded; typing narrows without restarting the loader; `insert` puts the selected text into the input (nothing submitted); `execute` submits it; `cancel` restores the pre-search text and cursor byte-identically and aborts the loader; `skippedLines` and a read error are rendered; in screen-reader mode the list re-renders only per keystroke or at load end and rows are numbered without numeric selection.
-- [ ] TC-05: keybindings — the catalogue and the published schema agree on the `history-search` context; `ctrl+r` in `chat-input` opens the overlay; every `history-search` action is rebindable through `~/.robota/keybindings.json`; a document binding `ctrl+c` is refused; the footer lists exactly the live keys.
-- [ ] TC-06: `resolvePromptHistoryEnablement` — settings `promptHistory: false` and `ROBOTA_PROMPT_HISTORY=0` disable, `=1` enables over settings, default is enabled; `resolvePromptHistoryProject` returns the resolved identity's `worktreeRoot` for trusted, untrusted and revoked access and `realpath(cwd)` only for `identity-unavailable`/`store-unavailable`; `IRestrictedWorkspaceProjectAccess.identity` is set by the trust service whenever the resolver succeeded.
-- [ ] TC-07: composition — the TUI session receives the writer and the render options the source + project; `--serve` and print mode receive no writer (their session options carry none).
-- [ ] TC-08: `pnpm --filter` build, test and typecheck for agent-interface-session, agent-session, agent-framework, agent-cli and agent-ui-terminal exit 0; `pnpm harness:scan` exits 0; the lint-warning ceiling holds.
-- [ ] TC-09: the built CLI in a PTY (isolated HOME seeded with a `history.jsonl` of >100 prompts across three `project` values and one malformed line; a local stub provider): Ctrl+R shows matches from the newest block immediately, typing narrows with the match highlighted, `ctrl+s` cycles the scope label through `all → session → project`, `enter` on a match places it in the input and the stub receives nothing, `ctrl+e` on another sends it (the stub receives it), `escape` during a third search restores the original draft byte-identically, and the footer shows the skipped-line count.
-- [ ] TC-10: the built CLI resumes a persisted session of >100 messages in a PTY and every message text is present in the terminal's scrollback capture without any key being pressed (the transcript decision's evidence); the alternate-screen sequence `ESC [ ? 1049 h` never appears.
+- [x] TC-01: `NodePromptHistoryFile` — appends one JSON line per entry with owner-only mode (directory and file), and reads a fixture file of >100 lines newest-first in more than one block with a partial line carried across a block boundary; a malformed line is counted in `skippedLines` and not yielded; aborting the signal between blocks stops the iteration; a missing file yields nothing; a file that cannot be opened (a directory at the path) throws.
+- [x] TC-02: the execution controller appends `{ at, sessionId, project, text }` for a `'user'` turn with no `driverId` or `OWNER_DRIVER_ID`, using `rawInput` trimmed; does NOT append for `agent-wakeup`, `peer`, or a remote `driverId`; suppresses an immediate consecutive duplicate; a throwing writer produces exactly one visible notice per session and the turn still completes.
+- [x] TC-03: `history-search-flow` — `filterPrompts` matches case-insensitively with correct match ranges; `collapseToNewest` keeps the newest occurrence of a trimmed text and preserves newest-first order; `cycleScope` cycles `all → session → project → all`; the scope predicate selects by `project` equality and by `sessionId`.
+- [x] TC-04: `useHistorySearch` / overlay — opening starts exactly one loader; results from the first block render before the second is yielded; typing narrows without restarting the loader; `insert` puts the selected text into the input (nothing submitted); `execute` submits it; `cancel` restores the pre-search text and cursor byte-identically and aborts the loader; `skippedLines` and a read error are rendered; in screen-reader mode the list re-renders only per keystroke or at load end and rows are numbered without numeric selection.
+- [x] TC-05: keybindings — the catalogue and the published schema agree on the `history-search` context; `ctrl+r` in `chat-input` opens the overlay; every `history-search` action is rebindable through `~/.robota/keybindings.json`; a document binding `ctrl+c` is refused; the footer lists exactly the live keys.
+- [x] TC-06: `resolvePromptHistoryEnablement` — settings `promptHistory: false` and `ROBOTA_PROMPT_HISTORY=0` disable, `=1` enables over settings, default is enabled; `resolvePromptHistoryProject` returns the resolved identity's `worktreeRoot` for trusted, untrusted and revoked access and `realpath(cwd)` only for `identity-unavailable`/`store-unavailable`; `IRestrictedWorkspaceProjectAccess.identity` is set by the trust service whenever the resolver succeeded.
+- [x] TC-07: composition — the TUI session receives the writer and the render options the source + project; `--serve` and print mode receive no writer (their session options carry none).
+- [x] TC-08: `pnpm --filter` build, test and typecheck for agent-interface-session, agent-session, agent-framework, agent-cli and agent-ui-terminal exit 0; `pnpm harness:scan` exits 0; the lint-warning ceiling holds.
+- [x] TC-09: the built CLI in a PTY (isolated HOME seeded with a `history.jsonl` of >100 prompts across three `project` values and one malformed line; a local stub provider): Ctrl+R shows matches from the newest block immediately, typing narrows with the match highlighted, `ctrl+s` cycles the scope label through `all → session → project`, `enter` on a match places it in the input and the stub receives nothing, `ctrl+e` on another sends it (the stub receives it), `escape` during a third search restores the original draft byte-identically, and the footer shows the skipped-line count.
+- [x] TC-10: the built CLI resumes a persisted session of >100 messages in a PTY and every message text is present in the terminal's scrollback capture without any key being pressed (the transcript decision's evidence); the alternate-screen sequence `ESC [ ? 1049 h` never appears.
 
 ## Test Plan
 
-| TC-ID | Test Type                | Tool / Approach                                                                                                                                                                                           | Notes                                                      |
-| ----- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| TC-01 | Unit / fs                | Vitest with a temp directory (`makeTemp`), fixture file written by the writer, block size injected small                                                                                                  | Newest-first across blocks; partial-line carry; skip count |
-| TC-02 | Unit                     | Vitest over the execution controller with a recording writer and an `InteractiveSession` test double                                                                                                      | Driver / turn-source / text rules; one notice on failure   |
-| TC-03 | Unit                     | Vitest over the pure flow                                                                                                                                                                                 | Match ranges, collapse, cycle, predicate                   |
-| TC-04 | Component                | ink-testing-library with an injected async source yielding two blocks under fake timers                                                                                                                   | One loader per open; mid-load insert/cancel; SR gating     |
-| TC-05 | Unit                     | Vitest over the catalogue, registry and schema parity test; contextual keybindings input test                                                                                                             | Rebindable set; ctrl+c refused; footer parity              |
-| TC-06 | Unit                     | Vitest over the enablement resolver and the trust service                                                                                                                                                 | Precedence table; project key per trust state              |
-| TC-07 | Unit                     | Vitest over the CLI composition helpers                                                                                                                                                                   | Writer only on the TUI path                                |
-| TC-08 | Engineering verification | package build/test/typecheck, `pnpm harness:scan`, `pnpm lint`                                                                                                                                            |                                                            |
-| TC-09 | Process / PTY            | Agent-controlled PTY over `node packages/agent-cli/bin/robota.cjs --name history-scenario --disable-update-check --no-session-persistence` with a seeded isolated HOME and a local OpenAI-compatible stub | The user execution scenario                                |
-| TC-10 | Process / PTY            | Agent-controlled PTY resuming a seeded >100-message session (`--resume <id>`), scrollback capture                                                                                                         | Transcript decision evidence; no alternate screen          |
+| TC-ID | Test Type                | Tool / Approach                                                                                                                                                                                           | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit / fs                | Vitest with a temp directory (`makeTemp`), fixture file written by the writer, block size injected small                                                                                                  | Newest-first across blocks; partial-line carry; skip count — **Test reference:** `packages/agent-session/src/__tests__/prompt-history-file.test.ts` > "NodePromptHistoryFile (SCREEN-1993 TC-01)"                                                                                                                                                                                                                                           |
+| TC-02 | Unit                     | Vitest over the execution controller with a recording writer and an `InteractiveSession` test double                                                                                                      | Driver / turn-source / text rules; one notice on failure — **Test reference:** `packages/agent-framework/src/interactive/__tests__/interactive-session-prompt-history.test.ts` > "createPromptHistoryRecorder (SCREEN-1993 TC-02)" and "InteractiveSession wires the recorder into the turn (SCREEN-1993 TC-02)"                                                                                                                            |
+| TC-03 | Unit                     | Vitest over the pure flow                                                                                                                                                                                 | Match ranges, collapse, cycle, predicate — **Test reference:** `packages/agent-ui-terminal/src/history-search/__tests__/history-search-flow.test.ts` > "history-search-flow (SCREEN-1993 TC-03)"                                                                                                                                                                                                                                            |
+| TC-04 | Component                | ink-testing-library with an injected async source yielding two blocks under fake timers                                                                                                                   | One loader per open; mid-load insert/cancel; SR gating — **Test reference:** `packages/agent-ui-terminal/src/__tests__/history-search-overlay.test.tsx` > "SCREEN-1993 TC-04: the history-search overlay"                                                                                                                                                                                                                                   |
+| TC-05 | Unit                     | Vitest over the catalogue, registry and schema parity test; contextual keybindings input test                                                                                                             | Rebindable set; ctrl+c refused; footer parity — **Test reference:** `packages/agent-ui-terminal/src/keybindings/__tests__/keybinding-registry.test.ts` (schema parity; `history-search.execute: ctrl+c` refused); `src/__tests__/contextual-keybindings-input.test.tsx` > "rebinds the history-search open key and its actions through the document"; `src/__tests__/key-hint-consistency.test.tsx` (HistorySearchOverlay footer inventory) |
+| TC-06 | Unit                     | Vitest over the enablement resolver and the trust service                                                                                                                                                 | Precedence table; project key per trust state — **Test reference:** `packages/agent-cli/src/startup/__tests__/prompt-history-enablement.test.ts` > "prompt-history enablement (SCREEN-1993 TC-06)"; `packages/agent-framework/src/workspace-trust/workspace-project-authority.test.ts` (restricted access carries `identity`)                                                                                                               |
+| TC-07 | Unit                     | Vitest over the CLI composition helpers                                                                                                                                                                   | Writer only on the TUI path — **Test reference:** `packages/agent-cli/src/startup/__tests__/prompt-history-enablement.test.ts` > "prompt-history composition (SCREEN-1993 TC-07)"; `packages/agent-ui-terminal/src/__tests__/render-channel-options.test.ts` > "SCREEN-1993: projects the prompt-history writer to the channel and on to the session options"                                                                               |
+| TC-08 | Engineering verification | package build/test/typecheck, `pnpm harness:scan`, `pnpm lint`                                                                                                                                            | **Test reference:** Test skipped as a checked-in suite: engineering verification is the GATE-VERIFY entry (five-package build/test/typecheck exit 0), `pnpm harness:scan` 161 passed / 1 skipped, `pnpm lint` 2347 ≤ 2356                                                                                                                                                                                                                   |
+| TC-09 | Process / PTY            | Agent-controlled PTY over `node packages/agent-cli/bin/robota.cjs --name history-scenario --disable-update-check --no-session-persistence` with a seeded isolated HOME and a local OpenAI-compatible stub | The user execution scenario — **Test reference:** Test skipped as a checked-in suite: the PTY run needs a built CLI, a seeded isolated HOME and a local stub — recorded in `.agents/evals/scenarios/screen-1993-history-search-agent-run.md` (driver `scratch/src/screen-1993-history-scenario.mts`, strict, exit 0)                                                                                                                        |
+| TC-10 | Process / PTY            | Agent-controlled PTY resuming a seeded >100-message session (`--resume <id>`), scrollback capture                                                                                                         | Transcript decision evidence; no alternate screen — **Test reference:** `packages/agent-ui-terminal/src/__tests__/pty/screen-1993-scrollback.ptytest.ts` > "SCREEN-1993 TC-10: the resumed transcript lives in native scrollback" (`pnpm test:pty`)                                                                                                                                                                                         |
 
 ## User Execution Test Scenarios
 
@@ -297,7 +297,7 @@ One PR: the contracts and the file are observable only through the overlay.
 
 ## Tasks
 
-- [ ] `.agents/tasks/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` — todo
+- [x] `.agents/tasks/completed/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` — done
 
 ## Evidence Log
 
@@ -380,6 +380,7 @@ One PR: the contracts and the file are observable only through the overlay.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -440,6 +441,7 @@ One PR: the contracts and the file are observable only through the overlay.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
@@ -457,3 +459,240 @@ One PR: the contracts and the file are observable only through the overlay.
 
 **Judged by:** `backlog-gate-guard` (semantic) + `gate.mjs` (ordering, dry-run)
 **Judged at:** HEAD `eea4c21526da957addcb0e90c53eff97c56c72b9` · base `origin/develop@295f48655addb42b0c6c06bf9d0df2a6c162f3ac` · document `.agents/spec-docs/active/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `78d4d4d3d9a5ee35818a082d7bdd352288bbe6e0` (tracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-19
+
+**Command:** `cd packages/agent-session && npx vitest run src/__tests__/prompt-history-file.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+3:32:35 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-session
+
+ ✓ src/__tests__/prompt-history-file.test.ts (5 tests) 14ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  15:32:35
+   Duration  174ms (transform 35ms, setup 0ms, collect 45ms, tests 14ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eea4c21526da` · base `origin/develop@295f48655add` · document `.agents/spec-docs/active/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `0e66e8953a40` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-19
+
+**Command:** `cd packages/agent-framework && npx vitest run src/interactive/__tests__/interactive-session-prompt-history.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+3:32:36 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-framework
+
+ ✓ src/interactive/__tests__/interactive-session-prompt-history.test.ts (6 tests) 18ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  15:32:36
+   Duration  743ms (transform 382ms, setup 0ms, collect 600ms, tests 18ms, environment 0ms, prepare 30ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eea4c21526da` · base `origin/develop@295f48655add` · document `.agents/spec-docs/active/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `fe25bce99da2` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-19
+
+**Command:** `cd packages/agent-ui-terminal && npx vitest run src/history-search/__tests__/history-search-flow.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+3:32:38 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/history-search/__tests__/history-search-flow.test.ts (4 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  15:32:38
+   Duration  136ms (transform 15ms, setup 0ms, collect 15ms, tests 2ms, environment 0ms, prepare 31ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eea4c21526da` · base `origin/develop@295f48655add` · document `.agents/spec-docs/active/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `b94c6deb61db` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-19
+
+**Command:** `cd packages/agent-ui-terminal && npx vitest run src/__tests__/history-search-overlay.test.tsx`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+3:32:38 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/history-search-overlay.test.tsx (7 tests) 1269ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  15:32:38
+   Duration  1.97s (transform 324ms, setup 0ms, collect 581ms, tests 1.27s, environment 0ms, prepare 31ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eea4c21526da` · base `origin/develop@295f48655add` · document `.agents/spec-docs/active/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `9d1fc64a6912` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-19
+
+**Command:** `cd packages/agent-ui-terminal && npx vitest run src/keybindings src/__tests__/contextual-keybindings-input.test.tsx src/__tests__/key-hint-consistency.test.tsx`
+**Exit:** 0
+**Output:** (last 10 of 13 line(s))
+
+```
+
+ ✓ src/keybindings/__tests__/keybinding-registry.test.ts (15 tests) 5ms
+ ✓ src/keybindings/__tests__/node-keybindings-source.test.ts (3 tests) 119ms
+ ✓ src/__tests__/key-hint-consistency.test.tsx (24 tests) 200ms
+ ✓ src/__tests__/contextual-keybindings-input.test.tsx (2 tests) 326ms
+
+ Test Files  4 passed (4)
+      Tests  44 passed (44)
+   Start at  15:32:41
+   Duration  1.10s (transform 470ms, setup 0ms, collect 1.26s, tests 650ms, environment 0ms, prepare 170ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eea4c21526da` · base `origin/develop@295f48655add` · document `.agents/spec-docs/active/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `4d0fae44134b` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-19
+
+**Command:** `cd packages/agent-cli && npx vitest run src/startup/__tests__/prompt-history-enablement.test.ts && cd ../agent-framework && npx vitest run src/workspace-trust/workspace-project-authority.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 21 line(s))
+
+```
+3:32:44 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-framework
+
+ ✓ src/workspace-trust/workspace-project-authority.test.ts (10 tests | 3 skipped) 6ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed | 3 skipped (10)
+   Start at  15:32:44
+   Duration  226ms (transform 65ms, setup 0ms, collect 94ms, tests 6ms, environment 0ms, prepare 32ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eea4c21526da` · base `origin/develop@295f48655add` · document `.agents/spec-docs/active/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `148077d35d22` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-19
+
+**Command:** `cd packages/agent-cli && npx vitest run src/startup/__tests__/prompt-history-enablement.test.ts -t 'TC-07' && cd ../agent-ui-terminal && npx vitest run src/__tests__/render-channel-options.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 21 line(s))
+
+```
+3:32:57 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/render-channel-options.test.ts (6 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  15:32:57
+   Duration  1.09s (transform 483ms, setup 0ms, collect 961ms, tests 2ms, environment 0ms, prepare 32ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eea4c21526da` · base `origin/develop@295f48655add` · document `.agents/spec-docs/active/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `373175060d72` (modified)
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-09-19
+
+**Command:** `pnpm --filter @robota-sdk/agent-interface-session --filter @robota-sdk/agent-session --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-cli --filter @robota-sdk/agent-ui-terminal build && pnpm --filter @robota-sdk/agent-interface-session --filter @robota-sdk/agent-session --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-cli --filter @robota-sdk/agent-ui-terminal typecheck && pnpm --filter @robota-sdk/agent-interface-session --filter @robota-sdk/agent-session --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-cli --filter @robota-sdk/agent-ui-terminal test && pnpm harness:scan && pnpm lint`
+**Exit:** 0
+**Output:** (last 10 of 4378 line(s))
+
+```
+   2:3   warning  'TASK_PROGRESS_EVENTS' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   3:3   warning  'TaskRunStateMachine' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  17:8   warning  'TPortPayload' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  21:10  warning  'dispatchDownstreamReadyTasks' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  22:10  warning  'finalizeDagRunIfTerminal' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  36:3   warning  'handleTerminalFailure' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  37:3   warning  'handleRetry' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+  39:3   warning  'successAfterAck' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+
+✖ 2347 problems (0 errors, 2347 warnings)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eea4c21526da` · base `origin/develop@295f48655add` · document `.agents/spec-docs/active/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `ef817a115016` (modified)
+
+### [GATE-COMPLETE: TC-09] — ✅ PASS | 2026-09-19
+
+**Command:** `HISTORY_SCENARIO_STRICT=1 pnpm --dir scratch exec tsx src/screen-1993-history-scenario.mts | python3 -c "import json,sys; d=json.load(sys.stdin); print('exitCode', d['exitCode'], 'stub', [r['lastUserContent'] for r in d['stub']['requests']]); [print(t['matched'], t['name']) for t in d['todo']]"`
+**Exit:** 0
+**Output:** (last 10 of 12 line(s))
+
+```
+True overlay lists stored prompts newest-first
+True overlay shows the skipped-line count 1
+True typing `deploy` narrows the list to prompts containing it
+True duplicate prompt collapsed to its newest occurrence
+True the match is highlighted in the listed rows
+True first ctrl+s changes the scope label to `session` (no deploy prompt in the live session)
+True second ctrl+s changes the scope label to `project` and keeps only current-project prompts
+True enter inserts the match into the input without sending it
+True ctrl+e sends the highlighted match
+True escape cancels the search and restores the draft byte-identically
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eea4c21526da` · base `origin/develop@295f48655add` · document `.agents/spec-docs/active/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `b4d1d1f98f83` (modified)
+
+### [GATE-COMPLETE: TC-10] — ✅ PASS | 2026-09-19
+
+**Command:** `cd packages/agent-ui-terminal && npx vitest run --config vitest.pty.config.ts src/__tests__/pty/screen-1993-scrollback.ptytest.ts`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/pty/screen-1993-scrollback.ptytest.ts (1 test) 566ms
+   ✓ SCREEN-1993 TC-10: the resumed transcript lives in native scrollback > every one of 120 restored messages is in the terminal output with no key pressed, and no alternate screen  565ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  15:35:43
+   Duration  700ms (transform 24ms, setup 0ms, collect 29ms, tests 566ms, environment 0ms, prepare 31ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eea4c21526da` · base `origin/develop@295f48655add` · document `.agents/spec-docs/active/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `1d78c5ab0478` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-19; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 10/10 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (10)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (10) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (10) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 10/10 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (10) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eea4c21526da` · base `origin/develop@295f48655add` · document `.agents/spec-docs/active/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md` blob `6f3e5ded17ac` (modified)
