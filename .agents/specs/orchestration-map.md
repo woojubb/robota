@@ -166,6 +166,10 @@ widens scope remains reviewer judgement. The gate at step 3 of `delegated-refact
 a guardian and needs no separate floor: it is a mechanically decidable condition (an exit code and a
 path list) the orchestrator evaluates itself.
 
+> **Contained — [HARNESS-2423](../tasks/HARNESS-2423-derive-review-finding-artifact-population-instead-of-restating-it.md).**
+> This synchronized five-artifact projection remains independently restated until the root item
+> derives or mechanically validates it.
+
 `CI TRIAGE`, `GATE VERDICT`, and `SCENARIO DRAFTED` were registered in `CLOSED_SIGNAL_VOCAB` by
 INFRA-048, and the three agents now declare the matching `signal:` frontmatter field — so each is
 mechanically checked by `agent-def-convention` (the guard asserts the token is in the vocabulary AND that
