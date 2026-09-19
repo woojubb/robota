@@ -33,7 +33,8 @@ function messageText(index: number, role: 'user' | 'assistant'): string {
 
 /** A persisted session in the store's versioned envelope: `messages` for the model, `history` for the UI. */
 function seedSession(homeDir: string, cwd: string): void {
-  const at = (index: number): string => new Date(Date.UTC(FIXTURE_YEAR, 0, 1, 0, 0, index)).toISOString();
+  const at = (index: number): string =>
+    new Date(Date.UTC(FIXTURE_YEAR, 0, 1, 0, 0, index)).toISOString();
   const messages = [];
   const history = [];
   for (let index = 1; index <= TURNS; index += 1) {

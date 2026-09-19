@@ -170,17 +170,17 @@ project's realpath, stub requests `hello` then `rotate the staging secrets` (bot
 seededHistoryFileExists: true`, all 11 strict checks `matched: true`.
 
 - Scenario 1 — `pnpm exec robota --name history-scenario --disable-update-check
-  --no-session-persistence` (100×32 xterm-256color PTY, `NO_COLOR=1`, isolated HOME with the
+--no-session-persistence` (100×32 xterm-256color PTY, `NO_COLOR=1`, isolated HOME with the
   `openai`-type stub profile, git-initialised temp project, seeded `~/.robota/history.jsonl`, local stub
   on 127.0.0.1): exit 0. Matched clause by clause against `expected observable` from the guardian's own
   strict run (`todo[].observed`): (a) after `first draft` + `ctrl+r` an overlay opens with scope label
   `all` — observed `│ (reverse-i-search) scope: all · query:` with the composer row `> first draft`
   still below it; (b) newest-first, `tidy the changelog headings` before `write the release notes for
-  3.1` — observed stream indices `{"newest":1140,"secondNewest":1241}` and the visible rows descending
+3.1` — observed stream indices `{"newest":1140,"secondNewest":1241}` and the visible rows descending
   `prompt 116 … prompt 113`; (c) skipped-line count `1` — observed
   `│ 120 matches · 1 unreadable line skipped`; (d) `deploy` narrows to the three deploy prompts with
   the newest non-match gone — observed `{"otherA":true,"current":true,"otherB":true,
-  "newestNonMatchStillVisible":false}`; (e) the duplicate listed once — observed `{"occurrences":1}`;
+"newestNonMatchStillVisible":false}`; (e) the duplicate listed once — observed `{"occurrences":1}`;
   (f) the match highlighted in each row — observed under `NO_COLOR` as the visible marker
   `│ > re[deploy] after the [deploy] hook fails`, `│   [deploy] staging with helm chart v3`,
   `│   [deploy] the canary to eu-west`; (g) first `ctrl+s` → `session` listing none of the three —
@@ -189,7 +189,7 @@ seededHistoryFileExists: true`, all 11 strict checks `matched: true`.
   `scope: project · query: deploy` with `{"current":true,"otherA":false,"otherB":false}`; (i) `enter`
   closes the overlay, the composer shows exactly `deploy staging with helm chart v3`, stub count
   unchanged — observed `{"composer":["> deploy staging with helm chart v3"],"overlayStillOpen":false,
-  "stubRequestsBefore":1,"stubRequestsAfter":1}`; (j) `ctrl+r`, `rotate`, `ctrl+e` sends the match and
+"stubRequestsBefore":1,"stubRequestsAfter":1}`; (j) `ctrl+r`, `rotate`, `ctrl+e` sends the match and
   the canned reply renders — observed stub request 2 `lastUserContent: "rotate the staging secrets"`,
   `replyRendered: true`; (k) `ctrl+r` with the draft `third draft: keep me byte-identical  `, `helm`,
   `escape` closes the overlay and restores the draft byte-identically with no `helm` — observed
@@ -223,7 +223,7 @@ seededHistoryFileExists: true`, all 11 strict checks `matched: true`.
   (`packages/agent-cli/dist` already newer than `packages/agent-cli/src`; no rebuild needed) with
   `pnpm --dir scratch exec tsx src/screen-1993-history-scenario.mts` (non-strict) → exit 0 in well under a
   minute. Report: `command: node …/packages/agent-cli/bin/robota.cjs --name history-scenario
-  --disable-update-check --no-session-persistence`, `terminal: 100x32 xterm-256color PTY`, `exitCode: 0`.
+--disable-update-check --no-session-persistence`, `terminal: 100x32 xterm-256color PTY`, `exitCode: 0`.
   HARNESS assertions passed: (1) the TUI started in the PTY and rendered `Type a message or /help`
   (`packages/agent-ui-terminal/src/InputArea.tsx:279`, the composer placeholder) and the status bar read
   `git: main` for the git-initialised temp project; (2) `hello` reached the stub as

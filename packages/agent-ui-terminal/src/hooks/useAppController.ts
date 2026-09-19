@@ -68,9 +68,7 @@ function getCoordinationState(
   return { error, pending, blocked: error !== undefined || pending };
 }
 
-function buildHistorySearch(
-  composition: IComposition,
-): IAppInputViewModel['historySearch'] {
+function buildHistorySearch(composition: IComposition): IAppInputViewModel['historySearch'] {
   const { promptHistorySource, promptHistoryProject } = composition.props;
   if (promptHistorySource === undefined || promptHistoryProject === undefined) return undefined;
   return {
