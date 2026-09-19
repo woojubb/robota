@@ -240,9 +240,15 @@ function SkippedRows({ skipped }: { skipped: readonly IThemeSkip[] }): React.Rea
   return (
     <Box flexDirection="column" marginTop={1}>
       {/*
-        Keyed by POSITION, not by id: a file whose NAME could not become an id has no id of its own,
-        so several of them in one directory would share a key — and React's duplicate-key warning
-        goes to stderr from inside the live frame, corrupting the frame it is complaining about.
+        Keyed by POSITION, not by id. `IThemeSkip.id` is a LABEL and its contract says so: a
+        scope-level failure carries one id for a whole scope, and two scopes can both fail, so two
+        rows can share it. A duplicate React key would put a warning on stderr from inside the live
+        frame, corrupting the frame it is complaining about.
+
+        Recorded limit: no test pins this. Rendering two same-id rows under ink-testing-library
+        produced both rows and no warning on `console.error`, so a test asserting the warning's
+        ABSENCE is green either way — an unfalsifiable guard, which is worse than none. The reason
+        is written here instead of measured.
       */}
       {skipped.map((skip, index) => (
         <Text key={index} dimColor>

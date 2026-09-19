@@ -383,7 +383,7 @@ anything else is skipped with a line saying so, rather than listed as a theme no
 
 `base` is any built-in and `overrides` is a sparse map over the same token paths the built-ins use —
 `colors`, `markdown`, `syntax` and `motion` — so you change the colours you care about and inherit
-the rest. Values use Ink's colour grammar: a chalk colour name, `#rrggbb`, `ansi256(n)` or
+the rest. Values use Ink's colour grammar: a chalk colour name, `#rgb`, `#rrggbb`, `ansi256(n)` or
 `rgb(r,g,b)`. A raw escape sequence is not in that grammar, so it cannot enter through a theme.
 
 A plugin ships themes the same way, in its own `themes/` directory; they are listed as

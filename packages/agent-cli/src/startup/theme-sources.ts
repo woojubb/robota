@@ -22,6 +22,7 @@ import {
   loadHostBundlePluginsFromScopes,
 } from '@robota-sdk/agent-framework';
 import {
+  escapeThemeText,
   parseThemeDocument,
   quoteThemeText,
   sanitizeThemeProse,
@@ -43,7 +44,8 @@ const THEME_FILE_SUFFIX = '.json';
  * than not loading it: the file appears to work everywhere except the one place it matters. A name
  * outside this set is skipped with a reason, the same policy an already-taken id gets.
  */
-const SAFE_SLUG = /^[A-Za-z0-9._-]+$/u;
+const MAX_ID_SEGMENT = 40;
+const SAFE_SLUG = /^[A-Za-z0-9._-]{1,40}$/u;
 
 /** One installed plugin, reduced to what a theme needs from it. */
 export interface IThemePluginDirectory {
@@ -106,8 +108,9 @@ function collectFrom(
       const quoted = quoteThemeText(file.fileName);
       collector.skipped.push({
         id: `${options.idPrefix}${quoted}`,
-        fileName: quoted,
-        reason: `$: the file name ${quoted} cannot be a theme id — use letters, digits, dot, dash or underscore`,
+        // Escaped but NOT quoted: both consumers wrap this field in quotes of their own.
+        fileName: escapeThemeText(file.fileName),
+        reason: `$: the file name ${quoted} cannot be a theme id — use at most ${MAX_ID_SEGMENT} of letters, digits, dot, dash or underscore`,
       });
       continue;
     }
@@ -189,7 +192,7 @@ export function loadThemeSources(options: IThemeSourcesOptions): IThemeSources {
       const quoted = quoteThemeText(plugin.name);
       collector.skipped.push({
         id: `custom:${quoted}`,
-        fileName: quoted,
+        fileName: escapeThemeText(plugin.name),
         reason: `$: the plugin name ${quoted} cannot be part of a theme id — its themes are not loaded`,
       });
       continue;

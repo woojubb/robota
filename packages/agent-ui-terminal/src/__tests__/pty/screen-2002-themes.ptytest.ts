@@ -202,6 +202,9 @@ describe('SCREEN-2002 themes through the real binary', () => {
       session.pressEscape();
       await session.waitForSince(escapeMark, PROMPT, STEP_MS);
       const restored = sgrVocabulary(session.raw().slice(escapeRawMark));
+      // The symmetric guard: a post-escape slice carrying no SGR at all would satisfy the filter
+      // below without measuring anything, which is the fail-toward-green shape S3 also had.
+      expect(restored.size).toBeGreaterThan(0);
       expect(previewed.filter((sequence) => restored.has(sequence))).toEqual([]);
       expect(session.snapshotSince(escapeMark)).not.toContain('Applied: theme');
     },

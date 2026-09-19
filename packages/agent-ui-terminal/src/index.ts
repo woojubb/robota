@@ -14,12 +14,17 @@ export {
 // SCREEN-2002: the product shell assembles one registry and hands it to both `/theme` and
 // `renderApp`. The theme DATA stays unexported — a caller asks the registry, never a built-in.
 export { createThemeCataloguePort, createThemeRegistry } from './theme/theme-registry.js';
-// The product shell composes the registry, so it must be able to enumerate the built-ins and to
-// parse the files that join them. Both come through the theme module's own barrel, which exports
-// the ACCESSORS and never the colour data — the anti-drift floor forbids naming the data outside
-// `src/theme/`, and re-exporting it from here would be the way around that.
+// The product shell composes the registry, so it must be able to enumerate the built-ins, parse the
+// files that join them, and build its OWN diagnostics through the same escaping policy. The
+// accessor comes from the module that USES it rather than from the data module, which the
+// anti-drift floor forbids naming outside `src/theme/`.
 export { listBuiltInThemes } from './theme/theme-registry.js';
-export { parseThemeDocument, quoteThemeText, sanitizeThemeProse } from './theme/theme-document.js';
+export {
+  escapeThemeText,
+  parseThemeDocument,
+  quoteThemeText,
+  sanitizeThemeProse,
+} from './theme/theme-document.js';
 export type {
   IThemeCataloguePortOptions,
   IThemeRegistry,

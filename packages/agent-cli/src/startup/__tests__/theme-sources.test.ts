@@ -197,6 +197,55 @@ describe('a file name that cannot become an id', () => {
     expect(sources.skipped[0]?.reason).toMatch(/cannot be a theme id/u);
   });
 
+  it('refuses a name too long to be drawn in the row it lands in', () => {
+    // The bound is on the ID SEGMENT, not only on a document-supplied name: the id is rendered
+    // beside the name whether or not the file supplies one.
+    const home = temporaryDirectory('robota-theme-home-');
+    writeTheme(join(home, '.robota', 'themes'), `${'x'.repeat(41)}.json`, '{}');
+
+    const sources = loadThemeSources({ cwd: undefined, userHome: home, plugins: [] });
+
+    expect(sources.themes).toEqual([]);
+    expect(sources.skipped[0]?.reason).toMatch(/at most 40/u);
+  });
+
+  it('gates the PLUGIN half of an id too, and loads none of that plugin s themes', () => {
+    // A manifest `name` is checked for being a string and nothing else, so it is third-party text
+    // on its way into an id, a `/theme list` row and — for a file that omits `name` — the rendered
+    // name of an APPLIED theme.
+    const home = temporaryDirectory('robota-theme-home-');
+    const pluginDir = temporaryDirectory('robota-theme-plugin-');
+    writeTheme(join(pluginDir, 'themes'), 'ocean.json', JSON.stringify({ name: 'Ocean' }));
+
+    const sources = loadThemeSources({
+      cwd: undefined,
+      userHome: home,
+      plugins: [{ name: 'my plugin', pluginDir }],
+    });
+
+    expect(sources.themes).toEqual([]);
+    expect(sources.skipped).toHaveLength(1);
+    expect(sources.skipped[0]?.reason).toMatch(
+      /plugin name "my plugin" cannot be part of a theme id/u,
+    );
+  });
+
+  it('keeps a control character in a plugin name off the terminal', () => {
+    const home = temporaryDirectory('robota-theme-home-');
+    const pluginDir = temporaryDirectory('robota-theme-plugin-');
+    const csi = String.fromCharCode(0x9b);
+    writeTheme(join(pluginDir, 'themes'), 'ocean.json', '{}');
+
+    const sources = loadThemeSources({
+      cwd: undefined,
+      userHome: home,
+      plugins: [{ name: `${csi}2J`, pluginDir }],
+    });
+
+    expect(sources.skipped[0]?.reason).not.toContain(csi);
+    expect(sources.skipped[0]?.fileName).not.toContain(csi);
+  });
+
   it('keeps a control character in a file name off the terminal', () => {
     const home = temporaryDirectory('robota-theme-home-');
     const escape = String.fromCharCode(27);

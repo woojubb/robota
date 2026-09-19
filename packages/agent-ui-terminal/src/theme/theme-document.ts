@@ -65,6 +65,14 @@ export function quoteThemeText(value: string): string {
 }
 
 /**
+ * The same escaping WITHOUT the surrounding quotes, for a field a caller already quotes — so a
+ * refused file does not print as `Skipped theme ""My Theme.json"": …`.
+ */
+export function escapeThemeText(value: string): string {
+  return quoteThemeText(value).slice(1, -1);
+}
+
+/**
  * Prose a surface did not write — a dependency's message, a path from the environment. Sanitized
  * rather than quoted, because it is a sentence; `sanitizeTerminalText` removes both spellings of
  * every sequence, and the tab/newline it keeps are flattened so one diagnostic stays one line.
