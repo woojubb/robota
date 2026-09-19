@@ -24,7 +24,6 @@ const CTRL_E = '\x05';
 const ESCAPE = '\x1b';
 const ENTER = '\r';
 const ARROW_DOWN = '\x1b[B';
-const SUBMIT_SETTLE_MS = 150;
 
 async function tick(ms = 25): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -230,7 +229,7 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     expect(onSubmit).not.toHaveBeenCalled();
     // The draft is submitted unchanged: what the composer holds is what it held before ctrl+r.
     stdin.write(ENTER);
-    await tick(50);
+    await until(() => onSubmit.mock.calls.length === 1);
     expect(onSubmit).toHaveBeenCalledWith(draft.trim());
     unmount();
   });
@@ -242,14 +241,16 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
         skippedLines: 0,
       },
     ]);
-    const { stdin, lastFrame, unmount } = renderWith(gate.source);
+    const { stdin, lastFrame, onSubmit, unmount } = renderWith(gate.source);
     await tick();
-    for (const prompt of ['typed this session', 'another prompt', 'typed this session']) {
+    const prompts = ['typed this session', 'another prompt', 'typed this session'];
+    for (const [index, prompt] of prompts.entries()) {
       stdin.write(prompt);
-      await tick();
+      await until(() => (lastFrame() ?? '').includes(prompt));
       stdin.write(ENTER);
-      // Past the deferred-submit window, so the next prompt starts from an empty composer.
-      await tick(SUBMIT_SETTLE_MS);
+      // The deferred submit has fired and cleared the composer before the next prompt is typed.
+      await until(() => onSubmit.mock.calls.length === index + 1);
+      await until(() => !(lastFrame() ?? '').includes(prompt));
     }
     stdin.write(CTRL_R);
     gate.release();
@@ -269,16 +270,23 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     unmount();
   });
 
-  it('keeps a multi-line prompt on one row with a visible newline glyph', async () => {
+  it('keeps a multi-line prompt on one row with a visible newline glyph, ranges aligned', async () => {
     const source: IPromptHistorySource = {
       async *read() {
-        yield { entries: [entry('first line\nsecond line')], skippedLines: 0 };
+        yield {
+          entries: [entry('first line\nsecond line'), entry('crlf line\r\nthen deploy')],
+          skippedLines: 0,
+        };
       },
     };
     const { stdin, lastFrame, unmount } = renderWith(source);
     await tick();
     stdin.write(CTRL_R);
     await until(() => (lastFrame() ?? '').includes('first line↵second line'));
+    expect(lastFrame()).toContain('crlf line ↵then deploy');
+    stdin.write('deploy');
+    // The two-unit CRLF became two units, so the match range still lands on the word.
+    await until(() => (lastFrame() ?? '').includes('crlf line ↵then [deploy]'));
     unmount();
   });
 
