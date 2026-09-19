@@ -77,8 +77,9 @@ it on the existing Issue whose scope contains it — the umbrella the work is do
 or a body update, and allocate against THAT number (`--issue <umbrella>`; `HARNESS-2670` under
 issue #2670 is the precedent), or record the finding in `.agents/learn.md` instead of allocating a
 Task for it yet. The new ID is `<PREFIX>-<issue-number>` (for example, `HARNESS-2401`), so it is not
-derived from a local counter; when that ID is already claimed under the same Issue, the finding is a
-dated entry on the existing record.
+derived from a local counter; when that ID is already claimed under the same Issue, the same cause
+is a dated entry on the record that holds it and a distinct cause takes a different, accurate prefix
+(one ID names one cause).
 The Task must still cite the Issue URL. Existing legacy IDs remain valid and are not renamed; a legacy
 record may be scaffolded explicitly with `new-spec.mjs … --legacy-id`.
 

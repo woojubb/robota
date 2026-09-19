@@ -111,8 +111,9 @@ filed" — is recorded on an EXISTING issue, never as a new one:
 - The Task record that files the root item cites that issue (`issue:` in its frontmatter, the
   comment URL in its evidence), and its ID is allocated against that issue
   ([`.agents/tasks/README.md`](../tasks/README.md) § Process). When the prefix-plus-issue-number ID
-  is already claimed under that umbrella, the finding is a dated entry on the existing record, not
-  a second allocation.
+  is already claimed under that umbrella: the same cause is a dated entry on the record that holds
+  it, and a distinct cause takes a different, accurate prefix (the allocator's refusal says so) —
+  one ID names one cause, and neither case is a new Issue.
 - "It is foundational", "the reviewer said file it" and "no umbrella fits exactly" are not the
   owner's instruction to open one; the last is answered by the closest umbrella plus a note that the
   fit is loose.
