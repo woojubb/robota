@@ -1,8 +1,9 @@
 ---
 title: 'BEHAVIOR-2664: Make approval recording enforce prior-gate ordering'
 issue: https://github.com/woojubb/robota/issues/2664
-status: in-progress
+status: done
 created: 2026-09-20
+completed: 2026-09-20
 priority: critical
 urgency: now
 area: scripts/harness gate approval evaluator
@@ -23,13 +24,15 @@ passed or the document is not `review-ready`.
 - The ordering judgement must run against the in-memory candidate and must not leave a false standing PASS.
 - Failure output must name the missing prior gate or status and remain machine-testable.
 
+Spec: `.agents/spec-docs/done/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md`
+
 ## Plan
 
-- [ ] TC-01 — Add a regression that reproduces `approve` on a draft with no GATE-WRITE PASS and proves no PASS is written.
-- [ ] TC-02 — Route `runApprove` through the same catalogue ordering judgement as `runJudge`.
-- [ ] TC-03 — Cover missing prior PASS, wrong status, and the valid review-ready path for DIRECT and CLASS evidence.
-- [ ] TC-04 — Run focused gate tests and affected harness verification.
-- [ ] TC-05 — Run `node scripts/harness/run-all-scans.mjs --affected --context pr` and require exit 0.
+- [x] TC-01 — Add a regression that reproduces `approve` on a draft with no GATE-WRITE PASS and proves no PASS is written.
+- [x] TC-02 — Route `runApprove` through the same catalogue ordering judgement as `runJudge`.
+- [x] TC-03 — Cover missing prior PASS, wrong status, and the valid review-ready path for DIRECT and CLASS evidence.
+- [x] TC-04 — Run focused gate tests and affected harness verification.
+- [x] TC-05 — Run `node scripts/harness/run-all-scans.mjs --affected --context pr` and require exit 0.
 
 ## Test Plan
 
