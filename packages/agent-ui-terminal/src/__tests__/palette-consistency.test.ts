@@ -195,6 +195,20 @@ describe('SCREEN-006 palette consistency floor', () => {
    * below.
    */
   const RENDER_MARKDOWN_OWNER = 'hooks/useRenderMarkdown.ts';
+  const RAW_RENDERER_SPECIFIER = /(?:from|import\()\s*'[^']*render-markdown\.js'/u;
+  /**
+   * `from` AND `import(` — a dynamic import reaches the same function, and a check whose whole job
+   * is that there is no way around it must see one. A TYPE-only import is exempt: it reaches no
+   * call, and a guard that fires on correct work is how a guard stops being read.
+   */
+  const importsRawRenderer = (source: string): boolean =>
+    source
+      .split('\n')
+      .some(
+        (line) =>
+          RAW_RENDERER_SPECIFIER.test(line) && !/^\s*(?:import|export)\s+type\b/u.test(line),
+      );
+  const RAW_RENDERER_IMPORT = /(?<!import type )(?:from|import\()\s*'[^']*render-markdown\.js'/u;
 
   it('SCREEN-2002: AppView feeds the theme provider all three resolved inputs', () => {
     const element = themeProviderElement(readFileSync(join(SRC_ROOT, 'AppView.tsx'), 'utf8'));
@@ -215,8 +229,13 @@ describe('SCREEN-006 palette consistency floor', () => {
         source: blankComments(readFileSync(file, 'utf8')),
       }))
       .filter(({ file }) => file !== 'render-markdown.ts')
-      .filter(({ source }) => /from '[^']*render-markdown\.js'/u.test(source))
-      .map(({ file }) => file);
+      // `from` AND `import(` — a dynamic import is a way around a check whose whole job is that
+      // there is no way around it. A TYPE-only import is exempt: it reaches no call, and a guard
+      // that fires on correct work is how a guard stops being read (the reason `blankComments`
+      // exists a few lines up).
+      .filter(({ source }) => importsRawRenderer(source))
+      .map(({ file }) => file)
+      .sort();
 
     expect(
       importers,
@@ -251,10 +270,20 @@ describe('SCREEN-006 palette consistency floor', () => {
     }
     // (d) The consumer half is an IMPORT check, so it cannot be satisfied by an identifier that
     // merely occurs — a dependency array, a destructure, a sibling component's props.
-    const direct = "import { renderMarkdown } from './render-markdown.js';";
-    expect(/from '[^']*render-markdown\.js'/u.test(direct)).toBe(true);
-    const throughTheHook = "import { useRenderMarkdown } from './hooks/useRenderMarkdown.js';";
-    expect(/from '[^']*render-markdown\.js'/u.test(throughTheHook)).toBe(false);
+    const shapes: [string, boolean][] = [
+      ["import { renderMarkdown } from './render-markdown.js';", true],
+      ["import * as md from './render-markdown.js';", true],
+      ["import { renderMarkdown } from '../../render-markdown.js';", true],
+      ["export { renderMarkdown } from './render-markdown.js';", true],
+      // A dynamic import reaches the same function; the check must see it.
+      ["const { renderMarkdown } = await import('./render-markdown.js');", true],
+      // A TYPE-only import reaches no call, so flagging it would be a false red.
+      ["import type { IRenderMarkdownOptions } from './render-markdown.js';", false],
+      ["import { useRenderMarkdown } from './hooks/useRenderMarkdown.js';", false],
+    ];
+    for (const [shape, flagged] of shapes) {
+      expect(importsRawRenderer(shape), shape).toBe(flagged);
+    }
   });
 
   it('both ratchets actually fire on a violating fixture', () => {
