@@ -30,6 +30,15 @@ async function tick(ms = 25): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** A loaded CI runner can take longer than one tick to land a block: wait for the frame, bounded. */
+async function until(condition: () => boolean, timeoutMs = 5_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error('until: condition not met in time');
+    await tick(10);
+  }
+}
+
 function entry(text: string, sessionId = 'other', project = '/elsewhere'): IPromptHistoryEntry {
   return { at: '2026-01-01T00:00:00.000Z', sessionId, project, text };
 }
@@ -111,15 +120,13 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     expect(lastFrame()).toContain('loading…');
 
     gate.release();
-    await tick();
-    expect(lastFrame()).toContain('deploy the canary to eu-west');
+    await until(() => (lastFrame() ?? '').includes('deploy the canary to eu-west'));
     expect(lastFrame()).not.toContain('rotate the staging secrets');
     expect(lastFrame()).toContain('1 unreadable line skipped');
 
     gate.release();
-    await tick();
-    expect(lastFrame()).toContain('rotate the staging secrets');
-    expect(lastFrame()).not.toContain('loading…');
+    await until(() => (lastFrame() ?? '').includes('rotate the staging secrets'));
+    await until(() => !(lastFrame() ?? '').includes('loading…'));
     expect(gate.opens()).toBe(1);
     unmount();
   });
@@ -137,8 +144,7 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     const { stdin, frames, lastFrame, unmount } = renderWith(source);
     await tick();
     stdin.write(CTRL_R);
-    await tick(100);
-    expect(lastFrame()).toContain('older block prompt');
+    await until(() => (lastFrame() ?? '').includes('older block prompt'));
     const firstBlockFrame = frames.find(
       (frame) => frame.includes('newest block prompt') && !frame.includes('older block prompt'),
     );
@@ -161,9 +167,9 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     await tick();
     stdin.write(CTRL_R);
     gate.release();
-    await tick();
+    await until(() => (lastFrame() ?? '').includes('tidy the changelog headings'));
     stdin.write('deploy');
-    await tick();
+    await until(() => (lastFrame() ?? '').includes('query: deploy'));
     const frame = lastFrame() ?? '';
     expect(frame).toContain('query: deploy');
     expect(frame).toContain('[deploy]');
@@ -173,8 +179,7 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     stdin.write(ARROW_DOWN);
     await tick();
     stdin.write(ENTER);
-    await tick();
-    expect(lastFrame()).not.toContain('(reverse-i-search)');
+    await until(() => !(lastFrame() ?? '').includes('(reverse-i-search)'));
     expect(lastFrame()).toContain('redeploy after the deploy hook fails');
     expect(onSubmit).not.toHaveBeenCalled();
     unmount();
@@ -186,11 +191,11 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     await tick();
     stdin.write(CTRL_R);
     gate.release();
-    await tick();
+    await until(() => (lastFrame() ?? '').includes('rotate the staging secrets'));
     stdin.write('rotate');
-    await tick();
+    await until(() => (lastFrame() ?? '').includes('query: rotate'));
     stdin.write(CTRL_E);
-    await tick();
+    await until(() => onSubmit.mock.calls.length > 0);
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith('rotate the staging secrets');
     expect(lastFrame()).not.toContain('(reverse-i-search)');
@@ -212,13 +217,12 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     await tick();
     stdin.write(CTRL_R);
     gate.release();
-    await tick();
+    await until(() => (lastFrame() ?? '').includes('(reverse-i-search)'));
     stdin.write('zzz');
-    await tick();
-    expect(lastFrame()).toContain('query: zzz');
+    await until(() => (lastFrame() ?? '').includes('query: zzz'));
     expect(lastFrame()).toContain('loading…');
     stdin.write(ESCAPE);
-    await tick();
+    await until(() => !(lastFrame() ?? '').includes('(reverse-i-search)'));
     expect(gate.aborted()).toBe(true);
     expect(opened).toEqual([true, false]);
     expect(lastFrame()).not.toContain('(reverse-i-search)');
@@ -249,23 +253,19 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     }
     stdin.write(CTRL_R);
     gate.release();
-    await tick();
-    expect(lastFrame()).toContain('stored elsewhere');
+    await until(() => (lastFrame() ?? '').includes('stored elsewhere'));
     stdin.write(CTRL_S);
-    await tick();
-    expect(lastFrame()).toContain('scope: session');
+    await until(() => (lastFrame() ?? '').includes('scope: session'));
     expect(lastFrame()).toContain('typed this session');
     // Collapsed to the newest occurrence in the session scope too.
     expect((lastFrame() ?? '').split('typed this session').length - 1).toBe(1);
     expect(lastFrame()).not.toContain('stored elsewhere');
     stdin.write(CTRL_S);
-    await tick();
-    expect(lastFrame()).toContain('scope: project');
+    await until(() => (lastFrame() ?? '').includes('scope: project'));
     expect(lastFrame()).toContain('stored here');
     expect(lastFrame()).not.toContain('stored elsewhere');
     stdin.write(CTRL_S);
-    await tick();
-    expect(lastFrame()).toContain('scope: all');
+    await until(() => (lastFrame() ?? '').includes('scope: all'));
     unmount();
   });
 
@@ -278,8 +278,7 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     const { stdin, lastFrame, unmount } = renderWith(source);
     await tick();
     stdin.write(CTRL_R);
-    await tick();
-    expect(lastFrame()).toContain('first line↵second line');
+    await until(() => (lastFrame() ?? '').includes('first line↵second line'));
     unmount();
   });
 
@@ -293,7 +292,7 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     const { stdin, lastFrame, unmount } = renderWith(source);
     await tick();
     stdin.write(CTRL_R);
-    await tick();
+    await until(() => (lastFrame() ?? '').includes('History could not be read'));
     expect(lastFrame()).toContain('History could not be read: EACCES: permission denied');
     unmount();
   });
@@ -307,16 +306,15 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     await tick();
     stdin.write(CTRL_R);
     gate.release();
-    await tick();
+    await until(() => (lastFrame() ?? '').includes('(reverse-i-search)'));
+    await tick(50);
     expect(lastFrame()).not.toContain('first block prompt');
     gate.release();
-    await tick();
+    await until(() => (lastFrame() ?? '').includes('2. second block prompt'));
     expect(lastFrame()).toContain('1. first block prompt');
-    expect(lastFrame()).toContain('2. second block prompt');
     // Digits are query text, not a selection.
     stdin.write('2');
-    await tick();
-    expect(lastFrame()).toContain('query: 2');
+    await until(() => (lastFrame() ?? '').includes('query: 2'));
     expect(lastFrame()).toContain('no match');
     unmount();
   });
