@@ -37,6 +37,10 @@ const HEX_LITERAL = /#[0-9a-fA-F]{6}\b/g;
  * what the ratchet matches, not the module path — matching the path alone let the `src/theme/index.js`
  * barrel re-export the data straight past the floor, which is exactly the route every migrated
  * component already imports through.
+ *
+ * Recorded limit: a bare word matches anywhere, so PROSE naming a theme constant in a comment
+ * outside `src/theme/` fails the floor too. That is the strict direction — it fails loudly and is
+ * rewritten in a sentence, rather than passing silently — so it is left as is.
  */
 const BUILT_IN_THEME_IMPORT =
   /\b(?:BUILT_IN_THEMES|DARK_THEME|LIGHT_THEME|DARK_DALTONIZED_THEME|LIGHT_DALTONIZED_THEME)\b|from\s+'[^']*built-in-themes\.js'/g;

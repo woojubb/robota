@@ -317,6 +317,16 @@ export const BUILT_IN_THEMES: readonly ITuiTheme[] = [
 export const DEFAULT_THEME_ID = DARK_THEME.id;
 
 /**
+ * The catalogue, as a function rather than the array itself. A caller outside `src/theme/` — the
+ * theme registry a picker reads — needs to ENUMERATE the built-ins, which is a different act from
+ * reaching into one of them for a colour; the floor refuses the second by refusing the DATA's names,
+ * so the first gets an accessor of its own instead of an exemption.
+ */
+export function listBuiltInThemes(): readonly ITuiTheme[] {
+  return BUILT_IN_THEMES;
+}
+
+/**
  * The one place "no theme was resolved" is answered. A caller outside `src/theme/` asks this instead
  * of importing the built-in data, so the anti-drift floor can keep the colour DATA inside this
  * module and still let a non-React entry point — `renderMarkdown`, which is called with a theme or

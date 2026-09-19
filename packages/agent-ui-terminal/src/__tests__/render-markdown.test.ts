@@ -100,8 +100,12 @@ describe('renderMarkdown', () => {
       });
 
       expect(daltonized).toContain(openCode(DARK_DALTONIZED_THEME.syntax.keyword));
-      // cli-highlight's own default `keyword` — the colour a per-key fallback would restore.
-      expect(daltonized).not.toContain(openCode(DARK_THEME.syntax.keyword));
+      // Recorded, because it bounds what this test can prove: `cli-highlight` depends on chalk 4 and
+      // resolves to its OWN instance, so `chalk.level` set here does not reach it and its per-key
+      // fallback emits nothing in-process — it is only coloured in a real terminal. The positive
+      // assertion above is therefore the whole guard; a `not.toContain` on the fallback's colour
+      // would be inert. The end-to-end colour is evidenced by the PTY scenario instead.
+      expect(DARK_THEME.syntax.keyword).not.toBe(DARK_DALTONIZED_THEME.syntax.keyword);
     });
 
     it('renders a code block as plain indented text when highlighting is off', () => {
