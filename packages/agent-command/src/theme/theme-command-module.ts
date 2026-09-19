@@ -23,7 +23,7 @@ function formatToggle(value: boolean): string {
 }
 
 function formatCatalogue(catalogue: IThemeCataloguePort): string {
-  const { settings, reducedMotionOverride, reducedMotionForRun } = catalogue.getAppearance();
+  const { settings, reducedMotionPin } = catalogue.getAppearance();
   const rows = catalogue.listThemes().map((theme) => {
     const marker = theme.id === settings.theme ? '* ' : '  ';
     return `${marker}${theme.id} — ${theme.name} (${theme.appearance}, ${theme.source})`;
@@ -31,8 +31,8 @@ function formatCatalogue(catalogue: IThemeCataloguePort): string {
   // Two facts, never one: what this run does, and what is saved. Reporting the SAVED value beside
   // the tier reads as a contradiction on a `--no-reduced-motion` run over a `true` setting, and as
   // an outright wrong answer to "is motion reduced right now".
-  const motion = reducedMotionOverride
-    ? `${formatToggle(reducedMotionForRun ?? settings.reducedMotion)} for this run (pinned by ${reducedMotionOverride}; saved ${formatToggle(settings.reducedMotion)})`
+  const motion = reducedMotionPin
+    ? `${formatToggle(reducedMotionPin.reducedMotion)} for this run (pinned by ${reducedMotionPin.tier}; saved ${formatToggle(settings.reducedMotion)})`
     : formatToggle(settings.reducedMotion);
   return [
     'Available themes:',
@@ -125,8 +125,8 @@ function describeChange(
   const applied = parts.length > 0 ? `Applied: ${parts.join(', ')}.` : 'Nothing to change.';
   // The pin is reported, never silently obeyed or silently overridden: the setting IS persisted and
   // takes effect next run, while this run keeps what pinned it.
-  if (patch.reducedMotion !== undefined && state.reducedMotionOverride) {
-    return `${applied} Saved, but this run keeps reduced motion pinned by ${state.reducedMotionOverride}.`;
+  if (patch.reducedMotion !== undefined && state.reducedMotionPin) {
+    return `${applied} Saved, but this run keeps reduced motion pinned by ${state.reducedMotionPin.tier}.`;
   }
   return applied;
 }

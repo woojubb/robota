@@ -105,7 +105,7 @@ describe('the catalogue port (SCREEN-2002 TC-09)', () => {
       readAppearance: () => APPEARANCE,
     });
 
-    expect('reducedMotionOverride' in port.getAppearance()).toBe(false);
+    expect('reducedMotionPin' in port.getAppearance()).toBe(false);
   });
 
   it('reports the tier that pinned reduced motion AND what it pinned', () => {
@@ -117,8 +117,7 @@ describe('the catalogue port (SCREEN-2002 TC-09)', () => {
       reducedMotionPin: { tier: 'flag', reducedMotion: false },
     });
 
-    expect(port.getAppearance().reducedMotionOverride).toBe('flag');
-    expect(port.getAppearance().reducedMotionForRun).toBe(false);
+    expect(port.getAppearance().reducedMotionPin).toEqual({ tier: 'flag', reducedMotion: false });
   });
 });
 

@@ -26,7 +26,6 @@ import { usePalette } from './theme/index.js';
 import type { IAppThemePickerViewModel, IThemeToggles } from './hooks/useAppThemeState.js';
 import type { ITuiTheme } from './theme/index.js';
 import type { IThemeSkip } from './theme/theme-registry.js';
-import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 
 function describeTheme(theme: ITuiTheme, isActive: boolean): string {
   const active = isActive ? ' (current)' : '';
@@ -261,13 +260,11 @@ function SkippedRows({ skipped }: { skipped: readonly IThemeSkip[] }): React.Rea
 
 function TogglesRow({
   toggles,
-  reducedMotionOverride,
-  reducedMotionForRun,
+  reducedMotionPin,
   screenReader,
 }: {
   toggles: IThemeToggles;
-  reducedMotionOverride?: TReducedMotionOverride | undefined;
-  reducedMotionForRun?: boolean | undefined;
+  reducedMotionPin?: IAppThemePickerViewModel['reducedMotionPin'];
   screenReader: boolean;
 }): React.ReactElement {
   const on = (value: boolean): string => (value ? 'on' : 'off');
@@ -276,9 +273,9 @@ function TogglesRow({
   // override too and pins the opposite value, so a row carrying the chosen value beside the tier
   // can read `motion on (pinned by flag)` on a visibly still run.
   const pinned =
-    reducedMotionOverride === undefined
+    reducedMotionPin === undefined
       ? ''
-      : ` (this run: motion ${on(!(reducedMotionForRun ?? toggles.reducedMotion))}, pinned by ${reducedMotionOverride})`;
+      : ` (this run: motion ${on(!reducedMotionPin.reducedMotion)}, pinned by ${reducedMotionPin.tier})`;
   return (
     <Box flexDirection="column">
       <Text dimColor>
@@ -347,8 +344,7 @@ export default function ThemePicker({
       <ColourGateNotice />
       <TogglesRow
         toggles={toggles}
-        reducedMotionOverride={picker.reducedMotionOverride}
-        reducedMotionForRun={picker.reducedMotionForRun}
+        reducedMotionPin={picker.reducedMotionPin}
         screenReader={screenReader}
       />
       <Box flexDirection="column" marginTop={1}>

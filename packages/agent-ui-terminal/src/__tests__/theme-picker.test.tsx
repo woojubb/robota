@@ -179,8 +179,7 @@ describe('the theme picker (SCREEN-2002 TC-10)', () => {
         <ThemePicker
           picker={picker({
             reducedMotion: false,
-            reducedMotionOverride: 'flag',
-            reducedMotionForRun: true,
+            reducedMotionPin: { tier: 'flag', reducedMotion: true },
           })}
         />,
       ).lastFrame() ?? '';
@@ -198,8 +197,7 @@ describe('the theme picker (SCREEN-2002 TC-10)', () => {
         <ThemePicker
           picker={picker({
             reducedMotion: true,
-            reducedMotionOverride: 'environment',
-            reducedMotionForRun: false,
+            reducedMotionPin: { tier: 'environment', reducedMotion: false },
           })}
         />,
       ).lastFrame() ?? '';

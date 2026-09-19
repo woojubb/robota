@@ -48,7 +48,12 @@ function catalogue(
       settings,
       ...(reducedMotionOverride === undefined
         ? {}
-        : { reducedMotionOverride, reducedMotionForRun: reducedMotionForRun ?? true }),
+        : {
+            reducedMotionPin: {
+              tier: reducedMotionOverride,
+              reducedMotion: reducedMotionForRun ?? true,
+            },
+          }),
     }),
   };
 }

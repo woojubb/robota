@@ -121,10 +121,7 @@ export function createThemeCataloguePort(options: IThemeCataloguePortOptions): I
       settings: options.readAppearance(),
       ...(options.reducedMotionPin === undefined
         ? {}
-        : {
-            reducedMotionOverride: options.reducedMotionPin.tier,
-            reducedMotionForRun: options.reducedMotionPin.reducedMotion,
-          }),
+        : { reducedMotionPin: options.reducedMotionPin }),
     }),
   };
 }

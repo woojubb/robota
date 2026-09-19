@@ -61,7 +61,7 @@ describe('the theme surface (SCREEN-2002 TC-08)', () => {
     expect(surface.reducedMotion).toBe(true);
     expect(surface.reducedMotionOverride).toBe('flag');
     // Both consumers see the same pin.
-    expect(surface.cataloguePort?.getAppearance().reducedMotionOverride).toBe('flag');
+    expect(surface.cataloguePort?.getAppearance().reducedMotionPin?.tier).toBe('flag');
   });
 
   it('carries an environment override the same way', () => {

@@ -136,18 +136,22 @@ export interface IThemeCatalogueEntry {
 export interface IThemeAppearanceState {
   /** What is PERSISTED — what a command writes to and reports as stored. */
   readonly settings: IAppearanceSettings;
-  /** Set when something outside the settings decided reduced motion for this run. */
-  readonly reducedMotionOverride?: TReducedMotionOverride;
   /**
-   * What reduced motion actually IS for this run, present exactly when an override is.
+   * The pin on reduced motion for this run, when something outside the settings applied one —
+   * WHICH tier and WHAT it pinned, as ONE value.
    *
-   * The tier alone cannot be rendered: `--reduced-motion` and `--no-reduced-motion` are both
-   * overrides and they pin opposite values, so a surface that prints the persisted value beside the
-   * tier can say `reduced motion: off (pinned by flag)` on a run whose motion is pinned OFF — a
-   * line that contradicts itself. The two facts are reported separately: what this run does, and
-   * what is saved.
+   * Not two optionals. The tier alone cannot be rendered: `--reduced-motion` and
+   * `--no-reduced-motion` are both overrides and they pin opposite values, so a surface holding the
+   * tier and the PERSISTED value prints `reduced motion: off (pinned by flag)` on a run whose
+   * motion is pinned on — a line that contradicts itself and answers "is motion reduced right now"
+   * with the wrong word. Two optional fields would let a producer supply the tier alone and leave
+   * every consumer to default the other half, which is exactly that bug with an extra step.
    */
-  readonly reducedMotionForRun?: boolean;
+  readonly reducedMotionPin?: {
+    readonly tier: TReducedMotionOverride;
+    /** What this run DOES, which is not always what is saved. */
+    readonly reducedMotion: boolean;
+  };
 }
 
 /**

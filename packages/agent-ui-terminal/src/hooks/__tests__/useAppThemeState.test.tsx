@@ -66,7 +66,7 @@ describe('the motion pin reaches the picker (SCREEN-2002 TC-08)', () => {
         setVisible: vi.fn(),
         submit: vi.fn(),
       });
-      seen = theme.picker.reducedMotionOverride;
+      seen = theme.picker.reducedMotionPin?.tier;
       return <></>;
     }
     render(<Harness />);

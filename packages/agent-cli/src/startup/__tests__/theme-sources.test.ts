@@ -276,6 +276,24 @@ describe('a file name that cannot become an id', () => {
     expect(sources.skipped[0]?.fileName).not.toContain(csi);
   });
 
+  it('LOADS the longest id it can mint, so the two bounds are sized against each other', () => {
+    // The pair that has to hold: `custom:` + a 24-character plugin segment + `:` + a 24-character
+    // file segment must be a legal NAME, because it IS the name when the file supplies none.
+    const home = temporaryDirectory('robota-theme-home-');
+    const pluginDir = temporaryDirectory('robota-theme-plugin-');
+    writeTheme(join(pluginDir, 'themes'), `${'s'.repeat(24)}.json`, '{}');
+
+    const sources = loadThemeSources({
+      cwd: undefined,
+      userHome: home,
+      plugins: [{ name: 'p'.repeat(24), pluginDir }],
+    });
+
+    expect(sources.skipped).toEqual([]);
+    expect(sources.themes).toHaveLength(1);
+    expect(sources.themes[0]?.name).toBe(sources.themes[0]?.id);
+  });
+
   it('keeps a control character in a file name off the terminal', () => {
     const home = temporaryDirectory('robota-theme-home-');
     const escape = String.fromCharCode(27);

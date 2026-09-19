@@ -264,7 +264,7 @@ describe('SCREEN-2002 themes through the real binary', () => {
   );
 
   it(
-    'S4: --reduced-motion stops the animation while colour stays on',
+    'S4: --reduced-motion is reported as pinned for the run, and colour stays on',
     async () => {
       session = spawnTui({
         projectDir,

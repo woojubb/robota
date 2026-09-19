@@ -112,6 +112,30 @@ describe('parseThemeDocument', () => {
     expect(errors[0]).toContain('\\u009b2J');
   });
 
+  it('holds the MINTED id to the LENGTH bound too, not only the control-character one', () => {
+    // The id becomes the rendered name when a document supplies none, so a bound on one and not the
+    // other leaves the row it is drawn in exactly as broken.
+    const tooLong = parseThemeDocument({
+      id: `custom:${'x'.repeat(60)}`,
+      fileName: 'mine.json',
+      source: 'user',
+      text: '{}',
+    });
+    expect(tooLong.ok).toBe(false);
+    if (tooLong.ok) throw new Error('expected a refusal');
+    expect(tooLong.error).toMatch(/^\$\.name: the minted id must be at most 60 characters$/u);
+
+    // The composite `agent-cli` can mint — `custom:` + 24 + `:` + 24 — is inside that bound, which
+    // is the relation the two constants are sized against.
+    const composite = parseThemeDocument({
+      id: `custom:${'p'.repeat(24)}:${'s'.repeat(24)}`,
+      fileName: 'mine.json',
+      source: 'plugin',
+      text: '{}',
+    });
+    expect(composite.ok).toBe(true);
+  });
+
   it('checks the MINTED id on the same terms as a name the file supplied', () => {
     const result = parseThemeDocument({
       id: `custom:${String.fromCharCode(0x9b)}2J`,

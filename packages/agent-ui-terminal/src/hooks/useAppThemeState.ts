@@ -6,8 +6,12 @@ import type { ITuiTheme } from '../theme/theme-contracts.js';
 import type { IThemeRegistry, IThemeSkip } from '../theme/theme-registry.js';
 import type {
   IAppearanceSettings,
+  IThemeAppearanceState,
   TReducedMotionOverride,
 } from '@robota-sdk/agent-interface-command';
+
+/** The tier that pinned motion for this run and what it pinned — the contract's own pair. */
+type IReducedMotionPin = NonNullable<IThemeAppearanceState['reducedMotionPin']>;
 
 export interface IThemeToggles {
   readonly syntaxHighlighting: boolean;
@@ -24,10 +28,12 @@ export interface IAppThemePickerViewModel {
   /** The PERSISTED toggles the picker seeds itself from and submits alongside the theme. */
   readonly syntaxHighlighting: boolean;
   readonly reducedMotion: boolean;
-  /** Set when a tier above the settings pinned motion for this run; the picker admits it. */
-  readonly reducedMotionOverride?: TReducedMotionOverride | undefined;
-  /** What that tier pinned it TO — present exactly when the override is. */
-  readonly reducedMotionForRun?: boolean | undefined;
+  /**
+   * Set when a tier above the settings pinned motion for this run — the tier AND what it pinned,
+   * as one value, for the reason `IThemeAppearanceState` states: the tier alone cannot say which
+   * way a run went.
+   */
+  readonly reducedMotionPin?: IReducedMotionPin | undefined;
   /** Move the highlight: the live region re-renders in that theme, nothing is written. */
   readonly preview: (id: string) => void;
   /**
@@ -134,8 +140,10 @@ export function useAppThemeState(options: IOptions): IAppThemeViewModel {
       ...(options.reducedMotionOverride === undefined
         ? {}
         : {
-            reducedMotionOverride: options.reducedMotionOverride,
-            reducedMotionForRun,
+            reducedMotionPin: {
+              tier: options.reducedMotionOverride,
+              reducedMotion: reducedMotionForRun,
+            },
           }),
       preview: setPreviewId,
       select,

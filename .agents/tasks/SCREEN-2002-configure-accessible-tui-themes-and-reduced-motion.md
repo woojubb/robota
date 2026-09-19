@@ -24,19 +24,25 @@ persists three flat settings keys and the TUI never writes them.
 
 Three work units under one design gate (the PR Unit Rule), delivered in order, each as its own PR.
 
-- [x] Unit 1 — TC-01, TC-02, TC-03, TC-04, TC-05, TC-06: the `ITuiTheme` token model and its chalk style
+- [x] unit1 — TC-01, TC-02, TC-03, TC-04, TC-05, TC-06: the `ITuiTheme` token model and its chalk style
       builder, the four built-ins (daltonized in hex, CVD-guarded), the provider and hooks, the ~31-file
       `PALETTE` migration with the non-React consumers returning token keys, the deletion of
       `tui-palette.ts` and `tui-ansi-palette.ts`, the two consistency ratchets, `useMotion` with its two
       recorded carve-outs, and the SPEC § Color & Motion rewrite. Colour-identical output with four
       recorded byte exceptions.
-- [x] Unit 2 — TC-07, TC-08, TC-09, TC-10: the three settings keys with ONE framework reader and guard,
+- [x] unit2 — TC-07, TC-08, TC-09, TC-10: the three settings keys with ONE framework reader and guard,
       the `appearance-settings-patch` host action, `/theme` behind `IThemeCataloguePort`, the
       settings ← env ← flag resolution with the override tier threaded into `renderApp`, and the picker
       with its `theme-picker` keybinding context, published schema and guide entry.
-- [ ] Unit 3 — TC-11: user themes from `~/.robota/themes` and plugin themes from the plugin scopes, the
+- [ ] unit3 — TC-11: user themes from `~/.robota/themes` and plugin themes from the plugin scopes, the
       whole-file-refusal validator with path-named diagnostics, and the visible skip lines.
 - [ ] TC-13: the PTY scenario over the built CLI.
+
+The unit names are the TOKENS the commits cite (`(SCREEN-2002 unit2)`), because that is what
+`task-merged-citation` reconciles a merged commit against — `- [x] Unit 2` yields the token `Unit`
+and reconciles nothing. Unit 1's commits predate the convention and cite `(SCREEN-2002)` with no
+token at all, so they cannot be reconciled by any edit to this record; they stop being counted when
+this Task reaches a terminal status, which is the next thing to happen to it.
 
 Unit 1 delivered in PR #2752, merged to `develop` as `b1689aa8541ba03010053bd5452ba30bebfe4bcd`
 (reviewed head `f16d5c7630b5db8feeac9b59781ee33afacacaf6`). Unit 2 delivered in PR #2753, merged to

@@ -689,7 +689,9 @@ deliberate. Ids are minted here from where the file was found (`custom:<slug>`,
 `custom:<plugin>:<slug>`), so no file can claim a built-in's id whatever it is called, and the first
 file to claim an id keeps it while a later claimant is skipped rather than silently replacing it.
 
-Both segments are constrained to `[A-Za-z0-9._-]` and to 24 characters — sized so the composite `custom:<plugin>:<slug>` fits the 60-character name bound `parseThemeDocument` enforces, because the id IS the rendered name when a file supplies none — and a file or plugin whose name falls outside it
+Both segments are constrained to `[A-Za-z0-9._-]` and to 24 characters — sized so the composite
+`custom:<plugin>:<slug>` fits the 60-character name bound `parseThemeDocument` enforces, because the
+id IS the rendered name when a file supplies none — and a file or plugin whose name falls outside it
 is SKIPPED with a reason rather than loaded. An id is typed — `/theme <id>` splits its arguments on
 whitespace and the picker commits through that same command — so a slug the command grammar cannot
 carry produces a theme that is listed, is shown as a selectable row, and answers the usage line when
