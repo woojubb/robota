@@ -63,7 +63,7 @@ built-in, custom and plugin themes and cuts motion without restarting.
 - executability: agent-executable
 - product surface: robota-tui
 - surface rationale: shipped-entrypoint=robota
-- prerequisites: affected packages are built; no live credential and no external service are required — the driver starts a local OpenAI-compatible stub HTTP server on 127.0.0.1 whose single canned reply contains a fenced ```ts code block, and an isolated temporary HOME holds an `openai`-type provider profile pointing at it, a `~/.robota/themes/mine.json` custom theme overriding `colors.text.accent`, a `~/.robota/themes/broken.json` whose `colors.text.accent` is `not-a-colour`, and `~/.robota/plugins/theme-fixture/themes/plugged.json` in an installed bundle plugin; a 100×32 xterm-256color PTY with `FORCE_COLOR=3` runs the command from a git-initialised project directory
+- prerequisites: affected packages are built; no live credential and no external service are required — the driver starts a local OpenAI-compatible stub HTTP server on 127.0.0.1 whose single canned reply contains a fenced TypeScript code block, and an isolated temporary HOME holds an `openai`-type provider profile pointing at it, a `~/.robota/themes/mine.json` custom theme overriding `colors.text.accent`, a `~/.robota/themes/broken.json` whose `colors.text.accent` is `not-a-colour`, and `~/.robota/plugins/theme-fixture/themes/plugged.json` in an installed bundle plugin; a 100×32 xterm-256color PTY with `FORCE_COLOR=3` runs the command from a git-initialised project directory
 - command: `pnpm exec robota --name theme-scenario`
 - observable type: ui-state
 - observable rationale: source=rendered-product-ui
@@ -111,7 +111,7 @@ Per criterion, both scenarios:
    reply ~4 s so the waiting state spans at least ten 400 ms motion ticks, the same isolated HOME and PTY), its
    own expected observable, cleanup and `evidence: pending`. The PTY driver the prerequisites refer to does not
    exist yet; the Task `## Plan` folds building it into the work as `- [ ] TC-13: the PTY scenario over the
-   built CLI.` (the spec's TC-13 names the same run), which is the rule's "build that environment as part of
+built CLI.` (the spec's TC-13 names the same run), which is the rule's "build that environment as part of
    the backlog" route rather than an unmet environment — met.
 2. **Executability decision.** Both record `executability: agent-executable`. Neither is `manual-only`, so the
    `automation barrier:` / `unavailable capability:` / `attempted automation:` trio is **N/A** — those three
@@ -166,7 +166,7 @@ the written-is-impossible exception is not invoked.
       "observableRationale": "source=rendered-product-ui",
       "guardianObservableVerdict": "product-behavior",
       "executability": "agent-executable",
-      "prerequisite": "affected packages are built; no live credential and no external service are required — the driver starts a local OpenAI-compatible stub HTTP server on 127.0.0.1 whose single canned reply contains a fenced ```ts code block, and an isolated temporary HOME holds an `openai`-type provider profile pointing at it, a `~/.robota/themes/mine.json` custom theme overriding `colors.text.accent`, a `~/.robota/themes/broken.json` whose `colors.text.accent` is `not-a-colour`, and `~/.robota/plugins/theme-fixture/themes/plugged.json` in an installed bundle plugin; a 100×32 xterm-256color PTY with `FORCE_COLOR=3` runs the command from a git-initialised project directory",
+      "prerequisite": "affected packages are built; no live credential and no external service are required — the driver starts a local OpenAI-compatible stub HTTP server on 127.0.0.1 whose single canned reply contains a fenced TypeScript code block, and an isolated temporary HOME holds an `openai`-type provider profile pointing at it, a `~/.robota/themes/mine.json` custom theme overriding `colors.text.accent`, a `~/.robota/themes/broken.json` whose `colors.text.accent` is `not-a-colour`, and `~/.robota/plugins/theme-fixture/themes/plugged.json` in an installed bundle plugin; a 100×32 xterm-256color PTY with `FORCE_COLOR=3` runs the command from a git-initialised project directory",
       "action": {
         "kind": "command",
         "value": "pnpm exec robota --name theme-scenario"
