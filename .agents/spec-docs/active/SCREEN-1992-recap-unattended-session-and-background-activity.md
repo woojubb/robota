@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: SCREEN
 tags: [cli, typescript, async]
 lane: L2
@@ -486,3 +486,16 @@ change, so splitting would land an unobservable half first.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `960af3e10b4a` · base `origin/develop@960af3e10b4a` · document `.agents/spec-docs/todo/SCREEN-1992-recap-unattended-session-and-background-activity.md` blob `08f5814ef634` (untracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: the LAST `[GATE-IMPLEMENT]` entry in this Evidence Log is `✅ PASS | 2026-09-19` (`approved → in-progress`); frontmatter `status: in-progress`; document under `.agents/spec-docs/active/`; `gate.mjs judge --gate GATE-VERIFY --dry-run` re-run by the guardian reports the same ordering PASS. Branch `feat/screen-1992-attention-recap` carries three commits above `origin/develop` `960af3e10` (`ec79030f5` planning checkpoint, `52431286f` implementation, `5a3d14c21` scenario evidence + Stage-2 verdict); `git status --porcelain` is empty.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): `.agents/tasks/SCREEN-1992-recap-unattended-session-and-background-activity.md` `## Plan` (lines 21–31) holds exactly 5 items — `TC-01, TC-06`, `TC-02, TC-07`, `TC-03, TC-05`, `TC-04, TC-08`, `TC-09, TC-10` — all `- [x]`; 0 `- [ ]` boxes in that section; the five items together name every TC id TC-01 … TC-10 that the GATE-IMPLEMENT checkpoint's `taskItems` lists. Only the `## Plan` section was read — `## Test Plan`, `## User Execution Test Scenarios` and `## Recommendation Evidence` were not consulted for this criterion. `gate.mjs` bound no mechanical judgement to this wording (PENDING-GUARDIAN); judged semantically here.
+- GATE-VERIFY — No Plan item is blocked or pending: none of the 5 items carries `blocked`, `pending`, `deferred` or any other deferral marker (`grep -n "blocked\|pending"` over the `## Plan` section returns nothing); none is a disposition item — no merge/land/close/publish item; "engineering verification" in the TC-09/TC-10 item is the build/test/typecheck/scan work of TC-10, not a disposition. Task frontmatter `status: in-progress`. Judged semantically (PENDING-GUARDIAN from `gate.mjs`).
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): affected set per Task `area:` and spec `## Affected Files` is agent-interface-execution, agent-executor, agent-framework, agent-ui-terminal, agent-cli; `pnpm --filter @robota-sdk/agent-interface-execution --filter @robota-sdk/agent-executor --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli build` → exit 0, re-run by the guardian at HEAD `5a3d14c21` (previously recorded exit 0 by `gate.mjs judge --verify-cmd`); all five packages `build: Done` (`packages/agent-interface-execution`, `packages/agent-executor`, `packages/agent-framework`, `packages/agent-ui-terminal`, `packages/agent-cli`), no error lines in the 25-line log; `git status --porcelain` empty afterwards.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm --filter @robota-sdk/agent-interface-execution --filter @robota-sdk/agent-executor --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli test` → exit 0, re-run by the guardian at HEAD `5a3d14c21` (previously recorded exit 0 by `gate.mjs judge --verify-cmd`): agent-interface-execution 2 files / 7 tests passed; agent-executor 16 / 119 passed; agent-framework 226 files passed, 6 skipped / 1739 passed, 77 skipped; agent-ui-terminal 104 / 882 passed; agent-cli 70 passed, 1 skipped / 509 passed, 18 skipped; 0 failures; every package `test: Done`.
+
+**Judged by:** `backlog-gate-guard` (semantic) + `gate.mjs` (mechanical)
+**Judged at:** HEAD `5a3d14c215241a2bca04151488476997466a2433` · base `origin/develop@960af3e10b4aebef514e1db4683d7e0face0933f` · document `.agents/spec-docs/active/SCREEN-1992-recap-unattended-session-and-background-activity.md` blob `35500694ad21c6aa02a8ddee8516f807ef14e6e6` (tracked)
