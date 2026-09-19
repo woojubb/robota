@@ -261,3 +261,11 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: `scripts/harness/gate-checkpoint-evidence-common.mjs` produces the first checkpoint evidence from observed dirty paths; `scripts/harness/gate-implement-entry-results.mjs:96` requires both Task and spec. At HEAD `5cfa1b18f91a5005f3fe4060b9176a062f2dd3ce`, the judge returned 7 PASS but commit failed with `gateImplementFirst.worktreePaths must be the paired Task/spec plus only PLAN ledger paths`. The original uncommitted payload and withdrawal are preserved in the BOUNDARY-2655 spec; rejudging actual Task/spec planning changes produced the accepted checkpoint `36f4ff11e8dbe5ea525978c8648ceca9720ee329`.
 - source: BOUNDARY-2655
 - related: Issue #2655
+
+### LRN-review-findings-orchestration-map-artifact-drift
+
+- observed-at: 2026-09-20T03:59:10+09:00
+- observation: The orchestration map independently restates the `scan-review-findings` artifact population, so scanner inputs can expand while the authoritative registry silently keeps an older count.
+- evidence: PERF-2423 local review at `5ff5f47a`; commit `72c69f371` expanded the scanner from two inputs to three without updating `.agents/specs/orchestration-map.md`; https://github.com/woojubb/robota/issues/2423#issuecomment-5744533786
+- source: PERF-2423 local review
+- related: HARNESS-2423, Issue #2423

@@ -27,6 +27,16 @@ batch and review that repair batch once; do not obtain a fresh opinion after eve
 contract or enlarged scope still needs the applicable approval. A small correction within the
 approved decision does not need another user question.
 
+The first local whole-branch review establishes the review baseline. Every repair review after it
+MUST preserve the same reviewer context: verify prior findings against current source, then inspect
+only `git diff <previous-head>..HEAD` for a committed-head loop, or the named repair locations and
+newly changed hunks against the retained prior review snapshot for an intentionally uncommitted
+loop. Repeat the whole-branch pass only when the repair materially widens the changed set. Context
+reuse and delta scoping never replace dynamic execution, regression RED proof, or test-truthfulness
+checks required by the review. Convergence is zero unresolved MUST/SHOULD findings; CONSIDER/NIT
+items are either included in the current repair batch or recorded at their existing issue/task home,
+not grounds for repeatedly re-auditing already accepted content.
+
 Do not repeat a passing review merely because another skill was invoked, an agent handed work
 back, a session resumed, or a commit was created. A final-head review requirement still applies:
 evidence about changed content cannot be passed off as evidence about the final content.
@@ -85,9 +95,10 @@ record boundaries in the index and committed trees. Regression tests exercise ac
 archives and closed history, plus mixed-scope, missing-evidence, residue and later-implementation
 refusals. Loop-specific terminal semantics remain owned by `scan-loop-run-records`.
 
-Enforced by: nothing — deciding whether two edits implement the same approved outcome requires
-semantic judgement, and current execution receipts do not identify duplicate manual invocations.
-The integrating reviewer checks this rule in the existing final review, not in an extra review.
-The open mechanism follow-up is tracked in the [recurrence ledger](../evals/lessons/recurrence-ledger.md):
-evaluate duplicate-invocation detection in the next consolidated harness cycle. Do not add a new
-per-edit gate to enforce the prohibition on per-edit gates.
+Enforced by: `scan-review-findings` mechanically preserves the same-reviewer/delta-review contracts
+in the review rule, reviewer agent, and local-review orchestrators. Whether a repair materially widens
+the changed set and whether two edits implement the same approved outcome remain semantic judgement;
+the integrating reviewer checks those in the existing final review, not in an extra review. The open
+mechanism follow-up for duplicate manual invocations remains in the
+[recurrence ledger](../evals/lessons/recurrence-ledger.md). Do not add a new per-edit gate to enforce
+the prohibition on per-edit gates.

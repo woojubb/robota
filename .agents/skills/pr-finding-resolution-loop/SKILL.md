@@ -1,6 +1,6 @@
 ---
 name: pr-finding-resolution-loop
-description: Prepare a PR and drive local plus published review findings to zero before the merge gate.
+description: Prepare a PR and drive local plus published review findings to zero before the merge gate, retaining one local reviewer context across repair deltas.
 loop: over=finding-set; escape=no-progress
 invocable: true
 ---
@@ -45,7 +45,7 @@ rejects). Two modes:
 
 The loop runs in TWO places, and which one comes first is the whole point.
 
-### Round A — on the LOCAL DIFF, before the pull request exists (required, once)
+### Round A — on the LOCAL DIFF, before the pull request exists (required, one reviewer context)
 
 **Round A runs before there is a pull request, and stops the moment one is open.** From then on the
 reviewer is the automation the pull request runs, Round B is the only round, and a push exists to
@@ -65,14 +65,25 @@ opened as a PR and run through CI: every finding cost a round trip before anyone
 `pr-review-reviewer` already accepts a local diff (`git diff origin/<base>...HEAD`) — only the precondition
 forced the trip. So:
 
-A1. **Review the local diff.** Dispatch `pr-review-reviewer` with `git diff origin/<base>...HEAD`. No PR, no
-CI, no push. Read its terminal `ACTIONABLE FINDINGS: <n>`.
+A1. **Review the local diff with one retained reviewer.** On the first pass, record the current HEAD as
+`previous-head`, dispatch `pr-review-reviewer` with `git diff origin/<base>...HEAD`, and retain the
+returned `agentId`. No PR, no CI, no push. Read its terminal `ACTIONABLE FINDINGS: <n>`.
+
+After a repair batch is committed, do **not** dispatch another reviewer. Use `SendMessage` to the same
+`agentId` and provide (a) each prior finding, (b) the claimed fix at `file:symbol`, and (c)
+`git diff <previous-head>..HEAD`. Ask it to verify each closure from source, inspect only that repair
+delta, and judge whether changed tests would fail when the behavior they name regresses. Preserve its
+dynamic execution and RED-proof work; do not replace those checks with code reading. Once the verdict
+returns, advance `previous-head` to the reviewed HEAD. Repeat a whole-branch pass only when the repair
+materially widens the changed set; otherwise already accepted content stays accepted.
+
 A2. **Not zero?** Dispatch `finding-depth-triager` on the findings and route on its `DEPTH:` verdicts —
 the judgement is the guardian's, the routing is this skill's, and neither does the other's job. Required by
 [finding-depth.md](../../rules/finding-depth.md), which owns the three questions and what each verdict requires:
 
 - **LOCAL** → fix all current LOCAL findings as one repair batch (`pr-review-fixer` or directly),
-  run affected checks, then review that batch once. Do not commit or repeat A1 per finding;
+  run affected checks, commit the coherent repair batch, then resume A1's retained reviewer once. Do
+  not commit or review per finding;
   [execution-cadence.md](../../rules/execution-cadence.md) owns batching and re-entry.
 - **INVALID** → the premise does not hold. Nothing to fix; record what the code actually does, and do not
   let a wrong finding drive a change.
@@ -97,6 +108,11 @@ the guardian, and — the part that matters — a verdict produced where nothing
 nobody takes. This session holds the checkout, the history and the tools, so the judgement belongs here.
 What travels back to the PR is the DECISION, not the reasoning — Round B step 2 is where that happens,
 because that is where the CI comments exist.
+
+CONSIDER/NIT findings do not keep Round A open once unresolved MUST/SHOULD is zero. If accepted, include
+them in the current repair batch before the follow-up review; if deferred, record them at the existing
+issue or Task home under [finding-depth.md](../../rules/finding-depth.md). Never open another whole-branch
+round solely to solicit more non-gating advice.
 
 A3. **Record the verdict.** When the findings count is zero, record it with
 `pnpm harness:review:record -- --findings 0`; when non-zero, record the actual count and resolve each
