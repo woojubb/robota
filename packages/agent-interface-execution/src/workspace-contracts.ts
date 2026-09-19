@@ -50,11 +50,7 @@ export type TExecutionWorkspaceUpdateCause = 'main_thread' | 'background_task' |
  * Total over every `TExecutionWorkspaceStatus`; derived once by the projection, never re-derived.
  */
 export type TExecutionNormalizedState =
-  | 'working'
-  | 'needs-input'
-  | 'completed'
-  | 'failed'
-  | 'stopped';
+  'working' | 'needs-input' | 'completed' | 'failed' | 'stopped';
 /** SCREEN-1992 — the row's one-line text: what it is doing, the question it is asking, or its result. */
 export type TExecutionHeadlineKind = 'activity' | 'question' | 'result';
 export interface IExecutionHeadline {

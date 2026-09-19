@@ -35,19 +35,54 @@ Live agent-controlled PTY execution output (`scratch/src/screen-1992-recap-scena
   "terminal": "100x32 xterm-256color PTY",
   "stub": {
     "requests": [
-      { "path": "POST /v1/chat/completions", "stream": true, "lastUserContent": "hello", "at": "2026-09-19T01:34:58.793Z" },
-      { "path": "POST /v1/chat/completions", "stream": true, "lastUserContent": "say hello", "at": "2026-09-19T01:35:59.005Z" }
+      {
+        "path": "POST /v1/chat/completions",
+        "stream": true,
+        "lastUserContent": "hello",
+        "at": "2026-09-19T01:34:58.793Z"
+      },
+      {
+        "path": "POST /v1/chat/completions",
+        "stream": true,
+        "lastUserContent": "say hello",
+        "at": "2026-09-19T01:35:59.005Z"
+      }
     ]
   },
   "scheduleDelay": "1m",
   "exitCode": 0,
-  "harness": { "cliStarted": true, "providerTurnCompleted": true, "scheduleRowAppeared": true, "wakeFired": "say hello" },
+  "harness": {
+    "cliStarted": true,
+    "providerTurnCompleted": true,
+    "scheduleRowAppeared": true,
+    "wakeFired": "say hello"
+  },
   "checks": [
-    { "name": "countdown decreases at least twice after /schedule", "observed": "[58,57,56,55,54,53,52]", "matched": true },
-    { "name": "schedule row shows `working` before the wake", "observed": "└ ⟳ working Scheduled: say hello · sleeping · scheduled · ↻ wake \"say hello\" · say hello · in 55s", "matched": true },
-    { "name": "main-thread row shows `working` during the wake turn", "observed": "│ > ● working Main thread · active · 5 history entries · user │", "matched": true },
-    { "name": "exactly one `While away` line on focus-in", "observed": "While away <1m: 1 turn finished (1 wake) · 1 completed", "matched": true },
-    { "name": "schedule row reads `completed` after the one-shot fire", "observed": "└ ✓ completed Scheduled: say hello · completed · scheduled · …", "matched": true },
+    {
+      "name": "countdown decreases at least twice after /schedule",
+      "observed": "[58,57,56,55,54,53,52]",
+      "matched": true
+    },
+    {
+      "name": "schedule row shows `working` before the wake",
+      "observed": "└ ⟳ working Scheduled: say hello · sleeping · scheduled · ↻ wake \"say hello\" · say hello · in 55s",
+      "matched": true
+    },
+    {
+      "name": "main-thread row shows `working` during the wake turn",
+      "observed": "│ > ● working Main thread · active · 5 history entries · user │",
+      "matched": true
+    },
+    {
+      "name": "exactly one `While away` line on focus-in",
+      "observed": "While away <1m: 1 turn finished (1 wake) · 1 completed",
+      "matched": true
+    },
+    {
+      "name": "schedule row reads `completed` after the one-shot fire",
+      "observed": "└ ✓ completed Scheduled: say hello · completed · scheduled · …",
+      "matched": true
+    },
     { "name": "no second recap for an empty interval", "observed": "[]", "matched": true }
   ]
 }
