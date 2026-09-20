@@ -138,10 +138,14 @@ describe('task-tracking start — the Task block is bounded to what is in progre
 
     const started = run(dir, 'start', { env });
     expect(started.status).toBe(0);
-    expect(started.output).toMatch(/Could not classify Task files: .*classify-dir exited 3 \(stub node: refusing\)/);
+    expect(started.output).toMatch(
+      /Could not classify Task files: .*classify-dir exited 3 \(stub node: refusing\)/,
+    );
     expect(started.output).toMatch(/2 \.md file\(s\) in \.agents\/tasks\/ were NOT classified/);
     expect(started.output, 'a false count was printed').not.toMatch(/0 open/);
-    expect(started.output, 'unread files were called invalid').not.toMatch(/INVALID lifecycle frontmatter/);
+    expect(started.output, 'unread files were called invalid').not.toMatch(
+      /INVALID lifecycle frontmatter/,
+    );
 
     const stopped = run(dir, 'stop', { env });
     expect(stopped.status).toBe(0);
@@ -172,9 +176,12 @@ describe('task-tracking start — the Task block is bounded to what is in progre
     'behaves the same under the stock macOS bash 3.2',
     () => {
       const files = { 'Z-BAD.md': '# no frontmatter\n' };
-      for (let i = 1; i <= 21; i += 1) files[`T-${String(i).padStart(2, '0')}.md`] = task('in-progress');
+      for (let i = 1; i <= 21; i += 1)
+        files[`T-${String(i).padStart(2, '0')}.md`] = task('in-progress');
       const dir = repoWithTasks(files);
-      const version = spawnSync(stockBash, ['-c', 'echo "${BASH_VERSINFO[0]}"'], { encoding: 'utf8' });
+      const version = spawnSync(stockBash, ['-c', 'echo "${BASH_VERSINFO[0]}"'], {
+        encoding: 'utf8',
+      });
       expect(version.stdout.trim()).toBe('3');
 
       const started = run(dir, 'start', { bash: stockBash });
