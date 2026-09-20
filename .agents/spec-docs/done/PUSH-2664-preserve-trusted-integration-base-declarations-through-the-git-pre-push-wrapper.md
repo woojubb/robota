@@ -109,7 +109,7 @@ None
 | ----- | ----------- | --------------------------------------------------- | ----------------------------------------- |
 | TC-01 | Unit        | `scripts/harness/__tests__/pre-push-sequence.test.mjs` | RED before bridge projection, GREEN after |
 | TC-02 | Unit        | `scripts/harness/__tests__/pre-push-sequence.test.mjs` | Exact present/absent command rendering    |
-| TC-03 | Integration | `scripts/harness/__tests__/pre-push-sequence.test.mjs` | No second validator or executable shell   |
+| TC-03 | Integration | `scripts/harness/__tests__/pre-push-sequence.test.mjs`; `scripts/harness/__tests__/review-before-push.test.mjs` | Unsafe projection is refused before spawn; safe and untrusted values reach the real guard |
 | TC-04 | Suite       | `scripts/harness/__tests__/pre-push-sequence.test.mjs`; `scripts/harness/__tests__/review-before-push.test.mjs` | Public bridge plus policy owner |
 
 ## User Execution Test Scenarios
@@ -333,3 +333,22 @@ The command exited 0 before the completion-state transition; later transitional 
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `a346cae90efa` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md` blob `eb39d57308f7` (modified)
+
+## Local Review Resolution
+
+The retained local reviewer found that a Git-valid ref such as
+`origin/integration/agreement-2664;#` could terminate the unquoted assignment and hide `git push`
+from the shared guard. The first review also found that TC-03's adversarial cases mocked the guard's
+failure instead of exercising the public bridge against the real guard.
+
+- RED: the focused two-file run failed 5 tests (83 passed) because all four adversarial bridge cases
+  reached the injected successful spawn and the real-guard fixture accepted the `;#` bypass.
+- Repair: `runPostVerdictGuard` now refuses any nonempty declaration containing characters that are
+  active in an unquoted shell assignment before constructing or spawning the synthetic command.
+- GREEN: the focused two-file run passed 88/88 tests. The integration fixture proves that a safe
+  declared base passes through `runPostVerdictGuard` to the real shell guard, an unresolved safe base
+  is rejected by that guard, and `;#` is rejected before shell projection.
+
+This correction stays within the approved TC-03 fail-closed boundary and does not add a second
+trusted-ref policy owner; `.claude/hooks/pre-push-check.sh` still decides whether a lexically safe
+base is trusted.

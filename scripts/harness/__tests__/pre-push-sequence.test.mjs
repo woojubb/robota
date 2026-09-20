@@ -267,19 +267,15 @@ describe('post-verdict guard reaches the real Git pre-push boundary', () => {
   );
 
   it.each([
+    'origin/integration/agreement-2664;#',
     'origin/integration/agreement-2664; touch /tmp/not-executed',
     '"origin/integration/agreement-2664"',
     'origin/integration/agreement-2664\ngit push origin main',
-  ])('keeps an adversarial declaration as inert guard input: %s', (declaredBase) => {
-    const spawn = vi.fn((_command, _args, options) => {
-      expect(JSON.parse(options.input).tool_input.command).toBe(
-        `HARNESS_BASE_REF=${declaredBase} git push`,
-      );
-      return { status: 2 };
-    });
+  ])('rejects an adversarial declaration before shell-command projection: %s', (declaredBase) => {
+    const spawn = vi.fn(() => ({ status: 0 }));
 
     expect(runPostVerdictGuard({ env: { HARNESS_BASE_REF: declaredBase }, spawn })).toBe(false);
-    expect(spawn).toHaveBeenCalledOnce();
+    expect(spawn).not.toHaveBeenCalled();
   });
 
   it('refuses when the shared agent guard returns a non-zero status', () => {
