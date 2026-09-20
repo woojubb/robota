@@ -222,68 +222,149 @@ if [[ ! -d "$TASKS_DIR" ]]; then
   exit 0
 fi
 
-# Classify a single task file through the same executable owner as the harness scans.
-classify_task() {
-  local file="$1"
-  local lifecycle
-  lifecycle=$(node "$HOOK_REPO_ROOT/scripts/harness/task-lifecycle.mjs" classify "$file") || true
-  case "$lifecycle" in
-    terminal) echo "done" ;;
-    open) echo "active" ;;
-    *) echo "invalid" ;;
-  esac
-}
+# --- Task files ------------------------------------------------------------------------------------
+#
+# ONE classification pass for the whole directory, through the same executable owner as the harness
+# scans. The first version spawned `node … classify <file>` once per Task — measured 166 processes
+# and 6.2 s before the notice appeared (INFRA-2772). `classify-dir` prints one line per Task,
+# `<basename>\t<state>\t<status>`, sorted by name, README excluded; per-file trouble is an `invalid`
+# or `unreadable` line, not a missing one.
+#
+# `|| CLASSIFY_STATUS=$?` for the same reason the issue block spells out: under `set -e` a failing
+# substitution kills the script and a hook that dies prints nothing, which reads as "nothing to
+# report". The STATUS is kept, not swallowed — the first version wrote `|| CLASSIFIED=""` and then
+# reported every Task file as INVALID frontmatter when the classifier had not run at all (node off
+# PATH, a thrown error), under a `0 open` headline that was simply false. Review measured it. "Could
+# not classify" and "classified as invalid" are different answers, exactly as "could not ask" and
+# "none open" are for the issue block above, and the reader has to be able to tell them apart.
+#
+# stderr goes to a tempfile rather than /dev/null so the reason can be re-emitted on STDOUT, the
+# only stream the session pipeline shows the model (see the GH_STDERR note above).
+CLASSIFY_STATUS=0
+CLASSIFY_STDERR=$(mktemp)
+CLASSIFIED=$(node "$HOOK_REPO_ROOT/scripts/harness/task-lifecycle.mjs" classify-dir "$TASKS_DIR" 2>"$CLASSIFY_STDERR") || CLASSIFY_STATUS=$?
+CLASSIFY_REASON=""
+if [[ -s "$CLASSIFY_STDERR" ]]; then
+  # One line, control characters stripped, bounded — the same treatment an issue title gets, for
+  # the same reason: this text ends up in front of a terminal and a model.
+  CLASSIFY_REASON=$(head -n 1 "$CLASSIFY_STDERR" | tr -d '\000-\011\013-\037\177' | cut -c1-200)
+fi
+rm -f "$CLASSIFY_STDERR"
 
-# Collect active (non-README) task files
-ACTIVE_TASKS=()
-for f in "$TASKS_DIR"/*.md; do
-  [[ -f "$f" ]] || continue
-  basename=$(basename "$f")
-  [[ "$basename" == "README.md" ]] && continue
-  ACTIVE_TASKS+=("$basename")
-done
+if [[ "$CLASSIFY_STATUS" -ne 0 ]]; then
+  UNCLASSIFIED=0
+  for f in "$TASKS_DIR"/*.md; do
+    [[ -f "$f" ]] || continue
+    [[ "$(basename "$f")" == "README.md" ]] && continue
+    UNCLASSIFIED=$((UNCLASSIFIED + 1))
+  done
+  echo "[task-tracking] Could not classify Task files: task-lifecycle.mjs classify-dir exited $CLASSIFY_STATUS${CLASSIFY_REASON:+ ($CLASSIFY_REASON)}."
+  echo "[task-tracking] $UNCLASSIFIED .md file(s) in .agents/tasks/ were NOT classified — this is 'not asked', not 'none open' and not 'invalid'."
+  echo "[task-tracking] Run: node scripts/harness/task-lifecycle.mjs classify-dir .agents/tasks"
+  exit 0
+fi
 
-if [[ ${#ACTIVE_TASKS[@]} -eq 0 ]]; then
+IN_PROGRESS=()
+BLOCKED=()
+TODO_COUNT=0
+DONE_TASKS=()
+INVALID_TASKS=()
+UNREADABLE_TASKS=()
+
+if [[ -n "$CLASSIFIED" ]]; then
+  while IFS=$'\t' read -r name state status; do
+    [[ -n "$name" ]] || continue
+    case "$state" in
+      terminal) DONE_TASKS+=("$name") ;;
+      open)
+        case "$status" in
+          in-progress) IN_PROGRESS+=("$name") ;;
+          blocked) BLOCKED+=("$name") ;;
+          *) TODO_COUNT=$((TODO_COUNT + 1)) ;;
+        esac
+        ;;
+      unreadable) UNREADABLE_TASKS+=("$name") ;;
+      *) INVALID_TASKS+=("$name") ;;
+    esac
+  done <<<"$CLASSIFIED"
+fi
+
+OPEN_COUNT=$((${#IN_PROGRESS[@]} + ${#BLOCKED[@]} + TODO_COUNT))
+if [[ $((OPEN_COUNT + ${#DONE_TASKS[@]} + ${#INVALID_TASKS[@]} + ${#UNREADABLE_TASKS[@]})) -eq 0 ]]; then
   exit 0
 fi
 
 if [[ "$MODE" == "start" ]]; then
-  # Output context for Claude to see
-  echo "[task-tracking] Active tasks found in .agents/tasks/:"
-  DONE_COUNT=0
-  for task in "${ACTIVE_TASKS[@]}"; do
-    STATE=$(classify_task "$TASKS_DIR/$task")
-    if [[ "$STATE" == "done" ]]; then
-      echo "  - $task — DONE, needs archival to completed/"
-      DONE_COUNT=$((DONE_COUNT + 1))
-    elif [[ "$STATE" == "invalid" ]]; then
-      echo "  - $task — INVALID lifecycle frontmatter (run harness:scan)"
-    else
-      echo "  - $task — in progress"
+  # WHAT IS LISTED, and why it is less than what is open. The instruction below this list is "read
+  # these before starting work", and for a `todo` Task that instruction is false — it is backlog, and
+  # the backlog is chosen through issues and the index, not through this notice
+  # (finding-depth.md). Measured before this change: 166 Tasks printed as "in progress", 122 of them
+  # `todo`, 14,855 bytes at every session start and after every compaction. So the list is the
+  # `in-progress` and `blocked` Tasks; `todo` is a count with a pointer.
+  #
+  # BOUNDED, and the bound announces itself — the same contract as the open-issue block above
+  # (`ISSUE_SHOW`): a bounded list that does not say it is bounded reads as "that is all of them".
+  # DONE and INVALID lines are NOT under the cap: they are instructions to act on, not inventory.
+  TASK_SHOW=20
+  echo "[task-tracking] Tasks in .agents/tasks/: $OPEN_COUNT open — ${#IN_PROGRESS[@]} in-progress, ${#BLOCKED[@]} blocked, $TODO_COUNT todo."
+
+  # `${#arr[@]}` guards before every expansion: on the bash 3.2 that `#!/bin/bash` resolves to on a
+  # stock macOS, `"${arr[@]}"` on an EMPTY array is an unbound-variable error under `set -u`.
+  LISTED=()
+  if [[ ${#IN_PROGRESS[@]} -gt 0 ]]; then
+    for task in "${IN_PROGRESS[@]}"; do LISTED+=("  - $task — in progress"); done
+  fi
+  if [[ ${#BLOCKED[@]} -gt 0 ]]; then
+    for task in "${BLOCKED[@]}"; do LISTED+=("  - $task — blocked"); done
+  fi
+  LISTED_COUNT=${#LISTED[@]}
+  if [[ "$LISTED_COUNT" -gt 0 ]]; then
+    shown=0
+    for line in "${LISTED[@]}"; do
+      [[ "$shown" -lt "$TASK_SHOW" ]] || break
+      echo "$line"
+      shown=$((shown + 1))
+    done
+    if [[ "$LISTED_COUNT" -gt "$TASK_SHOW" ]]; then
+      echo "  (showing the first $TASK_SHOW of $LISTED_COUNT — the rest: node scripts/harness/task-lifecycle.mjs classify-dir .agents/tasks | grep -v 'todo$')"
     fi
-  done
-  echo "Read the task file(s) before starting work. Update progress during the session."
-  if [[ "$DONE_COUNT" -gt 0 ]]; then
-    echo "$DONE_COUNT task(s) are already DONE — git mv them to .agents/tasks/completed/ now (harness:scan task-archival will fail otherwise)."
+    echo "Read the task file(s) before starting work. Update progress during the session."
+  fi
+  if [[ "$TODO_COUNT" -gt 0 ]]; then
+    echo "[task-tracking] $TODO_COUNT todo Task(s) are not listed; choose work through the backlog, not this notice."
+  fi
+
+  if [[ ${#DONE_TASKS[@]} -gt 0 ]]; then
+    for task in "${DONE_TASKS[@]}"; do
+      echo "  - $task — DONE, needs archival to completed/"
+    done
+    echo "${#DONE_TASKS[@]} task(s) are already DONE — git mv them to .agents/tasks/completed/ now (harness:scan task-archival will fail otherwise)."
+  fi
+  if [[ ${#INVALID_TASKS[@]} -gt 0 ]]; then
+    for task in "${INVALID_TASKS[@]}"; do
+      echo "  - $task — INVALID lifecycle frontmatter (run harness:scan)"
+    done
+  fi
+  if [[ ${#UNREADABLE_TASKS[@]} -gt 0 ]]; then
+    for task in "${UNREADABLE_TASKS[@]}"; do
+      echo "  - $task — could not be READ (permissions, or removed mid-run); its frontmatter was not judged"
+    done
   fi
   exit 0
 fi
 
 # MODE == stop: only genuinely-done files are called out, so the reminder is
 # actionable rather than a blanket nag.
-DONE_TASKS=()
-INVALID_TASKS=()
-for task in "${ACTIVE_TASKS[@]}"; do
-  STATE=$(classify_task "$TASKS_DIR/$task")
-  if [[ "$STATE" == "done" ]]; then
-    DONE_TASKS+=("$task")
-  elif [[ "$STATE" == "invalid" ]]; then
-    INVALID_TASKS+=("$task")
-  fi
-done
-
-if [[ ${#DONE_TASKS[@]} -eq 0 && ${#INVALID_TASKS[@]} -eq 0 ]]; then
+if [[ ${#DONE_TASKS[@]} -eq 0 && ${#INVALID_TASKS[@]} -eq 0 && ${#UNREADABLE_TASKS[@]} -eq 0 ]]; then
   exit 0
+fi
+
+if [[ ${#UNREADABLE_TASKS[@]} -gt 0 ]]; then
+  echo "ACTION REQUIRED — Task files that could not be read (their lifecycle was not judged):"
+  for task in "${UNREADABLE_TASKS[@]}"; do
+    echo "  - $task"
+  done
+  echo ""
 fi
 
 if [[ ${#INVALID_TASKS[@]} -gt 0 ]]; then
