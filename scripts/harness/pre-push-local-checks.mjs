@@ -18,18 +18,25 @@ export function runPostVerdictGuard({
   cwd = WORKSPACE_ROOT,
   spawn = spawnSync,
   script = path.join(WORKSPACE_ROOT, '.claude/hooks/pre-push-check.sh'),
+  env = process.env,
 } = {}) {
+  const declaredBase = env.HARNESS_BASE_REF;
   const payload = JSON.stringify({
     tool_name: 'Bash',
     cwd,
-    tool_input: { command: 'git push' },
+    tool_input: {
+      command:
+        typeof declaredBase === 'string' && declaredBase.length > 0
+          ? `HARNESS_BASE_REF=${declaredBase} git push`
+          : 'git push',
+    },
   });
   const result = spawn('bash', [script], {
     cwd,
     input: payload,
     encoding: 'utf8',
     stdio: ['pipe', 'inherit', 'inherit'],
-    env: { ...process.env, CLAUDE_PROJECT_DIR: cwd },
+    env: { ...env, CLAUDE_PROJECT_DIR: cwd },
   });
   if (result.status !== 0) {
     process.stderr.write(
