@@ -46,6 +46,3 @@
 {"runId":"r20260920063217","opened":"2026-09-20T06:32:17.402Z","closed":"2026-09-20T06:34:23.568Z","roundFindings":[2,0],"extensions":{},"terminal":"converged","ref":"BRANCH-2664 final committed HEAD review: 2,0; split evaluator and evidence commits; final ACTIONABLE FINDINGS: 0"}
 {"runId":"r20260920154552","opened":"2026-09-20T15:45:52.860Z","closed":"2026-09-20T15:59:48.988Z","roundFindings":[1],"extensions":{},"terminal":"abandoned","ref":null}
 {"runId":"r20260920155949","opened":"2026-09-20T15:59:49.027Z","closed":"2026-09-20T16:03:24.127Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
-{"runId":"r20260913115418","opened":"2026-09-13T11:54:18.098Z","closed":"2026-09-20T03:17:58.605Z","roundFindings":[1,0],"extensions":{},"terminal":"abandoned","ref":"superseded by r20260920031758"}
-{"runId":"r20260913172801","opened":"2026-09-13T17:28:01.514Z","closed":"2026-09-13T17:53:24.822Z","roundFindings":[3,5,5,0],"extensions":{},"terminal":"converged","ref":"STRUCT-012 S3 local review: 3,5,5 findings resolved; final ACTIONABLE FINDINGS: 0"}
-{"runId":"r20260920031758","opened":"2026-09-20T03:17:58.605Z","closed":"2026-09-20T03:20:12.244Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
