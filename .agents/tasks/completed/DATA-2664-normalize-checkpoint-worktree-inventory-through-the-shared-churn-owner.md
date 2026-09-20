@@ -1,8 +1,9 @@
 ---
 title: 'DATA-2664: Normalize checkpoint worktree inventory through the shared churn owner'
 issue: https://github.com/woojubb/robota/issues/2664
-status: in-progress
+status: done
 created: 2026-09-20
+completed: 2026-09-20
 priority: high
 urgency: now
 area: scripts/harness checkpoint evidence and verification receipt storage
@@ -10,6 +11,8 @@ depends_on: [BEHAVIOR-2664]
 ---
 
 # DATA-2664: Normalize checkpoint worktree inventory through the shared churn owner
+
+Spec: `.agents/spec-docs/done/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md`
 
 ## Objective
 
@@ -25,22 +28,23 @@ immediately rejects or that permanently blocks a continuation retry.
 
 ## Plan
 
-- [ ] TC-01 — Reproduce dirty auto-generated lesson files during first and continuation checkpoint generation.
-- [ ] TC-02 — Make checkpoint inventory consume the shared real-dirt classifier without copying its allowlist.
-- [ ] TC-03 — Prove generated payloads pass `worktreeError` while one real unrelated path still fails.
-- [ ] TC-04 — Verify retry behavior does not become trapped by tool-produced invalid evidence.
-- [ ] TC-05 — Run the focused checkpoint/receipt suites and affected harness verification against the child branch base.
-- [ ] TC-06 — Run the affected harness scan against `fix/2664-gate-correctness` and record its result.
+- [x] TC-01 — Reproduce dirty auto-generated lesson files during first and continuation checkpoint generation.
+- [x] TC-02 — Make checkpoint inventory consume the shared real-dirt classifier without copying its allowlist.
+- [x] TC-03 — Prove generated payloads pass `worktreeError` while one real unrelated path still fails.
+- [x] TC-04 — Verify retry behavior does not become trapped by tool-produced invalid evidence.
+- [x] TC-05 — Run the focused checkpoint/receipt suites and affected harness verification against the child branch base.
+- [x] TC-06 — Run the affected harness scan against `fix/2664-gate-correctness` and record its result.
 
 ## Test Plan
 
 Add focused checkpoint producer/consumer fixtures covering both ignored churn files, an unrelated dirty
-path, and prior-entry validation. Run the checkpoint evidence and user-execution-plan-order Vitest suites
-plus affected harness verification.
+path, and prior-entry validation. Run the verification receipt, checkpoint evidence, and gate Vitest
+suites plus affected harness verification.
 
 ## Progress
 
 - 2026-09-20 — GATE-IMPLEMENT checkpoint preparation: pair-owned activation metadata is ready; no implementation path has changed.
+- 2026-09-20 — Shared real-dirt classification now feeds all checkpoint inventory forms; 122 focused tests and the 63-scan affected PR selection pass, with two pre-existing advisories tolerated by PR context.
 
 ## User Execution Test Scenarios
 

@@ -53,7 +53,7 @@ AGREEMENT-013, or AGREEMENT-2698.
 
 - [x] BEHAVIOR-2664 — done — `.agents/tasks/completed/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md`
 - [x] PUSH-2664 — done — `.agents/tasks/completed/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md`
-- [ ] DATA-2664 — in-progress — `.agents/tasks/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md`
+- [x] DATA-2664 — done — `.agents/tasks/completed/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md`
 - [ ] RULE-2582 — todo — `.agents/tasks/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md`
 - [ ] BEHAVIOR-2663 — todo — `.agents/tasks/BEHAVIOR-2663-bind-mechanical-gate-verify-checks-without-prose-drift.md`
 - [ ] RULE-2665 — todo — `.agents/tasks/RULE-2665-define-the-terminal-disposition-for-orchestration-skipped-gates.md`
