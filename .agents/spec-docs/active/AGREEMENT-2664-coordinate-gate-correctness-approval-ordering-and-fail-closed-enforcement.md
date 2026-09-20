@@ -15,8 +15,8 @@ Arising from [issue #2664](https://github.com/woojubb/robota/issues/2664).
 Issue #2664 contains several independently verifiable causes under one external gate-correctness
 outcome. BEHAVIOR-2664 has corrected the approval-ordering omission in `runApprove`, and DATA-2664 has
 made checkpoint worktree inventory use the same churn policy as its consumer. RULE-2582,
-BEHAVIOR-2663, and RULE-2665 are also terminal, leaving RULE-2326 and RULE-2380 as the two unfinished
-children. The inherited register still depends on three scopes owned by AGREEMENT-012, AGREEMENT-013,
+BEHAVIOR-2663, RULE-2665, RULE-2326, and RULE-2380 are also terminal, so all seven children are
+delivered. The inherited register still depends on three scopes owned by AGREEMENT-012, AGREEMENT-013,
 and AGREEMENT-2698.
 
 Implementing directly from the umbrella would either combine unrelated causes into one unreviewable
@@ -57,9 +57,9 @@ contract and makes no new product, protocol, package, API, or user-interface des
 Choose alternative 3. The child set contains only independently completable causes that were unowned
 at conversion time. Existing AGREEMENT owners remain dependencies rather than nested or duplicate
 children. BEHAVIOR-2664 and DATA-2664 were executed first and now provide the corrected approval-ordering
-and checkpoint-inventory foundations. Continue the remaining initiative in its declared dependency
-order: complete RULE-2326's recommendation-endorsement contract, then dispose of the frozen legacy
-approval corpus through RULE-2380.
+and checkpoint-inventory foundations. RULE-2326's recommendation-endorsement contract is also delivered;
+RULE-2380 now preserves the frozen legacy approval corpus through the approved immutable disposition
+manifest.
 
 The initiative uses a shared integration base with one child Task at a time. Each child receives its
 own paired spec and gate lifecycle before implementation; no child expands another child's approved
@@ -82,9 +82,9 @@ None
 ## Solution
 
 1. Retain the exact parent/child manifest as the ownership source of truth for issue #2664.
-2. Preserve the five completed children and their exact terminal Task/spec and landing evidence.
+2. Preserve the seven completed children and their exact terminal Task/spec and landing evidence.
 3. Use the delivered BEHAVIOR-2664 and DATA-2664 outcomes as the approval-ordering and checkpoint-inventory foundations.
-4. Execute RULE-2326 and then RULE-2380 without absorbing findings from another owner.
+4. Preserve delivered RULE-2326 and RULE-2380 outcomes without absorbing findings from another owner.
 5. Reconcile all seven child outcomes and the three external dependencies against the umbrella register, and close only on a complete map.
 
 ## Affected Files
@@ -136,7 +136,7 @@ Paired execution record:
 - [x] BEHAVIOR-2663 — done — `.agents/tasks/completed/BEHAVIOR-2663-bind-mechanical-gate-verify-checks-without-prose-drift.md`
 - [x] RULE-2665 — done — `.agents/tasks/completed/RULE-2665-define-the-terminal-disposition-for-orchestration-skipped-gates.md`
 - [x] RULE-2326 — done — `.agents/tasks/completed/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md`
-- [ ] RULE-2380 — todo — `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
+- [x] RULE-2380 — done — `.agents/tasks/completed/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
 
 ## Evidence Log
 
@@ -274,3 +274,9 @@ Paired execution record:
 - Canonical run `r20260920120928` binds projection digest
   `2827277d7176c33d1b87c7f352e6a3c06d98cef693fd9f5a85428ff5b3b91f8b` to endorsement key
   `1a25ba71f6fadd018529363887b2f50c58606092b45a5eabb7a688085172e530`.
+
+### [RECOMMENDATION-REVIEW] — ✅ ENDORSE | 2026-09-21
+
+- Canonical loop run: `r20260920153458`
+- Projection digest: `cf7c90bd71c1e05d64c018c440279f78bff515fbf37f37e5d81455945ad454b4`
+- Independent `proposal-reviewer` verdict: `ENDORSE` with 0 unresolved findings.

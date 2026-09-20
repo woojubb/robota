@@ -54,7 +54,7 @@ AGREEMENT-013, or AGREEMENT-2698.
 - [x] BEHAVIOR-2663 — done — `.agents/tasks/completed/BEHAVIOR-2663-bind-mechanical-gate-verify-checks-without-prose-drift.md`
 - [x] RULE-2665 — done — `.agents/tasks/completed/RULE-2665-define-the-terminal-disposition-for-orchestration-skipped-gates.md`
 - [x] RULE-2326 — done — `.agents/tasks/completed/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md`
-- [ ] RULE-2380 — todo — `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
+- [x] RULE-2380 — done — `.agents/tasks/completed/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
 
 ## Test Plan
 
@@ -64,6 +64,8 @@ umbrella row with one delivered or explicitly terminal owner and runs the full r
 
 ## Recommendation Evidence
 
+- 2026-09-21: Final child-terminal projection review returned `ENDORSE` with 0 unresolved findings;
+  all seven child rows are `done`, while issue #2664 remains the open integration owner.
 - `proposal-reviewer` round 1 returned `REVISE` with 1 unresolved finding because the parent spec still
   described BEHAVIOR-2664 and DATA-2664 as future work after both foundations had shipped.
 - The parent Problem, Decision, Solution, and active-spec path were corrected to reflect five completed
@@ -71,7 +73,7 @@ umbrella row with one delivered or explicitly terminal owner and runs the full r
 - `proposal-reviewer` round 2 returned `ENDORSE` with 0 unresolved findings for projection digest
   `2827277d7176c33d1b87c7f352e6a3c06d98cef693fd9f5a85428ff5b3b91f8b` and endorsement key
   `1a25ba71f6fadd018529363887b2f50c58606092b45a5eabb7a688085172e530`.
-- **Canonical loop run:** `r20260920120928` in
+- **Canonical loop run:** `r20260920153458` in
   `.agents/loop-runs/backlog-execution-orchestrator.jsonl`; rounds `[1, 0]`, terminal `converged`.
 
 ## User Execution Test Scenarios
