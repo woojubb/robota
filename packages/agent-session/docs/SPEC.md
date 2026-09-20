@@ -459,21 +459,21 @@ arrays, records, and sidecar contents. A canonical-path active stack rejects cyc
 32 nested references and 64 MiB total sidecar bytes per resolution operation; limits must be finite,
 non-negative safe integers.
 
-`NodeExternalPayloadSource` rejects an empty explicit base directory. Its current Linux implementation opens
-the canonical base once per read and traverses every relative component with no-follow descriptors, verifies
-the opened target is a regular file, and performs a budget-bounded read from that same descriptor. A link in
-any component fails closed; replacing a pathname after its component is open cannot redirect the held
-descriptor. Growth during the read, or a host without the implemented stable no-follow facility, fails closed
-without returning bytes.
+`NodeExternalPayloadSource` rejects an empty explicit base directory. Each read opens one
+`@robota-sdk/agent-file-authority` authority for that base, delegates the bounded component-wise read,
+and closes it before returning. The leaf retains the root identity and uses no-follow relative native
+handles on supported Linux, macOS, and Windows hosts; replacing a pathname after a component is open
+cannot redirect the held authority. There is no pathname fallback.
 
-> **Contained — [ARCH-049](../../../.agents/tasks/completed/ARCH-049-cross-platform-stable-external-payload-replay.md).**
-> The current stable external-payload reader is Linux-only, so public Node replay rejects externalized
-> payloads on macOS and Windows. ARCH-049 owns an equally strong stable-handle implementation for every
-> supported host; this containment must not be replaced with pathname validation followed by pathname I/O.
+Leaf absence maps to `PAYLOAD_NOT_FOUND`; `INVALID_PATH` and `UNSAFE_ENTRY` map to `OUTSIDE_ROOT`;
+`UNSUPPORTED_BACKEND` maps to `STABLE_PAYLOAD_READ_UNAVAILABLE`; `OVER_BUDGET` maps to
+`MAX_TOTAL_BYTES_EXCEEDED`; and root/file mutation, closed-authority, and host-I/O failures map to
+`PAYLOAD_UNREADABLE`. Resolver-owned raw byte-length and sha256 validation still decides content
+integrity after a successful read.
 
 Resolution fails closed with `SessionLogPayloadResolutionError`. Its stable `code` is one of
 `INVALID_LIMIT`, `INVALID_REFERENCE`, `UNRESOLVED_REFERENCE`, `OUTSIDE_ROOT`, `PAYLOAD_NOT_FOUND`,
-`PAYLOAD_UNREADABLE`, `BYTE_LENGTH_MISMATCH`, `SHA256_MISMATCH`, `INVALID_JSON`,
+`STABLE_PAYLOAD_READ_UNAVAILABLE`, `PAYLOAD_UNREADABLE`, `BYTE_LENGTH_MISMATCH`, `SHA256_MISMATCH`, `INVALID_JSON`,
 `MAX_DEPTH_EXCEEDED`, `MAX_TOTAL_BYTES_EXCEEDED`, or `CIRCULAR_REFERENCE`; structured metadata may
 include the relative/canonical path, depth, and expected/actual values, and filesystem/parse failures
 retain their cause.
