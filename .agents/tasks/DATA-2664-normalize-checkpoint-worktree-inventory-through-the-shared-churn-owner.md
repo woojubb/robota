@@ -29,6 +29,8 @@ immediately rejects or that permanently blocks a continuation retry.
 - [ ] TC-02 — Make checkpoint inventory consume the shared real-dirt classifier without copying its allowlist.
 - [ ] TC-03 — Prove generated payloads pass `worktreeError` while one real unrelated path still fails.
 - [ ] TC-04 — Verify retry behavior does not become trapped by tool-produced invalid evidence.
+- [ ] TC-05 — Run the focused checkpoint/receipt suites and affected harness verification against the child branch base.
+- [ ] TC-06 — Run the affected harness scan against `fix/2664-gate-correctness` and record its result.
 
 ## Test Plan
 
