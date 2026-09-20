@@ -15,6 +15,10 @@ yarn.lock
 # on correct work is how a guard stops being read (INFRA-066).
 .agents/evals/lessons/auto-lessons.md
 .agents/evals/lessons/weekly-digest.md
+
+# RULE-2380 contains raw gate output and an endorsed whitespace-sensitive recommendation projection.
+# Preserve the completed lifecycle record byte-for-byte instead of reformatting historical evidence.
+.agents/spec-docs/done/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md
 dist/
 **/dist/
 coverage/
