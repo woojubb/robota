@@ -59,6 +59,11 @@ describe('PAYLOAD-2153 native acceptance topology', () => {
     expect(rendered).toContain('write-native-evidence.mjs');
     expect(rendered).toContain('${RUNNER_TEMP}/payload-native-install-');
     expect(rendered).toContain('${RUNNER_TEMP}/payload-native-bun-');
+    const buildStep = job.steps.find(
+      (step) => step.name === 'Build the CLI dependency closure for replay verification',
+    );
+    expect(buildStep.run).toBe('pnpm --filter @robota-sdk/agent-cli... build');
+    expect(rendered).not.toContain('"run":"pnpm build"');
     expect(rendered).not.toContain('$output_root/node-install');
     expect(rendered).not.toContain('$output_root/fresh-cli');
     const packStep = job.steps.find(
