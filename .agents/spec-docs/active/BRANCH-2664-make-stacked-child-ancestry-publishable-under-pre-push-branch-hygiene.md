@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [cli]
 lane: L2
@@ -66,6 +66,8 @@ Waived: This is a repository-specific git-history invariant with no external pro
 ### Decision
 
 Choose alternative 3.
+
+**Delivery mode:** `single`
 
 An initiative base has the explicit lowercase remote identity
 `origin/integration/<agreement-id>` (for example, `origin/integration/agreement-2664`). Its first
@@ -283,3 +285,107 @@ revision rounds; the first PASS performed the transition and this entry attests 
 
 **Judged by:** `gate.mjs` mechanical evaluator plus `backlog-gate-guard` semantic evaluator (guardian evidence recorded by the orchestrator from the read-only verdict)
 **Judged at:** HEAD `5662bbbb18db` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/backlog/BRANCH-2664-make-stacked-child-ancestry-publishable-under-pre-push-branch-hygiene.md` blob `caa9b164cef0` (untracked)
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-09-20
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names 0/9 TC ids and carries 5 checkbox task(s)
+  **Required action:** one task per TC-N
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task Test Plan/Testing section is 0 chars (absent)
+  **Required action:** write a ≥50-char test plan in the Task
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d91a2789f3d2` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/todo/BRANCH-2664-make-stacked-child-ancestry-publishable-under-pre-push-branch-hygiene.md` blob `02b3ccbf4e63` (tracked)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** approved → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "승인합니다. 그리고 앞으로 타당한 근거와 함께 추천안을 제시하면 근거가 타당할 경우 자동으로 승인합니다."
+**Given:** 2026-09-20, this conversation
+**Review fingerprint:** f2ff0bb47fae (review 9f7884bb, type/tags d024da1a)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-20, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (f2ff0bb47fae) equals the document's current fingerprint
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d91a2789f3d2` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/todo/BRANCH-2664-make-stacked-child-ancestry-publishable-under-pre-push-branch-hygiene.md` blob `c0ef2e18f41e` (modified)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-20; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/BRANCH-2664-make-stacked-child-ancestry-publishable-under-pre-push-branch-hygiene.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/BRANCH-2664-make-stacked-child-ancestry-publishable-under-pre-push-branch-hygiene.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (9)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 429 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/BRANCH-2664-make-stacked-child-ancestry-publishable-under-pre-push-branch-hygiene.md",
+  "specPath": ".agents/spec-docs/todo/BRANCH-2664-make-stacked-child-ancestry-publishable-under-pre-push-branch-hygiene.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-06"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-07"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-08"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-09"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/BRANCH-2664-make-stacked-child-ancestry-publishable-under-pre-push-branch-hygiene.md",
+    ".agents/tasks/BRANCH-2664-make-stacked-child-ancestry-publishable-under-pre-push-branch-hygiene.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d91a2789f3d2` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/todo/BRANCH-2664-make-stacked-child-ancestry-publishable-under-pre-push-branch-hygiene.md` blob `8f3501772333` (modified)
