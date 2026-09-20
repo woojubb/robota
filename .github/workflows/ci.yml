@@ -1402,8 +1402,8 @@ jobs:
           output_root="$PWD/.qualification-output/${{ matrix.target }}"
           pack_root="$(mktemp -d "${RUNNER_TEMP}/payload-native-pack-${{ matrix.target }}-XXXXXX")"
           install_root="$(mktemp -d "${RUNNER_TEMP}/payload-native-install-${{ matrix.target }}-XXXXXX")"
-          node scripts/artifacts/pack.mjs \
-            --package packages/agent-cli \
+          pnpm --filter @robota-sdk/agent-cli run pack:verified \
+            --package . \
             --destination "$pack_root"
           shopt -s nullglob
           packages=("$pack_root"/*.tgz)
