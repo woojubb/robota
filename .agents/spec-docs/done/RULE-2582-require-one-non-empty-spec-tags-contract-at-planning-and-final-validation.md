@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [harness, gate]
 lane: L2
@@ -98,14 +98,14 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/check-spec-doc-frontmatter.test.mjs scripts/harness/__tests__/new-spec.test.mjs` → exits 0, and the new GATE-WRITE `tags: []` case fails against the pre-fix evaluator.
-- [ ] TC-02: GATE-WRITE rejects missing, bare, and empty-array `tags` with `tags missing or empty`,
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/check-spec-doc-frontmatter.test.mjs scripts/harness/__tests__/new-spec.test.mjs` → exits 0, and the new GATE-WRITE `tags: []` case fails against the pre-fix evaluator.
+- [x] TC-02: GATE-WRITE rejects missing, bare, and empty-array `tags` with `tags missing or empty`,
       while accepting scalar, non-empty flow-array, prettier-wrapped flow-array, and block-sequence forms.
-- [ ] TC-03: `new-spec.mjs` with omitted tags emits the lowercased ID prefix, a valid explicit list is
+- [x] TC-03: `new-spec.mjs` with omitted tags emits the lowercased ID prefix, a valid explicit list is
       preserved, and comma/whitespace-only explicit `--tags` exits 1 without writing a document.
-- [ ] TC-04: `check-spec-doc-frontmatter.mjs` retains its existing accepted YAML forms and rejects the
+- [x] TC-04: `check-spec-doc-frontmatter.mjs` retains its existing accepted YAML forms and rejects the
       same missing/bare/empty fixtures as GATE-WRITE.
-- [ ] TC-05: `HARNESS_BASE_REF=fix/2664-gate-correctness node scripts/harness/run-all-scans.mjs --affected --context pr` → exits 0, apart from explicitly identified pre-existing PR-context advisories.
+- [x] TC-05: `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/integration/agreement-2664` → exits 0, apart from explicitly identified pre-existing PR-context advisories.
 
 ## Test Plan
 
@@ -115,17 +115,20 @@ None
 | TC-02 | Unit              | `gate.test.mjs` mechanical GATE-WRITE matrix        | Exact shared diagnostic plus all valid YAML forms.             |
 | TC-03 | Unit / process    | `new-spec.test.mjs` CLI and dry-run assertions      | No file is written for invalid explicit input.                 |
 | TC-04 | Unit              | `check-spec-doc-frontmatter.test.mjs` parity matrix | Final owner behavior is preserved, not weakened.               |
-| TC-05 | Integration       | Affected harness scan in PR context                 | Uses the stacked parent as `HARNESS_BASE_REF`.                 |
+| TC-05 | Integration       | Affected harness scan in PR context                 | Uses the current integration branch as `HARNESS_BASE_REF`.    |
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-03).
+Not applicable.
+
+**Reason:** This is a private repository planning-metadata contract with no Robota product command,
+TUI, browser, public SDK, or installed-package behavior for an end user to execute.
 
 Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md` — todo
+- [x] `.agents/tasks/completed/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md` — done
 
 ## Evidence Log
 
@@ -143,6 +146,7 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-WRITE — Test Plan: five non-empty automated rows correspond one-for-one with the five Completion Criteria; every row names a test type and tool/approach, and no manual row requires a rationale.
 - GATE-WRITE — Structure: the Tasks section contains the paired Task placeholder, the Evidence Log was empty before this first run, and no body-level Status or Classification section exists.
 
+**Judged by:** `backlog-gate-guard` semantic evaluator
 **Judged at:** HEAD `153a3a412ade7212cae15d9d475b6da47d68c58f` · base `origin/fix/2664-gate-correctness@153a3a412ade7212cae15d9d475b6da47d68c58f` · document `.agents/spec-docs/draft/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md` blob `fb4d4b262050b94666965b7674f3a36605bf342c` (untracked)
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-20
@@ -176,6 +180,8 @@ Recorded as the rule's required choice rather than skipped.
 - Both routes — no Architecture Review or frontmatter type/tags modified after approval: PASS; the recorded review fingerprint matches the current Architecture Review and type/tags content.
 - Both routes — independent architecture validation: N/A; the spec introduces no new package, app, surface, layer boundary, or product-family reclassification.
 - NON-COMPLIANCE check — implementation before approval: not triggered; the worktree contains only this untracked planning document and no implementation path change.
+
+**Judged by:** `backlog-gate-guard` semantic evaluator
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-20
 
@@ -273,3 +279,131 @@ GATE VERDICT: PASS
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `153a3a412ade` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/todo/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md` blob `937d8ecd9690` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/check-spec-doc-frontmatter.test.mjs scripts/harness/__tests__/new-spec.test.mjs`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+RUN v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-4
+PASS scripts/harness/__tests__/check-spec-doc-frontmatter.test.mjs (20 tests)
+PASS scripts/harness/__tests__/new-spec.test.mjs (47 tests)
+PASS scripts/harness/__tests__/gate.test.mjs (110 tests)
+Test Files 3 passed (3)
+Tests 177 passed (177)
+Exit 0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `98da05f4f76a` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md` blob `8a76e8a29ca8` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/check-spec-doc-frontmatter.test.mjs scripts/harness/__tests__/new-spec.test.mjs`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+RUN v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-4
+PASS scripts/harness/__tests__/check-spec-doc-frontmatter.test.mjs (20 tests)
+PASS scripts/harness/__tests__/new-spec.test.mjs (47 tests)
+PASS scripts/harness/__tests__/gate.test.mjs (110 tests)
+Test Files 3 passed (3)
+Tests 177 passed (177)
+Exit 0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `98da05f4f76a` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md` blob `220d1812d607` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/check-spec-doc-frontmatter.test.mjs scripts/harness/__tests__/new-spec.test.mjs`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+RUN v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-4
+PASS scripts/harness/__tests__/check-spec-doc-frontmatter.test.mjs (20 tests)
+PASS scripts/harness/__tests__/new-spec.test.mjs (47 tests)
+PASS scripts/harness/__tests__/gate.test.mjs (110 tests)
+Test Files 3 passed (3)
+Tests 177 passed (177)
+Exit 0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `98da05f4f76a` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md` blob `a386b023a978` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate.test.mjs scripts/harness/__tests__/check-spec-doc-frontmatter.test.mjs scripts/harness/__tests__/new-spec.test.mjs`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+RUN v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-4
+PASS scripts/harness/__tests__/check-spec-doc-frontmatter.test.mjs (20 tests)
+PASS scripts/harness/__tests__/new-spec.test.mjs (47 tests)
+PASS scripts/harness/__tests__/gate.test.mjs (110 tests)
+Test Files 3 passed (3)
+Tests 177 passed (177)
+Exit 0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `98da05f4f76a` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md` blob `699fd8804578` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-20
+
+**Command:** `HARNESS_BASE_REF=fix/2664-gate-correctness node scripts/harness/run-all-scans.mjs --affected --context pr`
+**Exit:** 0
+**Output:** (last 8 of 8 line(s))
+
+```
+affected: 10 changed path(s) against fix/2664-gate-correctness
+context: pr
+PASS spec-user-execution-section
+PASS task-archival
+ADVISORY progress-report-quantification: pre-existing transcript findings tolerated in pr context
+ADVISORY task-merged-citation: pre-existing SCREEN-2002 finding tolerated in pr context
+62 scans passed, 1 skipped, 2 advisory failures tolerated (65 declared what they examined)
+Exit 0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `98da05f4f76a` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md` blob `df7ca46abb16` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: PASS — `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-20` is recorded and the document is at `status: in-progress` in `.agents/spec-docs/active/`.
+- Every item in the exact Task's `## Plan` section is marked complete: PASS — TC-01 through TC-05 are the section's five items and each is `[x]`.
+- No Plan item is blocked or pending: PASS — the exact Task's `## Plan` contains no unchecked item and no blocked or pending disposition.
+- Build passes for all affected packages (`pnpm build`): PASS — the mechanical evaluator ran `pnpm build` and observed exit 0; its emitted dynamic-import and legacy-dist messages were non-failing diagnostics.
+- Tests pass for all affected packages (`pnpm test`): PASS — the mechanical evaluator ran `pnpm test` and observed exit 0; the terminal package test completed successfully.
+
+**Judged by:** `backlog-gate-guard` semantic evaluator
+**Verdict reason:** all four GATE-VERIFY criteria pass; the two criteria left pending by the mechanical evaluator are proven directly by the exact Task's completed `## Plan` section.
+
+GATE VERDICT: PASS
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-20; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `98da05f4f76a` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md` blob `556132e5d853` (modified)
