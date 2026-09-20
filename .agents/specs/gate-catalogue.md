@@ -117,6 +117,33 @@ content was not the cause. The defect must be filed as a separate item. This dis
 normal gate failure into a pass and cannot be used to justify changing the gate evaluator in the same
 item. A missing, duplicated, or malformed line is not a closure disposition.
 
+### Orchestration-skip closure disposition
+
+When the gate tool correctly returns a non-PASS but orchestration advances anyway, the normal outcome
+is STOP and reject the affected item; replacement work starts from a newly approved Task/spec. If the
+skip is discovered only after delivery is terminal and later transitions permanently consumed the
+original gate input state, the owner may instead authorize a disclosed NON-COMPLIANCE closure only
+when all of the following are true:
+
+- the same gate has exactly one recorded NON-COMPLIANCE and no PASS;
+- the gate tool itself behaved correctly, so `tool-defect` would be a false classification;
+- a guardian retrospectively judged every skipped semantic criterion and the durable judgement record
+  is named;
+- downstream gates were independently revalidated; and
+- the owner explicitly authorized this exceptional terminal disposition.
+
+Append exactly one machine-readable line without changing the sealed gate evidence:
+
+```markdown
+**Closed under:** `orchestration-skip` — <violation identifier>; gate `<GATE-NAME>`; non-compliance `<YYYY-MM-DD>`; retrospective judgement `<.agents/spec-docs/.../*.md>`; authority `<GitHub issue-comment URL>`
+```
+
+This line does not create, replace, or imply a PASS. It cannot close an ordinary gate FAIL, a
+recoverable skip, a gate/date different from the cited NON-COMPLIANCE, or a gate that already has a
+PASS. The retrospective judgement must resolve to a repository spec document, and authority must be
+an owner issue-comment URL. A missing, duplicated, malformed, or structurally unsupported line is not
+a closure disposition.
+
 ---
 
 ## Prior-gate map
