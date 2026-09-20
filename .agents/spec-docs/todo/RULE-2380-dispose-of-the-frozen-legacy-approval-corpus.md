@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: RULE
 tags: [harness, approval, migration]
 lane: L2
@@ -335,3 +335,45 @@ that an end user can execute.
 
 **Judged by:** `backlog-gate-guard` semantic evaluator + `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `73cf4c7e721e` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/draft/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `424768f46c640f10b2d9ec4abf0ecb9d6964be45` (untracked)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "RULE-2380의 immutable-manifest와 `PRESERVE_FROZEN` 처분안을 승인합니다."
+**Given:** 2026-09-20, this conversation
+**Review fingerprint:** a6364fceac96 (review b569d404, type/tags d243ac8b)
+
+- GATE-APPROVAL — ordering: prior gate GATE-WRITE PASS and status `review-ready`: [GATE-WRITE] — ✅ PASS | 2026-09-20 (the PASS that upgraded the status; a later out-of-order entry does not revoke it); status `review-ready`
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-20, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (a6364fceac96) equals the document's current fingerprint
+- GATE-APPROVAL — The current recommendation has one independent endorsement bound to its stable subject-plus-projection key, wi: latest independent recommendation observation matches RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md's current stable endorsement key and records ENDORSE with 0 findings
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7c499909b989` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/backlog/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `d3f1f2b696c3` (tracked)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "RULE-2380의 immutable-manifest와 `PRESERVE_FROZEN` 처분안을 승인합니다."
+**Given:** 2026-09-20, this conversation
+**Review fingerprint:** a6364fceac96 (review b569d404, type/tags d243ac8b)
+
+- GATE-APPROVAL — Ordering check: PASS — recorded GATE-WRITE PASS upgraded this document to `review-ready`; the declared `recorded-pass` rule applies and the current status remains `review-ready`.
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: PASS — the recorded DIRECT instruction is verbatim, dated, and tied to this conversation.
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: PASS — it names RULE-2380 and approves its immutable-manifest and `PRESERVE_FROZEN` decision.
+- GATE-APPROVAL — Named delegated class exists and predates approval: N/A — the recorded route is DIRECT, not CLASS.
+- GATE-APPROVAL — Authorising instruction is recorded verbatim with date and session: N/A — the recorded route is DIRECT, not CLASS.
+- GATE-APPROVAL — Class evidence condition is measured: N/A — the recorded route is DIRECT, not CLASS.
+- GATE-APPROVAL — Item is inside the delegated class boundary: N/A — the recorded route is DIRECT, not CLASS.
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: PASS — recorded fingerprint `a6364fceac96` equals the current review fingerprint.
+- GATE-APPROVAL — Current recommendation has one independent endorsement bound to its stable subject-plus-projection key with `ENDORSE` and zero unresolved findings: PASS — canonical ledger run `r20260920142613`, round 3, contains exactly one matching expectation/observation for `RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`, key `ebfcd838ab3893f9adb0c97ec6bb6ee4fe367101ba6e8a447845cc5ae1d7e1ed`, verdict `ENDORSE`, findings `0`.
+- GATE-APPROVAL — Independent architecture validation: N/A — the spec adds repository-private harness scripts and records only; it introduces no package, app, interface surface, or layer/product-family boundary.
+- GATE-APPROVAL — Implementation-before-approval non-compliance trigger: not triggered — current changes are gate evidence/ledger records only, and no implementation-path commit exists for the stated solution files.
+
+**Judged by:** `backlog-gate-guard` semantic evaluator
+**Judged at:** HEAD `7c499909b989` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/backlog/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `2e8602bc0921f0665fcf7b2dc6b9769314bdeb14` (modified)
