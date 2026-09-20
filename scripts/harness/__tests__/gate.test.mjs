@@ -91,7 +91,7 @@ const CATALOGUE = `# Gate Catalogue
 - [ ] File begins with \`---\` YAML frontmatter block — \`mechanical\`
 - [ ] \`status: draft\` present in frontmatter — \`mechanical\`
 - [ ] \`type:\` is exactly one value from the 11-prefix list: SCREEN · API · FLOW · BEHAVIOR · DATA · RULE · AGREEMENT · INFRA · PERF · SECURITY · OBSERVABILITY — \`mechanical\`
-- [ ] \`tags:\` field present in frontmatter (may be empty array \`[]\`) — \`mechanical\`
+- [ ] \`tags:\` contains at least one non-empty value — \`mechanical\`
 
 **Problem section:**
 
@@ -563,6 +563,36 @@ describe('judge — GATE-WRITE', () => {
     );
     expect(text).toContain('**Required action:**');
     expect(text).not.toContain('✅ PASS');
+  });
+
+  it.each([
+    ['missing', ''],
+    ['bare', 'tags:'],
+    ['empty flow array', 'tags: []'],
+  ])('fails a draft whose tags value is %s with the final-validator diagnostic', (_, tags) => {
+    const spec = conformingSpec().replace('tags: [harness]', tags);
+    const { root, doc } = makeWorkspace({ spec });
+    const result = judge(root, doc, 'GATE-WRITE');
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    expect(result.stdout).toContain(
+      'FAIL             GATE-WRITE — `tags:` contains at least one non-empty value',
+    );
+    expect(readFileSync(doc, 'utf8')).toContain('tags missing or empty');
+  });
+
+  it.each([
+    ['scalar', 'tags: harness'],
+    ['flow array', 'tags: [harness, gate]'],
+    ['prettier-wrapped flow array', 'tags:\n  [\n    harness,\n    gate,\n  ]'],
+    ['block sequence', 'tags:\n  - harness\n  - gate'],
+  ])('accepts a non-empty %s tags value', (_, tags) => {
+    const spec = conformingSpec().replace('tags: [harness]', tags);
+    const { root, doc } = makeWorkspace({ spec });
+    const result = judge(root, doc, 'GATE-WRITE');
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain(
+      'PASS             GATE-WRITE — `tags:` contains at least one non-empty value',
+    );
   });
 
   it('reports an untagged criterion as PENDING-GUARDIAN, writes no entry, and exits 2', () => {

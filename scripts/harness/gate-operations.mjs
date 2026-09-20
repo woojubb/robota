@@ -161,7 +161,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { asList, asScalar, frontmatterObject, splitFrontmatter } from './frontmatter.mjs';
+import { asList, asScalar, frontmatterObject, isBlank, splitFrontmatter } from './frontmatter.mjs';
 import { checkpointCompletionCriteria } from './checkpoint-evidence-contract.mjs';
 import { checkpointEvidenceForGate } from './gate-checkpoint-evidence.mjs';
 import {
@@ -463,16 +463,11 @@ function frontmatterChecks() {
     },
     {
       id: 'frontmatter-tags',
-      pattern: /`tags:` field present/i,
+      pattern: /`tags:` contains at least one non-empty value/i,
       run: ({ doc }) =>
-        Object.hasOwn(doc.fm, 'tags')
-          ? pass(
-              `\`tags:\` present (${Array.isArray(doc.fm.tags) ? doc.fm.tags.length : 1} value(s))`,
-            )
-          : fail(
-              '`tags:` absent from the frontmatter',
-              'add a `tags:` field (an empty `[]` is allowed)',
-            ),
+        !isBlank(doc.fm.tags)
+          ? pass(`\`tags:\` contains ${asList(doc.fm.tags).length} non-empty value(s)`)
+          : fail('tags missing or empty', 'add at least one non-empty `tags:` value'),
     },
   ];
 }
