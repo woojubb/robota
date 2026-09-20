@@ -112,7 +112,7 @@ No runtime file changes are authorized by this Agreement checkpoint. Each child 
 | TC-03 | Two-stage document gate | `gate.mjs judge --gate GATE-WRITE --doc …`, then independent `backlog-gate-guard` evidence  | The mechanical result and guardian verdict are distinct; no user approval or runtime implementation is claimed by this result.         |
 | TC-04 | Planning regression     | `run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`              | Validates the complete documentation checkpoint rather than a source-code path.                                                        |
 | TC-05 | Delivery audit          | Read source Issues, Task/spec records, merged PR evidence, and executable scenario receipts | Manual final audit because it spans independently released outcomes and cannot be represented by one unit test.                        |
-| TC-06 | Operational rollout     | Final-PR check read-back, live ruleset update, then `scan-main-required-checks.mjs --live`    | The exact current revision is green before activation; head/base movement invalidates the evidence.                                   |
+| TC-06 | Operational rollout     | Final-PR check read-back, live ruleset update, then `scan-main-required-checks.mjs --live`  | The exact current revision is green before activation; head/base movement invalidates the evidence.                                    |
 
 ## User Execution Test Scenarios
 

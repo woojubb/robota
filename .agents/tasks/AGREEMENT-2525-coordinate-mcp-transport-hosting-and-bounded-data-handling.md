@@ -71,9 +71,9 @@ The four direct child records use canonical umbrella [issue #2525](https://githu
 
 Check the Task/spec projection and dependency graph mechanically. For each direct child, run its package tests, typecheck, build, security negative cases, and declared user execution test scenario. For the final audit, read the six source records, all twelve Tasks, their paired specs, merge ancestry, and the current Issue map; a green aggregate scan alone is insufficient evidence.
 
-| TC-ID | Tool / Approach                                                                                  | Expected observable                                                                                         |
-| ----- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| TC-06 | Final PR check read-back → live ruleset update → `scan-main-required-checks.mjs --live`          | The same current revision is green before activation, repository/live contexts match, and the PR is open. |
+| TC-ID | Tool / Approach                                                                         | Expected observable                                                                                       |
+| ----- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| TC-06 | Final PR check read-back → live ruleset update → `scan-main-required-checks.mjs --live` | The same current revision is green before activation, repository/live contexts match, and the PR is open. |
 
 ## Gate-Fail Correction Record
 

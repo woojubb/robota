@@ -426,7 +426,7 @@ None
 | TC-07 | CI policy            | classifier/native-evidence/fan-in/provenance/CI-mirror focused tests  | Required context fails closed; explicit false is N/A     |
 | TC-08 | suite                | affected package gates and affected harness scan                      | Includes recorded RED→GREEN evidence                     |
 | TC-09 | user scenario        | provider-free public SDK example                                      | Isolated fixture and deterministic result                |
-| TC-10 | operational handoff  | child/Agreement ownership and final-PR ordering review                 | Live mutation belongs to the Agreement final rollout     |
+| TC-10 | operational handoff  | child/Agreement ownership and final-PR ordering review                | Live mutation belongs to the Agreement final rollout     |
 | TC-11 | release topology     | five-build/one-publisher topology, permission scan, release readback  | Exact six assets; five checksum entries; desktop intact  |
 
 ## User Execution Test Scenarios
