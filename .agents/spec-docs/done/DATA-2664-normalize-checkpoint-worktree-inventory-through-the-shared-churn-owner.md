@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: DATA
 tags: [typescript]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # DATA-2664: Normalize checkpoint worktree inventory through the shared churn owner
 
-Paired with `.agents/tasks/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md`. Arising from [issue #2664](https://github.com/woojubb/robota/issues/2664).
+Paired with `.agents/tasks/completed/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md`. Arising from [issue #2664](https://github.com/woojubb/robota/issues/2664).
 
 ## Problem
 
@@ -107,18 +107,18 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: a first checkpoint rendered while both generated lesson files are dirty
+- [x] TC-01: Observable: a first checkpoint rendered while both generated lesson files are dirty
       omits both paths from `worktreePaths`, while an unrelated dirty source path remains in the payload.
-- [ ] TC-02: Observable: continuation and correction checkpoint renderers also omit both generated
+- [x] TC-02: Observable: continuation and correction checkpoint renderers also omit both generated
       lesson paths, proving all three producer forms consume the shared classification.
-- [ ] TC-03: Observable: the existing `worktreeError(...)` consumer accepts a generated first
+- [x] TC-03: Observable: the existing `worktreeError(...)` consumer accepts a generated first
       checkpoint payload with only paired artifacts, but still rejects a payload containing an unrelated
       source path.
-- [ ] TC-04: Observable: a retry after a generated checkpoint no longer fails because that earlier
+- [x] TC-04: Observable: a retry after a generated checkpoint no longer fails because that earlier
       tool-produced payload carries ignored churn; malformed or genuinely dirty prior evidence remains
       rejected.
-- [ ] TC-05: Command: `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs` exits 0.
-- [ ] TC-06: Command: `HARNESS_BASE_REF=fix/2664-gate-correctness node scripts/harness/run-all-scans.mjs --affected --context pr` exits 0.
+- [x] TC-05: Command: `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs` exits 0.
+- [x] TC-06: Command: `HARNESS_BASE_REF=fix/2664-gate-correctness node scripts/harness/run-all-scans.mjs --affected --context pr` exits 0.
 
 ## Test Plan
 
@@ -126,7 +126,7 @@ None
 | ----- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | TC-01 | unit        | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` fixture with `AUTO_GENERATED_CHURN` and a real path                                                                  | Assert the producer omits only owner-classified churn.      |
 | TC-02 | unit        | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` continuation/correction fixtures                                                                                     | Exercise every checkpoint form through the shared producer. |
-| TC-03 | integration | existing gate evidence-consumer fixture in `scripts/harness/__tests__/gate.test.mjs`                                                                                               | Preserve fail-closed rejection for real unexpected dirt.    |
+| TC-03 | integration | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` calling the existing `evaluateGateImplementEntries(...)` consumer                                                    | Preserve fail-closed rejection for real unexpected dirt.    |
 | TC-04 | integration | continuation fixture in `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs`                                                                                              | Generated prior evidence must remain retryable.             |
 | TC-05 | suite       | `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs` | Focused owner, producer, and consumer suites.               |
 | TC-06 | integration | `HARNESS_BASE_REF=fix/2664-gate-correctness node scripts/harness/run-all-scans.mjs --affected --context pr`                                                                        | Repository harness verification.                            |
@@ -141,7 +141,7 @@ than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md` — in-progress
+- [x] `.agents/tasks/completed/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md` — done
 
 ## Evidence Log
 
@@ -294,3 +294,165 @@ than skipped.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `e15b84320a2e` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/todo/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md` blob `5f0ec4020673` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 27 line(s))
+
+```
+   ✓ judge — GATE-IMPLEMENT reads the worktree > refuses a legacy-v1 correction unless both the spec and Task are in-progress  655ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > rechecks current continuation artifacts against the prior PASS payload  396ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > rechecks the exact prior-PASS Task PLAN binding on a continuation retry  412ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > produces a first v2 checkpoint whose native continuation replays end to end  1838ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > writes a zero-checkbox TC-ID payload that the staged consumer accepts (TC-03)  840ms
+
+ Test Files  3 passed (3)
+      Tests  122 passed (122)
+   Start at  12:10:16
+   Duration  17.66s (transform 242ms, setup 0ms, collect 440ms, tests 19.54s, environment 0ms, prepare 97ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `973ae6657919` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md` blob `e95a7d3eebfd` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 27 line(s))
+
+```
+   ✓ judge — GATE-IMPLEMENT reads the worktree > refuses a legacy-v1 correction unless both the spec and Task are in-progress  655ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > rechecks current continuation artifacts against the prior PASS payload  396ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > rechecks the exact prior-PASS Task PLAN binding on a continuation retry  412ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > produces a first v2 checkpoint whose native continuation replays end to end  1838ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > writes a zero-checkbox TC-ID payload that the staged consumer accepts (TC-03)  840ms
+
+ Test Files  3 passed (3)
+      Tests  122 passed (122)
+   Start at  12:10:16
+   Duration  17.66s (transform 242ms, setup 0ms, collect 440ms, tests 19.54s, environment 0ms, prepare 97ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `973ae6657919` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md` blob `9265ba82ef6a` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 27 line(s))
+
+```
+   ✓ judge — GATE-IMPLEMENT reads the worktree > refuses a legacy-v1 correction unless both the spec and Task are in-progress  655ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > rechecks current continuation artifacts against the prior PASS payload  396ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > rechecks the exact prior-PASS Task PLAN binding on a continuation retry  412ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > produces a first v2 checkpoint whose native continuation replays end to end  1838ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > writes a zero-checkbox TC-ID payload that the staged consumer accepts (TC-03)  840ms
+
+ Test Files  3 passed (3)
+      Tests  122 passed (122)
+   Start at  12:10:16
+   Duration  17.66s (transform 242ms, setup 0ms, collect 440ms, tests 19.54s, environment 0ms, prepare 97ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `973ae6657919` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md` blob `74eb616d587f` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 27 line(s))
+
+```
+   ✓ judge — GATE-IMPLEMENT reads the worktree > refuses a legacy-v1 correction unless both the spec and Task are in-progress  655ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > rechecks current continuation artifacts against the prior PASS payload  396ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > rechecks the exact prior-PASS Task PLAN binding on a continuation retry  412ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > produces a first v2 checkpoint whose native continuation replays end to end  1838ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > writes a zero-checkbox TC-ID payload that the staged consumer accepts (TC-03)  840ms
+
+ Test Files  3 passed (3)
+      Tests  122 passed (122)
+   Start at  12:10:16
+   Duration  17.66s (transform 242ms, setup 0ms, collect 440ms, tests 19.54s, environment 0ms, prepare 97ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `973ae6657919` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md` blob `0b98815ce2af` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 27 line(s))
+
+```
+   ✓ judge — GATE-IMPLEMENT reads the worktree > refuses a legacy-v1 correction unless both the spec and Task are in-progress  655ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > rechecks current continuation artifacts against the prior PASS payload  396ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > rechecks the exact prior-PASS Task PLAN binding on a continuation retry  412ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > produces a first v2 checkpoint whose native continuation replays end to end  1838ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > writes a zero-checkbox TC-ID payload that the staged consumer accepts (TC-03)  840ms
+
+ Test Files  3 passed (3)
+      Tests  122 passed (122)
+   Start at  12:10:16
+   Duration  17.66s (transform 242ms, setup 0ms, collect 440ms, tests 19.54s, environment 0ms, prepare 97ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `973ae6657919` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md` blob `099175585290` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-20
+
+**Command:** `HARNESS_BASE_REF=fix/2664-gate-correctness node scripts/harness/run-all-scans.mjs --affected --context pr`
+**Exit:** 0
+**Output:** (last 10 of 214 line(s))
+
+```
+Diagnostic report v1: 2 result(s), 2 non-clean.
+ERROR harness.scan-finding.scan-c34-c36-c33-c2v-c36-c2t-c37-c37-c19-c36-c2t-c34-c33-c36-c38-c19-c35-c39-c2p-c32-c38-c2x-c2u-c2x-c2r-c2p-c38-c2x-c33-c32 [finding] scan:progress-report-quantification
+  evidence: Scan progress-report-quantification exited with status 1.
+  recommendation: Inspect the progress-report-quantification scan output above.
+ERROR harness.scan-finding.scan-c38-c2p-c37-c2z-c19-c31-c2t-c36-c2v-c2t-c2s-c19-c2r-c2x-c38-c2p-c38-c2x-c33-c32 [finding] scan:task-merged-citation
+  evidence: Scan task-merged-citation exited with status 1.
+  recommendation: Inspect the task-merged-citation scan output above.
+
+60 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (63 declared what they examined)
+scan receipt NOT written: 2 advisory failure(s) were tolerated (progress-report-quantification, task-merged-citation), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `973ae6657919` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md` blob `034d432d4e19` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: PASS — the latest GATE-IMPLEMENT entry is PASS, and the exact active spec and paired Task both remain `in-progress`.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`) (`task-plan-items`): PASS — direct inspection of `.agents/tasks/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md` shows all six Plan items checked.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — no Plan item is unchecked, blocked, or pending.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS — build-shaped `HARNESS_BASE_REF=fix/2664-gate-correctness node scripts/harness/run-all-scans.mjs --affected --context pr` exited 0 with 60 scans passed, one skipped, and two pre-existing advisory failures tolerated by PR context.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS — `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs` exited 0 with 3 files and 122 tests passed.
+
+**Judged by:** independent `backlog-gate-guard` semantic evaluator (read-only; evidence recorded by the orchestrator)
+**Judged at:** HEAD `973ae6657919` · base `fix/2664-gate-correctness@5ee95e50972c` · document `.agents/spec-docs/active/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md` blob `a552bd488ad6` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-20; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (6)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 6/6 tasks `[x]` in .agents/tasks/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `973ae6657919` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md` blob `b2ad7580f763` (modified)
