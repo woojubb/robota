@@ -50,6 +50,7 @@ function repository(before, versions = [], staged = null, residue = []) {
     const key = args.join(' ');
     if (command === 'git') {
       if (key === 'rev-parse --show-toplevel') return result(root);
+      if (key === 'branch --show-current') return result('feature\n');
       if (key === 'rev-parse --verify --quiet MERGE_HEAD^{commit}') return result('', 1);
       if (key === 'rev-parse --verify --quiet origin/develop^{commit}') return result(base);
       if (key === 'merge-base HEAD origin/develop') return result(base);
