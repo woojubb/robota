@@ -202,7 +202,7 @@ into a warning or inferred approval.
    a legitimate append-only new DIRECT/CLASS route, invalid baseline shrink, rekeyed subjects, and
    canonical idempotent serialization.
 4. Update RULE-2380 and parent AGREEMENT-2664 lifecycle projections; do not reopen or rewrite closed
-   issue #2380, whose residual scope is already owned by #2664.
+   issue #2380, whose residual scope is already owned by issue #2664.
 
 ## Affected Files
 
@@ -233,9 +233,11 @@ into a warning or inferred approval.
 - [ ] TC-04: Canonical parse/serialize/read-back is byte-idempotent, two consecutive live scans report
       identical 218-row disposition counts with zero unclassified records, the historical spec path
       set has no worktree diff, and focused plus affected harness verification passes.
-- [ ] TC-05: The RULE-2380 Task/spec and both parent AGREEMENT-2664 projections name RULE-2380 as done,
-      point to the completed Task/spec paths, state that all seven children are terminal, and retain
-      issue #2664 as the open integration owner until the initiative lands on `develop`.
+- [ ] TC-05: Before terminalization, the RULE-2380 Task/spec and both parent AGREEMENT-2664 projections
+      agree on RULE-2380's `in-progress` status and exact active paths. The terminal completion batch is
+      required to move the pair to the exact done/completed paths, update both parent projections to
+      seven terminal children, and retain issue #2664 as the open integration owner until the initiative
+      lands on `develop`.
 
 ## Test Plan
 
@@ -245,7 +247,7 @@ into a warning or inferred approval.
 | TC-02 | Contract / diff               | manifest/Task/spec schema assertions plus `git diff --name-only` exclusion of rule files and all 218 adopted paths                      | Prevents category names or metadata from becoming authority and prevents history rewrites. |
 | TC-03 | Adversarial integration       | temporary Git repositories covering manifest introduction, tamper, set drift, digest drift, rekey, shrink, and append-only new approval | Every corrupt or unauthorized transition fails closed.                                     |
 | TC-04 | Determinism / repository gate | canonical round-trip twice, live scanner twice, focused Vitest, and affected harness scan                                               | Proves idempotence, population conservation, and no unclassified row.                      |
-| TC-05 | Lifecycle projection          | exact-path/status assertions over RULE-2380 and both AGREEMENT-2664 records                                                             | Proves the final child closes without prematurely closing the integration owner.           |
+| TC-05 | Lifecycle projection          | pre-terminal exact-path/status assertions plus post-PASS atomic completion and read-back                                                 | Proves the final child closes without prematurely closing the integration owner.           |
 
 ## User Execution Test Scenarios
 
@@ -259,7 +261,7 @@ that an end user can execute.
 
 ## Tasks
 
-- [ ] `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` — todo
+- [ ] `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` — in-progress
 - Planning checkpoint prepared after the approved state was committed.
 
 ## Evidence Log
@@ -433,6 +435,12 @@ that an end user can execute.
 }
 ```
 <!-- checkpoint-evidence:v2:end -->
+
+### [RECOMMENDATION-REVIEW] — ✅ ENDORSE | 2026-09-21
+
+- Canonical loop run: `r20260920152818`
+- Projection digest: `6532794718d787d56d3250eab1db23bbb6a7a6c707b3203bb56798be2c914c5d`
+- Independent `proposal-reviewer` verdict: `ENDORSE` with 0 unresolved findings.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `fb0cd58ce516` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/todo/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `2fa768e32e67` (modified)
