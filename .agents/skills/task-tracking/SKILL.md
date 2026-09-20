@@ -69,10 +69,14 @@ status requires `completed: YYYY-MM-DD`.
 Archive in the **same commit** that completes the work. This is enforced by the
 `task-archival` harness scan (`pnpm harness:scan:task-archival`, part of
 `pnpm harness:scan`): a done task file left in `.agents/tasks/` fails the scan.
-The SessionStart/Stop hooks flag the same files as `DONE, needs archival`.
+The SessionStart/Stop hooks flag the same files as `DONE, needs archival`. The SessionStart notice
+lists only `in-progress` and `blocked` Tasks — at most 20, and it says when it has cut the list —
+and reports `todo` Tasks as a count; a `todo` item is chosen through issues and the backlog index,
+not through the notice (INFRA-2772).
 
 The shared classifier is `scripts/harness/task-lifecycle.mjs`; placement, archival, and the session
-hook must consume it rather than implementing their own status regex.
+hook must consume it rather than implementing their own status regex. The hook reads the whole
+directory in one `classify-dir` call, not one `classify` per file.
 
 ### Resuming a Task
 
