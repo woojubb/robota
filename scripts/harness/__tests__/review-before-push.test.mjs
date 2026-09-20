@@ -7,6 +7,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { makeTemp } from './make-temp.mjs';
 
 import { isReviewed, recordPathFor } from '../record-local-review.mjs';
+import { runPostVerdictGuard } from '../pre-push-local-checks.mjs';
 import { dispatchedAgents } from '../scan-orchestration-map.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -91,6 +92,19 @@ function push(dir, command = 'git push -u origin feat/probe', { openPrs = 0 } = 
     timeout: 120_000,
   });
   return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+}
+
+function bridgePush(dir, declaredBase) {
+  return runPostVerdictGuard({
+    cwd: dir,
+    script: HOOK,
+    env: {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: dir,
+      HARNESS_BASE_REF: declaredBase,
+      PATH: `${stubGh(0)}${path.delimiter}${process.env.PATH}`,
+    },
+  });
 }
 
 function trustedIntegrationRepo({
@@ -289,6 +303,14 @@ printf 'OPEN\\n'
 }
 
 describe('a stacked child declares a trusted integration base', () => {
+  it('routes a safe declaration through the real guard and rejects unsafe projection', () => {
+    const fixture = trustedIntegrationRepo();
+
+    expect(bridgePush(fixture.dir, 'origin/integration/agreement-2664')).toBe(true);
+    expect(bridgePush(fixture.dir, 'origin/integration/agreement-404')).toBe(false);
+    expect(bridgePush(fixture.dir, 'origin/integration/agreement-2664;#')).toBe(false);
+  });
+
   it('allows a child whose foreign merges are contained by the matching remote AGREEMENT base', () => {
     const fixture = trustedIntegrationRepo();
     const verdict = push(
