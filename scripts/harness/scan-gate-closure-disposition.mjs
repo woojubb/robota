@@ -4,6 +4,7 @@
 import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { evidenceEntries } from './gate-document.mjs';
+import { asScalar, frontmatterObject } from './frontmatter.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
 const ROOT = resolveWorkspaceRoot(import.meta);
@@ -26,10 +27,18 @@ function documents(dir) {
 }
 
 function durableJudgementPath(root, relative) {
+  const specRoot = path.resolve(root, '.agents/spec-docs');
   const absolute = path.resolve(root, relative);
   try {
+    const lexicalRelative = path.relative(specRoot, absolute);
+    if (
+      lexicalRelative === '..' ||
+      lexicalRelative.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(lexicalRelative)
+    )
+      return false;
     if (lstatSync(absolute).isSymbolicLink() || !lstatSync(absolute).isFile()) return false;
-    const canonicalRoot = realpathSync(root);
+    const canonicalRoot = realpathSync(specRoot);
     const canonicalPath = realpathSync(absolute);
     return canonicalPath.startsWith(`${canonicalRoot}${path.sep}`);
   } catch {
@@ -37,13 +46,34 @@ function durableJudgementPath(root, relative) {
   }
 }
 
+function dispositionLines(text) {
+  const found = [];
+  let fenced = false;
+  let inEvidenceLog = false;
+  for (const line of String(text).split('\n')) {
+    if (/^\s*```/.test(line)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+    if (/^##\s+/.test(line)) inEvidenceLog = /^##\s+Evidence Log\s*$/i.test(line);
+    if (line.startsWith('**Closed under:**')) found.push({ line, inEvidenceLog });
+  }
+  return found;
+}
+
 export function dispositionFindings(root = ROOT) {
   const specs = documents(path.join(root, '.agents/spec-docs'));
   const findings = [];
   for (const file of specs) {
     const text = readFileSync(file, 'utf8');
-    const lines = text.split('\n');
-    const matches = lines.filter((line) => line.startsWith('**Closed under:**'));
+    const dispositions = dispositionLines(text);
+    for (const disposition of dispositions.filter((item) => !item.inEvidenceLog))
+      findings.push({
+        file: path.relative(root, file),
+        detail: `Closed under disposition is outside the Evidence Log: ${disposition.line}`,
+      });
+    const matches = dispositions.filter((item) => item.inEvidenceLog).map((item) => item.line);
     if (matches.length > 1)
       findings.push({
         file: path.relative(root, file),
@@ -63,6 +93,13 @@ export function dispositionFindings(root = ROOT) {
 
       const [, , gate, date, judgementPath] = orchestrationSkip;
       const entries = evidenceEntries(text) ?? [];
+      const relativeFile = path.relative(root, file).split(path.sep).join('/');
+      const status = asScalar(frontmatterObject(text).status);
+      if (!relativeFile.startsWith('.agents/spec-docs/done/') || status !== 'done')
+        findings.push({
+          file: path.relative(root, file),
+          detail: `orchestration-skip requires a terminal done spec, observed ${relativeFile} with status ${status || '(absent)'}`,
+        });
       const matchingNonCompliance = entries.filter(
         (entry) =>
           entry.gate === gate && entry.date === date && entry.verdict === '🔴 NON-COMPLIANCE',
@@ -76,6 +113,11 @@ export function dispositionFindings(root = ROOT) {
         findings.push({
           file: path.relative(root, file),
           detail: `orchestration-skip gate ${gate} already has a PASS`,
+        });
+      if (entries.some((entry) => entry.gate === gate && entry.verdict === '❌ FAIL'))
+        findings.push({
+          file: path.relative(root, file),
+          detail: `orchestration-skip gate ${gate} also has an ordinary FAIL`,
         });
       if (!durableJudgementPath(root, judgementPath))
         findings.push({

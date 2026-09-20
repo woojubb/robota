@@ -1037,9 +1037,10 @@ retrospective guardian judgement, independently revalidated downstream gates, an
 authority. The disposition closes the historical violation as disclosed NON-COMPLIANCE; it never
 turns the violated gate green.
 
-Enforced by: `gate-closure-disposition` in `pnpm harness:scan`, which validates the exact disposition
-form, matching same-gate NON-COMPLIANCE, absence of a same-gate PASS, durable judgement path, and
-owner issue-comment URL.
+Enforced by: `gate-closure-disposition` in `pnpm harness:scan`, which confines the disposition to the
+Evidence Log of a `done` spec, validates the exact form, matching same-gate NON-COMPLIANCE, absence
+of a same-gate FAIL or PASS, a durable judgement path that remains inside `.agents/spec-docs/`, and
+the owner issue-comment URL shape. Remote owner identity remains part of semantic authority review.
 
 ## Done Gate
 
