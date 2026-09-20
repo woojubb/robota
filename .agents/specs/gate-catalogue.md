@@ -188,7 +188,7 @@ Check every item. A single unmet item = FAIL.
 - [ ] File begins with `---` YAML frontmatter block — `mechanical`
 - [ ] `status: draft` present in frontmatter — `mechanical`
 - [ ] `type:` is exactly one value from the 11-prefix list: SCREEN · API · FLOW · BEHAVIOR · DATA · RULE · AGREEMENT · INFRA · PERF · SECURITY · OBSERVABILITY — `mechanical`
-- [ ] `tags:` field present in frontmatter (may be empty array `[]`) — `mechanical`
+- [ ] `tags:` contains at least one non-empty value — `mechanical`
 
 **Problem section:**
 
