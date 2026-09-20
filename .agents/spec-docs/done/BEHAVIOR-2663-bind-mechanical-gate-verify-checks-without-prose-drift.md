@@ -7,7 +7,9 @@ lane: L2
 
 # BEHAVIOR-2663: Bind mechanical GATE-VERIFY checks without prose drift
 
-Paired with `.agents/tasks/BEHAVIOR-2663-bind-mechanical-gate-verify-checks-without-prose-drift.md`. Arising from [issue #2663](https://github.com/woojubb/robota/issues/2663).
+Paired with
+`.agents/tasks/completed/BEHAVIOR-2663-bind-mechanical-gate-verify-checks-without-prose-drift.md`.
+Arising from [issue #2663](https://github.com/woojubb/robota/issues/2663).
 
 ## Problem
 
