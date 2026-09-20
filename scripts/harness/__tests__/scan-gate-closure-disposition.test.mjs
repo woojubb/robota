@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -20,13 +20,22 @@ function fixture({
   date = '2026-09-07',
   line = DISPOSITION,
   extra = '',
+  spec = SPEC,
+  status = 'done',
+  beforeEvidence = '',
 } = {}) {
   const root = makeTemp('robota-gate-closure-');
-  const file = path.join(root, SPEC);
+  const file = path.join(root, spec);
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(
     file,
-    `# Historical spec
+    `---
+status: ${status}
+---
+
+# Historical spec
+
+${beforeEvidence}
 
 ## Evidence Log
 
@@ -70,6 +79,14 @@ describe('gate-closure-disposition', () => {
     ],
     ['ordinary failure', () => fixture({ verdict: '❌ FAIL' }), 'matching NON-COMPLIANCE'],
     [
+      'same-gate ordinary failure beside non-compliance',
+      () =>
+        fixture({
+          extra: '### [GATE-WRITE] — ❌ FAIL | 2026-09-06\n\n**Status remains:** draft\n\n',
+        }),
+      'also has an ordinary FAIL',
+    ],
+    [
       'existing same-gate PASS',
       () =>
         fixture({
@@ -82,6 +99,20 @@ describe('gate-closure-disposition', () => {
       'missing judgement path',
       () => fixture({ line: DISPOSITION.replace(SPEC, '.agents/spec-docs/done/MISSING.md') }), // allow-missing-artifact: negative fixture validates unresolved judgement paths
       'retrospective judgement path does not resolve',
+    ],
+    [
+      'non-terminal lifecycle',
+      () =>
+        fixture({
+          spec: SPEC.replace('/done/', '/active/'),
+          status: 'in-progress',
+        }),
+      'terminal done spec',
+    ],
+    [
+      'disposition outside the Evidence Log',
+      () => fixture({ line: '', beforeEvidence: `${DISPOSITION}\n` }),
+      'outside the Evidence Log',
     ],
     [
       'malformed authority',
@@ -106,6 +137,45 @@ describe('gate-closure-disposition', () => {
         expect.objectContaining({ detail: expect.stringContaining(detail) }),
       ]),
     );
+  });
+
+  it('rejects retrospective judgement traversal outside spec-docs', () => {
+    const traversal = '.agents/spec-docs/done/../../../AGENTS.md';
+    const { root } = fixture({ line: DISPOSITION.replace(SPEC, traversal) });
+    writeFileSync(path.join(root, 'AGENTS.md'), '# Outside the governed spec root\n');
+
+    expect(dispositionFindings(root)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          detail: expect.stringContaining('retrospective judgement path does not resolve'),
+        }),
+      ]),
+    );
+  });
+
+  it('rejects a retrospective judgement reached through a symlinked parent', () => {
+    const linkedJudgement = '.agents/spec-docs/done/linked/JUDGEMENT.md';
+    const { root } = fixture({ line: DISPOSITION.replace(SPEC, linkedJudgement) });
+    const outside = path.join(root, 'outside-spec-docs');
+    mkdirSync(outside);
+    writeFileSync(path.join(outside, 'JUDGEMENT.md'), '# Outside the governed spec root\n');
+    symlinkSync(outside, path.join(root, '.agents/spec-docs/done/linked'), 'dir');
+
+    expect(dispositionFindings(root)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          detail: expect.stringContaining('retrospective judgement path does not resolve'),
+        }),
+      ]),
+    );
+  });
+
+  it('ignores Closed under examples inside fenced code', () => {
+    const { root } = fixture({
+      beforeEvidence: `\`\`\`markdown\n${DISPOSITION}\n\`\`\`\n`,
+    });
+
+    expect(dispositionFindings(root)).toEqual([]);
   });
 
   it('rejects incomplete exception evidence', () => {

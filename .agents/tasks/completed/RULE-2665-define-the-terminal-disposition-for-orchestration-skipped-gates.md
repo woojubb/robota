@@ -44,8 +44,11 @@ and tool-defect records. Run focused Vitest, the closure-disposition scan, and a
 
 - RED: the focused scanner suite reported 6 failures before implementation; the new disposition was
   malformed and the structural refusal reasons were unavailable.
-- GREEN: the focused suite passes 11/11, including accepted evidence, seven adversarial forms, and
-  the unchanged tool-defect control.
+- REVIEW RED: independent review found four fail-open edges; five focused tests reproduced
+  nonterminal use, spec-root traversal, a same-gate FAIL beside NON-COMPLIANCE, a disposition outside
+  the Evidence Log, and fenced-example misclassification.
+- GREEN: the focused suite passes 17/17, including accepted evidence, the expanded adversarial
+  matrix, fenced-example exclusion, and the unchanged tool-defect control.
 - Integration: the live scanner passes over 508 gate spec documents; HARNESS-2660 has a one-line
   append-only reconciliation; affected scans pass 72 checks with one intentional skip and two
   unrelated historical advisories.
