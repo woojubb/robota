@@ -405,8 +405,7 @@ preparkMs })` returning the proxy, an `armEchoRelease()` port and `flush()`. A `
       proven rather than argued.
 - [x] TC-04: ordering, callbacks and backpressure — batches emerge in submission order under <!-- Amended 2026-09-20 at pre-push review: "a SUPERSEDED batch's callbacks still settle" is replaced by "nothing is dropped — a newer printable batch closing behind a parked one releases the older one at once, in order, and at most one batch waits"; the barrier clause stands. See § Fallback for why. -->
       interleaved parked and unparked releases; every `write` callback fires exactly once, after the
-      underlying write, and with the underlying error when the real stream fails; a SUPERSEDED
-      batch's callbacks still settle; an empty-string barrier is never coalesced away; `write`
+      underlying write, and with the underlying error when the real stream fails; a newer printable batch closing behind a parked one releases the older one at once, in order, and at most one batch waits; an empty-string barrier is never coalesced away; `write`
       returns the underlying boolean and `writableLength` reads through; and a batch with no
       printable content in it adds no park while still leaving in queue order behind a pending one.
 - [x] TC-05: with the mode OFF, `render()` is called with no `stdout` key at all — asserted on the

@@ -191,6 +191,9 @@ describe('SCREEN-2670 the pre-write park through the real binary', () => {
       // The keystroke's commit is exempt: its echo lands well inside the interval.
       expect(timing.echoAt - timing.typedAt).toBeLessThan(PARK_MS - SLACK_MS);
       // The turn's commit is parked: at least the interval after the previous printable release.
+      // Assumption: with a single-chunk replay the answer commit is the LAST printable commit of the
+      // turn's burst; only the last waiting batch is parked, so a later commit inside the interval
+      // would make this measure turn latency instead.
       expect(timing.answerAt - timing.echoAt).toBeGreaterThanOrEqual(PARK_MS - SLACK_MS);
       // And it arrived whole: the synchronized-output window opened and closed in one growth.
       expect(timing.answerBytes).toContain('\x1b[?2026h');

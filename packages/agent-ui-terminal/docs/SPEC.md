@@ -626,6 +626,9 @@ would withhold, `=0` withholds where it would emit.
   line so a reader can find it. If key cycling is added, the announcement is added with it.
 - The pre-write park's default interval is provisional (see **The pre-write park** above); it has
   not been measured against a real screen reader.
+- Because at most one batch ever waits, a stream of commits faster than the interval is separated
+  only at its final commit — the intermediate ones go out back to back rather than being paced.
+  The measurement above should account for that before the default is re-derived.
 
 ## Attention & Interval Recap (SCREEN-1992)
 
