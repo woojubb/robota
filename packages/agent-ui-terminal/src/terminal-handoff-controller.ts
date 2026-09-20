@@ -24,7 +24,8 @@ export interface ITuiSuspendHooks {
  * and a child that reset the mode does not leave the TUI blind afterwards.
  */
 export interface ITerminalModeHooks {
-  preSuspend(): void;
+  /** May be async: SCREEN-2670 drains the parked screen-reader output before the child gets the TTY. */
+  preSuspend(): void | Promise<void>;
   postResume(): void;
 }
 
@@ -73,7 +74,7 @@ export class TerminalHandoffController implements ITerminalHandoff {
       );
     }
     await hooks.suspend();
-    this.modeHooks?.preSuspend();
+    await this.modeHooks?.preSuspend();
     this.instance?.clear();
     // Releasing Ink's React input hooks (empty render) is not enough: the parent process still holds
     // a raw-mode TTY read on stdin, which (a) steals input from the inherited child and (b) starves

@@ -32,6 +32,7 @@ import { useRealCursorPosition } from './hooks/useRealCursorPosition.js';
 import { useKeybindingActions } from './keybindings/keybindings-context.js';
 import { RenderedText } from './SafeText.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
+import { useScreenReaderPacing } from './screen-reader-pacing-context.js';
 import { supportsImeCursorPositioning } from './terminal-capabilities.js';
 import { foreground, usePalette } from './theme/index.js';
 
@@ -147,9 +148,32 @@ export default function CjkTextInput({
   );
 }
 
+/**
+ * SCREEN-2670: which keys arm the echo exemption. Text insertion and deletion only — a keystroke
+ * whose commit repaints the composer. Submit and execute run through this same handler
+ * (`translateCjkInput` returns `key.return` for them) and their commit appends the user's prompt
+ * line to the transcript, which is exactly the content the park exists to pace; cursor moves and
+ * tab commit no text of the composer's own.
+ */
+function mutatesComposerText(
+  action: string | undefined,
+  translated: { input: string; key: IKeyInput },
+): boolean {
+  if (action === 'delete-backward' || action === 'delete-word' || action === 'delete-line')
+    return true;
+  return (
+    translated.key.return !== true &&
+    translated.key.ctrl !== true &&
+    translated.key.tab !== true &&
+    translated.input.length > 0
+  );
+}
+
 function useCjkTextInputHandlers(options: IInputHandlerOptions): void {
+  const pacing = useScreenReaderPacing();
   usePaste(
     (text) => {
+      pacing.armEchoRelease();
       applyCjkFlowSafely(options, () =>
         applyCjkTextPaste(options.stateRef.current, text, createFlowOptions(options)),
       );
@@ -168,6 +192,7 @@ function useCjkTextInputHandlers(options: IInputHandlerOptions): void {
         consumed,
       );
       if (translated === undefined) return;
+      if (mutatesComposerText(actions[0], translated)) pacing.armEchoRelease();
       applyCjkFlowSafely(options, () =>
         applyCjkTextInput(
           options.stateRef.current,

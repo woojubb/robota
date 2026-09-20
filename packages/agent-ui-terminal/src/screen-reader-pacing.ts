@@ -6,12 +6,13 @@
  * speaking the confirmation line before the first prompt frame overwrites the region it is reading.
  * A keypress ends it early.
  *
- * THE PRE-WRITE PARK IS NOT SHIPPED. § Decision verdict (i) adopted a second wait — a column-0 move
- * and a pause before each changed line — and it is not here, because there is no honest place to put
- * it: every transcript line is written by Ink's own frame loop, which writes synchronously. Wrapping
- * that write with a delay means either blocking the event loop or reordering frames. Rather than
- * ship a documented tunable that silently does nothing, the variable is not read at all; the gap is
- * recorded in the Task and in this package's SPEC under Known limitations.
+ * THE PRE-WRITE PARK (SCREEN-2670) is the second wait § Decision verdict (i) adopted. It lives in
+ * `screen-reader-stdout.ts`: an owned write path handed to Ink as `stdout`, which separates COMMITS
+ * in time so a diff-based reader's snapshot can fall between two of them. This module only resolves
+ * its interval. The default is PROVISIONAL: screen-reader mode runs Ink unthrottled, so no frame
+ * interval derives it, and the governing timescale — the reader's own sampling cadence — is not
+ * measurable from this harness. `50` matches the sole product precedent until it is measured
+ * against a real reader (recorded as an open item in this package's SPEC).
  *
  * The DEFAULT IS MEASURED AGAINST THIS RENDER LOOP, not copied: `DEFAULT_STARTUP_QUIET_MS` is the
  * observed boot-to-first-prompt interval of this binary (~450 ms in the PTY harness) doubled, so the
@@ -30,9 +31,18 @@ export const DEFAULT_STARTUP_QUIET_MS = 900;
 
 export const STARTUP_QUIET_ENV = 'ROBOTA_SCREEN_READER_STARTUP_QUIET_MS';
 
+/** Sanity bound on the pre-write park (5 seconds), matching the product precedent verdict (i) adopted. */
+export const PREPARK_MS_MAX = 5000;
+/** PROVISIONAL — taken to match the sole product precedent, pending measurement against a reader. */
+export const DEFAULT_PREPARK_MS = 50;
+
+export const PREPARK_ENV = 'ROBOTA_SCREEN_READER_PREPARK_MS';
+
 /** The resolved pacing. `0` whenever the mode is off. */
 export interface IScreenReaderPacing {
   startupQuietMs: number;
+  /** Interval parked in front of each printable commit after the first. `0` disables the park. */
+  preparkMs: number;
 }
 
 export interface IResolvePacingInputs {
@@ -82,7 +92,7 @@ function resolveDuration(
 
 /** Resolve the wait once, at startup. */
 export function resolvePacing(inputs: IResolvePacingInputs): IScreenReaderPacing {
-  if (!inputs.enabled) return { startupQuietMs: 0 };
+  if (!inputs.enabled) return { startupQuietMs: 0, preparkMs: 0 };
   const env = inputs.env ?? process.env;
   const warn = reportTo(inputs.warn);
   return {
@@ -91,6 +101,13 @@ export function resolvePacing(inputs: IResolvePacingInputs): IScreenReaderPacing
       STARTUP_QUIET_ENV,
       DEFAULT_STARTUP_QUIET_MS,
       STARTUP_QUIET_MS_MAX,
+      warn,
+    ),
+    preparkMs: resolveDuration(
+      env[PREPARK_ENV],
+      PREPARK_ENV,
+      DEFAULT_PREPARK_MS,
+      PREPARK_MS_MAX,
       warn,
     ),
   };

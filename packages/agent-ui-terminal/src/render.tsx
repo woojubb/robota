@@ -12,7 +12,9 @@ import { FocusReportingStdin } from './attention/focus-input-filter.js';
 import { KeybindingsProvider } from './keybindings/keybindings-context.js';
 import { writeScreenReaderAnnouncement } from './screen-reader-announcement.js';
 import { ScreenReaderProvider } from './screen-reader-context.js';
+import { ScreenReaderPacingProvider } from './screen-reader-pacing-context.js';
 import { awaitStartupQuietPeriod, resolvePacing } from './screen-reader-pacing.js';
+import { createParkedStdout, toPacingPort } from './screen-reader-stdout.js';
 import { isInteractiveColorTerminal, supportsFocusReporting } from './terminal-capabilities.js';
 import { createFocusReportingWriter } from './terminal-focus-reporting.js';
 import { TerminalHandoffController } from './terminal-handoff-controller.js';
@@ -287,6 +289,13 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
     hint: options.screenReaderHint,
   });
   const pacing = resolvePacing({ enabled: screenReader });
+  // SCREEN-2670: the pre-write park. Constructed only when the mode is on AND the interval is
+  // non-zero, so with the mode off `stdout` is not passed at all and Ink defaults to
+  // `process.stdout` — the object it keys its instance map by — exactly as today.
+  const parked =
+    screenReader && pacing.preparkMs > 0
+      ? createParkedStdout({ stdout: process.stdout, preparkMs: pacing.preparkMs })
+      : undefined;
 
   // SCREEN-006: chalk (ink's styling engine) does not implement the NO_COLOR convention itself
   // (verified: chalk 5's vendored supports-color reads only FORCE_COLOR/TTY/TERM), so on a real
@@ -310,7 +319,11 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
     now: Date.now,
   });
   handoffController.setTerminalModeHooks({
-    preSuspend: () => focusReporting.disable(),
+    preSuspend: async () => {
+      focusReporting.disable();
+      // SCREEN-2670: nothing parked may land on top of the child's output.
+      await parked?.drain();
+    },
     postResume: () => focusReporting.enable(),
   });
 
@@ -348,7 +361,8 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
   focusReporting.enable();
   attention.start();
 
-  const instance = render(
+  const pacingPort = parked === undefined ? undefined : toPacingPort(parked);
+  const tree = (
     <KeybindingsProvider source={options.keybindingsSource}>
       <ScreenReaderProvider enabled={screenReader}>
         <App
@@ -373,8 +387,20 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
           reducedMotionOverride={options.reducedMotionOverride}
         />
       </ScreenReaderProvider>
-    </KeybindingsProvider>,
-    { exitOnCtrlC: false, isScreenReaderEnabled: screenReader, stdin: stdin.asInkStdin() },
+    </KeybindingsProvider>
+  );
+  const instance = render(
+    pacingPort === undefined ? (
+      tree
+    ) : (
+      <ScreenReaderPacingProvider port={pacingPort}>{tree}</ScreenReaderPacingProvider>
+    ),
+    {
+      exitOnCtrlC: false,
+      isScreenReaderEnabled: screenReader,
+      stdin: stdin.asInkStdin(),
+      ...(parked === undefined ? {} : { stdout: parked.asInkStdout() }),
+    },
   );
   // The controller needs the Ink instance to clear the frame before a handoff.
   handoffController.setInkInstance(instance);
@@ -384,6 +410,8 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
       () => activeChannel,
     );
   } finally {
+    // The last frame of a session must not be the one the park loses: drain before restoring.
+    await parked?.flush();
     // Leave the terminal as it was found: no focus sequences after exit, no reader on stdin.
     handoffController.setTerminalModeHooks(undefined);
     focusReporting.disable();

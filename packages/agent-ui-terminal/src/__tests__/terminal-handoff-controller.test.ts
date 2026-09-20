@@ -101,8 +101,12 @@ describe('TerminalHandoffController terminal-mode hooks', () => {
     });
     c.setInkInstance({ clear: () => order.push('clear') });
     c.setTerminalModeHooks({
-      preSuspend: () => order.push('mode-off'),
-      postResume: () => order.push('mode-on'),
+      preSuspend: () => {
+        order.push('mode-off');
+      },
+      postResume: () => {
+        order.push('mode-on');
+      },
     });
 
     await expect(
@@ -117,5 +121,53 @@ describe('TerminalHandoffController terminal-mode hooks', () => {
     order.length = 0;
     await c.runWithTerminal(async () => order.push('child'));
     expect(order).toEqual(['suspend', 'clear', 'child', 'resume']);
+  });
+
+  /**
+   * SCREEN-2670: `preSuspend` may be async — it drains the parked screen-reader output — and the
+   * screen is cleared only after it settles. Without the await, `clear` and the child would run
+   * while the drain was still pending, and parked frames would land on top of the child's output.
+   */
+  it('awaits an async preSuspend before clearing the screen and starting the child', async () => {
+    const order: string[] = [];
+    const c = new TerminalHandoffController();
+    setTty(true, true);
+    c.registerSuspendHooks({
+      suspend: async () => {
+        order.push('suspend');
+      },
+      resume: () => order.push('resume'),
+    });
+    c.setInkInstance({ clear: () => order.push('clear') });
+    let finishDrain: () => void = () => {};
+    const drained = new Promise<void>((resolve) => {
+      finishDrain = resolve;
+    });
+    c.setTerminalModeHooks({
+      preSuspend: async () => {
+        order.push('drain-start');
+        await drained;
+        order.push('drain-end');
+      },
+      postResume: () => {
+        order.push('mode-on');
+      },
+    });
+
+    const run = c.runWithTerminal(async () => order.push('child'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // The drain has not settled: nothing past it may have run yet.
+    expect(order).toEqual(['suspend', 'drain-start']);
+    finishDrain();
+    await run;
+    expect(order).toEqual([
+      'suspend',
+      'drain-start',
+      'drain-end',
+      'clear',
+      'child',
+      'resume',
+      'mode-on',
+    ]);
   });
 });

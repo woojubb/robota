@@ -556,11 +556,12 @@ by `flows/selection-flow.ts` (`applyNumericSelection`), so a menu resolves ident
 driven. `SlashAutocomplete` takes the numbering but not the prompt: it is a completion popup driven
 by the input line, which owns those keystrokes.
 
-**Pacing** (`screen-reader-pacing.ts`). One wait, tunable, `0` when the mode is off:
+**Pacing** (`screen-reader-pacing.ts`, `screen-reader-stdout.ts`). Two waits, tunable, `0` when the mode is off:
 
-| Variable                                | Default | Bound    | Purpose                                                                                               |
-| --------------------------------------- | ------- | -------- | ----------------------------------------------------------------------------------------------------- |
-| `ROBOTA_SCREEN_READER_STARTUP_QUIET_MS` | `900`   | `600000` | let the reader finish the confirmation line before the first prompt frame; any keypress ends it early |
+| Variable                                | Default | Bound    | Purpose                                                                                                                                                    |
+| --------------------------------------- | ------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ROBOTA_SCREEN_READER_STARTUP_QUIET_MS` | `900`   | `600000` | let the reader finish the confirmation line before the first prompt frame; any keypress ends it early                                                      |
+| `ROBOTA_SCREEN_READER_PREPARK_MS`       | `50`    | `5000`   | park once in front of each printable COMMIT after the first, so a diff-based reader's snapshot can fall between two commits (SCREEN-2670); `0` disables it |
 
 The default is measured against THIS render loop, not copied: `900` is this binary's observed
 boot-to-first-prompt interval doubled. `0` means "no wait" exactly; a value above the bound is
@@ -568,6 +569,29 @@ clamped **and reported on stderr**; a non-numeric value is refused with a note a
 stands — nothing is silently substituted. "Any keypress" is literal because the wait puts a TTY
 stdin into raw mode for its duration and restores it; in canonical mode the terminal would deliver
 nothing until Enter.
+
+**The pre-write park (SCREEN-2670).** In the mode Ink runs unthrottled and writes one commit as up
+to four synchronous chunks (synchronized-output begin, a `<Static>` erase, the frame, the end). The
+park owns Ink's `stdout` through its documented option and treats those chunks as ONE batch, parked
+once in front and released contiguously, so a synchronized-output window and a `<Static>` erase are
+never split and no torn frame is ever on screen for the interval. The interval is measured from the
+previous printable release: a commit that arrives after a natural pause of at least the interval is
+not delayed at all. No cursor sequence is written (CLI-062 invariant I3 holds literally):
+`eraseLines` already ends in `cursorLeft`, so time is the only separation added. Never parked: the
+first printable release of a session, a batch with no printable content (Ink's exit barrier, the OSC
+133 marks — which travel through the same path because they are positional), and a composer
+keystroke. That exemption is a boolean the composer's key handler arms for TEXT-MUTATING keys only
+(never submit or execute, whose commit appends the prompt line to the transcript), read when the
+batch opens and carried on it, and expired on `setImmediate`. **Nothing is ever dropped:** Ink's
+erase bookkeeping and its once-only `<Static>` writes both assume every frame landed, so when a
+newer printable commit closes behind a parked one the older one is released at once — at most one
+batch ever waits. A terminal handoff drains the queue before the child gets the TTY, and teardown
+drains it before the terminal is restored, so the last frame of a session is never the one lost.
+With the mode off no proxy is constructed and `stdout` is not passed at all. **The default is
+PROVISIONAL:** the mode runs unthrottled, so no frame interval derives it, and the governing
+timescale — the reader's own sampling cadence — cannot be measured from this harness; `50` matches
+the sole product precedent. Open item: measure the park against a real screen reader and re-derive
+the default.
 
 **Native scrollback is a guarded invariant.** Ink's `alternateScreen` defaults to `false` and nothing
 here sets it. The alternate screen has no scrollback, and reviewing earlier output is how a reader
@@ -600,12 +624,11 @@ would withhold, `=0` withholds where it would emit.
 - There is no permission-mode-cycling announcement, because no key-based cycling exists in this
   repository; the mode is changed by command. The mode is instead rendered permanently in the status
   line so a reader can find it. If key cycling is added, the announcement is added with it.
-- **The pre-write park is not shipped.** § Decision verdict (i) adopted a second wait — a column-0
-  move and a pause before each changed line. Every transcript line is written by Ink's own frame
-  loop, synchronously, so wrapping that write with a delay means blocking the event loop or
-  reordering frames. A documented tunable that silently did nothing would be worse than its absence,
-  so `ROBOTA_SCREEN_READER_PREPARK_MS` is not read at all. Reaching it needs an owned write path
-  (an Ink `stdout` wrapper that can defer a frame), which is its own change.
+- The pre-write park's default interval is provisional (see **The pre-write park** above); it has
+  not been measured against a real screen reader.
+- Because at most one batch ever waits, a stream of commits faster than the interval is separated
+  only at its final commit — the intermediate ones go out back to back rather than being paced.
+  The measurement above should account for that before the default is re-derived.
 
 ## Attention & Interval Recap (SCREEN-1992)
 

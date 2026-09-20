@@ -66,7 +66,7 @@ attention state, stored-history query, palette configuration, OS/IME integration
 - [ ] FLOW-2006 — todo — `.agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`
 - [ ] BEHAVIOR-2437 — todo — `.agents/tasks/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md`
 - [ ] SCREEN-2442 — todo — `.agents/tasks/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md`
-- [ ] SCREEN-2670 — todo — `.agents/tasks/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md`
+- [x] SCREEN-2670 — done — `.agents/tasks/completed/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md`
 
 ## Test Plan
 

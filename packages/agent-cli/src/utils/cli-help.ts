@@ -39,6 +39,8 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --screen-reader            Plain-text screen-reader mode: no box-drawing chrome, no spinners,
                              role-labelled transcript, numbered menus, bell + OSC 133 turn marks.
                              Overrides ROBOTA_SCREEN_READER=1|0 and settings.json screenReader
+                             Pacing: ROBOTA_SCREEN_READER_STARTUP_QUIET_MS (default 900) and
+                             ROBOTA_SCREEN_READER_PREPARK_MS (default 50, 0 disables) in milliseconds
   --no-screen-reader         Force screen-reader mode off for this run
   --reduced-motion           Suppress animation for this run; colour is unaffected.
                              Overrides ROBOTA_REDUCED_MOTION=1|0 and settings.json reducedMotion

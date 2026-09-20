@@ -15,7 +15,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   awaitStartupQuietPeriod,
+  DEFAULT_PREPARK_MS,
   DEFAULT_STARTUP_QUIET_MS,
+  PREPARK_ENV,
+  PREPARK_MS_MAX,
   resolvePacing,
   STARTUP_QUIET_ENV,
   STARTUP_QUIET_MS_MAX,
@@ -30,12 +33,14 @@ describe('TC-20: resolvePacing', () => {
   it('returns the documented default when the variable is not set', () => {
     expect(resolvePacing({ enabled: true, env: {} })).toEqual({
       startupQuietMs: DEFAULT_STARTUP_QUIET_MS,
+      preparkMs: DEFAULT_PREPARK_MS,
     });
   });
 
   it('honours an explicit 0 exactly — the documented way to ask for no wait', () => {
     expect(resolvePacing({ enabled: true, env: { [STARTUP_QUIET_ENV]: '0' } })).toEqual({
       startupQuietMs: 0,
+      preparkMs: DEFAULT_PREPARK_MS,
     });
   });
 
@@ -47,7 +52,7 @@ describe('TC-20: resolvePacing', () => {
       warn: sink.warn,
     });
 
-    expect(pacing).toEqual({ startupQuietMs: STARTUP_QUIET_MS_MAX });
+    expect(pacing).toEqual({ startupQuietMs: STARTUP_QUIET_MS_MAX, preparkMs: DEFAULT_PREPARK_MS });
     expect(sink.notes).toHaveLength(1);
     expect(sink.notes[0]).toContain(`clamping 999999 to the ${STARTUP_QUIET_MS_MAX} ms`);
   });
@@ -68,6 +73,7 @@ describe('TC-20: resolvePacing', () => {
   it('resolves the wait to 0 when the mode is off, whatever the variable says', () => {
     expect(resolvePacing({ enabled: false, env: { [STARTUP_QUIET_ENV]: '5000' } })).toEqual({
       startupQuietMs: 0,
+      preparkMs: 0,
     });
   });
 });
@@ -155,5 +161,42 @@ describe('TC-20: the startup quiet period', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('SCREEN-2670 TC-01: resolvePacing returns preparkMs by the same discipline', () => {
+  it('defaults to the provisional 50 and honours an explicit 0 exactly', () => {
+    expect(resolvePacing({ enabled: true, env: {} }).preparkMs).toBe(50);
+    expect(resolvePacing({ enabled: true, env: { [PREPARK_ENV]: '0' } }).preparkMs).toBe(0);
+    expect(resolvePacing({ enabled: true, env: { [PREPARK_ENV]: '250' } }).preparkMs).toBe(250);
+  });
+
+  it('refuses a non-numeric or negative value WITH a note naming the variable', () => {
+    for (const raw of ['soon', '-5', '1.5']) {
+      const sink = collectWarnings();
+      const pacing = resolvePacing({ enabled: true, env: { [PREPARK_ENV]: raw }, warn: sink.warn });
+      expect(pacing.preparkMs).toBe(DEFAULT_PREPARK_MS);
+      expect(sink.notes).toHaveLength(1);
+      expect(sink.notes[0]).toContain(PREPARK_ENV);
+      expect(sink.notes[0]).toContain(`"${raw}"`);
+    }
+  });
+
+  it('clamps above the bound AND reports the clamp', () => {
+    const sink = collectWarnings();
+    const pacing = resolvePacing({
+      enabled: true,
+      env: { [PREPARK_ENV]: '99999' },
+      warn: sink.warn,
+    });
+    expect(pacing.preparkMs).toBe(PREPARK_MS_MAX);
+    expect(sink.notes[0]).toContain(`clamping 99999 to the ${PREPARK_MS_MAX} ms`);
+  });
+
+  it('is 0 whenever the mode is off, regardless of the variable', () => {
+    expect(resolvePacing({ enabled: false, env: { [PREPARK_ENV]: '250' } })).toEqual({
+      startupQuietMs: 0,
+      preparkMs: 0,
+    });
   });
 });
