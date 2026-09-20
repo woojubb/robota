@@ -1,7 +1,7 @@
 ---
 title: 'RULE-2664: Allow integration AGREEMENT activation after its atomic prelude'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: in-progress
 created: 2026-09-20
 priority: critical
 urgency: now
@@ -17,6 +17,8 @@ Remove the bootstrap cycle that prevents a fresh `integration/<agreement-id>` br
 the parent AGREEMENT's GATE-IMPLEMENT transition. The committed atomic AGREEMENT prelude must be a
 valid pre-child integration state, while every child merge must still require the parent AGREEMENT to
 have reached its active checkpoint first.
+
+Delivery is one atomic scanner-and-regression-test change (`single`).
 
 ## Plan
 
