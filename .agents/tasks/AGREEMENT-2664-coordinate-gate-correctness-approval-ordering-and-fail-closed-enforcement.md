@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-2664: Coordinate gate correctness, approval ordering, and fail-closed enforcement'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: in-progress
 created: 2026-09-20
 priority: critical
 urgency: now
