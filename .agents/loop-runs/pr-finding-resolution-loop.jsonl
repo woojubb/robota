@@ -46,3 +46,4 @@
 {"runId":"r20260920063217","opened":"2026-09-20T06:32:17.402Z","closed":"2026-09-20T06:34:23.568Z","roundFindings":[2,0],"extensions":{},"terminal":"converged","ref":"BRANCH-2664 final committed HEAD review: 2,0; split evaluator and evidence commits; final ACTIONABLE FINDINGS: 0"}
 {"runId":"r20260920154552","opened":"2026-09-20T15:45:52.860Z","closed":"2026-09-20T15:59:48.988Z","roundFindings":[1],"extensions":{},"terminal":"abandoned","ref":null}
 {"runId":"r20260920155949","opened":"2026-09-20T15:59:49.027Z","closed":"2026-09-20T16:03:24.127Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
+{"runId":"r20260920172522","opened":"2026-09-20T17:25:22.387Z","closed":"2026-09-20T17:39:07.439Z","roundFindings":[3,0],"extensions":{},"terminal":"converged","ref":"AGREEMENT-2525 planning prelude local review: 3,0; repaired head bba9737f3; all three source-alignment findings closed"}
