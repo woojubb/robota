@@ -300,10 +300,17 @@ completion criterion, because a repo scan asserting an absence can only measure 
 - An unparseable or negative value: refused with a note on stderr and the default stands — the
   existing `resolveDuration` discipline, never a silent substitution.
 - A value above the bound: clamped AND reported.
-- Commits arriving faster than the park drains: the queue keeps the newest pending FRAME batch and
-  drops the superseded one, because a superseded full redraw has no reader value and an unbounded
-  queue is a memory leak on a fast stream. A batch carrying a write callback, and Ink's empty-string
-  barrier writes, are never coalesced away, and every dropped chunk's callback is still settled.
+- Commits arriving faster than the park drains: nothing is dropped. When a newer printable batch
+  closes while an older one is still parked, the OLDER one is released at once, contiguously and
+  without its park, so at most one batch ever waits and memory stays bounded. <!-- Amended
+  2026-09-20 at pre-push review. § Decision's "Dropping is never silent" paragraph, endorsed and
+  approved, allowed a superseded frame batch to be dropped on the premise that a superseded full
+  redraw has no reader value. The reviewer showed the premise false at source: Ink keeps its erase
+  bookkeeping (`lastOutputHeight`) from the frame it BELIEVES it wrote, and writes each `<Static>`
+  item exactly once (`ink.js:379-383`), so a dropped batch corrupts the next erase and loses a
+  transcript line for good — reachable in this item's own PTY scenario. The approved Architecture
+  Review text is left as endorsed; this declaration and the shipped rule supersede that one
+  paragraph, and TC-04 was amended and re-recorded to pin the new rule. -->
 - A batch with no printable content in it (the barrier, an OSC 133 mark, a bare control sequence) is
   released without a park of its own, still in queue order.
 
@@ -396,7 +403,7 @@ preparkMs })` returning the proxy, an `armEchoRelease()` port and `flush()`. A `
       would pass against a proxy that stamps everything, which is the opposite defect. "The exemption
       silently never fires" is this item's own failure mode applied to its own tunable, so it is
       proven rather than argued.
-- [x] TC-04: ordering, callbacks and backpressure — batches emerge in submission order under
+- [x] TC-04: ordering, callbacks and backpressure — batches emerge in submission order under <!-- Amended 2026-09-20 at pre-push review: "a SUPERSEDED batch's callbacks still settle" is replaced by "nothing is dropped — a newer printable batch closing behind a parked one releases the older one at once, in order, and at most one batch waits"; the barrier clause stands. See § Fallback for why. -->
       interleaved parked and unparked releases; every `write` callback fires exactly once, after the
       underlying write, and with the underlying error when the real stream fails; a SUPERSEDED
       batch's callbacks still settle; an empty-string barrier is never coalesced away; `write`
@@ -935,3 +942,91 @@ Observations outside this gate's criteria, left for the owners of GATE-COMPLETE 
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `f2f8cd5c82d4` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `d05d2b60d07d` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run src/__tests__/screen-reader-stdout.test.ts -t TC-04`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:28:51 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/screen-reader-stdout.test.ts (14 tests | 10 skipped) 5ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed | 10 skipped (14)
+   Start at  13:28:51
+   Duration  160ms (transform 26ms, setup 0ms, collect 28ms, tests 5ms, environment 0ms, prepare 33ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `36d7620c1c22` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/done/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `9f06be3f7154` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run src/__tests__/screen-reader-stdout.test.ts -t TC-06`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:28:52 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/screen-reader-stdout.test.ts (14 tests | 10 skipped) 5ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed | 10 skipped (14)
+   Start at  13:28:52
+   Duration  164ms (transform 26ms, setup 0ms, collect 31ms, tests 5ms, environment 0ms, prepare 31ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `36d7620c1c22` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/done/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `923a120fecdd` (modified)
+
+### [GATE-COMPLETE: TC-09] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run --config vitest.pty.config.ts src/__tests__/pty/screen-2670-prepark.ptytest.ts`
+**Exit:** 0
+**Output:** (last 10 of 13 line(s))
+
+```
+
+ ✓ src/__tests__/pty/screen-2670-prepark.ptytest.ts (3 tests) 5097ms
+   ✓ SCREEN-2670 the pre-write park through the real binary > TC-09: the echo is not delayed, the turn commit waits the interval after it, its chunks are contiguous, and the marks stay in order  2012ms
+   ✓ SCREEN-2670 the pre-write park through the real binary > TC-09: with the interval 0 no delay is injected  1512ms
+   ✓ SCREEN-2670 the pre-write park through the real binary > TC-09: with the mode off the park is absent — no interval, bordered UI as before  1572ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  13:28:53
+   Duration  5.25s (transform 26ms, setup 0ms, collect 37ms, tests 5.10s, environment 0ms, prepare 32ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `36d7620c1c22` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/done/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `81d1b811c432` (modified)
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli build && pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli test && pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli typecheck && pnpm harness:scan -- --skip task-merged-citation && pnpm lint`
+**Exit:** 0
+**Output:** (last 10 of 4061 line(s))
+
+```
+   2:3   warning  'TASK_PROGRESS_EVENTS' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   3:3   warning  'TaskRunStateMachine' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  17:8   warning  'TPortPayload' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  21:10  warning  'dispatchDownstreamReadyTasks' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  22:10  warning  'finalizeDagRunIfTerminal' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  36:3   warning  'handleTerminalFailure' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  37:3   warning  'handleRetry' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+  39:3   warning  'successAfterAck' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+
+✖ 2353 problems (0 errors, 2353 warnings)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `36d7620c1c22` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/done/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `75047a5adeb6` (modified)

@@ -24,10 +24,12 @@
  *   parked reply keeps its exemption), and it expires on `setImmediate` whether or not a batch took
  *   it, so a keystroke that commits nothing cannot un-park a later transcript batch.
  *
- * DROPPING IS NEVER SILENT. When commits arrive faster than the park drains, the newest pending
- * printable batch supersedes the older waiting one — a superseded full redraw has no reader value
- * and an unbounded queue is a memory leak on a fast stream. A batch carrying the barrier is never
- * dropped, and every dropped chunk's callback is still settled, so `waitUntilExit()` resolves.
+ * NOTHING IS EVER DROPPED. Ink keeps its own erase bookkeeping (`lastOutputHeight`) from the frame
+ * it believes it wrote, and writes each `<Static>` item exactly once — so a batch that never reaches
+ * the terminal corrupts the next erase and loses a transcript line for good. When a newer printable
+ * batch closes while an older one is still parked, the OLDER one is released at once, contiguously
+ * and without its park, so at most one batch ever waits and memory stays bounded on a fast stream;
+ * the park then applies to the newest commit only.
  */
 
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
@@ -77,9 +79,8 @@ interface IBatch {
   /** Read at formation, never at release. */
   echo: boolean;
   printable: boolean;
-  /** Ink's `write('', cb)` — never coalesced away. */
+  /** Ink's `write('', cb)` — the exit barrier, which must reach the stream in order. */
   barrier: boolean;
-  first: boolean;
 }
 
 export interface IParkedStdout {
@@ -89,6 +90,11 @@ export interface IParkedStdout {
   armEchoRelease(): void;
   /** Write through the same ordered path — for the OSC 133 marks, which are positional. */
   write(chunk: string | Uint8Array, callback?: TWriteCallback): boolean;
+  /**
+   * Release everything queued NOW, in order and without waiting out a park, and keep parking what
+   * comes later — for a terminal handoff, so nothing lands on top of the child's output.
+   */
+  drain(): Promise<void>;
   /** Release everything still queued, in order and without further parking; resolves when written. */
   flush(): Promise<void>;
 }
@@ -113,7 +119,6 @@ class ParkedStdout implements TInkStdoutSurface {
   private readonly queue: IBatch[] = [];
   private timer: NodeJS.Timeout | undefined;
   private lastPrintableReleaseAt: number | undefined;
-  private hasReleasedFirst = false;
   private echoArmed = false;
   private echoExpiryScheduled = false;
   private flushing = false;
@@ -186,7 +191,6 @@ class ParkedStdout implements TInkStdoutSurface {
         echo: this.echoArmed,
         printable: false,
         barrier: false,
-        first: !this.hasReleasedFirst && this.queue.length === 0,
       };
       batch = opened;
       this.open = opened;
@@ -217,13 +221,22 @@ class ParkedStdout implements TInkStdoutSurface {
     });
   }
 
-  flush(): Promise<void> {
-    this.flushing = true;
+  drain(): Promise<void> {
     if (this.timer !== undefined) {
       clearTimeout(this.timer);
       this.timer = undefined;
     }
-    this.pump();
+    for (const waiting of this.queue.splice(0)) this.release(waiting);
+    return this.settled();
+  }
+
+  flush(): Promise<void> {
+    this.flushing = true;
+    return this.drain();
+  }
+
+  /** Resolves once no batch is open or queued. */
+  private settled(): Promise<void> {
     if (this.open === undefined && this.queue.length === 0) return Promise.resolve();
     return new Promise<void>((resolve) => {
       this.drainWaiters.push(resolve);
@@ -235,28 +248,28 @@ class ParkedStdout implements TInkStdoutSurface {
   private close(batch: IBatch): void {
     if (this.open !== batch) return;
     this.open = undefined;
-    if (this.isParked(batch)) this.supersede();
+    // A newer printable commit closing behind a parked one: release the older one NOW rather than
+    // drop it — Ink's erase bookkeeping and its once-only Static writes both assume it landed.
+    if (this.isParked(batch)) {
+      if (this.timer !== undefined) {
+        clearTimeout(this.timer);
+        this.timer = undefined;
+      }
+      for (const waiting of this.queue.splice(0)) this.release(waiting);
+    }
     this.queue.push(batch);
     this.pump();
   }
 
+  /** The first printable release of a session is never parked: nothing precedes it to separate. */
   private isParked(batch: IBatch): boolean {
-    return this.preparkMs > 0 && !batch.first && batch.printable && !batch.echo && !this.flushing;
-  }
-
-  /** Drop every waiting parked printable batch that carries no barrier; settle its callbacks. */
-  private supersede(): void {
-    const kept: IBatch[] = [];
-    for (const waiting of this.queue) {
-      if (this.isParked(waiting) && !waiting.barrier) {
-        for (const chunk of waiting.chunks) {
-          if (chunk.callback !== undefined) process.nextTick(chunk.callback, null);
-        }
-      } else {
-        kept.push(waiting);
-      }
-    }
-    this.queue.splice(0, this.queue.length, ...kept);
+    return (
+      this.preparkMs > 0 &&
+      this.lastPrintableReleaseAt !== undefined &&
+      batch.printable &&
+      !batch.echo &&
+      !this.flushing
+    );
   }
 
   private pump(): void {
@@ -272,11 +285,12 @@ class ParkedStdout implements TInkStdoutSurface {
         const due = (this.lastPrintableReleaseAt ?? 0) + this.preparkMs;
         const wait = due - this.now();
         if (wait > 0) {
+          // Kept referenced: this timer guards queued output and Ink's exit barrier, whose callback
+          // resolves `waitUntilExit()`; the process must not exit with a frame still parked.
           this.timer = setTimeout(() => {
             this.timer = undefined;
             this.pump();
           }, wait);
-          this.timer.unref?.();
           return;
         }
       }
@@ -291,7 +305,6 @@ class ParkedStdout implements TInkStdoutSurface {
   }
 
   private release(batch: IBatch): void {
-    this.hasReleasedFirst = true;
     for (const chunk of batch.chunks) {
       this.source.write(chunk.text, chunk.callback);
     }

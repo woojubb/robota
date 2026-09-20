@@ -572,24 +572,26 @@ nothing until Enter.
 
 **The pre-write park (SCREEN-2670).** In the mode Ink runs unthrottled and writes one commit as up
 to four synchronous chunks (synchronized-output begin, a `<Static>` erase, the frame, the end). The
-park owns Ink's `stdout` through its documented option and treats those chunks as ONE batch —
-parked once in front, released contiguously — the interval is measured from the previous printable
-release, so a commit that arrives after a natural pause of at least the interval is not delayed at
-all — so a synchronized-output window and a `<Static>` erase
-are never split and no torn frame is ever on screen for the interval. No cursor sequence is written
-(CLI-062 invariant I3 holds literally): `eraseLines` already ends in `cursorLeft`, so time is the
-only separation added. Never parked: the first batch of a session, a batch with no printable
-content (Ink's exit barrier, the OSC 133 marks — which travel through the same path because they
-are positional), and a composer keystroke. That exemption is a boolean the composer's key handler
-arms for TEXT-MUTATING keys only (never submit or execute, whose commit appends the prompt line to
-the transcript), read when the batch opens and carried on it, and expired on `setImmediate`. Under
-a fast stream the newest waiting printable batch supersedes the older one; the barrier is never
-dropped and every dropped chunk's callback is settled. Teardown drains the queue before the terminal
-is restored, so the last frame of a session is never the one lost. With the mode off no proxy is
-constructed and `stdout` is not passed at all. **The default is PROVISIONAL:** the mode runs
-unthrottled, so no frame interval derives it, and the governing timescale — the reader's own
-sampling cadence — cannot be measured from this harness; `50` matches the sole product precedent.
-Open item: measure the park against a real screen reader and re-derive the default.
+park owns Ink's `stdout` through its documented option and treats those chunks as ONE batch, parked
+once in front and released contiguously, so a synchronized-output window and a `<Static>` erase are
+never split and no torn frame is ever on screen for the interval. The interval is measured from the
+previous printable release: a commit that arrives after a natural pause of at least the interval is
+not delayed at all. No cursor sequence is written (CLI-062 invariant I3 holds literally):
+`eraseLines` already ends in `cursorLeft`, so time is the only separation added. Never parked: the
+first printable release of a session, a batch with no printable content (Ink's exit barrier, the OSC
+133 marks — which travel through the same path because they are positional), and a composer
+keystroke. That exemption is a boolean the composer's key handler arms for TEXT-MUTATING keys only
+(never submit or execute, whose commit appends the prompt line to the transcript), read when the
+batch opens and carried on it, and expired on `setImmediate`. **Nothing is ever dropped:** Ink's
+erase bookkeeping and its once-only `<Static>` writes both assume every frame landed, so when a
+newer printable commit closes behind a parked one the older one is released at once — at most one
+batch ever waits. A terminal handoff drains the queue before the child gets the TTY, and teardown
+drains it before the terminal is restored, so the last frame of a session is never the one lost.
+With the mode off no proxy is constructed and `stdout` is not passed at all. **The default is
+PROVISIONAL:** the mode runs unthrottled, so no frame interval derives it, and the governing
+timescale — the reader's own sampling cadence — cannot be measured from this harness; `50` matches
+the sole product precedent. Open item: measure the park against a real screen reader and re-derive
+the default.
 
 **Native scrollback is a guarded invariant.** Ink's `alternateScreen` defaults to `false` and nothing
 here sets it. The alternate screen has no scrollback, and reviewing earlier output is how a reader

@@ -101,8 +101,12 @@ describe('TerminalHandoffController terminal-mode hooks', () => {
     });
     c.setInkInstance({ clear: () => order.push('clear') });
     c.setTerminalModeHooks({
-      preSuspend: () => order.push('mode-off'),
-      postResume: () => order.push('mode-on'),
+      preSuspend: () => {
+        order.push('mode-off');
+      },
+      postResume: () => {
+        order.push('mode-on');
+      },
     });
 
     await expect(

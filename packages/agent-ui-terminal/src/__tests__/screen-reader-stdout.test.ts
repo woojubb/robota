@@ -183,7 +183,7 @@ describe('TC-03: the echo release — scope is the handler`s, formation and expi
   });
 });
 
-describe('TC-04: ordering, callbacks, backpressure and dropped-batch settlement', () => {
+describe('TC-04: ordering, callbacks, backpressure and early release', () => {
   it('fires every callback exactly once, after the underlying write, with its error', async () => {
     const parked = createParkedStdout({ stdout: fake.asSource(), preparkMs: 250 });
     const seen: Array<Error | null | undefined> = [];
@@ -200,28 +200,30 @@ describe('TC-04: ordering, callbacks, backpressure and dropped-batch settlement'
     expect(seen[1]).toBeInstanceOf(Error);
   });
 
-  it('supersedes the older waiting printable batch, settling its callbacks, and never drops the barrier', async () => {
+  it('never drops a batch: a newer printable commit releases the older parked one at once, in order', async () => {
     const parked = createParkedStdout({ stdout: fake.asSource(), preparkMs: 250 });
     commit(parked, 'prime');
     await settle();
 
-    const settled: string[] = [];
-    parked.write('redraw 1\n', () => settled.push('redraw 1'));
+    const settledCallbacks: string[] = [];
+    parked.write('redraw 1\n', () => settledCallbacks.push('redraw 1'));
     await settle();
-    parked.write('', () => settled.push('barrier'));
+    parked.write('', () => settledCallbacks.push('barrier'));
     await settle();
-    parked.write('redraw 2\n', () => settled.push('redraw 2'));
-    await settle();
+    // Nothing yet: redraw 1 is parked and the barrier waits behind it.
+    expect(fake.written).toHaveLength(3);
 
-    // redraw 1 was superseded: its callback settled without the write ever reaching the terminal.
-    await new Promise<void>((resolve) => process.nextTick(resolve));
-    expect([...settled].sort()).toEqual(['barrier', 'redraw 1']);
-    expect(fake.written.map((w) => w.text)).not.toContain('redraw 1\n');
-    // The barrier — control-only — went straight through, in order; redraw 2 waits its interval.
-    expect(fake.written.map((w) => w.text)).toContain('');
+    parked.write('redraw 2\n', () => settledCallbacks.push('redraw 2'));
+    await settle();
+    // redraw 1 and the barrier were released the moment redraw 2 closed — Ink's erase bookkeeping
+    // and its once-only Static writes both assume redraw 1 reached the terminal.
+    const texts = fake.written.map((w) => w.text);
+    expect(texts.slice(3)).toEqual(['redraw 1\n', '']);
+    expect(settledCallbacks).toEqual(['redraw 1', 'barrier']);
+    // redraw 2 is the one that waits: at most one batch is ever parked.
     await vi.advanceTimersByTimeAsync(250);
-    expect(fake.written.map((w) => w.text)).toContain('redraw 2\n');
-    expect([...settled].sort()).toEqual(['barrier', 'redraw 1', 'redraw 2']);
+    expect(fake.written.map((w) => w.text).at(-1)).toBe('redraw 2\n');
+    expect(settledCallbacks).toEqual(['redraw 1', 'barrier', 'redraw 2']);
   });
 
   it('reads the underlying backpressure through, and delegates writableLength', () => {
@@ -270,6 +272,23 @@ describe('TC-06: dimensions, resize, identity and teardown', () => {
   it('is one stable object for the session — Ink keys its instance map by it', () => {
     const parked = createParkedStdout({ stdout: fake.asSource(), preparkMs: 250 });
     expect(parked.asInkStdout()).toBe(parked.asInkStdout());
+  });
+
+  it('drain() releases what is parked for a terminal handoff and keeps parking afterwards', async () => {
+    const parked = createParkedStdout({ stdout: fake.asSource(), preparkMs: 5000 });
+    commit(parked, 'prime');
+    await settle();
+    commit(parked, 'before the handoff');
+    await settle();
+    expect(fake.written).toHaveLength(3);
+    await parked.drain();
+    expect(fake.written.map((w) => w.text)).toContain(`${ERASE}before the handoff\n`);
+    // Not terminal: the next printable commit is parked again.
+    commit(parked, 'after the handoff');
+    await settle();
+    expect(fake.written.map((w) => w.text)).not.toContain(`${ERASE}after the handoff\n`);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fake.written.map((w) => w.text)).toContain(`${ERASE}after the handoff\n`);
   });
 
   it('flush() releases what is still parked, in order, and resolves only after it is written', async () => {

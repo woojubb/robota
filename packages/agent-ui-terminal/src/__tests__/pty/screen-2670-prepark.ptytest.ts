@@ -129,11 +129,13 @@ interface ITurnTiming {
 
 async function typeAndSubmit(session: IPtySession): Promise<ITurnTiming> {
   const mark = markNow(session);
-  const typedAt = Date.now();
   const sampling = sampleUntil(session, mark, /REPLAYED_ANSWER_42[\s\S]*Type a message/, WAIT_MS);
-  // Characters are paced (a single chunk would be read as a paste); Enter follows the last echo
-  // immediately, so the turn's commit is provoked within milliseconds of an exempt one.
-  await session.sendKeys('hello');
+  // Characters are paced (a single chunk would be read as a paste); the echo latency is measured
+  // from the LAST key, so the driver's per-key pacing is not charged to the park. Enter follows the
+  // last echo immediately, so the turn's commit is provoked within milliseconds of an exempt one.
+  await session.sendKeys('hell');
+  const typedAt = Date.now();
+  await session.sendKeys('o');
   session.writeRaw('\r');
   const growths = bursts(await sampling);
   const echo = growths.find((g) => visible(g.bytes).includes('hello'));

@@ -289,6 +289,13 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
     hint: options.screenReaderHint,
   });
   const pacing = resolvePacing({ enabled: screenReader });
+  // SCREEN-2670: the pre-write park. Constructed only when the mode is on AND the interval is
+  // non-zero, so with the mode off `stdout` is not passed at all and Ink defaults to
+  // `process.stdout` — the object it keys its instance map by — exactly as today.
+  const parked =
+    screenReader && pacing.preparkMs > 0
+      ? createParkedStdout({ stdout: process.stdout, preparkMs: pacing.preparkMs })
+      : undefined;
 
   // SCREEN-006: chalk (ink's styling engine) does not implement the NO_COLOR convention itself
   // (verified: chalk 5's vendored supports-color reads only FORCE_COLOR/TTY/TERM), so on a real
@@ -312,7 +319,11 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
     now: Date.now,
   });
   handoffController.setTerminalModeHooks({
-    preSuspend: () => focusReporting.disable(),
+    preSuspend: async () => {
+      focusReporting.disable();
+      // SCREEN-2670: nothing parked may land on top of the child's output.
+      await parked?.drain();
+    },
     postResume: () => focusReporting.enable(),
   });
 
@@ -350,13 +361,6 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
   focusReporting.enable();
   attention.start();
 
-  // SCREEN-2670: the pre-write park. Constructed only when the mode is on AND the interval is
-  // non-zero, so with the mode off `stdout` is not passed at all and Ink defaults to
-  // `process.stdout` — the object it keys its instance map by — exactly as today.
-  const parked =
-    screenReader && pacing.preparkMs > 0
-      ? createParkedStdout({ stdout: process.stdout, preparkMs: pacing.preparkMs })
-      : undefined;
   const pacingPort = parked === undefined ? undefined : toPacingPort(parked);
   const tree = (
     <KeybindingsProvider source={options.keybindingsSource}>
