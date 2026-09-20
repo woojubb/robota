@@ -1,12 +1,13 @@
 ---
 title: 'BEHAVIOR-2437: Deliver first-class Git status diff and commit commands'
 issue: https://github.com/woojubb/robota/issues/2437
-status: in-progress
+status: done
 created: 2026-09-14
 priority: high
 urgency: now
 area: packages/agent-command, packages/agent-cli
 depends_on: []
+completed: 2026-09-20
 ---
 
 # BEHAVIOR-2437: Deliver first-class Git status diff and commit commands
@@ -19,13 +20,13 @@ modules without treating arbitrary arguments as shell text or staging additional
 
 ## Plan
 
-- [ ] TC-01: `/git status` — porcelain-v2 parser and the single-call status execution.
-- [ ] TC-02: `/git diff` — the grammar, `--end-of-options`/`--` argv discipline, revision verification.
-- [ ] TC-03: `/git commit` — staged set only, CC MUST-rule subject validation, `ask` confirmation, headless cancellation.
-- [ ] TC-04: the async argv git-process seam and the hook-nesting environment policy, against a real repository.
-- [ ] TC-05: registration in `pack-coding` and the base list; `/status` stays unclaimed.
-- [ ] TC-06: Engineering verification.
-- [ ] TC-07: the PTY scenario over the built CLI.
+- [x] TC-01: `/git status` — porcelain-v2 parser and the single-call status execution.
+- [x] TC-02: `/git diff` — the grammar, `--end-of-options`/`--` argv discipline, revision verification.
+- [x] TC-03: `/git commit` — staged set only, CC MUST-rule subject validation, `ask` confirmation, headless cancellation.
+- [x] TC-04: the async argv git-process seam and the hook-nesting environment policy, against a real repository.
+- [x] TC-05: registration in `pack-coding` and the base list; `/status` stays unclaimed.
+- [x] TC-06: Engineering verification.
+- [x] TC-07: the PTY scenario over the built CLI.
 
 ## Test Plan
 
@@ -54,7 +55,7 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 - observable rationale: source=rendered-product-ui
 - expected observable: visible=`/help` prints a line beginning `/git` in the command list; `/status` answers `Unknown command "/status"` (the name is still unclaimed); `/git status` prints the branch `main` and the three groups with counts — `staged (1)` naming `greeting.txt`, `unstaged (1)` naming `notes.txt`, `untracked (1)` naming `scratch.log` — with no other path under any group; `/git diff` prints a hunk containing `+note two` and NOT `+hello world`; `/git diff --staged` prints a hunk containing `+hello world` and NOT `+note two`; `/git diff -- notes.txt` prints `+note two` and no `greeting.txt` header; `/git diff HEAD~1` prints a refusal line containing the literal `HEAD~1` (the repository has exactly one commit) and no `diff --git` header follows it; `/git diff nosuchrev` prints a refusal line containing the literal `nosuchrev` and no `diff --git` header follows it; `/git diff --output=/tmp/x` prints the usage line naming the accepted forms (`--staged`, `<rev>`, `<a>..<b>`, `-- <path>`) and no diff, and afterwards `/tmp/x` does not exist; after `/exit` the process exits with code 0 and, in the fixture repository, `git log --oneline` still lists exactly one commit and `git status --porcelain` still reports `M  greeting.txt`, ` M notes.txt` and `?? scratch.log` — the read commands changed nothing
 - cleanup: exit the Robota process with `/exit` (Yes) and confirm it exited, then remove only the temporary repository and the isolated HOME; nothing under the monorepo is touched
-- evidence: pending
+- evidence: recorded — agent PTY run of `packages/agent-ui-terminal/src/__tests__/pty/behavior-2437-git.ptytest.ts` (Scenario 1) against the workspace build, exit 0 (2026-09-20): `/help` listed `/git`; `/status` (submitted with a trailing space — with the autocomplete popup open, Enter runs its highlighted `/statusline` entry) answered `Unknown command "/status"`; `/git status` printed `On branch main`, `staged (1): greeting.txt`, `unstaged (1): notes.txt`, `untracked (1): scratch.log`; `/git diff` showed `+note two` and not `+hello world`, `--staged` the reverse, `-- notes.txt` showed `+note two` with no `greeting.txt` header; `HEAD~1` and `nosuchrev` were refused by name with no `diff --git`; `--output=x` printed the usage forms, no diff, and no `x` file was created; `/exit` exited 0; afterwards one commit and `M  greeting.txt`, ` M notes.txt`, `?? scratch.log` — full record in `.agents/evals/scenarios/behavior-2437-git-commands-agent-run.md`
 
 ### Scenario 2: /git commit refuses a non-conventional subject, commits nothing on No, and on Yes commits exactly the staged file
 
@@ -67,7 +68,7 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 - observable rationale: source=rendered-product-ui
 - expected observable: visible=`/git commit add greeting` prints a refusal that names the missing `: ` type separator (Conventional Commits MUST rule), shows NO confirmation dialog, and `git log --oneline` still lists one commit; `/git commit feat: add greeting` shows a confirmation dialog whose text contains the message `feat: add greeting` and the staged listing `M` `greeting.txt`, and does NOT list `notes.txt` or `scratch.log`; choosing `No` prints `Commit cancelled.` and `git log --oneline` still lists exactly one commit; `/git commit "feat: add greeting"` shows the confirmation with the message rendered as `feat: add greeting` WITHOUT the surrounding quotes and the same one-file listing; choosing `Yes` prints a success line containing a 7-hex-digit short hash and `feat: add greeting`; afterwards `git log --oneline` lists exactly two commits, the newest with subject `feat: add greeting`, `git show --stat --format=%s HEAD` lists `greeting.txt` as the ONLY changed file (`1 file changed`), and `git status --porcelain` reports exactly ` M notes.txt` and `?? scratch.log` — the unstaged edit and the untracked file were not committed; after `/exit` the process exits with code 0
 - cleanup: exit the Robota process with `/exit` (Yes) and confirm it exited, then remove only the temporary repository and the isolated HOME; the commit made lives only in that removed repository
-- evidence: pending
+- evidence: recorded — agent PTY run of `packages/agent-ui-terminal/src/__tests__/pty/behavior-2437-git.ptytest.ts` (Scenario 2) against the workspace build, exit 0 (2026-09-20): `add greeting` was refused naming the missing `: ` separator with no dialog and one commit; `feat: add greeting` showed the confirmation with `Message: feat: add greeting` and `M greeting.txt` only; No printed `Commit cancelled.` with one commit still; the quoted form showed the message without quotes; Yes printed `Committed: [main <7-hex>] feat: add greeting`; afterwards two commits, HEAD subject `feat: add greeting`, `git show --stat` lists `greeting.txt` only (`1 file changed`), porcelain ` M notes.txt` and `?? scratch.log` — full record in `.agents/evals/scenarios/behavior-2437-git-commands-agent-run.md`
 
 ### Scenario 3: /git commit with nothing staged prints guidance with the unstaged and untracked counts and commits nothing
 
@@ -80,7 +81,7 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 - observable rationale: source=rendered-product-ui
 - expected observable: visible=`/git commit feat: nothing to commit` prints a guidance message containing `Nothing is staged (1 unstaged, 1 untracked)` and naming `git add` and `/shell git add` as the way to stage, shows NO confirmation dialog, and afterwards `git log --oneline` still lists exactly one commit while `git status --porcelain` still reports ` M notes.txt` and `?? scratch.log` — no empty commit and no implicit `-a`; after `/exit` the process exits with code 0
 - cleanup: exit the Robota process with `/exit` (Yes) and confirm it exited, then remove only the temporary repository and the isolated HOME
-- evidence: pending
+- evidence: recorded — agent PTY run of `packages/agent-ui-terminal/src/__tests__/pty/behavior-2437-git.ptytest.ts` (Scenario 3) against the workspace build, exit 0 (2026-09-20): printed `Nothing is staged (1 unstaged, 1 untracked)` naming `git add` and `/shell git add`, no dialog; one commit; porcelain still ` M notes.txt` and `?? scratch.log` — full record in `.agents/evals/scenarios/behavior-2437-git-commands-agent-run.md`
 
 ### Scenario 4: headless /git commit cancels because no confirmation can be asked, exits non-zero, and commits nothing
 
@@ -93,7 +94,7 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 - observable rationale: source=product-process
 - expected observable: exit=1; output-contains=cancelled — the printed result says the commit was cancelled because a confirmation was needed and none could be asked for, no `Yes`/`No` prompt is written, the process exits 1 (a non-success command result, the same mapping `Unknown command` takes today) without hanging, and afterwards `git log --oneline` in the fixture repository still lists exactly one commit while `git status --porcelain` still reports `M  greeting.txt` — the staged file was NOT committed
 - cleanup: remove only the temporary repository and the isolated HOME (the trust grant is recorded under that HOME and goes with it); nothing under the monorepo is touched
-- evidence: pending
+- evidence: recorded — agent print-mode run in `packages/agent-ui-terminal/src/__tests__/pty/behavior-2437-git.ptytest.ts` (Scenario 4) against the workspace build (2026-09-20): `robota trust --yes` then `robota -p "/git commit feat: add greeting" --bare --no-session-persistence` with `TERM=dumb` and no provider key exited 1, the output contained `cancelled` and `confirmation`, no `Yes`/`No` prompt; one commit; `M  greeting.txt` still staged — full record in `.agents/evals/scenarios/behavior-2437-git-commands-agent-run.md`
 
 ### [DONE-GATE-STAGE-1] — ❌ FAIL | 2026-09-20
 

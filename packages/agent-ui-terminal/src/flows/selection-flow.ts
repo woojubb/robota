@@ -29,8 +29,9 @@ export interface ISelectionFlowOptions {
   enabled?: boolean;
 }
 
-export function createSelectionFlowState(): ISelectionFlowState {
-  return { selectedIndex: 0, scrollOffset: 0, resolved: false };
+/** `initialIndex` seeds the highlight (a request's declared default); the caller clamps it. */
+export function createSelectionFlowState(initialIndex = 0): ISelectionFlowState {
+  return { selectedIndex: initialIndex, scrollOffset: 0, resolved: false };
 }
 
 export function getVerticalSelectionInputAction(

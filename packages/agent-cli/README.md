@@ -548,6 +548,20 @@ Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inse
 | `/skills [name]`       | List registered skills or activate one by name                       |
 | `/plugin [subcommand]` | Plugin management                                                    |
 
+### Git
+
+| Command                                                     | Description                                                                                          |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `/git status`                                               | Branch plus the staged, unstaged and untracked paths                                                 |
+| `/git diff [--staged \| <rev> \| <a>..<b>] [-- <path> ...]` | Unstaged diff, staged diff, or a diff against one or two revisions (each revision is verified first) |
+| `/git commit [<subject>]`                                   | Commit the staged changes after a confirmation listing the message and the staged files              |
+
+`/git commit` operates on the staged set only — no `-a`, no paths. The subject must follow the
+Conventional Commits form `<type>[(scope)][!]: <description>`; the type list, the 72-character limit
+and a trailing period are warnings, not refusals. With nothing staged it says so, with the unstaged and
+untracked counts. Headless (`-p`) runs cancel the commit because no confirmation can be asked for.
+Other git flags are not accepted — `/shell git ...` remains the way to run arbitrary git.
+
 ### Sessions on this host
 
 | Command                              | Description                               |

@@ -37,6 +37,29 @@ describe('PendingActionPrompt (CMD-004 unified action renderer)', () => {
     expect(onAnswer).toHaveBeenCalledWith({ type: 'answer', values: ['default'] });
   });
 
+  it('single-select: the highlight starts on the request default — a No-default confirmation answers No on Enter (BEHAVIOR-2437)', async () => {
+    const onAnswer = vi.fn();
+    const request: IActionRequest = {
+      id: 'git-commit',
+      title: 'Commit 1 staged file(s)?',
+      options: [
+        { value: 'yes', label: 'Yes' },
+        { value: 'no', label: 'No' },
+      ],
+      maxSelect: 1,
+      default: { values: ['no'] },
+    };
+    const { stdin, lastFrame } = render(
+      <PendingActionPrompt request={request} onAnswer={onAnswer} />,
+    );
+    expect(lastFrame()).toContain('> No');
+    expect(lastFrame()).not.toContain('> Yes');
+
+    stdin.write(ENTER);
+    await delay();
+    expect(onAnswer).toHaveBeenCalledWith({ type: 'answer', values: ['no'] });
+  });
+
   it('multi-select (maxSelect>1): toggles with Space and confirms with Enter', async () => {
     const onAnswer = vi.fn();
     const request: IActionRequest = {

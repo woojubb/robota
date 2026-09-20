@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: BEHAVIOR
 tags: [behavior]
 lane: L2
@@ -325,30 +325,34 @@ cannot redirect the child, because the policy strips it.
 - `packages/agent-command/src/index.ts`
 - `packages/pack-coding/src/coding-pack.ts`
 - `packages/agent-command/docs/SPEC.md`, `packages/agent-cli/README.md`
+- `packages/agent-ui-terminal/src/ListPicker.tsx`, `src/PendingActionPrompt.tsx`,
+  `src/flows/selection-flow.ts` (review-absorbed: the single-select renderer now seeds its highlight
+  from the request's declared default, so the commit confirmation opens on `No`),
+  `src/__tests__/PendingActionPrompt.test.tsx`
 - `packages/agent-command/src/git/__tests__/*.test.ts` (new),
   `packages/agent-ui-terminal/src/__tests__/pty/behavior-2437-git.ptytest.ts` (new)
 
 ## Completion Criteria
 
-- [ ] TC-01: `/git status` — the port receives exactly one call, `['status', '--porcelain=v2', '-z',
+- [x] TC-01: `/git status` — the port receives exactly one call, `['status', '--porcelain=v2', '-z',
 '--branch']`; the parser yields branch, staged, unstaged and untracked sets from a fixture that
       holds a `2` rename record (pair kept), a path with a space, a quote and a non-ASCII character
       (each one element), and a `MM` entry (in both staged and unstaged); exit 128 with `fatal: not a
 git repository` on stderr yields a non-success result carrying that reason and no second call.
-- [ ] TC-02: `/git diff` — bare ⇒ `['diff']`; `--staged` ⇒ `['diff', '--staged']`; `<rev>` ⇒ first
+- [x] TC-02: `/git diff` — bare ⇒ `['diff']`; `--staged` ⇒ `['diff', '--staged']`; `<rev>` ⇒ first
       `['rev-parse', '--verify', '--quiet', '--end-of-options', '<rev>^{commit}']` then `['diff',
 '--end-of-options', '<rev>']`; `<a>..<b>` ⇒ TWO `rev-parse` calls then `['diff',
 '--end-of-options', '<a>..<b>']`; a trailing `-- p q` appends `['--', 'p', 'q']`; a `rev-parse`
       exit 1 refuses by name with NO `diff` call; `--output=x` (or any other `-`-token) is refused with
       the usage line and no call at all.
-- [ ] TC-03: `/git commit` — `diff --cached --quiet` exit 0 ⇒ the guidance message naming the unstaged
+- [x] TC-03: `/git commit` — `diff --cached --quiet` exit 0 ⇒ the guidance message naming the unstaged
       and untracked counts and no `commit` call; a subject failing a MUST rule (no `: `, empty
       description, bad type token) is refused naming the rule, while `feat!: x` and `fix(scope): y` are
       accepted and a > 72-character subject only warns; a refused confirmation ⇒ `Commit cancelled.`
       and no `commit` call; an absent `IUserInteraction` ⇒ a cancellation message and no `commit`
       call; a confirmed commit ⇒ exactly `['commit', '-m', '<subject>']` after the `--name-status`
       listing call, never `-a`, never `add`; one matching pair of outer quotes is stripped.
-- [ ] TC-04: the seam — against a REAL temporary repository, `createGitProcess()` passes `shell:
+- [x] TC-04: the seam — against a REAL temporary repository, `createGitProcess()` passes `shell:
 false` with stdin ignored; a subject and a path containing shell metacharacters reach git as
       one element each; exit codes are returned as data (`diff --cached --quiet` → 1 when staged, 0
       when not); a child that reads stdin (a `pre-commit` hook running `cat`) exits with EOF rather
@@ -360,13 +364,13 @@ false` with stdin ignored; a subject and a path containing shell metacharacters 
       `GIT_AUTHOR_NAME/EMAIL`, `GIT_COMMITTER_NAME/EMAIL`, `EMAIL`, `GPG_TTY`, `GNUPGHOME`,
       `SSH_AUTH_SOCK`; and a commit made with `GIT_CONFIG_GLOBAL` pointing at a temp config carries
       that identity while a hook-exported `GIT_DIR` pointing elsewhere does not redirect the child.
-- [ ] TC-05: registration — `createCodingPack()`'s `commandModules` and `createDefaultCommandModules()`
+- [x] TC-05: registration — `createCodingPack()`'s `commandModules` and `createDefaultCommandModules()`
       both contain `agent-command-git`; the `ICommandSource` entry is `git` with `subcommands`
       `status`, `diff`, `commit` and `modelInvocable: false`; the `/help` output contains a `/git`
       line; the command name `status` is registered nowhere.
-- [ ] TC-06: engineering verification — build, test and typecheck for the affected packages exit 0;
+- [x] TC-06: engineering verification — build, test and typecheck for the affected packages exit 0;
       `pnpm harness:scan` exits 0; the lint-warning ceiling holds.
-- [ ] TC-07: the built binary in a PTY over a temporary repository with staged, unstaged and untracked
+- [x] TC-07: the built binary in a PTY over a temporary repository with staged, unstaged and untracked
       files: `/git status` shows the three groups; `/git diff` and `/git diff --staged` show the right
       content, `/git diff HEAD~1` and `/git diff nosuchrev` are refused by name; `/git commit` with
       `no` leaves `git log` unchanged; `/git commit feat: add greeting` with `yes` produces exactly one
@@ -374,15 +378,15 @@ false` with stdin ignored; a subject and a path containing shell metacharacters 
 
 ## Test Plan
 
-| TC-ID | Test Type                | Tool / Approach                                                                         | Notes                                              |
-| ----- | ------------------------ | --------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| TC-01 | Unit                     | Vitest over `parseStatusPorcelainV2` and `executeGitStatus` with a scripted port        | Fixture from a real `--porcelain=v2 -z` run        |
-| TC-02 | Unit                     | Vitest over `parseDiffArgs` and `executeGitDiff` with a scripted port                   | Asserts the exact argv sequence per branch         |
-| TC-03 | Unit                     | Vitest over `executeGitCommit` with a scripted port and a scripted `ask`                | Every branch of the confirm flow                   |
-| TC-04 | Integration              | Vitest over `createGitProcess` and `gitEnvironment` against a real temporary repository | Metacharacters, exit codes, hook-nesting variables |
-| TC-05 | Unit                     | Vitest over `createCodingPack` and `createDefaultCommandModules`                        |                                                    |
-| TC-06 | Engineering verification | package build/test/typecheck, `pnpm harness:scan`, `pnpm lint`                          |                                                    |
-| TC-07 | Process / PTY            | Agent-controlled PTY over the built CLI in a temporary git repository                   | The user execution scenario                        |
+| TC-ID | Test Type                | Tool / Approach                                                                         | Notes                                                                                                                                                                                                           |
+| ----- | ------------------------ | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit                     | Vitest over `parseStatusPorcelainV2` and `executeGitStatus` with a scripted port        | `packages/agent-command/src/git/__tests__/git-status.test.ts` — describes `parseStatusPorcelainV2`, `formatGitStatus`, `executeGitStatus`                                                                       |
+| TC-02 | Unit                     | Vitest over `parseDiffArgs` and `executeGitDiff` with a scripted port                   | `packages/agent-command/src/git/__tests__/git-diff.test.ts` — describes `parseGitDiffArgs`, `gitDiffArgv`, `executeGitDiff`                                                                                     |
+| TC-03 | Unit                     | Vitest over `executeGitCommit` with a scripted port and a scripted `ask`                | `packages/agent-command/src/git/__tests__/git-commit.test.ts` — describes `validateConventionalSubject`, `normalizeCommitSubject`, `executeGitCommit`                                                           |
+| TC-04 | Integration              | Vitest over `createGitProcess` and `gitEnvironment` against a real temporary repository | `packages/agent-command/src/git/__tests__/git-process.test.ts` — describes `gitEnvironment`, `createGitProcess against a real repository`                                                                       |
+| TC-05 | Unit                     | Vitest over `createCodingPack` and `createDefaultCommandModules`                        | `packages/agent-command/src/git/__tests__/git-command-module.test.ts`, `packages/pack-coding/src/__tests__/coding-pack.test.ts`, `packages/agent-command/src/default/__tests__/default-command-modules.test.ts` |
+| TC-06 | Engineering verification | package build/test/typecheck, `pnpm harness:scan`, `pnpm lint`                          | manual: typecheck/build/lint/`harness:scan --skip task-merged-citation` (the inherited develop red, issue #2756, reported not hidden); exit codes under `[GATE-COMPLETE: TC-06]`                                |
+| TC-07 | Process / PTY            | Agent-controlled PTY over the built CLI in a temporary git repository                   | `packages/agent-ui-terminal/src/__tests__/pty/behavior-2437-git.ptytest.ts` — the four spec scenarios; record in `.agents/evals/scenarios/behavior-2437-git-commands-agent-run.md`                              |
 
 ## User Execution Test Scenarios
 
@@ -401,7 +405,7 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 - observable rationale: source=rendered-product-ui
 - expected observable: visible=`/help` prints a line beginning `/git` in the command list; `/status` answers `Unknown command "/status"` (the name is still unclaimed); `/git status` prints the branch `main` and the three groups with counts — `staged (1)` naming `greeting.txt`, `unstaged (1)` naming `notes.txt`, `untracked (1)` naming `scratch.log` — with no other path under any group; `/git diff` prints a hunk containing `+note two` and NOT `+hello world`; `/git diff --staged` prints a hunk containing `+hello world` and NOT `+note two`; `/git diff -- notes.txt` prints `+note two` and no `greeting.txt` header; `/git diff HEAD~1` prints a refusal line containing the literal `HEAD~1` (the repository has exactly one commit) and no `diff --git` header follows it; `/git diff nosuchrev` prints a refusal line containing the literal `nosuchrev` and no `diff --git` header follows it; `/git diff --output=/tmp/x` prints the usage line naming the accepted forms (`--staged`, `<rev>`, `<a>..<b>`, `-- <path>`) and no diff, and afterwards `/tmp/x` does not exist; after `/exit` the process exits with code 0 and, in the fixture repository, `git log --oneline` still lists exactly one commit and `git status --porcelain` still reports `M  greeting.txt`, ` M notes.txt` and `?? scratch.log` — the read commands changed nothing
 - cleanup: exit the Robota process with `/exit` (Yes) and confirm it exited, then remove only the temporary repository and the isolated HOME; nothing under the monorepo is touched
-- evidence: pending
+- evidence: recorded — agent PTY run of `packages/agent-ui-terminal/src/__tests__/pty/behavior-2437-git.ptytest.ts` (Scenario 1) against the workspace build, exit 0 (2026-09-20): `/help` listed `/git`; `/status` (submitted with a trailing space — with the autocomplete popup open, Enter runs its highlighted `/statusline` entry) answered `Unknown command "/status"`; `/git status` printed `On branch main`, `staged (1): greeting.txt`, `unstaged (1): notes.txt`, `untracked (1): scratch.log`; `/git diff` showed `+note two` and not `+hello world`, `--staged` the reverse, `-- notes.txt` showed `+note two` with no `greeting.txt` header; `HEAD~1` and `nosuchrev` were refused by name with no `diff --git`; `--output=x` printed the usage forms, no diff, and no `x` file was created; `/exit` exited 0; afterwards one commit and `M  greeting.txt`, ` M notes.txt`, `?? scratch.log` — full record in `.agents/evals/scenarios/behavior-2437-git-commands-agent-run.md`
 
 ### Scenario 2: /git commit refuses a non-conventional subject, commits nothing on No, and on Yes commits exactly the staged file
 
@@ -414,7 +418,7 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 - observable rationale: source=rendered-product-ui
 - expected observable: visible=`/git commit add greeting` prints a refusal that names the missing `: ` type separator (Conventional Commits MUST rule), shows NO confirmation dialog, and `git log --oneline` still lists one commit; `/git commit feat: add greeting` shows a confirmation dialog whose text contains the message `feat: add greeting` and the staged listing `M` `greeting.txt`, and does NOT list `notes.txt` or `scratch.log`; choosing `No` prints `Commit cancelled.` and `git log --oneline` still lists exactly one commit; `/git commit "feat: add greeting"` shows the confirmation with the message rendered as `feat: add greeting` WITHOUT the surrounding quotes and the same one-file listing; choosing `Yes` prints a success line containing a 7-hex-digit short hash and `feat: add greeting`; afterwards `git log --oneline` lists exactly two commits, the newest with subject `feat: add greeting`, `git show --stat --format=%s HEAD` lists `greeting.txt` as the ONLY changed file (`1 file changed`), and `git status --porcelain` reports exactly ` M notes.txt` and `?? scratch.log` — the unstaged edit and the untracked file were not committed; after `/exit` the process exits with code 0
 - cleanup: exit the Robota process with `/exit` (Yes) and confirm it exited, then remove only the temporary repository and the isolated HOME; the commit made lives only in that removed repository
-- evidence: pending
+- evidence: recorded — agent PTY run of `packages/agent-ui-terminal/src/__tests__/pty/behavior-2437-git.ptytest.ts` (Scenario 2) against the workspace build, exit 0 (2026-09-20): `add greeting` was refused naming the missing `: ` separator with no dialog and one commit; `feat: add greeting` showed the confirmation with `Message: feat: add greeting` and `M greeting.txt` only; No printed `Commit cancelled.` with one commit still; the quoted form showed the message without quotes; Yes printed `Committed: [main <7-hex>] feat: add greeting`; afterwards two commits, HEAD subject `feat: add greeting`, `git show --stat` lists `greeting.txt` only (`1 file changed`), porcelain ` M notes.txt` and `?? scratch.log` — full record in `.agents/evals/scenarios/behavior-2437-git-commands-agent-run.md`
 
 ### Scenario 3: /git commit with nothing staged prints guidance with the unstaged and untracked counts and commits nothing
 
@@ -427,7 +431,7 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 - observable rationale: source=rendered-product-ui
 - expected observable: visible=`/git commit feat: nothing to commit` prints a guidance message containing `Nothing is staged (1 unstaged, 1 untracked)` and naming `git add` and `/shell git add` as the way to stage, shows NO confirmation dialog, and afterwards `git log --oneline` still lists exactly one commit while `git status --porcelain` still reports ` M notes.txt` and `?? scratch.log` — no empty commit and no implicit `-a`; after `/exit` the process exits with code 0
 - cleanup: exit the Robota process with `/exit` (Yes) and confirm it exited, then remove only the temporary repository and the isolated HOME
-- evidence: pending
+- evidence: recorded — agent PTY run of `packages/agent-ui-terminal/src/__tests__/pty/behavior-2437-git.ptytest.ts` (Scenario 3) against the workspace build, exit 0 (2026-09-20): printed `Nothing is staged (1 unstaged, 1 untracked)` naming `git add` and `/shell git add`, no dialog; one commit; porcelain still ` M notes.txt` and `?? scratch.log` — full record in `.agents/evals/scenarios/behavior-2437-git-commands-agent-run.md`
 
 ### Scenario 4: headless /git commit cancels because no confirmation can be asked, exits non-zero, and commits nothing
 
@@ -440,11 +444,11 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 - observable rationale: source=product-process
 - expected observable: exit=1; output-contains=cancelled — the printed result says the commit was cancelled because a confirmation was needed and none could be asked for, no `Yes`/`No` prompt is written, the process exits 1 (a non-success command result, the same mapping `Unknown command` takes today) without hanging, and afterwards `git log --oneline` in the fixture repository still lists exactly one commit while `git status --porcelain` still reports `M  greeting.txt` — the staged file was NOT committed
 - cleanup: remove only the temporary repository and the isolated HOME (the trust grant is recorded under that HOME and goes with it); nothing under the monorepo is touched
-- evidence: pending
+- evidence: recorded — agent print-mode run in `packages/agent-ui-terminal/src/__tests__/pty/behavior-2437-git.ptytest.ts` (Scenario 4) against the workspace build (2026-09-20): `robota trust --yes` then `robota -p "/git commit feat: add greeting" --bare --no-session-persistence` with `TERM=dumb` and no provider key exited 1, the output contained `cancelled` and `confirmation`, no `Yes`/`No` prompt; one commit; `M  greeting.txt` still staged — full record in `.agents/evals/scenarios/behavior-2437-git-commands-agent-run.md`
 
 ## Tasks
 
-- [ ] `.agents/tasks/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` — todo
+- [x] `.agents/tasks/completed/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` — done
 
 ## Evidence Log
 
@@ -466,7 +470,7 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 - GATE-WRITE — All 4 checklist items are `[x]`: 5/5 ticked (mechanical)
 - GATE-WRITE — Sibling scan item is `[x]` with completion evidence: names `/theme`, `/memory`, `/plugin`, `/doctor repair`, `/handoff`, the two existing spawn sites, and `pack-coding` as registration tier (mechanical)
 - GATE-WRITE — Alternatives Considered has at least 2 entries with pro/con: 4 alternatives, each with Pro and Con (mechanical)
-- GATE-WRITE — Decision references the trade-off that drove the choice: Alternative 2's Con is owned in the Decision — the issue's literal names `/status`/`/diff`/`/commit` are given up for one `/git` name to avoid the sourced session-status collision; one `requiresPermission`/`safety` per command classifies the read-only verbs with the write under the opt-in remote policy, accepted with the reason (allow-by-default, no `/shell` remotely); the seam is NOT built on the plugin adapter's `runGit` at the cost of a second spawn site, with the reasons (no `cwd`, throws on non-zero, sync `TExecFn`, not exported — verified `default-plugin-command-adapter.ts:85-185`) and the migration filed on the #1999 umbrella rather than hidden (semantic, guardian)
+- GATE-WRITE — Decision references the trade-off that drove the choice: Alternative 2's Con is owned in the Decision — the issue's literal names `/status`/`/diff`/`/commit` are given up for one `/git` name to avoid the sourced session-status collision; one `requiresPermission`/`safety` per command classifies the read-only verbs with the write under the opt-in remote policy, accepted with the reason (allow-by-default, no `/shell` remotely); the seam is NOT built on the plugin adapter's `runGit` at the cost of a second spawn site, with the reasons (no `cwd`, throws on non-zero, sync `TExecFn`, not exported — verified `default-plugin-command-adapter.ts:85-185`) and the migration filed on the issue #1999 umbrella rather than hidden (semantic, guardian)
 - GATE-WRITE — New-surface placement (conditional): N/A, recorded with reason — one command module inside `packages/agent-command`, the package that owns all 35 existing command modules, registered through `pack-coding` exactly as `/shell` and `/editor` are (verified `coding-pack.ts:88`) and mirrored in the base list; no new package, app, presentation or interface surface; no layer or product-family reclassification. The sibling scan still names the analogous modules and the registration tier (semantic, guardian)
 - GATE-WRITE — Every item has a `TC-N` prefix: TC-01..TC-07, all prefixed (mechanical)
 - GATE-WRITE — At least 1 criterion per distinct feature or sub-item: `/git status` parser + single call → TC-01; `/git diff` grammar, revision verification, `--end-of-options`/`--` placement, flag refusal → TC-02; `/git commit` staged-only check, CC MUST validation with `!` and scope, `ask` confirm, refusal, absent-UI cancellation, quote stripping, exact `commit -m` argv → TC-03; the async argv seam (`shell: false`, stdin ignored, exit code as data, timeout/abort/not-found/output-too-large) AND `gitEnvironment()` denylist/preserve set → TC-04 (both live in `git-process.ts`, Solution step 1, and TC-04 asserts each by name); registration in `createCodingPack()` and `createDefaultCommandModules()`, `subcommands`, `modelInvocable: false`, `/help` line, `status` unclaimed → TC-05; build/test/typecheck/scan/lint → TC-06; the PTY scenario → TC-07. Solution steps 7 (SPEC.md/README) and 8 (Task plan rename) are documentation deliverables, not behaviour, and carry no TC — noted, not required by this criterion (semantic, guardian)
@@ -537,6 +541,7 @@ Independent review record verified, not accepted: ledger `.agents/loop-runs/back
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 3 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -586,7 +591,381 @@ Independent review record verified, not accepted: ledger `.agents/loop-runs/back
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `867c7752984a` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/todo/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `d33cfdaad25f` (untracked)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-20
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `2dd955e68f8b` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — Ordering: PASS — the LAST recorded entry for the prior gate is `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-20` (the only GATE-IMPLEMENT entry; plain last-entry rule, this row declares no `recorded-pass` override) carrying `**Status upgrade:** approved → in-progress`; the document's current `status: in-progress` equals that `Y` and is the input status the prior-gate map declares for GATE-VERIFY; the file sits in `.agents/spec-docs/active/`, the folder `spec-workflow.md` § status table maps `in-progress` to. The earlier `[GATE-VERIFY] — ❌ FAIL | 2026-09-20` entry above is this gate's own prior run (no `--verify-cmd` supplied, so nothing ran) — historical, left unaltered, and not the prior gate. Branch `feat/behavior-2437-git-commands`: `git log origin/develop..HEAD` = exactly one commit, the planning checkpoint `e6ecae8e6` (touches only this spec, the paired Task and the orchestrator ledger); the implementation is uncommitted in the worktree by design (`git status --porcelain`: 13 modified, 3 untracked, all named in § Affected Files or the paired records) — the commit that this gate authorises has not happened.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`) (mechanical, `task-plan-items`): PASS — `.agents/tasks/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` § Plan holds exactly 7 items, TC-01..TC-07, all `- [x]`; `grep -c '^- \[ \]'` over the section = 0. The `[ ]`/`pending` hits elsewhere in the Task are inside the recorded DONE-GATE-STAGE-1 entries (lines 104–375), which quote the planning-time state (`evidence: pending`, `## Plan` all `- [ ]`) as history; the four live scenario `evidence:` fields (lines 57, 70, 83, 96) read `recorded — …` and match the spec's four field-for-field. The `## Plan` SECTION only was read, per issue #2375.
+- GATE-VERIFY — No Plan item is blocked or pending (mechanical): PASS — none of the 7 items carries a blocked/pending/waiting marker or a disposition item (no merge/land/close/publish line — `task-plan-items` refuses those at planning time and none is present). Each item's claim was checked against the tree, not accepted: TC-01..TC-05 → `packages/agent-command/src/git/__tests__/{git-status,git-diff,git-commit,git-process,git-command-module}.test.ts` (7+10+11+9+4 = 41 `it(`), `packages/agent-command/src/default/__tests__/default-command-modules.test.ts`, `packages/pack-coding/src/__tests__/coding-pack.test.ts`, `packages/agent-cli/src/__tests__/robota-assembly-equivalence.test.ts`; TC-06 → the commands in the next two lines plus `pnpm --filter @robota-sdk/agent-command typecheck` exit 0, `pnpm --filter @robota-sdk/pack-coding typecheck` exit 0, `pnpm lint` → `✖ 2354 problems (0 errors, 2354 warnings)` exit 0 under the root `package.json` `--max-warnings 2356`; TC-07 → `packages/agent-ui-terminal/src/__tests__/pty/behavior-2437-git.ptytest.ts` re-run by the guardian on the rebuilt binary (after `pnpm --filter @robota-sdk/pack-coding build` exit 0): `Tests 4 passed (4)`, 19.5 s, exit 0, matching `.agents/evals/scenarios/behavior-2437-git-commands-agent-run.md` (4 of 4, 19.1 s).
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`) (mechanical): PASS — guardian ran, from the repository root, `pnpm --filter @robota-sdk/agent-command build` → exit 0 and `pnpm --filter @robota-sdk/pack-coding build` → exit 0 (the two packages whose source § Affected Files changes; `agent-cli` and `agent-ui-terminal` receive test/README edits only). `pnpm harness:scan --skip task-merged-citation` → `160 scans passed, 1 skipped`, exit 0; its one `dist` advisory names `@robota-sdk/agent-ui-terminal` (`src/terminal-handoff-controller.ts`, last changed by `b9d7e5867` SCREEN-2670 on `origin/develop`, untouched by this item — advisory, not a failure).
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`) (mechanical): PASS — guardian ran `pnpm --filter @robota-sdk/agent-command exec vitest run src/git src/default` → `Test Files 7 passed (7)`, `Tests 51 passed (51)`, exit 0 (41 git tests incl. TC-04 against a real temporary repository, + 10 default-module tests); `pnpm --filter @robota-sdk/pack-coding test` → `Tests 11 passed (11)`, exit 0; `pnpm --filter @robota-sdk/agent-cli exec vitest run src/__tests__/robota-assembly-equivalence.test.ts` → `Tests 18 passed (18)`, exit 0; the TC-07 PTY test 4/4 as recorded above. The skipped scan `task-merged-citation` was run standalone (`node scripts/harness/scan-task-merged-citation.mjs`) and fails on `SCREEN-2002` (15 merged commits citing an `in-progress` record) — an `origin/develop` inheritance tracked by open issue #2756 "scans-full is red on develop at f05926e", not caused by this item and not hidden by the skip.
+
+**Judged by:** `backlog-gate-guard` (all four criteria re-run, not cited) — `gate.mjs judge --gate GATE-VERIFY` with the four `--verify-cmd`s reported 3 PASS / 0 FAIL / 2 PENDING-GUARDIAN per the dispatch; this entry resolves the pending Plan-item criteria and independently confirms the command criteria.
+**Judged at:** HEAD `e6ecae8e6e7ea73df84844a1261a5aaa2bdb7fa7` · base `origin/develop@867c7752984adaadc547e297e1f44a680a63d4bd` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `4cd82ac8fe330fe603a6b6d000f8660f13a6de17` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/git/__tests__/git-status.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+4:03:40 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-command
+
+ ✓ src/git/__tests__/git-status.test.ts (7 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  16:03:40
+   Duration  137ms (transform 20ms, setup 0ms, collect 21ms, tests 3ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `75b01ed70b09` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/git/__tests__/git-diff.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+4:03:41 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-command
+
+ ✓ src/git/__tests__/git-diff.test.ts (10 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  16:03:41
+   Duration  143ms (transform 21ms, setup 0ms, collect 23ms, tests 3ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `6eda722ce8a1` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/git/__tests__/git-commit.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+4:03:42 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-command
+
+ ✓ src/git/__tests__/git-commit.test.ts (11 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  16:03:42
+   Duration  260ms (transform 116ms, setup 0ms, collect 140ms, tests 4ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `c02574f59a5e` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/git/__tests__/git-process.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-command
+
+ ✓ src/git/__tests__/git-process.test.ts (9 tests) 1774ms
+   ✓ createGitProcess against a real repository > kills a child that exceeds the timeout and reports failed: timeout  457ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  16:03:42
+   Duration  1.91s (transform 19ms, setup 0ms, collect 20ms, tests 1.77s, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `4c169499d1c7` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/git/__tests__/git-command-module.test.ts src/default && pnpm --filter @robota-sdk/pack-coding test && pnpm --filter @robota-sdk/agent-cli exec vitest run src/__tests__/robota-assembly-equivalence.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 38 line(s))
+
+```
+4:03:47 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-cli
+
+ ✓ src/__tests__/robota-assembly-equivalence.test.ts (18 tests) 15ms
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  16:03:47
+   Duration  930ms (transform 516ms, setup 0ms, collect 795ms, tests 15ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `d9aa165e6959` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run --config vitest.pty.config.ts src/__tests__/pty/behavior-2437-git.ptytest.ts`
+**Exit:** 0
+**Output:** (last 10 of 14 line(s))
+
+```
+ ✓ src/__tests__/pty/behavior-2437-git.ptytest.ts (4 tests) 19517ms
+   ✓ /git through the real binary (BEHAVIOR-2437 TC-07) > Scenario 1: /help lists /git, /status stays unclaimed, status and every diff form read the fixture  8578ms
+   ✓ /git through the real binary (BEHAVIOR-2437 TC-07) > Scenario 2: /git commit refuses a bad subject, commits nothing on No, and on Yes commits exactly the staged file  6085ms
+   ✓ /git through the real binary (BEHAVIOR-2437 TC-07) > Scenario 3: with nothing staged, /git commit prints guidance with the counts and commits nothing  3221ms
+   ✓ /git through the real binary (BEHAVIOR-2437 TC-07) > Scenario 4: headless /git commit cancels (no confirmation can be asked), exits 1, commits nothing  1632ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  16:03:49
+   Duration  19.66s (transform 28ms, setup 0ms, collect 36ms, tests 19.52s, environment 0ms, prepare 30ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `22655a332c48` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-command typecheck && pnpm --filter @robota-sdk/pack-coding typecheck && pnpm --filter @robota-sdk/agent-ui-terminal typecheck && pnpm --filter @robota-sdk/agent-command build && pnpm --filter @robota-sdk/pack-coding build && pnpm lint && pnpm harness:scan --skip task-merged-citation`
+**Exit:** 0
+**Output:** (last 10 of 3735 line(s))
+
+```
+⚑ 6 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ action-references: RESOLVABILITY NOT VERIFIED on this run (not CI — run with --live to verify resolvability): 12 reference(s) were parsed but none was resolved. An action that does not exist passes this run.
+⚑ spec-whitebox-leakage: packages/agent-framework/docs/SPEC.md: 2285/3253 lines (70.2%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-ui-terminal/docs/SPEC.md: 643/852 lines (75.5%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-session/docs/SPEC.md: 376/856 lines (43.9%) outside the standard sections — consider extracting to docs/design/
+⚑ dist: @robota-sdk/agent-ui-terminal: dist/ may be STALE — src/terminal-handoff-controller.ts is 34m 58s newer than dist/node/index.js.map
+⚑ dist: 1 package(s) have a dist/ older than their src/. A cross-package type error seen only in a whole-workspace typecheck should be re-checked after the affected complete package build before it is treated as a branch defect.
+
+160 scans passed, 1 skipped (161 declared what they examined)
+scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md,  M .agents/spec-docs/draft/AGREEMENT-2670-complete-cli-and-tui-usability-accessibility-and-diagnostics.md,  M .agents/tasks/AGREEMENT-2670-complete-cli-and-tui-usability-accessibility-and-diagnostics.md,  M .agents/tasks/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md,  M packages/agent-cli/README.md,  M packages/agent-cli/src/__tests__/robota-assembly-equivalence.test.ts,  M packages/agent-command/docs/SPEC.md,  M packages/agent-command/src/default/__tests__/default-command-modules.test.ts,  M packages/agent-command/src/default/default-command-modules.ts,  M packages/agent-command/src/index.ts,  M packages/pack-coding/src/__tests__/coding-pack.test.ts,  M packages/pack-coding/src/coding-pack.ts,  M scripts/harness/spec-surface-baseline.json, ?? .agents/evals/scenarios/behavior-2437-git-commands-agent-run.md, ?? packages/agent-command/src/git/__tests__/fake-git-port.ts, ?? packages/agent-command/src/git/__tests__/git-command-module.test.ts, ?? packages/agent-command/src/git/__tests__/git-commit.test.ts, ?? packages/agent-command/src/git/__tests__/git-diff.test.ts, ?? packages/agent-command/src/git/__tests__/git-process.test.ts, ?? packages/agent-command/src/git/__tests__/git-status.test.ts, ?? packages/agent-command/src/git/git-command-module.ts, ?? packages/agent-command/src/git/git-commit.ts, ?? packages/agent-command/src/git/git-diff.ts, ?? packages/agent-command/src/git/git-process.ts, ?? packages/agent-command/src/git/git-status.ts, ?? packages/agent-command/src/git/index.ts, ?? packages/agent-ui-terminal/src/__tests__/pty/behavior-2437-git.ptytest.ts
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `4159444665a1` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run --config vitest.pty.config.ts src/__tests__/pty/behavior-2437-git.ptytest.ts`
+**Exit:** 0
+**Output:** (last 10 of 14 line(s))
+
+```
+ ✓ src/__tests__/pty/behavior-2437-git.ptytest.ts (4 tests) 19130ms
+   ✓ /git through the real binary (BEHAVIOR-2437 TC-07) > Scenario 1: /help lists /git, /status stays unclaimed, status and every diff form read the fixture  8518ms
+   ✓ /git through the real binary (BEHAVIOR-2437 TC-07) > Scenario 2: /git commit refuses a bad subject, commits nothing on No, and on Yes commits exactly the staged file  6053ms
+   ✓ /git through the real binary (BEHAVIOR-2437 TC-07) > Scenario 3: with nothing staged, /git commit prints guidance with the counts and commits nothing  3205ms
+   ✓ /git through the real binary (BEHAVIOR-2437 TC-07) > Scenario 4: headless /git commit cancels (no confirmation can be asked), exits 1, commits nothing  1354ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  16:13:45
+   Duration  19.26s (transform 25ms, setup 0ms, collect 34ms, tests 19.13s, environment 0ms, prepare 26ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `2de96e4381fa` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/git/__tests__/git-status.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+4:14:05 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-command
+
+ ✓ src/git/__tests__/git-status.test.ts (7 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  16:14:05
+   Duration  146ms (transform 22ms, setup 0ms, collect 26ms, tests 3ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `7b985b218b8a` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/git/__tests__/git-diff.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+4:14:05 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-command
+
+ ✓ src/git/__tests__/git-diff.test.ts (10 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  16:14:05
+   Duration  141ms (transform 21ms, setup 0ms, collect 23ms, tests 4ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `955ff64a11b5` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/git/__tests__/git-commit.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+4:14:06 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-command
+
+ ✓ src/git/__tests__/git-commit.test.ts (11 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  16:14:06
+   Duration  262ms (transform 116ms, setup 0ms, collect 138ms, tests 4ms, environment 0ms, prepare 30ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `9b4722242a4e` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/git/__tests__/git-process.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 12 line(s))
+
+```
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-command
+
+ ✓ src/git/__tests__/git-process.test.ts (9 tests) 1925ms
+   ✓ createGitProcess against a real repository > closes stdin: a pre-commit hook that reads it sees EOF instead of hanging  357ms
+   ✓ createGitProcess against a real repository > kills a child that exceeds the timeout and reports failed: timeout  455ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  16:14:07
+   Duration  2.06s (transform 20ms, setup 0ms, collect 21ms, tests 1.93s, environment 0ms, prepare 30ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `c596cfe8fe6b` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-command exec vitest run src/git/__tests__/git-command-module.test.ts src/default && pnpm --filter @robota-sdk/pack-coding test && pnpm --filter @robota-sdk/agent-cli exec vitest run src/__tests__/robota-assembly-equivalence.test.ts && pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run src/__tests__/PendingActionPrompt.test.tsx src/__tests__/ListPicker.test.tsx`
+**Exit:** 0
+**Output:** (last 10 of 50 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/ListPicker.test.tsx (8 tests) 186ms
+ ✓ src/__tests__/PendingActionPrompt.test.tsx (7 tests) 413ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  16:14:13
+   Duration  832ms (transform 74ms, setup 0ms, collect 413ms, tests 599ms, environment 0ms, prepare 63ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `a458cd5a5d59` (modified)
+
+### [GATE-COMPLETE: TC-06] — ❌ FAIL | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-command typecheck && pnpm --filter @robota-sdk/pack-coding typecheck && pnpm --filter @robota-sdk/agent-ui-terminal typecheck && pnpm --filter @robota-sdk/agent-command build && pnpm --filter @robota-sdk/pack-coding build && pnpm --filter @robota-sdk/agent-ui-terminal build && pnpm lint && pnpm harness:scan --skip task-merged-citation`
+**Exit:** 1
+**Output:** (last 10 of 3784 line(s))
+
+```
+  }
+}
+
+Diagnostic report v1: 1 result(s), 1 non-clean.
+ERROR harness.scan-finding.scan-c37-c34-c2t-c2r-c19-c34-c39-c2q-c30-c2x-c2r-c19-c37-c39-c36-c2u-c2p-c2r-c2t [finding] scan:spec-public-surface
+  evidence: Scan spec-public-surface exited with status 1.
+  recommendation: Inspect the spec-public-surface scan output above.
+
+1 of 161 scans failed
+ ELIFECYCLE  Command failed with exit code 1.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `8083c5c72188` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-command typecheck && pnpm --filter @robota-sdk/pack-coding typecheck && pnpm --filter @robota-sdk/agent-ui-terminal typecheck && pnpm --filter @robota-sdk/agent-command build && pnpm --filter @robota-sdk/pack-coding build && pnpm --filter @robota-sdk/agent-ui-terminal build && pnpm lint && pnpm harness:scan --skip task-merged-citation`
+**Exit:** 0
+**Output:** (last 10 of 3737 line(s))
+
+```
+✓ ssot-five-axis
+
+⚑ 4 advisory finding(s) — NOT failures. The verdict below is unaffected.
+⚑ action-references: RESOLVABILITY NOT VERIFIED on this run (not CI — run with --live to verify resolvability): 12 reference(s) were parsed but none was resolved. An action that does not exist passes this run.
+⚑ spec-whitebox-leakage: packages/agent-framework/docs/SPEC.md: 2285/3253 lines (70.2%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-ui-terminal/docs/SPEC.md: 643/852 lines (75.5%) outside the standard sections — consider extracting to docs/design/
+⚑ spec-whitebox-leakage: packages/agent-session/docs/SPEC.md: 376/856 lines (43.9%) outside the standard sections — consider extracting to docs/design/
+
+160 scans passed, 1 skipped (161 declared what they examined)
+scan receipt NOT written: working tree is not clean:  M .agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md,  M .agents/spec-docs/draft/AGREEMENT-2670-complete-cli-and-tui-usability-accessibility-and-diagnostics.md,  M .agents/tasks/AGREEMENT-2670-complete-cli-and-tui-usability-accessibility-and-diagnostics.md,  M .agents/tasks/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md,  M packages/agent-cli/README.md,  M packages/agent-cli/src/__tests__/robota-assembly-equivalence.test.ts,  M packages/agent-command/docs/SPEC.md,  M packages/agent-command/src/default/__tests__/default-command-modules.test.ts,  M packages/agent-command/src/default/default-command-modules.ts,  M packages/agent-command/src/index.ts,  M packages/agent-ui-terminal/src/ListPicker.tsx,  M packages/agent-ui-terminal/src/PendingActionPrompt.tsx,  M packages/agent-ui-terminal/src/__tests__/PendingActionPrompt.test.tsx,  M packages/agent-ui-terminal/src/flows/selection-flow.ts,  M packages/pack-coding/src/__tests__/coding-pack.test.ts,  M packages/pack-coding/src/coding-pack.ts, ?? .agents/evals/scenarios/behavior-2437-git-commands-agent-run.md, ?? packages/agent-command/src/git/__tests__/fake-git-port.ts, ?? packages/agent-command/src/git/__tests__/git-command-module.test.ts, ?? packages/agent-command/src/git/__tests__/git-commit.test.ts, ?? packages/agent-command/src/git/__tests__/git-diff.test.ts, ?? packages/agent-command/src/git/__tests__/git-process.test.ts, ?? packages/agent-command/src/git/__tests__/git-status.test.ts, ?? packages/agent-command/src/git/git-command-module.ts, ?? packages/agent-command/src/git/git-commit.ts, ?? packages/agent-command/src/git/git-diff.ts, ?? packages/agent-command/src/git/git-process.ts, ?? packages/agent-command/src/git/git-status.ts, ?? packages/agent-command/src/git/index.ts, ?? packages/agent-ui-terminal/src/__tests__/pty/behavior-2437-git.ptytest.ts
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `0dc263b42a91` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-20; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 7/7 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (7)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (7) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (7) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 7/7 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (7) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 7/7 tasks `[x]` in .agents/tasks/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `e6ecae8e6e7e` · base `origin/develop@867c7752984a` · document `.agents/spec-docs/active/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `1ddbb33f64c3` (modified)
