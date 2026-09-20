@@ -121,14 +121,26 @@ describe('findSpecDocFrontmatterFindings', () => {
     expect(blocking[0].detail).toContain('type "FEATURE" not one of the 11 SDLC prefixes');
   });
 
-  it('flags missing/empty tags (RED)', async () => {
+  it.each([
+    ['missing', ''],
+    ['empty', 'tags: []'],
+  ])('flags %s tags (RED)', async (_, tags) => {
     const root = await createFixture({
-      'draft/RULE-005-notags.md': GREEN_SPEC.replace('tags: [harness, gate]', 'tags: []'),
+      'draft/RULE-005-notags.md': GREEN_SPEC.replace('tags: [harness, gate]', tags),
     });
 
     const { blocking } = findSpecDocFrontmatterFindings(root);
     expect(blocking).toHaveLength(1);
     expect(blocking[0].detail).toBe('tags missing or empty');
+  });
+
+  it('accepts a non-empty scalar tags value', async () => {
+    const root = await createFixture({
+      'draft/RULE-016-scalar.md': GREEN_SPEC.replace('tags: [harness, gate]', 'tags: harness'),
+    });
+
+    const { blocking } = findSpecDocFrontmatterFindings(root);
+    expect(blocking).toEqual([]);
   });
 
   it('accepts a prettier-wrapped multi-line tags array (HARNESS-044)', async () => {

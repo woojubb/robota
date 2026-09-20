@@ -295,6 +295,15 @@ export function renderSpec(options) {
     scan: 'new-spec',
     why: 'The Task tree is the source, the draft folder is the target and the template is the shape; without any one of them there is nothing to scaffold.',
   });
+  if (
+    options.tags !== undefined &&
+    options.tags
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean).length === 0
+  ) {
+    return { ok: false, error: '--tags must contain at least one non-empty value' };
+  }
   const task = readTaskRecord(root, id);
   if (task === null) {
     return {
