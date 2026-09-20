@@ -110,6 +110,13 @@ None
 
 - [ ] `.agents/tasks/RULE-2664-allow-integration-agreement-activation-after-atomic-prelude.md`
 
+## User Execution Test Scenarios
+
+Not applicable.
+
+**Reason:** This change affects repository-internal Git history validation and pre-commit admission;
+it has no runnable Robota CLI, TUI, browser, or public SDK product surface.
+
 ## Evidence Log
 
 ### [GATE-WRITE] — ✅ PASS | 2026-09-20
