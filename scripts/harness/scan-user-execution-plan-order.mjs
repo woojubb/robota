@@ -47,6 +47,10 @@ import { asList, asScalar, frontmatterObject, splitFrontmatter } from './frontma
 import { visibleMarkdown } from './markdown-visibility.mjs';
 import { documentationBatchReader } from './documentation-batch-reader.mjs';
 import {
+  isCommittedRecommendationCheckpoint,
+  isStagedRecommendationCheckpoint,
+} from './scan-recommendation-endorsement.mjs';
+import {
   CHECKPOINT_EVIDENCE_CONTRACT_MARKERS,
   checkpointCheckboxItems,
   parseCheckpointEvidence,
@@ -102,6 +106,7 @@ const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const LOOP_RUNS_PREFIX = '.agents/loop-runs/';
 const POST_MERGE_LEDGER = `${LOOP_RUNS_PREFIX}post-merge-cycle.jsonl`;
 const UES_LEDGER = `${LOOP_RUNS_PREFIX}user-execution-scenario.jsonl`;
+const RECOMMENDATION_LEDGER = `${LOOP_RUNS_PREFIX}backlog-execution-orchestrator.jsonl`;
 const BACKLOG_RULE_PATH = '.agents/rules/backlog-execution.md';
 /**
  * A pre-checkpoint TERMINAL DISPOSITION (issue #2469): an open Task plus its pre-checkpoint spec are
@@ -1144,6 +1149,14 @@ function appendedLedgerLines(before, after) {
   return allRecords ? appended : null;
 }
 
+function appendsRecommendationReview(before, after) {
+  const appended = appendedLedgerLines(before ?? '', after ?? '');
+  return (
+    appended !== null &&
+    appended.some((line) => JSON.parse(line)?.extensions?.recommendationReview !== undefined)
+  );
+}
+
 /**
  * Whether a ledger change is a planning path. The post-merge ledger is never one (it has its own
  * prelude rule); the user-execution-scenario ledger keeps its strict subject-bound closed-record
@@ -1168,6 +1181,13 @@ function validateLedgerAppend(file, before, after, basename) {
     );
   }
   const appended = appendedLedgerLines(before, after);
+  // Recommendation observations are authorization evidence, not generic loop bookkeeping. Other
+  // records in the orchestrator ledger keep their ordinary append-only planning treatment.
+  if (
+    file === RECOMMENDATION_LEDGER &&
+    appended?.some((line) => JSON.parse(line)?.extensions?.recommendationReview !== undefined)
+  )
+    return false;
   // Issue #2504: an OPEN record with no subject (`terminal: null`, `ref: null`) must not cross the
   // commit boundary — once committed it is indistinguishable from a live owner and blocks every
   // same-day successor. A bound OPEN run (`open --ref <subject>`) names its owner and may.
@@ -1324,7 +1344,13 @@ export function isTerminalDisposition(paths, basename) {
   return basename !== null && terminalDispositionPaths(paths, basename) !== null;
 }
 
-export function planningPreludeProblems(paths, basename, textForPath, parentTextForPath) {
+export function planningPreludeProblems(
+  paths,
+  basename,
+  textForPath,
+  parentTextForPath,
+  allowRecommendationCheckpoint = false,
+) {
   const disposition = terminalDispositionPaths(paths, basename);
   if (disposition !== null) {
     return terminalDispositionProblems(disposition, textForPath, parentTextForPath);
@@ -1333,7 +1359,8 @@ export function planningPreludeProblems(paths, basename, textForPath, parentText
   const ledgerAppend = (file) =>
     isLoopLedgerPath(file) &&
     file !== POST_MERGE_LEDGER &&
-    validateLedgerAppend(file, parentTextForPath(file) ?? '', textForPath(file) ?? '', basename);
+    ((file === RECOMMENDATION_LEDGER && allowRecommendationCheckpoint) ||
+      validateLedgerAppend(file, parentTextForPath(file) ?? '', textForPath(file) ?? '', basename));
   const rewrittenLedgers = paths.filter(
     (file) => isLoopLedgerPath(file) && file !== POST_MERGE_LEDGER && !ledgerAppend(file),
   );
@@ -1419,6 +1446,85 @@ function agreementProjection(text, heading) {
       });
   }
   return { missing: false, rows, malformed };
+}
+
+function exactInitiativeLifecycleProjection(before, after, heading, childId) {
+  if (before === null || after === null) return false;
+  const previous = agreementProjection(before, heading);
+  const current = agreementProjection(after, heading);
+  if (previous.missing || current.missing) return false;
+  if (previous.malformed.length > 0 || current.malformed.length > 0) return false;
+  const priorRows = previous.rows.filter((row) => row.id === childId);
+  const nextRows = current.rows.filter((row) => row.id === childId);
+  if (priorRows.length !== 1 || nextRows.length !== 1) return false;
+  const prior = priorRows[0];
+  const next = nextRows[0];
+  if (
+    prior.checked ||
+    next.checked ||
+    prior.status !== 'todo' ||
+    next.status !== 'in-progress' ||
+    prior.taskPath !== next.taskPath
+  )
+    return false;
+  const escaped = escapeRegExp(childId);
+  const priorLine = before
+    .split('\n')
+    .find((line) => new RegExp(`^\\s*[-*]\\s+\\[[ xX]\\]\\s+${escaped}\\s+—`).test(line));
+  const nextLine = after
+    .split('\n')
+    .find((line) => new RegExp(`^\\s*[-*]\\s+\\[[ xX]\\]\\s+${escaped}\\s+—`).test(line));
+  return (
+    priorLine !== undefined &&
+    nextLine !== undefined &&
+    before.split(priorLine).length === 2 &&
+    after === before.replace(priorLine, nextLine)
+  );
+}
+
+function initiativeLifecycleProjectionPaths(paths, basename, textForPath, parentTextForPath) {
+  const childId = subjectId(basename);
+  if (childId === null) return new Set();
+  const parentTasks = paths.filter((file) => {
+    const parentBasename = taskBasename(file);
+    if (
+      parentBasename === null ||
+      parentBasename === basename ||
+      file !== `${TASK_PREFIX}${parentBasename}`
+    )
+      return false;
+    const fields = frontmatterObject(textForPath(file) ?? '');
+    return (
+      subjectId(parentBasename)?.startsWith('AGREEMENT-') === true &&
+      asList(fields.children).map(String).includes(childId)
+    );
+  });
+  if (parentTasks.length !== 1) return new Set();
+  const parentBasename = taskBasename(parentTasks[0]);
+  const parentSpecs = paths.filter(
+    (file) =>
+      specBasename(file) === parentBasename &&
+      asScalar(frontmatterObject(textForPath(file) ?? '').type).trim() === 'AGREEMENT',
+  );
+  if (parentSpecs.length !== 1) return new Set();
+  const parentTask = parentTasks[0];
+  const parentSpec = parentSpecs[0];
+  if (
+    !exactInitiativeLifecycleProjection(
+      parentTextForPath(parentTask),
+      textForPath(parentTask),
+      'Children',
+      childId,
+    ) ||
+    !exactInitiativeLifecycleProjection(
+      parentTextForPath(parentSpec),
+      textForPath(parentSpec),
+      'Tasks',
+      childId,
+    )
+  )
+    return new Set();
+  return new Set([parentTask, parentSpec]);
 }
 
 function agreementPrelude(paths, textForPath, parentTextForPath) {
@@ -1572,10 +1678,17 @@ function allowedCheckpointPaths(root, from, to, paths, basename) {
   const validSourceDeletion =
     frontmatterStatus(gitText(root, from, sourceSpec)) === 'approved' &&
     gitText(root, to, sourceSpec) === null;
+  const parentProjectionPaths = initiativeLifecycleProjectionPaths(
+    paths,
+    basename,
+    (file) => gitText(root, to, file),
+    (file) => gitText(root, from, file),
+  );
   const unexpected = paths.filter(
     (file) =>
       !isExactCheckpointPairPath(file, basename) &&
       !(file === sourceSpec && validSourceDeletion) &&
+      !parentProjectionPaths.has(file) &&
       !validateLedgerAppendBetween(root, from, to, file, basename),
   );
   return unexpected;
@@ -2564,6 +2677,13 @@ function singleHistoryAnalysis(
       const basenames = planningBasenames(entry.paths);
       if (pendingBasename === null && docs.commit(entry)) continue;
       const basename = basenames.length === 1 ? basenames[0] : null;
+      const recommendationCheckpoint =
+        entry.paths.includes(RECOMMENDATION_LEDGER) &&
+        appendsRecommendationReview(
+          textIn(entry.parent)(RECOMMENDATION_LEDGER),
+          textIn(entry.commit)(RECOMMENDATION_LEDGER),
+        ) &&
+        isCommittedRecommendationCheckpoint(root, entry.parent, entry.commit, entry.paths);
       const preludeProblems =
         basename === null
           ? ['paths do not identify exactly one planning unit.']
@@ -2572,6 +2692,7 @@ function singleHistoryAnalysis(
               basename,
               textIn(entry.commit),
               textIn(entry.parent),
+              recommendationCheckpoint,
             );
       if (
         preludeProblems.length > 0 ||
@@ -2659,11 +2780,19 @@ function singleHistoryAnalysis(
       else planningStarted = true;
       continue;
     }
+    const recommendationCheckpoint =
+      entry.paths.includes(RECOMMENDATION_LEDGER) &&
+      appendsRecommendationReview(
+        textIn(entry.parent)(RECOMMENDATION_LEDGER),
+        textIn(entry.commit)(RECOMMENDATION_LEDGER),
+      ) &&
+      isCommittedRecommendationCheckpoint(root, entry.parent, entry.commit, entry.paths);
     const preludeProblems = planningPreludeProblems(
       entry.paths,
       basename,
       textIn(entry.commit),
       textIn(entry.parent),
+      recommendationCheckpoint,
     );
     if (preludeProblems.length > 0) {
       findings.push(
@@ -2973,14 +3102,27 @@ function stagedLedgerProblems(root, paths, basename) {
 }
 
 function stagedCheckpoint(root, paths) {
-  const activePairs = pairCandidates(paths, (file) => indexText(root, file));
+  const stagedText = (file) => indexText(root, file);
+  const headText = (file) => gitText(root, 'HEAD', file);
+  const candidatePairs = pairCandidates(paths, stagedText);
+  const projectedParents = new Set();
+  for (const candidate of candidatePairs) {
+    for (const file of initiativeLifecycleProjectionPaths(
+      paths,
+      candidate,
+      stagedText,
+      headText,
+    )) {
+      const parent = taskBasename(file) ?? specBasename(file);
+      if (parent !== null) projectedParents.add(parent);
+    }
+  }
+  const activePairs = candidatePairs.filter((basename) => !projectedParents.has(basename));
   const l1Pairs = l1StagedPairs(root, paths).filter((basename) => !activePairs.includes(basename));
   const pairs = [...activePairs, ...l1Pairs];
   if (pairs.length !== 1) return { pairs, problems: [] };
   const basename = pairs[0];
   const problems = [];
-  const stagedText = (file) => indexText(root, file);
-  const headText = (file) => gitText(root, 'HEAD', file);
   if (l1Pairs.length === 1) {
     const { taskPath, specPath, draftPath } = l1SpecPaths(basename);
     const task = stagedText(taskPath);
@@ -3034,10 +3176,17 @@ function stagedCheckpoint(root, paths) {
   const sourceSpec = `${SPEC_PREFIX}todo/${basename}`;
   const validSourceDeletion =
     frontmatterStatus(headText(sourceSpec)) === 'approved' && stagedText(sourceSpec) === null;
+  const parentProjectionPaths = initiativeLifecycleProjectionPaths(
+    paths,
+    basename,
+    stagedText,
+    headText,
+  );
   const unexpected = paths.filter(
     (file) =>
       !isExactCheckpointPairPath(file, basename) &&
       !(file === sourceSpec && validSourceDeletion) &&
+      !parentProjectionPaths.has(file) &&
       (!isLoopLedgerPath(file) || file === POST_MERGE_LEDGER),
   );
   if (unexpected.length > 0) {
@@ -3225,12 +3374,25 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
       }
       const basenames = planningBasenames(staged);
       const basename = basenames.length === 1 ? basenames[0] : null;
+      const recommendationCheckpoint =
+        staged.includes(RECOMMENDATION_LEDGER) &&
+        appendsRecommendationReview(
+          headText(RECOMMENDATION_LEDGER),
+          stagedText(RECOMMENDATION_LEDGER),
+        ) &&
+        isStagedRecommendationCheckpoint(root, staged);
       const preludeProblems =
         basename === null
           ? onlyLedgerAppends(staged, stagedText, headText)
             ? []
             : ['paths do not identify exactly one planning unit.']
-          : planningPreludeProblems(staged, basename, stagedText, headText);
+          : planningPreludeProblems(
+              staged,
+              basename,
+              stagedText,
+              headText,
+              recommendationCheckpoint,
+            );
       if (
         preludeProblems.length > 0 ||
         (basename !== null &&
