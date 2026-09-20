@@ -1,11 +1,12 @@
 ---
 title: 'HARNESS-2756: Checkpoint evidence cannot carry a fence in the text it binds'
 issue: https://github.com/woojubb/robota/issues/2756
-status: todo
+status: in-progress
 created: 2026-09-20
 priority: high
 urgency: now
 area: scripts/harness
+lane: L1
 depends_on: []
 ---
 
@@ -43,7 +44,7 @@ That is the SCREEN-2002 half of the develop red tracked by issue #2756.
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-Not applicable: this changes a harness record ENCODING only. Nothing a user types, sees or runs at a
+**Reason:** this changes a harness record ENCODING only. Nothing a user types, sees or runs at a
 product surface changes — `robota` behaves identically before and after, and the only observable is
 whether a checkpoint record can be written and read back, which is a repository-internal contract
 between the gate writer and the scan that reads it.
