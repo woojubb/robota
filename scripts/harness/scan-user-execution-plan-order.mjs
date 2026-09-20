@@ -3107,12 +3107,7 @@ function stagedCheckpoint(root, paths) {
   const candidatePairs = pairCandidates(paths, stagedText);
   const projectedParents = new Set();
   for (const candidate of candidatePairs) {
-    for (const file of initiativeLifecycleProjectionPaths(
-      paths,
-      candidate,
-      stagedText,
-      headText,
-    )) {
+    for (const file of initiativeLifecycleProjectionPaths(paths, candidate, stagedText, headText)) {
       const parent = taskBasename(file) ?? specBasename(file);
       if (parent !== null) projectedParents.add(parent);
     }
