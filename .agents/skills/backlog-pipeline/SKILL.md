@@ -183,6 +183,11 @@ Look up the folder the rule maps the **next** status to.
 - Write the NON-COMPLIANCE entry to Evidence Log (if guard didn't already)
 - STOP immediately. Surface: which gate was violated, what evidence is missing.
 - Do not proceed until violation is resolved.
+- If orchestration already advanced past a correctly refused gate, use the gate catalogue's terminal
+  boundary rather than improvising a PASS: reject and restart while recovery is possible; for an
+  already-terminal, irreversible delivery, `orchestration-skip` is available only after retrospective
+  guardian judgement, downstream revalidation, and explicit owner authority. It preserves the
+  NON-COMPLIANCE and never resumes this pipeline from the skipped transition.
 
 ## Rejection Action
 
