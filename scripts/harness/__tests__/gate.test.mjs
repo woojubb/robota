@@ -192,6 +192,22 @@ const CATALOGUE_UNTAGGED = CATALOGUE.replace(
   '- [ ] Tasks section present with placeholder',
 );
 
+const verifyCatalogue = ({ first, firstId, second, secondId }) =>
+  CATALOGUE.replace(
+    '- [ ] All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`) — `mechanical`',
+    `- [ ] ${first} — \`mechanical\`${firstId ? ` (\`judgement:${firstId}\`)` : ''}`,
+  ).replace(
+    '- [ ] No tasks are blocked or pending — `mechanical`',
+    `- [ ] ${second} — \`mechanical\`${secondId ? ` (\`judgement:${secondId}\`)` : ''}`,
+  );
+
+const STABLE_VERIFY_CATALOGUE = verifyCatalogue({
+  first: 'Every checked plan line is complete',
+  firstId: 'tasks-complete',
+  second: 'No plan line carries a blocked state',
+  secondId: 'no-blocked',
+});
+
 /**
  * The same catalogue with TWO GATE-WRITE criteria tagged `semantic`, worded as the real catalogue
  * words them — the shape whose verdict the lane decides: N/A under L1, the guardian's under L2.
@@ -480,6 +496,15 @@ describe('the live governed documents parse with the readers gate.mjs uses', () 
       expect(section.criteria.length, `${gate} criteria`).toBeGreaterThanOrEqual(4);
       expect(section.upgrade, `${gate} upgrade`).not.toBeNull();
     }
+    const verifyCriteria = catalogue.gates.get('GATE-VERIFY').criteria;
+    expect(
+      verifyCriteria.slice(0, 2).map(({ tag, judgementId }) => ({ tag, judgementId })),
+    ).toEqual([
+      { tag: 'mechanical', judgementId: 'tasks-complete' },
+      { tag: 'mechanical', judgementId: 'no-blocked' },
+    ]);
+    expect(verifyCriteria[0].text).toContain('The `## Plan` SECTION only');
+    expect(verifyCriteria[0].text).not.toContain('judgement:');
     // G1 (gate-catalogue.md § Prior-gate map, issue #2219/#2588, CLI-1997): GATE-APPROVAL → GATE-WRITE
     // and GATE-DONE → GATE-PLAN both declare `recorded-pass` — the two rows this repository excepts
     // from the default last-entry rule, because both prior gates' first criterion consumes a
@@ -524,6 +549,90 @@ describe('the live governed documents parse with the readers gate.mjs uses', () 
     expect(
       boundClassMeasurement(registryConditions(parseRegistrySection(BACKLOG_RULE)).get('DOC-TYPO')),
     ).toBeNull();
+  });
+});
+
+describe('GATE-VERIFY stable judgement bindings (BEHAVIOR-2663)', () => {
+  function verifyWorkspace(catalogue) {
+    const spec =
+      conformingSpec({ status: 'in-progress', folder: 'active', ticked: true, lane: 'L2' }) +
+      `\n### [GATE-IMPLEMENT] — ✅ PASS | ${DATE}\n\n**Status upgrade:** approved → in-progress\n`;
+    const task = TASK.replace('status: todo', 'status: in-progress');
+    return makeWorkspace({ catalogue, spec, folder: 'active', task });
+  }
+
+  const verify = (catalogue) => {
+    const { root, doc } = verifyWorkspace(catalogue);
+    return judge(root, doc, 'GATE-VERIFY', [
+      '--lane',
+      'L2',
+      '--verify-cmd',
+      'echo pnpm build',
+      '--verify-cmd',
+      'echo pnpm test',
+    ]);
+  };
+
+  it('binds both Task-plan evaluators by stable id after their prose is rewritten', () => {
+    const result = verify(STABLE_VERIFY_CATALOGUE);
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain('2/2 tasks `[x]`');
+    expect(result.stdout).toContain('no unticked, blocked, or pending task');
+    expect(result.stdout).not.toMatch(/^PENDING-GUARDIAN GATE-VERIFY/m);
+  });
+
+  it('binds a stable id when explanatory prose follows the annotation', () => {
+    const catalogue = STABLE_VERIFY_CATALOGUE.replace(
+      '(`judgement:tasks-complete`)',
+      '(`judgement:tasks-complete`). The `## Plan` SECTION only: explanatory prose.',
+    );
+    const result = verify(catalogue);
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain('2/2 tasks `[x]`');
+    expect(result.stdout).not.toContain('mechanical criterion has no registered evaluator');
+  });
+
+  it('fails closed when an explicit mechanical judgement id is not registered', () => {
+    const catalogue = STABLE_VERIFY_CATALOGUE.replace(
+      '`judgement:tasks-complete`',
+      '`judgement:not-registered`',
+    );
+    const result = verify(catalogue);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain(
+      'mechanical judgement `not-registered` has no registered evaluator',
+    );
+    expect(result.stdout + result.stderr).not.toMatch(/^PENDING-GUARDIAN GATE-VERIFY/m);
+  });
+
+  it('fails closed when unannotated mechanical prose matches no legacy evaluator', () => {
+    const catalogue = verifyCatalogue({
+      first: 'Every plan line is complete',
+      second: 'No plan line carries a blocked state',
+      secondId: 'no-blocked',
+    });
+    const result = verify(catalogue);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain(
+      'mechanical criterion has no registered evaluator or legacy wording match',
+    );
+    expect(result.stdout + result.stderr).not.toMatch(/^PENDING-GUARDIAN GATE-VERIFY/m);
+  });
+
+  it('retains legacy pattern lookup for an unannotated mechanical criterion', () => {
+    const catalogue = verifyCatalogue({
+      first: 'All tasks in `.agents/tasks/<ID>.md` are marked complete (`[x]`)',
+      second: 'No plan line carries a blocked state',
+      secondId: 'no-blocked',
+    });
+    const result = verify(catalogue);
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain('2/2 tasks `[x]`');
   });
 });
 

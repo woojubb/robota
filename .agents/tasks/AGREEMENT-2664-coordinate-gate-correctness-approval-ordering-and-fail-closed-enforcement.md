@@ -51,7 +51,7 @@ AGREEMENT-013, or AGREEMENT-2698.
 - [x] BEHAVIOR-2664 — done — `.agents/tasks/completed/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md`
 - [x] DATA-2664 — done — `.agents/tasks/completed/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md`
 - [x] RULE-2582 — done — `.agents/tasks/completed/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md`
-- [ ] BEHAVIOR-2663 — todo — `.agents/tasks/BEHAVIOR-2663-bind-mechanical-gate-verify-checks-without-prose-drift.md`
+- [x] BEHAVIOR-2663 — done — `.agents/tasks/completed/BEHAVIOR-2663-bind-mechanical-gate-verify-checks-without-prose-drift.md`
 - [ ] RULE-2665 — todo — `.agents/tasks/RULE-2665-define-the-terminal-disposition-for-orchestration-skipped-gates.md`
 - [ ] RULE-2326 — todo — `.agents/tasks/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md`
 - [ ] RULE-2380 — todo — `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`

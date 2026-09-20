@@ -29,11 +29,18 @@ export function parseCatalogue(text) {
   }
   for (const gate of gates.values()) {
     for (const item of checkboxItems(gate.lines)) {
-      const tags = [...item.text.matchAll(/\s*—\s*`(mechanical|semantic)`(?=\s|$)/g)];
+      const binding = /\s*—\s*`(mechanical|semantic)`\s*\(`judgement:([^`]*)`\)/u.exec(item.text);
+      const withoutBinding = binding
+        ? `${item.text.slice(0, binding.index)}${item.text.slice(binding.index + binding[0].length)}`
+        : item.text;
+      const tags = [...withoutBinding.matchAll(/\s*—\s*`(mechanical|semantic)`(?=\s|$)/g)];
       const last = tags[tags.length - 1];
       gate.criteria.push({
-        text: last ? item.text.replace(last[0], '').replace(/\s+/g, ' ').trim() : item.text,
-        tag: last ? last[1] : null,
+        text: last
+          ? withoutBinding.replace(last[0], '').replace(/\s+/g, ' ').trim()
+          : withoutBinding.replace(/\s+/g, ' ').trim(),
+        tag: binding ? binding[1] : last ? last[1] : null,
+        judgementId: binding ? binding[2] : null,
         indent: item.indent,
       });
     }

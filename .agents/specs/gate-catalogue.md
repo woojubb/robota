@@ -357,9 +357,9 @@ parent and the entry is the one bound entry the commit adds; a second entry in t
 ### GATE-VERIFY `in-progress → verifying`
 
 - [ ] Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`) —
-      `mechanical` (`task-plan-items`). The `## Plan` SECTION only: an unchecked box in a Test Plan
+      `mechanical` (`judgement:tasks-complete`). The `## Plan` SECTION only: an unchecked box in a Test Plan
       row or a reviewer checklist means something else and is not read here (issue #2375).
-- [ ] No Plan item is blocked or pending — `mechanical`
+- [ ] No Plan item is blocked or pending — `mechanical` (`judgement:no-blocked`)
 - [ ] Build passes for all affected packages (`pnpm build`) — `mechanical`
 - [ ] Tests pass for all affected packages (`pnpm test`) — `mechanical`
 

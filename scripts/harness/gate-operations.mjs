@@ -11,11 +11,11 @@
  * dispatched only for the half that needs judgement, or when the mechanical half is not PASS.
  *
  * THE CRITERIA ARE NOT COPIED HERE. The catalogue owns which criteria exist and which are mechanical;
- * this script READS the catalogue at run time, binds each mechanical criterion to a judgement by the
- * wording of the criterion, and never invents a criterion the catalogue does not state. The binding is
- * fail-closed in the only direction that matters: a criterion the catalogue tags `mechanical` but this
- * script has no judgement for is reported `PENDING-GUARDIAN`, never PASS, and an untagged criterion is
- * treated as `semantic`. The same rule for the status ↔ folder mapping (`spec-workflow.md`, read via
+ * this script READS the catalogue at run time, binds opted-in mechanical criteria by stable judgement
+ * id and unmigrated criteria by their wording, and never invents a criterion the catalogue does not
+ * state. The binding is fail-closed: a criterion tagged `mechanical` with no registered judgement is
+ * FAIL, never guardian work or PASS, and an untagged criterion is treated as `semantic`. The same rule
+ * for the status ↔ folder mapping (`spec-workflow.md`, read via
  * `parseStatusFolderMapping`) and for the approval evidence form and class registry
  * (`backlog-execution.md`, read via the `scan-standing-delegation-evidence` parsers).
  *
@@ -31,8 +31,8 @@
  * pending — it is recorded in the entry as `N/A — not required for lane L1 (spec-workflow.md §
  * Lanes)`, a PASS-class line, and a conforming L1 draft exits 0. Under L2 the semantic set is the
  * guardian's and stays PENDING-GUARDIAN (exit 2). The fail-closed cases are unchanged by the lane:
- * an UNTAGGED criterion, and a `mechanical` one this script has no judgement for, are pending in
- * every lane, because neither has been shown to be dispensable.
+ * an UNTAGGED criterion is pending in every lane, while a `mechanical` one this script has no
+ * judgement for fails in every lane because it claims to be decidable but names no decision path.
  *
  * THE DOCUMENT'S `lane:` IS AUTHORITATIVE. `--lane` may equal the frontmatter lane, or set the lane
  * when the frontmatter declares none; a `--lane` that differs from a declared lane is refused (exit 1)
@@ -49,8 +49,8 @@
  * the Task's basename to equal the spec's, and the PLAN-outcome criterion requires exactly one
  * `**Author verdict:** \`SCENARIO DRAFTED: (not-applicable|automatable|manual) | <n>\`` line under the
  * Task's `## User Execution Test Scenarios` — the form that scan binds the checkpoint to. The three
- * are selected by the judgement their wording binds; a catalogue that no longer binds one of them is
- * a refusal, not a PLAN with two.
+ * are selected by their stable judgement id or legacy wording binding; a catalogue that no longer
+ * binds one of them is a refusal, not a PLAN with two.
  *
  * PROBLEM PROSE FLOOR. HTML comments (`<!-- … -->`, multi-line) are stripped before `## Problem` is
  * measured, so the scaffold's guidance comment is not prose. The floor is ≥ 2 sentences OR ≥ 200
@@ -390,8 +390,9 @@ export function parseJudgedAt(entryLines) {
 // ── Mechanical judgements ────────────────────────────────────────────────────────────────────────
 
 /**
- * Each judgement binds to a criterion by the WORDING the catalogue uses for it. The order matters
- * only where two patterns could match the same criterion (the first wins). A judgement returns
+ * Each judgement binds to an opted-in criterion by stable ID; unmigrated criteria retain the legacy
+ * WORDING match. The order matters only where two legacy patterns could match the same criterion
+ * (the first wins). A judgement returns
  * `{ ok, observed }`; `observed` is the evidence line the Evidence Log entry records.
  */
 const pass = (observed) => ({ ok: true, observed });
@@ -1474,6 +1475,13 @@ export const JUDGEMENTS = Object.freeze({
   'GATE-COMPLETE': completeChecks(),
 });
 
+function boundJudgement(gateName, criterion) {
+  const candidates = JUDGEMENTS[gateName] ?? [];
+  if (criterion.judgementId !== null)
+    return candidates.find((candidate) => candidate.id === criterion.judgementId);
+  return candidates.find((candidate) => candidate.pattern.test(criterion.text));
+}
+
 // ── judge ────────────────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -1535,7 +1543,8 @@ function resolveGate(options, doc) {
  *
  * Verdicts: `PASS` / `FAIL` from a bound judgement; `N/A` for a semantic criterion under lane L1
  * (PASS-class — the lane does not require it); `PENDING-GUARDIAN` for a semantic criterion under L2
- * and, in every lane, for an untagged criterion or a mechanical one with no judgement bound.
+ * and, in every lane, for an untagged criterion. A mechanical criterion with no registered
+ * judgement is a FAIL, never guardian work.
  */
 export function judgeCriteria(catalogue, gate, ctx) {
   const results = [];
@@ -1555,10 +1564,7 @@ export function judgeCriteria(catalogue, gate, ctx) {
     for (const criterion of section.criteria) {
       const label = `${gateName} — ${criterion.text.replace(/\s+/g, ' ').slice(0, 110)}`;
       if (selected) {
-        const bound =
-          criterion.tag === 'mechanical'
-            ? JUDGEMENTS[gateName].find((candidate) => candidate.pattern.test(criterion.text))
-            : null;
+        const bound = criterion.tag === 'mechanical' ? boundJudgement(gateName, criterion) : null;
         if (!bound || !selected.includes(bound.id)) continue;
         found.add(bound.id);
       }
@@ -1587,17 +1593,21 @@ export function judgeCriteria(catalogue, gate, ctx) {
         });
         continue;
       }
-      const judgement = JUDGEMENTS[gateName].find((candidate) =>
-        candidate.pattern.test(criterion.text),
-      );
+      const judgement = boundJudgement(gateName, criterion);
       if (!judgement) {
         results.push({
           gate: gateName,
           criterion,
           label,
-          verdict: 'PENDING-GUARDIAN',
+          verdict: 'FAIL',
           observed:
-            'tagged mechanical, but gate.mjs binds no judgement to this wording — treated as semantic',
+            criterion.judgementId !== null
+              ? `mechanical judgement \`${criterion.judgementId}\` has no registered evaluator`
+              : 'mechanical criterion has no registered evaluator or legacy wording match',
+          action:
+            criterion.judgementId !== null
+              ? `register \`${criterion.judgementId}\` under ${gateName} or correct the catalogue binding`
+              : 'add an explicit registered judgement id or restore the governed legacy wording',
         });
         continue;
       }
@@ -1629,7 +1639,7 @@ export function judgeCriteria(catalogue, gate, ctx) {
       const missing = selected.filter((id) => !found.has(id));
       if (missing.length > 0)
         throw new Error(
-          `the catalogue's \`### ${gateName}\` section carries no mechanical criterion bound to ${missing.join(', ')} — ${gate.name} composes those judgements by wording and cannot run with fewer`,
+          `the catalogue's \`### ${gateName}\` section carries no mechanical criterion bound to ${missing.join(', ')} — ${gate.name} composes those judgements by binding and cannot run with fewer`,
         );
     }
   }
