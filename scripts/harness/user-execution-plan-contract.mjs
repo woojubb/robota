@@ -1,5 +1,4 @@
-import { fencedPayload } from './checkpoint-evidence-contract.mjs';
-import { visibleMarkdown } from './markdown-visibility.mjs';
+import { fencedPayload, visibleMarkdown } from './markdown-visibility.mjs';
 import { validateApplicableScenarioSection } from './user-execution-scenario-contract.mjs';
 
 const CONTRACT_START = '<!-- user-execution-plan-contract:v1:start -->';

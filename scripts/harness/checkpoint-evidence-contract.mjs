@@ -19,6 +19,7 @@ import {
   validateV2GateImplementDelivery,
   validateV2GateImplementIdentity,
 } from './checkpoint-evidence-contract-v2.mjs';
+import { fencedPayload } from './markdown-visibility.mjs';
 
 const CONTRACT_START = '<!-- checkpoint-evidence-contract:v1:start -->';
 const CONTRACT_END = '<!-- checkpoint-evidence-contract:v1:end -->';
@@ -406,32 +407,6 @@ export function parseCheckpointEvidenceContracts(ruleText) {
     contracts.set(entry.version, parsed.contract);
   }
   return { ok: true, contracts };
-}
-
-/**
- * The fence that carries a checkpoint payload, as CommonMark defines one: at least three backticks,
- * closed by a run of AT LEAST the same length.
- *
- * It is not always three, and the reason is Prettier, not the JSON. The payload binds the scenario
- * text VERBATIM, and a scenario may legally name a code fence — SCREEN-2002's prerequisites say the
- * canned reply contains a fenced TS code block. That run sits MID-LINE inside a JSON string, so it
- * cannot close a fence on its own and the writer emits a valid three-backtick record. What breaks is
- * the round trip through the repository's own formatter: `prettier --parser markdown` widens the
- * delimiter to four because the content carries a three-backtick run, and the reader then refused
- * what the formatter had just produced — measured on issue #2756, where it left an item whose code
- * had shipped with a record no commit shape could reconcile.
- *
- * Widening changes the delimiter only. What the payload must CONTAIN, and that it must bind the
- * authored fields exactly, is unchanged — see `validatePayload`.
- */
-export function fencedPayload(region, infoString) {
-  const opened = new RegExp('^\\s*(`{3,})' + escapeRegExp(infoString) + '\\s*\\n').exec(region);
-  if (!opened) return null;
-  const delimiter = opened[1];
-  const closed = new RegExp('\\n`{' + delimiter.length + ',}\\s*$').exec(region);
-  if (!closed) return null;
-  const body = region.slice(opened[0].length, closed.index);
-  return body.length === 0 ? null : body;
 }
 
 export function formatCheckpointEvidence(contract, formName, payload) {
