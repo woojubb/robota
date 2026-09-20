@@ -20,7 +20,7 @@ history or inventing missing user authority. The current measured baseline is 21
 route, so silence or a shrinking count is not completion.
 
 The canonical execution owner is issue #2664. Issue #2380 is the closed historical source whose
-unfinished scope was explicitly transferred to #2664 on 2026-09-12.
+unfinished scope was explicitly transferred to issue #2664 on 2026-09-12.
 
 ## Owner Policy
 
@@ -42,7 +42,7 @@ reconstructed honestly.
 - [ ] TC-02 — Obtain and encode the owner policy needed for classes that cannot be decided mechanically.
 - [ ] TC-03 — Apply only authorized metadata or terminal disposition while preserving every historical Evidence Log byte.
 - [ ] TC-04 — Prove population conservation, idempotent replay, and zero unclassified frozen records.
-- [ ] TC-05 — Reconcile RULE-2380 and both parent AGREEMENT-2664 projections without prematurely closing issue #2664.
+- [ ] TC-05 — Verify exact RULE-2380 and AGREEMENT-2664 projection paths, statuses, and child inventory.
 
 ## Test Plan
 
@@ -55,7 +55,7 @@ status, and remaining-owner assertions.
 
 Not applicable.
 
-- **Canonical loop run:** `r20260920142613`
+- **Canonical loop run:** `r20260920152818`
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
@@ -65,3 +65,7 @@ public SDK, or installed-package behavior an end user can execute.
 ## Progress
 
 - 2026-09-21: Approval committed; implementation checkpoint prepared.
+- 2026-09-21: Canonical independent `proposal-reviewer` refresh returned `ENDORSE` with 0 unresolved
+  findings after correcting the paired Task projection to `in-progress`.
+- 2026-09-21: Independent review returned `ENDORSE` with 0 unresolved findings for the TC-05
+  pre-terminal/post-PASS lifecycle-order correction.
