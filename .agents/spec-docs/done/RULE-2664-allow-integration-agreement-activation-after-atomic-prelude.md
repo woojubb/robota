@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [typescript]
 lane: L2
@@ -85,30 +85,30 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: `findHistoryFindings` returns no findings for a matching atomic AGREEMENT prelude on
+- [x] TC-01: `findHistoryFindings` returns no findings for a matching atomic AGREEMENT prelude on
       `integration/agreement-2664` before any child merge.
-- [ ] TC-02: `findStagedFindings` returns no findings for the exact `todo/` to `active/` parent
+- [x] TC-02: `findStagedFindings` returns no findings for the exact `todo/` to `active/` parent
       AGREEMENT transition, and committed history remains clean afterward.
-- [ ] TC-03: An integration history with a child merge before the parent active checkpoint returns
+- [x] TC-03: An integration history with a child merge before the parent active checkpoint returns
       the stable matching-valid-atomic-AGREEMENT refusal.
-- [ ] TC-04: A malformed or branch-ID-mismatched pending AGREEMENT remains rejected without weakening
+- [x] TC-04: A malformed or branch-ID-mismatched pending AGREEMENT remains rejected without weakening
       duplicate, undeclared, out-of-order, or malformed child checks.
-- [ ] TC-05: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
+- [x] TC-05: `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`
       and the affected harness contract command both exit 0.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                                      | Notes |
-| ----- | ----------- | ------------------------------------------------------------------------------------ | ----- |
-| TC-01 | unit        | Temporary Git fixture calling `findHistoryFindings` on the planning-only branch      |       |
-| TC-02 | integration | Temporary Git fixture calling `findStagedFindings`, committing, then reading history |       |
-| TC-03 | regression  | Temporary Git fixture merging one child before parent activation                     |       |
-| TC-04 | regression  | Existing and new malformed integration-history fixtures                              |       |
-| TC-05 | integration | Focused Vitest plus affected harness contract verification                           |       |
+| TC-ID | Test Type   | Tool / Approach                                                                      | Notes                                                                                                                                                             |
+| ----- | ----------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | unit        | Temporary Git fixture calling `findHistoryFindings` on the planning-only branch      | `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` — `admits the atomic prelude and its activation but requires activation before a child merge` |
+| TC-02 | integration | Temporary Git fixture calling `findStagedFindings`, committing, then reading history | Same lifecycle regression: staged activation and post-commit history assertions                                                                                   |
+| TC-03 | regression  | Temporary Git fixture merging one child before parent activation                     | Same lifecycle regression: pre-activation child-merge refusal assertion                                                                                           |
+| TC-04 | regression  | Existing and new malformed integration-history fixtures                              | Existing integration AGREEMENT history regression cases in the same test module                                                                                   |
+| TC-05 | integration | Focused Vitest plus affected harness contract verification                           | Focused 267/267 assertions plus `pnpm harness:test:contracts:affected` (239/239 submitted, 0 failed shards)                                                       |
 
 ## Tasks
 
-- [ ] `.agents/tasks/RULE-2664-allow-integration-agreement-activation-after-atomic-prelude.md`
+- [x] `.agents/tasks/completed/RULE-2664-allow-integration-agreement-activation-after-atomic-prelude.md`
 
 ## User Execution Test Scenarios
 
@@ -201,6 +201,7 @@ GATE VERDICT: PASS
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -241,7 +242,150 @@ GATE VERDICT: PASS
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `e2a1257af171` · base `origin/develop@f8dc5a0458c4` · document `.agents/spec-docs/todo/RULE-2664-allow-integration-agreement-activation-after-atomic-prelude.md` blob `f12c56b67c61` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --pool=threads --maxWorkers=1 --testTimeout=30000 --reporter=dot`
+**Exit:** 0
+**Output:** (last 10 of 17 line(s))
+
+```
+  Command: pnpm harness:test:contracts:affected -- --base-ref origin/develop --head-ref HEAD
+  Result: PASS, 239 submitted, 0 not invoked, 0 failed shards, exit 0.
+
+Affected scans:
+  Command: node scripts/harness/run-all-scans.mjs --affected --context pr --base-ref origin/develop --head-ref HEAD
+  Result: PASS, 64 selected; 61 passed, 1 skipped, 2 unrelated historical advisory failures tolerated; owned scans passed, exit 0.
+
+Regression red proof:
+  Command: REGRESSION_RED_PROOF_ENFORCE=1 node scripts/harness/check-regression-red-proof.mjs
+  Result: PASS, scripts/harness/scan-user-execution-plan-order.mjs: red-proof-ok (assertion-fail), exit 0.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d2d2c3864a29` · base `origin/develop@f8dc5a0458c4` · document `.agents/spec-docs/active/RULE-2664-allow-integration-agreement-activation-after-atomic-prelude.md` blob `cb9bc0561bf7` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --pool=threads --maxWorkers=1 --testTimeout=30000 --reporter=dot`
+**Exit:** 0
+**Output:** (last 10 of 17 line(s))
+
+```
+  Command: pnpm harness:test:contracts:affected -- --base-ref origin/develop --head-ref HEAD
+  Result: PASS, 239 submitted, 0 not invoked, 0 failed shards, exit 0.
+
+Affected scans:
+  Command: node scripts/harness/run-all-scans.mjs --affected --context pr --base-ref origin/develop --head-ref HEAD
+  Result: PASS, 64 selected; 61 passed, 1 skipped, 2 unrelated historical advisory failures tolerated; owned scans passed, exit 0.
+
+Regression red proof:
+  Command: REGRESSION_RED_PROOF_ENFORCE=1 node scripts/harness/check-regression-red-proof.mjs
+  Result: PASS, scripts/harness/scan-user-execution-plan-order.mjs: red-proof-ok (assertion-fail), exit 0.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d2d2c3864a29` · base `origin/develop@f8dc5a0458c4` · document `.agents/spec-docs/active/RULE-2664-allow-integration-agreement-activation-after-atomic-prelude.md` blob `a04f571c508d` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --pool=threads --maxWorkers=1 --testTimeout=30000 --reporter=dot`
+**Exit:** 0
+**Output:** (last 10 of 17 line(s))
+
+```
+  Command: pnpm harness:test:contracts:affected -- --base-ref origin/develop --head-ref HEAD
+  Result: PASS, 239 submitted, 0 not invoked, 0 failed shards, exit 0.
+
+Affected scans:
+  Command: node scripts/harness/run-all-scans.mjs --affected --context pr --base-ref origin/develop --head-ref HEAD
+  Result: PASS, 64 selected; 61 passed, 1 skipped, 2 unrelated historical advisory failures tolerated; owned scans passed, exit 0.
+
+Regression red proof:
+  Command: REGRESSION_RED_PROOF_ENFORCE=1 node scripts/harness/check-regression-red-proof.mjs
+  Result: PASS, scripts/harness/scan-user-execution-plan-order.mjs: red-proof-ok (assertion-fail), exit 0.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d2d2c3864a29` · base `origin/develop@f8dc5a0458c4` · document `.agents/spec-docs/active/RULE-2664-allow-integration-agreement-activation-after-atomic-prelude.md` blob `a950edb02957` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs --pool=threads --maxWorkers=1 --testTimeout=30000 --reporter=dot`
+**Exit:** 0
+**Output:** (last 10 of 17 line(s))
+
+```
+  Command: pnpm harness:test:contracts:affected -- --base-ref origin/develop --head-ref HEAD
+  Result: PASS, 239 submitted, 0 not invoked, 0 failed shards, exit 0.
+
+Affected scans:
+  Command: node scripts/harness/run-all-scans.mjs --affected --context pr --base-ref origin/develop --head-ref HEAD
+  Result: PASS, 64 selected; 61 passed, 1 skipped, 2 unrelated historical advisory failures tolerated; owned scans passed, exit 0.
+
+Regression red proof:
+  Command: REGRESSION_RED_PROOF_ENFORCE=1 node scripts/harness/check-regression-red-proof.mjs
+  Result: PASS, scripts/harness/scan-user-execution-plan-order.mjs: red-proof-ok (assertion-fail), exit 0.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d2d2c3864a29` · base `origin/develop@f8dc5a0458c4` · document `.agents/spec-docs/active/RULE-2664-allow-integration-agreement-activation-after-atomic-prelude.md` blob `ba261fdf1483` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm harness:test:contracts:affected -- --base-ref origin/develop --head-ref HEAD`
+**Exit:** 0
+**Output:** (last 10 of 17 line(s))
+
+```
+  Command: pnpm harness:test:contracts:affected -- --base-ref origin/develop --head-ref HEAD
+  Result: PASS, 239 submitted, 0 not invoked, 0 failed shards, exit 0.
+
+Affected scans:
+  Command: node scripts/harness/run-all-scans.mjs --affected --context pr --base-ref origin/develop --head-ref HEAD
+  Result: PASS, 64 selected; 61 passed, 1 skipped, 2 unrelated historical advisory failures tolerated; owned scans passed, exit 0.
+
+Regression red proof:
+  Command: REGRESSION_RED_PROOF_ENFORCE=1 node scripts/harness/check-regression-red-proof.mjs
+  Result: PASS, scripts/harness/scan-user-execution-plan-order.mjs: red-proof-ok (assertion-fail), exit 0.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d2d2c3864a29` · base `origin/develop@f8dc5a0458c4` · document `.agents/spec-docs/active/RULE-2664-allow-integration-agreement-activation-after-atomic-prelude.md` blob `aa8e2c80d3a1` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — Ordering check: PASS — the last GATE-IMPLEMENT entry is PASS and the current status is `in-progress`.
+- GATE-VERIFY — Every Task Plan item is complete: PASS (guardian) — the paired Task contains exactly five Plan checkboxes; all five are `[x]` and zero are unchecked.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS (guardian) — direct inspection found zero blocked or pending markers in the complete five-item Plan.
+- GATE-VERIFY — Build-shaped affected verification: PASS (mechanical) — `node scripts/harness/run-all-scans.mjs --affected --context pr --base-ref origin/develop --head-ref HEAD` exited 0 with 61 scans passed, 1 skipped, and 2 unrelated historical advisory findings tolerated.
+- GATE-VERIFY — Test-shaped affected verification: PASS (mechanical) — `pnpm harness:test:contracts:affected -- --base-ref origin/develop --head-ref HEAD` exited 0; 239 contracts were submitted, 0 were not invoked, and 0 shards failed.
+
+**Judged by:** `gate.mjs` mechanical evaluator plus independent `backlog-gate-guard` guardian (Hegel) for the two semantic Plan criteria
+**Judged at:** HEAD `d2d2c3864a29fb25b80b9d0a75bf5870dc2abbf6` · base `origin/develop@f8dc5a0458c461fbe0f6a1c3b9ee03b36e93076f` · document `.agents/spec-docs/active/RULE-2664-allow-integration-agreement-activation-after-atomic-prelude.md` blob `7eec3bf5a5bf9791f884219b90973aca9e3e9e99` (modified before this evidence append)
+
+GATE VERDICT: PASS
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-20; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/RULE-2664-allow-integration-agreement-activation-after-atomic-prelude.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/RULE-2664-allow-integration-agreement-activation-after-atomic-prelude.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d2d2c3864a29` · base `origin/develop@f8dc5a0458c4` · document `.agents/spec-docs/active/RULE-2664-allow-integration-agreement-activation-after-atomic-prelude.md` blob `95f379556d00` (modified)
