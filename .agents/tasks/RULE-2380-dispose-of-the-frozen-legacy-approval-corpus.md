@@ -11,7 +11,7 @@ depends_on: [RULE-2326]
 
 # RULE-2380: Dispose of the frozen legacy approval corpus
 
-Spec: `.agents/spec-docs/draft/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
+Spec: `.agents/spec-docs/backlog/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
 
 ## Objective
 
@@ -54,6 +54,8 @@ status, and remaining-owner assertions.
 ## User Execution Test Scenarios
 
 Not applicable.
+
+- **Canonical loop run:** `r20260920142613`
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
