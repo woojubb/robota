@@ -125,7 +125,7 @@ After that checkpoint passes, migrate both known byte-read consumers in the same
   by the framework. Each call similarly closes its operation-scoped leaf authority in `finally`.
   `undefined` remains `undefined`; `OVER_BUDGET` maps to `ProjectReadLimitExceededError`; and
   `INVALID_PATH | UNSAFE_ENTRY | UNSUPPORTED_BACKEND | AUTHORITY_CLOSED | ROOT_CHANGED | FILE_CHANGED |
-  HOST_IO` map to `WorkspaceAuthorityRequiredError` with a safe cause. Enumeration, inspection, and
+HOST_IO` map to `WorkspaceAuthorityRequiredError` with a safe cause. Enumeration, inspection, and
   mutation remain unchanged.
 - If Koffi qualifies, `agent-cli` declares the third-party dependency directly as required by its
   self-contained INFRA-028 bundle contract. The Bun release workflow becomes a five-native-runner build

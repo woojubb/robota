@@ -416,7 +416,7 @@ None
 | TC-02 | security integration | real POSIX/Windows replacement and link/reparse fixtures              | Native execution; no mocked `process.platform` evidence  |
 | TC-03 | unit/integration     | bounded reader, mutation seam, lifecycle, error-redaction tests       | Includes limit zero and one-byte probe                   |
 | TC-04 | scenario integration | public replay scenario on Linux/macOS/Windows matrix                  | Exact output and capability error asserted               |
-| TC-05 | contract regression  | framework workspace-authority reader suites                          | Existing non-read capabilities remain under their owners |
+| TC-05 | contract regression  | framework workspace-authority reader suites                           | Existing non-read capabilities remain under their owners |
 | TC-06 | packaging/security   | native runners, packaged `session analyze`, mismatch/no-mutation test | Node 20/22, Bun, packed CLI, dependency audit            |
 | TC-07 | CI policy            | classifier/native-evidence/fan-in/provenance/CI-mirror focused tests  | Required context fails closed; explicit false is N/A     |
 | TC-08 | suite                | affected package gates and affected harness scan                      | Includes recorded RED→GREEN evidence                     |
@@ -860,6 +860,7 @@ blob `dc359707c05dea8d53df2366fa1d53ddb0ab72ff` (untracked)
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 4 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -926,6 +927,7 @@ blob `dc359707c05dea8d53df2366fa1d53ddb0ab72ff` (untracked)
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
