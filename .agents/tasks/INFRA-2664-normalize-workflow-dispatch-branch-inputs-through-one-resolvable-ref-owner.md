@@ -81,16 +81,8 @@ claim that this defect is fixed.
      not-applicable form ONLY with a product-surface reason (≥ 50 characters, not build/typecheck
      evidence); otherwise write the scenario a user can run and raise the count. -->
 
-**Author verdict:** `SCENARIO DRAFTED: automatable | 1`
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-### Scenario 1 — dispatch CI with branch names
-
-- Prerequisite: a remote base branch and descendant head branch with at least one conventional
-  commit between them.
-- Run the repository's `CI` workflow manually with those two branch names as `base_ref` and
-  `head_ref`.
-- Expected: the workflow reports the resolved base/head commit OIDs, commitlint evaluates exactly
-  that range, dependency audit evaluates the same range, and no job fails because a raw branch name
-  is absent from the local checkout.
-- Cleanup: none; the run is read-only.
-- Evidence: record the Actions run URL and both resolved OIDs before completing this Task.
+**Reason:** This Task changes repository-internal GitHub Actions ref resolution and has no Robota CLI,
+TUI, browser, public SDK, or installed-package behavior that an end user can execute. Branch/SHA
+dispatch equivalence remains engineering verification owned by the Test Plan above.
