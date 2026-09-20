@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [harness]
 lane: L1
@@ -120,8 +120,8 @@ binding before, binding after. The correction form is untouched and stays byte-s
 
 ## Completion Criteria
 
-- [ ] TC-01: the door is exactly one Task wide — a continuation whose ONLY Task change re-records the DONE-GATE-STAGE-1 entry so its payload binds the unchanged scenario text is accepted; a continuation that moves any Task byte outside that entry is refused; a Task rewrite whose payload already bound is refused, because a rebind repairs a drift or nothing; and the unchanged-Task continuation and the drifted refusal are both left exactly as they were.
-- [ ] TC-02: engineering verification — the harness contract tier passes, and `pnpm harness:scan` reports no finding this change introduces.
+- [x] TC-01: the door is exactly one Task wide — a continuation whose ONLY Task change re-records the DONE-GATE-STAGE-1 entry so its payload binds the unchanged scenario text is accepted; a continuation that moves any Task byte outside that entry is refused; a Task rewrite whose payload already bound is refused, because a rebind repairs a drift or nothing; and the unchanged-Task continuation and the drifted refusal are both left exactly as they were.
+- [x] TC-02: engineering verification — the harness contract tier passes, and `pnpm harness:scan` reports no finding this change introduces.
 
 ## Test Plan
 
@@ -143,7 +143,7 @@ repository between the gate writer and the scan that reads it.
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-2774-re-bind-a-drifted-done-gate-stage-1-payload-on-a-continuation-checkpoint.md` — todo
+- [x] `.agents/tasks/completed/HARNESS-2774-re-bind-a-drifted-done-gate-stage-1-payload-on-a-continuation-checkpoint.md` — todo
 
 ## Evidence Log
 
@@ -260,3 +260,136 @@ repository between the gate writer and the scan that reads it.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `3813599f3db1` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/todo/HARNESS-2774-re-bind-a-drifted-done-gate-stage-1-payload-on-a-continuation-checkpoint.md` blob `6e084ee33637` (untracked)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-21
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): the paired
+  Task at HEAD `dd22c8a23c37` carries `## Plan` with 0/2 items ticked — `- [ ] TC-01: a continuation
+  checkpoint may carry one Task change and only one …` and `- [x] TC-02: engineering verification — the
+  harness contract tier and the full scan …`. Required: every `## Plan` item `[x]`.
+- No Plan item is blocked or pending: the same 2 items are untied, which the evaluator's own rule
+  (`gate-operations.mjs` › `no-blocked`, `(box) => !box.checked || /\b(blocked|pending)\b/i`) counts as
+  pending. No item carries a literal `blocked`/`pending` word; the unticked state alone is the finding.
+- Build passes for all affected packages (`pnpm build`): the scope is `scripts/harness/**` only (no
+  package build), so the catalogue's build-equivalent applies — `pnpm harness:scan` re-run here exits 1,
+  `1 of 162 scans failed`, `task-merged-citation` alone, on `.agents/tasks/SCREEN-2002-…md`. Attributed,
+  not introduced: `node scripts/harness/scan-task-merged-citation.mjs` produces the identical finding in
+  a throwaway worktree at base `origin/develop@e040f298fe53`, and `git diff --name-only
+  origin/develop...dd22c8a23` is 4 paths, none of them a SCREEN-2002 or citation-scan path. Required by
+  the criterion as written: a build-shaped command exiting 0.
+
+**Required action:** complete and tick both `## Plan` items in the paired Task, then re-run this gate;
+supply a build-shaped `--verify-cmd` that exits 0 (a root `pnpm build`, or `pnpm harness:scan` once the
+inherited SCREEN-2002 `task-merged-citation` red is reconciled — which is the very red this unit's
+delivery exists to make reconcilable).
+
+**Criterion met:**
+
+- Tests pass for all affected packages: `node scripts/harness/harness-test-tiers.mjs --tier contracts`
+  → exit 0, 268 files / 5066 tests, plus the tier's five isolated runs (26, 222, 18, 55, 274 — the last
+  is this scan's own file, run solo). Re-run here, not taken on report.
+
+**Ordering check:** PASS — prior gate `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-20` is the last recorded
+entry, and `status: in-progress` is the input state the catalogue's prior-gate map requires for
+GATE-VERIFY (blank re-run rule, last-entry reading).
+
+**Also verified, recorded because the record asserted it (not a GATE-VERIFY criterion):** the two
+review-round fixes are real, each mutation-proved in a throwaway worktree at `dd22c8a23` — restoring the
+literal `'\n### '` span search without the line/heading validation turns "refuses a rebind whose Stage-1
+heading is indented" red and nothing else; dropping the suffix half of the outside-the-entry comparison
+(`before[1] !== after[1]`) turns "refuses a rebind that rewrites a section AFTER the Stage-1 entry" red
+and nothing else. The RED PROOF reproduces: `false && isStageOneRebind(…)` fails case 1 only (1 failed /
+6 passed / 267 skipped). Issue #2774 comment 5750809102 exists and records the `sequenced`-only residual
+the § Decision cites it for. Not re-probed: the end-to-end three-commit SCREEN-2002 reconciliation claim,
+which no GATE-VERIFY criterion reads — it is GATE-COMPLETE's TC-01/TC-02 evidence and is not relied on here.
+
+**Judged by:** `backlog-gate-guard`
+**Judged at:** HEAD `dd22c8a23c37` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/HARNESS-2774-re-bind-a-drifted-done-gate-stage-1-payload-on-a-continuation-checkpoint.md` blob `7e262d415fb8` (tracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-21
+
+**Command:** `npx vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t "Stage-1 rebind"`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:56:21 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5
+
+ ✓ scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs (274 tests | 267 skipped) 28ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed | 267 skipped (274)
+   Start at  00:56:21
+   Duration  482ms (transform 140ms, setup 0ms, collect 215ms, tests 28ms, environment 0ms, prepare 38ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd22c8a23c37` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/HARNESS-2774-re-bind-a-drifted-done-gate-stage-1-payload-on-a-continuation-checkpoint.md` blob `c597dc1199f0` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-21
+
+**Command:** `node scripts/harness/harness-test-tiers.mjs --tier contracts`
+**Exit:** 0
+**Output:** (last 10 of 190 line(s))
+
+```
+
+··················································································································································································································································································
+
+ Test Files  1 passed (1)
+      Tests  274 passed (274)
+   Start at  01:00:52
+   Duration  242.33s (transform 122ms, setup 0ms, collect 159ms, tests 242.02s, environment 0ms, prepare 28ms)
+
+1:00:52 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd22c8a23c37` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/HARNESS-2774-re-bind-a-drifted-done-gate-stage-1-payload-on-a-continuation-checkpoint.md` blob `57181f5bcd22` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** in-progress → verifying
+**Re-run of:** `[GATE-VERIFY] — ❌ FAIL | 2026-09-21`, same HEAD `dd22c8a23c37`. Only the record moved:
+`git diff HEAD --name-only -- scripts/` is 0 paths, so `scripts/harness/**` is byte-identical to the
+commit the FAIL judged; the working-tree delta is the two Task `## Plan` ticks, the two spec
+`## Completion Criteria` ticks, and the two `[GATE-COMPLETE: TC-N]` records (`git diff HEAD` over the
+paired pair, read line by line — no prose, design or code byte moved).
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-20` is the last GATE-IMPLEMENT entry (blank re-run rule, last-entry reading), and frontmatter is `status: in-progress`, the input state the prior-gate map requires. The two intervening `[GATE-COMPLETE: TC-N]` entries are not an out-of-order gate: the L1 lane orders `gate.mjs record --tc` (step 8) BEFORE the DONE judgement (step 9) in `backlog-pipeline` SKILL, so they are this gate's prescribed inputs, not work it authorises.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): 2/2 `[x]` — `- [x] TC-01: a continuation checkpoint may carry one Task change and only one …` and `- [x] TC-02: engineering verification — the harness contract tier and the full scan …`. The `## Plan` section holds the Task's only two checkboxes (`grep -n '^\s*- \[.\]'` returns exactly those two lines); `scan-task-plan-items` passes in both scan runs below. This is the criterion the earlier FAIL was recorded on, at 0/2.
+- GATE-VERIFY — No Plan item is blocked or pending: both boxes are ticked and neither box's text contains `blocked`/`pending`. The one `pending` token in the Task (`evidence: pending`, line 25) is `## Objective` prose describing the defect, not a checkbox item, so the evaluator's `no-blocked` rule (`gate-operations.mjs`, `(box) => !box.checked || /\b(blocked|pending)\b/i.test(box.text)`) does not reach it.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): no package is affected — `git diff --name-only origin/develop...HEAD` is 4 paths (2 `.agents/` records, `scripts/harness/scan-user-execution-plan-order.mjs`, its `__tests__` file) and none is under `packages/` or `apps/`, so the build-equivalent for a `scripts/**`-only scope applies (`gate-operations.mjs` › VERIFY COMMAND SHAPE: `harness:scan`/`run-all-scans` stands in where there is no package build). Measured twice, both exit 0: (a) the lane's own declared build-shaped form, `node scripts/harness/run-all-scans.mjs --affected --context pr` (`backlog-pipeline` SKILL step 9) → `61 scans passed, 1 skipped, 1 advisory failure(s) tolerated (pr context) … (63 declared what they examined)`, exit 0 — the skip is the self-skipping `new-rule-declares-enforcement`; (b) the complement, `pnpm harness:scan --skip task-merged-citation` → `160 scans passed, 1 skipped (161 declared what they examined)`, exit 0. Run (a) did not hide the red: it RAN `task-merged-citation`, which failed, and the runner tolerated it because the repository registers that scan `advisory: true` for exactly this question — `run-all-scans.mjs:1141-1149`, "advisory under `pr` because the history it grades is moved by OTHER pull requests, not by the change under review". Re-run alone, `node scripts/harness/scan-task-merged-citation.mjs` reports one finding, `.agents/tasks/SCREEN-2002-…md` (15 merged commits cite an `in-progress` record), on a path this change does not touch.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `node scripts/harness/harness-test-tiers.mjs --tier contracts` re-run here at this tree state → exit 0, `Test Files 268 passed (268)`, plus the tier's five isolated runs (26, 222, 18, 55, and 274 — this scan's own file, solo). Not taken on report.
+
+**Residual, recorded because this PASS does not clear it:** the strict full scan
+(`pnpm harness:scan`, `--context integration`) still exits 1 on this branch, `task-merged-citation`
+alone, and it exits 1 identically at base `origin/develop@e040f298fe53` — an inherited red, the
+SCREEN-2002 half of issue #2756. This change makes that record repairable; it does not repair it. A
+later gate that needs a green integration scan must not read this entry as one.
+
+**Judged by:** `backlog-gate-guard`
+**Judged at:** HEAD `dd22c8a23c37` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/HARNESS-2774-re-bind-a-drifted-done-gate-stage-1-payload-on-a-continuation-checkpoint.md` blob `ba7ba654d098` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-21; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 2/2 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (2)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (2) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (2) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 2/2 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (2) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/HARNESS-2774-re-bind-a-drifted-done-gate-stage-1-payload-on-a-continuation-checkpoint.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 2/2 tasks `[x]` in .agents/tasks/HARNESS-2774-re-bind-a-drifted-done-gate-stage-1-payload-on-a-continuation-checkpoint.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `dd22c8a23c37` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/HARNESS-2774-re-bind-a-drifted-done-gate-stage-1-payload-on-a-continuation-checkpoint.md` blob `45aec33dea63` (modified)

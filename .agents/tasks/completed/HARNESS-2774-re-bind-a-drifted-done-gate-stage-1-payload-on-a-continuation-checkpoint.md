@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-2774: Re-bind a drifted DONE-GATE-STAGE-1 payload on a continuation checkpoint'
 issue: https://github.com/woojubb/robota/issues/2774
-status: in-progress
+status: done
+completed: 2026-09-21
 created: 2026-09-20
 priority: high
 urgency: now
@@ -31,11 +32,11 @@ closed in any commit shape. That is the other half of the develop red tracked by
 
 ## Plan
 
-- [ ] TC-01: a continuation checkpoint may carry one Task change and only one — re-recording the
+- [x] TC-01: a continuation checkpoint may carry one Task change and only one — re-recording the
       DONE-GATE-STAGE-1 entry so its payload binds the scenario text the Task already carries.
       Byte-identical outside that entry, drifted before, binding after; anything else is still
       refused, and a payload that already binds has nothing to repair.
-- [ ] TC-02: engineering verification — the harness contract tier and the full scan, with every
+- [x] TC-02: engineering verification — the harness contract tier and the full scan, with every
       finding attributed.
 
 ## Test Plan
