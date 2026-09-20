@@ -364,7 +364,7 @@ describe('the Task record is the source', () => {
     expect(parseFrontmatterBlock(stdout).get('tags')).toEqual(['harness', 'ci']);
   });
 
-  it.each(['', '   ', ' ,  '])(
+  it.each(['', '   ', ' ,  ', '""', "''", '"   "'])(
     'refuses an explicitly empty --tags value %j without writing a document',
     (tags) => {
       const root = rootWith({ tasks: [STUB_TASK] });

@@ -53,6 +53,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { documentAuthoringReferenceError } from './document-authoring-reference.mjs';
+import { unquote } from './frontmatter.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 // stdout is the payload here (`--dry-run` prints the document, otherwise the created path), so the
@@ -164,16 +165,18 @@ export function parseArgs(argv) {
   return { ok: true, options };
 }
 const bullets = (items) => items.map((item) => `- \`${item}\``).join('\n');
+const parseTags = (value) =>
+  String(value)
+    .split(',')
+    .map((tag) => unquote(tag.trim()))
+    .filter((tag) => tag.length > 0);
 /** Every `{{TOKEN}}` value for the template, decided by lane and by what the Task record carries. */
 export function buildFields(options, task) {
   const l1 = options.lane === 'L1';
   const waiver = options.waive ?? DEFAULT_WAIVER;
   const userSurface = options.userSurface ?? !l1;
   const title = (options.title ?? task.title).trim();
-  const tags = (options.tags ?? options.id.replace(/-\d+$/, '').toLowerCase())
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter((tag) => tag !== '');
+  const tags = parseTags(options.tags ?? options.id.replace(/-\d+$/, '').toLowerCase());
 
   const problemSeed = task.objective || `${title}.`;
   const problem =
@@ -295,13 +298,7 @@ export function renderSpec(options) {
     scan: 'new-spec',
     why: 'The Task tree is the source, the draft folder is the target and the template is the shape; without any one of them there is nothing to scaffold.',
   });
-  if (
-    options.tags !== undefined &&
-    options.tags
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean).length === 0
-  ) {
+  if (options.tags !== undefined && parseTags(options.tags).length === 0) {
     return { ok: false, error: '--tags must contain at least one non-empty value' };
   }
   const task = readTaskRecord(root, id);

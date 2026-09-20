@@ -115,7 +115,7 @@ None
 | TC-02 | Unit              | `gate.test.mjs` mechanical GATE-WRITE matrix        | Exact shared diagnostic plus all valid YAML forms.             |
 | TC-03 | Unit / process    | `new-spec.test.mjs` CLI and dry-run assertions      | No file is written for invalid explicit input.                 |
 | TC-04 | Unit              | `check-spec-doc-frontmatter.test.mjs` parity matrix | Final owner behavior is preserved, not weakened.               |
-| TC-05 | Integration       | Affected harness scan in PR context                 | Uses the current integration branch as `HARNESS_BASE_REF`.    |
+| TC-05 | Integration       | Affected harness scan in PR context                 | Uses the current integration branch as `HARNESS_BASE_REF`.     |
 
 ## User Execution Test Scenarios
 
@@ -235,6 +235,7 @@ GATE VERDICT: PASS
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -275,6 +276,7 @@ GATE VERDICT: PASS
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
