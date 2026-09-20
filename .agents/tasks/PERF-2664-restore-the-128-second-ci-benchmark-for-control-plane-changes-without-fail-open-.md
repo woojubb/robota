@@ -87,16 +87,8 @@ not claim the performance contract is restored until repeated exact-head measure
      not-applicable form ONLY with a product-surface reason (≥ 50 characters, not build/typecheck
      evidence); otherwise write the scenario a user can run and raise the count. -->
 
-**Author verdict:** `SCENARIO DRAFTED: automatable | 1`
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-### Scenario 1 — benchmark a control-plane change
-
-- Prerequisite: an immutable base/head pair whose diff changes a registered harness control-plane
-  input and whose required-context behavior is otherwise green.
-- Dispatch the repository's `CI` workflow on `develop` with those SHAs as `base_ref` and `head_ref`.
-- Expected: exactly 11 required contexts complete successfully, no applicable contract is omitted or
-  accepted from a stale cache marker, and the benchmark summary reports at most 128 seconds.
-- Repeat twice more on the exact same head to prove the result is not a single-run outlier.
-- Cleanup: none; the workflow is read-only.
-- Evidence: record all three Actions URLs, cache hit/miss counts, selected contract count, and timing
-  table before completing this Task.
+**Reason:** This Task changes repository-internal CI selection and timing enforcement and exposes no
+Robota CLI, TUI, browser, public SDK, or installed-package behavior that an end user can execute. The
+three immutable-SHA benchmark runs remain engineering verification owned by the Test Plan above.
