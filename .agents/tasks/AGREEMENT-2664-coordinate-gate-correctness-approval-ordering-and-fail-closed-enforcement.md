@@ -57,7 +57,7 @@ AGREEMENT-013, or AGREEMENT-2698.
 - [x] RULE-2582 — done — `.agents/tasks/completed/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md`
 - [x] BEHAVIOR-2663 — done — `.agents/tasks/completed/BEHAVIOR-2663-bind-mechanical-gate-verify-checks-without-prose-drift.md`
 - [x] RULE-2665 — done — `.agents/tasks/completed/RULE-2665-define-the-terminal-disposition-for-orchestration-skipped-gates.md`
-- [ ] RULE-2326 — todo — `.agents/tasks/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md`
+- [x] RULE-2326 — done — `.agents/tasks/completed/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md`
 - [ ] RULE-2380 — todo — `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
 
 ## Test Plan
@@ -65,6 +65,18 @@ AGREEMENT-013, or AGREEMENT-2698.
 Run the exact Task/spec projection scan, Task lifecycle classification, affected harness tests, and
 the GitHub issue-triage read-back after each lifecycle mutation. Final verification compares every
 umbrella row with one delivered or explicitly terminal owner and runs the full repository harness scan.
+
+## Recommendation Evidence
+
+- `proposal-reviewer` round 1 returned `REVISE` with 2 unresolved findings: the Task still said five
+  completed children, and TC-01 still described all children as lifecycle-open.
+- The Task and spec were corrected to reflect six terminal children, with RULE-2326 and RULE-2380
+  remaining open in declared order.
+- `proposal-reviewer` round 2 returned `ENDORSE` with 0 unresolved findings for projection digest
+  `6440813179e8921e562ac9672c07840afc6f3cfa69cbd83962d8e91077b5fd9f` and endorsement key
+  `984135c1e9cf2cf6371db17d67faf3e3c1fc3e58ed7a2eb09c2f9089695e8e06`.
+- **Canonical loop run:** `r20260920170106` in
+  `.agents/loop-runs/backlog-execution-orchestrator.jsonl`; rounds `[2, 0]`, terminal `converged`.
 
 ## User Execution Test Scenarios
 

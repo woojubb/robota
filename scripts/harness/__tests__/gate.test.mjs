@@ -19,6 +19,7 @@ import {
 } from '../checkpoint-evidence-contract.mjs';
 import {
   APPROVE_FIRST,
+  JUDGEMENTS,
   L1_NOT_REQUIRED,
   blobIdOf,
   boundClassMeasurement,
@@ -171,17 +172,9 @@ For each TC-N in \`## Completion Criteria\`:
   - The exact command or action used to verify
   - The actual output or result observed
 
-For each TC-N in \`## Test Plan\`:
-
-- [ ] **One of the following is recorded:** — \`mechanical\`
-  - **Test written:** test file path + test function/describe name
-  - **Test skipped:** explicit reason why automated test was not written
-- [ ] No TC-N is silently unaddressed — every row must have either a test reference or a skip reason — \`mechanical\`
-
 After all criteria:
 
 - [ ] Spec document \`## Completion Criteria\` checkboxes are all \`[x]\` — \`mechanical\`
-- [ ] \`## Test Plan\` updated with test references or skip reasons for all TC-N rows — \`mechanical\`
 - [ ] The spec's \`## Tasks\` section names the exact active task path under \`.agents/tasks/\` — \`mechanical\`
 - [ ] That active task exists and is completion-ready: all tasks are \`[x]\`, with no pending or blocked item — \`mechanical\`
 `;
@@ -505,6 +498,16 @@ describe('the live governed documents parse with the readers gate.mjs uses', () 
     ]);
     expect(verifyCriteria[0].text).toContain('The `## Plan` SECTION only');
     expect(verifyCriteria[0].text).not.toContain('judgement:');
+    expect(
+      JUDGEMENTS['GATE-APPROVAL'].some(({ id }) => id === 'independent-recommendation-endorsed'),
+    ).toBe(true);
+    expect(
+      catalogue.gates
+        .get('GATE-APPROVAL')
+        .criteria.some(({ text: criterion }) =>
+          /current recommendation has one independent endorsement/i.test(criterion),
+        ),
+    ).toBe(true);
     // G1 (gate-catalogue.md § Prior-gate map, issue #2219/#2588, CLI-1997): GATE-APPROVAL → GATE-WRITE
     // and GATE-DONE → GATE-PLAN both declare `recorded-pass` — the two rows this repository excepts
     // from the default last-entry rule, because both prior gates' first criterion consumes a

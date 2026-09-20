@@ -44,6 +44,7 @@ import {
   readLedger,
   readLoopDeclaration,
 } from './loop-run.mjs';
+import { recommendationReviewExtensionErrors } from './recommendation-review-record.mjs';
 import { parseDeclaration } from './scan-loop-contract.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
@@ -168,6 +169,9 @@ export function findLoopRunRecordFindings(
           Array.isArray(entry.extensions))
       ) {
         at(rel, `run \`${entry.runId}\`: \`extensions\` must be an object`);
+      }
+      for (const error of recommendationReviewExtensionErrors(entry)) {
+        at(rel, `run \`${entry.runId}\`: ${error}`);
       }
       const architecture = entry.extensions?.[ARCHITECTURE_REFRESH_EXTENSION];
       if (architecture !== undefined) {
