@@ -33,7 +33,7 @@ immediately rejects or that permanently blocks a continuation retry.
 - [x] TC-03 — Prove generated payloads pass `worktreeError` while one real unrelated path still fails.
 - [x] TC-04 — Verify retry behavior does not become trapped by tool-produced invalid evidence.
 - [x] TC-05 — Run the focused checkpoint/receipt suites and affected harness verification against the child branch base.
-- [x] TC-06 — Run the affected harness scan against `fix/2664-gate-correctness` and record its result.
+- [x] TC-06 — Run the affected harness scan against `origin/integration/agreement-2664` and record its result.
 
 ## Test Plan
 
@@ -45,6 +45,7 @@ suites plus affected harness verification.
 
 - 2026-09-20 — GATE-IMPLEMENT checkpoint preparation: pair-owned activation metadata is ready; no implementation path has changed.
 - 2026-09-20 — Shared real-dirt classification now feeds all checkpoint inventory forms; 122 focused tests and the 63-scan affected PR selection pass, with two pre-existing advisories tolerated by PR context.
+- 2026-09-20 — Rebased the unpushed port onto `origin/integration/agreement-2664@634ff8cfe`; 122 focused tests, 61 affected scans plus one skip, and the 9-commit plan-order check pass on the current base.
 
 ## User Execution Test Scenarios
 
