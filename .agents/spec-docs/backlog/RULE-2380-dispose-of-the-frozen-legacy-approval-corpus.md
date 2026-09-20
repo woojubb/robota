@@ -1,5 +1,5 @@
 ---
-status: draft
+status: review-ready
 type: RULE
 tags: [harness, approval, migration]
 lane: L2
@@ -299,3 +299,39 @@ that an end user can execute.
 
 **Judged by:** `backlog-gate-guard` semantic evaluator
 **Judged at:** HEAD `73cf4c7e721e` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/draft/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `ae0efcc88dc4f2ce38b31cdd381ed2b15704cd5e` (untracked)
+
+### [GATE-WRITE] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** draft → review-ready
+
+- GATE-WRITE — Ordering check: PASS — GATE-WRITE is the entry gate; the document declares `status: draft` in the `draft/` lifecycle folder.
+- GATE-WRITE — File begins with `---` YAML frontmatter block: PASS — mechanical judge confirmed a delimited frontmatter block.
+- GATE-WRITE — `status: draft` present in frontmatter: PASS — mechanical judge confirmed `status: draft`.
+- GATE-WRITE — `type:` is exactly one permitted value: PASS — mechanical judge confirmed `type: RULE` is one of the 11 allowed types.
+- GATE-WRITE — `tags:` contains at least one non-empty value: PASS — mechanical judge found three non-empty tags.
+- GATE-WRITE — Contains a concrete symptom: PASS — the Problem identifies the named scanner's live result of 404 approved documents, including 218 frozen approvals without routes, and the missing per-record disposition/binding.
+- GATE-WRITE — Contains a reproduction condition: PASS — running `node scripts/harness/scan-standing-delegation-evidence.mjs` on the current tree reproduced `404` approvals with `137` DIRECT, `49` CLASS, and `218` frozen without routes.
+- GATE-WRITE — Does not contain `TBD`, `TODO`, or a vague single-sentence Problem: PASS — mechanical judge found no prohibited placeholder and a 14-sentence Problem.
+- GATE-WRITE — `## Prior Art Research` present: PASS — mechanical judge found the section.
+- GATE-WRITE — Prior Art Research substantiation: PASS — the section cites official Git object/data-model documentation and NIST SP 800-53 AU-9; the mechanical research scan passed.
+- GATE-WRITE — Waiver alternative: PASS — substantiated research satisfies the permitted alternative, so no waiver is required.
+- GATE-WRITE — Research findings feed Alternatives Considered / Decision: PASS — the verified 218-record evidence map is internally consistent at 164 direct-shaped / 26 quoted-class-shaped / 17 relayed / 11 no-quoted-authority; Git/NIST integrity evidence and the repository's immutable-adoption precedents support rejecting retroactive authority and choosing the immutable manifest.
+- GATE-WRITE — All Architecture Review checklist items checked: PASS — mechanical judge found all five displayed checklist items checked.
+- GATE-WRITE — Sibling scan recorded: PASS — the checked item names RULE-012, RULE-2326, and BACKLOG-ZERO-MIGRATION and the absence of an existing per-record disposition owner.
+- GATE-WRITE — Alternatives with Pro/Con: PASS — mechanical judge found four alternatives, each with both.
+- GATE-WRITE — Decision trade-off: PASS — alternative 4 explicitly accepts an additional immutable manifest in exchange for exact population binding, history preservation, and fail-closed drift detection.
+- GATE-WRITE — New-surface placement: N/A — this changes repository-private harness policy and records only; it adds no package, app, presentation/interface surface, or product-family/layer boundary.
+- GATE-WRITE — Completion Criteria prefixes: PASS — mechanical judge found five `TC-NN` criteria.
+- GATE-WRITE — Completion-criteria coverage: PASS — TC-01 through TC-04 cover the manifest, non-authorizing disposition policy, fail-closed scanner behavior, and deterministic replay; TC-05 covers the RULE-2380 and AGREEMENT-2664 lifecycle projections.
+- GATE-WRITE — Completion-criteria form: PASS — each TC names observable set/count, byte, scan, rejection, or exact lifecycle/path/status behavior rather than an implementation assertion.
+- GATE-WRITE — No forbidden vague criterion phrase: PASS — mechanical judge found none.
+- GATE-WRITE — `## Test Plan` present: PASS — mechanical judge found the section.
+- GATE-WRITE — Test Plan coverage: PASS — five Test Plan rows correspond exactly to TC-01 through TC-05.
+- GATE-WRITE — Test Type and Tool/Approach: PASS — mechanical judge found non-empty values and no `TBD` in all five rows.
+- GATE-WRITE — Manual-test notes: PASS — no row uses `manual`.
+- GATE-WRITE — Tasks placeholder: PASS — mechanical judge found the paired RULE-2380 Task placeholder.
+- GATE-WRITE — Evidence Log first-run structure: PASS — mechanical judge found three prior GATE-WRITE attempts and no entry from a later gate; this is the bounded re-run of the same entry gate.
+- GATE-WRITE — No body `## Status` or `## Classification`: PASS — mechanical judge found neither.
+
+**Judged by:** `backlog-gate-guard` semantic evaluator + `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `73cf4c7e721e` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/draft/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `424768f46c640f10b2d9ec4abf0ecb9d6964be45` (untracked)
