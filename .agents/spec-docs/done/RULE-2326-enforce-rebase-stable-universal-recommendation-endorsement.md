@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [harness, approval]
 lane: L2
@@ -234,17 +234,17 @@ introduced merely because closed PR #2374 used an older shape.
 
 ## Completion Criteria
 
-- [ ] TC-01: The rule, gate catalogue, orchestrator, recorder, scanner, and GATE-APPROVAL evaluator
+- [x] TC-01: The rule, gate catalogue, orchestrator, recorder, scanner, and GATE-APPROVAL evaluator
       share one versioned subject-plus-projection endorsement key; DIRECT/CLASS and L1/L2 routes all
       enforce it, and the documented causal property does not depend on commit SHA ancestry.
-- [ ] TC-02: Focused fixtures accept exactly one current `ENDORSE | 0` and reject missing,
+- [x] TC-02: Focused fixtures accept exactly one current `ENDORSE | 0` and reject missing,
       wrong-subject, stale-key, duplicate, non-ENDORSE, unresolved, malformed, retrospective, and
       implementation-before-checkpoint records.
-- [ ] TC-03: The six issue #2377 classifier cases produce exactly two positives (one committed, one
+- [x] TC-03: The six issue #2377 classifier cases produce exactly two positives (one committed, one
       staged) and four negatives (ledger-only/malformed and implementation-mixed for each mode); an
       always-true mutation fails all four negatives, and a synthetic clean rebase preserves a valid
       checkpoint without rewriting its ledger evidence.
-- [ ] TC-04: Adoption fixtures keep unchanged terminal history exempt, re-govern changed or
+- [x] TC-04: Adoption fixtures keep unchanged terminal history exempt, re-govern changed or
       transitioned nonterminal work, and permit only the exact self-bootstrap tuple; completion
       fixtures prove `[ ]` to `[x]` and ordinary TC-specific Evidence Log additions preserve the key,
       while criterion text/ID/order or Test Plan edits change it; the approval evaluator never treats
@@ -272,7 +272,7 @@ execute.
 
 ## Tasks
 
-- [ ] `.agents/tasks/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md` — todo
+- [x] `.agents/tasks/completed/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md` — done
 
 ## Evidence Log
 
@@ -382,3 +382,129 @@ execute.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `9983ef58a7e7` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/todo/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md` blob `f969f4b4f56b` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/recommendation-review-record.test.mjs scripts/harness/__tests__/gate.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 30 line(s))
+
+```
+   ✓ judge — GATE-IMPLEMENT reads the worktree > fails naming a path outside the paired artifacts  323ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > does not count the auto-generated churn as a path outside the pair (#2376)  578ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > fails when the Task named in ## Tasks does not exist  371ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > fails when the Task named in ## Tasks exists only under the archived completed directory  365ms
+   ✓ tree binding (issue #2213): a verdict names the state it judged > names HEAD, the document blob, and whether the judged content is what the repository holds  499ms
+
+ Test Files  2 passed (2)
+      Tests  118 passed (118)
+   Start at  21:54:09
+   Duration  23.68s (transform 294ms, setup 0ms, collect 423ms, tests 23.05s, environment 0ms, prepare 101ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5cdce3d514f` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md` blob `4ec2bf522f30` (tracked)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-recommendation-endorsement.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 54 line(s))
+
+```
+   ✓ topic ordering > finds implementation between an adoption-byte edit and exact restoration  1542ms
+   ✓ topic ordering > finds implementation between a bootstrap edit and exact restoration  1493ms
+   ✓ topic ordering > finds implementation while an endorsed subject is deleted before exact restoration  2246ms
+   ✓ topic ordering > replays a ledger-only observation commit and rejects it as a checkpoint  1016ms
+   ✓ topic ordering > rejects a topic ledger observation for a ghost subject  484ms
+
+ Test Files  1 passed (1)
+      Tests  54 passed (54)
+   Start at  21:54:09
+   Duration  43.12s (transform 86ms, setup 0ms, collect 108ms, tests 42.68s, environment 0ms, prepare 61ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5cdce3d514f` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md` blob `e7ba1a695f79` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-recommendation-endorsement.test.mjs scripts/harness/__tests__/scan-recommendation-endorsement-staged.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 80 line(s))
+
+```
+   ✓ staged ordering > accepts literal HTML comment bytes in an escaped HTML opener as staged checkpoint evidence  1320ms
+   ✓ staged ordering > accepts literal HTML comment bytes in an indented code block as staged checkpoint evidence  1262ms
+   ✓ staged ordering > rejects a staged ledger observation for a ghost subject  566ms
+   ✓ staged ordering > does not let a staged rejection erase an approved proposal from ordering  1073ms
+   ✓ staged ordering > reports a staged governed-subject deletion mixed with implementation  1005ms
+
+ Test Files  2 passed (2)
+      Tests  80 passed (80)
+   Start at  21:54:09
+   Duration  50.40s (transform 85ms, setup 0ms, collect 191ms, tests 92.79s, environment 0ms, prepare 165ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5cdce3d514f` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md` blob `08f202986f4b` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/loop-run.test.mjs scripts/harness/__tests__/scan-loop-run-records.test.mjs scripts/harness/__tests__/gate.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 32 line(s))
+
+```
+   ✓ judge — GATE-IMPLEMENT reads the worktree > does not count the auto-generated churn as a path outside the pair (#2376)  558ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > fails when the Task named in ## Tasks does not exist  359ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > fails when the Task named in ## Tasks exists only under the archived completed directory  352ms
+   ✓ judge — GATE-IMPLEMENT reads the worktree > fails GATE-IMPLEMENT when a strict not-applicable PLAN reason is thin  347ms
+   ✓ tree binding (issue #2213): a verdict names the state it judged > names HEAD, the document blob, and whether the judged content is what the repository holds  415ms
+
+ Test Files  3 passed (3)
+      Tests  172 passed (172)
+   Start at  21:54:09
+   Duration  23.37s (transform 342ms, setup 0ms, collect 612ms, tests 23.17s, environment 0ms, prepare 205ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5cdce3d514f` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md` blob `cae6b4c6ff53` (modified)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-20
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): no supplied --verify-cmd contains `build`, `harness:scan` or `run-all-scans` (supplied: `pnpm exec vitest run scripts/harness/__tests__/recommendation-review-record.test.mjs scripts/harness/__tests__/scan-recommendation-endorsement.test.mjs scripts/harness/__tests__/scan-recommendation-endorsement-staged.test.mjs scripts/harness/__tests__/loop-run.test.mjs scripts/harness/__tests__/scan-loop-run-records.test.mjs scripts/harness/__tests__/gate.test.mjs` → exit 0 (Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature'))
+  **Required action:** pass a build command via --verify-cmd
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5cdce3d514f` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md` blob `e8514a7f68d7` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-20; status `in-progress`
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`). The `## Plan` SECTI: 4/4 tasks `[x]` in .agents/tasks/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md
+- GATE-VERIFY — No Plan item is blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm harness:scan:recommendation-endorsement` → exit 0 ( ⏎ ::examined:: 485 post-approval recommendation document(s) ⏎ recommendation-endorsement scan passed (485 document(s) examined).); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/recommendation-review-record.test.mjs scripts/harness/__tests__/scan-recommendation-endorsement.test.mjs scripts/harness/__tests__/scan-recommendation-endorsement-staged.test.mjs scripts/harness/__tests__/loop-run.test.mjs scripts/harness/__tests__/scan-loop-run-records.test.mjs scripts/harness/__tests__/gate.test.mjs` → exit 0 (Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature' ⏎ Switched to a new branch 'feature'); all 2 supplied commands exit 0
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5cdce3d514f` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md` blob `52c74c1f8b5a` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-20; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (4)
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 4/4 tasks `[x]` in .agents/tasks/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d5cdce3d514f` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md` blob `8759a9fec001` (modified)

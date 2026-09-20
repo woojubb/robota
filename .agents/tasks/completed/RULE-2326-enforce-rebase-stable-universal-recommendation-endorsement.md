@@ -1,8 +1,9 @@
 ---
 title: 'RULE-2326: Enforce rebase-stable universal recommendation endorsement'
 issue: https://github.com/woojubb/robota/issues/2326
-status: in-progress
+status: done
 created: 2026-09-20
+completed: 2026-09-20
 priority: high
 urgency: now
 area: recommendation approval provenance and gate enforcement
@@ -25,10 +26,10 @@ historical evidence.
 
 ## Plan
 
-- [ ] TC-01 — Define a rebase-stable endorsement identity and state the property it preserves.
-- [ ] TC-02 — Enforce missing, wrong-subject, stale, duplicate, non-ENDORSE, and unresolved records mechanically.
-- [ ] TC-03 — Add true/false behavioral coverage for committed and staged checkpoint classifiers with red proof.
-- [ ] TC-04 — Verify rebase survival and the prospective historical-state boundary.
+- [x] TC-01 — Define a rebase-stable endorsement identity and state the property it preserves.
+- [x] TC-02 — Enforce missing, wrong-subject, stale, duplicate, non-ENDORSE, and unresolved records mechanically.
+- [x] TC-03 — Add true/false behavioral coverage for committed and staged checkpoint classifiers with red proof.
+- [x] TC-04 — Verify rebase survival and the prospective historical-state boundary.
 
 ## Test Plan
 
