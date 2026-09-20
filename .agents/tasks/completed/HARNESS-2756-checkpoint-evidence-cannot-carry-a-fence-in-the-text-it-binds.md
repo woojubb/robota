@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-2756: Checkpoint evidence cannot carry a fence in the text it binds'
 issue: https://github.com/woojubb/robota/issues/2756
-status: in-progress
+status: done
+completed: 2026-09-20
 created: 2026-09-20
 priority: high
 urgency: now

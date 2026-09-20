@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [harness]
 lane: L1
@@ -7,7 +7,7 @@ lane: L1
 
 # HARNESS-2756: Checkpoint evidence cannot carry a fence in the text it binds
 
-Paired with `.agents/tasks/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md`. Arising from [issue #2756](https://github.com/woojubb/robota/issues/2756).
+Paired with `.agents/tasks/completed/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md`. Arising from [issue #2756](https://github.com/woojubb/robota/issues/2756).
 
 ## Problem
 
@@ -116,7 +116,7 @@ gate writer and the scan that reads it.
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md` — todo
+- [x] `.agents/tasks/completed/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md` — todo
 
 ## Evidence Log
 
@@ -226,8 +226,8 @@ gate writer and the scan that reads it.
 - GATE-APPROVAL — The item is inside the class as the registry defines it — a boundary the guard evaluates, not one the entry ar: N/A — not required for lane L1 (spec-workflow.md § Lanes)
 - GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (e0b859d6e8ae) equals the document's current fingerprint
 - GATE-APPROVAL — **Independent architecture validation (conditional):** IF the spec introduces a new package / app / surface or: N/A — not required for lane L1 (spec-workflow.md § Lanes)
-- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md`, which exists
-- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md`, whose basename is the spec's
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/completed/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/completed/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md`, whose basename is the spec's
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
 
 **Judged by:** `gate.mjs` mechanical evaluator
@@ -258,8 +258,8 @@ gate writer and the scan that reads it.
 **Status upgrade:** approved → in-progress
 
 - GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-20; status `approved`
-- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md`, which exists
-- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md`, whose basename is the spec's
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/completed/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/completed/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md`, whose basename is the spec's
 - GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (2)
 - GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 555 chars
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
@@ -273,7 +273,7 @@ gate writer and the scan that reads it.
   "form": "gateImplementFirst",
   "deliveryMode": "single",
   "sequencedArtifacts": [],
-  "taskPath": ".agents/tasks/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md",
+  "taskPath": ".agents/tasks/completed/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md",
   "specPath": ".agents/spec-docs/todo/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md",
   "taskItems": [
     {
@@ -291,7 +291,7 @@ gate writer and the scan that reads it.
   },
   "worktreePaths": [
     ".agents/spec-docs/todo/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md",
-    ".agents/tasks/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md"
+    ".agents/tasks/completed/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md"
   ]
 }
 ```
@@ -351,8 +351,8 @@ gate writer and the scan that reads it.
 **Ordering check:** PASS — prior gate `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-20` is the last GATE-IMPLEMENT entry in this log, and the document's `status: in-progress` sits in `.agents/spec-docs/active/`, the folder that status maps to (spec-workflow.md § Spec-Document Status and Lifecycle Folders). No step was skipped.
 **Failed criteria:**
 
-- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`) (`task-plan-items`): both Plan items are `[x]`, but the criterion's own named mechanical owner refuses this Plan section. `node scripts/harness/scan-task-plan-items.mjs` exits 1 over 327 Task Plan sections with exactly one finding, on this item: `[plan-names-own-disposition] .agents/tasks/HARNESS-2756-…md: Plan item "TC-02: engineering verification — the harness contract tier, and \`pnpm harness:s" names the disposition of the work (merge/land/close/publish) … move it out of `## Plan` (issue #2375)`. The detector (`scan-task-plan-items.mjs` § DISPOSITION regex) matches the TC-02 item's `task-merged-citation` … `this issue's own subject` pairing — `merged` followed by `issue` inside one item. Per this catalogue's § GATE-VERIFY note, a Plan item that names its own disposition cannot be `[x]` before this gate, so the criterion is unsatisfiable as the item is worded, false positive or not.
-  **Required action:** reword the TC-02 Plan item (or move it out of `## Plan`) so `scan-task-plan-items.mjs` exits 0, then re-run GATE-VERIFY.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`) (`task-plan-items`): both Plan items are `[x]`, but the criterion's own named mechanical owner refuses this Plan section. `node scripts/harness/scan-task-plan-items.mjs` exits 1 over 327 Task Plan sections with exactly one finding, on this item: `[plan-names-own-disposition] .agents/tasks/HARNESS-2756-…md: Plan item "TC-02: engineering verification — the harness contract tier, and \`pnpm harness:s" names the disposition of the work (merge/land/close/publish) … move it out of `## Plan` (issue #2375)`. The detector (`scan-task-plan-items.mjs`§ DISPOSITION regex) matches the TC-02 item's`task-merged-citation`…`this issue's own subject`pairing —`merged`followed by`issue`inside one item. Per this catalogue's § GATE-VERIFY note, a Plan item that names its own disposition cannot be`[x]`before this gate, so the criterion is unsatisfiable as the item is worded, false positive or not.
+**Required action:** reword the TC-02 Plan item (or move it out of`## Plan`) so `scan-task-plan-items.mjs` exits 0, then re-run GATE-VERIFY.
 - GATE-VERIFY — Build passes for all affected packages (`pnpm build`) — judged via `pnpm harness:scan`, the shape this criterion accepts for a `scripts/**`-only change with no package build: exit 1, `2 of 162 scans failed`. One is inherited and named: `task-merged-citation` on SCREEN-2002 (verified independently — at `origin/develop@4e1597e8bf01` that Task already reads `status: in-progress`, `a555afe80` is an ancestor of `origin/develop`, and this branch's diff touches no SCREEN-2002 path). The second is NOT inherited: `task-plan-items` fails on this item's own Task file, introduced by the Plan rewording made during this gate run — an earlier full `pnpm harness:scan` over this same tree, before that edit, failed on `task-merged-citation` alone (`1 of 162`).
   **Required action:** clear the `task-plan-items` finding this change introduced; the SCREEN-2002 red is pre-existing and stays named, not cleared here.
 
@@ -369,3 +369,39 @@ gate writer and the scan that reads it.
 
 **Judged by:** `backlog-gate-guard`
 **Judged at:** HEAD `fa64fefee1a7` · base `origin/develop@4e1597e8bf01` · document `.agents/spec-docs/active/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md` blob `52f06f06a7d4` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-20` is the last GATE-IMPLEMENT entry in this log, and `status: in-progress` sits in `.agents/spec-docs/active/`, the folder that status maps to. The `[GATE-VERIFY] — ❌ FAIL` entry above is this gate's own earlier run, which the last-entry rule applies to the PRIOR gate, not to this one.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`) (`task-plan-items`): 2 Plan items, both `[x]`; `node scripts/harness/scan-task-plan-items.mjs` now exits 0 over 327 Task Plan sections (`task-plan-items scan passed.`). The `plan-names-own-disposition` finding that failed this criterion earlier is cleared by rewording TC-02 to "the harness contract tier and the full scan, with every finding attributed" — verified as a real fix, not a suppression: `git diff 4e1597e8b..2962c8b92 --name-only` touches no `*-baseline.json`, so no exemption was added to the scan.
+- GATE-VERIFY — No Plan item is blocked or pending: neither item carries `blocked` or `pending`, and neither defers its own work; both substantive claims re-measured below.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): no package build applies — the diff touches only `scripts/harness/**`, and no `packages/**` or `apps/**` source references `checkpoint-evidence-contract` / `user-execution-plan-contract`. Judged instead by the shape this criterion accepts for a `scripts/**`-only change: `pnpm harness:scan` → exit 1, `1 of 162 scans failed`, `task-merged-citation` alone, on SCREEN-2002 — inherited, re-confirmed independently (`git show origin/develop:.agents/tasks/SCREEN-2002-…md` already reads `status: in-progress`, `a555afe80` is an ancestor of `origin/develop`, and this branch's diff touches no SCREEN-2002 path). Nothing this change introduces fails: `pnpm harness:scan --skip task-merged-citation` → exit 0, `160 scans passed, 1 skipped`.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm exec vitest run scripts/harness/__tests__/checkpoint-evidence-contract.test.mjs` → 23/23 passed; `node scripts/harness/harness-test-tiers.mjs --tier contracts` → exit 0, 268 files / 5066 tests.
+
+**Independent regression proof (re-run for this verdict; no earlier run cited):** `checkpoint-evidence-contract.mjs` extracted at `origin/develop@4e1597e8bf01` and driven with the new case's own data. Pre-fix emits a three-backtick delimiter, so `expect(formatted.text).toContain('````json')` fails there — the new case is not an accidental green; pre-fix also refuses a Prettier-widened four-backtick record (`doneGateStageOne evidence must contain one json fence`) that the current module reads back verbatim. The corrected cause now recorded in `## Problem` matches what I measured: the pre-fix writer COULD emit such a record and read its own output back, and the break is the Prettier round trip.
+
+**Binding-strength check:** `validatePayload`, the payload's required-field list and the exactness of the field binding are untouched across `4e1597e8b..2962c8b92` and the working tree; only fence selection and fence reading changed. The sibling reader `scripts/harness/user-execution-plan-contract.mjs` now shares the same helper and still parses the declared PLAN contract (`parseUserExecutionPlanContract(.agents/rules/backlog-execution.md).ok === true`).
+
+**Tree note:** this verdict is recorded at HEAD `2962c8b92ae1`, whose working tree carries three uncommitted harness files — `checkpoint-evidence-contract.mjs` blob `07f1d912ffe7`, `markdown-visibility.mjs` blob `c6a2f326ab8f`, `user-execution-plan-contract.mjs` blob `152e700542d8` (a 22:25 move of `fencedPayload` into the markdown-visibility module, landed after the commit). Every measurement above was re-run against that working-tree content, which was unchanged from 22:25:29 through the recording of this entry; the contracts tier and full scan were run twice, once at the commit and once on the working tree, with identical results.
+
+**Judged by:** `backlog-gate-guard`
+**Judged at:** HEAD `2962c8b92ae1` · base `origin/develop@4e1597e8bf01` · document `.agents/spec-docs/active/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md` blob `2ab29e6991f7` (tracked)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-20; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 2/2 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (2)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (2) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (2) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 2/2 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (2) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/completed/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 2/2 tasks `[x]` in .agents/tasks/completed/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7bde89d9c9f0` · base `origin/develop@4e1597e8bf01` · document `.agents/spec-docs/active/HARNESS-2756-checkpoint-evidence-cannot-carry-a-fence-in-the-text-it-binds.md` blob `410eee4c525c` (modified)
