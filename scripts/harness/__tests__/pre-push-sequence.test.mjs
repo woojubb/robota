@@ -232,6 +232,56 @@ describe('pre-push prerequisites follow its local work, not the product change c
 });
 
 describe('post-verdict guard reaches the real Git pre-push boundary', () => {
+  it('preserves a trusted integration-base declaration in the synthetic push command', () => {
+    const result = runPostVerdictGuard({
+      cwd: '/tmp/fixture-repo',
+      script: '/tmp/fixture-repo/.claude/hooks/pre-push-check.sh',
+      env: { HARNESS_BASE_REF: 'origin/integration/agreement-2664' },
+      spawn(_command, _args, options) {
+        expect(JSON.parse(options.input)).toMatchObject({
+          tool_name: 'Bash',
+          tool_input: {
+            command: 'HARNESS_BASE_REF=origin/integration/agreement-2664 git push',
+          },
+        });
+        return { status: 0 };
+      },
+    });
+    expect(result).toBe(true);
+  });
+
+  it.each([undefined, ''])(
+    'preserves the bare push command when the declaration is %s',
+    (declaredBase) => {
+      const env = {};
+      if (declaredBase !== undefined) env.HARNESS_BASE_REF = declaredBase;
+      const result = runPostVerdictGuard({
+        env,
+        spawn(_command, _args, options) {
+          expect(JSON.parse(options.input).tool_input.command).toBe('git push');
+          return { status: 0 };
+        },
+      });
+      expect(result).toBe(true);
+    },
+  );
+
+  it.each([
+    'origin/integration/agreement-2664; touch /tmp/not-executed',
+    '"origin/integration/agreement-2664"',
+    'origin/integration/agreement-2664\ngit push origin main',
+  ])('keeps an adversarial declaration as inert guard input: %s', (declaredBase) => {
+    const spawn = vi.fn((_command, _args, options) => {
+      expect(JSON.parse(options.input).tool_input.command).toBe(
+        `HARNESS_BASE_REF=${declaredBase} git push`,
+      );
+      return { status: 2 };
+    });
+
+    expect(runPostVerdictGuard({ env: { HARNESS_BASE_REF: declaredBase }, spawn })).toBe(false);
+    expect(spawn).toHaveBeenCalledOnce();
+  });
+
   it('refuses when the shared agent guard returns a non-zero status', () => {
     const result = runPostVerdictGuard({
       cwd: '/tmp/fixture-repo',
