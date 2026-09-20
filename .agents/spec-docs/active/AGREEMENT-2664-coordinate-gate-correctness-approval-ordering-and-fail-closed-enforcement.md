@@ -12,12 +12,12 @@ Arising from [issue #2664](https://github.com/woojubb/robota/issues/2664).
 
 ## Problem
 
-Issue #2664 now contains several independently verifiable causes under one external gate-correctness
-outcome. The retained defect is reproducible because `runApprove` judges only GATE-APPROVAL's own
-criteria and omits `orderingResult`; a later comment reproduces a second defect where
-`checkpointWorktreePaths` records auto-generated lesson churn that `worktreeError` rejects. The inherited
-register also contains live metadata, evaluator-routing, endorsement, legacy-approval, and
-orchestration-disposition gaps, while three scopes already have active owners elsewhere.
+Issue #2664 contains several independently verifiable causes under one external gate-correctness
+outcome. BEHAVIOR-2664 has corrected the approval-ordering omission in `runApprove`, and DATA-2664 has
+made checkpoint worktree inventory use the same churn policy as its consumer. RULE-2582,
+BEHAVIOR-2663, and RULE-2665 are also terminal, leaving RULE-2326 and RULE-2380 as the two unfinished
+children. The inherited register still depends on three scopes owned by AGREEMENT-012, AGREEMENT-013,
+and AGREEMENT-2698.
 
 Implementing directly from the umbrella would either combine unrelated causes into one unreviewable
 change or duplicate AGREEMENT-012, AGREEMENT-013, and AGREEMENT-2698. Staging several new Tasks without
@@ -54,12 +54,12 @@ contract and makes no new product, protocol, package, API, or user-interface des
 
 ### Decision
 
-Choose alternative 3. The new child set contains only currently unowned causes that can reach an
-independent completion decision. Existing AGREEMENT owners remain dependencies rather than nested or
-duplicate children. Execute BEHAVIOR-2664 first because its ordering omission can invalidate the
-approval gate used by every later child; execute DATA-2664 next because the checkpoint producer can
-write evidence its own consumer rejects. Wider governance and historical-policy children follow only
-after those foundations are corrected.
+Choose alternative 3. The child set contains only independently completable causes that were unowned
+at conversion time. Existing AGREEMENT owners remain dependencies rather than nested or duplicate
+children. BEHAVIOR-2664 and DATA-2664 were executed first and now provide the corrected approval-ordering
+and checkpoint-inventory foundations. Continue the remaining initiative in its declared dependency
+order: complete RULE-2326's recommendation-endorsement contract, then dispose of the frozen legacy
+approval corpus through RULE-2380.
 
 The initiative uses a shared integration base with one child Task at a time. Each child receives its
 own paired spec and gate lifecycle before implementation; no child expands another child's approved
@@ -81,16 +81,16 @@ None
 
 ## Solution
 
-1. Land the exact parent Task/spec and seven child Task records as one conversion prelude.
-2. Finalize the issue #2664 Task marker only after the complete manifest passes structural and lifecycle scans.
-3. Execute BEHAVIOR-2664 and DATA-2664 first, each through its own approved L2 spec and verification.
-4. Execute the remaining children in dependency order without absorbing findings from another owner.
-5. Reconcile child and external dependency outcomes against the umbrella register and close only on a complete map.
+1. Retain the exact parent/child manifest as the ownership source of truth for issue #2664.
+2. Preserve the five completed children and their exact terminal Task/spec and landing evidence.
+3. Use the delivered BEHAVIOR-2664 and DATA-2664 outcomes as the approval-ordering and checkpoint-inventory foundations.
+4. Execute RULE-2326 and then RULE-2380 without absorbing findings from another owner.
+5. Reconcile all seven child outcomes and the three external dependencies against the umbrella register, and close only on a complete map.
 
 ## Affected Files
 
 - `.agents/tasks/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md`
-- `.agents/spec-docs/todo/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md`
+- `.agents/spec-docs/active/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md`
 - The seven exact child Task paths listed under `## Tasks`.
 - `.agents/loop-runs/user-request-gate.jsonl`
 
@@ -135,7 +135,7 @@ Paired execution record:
 - [x] RULE-2582 — done — `.agents/tasks/completed/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md`
 - [x] BEHAVIOR-2663 — done — `.agents/tasks/completed/BEHAVIOR-2663-bind-mechanical-gate-verify-checks-without-prose-drift.md`
 - [x] RULE-2665 — done — `.agents/tasks/completed/RULE-2665-define-the-terminal-disposition-for-orchestration-skipped-gates.md`
-- [ ] RULE-2326 — todo — `.agents/tasks/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md`
+- [x] RULE-2326 — done — `.agents/tasks/completed/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md`
 - [ ] RULE-2380 — todo — `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
 
 ## Evidence Log
@@ -264,3 +264,13 @@ Paired execution record:
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `89dc4a558823` · base `origin/develop@f8dc5a0458c4` · document `.agents/spec-docs/todo/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md` blob `03f00a942834` (tracked)
+
+### [RECOMMENDATION] — ✅ ENDORSE | 2026-09-20
+
+- `proposal-reviewer` round 1 returned `REVISE` with 1 unresolved finding because the recommendation
+  still described two delivered foundations as future work.
+- After the Problem, Decision, Solution, and active-spec path were corrected, round 2 returned
+  `ENDORSE` with 0 unresolved findings.
+- Canonical run `r20260920120928` binds projection digest
+  `2827277d7176c33d1b87c7f352e6a3c06d98cef693fd9f5a85428ff5b3b91f8b` to endorsement key
+  `1a25ba71f6fadd018529363887b2f50c58606092b45a5eabb7a688085172e530`.

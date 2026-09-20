@@ -55,6 +55,14 @@ here. See "The recommendation is not self-judged" below — this is a deliberate
 rule's previous self-assessment wording, made because an orchestrator forming a verdict on its own output
 is exactly what [enforcement-architecture.md](../../rules/enforcement-architecture.md) forbids.
 
+Before dispatch, compute the canonical projection with
+`node scripts/harness/recommendation-review-record.mjs digest <spec.md>` and record
+`recommendation-expect` in this skill's open loop run with the exact basename, reviewed revision, and
+digest. After the reviewer returns, record `recommendation-observe` with the same tuple, exact verdict,
+and unresolved-finding count. Commit the Task, spec, and ledger as one planning-only checkpoint before
+implementation. Never rewrite the ledger's reviewed SHA after a rebase; the stable endorsement key is
+derived from subject plus projection and the SHA is provenance only.
+
 **Also dispatch `finding-depth-triager` on the item's problem statement, before the recommendation is
 formed.** Two different questions, and both have to hold: `proposal-reviewer` asks whether the chosen
 decision is right AMONG THE ALTERNATIVES; the depth verdict asks whether the problem being solved is the
@@ -180,9 +188,9 @@ which has not happened yet. That bounds what is handed over, not how hard the re
 charter mandates testing premises against real source and checking architecture placement, and neither
 should be curtailed.
 
-**Record the verdict.** The rule requires the `REVIEW VERDICT` and its date to land in the work item or
-the PR description. Until a scan reads it, that record is the only thing distinguishing an endorsed gate
-from a self-approved one — do not skip it because nothing currently fails when you do.
+**Record the verdict.** The rule requires the human-readable verdict in the work item or PR and the
+machine-readable expectation/observation pair in the canonical loop ledger. The recommendation scanner,
+GATE-APPROVAL evaluator, plan-order classifier, aggregate scan, and staged hook all read that one record.
 
 ## Terminate edges that belong to this level
 

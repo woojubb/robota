@@ -933,6 +933,22 @@
       "owner": "repository-harness",
       "subject": {
         "kind": "scan",
+        "value": "recommendation-endorsement"
+      },
+      "diagnosticId": "hook.migration.scan.recommendation-endorsement",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
         "value": "standing-delegation-evidence"
       },
       "diagnosticId": "hook.migration.scan.standing-delegation-evidence",

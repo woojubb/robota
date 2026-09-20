@@ -1694,6 +1694,66 @@ describe('user-execution PLAN order — branch history', () => {
     expect(findHistoryFindings(root, base)).toEqual([]);
   });
 
+  it('accepts a child checkpoint with its declaring AGREEMENT lifecycle projections', () => {
+    const fixture = repository();
+    git(fixture.root, ['switch', '-q', 'develop']);
+    const parent = 'AGREEMENT-900-parent';
+    const parentTask = `.agents/tasks/${parent}.md`;
+    const parentSpec = `.agents/spec-docs/active/${parent}.md`;
+    write(
+      fixture.root,
+      parentTask,
+      [
+        '---',
+        'status: in-progress',
+        `children: [${TASK_ID.split('-').slice(0, 2).join('-')}]`,
+        '---',
+        '',
+        '# AGREEMENT-900: parent',
+        '',
+        '## Children',
+        '',
+        `- [ ] ${TASK_ID.split('-').slice(0, 2).join('-')} — todo — \`${TASK_PATH}\``,
+        '',
+      ].join('\n'),
+    );
+    write(
+      fixture.root,
+      parentSpec,
+      [
+        '---',
+        'status: in-progress',
+        'type: AGREEMENT',
+        'tags: [harness]',
+        '---',
+        '',
+        '# AGREEMENT-900: parent',
+        '',
+        '## Tasks',
+        '',
+        `- [ ] ${TASK_ID.split('-').slice(0, 2).join('-')} — todo — \`${TASK_PATH}\``,
+        '',
+      ].join('\n'),
+    );
+    const base = commit(fixture.root, 'parent initiative base');
+    git(fixture.root, ['update-ref', 'refs/remotes/origin/develop', base]);
+    git(fixture.root, ['switch', '-q', '-C', 'feature', base]);
+
+    writeCheckpoint(fixture.root);
+    for (const file of [parentTask, parentSpec]) {
+      write(
+        fixture.root,
+        file,
+        readOptional(fixture.root, file).replace(' — todo — ', ' — in-progress — '),
+      );
+    }
+    git(fixture.root, ['add', '-A']);
+    expect(findStagedFindings(fixture.root, base)).toEqual([]);
+    commit(fixture.root, 'child checkpoint and parent lifecycle projection');
+
+    expect(findHistoryFindings(fixture.root, base)).toEqual([]);
+  });
+
   it('cuts strict PLAN reason validation over by unique contract ancestry (HARNESS-134)', () => {
     const thinTask = () =>
       taskText().replace(
