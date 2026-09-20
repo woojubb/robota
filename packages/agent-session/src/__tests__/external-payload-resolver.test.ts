@@ -22,9 +22,7 @@ afterEach(() => {
   }
 });
 
-// ARCH-049 containment: `NodeExternalPayloadSource.readBytes` refuses every read off Linux (no stable
-// no-follow handle there yet), so the resolver has nothing to exercise on another host.
-describe.skipIf(process.platform !== 'linux')('resolveSessionLogExternalPayloads', () => {
+describe('resolveSessionLogExternalPayloads', () => {
   it('ARCH-014: resolves a valid content-addressed JSON sidecar', () => {
     const baseDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'robota-payload-resolver-')));
     temporaryDirectories.push(baseDirectory);
@@ -86,7 +84,7 @@ describe.skipIf(process.platform !== 'linux')('resolveSessionLogExternalPayloads
 
     expectResolutionCode(
       () => resolveSessionLogExternalPayloads(reference, payloadOptions(baseDirectory)),
-      'PAYLOAD_UNREADABLE',
+      'OUTSIDE_ROOT',
     );
   });
 
@@ -257,22 +255,19 @@ describe.skipIf(process.platform !== 'linux')('resolveSessionLogExternalPayloads
     expect(() => new NodeExternalPayloadSource('   ')).toThrow(/base directory/i);
   });
 
-  it.each(['darwin', 'win32'] as const)(
-    'ARCH-049 containment: rejects payload reads when %s lacks the stable host facility',
-    (hostPlatform) => {
-      const baseDirectory = createTemporaryDirectory();
-      writeFileSync(join(baseDirectory, 'payload.json'), 'payload');
-      const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue(hostPlatform);
-      try {
-        expectResolutionCode(
-          () => new NodeExternalPayloadSource(baseDirectory).readBytes('payload.json', 64),
-          'PAYLOAD_UNREADABLE',
-        );
-      } finally {
-        platform.mockRestore();
-      }
-    },
-  );
+  it('PAYLOAD-2153: reports an unsupported stable host capability distinctly', () => {
+    const baseDirectory = createTemporaryDirectory();
+    writeFileSync(join(baseDirectory, 'payload.json'), 'payload');
+    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('freebsd');
+    try {
+      expectResolutionCode(
+        () => new NodeExternalPayloadSource(baseDirectory).readBytes('payload.json', 64),
+        'STABLE_PAYLOAD_READ_UNAVAILABLE',
+      );
+    } finally {
+      platform.mockRestore();
+    }
+  });
 
   it('ARCH-014: rejects circular in-memory values and invalid limits', () => {
     const baseDirectory = createTemporaryDirectory();
