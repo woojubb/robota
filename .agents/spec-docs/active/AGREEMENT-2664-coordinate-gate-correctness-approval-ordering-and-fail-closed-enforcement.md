@@ -130,7 +130,7 @@ owns later private harness verification, and no Robota product surface changes i
 Paired execution record:
 `.agents/tasks/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md`.
 
-- [ ] BEHAVIOR-2664 — todo — `.agents/tasks/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md`
+- [x] BEHAVIOR-2664 — done — `.agents/tasks/completed/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md`
 - [ ] DATA-2664 — todo — `.agents/tasks/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md`
 - [ ] RULE-2582 — todo — `.agents/tasks/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md`
 - [ ] BEHAVIOR-2663 — todo — `.agents/tasks/BEHAVIOR-2663-bind-mechanical-gate-verify-checks-without-prose-drift.md`
