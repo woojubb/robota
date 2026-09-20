@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [harness, hooks]
 lane: L2
@@ -112,9 +112,15 @@ Validation (contract boundary is the hook's output, read by the agent and by tes
 
 ## Fallback & Degradation Declaration
 
-None — if `classify-dir` fails (node absent, unreadable directory) the hook prints the same
-`INVALID lifecycle frontmatter` line it prints today for an unclassifiable file; it never exits
-non-zero on a classification failure, and it never prints nothing (enforcement-architecture.md,
+One degradation path, and it is labelled rather than substituted for: if `classify-dir` cannot run
+(no `node` on PATH, a thrown error), the hook keeps the exit status and the first stderr line and
+prints one block — `Could not classify Task files: task-lifecycle.mjs classify-dir exited N (<reason>)`,
+the number of `.md` files that were NOT classified, and the command to run by hand — in both `start`
+and `stop` modes, then exits 0. It prints no count line and no per-file INVALID line in that case:
+"could not classify" and "classified as invalid" are different answers (the first version conflated
+them under a false `0 open` headline — review finding, Round A). A single file the classifier could not
+read is reported on its own line as `unreadable`, distinct from `invalid` frontmatter. The hook never
+exits non-zero on a classification failure and never prints nothing (enforcement-architecture.md,
 "Silence is not success").
 
 ## Solution
@@ -150,30 +156,35 @@ backlog, not this notice.`;
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/task-notice-is-bounded.test.mjs` → exits 0,
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/task-notice-is-bounded.test.mjs` → exits 0,
       and exits 1 with the hook change reverted (the `todo`-not-listed and bound-line cases go red)
-- [ ] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
-- [ ] TC-03: `pnpm exec vitest run scripts/harness/__tests__/remaining-hooks-run.test.mjs scripts/harness/__tests__/open-issues-are-shown.test.mjs` → exits 0 (the existing hook cases, unchanged)
-- [ ] TC-04: `bash .claude/hooks/task-tracking.sh start | wc -c` on the current tree → under 3,000 bytes (was 14,855), and the output contains one `showing the first 20 of` line
+- [x] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
+- [x] TC-03: `pnpm exec vitest run hooks-run.test.mjs open-issues-are-shown.test.mjs` → exits 0 — the two
+      existing hook suites (`scripts/harness/__tests__/remaining-hooks-run.test.mjs`,
+      `open-issues-are-shown.test.mjs`), selected by vitest name filter, unchanged by this work
+- [x] TC-04: `TASK_TRACKING_SKIP_ISSUES=1 bash .claude/hooks/task-tracking.sh start | wc -c` on the current tree (the Task block alone; the open-issue block is not this item's) → under 3,000 bytes (was 14,855), and the output contains one `showing the first 20 of` line
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                        | Notes                                                |
-| ----- | --------- | ------------------------------------------------------ | ---------------------------------------------------- |
-| TC-01 | Unit      | `pnpm exec vitest run` on the new test file            | RED with the hook change reverted, GREEN with it     |
-| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`            | Regression — the affected set, not the full suite    |
-| TC-03 | Unit      | `pnpm exec vitest run` on the two existing hook suites | Capability preservation for the pinned assertions    |
-| TC-04 | Measure   | `bash .claude/hooks/task-tracking.sh start \| wc -c`   | The number the issue was filed on, re-measured after |
+| TC-ID | Test Type | Tool / Approach                                        | Notes                                                                                                                                                                                     |
+| ----- | --------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit      | `pnpm exec vitest run` on the new test file            | Test written: `scripts/harness/__tests__/task-notice-is-bounded.test.mjs > task-tracking start — the Task block is bounded to what is in progress` (+ the `classify-dir` describe). RED with the hook change reverted (4 of 8 fail), GREEN with it |
+| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`            | Test skipped: no unit test — the affected scan run is itself the automated regression check; recorded as a `[GATE-COMPLETE: TC-02]` command entry                                          |
+| TC-03 | Unit      | `pnpm exec vitest run` on the two existing hook suites | Test written (pre-existing): `scripts/harness/__tests__/remaining-hooks-run.test.mjs > task-tracking` and `scripts/harness/__tests__/open-issues-are-shown.test.mjs` — capability preservation |
+| TC-04 | Measure   | `bash .claude/hooks/task-tracking.sh start \| wc -c`   | Test skipped: a byte count on the live tree is a measurement, not a unit test; the bound itself is pinned by `task-notice-is-bounded.test.mjs > caps the list at 20 and says so`            |
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-04).
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Reason:** The change is to a repository-internal Claude Code SessionStart hook whose only output
+is the context notice the agent reads at session start; no end user of the Robota product (CLI,
+SDK, TUI, MCP server) can observe it through any runnable product surface. Engineering verification
+is TC-01 to TC-04 above.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-2772-bound-the-session-start-task-notice.md` — todo
+- [x] `.agents/tasks/completed/INFRA-2772-bound-the-session-start-task-notice.md` — done
 
 ## Evidence Log
 
@@ -217,6 +228,7 @@ Semantic set (judged by `backlog-gate-guard`, each claim checked against the tre
 
 TC-N count: 4 in Completion Criteria, 4 in Test Plan — match.
 
+**Judged by:** independent `backlog-gate-guard` semantic evaluator
 **Judged at:** HEAD `e040f298fe53` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/draft/INFRA-2772-bound-the-session-start-task-notice.md` blob `ad67d81e9173` (untracked)
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-20
@@ -304,6 +316,7 @@ Semantic set (judged by `backlog-gate-guard`):
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 3 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -341,7 +354,183 @@ Semantic set (judged by `backlog-gate-guard`):
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `e040f298fe53` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/todo/INFRA-2772-bound-the-session-start-task-notice.md` blob `73fc91d3f17b` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/task-notice-is-bounded.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:31:32 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota/.claude/worktrees/gracious-williams-b2f311
+
+ ✓ scripts/harness/__tests__/task-notice-is-bounded.test.mjs (8 tests) 316ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  00:31:32
+   Duration  469ms (transform 14ms, setup 0ms, collect 15ms, tests 316ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9aad4d022aee` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/INFRA-2772-bound-the-session-start-task-notice.md` blob `40834b2d8b3f` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/remaining-hooks-run.test.mjs scripts/harness/__tests__/open-issues-are-shown.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 23 line(s))
+
+```
+   ✓ open issues are shown where the choice is made > bounds the LENGTH of one title, and says it did  352ms
+   ✓ open issues are shown where the choice is made > does not let one issue fabricate a SECOND issue line  500ms
+   ✓ open issues are shown where the choice is made > strips a CARRIAGE RETURN, which overwrites the line that labelled it  509ms
+   ✓ open issues are shown where the choice is made > says so when the list is truncated  348ms
+   ✓ open issues are shown where the choice is made > does NOT claim more when exactly the shown number are open  854ms
+
+ Test Files  2 passed (2)
+      Tests  32 passed (32)
+   Start at  00:31:33
+   Duration  10.32s (transform 27ms, setup 0ms, collect 41ms, tests 11.70s, environment 0ms, prepare 62ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9aad4d022aee` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/INFRA-2772-bound-the-session-start-task-notice.md` blob `7c1506fc2d7a` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-21
+
+**Command:** `TASK_TRACKING_SKIP_ISSUES=1 bash .claude/hooks/task-tracking.sh start | tee /dev/stderr | wc -c`
+**Exit:** 0
+**Output:** (last 10 of 25 line(s))
+
+```
+  - API-001-map-model-effort-to-provider-capabilities-and-visible-outcomes.md — in progress
+  - CLI-1994-fork-the-conversation-into-a-background-session.md — in progress
+  - DIST-005-release-artifact-verification.md — in progress
+  - HANDOFF-001-cross-device-session-transfer.md — in progress
+  - HARNESS-024-live-provider-smoke.md — in progress
+  - HARNESS-025-gate-hygiene-p3.md — in progress
+  (showing the first 20 of 45 — the rest: ls .agents/tasks/)
+Read the task file(s) before starting work. Update progress during the session.
+[task-tracking] 122 todo Task(s) are not listed; choose work through the backlog, not this notice.
+    1984
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9aad4d022aee` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/INFRA-2772-bound-the-session-start-task-notice.md` blob `22d04d1a9712` (modified)
+
+### [GATE-COMPLETE: TC-02] — ❌ FAIL | 2026-09-21
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 1
+**Output:** (last 10 of 269 line(s))
+
+```
+  evidence: Scan progress-report-quantification exited with status 1.
+  recommendation: Inspect the progress-report-quantification scan output above.
+ERROR harness.scan-finding.scan-c38-c2p-c37-c2z-c19-c31-c2t-c36-c2v-c2t-c2s-c19-c2r-c2x-c38-c2p-c38-c2x-c33-c32 [finding] scan:task-merged-citation
+  evidence: Scan task-merged-citation exited with status 1.
+  recommendation: Inspect the task-merged-citation scan output above.
+ERROR harness.scan-finding.scan-c38-c2p-c37-c2z-c19-c2p-c36-c2r-c2w-c2x-c3a-c2p-c30 [finding] scan:task-archival
+  evidence: Scan task-archival exited with status 1.
+  recommendation: Inspect the task-archival scan output above.
+
+2 of 72 scans failed
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9aad4d022aee` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/INFRA-2772-bound-the-session-start-task-notice.md` blob `9d373dfa1fcc` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run hooks-run.test.mjs open-issues-are-shown.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 15 line(s))
+
+```
+   ✓ post-tool-format > reaches the extension filter, and the filter decides  379ms
+ ✓ scripts/harness/__tests__/open-issues-are-shown.test.mjs (14 tests) 6966ms
+   ✓ open issues are shown where the choice is made > reports them at session START  349ms
+   ✓ open issues are shown where the choice is made > survives an unresponsive API, and says it could not ask  1045ms
+   ✓ open issues are shown where the choice is made > uses its OWN 4s default, not the shared 10s one  4065ms
+
+ Test Files  2 passed (2)
+      Tests  32 passed (32)
+   Start at  00:34:05
+   Duration  7.13s (transform 28ms, setup 0ms, collect 41ms, tests 8.02s, environment 0ms, prepare 62ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9aad4d022aee` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/INFRA-2772-bound-the-session-start-task-notice.md` blob `ae73291022a6` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-21
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 206 line(s))
+
+```
+Diagnostic report v1: 2 result(s), 2 non-clean.
+ERROR harness.scan-finding.scan-c34-c36-c33-c2v-c36-c2t-c37-c37-c19-c36-c2t-c34-c33-c36-c38-c19-c35-c39-c2p-c32-c38-c2x-c2u-c2x-c2r-c2p-c38-c2x-c33-c32 [finding] scan:progress-report-quantification
+  evidence: Scan progress-report-quantification exited with status 1.
+  recommendation: Inspect the progress-report-quantification scan output above.
+ERROR harness.scan-finding.scan-c38-c2p-c37-c2z-c19-c31-c2t-c36-c2v-c2t-c2s-c19-c2r-c2x-c38-c2p-c38-c2x-c33-c32 [finding] scan:task-merged-citation
+  evidence: Scan task-merged-citation exited with status 1.
+  recommendation: Inspect the task-merged-citation scan output above.
+
+69 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (72 declared what they examined)
+scan receipt NOT written: 2 advisory failure(s) were tolerated (progress-report-quantification, task-merged-citation), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9aad4d022aee` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/INFRA-2772-bound-the-session-start-task-notice.md` blob `ab4043ced0f5` (modified)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-21
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 1 (  recommendation: Inspect the task-archival scan output above. ⏎  ⏎ 1 of 72 scans failed); `pnpm exec vitest run task-notice-is-bounded.test.mjs hooks-run.test.mjs open-issues-are-shown.test.mjs` → exit 0 (   Duration  6.44s (transform 36ms, setup 0ms, collect 60ms, tests 7.53s, environment 0ms, prepare 105ms) ⏎  ⏎ 12:35:32 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.)
+  **Required action:** make every verify command exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 1 (  recommendation: Inspect the task-archival scan output above. ⏎  ⏎ 1 of 72 scans failed); `pnpm exec vitest run task-notice-is-bounded.test.mjs hooks-run.test.mjs open-issues-are-shown.test.mjs` → exit 0 (   Duration  6.44s (transform 36ms, setup 0ms, collect 60ms, tests 7.53s, environment 0ms, prepare 105ms) ⏎  ⏎ 12:35:32 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.)
+  **Required action:** make every verify command exit 0
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9aad4d022aee` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/INFRA-2772-bound-the-session-start-task-notice.md` blob `e02bce9ad34e` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT's last (and only) entry is `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-21` (`approved → in-progress`); document `status: in-progress` in `.agents/spec-docs/active/`, which `spec-workflow.md` § Status and Lifecycle Folders maps `in-progress` to. The earlier `[GATE-VERIFY] — ❌ FAIL | 2026-09-21` is this gate's own prior run, not the prior gate's, and does not block a re-run.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): `.agents/tasks/INFRA-2772-bound-the-session-start-task-notice.md` `## Plan` holds 8 checkboxes, 8 `[x]`, 0 `[ ]` (4 implementation items + TC-01..TC-04); `node scripts/harness/scan-task-plan-items.mjs` → exit 0 ("328 Task Plan sections … passed"). Ticks corroborated against the tree: `classify-dir` present in `scripts/harness/task-lifecycle.mjs` and called from `.claude/hooks/task-tracking.sh` (bound line at line 306), `scripts/harness/__tests__/task-notice-is-bounded.test.mjs` exists (8 tests, green), `.agents/skills/task-tracking/SKILL.md` modified (+6/−2). `gate.mjs` reported this criterion PENDING-GUARDIAN because its binding pattern reads the pre-#2375 wording ("All tasks in … are marked complete"), not because anything was undecided.
+- GATE-VERIFY — No Plan item is blocked or pending: no Plan item is unticked, and none carries a blocked/pending disposition. The word "blocked" inside item 2 ("the bounded `in-progress`/`blocked` list") names the hook output the item implements, not the item's state; the item is `[x]`. No Plan item is a self-disposition (merge/land/close/publish).
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): scope is `scripts/**` + `.claude/hooks/**` with no package build, so the build-equivalent is the affected scan set. Re-run by the guardian: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts --skip task-archival` → exit 0 ("68 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context)"). The two advisories (`progress-report-quantification`: a session-transcript narrative line; `task-merged-citation`: SCREEN-2002's record) concern neither this document nor this Task. `task-archival` deferred deliberately: run alone (`node scripts/harness/check-task-archival.mjs` → exit 1) its sole finding is this Task, "all 8 checkbox(es) checked but the spec has not reached spec-docs/done/ — run GATE-VERIFY/GATE-COMPLETE, move the spec to done/, then archive"; the catalogue's GATE-COMPLETE "Post-PASS handoff" schedules that scan against the final state after the closing commit, so it cannot gate this transition.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): re-run by the guardian: `pnpm exec vitest run task-notice-is-bounded.test.mjs hooks-run.test.mjs open-issues-are-shown.test.mjs` → exit 0 — Test Files 3 passed (3), Tests 40 passed (40): `task-notice-is-bounded.test.mjs` 8, `remaining-hooks-run.test.mjs` 18, `open-issues-are-shown.test.mjs` 14.
+
+**Judged by:** `backlog-gate-guard` semantic review with `gate.mjs` mechanical support.
+**Judged at:** HEAD `9aad4d022aee` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/INFRA-2772-bound-the-session-start-task-notice.md` blob `caeba8586752` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-21; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (4)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-2772-bound-the-session-start-task-notice.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 8/8 tasks `[x]` in .agents/tasks/INFRA-2772-bound-the-session-start-task-notice.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9aad4d022aee` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/INFRA-2772-bound-the-session-start-task-notice.md` blob `02b2590e3f38` (modified)
