@@ -1,0 +1,301 @@
+---
+status: draft
+type: RULE
+tags: [harness, approval, migration]
+lane: L2
+---
+
+# RULE-2380: Dispose of the frozen legacy approval corpus
+
+Paired with `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`.
+The historical source is [issue #2380](https://github.com/woojubb/robota/issues/2380); its unfinished
+scope was transferred to the open execution owner [issue #2664](https://github.com/woojubb/robota/issues/2664).
+
+## Problem
+
+`scan-standing-delegation-evidence.mjs` currently reports 404 approved spec documents: 137 DIRECT,
+49 CLASS, and 218 frozen approvals with no route. The frozen baseline prevents RULE-012 from making
+the repository immediately red, but its own note says that exemption is not absolution and leaves the
+records' disposition to an owner decision. No machine-readable artifact currently records that
+decision per record, binds it to the historical bytes, or proves that every baseline member received
+one disposition.
+
+Retroactively writing `DIRECT` would invent a route field and provenance that were not recorded.
+Retroactively writing `CLASS` is prohibited because the two registered classes postdate every frozen
+approval. Seventeen records rely on relayed authority, which the current rule says is not an
+instruction, and eleven assert standing authority without quoting it. Therefore “repairing” the old
+approvals would turn uncertainty into fabricated evidence. Leaving the baseline alone would preserve
+the uncertainty forever and allow a later shrink or rekey to look like completed disposition.
+
+The current population is reproducible from the final standing verdict in each baseline member. A
+reviewed evidence map assigns exactly one evidence-shape category per record:
+
+| Evidence shape                  | Precedence rule over evidence references from the final standing verdict                                                                            | Count |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----: |
+| `RELAYED_AUTHORITY_ONLY`        | the user approval/delegation itself is described as relayed, supplied, or attested by another session/orchestrator, or inherited from such a record |    17 |
+| `HISTORICAL_QUOTED_CLASS_SHAPE` | non-relayed standing/class authorization quotes the user instruction and its application to the item                                                |    26 |
+| `NO_QUOTED_AUTHORITY`           | non-relayed standing/class authorization is asserted without a verbatim user instruction                                                            |    11 |
+| `HISTORICAL_DIRECT_SHAPE`       | the record carries direct item/batch approval evidence and none of the three higher-precedence shapes applies                                       |   164 |
+
+The four counts total 218. Issue #2380's original 217-record measurement was 165/15/26/11 and grouped
+only its standing-basis search. The guard fix in commit
+`6a15807054e01f66fdee2cc837779d1ca2467a56` restored the previously invisible `SEC-015` record. The
+complete semantic audit then applies relay precedence consistently: `RULE-013`, `SEC-015`, and
+`SEC-016` relay the user authority; `ARCH-029` verifies its direct user answer at the source; and
+`SCREEN-005` relays only a proposal-reviewer verdict, not user authority. The resulting current counts
+are 164 direct-shaped, 17 relayed, 26 quoted-class-shaped, and 11 without quoted authority.
+
+## Prior Art Research
+
+- RULE-012's `standing-delegation-baseline.json` is the population owner and already establishes the
+  no-growth/shrink-only legacy boundary. This item retains that boundary instead of creating a second
+  approval population.
+- RULE-2326's `recommendation-endorsement-baseline.json` and
+  `recommendation-endorsement-persisted.mjs` demonstrate the repository's immutable-introduction
+  pattern: an adoption revision precedes one unique add commit, and later bytes must equal the exact
+  introduction bytes.
+- `BACKLOG-ZERO-MIGRATION` demonstrates a finite manifest whose rows retain exact paths, evidence, and
+  disposition while treating the manifest as immutable after approval. RULE-2380 applies that pattern
+  to approval records, without using that delegated class as approval authority for this policy edit.
+- Git object identity and a separate SHA-256 content digest answer different audit questions: the Git
+  blob proves which repository object existed at adoption, while SHA-256 provides a stable explicit
+  content checksum in the manifest. Git's official
+  [`git-hash-object` documentation](https://git-scm.com/docs/git-hash-object) defines the object ID as
+  a digest over an object's typed content, and the official
+  [Git data model](https://git-scm.com/docs/gitdatamodel) states that Git objects are immutable after
+  creation. Both identities are retained rather than treating one as a substitute for the other.
+- [NIST SP 800-53 Rev. 5.1](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final) AU-9 treats protection
+  of audit information and its integrity as a distinct control. That supports retaining exact adopted
+  bytes and refusing silent mutation rather than replacing historical evidence with a present-day
+  interpretation.
+
+These precedents converge on a central immutable manifest anchored to an adoption revision. None
+supports retroactively changing an old approval into evidence that did not exist at the time.
+
+## Architecture Review
+
+### Affected Scope
+
+- `scripts/harness/standing-delegation-dispositions.json` — new immutable 218-row disposition manifest.
+- `scripts/harness/standing-delegation-disposition.mjs` — manifest parsing, canonical serialization,
+  evidence-reference/category validation, adoption-tree lookup, and preservation checks.
+- `scripts/harness/scan-standing-delegation-evidence.mjs` — retain prospective route enforcement and
+  additionally require complete, valid disposition of the adopted frozen population.
+- `scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs` and focused disposition
+  fixtures — classifier, manifest, tamper, replay, and migration coverage.
+- RULE-2380 Task/spec plus parent AGREEMENT-2664 Task/spec projections.
+
+No package, application, public API, runtime dependency, product behavior, or user-authored document
+changes. The 218 historical spec documents are read-only inputs in this work unit.
+
+### Alternatives Considered
+
+1. Add `DIRECT` to the 164 direct-shaped records and register a class for the 26 quoted records.
+   - Pro: reduces the frozen count immediately.
+   - Con: invents route/provenance fields for DIRECT and violates the explicit no-retroactive-CLASS
+     rule. It cannot recover the 17 relayed or 11 unquoted records.
+2. Append one disposition entry to each of the 218 historical Evidence Logs.
+   - Pro: disposition is visible beside each approval.
+   - Con: performs a broad rewrite of sealed history, creates 218 mutation sites, and makes population
+     conservation harder to audit than one canonical sorted manifest.
+3. Keep the baseline unchanged and record only a single aggregate owner decision.
+   - Pro: smallest diff.
+   - Con: cannot prove that all 218 records were classified exactly once, cannot detect a missing or
+     substituted member, and leaves the baseline's “not absolution” debt unresolved.
+4. Create one immutable per-record manifest and preserve the historical documents unchanged.
+   - Pro: records a complete owner disposition, binds every row to exact adopted bytes, keeps
+     prospective DIRECT/CLASS rules intact, and makes omission, duplication, tampering, and silent
+     population drift mechanically visible.
+   - Con: adds a second artifact beside the existing baseline and requires careful adoption/current
+     state handling so the baseline can still shrink after a genuine new approval.
+
+### Decision
+
+**Delivery mode:** `single`
+
+Choose alternative 4. Every adopted record receives the sole disposition `PRESERVE_FROZEN`. That
+means: retain the old approval only as a pre-RULE-012 historical exemption; do not claim that its
+authority is valid; do not use it as DIRECT or CLASS evidence for new work. The evidence-shape field is
+descriptive only and never changes this effect.
+
+The manifest is introduced once and is immutable thereafter. Its `adoptionRevision` is the exact
+planning checkpoint that precedes implementation and is an ancestor of the unique manifest-add commit.
+The scanner reads the baseline and documents from that revision, not from an asserted count. Manifest
+bytes in the working tree/index/HEAD must equal the bytes from the unique introduction commit.
+
+Each row contains exactly:
+
+- stable subject basename and adoption-time relative path;
+- adoption-time Git blob object ID and SHA-256 of the complete document bytes;
+- SHA-256 of the complete adoption-time Evidence Log and final standing GATE-APPROVAL verdict;
+- one or more byte-bounded evidence references inside that verdict, each with a closed kind enum,
+  start/end offsets, and SHA-256 of the selected bytes;
+- one of the four evidence-shape values above;
+- `PRESERVE_FROZEN` and its category-specific reason code.
+
+Rows are sorted by subject and serialize canonically. The adopted baseline set and manifest row set
+must be exactly equal and contain 218 unique subjects. Classification is frozen as reviewed evidence,
+not re-inferred later from an open-ended natural-language keyword search. The validator derives the
+category deterministically from the closed evidence-reference kinds: `USER_AUTHORITY_RELAYED` or
+`RELAY_PROVENANCE_INHERITED` wins first; otherwise quoted standing/class evidence selects
+`HISTORICAL_QUOTED_CLASS_SHAPE`; otherwise an unquoted standing-authority assertion selects
+`NO_QUOTED_AUTHORITY`; otherwise exact direct item/batch evidence selects
+`HISTORICAL_DIRECT_SHAPE`. Every referenced byte range and hash must resolve inside the adopted final
+verdict. A row with missing, conflicting, out-of-range, or category-inconsistent references fails;
+there is no fallback category.
+
+The 17 relayed subjects are fixed explicitly: `ARCH-021`, `ARCH-100`, `ARCH-101`, `ARCH-103` through
+`ARCH-108`, `HARNESS-116`, `HARNESS-117`, `RULE-013`, `SEC-015`, `SEC-016`, and `TRANS-005` through
+`TRANS-007`. The manifest retains full filenames, so these shorthand IDs cannot create wildcard
+membership.
+
+The manifest remains the permanent 218-record audit ledger, while the current baseline keeps its
+existing shrink-only behavior. A current baseline member must map to an adopted manifest subject and
+retain the adoption-time Evidence Log bytes unchanged. A subject may leave the current baseline only
+when its current final approval independently passes the ordinary DIRECT/CLASS classifier; its adopted
+Evidence Log must remain an exact prefix of the current Evidence Log so a new append-only approval
+cannot erase the historical record. Unknown baseline additions, missing manifest rows, duplicate
+subjects, unexplained path substitutions, modified historical Evidence Log bytes, invalid new routes,
+or manifest mutation fail closed.
+
+The full-document blob and SHA-256 preserve the exact adoption snapshot for audit. They are verified
+against `adoptionRevision`; they do not prohibit a later legitimate document lifecycle edit. The
+Evidence Log prefix check is the invariant that protects historical approval bytes in the current
+tree, while a new valid approval is the only route out of the frozen baseline.
+
+The owner disposition is encoded in the immutable manifest and its scanner contract, not by amending
+the delegated-approval rule. The existing rule already says the frozen baseline is not absolution,
+forbids retroactive classes, rejects relayed authority, and assigns the historical disposition to an
+owner decision filed as issue #2380. This work supplies that missing decision without changing what
+delegation means. The grounded recommendation is authorized by the user's current instruction:
+“승인합니다. 그리고 앞으로 타당한 근거와 함께 추천안을 제시하면 근거가 타당할 경우 자동으로
+승인합니다.”
+
+### Architecture Review Checklist
+
+- [x] Affected package/layer list complete — repository-private rule, manifest, scanner, tests, and
+      lifecycle records only.
+- [x] Sibling scan complete — RULE-012 baseline, RULE-2326 immutable adoption, and
+      BACKLOG-ZERO-MIGRATION manifest patterns inspected; no existing artifact owns per-record frozen
+      approval disposition.
+- [x] At least 2 alternatives reviewed — four alternatives above.
+- [x] Decision rationale documented — the selected design preserves evidence and population identity
+      without fabricating authority.
+- [x] New-surface placement: N/A — no package, app, interface, presentation, or product-family surface.
+
+## Fallback & Degradation Declaration
+
+None. An unreadable adoption revision, absent historical blob, malformed or mutable manifest, count or
+set mismatch, ambiguous classification, digest mismatch, changed historical Evidence Log, invalid
+baseline shrink, or unknown addition is a blocking finding. The scanner never converts such a failure
+into a warning or inferred approval.
+
+## Solution
+
+1. Add the disposition module and immutable manifest generated from the exact planning-checkpoint
+   baseline and document bytes, with 218 sorted rows, byte-bounded evidence references, and the four
+   independently audited evidence shapes.
+2. Extend the existing standing-delegation scan so the baseline remains the prospective exemption
+   owner while the manifest owns historical disposition and adoption-byte evidence.
+3. Add focused RED/GREEN fixtures for each category, exact adopted-set equality, malformed schemas,
+   missing/duplicate/extra rows, changed blobs/digests/Evidence Logs, immutable-introduction mutation,
+   a legitimate append-only new DIRECT/CLASS route, invalid baseline shrink, rekeyed subjects, and
+   canonical idempotent serialization.
+4. Update RULE-2380 and parent AGREEMENT-2664 lifecycle projections; do not reopen or rewrite closed
+   issue #2380, whose residual scope is already owned by #2664.
+
+## Affected Files
+
+- `scripts/harness/standing-delegation-dispositions.json`
+- `scripts/harness/standing-delegation-disposition.mjs`
+- `scripts/harness/scan-standing-delegation-evidence.mjs`
+- `scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs`
+- `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
+- `.agents/spec-docs/draft/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
+- `.agents/tasks/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md`
+- `.agents/spec-docs/active/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md`
+
+## Completion Criteria
+
+- [ ] TC-01: The immutable manifest contains exactly the 218 subjects in the adoption revision's
+      frozen baseline, each exactly once, with verified document blob, complete-document SHA-256,
+      Evidence Log SHA-256, standing-verdict SHA-256, byte-bounded evidence references, and exactly one
+      of the four evidence shapes; measured counts are 164 direct / 26 quoted-class / 17 relayed / 11
+      no-quoted-authority.
+- [ ] TC-02: The manifest schema, every row, and the paired Task/spec state that `PRESERVE_FROZEN`
+      grants no DIRECT/CLASS authority; the user's current disposition instruction and the
+      category-specific reason are recorded without changing any of the 218 historical spec documents
+      or any delegated-approval rule document.
+- [ ] TC-03: Focused fixtures reject malformed manifests, mutation after introduction, missing,
+      duplicate, extra, substituted, or ambiguously classified rows, wrong blobs or digests, modified
+      historical Evidence Logs, unknown baseline growth, and baseline shrink without a current valid
+      DIRECT/CLASS approval; a valid append-only new approval preserves the adopted log and passes.
+- [ ] TC-04: Canonical parse/serialize/read-back is byte-idempotent, two consecutive live scans report
+      identical 218-row disposition counts with zero unclassified records, the historical spec path
+      set has no worktree diff, and focused plus affected harness verification passes.
+- [ ] TC-05: The RULE-2380 Task/spec and both parent AGREEMENT-2664 projections name RULE-2380 as done,
+      point to the completed Task/spec paths, state that all seven children are terminal, and retain
+      issue #2664 as the open integration owner until the initiative lands on `develop`.
+
+## Test Plan
+
+| TC-ID | Test Type                     | Tool / Approach                                                                                                                         | Notes                                                                                      |
+| ----- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| TC-01 | Unit / live inventory         | focused Vitest classifier cases plus live scanner exact counts and adopted-set equality                                                 | Proves all 218 are classified once; includes the SEC-015 217→218 correction.               |
+| TC-02 | Contract / diff               | manifest/Task/spec schema assertions plus `git diff --name-only` exclusion of rule files and all 218 adopted paths                      | Prevents category names or metadata from becoming authority and prevents history rewrites. |
+| TC-03 | Adversarial integration       | temporary Git repositories covering manifest introduction, tamper, set drift, digest drift, rekey, shrink, and append-only new approval | Every corrupt or unauthorized transition fails closed.                                     |
+| TC-04 | Determinism / repository gate | canonical round-trip twice, live scanner twice, focused Vitest, and affected harness scan                                               | Proves idempotence, population conservation, and no unclassified row.                      |
+| TC-05 | Lifecycle projection          | exact-path/status assertions over RULE-2380 and both AGREEMENT-2664 records                                                             | Proves the final child closes without prematurely closing the integration owner.           |
+
+## User Execution Test Scenarios
+
+Not applicable.
+
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Reason:** This changes repository-private approval-history metadata and harness enforcement. It does
+not change a Robota CLI, TUI, browser, public SDK, installed package, or other runnable product surface
+that an end user can execute.
+
+## Tasks
+
+- [ ] `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` — todo
+
+## Evidence Log
+
+### [GATE-WRITE] — ❌ FAIL | 2026-09-20
+
+**Status remains:** draft
+**Failed criteria:**
+
+- GATE-WRITE — Section is substantiated: cites ≥1 documentation source (product/API/design doc, release notes, protocol spec : "## Prior Art Research" present but not substantiated — needs ≥1 documentation citation (http link) or an explicit "no comparable reference found", or a "Waived: [reason]" line.
+  **Required action:** cite a documentation source, state that none was found, or add `Waived: [reason]`
+- GATE-WRITE — OR an explicit `Waived: [reason]` line is present (opt-out the agent proposed or the user requested) — a bare : "## Prior Art Research" present but not substantiated — needs ≥1 documentation citation (http link) or an explicit "no comparable reference found", or a "Waived: [reason]" line.
+  **Required action:** cite a documentation source, state that none was found, or add `Waived: [reason]`
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `73cf4c7e721e` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/draft/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `4438788748a9` (untracked)
+
+### [GATE-WRITE] — ❌ FAIL | 2026-09-20
+
+**Status remains:** draft
+**Failed criteria:**
+
+- GATE-WRITE — Research findings feed `Alternatives Considered` / `Decision` (evidence-based recommendation, not asserted): the draft gives incompatible live-population evidence: the verified scanner reports 218 frozen records; the evidence-shape table and Decision use 164 direct-shaped / 17 relayed / 26 quoted-class-shaped / 11 no-quoted-authority, while the preceding Problem text says 15 relayed records and alternative 1 says 166 direct-shaped / 15 relayed records. The reader therefore cannot trace one coherent measured research result into the alternatives and Decision.
+  **Required action:** reconcile every population count and category claim with one verified live inventory, then re-run this gate.
+- GATE-WRITE — At least 1 criterion per distinct feature or sub-item: Solution step 5 requires updating the RULE-2380 and parent AGREEMENT-2664 lifecycle projections, but TC-01 through TC-04 and their Test Plan rows contain no observable criterion or verification for those projection updates.
+  **Required action:** add a measurable completion criterion and matching Test Plan row for the stated lifecycle-projection scope, or remove that scope from the Solution before re-running this gate.
+
+**Judged by:** `backlog-gate-guard` semantic evaluator
+**Judged at:** HEAD `73cf4c7e721e` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/draft/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `34429152a41ad392ffd20ee1674410a28c0dc3d9` (untracked)
+
+### [GATE-WRITE] — ❌ FAIL | 2026-09-20
+
+**Status remains:** draft
+**Failed criteria:**
+
+- GATE-WRITE — Research findings feed `Alternatives Considered` / `Decision` (evidence-based recommendation, not asserted): the bounded correction reconciled alternative 1 and added TC-05, but the Problem still states that fifteen records rely on relayed authority. The live scanner reports 218 frozen records, and the reviewed evidence-shape table, Decision, and alternative 1 use 17 relayed records (164 direct-shaped / 26 quoted-class-shaped / 17 relayed / 11 no-quoted-authority). The document therefore still presents incompatible research inputs.
+  **Required action:** replace the remaining stale 15-record claim with the verified current evidence-shape count, then re-run this gate.
+
+**Judged by:** `backlog-gate-guard` semantic evaluator
+**Judged at:** HEAD `73cf4c7e721e` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/draft/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `ae0efcc88dc4f2ce38b31cdd381ed2b15704cd5e` (untracked)
