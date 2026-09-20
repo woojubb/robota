@@ -1,7 +1,7 @@
 ---
 title: 'HARNESS-2774: Re-bind a drifted DONE-GATE-STAGE-1 payload on a continuation checkpoint'
 issue: https://github.com/woojubb/robota/issues/2774
-status: todo
+status: in-progress
 created: 2026-09-20
 priority: high
 urgency: now
