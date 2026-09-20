@@ -1,4 +1,4 @@
-import { execFile, execFileSync } from 'node:child_process';
+import { execFile, execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -5411,5 +5411,429 @@ describe('the refusal carries why the L0 ground did not apply (issue #2597)', ()
     });
 
     expect(decision.reason).toContain('no Task record to ground on');
+  });
+});
+
+const INTEGRATION_AGREEMENT_PARENT = 'AGREEMENT-2664-parent';
+const INTEGRATION_AGREEMENT_CHILDREN = [
+  ['BEHAVIOR-2664', 'BEHAVIOR-2664-child'],
+  ['DATA-2664', 'DATA-2664-child'],
+];
+
+function integrationAgreementFixture() {
+  const { root, base } = repository();
+  git(root, ['branch', '-m', 'integration/agreement-2664']);
+  const issue = 'https://github.com/woojubb/robota/issues/2664';
+  const children = INTEGRATION_AGREEMENT_CHILDREN.map(([id]) => id).join(', ');
+  write(
+    root,
+    `.agents/tasks/${INTEGRATION_AGREEMENT_PARENT}.md`,
+    [
+      '---',
+      `issue: ${issue}`,
+      'status: todo',
+      `children: [${children}]`,
+      '---',
+      '',
+      '# AGREEMENT-2664: parent',
+      '',
+      '## Children',
+      '',
+      ...INTEGRATION_AGREEMENT_CHILDREN.map(
+        ([id, basename]) =>
+          `- [ ] ${id} — todo — \`.agents/tasks/${basename}.md\` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->`,
+      ),
+    ].join('\n'),
+  );
+  write(
+    root,
+    `.agents/spec-docs/todo/${INTEGRATION_AGREEMENT_PARENT}.md`,
+    [
+      '---',
+      'status: approved',
+      'type: AGREEMENT',
+      'tags: [typescript]',
+      '---',
+      '',
+      '# AGREEMENT-2664: parent',
+      '',
+      '## Tasks',
+      '',
+      ...INTEGRATION_AGREEMENT_CHILDREN.map(
+        ([id, basename]) =>
+          `- [ ] ${id} — todo — \`.agents/tasks/${basename}.md\` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->`,
+      ),
+    ].join('\n'),
+  );
+  for (const [id, basename] of INTEGRATION_AGREEMENT_CHILDREN) {
+    write(
+      root,
+      `.agents/tasks/${basename}.md`,
+      ['---', `issue: ${issue}`, 'status: todo', '---', '', `# ${id}: child`].join('\n'),
+    );
+  }
+  commit(root, 'record atomic agreement manifest');
+
+  write(
+    root,
+    `.agents/tasks/${INTEGRATION_AGREEMENT_PARENT}.md`,
+    taskText({ subject: INTEGRATION_AGREEMENT_PARENT }).replace(
+      'status: in-progress',
+      `issue: ${issue}\nstatus: in-progress\nchildren: [${children}]`,
+    ),
+  );
+  write(
+    root,
+    `.agents/spec-docs/active/${INTEGRATION_AGREEMENT_PARENT}.md`,
+    specText({ subject: INTEGRATION_AGREEMENT_PARENT }).replace('type: INFRA', 'type: AGREEMENT'),
+  );
+  commit(root, 'authorize agreement implementation');
+  return { root, base, integration: 'integration/agreement-2664' };
+}
+
+function mergeAgreementChild(root, integration, id, basename = `${id}-child`) {
+  git(root, ['switch', '-q', '-c', `child/${id.toLowerCase()}`]);
+  write(root, `.agents/tasks/${basename}.md`, taskText({ subject: basename }));
+  write(root, `.agents/spec-docs/active/${basename}.md`, specText({ subject: basename }));
+  commit(root, `authorize ${id}`);
+  write(root, `packages/example/${id.toLowerCase()}.ts`, `export const child = '${id}';\n`);
+  commit(root, `implement ${id}`);
+  git(root, ['switch', '-q', integration]);
+  git(root, ['merge', '--no-ff', '-q', '-m', `merge ${id}`, `child/${id.toLowerCase()}`]);
+}
+
+function mergeAgreementChildContinuation(root, integration, id, basename = `${id}-child`) {
+  const branch = `child/${id.toLowerCase()}-continuation`;
+  git(root, ['switch', '-q', '-c', branch]);
+  write(
+    root,
+    `.agents/spec-docs/active/${basename}.md`,
+    continuationSpecText({ subject: basename }),
+  );
+  commit(root, `continue ${id}`);
+  write(
+    root,
+    `packages/example/${id.toLowerCase()}-continued.ts`,
+    'export const continued = true;\n',
+  );
+  commit(root, `continue implementing ${id}`);
+  git(root, ['switch', '-q', integration]);
+  git(root, ['merge', '--no-ff', '-q', '-m', `merge ${id} continuation`, branch]);
+}
+
+describe('user-execution PLAN order — integration AGREEMENT history (BRANCH-2664)', () => {
+  it('uses GITHUB_HEAD_REF only for a detached checkout, not for a named scratch branch', () => {
+    const fixture = repository();
+    checkpoint(fixture.root);
+    git(fixture.root, ['rm', '-q', '-r', '.agents']);
+    commit(fixture.root, 'retract first pair');
+    checkpoint(fixture.root);
+    const prior = process.env.GITHUB_HEAD_REF;
+    process.env.GITHUB_HEAD_REF = 'integration/agreement-2664';
+    try {
+      expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+        /multiple planning checkpoint candidates/i,
+      );
+    } finally {
+      if (prior === undefined) delete process.env.GITHUB_HEAD_REF;
+      else process.env.GITHUB_HEAD_REF = prior;
+    }
+  });
+
+  it('accepts the declared ordered prefix when every child is bounded by a clean merge', () => {
+    const fixture = integrationAgreementFixture();
+    mergeAgreementChild(fixture.root, fixture.integration, 'BEHAVIOR-2664');
+    mergeAgreementChild(fixture.root, fixture.integration, 'DATA-2664');
+
+    expect(findHistoryFindings(fixture.root, fixture.base)).toEqual([]);
+  });
+
+  it('rejects an out-of-order child even though its own checkpoint history is valid', () => {
+    const fixture = integrationAgreementFixture();
+    mergeAgreementChild(fixture.root, fixture.integration, 'DATA-2664');
+
+    expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+      /out-of-order initiative child/i,
+    );
+  });
+
+  it('rejects duplicate and undeclared child merges by their checkpoint identities', () => {
+    const duplicate = integrationAgreementFixture();
+    mergeAgreementChild(duplicate.root, duplicate.integration, 'BEHAVIOR-2664');
+    mergeAgreementChildContinuation(duplicate.root, duplicate.integration, 'BEHAVIOR-2664');
+    expect(messages(findHistoryFindings(duplicate.root, duplicate.base))).toMatch(
+      /duplicate initiative child/i,
+    );
+
+    const undeclared = integrationAgreementFixture();
+    mergeAgreementChild(undeclared.root, undeclared.integration, 'RULE-999');
+    expect(messages(findHistoryFindings(undeclared.root, undeclared.base))).toMatch(
+      /undeclared initiative child/i,
+    );
+  });
+
+  it('passes a valid correction-form child segment through the existing analyser before duplicate detection', () => {
+    const fixture = integrationAgreementFixture();
+    const childTask = '.agents/tasks/BEHAVIOR-2664-child.md';
+    const childSpec = '.agents/spec-docs/active/BEHAVIOR-2664-child.md';
+    git(fixture.root, ['switch', '-q', '-c', 'child/behavior-2664-legacy']);
+    write(fixture.root, childTask, taskText({ subject: 'BEHAVIOR-2664-child' }));
+    write(fixture.root, childSpec, specText({ subject: 'BEHAVIOR-2664-child', v1: true }));
+    commit(fixture.root, 'authorize legacy BEHAVIOR-2664');
+    write(
+      fixture.root,
+      'packages/example/behavior-2664-legacy.ts',
+      'export const legacy = true;\n',
+    );
+    commit(fixture.root, 'implement legacy BEHAVIOR-2664');
+    git(fixture.root, ['switch', '-q', fixture.integration]);
+    git(fixture.root, [
+      'merge',
+      '--no-ff',
+      '-q',
+      '-m',
+      'merge legacy BEHAVIOR-2664',
+      'child/behavior-2664-legacy',
+    ]);
+    const firstIntroduction = git(fixture.root, ['rev-parse', 'HEAD']);
+
+    git(fixture.root, ['switch', '-q', 'develop']);
+    write(fixture.root, '.agents/rules/backlog-execution.md', LIVE_BACKLOG_RULE);
+    const contractDevelop = commit(fixture.root, 'introduce checkpoint correction contract');
+    git(fixture.root, ['update-ref', 'refs/remotes/origin/develop', contractDevelop]);
+    git(fixture.root, ['switch', '-q', fixture.integration]);
+    git(fixture.root, [
+      'merge',
+      '--no-ff',
+      '-q',
+      '-m',
+      'sync correction contract',
+      contractDevelop,
+    ]);
+
+    git(fixture.root, ['switch', '-q', '-c', 'child/behavior-2664-correction']);
+    const priorSpec = readFileSync(path.join(fixture.root, childSpec), 'utf8');
+    const priorRaw = rawGateImplementPassEntries(priorSpec)[0];
+    const withDecision = priorSpec.replace(
+      '## Completion Criteria',
+      [
+        '## Architecture Review',
+        '',
+        '### Decision',
+        '',
+        '**Delivery mode:** `sequenced`',
+        '',
+        '**Continuation artifacts:** `scripts/harness/gate.mjs`',
+        '',
+        '## Completion Criteria',
+      ].join('\n'),
+    );
+    const correction = formatCheckpointEvidence(LIVE_V2_CONTRACT, 'gateImplementCorrection', {
+      version: 2,
+      form: 'gateImplementCorrection',
+      deliveryMode: 'sequenced',
+      sequencedArtifacts: ['scripts/harness/gate.mjs'],
+      priorPass: priorPassDigest(priorRaw),
+      firstPassIntroductionSha: firstIntroduction,
+      taskPath: childTask,
+      specPath: childSpec,
+      taskItems: [{ kind: 'tc-id', value: 'TC-01' }],
+      plan: { outcome: 'not-applicable', count: 0 },
+      worktreePaths: [childSpec, childTask].sort(),
+    });
+    if (!correction.ok) throw new Error(correction.error);
+    write(
+      fixture.root,
+      childSpec,
+      `${withDecision}### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-20\n\n${CORRECTION_STATUS_LINE}\n\n${correction.text}\n`,
+    );
+    commit(fixture.root, 'correct legacy BEHAVIOR-2664 delivery declaration');
+    git(fixture.root, ['switch', '-q', fixture.integration]);
+    git(fixture.root, [
+      'merge',
+      '--no-ff',
+      '-q',
+      '-m',
+      'merge BEHAVIOR-2664 correction',
+      'child/behavior-2664-correction',
+    ]);
+
+    const result = messages(findHistoryFindings(fixture.root, fixture.base));
+    expect(result).toMatch(/duplicate initiative child/i);
+    expect(result).not.toMatch(
+      /correction checkpoint|checkpoint binding failed|neither the first/i,
+    );
+  });
+
+  it('passes malformed child lifecycle history through the existing single-unit analyser', () => {
+    const fixture = integrationAgreementFixture();
+    git(fixture.root, ['switch', '-q', '-c', 'child/behavior-2664-invalid']);
+    write(fixture.root, 'packages/example/too-early.ts', 'export const early = true;\n');
+    commit(fixture.root, 'implementation before checkpoint');
+    write(
+      fixture.root,
+      '.agents/tasks/BEHAVIOR-2664-child.md',
+      taskText({ subject: 'BEHAVIOR-2664-child' }),
+    );
+    write(
+      fixture.root,
+      '.agents/spec-docs/active/BEHAVIOR-2664-child.md',
+      specText({ subject: 'BEHAVIOR-2664-child' }),
+    );
+    commit(fixture.root, 'late checkpoint');
+    git(fixture.root, ['switch', '-q', fixture.integration]);
+    git(fixture.root, [
+      'merge',
+      '--no-ff',
+      '-q',
+      '-m',
+      'merge malformed BEHAVIOR-2664',
+      'child/behavior-2664-invalid',
+    ]);
+
+    expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+      /implementation or invalid-lifecycle path\(s\) changed before the planning checkpoint/i,
+    );
+  });
+
+  it('does not treat a clean integration-base sync as an initiative child', () => {
+    const fixture = integrationAgreementFixture();
+    mergeAgreementChild(fixture.root, fixture.integration, 'BEHAVIOR-2664');
+    const remoteBase = git(fixture.root, ['rev-parse', 'HEAD']);
+    git(fixture.root, ['update-ref', 'refs/remotes/origin/integration/agreement-2664', remoteBase]);
+    git(fixture.root, ['switch', '-q', 'develop']);
+    write(fixture.root, 'develop-advance.md', 'current develop\n');
+    const develop = commit(fixture.root, 'advance develop');
+    git(fixture.root, ['update-ref', 'refs/remotes/origin/develop', develop]);
+    git(fixture.root, ['switch', '-q', fixture.integration]);
+    git(fixture.root, ['merge', '--no-ff', '-q', '-m', 'sync current develop', develop]);
+
+    expect(findHistoryFindings(fixture.root, fixture.base)).toEqual([]);
+  });
+
+  it('rejects an unpushed sync whose second parent is only an old develop ancestor', () => {
+    const fixture = integrationAgreementFixture();
+    const remoteBase = git(fixture.root, ['rev-parse', 'HEAD']);
+    git(fixture.root, ['update-ref', 'refs/remotes/origin/integration/agreement-2664', remoteBase]);
+    git(fixture.root, ['switch', '-q', 'develop']);
+    write(fixture.root, 'develop-old.md', 'old develop\n');
+    const oldDevelop = commit(fixture.root, 'first develop advance');
+    git(fixture.root, ['switch', '-q', fixture.integration]);
+    git(fixture.root, ['merge', '--no-ff', '-q', '-m', 'sync stale develop', oldDevelop]);
+    git(fixture.root, ['switch', '-q', 'develop']);
+    write(fixture.root, 'develop-current.md', 'current develop\n');
+    const currentDevelop = commit(fixture.root, 'second develop advance');
+    git(fixture.root, ['update-ref', 'refs/remotes/origin/develop', currentDevelop]);
+    git(fixture.root, ['switch', '-q', fixture.integration]);
+
+    expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+      /child history is not merge-bounded/i,
+    );
+  });
+
+  it('rejects a child cut before the current integration parent even when the merge is clean', () => {
+    const fixture = integrationAgreementFixture();
+    git(fixture.root, ['switch', '-q', '-c', 'child/data-2664-stale']);
+    write(
+      fixture.root,
+      '.agents/tasks/DATA-2664-child.md',
+      taskText({ subject: 'DATA-2664-child' }),
+    );
+    write(
+      fixture.root,
+      '.agents/spec-docs/active/DATA-2664-child.md',
+      specText({ subject: 'DATA-2664-child' }),
+    );
+    commit(fixture.root, 'authorize stale DATA-2664');
+    write(fixture.root, 'packages/example/data-2664-stale.ts', 'export const stale = true;\n');
+    commit(fixture.root, 'implement stale DATA-2664');
+    git(fixture.root, ['switch', '-q', fixture.integration]);
+    mergeAgreementChild(fixture.root, fixture.integration, 'BEHAVIOR-2664');
+    git(fixture.root, [
+      'merge',
+      '--no-ff',
+      '-q',
+      '-m',
+      'merge stale DATA-2664',
+      'child/data-2664-stale',
+    ]);
+
+    expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+      /child history is not merge-bounded/i,
+    );
+  });
+
+  it('rejects direct integration commits after child merging because the child history is not merge-bounded', () => {
+    const fixture = integrationAgreementFixture();
+    mergeAgreementChild(fixture.root, fixture.integration, 'BEHAVIOR-2664');
+    write(fixture.root, 'packages/example/unbounded.ts', 'export const unbounded = true;\n');
+    commit(fixture.root, 'unbounded integration implementation');
+
+    expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+      /child history is not merge-bounded/i,
+    );
+  });
+
+  it('rejects direct integration implementation between the AGREEMENT checkpoint and first child merge', () => {
+    const fixture = integrationAgreementFixture();
+    write(fixture.root, 'packages/example/before-first-child.ts', 'export const direct = true;\n');
+    commit(fixture.root, 'direct implementation before first child');
+    mergeAgreementChild(fixture.root, fixture.integration, 'BEHAVIOR-2664');
+
+    expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+      /child history is not merge-bounded/i,
+    );
+  });
+
+  it('rejects direct integration implementation when no child merge exists yet', () => {
+    const fixture = integrationAgreementFixture();
+    write(fixture.root, 'packages/example/no-child-merge.ts', 'export const direct = true;\n');
+    commit(fixture.root, 'direct implementation without a child merge');
+
+    expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+      /child history is not merge-bounded/i,
+    );
+  });
+
+  it('rejects a sync commit that persists Git conflict-marker output as its tree', () => {
+    const fixture = integrationAgreementFixture();
+    const integrationHead = git(fixture.root, ['rev-parse', 'HEAD']);
+    git(fixture.root, [
+      'update-ref',
+      'refs/remotes/origin/integration/agreement-2664',
+      integrationHead,
+    ]);
+    git(fixture.root, ['switch', '-q', 'develop']);
+    write(
+      fixture.root,
+      `.agents/tasks/${INTEGRATION_AGREEMENT_PARENT}.md`,
+      'develop-side add/add conflict\n',
+    );
+    const develop = commit(fixture.root, 'develop side of sync conflict');
+    git(fixture.root, ['update-ref', 'refs/remotes/origin/develop', develop]);
+    git(fixture.root, ['switch', '-q', fixture.integration]);
+
+    const mergeTree = spawnSync('git', ['merge-tree', '--write-tree', integrationHead, develop], {
+      cwd: fixture.root,
+      encoding: 'utf8',
+    });
+    expect(mergeTree.status).toBe(1);
+    const conflictTree = mergeTree.stdout.split('\n')[0].trim();
+    const conflictCommit = git(fixture.root, [
+      'commit-tree',
+      conflictTree,
+      '-p',
+      integrationHead,
+      '-p',
+      develop,
+      '-m',
+      'persist conflict-marker sync tree',
+    ]);
+    git(fixture.root, ['update-ref', `refs/heads/${fixture.integration}`, conflictCommit]);
+    git(fixture.root, ['read-tree', '--reset', '-u', conflictCommit]);
+
+    expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
+      /child history is not merge-bounded/i,
+    );
   });
 });

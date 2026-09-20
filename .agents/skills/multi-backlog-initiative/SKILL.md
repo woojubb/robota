@@ -43,7 +43,12 @@ If any precondition fails → **terminate** and report which.
 ## Steps and routing
 
 **1. Establish the integration base branch, cut fresh from the integration branch.** Fetch first: a base
-cut from a stale local ref carries divergence into every child that follows.
+cut from a stale local ref carries divergence into every child that follows. Name it exactly
+`integration/<agreement-id>` and cut it from fresh `origin/develop`. During a legacy migration, keep
+the old ref immutable and create the replacement with `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1`; replay
+only the AGREEMENT planning commits, then recreate completed children by replaying their non-merge
+commits in order. Before retiring the old ref, prove ordered stable patch-ID equality and
+base-relative changed-path equality for every replayed segment and verify each replacement merge.
 
 | Outcome                                                      | Route                                                                                        |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
@@ -54,7 +59,11 @@ cut from a stale local ref carries divergence into every child that follows.
 **2. Run the next item through the per-item pipeline, against the base.** Dispatch
 [backlog-execution-orchestrator](../backlog-execution-orchestrator/SKILL.md) for exactly one item, telling
 it that the integration base — not the shared integration branch — is its child branch's origin and its
-PR's target.
+PR's target. Create that child with both statement-local exceptions,
+`BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 BRANCH_GUARD_ALLOW_BASE=1`, and bind every push statement with
+`HARNESS_BASE_REF=origin/integration/<agreement-id>`. Plan-order validates the clean child merge's
+second-parent history with the ordinary single-item state machine and accepts only a unique ordered
+prefix of the AGREEMENT children; final completeness is not inferred here.
 
 | Per-item outcome                                    | Route                                                                                                                                                |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -80,14 +89,16 @@ around it.
 **4. Keep the base from drifting.** Before each subsequent item, check whether the integration branch has
 moved since the base was cut. The rule flags mid-flight divergence as a gap; this is its edge.
 
-| Outcome                                                  | Route                                                                                                                                                       |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The base is still a descendant of the integration branch | Continue to step 2.                                                                                                                                         |
-| The integration branch has moved, and syncing is clean   | Sync the base forward as its own change on the base — not folded into any item's child PR — then continue to step 2.                                        |
-| Syncing conflicts materially                             | **Return `HALT`.** A conflicted integration base is a decision, not a merge: the user owns the final PR and must own this. Report what conflicts with what. |
+| Outcome                                                  | Route                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The base is still a descendant of the integration branch | Continue to step 2.                                                                                                                                                                                                                                                        |
+| The integration branch has moved, and syncing is clean   | Sync the base forward as its own change on the base — not folded into any item's child PR. The merge must be the sole merge at `HEAD`, with parent 1 equal to `origin/integration/<agreement-id>` and parent 2 equal to current `origin/develop`; then continue to step 2. |
+| Syncing conflicts materially                             | **Return `HALT`.** A conflicted integration base is a decision, not a merge: the user owns the final PR and must own this. Report what conflicts with what.                                                                                                                |
 
 **5. Open the final PR from the base into the integration branch — and stop there.** Its description
-records what each item contributed and each item's gate result, per the rule's PR contract.
+records what each item contributed and each item's gate result, per the rule's PR contract. The
+AGREEMENT GATE-COMPLETE/task projection and this final-PR gate own final child completeness; the
+ordered-prefix plan-order check deliberately does not.
 
 | Outcome                                       | Route                                                                                                                                     |
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |

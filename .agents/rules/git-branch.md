@@ -246,6 +246,21 @@ so an `export` in an earlier statement does not reach it.
   **Enforced at push** by `.claude/hooks/pre-push-check.sh` (blocks a push when
   `git log --merges origin/develop..HEAD` is non-empty on a non-integration branch); `branch-guard` also flags
   local unmerged branches. Recover with `git reset --hard origin/develop && git cherry-pick <your-commit(s)>`.
+- A multi-backlog integration base has the exact name `integration/<agreement-id>` (for example,
+  `integration/agreement-2664`) and is created from freshly fetched `origin/develop`. A child cut
+  from its open remote base uses both statement-local exceptions —
+  `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 BRANCH_GUARD_ALLOW_BASE=1` — and every child push binds its
+  target with `HARNESS_BASE_REF=origin/integration/<agreement-id>` on that push statement. The
+  declaration is verified against the matching open AGREEMENT and contained merge ancestry; it is
+  not a general foreign-merge exception. If `develop` moves, the only base sync is one clean merge
+  at `HEAD` with parent 1 equal to the declared remote integration base and parent 2 equal to current
+  `origin/develop`. Plan-order validates each child through its merge-bounded second-parent history
+  and admits only a unique ordered prefix of the AGREEMENT children; final completeness remains the
+  AGREEMENT completion and final-PR gate's responsibility. When migrating a legacy base, create the
+  new integration branch from fresh develop with `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1`, replay the
+  AGREEMENT planning commits and child non-merge commits in order, verify ordered stable patch IDs
+  and base-relative changed-path sets, and keep the legacy ref immutable until every replacement
+  merge is verified.
 - Merging `develop` into `main` requires explicit user approval and is a release-level action. **Build the
   promotion branch with `node scripts/harness/promote.mjs` — never by hand** (§ Promotion below).
 - When merging a branch, always merge back to the branch it was forked from. Verify the fork point before proposing a merge target.

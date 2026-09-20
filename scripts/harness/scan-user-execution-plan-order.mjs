@@ -270,6 +270,16 @@ function automaticMergeTree(root, ours, theirs) {
   return tree;
 }
 
+function automaticMergeIsClean(root, ours, theirs) {
+  const result = runGit(root, ['merge-tree', '--write-tree', ours, theirs]);
+  if (result.code !== 0 && result.code !== 1) {
+    throw new Error(
+      `git merge-tree ${ours} ${theirs} failed: ${result.stderr || '(no stderr)'} — merge cleanliness cannot be established`,
+    );
+  }
+  return result.code === 0;
+}
+
 /**
  * A merge commit's OWN content (issue #2410): the paths at which the merge's tree differs from the
  * automatic merge of its two parents. A clean merge — including one where both sides changed
@@ -2239,7 +2249,7 @@ export function validatePostMergePrelude(root, parent, commit, paths, base) {
   );
 }
 
-export function resolveTopicMergeBase(root, requested, env = process.env) {
+export function resolveTopicMergeBase(root, requested, env = process.env, headRevision = 'HEAD') {
   const githubBase = env.GITHUB_BASE_REF
     ? env.GITHUB_BASE_REF.startsWith('origin/')
       ? env.GITHUB_BASE_REF
@@ -2251,7 +2261,7 @@ export function resolveTopicMergeBase(root, requested, env = process.env) {
   for (const candidate of candidates) {
     const resolved = runGit(root, ['rev-parse', '--verify', '--quiet', `${candidate}^{commit}`]);
     if (resolved.code !== 0) continue;
-    const mergeBase = runGit(root, ['merge-base', 'HEAD', candidate]);
+    const mergeBase = runGit(root, ['merge-base', headRevision, candidate]);
     if (mergeBase.code === 0 && mergeBase.stdout.trim()) return mergeBase.stdout.trim();
   }
   throw new Error(`no merge base could be resolved from ${candidates.join(', ') || '(none)'}`);
@@ -2282,11 +2292,15 @@ function requireWorktreeTopLevel(root) {
     );
 }
 
-function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
+function singleHistoryAnalysis(
+  root = WORKSPACE_ROOT,
+  requestedBase = undefined,
+  headRevision = 'HEAD',
+) {
   const docs = documentationBatchReader(root, runGit, gitText, indexText, exactPlanSignal);
   requireWorktreeTopLevel(root);
-  const base = resolveTopicMergeBase(root, requestedBase);
-  const planState = userExecutionPlanContractState(root);
+  const base = resolveTopicMergeBase(root, requestedBase, process.env, headRevision);
+  const planState = userExecutionPlanContractState(root, headRevision);
   if (planState.cutovers.length === 0 && planState.markerCommits.length > 0) {
     return {
       base,
@@ -2325,7 +2339,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
       ],
     };
   }
-  const checkpointState = checkpointEvidenceContractState(root);
+  const checkpointState = checkpointEvidenceContractState(root, headRevision);
   if (checkpointState.cutovers.length === 0 && checkpointState.markerCommits.length > 0) {
     return {
       base,
@@ -2416,7 +2430,7 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     '--reverse',
     '--topo-order',
     '--parents',
-    `${base}..HEAD`,
+    `${base}..${headRevision}`,
   ]);
   if (listed.code !== 0) {
     throw new Error(`git rev-list failed: ${listed.stderr || '(no stderr)'}`);
@@ -2728,6 +2742,167 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     pendingBasename: null,
     findings,
   };
+}
+
+function integrationAgreementId(root, env = process.env) {
+  const current = runGit(root, ['branch', '--show-current']);
+  // A named checkout owns its own identity. GITHUB_HEAD_REF is only the detached-CI fallback;
+  // preferring it would make every scratch repository in an integration-branch CI job inherit the
+  // outer repository's name and take the initiative path for unrelated fixture history.
+  const branch = String(current.stdout.trim() || env.GITHUB_HEAD_REF || '').trim();
+  const match = /^integration\/(agreement-\d+)$/.exec(branch);
+  return match ? match[1].toUpperCase() : null;
+}
+
+function integrationHistoryAnalysis(root, requestedBase, agreementId) {
+  requireWorktreeTopLevel(root);
+  const base = resolveTopicMergeBase(root, requestedBase);
+  const listed = runGit(root, [
+    'rev-list',
+    '--first-parent',
+    '--reverse',
+    '--parents',
+    `${base}..HEAD`,
+  ]);
+  if (listed.code !== 0) {
+    throw new Error(`git rev-list --first-parent failed: ${listed.stderr || '(no stderr)'}`);
+  }
+  const rows = lines(listed.stdout).map((row) => {
+    const [commit, ...parents] = row.split(' ');
+    return { commit, parents };
+  });
+  const firstMergeIndex = rows.findIndex((row) => row.parents.length > 1);
+  const agreementTip =
+    firstMergeIndex < 0 ? (rows.at(-1)?.commit ?? 'HEAD') : rows[firstMergeIndex].parents[0];
+  const agreement = singleHistoryAnalysis(root, base, agreementTip);
+  if (agreement.findings.length > 0) return agreement;
+  const agreementBasename = agreement.checkpoint?.basename ?? null;
+  if (agreementBasename === null || subjectId(agreementBasename) !== agreementId) {
+    return {
+      ...agreement,
+      findings: [
+        finding(
+          `integration branch ${agreementId} does not begin with its matching valid atomic AGREEMENT checkpoint.`,
+          agreementTip,
+        ),
+      ],
+    };
+  }
+
+  const agreementTask = gitText(root, agreementTip, `${TASK_PREFIX}${agreementBasename}`);
+  const agreementSpec = gitText(root, agreementTip, `${SPEC_PREFIX}active/${agreementBasename}`);
+  const declaredChildren = asList(frontmatterObject(agreementTask ?? '').children).map((child) =>
+    asScalar(child).trim(),
+  );
+  if (
+    declaredChildren.length === 0 ||
+    new Set(declaredChildren).size !== declaredChildren.length ||
+    asScalar(frontmatterObject(agreementSpec ?? '').type).trim() !== 'AGREEMENT'
+  ) {
+    return {
+      ...agreement,
+      findings: [
+        finding(
+          `integration branch ${agreementId} does not begin with its matching valid atomic AGREEMENT checkpoint.`,
+          agreementTip,
+        ),
+      ],
+    };
+  }
+
+  const findings = [];
+  const seen = new Set();
+  const commits = [...agreement.commits];
+  let examined = agreement.examined;
+  const checkpointIndex = rows.findIndex((row) => row.commit === agreement.checkpoint?.commit);
+  const firstChildBoundary = firstMergeIndex < 0 ? rows.length : firstMergeIndex;
+  for (const row of rows.slice(checkpointIndex + 1, firstChildBoundary)) {
+    findings.push(finding('child history is not merge-bounded.', row.commit));
+  }
+  if (firstMergeIndex < 0) return { ...agreement, findings };
+  for (const row of rows.slice(firstMergeIndex)) {
+    if (row.parents.length !== 2) {
+      findings.push(finding('child history is not merge-bounded.', row.commit));
+      continue;
+    }
+    const [firstParent, secondParent] = row.parents;
+    // Contained — MERGE-2664. The shared tree-only helper intentionally still serves staged manual
+    // resolution attribution; this integration contract separately refuses a conflicted auto-merge.
+    if (!automaticMergeIsClean(root, firstParent, secondParent)) {
+      findings.push(finding('child history is not merge-bounded.', row.commit));
+      continue;
+    }
+    if (mergeOwnPaths(root, row.commit, row.parents).length > 0) {
+      findings.push(finding('child history is not merge-bounded.', row.commit));
+      continue;
+    }
+    const develop = runGit(root, ['rev-parse', '--verify', '--quiet', 'origin/develop^{commit}']);
+    const remoteIntegration = runGit(root, [
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      `origin/integration/${agreementId.toLowerCase()}^{commit}`,
+    ]);
+    const historicalSync =
+      remoteIntegration.code === 0 &&
+      runGit(root, ['merge-base', '--is-ancestor', row.commit, remoteIntegration.stdout.trim()])
+        .code === 0;
+    if (
+      develop.code === 0 &&
+      runGit(root, ['merge-base', '--is-ancestor', secondParent, develop.stdout.trim()]).code ===
+        0 &&
+      (historicalSync || secondParent === develop.stdout.trim())
+    ) {
+      commits.push(row.commit);
+      continue;
+    }
+    const childBase = runGit(root, ['merge-base', firstParent, secondParent]);
+    if (childBase.code !== 0 || childBase.stdout.trim() !== firstParent) {
+      findings.push(finding('child history is not merge-bounded.', row.commit));
+      continue;
+    }
+    const child = singleHistoryAnalysis(root, firstParent, secondParent);
+    examined += child.examined;
+    commits.push(...child.commits, row.commit);
+    if (child.findings.length > 0) {
+      findings.push(...child.findings);
+      continue;
+    }
+    const childId = subjectId(child.checkpoint?.basename ?? '');
+    if (childId === null) {
+      findings.push(finding('child history is not merge-bounded.', row.commit));
+      continue;
+    }
+    if (seen.has(childId)) {
+      findings.push(finding(`duplicate initiative child \`${childId}\`.`, row.commit));
+      continue;
+    }
+    seen.add(childId);
+    const declaredIndex = declaredChildren.indexOf(childId);
+    if (declaredIndex < 0) {
+      findings.push(finding(`undeclared initiative child \`${childId}\`.`, row.commit));
+      continue;
+    }
+    if (declaredIndex !== seen.size - 1) {
+      findings.push(finding(`out-of-order initiative child \`${childId}\`.`, row.commit));
+    }
+  }
+
+  return {
+    base,
+    commits,
+    examined,
+    checkpoint: agreement.checkpoint,
+    pendingBasename: null,
+    findings,
+  };
+}
+
+function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
+  const agreementId = integrationAgreementId(root);
+  return agreementId === null
+    ? singleHistoryAnalysis(root, requestedBase)
+    : integrationHistoryAnalysis(root, requestedBase, agreementId);
 }
 
 export function findHistoryFindings(root = WORKSPACE_ROOT, requestedBase = undefined) {

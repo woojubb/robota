@@ -1157,6 +1157,17 @@ merges into the base only after its checks pass **and its content matches its re
 green checks alone do not authorize the merge. **The final PR is never auto-merged — that decision is
 the user's.**
 
+The base is `integration/<agreement-id>` created from fresh `origin/develop`; migration while a legacy
+base remains open uses `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1`. A child creation uses both
+`BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 BRANCH_GUARD_ALLOW_BASE=1`, and each child push statement carries
+`HARNESS_BASE_REF=origin/integration/<agreement-id>`. A drift sync is exactly one clean `HEAD` merge
+whose first parent is that remote base and whose second parent is current `origin/develop`. Plan-order
+judges each clean child merge by its second-parent history and accepts only a unique ordered prefix of
+the AGREEMENT children; the AGREEMENT completion projection and final-PR gate separately own final
+completeness. A legacy-base migration replays the AGREEMENT planning commits and each child's
+non-merge commits in order, proves ordered stable patch-ID and base-relative changed-path equivalence,
+and leaves the legacy ref immutable until every replacement merge is verified.
+
 The ordering, the drift handling, and the failure edges are owned by
 [`multi-backlog-initiative`](../skills/multi-backlog-initiative/SKILL.md).
 
