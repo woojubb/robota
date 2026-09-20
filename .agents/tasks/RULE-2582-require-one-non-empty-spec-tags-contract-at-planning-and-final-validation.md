@@ -1,7 +1,7 @@
 ---
 title: 'RULE-2582: Require one non-empty spec tags contract at planning and final validation'
 issue: https://github.com/woojubb/robota/issues/2582
-status: todo
+status: in-progress
 created: 2026-09-20
 priority: high
 urgency: now
@@ -18,10 +18,11 @@ document accepted by PLAN cannot be rejected later solely because `tags: []` was
 
 ## Plan
 
-- [ ] TC-01 — Add a planning-gate regression for `tags: []` and a valid non-empty array.
-- [ ] TC-02 — Remove the early evaluator's explicit empty-array allowance and align its diagnostic with the owner parser.
-- [ ] TC-03 — Prove scaffold defaults, multi-line tags, and final validation retain their existing valid behavior.
-- [ ] TC-04 — Run focused gate and spec-frontmatter tests plus affected harness verification.
+- [ ] TC-01 — Capture the pre-fix GATE-WRITE failure with the focused three-file regression suite.
+- [ ] TC-02 — Make GATE-WRITE reject missing, bare, and empty tags while retaining every supported non-empty YAML form.
+- [ ] TC-03 — Make `new-spec.mjs` reject explicit empty tags while retaining the omitted default and valid explicit lists.
+- [ ] TC-04 — Preserve final frontmatter validation parity for the same valid and invalid fixtures.
+- [ ] TC-05 — Run the affected PR-context harness scan against `fix/2664-gate-correctness`.
 
 ## Test Plan
 
