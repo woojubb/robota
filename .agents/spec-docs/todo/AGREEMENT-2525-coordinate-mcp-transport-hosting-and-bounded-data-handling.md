@@ -74,6 +74,11 @@ None
 3. Require each direct child to create its own L2 spec before code: the child spec must choose exact package/file ownership, publish contract updates, specify an executable user execution test scenario, and pass its own approval and security review.
 4. Use the dependency order `ARCH-042 → PAYLOAD-2153 → MCP-2525`, `MCP-001 → MCP-002 → MCP-2522`, and `MCP-006/TRANS-013 → MCP-007 → MCP-2533`. `MCP-2520` remains the completed activation-admission constraint for the outbound stdio client child only; server hosting consumes `MCP-006`'s transport-neutral execution/cancellation contract and `TRANS-013`'s exact session port instead.
 5. Reconcile and close the umbrella only after every direct child and each retained existing stream has merged delivery evidence on `origin/develop`; a Task record, accepted plan, or passing document scan is never delivery evidence by itself.
+6. Own the final operational rollout of PAYLOAD-2153's repository-declared `stable payload native`
+   context without taking runtime ownership from that child. On the final integration-to-develop PR,
+   first observe the exact current revision publish the context green, then activate it in
+   `protect-develop`, run live declaration/parity verification, and leave the PR unmerged for the user's
+   fresh decision. A changed head/base must re-establish green evidence before activation.
 
 ## Affected Files
 
@@ -93,6 +98,10 @@ No runtime file changes are authorized by this Agreement checkpoint. Each child 
 - [ ] TC-03: Observable: the `GATE-WRITE` mechanical judge reports no failed criterion, then an independent guardian records `GATE VERDICT: PASS` for the semantic residue and this draft advances to `review-ready` without runtime changes.
 - [ ] TC-04: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0 for the planning checkpoint.
 - [ ] TC-05: The final parent audit reads all twelve retained Task records and their merged evidence, and proves no source-register row is closed only by a planning or administrative disposition.
+- [ ] TC-06: Observable: on the current final integration-to-develop PR revision, `stable payload native`
+      is green before the live `protect-develop` ruleset requires it; after activation,
+      `node scripts/harness/scan-main-required-checks.mjs --live` exits 0, and the PR remains open and
+      unmerged for the user's fresh decision. A stale/abandoned PR leaves no unavailable required context.
 
 ## Test Plan
 
@@ -103,6 +112,7 @@ No runtime file changes are authorized by this Agreement checkpoint. Each child 
 | TC-03 | Two-stage document gate | `gate.mjs judge --gate GATE-WRITE --doc …`, then independent `backlog-gate-guard` evidence  | The mechanical result and guardian verdict are distinct; no user approval or runtime implementation is claimed by this result.         |
 | TC-04 | Planning regression     | `run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`              | Validates the complete documentation checkpoint rather than a source-code path.                                                        |
 | TC-05 | Delivery audit          | Read source Issues, Task/spec records, merged PR evidence, and executable scenario receipts | Manual final audit because it spans independently released outcomes and cannot be represented by one unit test.                        |
+| TC-06 | Operational rollout     | Final-PR check read-back, live ruleset update, then `scan-main-required-checks.mjs --live`    | The exact current revision is green before activation; head/base movement invalidates the evidence.                                   |
 
 ## User Execution Test Scenarios
 
@@ -113,7 +123,9 @@ No runtime file changes are authorized by this Agreement checkpoint. Each child 
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-**Reason:** This Agreement changes only planning ownership and dependency evidence; it exposes no independent runnable product behavior. Every direct child must author, execute, and record its own product-surface scenario before it becomes terminal.
+**Reason:** This Agreement coordinates child ownership, dependency evidence, and the final required-check
+rollout; it exposes no independent runnable product behavior. Every direct child must author, execute,
+and record its own product-surface scenario before it becomes terminal.
 
 ## Tasks
 
