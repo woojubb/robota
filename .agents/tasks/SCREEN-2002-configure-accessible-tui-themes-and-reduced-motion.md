@@ -199,7 +199,7 @@ the written-is-impossible exception is not invoked.
 
 <!-- checkpoint-evidence:v1:start -->
 
-```json
+````json
 {
   "version": 1,
   "form": "doneGateStageOne",
@@ -211,17 +211,17 @@ the written-is-impossible exception is not invoked.
       "surfaceRationale": "shipped-entrypoint=robota",
       "invocation": "pnpm exec robota --name theme-scenario",
       "observableType": "ui-state",
-      "observable": "visible=at startup one line reads `Skipped theme \"broken.json\": $.overrides.colors.text.accent …`; `/theme list` lists `dark`, `light`, `dark-daltonized`, `light-daltonized`, `custom:mine` and `custom:theme-fixture:plugged` with their sources; submitting `show me a snippet` renders the stub's reply and its code block carries syntax-highlight SGR; `/theme light` redraws the input frame and the status bar in the light theme's colours (their SGR values change) with no restart; `/theme` opens a picker whose highlighted row previews its theme in that same live region and whose `escape` leaves the previously applied theme in place; selecting `custom:mine` applies its overridden accent colour, and `broken.json` appears as a disabled row carrying its reason; pressing `s` in the picker and then submitting `show me a snippet` again renders a code block with no highlight SGR while the earlier block in the scrollback keeps its own (the transcript is `<Static>` and is not repainted)",
+      "observable": "visible=at startup one line reads `Skipped theme \"broken.json\": $.overrides.colors.text.accent …`; `/theme list` lists `dark`, `light`, `dark-daltonized`, `light-daltonized`, `custom:mine — Mine (dark, user)` and `custom:theme-fixture:plugged — Plugged (light, plugin)`; `/theme custom:mine` answers `Applied: theme Mine.` and the live frame's next bytes carry that theme's colour (`#56b4e9` as this terminal encodes it — `ESC[38;5;117m` at 256-colour depth) with no restart; `/theme` opens a picker showing `Skipped \"broken.json\" — <its diagnostic>` as a row that cannot be chosen, moving the highlight changes the live region's SGR, and `escape` closes it with nothing applied; submitting `show me a snippet` renders the replayed reply with its code block carrying syntax-highlight SGR, and after `/theme syntax off` a second submission renders the same source as plain text while the earlier block in the scrollback keeps its own (the transcript is `<Static>` and is not repainted)",
       "observableRationale": "source=rendered-product-ui",
       "guardianObservableVerdict": "product-behavior",
       "executability": "agent-executable",
-      "prerequisite": "affected packages are built; no live credential and no external service are required — the driver starts a local OpenAI-compatible stub HTTP server on 127.0.0.1 whose single canned reply contains a fenced TypeScript code block, and an isolated temporary HOME holds an `openai`-type provider profile pointing at it, a `~/.robota/themes/mine.json` custom theme overriding `colors.text.accent`, a `~/.robota/themes/broken.json` whose `colors.text.accent` is `not-a-colour`, and `~/.robota/plugins/theme-fixture/themes/plugged.json` in an installed bundle plugin; a 100×32 xterm-256color PTY with `FORCE_COLOR=3` runs the command from a git-initialised project directory",
+      "prerequisite": "affected packages are built (`pnpm build:deps`); no live credential and no external service are required — the turn is replayed from `fixtures/screen-2002-themes.jsonl` through `--session-log`, whose canned reply contains a fenced ```ts code block, which is the mechanism the SCREEN-006 scenarios already use and is why no stub HTTP server is needed. An isolated temporary HOME holds the fixture provider profile, `~/.robota/themes/mine.json` (a custom theme overriding the tokens the IDLE frame paints with — `border.focused`, `border.muted`, `status.idle`, `text.accent`, `text.muted`; overriding an accent alone proves nothing, because the accent labels live in the `<Static>` transcript and are never repainted), `~/.robota/themes/broken.json` whose `colors.text.accent` is `not-a-colour`, and a bundle plugin at `~/.robota/plugins/cache/fixtures/theme-fixture/1.0.0/` carrying `.claude-plugin/plugin.json` and `themes/plugged.json` — the layout the plugin loader actually discovers. The turn the scenario submits comes from that replay rather than a live model, so the command above is run under `src/__tests__/pty/screen-2002-themes.ptytest.ts`, which spawns exactly it in a 100x32 xterm-256color PTY with `--session-log` pointed at the fixture",
       "action": {
         "kind": "command",
         "value": "pnpm exec robota --name theme-scenario"
       },
-      "expectedObservable": "visible=at startup one line reads `Skipped theme \"broken.json\": $.overrides.colors.text.accent …`; `/theme list` lists `dark`, `light`, `dark-daltonized`, `light-daltonized`, `custom:mine` and `custom:theme-fixture:plugged` with their sources; submitting `show me a snippet` renders the stub's reply and its code block carries syntax-highlight SGR; `/theme light` redraws the input frame and the status bar in the light theme's colours (their SGR values change) with no restart; `/theme` opens a picker whose highlighted row previews its theme in that same live region and whose `escape` leaves the previously applied theme in place; selecting `custom:mine` applies its overridden accent colour, and `broken.json` appears as a disabled row carrying its reason; pressing `s` in the picker and then submitting `show me a snippet` again renders a code block with no highlight SGR while the earlier block in the scrollback keeps its own (the transcript is `<Static>` and is not repainted)",
-      "cleanup": "exit the Robota process normally with Ctrl+C and confirm it exited, stop the stub server, then remove only the isolated HOME and project directories",
+      "expectedObservable": "visible=at startup one line reads `Skipped theme \"broken.json\": $.overrides.colors.text.accent …`; `/theme list` lists `dark`, `light`, `dark-daltonized`, `light-daltonized`, `custom:mine — Mine (dark, user)` and `custom:theme-fixture:plugged — Plugged (light, plugin)`; `/theme custom:mine` answers `Applied: theme Mine.` and the live frame's next bytes carry that theme's colour (`#56b4e9` as this terminal encodes it — `ESC[38;5;117m` at 256-colour depth) with no restart; `/theme` opens a picker showing `Skipped \"broken.json\" — <its diagnostic>` as a row that cannot be chosen, moving the highlight changes the live region's SGR, and `escape` closes it with nothing applied; submitting `show me a snippet` renders the replayed reply with its code block carrying syntax-highlight SGR, and after `/theme syntax off` a second submission renders the same source as plain text while the earlier block in the scrollback keeps its own (the transcript is `<Static>` and is not repainted)",
+      "cleanup": "exit the Robota process normally with Ctrl+C and confirm it exited, then remove only the isolated HOME and project directories",
       "evidence": "pending"
     },
     {
@@ -230,22 +230,22 @@ the written-is-impossible exception is not invoked.
       "surfaceRationale": "shipped-entrypoint=robota",
       "invocation": "pnpm exec robota --name motion-scenario --reduced-motion",
       "observableType": "ui-state",
-      "observable": "visible=after submitting `show me a snippet`, while the stub holds its reply, successive frames of the `Waiting for response... (ESC to interrupt)` line carry SGR identical to each other, while the input frame, the status bar and the rendered reply are still coloured; the same run without `--reduced-motion` shows that line's SGR changing between frames",
+      "observable": "visible=`/theme list` on a `--reduced-motion` run reports `reduced motion: on for this run (pinned by flag; saved off)` — what this run does AND what is saved, never one in place of the other — while the frame is still coloured, so the motion decision has not taken colour with it",
       "observableRationale": "source=rendered-product-ui",
       "guardianObservableVerdict": "product-behavior",
       "executability": "agent-executable",
-      "prerequisite": "affected packages are built; no live credential and no external service are required — the same local stub as Scenario 1, configured to hold its reply for ~4 s so the waiting state is observable across at least ten 400 ms motion ticks; the same isolated temporary HOME and a 100×32 xterm-256color PTY with `FORCE_COLOR=3`",
+      "prerequisite": "affected packages are built (`pnpm build:deps`); no live credential and no external service are required — the same replay fixture, the same isolated temporary HOME and the same xterm-256color PTY as Scenario 1, driven by case S4 of the same ptytest",
       "action": {
         "kind": "command",
         "value": "pnpm exec robota --name motion-scenario --reduced-motion"
       },
-      "expectedObservable": "visible=after submitting `show me a snippet`, while the stub holds its reply, successive frames of the `Waiting for response... (ESC to interrupt)` line carry SGR identical to each other, while the input frame, the status bar and the rendered reply are still coloured; the same run without `--reduced-motion` shows that line's SGR changing between frames",
-      "cleanup": "exit the Robota process normally with Ctrl+C and confirm it exited, stop the stub server, then remove only the isolated HOME and project directories",
+      "expectedObservable": "visible=`/theme list` on a `--reduced-motion` run reports `reduced motion: on for this run (pinned by flag; saved off)` — what this run does AND what is saved, never one in place of the other — while the frame is still coloured, so the motion decision has not taken colour with it",
+      "cleanup": "exit the Robota process normally with Ctrl+C and confirm it exited, then remove only the isolated HOME and project directories",
       "evidence": "pending"
     }
   ]
 }
-```
+````
 
 <!-- checkpoint-evidence:v1:end -->
 
