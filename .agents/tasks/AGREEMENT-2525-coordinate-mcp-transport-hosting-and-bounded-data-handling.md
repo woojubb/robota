@@ -40,6 +40,9 @@ The four direct child records use canonical umbrella [issue #2525](https://githu
 - `MCP-2522` alone owns command, arguments, environment, working-directory, and child-process lifecycle authority for local stdio clients.
 - `MCP-2533` alone owns the MCP Streamable HTTP carrier, loopback network admission, and protocol-session mapping; it must not reuse Robota HTTP or WebSocket protocol carriers.
 - Every source outcome remains independently specified, approved, tested, and user-scenario verified. A future shared contract is allowed only when a child design proves a real common owner without merging these security boundaries.
+- The final integration-to-develop PR owns activating PAYLOAD-2153's `stable payload native` context in
+  `protect-develop`, and only after that exact current revision publishes the context green. If the head
+  or base changes, the evidence must be re-established before activation and live-parity verification.
 
 ## Plan
 
@@ -48,6 +51,9 @@ The four direct child records use canonical umbrella [issue #2525](https://githu
 - [ ] Run each direct child through its own L2 design, approval, implementation, focused verification, and executable user-scenario gate.
 - [ ] Reconcile the existing `AGREEMENT-014` and `AGREEMENT-015` streams from their source Tasks without duplicating or nesting their records.
 - [ ] Audit all twelve retained outcomes and delivery evidence before the parent Issue's terminal writeback.
+- [ ] On the final integration-to-develop PR, observe `stable payload native` green on the current
+      revision, activate that exact context in `protect-develop`, verify live parity, and leave the PR
+      unmerged for the user's fresh decision.
 
 ## Completion Criteria
 
@@ -56,10 +62,18 @@ The four direct child records use canonical umbrella [issue #2525](https://githu
 - [ ] TC-03: `PAYLOAD-2153`, `MCP-2522`, `MCP-2525`, and `MCP-2533` each finish their own approved contract, negative-path tests, and runnable product-surface scenario.
 - [ ] TC-04: All eight Tasks under `AGREEMENT-014` and `AGREEMENT-015` have truthful terminal delivery evidence; their source outcomes are not inferred from this Agreement's existence.
 - [ ] TC-05: The final issue #2525 audit proves every source-register row against merged `origin/develop` evidence before the Issue is closed.
+- [ ] TC-06: The current final integration-to-develop PR revision publishes `stable payload native`
+      green before `protect-develop` requires it; then
+      `node scripts/harness/scan-main-required-checks.mjs --live` exits 0. If the PR is abandoned or its
+      head/base changes, the required context is not left active on stale or unavailable evidence.
 
 ## Test Plan
 
 Check the Task/spec projection and dependency graph mechanically. For each direct child, run its package tests, typecheck, build, security negative cases, and declared user execution test scenario. For the final audit, read the six source records, all twelve Tasks, their paired specs, merge ancestry, and the current Issue map; a green aggregate scan alone is insufficient evidence.
+
+| TC-ID | Tool / Approach                                                                                  | Expected observable                                                                                         |
+| ----- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| TC-06 | Final PR check read-back → live ruleset update → `scan-main-required-checks.mjs --live`          | The same current revision is green before activation, repository/live contexts match, and the PR is open. |
 
 ## Gate-Fail Correction Record
 
@@ -87,4 +101,19 @@ Check the Task/spec projection and dependency graph mechanically. For each direc
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-**Reason:** This Agreement only coordinates independently user-verifiable child capabilities and adds no separate product surface; each direct child owns and must execute its own scenario before completion.
+**Reason:** This Agreement coordinates independently user-verifiable child capabilities and the final
+required-check rollout, but exposes no separate runnable product surface; each direct child owns and must
+execute its own product scenario before completion.
+
+## PAYLOAD-2153 Final-Rollout Handoff
+
+**Recommendation:** PAYLOAD-2153 owns the native capability, five-host qualification, repository-side
+stable context, and its tests. This Agreement owns only the external live activation because its final
+integration-to-develop PR is the first safe point at which the new context can be green before it becomes
+required.
+
+**Instruction (verbatim):** “모두 승인하고, 앞으로의 것도 모두 타당한 근거와 함께 제시된
+추천안이라면 그게ㅏ 타당할 경우 사전 승입합니다.”
+
+**Independent verdict:** `REVIEW VERDICT: ENDORSE` — explicit transfer is required; leaving the child
+criterion pending or waiving it would violate the one-item-at-a-time and done invariants.

@@ -1386,7 +1386,9 @@ jobs:
           node-version: 22.14.0
 
       - name: Build the CLI dependency closure for replay verification
-        run: pnpm --filter @robota-sdk/agent-cli... build
+        run: |
+          pnpm --filter @robota-sdk/agent-cli-web... build
+          pnpm --filter @robota-sdk/agent-cli... build
 
       - name: Verify the public session replay scenario
         run: |

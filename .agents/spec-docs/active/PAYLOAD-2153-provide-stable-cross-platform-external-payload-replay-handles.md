@@ -307,9 +307,10 @@ None
    digests. Pin this topology and job-level permission separation with focused tests and the workflow
    permission scanner.
 9. Wire a stable native acceptance context through the changed-path classifier, five native evidence
-   legs, fail-closed fan-in, workflow provenance, required-check declaration, and CI-mirror model. After
-   repository verification and separate authority, add the green context to the live `protect-develop`
-   ruleset and verify declaration/live parity.
+   legs, fail-closed fan-in, workflow provenance, required-check declaration, and CI-mirror model. Keep
+   the live `protect-develop` mutation out of the child: `AGREEMENT-2525` owns activating the context on
+   the final integration-to-develop PR, after that exact current revision publishes it green, and owns
+   verifying declaration/live parity before handing the still-unmerged PR to the user.
 10. Register the published package in the publish registry, fixed release group, barrel registry,
     capability-placement paths, and boundary dispositions. Add explicit production manifest edges from
     both consumers, lockfile, changeset, public-surface tests, the shared packaged-CLI replay fixture,
@@ -400,9 +401,11 @@ None
       exit 0 with a recorded pre-fix RED for the native replay regression.
 - [ ] TC-09: Observable: the public replay example works without a live provider or secret, reports the
       exact success line in TC-04, and removes its isolated fixture on success and failure.
-- [ ] TC-10: Command: after separately authorized live rollout,
-      `node scripts/harness/scan-main-required-checks.mjs --live` exits 0 and the `protect-develop`
-      ruleset requires the exact green native acceptance context declared in the repository.
+- [ ] TC-10: Observable: the child Task/spec and `AGREEMENT-2525` Task/spec name one exact operational
+      handoff: this child delivers the repository declaration and five-host evidence, while the Agreement
+      final integration-to-develop PR must publish `stable payload native` green on its current revision
+      before activating it in `protect-develop` and verifying live parity. No child-branch live mutation
+      or unmet-criterion waiver substitutes for that tracked owner.
 - [ ] TC-11: Observable: `.github/workflows/release-bun-binaries.yml` has five read-only native build jobs
       that each upload exactly one unique target artifact and one final publisher that depends on all
       five and alone has `contents: write`. The publisher rejects an incomplete/duplicate/unexpected set,
@@ -423,7 +426,7 @@ None
 | TC-07 | CI policy            | classifier/native-evidence/fan-in/provenance/CI-mirror focused tests  | Required context fails closed; explicit false is N/A     |
 | TC-08 | suite                | affected package gates and affected harness scan                      | Includes recorded RED→GREEN evidence                     |
 | TC-09 | user scenario        | provider-free public SDK example                                      | Isolated fixture and deterministic result                |
-| TC-10 | operational policy   | live required-check reconciliation                                    | Runs only after explicit external-mutation authority     |
+| TC-10 | operational handoff  | child/Agreement ownership and final-PR ordering review                 | Live mutation belongs to the Agreement final rollout     |
 | TC-11 | release topology     | five-build/one-publisher topology, permission scan, release readback  | Exact six assets; five checksum entries; desktop intact  |
 
 ## User Execution Test Scenarios

@@ -205,6 +205,28 @@ implementation waits for independent `ENDORSE` and direct approval of this concr
 qualification checkpoint is evidence gathering, not permission to adopt the dependency or publish the
 contract.
 
+### Final-rollout ownership correction — 2026-09-21
+
+GitHub dispatch semantics make the original child-level live rollout order impossible to execute safely:
+`workflow_dispatch --ref develop` loads the `develop` workflow, where the new context does not yet exist,
+while dispatching the feature ref correctly trips the workflow's guard against attaching PR-free required
+checks to a feature commit. Activating the context in `protect-develop` before the workflow reaches
+`develop` would block ordinary develop PRs that cannot publish it.
+
+**Recommendation:** keep the five real-host qualification legs, fail-closed fan-in implementation,
+repository required-check declaration, and anti-drift tests in PAYLOAD-2153. Transfer only the live
+`protect-develop` activation and `--live` parity proof to `AGREEMENT-2525`'s final
+integration-to-develop PR, where the current PR revision can first publish the exact context green. This
+is an ownership transfer, not a waiver; the final PR remains unmerged for a fresh user decision.
+
+**Instruction (verbatim):** “모두 승인하고, 앞으로의 것도 모두 타당한 근거와 함께 제시된
+추천안이라면 그게ㅏ 타당할 경우 사전 승입합니다.”
+
+**Independent verdict:** `REVIEW VERDICT: ENDORSE` — the reviewer confirmed that this preserves the
+approved runtime/public contract and moves the external mutation to the first lifecycle point where its
+precondition can genuinely hold. PAYLOAD-2153 still must record five successful native artifacts against
+an implementation commit; a deliberately red feature-ref fan-in is guard evidence, never a PASS.
+
 ## Plan
 
 - [ ] Revalidate `session-log-sources`, the external-payload resolver, their public consumers, and native filesystem capabilities on Linux, macOS, and Windows.
