@@ -5420,7 +5420,7 @@ const INTEGRATION_AGREEMENT_CHILDREN = [
   ['DATA-2664', 'DATA-2664-child'],
 ];
 
-function integrationAgreementFixture() {
+function integrationAgreementPreludeFixture() {
   const { root, base } = repository();
   git(root, ['branch', '-m', 'integration/agreement-2664']);
   const issue = 'https://github.com/woojubb/robota/issues/2664';
@@ -5474,6 +5474,14 @@ function integrationAgreementFixture() {
   }
   commit(root, 'record atomic agreement manifest');
 
+  return { root, base, integration: 'integration/agreement-2664' };
+}
+
+function stageIntegrationAgreementActivation(fixture) {
+  const { root } = fixture;
+  const issue = 'https://github.com/woojubb/robota/issues/2664';
+  const children = INTEGRATION_AGREEMENT_CHILDREN.map(([id]) => id).join(', ');
+
   write(
     root,
     `.agents/tasks/${INTEGRATION_AGREEMENT_PARENT}.md`,
@@ -5482,13 +5490,21 @@ function integrationAgreementFixture() {
       `issue: ${issue}\nstatus: in-progress\nchildren: [${children}]`,
     ),
   );
+  git(root, ['rm', '-q', `.agents/spec-docs/todo/${INTEGRATION_AGREEMENT_PARENT}.md`]);
   write(
     root,
     `.agents/spec-docs/active/${INTEGRATION_AGREEMENT_PARENT}.md`,
     specText({ subject: INTEGRATION_AGREEMENT_PARENT }).replace('type: INFRA', 'type: AGREEMENT'),
   );
+  git(root, ['add', '-A']);
+}
+
+function integrationAgreementFixture() {
+  const fixture = integrationAgreementPreludeFixture();
+  stageIntegrationAgreementActivation(fixture);
+  const { root } = fixture;
   commit(root, 'authorize agreement implementation');
-  return { root, base, integration: 'integration/agreement-2664' };
+  return fixture;
 }
 
 function mergeAgreementChild(root, integration, id, basename = `${id}-child`) {
@@ -5522,6 +5538,22 @@ function mergeAgreementChildContinuation(root, integration, id, basename = `${id
 }
 
 describe('user-execution PLAN order — integration AGREEMENT history (BRANCH-2664)', () => {
+  it('admits the atomic prelude and its activation but requires activation before a child merge', () => {
+    const pending = integrationAgreementPreludeFixture();
+    expect(findHistoryFindingsFromGit(pending.root, pending.base)).toEqual([]);
+
+    stageIntegrationAgreementActivation(pending);
+    expect(findStagedFindings(pending.root, pending.base)).toEqual([]);
+    commit(pending.root, 'authorize agreement implementation');
+    expect(findHistoryFindingsFromGit(pending.root, pending.base)).toEqual([]);
+
+    const premature = integrationAgreementPreludeFixture();
+    mergeAgreementChild(premature.root, premature.integration, 'BEHAVIOR-2664');
+    expect(messages(findHistoryFindingsFromGit(premature.root, premature.base))).toMatch(
+      /does not begin with its matching valid atomic AGREEMENT checkpoint/i,
+    );
+  });
+
   it('uses GITHUB_HEAD_REF only for a detached checkout, not for a named scratch branch', () => {
     const fixture = repository();
     checkpoint(fixture.root);

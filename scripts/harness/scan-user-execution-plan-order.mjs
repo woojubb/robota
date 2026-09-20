@@ -2776,7 +2776,7 @@ function integrationHistoryAnalysis(root, requestedBase, agreementId) {
     firstMergeIndex < 0 ? (rows.at(-1)?.commit ?? 'HEAD') : rows[firstMergeIndex].parents[0];
   const agreement = singleHistoryAnalysis(root, base, agreementTip);
   if (agreement.findings.length > 0) return agreement;
-  const agreementBasename = agreement.checkpoint?.basename ?? null;
+  const agreementBasename = agreement.checkpoint?.basename ?? agreement.pendingBasename ?? null;
   if (agreementBasename === null || subjectId(agreementBasename) !== agreementId) {
     return {
       ...agreement,
@@ -2790,7 +2790,12 @@ function integrationHistoryAnalysis(root, requestedBase, agreementId) {
   }
 
   const agreementTask = gitText(root, agreementTip, `${TASK_PREFIX}${agreementBasename}`);
-  const agreementSpec = gitText(root, agreementTip, `${SPEC_PREFIX}active/${agreementBasename}`);
+  const agreementSpecFolder = agreement.checkpoint === null ? 'todo' : 'active';
+  const agreementSpec = gitText(
+    root,
+    agreementTip,
+    `${SPEC_PREFIX}${agreementSpecFolder}/${agreementBasename}`,
+  );
   const declaredChildren = asList(frontmatterObject(agreementTask ?? '').children).map((child) =>
     asScalar(child).trim(),
   );
@@ -2809,17 +2814,34 @@ function integrationHistoryAnalysis(root, requestedBase, agreementId) {
       ],
     };
   }
+  if (firstMergeIndex >= 0 && agreement.checkpoint === null) {
+    return {
+      ...agreement,
+      findings: [
+        finding(
+          `integration branch ${agreementId} does not begin with its matching valid atomic AGREEMENT checkpoint.`,
+          agreementTip,
+        ),
+      ],
+    };
+  }
 
   const findings = [];
   const seen = new Set();
   const commits = [...agreement.commits];
   let examined = agreement.examined;
   const checkpointIndex = rows.findIndex((row) => row.commit === agreement.checkpoint?.commit);
-  const firstChildBoundary = firstMergeIndex < 0 ? rows.length : firstMergeIndex;
+  if (firstMergeIndex < 0) {
+    if (agreement.checkpoint === null) return { ...agreement, findings };
+    for (const row of rows.slice(checkpointIndex + 1)) {
+      findings.push(finding('child history is not merge-bounded.', row.commit));
+    }
+    return { ...agreement, findings };
+  }
+  const firstChildBoundary = firstMergeIndex;
   for (const row of rows.slice(checkpointIndex + 1, firstChildBoundary)) {
     findings.push(finding('child history is not merge-bounded.', row.commit));
   }
-  if (firstMergeIndex < 0) return { ...agreement, findings };
   for (const row of rows.slice(firstMergeIndex)) {
     if (row.parents.length !== 2) {
       findings.push(finding('child history is not merge-bounded.', row.commit));
