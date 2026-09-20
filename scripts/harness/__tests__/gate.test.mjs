@@ -344,6 +344,13 @@ Alternative 1. The trade-off that drove it: a blocked run is visible, a silent p
 `;
 }
 
+function reviewReadySpecWithWritePass({ lane = 'L2' } = {}) {
+  return (
+    conformingSpec({ status: 'review-ready', folder: 'backlog', lane }) +
+    `\n### [GATE-WRITE] — ✅ PASS | ${DATE}\n\n**Status upgrade:** draft → review-ready\n\n- GATE-WRITE — fixture criterion: judged\n`
+  );
+}
+
 /** The unedited `new-spec.mjs` Problem: a one-line seed plus the template's HTML comment. */
 const SCAFFOLD_PROBLEM = `Fix the thing.
 
@@ -1052,7 +1059,7 @@ describe('advance', () => {
 describe('approve', () => {
   it('DIRECT writes the entry the standing-delegation parsers accept, judges the mechanical set into it, and exits 0 (TC-04)', () => {
     const { root, doc } = makeWorkspace({
-      spec: conformingSpec({ status: 'review-ready', folder: 'backlog' }),
+      spec: reviewReadySpecWithWritePass(),
       folder: 'backlog',
     });
     gitInit(root);
@@ -1067,9 +1074,13 @@ describe('approve', () => {
     expect(text).toContain('**Instruction (verbatim):** "승인, 진행해"');
     expect(text).toContain(`**Given:** ${DATE}, this conversation`);
     // Round-A finding 4: the verdict is EARNED — the per-criterion lines are in the entry.
-    const [entry] = evidenceEntries(text);
+    const entry = evidenceEntries(text).find((candidate) => candidate.gate === 'GATE-APPROVAL');
+    expect(entry).toBeDefined();
     const judged = entry.lines.filter((line) => /^- GATE-APPROVAL — .+: .+/.test(line));
-    expect(judged).toHaveLength(5);
+    expect(judged).toHaveLength(6);
+    expect(judged.find((line) => line.includes('ordering: prior gate GATE-WRITE PASS'))).toContain(
+      'status `review-ready`',
+    );
     expect(judged.find((line) => line.includes('explicit approval'))).toContain(
       'route DIRECT; `**Instruction (verbatim):**` recorded',
     );
@@ -1094,9 +1105,47 @@ describe('approve', () => {
     expect(verdict).toEqual({ route: 'DIRECT' });
   });
 
+  it.each([
+    [
+      'DIRECT with no GATE-WRITE PASS',
+      conformingSpec({ lane: 'L2' }),
+      ['--route', 'DIRECT', '--instruction', '승인, 진행해'],
+      'last [GATE-WRITE] entry is absent',
+    ],
+    [
+      'CLASS at the wrong status after GATE-WRITE',
+      conformingSpec({ lane: 'L2' }) +
+        `\n### [GATE-WRITE] — ✅ PASS | ${DATE}\n\n**Status upgrade:** draft → review-ready\n\n- GATE-WRITE — fixture criterion: judged\n`,
+      [
+        '--route',
+        'CLASS',
+        '--class',
+        'DOC-TYPO',
+        '--instruction',
+        'typo fixes go straight through',
+        '--evidence',
+        '`git diff --numstat` → 1 line',
+      ],
+      'status is `draft`, `review-ready` expected',
+    ],
+  ])(
+    'L2 refuses %s before writing an approval entry (TC-01, TC-03)',
+    (_case, spec, args, reason) => {
+      const { root, doc } = makeWorkspace({ spec });
+      const before = readFileSync(doc, 'utf8');
+
+      const result = approve(root, doc, args);
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('GATE-APPROVAL — ordering');
+      expect(result.stderr).toContain(reason);
+      expect(readFileSync(doc, 'utf8')).toBe(before);
+    },
+  );
+
   it('CLASS with an unregistered class refuses and writes nothing', () => {
     const { root, doc } = makeWorkspace({
-      spec: conformingSpec({ status: 'review-ready', folder: 'backlog' }),
+      spec: reviewReadySpecWithWritePass(),
       folder: 'backlog',
     });
     const before = readFileSync(doc, 'utf8');
@@ -1139,7 +1188,7 @@ describe('approve', () => {
 
   it('CLASS with a registered class dated before the instruction is accepted (control)', () => {
     const { root, doc } = makeWorkspace({
-      spec: conformingSpec({ status: 'review-ready', folder: 'backlog' }),
+      spec: reviewReadySpecWithWritePass(),
       folder: 'backlog',
     });
     gitInit(root);
@@ -1261,7 +1310,7 @@ describe('approve', () => {
   /** Control: CLASS still takes both, so the refusal is route-scoped, not a removal of the flags. */
   it('CLASS still accepts --evidence and --conversation (control)', () => {
     const { root, doc } = makeWorkspace({
-      spec: conformingSpec({ status: 'review-ready', folder: 'backlog' }),
+      spec: reviewReadySpecWithWritePass(),
       folder: 'backlog',
     });
     gitInit(root);
@@ -1310,7 +1359,17 @@ describe('a flag the named subcommand does not use is refused, never ignored', (
 
   it('a flag another subcommand owns is refused on the one that does not', () => {
     const { root, doc } = makeWorkspace();
-    const result = run(root, ['record', '--doc', doc, '--tc', 'TC-01', '--skip', 'x', '--lane', 'L1']);
+    const result = run(root, [
+      'record',
+      '--doc',
+      doc,
+      '--tc',
+      'TC-01',
+      '--skip',
+      'x',
+      '--lane',
+      'L1',
+    ]);
     expect(result.status, result.stdout + result.stderr).not.toBe(0);
     expect(result.stderr).toContain('--lane');
   });
@@ -1461,7 +1520,7 @@ describe('dates are the local calendar date, overridable with --date on every st
 
   it('--date overrides the stamp on approve, record and judge', () => {
     const { root, doc } = makeWorkspace({
-      spec: conformingSpec({ status: 'review-ready', folder: 'backlog', lane: 'L2' }),
+      spec: reviewReadySpecWithWritePass(),
       folder: 'backlog',
     });
     gitInit(root);

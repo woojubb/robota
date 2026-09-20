@@ -51,7 +51,7 @@ AGREEMENT-013, or AGREEMENT-2698.
 
 ## Children
 
-- [ ] BEHAVIOR-2664 — todo — `.agents/tasks/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md`
+- [x] BEHAVIOR-2664 — done — `.agents/tasks/completed/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md`
 - [ ] PUSH-2664 — todo — `.agents/tasks/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md`
 - [ ] DATA-2664 — todo — `.agents/tasks/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md`
 - [ ] RULE-2582 — todo — `.agents/tasks/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md`

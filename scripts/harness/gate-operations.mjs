@@ -2233,15 +2233,25 @@ export function runApprove(options) {
     requireFile(resolveFrom(root, options.catalogue, DEFAULT_CATALOGUE), 'gate catalogue'),
   );
   const gate = resolveGate({ gate: 'GATE-APPROVAL' }, judgedDoc);
-  const results = judgeCriteria(catalogue, gate, {
-    doc: judgedDoc,
-    gate,
-    root,
-    cache: {},
-    backlogRule: resolveFrom(root, options['backlog-rule'], DEFAULT_BACKLOG_RULE),
-    verifyCmds: [],
-  });
-  const mechanical = results.filter((result) => result.criterion.tag === 'mechanical');
+  // L1 deliberately records approval before its composed GATE-PLAN judges GATE-WRITE. Standalone
+  // L2 approval, however, must use the same prior-gate ordering as `runJudge` before it may write.
+  const ordering = gate.lane === 'L1' ? null : orderingResult(catalogue, gate, judgedDoc);
+  if (ordering?.verdict === 'FAIL')
+    throw new Error(
+      `refused: ${ordering.label}: ${ordering.observed}; required action: ${ordering.action}`,
+    );
+  const results = [
+    ...(ordering ? [ordering] : []),
+    ...judgeCriteria(catalogue, gate, {
+      doc: judgedDoc,
+      gate,
+      root,
+      cache: {},
+      backlogRule: resolveFrom(root, options['backlog-rule'], DEFAULT_BACKLOG_RULE),
+      verifyCmds: [],
+    }),
+  ];
+  const mechanical = results.filter((result) => result.criterion?.tag === 'mechanical');
   const notPassing = mechanical.filter((result) => result.verdict !== 'PASS');
   const failing = notPassing.filter((result) => result.verdict === 'FAIL').length;
   const undecidable = notPassing.length - failing;
