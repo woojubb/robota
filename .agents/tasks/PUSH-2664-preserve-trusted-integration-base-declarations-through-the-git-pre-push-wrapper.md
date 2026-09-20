@@ -1,7 +1,7 @@
 ---
 title: 'PUSH-2664: preserve trusted integration-base declarations through the Git pre-push wrapper'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: in-progress
 created: 2026-09-20
 priority: high
 urgency: now

@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [harness]
 lane: L2
@@ -162,3 +162,57 @@ Recorded as the rule's required choice rather than skipped.
 
 **Judged by:** independent guardian agent Ohm plus `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `df02719373ca` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/backlog/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md` blob `68a345bb495a` (untracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-20; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (4)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 286 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md",
+  "specPath": ".agents/spec-docs/todo/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md",
+    ".agents/tasks/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d2ea325135a0` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/todo/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md` blob `0b9e7fbcae9a` (tracked)
