@@ -33,6 +33,7 @@ Waived: This is a repository-local Git hook bridge defect; the existing BRANCH-2
 
 - `scripts/harness/pre-push-local-checks.mjs` — Git-hook-to-shell-guard payload bridge.
 - `scripts/harness/__tests__/pre-push-sequence.test.mjs` — public bridge regressions.
+- `scripts/harness/__tests__/review-before-push.test.mjs` — real shell-guard integration regression.
 - The existing `.claude/hooks/pre-push-check.sh` trusted-base parser, consumed unchanged.
 
 ### Alternatives Considered
@@ -43,22 +44,28 @@ Waived: This is a repository-local Git hook bridge defect; the existing BRANCH-2
 2. Reimplement trusted-ref validation in the Node bridge.
    - Pro: malformed values can be rejected before the shell process starts.
    - Con: creates a second policy owner that can drift from the existing adversarial parser.
-3. Project the exact present environment value into the synthetic command consumed by the existing guard.
-   - Pro: preserves statement binding and leaves all identity, ancestry, and adversarial validation in one owner.
-   - Con: the bridge must prove that hostile text remains inert parser input and cannot become executable shell.
+3. Project a lexically shell-safe present environment value into the synthetic command consumed by
+   the existing guard, refusing unsafe projection before spawning it.
+   - Pro: preserves statement binding while leaving identity, ancestry, and trusted-ref validation
+     in one owner; shell syntax never enters the synthesized assignment.
+   - Con: the bridge owns one narrow lexical-safety boundary in addition to payload construction.
 
 ### Decision
 
 Choose alternative 3. `runPostVerdictGuard` already serializes a command as JSON and passes that JSON
-on stdin to a parser; it never executes the synthesized command. When `HARNESS_BASE_REF` is present,
-the bridge renders `HARNESS_BASE_REF=<exact-value> git push`; when absent or empty, it retains bare
-`git push`. The existing shell guard remains the sole validator and rejects whitespace, quoting,
-untrusted identities, duplicate declarations, and extra statements.
+on stdin to a parser; it never executes the synthesized command. When a nonempty `HARNESS_BASE_REF`
+contains only characters inert in an unquoted shell assignment, the bridge renders
+`HARNESS_BASE_REF=<exact-value> git push`; when absent or empty, it retains bare `git push`. Values
+containing whitespace, quoting, separators, comments, substitutions, or other active shell syntax are
+refused before payload construction. The existing shell guard remains the sole owner of trusted-ref
+identity, remote freshness, ancestry, matching AGREEMENT state, duplicate declarations, and extra
+statements.
 
 Reachability is the actual `.husky/pre-push` → `harness:pre-push` → `runPostVerdictGuard` path.
 Capability preservation is demonstrated by the unchanged absent-value payload and ordinary
-foreign-merge refusal. The adversarial pass supplies metacharacter, whitespace, quoted, and malformed
-values to the bridge and proves they reach the parser as inert data and cannot earn a pass.
+foreign-merge refusal. The adversarial pass proves metacharacter, whitespace, quoted, and multiline
+values never reach the shell parser, while a lexically safe unresolved value reaches the real guard
+and is rejected by the trusted-ref policy owner.
 
 **Delivery mode:** `single`
 
