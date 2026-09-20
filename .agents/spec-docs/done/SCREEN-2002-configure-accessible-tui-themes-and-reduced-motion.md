@@ -157,7 +157,7 @@ Three named work units under this one design gate (the PR Unit Rule and the batc
 - [x] TC-09: `/theme` — `list` shows built-in, user and plugin themes with their source; `<id>` validates against the port and emits exactly one patch; an unknown id fails without writing; with no port the command answers "Themes are not available in this environment"; `/theme` with no args issues `show-theme-picker`.
 - [x] TC-10: the picker — opens on the UI intent, previews the highlighted theme in the dynamic region, restores the persisted theme on escape, submits one command on select, toggles syntax and motion with their keys, renders numbered rows with no preview churn in screen-reader mode, and shows a plain-text notice under the colour gate; every `theme-picker` action is rebindable and the published schema agrees with the catalogue.
 - [x] TC-11: `parseThemeDocument` — a valid sparse override applies over its base; an unknown token path, an invalid colour value, a raw SGR string and a malformed file are each refused WHOLE with a path-named diagnostic; the user directory is home-only and plugin directories come from the plugin scopes; ids are namespaced and nothing shadows a built-in.
-- [x] TC-12: engineering verification — `pnpm --filter` build, test and typecheck for the five affected packages exit 0; `pnpm harness:scan` exits 0; the lint-warning ceiling holds. <!-- Amended 2026-09-21 after the record review, which measured that the recorded verdict did not reproduce. The five packages, the lint ceiling and `run-all-scans.mjs --affected --context pr` (the lane's own build-shaped command) all exit 0. The STRICT `pnpm harness:scan` exits 1 on `reference-kind-qualified` over `.agents/spec-docs/done/INFRA-2772-…:513` — a document that arrived on develop in PR #2776, an ancestor of this branch's base, which this branch does not touch and which fails identically at that base. Recorded as inherited and named rather than papered over. The recorded command's own exit 0 must be read for what it is: `--affected --context pr` TOLERATES advisory failures and writes no receipt when it does — its last two lines say `2 advisory failure(s) tolerated (reference-kind-qualified, task-merged-citation)` and `scan receipt NOT written`. The second of those is this Task's own. It is NOT, as I first wrote, unresolvable until the pair reaches a terminal status: `findTaskMergedCitationFindings` (`scripts/harness/scan-task-merged-citation.mjs:241`) skips a record once its paired spec carries completion evidence — every ticked `TC-NN` with a `[GATE-COMPLETE: TC-NN] — ✅ PASS`. Appending the TC-12 entry itself made that true, so this capture was taken in the last state where the advisory still fired and the clean committed HEAD tolerates only ONE. Corrected on the guardian's finding; the capture is left as taken rather than re-run to flatter it. The first advisory is the inherited one above. Neither is concealed by the exit code, because this sentence is here. -->
+- [x] TC-12: engineering verification — `pnpm --filter` build, test and typecheck for the five affected packages exit 0; `pnpm harness:scan` exits 0; the lint-warning ceiling holds. <!-- Amended 2026-09-21 after the record review, which measured that the recorded verdict did not reproduce. The five packages, the lint ceiling and `run-all-scans.mjs --affected --context pr` (the lane's own build-shaped command) all exit 0. The STRICT `pnpm harness:scan` exits 1 on `reference-kind-qualified` over `.agents/spec-docs/done/INFRA-2772-…:513` — a document that arrived on develop in PR #2776, an ancestor of this branch's base, which this branch does not touch and which fails identically at that base. Recorded as inherited and named rather than papered over, and OWNED rather than merely named: registered on the existing umbrella as [issue #2756 comment 5751932330](https://github.com/woojubb/robota/issues/2756#issuecomment-5751932330), which carries the failing line, its provenance and what a fix needs. With this Task's own `task-merged-citation` red cleared, that one is what stands between `develop` and a green strict scan. The recorded command's own exit 0 must be read for what it is: `--affected --context pr` TOLERATES advisory failures and writes no receipt when it does — its last two lines say `2 advisory failure(s) tolerated (reference-kind-qualified, task-merged-citation)` and `scan receipt NOT written`. The second of those is this Task's own. It is NOT, as I first wrote, unresolvable until the pair reaches a terminal status: `findTaskMergedCitationFindings` (`scripts/harness/scan-task-merged-citation.mjs:241`) skips a record once its paired spec carries completion evidence — every ticked `TC-NN` with a `[GATE-COMPLETE: TC-NN] — ✅ PASS`. Appending the TC-12 entry itself made that true, so this capture was taken in the last state where the advisory still fired and the clean committed HEAD tolerates only ONE. Corrected on the guardian's finding; the capture is left as taken rather than re-run to flatter it. The first advisory is the inherited one above. Neither is concealed by the exit code, because this sentence is here. -->
 - [x] TC-13: the built CLI in a PTY: with `theme` unset the frame is colour-identical to the pre-change binary; `/theme light` changes the status bar and diff colours without restarting; `/theme` opens the picker, arrow keys preview, escape restores; a seeded `~/.robota/themes/mine.json` and a seeded plugin theme both appear in the list and apply; an invalid theme file prints its diagnostic at startup and is disabled in the picker; `--reduced-motion` is reported as pinned for the run without taking colour with it — `/theme list` reads `reduced motion: on for this run (pinned by flag; saved off)` while the frame stays coloured. <!-- Amended 2026-09-21 after the record review, which measured that three clauses of this criterion are carried by nothing at PTY level. (a) "colour-identical to the pre-change binary" — no PTY test spawns a pre-change binary; the identity claim is carried at string level by TC-02 (`theme-styles.test.ts` asserts `dark` against the pre-change strings with the four exceptions named). (b) `/theme light` — S1 applies `custom:mine` and asserts this terminal's encoding of its accent anywhere after the apply; the light theme's own redraw is carried by TC-01/TC-02 at unit level. (c) the plugin theme is LISTED by S1, not applied; applying a non-built-in theme live is what S1 does with `custom:mine`. Recorded rather than silently ticked. --> <!-- Amended 2026-09-20, work unit 3, alongside Scenario 2 and for the same reason: running it showed the line this criterion exists to read was WRONG, printing the PERSISTED value beside the override TIER, which contradicts itself and answers "is motion reduced right now" with the wrong word. Frame-to-frame SGR equality of the waiting indicator is covered where it is deterministic — `screen-006-no-color.ptytest.ts` asserts zero colour churn across the whole transcript, and TC-06 pins `useMotion` with fake timers — rather than by timing repaints against a replayed turn. -->
 
 ## Test Plan
@@ -174,7 +174,7 @@ Three named work units under this one design gate (the PR Unit Rule and the batc
 | TC-08 | Unit                     | Vitest over the CLI resolver and the TUI composition                                                                      | `appearance-enablement.test.ts`, `theme-surface.test.ts`, `useAppThemeState.test.tsx`, SCREEN-2002 TC-08 cases                                                                                                                                                                                                                             |
 | TC-09 | Unit                     | Vitest over the command module with and without the port                                                                  | `packages/agent-command/src/theme/__tests__/theme-command.test.ts` (which also carries TC-08's "`/theme motion …` while pinned persists and says so") and `theme-registry.test.ts`, SCREEN-2002 TC-09 cases                                                                                                                                |
 | TC-10 | Component                | ink-testing-library over the picker + the catalogue/schema parity test                                                    | `theme-picker.test.tsx` and `useAppThemeState.test.tsx`, SCREEN-2002 TC-10 cases; the catalogue/schema parity half is `keybindings/__tests__/keybinding-registry.test.ts` › "keeps the published JSON Schema aligned with every runtime context and action"                                                                                |
-| TC-11 | Unit / fs                | Vitest over the validator and the source builders with a temp HOME and a temp plugin dir                                  | `theme-document.test.ts`, `theme-sources.test.ts`, `theme-sources-scope-failure.test.ts`, SCREEN-2002 TC-11 cases                                                                                                                                                                                                                          |
+| TC-11 | Unit / fs                | Vitest over the validator and the source builders with a temp HOME and a temp plugin dir                                  | `theme-document.test.ts`, `theme-sources.test.ts`, `theme-sources-scope-failure.test.ts`, SCREEN-2002 TC-11 cases (refusals in `theme-document.test.ts` and `theme-registry.test.ts`; discovery, scoping and namespacing in the two `agent-cli` startup tests — the recorded command runs all four)                                        |
 | TC-12 | Engineering verification | package build/test/typecheck, `pnpm harness:scan`, `pnpm lint`                                                            | Skipped by kind: engineering verification has no test file — build/typecheck/test over the five packages, `harness:scan`, lint                                                                                                                                                                                                             |
 | TC-13 | Process / PTY            | Agent-controlled PTY over the built CLI with a seeded isolated HOME, a seeded plugin and a `--session-log` replay fixture | `packages/agent-ui-terminal/src/__tests__/pty/screen-2002-themes.ptytest.ts` › S1-S4                                                                                                                                                                                                                                                       |
 
@@ -961,27 +961,15 @@ exit=0
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `3f214ecc4ac4` · base `origin/develop@dace58747dca` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `0c1132200eec` (modified)
 
-### [GATE-COMPLETE: TC-11] — ✅ PASS | 2026-09-21
-
-**Command:** `cd packages/agent-ui-terminal && npx vitest run src/theme/__tests__/theme-document.test.ts src/theme/__tests__/theme-registry.test.ts`
-**Exit:** 0
-**Output:** (last 10 of 13 line(s))
-
-```
-
- ✓ src/theme/__tests__/theme-registry.test.ts (11 tests) 3ms
- ✓ src/theme/__tests__/theme-document.test.ts (19 tests) 4ms
-
- Test Files  2 passed (2)
-      Tests  30 passed (30)
-   Start at  02:24:00
-   Duration  171ms (transform 49ms, setup 0ms, collect 74ms, tests 6ms, environment 0ms, prepare 68ms)
-
-exit=0
-```
-
-**Judged by:** `gate.mjs` mechanical evaluator
-**Judged at:** HEAD `3f214ecc4ac4` · base `origin/develop@dace58747dca` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `e3c26ebd6dd8` (modified)
+<!-- STRUCK 2026-09-21 by the item owner, on the reviewer's finding.
+A `### [GATE-COMPLETE: TC-11] — ✅ PASS | 2026-09-21` entry stood here whose command ran only
+`theme-document.test.ts` and `theme-registry.test.ts`. Those carry `parseThemeDocument`'s refusals —
+the FIRST half of TC-11. The second half as ticked, "the user directory is home-only and plugin
+directories come from the plugin scopes; ids are namespaced and nothing shadows a built-in", is
+carried by `packages/agent-cli/src/startup/__tests__/theme-sources.test.ts` and
+`theme-sources-scope-failure.test.ts`, which the TC-11 Test Plan row already NAMED and which no
+recorded command executed. Same defect class the reviewer raised for TC-05 and TC-10 and that was
+fixed there; missed for TC-11. Replaced below by an entry that runs both halves. -->
 
 ### [GATE-COMPLETE: TC-13] — ✅ PASS | 2026-09-21
 
@@ -1508,3 +1496,25 @@ used at any point in this or the preceding run.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `a2cb4ea848d4` · base `origin/develop@dace58747dca` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `13a416d1c8ef` (modified)
+
+### [GATE-COMPLETE: TC-11] — ✅ PASS | 2026-09-21
+
+**Command:** `(cd packages/agent-ui-terminal && npx vitest run src/theme/__tests__/theme-document.test.ts src/theme/__tests__/theme-registry.test.ts) && (cd packages/agent-cli && npx vitest run src/startup/__tests__/theme-sources.test.ts src/startup/__tests__/theme-sources-scope-failure.test.ts)`
+**Exit:** 0
+**Output:** (last 10 of 26 line(s))
+
+```
+
+ ✓ src/startup/__tests__/theme-sources-scope-failure.test.ts (1 test) 2ms
+ ✓ src/startup/__tests__/theme-sources.test.ts (15 tests) 17ms
+
+ Test Files  2 passed (2)
+      Tests  16 passed (16)
+   Start at  03:59:54
+   Duration  778ms (transform 365ms, setup 0ms, collect 1.29s, tests 19ms, environment 0ms, prepare 60ms)
+
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `6eb1c7057b51` · base `origin/develop@dace58747dca` · document `.agents/spec-docs/done/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `12536fcf10f2` (modified)

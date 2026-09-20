@@ -113,7 +113,7 @@ None
 ## Affected Files
 
 - `.agents/tasks/AGREEMENT-2670-complete-cli-and-tui-usability-accessibility-and-diagnostics.md`
-- `.agents/tasks/{SCREEN-2442}-*.md` and `.agents/tasks/completed/{OBSERVABILITY-1991,SCREEN-1992,SCREEN-1993,SCREEN-2002,BEHAVIOR-2003,FLOW-2006,BEHAVIOR-2437,SCREEN-2670}-*.md`
+- `.agents/tasks/SCREEN-2442-*.md` and `.agents/tasks/completed/{OBSERVABILITY-1991,SCREEN-1992,SCREEN-1993,SCREEN-2002,BEHAVIOR-2003,FLOW-2006,BEHAVIOR-2437,SCREEN-2670}-*.md`
 - `.agents/tasks/STRUCT-012-*.md`, `.agents/spec-docs/active/STRUCT-012-*.md`
 - `.agents/tasks/REFACTOR-025-*.md` and its paired spec when reconciled
 - child-owned package, app, test and SPEC paths declared by each later child plan
