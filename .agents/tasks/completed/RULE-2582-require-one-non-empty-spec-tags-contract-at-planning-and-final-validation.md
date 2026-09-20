@@ -33,6 +33,12 @@ Exercise `gate.test.mjs`, `check-spec-doc-frontmatter.test.mjs`, and `new-spec.t
 missing, flow-array, and block-array tags. The same invalid fixture must fail at the first planning
 boundary and at final validation; valid scaffold output must pass both.
 
+## Progress
+
+- 2026-09-20 — Replayed the implementation onto
+  `origin/integration/agreement-2664@2aac6f855`; 177 focused tests, 62 affected scans plus one skip,
+  the 3-commit plan-order check, and the gate-evaluator isolation check pass on the current base.
+
 ## User Execution Test Scenarios
 
 Not applicable.
