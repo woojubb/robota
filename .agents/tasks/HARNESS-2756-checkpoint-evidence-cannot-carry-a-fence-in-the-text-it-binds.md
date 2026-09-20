@@ -15,23 +15,26 @@ depends_on: []
 ## Objective
 
 A checkpoint payload binds the authored scenario text VERBATIM, and a scenario may legally name a
-code fence. SCREEN-2002's Scenario 1 prerequisites say the canned reply "contains a fenced ``ts code
-block". The payload is written inside a three-backtick ` ``json `fence, so that inner fence closes
-the outer one: the record cannot be written, and a record already widened by Prettier to four
-backticks cannot be read back —`parseCheckpointEvidence` refuses it as "evidence must contain one
-json fence".
+code fence. SCREEN-2002's Scenario 1 prerequisites say the fixture reply contains a fenced TS code
+block.
+
+The break is NOT that such a record cannot be written — measured, the pre-fix writer emitted one and
+read it straight back, because the run sits mid-line inside a JSON string and cannot close a fence.
+The break is the round trip through this repository's own formatter: `prettier --parser markdown`
+widens the delimiter to four backticks whenever the content carries a three-backtick run, and the
+pre-fix reader refused what the formatter had just written.
 
 The effect is not cosmetic. SCREEN-2002's three work units are merged, but its record could not be
-reconciled in ANY commit shape, because every shape that touches the pair re-validates that block.
+reconciled in any commit shape, because every shape that touches the pair re-validates that block.
 That is the SCREEN-2002 half of the develop red tracked by issue #2756.
 
 ## Plan
 
-- [ ] TC-01: the delimiter is chosen, not assumed — `formatCheckpointEvidence` emits a run one
+- [x] TC-01: the delimiter is chosen, not assumed — `formatCheckpointEvidence` emits a run one
       backtick longer than the longest run its payload carries, never shorter than three, and
       `parseCheckpointEvidence` and the contract-region reader accept any run of three or more closed
       by a run at least as long (CommonMark's own rule).
-- [ ] TC-02: engineering verification — the harness contract tier and `pnpm harness:scan`.
+- [x] TC-02: engineering verification — the harness contract tier and the full scan, with every finding attributed.
 
 ## Test Plan
 

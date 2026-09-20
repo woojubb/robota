@@ -412,17 +412,19 @@ export function parseCheckpointEvidenceContracts(ruleText) {
  * The fence that carries a checkpoint payload, as CommonMark defines one: at least three backticks,
  * closed by a run of AT LEAST the same length.
  *
- * It is not always three. The payload binds the scenario text VERBATIM, and a scenario may legally
- * name a code fence — SCREEN-2002's prerequisites say the canned reply "contains a fenced ```ts code
- * block". Three backticks around that payload are terminated by the ones inside it, so the record
- * could never be written, let alone re-bound; Prettier widens the delimiter to four for exactly this
- * reason and the reader then refused what Prettier had just produced. Measured on issue #2756, where
- * it left an item whose code had shipped with a record no commit shape could reconcile.
+ * It is not always three, and the reason is Prettier, not the JSON. The payload binds the scenario
+ * text VERBATIM, and a scenario may legally name a code fence — SCREEN-2002's prerequisites say the
+ * canned reply contains a fenced TS code block. That run sits MID-LINE inside a JSON string, so it
+ * cannot close a fence on its own and the writer emits a valid three-backtick record. What breaks is
+ * the round trip through the repository's own formatter: `prettier --parser markdown` widens the
+ * delimiter to four because the content carries a three-backtick run, and the reader then refused
+ * what the formatter had just produced — measured on issue #2756, where it left an item whose code
+ * had shipped with a record no commit shape could reconcile.
  *
  * Widening changes the delimiter only. What the payload must CONTAIN, and that it must bind the
  * authored fields exactly, is unchanged — see `validatePayload`.
  */
-function fencedPayload(region, infoString) {
+export function fencedPayload(region, infoString) {
   const opened = new RegExp('^\\s*(`{3,})' + escapeRegExp(infoString) + '\\s*\\n').exec(region);
   if (!opened) return null;
   const delimiter = opened[1];

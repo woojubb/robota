@@ -1,3 +1,4 @@
+import { fencedPayload } from './checkpoint-evidence-contract.mjs';
 import { visibleMarkdown } from './markdown-visibility.mjs';
 import { validateApplicableScenarioSection } from './user-execution-scenario-contract.mjs';
 
@@ -56,11 +57,14 @@ export function parseUserExecutionPlanContract(ruleText) {
     source.indexOf(CONTRACT_START) + CONTRACT_START.length,
     source.indexOf(CONTRACT_END),
   );
-  const fenced = /^\s*```json\s*\n([\s\S]*?)\n```\s*$/.exec(region);
-  if (!fenced) return failure('user-execution PLAN contract must contain one json fence');
+  // HARNESS-2756: the same delimiter question as the checkpoint payload, answered by the same
+  // helper. This region's JSON carries no backticks today, so Prettier has never widened it — but
+  // "no exposure today" is not a reason for two readers of the same shape to disagree tomorrow.
+  const fenced = fencedPayload(region, 'json');
+  if (fenced === null) return failure('user-execution PLAN contract must contain one json fence');
   let contract;
   try {
-    contract = JSON.parse(fenced[1]);
+    contract = JSON.parse(fenced);
   } catch (error) {
     return failure(`user-execution PLAN contract JSON is invalid: ${error.message}`);
   }
