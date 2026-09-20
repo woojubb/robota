@@ -496,6 +496,15 @@ describe('the live governed documents parse with the readers gate.mjs uses', () 
       expect(section.criteria.length, `${gate} criteria`).toBeGreaterThanOrEqual(4);
       expect(section.upgrade, `${gate} upgrade`).not.toBeNull();
     }
+    const verifyCriteria = catalogue.gates.get('GATE-VERIFY').criteria;
+    expect(
+      verifyCriteria.slice(0, 2).map(({ tag, judgementId }) => ({ tag, judgementId })),
+    ).toEqual([
+      { tag: 'mechanical', judgementId: 'tasks-complete' },
+      { tag: 'mechanical', judgementId: 'no-blocked' },
+    ]);
+    expect(verifyCriteria[0].text).toContain('The `## Plan` SECTION only');
+    expect(verifyCriteria[0].text).not.toContain('judgement:');
     // G1 (gate-catalogue.md § Prior-gate map, issue #2219/#2588, CLI-1997): GATE-APPROVAL → GATE-WRITE
     // and GATE-DONE → GATE-PLAN both declare `recorded-pass` — the two rows this repository excepts
     // from the default last-entry rule, because both prior gates' first criterion consumes a
