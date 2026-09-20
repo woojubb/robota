@@ -1,8 +1,9 @@
 ---
 title: 'RULE-2380: Dispose of the frozen legacy approval corpus'
 issue: https://github.com/woojubb/robota/issues/2380
-status: in-progress
+status: done
 created: 2026-09-20
+completed: 2026-09-21
 priority: high
 urgency: now
 area: standing approval migration and frozen spec evidence
@@ -11,7 +12,7 @@ depends_on: [RULE-2326]
 
 # RULE-2380: Dispose of the frozen legacy approval corpus
 
-Spec: `.agents/spec-docs/active/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
+Spec: `.agents/spec-docs/done/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
 
 ## Objective
 
@@ -38,11 +39,11 @@ reconstructed honestly.
 
 ## Plan
 
-- [ ] TC-01 — Freeze the current corpus and classify every record by historical direct shape, historical quoted-class shape, relayed authority only, or no quoted authority.
-- [ ] TC-02 — Obtain and encode the owner policy needed for classes that cannot be decided mechanically.
-- [ ] TC-03 — Apply only authorized metadata or terminal disposition while preserving every historical Evidence Log byte.
-- [ ] TC-04 — Prove population conservation, idempotent replay, and zero unclassified frozen records.
-- [ ] TC-05 — Verify exact RULE-2380 and AGREEMENT-2664 projection paths, statuses, and child inventory.
+- [x] TC-01 — Freeze the current corpus and classify every record by historical direct shape, historical quoted-class shape, relayed authority only, or no quoted authority.
+- [x] TC-02 — Obtain and encode the owner policy needed for classes that cannot be decided mechanically.
+- [x] TC-03 — Apply only authorized metadata or terminal disposition while preserving every historical Evidence Log byte.
+- [x] TC-04 — Prove population conservation, idempotent replay, and zero unclassified frozen records.
+- [x] TC-05 — Verify exact RULE-2380 and AGREEMENT-2664 projection paths, statuses, and child inventory.
 
 ## Test Plan
 
@@ -69,3 +70,5 @@ public SDK, or installed-package behavior an end user can execute.
   findings after correcting the paired Task projection to `in-progress`.
 - 2026-09-21: Independent review returned `ENDORSE` with 0 unresolved findings for the TC-05
   pre-terminal/post-PASS lifecycle-order correction.
+- 2026-09-21: GATE-VERIFY and GATE-COMPLETE passed; archived through the initiative manual
+  completion route with both parent projections reserved for the following subject-bound checkpoint.

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [harness, approval, migration]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # RULE-2380: Dispose of the frozen legacy approval corpus
 
-Paired with `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`.
+Paired with `.agents/tasks/completed/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`.
 The historical source is [issue #2380](https://github.com/woojubb/robota/issues/2380); its unfinished
 scope was transferred to the open execution owner [issue #2664](https://github.com/woojubb/robota/issues/2664).
 
@@ -217,23 +217,23 @@ into a warning or inferred approval.
 
 ## Completion Criteria
 
-- [ ] TC-01: The immutable manifest contains exactly the 218 subjects in the adoption revision's
+- [x] TC-01: The immutable manifest contains exactly the 218 subjects in the adoption revision's
       frozen baseline, each exactly once, with verified document blob, complete-document SHA-256,
       Evidence Log SHA-256, standing-verdict SHA-256, byte-bounded evidence references, and exactly one
       of the four evidence shapes; measured counts are 164 direct / 26 quoted-class / 17 relayed / 11
       no-quoted-authority.
-- [ ] TC-02: The manifest schema, every row, and the paired Task/spec state that `PRESERVE_FROZEN`
+- [x] TC-02: The manifest schema, every row, and the paired Task/spec state that `PRESERVE_FROZEN`
       grants no DIRECT/CLASS authority; the user's current disposition instruction and the
       category-specific reason are recorded without changing any of the 218 historical spec documents
       or any delegated-approval rule document.
-- [ ] TC-03: Focused fixtures reject malformed manifests, mutation after introduction, missing,
+- [x] TC-03: Focused fixtures reject malformed manifests, mutation after introduction, missing,
       duplicate, extra, substituted, or ambiguously classified rows, wrong blobs or digests, modified
       historical Evidence Logs, unknown baseline growth, and baseline shrink without a current valid
       DIRECT/CLASS approval; a valid append-only new approval preserves the adopted log and passes.
-- [ ] TC-04: Canonical parse/serialize/read-back is byte-idempotent, two consecutive live scans report
+- [x] TC-04: Canonical parse/serialize/read-back is byte-idempotent, two consecutive live scans report
       identical 218-row disposition counts with zero unclassified records, the historical spec path
       set has no worktree diff, and focused plus affected harness verification passes.
-- [ ] TC-05: Before terminalization, the RULE-2380 Task/spec and both parent AGREEMENT-2664 projections
+- [x] TC-05: Before terminalization, the RULE-2380 Task/spec and both parent AGREEMENT-2664 projections
       agree on RULE-2380's `in-progress` status and exact active paths. The terminal completion batch is
       required to move the pair to the exact done/completed paths, update both parent projections to
       seven terminal children, and retain issue #2664 as the open integration owner until the initiative
@@ -261,7 +261,7 @@ that an end user can execute.
 
 ## Tasks
 
-- [ ] `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` — in-progress
+- [x] `.agents/tasks/completed/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` — done
 - Planning checkpoint prepared after the approved state was committed.
 
 ## Evidence Log
@@ -444,3 +444,136 @@ that an end user can execute.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `fb0cd58ce516` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/todo/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `2fa768e32e67` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs -t 'frozen disposition categories|the guard on the live tree' && node scripts/harness/scan-standing-delegation-evidence.mjs`
+**Exit:** 0
+**Output:** (last 10 of 15 line(s))
+
+```
+   ✓ frozen disposition categories > accepts one staged introduction and rejects later byte mutation  337ms
+   ✓ frozen disposition categories > keeps the immutable manifest enforced after the current baseline shrinks to zero  504ms
+   ✓ the guard on the live tree > passes, and reports the population it examined  5975ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed | 49 skipped (58)
+   Start at  00:29:53
+   Duration  7.12s (transform 53ms, setup 0ms, collect 74ms, tests 6.84s, environment 0ms, prepare 47ms)
+
+::examined:: 405 approved spec document(s); 138 DIRECT, 49 CLASS, 218 frozen (218 of them with no route at all); 2 registered class(es); 218 PRESERVE_FROZEN disposition(s)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `95337d2fc021` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `8bb334440b95` (tracked)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-21
+
+**Command:** `jq schema/disposition/reason assertions; compare all manifest paths with git diff; git diff --quiet origin/integration/agreement-2664 -- .agents/rules; assert paired Task/spec no-authority statements`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+true
+manifest rows: 218/218 (100%); historical spec changes: 0/218 (0%); rule changes: 0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `95337d2fc021` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `cf011c6bc9b5` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 12 line(s))
+
+```
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-4
+
+ ✓ scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs (58 tests) 6793ms
+   ✓ frozen disposition categories > keeps the immutable manifest enforced after the current baseline shrinks to zero  504ms
+   ✓ the guard on the live tree > passes, and reports the population it examined  5967ms
+
+ Test Files  1 passed (1)
+      Tests  58 passed (58)
+   Start at  00:29:53
+   Duration  7.07s (transform 49ms, setup 0ms, collect 73ms, tests 6.79s, environment 0ms, prepare 40ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `95337d2fc021` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `eb8ab10ecb6d` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-21
+
+**Command:** `run scan-standing-delegation-evidence.mjs twice and cmp outputs; assert zero manifest-path diffs; HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs --affected --context pr`
+**Exit:** 0
+**Output:** (last 10 of 220 line(s))
+
+```
+Diagnostic report v1: 2 result(s), 2 non-clean.
+ERROR harness.scan-finding.scan-c34-c36-c33-c2v-c36-c2t-c37-c37-c19-c36-c2t-c34-c33-c36-c38-c19-c35-c39-c2p-c32-c38-c2x-c2u-c2x-c2r-c2p-c38-c2x-c33-c32 [finding] scan:progress-report-quantification
+  evidence: Scan progress-report-quantification exited with status 1.
+  recommendation: Inspect the progress-report-quantification scan output above.
+ERROR harness.scan-finding.scan-c38-c2p-c37-c2z-c19-c31-c2t-c36-c2v-c2t-c2s-c19-c2r-c2x-c38-c2p-c38-c2x-c33-c32 [finding] scan:task-merged-citation
+  evidence: Scan task-merged-citation exited with status 1.
+  recommendation: Inspect the task-merged-citation scan output above.
+
+62 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (65 declared what they examined)
+scan receipt NOT written: 2 advisory failure(s) were tolerated (progress-report-quantification, task-merged-citation), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `95337d2fc021` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `90ed8a5faf74` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-21
+
+**Command:** `assert four in-progress frontmatters, two exact parent RULE-2380 rows, vacant terminal targets, and the atomic completion plus issue-retention contract`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+pre-terminal projections: 4/4 in-progress (100%); parent rows: 2/2 exact (100%); terminal targets vacant; atomic completion contract present
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `95337d2fc021` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `6385474ab9f2` (modified)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-21
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm harness:scan:task-plan-items && node scripts/harness/scan-standing-delegation-evidence.mjs` → exit 1 (    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5) ⏎  ⏎ Node.js v22.14.0); `pnpm exec vitest run scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs` → exit 1 ( ❯ scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs:836:50 ⏎  ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯)
+  **Required action:** make every verify command exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm harness:scan:task-plan-items && node scripts/harness/scan-standing-delegation-evidence.mjs` → exit 1 (    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5) ⏎  ⏎ Node.js v22.14.0); `pnpm exec vitest run scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs` → exit 1 ( ❯ scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs:836:50 ⏎  ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯)
+  **Required action:** make every verify command exit 0
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `95337d2fc021` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `f5ac74573952` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-21; status `in-progress`
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`). The `## Plan` SECTI: 5/5 tasks `[x]` in .agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md
+- GATE-VERIFY — No Plan item is blocked or pending: no unticked, blocked, or pending task
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): build-shaped `pnpm harness:scan:task-plan-items && node scripts/harness/scan-standing-delegation-evidence.mjs` → exit 0 (::examined:: 334 Task Plan sections ⏎ task-plan-items scan passed. ⏎ ::examined:: 405 approved spec document(s); 138 DIRECT, 49 CLASS, 218 frozen (218 of them with no route at all); 2 registered class(es); 218 PRESERVE_FROZEN disposition(s)); all 2 supplied commands exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): test-shaped `pnpm exec vitest run scripts/harness/__tests__/scan-standing-delegation-evidence.test.mjs` → exit 0 (   Duration  11.60s (transform 70ms, setup 0ms, collect 105ms, tests 11.25s, environment 0ms, prepare 63ms) ⏎  ⏎ 12:48:44 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); all 2 supplied commands exit 0
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `95337d2fc021` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `f294bd113600` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-21; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `95337d2fc021` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/active/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md` blob `e917fea8db7d` (modified)
