@@ -1028,6 +1028,19 @@ never terminal outcomes. If a gate is blocked by a tool defect, use the document
 disposition in the gate catalogue, record the defect identifier and evidence, and file the defect as a
 separate item; do not leave the delivery open as a substitute for an honest exception.
 
+If the gate tool correctly returns a non-PASS and orchestration advances anyway, STOP at discovery. A
+recoverable item is rejected and replacement work starts from a newly approved Task/spec; no later
+evidence may be used to manufacture the skipped PASS. Only an already-terminal delivery whose original
+gate input state is irreversibly consumed may use the gate catalogue's `orchestration-skip`
+disposition, and only with a matching same-gate NON-COMPLIANCE, no same-gate PASS, durable
+retrospective guardian judgement, independently revalidated downstream gates, and explicit owner
+authority. The disposition closes the historical violation as disclosed NON-COMPLIANCE; it never
+turns the violated gate green.
+
+Enforced by: `gate-closure-disposition` in `pnpm harness:scan`, which validates the exact disposition
+form, matching same-gate NON-COMPLIANCE, absence of a same-gate PASS, durable judgement path, and
+owner issue-comment URL.
+
 ## Done Gate
 
 **ABSOLUTE RULE.** A backlog item with a `## User Execution Test Scenarios` section must not have its

@@ -773,3 +773,5 @@ rather than inferring it.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `dd28e8589765` · base `origin/develop@754c9e239eec` · document `.agents/spec-docs/active/HARNESS-2660-a-filter-must-name-a-package-that-declares-the-script.md` blob `cb3a35e7024c` (modified)
+
+**Closed under:** `orchestration-skip` — RULE-2665; gate `GATE-WRITE`; non-compliance `2026-09-07`; retrospective judgement `.agents/spec-docs/done/HARNESS-2660-a-filter-must-name-a-package-that-declares-the-script.md`; authority `https://github.com/woojubb/robota/issues/2664#issuecomment-5749275194`
