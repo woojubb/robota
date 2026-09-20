@@ -9,6 +9,8 @@
  *
  * Contained — TRUST-1989.
  */
+import { echoValue } from './launch-intent.js';
+
 import type { IGitProcessPort } from '@robota-sdk/agent-command';
 import type { IWorkspaceTrustGrant } from '@robota-sdk/agent-framework';
 
@@ -56,12 +58,12 @@ async function requireTrusted(
     state = await deps.inspectTrust(cwd);
   } catch (error) {
     return refuse(
-      `the workspace trust state of ${cwd} could not be read (${String(error)}); the link is refused rather than opened unchecked.`,
+      `the workspace trust state of ${echoValue(cwd)} could not be read (${echoValue(String(error))}); the link is refused rather than opened unchecked.`,
     );
   }
   if (state === 'trusted') return { ok: true, cwd };
   return refuse(
-    `${cwd} is not a trusted workspace (${state}). A link opens only what you have already trusted — run \`robota trust --yes\` there first.`,
+    `${echoValue(cwd)} is not a trusted workspace (${state}). A link opens only what you have already trusted — run \`robota trust --yes\` there first.`,
   );
 }
 
@@ -74,7 +76,7 @@ async function resolveRepo(
   try {
     grants = await deps.listGrants();
   } catch (error) {
-    return refuse(`the workspace trust store could not be read (${String(error)}).`);
+    return refuse(`the workspace trust store could not be read (${echoValue(String(error))}).`);
   }
   if (grants === undefined) {
     return refuse(
@@ -95,12 +97,14 @@ async function resolveRepo(
 
   if (byRepository.size === 0) {
     return refuse(
-      `no trusted local clone of \`${slug}\` is recorded. Open the link with \`cwd=<absolute path>\`, or run \`robota\` in that clone and trust it first.`,
+      `no trusted local clone of \`${echoValue(slug)}\` is recorded. Open the link with \`cwd=<absolute path>\`, or run \`robota\` in that clone and trust it first.`,
     );
   }
   if (byRepository.size > 1) {
     const candidates = [...byRepository.values()].flat().join(', ');
-    return refuse(`\`${slug}\` matches more than one trusted repository: ${candidates}.`);
+    return refuse(
+      `\`${echoValue(slug)}\` matches more than one trusted repository: ${echoValue(candidates)}.`,
+    );
   }
 
   const roots = [...byRepository.values()][0] ?? [];
@@ -108,7 +112,7 @@ async function resolveRepo(
   const main = roots.find((root) => deps.isMainWorktree(root));
   if (main === undefined) {
     return refuse(
-      `\`${slug}\` resolves only to linked worktrees, with no main worktree among the trusted ones; open the link with \`cwd=\` to say which.`,
+      `\`${echoValue(slug)}\` resolves only to linked worktrees, with no main worktree among the trusted ones; open the link with \`cwd=\` to say which.`,
     );
   }
   return requireTrusted(main, deps);
@@ -122,7 +126,7 @@ export async function resolveLaunchTarget(
   if (intent.cwd !== undefined) {
     const real = deps.realDirectory(intent.cwd);
     if (real === undefined) {
-      return refuse(`${intent.cwd} does not exist or is not a directory.`);
+      return refuse(`${echoValue(intent.cwd)} does not exist or is not a directory.`);
     }
     return requireTrusted(real, deps);
   }

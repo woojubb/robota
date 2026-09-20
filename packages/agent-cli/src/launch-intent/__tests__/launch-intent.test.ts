@@ -6,7 +6,14 @@ import {
   parseLaunchIntent,
   LAUNCH_INTENT_MAX_PROMPT,
   LAUNCH_INTENT_MAX_URL,
+  LAUNCH_INTENT_USAGE,
 } from '../launch-intent.js';
+
+/* eslint-disable no-control-regex -- asserting the control class IS the point */
+/** Nothing in this class may survive into a message the terminal prints. */
+const FORBIDDEN_IN_OUTPUT =
+  /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/u;
+/* eslint-enable no-control-regex */
 
 const ok = (url: string): ReturnType<typeof parseLaunchIntent> => {
   const parsed = parseLaunchIntent(url);
@@ -133,5 +140,39 @@ describe('TC-02: precedence and the round trip', () => {
       const parsed = ok(url);
       if (parsed.ok) expect(parsed.intent.prompt).toBe(prompt);
     }
+  });
+  /**
+   * The refusal is the one output whose job is to be SEEN, and it is written to a terminal. A key
+   * or a slug carrying `ESC[2J ESC[H` would clear the screen and home the cursor — erasing the very
+   * warning it triggered and repainting whatever the link's author wanted there instead. So the
+   * refusal must name the offending value WITHOUT replaying its control characters.
+   */
+  it('never replays a control or invisible character into the refusal it prints', () => {
+    const esc = String.fromCharCode(27);
+    const payloads = [
+      `${esc}[2J${esc}[HTrusted`,
+      `a${String.fromCharCode(0)}b`,
+      `right\u202Eoverride`,
+    ];
+    const reasons = [
+      ...payloads.map((value) => refusalFor(`robota://open?v=1&${encodeURIComponent(value)}=x`)),
+      ...payloads.map((value) =>
+        refusalFor(`robota://open?v=${encodeURIComponent(value)}&prompt=hi`),
+      ),
+      ...payloads.map((value) =>
+        refusalFor(`robota://open?v=1&prompt=hi&repo=${encodeURIComponent(value)}`),
+      ),
+    ];
+    for (const reason of reasons) {
+      expect(reason).not.toMatch(FORBIDDEN_IN_OUTPUT);
+      // It still names the value rather than saying only that something was wrong.
+      expect(reason.length).toBeGreaterThan(LAUNCH_INTENT_USAGE.length);
+    }
+  });
+
+  it('clamps how much of an attacker-supplied value it echoes back', () => {
+    const reason = refusalFor(`robota://open?v=1&prompt=hi&repo=${'x'.repeat(500)}`);
+    expect(reason).toContain('\u2026');
+    expect(reason.length).toBeLessThan(LAUNCH_INTENT_USAGE.length + 200);
   });
 });

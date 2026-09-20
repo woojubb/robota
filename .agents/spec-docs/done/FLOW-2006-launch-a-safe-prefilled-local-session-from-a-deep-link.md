@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: FLOW
 tags: [flow]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # FLOW-2006: Launch a safe prefilled local session from a deep link
 
-Paired with `.agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`. Arising from [issue #2006](https://github.com/woojubb/robota/issues/2006), whose residual scope is owned by the umbrella [issue #2670](https://github.com/woojubb/robota/issues/2670).
+Paired with `.agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`. Arising from [issue #2006](https://github.com/woojubb/robota/issues/2006), whose residual scope is owned by the umbrella [issue #2670](https://github.com/woojubb/robota/issues/2670).
 
 ## Problem
 
@@ -396,17 +396,17 @@ boundary rather than exported for a hypothetical one.
 
 ## Test Plan
 
-| TC-ID | Test Type                | Tool / Approach                                                                | Notes                                           |
-| ----- | ------------------------ | ------------------------------------------------------------------------------ | ----------------------------------------------- |
-| TC-01 | Unit                     | Vitest over `parseLaunchIntent` with a table of accept and refuse inputs       | Each refusal asserts the named rule             |
-| TC-02 | Unit                     | Vitest round trip over `encodeLaunchIntent` and `parseLaunchIntent`            | Includes newline and non-ASCII prompts          |
-| TC-03 | Unit                     | Vitest over `resolveLaunchTarget` with injected grants, remote reader and stat | Covers SSH and HTTPS remote forms and ambiguity |
-| TC-04 | Unit                     | Vitest over `resolveLaunchInvocation` with injected dependencies               | Asserts no session start on any refusal         |
-| TC-05 | Component                | Vitest with `ink-testing-library` over the composer and the notice             | Asserts the first frame and the escalation      |
-| TC-06 | Unit                     | Vitest over the `startCli` pre-parse seam and the help output                  |                                                 |
-| TC-07 | Unit                     | Vitest over `listGrants()` against a fixture trust store                       | Read-only and corrupt-store behavior            |
-| TC-08 | Engineering verification | package build, test and typecheck; `pnpm harness:scan`; `pnpm lint`            |                                                 |
-| TC-09 | Process / PTY            | Agent-controlled PTY over the built CLI in a temporary trusted repository      | The user execution scenario                     |
+| TC-ID | Test Type                | Tool / Approach                                                                | Notes                                                                    |
+| ----- | ------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| TC-01 | Unit                     | Vitest over `parseLaunchIntent` with a table of accept and refuse inputs       | Each refusal asserts the named rule                                      |
+| TC-02 | Unit                     | Vitest round trip over `encodeLaunchIntent` and `parseLaunchIntent`            | Includes newline and non-ASCII prompts                                   |
+| TC-03 | Unit                     | Vitest over `resolveLaunchTarget` with injected grants, remote reader and stat | Covers SSH and HTTPS remote forms and ambiguity                          |
+| TC-04 | Unit                     | Vitest over `resolveLaunchInvocation` with injected dependencies               | Asserts no session start on any refusal                                  |
+| TC-05 | Component                | Vitest with `ink-testing-library` over the composer and the notice             | Asserts the first frame and the escalation                               |
+| TC-06 | Unit                     | Vitest over the `startCli` pre-parse seam and the help output                  |                                                                          |
+| TC-07 | Unit                     | Vitest over `listGrants()` against a fixture trust store                       | Read-only and corrupt-store behavior                                     |
+| TC-08 | Engineering verification | package build, test and typecheck; `pnpm harness:scan`; `pnpm lint`            | No test file — skipped by kind: the commands themselves are the evidence |
+| TC-09 | Process / PTY            | Agent-controlled PTY over the built CLI in a temporary trusted repository      | The user execution scenario                                              |
 
 ## User Execution Test Scenarios
 
@@ -460,7 +460,7 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 
 ## Tasks
 
-- [ ] `.agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` — in-progress
+- [ ] `.agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` — in-progress
 
 ## Evidence Log
 
@@ -709,8 +709,8 @@ therefore complete rather than partial.
 **Status upgrade:** approved → in-progress
 
 - GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-20; status `approved`
-- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`, which exists
-- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`, whose basename is the spec's
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`, whose basename is the spec's
 - GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (9)
 - GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 205 chars
 - GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: automatable | 3`
@@ -724,7 +724,7 @@ therefore complete rather than partial.
   "form": "gateImplementFirst",
   "deliveryMode": "single",
   "sequencedArtifacts": [],
-  "taskPath": ".agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md",
+  "taskPath": ".agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md",
   "specPath": ".agents/spec-docs/todo/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md",
   "taskItems": [
     {
@@ -771,7 +771,7 @@ therefore complete rather than partial.
   "worktreePaths": [
     ".agents/loop-runs/backlog-execution-orchestrator.jsonl",
     ".agents/spec-docs/todo/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md",
-    ".agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md"
+    ".agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md"
   ]
 }
 ```
@@ -780,3 +780,283 @@ therefore complete rather than partial.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `05bae45cd32f` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/todo/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `673cce114bc2` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-cli exec vitest run src/launch-intent/__tests__/launch-intent.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+6:58:34 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-cli
+
+ ✓ src/launch-intent/__tests__/launch-intent.test.ts (12 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  18:58:34
+   Duration  153ms (transform 23ms, setup 0ms, collect 21ms, tests 4ms, environment 0ms, prepare 34ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `65985af97053` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `e6585edcd9ef` (tracked)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-cli exec vitest run src/launch-intent/__tests__/launch-intent.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+6:58:34 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-cli
+
+ ✓ src/launch-intent/__tests__/launch-intent.test.ts (12 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  18:58:34
+   Duration  153ms (transform 23ms, setup 0ms, collect 21ms, tests 4ms, environment 0ms, prepare 34ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `65985af97053` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `879ac1c1d938` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-cli exec vitest run src/launch-intent/__tests__/resolve-launch-target.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+6:58:34 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-cli
+
+ ✓ src/launch-intent/__tests__/resolve-launch-target.test.ts (12 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  18:58:34
+   Duration  147ms (transform 21ms, setup 0ms, collect 19ms, tests 3ms, environment 0ms, prepare 34ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `65985af97053` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `8ff8d988a328` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-cli exec vitest run src/launch-intent/__tests__/open-invocation.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+6:58:35 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-cli
+
+ ✓ src/launch-intent/__tests__/open-invocation.test.ts (5 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  18:58:35
+   Duration  165ms (transform 30ms, setup 0ms, collect 34ms, tests 3ms, environment 0ms, prepare 33ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `65985af97053` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `f48903a9939f` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run src/__tests__/external-prompt-notice.test.tsx`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+6:58:36 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/external-prompt-notice.test.tsx (3 tests) 108ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  18:58:36
+   Duration  459ms (transform 23ms, setup 0ms, collect 175ms, tests 108ms, environment 0ms, prepare 33ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `65985af97053` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `930abecea70c` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-cli exec vitest run src/launch-intent/__tests__/open-wiring.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+6:58:37 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-cli
+
+ ✓ src/launch-intent/__tests__/open-wiring.test.ts (3 tests) 1ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  18:58:37
+   Duration  159ms (transform 23ms, setup 0ms, collect 28ms, tests 1ms, environment 0ms, prepare 33ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `65985af97053` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `bdd91515b2d2` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-framework exec vitest run src/workspace-trust/list-grants.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+6:58:37 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-framework
+
+ ✓ src/workspace-trust/list-grants.test.ts (4 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  18:58:37
+   Duration  208ms (transform 53ms, setup 0ms, collect 74ms, tests 5ms, environment 0ms, prepare 32ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `65985af97053` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `f3d38439a65a` (modified)
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm lint`
+**Exit:** 0
+**Output:** (last 10 of 3499 line(s))
+
+```
+   2:3   warning  'TASK_PROGRESS_EVENTS' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   3:3   warning  'TaskRunStateMachine' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  17:8   warning  'TPortPayload' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  21:10  warning  'dispatchDownstreamReadyTasks' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  22:10  warning  'finalizeDagRunIfTerminal' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  36:3   warning  'handleTerminalFailure' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  37:3   warning  'handleRetry' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+  39:3   warning  'successAfterAck' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+
+✖ 2356 problems (0 errors, 2356 warnings)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `65985af97053` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `2467b5ccabd7` (modified)
+
+### [GATE-COMPLETE: TC-09] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run --config vitest.pty.config.ts src/__tests__/pty/flow-2006-deep-link.ptytest.ts`
+**Exit:** 0
+**Output:** (last 10 of 13 line(s))
+
+```
+
+ ✓ src/__tests__/pty/flow-2006-deep-link.ptytest.ts (3 tests) 7506ms
+   ✓ robota open through the real binary (FLOW-2006 TC-09) > Scenario 1: the link opens the trusted repository with the prompt prefilled, inert and labelled  2368ms
+   ✓ robota open through the real binary (FLOW-2006 TC-09) > Scenario 2: every malformed or configuration-bearing link is refused with no session  3481ms
+   ✓ robota open through the real binary (FLOW-2006 TC-09) > Scenario 3: an untrusted directory and an unrecorded slug are refused, and nothing is cloned  1657ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  18:51:20
+   Duration  7.64s (transform 25ms, setup 0ms, collect 36ms, tests 7.51s, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `65985af97053` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `f8e083db345a` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** in-progress → verifying
+
+**Ordering check.** Prior gate per gate-catalogue.md § Prior-gate map is GATE-IMPLEMENT, expected input
+status `in-progress`; the row declares no re-run rule, so the default applies — the LAST GATE-IMPLEMENT
+entry must itself be `✅ PASS`. The Evidence Log holds two GATE-IMPLEMENT entries: `🔴 WITHDRAWN`
+(the DONE-GATE-STAGE-1 inversion, transition reversed) followed by `[GATE-IMPLEMENT] — ✅ PASS |
+2026-09-20` (`approved → in-progress`) — the last one is the PASS. Input state matches: frontmatter
+`status: in-progress`, `lane: L2`, document under `.agents/spec-docs/active/`, which is the folder
+`spec-workflow.md` maps `in-progress` to. No later gate has been run out of order: the nine
+`[GATE-COMPLETE: TC-NN]` entries are `gate.mjs record` output — the per-criterion evidence GATE-COMPLETE
+_requires as input_ (gate-operations.mjs:112) — not a GATE-COMPLETE verdict; no `### [GATE-COMPLETE]`
+summary entry and no `**Status upgrade:** verifying → done` line exists. Ordering check PASSES.
+
+All four GATE-VERIFY criteria are tagged `mechanical`; each was re-run by this guardian rather than
+cited from the earlier evaluator run.
+
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete
+  (`[x]`): MET. The `## Plan` section of
+  `.agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` holds 9 checkbox
+  lines (TC-01 … TC-09), 9 of them `- [x]`, 0 unchecked. Counted over the `## Plan` section alone, per
+  issue #2375; Test Plan and scenario checkboxes elsewhere in the file were not read here.
+- GATE-VERIFY — No Plan item is blocked or pending: MET. No `blocked`, `pending`, `TODO`, `TBD`, `WIP`,
+  `deferred` or `on hold` token appears anywhere in the `## Plan` section. Also checked the companion
+  constraint the same criterion protects: no Plan item names its own disposition (no merge, land,
+  close-the-issue, publish or release item), so the gate is not unsatisfiable by construction.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): MET. `## Affected Files` names
+  exactly three packages — `agent-framework`, `agent-cli`, `agent-ui-terminal`. Ran
+  `pnpm --filter @robota-sdk/agent-framework build && pnpm --filter @robota-sdk/agent-ui-terminal build
+&& pnpm --filter @robota-sdk/agent-cli build` → **exit 0**, artifact generation completed (5 and 45
+  files), zero `error`/`failed` lines; only `INEFFECTIVE_DYNAMIC_IMPORT` chunking warnings.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): MET. Ran
+  `pnpm --filter @robota-sdk/agent-cli --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-framework test`
+  → **exit 0**. agent-framework 229 passed / 6 skipped (235); agent-ui-terminal 117 passed (117);
+  agent-cli 79 passed / 1 skipped (80). 0 failed files. The FLOW-2006 suites are green within that run:
+  `src/workspace-trust/list-grants.test.ts` (4), `src/__tests__/external-prompt-notice.test.tsx` (3),
+  `src/launch-intent/__tests__/launch-intent.test.ts` (12), `resolve-launch-target.test.ts` (12),
+  `open-invocation.test.ts` (5), `open-wiring.test.ts` (3). The `✗` strings in agent-cli output are
+  asserted doctor-fixture text inside passing tests, not suite failures.
+
+**Supporting verification** (not GATE-VERIFY criteria; run because Plan item TC-08 asserts them and an
+unverified claim is not evidence):
+
+- `pnpm harness:scan` → exit 1, **1 of 162 scans failed**: `task-merged-citation`, and its only finding
+  is `.agents/tasks/SCREEN-2002-…md` — 15 commits citing SCREEN-2002 already merged to `origin/develop`.
+  Verified independently as inherited, not caused here: `a555afe80`, `c6b849287`, `d4fbb2245` are each
+  ancestors of `origin/develop` and none is in `origin/develop..HEAD`. Tracked by open issue #2756
+  ("scans-full is red on develop at f05926e"). The only FLOW-2006 string in the whole scan output is the
+  receipt-reuse note that the working tree is dirty. Surfaced, not hidden.
+- `pnpm lint` → exit 0, `✖ 2356 problems (0 errors, 2356 warnings)` against the root ceiling
+  `--max-warnings 2356`. At the ceiling, not over it.
+- PTY suite behind Plan item TC-09, which `pnpm test` does NOT cover (separate `vitest.pty.config.ts`):
+  `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run --config vitest.pty.config.ts src/__tests__/pty/flow-2006-deep-link.ptytest.ts`
+  → **exit 0**, 3/3 scenarios passed in 7.19s over the built binary.
+- TC-03's containment label verified at both sites it is claimed:
+  `packages/agent-cli/src/launch-intent/resolve-launch-target.ts:10` and the body of commit `65985af97`.
+- Branch range `origin/develop..HEAD` is exactly the two expected commits — planning checkpoint
+  `89f6d1660` (3 files: the paired spec/Task plus the orchestrator loop-run record, no implementation
+  path) and implementation `65985af97`.
+
+**Judged by:** `backlog-gate-guard` — all four criteria re-run by this guardian; the earlier
+`gate.mjs judge` run (3 PASS / 0 FAIL / 2 PENDING-GUARDIAN) is not cited as evidence for any criterion.
+**Judged at:** HEAD `65985af97053` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `0266aedfa4e7` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-20; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 9/9 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (9)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (9) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (9) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 9/9 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (9) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 9/9 tasks `[x]` in .agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `65985af97053` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `6880061f5fd0` (modified)

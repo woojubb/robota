@@ -1,8 +1,10 @@
 /**
  * FLOW-2006: the line that says a prompt did not come from the person at the keyboard.
  *
- * A deep link can fill the composer, so the provenance has to be visible until the text is sent or
- * cleared — otherwise a prompt the user never typed reads exactly like one they did. Above the long
+ * A deep link can fill the composer, so the provenance has to be visible for as long as the composer
+ * holds exactly what the link supplied — otherwise a prompt the user never typed reads exactly like
+ * one they did. The moment that text is edited, sent or cleared the label goes: what is there is then
+ * the user's own, and a label that outlived the text would be claiming otherwise. Above the long
  * threshold it also carries the character count and says to read the whole thing, because a long
  * prompt pushes its own instructions off screen.
  */

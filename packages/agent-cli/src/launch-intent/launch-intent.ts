@@ -50,6 +50,32 @@ const FORBIDDEN_PATH = /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2
 /* eslint-enable no-control-regex */
 const REPO_SLUG = /^[A-Za-z0-9._-]{1,100}\/[A-Za-z0-9._-]{1,100}$/;
 
+/** Longest attacker-controlled fragment a refusal will echo back. */
+const REFUSAL_ECHO_MAX = 80;
+/** Escapes are written the way a reader recognises them: `\\u{1b}`, not `\\u{27}`. */
+const ESCAPE_RADIX = 16;
+
+/**
+ * Render an attacker-controlled value for a message a TERMINAL will print.
+ *
+ * The refusal is the one output whose entire job is to be seen, and the values it names come
+ * straight out of the link: a `key` or a `repo` carrying `ESC[2J ESC[H` would clear the screen and
+ * repaint it, erasing the very warning it triggered. So every control and invisible-formatting
+ * character becomes a visible escape, and the echo is clamped — the reader needs to RECOGNISE the
+ * offending value, not to receive all of it.
+ */
+export function echoValue(value: string): string {
+  const escaped = [...value]
+    .map((ch) =>
+      FORBIDDEN_PATH.test(ch) ? `\\u{${(ch.codePointAt(0) ?? 0).toString(ESCAPE_RADIX)}}` : ch,
+    )
+    .join('');
+  const points = [...escaped];
+  return points.length > REFUSAL_ECHO_MAX
+    ? `${points.slice(0, REFUSAL_ECHO_MAX).join('')}\u2026`
+    : escaped;
+}
+
 function refuse(reason: string): TLaunchIntentParse {
   return { ok: false, reason: `${reason}\n${LAUNCH_INTENT_USAGE}` };
 }
@@ -74,10 +100,10 @@ function readQuery(url: URL): TLaunchIntentParse | Map<string, string> {
   for (const [key, value] of url.searchParams) {
     if (!LAUNCH_INTENT_KEYS.includes(key)) {
       return refuse(
-        `\`${key}\` is not an accepted key; only ${LAUNCH_INTENT_KEYS.join(', ')} are.`,
+        `\`${echoValue(key)}\` is not an accepted key; only ${LAUNCH_INTENT_KEYS.join(', ')} are.`,
       );
     }
-    if (values.has(key)) return refuse(`\`${key}\` appears more than once.`);
+    if (values.has(key)) return refuse(`\`${echoValue(key)}\` appears more than once.`);
     values.set(key, value);
   }
   return values;
@@ -122,7 +148,7 @@ function readIntent(query: Map<string, string>): TLaunchIntentParse {
   const version = query.get('v');
   if (version === undefined) return refuse('the link carries no `v`.');
   if (version !== LAUNCH_INTENT_VERSION) {
-    return refuse(`\`v=${version}\` is not version ${LAUNCH_INTENT_VERSION}.`);
+    return refuse(`\`v=${echoValue(version)}\` is not version ${LAUNCH_INTENT_VERSION}.`);
   }
 
   const prompt = checkPrompt(query.get('prompt'));
@@ -131,7 +157,7 @@ function readIntent(query: Map<string, string>): TLaunchIntentParse {
   if (isRefusal(cwd)) return cwd;
   const repo = query.get('repo');
   if (repo !== undefined && !REPO_SLUG.test(repo)) {
-    return refuse(`\`${repo}\` is not an \`owner/name\` slug.`);
+    return refuse(`\`${echoValue(repo)}\` is not an \`owner/name\` slug.`);
   }
   if (cwd === undefined && repo === undefined) {
     return refuse('the link names no target: pass `cwd` or `repo`.');
@@ -161,7 +187,7 @@ export function parseLaunchIntent(raw: string): TLaunchIntentParse {
     return refuse('the link is not a URL.');
   }
   if (url.protocol !== 'robota:') {
-    return refuse(`\`${url.protocol}\` is not the \`robota:\` scheme.`);
+    return refuse(`\`${echoValue(url.protocol)}\` is not the \`robota:\` scheme.`);
   }
   if (url.hash.length > 0) return refuse('the link carries a fragment.');
   if (verbOf(url) !== 'open') return refuse('the only accepted form is `robota://open`.');

@@ -35,12 +35,17 @@ function refused(message: string): TLaunchInvocation {
 /**
  * Decide what `argv` asks for. `argv` is the process argv: `[node, bin, 'open', '<url>', …flags]`.
  *
- * Exactly one POSITIONAL argument may follow `open` — the link. Microsoft documents that a handler's
- * command line can be extended by an attacker's quotes and backslashes, and Electron documents that
- * a second instance's argv can arrive with arguments appended, so a second positional is refused
- * rather than ignored. The user's own flags (`--name`, `--screen-reader`, …) are NOT positionals and
- * stay in the argv the ordinary parser reads: a link changes where the session starts and what is
- * typed into it, and nothing else about how the user invoked the CLI.
+ * Exactly one LINK may follow `open`. Microsoft documents that a handler's command line can be
+ * extended by an attacker's quotes and backslashes, and Electron documents that a second instance's
+ * argv can arrive with arguments appended — both shapes append another `robota:` token, and that is
+ * what is refused here rather than ignored. The user's own flags (`--name`, `--screen-reader`, …)
+ * and their values stay in the argv the ordinary parser reads: a link changes where the session
+ * starts and what is typed into it, and nothing else about how the user invoked the CLI.
+ *
+ * A trailing token that is NEITHER a link nor a flag (`robota open <url> junk`) is not refused here:
+ * telling it apart from a flag's value needs the parser's own flag-arity table, and unknown
+ * positionals are discarded silently across the whole CLI — the defect filed as CLI-2670. This
+ * grammar does not paper over half of it.
  */
 export async function resolveLaunchInvocation(
   argv: readonly string[],

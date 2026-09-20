@@ -1,7 +1,8 @@
 ---
 title: 'FLOW-2006: Launch a safe prefilled local session from a deep link'
 issue: https://github.com/woojubb/robota/issues/2006
-status: in-progress
+status: done
+completed: 2026-09-20
 created: 2026-09-14
 priority: high
 urgency: now
@@ -127,7 +128,7 @@ rewind is still cheap. This run altered no recorded gate entry, did not modify t
 **Judged by:** `backlog-gate-guard`, against `.agents/specs/gate-catalogue.md` § DONE-GATE-STAGE-1 and
 `.agents/rules/backlog-execution.md` § Done Gate / § Pre-implementation planning checkpoint.
 **Judged at:** HEAD `05bae45cd32f` · base `origin/develop@1ef05e0ea248` · document
-`.agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `2bbf6a01686a`
+`.agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `2bbf6a01686a`
 (modified) · paired spec
 `.agents/spec-docs/active/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob
 `41120a38e986` (untracked)
@@ -271,7 +272,7 @@ spec was not modified, and `gate.mjs advance` was not run.
 **Judged by:** `backlog-gate-guard`, against `.agents/specs/gate-catalogue.md` § DONE-GATE-STAGE-1 and
 `.agents/rules/backlog-execution.md` § Done Gate / § Checkpoint evidence contract (`doneGateStageOne`).
 **Judged at:** HEAD `05bae45cd32f` · base `origin/develop@1ef05e0ea248` · document
-`.agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `b84c26a1b3c4`
+`.agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `b84c26a1b3c4`
 (modified) · paired spec
 `.agents/spec-docs/todo/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob
 `9c2a76879164` (untracked)
@@ -431,7 +432,7 @@ v1 — the only declared version that carries this form). `gate.mjs judge --gate
 attempted again this run and again answered `unknown gate DONE-GATE-STAGE-1`, so the machine record above
 is derived from that rule-owned contract rather than from the evaluator.
 **Judged at:** HEAD `05bae45cd32f` · base `origin/develop@1ef05e0ea248` · document
-`.agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `af09a0585d91`
+`.agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob `af09a0585d91`
 (modified) · paired spec
 `.agents/spec-docs/todo/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md` blob
 `673cce114bc2` (untracked)

@@ -196,3 +196,72 @@ describe('repo resolution', () => {
     if (!throwing.ok) expect(throwing.reason).toContain('unreadable');
   });
 });
+
+/**
+ * The resolver names values the PARSER never screened — a path out of the trust store, a candidate
+ * list, the text of a git or store error — in messages a terminal prints. A `ESC[2J ESC[H` in any
+ * of them would clear the screen and repaint it over the refusal, so none may be replayed raw.
+ */
+describe('refusals never replay a control character into the terminal', () => {
+  /* eslint-disable no-control-regex -- asserting the control class IS the point */
+  const FORBIDDEN_IN_OUTPUT =
+    /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/u;
+  /* eslint-enable no-control-regex */
+  const esc = String.fromCharCode(27);
+  const payload = `${esc}[2J${esc}[HTrusted`;
+
+  async function reasonFor(
+    target: Partial<ILaunchIntent>,
+    overrides: Partial<IResolveLaunchTargetDeps>,
+  ): Promise<string> {
+    const outcome = await resolveLaunchTarget(intent(target), deps(overrides));
+    expect(outcome.ok).toBe(false);
+    return outcome.ok ? '' : outcome.reason;
+  }
+
+  it('escapes the path, the candidates and the error text it names', async () => {
+    const reasons = [
+      // A cwd that does not resolve — the path is echoed back.
+      await reasonFor({ cwd: `/tmp/${payload}` }, { realDirectory: () => undefined }),
+      // An untrusted target — the path again, this time with the remedy.
+      await reasonFor(
+        { cwd: `/tmp/${payload}` },
+        { realDirectory: (cwd) => cwd, inspectTrust: async () => 'untrusted' },
+      ),
+      // The trust check itself throws, and the error's own text carries the payload.
+      await reasonFor(
+        { cwd: '/tmp/ok' },
+        {
+          inspectTrust: async () => {
+            throw new Error(payload);
+          },
+        },
+      ),
+      // The grant store throws.
+      await reasonFor(
+        { repo: 'owner/name' },
+        {
+          listGrants: async () => {
+            throw new Error(payload);
+          },
+        },
+      ),
+      // Two distinct repositories match, and a candidate ROOT carries the payload.
+      await reasonFor(
+        { repo: 'owner/name' },
+        {
+          listGrants: async () => [
+            grant({ repositoryKey: 'a', worktreeRoot: `/clones/${payload}` }),
+            grant({ repositoryKey: 'b', worktreeRoot: '/clones/other' }),
+          ],
+        },
+      ),
+    ];
+    for (const reason of reasons) {
+      expect(reason).not.toBe('');
+      expect(reason).not.toMatch(FORBIDDEN_IN_OUTPUT);
+      // The value is still NAMED — escaping must not degrade into saying nothing.
+      expect(reason).toContain('Trusted');
+    }
+  });
+});

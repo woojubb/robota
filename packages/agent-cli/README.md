@@ -530,13 +530,16 @@ to stderr and exits non-zero without starting a session: an unknown key (so a li
 `provider=`, `permission-mode=`, `plugin=` or any other configuration), a duplicate key, a missing
 or different `v`, a link over 8,192 characters, a prompt over 5,000, a prompt beginning with `/`
 (one Enter would otherwise run it as a command), a relative, UNC or `..`-bearing path, and a second
-argument after the link.
+link appended after the first (the argv shape a desktop handler can be made to produce). Your own
+flags still apply after the link; a trailing token that is neither a link nor a flag is currently
+discarded rather than refused — a CLI-wide gap tracked separately, not specific to links.
 
 The target must already be trusted — `robota trust --yes` in that directory — for `cwd=` exactly as
 for `repo=`. A link opens only what you have already approved; it never clones, never fetches, and
-never reads a repository you have not trusted. While the prefilled text is in the composer, the line
-`Prompt from an external link` sits below the input, and above 1,000 characters it adds the
-character count and asks you to read the whole thing before sending.
+never reads a repository you have not trusted. While the composer still holds exactly what the link
+supplied, the line `Prompt from an external link` sits below the input, and above 1,000 characters it
+adds the character count and asks you to read the whole thing before sending. Edit that text and the
+line goes: what is in the composer is then yours, and the label would be claiming otherwise.
 
 **Known limitations.** No URL scheme is registered with the operating system yet, so a browser
 cannot hand the link over: pass it to `robota open` yourself, or point your own handler at that

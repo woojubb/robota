@@ -102,6 +102,10 @@ export default function InputArea({
   // FLOW-2006: the deep link's prefill arrives as a prop and is taken exactly once; the controller
   // then drops it, so a remount (the handoff-suspend path) never re-seeds a cleared prompt.
   const [value, setValue] = useState(initialValue ?? '');
+  // The text the link supplied, held for as long as it is still what the composer holds. The
+  // provenance belongs to THIS TEXT, not to the session: once it is sent or cleared, the next
+  // prompt is the user's own and must not be labelled as if a link had written it.
+  const [seededValue] = useState(externalPromptOrigin === true ? (initialValue ?? '') : '');
   useEffect(() => {
     if (initialValue === undefined || initialValue.length === 0) return;
     consumeInitialValue?.();
@@ -328,7 +332,7 @@ export default function InputArea({
         innerWidth={innerWidth}
         borderColor={borderColor}
       />
-      {externalPromptOrigin === true && <ExternalPromptNotice value={value} />}
+      {seededValue.length > 0 && value === seededValue && <ExternalPromptNotice value={value} />}
     </Box>
   );
 }

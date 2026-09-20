@@ -8,6 +8,7 @@ import { render } from 'ink-testing-library';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import InputArea from '../InputArea.js';
 import ExternalPromptNotice, {
   externalPromptNotice,
   EXTERNAL_PROMPT_NOTICE,
@@ -42,36 +43,58 @@ describe('ExternalPromptNotice', () => {
 });
 
 /**
- * The consumed-once contract, exercised on the shape the controller and the composer agree on: the
- * composer seeds from `initialValue` and reports back, and the controller then stops offering it.
+ * The consumed-once contract and the provenance lifetime, driven through the REAL composer.
+ *
+ * A hand-copied stand-in would keep passing if `InputArea`'s own seeding changed — which is the one
+ * thing these assertions exist to catch — so every case below mounts the shipped component.
  */
-describe('the prefill is consumed once', () => {
-  function Composer({
-    initialValue,
-    consumeInitialValue,
-  }: {
-    initialValue?: string | undefined;
-    consumeInitialValue?: (() => void) | undefined;
-  }): React.ReactElement {
-    const [value] = React.useState(initialValue ?? '');
-    React.useEffect(() => {
-      if (initialValue === undefined || initialValue.length === 0) return;
-      consumeInitialValue?.();
-    }, [initialValue, consumeInitialValue]);
-    return <ExternalPromptNotice value={value} />;
-  }
-
-  it('seeds the composer and tells the controller, which does not offer it again', async () => {
+describe('the prefill is consumed once, and the label belongs to that text', () => {
+  it('seeds the composer, tells the controller, and drops the label once the text changes', async () => {
     const consume = vi.fn();
-    const first = render(<Composer initialValue="from a link" consumeInitialValue={consume} />);
+    const { lastFrame, stdin } = render(
+      <InputArea
+        onSubmit={vi.fn()}
+        isDisabled={false}
+        initialValue="from a link"
+        consumeInitialValue={consume}
+        externalPromptOrigin
+      />,
+    );
     await delay();
-    expect(first.lastFrame()).toContain(EXTERNAL_PROMPT_NOTICE);
+    expect(lastFrame()).toContain('from a link');
+    expect(lastFrame()).toContain(EXTERNAL_PROMPT_NOTICE);
     expect(consume).toHaveBeenCalledTimes(1);
 
-    // The handoff remount: the controller has dropped the value, so nothing is re-seeded.
-    const remounted = render(<Composer initialValue={undefined} consumeInitialValue={consume} />);
+    // The user edits: what is in the composer is no longer what the link supplied, so the
+    // provenance line goes with it. A label that outlived the text would mark the user's own words.
+    stdin.write('!');
+    await delay();
+    expect(lastFrame()).toContain('from a link!');
+    expect(lastFrame() ?? '').not.toContain(EXTERNAL_PROMPT_NOTICE);
+  });
+
+  it('does not re-seed on the handoff remount, after the controller dropped the value', async () => {
+    const consume = vi.fn();
+    const remounted = render(
+      <InputArea
+        onSubmit={vi.fn()}
+        isDisabled={false}
+        initialValue={undefined}
+        consumeInitialValue={consume}
+        externalPromptOrigin
+      />,
+    );
     await delay();
     expect(remounted.lastFrame() ?? '').not.toContain(EXTERNAL_PROMPT_NOTICE);
-    expect(consume).toHaveBeenCalledTimes(1);
+    expect(consume).not.toHaveBeenCalled();
+  });
+
+  it('never labels a prompt the user typed themselves', async () => {
+    const { lastFrame, stdin } = render(<InputArea onSubmit={vi.fn()} isDisabled={false} />);
+    await delay();
+    stdin.write('my own prompt');
+    await delay();
+    expect(lastFrame()).toContain('my own prompt');
+    expect(lastFrame() ?? '').not.toContain(EXTERNAL_PROMPT_NOTICE);
   });
 });

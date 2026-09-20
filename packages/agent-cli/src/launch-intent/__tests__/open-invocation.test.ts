@@ -34,7 +34,7 @@ describe('resolveLaunchInvocation', () => {
     expect(outcome).toEqual({ kind: 'launch', cwd: '/real/repo', initialInput: 'hi' });
   });
 
-  it('refuses a missing link, a second argument, and a non-interactive terminal', async () => {
+  it('refuses a missing link, a SECOND LINK, and a non-interactive terminal', async () => {
     const noLink = await resolveLaunchInvocation(argv('open'), deps());
     expect(noLink).toMatchObject({ kind: 'refused', exitCode: 1 });
 

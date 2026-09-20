@@ -955,6 +955,7 @@ with that person: changing it changes what they must type, what they see, or wha
 ```bash
 robota                               # Interactive TUI
 robota init                          # Initialize project (AGENTS.md + .robota/settings.json)
+robota open '<robota://open?v=1...>' # Open a deep link: start in its trusted directory, prompt prefilled and unsent
 robota trust status                  # Inspect canonical workspace trust
 robota trust --yes                   # Grant trust for the current Git workspace
 robota trust revoke --yes            # Revoke the current workspace grant
@@ -1089,6 +1090,25 @@ user session store and never opens project session/log paths. Trusted compositio
 `createProjectSessionStore(sessions, logs)` with same-authority named state facets, keeping resumable
 records and replay logs under the authority adapter without exposing their host paths as a reusable
 capability.
+
+#### Deep Links (`robota open`)
+
+`robota open '<url>'` is decided BEFORE `parseCliArgs()` and before any workspace composition, so a
+malformed or untrusted link is named as such rather than reported as a missing terminal. The grammar
+is closed: the verb `robota://open` (also `robota://open/` and `robota:open`, verb case-insensitive)
+and exactly four keys — `v` (required, `1`), `prompt`, `cwd`, `repo`. Anything else — an unknown or
+duplicate key, a missing or different `v`, a link over 8,192 code points, a prompt over 5,000, a
+prompt whose first non-whitespace character is `/`, a relative, UNC or `..`-bearing `cwd`, a
+malformed slug, or a SECOND link appended to the argv — discards the WHOLE url, names the first rule
+broken on stderr and exits non-zero without starting a session. Every attacker-controlled value the
+refusal echoes is escaped before it reaches the terminal.
+
+The target must already be `trusted`: there is no link-specific grant and no prompt. `repo=` resolves
+only against recorded trusted clones (several worktrees of one repository resolve to its main
+worktree; two distinct repositories are refused with the candidates) and never clones or fetches. On
+success the session starts in that directory with the prompt in the composer, unsent, under
+`Prompt from an external link`; Enter is the only thing that submits it. The user's own flags after
+the link still apply.
 
 ### Zero-Config Startup (env-default)
 
