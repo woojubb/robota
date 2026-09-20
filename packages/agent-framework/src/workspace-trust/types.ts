@@ -39,8 +39,34 @@ export interface IWorkspaceTrustStoreSnapshot {
   readonly grantedAt?: string;
 }
 
+/**
+ * One recorded grant, as the store persists it. FLOW-2006 reads these to resolve a deep link's
+ * `repo=owner/name` against clones the user has ALREADY trusted; nothing else enumerates them.
+ */
+export interface IWorkspaceTrustGrant {
+  readonly repositoryKey: string;
+  readonly worktreeRoot: string;
+  readonly state: 'trusted' | 'revoked';
+  readonly generation: number;
+  readonly grantedAt?: string;
+}
+
 export interface IWorkspaceTrustStore {
   inspect(identity: IWorkspaceIdentity): Promise<IWorkspaceTrustStoreSnapshot>;
+  /**
+   * Every recorded grant, read-only — OPTIONAL, and optional on purpose.
+   *
+   * This is a deliberate widening: it hands its caller the list of every local path the user has
+   * ever trusted, so it exists for one consumer (FLOW-2006's `repo=owner/name` resolution) and
+   * returns the same validated shape the store already enforces. A corrupt store throws rather than
+   * returning a partial list — "could not read" is never "no grants".
+   *
+   * It is optional rather than required because a store is free not to be enumerable: an in-memory
+   * test double or a host that keeps grants somewhere unlistable owes no such answer, and forcing
+   * one would mean every implementer inventing a list it does not have. The consumer treats absence
+   * the same way it treats a read failure — a refusal, never an empty list.
+   */
+  listGrants?(): Promise<readonly IWorkspaceTrustGrant[]>;
   grant(
     identity: IWorkspaceIdentity,
     expectedGeneration: number,

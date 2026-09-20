@@ -9,6 +9,7 @@ import { WorkspaceTrustService } from './workspace-trust-service.js';
 import { userPaths } from '../paths.js';
 
 import type {
+  IWorkspaceTrustGrant,
   IWorkspaceIdentity,
   IWorkspaceIdentityResolver,
   IWorkspaceTrustStore,
@@ -219,6 +220,11 @@ export function createNodeWorkspaceTrustStore(
   return Object.freeze({
     async inspect(identity: IWorkspaceIdentity): Promise<IWorkspaceTrustStoreSnapshot> {
       return snapshotFor(findGrant(readStore(), identity));
+    },
+    async listGrants(): Promise<readonly IWorkspaceTrustGrant[]> {
+      // `readStore` validates every record and throws on a corrupt file, so a caller never sees a
+      // partial list it could mistake for a complete one.
+      return readStore().grants.map((grant) => Object.freeze({ ...grant }));
     },
     grant(identity: IWorkspaceIdentity, expectedGeneration: number) {
       return update(identity, expectedGeneration, 'trusted');

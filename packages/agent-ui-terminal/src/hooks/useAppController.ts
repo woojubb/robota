@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { buildStaticItems } from '../app-static-items.js';
 import { useAppInteractionState } from './useAppInteractionState.js';
@@ -7,6 +7,7 @@ import { useAppScreenState } from './useAppScreenState.js';
 import { useAppThemeState } from './useAppThemeState.js';
 import { useTuiChannel } from './useTuiChannel.js';
 
+import type { IBuildStaticItemsInputs } from '../app-static-items.js';
 import type { IAppInputViewModel, IAppStatusViewModel, IAppViewModel } from '../app-view-model.js';
 import type { ITuiAppChannelPort, ITuiRuntimeStatusSnapshot } from '../tui-app-channel-port.js';
 import type { IAppInteractionState } from './useAppInteractionState.js';
@@ -33,6 +34,9 @@ export interface IUseAppControllerOptions {
   version?: string;
   sessionStore?: IInteractiveSessionStore;
   showSessionPickerOnStart?: boolean;
+  /** FLOW-2006: a deep link's prefill, handed to the composer exactly once. */
+  initialInput?: string;
+  initialInputOrigin?: 'external-link';
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   pluginAdapter?: ICommandPluginAdapter;
@@ -192,8 +196,35 @@ function useControllerTheme(
   });
 }
 
+/**
+ * FLOW-2006: the deep link's prefill is owned HERE, not by the composer's `useState` initializer.
+ * `AppPresentation` unmounts the prompt subtree while a terminal handoff is suspended, so a
+ * component-local initializer would re-seed a prompt the user had already cleared or submitted.
+ */
+function useExternalPrefill(
+  initialInput: string | undefined,
+  origin: IUseAppControllerOptions['initialInputOrigin'],
+): Pick<IAppInputViewModel, 'initialValue' | 'consumeInitialValue' | 'externalPromptOrigin'> {
+  const [initialValue, setInitialValue] = useState(initialInput);
+  const consumeInitialValue = useCallback(() => setInitialValue(undefined), []);
+  return { initialValue, consumeInitialValue, externalPromptOrigin: origin === 'external-link' };
+}
+
+/** The scrollback Ink commits once: the banner (unless suppressed) and the settled history. */
+function useStaticItems(
+  history: IBuildStaticItemsInputs['history'],
+  version: IBuildStaticItemsInputs['version'],
+  screenReader: IBuildStaticItemsInputs['screenReader'],
+): IAppViewModel['staticItems'] {
+  return useMemo(
+    () => buildStaticItems({ history, version, screenReader }),
+    [history, screenReader, version],
+  );
+}
+
 /** Compose responsibility-specific hooks into the only view model accepted by presentation. */
 export function useAppController(props: IUseAppControllerOptions): IAppViewModel {
+  const prefill = useExternalPrefill(props.initialInput, props.initialInputOrigin);
   const state = useTuiChannel(props.channel);
   const lifecycle = useAppLifecycleState(props.channel, props.startupUpdateNotice);
   const coordination = getCoordinationState(props, lifecycle);
@@ -219,18 +250,10 @@ export function useAppController(props: IUseAppControllerOptions): IAppViewModel
     retryRecovery:
       props.sessionSwitchError !== undefined ? props.onRetrySessionSwitch : lifecycle.retryStart,
   });
-  const staticItems = useMemo(
-    () =>
-      buildStaticItems({
-        history: state.history,
-        version: props.version,
-        screenReader: interaction.screenReader,
-      }),
-    [interaction.screenReader, props.version, state.history],
-  );
+  const staticItems = useStaticItems(state.history, props.version, interaction.screenReader);
   const runtime = state.getRuntimeStatusSnapshot(props.permissionMode ?? 'default');
   const theme = useControllerTheme(props, shell);
-  return buildViewModel({
+  const viewModel = buildViewModel({
     props,
     state,
     lifecycle,
@@ -241,6 +264,7 @@ export function useAppController(props: IUseAppControllerOptions): IAppViewModel
     coordination,
     theme,
   });
+  return { ...viewModel, input: { ...viewModel.input, ...prefill } };
 }
 
 export type { IAppViewModel } from '../app-view-model.js';

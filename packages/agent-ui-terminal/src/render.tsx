@@ -99,6 +99,10 @@ export interface IRenderOptions {
   sessionStore?: IInteractiveSessionStore;
   resumeSessionId?: string;
   showSessionPickerOnStart?: boolean;
+  /** FLOW-2006: text a deep link prefilled into the composer. Never submitted on its own. */
+  initialInput?: string;
+  /** Where that text came from; `external-link` renders the provenance notice. */
+  initialInputOrigin?: 'external-link';
   forkSession?: boolean;
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
@@ -376,6 +380,8 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
           sessionStore={options.sessionStore}
           resumeSessionId={options.resumeSessionId}
           showSessionPickerOnStart={options.showSessionPickerOnStart}
+          initialInput={options.initialInput}
+          initialInputOrigin={options.initialInputOrigin}
           startupUpdateNotice={options.startupUpdateNotice}
           transportRegistry={options.transportRegistry}
           pluginAdapter={options.commandHostAdapters?.plugin}

@@ -96,6 +96,12 @@ export interface IAppSessionPickerViewModel {
 }
 
 export interface IAppInputViewModel {
+  /** FLOW-2006: the deep link's prefill, present only until the composer takes it. */
+  readonly initialValue?: string | undefined;
+  /** Called by the composer the first time it seeds itself, so a remount does not re-seed. */
+  readonly consumeInitialValue?: (() => void) | undefined;
+  /** True while the composer's text is the one a deep link supplied. */
+  readonly externalPromptOrigin?: boolean | undefined;
   readonly submit: (input: string) => Promise<void>;
   readonly cancelQueue: () => void;
   readonly disabled: boolean;
