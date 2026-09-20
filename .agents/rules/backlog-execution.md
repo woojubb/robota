@@ -415,8 +415,17 @@ An endorsement is not approval. A recommendation that requires product judgment,
 boundaries, or introduces a new dependency direction still stops for the user.
 
 **The verdict must be recorded** — the reviewer's `REVIEW VERDICT` and its date go in the backlog item
-or the PR description. A gate whose verdict leaves no trace cannot be audited, and an unrecorded
-`ENDORSE` is indistinguishable from a self-approval.
+or the PR description, and the canonical `backlog-execution-orchestrator` loop ledger must carry one
+expectation followed by one observation for the exact subject and canonical projection. The validity
+identity is `SHA-256("recommendation-endorsement:v1\\0" + subjectBasename + "\\0" + projectionDigest)`; <!-- allow-citation: SHA-256 is the cryptographic algorithm name, not a work-item identifier -->
+a commit SHA is retained only as review provenance. Material projection changes
+therefore require a new review, while a clean rebase does not invalidate unchanged endorsed content.
+
+The endorsement checkpoint is planning-only: it may change the exact Task/spec and canonical ledger,
+but no implementation path. Topic and staged replay enforce that the checkpoint precedes
+implementation. Unchanged terminal documents at the adoption revision remain prospectively exempt;
+nonterminal work becomes governed on a lifecycle transition or material projection change. Adoption
+never satisfies the current-endorsement requirement at GATE-APPROVAL.
 
 ## One-Backlog-At-A-Time Rule (mandatory, zero exceptions)
 

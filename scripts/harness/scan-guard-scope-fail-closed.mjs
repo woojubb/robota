@@ -298,6 +298,24 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'Git ancestry is the governed population — without a repository and merge base, "no implementation preceded PLAN" cannot be evaluated, so an empty result would certify ordering over no history',
   },
   {
+    file: 'scan-recommendation-endorsement.mjs',
+    finder: 'findRecommendationEndorsementFindings',
+    tree: '.agents/spec-docs + recommendation baseline + backlog-execution ledger',
+    why: 'the spec tree, immutable adoption anchor, and canonical ledger are the persisted endorsement population; without any one of them a pass would certify evidence that was never read',
+  },
+  {
+    file: 'scan-recommendation-endorsement.mjs',
+    finder: 'findRecommendationTopicFindings',
+    tree: 'recommendation baseline + .git topic history',
+    why: 'topic history is the causal population that distinguishes a prior endorsement checkpoint from retrospective prose; absent history cannot prove ordering',
+  },
+  {
+    file: 'scan-recommendation-endorsement.mjs',
+    finder: 'findRecommendationStagedFindings',
+    tree: 'recommendation baseline + .git index + topic history',
+    why: 'the proposed index is where mixed endorsement and implementation must be refused; absent index state cannot authorize a proposed transaction',
+  },
+  {
     // HARNESS-121. Measured as `findStagedFindings(bare)`: returns a fail-closed staged-query finding
     // because there is no index whose proposed transaction can be judged.
     file: 'scan-user-execution-plan-order.mjs',

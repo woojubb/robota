@@ -294,6 +294,7 @@ context and the approval still needs DIRECT or CLASS in its own right.
 **Both routes:**
 
 - [ ] No Architecture Review or frontmatter type/tags modified after approval — `mechanical`
+- [ ] The current recommendation has one independent endorsement bound to its stable subject-plus-projection key, with verdict `ENDORSE` and zero unresolved findings — `mechanical`
 - [ ] **Independent architecture validation (conditional):** IF the spec introduces a new package / app /
       surface or reclassifies a layer / product-family boundary, the Evidence Log MUST contain an independent
       `proposal-reviewer` verdict that ENDORSED the recommendation and explicitly covered the placement —
@@ -410,23 +411,17 @@ For each TC-N in `## Completion Criteria`:
   - The actual output or result observed
   - Exit code if applicable
 
-For each TC-N in `## Test Plan`:
-
-- [ ] **One of the following is recorded:** — `mechanical`
-  - **Test written:** test file path + test function/describe name (e.g., `packages/agent-cli/src/__tests__/some-feature.test.ts > TC-01 expected behavior`)
-  - **Test skipped:** explicit reason why automated test was not written (e.g., `TC-02: ANSI color requires visual inspection — manual verification via terminal screenshot`)
-- [ ] No TC-N is silently unaddressed — every row must have either a test reference or a skip reason — `mechanical`
-
 After all criteria:
 
 - [ ] Spec document `## Completion Criteria` checkboxes are all `[x]` — `mechanical`
-- [ ] `## Test Plan` updated with test references or skip reasons for all TC-N rows — `mechanical`
 - [ ] The spec's `## Tasks` section names the exact active task path under `.agents/tasks/` — `mechanical`
 - [ ] That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item — `mechanical`
 
-**Evidence to record:** One Evidence entry per TC-N (verification + test reference/skip), then a final summary entry.
+**Evidence to record:** One Evidence entry per TC-N with the exact command/action and observed result,
+then a final summary entry. The planned `## Test Plan` stays immutable after endorsement.
 
-**FAIL trigger:** Any TC-N unchecked, or checked without a matching Evidence entry. Any TC-N in Test Plan missing both a test reference and a skip reason.
+**FAIL trigger:** Any TC-N unchecked, or checked without a matching Evidence entry containing the
+actual command/action and observed result.
 
 **Post-PASS handoff:** task terminal status/date, task archival, the spec's archived task pointer, and
 the spec's `verifying/active → done/done` transition are PASS outputs, not guardian preconditions. Their

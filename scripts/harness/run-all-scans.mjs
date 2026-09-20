@@ -659,6 +659,13 @@ const LEGACY_SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-user-execution-plan-order.mjs'],
     always: true,
   },
+  // RULE-2326. A prose verdict cannot prove which recommendation was reviewed or that its
+  // planning-only checkpoint preceded implementation.
+  {
+    name: 'recommendation-endorsement',
+    command: ['node', 'scripts/harness/scan-recommendation-endorsement.mjs'],
+    always: true,
+  },
   // RULE-012. GATE-APPROVAL required approval "in the current conversation" while its own example
   // list admitted a standing instruction. Three sessions counted the affected documents and got 27,
   // 43 and 52 — not a counting bug, but three private definitions of a term the rule never defined.
