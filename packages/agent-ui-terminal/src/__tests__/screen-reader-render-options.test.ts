@@ -27,9 +27,14 @@ import type { IHistoryEntry, IAIProvider } from '@robota-sdk/agent-core';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 
 const inkRender = vi.hoisted(() =>
-  vi.fn((_node: unknown, _options?: { isScreenReaderEnabled?: boolean }) => ({
-    waitUntilExit: async (): Promise<void> => {},
-  })),
+  vi.fn(
+    (
+      _node: unknown,
+      _options?: { isScreenReaderEnabled?: boolean; stdout?: NodeJS.WriteStream },
+    ) => ({
+      waitUntilExit: async (): Promise<void> => {},
+    }),
+  ),
 );
 
 vi.mock('ink', async (importOriginal) => {
@@ -194,5 +199,41 @@ describe('TC-17: the ASCII banner is not committed in the mode', () => {
     }
     // None of them is a box-drawing character — hence the separate criterion.
     expect(BANNER_ART).not.toMatch(/[│─┌┐└┘├┤┬┴┼╭╮╰╯]/u);
+  });
+});
+
+describe('SCREEN-2670 TC-05: with the mode off, render() is called with no stdout key at all', () => {
+  beforeEach(() => {
+    inkRender.mockClear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('passes no stdout when the mode is off — Ink defaults to process.stdout and keys its map by it', async () => {
+    const { renderApp } = await import('../render.js');
+    await renderApp(baseOptions());
+    const options = inkRender.mock.calls[0]?.[1] ?? {};
+    expect(Object.keys(options)).not.toContain('stdout');
+  });
+
+  it('passes no stdout when the mode is on but the park is disabled with 0', async () => {
+    vi.stubEnv('ROBOTA_SCREEN_READER_STARTUP_QUIET_MS', '0');
+    vi.stubEnv('ROBOTA_SCREEN_READER_PREPARK_MS', '0');
+    const { renderApp } = await import('../render.js');
+    await renderApp({ ...baseOptions(), screenReader: true });
+    expect(Object.keys(inkRender.mock.calls[0]?.[1] ?? {})).not.toContain('stdout');
+  });
+
+  it('hands Ink the owned stdout when the mode is on and the park is enabled', async () => {
+    vi.stubEnv('ROBOTA_SCREEN_READER_STARTUP_QUIET_MS', '0');
+    vi.stubEnv('ROBOTA_SCREEN_READER_PREPARK_MS', '50');
+    const { renderApp } = await import('../render.js');
+    await renderApp({ ...baseOptions(), screenReader: true });
+    const stdout = inkRender.mock.calls[0]?.[1]?.stdout;
+    expect(stdout).toBeDefined();
+    expect(stdout).not.toBe(process.stdout);
+    expect(typeof stdout?.write).toBe('function');
   });
 });

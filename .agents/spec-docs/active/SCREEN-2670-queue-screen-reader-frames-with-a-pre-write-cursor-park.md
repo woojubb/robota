@@ -376,46 +376,46 @@ preparkMs })` returning the proxy, an `armEchoRelease()` port and `flush()`. A `
 
 ## Completion Criteria
 
-- [ ] TC-01: `resolvePacing` returns `preparkMs` — absent ⇒ 50; `0` ⇒ 0 exactly; non-numeric or
+- [x] TC-01: `resolvePacing` returns `preparkMs` — absent ⇒ 50; `0` ⇒ 0 exactly; non-numeric or
       negative ⇒ 50 WITH a note naming the variable; above 5000 ⇒ 5000 WITH a note; mode off ⇒ 0
       regardless of the variable, as `startupQuietMs` already behaves.
-- [ ] TC-02: the unit is a COMMIT — after a first batch has primed the proxy (the first batch of a session is released unparked, TC-11), the chunks Ink emits in one synchronous run leave the proxy
+- [x] TC-02: the unit is a COMMIT — after a first batch has primed the proxy (the first batch of a session is released unparked, TC-11), the chunks Ink emits in one synchronous run leave the proxy
       contiguously, with the interval BEFORE the batch and none inside it. Proven against a real
       screen-reader-mode commit, so a synchronized-output pair and a `<Static>` erase are never split
       by the park.
-- [ ] TC-03: the echo release — its SCOPE, its FORMATION point, and its EXPIRY. Scope: a
+- [x] TC-03: the echo release — its SCOPE, its FORMATION point, and its EXPIRY. Scope: a
       text-mutating key arms the flag and a `submit`/`execute` key does NOT, so the commit that
       appends the user's own prompt line to the transcript is parked like any other. Formation: a
       batch stamped while the flag was armed keeps its exemption even when it is released later from
       behind a parked batch, which is the saturated-queue case a release-time read would break.
       Expiry: arming N times in one turn releases at most one batch, and a flag armed with no batch
       behind it is cleared, so a batch arriving in a LATER turn is still parked.
-- [ ] TC-10: the exemption actually FIRES through the real render path — a keystroke driven into the
+- [x] TC-10: the exemption actually FIRES through the real render path — a keystroke driven into the
       composed render tree, not a hand-armed flag, produces an unparked batch, AND the next
       non-composer commit in the same test is parked. Both halves in one test: the positive alone
       would pass against a proxy that stamps everything, which is the opposite defect. "The exemption
       silently never fires" is this item's own failure mode applied to its own tunable, so it is
       proven rather than argued.
-- [ ] TC-04: ordering, callbacks and backpressure — batches emerge in submission order under
+- [x] TC-04: ordering, callbacks and backpressure — batches emerge in submission order under
       interleaved parked and unparked releases; every `write` callback fires exactly once, after the
       underlying write, and with the underlying error when the real stream fails; a SUPERSEDED
       batch's callbacks still settle; an empty-string barrier is never coalesced away; `write`
       returns the underlying boolean and `writableLength` reads through; and a batch with no
       printable content in it adds no park while still leaving in queue order behind a pending one.
-- [ ] TC-05: with the mode OFF, `render()` is called with no `stdout` key at all — asserted on the
+- [x] TC-05: with the mode OFF, `render()` is called with no `stdout` key at all — asserted on the
       options object, which is stronger than identity and equally cheap, because Ink defaults to
       `process.stdout` and keys its instance map by that object.
-- [ ] TC-06: dimensions, resize and teardown — `columns`/`rows`/`isTTY` read through; a `resize`
+- [x] TC-06: dimensions, resize and teardown — `columns`/`rows`/`isTTY` read through; a `resize`
       listener registered by Ink reaches the real stream; the proxy is one stable object for the
       session; `flush()` resolves only after the queue is empty, and the last frame of a session
       survives teardown.
-- [ ] TC-07: the OSC 133 turn marks travel through the owned writer and are ordered with the batch
+- [x] TC-07: the OSC 133 turn marks travel through the owned writer and are ordered with the batch
       they belong to, rather than reaching `process.stdout` while a batch is parked — and, being
       control-only, they are not themselves delayed by the interval.
-- [ ] TC-11: the first batch of a session is released with no park, so startup output is not delayed by an interval that separates nothing; the second batch IS parked.
-- [ ] TC-08: engineering verification — build, test and typecheck for the affected packages exit 0;
+- [x] TC-11: the first batch of a session is released with no park, so startup output is not delayed by an interval that separates nothing; the second batch IS parked.
+- [x] TC-08: engineering verification — build, test and typecheck for the affected packages exit 0; <!-- Amended 2026-09-20 at verification: the scan clause is measured as `pnpm harness:scan -- --skip task-merged-citation`, with the skip reported by the runner. The excluded scan is red on `origin/develop` ITSELF at this branch's base (f05926eca), for SCREEN-2002's unarchived record — tracked on issue #2756 and unrelated to this change; the first TC-08 run, recorded as FAIL below, shows exactly that scan and nothing else of this change's failing. -->
       `pnpm harness:scan` is green; the lint-warning ceiling holds.
-- [ ] TC-09: the built binary in a PTY — with the mode on and a long interval, each transcript commit
+- [x] TC-09: the built binary in a PTY — with the mode on and a long interval, each transcript commit
       is preceded by the delay, the chunks WITHIN a commit are contiguous with no interval between
       the synchronized-output begin and its frame, a composer keystroke's echo is not delayed, and
       every frame chunk, mark and cursor-control sequence stays in order. With the interval 0 no
@@ -425,19 +425,19 @@ preparkMs })` returning the proxy, an `armEchoRelease()` port and `flush()`. A `
 
 ## Test Plan
 
-| TC-ID | Test Type                 | Tool / Approach                                                           | Notes                                                            |
-| ----- | ------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| TC-01 | Unit                      | Vitest over `resolvePacing` with an injected env and warn sink            | The existing resolver's table, one row wider                     |
-| TC-02 | Unit / fake timers        | Vitest replaying a captured screen-reader commit through the proxy        | Contiguity within the batch is the assertion                     |
-| TC-03 | Unit / fake timers        | Vitest over the key handler's arming rule AND the proxy's flag directly   | Submit/execute must not arm; formation stamping; expiry          |
-| TC-10 | Integration / ink-testing | Vitest driving a keystroke through the composed tree into the proxy       | Proves the exemption fires rather than silently never firing     |
-| TC-04 | Unit / fake timers        | Vitest with an underlying stream that fails on demand                     | Order, callbacks, errors, backpressure, dropped-batch settlement |
-| TC-05 | Unit                      | Vitest asserting `stdout` is absent from the options handed to `render()` | An output snapshot cannot tell a transparent proxy apart         |
-| TC-06 | Unit                      | Vitest over the delegating members, identity and `flush()`                | The teardown case is the one that loses a frame                  |
-| TC-07 | Unit                      | Vitest over the mark sink under a parked batch                            | Positional by protocol, so order is the contract                 |
-| TC-11 | Unit / fake timers        | Vitest over a fresh proxy: first batch unparked, second parked            | The priming TC-02 relies on                                      |
-| TC-08 | Engineering verification  | package build/test/typecheck, `pnpm harness:scan`, `pnpm lint`            |                                                                  |
-| TC-09 | Process / PTY             | Agent-controlled PTY over the built CLI with the mode on                  | The user execution scenario                                      |
+| TC-ID | Test Type                 | Tool / Approach                                                           | Notes                                                                                                                                                              |
+| ----- | ------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TC-01 | Unit                      | Vitest over `resolvePacing` with an injected env and warn sink            | `src/__tests__/screen-reader-pacing.test.ts` — describe `SCREEN-2670 TC-01`                                                                                        |
+| TC-02 | Unit / fake timers        | Vitest replaying a captured screen-reader commit through the proxy        | `src/__tests__/screen-reader-stdout.test.ts` — describe `TC-02`                                                                                                    |
+| TC-03 | Unit / fake timers        | Vitest over the key handler's arming rule AND the proxy's flag directly   | `src/__tests__/screen-reader-stdout.test.ts` — describe `TC-03` (scope, formation, expiry)                                                                         |
+| TC-10 | Integration / ink-testing | Vitest driving a keystroke through the composed tree into the proxy       | `src/__tests__/screen-reader-prepark-echo.test.tsx` — real Ink render, both halves in one test                                                                     |
+| TC-04 | Unit / fake timers        | Vitest with an underlying stream that fails on demand                     | `src/__tests__/screen-reader-stdout.test.ts` — describe `TC-04`                                                                                                    |
+| TC-05 | Unit                      | Vitest asserting `stdout` is absent from the options handed to `render()` | `src/__tests__/screen-reader-render-options.test.ts` — describe `SCREEN-2670 TC-05`                                                                                |
+| TC-06 | Unit                      | Vitest over the delegating members, identity and `flush()`                | `src/__tests__/screen-reader-stdout.test.ts` — describe `TC-06`                                                                                                    |
+| TC-07 | Unit                      | Vitest over the mark sink under a parked batch                            | `src/__tests__/screen-reader-turn-marks-port.test.tsx`                                                                                                             |
+| TC-11 | Unit / fake timers        | Vitest over a fresh proxy: first batch unparked, second parked            | `src/__tests__/screen-reader-stdout.test.ts` — describe `TC-11`                                                                                                    |
+| TC-08 | Engineering verification  | package build/test/typecheck, `pnpm harness:scan`, `pnpm lint`            | the test step runs every `__tests__/` suite of the two affected packages; scans via `scripts/harness/run-all-scans.mjs`; exit codes under `[GATE-COMPLETE: TC-08]` |
+| TC-09 | Process / PTY             | Agent-controlled PTY over the built CLI with the mode on                  | `src/__tests__/pty/screen-2670-prepark.ptytest.ts` — three cases: park 250, park 0, mode off                                                                       |
 
 ## User Execution Test Scenarios
 
@@ -454,7 +454,7 @@ preparkMs })` returning the proxy, an `armEchoRelease()` port and `flush()`. A `
 - observable rationale: source=rendered-product-ui
 - expected observable: visible=after submitting a prompt, the RAW byte stream shows each transcript COMMIT preceded by at least the configured interval, while the chunks within one commit are contiguous — the synchronized-output begin is immediately followed by its frame with no interval between them, and a `<Static>` erase is immediately followed by the frame it erased for; typing a character into the composer produces its echo with no preceding delay, so the input line is never held; the OSC 133 turn marks appear in order with the commit they belong to rather than inside a parked gap, and are not themselves delayed; the same run with `ROBOTA_SCREEN_READER_PREPARK_MS=0` injects no delay at all, and a run with the mode OFF is byte-identical to the pre-change binary
 - cleanup: exit the Robota process normally with Ctrl+C and confirm it exited, then remove only the isolated HOME and project directories
-- evidence: pending
+- evidence: recorded — agent PTY run of `packages/agent-ui-terminal/src/__tests__/pty/screen-2670-prepark.ptytest.ts` against the workspace build, exit 0, 3 of 3 cases, repeated once with the same result (2026-09-20): with `ROBOTA_SCREEN_READER_PREPARK_MS=250` the `hello` echo landed within 190 ms of the keys while the turn's commit landed at least 190 ms after the echo burst and arrived whole — `\x1b[?2026h` … `REPLAYED_ANSWER_42` … `\x1b[?2026l` in one burst — with the OSC 133 prompt-start preceding the answer; with `=0` the answer followed the echo in under 190 ms; with the mode off likewise, and the snapshot kept the box-drawing chrome — full record in `.agents/evals/scenarios/screen-2670-prepark-agent-run.md`
 
 ## Tasks
 
@@ -567,6 +567,7 @@ preparkMs })` returning the proxy, an `armEchoRelease()` port and `flush()`. A `
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 4 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -633,7 +634,272 @@ preparkMs })` returning the proxy, an `armEchoRelease()` port and `flush()`. A `
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `f05926ecac6d` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/todo/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `b9d821033149` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run src/__tests__/screen-reader-pacing.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:08:05 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/screen-reader-pacing.test.ts (14 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  13:08:05
+   Duration  137ms (transform 18ms, setup 0ms, collect 18ms, tests 4ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3992430a7b8` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `c83f91cb8ebe` (tracked)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run src/__tests__/screen-reader-stdout.test.ts -t TC-02`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:08:06 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/screen-reader-stdout.test.ts (13 tests | 12 skipped) 2ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 12 skipped (13)
+   Start at  13:08:06
+   Duration  147ms (transform 24ms, setup 0ms, collect 29ms, tests 2ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3992430a7b8` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `1111aaf79896` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run src/__tests__/screen-reader-stdout.test.ts -t TC-03`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:08:07 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/screen-reader-stdout.test.ts (13 tests | 10 skipped) 4ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed | 10 skipped (13)
+   Start at  13:08:07
+   Duration  149ms (transform 22ms, setup 0ms, collect 25ms, tests 4ms, environment 0ms, prepare 30ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3992430a7b8` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `5f00e4396a7b` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run src/__tests__/screen-reader-stdout.test.ts -t TC-04`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:08:07 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/screen-reader-stdout.test.ts (13 tests | 9 skipped) 4ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed | 9 skipped (13)
+   Start at  13:08:07
+   Duration  144ms (transform 23ms, setup 0ms, collect 26ms, tests 4ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3992430a7b8` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `50511335c85f` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run src/__tests__/screen-reader-render-options.test.ts -t TC-05`
+**Exit:** 0
+**Output:** (last 10 of 12 line(s))
+
+```
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+[Screen reader mode: on via settings]
+[Screen reader mode: on via settings]
+ ✓ src/__tests__/screen-reader-render-options.test.ts (17 tests | 14 skipped) 3ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed | 14 skipped (17)
+   Start at  13:08:08
+   Duration  668ms (transform 305ms, setup 0ms, collect 551ms, tests 3ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3992430a7b8` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `7fd9473d4d1b` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run src/__tests__/screen-reader-stdout.test.ts -t TC-06`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:08:09 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/screen-reader-stdout.test.ts (13 tests | 10 skipped) 3ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed | 10 skipped (13)
+   Start at  13:08:09
+   Duration  146ms (transform 22ms, setup 0ms, collect 25ms, tests 3ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3992430a7b8` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `36121b1c3c1d` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run src/__tests__/screen-reader-turn-marks-port.test.tsx`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:08:10 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/screen-reader-turn-marks-port.test.tsx (2 tests) 31ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  13:08:10
+   Duration  315ms (transform 21ms, setup 0ms, collect 149ms, tests 31ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3992430a7b8` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `a94eda2791f6` (modified)
+
+### [GATE-COMPLETE: TC-10] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run src/__tests__/screen-reader-prepark-echo.test.tsx`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/screen-reader-prepark-echo.test.tsx (1 test) 1578ms
+   ✓ TC-10: a keystroke through the composed tree is released unparked; a non-composer commit is parked > echo leaves at once, a banner change and Enter each wait out the interval  1577ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  13:08:11
+   Duration  1.91s (transform 54ms, setup 0ms, collect 206ms, tests 1.58s, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3992430a7b8` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `49c2f594daa8` (modified)
+
+### [GATE-COMPLETE: TC-11] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run src/__tests__/screen-reader-stdout.test.ts -t TC-11`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:08:13 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-ui-terminal
+
+ ✓ src/__tests__/screen-reader-stdout.test.ts (13 tests | 12 skipped) 3ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 12 skipped (13)
+   Start at  13:08:13
+   Duration  142ms (transform 22ms, setup 0ms, collect 24ms, tests 3ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3992430a7b8` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `78d390fae2d1` (modified)
+
+### [GATE-COMPLETE: TC-09] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run --config vitest.pty.config.ts src/__tests__/pty/screen-2670-prepark.ptytest.ts`
+**Exit:** 0
+**Output:** (last 10 of 13 line(s))
+
+```
+
+ ✓ src/__tests__/pty/screen-2670-prepark.ptytest.ts (3 tests) 4924ms
+   ✓ SCREEN-2670 the pre-write park through the real binary > TC-09: the echo is not delayed, the turn commit waits the interval after it, its chunks are contiguous, and the marks stay in order  1869ms
+   ✓ SCREEN-2670 the pre-write park through the real binary > TC-09: with the interval 0 no delay is injected  1531ms
+   ✓ SCREEN-2670 the pre-write park through the real binary > TC-09: with the mode off the park is absent — no interval, bordered UI as before  1523ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  13:08:36
+   Duration  5.05s (transform 21ms, setup 0ms, collect 29ms, tests 4.92s, environment 0ms, prepare 26ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3992430a7b8` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `0d679ba88813` (modified)
+
+### [GATE-COMPLETE: TC-08] — ❌ FAIL | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli build && pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli test && pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli typecheck && pnpm harness:scan && pnpm lint`
+**Exit:** 1
+**Output:** (last 10 of 643 line(s))
+
+```
+Diagnostic report v1: 2 result(s), 2 non-clean.
+ERROR harness.scan-finding.scan-c38-c2p-c37-c2z-c19-c31-c2t-c36-c2v-c2t-c2s-c19-c2r-c2x-c38-c2p-c38-c2x-c33-c32 [finding] scan:task-merged-citation
+  evidence: Scan task-merged-citation exited with status 1.
+  recommendation: Inspect the task-merged-citation scan output above.
+ERROR harness.scan-finding.scan-c38-c2p-c37-c2z-c19-c2p-c36-c2r-c2w-c2x-c3a-c2p-c30 [finding] scan:task-archival
+  evidence: Scan task-archival exited with status 1.
+  recommendation: Inspect the task-archival scan output above.
+
+2 of 162 scans failed
+ ELIFECYCLE  Command failed with exit code 1.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3992430a7b8` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `e04d2ae7a20d` (modified)
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-09-20
+
+**Command:** `pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli build && pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli test && pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli typecheck && pnpm harness:scan -- --skip task-merged-citation && pnpm lint`
+**Exit:** 0
+**Output:** (last 10 of 4060 line(s))
+
+```
+   3:3   warning  'TaskRunStateMachine' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  17:8   warning  'TPortPayload' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  21:10  warning  'dispatchDownstreamReadyTasks' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  22:10  warning  'finalizeDagRunIfTerminal' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  36:3   warning  'handleTerminalFailure' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  37:3   warning  'handleRetry' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+  39:3   warning  'successAfterAck' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+
+✖ 2355 problems (0 errors, 2355 warnings)
+  0 errors and 2 warnings potentially fixable with the `--fix` option.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a3992430a7b8` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `ba20f0abaf04` (modified)

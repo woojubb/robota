@@ -169,6 +169,7 @@ robota --allowed-tools "Bash,Read"  # Whitelist specific tools
 robota --denied-tools "Bash,Write"  # Blacklist specific tools (denied > allowed)
 robota --screen-reader              # Screen-reader mode: no chrome, no motion, numbered menus, role labels
 robota --no-screen-reader           # Force it off for this run, whatever the env or settings say
+# Pacing (ms): ROBOTA_SCREEN_READER_STARTUP_QUIET_MS=900  ROBOTA_SCREEN_READER_PREPARK_MS=50  (0 disables either)
 robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
 robota trust status                 # Inspect canonical workspace trust
 robota trust --yes                  # Grant trust for the current Git workspace

@@ -21,17 +21,17 @@ FIFO ordering, callbacks, backpressure, errors, dimensions, resize events and te
 
 One item per completion criterion of the paired spec, in id order; the design they implement is the spec's § Decision (per-COMMIT park, no injected cursor sequence, formation-time echo flag, control-only batches unparked).
 
-- [ ] TC-01: extend `resolvePacing` with `preparkMs` — default 50 (PROVISIONAL), bound 5000, exact `0`, refusal and clamp reported through the existing `resolveDuration` discipline.
-- [ ] TC-02: `screen-reader-stdout.ts` — batch the chunks of one synchronous run, park ONCE before the batch, release it contiguously.
-- [ ] TC-03: the echo flag — armed by text-mutating keys only (never submit/execute), stamped on the batch at formation, expired on `setImmediate`.
-- [ ] TC-04: ordering, callbacks, backpressure and dropped-batch settlement in the queue; a control-only batch adds no park.
-- [ ] TC-05: mode OFF passes no `stdout` key to `render()` at all.
-- [ ] TC-06: the proxy delegates `columns`/`rows`/`isTTY`/`resize`, is one stable object, and `flush()` drains before teardown.
-- [ ] TC-07: route the OSC 133 turn marks through the owned writer.
-- [ ] TC-08: engineering verification — build, test, typecheck, `pnpm harness:scan`, lint ceiling.
-- [ ] TC-09: the PTY scenario over the built CLI (`screen-2670-prepark.ptytest.ts`).
-- [ ] TC-10: prove the exemption FIRES through the composed render tree, and that the next non-composer commit is parked.
-- [ ] TC-11: the first batch of a session is released unparked; the second is parked.
+- [x] TC-01: extend `resolvePacing` with `preparkMs` — default 50 (PROVISIONAL), bound 5000, exact `0`, refusal and clamp reported through the existing `resolveDuration` discipline.
+- [x] TC-02: `screen-reader-stdout.ts` — batch the chunks of one synchronous run, park ONCE before the batch, release it contiguously.
+- [x] TC-03: the echo flag — armed by text-mutating keys only (never submit/execute), stamped on the batch at formation, expired on `setImmediate`.
+- [x] TC-04: ordering, callbacks, backpressure and dropped-batch settlement in the queue; a control-only batch adds no park.
+- [x] TC-05: mode OFF passes no `stdout` key to `render()` at all.
+- [x] TC-06: the proxy delegates `columns`/`rows`/`isTTY`/`resize`, is one stable object, and `flush()` drains before teardown.
+- [x] TC-07: route the OSC 133 turn marks through the owned writer.
+- [x] TC-08: engineering verification — build, test, typecheck, `pnpm harness:scan`, lint ceiling.
+- [x] TC-09: the PTY scenario over the built CLI (`screen-2670-prepark.ptytest.ts`).
+- [x] TC-10: prove the exemption FIRES through the composed render tree, and that the next non-composer commit is parked.
+- [x] TC-11: the first batch of a session is released unparked; the second is parked.
 
 ## Test Plan
 
@@ -53,7 +53,7 @@ the complete screen-reader, scrollback, fallback-render, terminal-capability and
 - observable rationale: source=rendered-product-ui
 - expected observable: visible=after submitting a prompt, the RAW byte stream shows each transcript COMMIT preceded by at least the configured interval, while the chunks within one commit are contiguous — the synchronized-output begin is immediately followed by its frame with no interval between them, and a `<Static>` erase is immediately followed by the frame it erased for; typing a character into the composer produces its echo with no preceding delay, so the input line is never held; the OSC 133 turn marks appear in order with the commit they belong to rather than inside a parked gap, and are not themselves delayed; the same run with `ROBOTA_SCREEN_READER_PREPARK_MS=0` injects no delay at all, and a run with the mode OFF is byte-identical to the pre-change binary
 - cleanup: exit the Robota process normally with Ctrl+C and confirm it exited, then remove only the isolated HOME and project directories
-- evidence: pending
+- evidence: recorded — agent PTY run of `packages/agent-ui-terminal/src/__tests__/pty/screen-2670-prepark.ptytest.ts` against the workspace build, exit 0, 3 of 3 cases, repeated once with the same result (2026-09-20): with `ROBOTA_SCREEN_READER_PREPARK_MS=250` the `hello` echo landed within 190 ms of the keys while the turn's commit landed at least 190 ms after the echo burst and arrived whole — `\x1b[?2026h` … `REPLAYED_ANSWER_42` … `\x1b[?2026l` in one burst — with the OSC 133 prompt-start preceding the answer; with `=0` the answer followed the echo in under 190 ms; with the mode off likewise, and the snapshot kept the box-drawing chrome — full record in `.agents/evals/scenarios/screen-2670-prepark-agent-run.md`
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-20
 
