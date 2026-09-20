@@ -268,8 +268,8 @@ repository between the gate writer and the scan that reads it.
 
 - Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): the paired
   Task at HEAD `dd22c8a23c37` carries `## Plan` with 0/2 items ticked — `- [ ] TC-01: a continuation
-  checkpoint may carry one Task change and only one …` and `- [x] TC-02: engineering verification — the
-  harness contract tier and the full scan …`. Required: every `## Plan` item `[x]`.
+checkpoint may carry one Task change and only one …` and `- [x] TC-02: engineering verification — the
+harness contract tier and the full scan …`. Required: every `## Plan` item `[x]`.
 - No Plan item is blocked or pending: the same 2 items are untied, which the evaluator's own rule
   (`gate-operations.mjs` › `no-blocked`, `(box) => !box.checked || /\b(blocked|pending)\b/i`) counts as
   pending. No item carries a literal `blocked`/`pending` word; the unticked state alone is the finding.
@@ -278,7 +278,7 @@ repository between the gate writer and the scan that reads it.
   `1 of 162 scans failed`, `task-merged-citation` alone, on `.agents/tasks/SCREEN-2002-…md`. Attributed,
   not introduced: `node scripts/harness/scan-task-merged-citation.mjs` produces the identical finding in
   a throwaway worktree at base `origin/develop@e040f298fe53`, and `git diff --name-only
-  origin/develop...dd22c8a23` is 4 paths, none of them a SCREEN-2002 or citation-scan path. Required by
+origin/develop...dd22c8a23` is 4 paths, none of them a SCREEN-2002 or citation-scan path. Required by
   the criterion as written: a build-shaped command exiting 0.
 
 **Required action:** complete and tick both `## Plan` items in the paired Task, then re-run this gate;
