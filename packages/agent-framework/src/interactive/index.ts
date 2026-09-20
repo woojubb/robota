@@ -5,6 +5,7 @@ export {
   createNodeHostSessionStore,
   createUserSessionStore,
   createUserPromptHistoryFile,
+  isSafeSessionId,
   listResumableSessionSummaries,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,

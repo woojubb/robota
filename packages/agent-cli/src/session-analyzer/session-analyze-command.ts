@@ -13,7 +13,7 @@
  * agent-framework session-store facades). agent-cli stays a thin shell.
  */
 
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore, isSafeSessionId } from '@robota-sdk/agent-framework';
 import {
   aggregateReports,
   analyzeSession,
@@ -74,26 +74,47 @@ function loadSessionRecords(
   return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
+function loadExactSessionRecord(
+  sessionId: string,
+  projectSessionStore: IInteractiveSessionStore | undefined,
+): TSessionAnalysisInput | undefined {
+  if (!isSafeSessionId(sessionId)) return undefined;
+  const userOutcome = createUserSessionStore().load(sessionId);
+  const projectOutcome = projectSessionStore?.load(sessionId);
+  if (projectOutcome?.status === 'valid') return projectOutcome.record;
+  return userOutcome.status === 'valid' ? userOutcome.record : undefined;
+}
+
 export async function runSessionAnalyze(
   argv: string[],
   cwd: string = process.cwd(),
   projectSessionStore?: IInteractiveSessionStore,
 ): Promise<void> {
   const args = parseSessionAnalyzeArgs(argv);
-  const records = loadSessionRecords(projectSessionStore);
-
-  if (records.length === 0) {
-    process.stderr.write(
-      'No session files found in configured user or authorized project session stores.\n',
-    );
-    process.exit(1);
-  }
+  let records: TSessionAnalysisInput[] | undefined;
+  const enumerateRecords = (): TSessionAnalysisInput[] =>
+    (records ??= loadSessionRecords(projectSessionStore));
+  const requireConfiguredRecords = (): TSessionAnalysisInput[] => {
+    const configured = enumerateRecords();
+    if (configured.length === 0) {
+      process.stderr.write(
+        'No session files found in configured user or authorized project session stores.\n',
+      );
+      process.exit(1);
+    }
+    return configured;
+  };
+  const exact =
+    args.sessionId === undefined
+      ? undefined
+      : loadExactSessionRecord(args.sessionId, projectSessionStore);
 
   if (args.usage) {
     const target =
       args.sessionId !== undefined
-        ? records.find((r) => r.id.includes(args.sessionId!))
-        : records[records.length - 1];
+        ? (exact ??
+          requireConfiguredRecords().find((record) => record.id.includes(args.sessionId!)))
+        : requireConfiguredRecords().at(-1);
     if (!target) {
       process.stderr.write(`Session not found${args.sessionId ? `: ${args.sessionId}` : ''}\n`);
       process.exit(1);
@@ -103,7 +124,8 @@ export async function runSessionAnalyze(
   }
 
   if (args.sessionId !== undefined) {
-    const matched = records.find((r) => r.id.includes(args.sessionId!));
+    const matched =
+      exact ?? requireConfiguredRecords().find((record) => record.id.includes(args.sessionId!));
     if (!matched) {
       process.stderr.write(`Session not found: ${args.sessionId}\n`);
       process.exit(1);
@@ -112,8 +134,10 @@ export async function runSessionAnalyze(
     return;
   }
 
+  const allRecords = requireConfiguredRecords();
+
   if (args.last !== undefined) {
-    const reports = records.slice(-args.last).map((r) => analyzeSession(r));
+    const reports = allRecords.slice(-args.last).map((record) => analyzeSession(record));
     if (reports.length === 0) {
       process.stderr.write('No valid sessions found.\n');
       process.exit(1);
@@ -123,7 +147,7 @@ export async function runSessionAnalyze(
   }
 
   // Default: analyze the most recent session
-  const latest = records[records.length - 1];
+  const latest = allRecords.at(-1);
   if (!latest) {
     process.stderr.write('No sessions found.\n');
     process.exit(1);
