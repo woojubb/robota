@@ -486,6 +486,8 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 
 Independent review record verified, not accepted: ledger `.agents/loop-runs/backlog-execution-orchestrator.jsonl` line 60 carries run `r20260920051523`, `roundFindings: [10,5,0]`, `terminal: "converged"`, `ref` = the paired Task — consistent with § Architecture Review › "Independent review record". TC-N count: 7 in Completion Criteria, 7 in Test Plan.
 
+**Judged by:** `backlog-gate-guard` (semantic criteria and the independent-review record; mechanical set judged by `gate.mjs` this run)
+
 **Judged at:** HEAD `867c7752984adaadc547e297e1f44a680a63d4bd` · base `origin/develop@867c7752984adaadc547e297e1f44a680a63d4bd` · document `.agents/spec-docs/draft/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md` blob `86e1e23f45263ba04d3d778757d5839d0c7d5ed1` (untracked)
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-20
