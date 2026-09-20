@@ -573,6 +573,18 @@ describe('GATE-VERIFY stable judgement bindings (BEHAVIOR-2663)', () => {
     expect(result.stdout).not.toMatch(/^PENDING-GUARDIAN GATE-VERIFY/m);
   });
 
+  it('binds a stable id when explanatory prose follows the annotation', () => {
+    const catalogue = STABLE_VERIFY_CATALOGUE.replace(
+      '(`judgement:tasks-complete`)',
+      '(`judgement:tasks-complete`). The `## Plan` SECTION only: explanatory prose.',
+    );
+    const result = verify(catalogue);
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain('2/2 tasks `[x]`');
+    expect(result.stdout).not.toContain('mechanical criterion has no registered evaluator');
+  });
+
   it('fails closed when an explicit mechanical judgement id is not registered', () => {
     const catalogue = STABLE_VERIFY_CATALOGUE.replace(
       '`judgement:tasks-complete`',
