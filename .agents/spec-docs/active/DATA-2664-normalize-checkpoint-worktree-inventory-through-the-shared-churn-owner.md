@@ -108,34 +108,36 @@ None
 ## Completion Criteria
 
 - [ ] TC-01: Observable: a first checkpoint rendered while both generated lesson files are dirty
-  omits both paths from `worktreePaths`, while an unrelated dirty source path remains in the payload.
+      omits both paths from `worktreePaths`, while an unrelated dirty source path remains in the payload.
 - [ ] TC-02: Observable: continuation and correction checkpoint renderers also omit both generated
-  lesson paths, proving all three producer forms consume the shared classification.
+      lesson paths, proving all three producer forms consume the shared classification.
 - [ ] TC-03: Observable: the existing `worktreeError(...)` consumer accepts a generated first
-  checkpoint payload with only paired artifacts, but still rejects a payload containing an unrelated
-  source path.
+      checkpoint payload with only paired artifacts, but still rejects a payload containing an unrelated
+      source path.
 - [ ] TC-04: Observable: a retry after a generated checkpoint no longer fails because that earlier
-  tool-produced payload carries ignored churn; malformed or genuinely dirty prior evidence remains
-  rejected.
+      tool-produced payload carries ignored churn; malformed or genuinely dirty prior evidence remains
+      rejected.
 - [ ] TC-05: Command: `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs` exits 0.
 - [ ] TC-06: Command: `HARNESS_BASE_REF=fix/2664-gate-correctness node scripts/harness/run-all-scans.mjs --affected --context pr` exits 0.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach | Notes |
-| ----- | --------- | --------------- | ----- |
-| TC-01 | unit | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` fixture with `AUTO_GENERATED_CHURN` and a real path | Assert the producer omits only owner-classified churn. |
-| TC-02 | unit | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` continuation/correction fixtures | Exercise every checkpoint form through the shared producer. |
-| TC-03 | integration | existing gate evidence-consumer fixture in `scripts/harness/__tests__/gate.test.mjs` | Preserve fail-closed rejection for real unexpected dirt. |
-| TC-04 | integration | continuation fixture in `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` | Generated prior evidence must remain retryable. |
-| TC-05 | suite | `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs` | Focused owner, producer, and consumer suites. |
-| TC-06 | integration | `HARNESS_BASE_REF=fix/2664-gate-correctness node scripts/harness/run-all-scans.mjs --affected --context pr` | Repository harness verification. |
+| TC-ID | Test Type   | Tool / Approach                                                                                                                                                                    | Notes                                                       |
+| ----- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| TC-01 | unit        | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` fixture with `AUTO_GENERATED_CHURN` and a real path                                                                  | Assert the producer omits only owner-classified churn.      |
+| TC-02 | unit        | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` continuation/correction fixtures                                                                                     | Exercise every checkpoint form through the shared producer. |
+| TC-03 | integration | existing gate evidence-consumer fixture in `scripts/harness/__tests__/gate.test.mjs`                                                                                               | Preserve fail-closed rejection for real unexpected dirt.    |
+| TC-04 | integration | continuation fixture in `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs`                                                                                              | Generated prior evidence must remain retryable.             |
+| TC-05 | suite       | `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs` | Focused owner, producer, and consumer suites.               |
+| TC-06 | integration | `HARNESS_BASE_REF=fix/2664-gate-correctness node scripts/harness/run-all-scans.mjs --affected --context pr`                                                                        | Repository harness verification.                            |
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-03).
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Reason:** There is no runnable user-facing behaviour change; verification evidence is recorded in
+the engineering test plan (TC-01 to TC-03). This is recorded as the rule's required choice rather
+than skipped.
 
 ## Tasks
 
@@ -220,7 +222,7 @@ Recorded as the rule's required choice rather than skipped.
 **Given:** 2026-09-20, this conversation
 
 - GATE-APPROVAL — Ordering: PASS — the recorded GATE-WRITE PASS upgrades `draft → review-ready`, and the document remains `review-ready` in the expected `backlog/` folder.
-- GATE-APPROVAL — Direct approval: PASS — the current conversation explicitly binds the quoted automatic-approval rule to the DATA-2664 recommendation: reuse the existing shared churn classifier, remove duplicate allowlists, preserve fail-closed real-dirt rejection, and introduce no public/package/architecture surface. The user then resumed the ordered goal, whose plan requires #2664 before #2423.
+- GATE-APPROVAL — Direct approval: PASS — the current conversation explicitly binds the quoted automatic-approval rule to the DATA-2664 recommendation: reuse the existing shared churn classifier, remove duplicate allowlists, preserve fail-closed real-dirt rejection, and introduce no public/package/architecture surface. The user then resumed the ordered goal, whose plan requires [issue #2664](https://github.com/woojubb/robota/issues/2664) before [issue #2423](https://github.com/woojubb/robota/issues/2423).
 - GATE-APPROVAL — Route-CLASS criteria: PASS (N/A) — the approval uses `DIRECT` and invokes no delegated class.
 - GATE-APPROVAL — Architecture review/type/tags unchanged: PASS — the mechanical review fingerprint remains current.
 - GATE-APPROVAL — Independent architecture validation: PASS (N/A) — no new package, app, product/interface/presentation surface, or layer/product-family boundary is introduced or reclassified.
@@ -242,6 +244,7 @@ Recorded as the rule's required choice rather than skipped.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -286,6 +289,7 @@ Recorded as the rule's required choice rather than skipped.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
