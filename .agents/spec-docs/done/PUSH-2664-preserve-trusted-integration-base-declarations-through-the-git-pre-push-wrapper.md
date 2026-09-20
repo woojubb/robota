@@ -86,8 +86,9 @@ None
 
 1. Extend `pre-push-sequence.test.mjs` with RED assertions for present, absent, and adversarial
    `HARNESS_BASE_REF` payloads at the public `runPostVerdictGuard` boundary.
-2. Update `pre-push-local-checks.mjs` to project a present exact value into the synthetic command
-   while passing the same environment to the shell guard.
+2. Update `pre-push-local-checks.mjs` to project a present, lexically shell-safe exact value into the
+   synthetic command while passing the same environment to the shell guard; refuse unsafe values
+   before payload construction.
 3. Run the focused bridge and trusted-base suites, then the affected repository scans against the
    current integration base.
 
@@ -95,6 +96,7 @@ None
 
 - `scripts/harness/pre-push-local-checks.mjs`
 - `scripts/harness/__tests__/pre-push-sequence.test.mjs`
+- `scripts/harness/__tests__/review-before-push.test.mjs`
 
 ## Completion Criteria
 
@@ -102,8 +104,9 @@ None
       exits nonzero before implementation because a present valid declaration is rendered as bare `git push`.
 - [x] TC-02: Observable: a present exact `HARNESS_BASE_REF` appears once before `git push` in the
       JSON payload, while absent and empty values preserve exactly `git push`.
-- [x] TC-03: Observable: whitespace, quote, newline, metacharacter, and untrusted-ref values remain
-      inert payload data and receive no approval from the existing trusted-base guard.
+- [x] TC-03: Observable: whitespace, quote, newline, and metacharacter values are refused before
+      payload construction or spawn, while lexically safe untrusted refs reach the existing
+      trusted-base guard and receive no approval.
 - [x] TC-04: Commands: `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs
   scripts/harness/__tests__/review-before-push.test.mjs` and
       `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs
