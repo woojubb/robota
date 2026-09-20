@@ -6,6 +6,7 @@ import { parse } from 'yaml';
 
 const ROOT = path.resolve(import.meta.dirname, '../../..');
 const WORKFLOW_FILE = path.join(ROOT, '.github/workflows/ci.yml');
+const CLI_MANIFEST_FILE = path.join(ROOT, 'packages/agent-cli/package.json');
 
 function workflow() {
   return parse(readFileSync(WORKFLOW_FILE, 'utf8'));
@@ -74,8 +75,10 @@ describe('PAYLOAD-2153 native acceptance topology', () => {
     const packStep = job.steps.find(
       (step) => step.name === 'Pack, clean-install, and verify the Node CLI',
     );
+    const cliManifest = JSON.parse(readFileSync(CLI_MANIFEST_FILE, 'utf8'));
+    expect(cliManifest.scripts['pack:verified']).toBe('node ../../scripts/artifacts/pack.mjs');
     expect(packStep.run).toMatch(
-      /node scripts\/artifacts\/pack\.mjs\s+\\\s+--package packages\/agent-cli\s+\\\s+--destination "\$pack_root"/u,
+      /pnpm --filter @robota-sdk\/agent-cli run pack:verified\s+\\\s+--package \.\s+\\\s+--destination "\$pack_root"/u,
     );
     expect(rendered).not.toContain('pnpm --filter @robota-sdk/agent-cli pack');
     expect(rendered).not.toContain('contents":"write');
