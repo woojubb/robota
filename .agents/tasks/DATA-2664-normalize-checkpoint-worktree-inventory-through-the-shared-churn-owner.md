@@ -1,7 +1,7 @@
 ---
 title: 'DATA-2664: Normalize checkpoint worktree inventory through the shared churn owner'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: in-progress
 created: 2026-09-20
 priority: high
 urgency: now
@@ -37,6 +37,10 @@ immediately rejects or that permanently blocks a continuation retry.
 Add focused checkpoint producer/consumer fixtures covering both ignored churn files, an unrelated dirty
 path, and prior-entry validation. Run the checkpoint evidence and user-execution-plan-order Vitest suites
 plus affected harness verification.
+
+## Progress
+
+- 2026-09-20 — GATE-IMPLEMENT checkpoint preparation: pair-owned activation metadata is ready; no implementation path has changed.
 
 ## User Execution Test Scenarios
 
