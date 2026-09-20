@@ -9,6 +9,7 @@ import {
   parseUserExecutionPlanContract,
   validateTaskUserExecutionPlan,
 } from './user-execution-plan-contract.mjs';
+import { realDirtyLinesFromStatus } from './verification-receipt-storage.mjs';
 
 export function checkpointGit(root, args) {
   const result = spawnSync('git', args, {
@@ -22,9 +23,7 @@ export function checkpointGit(root, args) {
 export function checkpointWorktreePaths(root) {
   const status = checkpointGit(root, ['status', '--porcelain', '--untracked-files=all']);
   if (!status.ok) throw new Error(`checkpoint worktree query failed: ${status.stderr.trim()}`);
-  return status.stdout
-    .split('\n')
-    .filter((line) => line.trim() !== '')
+  return realDirtyLinesFromStatus(status.stdout)
     .map((line) => line.slice(3).split(' -> ').pop().trim().replace(/^"|"$/g, ''))
     .sort();
 }
