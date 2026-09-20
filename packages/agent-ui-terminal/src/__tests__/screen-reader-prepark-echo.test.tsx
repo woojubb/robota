@@ -159,6 +159,10 @@ describe('TC-10: a keystroke through the composed tree is released unparked; a n
       stdout: parked.asInkStdout(),
       stdin: stdin as unknown as NodeJS.ReadStream,
       isScreenReaderEnabled: true,
+      // Ink treats a CI environment as non-interactive and defers every frame to unmount; the
+      // park only exists for interactive terminals, so say so explicitly (as the real-cursor
+      // suite does) rather than let the runner's CI variable decide what is under test.
+      interactive: true,
       exitOnCtrlC: false,
       patchConsole: false,
     });
