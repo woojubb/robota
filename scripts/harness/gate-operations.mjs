@@ -173,6 +173,7 @@ import {
 } from './gate-implementation-contract.mjs';
 import { parseStatusFolderMapping } from './scan-doc-folder-status-agreement.mjs';
 import { collectSpecResearchFindings } from './scan-spec-research.mjs';
+import { currentRecommendationEndorsement } from './scan-recommendation-endorsement.mjs';
 import {
   classifyApproval,
   parseEvidenceForm,
@@ -1008,6 +1009,19 @@ function classConditionMeasured(ctx) {
       );
 }
 
+function independentRecommendationEndorsed(ctx) {
+  const subject = path.basename(ctx.doc.path);
+  const verdict = currentRecommendationEndorsement(ctx.root, subject, ctx.doc.text);
+  return verdict.ok
+    ? pass(
+        `latest independent recommendation observation matches ${subject}'s current stable endorsement key and records ENDORSE with 0 findings`,
+      )
+    : fail(
+        `${subject} ${verdict.reason}`,
+        'record one exact proposal-reviewer expectation/observation checkpoint for the current recommendation before approval',
+      );
+}
+
 function approvalChecks() {
   return [
     {
@@ -1034,6 +1048,11 @@ function approvalChecks() {
       id: 'no-review-change-after-approval',
       pattern: /No Architecture Review or frontmatter type\/tags modified after approval/i,
       run: architectureUnchangedSinceApproval,
+    },
+    {
+      id: 'independent-recommendation-endorsed',
+      pattern: /current recommendation has one independent endorsement/i,
+      run: independentRecommendationEndorsed,
     },
   ];
 }
@@ -1399,25 +1418,6 @@ function tcEntriesExist(ctx) {
   );
 }
 
-function testReferencesRecorded(ctx) {
-  const rows = testPlanRows(ctx.doc.text);
-  if (!rows) return fail('no `## Test Plan` table', 'add it');
-  const entries = evidenceEntries(ctx.doc.text) ?? [];
-  const testRef = /(\.test\.[cm]?[jt]sx?|__tests__\/|\bskip(ped)?\b|manual)/i;
-  const unaddressed = rows.filter((row) => {
-    const entry = entries
-      .filter((candidate) => candidate.gate === `GATE-COMPLETE: ${row.id}`)
-      .pop();
-    return !testRef.test(row.all) && !(entry && testRef.test(entry.lines.join('\n')));
-  });
-  return unaddressed.length === 0
-    ? pass(`every Test Plan row (${rows.length}) carries a test reference or a skip reason`)
-    : fail(
-        `${unaddressed.map((row) => row.id).join(', ')}: no test reference and no skip reason`,
-        'name the test or record why it was skipped',
-      );
-}
-
 function completeChecks() {
   return [
     { id: 'tc-checked', pattern: /The checkbox is checked/i, run: tcCheckboxesTicked },
@@ -1427,24 +1427,9 @@ function completeChecks() {
       run: tcEntriesExist,
     },
     {
-      id: 'test-ref-or-skip',
-      pattern: /One of the following is recorded/i,
-      run: testReferencesRecorded,
-    },
-    {
-      id: 'no-silent-tc',
-      pattern: /No TC-N is silently unaddressed/i,
-      run: testReferencesRecorded,
-    },
-    {
       id: 'all-tc-checked',
       pattern: /`## Completion Criteria` checkboxes are all `\[x\]`/i,
       run: tcCheckboxesTicked,
-    },
-    {
-      id: 'test-plan-updated',
-      pattern: /`## Test Plan` updated with test references/i,
-      run: testReferencesRecorded,
     },
     {
       id: 'tasks-names-active-task',

@@ -852,4 +852,38 @@ describe('recordCheckpoint (issue #2170)', () => {
     const [entry] = readLedger(root, 'architecture-refresh');
     expect(entry.extensions.architectureRefresh.checkpoint).toEqual({ round: 1, phase: 'opened' });
   });
+
+  it('records a stable-key recommendation expectation before its exact observation', () => {
+    const root = workspace({ 'backlog-execution-orchestrator': FINDING_SET });
+    main(['open', '--loop', 'backlog-execution-orchestrator'], { root, now: NOW, out: () => {} });
+    const runId = readLedger(root, 'backlog-execution-orchestrator')[0].runId;
+    const common = [
+      '--loop',
+      'backlog-execution-orchestrator',
+      '--run',
+      runId,
+      '--subject',
+      'INFRA-999-proof.md',
+      '--revision',
+      'a'.repeat(40),
+      '--projection-digest',
+      'b'.repeat(64),
+    ];
+    expect(main(['recommendation-expect', ...common], { root, now: NOW, out: () => {} })).toBe(0);
+    expect(
+      main(
+        ['recommendation-observe', ...common, '--verdict', 'ENDORSE', '--unresolved-findings', '0'],
+        { root, now: NOW, out: () => {} },
+      ),
+    ).toBe(0);
+    const metadata = readLedger(root, 'backlog-execution-orchestrator')[0].extensions
+      .recommendationReview;
+    expect(metadata.expectations).toHaveLength(1);
+    expect(metadata.expectations[0].endorsementKey).toMatch(/^[0-9a-f]{64}$/);
+    expect(metadata.observations[0]).toMatchObject({
+      endorsementKey: metadata.expectations[0].endorsementKey,
+      verdict: 'ENDORSE',
+      unresolvedFindings: 0,
+    });
+  });
 });
