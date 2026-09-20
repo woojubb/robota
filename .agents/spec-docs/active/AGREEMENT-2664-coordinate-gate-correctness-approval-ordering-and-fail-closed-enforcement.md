@@ -13,11 +13,12 @@ Arising from [issue #2664](https://github.com/woojubb/robota/issues/2664).
 ## Problem
 
 Issue #2664 contains several independently verifiable causes under one external gate-correctness
-outcome. BEHAVIOR-2664 has corrected the approval-ordering omission in `runApprove`, and DATA-2664 has
-made checkpoint worktree inventory use the same churn policy as its consumer. RULE-2582,
-BEHAVIOR-2663, and RULE-2665 are also terminal, leaving RULE-2326 and RULE-2380 as the two unfinished
-children. The inherited register still depends on three scopes owned by AGREEMENT-012, AGREEMENT-013,
-and AGREEMENT-2698.
+outcome. BEHAVIOR-2664 has corrected the approval-ordering omission in `runApprove`, PUSH-2664 has
+preserved trusted integration-base declarations through the pre-push bridge, and DATA-2664 has made
+checkpoint worktree inventory use the same churn policy as its consumer. RULE-2582, BEHAVIOR-2663,
+RULE-2665, RULE-2326, and RULE-2380 are also terminal, so all eight children are delivered. The
+inherited register still depends on three scopes owned by AGREEMENT-012, AGREEMENT-013, and
+AGREEMENT-2698.
 
 Implementing directly from the umbrella would either combine unrelated causes into one unreviewable
 change or duplicate AGREEMENT-012, AGREEMENT-013, and AGREEMENT-2698. Staging several new Tasks without
@@ -56,10 +57,10 @@ contract and makes no new product, protocol, package, API, or user-interface des
 
 Choose alternative 3. The child set contains only independently completable causes that were unowned
 at conversion time. Existing AGREEMENT owners remain dependencies rather than nested or duplicate
-children. BEHAVIOR-2664, PUSH-2664, and DATA-2664 were executed first and now provide the corrected
-approval-ordering, publication, and checkpoint-inventory foundations. Continue the remaining initiative
-in its declared dependency order: complete RULE-2326's recommendation-endorsement contract, then dispose
-of the frozen legacy approval corpus through RULE-2380.
+children. BEHAVIOR-2664, PUSH-2664, and DATA-2664 provide the corrected approval-ordering, publication,
+and checkpoint-inventory foundations. RULE-2326's recommendation-endorsement contract is also delivered;
+RULE-2380 now preserves the frozen legacy approval corpus through the approved immutable disposition
+manifest. All eight declared children are terminal.
 
 The initiative uses a shared integration base with one child Task at a time. Each child receives its
 own paired spec and gate lifecycle before implementation; no child expands another child's approved
@@ -82,9 +83,9 @@ None
 ## Solution
 
 1. Retain the exact parent/child manifest as the ownership source of truth for issue #2664.
-2. Preserve the six completed children and their exact terminal Task/spec and landing evidence.
+2. Preserve all eight completed children and their exact terminal Task/spec and landing evidence.
 3. Use the delivered BEHAVIOR-2664, PUSH-2664, and DATA-2664 outcomes as the approval-ordering, publication, and checkpoint-inventory foundations.
-4. Execute RULE-2326 and then RULE-2380 without absorbing findings from another owner.
+4. Preserve delivered RULE-2326 and RULE-2380 outcomes without absorbing findings from another owner.
 5. Reconcile all eight child outcomes and the three external dependencies against the umbrella register, and close only on a complete map.
 
 ## Affected Files
@@ -96,7 +97,7 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: the parent Task/spec and all eight child Tasks resolve exactly once with matching Children/Tasks projections; the first six children are terminal and RULE-2326 plus RULE-2380 remain open in declared order.
+- [ ] TC-01: Observable: the parent Task/spec and all eight child Tasks resolve exactly once with matching Children/Tasks projections; all eight children are terminal in declared order.
 - [ ] TC-02: Observable: BEHAVIOR-2664, PUSH-2664, and DATA-2664 precede governance children in that order, while every declared dependency names an existing non-duplicated Task owner.
 - [ ] TC-03: Command: `node scripts/harness/scan-user-execution-plan-order.mjs --staged` exits 0 for the atomic conversion prelude.
 - [ ] TC-04: Command: `node scripts/harness/scan-task-frontmatter-fields.mjs`, `node scripts/harness/scan-work-item-id-collision.mjs`, `node scripts/harness/scan-spec-research.mjs`, and `node scripts/harness/run-all-scans.mjs --affected --context pr` each exit 0 for the committed manifest.
@@ -137,7 +138,7 @@ Paired execution record:
 - [x] BEHAVIOR-2663 — done — `.agents/tasks/completed/BEHAVIOR-2663-bind-mechanical-gate-verify-checks-without-prose-drift.md`
 - [x] RULE-2665 — done — `.agents/tasks/completed/RULE-2665-define-the-terminal-disposition-for-orchestration-skipped-gates.md`
 - [x] RULE-2326 — done — `.agents/tasks/completed/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md`
-- [ ] RULE-2380 — todo — `.agents/tasks/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
+- [x] RULE-2380 — done — `.agents/tasks/completed/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
 
 ## Evidence Log
 
@@ -291,3 +292,11 @@ Paired execution record:
 - Canonical run `r20260920120928` binds projection digest
   `2827277d7176c33d1b87c7f352e6a3c06d98cef693fd9f5a85428ff5b3b91f8b` to endorsement key
   `1a25ba71f6fadd018529363887b2f50c58606092b45a5eabb7a688085172e530`.
+
+### [RECOMMENDATION-REVIEW] — ✅ ENDORSE | 2026-09-21
+
+- Canonical loop run: `r20260920172525`
+- Projection digest: `f8c28276d85d769753fbe4a02ab1d995c6b4580ce5683d04fdc1f60026a53aae`
+- Round 1 returned `REVISE` with 1 unresolved finding because prior checkpoint evidence was not
+  explicitly qualified as historical; round 2 returned `ENDORSE` with 0 unresolved findings after
+  that wording was corrected.
