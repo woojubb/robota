@@ -1,15 +1,18 @@
 ---
 title: 'BRANCH-2664: make stacked child ancestry publishable under pre-push branch hygiene'
 issue: https://github.com/woojubb/robota/issues/2664
-status: in-progress
+status: done
 created: 2026-09-20
 priority: medium
 urgency: soon
 area: repository branch policy and multi-backlog initiative orchestration
 depends_on: []
+completed: 2026-09-20
 ---
 
 # BRANCH-2664: make stacked child ancestry publishable under pre-push branch hygiene
+
+Spec: `.agents/spec-docs/done/BRANCH-2664-make-stacked-child-ancestry-publishable-under-pre-push-branch-hygiene.md`
 
 ## Objective
 
@@ -23,15 +26,15 @@ not authorize bypassing hooks, hiding merge commits, or weakening review scope.
 
 ## Plan
 
-- [ ] TC-01: Reproduce and accept the exact AGREEMENT-2664 two-child merge graph.
-- [ ] TC-02: Reject duplicate, out-of-order, undeclared, malformed, or lifecycle-invalid child histories.
-- [ ] TC-03: Accept an inline trusted integration-base declaration only for matching remote AGREEMENT ancestry.
-- [ ] TC-04: Reject self-authorizing, unresolved, mismatched, duplicate, quoted, or statement-unbound declarations.
-- [ ] TC-05: Accept only the exact clean integration-base sync parent shape.
-- [ ] TC-06: Keep the complete plan-order and pre-push test files green.
-- [ ] TC-07: Keep affected pull-request scans green apart from classified baseline advisories.
-- [ ] TC-08: Enforce trusted integration naming and both explicit child-creation overrides in branch guard.
-- [ ] TC-09: Align the git-branch, backlog-execution, and multi-backlog owner documents with one route.
+- [x] TC-01: Reproduce and accept the exact AGREEMENT-2664 two-child merge graph.
+- [x] TC-02: Reject duplicate, out-of-order, undeclared, malformed, or lifecycle-invalid child histories.
+- [x] TC-03: Accept an inline trusted integration-base declaration only for matching remote AGREEMENT ancestry.
+- [x] TC-04: Reject self-authorizing, unresolved, mismatched, duplicate, quoted, or statement-unbound declarations.
+- [x] TC-05: Accept only the exact clean integration-base sync parent shape.
+- [x] TC-06: Keep the complete plan-order and pre-push test files green.
+- [x] TC-07: Keep affected pull-request scans green apart from classified baseline advisories.
+- [x] TC-08: Enforce trusted integration naming and both explicit child-creation overrides in branch guard.
+- [x] TC-09: Align the git-branch, backlog-execution, and multi-backlog owner documents with one route.
 
 ## Test Plan
 
