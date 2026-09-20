@@ -44,6 +44,7 @@ function failClosedCapabilities(reason) {
     examples: true,
     windows: true,
     cli: true,
+    payloadNative: true,
     harness: true,
     full: true,
     reason,
@@ -106,6 +107,24 @@ export function isBuildMachineryPath(file) {
   );
 }
 
+/** Inputs whose behavior or packaging can change stable external-payload reads. */
+export function isPayloadNativePath(file) {
+  const normalized = String(file ?? '').replaceAll('\\', '/');
+  if (isDocsOnlyPath(normalized)) return false;
+  return (
+    /^(packages\/(agent-file-authority|agent-session|agent-framework|agent-cli)\/|scripts\/artifacts\/koffi-bun-plugin\.mjs$)/u.test(
+      normalized,
+    ) ||
+    [
+      '.github/workflows/ci.yml',
+      '.github/workflows/release-bun-binaries.yml',
+      '.github/required-status-checks.json',
+      'scripts/harness/classify-changed-paths.mjs',
+      'scripts/harness/payload-native-evidence.mjs',
+    ].includes(normalized)
+  );
+}
+
 /** Inputs that can change product ownership, graph traversal, or root product configuration. */
 export function isFullVerificationPath(file, { rootManifestChange = null } = {}) {
   const normalized = String(file ?? '').replaceAll('\\', '/');
@@ -136,6 +155,7 @@ export function classifyFiles(files, { rootManifestChange = null, capabilities =
       examples: false,
       windows: false,
       cli: false,
+      payloadNative: false,
       harness,
       full: false,
       reason: 'docs-only PR: no analyzable code changed.',
@@ -152,6 +172,7 @@ export function classifyFiles(files, { rootManifestChange = null, capabilities =
     if (INFRASTRUCTURE_ONLY_PATTERN.test(file)) return false;
     return true;
   });
+  const payloadNative = full || codeFiles.some(isPayloadNativePath);
   return {
     code: true,
     product,
@@ -159,6 +180,7 @@ export function classifyFiles(files, { rootManifestChange = null, capabilities =
     examples: full || capabilities?.examples === true,
     windows: full || capabilities?.windows === true,
     cli: full || capabilities?.cli === true,
+    payloadNative,
     harness,
     full,
     reason: capabilities?.error
@@ -286,13 +308,14 @@ export function main(argv = process.argv.slice(2), write = (text) => process.std
   write(`examples=${result.examples}\n`);
   write(`windows=${result.windows}\n`);
   write(`cli=${result.cli}\n`);
+  write(`payload_native=${result.payloadNative}\n`);
   write(`harness=${result.harness}\n`);
   write(`full=${result.full}\n`);
 
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `code=${result.code}\nproduct=${result.product}\ntui=${result.tui}\nexamples=${result.examples}\nwindows=${result.windows}\ncli=${result.cli}\nharness=${result.harness}\nfull=${result.full}\n`,
+      `code=${result.code}\nproduct=${result.product}\ntui=${result.tui}\nexamples=${result.examples}\nwindows=${result.windows}\ncli=${result.cli}\npayload_native=${result.payloadNative}\nharness=${result.harness}\nfull=${result.full}\n`,
     );
   }
   return result;

@@ -24,6 +24,7 @@ import {
   isFullVerificationPath,
   isDocsOnlyPath,
   isHarnessOwnerPath,
+  isPayloadNativePath,
   resolveCapabilityReachability,
 } from '../classify-changed-paths.mjs';
 
@@ -131,8 +132,27 @@ describe('classifyFiles', () => {
       examples: false,
       windows: false,
       cli: false,
+      payloadNative: false,
       full: false,
     });
+  });
+
+  it('routes only payload authority owners and their packaging control plane to native acceptance', () => {
+    for (const file of [
+      'packages/agent-file-authority/src/index.ts',
+      'packages/agent-session/src/session-log-sources.ts',
+      'packages/agent-framework/src/workspace-trust/project-reader.ts',
+      'packages/agent-cli/scripts/build-bun.mjs',
+      'scripts/artifacts/koffi-bun-plugin.mjs',
+      '.github/workflows/release-bun-binaries.yml',
+    ]) {
+      expect(isPayloadNativePath(file), file).toBe(true);
+      expect(classifyFiles([file], { capabilities: {} }).payloadNative, file).toBe(true);
+    }
+    expect(classifyFiles(['apps/blog/src/page.tsx'], { capabilities: {} }).payloadNative).toBe(
+      false,
+    );
+    expect(classifyFiles(['packages/agent-session/docs/SPEC.md']).payloadNative).toBe(false);
   });
 
   it('routes expensive capabilities by direct owner instead of dependency fanout', () => {
@@ -317,6 +337,7 @@ describe('classifyFiles', () => {
       examples: true,
       windows: true,
       cli: true,
+      payloadNative: true,
       harness: true,
       full: true,
     });
@@ -457,6 +478,7 @@ describe('CLI (the shape both workflows call)', () => {
     expect(result.stdout).toMatch(/^examples=(true|false)$/m);
     expect(result.stdout).toMatch(/^windows=(true|false)$/m);
     expect(result.stdout).toMatch(/^cli=(true|false)$/m);
+    expect(result.stdout).toMatch(/^payload_native=(true|false)$/m);
     expect(result.stdout).toMatch(/^harness=(true|false)$/m);
     expect(result.stdout).toMatch(/^full=(true|false)$/m);
   });
@@ -498,6 +520,7 @@ describe('CI capability wiring', () => {
     expect(workflow).toContain('examples: ${{ steps.filter.outputs.examples }}');
     expect(workflow).toContain('windows: ${{ steps.filter.outputs.windows }}');
     expect(workflow).toContain('cli: ${{ steps.filter.outputs.cli }}');
+    expect(workflow).toContain('payload_native: ${{ steps.filter.outputs.payload_native }}');
     expect(workflow).toContain('harness: ${{ steps.filter.outputs.harness }}');
     expect(workflow).toContain('full: ${{ steps.filter.outputs.full }}');
     expect(workflow).toContain('name: Product verification not applicable');
