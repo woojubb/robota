@@ -4,8 +4,7 @@
  * (bin/robota.cjs → dist/node/bin.js) is untouched. Run under Bun:
  *
  *   bun scripts/build-bun.mjs            # host target
- *   bun scripts/build-bun.mjs all        # every target
- *   bun scripts/build-bun.mjs linux-x64  # a specific target
+ *   bun scripts/build-bun.mjs linux-x64  # the exact matching host target
  *
  * Prereq: run the normal build first to produce a verified generation containing dist/node/bin.js.
  * Two build-time fixes (see the DIST-001 spec): stub ink's dev-only `react-devtools-core` static import, and
@@ -16,6 +15,7 @@ import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assembleGeneration, pinGeneration } from '../../../scripts/artifacts/generation.mjs';
+import { createKoffiBunPlugin } from '../../../scripts/artifacts/koffi-bun-plugin.mjs';
 import { createManifest, validateArtifactPath } from '../../../scripts/artifacts/manifest.mjs';
 
 /** os-arch → Bun `--compile` target triple. */
@@ -42,10 +42,13 @@ const stubReactDevtools = {
   },
 };
 
-function hostKey() {
-  const os = process.platform === 'win32' ? 'windows' : process.platform; // darwin | linux | windows
-  const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
-  return `${os}-${arch}`;
+export function bunTargetForHost(platform = process.platform, arch = process.arch) {
+  const os = platform === 'win32' ? 'windows' : platform;
+  const key = `${os}-${arch}`;
+  if (!Object.hasOwn(TARGETS, key)) {
+    throw new Error(`Bun standalone packaging is unsupported on host ${platform}-${arch}.`);
+  }
+  return key;
 }
 
 async function compileTarget(entry, outputRoot, version, key) {
@@ -60,7 +63,13 @@ async function compileTarget(entry, outputRoot, version, key) {
     target: 'bun',
     compile: { target: TARGETS[key], outfile },
     define: { __ROBOTA_VERSION__: JSON.stringify(version) },
-    plugins: [stubReactDevtools],
+    plugins: [
+      stubReactDevtools,
+      createKoffiBunPlugin(
+        `${process.platform}-${process.arch}`,
+        new URL('../package.json', import.meta.url),
+      ),
+    ],
   });
   if (!result.success) throw new Error(`Bun compile failed: ${result.logs.map(String).join('\n')}`);
   if (result.outputs.length !== 1 || resolve(result.outputs[0].path) !== outfile) {
@@ -73,13 +82,13 @@ async function compileTarget(entry, outputRoot, version, key) {
   return { path: validateArtifactPath(relative(outputRoot, destination)), contents, mode: 0o755 };
 }
 
-export async function buildBunBinaryGeneration(packageRoot, keys) {
-  if (
-    !keys.length ||
-    new Set(keys).size !== keys.length ||
-    keys.some((key) => !Object.hasOwn(TARGETS, key))
-  ) {
-    throw new Error(`Bun target must be unique and one of: ${Object.keys(TARGETS).join(', ')}`);
+export async function buildBunBinaryGeneration(packageRoot, key = bunTargetForHost()) {
+  if (!Object.hasOwn(TARGETS, key)) {
+    throw new Error(`Bun target must be one of: ${Object.keys(TARGETS).join(', ')}`);
+  }
+  const hostTarget = bunTargetForHost();
+  if (key !== hostTarget) {
+    throw new Error(`Bun target ${key} does not match the native host ${hostTarget}.`);
   }
   const manifest = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8'));
   const outputName = manifest.robota?.artifact?.variants?.bun?.output;
@@ -89,25 +98,23 @@ export async function buildBunBinaryGeneration(packageRoot, keys) {
   const entry = join(pinned.root, 'node/bin.js');
   return assembleGeneration(
     packageRoot,
-    async ({ outputRoot }) => {
-      const records = [];
-      for (const key of keys)
-        records.push(await compileTarget(entry, outputRoot, manifest.version, key));
-      return createManifest(records);
-    },
+    async ({ outputRoot }) =>
+      createManifest([await compileTarget(entry, outputRoot, manifest.version, key)]),
     { outputName },
   );
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const argument = process.argv[2];
-  const keys = argument === 'all' ? Object.keys(TARGETS) : [argument ?? hostKey()];
   try {
+    const arguments_ = process.argv.slice(2);
+    if (arguments_.length > 1) {
+      throw new Error('Bun packaging accepts exactly one target.');
+    }
     const result = await buildBunBinaryGeneration(
       join(dirname(fileURLToPath(import.meta.url)), '..'),
-      keys,
+      arguments_[0],
     );
-    process.stdout.write(`Bun generation ${result.id}: ${result.manifest.files.length} binaries\n`);
+    process.stdout.write(`Bun generation ${result.id}: ${result.manifest.files.length} binary\n`);
   } catch (error) {
     process.stderr.write(`build-bun: ${error.message}\n`);
     process.exitCode = 1;

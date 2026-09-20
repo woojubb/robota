@@ -1,6 +1,5 @@
 export {
   StableFileAuthorityError,
-  type IStableFileAuthorityErrorContext,
   type IStableRootedFileReader,
   type TStableFileAuthorityErrorCode,
 } from './contracts.js';

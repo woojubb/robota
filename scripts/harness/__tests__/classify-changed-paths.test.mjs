@@ -496,13 +496,13 @@ describe('CLI (the shape both workflows call)', () => {
 });
 
 describe('CI capability wiring', () => {
-  it('keeps all 11 declared develop required contexts and their workflow job names', () => {
+  it('keeps all 12 declared develop required contexts and their workflow job names', () => {
     const declaration = JSON.parse(
       readFileSync(path.join(REPO_ROOT, '.github/required-status-checks.json'), 'utf8'),
     );
     const required = declaration.branches.develop.required_status_checks;
 
-    expect(required).toHaveLength(11);
+    expect(required).toHaveLength(12);
     for (const item of required) {
       const workflow = readFileSync(path.join(REPO_ROOT, item.workflow), 'utf8');
       expect(workflow, item.context).toContain(`\n  ${item.job}:\n`);

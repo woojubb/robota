@@ -2,6 +2,44 @@
   "version": 1,
   "sharedCandidates": [
     {
+      "id": "createStableRootedFileReader",
+      "owner": "@robota-sdk/agent-file-authority",
+      "target": "packages/agent-file-authority/src/index.ts",
+      "contract": "packages/agent-file-authority/docs/SPEC.md",
+      "domainNeutral": "Stable root-relative bounded reads are independent of session replay and workspace policy.",
+      "consumers": [
+        {
+          "source": "packages/agent-session/src/session-log-sources.ts",
+          "target": "packages/agent-file-authority/src/index.ts",
+          "kind": "module"
+        },
+        {
+          "source": "packages/agent-framework/src/workspace-trust/project-reader.ts",
+          "target": "packages/agent-file-authority/src/index.ts",
+          "kind": "module"
+        }
+      ]
+    },
+    {
+      "id": "StableFileAuthorityError",
+      "owner": "@robota-sdk/agent-file-authority",
+      "target": "packages/agent-file-authority/src/index.ts",
+      "contract": "packages/agent-file-authority/docs/SPEC.md",
+      "domainNeutral": "The stable native-read failure taxonomy is translated into separate session and workspace domain errors by its consumers.",
+      "consumers": [
+        {
+          "source": "packages/agent-session/src/session-log-sources.ts",
+          "target": "packages/agent-file-authority/src/index.ts",
+          "kind": "module"
+        },
+        {
+          "source": "packages/agent-framework/src/workspace-trust/project-reader.ts",
+          "target": "packages/agent-file-authority/src/index.ts",
+          "kind": "module"
+        }
+      ]
+    },
+    {
       "id": "killProcessTree",
       "owner": "@robota-sdk/agent-process",
       "target": "packages/agent-process/src/index.ts",
@@ -151,6 +189,12 @@
       "reason": "Repository verification owns the shared worker resource ceiling and Git environment isolation; this package imports that configuration contract."
     },
     {
+      "source": "packages/agent-file-authority/vitest.config.ts",
+      "target": "vitest.shared.ts",
+      "kind": "module",
+      "reason": "Repository verification owns the shared worker resource ceiling and Git environment isolation; this package imports that configuration contract."
+    },
+    {
       "source": "packages/agent-framework/vitest.config.ts",
       "target": "vitest.shared.ts",
       "kind": "module",
@@ -278,6 +322,18 @@
     },
     {
       "source": "packages/agent-cli/scripts/build-bun.mjs",
+      "target": "scripts/artifacts/koffi-bun-plugin.mjs",
+      "kind": "module",
+      "reason": "The CLI's repository-owned Bun build embeds the pinned host Koffi addon through the shared native-addon plugin rather than publishing that tooling as runtime API."
+    },
+    {
+      "source": "packages/agent-file-authority/scripts/build-native-qualification.mjs",
+      "target": "scripts/artifacts/koffi-bun-plugin.mjs",
+      "kind": "module",
+      "reason": "Native qualification reuses the repository-owned Koffi embedding plugin to prove the leaf in a standalone Bun artifact."
+    },
+    {
+      "source": "packages/agent-cli/scripts/build-bun.mjs",
       "target": "scripts/artifacts/generation.mjs",
       "kind": "module",
       "reason": "Non-published binary tooling consumes the repository-owned artifact generation and manifest protocol."
@@ -293,6 +349,12 @@
       "target": "scripts/artifacts/generation.mjs",
       "kind": "module",
       "reason": "Binary verification pins the repository-owned artifact generation under test."
+    },
+    {
+      "source": "scripts/artifacts/__tests__/bun-variant.test.mjs",
+      "target": "packages/agent-cli/scripts/e2e-native-file-authority.mjs",
+      "kind": "module",
+      "reason": "Repository artifact verification exercises the CLI-owned standalone-runtime precondition without promoting the test driver to a published package surface."
     },
     {
       "source": "scripts/artifacts/__tests__/dag-entry-config.test.mjs",
@@ -470,6 +532,18 @@
     },
     {
       "source": "packages/agent-executor/tsconfig.json",
+      "target": "tsconfig.base.json",
+      "kind": "config",
+      "reason": "Repository-owned strict TypeScript baseline; this exact package configuration inherits the shared root contract."
+    },
+    {
+      "source": "packages/agent-file-authority/tsconfig.eslint.json",
+      "target": "tsconfig.eslint.json",
+      "kind": "config",
+      "reason": "Repository-owned lint compiler settings; this exact package configuration inherits the shared root contract."
+    },
+    {
+      "source": "packages/agent-file-authority/tsconfig.json",
       "target": "tsconfig.base.json",
       "kind": "config",
       "reason": "Repository-owned strict TypeScript baseline; this exact package configuration inherits the shared root contract."

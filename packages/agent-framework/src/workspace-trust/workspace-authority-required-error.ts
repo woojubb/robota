@@ -5,7 +5,7 @@ export class WorkspaceAuthorityRequiredError extends Error {
 
   constructor(
     message = 'A current workspace project authority is required for this operation.',
-    cause?: unknown,
+    cause?: Error,
   ) {
     super(message, cause === undefined ? undefined : { cause });
   }

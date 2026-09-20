@@ -28,6 +28,7 @@ const REQUIRED_BENCHMARK_JOBS = new Map([
   ['tui-e2e', 'tui-e2e'],
   ['examples-typecheck', 'examples-typecheck'],
   ['windows-shell', 'windows-shell'],
+  ['stable-payload-native', 'stable payload native'],
   ['benchmark-review-gate', 'review-gate'],
   ['benchmark-workflow-provenance', 'workflow provenance'],
   ['regression-red-proof', 'regression-red-proof (enforcing: accidental-green only)'],
@@ -63,7 +64,7 @@ describe('PR-free develop required-context benchmark', () => {
     expect(trigger).toContain('\n      pr_body:\n');
   });
 
-  it('runs and measures exactly one job for each of the 11 required contexts', () => {
+  it('runs and measures exactly one job for each of the 12 required contexts', () => {
     for (const [jobId, context] of REQUIRED_BENCHMARK_JOBS) {
       const block = jobBlock(ci, jobId);
       const escaped = context.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
@@ -72,12 +73,12 @@ describe('PR-free develop required-context benchmark', () => {
     }
 
     const summary = jobBlock(ci, 'benchmark-summary');
-    expect(summary).toContain('Measure all 11 develop-required contexts');
+    expect(summary).toContain('Measure all 12 develop-required contexts');
     expect(summary).toContain('/actions/runs/${RUN_ID}/jobs?per_page=100');
     expect(summary).toContain('duration_seconds');
     expect(summary).toContain('elapsed_seconds');
     expect(summary).toContain('map(.elapsed_seconds) | max) <= 128');
-    expect(summary).toContain('length == 11');
+    expect(summary).toContain('length == 12');
     for (const context of REQUIRED_BENCHMARK_JOBS.values()) {
       expect(summary).toContain(JSON.stringify(context));
     }

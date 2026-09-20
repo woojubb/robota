@@ -61,5 +61,5 @@ try {
   );
 } finally {
   reader?.close();
-  rmSync(fixture, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  rmSync(fixture, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
 }

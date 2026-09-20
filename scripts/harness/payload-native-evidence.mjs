@@ -39,13 +39,16 @@ export function validatePayloadNativeEvidence(directory) {
       throw new Error(`Native evidence filename does not match target ${evidence.target}.`);
     }
     const exact = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       platform: expected.platform,
       arch: expected.arch,
       koffi: '3.3.1',
       rootReplacement: 'preserved',
       finalLink: 'refused',
       boundedRead: 'refused',
+      sessionReplay: 'passed',
+      packedNodeCli: 'passed',
+      standaloneBunCli: 'passed',
     };
     for (const [key, value] of Object.entries(exact)) {
       if (evidence[key] !== value) {

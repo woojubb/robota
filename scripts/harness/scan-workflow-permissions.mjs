@@ -58,9 +58,6 @@ export const JUSTIFIED_WRITE_SCOPES = {
   'dependency-review.yml': {
     'pull-requests': 'comments the dependency-review summary on failure (comment-summary-in-pr)',
   },
-  'release-bun-binaries.yml': {
-    contents: 'uploads the compiled binaries as GitHub Release assets',
-  },
   'release-desktop-app.yml': {
     contents: 'uploads the packaged installers as GitHub Release assets',
   },
@@ -73,6 +70,11 @@ export const JUSTIFIED_WRITE_SCOPES = {
  * job scope so a grant cannot hide one level down and be excused only in a comment (HARNESS-082).
  */
 export const JUSTIFIED_JOB_WRITE_SCOPES = {
+  'release-bun-binaries.yml': {
+    'publish-bun': {
+      contents: 'uploads the five verified native binaries and checksum manifest to the release',
+    },
+  },
   'review-gate.yml': {
     analyze: {
       'security-events': 'uploads the pull request SARIF analysis before the required gate runs',

@@ -531,6 +531,15 @@ describe('annotateNotMirrored', () => {
     expect(find(['README.md'])).toBe(false);
   });
 
+  it('marks stable payload native relevant only for classifier-owned native inputs', () => {
+    const find = (files) =>
+      annotateNotMirrored(files).find((entry) => entry.context === 'stable payload native')
+        .relevant;
+    expect(find(['packages/agent-file-authority/src/index.ts'])).toBe(true);
+    expect(find(['packages/agent-core/src/index.ts'])).toBe(false);
+    expect(find(['README.md'])).toBe(false);
+  });
+
   it('always reports every un-mirrorable context, relevant or not', () => {
     expect(annotateNotMirrored([]).map((entry) => entry.context)).toEqual(
       NOT_MIRRORED.map((entry) => entry.context),

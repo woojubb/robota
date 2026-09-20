@@ -68,6 +68,14 @@ succeeds with a budget of zero; observing any byte beyond the budget returns `OV
 None. Host adapters and deterministic test hooks are private implementation details. Adding a backend
 or a public operation changes this contract and requires specification review.
 
+## Fallback & Degradation Declaration
+
+There is no pathname, stream, or alternate-backend fallback for reads. A host that cannot retain and
+walk native directory authority fails with `UNSUPPORTED_BACKEND`. After an authority has removed a
+descriptor or handle from its state, close failures may be suppressed, and Windows may try
+`CloseHandle` if `NtClose` throws or returns a failure status; neither path can resume or authorize a
+later read.
+
 ## Error Taxonomy
 
 | Error                      | Code                  | Category                                                                                | Recoverable |

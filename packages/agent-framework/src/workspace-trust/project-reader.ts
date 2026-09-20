@@ -34,6 +34,7 @@ import type {
 } from './types.js';
 
 const projectReaders = new WeakMap<object, () => void>();
+const FIRST_BYTE_OVER_LIMIT = BigInt('1');
 
 function readProjectBytes(
   identity: IWorkspaceIdentity,
@@ -68,7 +69,7 @@ function readProjectBytes(
 
 function stableProjectReadRefusalMessage(error: StableFileAuthorityError): string {
   if (error.code === 'UNSAFE_ENTRY') {
-    return 'Project reads do not follow links or replaced path ancestors.';
+    return 'Project file authority rejected an unsafe path entry.';
   }
   if (error.code === 'UNSUPPORTED_BACKEND') {
     return 'This host cannot provide stable root-relative project reads.';
@@ -77,7 +78,7 @@ function stableProjectReadRefusalMessage(error: StableFileAuthorityError): strin
 }
 
 function throwProjectReadLimitExceeded(maxBytes: number): never {
-  throw new ProjectReadLimitExceededError(maxBytes, BigInt(maxBytes) + 1n);
+  throw new ProjectReadLimitExceededError(maxBytes, BigInt(maxBytes) + FIRST_BYTE_OVER_LIMIT);
 }
 
 class NodeWorkspaceProjectReader {

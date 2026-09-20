@@ -37,6 +37,16 @@ const NOT_MIRRORED_ENTRIES = [
       'no local equivalent off a Windows host — review the win32 branches by hand, or push and read the check.',
   },
   {
+    context: 'stable payload native',
+    reason:
+      'the required verdict fans in exact evidence from five real host runners and executes native Koffi plus standalone Bun binaries on Linux x64/arm64, macOS x64/arm64, and Windows x64. One local host can exercise its own leg, but it cannot reproduce the required cross-host evidence set.',
+    relevance: 'payload-native',
+    relevantWhen:
+      "the canonical changed-path classifier reports payload_native=true; unrelated and documentation-only changes receive the required check's explicit N/A success verdict",
+    manualCommand:
+      'inspect the `stable payload native` check and its five `payload native / <target>` predecessors in the pull request CI run',
+  },
+  {
     context: 'workflow provenance',
     reason:
       "runs on `pull_request_target` and judges the pull request's CHANGED-FILE LIST against the workflows that provide a required context, reading both from the base. Off a real pull request there is no file list and no base to compare it to, so a local run would either invent one or report a pass over a control plane it never inspected — which is the vacuity INFRA-097 built this gate to close.",
@@ -79,5 +89,6 @@ export const RELEVANCE_KEYS = [
   'manifest-or-lockfile',
   'code',
   'guarded-workflow',
+  'payload-native',
   'every-pull-request',
 ];
