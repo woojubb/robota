@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-09-21
 type: SCREEN
 tags: [screen]
 lane: L2
@@ -156,7 +157,7 @@ Three named work units under this one design gate (the PR Unit Rule and the batc
 - [x] TC-09: `/theme` — `list` shows built-in, user and plugin themes with their source; `<id>` validates against the port and emits exactly one patch; an unknown id fails without writing; with no port the command answers "Themes are not available in this environment"; `/theme` with no args issues `show-theme-picker`.
 - [x] TC-10: the picker — opens on the UI intent, previews the highlighted theme in the dynamic region, restores the persisted theme on escape, submits one command on select, toggles syntax and motion with their keys, renders numbered rows with no preview churn in screen-reader mode, and shows a plain-text notice under the colour gate; every `theme-picker` action is rebindable and the published schema agrees with the catalogue.
 - [x] TC-11: `parseThemeDocument` — a valid sparse override applies over its base; an unknown token path, an invalid colour value, a raw SGR string and a malformed file are each refused WHOLE with a path-named diagnostic; the user directory is home-only and plugin directories come from the plugin scopes; ids are namespaced and nothing shadows a built-in.
-- [x] TC-12: engineering verification — `pnpm --filter` build, test and typecheck for the five affected packages exit 0; `pnpm harness:scan` exits 0; the lint-warning ceiling holds. <!-- Amended 2026-09-21 after the record review, which measured that the recorded verdict did not reproduce. The five packages, the lint ceiling and `run-all-scans.mjs --affected --context pr` (the lane's own build-shaped command) all exit 0. The STRICT `pnpm harness:scan` exits 1 on `reference-kind-qualified` over `.agents/spec-docs/done/INFRA-2772-…:513` — a document that arrived on develop in PR #2776, an ancestor of this branch's base, which this branch does not touch and which fails identically at that base. Recorded as inherited and named rather than papered over. The recorded command's own exit 0 must be read for what it is: `--affected --context pr` TOLERATES advisory failures and writes no receipt when it does — its last two lines say `2 advisory failure(s) tolerated (reference-kind-qualified, task-merged-citation)` and `scan receipt NOT written`. The second of those is this Task's own, unresolvable until the pair reaches a terminal status, which the archive commit does; the first is the inherited one above. Neither is concealed by the exit code, because this sentence is here. -->
+- [x] TC-12: engineering verification — `pnpm --filter` build, test and typecheck for the five affected packages exit 0; `pnpm harness:scan` exits 0; the lint-warning ceiling holds. <!-- Amended 2026-09-21 after the record review, which measured that the recorded verdict did not reproduce. The five packages, the lint ceiling and `run-all-scans.mjs --affected --context pr` (the lane's own build-shaped command) all exit 0. The STRICT `pnpm harness:scan` exits 1 on `reference-kind-qualified` over `.agents/spec-docs/done/INFRA-2772-…:513` — a document that arrived on develop in PR #2776, an ancestor of this branch's base, which this branch does not touch and which fails identically at that base. Recorded as inherited and named rather than papered over. The recorded command's own exit 0 must be read for what it is: `--affected --context pr` TOLERATES advisory failures and writes no receipt when it does — its last two lines say `2 advisory failure(s) tolerated (reference-kind-qualified, task-merged-citation)` and `scan receipt NOT written`. The second of those is this Task's own. It is NOT, as I first wrote, unresolvable until the pair reaches a terminal status: `findTaskMergedCitationFindings` (`scripts/harness/scan-task-merged-citation.mjs:241`) skips a record once its paired spec carries completion evidence — every ticked `TC-NN` with a `[GATE-COMPLETE: TC-NN] — ✅ PASS`. Appending the TC-12 entry itself made that true, so this capture was taken in the last state where the advisory still fired and the clean committed HEAD tolerates only ONE. Corrected on the guardian's finding; the capture is left as taken rather than re-run to flatter it. The first advisory is the inherited one above. Neither is concealed by the exit code, because this sentence is here. -->
 - [x] TC-13: the built CLI in a PTY: with `theme` unset the frame is colour-identical to the pre-change binary; `/theme light` changes the status bar and diff colours without restarting; `/theme` opens the picker, arrow keys preview, escape restores; a seeded `~/.robota/themes/mine.json` and a seeded plugin theme both appear in the list and apply; an invalid theme file prints its diagnostic at startup and is disabled in the picker; `--reduced-motion` is reported as pinned for the run without taking colour with it — `/theme list` reads `reduced motion: on for this run (pinned by flag; saved off)` while the frame stays coloured. <!-- Amended 2026-09-21 after the record review, which measured that three clauses of this criterion are carried by nothing at PTY level. (a) "colour-identical to the pre-change binary" — no PTY test spawns a pre-change binary; the identity claim is carried at string level by TC-02 (`theme-styles.test.ts` asserts `dark` against the pre-change strings with the four exceptions named). (b) `/theme light` — S1 applies `custom:mine` and asserts this terminal's encoding of its accent anywhere after the apply; the light theme's own redraw is carried by TC-01/TC-02 at unit level. (c) the plugin theme is LISTED by S1, not applied; applying a non-built-in theme live is what S1 does with `custom:mine`. Recorded rather than silently ticked. --> <!-- Amended 2026-09-20, work unit 3, alongside Scenario 2 and for the same reason: running it showed the line this criterion exists to read was WRONG, printing the PERSISTED value beside the override TIER, which contradicts itself and answers "is motion reduced right now" with the wrong word. Frame-to-frame SGR equality of the waiting indicator is covered where it is deterministic — `screen-006-no-color.ptytest.ts` asserts zero colour churn across the whole transcript, and TC-06 pins `useMotion` with fake timers — rather than by timing repaints against a replayed turn. -->
 
 ## Test Plan
@@ -207,7 +208,7 @@ Three named work units under this one design gate (the PR Unit Rule and the batc
 
 ## Tasks
 
-- [ ] `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` — todo
+- [x] `.agents/tasks/completed/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` — done
 
 ## Evidence Log
 
@@ -1279,3 +1280,231 @@ scan receipt NOT written: 2 advisory failure(s) were tolerated (reference-kind-q
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `0a12a366a2e4` · base `origin/develop@dace58747dca` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `da8839ddf4ea` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** in-progress → verifying
+
+**Ordering check: PASS.** Prior gate GATE-IMPLEMENT's LAST entry on this document is
+`### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-21` (line 696); the prior-gate map declares no re-run rule
+for this row, so the last-entry default applies and is satisfied. Frontmatter reads
+`status: in-progress` and the file sits in `.agents/spec-docs/active/` — the input state the map
+requires. The two earlier `[GATE-VERIFY] — 🔴 NON-COMPLIANCE` entries are this gate's own history and
+do not bar a re-run.
+
+**The NON-COMPLIANCE recorded at HEAD `0a12a366a` is discharged — reproduced, not accepted.**
+
+- **The strike is visible and in this document's own idiom.** The `<!-- STRUCK 2026-09-21 by the item
+owner, on the guardian's finding. … -->` block sits exactly where the struck entry began, and takes
+  the same form as the 2026-09-19 strike above `[GATE-IMPLEMENT] — ❌ FAIL` (line ~455): it names what
+  stood there, why it was wrong, why the harness rendered it (`runRecord` binds `--command` and
+  `--output-file` to each other in no way), and what replaced it. The struck text stays recoverable
+  two ways — verbatim in commit `0a12a366a`, and quoted at length inside the retained
+  `[GATE-VERIFY] — 🔴 NON-COMPLIANCE` entry immediately below the strike.
+- **Nothing was edited underneath a certificate.** `git diff -U0 0a12a366a a2cb4ea84 -- <doc>` deletes
+  exactly three things: old#159 (the TC-12 criterion's amendment comment, rewritten same-day and
+  covered by no gate verdict), old#1127 + old#1130-1139 (the struck entry's `**Output:**` header and
+  its ten fabricated lines), and old#1143 (that entry's `Judged at` line). A `gate.mjs record --tc`
+  payload is not a gate verdict, and the previous guardian's Required action expressly permitted
+  withdrawal and re-recording. No `— ✅ PASS` / `— ❌ FAIL` / `— 🔴 NON-COMPLIANCE` verdict entry lost
+  or gained a character.
+- **Append-only across `dace58747..HEAD`, apart from that strike.**
+  `diff <(git show dace58747:<doc> | sed -n '212,694p') <(sed -n '212,694p' <doc>)` is EMPTY — the
+  base's entire 483-line Evidence Log is byte-identical at HEAD. `git diff -U0 dace58747 HEAD` shows
+  ONE hunk over the log, `@@ -694,0 +695,587 @@` — a pure append; all 31 deletions sit at old#148-160,
+  old#164-178 and old#187/193/206, above the log. The retained guardian entry's own
+  `blob c9f7a3ebdda3` equals `git rev-parse 0a12a366a:<doc>`, so that entry is bound to the content it
+  judged.
+- **The replacement `**Output:**` block IS the verbatim capture of the command it names.** Rebuilt the
+  exact tree state the capture was taken in — commit `a2cb4ea84` with the not-yet-appended TC-12 entry
+  removed — in a throwaway `/tmp` worktree and ran
+  `node scripts/harness/run-all-scans.mjs --affected --context pr`: **exit 0, 171 lines**, and **9 of
+  the recorded 10 lines are byte-identical**, including both `harness.scan-finding.scan-c36-…` /
+  `scan-c38-…` ids, both `evidence:`/`recommendation:` pairs, `(44 declared what they examined)`, and
+  `scan receipt NOT written: 2 advisory failure(s) were tolerated (reference-kind-qualified,
+task-merged-citation)`. The sole divergence is `40 scans passed, 2 skipped` against the record's
+  `41 scans passed, 1 skipped`: the probe worktree additionally skipped `progress-report-quantification`
+  (detached HEAD, linked `node_modules`), which also accounts for 171 lines against the record's 170.
+  The `affected: 44 selected, 118 excluded (…)` line matches byte-for-byte. Worktree removed; tree left
+  clean.
+
+**The four GATE-VERIFY criteria — every one answered, each measured at HEAD `a2cb4ea84`:**
+
+- **Every item in the `## Plan` section of the paired Task is `[x]` — MET.** The `## Plan` SECTION is
+  Task lines 24-92 and holds five items — `unit1`, `unit2`, `unit3`, `TC-13`, `TC-12` — parsed by
+  section slice, not by eyeball: zero `- [ ]` lines. Read as the catalogue directs (issue #2375): the
+  spec's own `## Tasks` line `- [ ] .agents/tasks/SCREEN-2002-…md — todo` is NOT this section and is
+  not read here; it is GATE-COMPLETE's to judge.
+- **No Plan item is blocked or pending — MET.** Case-insensitive search of that section for
+  `blocked|pending|deferred|TODO|WIP` returns nothing. The only `open` substrings are `reopened` /
+  `reopens` in prose about HARNESS-2774 and about unit 3's component, neither of which is an item state.
+- **Build passes for all affected packages — MET.** `pnpm --filter @robota-sdk/<p> build` for
+  `agent-interface-command`, `agent-framework`, `agent-command`, `agent-cli`, `agent-ui-terminal` →
+  **exit 0, 5/5**. `typecheck` over the same five → **exit 0, 5/5**. Separately `pnpm lint` →
+  **exit 0**, `✖ 2356 problems (0 errors, 2356 warnings)` against the declared `--max-warnings 2356`,
+  so the lint ceiling holds exactly, with no headroom.
+- **Tests pass for all affected packages — MET.** `pnpm --filter … test`, five separate runs, all
+  **exit 0**: `agent-interface-command` 2 passed (2); `agent-framework` 1764 passed | 77 skipped
+  (1841); `agent-command` 402 passed | 5 skipped (407); `agent-cli` 582 passed | 18 skipped (600);
+  `agent-ui-terminal` 1035 passed (1035). Reproduces the record's `2 / 1764|77 / 402|5 / 582|18 / 1035`
+  exactly, measured here rather than carried.
+
+**Carried from the run at `0a12a366a`, re-taken where cheap.** Re-measured here: the five packages'
+counts, and the inherited red — `scan-reference-kind-qualified` fails on
+`.agents/spec-docs/done/INFRA-2772-…md:513` (`#2375` unqualified), and
+`git diff --name-only dace58747 HEAD` returns exactly two paths, the SCREEN-2002 spec and Task, so this
+branch cannot be its cause. Carried on the previous run's evidence without re-measurement: the thirteen
+`[GATE-COMPLETE: TC-N]` entries and their per-TC counts (TC-01 31, TC-02 11, TC-03 16, TC-04 6, TC-05
+37, TC-06 17, TC-07 9, TC-08 16, TC-09 19, TC-10 43, TC-11 30, TC-13 20 files / 47 tests), the Stage-1
+payload binding, and TC-13's amendment — none is a GATE-VERIFY criterion, and all sit under
+GATE-COMPLETE.
+
+**Two findings that are NOT GATE-VERIFY criteria, recorded for GATE-COMPLETE rather than judged here.**
+
+1. **TC-12's capture is genuine but is NOT reproducible at this committed HEAD, and the criterion's
+   amendment gives the wrong reason for that.** Re-running the recorded command at HEAD `a2cb4ea84` on
+   a clean tree yields **139 lines** and **one** tolerated advisory — `✓ task-merged-citation` passes.
+   The amendment says the second red "is this Task's own, unresolvable until the pair reaches a
+   terminal status, which the archive commit does." Measured: it was resolved the moment TC-12's own
+   entry was appended. `findTaskMergedCitationFindings`
+   (`scripts/harness/scan-task-merged-citation.mjs:241`) skips a record when
+   `hasCompletionEvidence(pairedSpec)` holds — every ticked `TC-NN` carrying a
+   `### [GATE-COMPLETE: TC-NN] — ✅ PASS` entry — which became true when TC-12 was recorded, not at
+   archival. Proven both ways: with the entry removed, the scan fails naming `SCREEN-2002 … 15
+commit(s)`; with it present, `task-merged-citation scan passed.` So the TC-12 evidence is
+   self-referential — the act of recording it changed the command's output — and the record explains
+   that divergence incorrectly. Nothing is concealed and no output is fabricated; the sentence is
+   simply wrong about cause and about when the red clears.
+2. **The TC-12 entry's `blob da8839ddf4ea` does not reconstruct.** Sixteen candidate pre-append states
+   (with/without the strike block, with/without the retained guardian entry, old vs new criterion line,
+   one vs two trailing newlines) were hashed; none matches. The line declares `(modified)`, which the
+   catalogue defines as "the judged content was not what the repository holds", so the format is
+   satisfied and self-declaring — but the blob corroborates nothing independently. The capture itself
+   was corroborated by reproduction above, which is the stronger check.
+
+**On `record --tc` running while `status: in-progress` — asked, and answered as not-wrong.** Searched
+again and found no rule ordering `gate.mjs record --tc` against the status; `backlog-pipeline`'s L1
+lane explicitly sequences `record --tc` BEFORE `judge --gate DONE`, and for L2 nothing orders it at
+all. The catalogue's `verifying` input applies to the GATE-COMPLETE JUDGEMENT, which has not run. So
+the order used here violates no located rule, and I do not call it wrong. Finding 1 does expose a
+real hazard in it — a `--tc` payload can change what the very command it captures reports — which is
+material for an amendment, filed as a backlog item, not for a verdict.
+
+**Why PASS and not NON-COMPLIANCE.** The previous verdict rested on one thing: authored prose rendered
+as a named command's captured output. That entry is now struck visibly by this document's own route,
+its replacement's output reproduces byte-for-byte under reconstruction, and the attribution prose has
+moved to the criterion's HTML-comment amendment, where prose belongs — honest placement, outside any
+machine-output block. The residual defect in that prose (finding 1) is a wrong causal sentence, not
+evidence dressed as a capture, and its subject is a TC-12 criterion this gate does not judge.
+
+**Tree note.** `git status --porcelain` was EMPTY before and after judgement; the two self-regenerating
+files under `.agents/evals/lessons/` did NOT appear at this run and are not counted. The probe worktree
+under `/tmp` was removed and `git worktree prune` run; no tree-mutating git was used.
+
+**Judged by:** `backlog-gate-guard`
+**Judged at:** HEAD `a2cb4ea848d4` · base `origin/develop@dace58747dca` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `46ab393011cc` (clean at judgement; this entry appended after)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-21
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: status is `in-progress`, `verifying` expected
+  **Required action:** run the prior gate to PASS first
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a2cb4ea848d4` · base `origin/develop@dace58747dca` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `363cccae8f81` (modified)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-21
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: status is `in-progress`, `verifying` expected
+  **Required action:** run the prior gate to PASS first
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a2cb4ea848d4` · base `origin/develop@dace58747dca` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `b695ef88009a` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate `GATE-IMPLEMENT` PASS and input status `in-progress`: MET. The last `GATE-IMPLEMENT` entry is `✅ PASS | 2026-09-21` at line 696; the row declares no re-run rule, so the last-entry default applies. Frontmatter reads `status: in-progress` in `.agents/spec-docs/active/`. The two `[GATE-COMPLETE] — ❌ FAIL` entries at lines 1406 and 1417 belong to a LATER gate and bar nothing here.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` is marked complete (`[x]`): MET. Section sliced by heading (Task lines 24-92), five items — `unit1`, `unit2`, `unit3`, `TC-13`, `TC-12` — 5/5 `[x]`, zero `- [ ]`. The spec's own `## Tasks` line `- [ ] … — todo` is a different section and is not read here (issue #2375).
+- GATE-VERIFY — No Plan item is blocked or pending: MET. Case-insensitive search of that section for `blocked|pending|deferred|TODO|WIP` returns nothing; the only `open` substrings are `reopened`/`reopens` in prose, which are not item states.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): MET, re-measured at this tree. `pnpm --filter @robota-sdk/<p> build` for `agent-interface-command`, `agent-framework`, `agent-command`, `agent-cli`, `agent-ui-terminal` → exit 0, 5/5; `typecheck` over the same five → exit 0, 5/5, zero `error` lines in any log. `pnpm lint` → exit 0, `✖ 2356 problems (0 errors, 2356 warnings)` against the declared `--max-warnings 2356` — the ceiling holds exactly, with no headroom.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): MET, re-measured at this tree. Five separate runs, all exit 0: `agent-interface-command` 2 passed (2); `agent-framework` 1764 passed | 77 skipped (1841); `agent-command` 402 passed | 5 skipped (407); `agent-cli` 582 passed | 18 skipped (600); `agent-ui-terminal` 1035 passed (1035).
+
+**Why this entry exists, and what it re-judges.** This is a re-run of GATE-VERIFY at the same HEAD as
+the `✅ PASS` at line 1283, appended because `advance` reads only the LAST Evidence Log entry
+(`gate-operations.mjs:1876-1881`) and two `[GATE-COMPLETE] — ❌ FAIL` entries were appended below that
+PASS. The verdict is re-taken, not copied: every criterion above was measured again at this document
+state, and the five packages' build, typecheck and test runs were repeated in full rather than
+carried. The counts are identical to the earlier run, which is the expected result —
+`git diff HEAD -- scripts packages apps` is empty and `git status --porcelain` lists only this
+document, so the source tree behind both measurements is provably the same.
+
+**What changed in the document since the PASS at line 1283, and how it is judged.** Exactly two
+things, both verified here:
+
+1. The TC-12 criterion's amendment comment (line 159, uncommitted) now retracts the sentence the
+   previous run found false, in place and visibly: "It is NOT, as I first wrote, unresolvable until
+   the pair reaches a terminal status", followed by the mechanism —
+   `findTaskMergedCitationFindings` (`scripts/harness/scan-task-merged-citation.mjs:241`) skips a
+   record once `hasCompletionEvidence(pairedSpec)` holds, which appending the TC-12 entry itself made
+   true, so the capture was taken in the last state where the advisory still fired and the clean
+   committed HEAD tolerates only ONE. That is the mechanism this guardian measured both ways
+   (entry removed → the scan fails naming `SCREEN-2002 … 15 commit(s)`; entry present →
+   `task-merged-citation scan passed.`), so the correction is **accurate**. It names the wrong claim
+   rather than deleting it, and it leaves the capture as taken rather than re-running it to flatter
+   the record — the right call, and the one this guardian would have asked for.
+2. The two `[GATE-COMPLETE] — ❌ FAIL` entries, addressed below.
+
+No verdict entry was edited, and no source file changed.
+
+**Observation on the two `[GATE-COMPLETE] — ❌ FAIL` entries — recorded visibly at the orchestrator's
+request, and NOT a basis for this verdict.** Both were produced by dispatching GATE-COMPLETE while
+`status: in-progress`; both failed on ordering (`status is in-progress, verifying expected`), which is
+the correct answer, honestly recorded, by the mechanism working as designed. Nothing was bypassed, no
+evidence was fabricated, and no work this gate authorises was performed — so this is an observation,
+not a finding of non-compliance. Two things are worth carrying out of it. First, the second run could
+not have returned a different answer: nothing in its input state had changed since the first, so
+re-running a refused gate against an unchanged state adds a log entry and no information. Second, that
+addition is not free here — because `advance` judges the LAST entry, each out-of-order gate run pushes
+the passing verdict further from the position `advance` reads, so "just checking" the next gate makes
+advancing strictly harder. That interaction is why this entry was needed at all, and it is the part
+worth remembering rather than the two FAILs themselves.
+
+**On whether the missing per-criterion lines were a tool defect — they were not; the defect was mine.**
+The gate catalogue's "Evidence Log Entry Format" states the PASS shape as
+`- <GATE-NAME> — <criterion>: <specific observed result>`, and `advance` enforces exactly that
+(`/^- [A-Z][A-Z-]* — .+: .+/`). The entry at line 1283 answered all four criteria, but in prose
+bullets instead of the declared shape, so it did not meet the format the catalogue mandates. Nothing
+needs filing against `gate.mjs`; this entry follows the format. The earlier entry is left exactly as
+recorded — it is a verdict, and this one supersedes its position without rewriting it.
+
+**Tree note.** `git status --porcelain` lists only this document, carrying the orchestrator's
+uncommitted criterion correction, the earlier verdicts and this entry; the two self-regenerating files
+under `.agents/evals/lessons/` did NOT appear at this run and are not counted. No tree-mutating git was
+used at any point in this or the preceding run.
+
+**Judged by:** `backlog-gate-guard`
+**Judged at:** HEAD `a2cb4ea848d4` · base `origin/develop@dace58747dca` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `a6996ee9cde0` (modified — the criterion correction is uncommitted; this entry appended after)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-21; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 13/13 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (13)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (13) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (13) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 13/13 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (13) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a2cb4ea848d4` · base `origin/develop@dace58747dca` · document `.agents/spec-docs/active/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md` blob `13a416d1c8ef` (modified)

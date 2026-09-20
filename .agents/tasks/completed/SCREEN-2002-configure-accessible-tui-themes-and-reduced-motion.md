@@ -1,7 +1,8 @@
 ---
 title: 'SCREEN-2002: Configure accessible TUI themes and reduced motion'
 issue: https://github.com/woojubb/robota/issues/2002
-status: in-progress
+status: done
+completed: 2026-09-21
 created: 2026-09-14
 priority: high
 urgency: now
