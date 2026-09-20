@@ -35,12 +35,12 @@ whose merge ancestry is already contained by the trusted remote integration base
 
 ## Plan
 
-- [ ] TC-01 — Add a RED regression proving `runPostVerdictGuard` currently drops a valid declared base.
-- [ ] TC-02 — Project one present `HARNESS_BASE_REF` into the synthetic push command while preserving
+- [x] TC-01 — Add a RED regression proving `runPostVerdictGuard` currently drops a valid declared base.
+- [x] TC-02 — Project one present `HARNESS_BASE_REF` into the synthetic push command while preserving
       the existing bare-command path when it is absent.
-- [ ] TC-03 — Prove whitespace, shell metacharacters, quoting, or otherwise invalid declaration values
+- [x] TC-03 — Prove whitespace, shell metacharacters, quoting, or otherwise invalid declaration values
       cannot inject a second command and remain rejected by the existing trusted-base parser.
-- [ ] TC-04 — Run the focused pre-push suites, plan-order scan, and affected repository scans.
+- [x] TC-04 — Run the focused pre-push suites, plan-order scan, and affected repository scans.
 
 ## Test Plan
 

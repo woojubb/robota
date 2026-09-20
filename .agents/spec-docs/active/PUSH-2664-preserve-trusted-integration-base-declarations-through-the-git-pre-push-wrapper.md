@@ -91,13 +91,13 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: Command: `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs`
+- [x] TC-01: Command: `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs`
       exits nonzero before implementation because a present valid declaration is rendered as bare `git push`.
-- [ ] TC-02: Observable: a present exact `HARNESS_BASE_REF` appears once before `git push` in the
+- [x] TC-02: Observable: a present exact `HARNESS_BASE_REF` appears once before `git push` in the
       JSON payload, while absent and empty values preserve exactly `git push`.
-- [ ] TC-03: Observable: whitespace, quote, newline, metacharacter, and untrusted-ref values remain
+- [x] TC-03: Observable: whitespace, quote, newline, metacharacter, and untrusted-ref values remain
       inert payload data and receive no approval from the existing trusted-base guard.
-- [ ] TC-04: Commands: `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs
+- [x] TC-04: Commands: `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs
   scripts/harness/__tests__/review-before-push.test.mjs` and
       `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs
   --affected --context pr --base origin/integration/agreement-2664` both exit 0 apart from
@@ -114,9 +114,12 @@ None
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-03).
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Reason:** This changes repository-internal Git publication enforcement for contributors; it does
+not alter any Robota CLI, TUI, browser, public SDK, or installed-package behavior an end user can run.
 
 ## Tasks
 
@@ -216,3 +219,41 @@ Recorded as the rule's required choice rather than skipped.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `d2ea325135a0` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/todo/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md` blob `0b9e7fbcae9a` (tracked)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-20
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs scripts/harness/__tests__/review-before-push.test.mjs` → exit 1 ( ❯ scripts/harness/__tests__/pre-push-sequence.test.mjs:286:39 ⏎  ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯); `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/integration/agreement-2664` → exit 0 ( ⏎ 60 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (63 declared what they examined) ⏎ scan receipt NOT written: 2 advisory failure(s) were tolerated (progress-report-quantification, task-merged-citation), and a receipt must not certify them.)
+  **Required action:** make every verify command exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs scripts/harness/__tests__/review-before-push.test.mjs` → exit 1 ( ❯ scripts/harness/__tests__/pre-push-sequence.test.mjs:286:39 ⏎  ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯); `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/integration/agreement-2664` → exit 0 ( ⏎ 60 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (63 declared what they examined) ⏎ scan receipt NOT written: 2 advisory failure(s) were tolerated (progress-report-quantification, task-merged-citation), and a receipt must not certify them.)
+  **Required action:** make every verify command exit 0
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `52bdd30d4a6e` · base `origin/develop@1ef05e0ea248` · document `.agents/spec-docs/active/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md` blob `a4455addedc0` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-20
+
+**Status remains:** in-progress
+
+- GATE-VERIFY — ordering: PASS — the prior GATE-IMPLEMENT entry is PASS and the document remains
+  `in-progress`; the earlier GATE-VERIFY FAIL is retained as immutable evidence of the first
+  environment-isolation defect.
+- GATE-VERIFY — Every Task Plan item is complete: PASS — the paired Task records 4/4 checked items,
+  TC-01 through TC-04.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — the paired Task contains no unchecked,
+  blocked, or pending Plan item.
+- GATE-VERIFY — Build and affected repository checks pass: PASS —
+  `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/integration/agreement-2664`
+  exited 0 with 60 scans passed and 1 skipped; the two reported advisories are unrelated historical
+  diagnostics (`progress-report-quantification` and `task-merged-citation`).
+- GATE-VERIFY — Focused tests pass: PASS — running the two pre-push suites while the outer process
+  also declares `HARNESS_BASE_REF` exited 0 with 86/86 tests passing.
+- GATE-VERIFY — RED proof is preserved: PASS — the pre-fix focused run failed because the bridge
+  produced bare `git push` where the declared command was expected; the post-fix run is GREEN.
+
+**Judged by:** independent guardian agent Ohm plus `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `85a5492071ba6a2cdc6793695d30ed7eab8bf214` · base `origin/integration/agreement-2664@df02719373ca522d4d1262dd3fc569c9dba42c12`
+
+**GATE VERDICT:** PASS
