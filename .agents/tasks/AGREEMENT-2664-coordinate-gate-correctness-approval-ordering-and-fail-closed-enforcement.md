@@ -66,6 +66,18 @@ Run the exact Task/spec projection scan, Task lifecycle classification, affected
 the GitHub issue-triage read-back after each lifecycle mutation. Final verification compares every
 umbrella row with one delivered or explicitly terminal owner and runs the full repository harness scan.
 
+## Recommendation Evidence
+
+- `proposal-reviewer` round 1 returned `REVISE` with 2 unresolved findings: the Task still said five
+  completed children, and TC-01 still described all children as lifecycle-open.
+- The Task and spec were corrected to reflect six terminal children, with RULE-2326 and RULE-2380
+  remaining open in declared order.
+- `proposal-reviewer` round 2 returned `ENDORSE` with 0 unresolved findings for projection digest
+  `6440813179e8921e562ac9672c07840afc6f3cfa69cbd83962d8e91077b5fd9f` and endorsement key
+  `984135c1e9cf2cf6371db17d67faf3e3c1fc3e58ed7a2eb09c2f9089695e8e06`.
+- **Canonical loop run:** `r20260920170106` in
+  `.agents/loop-runs/backlog-execution-orchestrator.jsonl`; rounds `[2, 0]`, terminal `converged`.
+
 ## User Execution Test Scenarios
 
 Not applicable.
