@@ -25,3 +25,4 @@
 {"runId":"r20260920074935","opened":"2026-09-20T07:49:35.988Z","closed":"2026-09-20T07:49:47.852Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"RULE-2664"}
 {"runId":"r20260920031502","opened":"2026-09-20T03:15:02.167Z","closed":"2026-09-20T03:17:27.769Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260920043323","opened":"2026-09-20T04:33:23.686Z","closed":"2026-09-20T04:34:24.004Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
+{"runId":"r20260920102005","opened":"2026-09-20T10:20:05.654Z","closed":"2026-09-20T10:21:49.232Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"BEHAVIOR-2663"}
