@@ -232,10 +232,57 @@ describe('pre-push prerequisites follow its local work, not the product change c
 });
 
 describe('post-verdict guard reaches the real Git pre-push boundary', () => {
+  it('preserves a trusted integration-base declaration in the synthetic push command', () => {
+    const result = runPostVerdictGuard({
+      cwd: '/tmp/fixture-repo',
+      script: '/tmp/fixture-repo/.claude/hooks/pre-push-check.sh',
+      env: { HARNESS_BASE_REF: 'origin/integration/agreement-2664' },
+      spawn(_command, _args, options) {
+        expect(JSON.parse(options.input)).toMatchObject({
+          tool_name: 'Bash',
+          tool_input: {
+            command: 'HARNESS_BASE_REF=origin/integration/agreement-2664 git push',
+          },
+        });
+        return { status: 0 };
+      },
+    });
+    expect(result).toBe(true);
+  });
+
+  it.each([undefined, ''])(
+    'preserves the bare push command when the declaration is %s',
+    (declaredBase) => {
+      const env = {};
+      if (declaredBase !== undefined) env.HARNESS_BASE_REF = declaredBase;
+      const result = runPostVerdictGuard({
+        env,
+        spawn(_command, _args, options) {
+          expect(JSON.parse(options.input).tool_input.command).toBe('git push');
+          return { status: 0 };
+        },
+      });
+      expect(result).toBe(true);
+    },
+  );
+
+  it.each([
+    'origin/integration/agreement-2664;#',
+    'origin/integration/agreement-2664; touch /tmp/not-executed',
+    '"origin/integration/agreement-2664"',
+    'origin/integration/agreement-2664\ngit push origin main',
+  ])('rejects an adversarial declaration before shell-command projection: %s', (declaredBase) => {
+    const spawn = vi.fn(() => ({ status: 0 }));
+
+    expect(runPostVerdictGuard({ env: { HARNESS_BASE_REF: declaredBase }, spawn })).toBe(false);
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
   it('refuses when the shared agent guard returns a non-zero status', () => {
     const result = runPostVerdictGuard({
       cwd: '/tmp/fixture-repo',
       script: '/tmp/fixture-repo/.claude/hooks/pre-push-check.sh',
+      env: {},
       spawn(_command, _args, options) {
         expect(JSON.parse(options.input)).toMatchObject({
           tool_name: 'Bash',
@@ -250,6 +297,7 @@ describe('post-verdict guard reaches the real Git pre-push boundary', () => {
   it('allows only an explicit zero exit from the shared guard', () => {
     expect(
       runPostVerdictGuard({
+        env: {},
         spawn: () => ({ status: 0 }),
       }),
     ).toBe(true);
