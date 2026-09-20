@@ -1,7 +1,8 @@
 import { Box, useWindowSize } from 'ink';
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 
 import CjkTextInput from './CjkTextInput.js';
+import ExternalPromptNotice from './external-prompt-notice.js';
 import {
   appendPromptHistory,
   createPasteLabelChange,
@@ -34,6 +35,12 @@ const PENDING_PROMPT_DISPLAY_MAX = 50;
 const PENDING_PROMPT_TAIL_KEEP = 47;
 
 interface IProps {
+  /** FLOW-2006: a deep link's prefill, seeded once. */
+  initialValue?: string | undefined;
+  /** Told to the controller the first time the prefill is taken. */
+  consumeInitialValue?: (() => void) | undefined;
+  /** True while the composer's text came from a deep link: renders the provenance notice. */
+  externalPromptOrigin?: boolean | undefined;
   onSubmit: (value: string) => void;
   onCancelQueue?: () => void;
   isDisabled: boolean;
@@ -87,9 +94,18 @@ export default function InputArea({
   history,
   onRequestFocusBackgroundList,
   historySearch,
+  initialValue,
+  consumeInitialValue,
+  externalPromptOrigin,
 }: IProps): React.ReactElement {
   const palette = usePalette();
-  const [value, setValue] = useState('');
+  // FLOW-2006: the deep link's prefill arrives as a prop and is taken exactly once; the controller
+  // then drops it, so a remount (the handoff-suspend path) never re-seeds a cleared prompt.
+  const [value, setValue] = useState(initialValue ?? '');
+  useEffect(() => {
+    if (initialValue === undefined || initialValue.length === 0) return;
+    consumeInitialValue?.();
+  }, [initialValue, consumeInitialValue]);
   const [cursorHint, setCursorHint] = useState<number | null>(null);
   // CLI-2004: the text the last word/line delete removed, announced once and cleared on the next
   // ordinary edit. A reader announces the line it is ON — what left it is otherwise unrecoverable.
@@ -312,6 +328,7 @@ export default function InputArea({
         innerWidth={innerWidth}
         borderColor={borderColor}
       />
+      {externalPromptOrigin === true && <ExternalPromptNotice value={value} />}
     </Box>
   );
 }

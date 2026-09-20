@@ -166,7 +166,7 @@ The exact paired parent is `.agents/tasks/AGREEMENT-2670-complete-cli-and-tui-us
 - [x] SCREEN-1993 — done — `.agents/tasks/completed/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md`
 - [ ] SCREEN-2002 — in-progress — `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`
 - [x] BEHAVIOR-2003 — done — `.agents/tasks/completed/BEHAVIOR-2003-configure-contextual-tui-key-bindings.md`
-- [ ] FLOW-2006 — todo — `.agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`
+- [ ] FLOW-2006 — in-progress — `.agents/tasks/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`
 - [x] BEHAVIOR-2437 — done — `.agents/tasks/completed/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md`
 - [ ] SCREEN-2442 — todo — `.agents/tasks/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md`
 - [x] SCREEN-2670 — done — `.agents/tasks/completed/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md`

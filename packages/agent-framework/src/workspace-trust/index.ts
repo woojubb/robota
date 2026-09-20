@@ -42,6 +42,7 @@ export type {
   IWorkspaceProjectSettingsWriter,
   IWorkspaceProjectMutation,
   IWorkspaceProjectStateStorage,
+  IWorkspaceTrustGrant,
   IWorkspaceTrustStore,
   IWorkspaceTrustStoreSnapshot,
   TWorkspaceContributionKind,

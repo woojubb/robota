@@ -19,15 +19,15 @@ scheme on supported desktop platforms without accepting provider, permission, pl
 
 ## Plan
 
-- [ ] TC-01: the grammar — `parseLaunchIntent` accepts the three spellings and refuses every malformed form, naming the first rule violated.
-- [ ] TC-02: precedence and the encode/parse round trip.
-- [ ] TC-03: resolution — trusted-only targets, worktree grouping, the `Contained — TRUST-1989.` label at the refusal site and in the commit body.
-- [ ] TC-04: the `resolveLaunchInvocation` pre-parse step and its refusals.
-- [ ] TC-05: prefill and the external-link notice, consumed once through the controller.
-- [ ] TC-06: wiring into `startCli` and the `--help` catalogue.
-- [ ] TC-07: `listGrants()` on the workspace trust store.
-- [ ] TC-08: engineering verification.
-- [ ] TC-09: the PTY user-execution scenario over the built CLI.
+- [x] TC-01: the grammar — `parseLaunchIntent` accepts the three spellings and refuses every malformed form, naming the first rule violated.
+- [x] TC-02: precedence and the encode/parse round trip.
+- [x] TC-03: resolution — trusted-only targets, worktree grouping, the `Contained — TRUST-1989.` label at the refusal site and in the commit body.
+- [x] TC-04: the `resolveLaunchInvocation` pre-parse step and its refusals.
+- [x] TC-05: prefill and the external-link notice, consumed once through the controller.
+- [x] TC-06: wiring into `startCli` and the `--help` catalogue.
+- [x] TC-07: `listGrants()` on the workspace trust store.
+- [x] TC-08: engineering verification.
+- [x] TC-09: the PTY user-execution scenario over the built CLI.
 
 ## Test Plan
 
@@ -56,7 +56,7 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 - observable rationale: source=rendered-product-ui
 - expected observable: visible=an ordinary interactive session starts whose working directory is the fixture repository `/tmp/flow2006-trusted` (or its realpath `/private/tmp/flow2006-trusted` on macOS) and NOT `/tmp/flow2006-elsewhere`; on the FIRST frame the composer already holds the decoded text `Summarize the README in one sentence` with the cursor after it, while the transcript holds no user message and no assistant activity and the status line reads `Idle` — the prompt is present and unsent; the line `Prompt from an external link` is rendered below the input and stays there while the value is unchanged; pressing Enter once sends exactly that text — it leaves the composer, appears as the submitted user message, and the external-link notice disappears; the proof that nothing reached a provider before Enter is the first frame itself — the transcript is empty and the status line reads `Idle` while the prompt sits in the composer — so no provider response is part of any observable here and the scenario neither needs nor contacts an external service; typing `/exit` and confirming exits the process with code 0.
 - cleanup: exit with `/exit` (Yes) and confirm the process exited, then remove `/tmp/flow2006-trusted`, `/tmp/flow2006-elsewhere` and the isolated HOME (the trust grant lives under that HOME and goes with it); nothing under the monorepo is created, modified or trusted.
-- evidence: pending
+- evidence: 2026-09-20 — agent-executed in a real 100x30 `xterm-256color` PTY by `packages/agent-ui-terminal/src/__tests__/pty/flow-2006-deep-link.ptytest.ts` Scenario 1 (`pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run --config vitest.pty.config.ts src/__tests__/pty/flow-2006-deep-link.ptytest.ts` → 3 passed in 6.75 s). The frame that arrives with the prefill shows `> Summarize the README in one sentence` in the composer, `Prompt from an external link` on the line below it, and `Idle  |  flow2006  |  git: main` on the status line — the fixture repository's branch, i.e. the process is no longer in the launch directory — with neither `Thinking` nor `Interrupting` anywhere in the transcript; one Enter then re-emits exactly that text as the submitted message, and `git log --oneline` in the fixture still reports the single `chore: fixture` commit. — full record in `.agents/evals/scenarios/flow-2006-deep-link-agent-run.md`
 
 ### Scenario 2: every malformed or configuration-bearing link is refused on stderr with a non-zero exit and no session
 
@@ -69,7 +69,7 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 - observable rationale: source=product-process
 - expected observable: exit=1; output-contains=provider — the refusal goes to STDERR and names the offending key `provider` rather than saying only that the link is invalid, stdout is empty, no TUI frame is drawn, the process exits 1 without waiting for input, and the whole URL is discarded so the prompt it carried is nowhere applied; each of the other eight invocations likewise exits non-zero with a single stderr line naming the FIRST rule it violated — the duplicate key `prompt`, the missing `v`, the unsupported version `2`, that a link may carry a prompt but not a command (for `%2Fmode%20bypassPermissions`), that `cwd` must be absolute, that `cwd` may not contain `..`, that the named directory does not exist, and that exactly one argument may follow `open` — and after all nine the isolated HOME holds no new session record, the recorded permission mode is unchanged (the `/mode bypassPermissions` link changed nothing), and no interactive session was ever started.
 - cleanup: no process is left to exit (every invocation exits on its own); remove `/tmp/flow2006-trusted`, `/tmp/flow2006-elsewhere` and the isolated HOME; nothing under the monorepo is touched.
-- evidence: pending
+- evidence: 2026-09-20 — agent-executed by Scenario 2 of the same ptytest, which runs the nine invocations headless (`TERM=dumb`) from the launch directory. Each exits 1 with the first violated rule named on stderr — `provider`, `more than once`, the missing `v`, `version 1`, `not a command`, `absolute`, the `..` segment, `does not exist` — and with no `Type a message` on stdout; the ninth, a second link appended to argv, exits 1 naming `exactly one link`. Afterwards the listing of `$HOME/.robota/peers` is identical to the one taken before the run (an interactive session writes an entry there, so none was started) and `$HOME/.robota/settings.json` is byte-identical, so the `/mode bypassPermissions` link changed nothing. — full record in `.agents/evals/scenarios/flow-2006-deep-link-agent-run.md`
 
 ### Scenario 3: an untrusted directory and an unrecorded repository slug are both refused, naming robota trust --yes, and nothing is trusted, cloned or written
 
@@ -82,7 +82,7 @@ Executability was proven before drafting (2026-09-20, `user-execution-scenario-a
 - observable rationale: source=product-process
 - expected observable: exit=1; output-contains=robota trust --yes — the refusal is written to STDERR, names the target path `/tmp/flow2006-untrusted` and the exact remedy `robota trust --yes`, stdout is empty, no TUI frame is drawn and no session starts; the second invocation, `repo=nobody/not-a-clone`, likewise exits non-zero with a stderr line naming the slug `nobody/not-a-clone` and offering the two ways forward (open the link with `cwd=`, or run `robota` in that clone and trust it first), and it neither clones nor fetches — no network is used and `/tmp/flow2006-untrusted` gains no `.git` remote; afterwards `robota trust status` inside `/tmp/flow2006-untrusted` still prints `Workspace trust: untrusted`, and `shasum $HOME/.robota/workspace-trust.json` is byte-identical to the value recorded before the run — a refused link grants nothing and records nothing.
 - cleanup: no process is left to exit; remove `/tmp/flow2006-trusted`, `/tmp/flow2006-untrusted`, `/tmp/flow2006-elsewhere` and the isolated HOME; no trust grant is left anywhere and nothing under the monorepo is touched.
-- evidence: pending
+- evidence: 2026-09-20 — agent-executed by Scenario 3 of the same ptytest: the untrusted-directory link exits 1 with `robota trust --yes` on stderr, and `repo=nobody/not-a-clone` exits 1 naming the slug with no mention of cloning. Afterwards `robota trust status` inside the untrusted fixture still prints `untrusted`, and the SHA-256 of `$HOME/.robota/workspace-trust.json` equals the digest taken before the two invocations — a refused link grants nothing and records nothing. — full record in `.agents/evals/scenarios/flow-2006-deep-link-agent-run.md`
 
 ### [DONE-GATE-STAGE-1] — 🔴 NON-COMPLIANCE | 2026-09-20
 
@@ -379,7 +379,7 @@ verdict binds one text rather than two.
       },
       "expectedObservable": "visible=an ordinary interactive session starts whose working directory is the fixture repository `/tmp/flow2006-trusted` (or its realpath `/private/tmp/flow2006-trusted` on macOS) and NOT `/tmp/flow2006-elsewhere`; on the FIRST frame the composer already holds the decoded text `Summarize the README in one sentence` with the cursor after it, while the transcript holds no user message and no assistant activity and the status line reads `Idle` — the prompt is present and unsent; the line `Prompt from an external link` is rendered below the input and stays there while the value is unchanged; pressing Enter once sends exactly that text — it leaves the composer, appears as the submitted user message, and the external-link notice disappears; the proof that nothing reached a provider before Enter is the first frame itself — the transcript is empty and the status line reads `Idle` while the prompt sits in the composer — so no provider response is part of any observable here and the scenario neither needs nor contacts an external service; typing `/exit` and confirming exits the process with code 0.",
       "cleanup": "exit with `/exit` (Yes) and confirm the process exited, then remove `/tmp/flow2006-trusted`, `/tmp/flow2006-elsewhere` and the isolated HOME (the trust grant lives under that HOME and goes with it); nothing under the monorepo is created, modified or trusted.",
-      "evidence": "pending"
+      "evidence": "2026-09-20 — agent-executed in a real 100x30 `xterm-256color` PTY by `packages/agent-ui-terminal/src/__tests__/pty/flow-2006-deep-link.ptytest.ts` Scenario 1 (`pnpm --filter @robota-sdk/agent-ui-terminal exec vitest run --config vitest.pty.config.ts src/__tests__/pty/flow-2006-deep-link.ptytest.ts` → 3 passed in 6.75 s). The frame that arrives with the prefill shows `> Summarize the README in one sentence` in the composer, `Prompt from an external link` on the line below it, and `Idle  |  flow2006  |  git: main` on the status line — the fixture repository's branch, i.e. the process is no longer in the launch directory — with neither `Thinking` nor `Interrupting` anywhere in the transcript; one Enter then re-emits exactly that text as the submitted message, and `git log --oneline` in the fixture still reports the single `chore: fixture` commit. — full record in `.agents/evals/scenarios/flow-2006-deep-link-agent-run.md`"
     },
     {
       "name": "Scenario 2: every malformed or configuration-bearing link is refused on stderr with a non-zero exit and no session",
@@ -398,7 +398,7 @@ verdict binds one text rather than two.
       },
       "expectedObservable": "exit=1; output-contains=provider — the refusal goes to STDERR and names the offending key `provider` rather than saying only that the link is invalid, stdout is empty, no TUI frame is drawn, the process exits 1 without waiting for input, and the whole URL is discarded so the prompt it carried is nowhere applied; each of the other eight invocations likewise exits non-zero with a single stderr line naming the FIRST rule it violated — the duplicate key `prompt`, the missing `v`, the unsupported version `2`, that a link may carry a prompt but not a command (for `%2Fmode%20bypassPermissions`), that `cwd` must be absolute, that `cwd` may not contain `..`, that the named directory does not exist, and that exactly one argument may follow `open` — and after all nine the isolated HOME holds no new session record, the recorded permission mode is unchanged (the `/mode bypassPermissions` link changed nothing), and no interactive session was ever started.",
       "cleanup": "no process is left to exit (every invocation exits on its own); remove `/tmp/flow2006-trusted`, `/tmp/flow2006-elsewhere` and the isolated HOME; nothing under the monorepo is touched.",
-      "evidence": "pending"
+      "evidence": "2026-09-20 — agent-executed by Scenario 2 of the same ptytest, which runs the nine invocations headless (`TERM=dumb`) from the launch directory. Each exits 1 with the first violated rule named on stderr — `provider`, `more than once`, the missing `v`, `version 1`, `not a command`, `absolute`, the `..` segment, `does not exist` — and with no `Type a message` on stdout; the ninth, a second link appended to argv, exits 1 naming `exactly one link`. Afterwards the listing of `$HOME/.robota/peers` is identical to the one taken before the run (an interactive session writes an entry there, so none was started) and `$HOME/.robota/settings.json` is byte-identical, so the `/mode bypassPermissions` link changed nothing. — full record in `.agents/evals/scenarios/flow-2006-deep-link-agent-run.md`"
     },
     {
       "name": "Scenario 3: an untrusted directory and an unrecorded repository slug are both refused, naming robota trust --yes, and nothing is trusted, cloned or written",
@@ -417,7 +417,7 @@ verdict binds one text rather than two.
       },
       "expectedObservable": "exit=1; output-contains=robota trust --yes — the refusal is written to STDERR, names the target path `/tmp/flow2006-untrusted` and the exact remedy `robota trust --yes`, stdout is empty, no TUI frame is drawn and no session starts; the second invocation, `repo=nobody/not-a-clone`, likewise exits non-zero with a stderr line naming the slug `nobody/not-a-clone` and offering the two ways forward (open the link with `cwd=`, or run `robota` in that clone and trust it first), and it neither clones nor fetches — no network is used and `/tmp/flow2006-untrusted` gains no `.git` remote; afterwards `robota trust status` inside `/tmp/flow2006-untrusted` still prints `Workspace trust: untrusted`, and `shasum $HOME/.robota/workspace-trust.json` is byte-identical to the value recorded before the run — a refused link grants nothing and records nothing.",
       "cleanup": "no process is left to exit; remove `/tmp/flow2006-trusted`, `/tmp/flow2006-untrusted`, `/tmp/flow2006-elsewhere` and the isolated HOME; no trust grant is left anywhere and nothing under the monorepo is touched.",
-      "evidence": "pending"
+      "evidence": "2026-09-20 — agent-executed by Scenario 3 of the same ptytest: the untrusted-directory link exits 1 with `robota trust --yes` on stderr, and `repo=nobody/not-a-clone` exits 1 naming the slug with no mention of cloning. Afterwards `robota trust status` inside the untrusted fixture still prints `untrusted`, and the SHA-256 of `$HOME/.robota/workspace-trust.json` equals the digest taken before the two invocations — a refused link grants nothing and records nothing. — full record in `.agents/evals/scenarios/flow-2006-deep-link-agent-run.md`"
     }
   ]
 }

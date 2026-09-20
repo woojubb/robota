@@ -61,6 +61,10 @@ Commands:
   robota doctor --repair <id> [-y] Apply one allowlisted repair after confirmation
   robota trust [status|grant|revoke] [--yes]
                                   Inspect or change the current workspace trust grant
+  robota open '<robota://open?v=1&prompt=...&cwd=...>'
+                                  Open a deep link: start a session in the linked, already-trusted
+                                  directory with the prompt prefilled and unsent. It takes exactly
+                                  one link; your own flags still apply after it.
   robota usage [options]           Show 7/30-day cross-session personal usage (text or JSON)
   robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 

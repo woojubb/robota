@@ -28,6 +28,9 @@ interface IProps {
   sessionStore?: IInteractiveSessionStore;
   resumeSessionId?: string;
   showSessionPickerOnStart?: boolean;
+  /** FLOW-2006: a deep link's prefill, consumed once by the composer. */
+  initialInput?: string;
+  initialInputOrigin?: 'external-link';
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   pluginAdapter?: ICommandPluginAdapter;
@@ -113,6 +116,10 @@ export default function App(props: IProps): React.ReactElement {
         sessionSwitchError={active.error}
         sessionSwitchPending={active.switching}
         showSessionPickerOnStart={active.showPicker}
+        {...(props.initialInput !== undefined ? { initialInput: props.initialInput } : {})}
+        {...(props.initialInputOrigin !== undefined
+          ? { initialInputOrigin: props.initialInputOrigin }
+          : {})}
         {...(props.providerType !== undefined ? { providerType: props.providerType } : {})}
         {...(props.modelId !== undefined ? { modelId: props.modelId } : {})}
         {...(props.permissionMode !== undefined ? { permissionMode: props.permissionMode } : {})}

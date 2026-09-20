@@ -61,6 +61,7 @@ import {
   resolveInitialCliWorkspaceProjectAccess,
 } from './startup/workspace-project-composition.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
+import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { runPrintMode } from './modes/print-mode.js';
@@ -77,6 +78,13 @@ import {
 export type { IStartCliOptions };
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
+  // FLOW-2006: `robota open <url>` is decided BEFORE the working directory is read and before the
+  // workspace is resolved — it is the one invocation that changes which directory the process is
+  // about, and resolving trust for the directory the user happened to start in would be answering
+  // the wrong question. On success it has already chdir'd and stripped its two argv tokens.
+  const launch = await applyLaunchInvocation();
+  if (launch.kind === 'refused') return;
+  const initialInput = launch.kind === 'launched' ? launch.initialInput : undefined;
   const cwd = process.cwd();
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
   const startupOptions: IStartCliOptions = { ...options, projectAccess };
@@ -508,6 +516,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   await renderApp({
     providerDefinitions,
+    ...(initialInput !== undefined
+      ? { initialInput, initialInputOrigin: 'external-link' as const }
+      : {}),
     onChannelReady: createChannelReadyHandler(setLiveChannel, setRemoteControlChannel, startPeers),
     cwd,
     provider,

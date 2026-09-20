@@ -509,6 +509,40 @@ When a session has a name, it appears in three places:
 - **Terminal title** — updated via ANSI escape sequences
 - **StatusBar** — displayed alongside activity, model, and context usage
 
+## Deep Links
+
+A `robota://open` link starts a session in a directory you have already trusted, with a prompt
+already in the composer and **not** submitted — you read it and press Enter, or clear it.
+
+```bash
+robota open 'robota://open?v=1&prompt=Summarize%20the%20README&cwd=/absolute/path/to/repo'
+```
+
+| Key      | Meaning                                                                                                              |
+| -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `v`      | Contract version. Required, and must be `1`.                                                                         |
+| `prompt` | The text to prefill. At most 5,000 characters; it may not begin with `/`.                                            |
+| `cwd`    | Absolute path of the directory to open.                                                                              |
+| `repo`   | `owner/name` of an already-trusted local clone, when you do not want to name a path. `cwd` wins if both are present. |
+
+Everything else is refused, and a refusal discards the whole link, says which rule it broke, writes
+to stderr and exits non-zero without starting a session: an unknown key (so a link cannot carry
+`provider=`, `permission-mode=`, `plugin=` or any other configuration), a duplicate key, a missing
+or different `v`, a link over 8,192 characters, a prompt over 5,000, a prompt beginning with `/`
+(one Enter would otherwise run it as a command), a relative, UNC or `..`-bearing path, and a second
+argument after the link.
+
+The target must already be trusted — `robota trust --yes` in that directory — for `cwd=` exactly as
+for `repo=`. A link opens only what you have already approved; it never clones, never fetches, and
+never reads a repository you have not trusted. While the prefilled text is in the composer, the line
+`Prompt from an external link` sits below the input, and above 1,000 characters it adds the
+character count and asks you to read the whole thing before sending.
+
+**Known limitations.** No URL scheme is registered with the operating system yet, so a browser
+cannot hand the link over: pass it to `robota open` yourself, or point your own handler at that
+command. Registering the scheme on macOS, Linux and Windows, and the HTTPS launcher that works
+around chat clients stripping custom schemes, are tracked separately.
+
 ## Slash Commands
 
 Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inserts without executing, Enter executes. Subcommands (e.g., `/provider list`) show a nested submenu.
