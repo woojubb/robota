@@ -8,7 +8,7 @@
       "local_diagnostics": "pnpm harness:verify-like-ci",
       "strict_required_status_checks_policy": false,
       "strict_policy_why": "INFRA-162 / issue #2219. \"Require branches to be up to date before merging\" is OFF on `protect-develop`, and that is the deliberate choice `fd0752f90` recorded: base freshness is asked mechanically at the one moment it matters by `.claude/hooks/merge-gate.sh`, which refuses a merge whose base moved over any file the pull request touches, instead of charging every pull request a rebase and a CI cycle. Declared here so that turning it on or off is a visible change: `scripts/harness/scan-main-required-checks.mjs --live` reconciles this value against the live ruleset and refuses rather than defaulting when it cannot be read.",
-      "why": "These eleven contexts remain the remote verification floor. Local affected checks provide development feedback; complete repository-contract, hermetic and pristine scans belong to the existing CI job and are not repeated automatically before push. Optional local diagnostics must state their actual coverage and cannot authorize a merge.",
+      "why": "These twelve contexts remain the remote verification floor. Local affected checks provide development feedback; complete repository-contract, hermetic and pristine scans belong to the existing CI job and are not repeated automatically before push. Optional local diagnostics must state their actual coverage and cannot authorize a merge.",
       "required_status_checks": [
         {
           "context": "build",
@@ -78,6 +78,15 @@
           "workflow": ".github/workflows/ci.yml",
           "job": "windows-shell",
           "verifies": "The cross-platform shell resolver and the Shell tool spawning PowerShell, on real `windows-latest`. Gated on the `changes` classifier reporting code.",
+          "local": {
+            "notRunnable": "ci-mirror-map NOT_MIRRORED"
+          }
+        },
+        {
+          "context": "stable payload native",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "stable-payload-native",
+          "verifies": "PAYLOAD-2153 — one fail-closed fan-in over exactly five read-only native host legs (Linux x64/arm64, macOS x64/arm64, and Windows x64). Every relevant leg proves the stable rooted-read authority on Node 20.19 and Node 22, the public replay path, a clean-installed Node CLI, and a standalone exact-host Bun CLI; an irrelevant diff concludes success with an explicit N/A verdict, while an unknown classifier result, missing/duplicate/unexpected evidence, or any failed native leg blocks.",
           "local": {
             "notRunnable": "ci-mirror-map NOT_MIRRORED"
           }

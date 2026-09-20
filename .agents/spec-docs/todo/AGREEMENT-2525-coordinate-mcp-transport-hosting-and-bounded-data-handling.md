@@ -117,7 +117,7 @@ No runtime file changes are authorized by this Agreement checkpoint. Each child 
 
 ## Tasks
 
-- [ ] PAYLOAD-2153 — todo — `.agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`
+- [ ] PAYLOAD-2153 — in-progress — `.agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`
 - [ ] MCP-2522 — todo — `.agents/tasks/MCP-2522-add-a-safe-stdio-mcp-client-transport.md`
 - [ ] MCP-2525 — todo — `.agents/tasks/MCP-2525-bound-mcp-results-and-spill-oversized-output-securely.md`
 - [ ] MCP-2533 — todo — `.agents/tasks/MCP-2533-add-authenticated-loopback-streamable-http-mcp-hosting.md`

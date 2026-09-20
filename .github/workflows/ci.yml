@@ -1322,18 +1322,23 @@ jobs:
           - target: linux-x64
             runner: ubuntu-24.04
             binary: qualification
+            cli_binary: robota-linux-x64
           - target: linux-arm64
             runner: ubuntu-24.04-arm
             binary: qualification
+            cli_binary: robota-linux-arm64
           - target: darwin-x64
             runner: macos-26-intel
             binary: qualification
+            cli_binary: robota-darwin-x64
           - target: darwin-arm64
             runner: macos-26
             binary: qualification
+            cli_binary: robota-darwin-arm64
           - target: windows-x64
             runner: windows-2025
             binary: qualification.exe
+            cli_binary: robota-windows-x64.exe
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
@@ -1380,6 +1385,41 @@ jobs:
         with:
           node-version: 22.14.0
 
+      - name: Build the workspace for public replay and packaged CLI verification
+        run: pnpm build
+
+      - name: Verify the public session replay scenario
+        run: |
+          pnpm --filter @robota-sdk/agent-session run scenario:verify:external-payload-replay \
+            | tee ".qualification-output/${{ matrix.target }}/session-replay.log"
+        shell: bash
+
+      - name: Pack, clean-install, and verify the Node CLI
+        run: |
+          set -euo pipefail
+          output_root="$PWD/.qualification-output/${{ matrix.target }}"
+          pack_root="$(mktemp -d "${RUNNER_TEMP}/payload-native-pack-${{ matrix.target }}-XXXXXX")"
+          install_root="$(mktemp -d "${RUNNER_TEMP}/payload-native-install-${{ matrix.target }}-XXXXXX")"
+          node scripts/artifacts/pack.mjs \
+            --package packages/agent-cli \
+            --destination "$pack_root"
+          shopt -s nullglob
+          packages=("$pack_root"/*.tgz)
+          if [[ "${#packages[@]}" -ne 1 ]]; then
+            echo "::error::Expected one packed CLI archive, received ${#packages[@]}."
+            exit 1
+          fi
+          (
+            cd "$install_root"
+            npm init --yes >/dev/null
+            npm install --ignore-scripts --no-audit --no-fund "${packages[0]}"
+          )
+          node packages/agent-cli/scripts/e2e-native-file-authority.mjs \
+            --node \
+            "$install_root/node_modules/@robota-sdk/agent-cli/dist/node/bin.js" \
+            | tee "$output_root/node-cli.log"
+        shell: bash
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -1387,17 +1427,32 @@ jobs:
 
       - name: Embed and execute the matching native addon without node_modules
         run: |
+          set -euo pipefail
           output_root=".qualification-output/${{ matrix.target }}"
-          binary_path="$PWD/$output_root/${{ matrix.binary }}"
-          pnpm --filter @robota-sdk/agent-file-authority qualify:bun:build "$binary_path"
-          mkdir -p "$output_root/fresh-runtime"
-          (cd "$output_root/fresh-runtime" && "$binary_path") | tee "$output_root/bun.log"
+          standalone_root="$(mktemp -d "${RUNNER_TEMP}/payload-native-bun-${{ matrix.target }}-XXXXXX")"
+          qualification_binary="$standalone_root/${{ matrix.binary }}"
+          pnpm --filter @robota-sdk/agent-file-authority qualify:bun:build "$qualification_binary"
+          (cd "$standalone_root" && "$qualification_binary") | tee "$output_root/bun.log"
+
+          bun packages/agent-cli/scripts/build-bun.mjs "${{ matrix.target }}"
+          node scripts/artifacts/generation-image.mjs \
+            packages/agent-cli \
+            dist-bun \
+            "$standalone_root/cli"
+          cli_binary="$standalone_root/cli/${{ matrix.cli_binary }}"
+          (cd "$standalone_root/cli" && "$cli_binary" --version)
+          node packages/agent-cli/scripts/e2e-native-file-authority.mjs "$cli_binary" \
+            | tee "$output_root/bun-cli.log"
+
           node packages/agent-file-authority/scripts/write-native-evidence.mjs \
             --target "${{ matrix.target }}" \
             --output "$output_root/evidence-${{ matrix.target }}.json" \
             --node20-log "$output_root/node20.log" \
             --node22-log "$output_root/node22.log" \
-            --bun-log "$output_root/bun.log"
+            --bun-log "$output_root/bun.log" \
+            --session-log "$output_root/session-replay.log" \
+            --node-cli-log "$output_root/node-cli.log" \
+            --bun-cli-log "$output_root/bun-cli.log"
         shell: bash
 
       - name: Upload one native evidence record
@@ -1414,11 +1469,17 @@ jobs:
   stable-payload-native:
     name: stable payload native
     needs: [changes, payload-native]
-    if: ${{ always() && !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
+    if: ${{ always() && !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != '' && needs.payload-native.result != '' }}
     permissions:
       contents: read
     runs-on: ubuntu-latest
     steps:
+      - name: Refuse unsafe benchmark check attachment
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
+        uses: actions/github-script@v9
+        with:
+          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
+
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
@@ -1782,18 +1843,19 @@ jobs:
       - benchmark-review-gate
       - benchmark-workflow-provenance
       - regression-red-proof
+      - stable-payload-native
     runs-on: ubuntu-latest
     permissions:
       actions: read
     steps:
-      - name: Measure all 11 develop-required contexts
+      - name: Measure all 12 develop-required contexts
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.run_id }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          required='["build","quality","scans","dependency audit","commitlint","tui-e2e","examples-typecheck","windows-shell","review-gate","workflow provenance","regression-red-proof (enforcing: accidental-green only)"]'
+          required='["build","quality","scans","dependency audit","commitlint","tui-e2e","examples-typecheck","windows-shell","stable payload native","review-gate","workflow provenance","regression-red-proof (enforcing: accidental-green only)"]'
           run_created_at="$(gh api --paginate "repos/${REPOSITORY}/actions/runs/${RUN_ID}" --jq '.created_at')"
           for attempt in {1..10}; do
             gh api --paginate --slurp \
@@ -1802,7 +1864,7 @@ jobs:
             if jq -e --argjson required "$required" '
               [.[].jobs[]] as $jobs
               | [$required[] as $name | $jobs[] | select(.name == $name)]
-              | length == 11 and all(.[]; (.completed_at | type) == "string")
+              | length == 12 and all(.[]; (.completed_at | type) == "string")
             ' "$RUNNER_TEMP/job-pages.json" >/dev/null; then
               break
             fi
@@ -1843,5 +1905,5 @@ jobs:
             jq -r '"Push-to-conclusive critical path: **\(map(.elapsed_seconds) | max) seconds** (target: 128 seconds)"' \
               "$RUNNER_TEMP/required-contexts.json"
           } >> "$GITHUB_STEP_SUMMARY"
-          jq -e 'length == 11 and all(.[]; .conclusion == "success") and (map(.elapsed_seconds) | max) <= 128' \
+          jq -e 'length == 12 and all(.[]; .conclusion == "success") and (map(.elapsed_seconds) | max) <= 128' \
             "$RUNNER_TEMP/required-contexts.json" >/dev/null

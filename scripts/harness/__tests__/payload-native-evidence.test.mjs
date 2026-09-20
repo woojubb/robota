@@ -19,7 +19,7 @@ function writeEvidence(root, target, overrides = {}) {
   writeFileSync(
     join(root, `evidence-${target}.json`),
     JSON.stringify({
-      schemaVersion: 1,
+      schemaVersion: 2,
       target,
       platform,
       arch,
@@ -30,6 +30,9 @@ function writeEvidence(root, target, overrides = {}) {
       rootReplacement: 'preserved',
       finalLink: 'refused',
       boundedRead: 'refused',
+      sessionReplay: 'passed',
+      packedNodeCli: 'passed',
+      standaloneBunCli: 'passed',
       ...overrides,
     }),
   );

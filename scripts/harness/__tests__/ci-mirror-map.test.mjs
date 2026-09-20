@@ -161,7 +161,7 @@ describe('every mirrored job is covered STEP for STEP (anti-drift)', () => {
 describe('the stage table itself is well-formed', () => {
   it('keeps the scans context in CI without duplicating its three checks locally', () => {
     expect(stagesMirroring('scans')).toEqual([]);
-    expect(REQUIRED).toHaveLength(11);
+    expect(REQUIRED).toHaveLength(12);
     expect(REQUIRED.find((entry) => entry.context === 'scans')).toMatchObject({
       workflow: '.github/workflows/ci.yml',
       job: 'scans',

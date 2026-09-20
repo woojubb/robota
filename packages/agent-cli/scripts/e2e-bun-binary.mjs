@@ -7,10 +7,15 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { chmodSync, copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pinGeneration } from '../../../scripts/artifacts/generation.mjs';
+import {
+  assertStandaloneNativeRuntime,
+  runNativeFileAuthorityE2e,
+} from './e2e-native-file-authority.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgDir = join(here, '..'); // packages/agent-cli
@@ -60,16 +65,40 @@ const check = (label, ok) => {
   if (!ok) failures += 1;
 };
 
-const ver = spawnSync(bin, ['--version'], { encoding: 'utf8' });
-check('--version exits 0', ver.status === 0);
-check(
-  `--version prints the real version (${expectedVersion}), not the 0.0.0 fallback`,
-  (ver.stdout ?? '').includes(expectedVersion) && !(ver.stdout ?? '').includes('0.0.0'),
-);
+const cleanRoot = mkdtempSync(join(tmpdir(), 'robota-bun-standalone-'));
+try {
+  const standalone = join(cleanRoot, basename(bin));
+  copyFileSync(bin, standalone);
+  chmodSync(standalone, 0o755);
+  try {
+    assertStandaloneNativeRuntime(standalone);
+    check('standalone fixture has no node_modules ancestor', true);
+  } catch (error) {
+    console.error(error);
+    check('standalone fixture has no node_modules ancestor', false);
+  }
 
-const help = spawnSync(bin, ['--help'], { encoding: 'utf8' });
-check('--help exits 0', help.status === 0);
-check('--help prints usage', /Usage:\s*robota/.test(help.stdout ?? ''));
+  const ver = spawnSync(standalone, ['--version'], { encoding: 'utf8' });
+  check('--version exits 0', ver.status === 0);
+  check(
+    `--version prints the real version (${expectedVersion}), not the 0.0.0 fallback`,
+    (ver.stdout ?? '').includes(expectedVersion) && !(ver.stdout ?? '').includes('0.0.0'),
+  );
+
+  const help = spawnSync(standalone, ['--help'], { encoding: 'utf8' });
+  check('--help exits 0', help.status === 0);
+  check('--help prints usage', /Usage:\s*robota/.test(help.stdout ?? ''));
+
+  try {
+    console.log(runNativeFileAuthorityE2e(standalone));
+    check('native replay succeeds and replaced parent is refused', true);
+  } catch (error) {
+    console.error(error);
+    check('native replay succeeds and replaced parent is refused', false);
+  }
+} finally {
+  rmSync(cleanRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
+}
 
 console.log(
   failures === 0 ? '\nDIST-001 BINARY E2E PASSED' : `\nDIST-001 BINARY E2E FAILED (${failures})`,

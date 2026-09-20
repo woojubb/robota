@@ -3199,6 +3199,26 @@
       "owner": "repository-harness",
       "subject": {
         "kind": "required-status-context",
+        "value": "develop:stable payload native"
+      },
+      "diagnosticId": "hook.migration.status-develop-stable-payload-native",
+      "currentExitBehavior": "required-ci-status",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Required CI status context is inventoried as a downstream consumer of diagnostic behavior.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      },
+      "statusContext": {
+        "branch": "develop",
+        "context": "stable payload native"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "required-status-context",
         "value": "develop:review-gate"
       },
       "diagnosticId": "hook.migration.status-develop-review-gate",

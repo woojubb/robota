@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 
 import {
   authorityError,
-  isStableFileAuthorityError,
+  StableFileAuthorityError,
   type IStableRootedFileReader,
 } from './contracts.js';
 import { PosixStableFileHostBackend } from './posix-backend.js';
@@ -87,7 +87,7 @@ class StableRootedFileReader implements IStableRootedFileReader {
     try {
       return backend.readBytes(relativeSegments, maxBytes, this.hooks);
     } catch (error) {
-      if (isStableFileAuthorityError(error)) throw error;
+      if (error instanceof StableFileAuthorityError) throw error;
       throw authorityError('HOST_IO', 'read');
     }
   }
@@ -100,7 +100,7 @@ class StableRootedFileReader implements IStableRootedFileReader {
     try {
       backend.close();
     } catch (error) {
-      if (isStableFileAuthorityError(error)) throw error;
+      if (error instanceof StableFileAuthorityError) throw error;
       throw authorityError('HOST_IO', 'close');
     }
   }

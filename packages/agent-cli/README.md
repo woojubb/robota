@@ -122,7 +122,11 @@ from the repository root with:
 node scripts/artifacts/pack.mjs --package packages/agent-cli --destination /tmp/robota-cli-pack
 ```
 
-Standalone Bun builds use the separate `dist-bun` variant (`pnpm --filter @robota-sdk/agent-cli build:bun`).
+Standalone Bun builds use the separate `dist-bun` variant
+(`pnpm --filter @robota-sdk/agent-cli build:bun`). Native dependencies make these builds exact-host:
+each supported Linux x64/arm64, macOS x64/arm64, or Windows x64 artifact must be compiled on its
+matching host. A mismatched target is refused before the selected generation changes; there is no
+cross-host `all` build mode.
 If a build reports an interrupted transaction, first ensure its writer has exited, then run
 `node scripts/artifacts/recovery.mjs packages/agent-cli` from the repository root. Recovery preserves
 previous output; it refuses to take over an active writer. The first transition from physical `dist`

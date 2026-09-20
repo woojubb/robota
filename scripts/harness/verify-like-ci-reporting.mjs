@@ -119,6 +119,7 @@ export function annotateNotMirrored(
   changedFiles,
   productChanged = classifyFiles(changedFiles).product,
 ) {
+  const classification = classifyFiles(changedFiles);
   const touchesManifest = changedFiles.some(
     (file) =>
       file === 'pnpm-lock.yaml' || file === 'package.json' || file.endsWith('/package.json'),
@@ -129,6 +130,7 @@ export function annotateNotMirrored(
     if (key === 'guarded-workflow') {
       return changedFiles.some((file) => file.startsWith('.github/workflows/'));
     }
+    if (key === 'payload-native') return classification.payloadNative;
     if (key === 'every-pull-request') return true;
     return true;
   };

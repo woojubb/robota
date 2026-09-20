@@ -45,7 +45,7 @@ function validateMaxBytes(maxBytes: number): void {
   }
 }
 
-function outsideRootError(relativePath: string, cause?: unknown): SessionLogPayloadResolutionError {
+function outsideRootError(relativePath: string, cause?: Error): SessionLogPayloadResolutionError {
   return new SessionLogPayloadResolutionError(
     'OUTSIDE_ROOT',
     `External payload path escapes its base directory or contains a link: ${relativePath}.`,

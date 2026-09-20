@@ -31,14 +31,34 @@ function readQualification(file, runtimePattern) {
   return match[1];
 }
 
+function requireLine(file, line) {
+  const text = readFileSync(resolve(file), 'utf8');
+  if (!text.split(/\r?\n/u).includes(line)) {
+    throw new Error(`Native evidence is missing the exact line: ${line}`);
+  }
+  return 'passed';
+}
+
 const target = argument('--target');
 const output = argument('--output');
 const node20Log = argument('--node20-log');
 const node22Log = argument('--node22-log');
 const bunLog = argument('--bun-log');
-if (!target || !output || !node20Log || !node22Log || !bunLog) {
+const sessionLog = argument('--session-log');
+const nodeCliLog = argument('--node-cli-log');
+const bunCliLog = argument('--bun-cli-log');
+if (
+  !target ||
+  !output ||
+  !node20Log ||
+  !node22Log ||
+  !bunLog ||
+  !sessionLog ||
+  !nodeCliLog ||
+  !bunCliLog
+) {
   throw new Error(
-    'usage: write-native-evidence.mjs --target <target> --output <file> --node20-log <file> --node22-log <file> --bun-log <file>',
+    'usage: write-native-evidence.mjs --target <target> --output <file> --node20-log <file> --node22-log <file> --bun-log <file> --session-log <file> --node-cli-log <file> --bun-cli-log <file>',
   );
 }
 const expected = TARGETS[target];
@@ -49,7 +69,7 @@ if (!expected || expected.platform !== process.platform || expected.arch !== pro
 }
 
 const evidence = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   target,
   platform: process.platform,
   arch: process.arch,
@@ -60,5 +80,17 @@ const evidence = {
   rootReplacement: 'preserved',
   finalLink: 'refused',
   boundedRead: 'refused',
+  sessionReplay: requireLine(
+    sessionLog,
+    'result=replay-preserved; replacementDenied=true; cleanupRemoved=true',
+  ),
+  packedNodeCli: requireLine(
+    nodeCliLog,
+    'native-file-authority=passed; success=true; replacementDenied=true; cleanupRemoved=true',
+  ),
+  standaloneBunCli: requireLine(
+    bunCliLog,
+    'native-file-authority=passed; success=true; replacementDenied=true; cleanupRemoved=true',
+  ),
 };
 writeFileSync(resolve(output), `${JSON.stringify(evidence, null, 2)}\n`, { flag: 'wx' });

@@ -52,7 +52,3 @@ export function authorityError(
 ): StableFileAuthorityError {
   return new StableFileAuthorityError(code, { operation, ...details });
 }
-
-export function isStableFileAuthorityError(error: unknown): error is StableFileAuthorityError {
-  return error instanceof StableFileAuthorityError;
-}

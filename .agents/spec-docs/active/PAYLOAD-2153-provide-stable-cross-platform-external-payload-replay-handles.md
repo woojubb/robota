@@ -151,8 +151,10 @@ The public contract is:
 - `readBytes(relativeSegments, maxBytes)` accepts a non-empty list of internally validated single
   segments and a mandatory non-negative safe-integer budget. Missing is the sole `undefined` result.
   Empty content succeeds under budget `0`; any observed byte under that budget is `OVER_BUDGET`.
-- `close()` and `[Symbol.dispose]()` are idempotent. Intermediate/final handles close in `finally`,
-  use after close is `AUTHORITY_CLOSED`, and a finalizer is only a leak backstop.
+- `close()` and `[Symbol.dispose]()` are idempotent. Intermediate/final handles close on rejected
+  inspection, failed native-open output, and in `finally`; Windows falls back to `CloseHandle` when
+  `NtClose` throws or returns a failure status. Use after close is `AUTHORITY_CLOSED`, and a finalizer
+  is only a leak backstop.
 - The stable error codes are `INVALID_PATH`, `UNSAFE_ENTRY`, `UNSUPPORTED_BACKEND`,
   `AUTHORITY_CLOSED`, `ROOT_CHANGED`, `FILE_CHANGED`, `OVER_BUDGET`, and `HOST_IO`. Diagnostics may
   contain safe relative operation context but never a root path, raw handle, FFI object, or file bytes.
@@ -433,20 +435,13 @@ None
 - Executability: agent-executable
 - Product surface: public-sdk-example
 - Surface rationale: shipped-interface=public-sdk-example
-- Prerequisites: use the repository Node.js and pnpm toolchain from `packages/agent-session` on each
-  native Linux, macOS, and Windows host; this Task creates
-  `examples/verify-external-payload-replay.ts`, whose isolated fixture imports the replay APIs from the
-  package public barrel, writes a valid externalized payload plus an outside marker, verifies successful
-  hydration, then replaces the payload directory with a symlink or Windows junction and verifies refusal
-  without network access, provider credentials, or secrets.
+- Prerequisites: Node 20.19+ on a supported native host; no network or credentials.
 - Command: `pnpm exec tsx examples/verify-external-payload-replay.ts`
 - Observable type: sdk-result
 - Observable rationale: source=public-sdk-return
 - Expected observable: result=replay-preserved; replacementDenied=true; cleanupRemoved=true
-- Cleanup: the example removes its isolated session-log root, payload sidecar, outside marker, symlink
-  or junction, and all other temporary fixture paths in `finally` on success or failure.
-- Evidence: pending; at DONE-GATE-STAGE-2 record each native host, the exact command, exit code, and
-  exact result line from the completed implementation.
+- Cleanup: the example removes its isolated fixture in `finally`.
+- Evidence: pending native-host execution at DONE-GATE-STAGE-2.
 
 ## Tasks
 
