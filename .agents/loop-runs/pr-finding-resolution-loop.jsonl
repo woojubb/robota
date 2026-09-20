@@ -36,5 +36,6 @@
 {"runId":"r20260913094923","opened":"2026-09-13T09:49:23.515Z","closed":"2026-09-13T10:15:20.820Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"ATTRIBUTION-2655"}
 {"runId":"r20260913102027","opened":"2026-09-13T10:20:27.949Z","closed":"2026-09-13T11:06:50.865Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":"BOUNDARY-2655 archival closeout"}
 {"runId":"r20260913110650","opened":"2026-09-13T11:06:50.904Z","closed":"2026-09-13T11:54:17.969Z","roundFindings":[0,1,0],"extensions":{},"terminal":"converged","ref":"PRELUDE-2655"}
-{"runId":"r20260913115418","opened":"2026-09-13T11:54:18.098Z","closed":null,"roundFindings":[1,0],"extensions":{},"terminal":null,"ref":"AGREEMENT-2655 final completion records"}
+{"runId":"r20260913115418","opened":"2026-09-13T11:54:18.098Z","closed":"2026-09-20T03:17:58.605Z","roundFindings":[1,0],"extensions":{},"terminal":"abandoned","ref":"superseded by r20260920031758"}
 {"runId":"r20260913172801","opened":"2026-09-13T17:28:01.514Z","closed":"2026-09-13T17:53:24.822Z","roundFindings":[3,5,5,0],"extensions":{},"terminal":"converged","ref":"STRUCT-012 S3 local review: 3,5,5 findings resolved; final ACTIONABLE FINDINGS: 0"}
+{"runId":"r20260920031758","opened":"2026-09-20T03:17:58.605Z","closed":"2026-09-20T03:20:12.244Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
