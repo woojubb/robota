@@ -37,6 +37,8 @@ export interface IListPickerProps<T> {
   maxVisible?: number;
   /** Key-hint footer shown below the list (default: navigate/select/cancel; `[]` suppresses it) */
   footerHints?: readonly IKeyHint[];
+  /** The item highlighted first (default: the first). Out-of-range values fall back to the first. */
+  initialIndex?: number;
 }
 
 /** Default affordance footer — Enter always selects and Esc always cancels. */
@@ -53,8 +55,14 @@ export default function ListPicker<T>({
   onCancel,
   maxVisible = DEFAULT_MAX_VISIBLE,
   footerHints = LIST_PICKER_DEFAULT_FOOTER_HINTS,
+  initialIndex = 0,
 }: IListPickerProps<T>): React.ReactElement {
-  const [state, setState] = useState<ISelectionFlowState>(() => createSelectionFlowState());
+  const [state, setState] = useState<ISelectionFlowState>(() => {
+    const index = initialIndex >= 0 && initialIndex < items.length ? initialIndex : 0;
+    const seeded = createSelectionFlowState(index);
+    // Keep the seeded row on screen when it sits past the first window.
+    return { ...seeded, scrollOffset: Math.max(0, index - maxVisible + 1) };
+  });
   const stateRef = useRef(state);
   const applyAction = useCallback(
     (action: TSelectionInputAction): void => {

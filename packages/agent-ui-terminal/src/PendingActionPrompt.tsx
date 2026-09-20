@@ -80,6 +80,16 @@ export default function PendingActionPrompt({
   const pickerItems: IActionOption[] = request.allowFreeText
     ? [...options, FREE_TEXT_OPTION]
     : [...options];
+  // BEHAVIOR-2437: a request's declared default is where the highlight STARTS — for a write
+  // confirmation built with `defaultYes: false`, a bare Enter must answer No, not Yes.
+  const defaultValue = request.default?.values?.[0];
+  const initialIndex =
+    defaultValue === undefined
+      ? 0
+      : Math.max(
+          0,
+          pickerItems.findIndex((option) => option.value === defaultValue),
+        );
 
   return (
     <Box flexDirection="column">
@@ -89,6 +99,7 @@ export default function PendingActionPrompt({
       )}
       <ListPicker<IActionOption>
         items={pickerItems}
+        initialIndex={initialIndex}
         maxVisible={request.maxVisible}
         renderItem={(option, isSelected) => (
           <Text color={isSelected ? palette.text.accent : undefined}>

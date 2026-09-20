@@ -14,6 +14,21 @@ export * from './plan/index.js';
 export * from './compact/index.js';
 export * from './context/index.js';
 export * from './editor/index.js';
+export {
+  createGitCommandEntry,
+  createGitCommandModule,
+  createGitProcess,
+  executeGitCommand,
+  gitEnvironment,
+  GitCommandSource,
+  type ICreateGitProcessOptions,
+  type IGitCommandModuleOptions,
+  type IGitProcessPort,
+  type IGitProcessRunOptions,
+  type TGitCommandContext,
+  type TGitProcessFailureReason,
+  type TGitProcessOutcome,
+} from './git/index.js';
 // OBSERVABILITY-1991: named rather than `export *` — the star form is frozen debt in this barrel.
 export {
   STORAGE_REPAIR_ID,

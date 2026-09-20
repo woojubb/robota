@@ -78,6 +78,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-plan',
   'agent-command-shell',
   'agent-command-editor',
+  'agent-command-git',
   'agent-command-doctor',
   'agent-command-memory',
   'agent-command-mcp-activation',
@@ -258,7 +259,7 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
     const { product } = assembleRobota();
     const packNames = ROBOTA_PACK_COMMAND_MODULE_NAMES;
 
-    expect(packNames).toEqual(['agent-command-shell', 'agent-command-editor']);
+    expect(packNames).toEqual(['agent-command-shell', 'agent-command-editor', 'agent-command-git']);
     // Present in the merged product…
     for (const name of packNames) {
       expect(product.commandModules.map((m) => m.name)).toContain(name);

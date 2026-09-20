@@ -1,4 +1,8 @@
-import { createEditorCommandModule, createShellCommandModule } from '@robota-sdk/agent-command';
+import {
+  createEditorCommandModule,
+  createGitCommandModule,
+  createShellCommandModule,
+} from '@robota-sdk/agent-command';
 import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
@@ -49,8 +53,8 @@ export interface ICodingPackOptions {
  *   — a pin that let ARCH-021's first TC-05 pass while being unable to fail, because comparing names
  *   cannot distinguish a pack-composed surface from an imported-default one when the two are pinned.
  *   The relationship is structural now, so there is no drift left to pin.
- * - **commandModules** — the coding command modules: `/shell` and `/editor` (the capability-level command
- *   modules, distinct from product-shell/settings/provider command infrastructure).
+ * - **commandModules** — the coding command modules: `/shell`, `/editor` and `/git` (the capability-level
+ *   command modules, distinct from product-shell/settings/provider command infrastructure).
  * - **subagents** — robota's built-in coding subagents (`general-purpose`, `Explore`, `Plan`).
  *
  * This pack contributes only when a product profile lists it (opt-in); every contributed command/tool runs
@@ -71,7 +75,7 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
     id: 'coding',
     title: 'Coding',
     description:
-      "Robota's built-in coding capability: file/shell tools, /shell + /editor commands, and the coding subagents.",
+      "Robota's built-in coding capability: file/shell tools, /shell + /editor + /git commands, and the coding subagents.",
     // ARCH-035: the always-present default set, consumed from its owner rather than rebuilt here.
     //
     // This list used to be hand-maintained, identical to `createDefaultTools()`'s always-present
@@ -85,7 +89,11 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
     // this pack supplies neither. SEC-007 still holds — `cwd` is REQUIRED here, so the file-tool
     // guard cannot be disarmed by omission, and the leaf threads it into every tool it builds.
     tools: createDefaultTools(toolOptions),
-    commandModules: [createShellCommandModule(), createEditorCommandModule()],
+    commandModules: [
+      createShellCommandModule(),
+      createEditorCommandModule(),
+      createGitCommandModule(),
+    ],
     subagents: BUILT_IN_AGENTS,
   };
 }

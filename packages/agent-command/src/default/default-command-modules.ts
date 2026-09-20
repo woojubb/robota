@@ -9,6 +9,7 @@ import { createEditorCommandModule } from '../editor/index.js';
 import { createEffortCommandModule } from '../effort/index.js';
 import { createExitCommandModule } from '../exit/index.js';
 import { createForkCommandModule } from '../fork/index.js';
+import { createGitCommandModule } from '../git/index.js';
 import { createGoalCommandModule } from '../goal/index.js';
 import { createHandoffCommandModule } from '../handoff/index.js';
 import { createHelpCommandModule } from '../help/index.js';
@@ -142,6 +143,7 @@ export function createDefaultCommandModules({
     createPlanCommandModule(),
     createShellCommandModule(),
     createEditorCommandModule(),
+    createGitCommandModule(),
     ...(keybindingsFilePort === undefined
       ? []
       : [createKeybindingsCommandModule(keybindingsFilePort)]),
