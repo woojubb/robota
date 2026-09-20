@@ -1,15 +1,18 @@
 ---
 title: 'SCREEN-2670: Queue screen-reader frames with a pre-write cursor park'
 issue: https://github.com/woojubb/robota/issues/2670
-status: in-progress
+status: done
 created: 2026-09-14
 priority: high
 urgency: now
 area: terminal UI package
 depends_on: [STRUCT-012]
+completed: 2026-09-20
 ---
 
 # SCREEN-2670: Queue screen-reader frames with a pre-write cursor park
+
+Spec: `.agents/spec-docs/done/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md`
 
 ## Objective
 

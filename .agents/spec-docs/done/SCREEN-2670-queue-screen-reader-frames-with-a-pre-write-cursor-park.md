@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: SCREEN
 tags: [screen]
 lane: L2
@@ -458,7 +458,7 @@ preparkMs })` returning the proxy, an `armEchoRelease()` port and `flush()`. A `
 
 ## Tasks
 
-- [ ] `.agents/tasks/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` — todo
+- [x] `.agents/tasks/completed/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` — done
 
 ## Evidence Log
 
@@ -903,3 +903,35 @@ ERROR harness.scan-finding.scan-c38-c2p-c37-c2z-c19-c2p-c36-c2r-c2w-c2x-c3a-c2p-
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `a3992430a7b8` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `ba20f0abaf04` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: the LAST `[GATE-IMPLEMENT]` entry is `✅ PASS | 2026-09-20` (judged at HEAD `f05926ecac6d`, the branch base); spec frontmatter `status: in-progress`, folder `active/` — the state the prior-gate map expects; no `[GATE-VERIFY]` entry preceded this one. Re-derived by `gate.mjs judge` → PASS.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`) (`task-plan-items`): `.agents/tasks/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` `## Plan` holds 11 items TC-01..TC-11, 11 `[x]`, 0 `[ ]`; `node scripts/harness/scan-task-plan-items.mjs` → exit 0 (319 Plan sections). Each tick is backed by a `[GATE-COMPLETE: TC-NN] — ✅ PASS | 2026-09-20` entry above carrying its command, exit 0 and output (TC-01 14 tests; TC-02/03/04/06/11 via `-t` in `screen-reader-stdout.test.ts`; TC-05 3 tests; TC-07 2 tests; TC-10 1 test; TC-09 3 tests; TC-08 build+test+typecheck+scan+lint). TC-09 re-run at judgement: `vitest run --config vitest.pty.config.ts src/__tests__/pty/screen-2670-prepark.ptytest.ts` → 3 passed (3). TC-08 amendment judged adversarially: (a) `node scripts/harness/scan-task-merged-citation.mjs` at HEAD `f2f8cd5c82d4` → exit 1 naming ONLY `.agents/tasks/SCREEN-2002-…md` (`in-progress` with 15 delivering commits merged); `a555afe80`, `c6b849287`, `d4fbb2245` are each an ancestor of base `f05926ecac6d`, SCREEN-2002's record is `status: in-progress` at `f05926eca:` and this branch's diff touches neither that record nor `scripts/harness/`, so the finding is inherited from the base, not produced here; (b) issue #2756 is OPEN, "scans-full is red on develop at f05926e", with the owner's 2026-09-20 comment naming `task-merged-citation` as the one red scan and SCREEN-2002 its sole subject; (c) the FAIL entry's second red scan, `task-archival`, was NOT skipped: it was red because the AGREEMENT-2670 pair projected SCREEN-2670 as `todo` while the Task was `in-progress`; the branch corrects both rows to `in-progress` and `node scripts/harness/check-task-archival.mjs` → exit 0 now (164 active, 1143 archived); the recorded PASS run skipped one scan only and exited 0. The amendment's phrase "that scan and nothing else of this change's failing" is therefore imprecise as to the FAIL output (two scans were red) but correct as to what was excluded (one, inherited). Lint ceiling: `pnpm lint` (`--max-warnings 2356`) at judgement → 0 errors, 2353 warnings, exit 0 (recorded 2355 at the earlier tree) — ceiling holds.
+- GATE-VERIFY — No Plan item is blocked or pending: the `## Plan` section contains no `blocked`/`pending`/`merge`/`land`/`publish`/`close` token and no disposition item (the only "pending" strings in the Task are `evidence: pending` quotations inside the DONE-GATE-STAGE-1 entries, outside `## Plan`); Task frontmatter `status: in-progress`, not `blocked`; `depends_on: [STRUCT-012]` is not cited as a blocker by any Plan item.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli build` → exit 0 (run by `gate.mjs judge` at this HEAD; agent-cli artifact generation 45 files, Done).
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm --filter @robota-sdk/agent-ui-terminal --filter @robota-sdk/agent-cli test` → exit 0 (run by `gate.mjs judge` at this HEAD; agent-cli Duration 6.36s, Done).
+
+Observations outside this gate's criteria, left for the owners of GATE-COMPLETE / DONE-GATE-STAGE-2, not verdict-bearing here: `.agents/evals/scenarios/screen-2670-prepark-agent-run.md` cites `**Spec:** .agents/spec-docs/done/…` while the spec lives under `active/`; the spec's `## Tasks` row still reads `— todo` while the Task is `in-progress`.
+
+**Judged by:** `backlog-gate-guard` (mechanical set re-derived by `gate.mjs judge`: 3 PASS, 2 PENDING-GUARDIAN, decided above)
+**Judged at:** HEAD `f2f8cd5c82d4` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `7b75d1339817` (tracked)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-20; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 11/11 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (11)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (11) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (11) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 11/11 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (11) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 11/11 tasks `[x]` in .agents/tasks/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `f2f8cd5c82d4` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md` blob `d05d2b60d07d` (modified)
