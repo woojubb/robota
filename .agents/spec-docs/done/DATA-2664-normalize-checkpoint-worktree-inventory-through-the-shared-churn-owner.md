@@ -118,18 +118,18 @@ None
       tool-produced payload carries ignored churn; malformed or genuinely dirty prior evidence remains
       rejected.
 - [x] TC-05: Command: `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs` exits 0.
-- [x] TC-06: Command: `HARNESS_BASE_REF=fix/2664-gate-correctness node scripts/harness/run-all-scans.mjs --affected --context pr` exits 0.
+- [x] TC-06: Command: `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/integration/agreement-2664` exits 0.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                                                                                                                                    | Notes                                                       |
-| ----- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| TC-01 | unit        | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` fixture with `AUTO_GENERATED_CHURN` and a real path                                                                  | Assert the producer omits only owner-classified churn.      |
-| TC-02 | unit        | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` continuation/correction fixtures                                                                                     | Exercise every checkpoint form through the shared producer. |
-| TC-03 | integration | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` calling the existing `evaluateGateImplementEntries(...)` consumer                                                    | Preserve fail-closed rejection for real unexpected dirt.    |
-| TC-04 | integration | continuation fixture in `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs`                                                                                              | Generated prior evidence must remain retryable.             |
-| TC-05 | suite       | `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs` | Focused owner, producer, and consumer suites.               |
-| TC-06 | integration | `HARNESS_BASE_REF=fix/2664-gate-correctness node scripts/harness/run-all-scans.mjs --affected --context pr`                                                                        | Repository harness verification.                            |
+| TC-ID | Test Type   | Tool / Approach                                                                                                                                                                    | Notes                                                            |
+| ----- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| TC-01 | unit        | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` fixture with `AUTO_GENERATED_CHURN` and a real path                                                                  | Assert the producer omits only owner-classified churn.           |
+| TC-02 | unit        | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` continuation/correction fixtures                                                                                     | Exercise every checkpoint form through the shared producer.      |
+| TC-03 | integration | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs` calling the existing `evaluateGateImplementEntries(...)` consumer                                                    | Preserve fail-closed rejection for real unexpected dirt.         |
+| TC-04 | integration | continuation fixture in `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs`                                                                                              | Generated prior evidence must remain retryable.                  |
+| TC-05 | suite       | `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs scripts/harness/__tests__/gate.test.mjs` | Focused owner, producer, and consumer suites.                    |
+| TC-06 | integration | `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/integration/agreement-2664`                       | Repository harness verification on the current integration base. |
 
 ## User Execution Test Scenarios
 
@@ -456,3 +456,17 @@ scan receipt NOT written: 2 advisory failure(s) were tolerated (progress-report-
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `973ae6657919` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md` blob `b2ad7580f763` (modified)
+
+## Integration Port Verification
+
+The unpushed DATA-2664 branch was rebased from the superseded legacy base onto
+`origin/integration/agreement-2664@634ff8cfe9592ad006aa0d901a71966cbb615dcf` after PUSH-2664
+landed. The implementation paths replayed without conflict.
+
+- Focused verification: 3 files and 122 tests passed.
+- Affected repository verification: 61 scans passed, 1 skipped, and only the two unrelated historical
+  PR-context advisories were tolerated.
+- User-execution plan-order: 9 topic commits examined, exit 0.
+
+This port evidence supplements the preserved original GATE-COMPLETE entries; it does not rewrite the
+historical commands or verdicts recorded on the legacy base.
