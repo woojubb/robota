@@ -363,6 +363,17 @@ describe('the Task record is the source', () => {
     const { stdout } = run(root, [...L1_ARGS, '--dry-run', '--tags', 'harness, ci']);
     expect(parseFrontmatterBlock(stdout).get('tags')).toEqual(['harness', 'ci']);
   });
+
+  it.each(['', '   ', ' ,  ', '""', "''", '"   "'])(
+    'refuses an explicitly empty --tags value %j without writing a document',
+    (tags) => {
+      const root = rootWith({ tasks: [STUB_TASK] });
+      const result = run(root, [...L1_ARGS, '--tags', tags]);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('--tags must contain at least one non-empty value');
+      expect(readdirSync(path.join(root, DRAFT_DIR))).toEqual([]);
+    },
+  );
 });
 
 describe('refusals, each beside its control', () => {
