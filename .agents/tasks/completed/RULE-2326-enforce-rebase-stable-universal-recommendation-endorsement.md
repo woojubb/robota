@@ -59,11 +59,13 @@ historical evidence, or bypassing a gate.
   reviewer verified the correction keeps lifecycle-only checkbox transitions stable, material
   criterion and Test Plan changes bound, execution proof solely in the Evidence Log, adoption unable
   to authorize current approval, and the rebase-stable identity plus causal replay intact.
-- Durable evidence — canonical run `r20260920120928` is recorded in
-  `.agents/loop-runs/backlog-execution-orchestrator.jsonl`; the approved design and completed gate
+- Durable evidence — the exact RULE-2326 self-bootstrap tuple (subject, reviewed revision
+  `2a5da7ba7651fd4830013743f41dd81a449713f5`, projection digest, and endorsement key) is retained in
+  `scripts/harness/recommendation-endorsement-baseline.json`; approved design and completed gate
   evidence are retained in
   `.agents/spec-docs/done/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md`.
-  Planning endorsement landed in `27860c116`; enforcement implementation landed in `d5cdce3d5`.
+  Its rebased planning checkpoint landed in `e9be39adb`; enforcement implementation landed in
+  `d5cdce3d5`.
 
 ## User Execution Test Scenarios
 
