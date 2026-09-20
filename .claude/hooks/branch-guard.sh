@@ -1453,8 +1453,10 @@ while read -r STMT_START STMT_LEN; do
     #
     # `hotfix/*` and `release/*` are exempt: the rule lets them PR to `main` and does not prescribe
     # develop as their base. Feature branches are what it prescribes, and what this checks.
-    if [[ -n "$NEW_BRANCH" ]] && ! stmt_override BRANCH_GUARD_ALLOW_BASE &&
-      ! [[ "$NEW_BRANCH" =~ ^(hotfix|release)/ ]]; then
+    IS_AGREEMENT_INTEGRATION=false
+    [[ "$NEW_BRANCH" =~ ^integration/agreement-[0-9]+$ ]] && IS_AGREEMENT_INTEGRATION=true
+    if [[ -n "$NEW_BRANCH" ]] && ! [[ "$NEW_BRANCH" =~ ^(hotfix|release)/ ]] &&
+      { [[ "$IS_AGREEMENT_INTEGRATION" == "true" ]] || ! stmt_override BRANCH_GUARD_ALLOW_BASE; }; then
       # The start point, when the command names one: the token after the branch name. A `&&`, a `;` or
       # another flag is not a start point — those mean the command simply ended.
       # Flags may sit between the new branch name and the start point: `git checkout -b feat/x --track
@@ -1511,8 +1513,22 @@ while read -r STMT_START STMT_LEN; do
       BASE_DIR=$(hook_effective_repo session "$GIT_C_PATH" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}")
 
       WANTED=origin/develop
-      hook_git_in "$BASE_DIR" rev-parse --verify --quiet "$WANTED" >/dev/null 2>&1 || WANTED=develop
+      # Agreement integration branches are long-lived bases for ordered child work. Their creation
+      # must prove the fetched remote integration head itself, not the offline local-develop
+      # fallback retained for ordinary feature branches.
+      if [[ "$IS_AGREEMENT_INTEGRATION" != "true" ]]; then
+        hook_git_in "$BASE_DIR" rev-parse --verify --quiet "$WANTED" >/dev/null 2>&1 || WANTED=develop
+      fi
       WANTED_SHA=$(hook_git_in "$BASE_DIR" rev-parse --verify --quiet "$WANTED" 2>/dev/null || echo "")
+      REMOTE_DEVELOP_SHA=""
+      if [[ "$IS_AGREEMENT_INTEGRATION" == "true" ]]; then
+        if ! REMOTE_DEVELOP_OUTPUT=$(hook_git_in "$BASE_DIR" ls-remote --refs origin refs/heads/develop 2>/dev/null); then
+          echo "[branch-guard] Blocked: cannot query origin/develop for '$NEW_BRANCH'." >&2
+          echo "[branch-guard] Fetch first (git fetch origin), then retry." >&2
+          exit 2
+        fi
+        REMOTE_DEVELOP_SHA=$(printf '%s\n' "$REMOTE_DEVELOP_OUTPUT" | awk 'NR == 1 { print $1 }')
+      fi
       BASE_REF="${START_POINT:-HEAD}"
       BASE_SHA=$(hook_git_in "$BASE_DIR" rev-parse --verify --quiet "$BASE_REF" 2>/dev/null || echo "")
       # `branch --show-current` exits 0 with empty output on a detached HEAD, so `|| echo HEAD` never
@@ -1520,7 +1536,8 @@ while read -r STMT_START STMT_LEN; do
       # which is what hook_current_branch does, for every caller, once.
       BASE_NAME="${START_POINT:-$(hook_current_branch "$BASE_DIR" HEAD)}"
 
-      if [[ -z "$WANTED_SHA" || -z "$BASE_SHA" ]]; then
+      if [[ -z "$WANTED_SHA" || -z "$BASE_SHA" ||
+        ( "$IS_AGREEMENT_INTEGRATION" == "true" && "$REMOTE_DEVELOP_SHA" != "$WANTED_SHA" ) ]]; then
         echo "[branch-guard] Blocked: cannot resolve the base for '$NEW_BRANCH'." >&2
         echo "[branch-guard]   wanted: $WANTED   found: ${BASE_NAME:-<unresolved>}" >&2
         echo "[branch-guard] Fetch first (git fetch origin), or override: BRANCH_GUARD_ALLOW_BASE=1" >&2
@@ -1538,13 +1555,13 @@ while read -r STMT_START STMT_LEN; do
       fi
     fi
 
-    BRANCH_NAME_RE='^(feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)/[a-z0-9][a-z0-9._/-]*$'
+    BRANCH_NAME_RE='^((feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)/[a-z0-9][a-z0-9._/-]*|integration/agreement-[0-9]+)$'
     EXEMPT_RE='^(main|master|develop|gh-pages)$'
     if [[ -n "$NEW_BRANCH" ]] && ! stmt_override BRANCH_GUARD_ALLOW_BADNAME &&
       ! [[ "$NEW_BRANCH" =~ $EXEMPT_RE ]] && ! [[ "$NEW_BRANCH" =~ $BRANCH_NAME_RE ]]; then
       echo "[branch-guard] Blocked: branch name '$NEW_BRANCH' does not match <type>/<desc>." >&2
-      echo "[branch-guard] Expected e.g. feat/x-y, fix/z, chore/w" >&2
-      echo "[branch-guard] (types: feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)." >&2
+      echo "[branch-guard] Expected e.g. feat/x-y, fix/z, chore/w, integration/agreement-2664" >&2
+      echo "[branch-guard] (types: feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix; integration requires agreement-N)." >&2
       echo "[branch-guard] Override: BRANCH_GUARD_ALLOW_BADNAME=1" >&2
       exit 2
     fi

@@ -30,6 +30,8 @@ const HOOKS_SRC = path.join(WORKSPACE_ROOT, '.claude/hooks');
 /** `main` and `origin/develop` at DIFFERENT commits, checked out on a feature branch at develop. */
 function scratchRepo() {
   const dir = makeTemp('bg-branch-repo-');
+  const remote = makeTemp('bg-branch-remote-');
+  execFileSync('git', ['init', '--quiet', '--bare', remote], { stdio: 'pipe' });
   const run = (...args) =>
     execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], {
       cwd: dir,
@@ -44,9 +46,26 @@ function scratchRepo() {
   writeFileSync(path.join(dir, 'b.txt'), 'b\n');
   run('add', '-A');
   run('commit', '--quiet', '-m', 'chore: two');
-  run('update-ref', 'refs/remotes/origin/develop', 'develop');
+  run('remote', 'add', 'origin', remote);
+  run('push', '--quiet', '-u', 'origin', 'develop');
+  run('push', '--quiet', 'origin', 'main');
   run('checkout', '--quiet', '-b', 'feat/base');
-  run('remote', 'add', 'origin', 'https://example.invalid/scratch.git');
+  return dir;
+}
+
+function scratchRepoWithOpenIntegration() {
+  const dir = scratchRepo();
+  const run = (...args) =>
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: 'pipe',
+    });
+  run('checkout', '--quiet', '-b', 'integration/agreement-2664', 'origin/develop');
+  writeFileSync(path.join(dir, 'integration.txt'), 'open integration work\n');
+  run('add', '-A');
+  run('commit', '--quiet', '-m', 'chore: integration work');
+  run('checkout', '--quiet', 'feat/base');
   return dir;
 }
 
@@ -63,24 +82,32 @@ function hooksSandbox() {
 }
 
 let repo;
+let repoWithoutRemoteDevelop;
+let repoWithOpenIntegration;
 let sandbox;
 
 beforeAll(() => {
   repo = scratchRepo();
+  repoWithoutRemoteDevelop = scratchRepo();
+  execFileSync('git', ['update-ref', '-d', 'refs/remotes/origin/develop'], {
+    cwd: repoWithoutRemoteDevelop,
+    stdio: 'pipe',
+  });
+  repoWithOpenIntegration = scratchRepoWithOpenIntegration();
   sandbox = hooksSandbox();
 });
 
-function run(command) {
+function run(command, cwd = repo) {
   const result = spawnSync('bash', [sandbox.hook], {
-    input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: repo }),
+    input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd }),
     encoding: 'utf8',
-    cwd: repo,
+    cwd,
     // Only PATH, HOME and the project dir: every BRANCH_GUARD_ALLOW_* is absent by construction, so
     // nothing below passes because the environment permitted it.
     env: {
       PATH: `${sandbox.bin}:${process.env.PATH}`,
       HOME: process.env.HOME,
-      CLAUDE_PROJECT_DIR: repo,
+      CLAUDE_PROJECT_DIR: cwd,
     },
     timeout: 60_000,
   });
@@ -123,6 +150,141 @@ describe('`git branch <name>` is a creation, and is judged as one', () => {
   it('honours the same overrides as the other spellings', () => {
     expect(run('BRANCH_GUARD_ALLOW_BASE=1 git branch feat/ok main').status).toBe(0);
     expect(run('BRANCH_GUARD_ALLOW_BADNAME=1 git branch BAD_NAME').status).toBe(0);
+  });
+});
+
+describe('agreement integration branch creation', () => {
+  it('permits lowercase integration/agreement-N from origin/develop', () => {
+    const { status, said } = run('git branch integration/agreement-2664 origin/develop');
+
+    expect(status, said).toBe(0);
+    expect(said.trim()).toBe('');
+  });
+
+  it('requires origin/develop instead of falling back to local develop', () => {
+    const { status, said } = run(
+      'git branch integration/agreement-2664 develop',
+      repoWithoutRemoteDevelop,
+    );
+
+    expect(status, said).toBe(2);
+    expect(said).toMatch(/origin\/develop/);
+    expect(said).toMatch(/Fetch first/);
+  });
+
+  it('refuses an agreement integration branch cut from another base', () => {
+    const { status, said } = run('git branch integration/agreement-2664 main');
+
+    expect(status, said).toBe(2);
+    expect(said).toMatch(/wrong base/);
+    expect(said).toMatch(/origin\/develop/);
+  });
+
+  it('refuses a stale origin/develop tracking ref when the real remote has moved', () => {
+    const stale = scratchRepo();
+    const remote = execFileSync('git', ['remote', 'get-url', 'origin'], {
+      cwd: stale,
+      encoding: 'utf8',
+    }).trim();
+    const main = execFileSync('git', ['rev-parse', 'main'], {
+      cwd: stale,
+      encoding: 'utf8',
+    }).trim();
+    execFileSync('git', ['--git-dir', remote, 'update-ref', 'refs/heads/develop', main], {
+      stdio: 'pipe',
+    });
+
+    const { status, said } = run('git branch integration/agreement-2664 origin/develop', stale);
+    expect(status, said).toBe(2);
+    expect(said).toMatch(/Fetch first/);
+  });
+
+  it('turns an origin lookup failure into the explicit blocking exit', () => {
+    const unavailable = scratchRepo();
+    execFileSync('git', ['remote', 'set-url', 'origin', path.join(unavailable, 'missing-origin')], {
+      cwd: unavailable,
+      stdio: 'pipe',
+    });
+
+    const { status, said } = run(
+      'git branch integration/agreement-2664 origin/develop',
+      unavailable,
+    );
+    expect(status, said).toBe(2);
+    expect(said).toMatch(/cannot query origin\/develop/);
+    expect(said).toMatch(/Fetch first/);
+  });
+
+  it('does not let the ordinary base override create an integration base from another ref', () => {
+    const { status, said } = run(
+      'BRANCH_GUARD_ALLOW_BASE=1 git branch integration/agreement-2664 main',
+    );
+
+    expect(status, said).toBe(2);
+    expect(said).toMatch(/wrong base/);
+  });
+
+  const UNSUPPORTED_INTEGRATION_NAMES = [
+    'integration/AGREEMENT-2664',
+    'integration/agreement-ABC',
+    'integration/agreement-2664/child',
+    'integration/agreement_2664',
+    'integration/initiative-2664',
+  ];
+
+  for (const branch of UNSUPPORTED_INTEGRATION_NAMES) {
+    it(`refuses unsupported spelling ${branch} as a naming failure`, () => {
+      const { status, said } = run(`git branch ${branch} origin/develop`);
+
+      expect(status, said).toBe(2);
+      expect(said).toMatch(/does not match/);
+    });
+  }
+});
+
+describe('child creation from an open agreement integration base', () => {
+  const creation = 'git branch fix/child integration/agreement-2664';
+
+  it('requires both statement-scoped overrides and permits them together', () => {
+    const { status, said } = run(
+      `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 BRANCH_GUARD_ALLOW_BASE=1 ${creation}`,
+      repoWithOpenIntegration,
+    );
+
+    expect(status, said).toBe(0);
+    expect(said.trim()).toBe('');
+  });
+
+  it('refuses the open-branches override alone because the base is not origin/develop', () => {
+    const { status, said } = run(
+      `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 ${creation}`,
+      repoWithOpenIntegration,
+    );
+
+    expect(status, said).toBe(2);
+    expect(said).toMatch(/wrong base/);
+  });
+
+  it('refuses the base override alone because the integration branch is still open', () => {
+    const { status, said } = run(`BRANCH_GUARD_ALLOW_BASE=1 ${creation}`, repoWithOpenIntegration);
+
+    expect(status, said).toBe(2);
+    expect(said).toMatch(/unmerged commits/);
+  });
+
+  it('does not combine overrides split across sibling statements', () => {
+    expect(
+      run(
+        `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 true ; BRANCH_GUARD_ALLOW_BASE=1 ${creation}`,
+        repoWithOpenIntegration,
+      ).status,
+    ).toBe(2);
+    expect(
+      run(
+        `BRANCH_GUARD_ALLOW_BASE=1 true ; BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 ${creation}`,
+        repoWithOpenIntegration,
+      ).status,
+    ).toBe(2);
   });
 });
 

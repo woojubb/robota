@@ -269,3 +269,27 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: PERF-2423 local review at `5ff5f47a`; commit `72c69f371` expanded the scanner from two inputs to three without updating `.agents/specs/orchestration-map.md`; https://github.com/woojubb/robota/issues/2423#issuecomment-5744533786
 - source: PERF-2423 local review
 - related: HARNESS-2423, Issue #2423
+
+### LRN-stacked-parent-pre-push-ancestry
+
+- observed-at: 2026-09-20T13:45:33+09:00
+- observation: The multi-backlog workflow requires child branches to preserve their real integration-parent ancestry, but pre-push branch hygiene rejects every parent merge commit not already in origin/develop, making a correctly stacked child unpublishable after sibling PRs merge into the parent.
+- evidence: RULE-2582 push from the real parent was rejected for merge commits 153a3a412 and 5ee95e509; replacing that ancestry with an equal-tree synthetic commit moved the merge base to origin/develop and expanded the three-dot review scope from 12 to 27 paths; independent review returned ACTIONABLE FINDINGS: 1 and prohibited publication of the synthetic history.
+- source: RULE-2582 integration under AGREEMENT-2664
+- related: BRANCH-2664, Issue #2664, https://github.com/woojubb/robota/issues/2664#issuecomment-5747691655
+
+### LRN-agreement-dynamic-root-task-projection
+
+- observed-at: 2026-09-20T13:58:00+09:00
+- observation: Root Tasks filed from findings during an active AGREEMENT can share its GitHub issue while remaining absent from both the approved child list and the external-owner map, leaving the initiative ownership projection ambiguous.
+- evidence: Independent aggregate review found INFRA-2664 and PERF-2664 registered under issue #2664 but absent from AGREEMENT-2664's seven-child projection and external-owner map.
+- source: AGREEMENT-2664 aggregate review
+- related: MAP-2664, Issue #2664, https://github.com/woojubb/robota/issues/2664#issuecomment-5747728265
+
+### LRN-merge-tree-cleanliness-is-not-a-tree-property
+
+- observed-at: 2026-09-20T14:58:00+09:00
+- observation: A Git merge's clean-versus-conflicted status cannot be reconstructed from the emitted tree alone because `git merge-tree --write-tree` emits a conflict-marker tree while exiting 1; persisting that exact tree can therefore look identical to an automatic clean merge when callers discard the exit status.
+- evidence: BRANCH-2664 retained review reproduced the shared helper collapsing exit 0 and exit 1 into one tree identity; the integration-history call site is conservatively contained while MERGE-2664 owns the shared correction; https://github.com/woojubb/robota/issues/2664#issuecomment-5747991049
+- source: BRANCH-2664 local review
+- related: MERGE-2664, Issue #2664

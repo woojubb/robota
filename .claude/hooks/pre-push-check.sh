@@ -151,6 +151,15 @@ PUSH_DIR=""
 PUSH_SEEN=false
 PUSH_DIR_EXPLICIT=false
 PUSH_DIR_CONFLICT=false
+PUSH_BASE_REFS=()
+PUSH_BASE_DECL_COUNTS=()
+ANY_BASE_DECLARATION=false
+[[ "$COMMAND" == *HARNESS_BASE_REF=* ]] && ANY_BASE_DECLARATION=true
+BASE_DECLARATION_QUOTED=false
+if printf '%s\n' "$COMMAND" | grep -qE '(^|[[:space:];&|])['"'"'"]HARNESS_BASE_REF=|HARNESS_BASE_REF=['"'"'"]'; then
+  BASE_DECLARATION_QUOTED=true
+fi
+BASE_DECLARATION_COUNT=$(printf '%s\n' "$COMMAND" | grep -oE '(^|[[:space:];&|({])HARNESS_BASE_REF=' | grep -c . || true)
 LAST_CD=""
 LAST_CD_UNREADABLE=false
 # Whether the cd that set LAST_CD was itself CONDITIONAL (`&&`-guarded) — its effect is certain
@@ -268,6 +277,18 @@ while read -r PS_START PS_LEN; do
       PUSH_DELETIONS=$((PUSH_DELETIONS + 1))
       continue
     fi
+    # A stacked child may name the remote integration base that owns its inherited merges. Keep
+    # the declaration attached to THIS content-push statement; a declaration on another statement
+    # has no shell effect on the push and cannot authorize it. The adversarial shape checks run
+    # after the statement walk, once every sibling push is known.
+    # Only the environment-assignment prefix before the `git` command is authoritative. A token
+    # appended after the refspec is merely a push argument even though it shares the statement.
+    PS_ENV_PREFIX=$(printf '%s\n' "$PS_MASK" | sed -nE 's/^[[:space:]({]*(([^[:space:];&|()]+=[^[:space:];&|()]+[[:space:]]+)*)git[[:space:]].*/\1/p')
+    PS_BASE_MATCHES=$(printf '%s\n' "$PS_ENV_PREFIX" | grep -oE '(^|[[:space:]])HARNESS_BASE_REF=[^[:space:];&|()]+' || true)
+    PS_BASE_COUNT=$(printf '%s\n' "$PS_BASE_MATCHES" | grep -c . || true)
+    PS_BASE_REF=$(printf '%s\n' "$PS_BASE_MATCHES" | sed -nE '1s/^[[:space:]]*HARNESS_BASE_REF=//p')
+    PUSH_BASE_DECL_COUNTS+=("$PS_BASE_COUNT")
+    PUSH_BASE_REFS+=("$PS_BASE_REF")
     # Whether this push's directory was named EXPLICITLY — a `-C` or a tracked `cd` — as opposed
     # to the HOOK_CWD fallback (the bare-`git push`-in-session case). Only an explicit target that
     # turns out not to be a work tree is refused below; the fallback keeps its existing handling.
@@ -687,6 +708,135 @@ fi
 # the EMPTY default deliberately: the detached-HEAD refusal further down is keyed on emptiness, and
 # a reader that substituted a word there would have silently disabled it.
 CUR_BRANCH=$(hook_current_branch "$PROJECT_DIR" "")
+TRUSTED_BASE_REF=""
+if [[ "$ANY_BASE_DECLARATION" == "true" ]]; then
+  if [[ "$BASE_DECLARATION_QUOTED" == "true" ]]; then
+    echo "[pre-push-check] Blocked: quoted HARNESS_BASE_REF is not a trusted integration base declaration." >&2
+    exit 2
+  fi
+  BOUND_BASE_DECLARATIONS=0
+  for _BASE_I in "${!PUSH_BASE_DECL_COUNTS[@]}"; do
+    if [[ "${PUSH_BASE_DECL_COUNTS[$_BASE_I]}" -ne 1 ]]; then
+      echo "[pre-push-check] Blocked: each push statement must carry exactly one inline HARNESS_BASE_REF declaration." >&2
+      exit 2
+    fi
+    BOUND_BASE_DECLARATIONS=$((BOUND_BASE_DECLARATIONS + ${PUSH_BASE_DECL_COUNTS[$_BASE_I]}))
+    if [[ -z "$TRUSTED_BASE_REF" ]]; then
+      TRUSTED_BASE_REF="${PUSH_BASE_REFS[$_BASE_I]}"
+    elif [[ "$TRUSTED_BASE_REF" != "${PUSH_BASE_REFS[$_BASE_I]}" ]]; then
+      echo "[pre-push-check] Blocked: each push statement must name the same trusted integration base." >&2
+      exit 2
+    fi
+  done
+  if [[ "$BASE_DECLARATION_COUNT" -ne "$BOUND_BASE_DECLARATIONS" ]]; then
+    echo "[pre-push-check] Blocked: each push statement must own exactly one bound HARNESS_BASE_REF declaration; unbound declarations are invalid." >&2
+    exit 2
+  fi
+
+  if [[ ! "$TRUSTED_BASE_REF" =~ ^origin/integration/(agreement-[0-9]+)$ ]]; then
+    echo "[pre-push-check] Blocked: HARNESS_BASE_REF does not name a trusted integration base (origin/integration/<agreement-id>)." >&2
+    exit 2
+  fi
+  TRUSTED_AGREEMENT_SLUG="${BASH_REMATCH[1]}"
+  TRUSTED_AGREEMENT_ID=$(printf '%s' "$TRUSTED_AGREEMENT_SLUG" | tr '[:lower:]' '[:upper:]')
+  TRUSTED_REMOTE_BRANCH="${TRUSTED_BASE_REF#origin/}"
+
+  if ! TRUSTED_LOCAL_SHA=$(hook_git_in "$PROJECT_DIR" rev-parse --verify "$TRUSTED_BASE_REF^{commit}" 2>/dev/null); then
+    echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' is unresolved." >&2
+    exit 2
+  fi
+  if ! TRUSTED_REMOTE_SHA=$(hook_git_in "$PROJECT_DIR" ls-remote --refs origin "refs/heads/$TRUSTED_REMOTE_BRANCH" 2>/dev/null | awk 'NR == 1 { print $1 }'); then
+    echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' could not be resolved from origin." >&2
+    exit 2
+  fi
+  if [[ -z "$TRUSTED_REMOTE_SHA" || "$TRUSTED_REMOTE_SHA" != "$TRUSTED_LOCAL_SHA" ]]; then
+    echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' is not the current remote ref." >&2
+    exit 2
+  fi
+  TRUSTED_LOCAL_DEVELOP_SHA=$(hook_git_in "$PROJECT_DIR" rev-parse origin/develop 2>/dev/null || true)
+  if ! TRUSTED_REMOTE_DEVELOP_SHA=$(hook_git_in "$PROJECT_DIR" ls-remote --refs origin refs/heads/develop 2>/dev/null | awk 'NR == 1 { print $1 }'); then
+    echo "[pre-push-check] Blocked: current remote develop identity could not be resolved." >&2
+    exit 2
+  fi
+  if [[ -z "$TRUSTED_LOCAL_DEVELOP_SHA" || -z "$TRUSTED_REMOTE_DEVELOP_SHA" ||
+    "$TRUSTED_LOCAL_DEVELOP_SHA" != "$TRUSTED_REMOTE_DEVELOP_SHA" ]]; then
+    echo "[pre-push-check] Blocked: origin/develop is stale; fetch current remote develop before using a trusted integration base." >&2
+    exit 2
+  fi
+  if ! hook_git_in "$PROJECT_DIR" merge-base origin/develop "$TRUSTED_BASE_REF" >/dev/null 2>&1; then
+    echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' shares no ancestry with origin/develop." >&2
+    exit 2
+  fi
+  if hook_git_in "$PROJECT_DIR" rev-parse --verify --quiet origin/main >/dev/null 2>&1 \
+    && ! hook_git_in "$PROJECT_DIR" merge-base --is-ancestor origin/main origin/develop 2>/dev/null \
+    && hook_git_in "$PROJECT_DIR" merge-base --is-ancestor origin/main "$TRUSTED_BASE_REF" 2>/dev/null; then
+    echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' is main-derived." >&2
+    exit 2
+  fi
+
+  TRUSTED_TASK_PATHS=$(hook_git_in "$PROJECT_DIR" ls-tree -r --name-only "$TRUSTED_BASE_REF" -- .agents/tasks 2>/dev/null \
+    | grep -E "^\\.agents/tasks/${TRUSTED_AGREEMENT_ID}(-.*)?\\.md$" || true)
+  TRUSTED_SPEC_PATHS=$(hook_git_in "$PROJECT_DIR" ls-tree -r --name-only "$TRUSTED_BASE_REF" -- .agents/spec-docs 2>/dev/null \
+    | grep -E "^\\.agents/spec-docs/(todo|active)/${TRUSTED_AGREEMENT_ID}(-.*)?\\.md$" || true)
+  if [[ $(printf '%s\n' "$TRUSTED_TASK_PATHS" | grep -c . || true) -ne 1 \
+    || $(printf '%s\n' "$TRUSTED_SPEC_PATHS" | grep -c . || true) -ne 1 ]]; then
+    echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' lacks one matching open $TRUSTED_AGREEMENT_ID Task/spec pair." >&2
+    exit 2
+  fi
+  TRUSTED_TASK_BODY=$(hook_git_in "$PROJECT_DIR" show "$TRUSTED_BASE_REF:$TRUSTED_TASK_PATHS" 2>/dev/null || true)
+  TRUSTED_SPEC_BODY=$(hook_git_in "$PROJECT_DIR" show "$TRUSTED_BASE_REF:$TRUSTED_SPEC_PATHS" 2>/dev/null || true)
+  TRUSTED_TASK_FRONTMATTER=$(printf '%s\n' "$TRUSTED_TASK_BODY" | awk 'NR == 1 && $0 == "---" { in_frontmatter = 1; next } in_frontmatter && $0 == "---" { exit } in_frontmatter { print }')
+  TRUSTED_SPEC_FRONTMATTER=$(printf '%s\n' "$TRUSTED_SPEC_BODY" | awk 'NR == 1 && $0 == "---" { in_frontmatter = 1; next } in_frontmatter && $0 == "---" { exit } in_frontmatter { print }')
+  if ! printf '%s\n' "$TRUSTED_TASK_FRONTMATTER" | grep -qE '^status:[[:space:]]*(todo|in-progress|blocked)[[:space:]]*$' \
+    || ! printf '%s\n' "$TRUSTED_SPEC_FRONTMATTER" | grep -qE '^status:[[:space:]]*(approved|in-progress)[[:space:]]*$' \
+    || ! printf '%s\n' "$TRUSTED_SPEC_FRONTMATTER" | grep -qE '^type:[[:space:]]*AGREEMENT[[:space:]]*$'; then
+    echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' does not contain a matching open $TRUSTED_AGREEMENT_ID Task/spec pair." >&2
+    exit 2
+  fi
+  if ! hook_git_in "$PROJECT_DIR" merge-base --is-ancestor "$TRUSTED_BASE_REF" HEAD 2>/dev/null; then
+    echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' is not an ancestor of this branch." >&2
+    exit 2
+  fi
+
+  TRUSTED_SYNC_HEAD=""
+  TRUSTED_INTEGRATION_BRANCH="integration/$TRUSTED_AGREEMENT_SLUG"
+  if [[ "$CUR_BRANCH" == integration/* && "$CUR_BRANCH" != "$TRUSTED_INTEGRATION_BRANCH" ]]; then
+    echo "[pre-push-check] Blocked: integration branch '$CUR_BRANCH' does not match trusted integration base '$TRUSTED_BASE_REF'." >&2
+    exit 2
+  fi
+  if [[ "$CUR_BRANCH" == "$TRUSTED_INTEGRATION_BRANCH" && "$TRUSTED_LOCAL_SHA" != "$(hook_git_in "$PROJECT_DIR" rev-parse HEAD)" ]]; then
+    SYNC_RANGE_COUNT=$(hook_git_in "$PROJECT_DIR" rev-list --first-parent --count "$TRUSTED_BASE_REF..HEAD" 2>/dev/null || printf '')
+    read -r SYNC_PARENT1 SYNC_PARENT2 SYNC_EXTRA <<< "$(hook_git_in "$PROJECT_DIR" show -s --format=%P HEAD 2>/dev/null || true)"
+    SYNC_DEVELOP_SHA=$(hook_git_in "$PROJECT_DIR" rev-parse origin/develop 2>/dev/null || true)
+    SYNC_HEAD_TREE=$(hook_git_in "$PROJECT_DIR" rev-parse 'HEAD^{tree}' 2>/dev/null || true)
+    SYNC_TREE_CLEAN=false
+    SYNC_EXPECTED_TREE_OUTPUT=""
+    if SYNC_EXPECTED_TREE_OUTPUT=$(hook_git_in "$PROJECT_DIR" merge-tree --write-tree "$SYNC_PARENT1" "$SYNC_PARENT2" 2>/dev/null); then
+      SYNC_TREE_CLEAN=true
+    fi
+    SYNC_EXPECTED_TREE=$(printf '%s\n' "$SYNC_EXPECTED_TREE_OUTPUT" | sed -n '1p')
+    if [[ "$SYNC_RANGE_COUNT" != "1" \
+      || "$SYNC_PARENT1" != "$TRUSTED_LOCAL_SHA" \
+      || "$SYNC_PARENT2" != "$SYNC_DEVELOP_SHA" \
+      || -n "$SYNC_EXTRA" \
+      || "$SYNC_TREE_CLEAN" != "true" \
+      || -z "$SYNC_EXPECTED_TREE" \
+      || "$SYNC_HEAD_TREE" != "$SYNC_EXPECTED_TREE" ]]; then
+      echo "[pre-push-check] Blocked: invalid integration-base sync; require exactly one clean HEAD merge with trusted remote base first and current origin/develop second." >&2
+      exit 2
+    fi
+    TRUSTED_SYNC_HEAD=$(hook_git_in "$PROJECT_DIR" rev-parse HEAD)
+  fi
+
+  while IFS= read -r _FOREIGN_MERGE; do
+    [[ -n "$_FOREIGN_MERGE" ]] || continue
+    [[ -n "$TRUSTED_SYNC_HEAD" && "$_FOREIGN_MERGE" == "$TRUSTED_SYNC_HEAD" ]] && continue
+    if ! hook_git_in "$PROJECT_DIR" merge-base --is-ancestor "$_FOREIGN_MERGE" "$TRUSTED_BASE_REF" 2>/dev/null; then
+      echo "[pre-push-check] Blocked: merge $_FOREIGN_MERGE is not contained by trusted integration base '$TRUSTED_BASE_REF'." >&2
+      exit 2
+    fi
+  done < <(hook_git_in "$PROJECT_DIR" rev-list --merges origin/develop..HEAD 2>/dev/null || true)
+fi
 case "$CUR_BRANCH" in
   # release/* and hotfix/* are promotion branches — they LEGITIMATELY carry the `git merge --no-ff origin/main`
   # that records main's ancestry into a develop→main promotion (INFRA-051, built by
@@ -697,7 +847,7 @@ case "$CUR_BRANCH" in
   # the same answer; the refusal above separates them before this switch is reached.
   main | master | develop | release/* | hotfix/* | "") : ;;
   *)
-    if hook_git_in "$PROJECT_DIR" rev-parse --verify --quiet origin/develop >/dev/null 2>&1; then
+    if [[ -z "$TRUSTED_BASE_REF" ]] && hook_git_in "$PROJECT_DIR" rev-parse --verify --quiet origin/develop >/dev/null 2>&1; then
       FOREIGN_MERGES=$(hook_git_in "$PROJECT_DIR" log --merges --oneline origin/develop..HEAD 2>/dev/null || true)
       if [ -n "$FOREIGN_MERGES" ]; then
         echo "[pre-push-check] Blocked: branch '$CUR_BRANCH' carries merge commits in its range over origin/develop:" >&2

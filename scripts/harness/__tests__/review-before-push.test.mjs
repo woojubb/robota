@@ -93,6 +93,166 @@ function push(dir, command = 'git push -u origin feat/probe', { openPrs = 0 } = 
   return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
 }
 
+function trustedIntegrationRepo({
+  agreementId = 'AGREEMENT-2664',
+  taskStatus = 'in-progress',
+  specStatus = 'in-progress',
+  taskBody = '',
+  specBody = '',
+} = {}) {
+  const remote = makeTemp('review-gate-remote-');
+  const dir = makeTemp('review-gate-integration-');
+  scratch.push(remote, dir);
+  const git = (...args) => {
+    const result = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
+    if (result.status !== 0) {
+      throw new Error(`git ${args.join(' ')} failed:\n${result.stdout}${result.stderr}`);
+    }
+    return result.stdout.trim();
+  };
+  const commit = (file, body, message) => {
+    const target = path.join(dir, file);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, body);
+    git('add', file);
+    git('commit', '--quiet', '-m', message);
+  };
+
+  spawnSync('git', ['init', '--quiet', '--bare', remote], { encoding: 'utf8' });
+  git('init', '--quiet', '--initial-branch=develop');
+  git('config', 'user.email', 'harness@example.test');
+  git('config', 'user.name', 'Harness');
+  commit('pnpm-lock.yaml', 'lockfileVersion: 9\n', 'chore: root');
+  git('remote', 'add', 'origin', remote);
+  git('push', '--quiet', '-u', 'origin', 'develop');
+  git('push', '--quiet', 'origin', 'develop:main');
+
+  const agreementSlug = agreementId.toLowerCase();
+  const integrationBranch = `integration/${agreementSlug}`;
+  git('checkout', '--quiet', '-b', integrationBranch, 'origin/develop');
+  commit(
+    `.agents/tasks/${agreementId}-fixture.md`,
+    `---\nstatus: ${taskStatus}\n---\n# ${agreementId}\n${taskBody}`,
+    `docs: add ${agreementId} task`,
+  );
+  commit(
+    `.agents/spec-docs/active/${agreementId}-fixture.md`,
+    `---\nstatus: ${specStatus}\ntype: AGREEMENT\ntags: [harness]\n---\n# ${agreementId}\n${specBody}`,
+    `docs: add ${agreementId} spec`,
+  );
+
+  git('checkout', '--quiet', '-b', 'fixture/completed-child');
+  commit('completed-child.txt', 'complete\n', 'feat: complete prior child');
+  git('checkout', '--quiet', integrationBranch);
+  git('merge', '--quiet', '--no-ff', 'fixture/completed-child', '-m', 'merge: completed child');
+  git('push', '--quiet', '-u', 'origin', integrationBranch);
+  const integrationHead = git('rev-parse', 'HEAD');
+
+  git('checkout', '--quiet', '-b', 'fix/stacked-child');
+  commit('stacked-child.txt', 'next\n', 'fix: next stacked child');
+  record(dir, 'fix/stacked-child', git('rev-parse', 'HEAD'));
+
+  return { dir, git, commit, remote, integrationBranch, integrationHead };
+}
+
+function trustedIntegrationSyncRepo({ variant = 'clean' } = {}) {
+  const fixture = trustedIntegrationRepo();
+  if (variant === 'conflict-tree') {
+    fixture.git('checkout', '--quiet', fixture.integrationBranch);
+    fixture.commit('sync-conflict.txt', 'integration\n', 'feat: integration side of sync conflict');
+    fixture.git('push', '--quiet', 'origin', fixture.integrationBranch);
+    fixture.integrationHead = fixture.git('rev-parse', 'HEAD');
+    fixture.git('checkout', '--quiet', '-b', 'fixture/develop-ahead', 'origin/develop');
+    fixture.commit('sync-conflict.txt', 'develop\n', 'feat: develop side of sync conflict');
+    fixture.git('push', '--quiet', 'origin', 'HEAD:develop');
+    fixture.git('fetch', '--quiet', 'origin');
+    fixture.git('checkout', '--quiet', fixture.integrationBranch);
+    const mergeTree = spawnSync(
+      'git',
+      ['-C', fixture.dir, 'merge-tree', '--write-tree', 'HEAD', 'origin/develop'],
+      { encoding: 'utf8' },
+    );
+    if (mergeTree.status === 0)
+      throw new Error('conflict-tree fixture unexpectedly merged cleanly');
+    const tree = mergeTree.stdout.split('\n')[0].trim();
+    const conflictCommit = fixture.git(
+      'commit-tree',
+      tree,
+      '-p',
+      fixture.integrationHead,
+      '-p',
+      fixture.git('rev-parse', 'origin/develop'),
+      '-m',
+      'merge: persist conflict-marker tree',
+    );
+    fixture.git('update-ref', `refs/heads/${fixture.integrationBranch}`, conflictCommit);
+    fixture.git('read-tree', '--reset', '-u', conflictCommit);
+    record(fixture.dir, fixture.integrationBranch, conflictCommit);
+    return fixture;
+  }
+  fixture.git('checkout', '--quiet', '-b', 'fixture/develop-ahead', 'origin/develop');
+  fixture.commit('develop-change.txt', 'develop\n', 'feat: advance develop');
+  fixture.git('push', '--quiet', 'origin', 'HEAD:develop');
+  fixture.git('fetch', '--quiet', 'origin');
+
+  if (variant === 'reversed') {
+    fixture.git('branch', '-f', fixture.integrationBranch, 'origin/develop');
+    fixture.git('checkout', '--quiet', fixture.integrationBranch);
+    fixture.git(
+      'merge',
+      '--quiet',
+      '--no-ff',
+      fixture.integrationHead,
+      '-m',
+      'merge: reversed sync',
+    );
+  } else {
+    fixture.git('checkout', '--quiet', fixture.integrationBranch);
+    fixture.git('merge', '--quiet', '--no-ff', 'origin/develop', '-m', 'merge: sync develop');
+  }
+
+  if (variant === 'stale') {
+    fixture.git('checkout', '--quiet', 'fixture/develop-ahead');
+    fixture.commit('later-develop-change.txt', 'later\n', 'feat: advance develop again');
+    fixture.git('push', '--quiet', 'origin', 'HEAD:develop');
+    fixture.git('fetch', '--quiet', 'origin');
+    fixture.git('checkout', '--quiet', fixture.integrationBranch);
+  } else if (variant === 'remote-stale') {
+    const currentRemoteDevelop = fixture.git('rev-parse', 'origin/develop');
+    const previousDevelop = fixture.git('rev-parse', 'origin/develop^');
+    const remoteMove = spawnSync(
+      'git',
+      ['--git-dir', fixture.remote, 'update-ref', 'refs/heads/develop', previousDevelop],
+      { encoding: 'utf8' },
+    );
+    if (remoteMove.status !== 0) {
+      throw new Error(`${remoteMove.stdout}${remoteMove.stderr}`);
+    }
+    if (fixture.git('rev-parse', 'origin/develop') !== currentRemoteDevelop) {
+      throw new Error('remote-stale fixture unexpectedly refreshed its local tracking ref');
+    }
+  } else if (variant === 'extra') {
+    fixture.git('checkout', '--quiet', '-b', 'fixture/extra-after-sync');
+    fixture.commit('extra-after-sync.txt', 'extra\n', 'feat: add extra sync work');
+    fixture.git('checkout', '--quiet', fixture.integrationBranch);
+    fixture.git(
+      'merge',
+      '--quiet',
+      '--no-ff',
+      'fixture/extra-after-sync',
+      '-m',
+      'merge: extra after sync',
+    );
+  } else if (variant === 'own-path') {
+    writeFileSync(path.join(fixture.dir, 'own-resolution.txt'), 'not from either parent\n');
+    fixture.git('add', 'own-resolution.txt');
+    fixture.git('commit', '--quiet', '--amend', '--no-edit');
+  }
+
+  record(fixture.dir, fixture.integrationBranch, fixture.git('rev-parse', 'HEAD'));
+  return fixture;
+}
+
 /**
  * A `gh` on PATH that answers the one question the hook asks it.
  *
@@ -127,6 +287,240 @@ printf 'OPEN\\n'
   writeFileSync(file, body, { mode: 0o755 });
   return dir;
 }
+
+describe('a stacked child declares a trusted integration base', () => {
+  it('allows a child whose foreign merges are contained by the matching remote AGREEMENT base', () => {
+    const fixture = trustedIntegrationRepo();
+    const verdict = push(
+      fixture.dir,
+      'HARNESS_BASE_REF=origin/integration/agreement-2664 git push origin fix/stacked-child',
+    );
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
+  it('rejects quoted HARNESS_BASE_REF declarations', () => {
+    const fixture = trustedIntegrationRepo();
+    for (const command of [
+      'HARNESS_BASE_REF="origin/integration/agreement-2664" git push origin fix/stacked-child',
+      "'HARNESS_BASE_REF=origin/integration/agreement-2664' git push origin fix/stacked-child",
+    ]) {
+      const verdict = push(fixture.dir, command);
+      expect(verdict.status, `${command}\n${verdict.output}`).toBe(2);
+      expect(verdict.output).toMatch(/trusted integration base|each push statement/);
+    }
+  });
+
+  it('requires exactly one declaration bound as a prefix of every content push statement', () => {
+    const fixture = trustedIntegrationRepo();
+    const base = 'HARNESS_BASE_REF=origin/integration/agreement-2664';
+    for (const command of [
+      `${base} ${base} git push origin fix/stacked-child`,
+      `${base} date; git push origin fix/stacked-child`,
+      `${base} date; ${base} git push origin fix/stacked-child`,
+      `${base} git push origin fix/stacked-child && git push origin sibling`,
+      `git push origin fix/stacked-child ${base}`,
+    ]) {
+      const verdict = push(fixture.dir, command);
+      expect(verdict.status, `${command}\n${verdict.output}`).toBe(2);
+      expect(verdict.output).toMatch(/each push statement/);
+    }
+  });
+
+  it('requires the matching Task and spec to be open in frontmatter', () => {
+    const fixture = trustedIntegrationRepo({
+      taskStatus: 'done',
+      specStatus: 'done',
+      taskBody: 'status: in-progress\n',
+      specBody: 'status: in-progress\ntype: AGREEMENT\n',
+    });
+    const verdict = push(
+      fixture.dir,
+      'HARNESS_BASE_REF=origin/integration/agreement-2664 git push origin fix/stacked-child',
+    );
+
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/matching open AGREEMENT-2664 Task\/spec pair/);
+  });
+
+  it('preserves the ordinary foreign-merge refusal without a declaration', () => {
+    const fixture = trustedIntegrationRepo();
+    const verdict = push(fixture.dir, 'git push origin fix/stacked-child');
+
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/carries merge commits in its range over origin\/develop/);
+  });
+
+  it('rejects self-authorizing, main, local, and unresolved base aliases', () => {
+    const fixture = trustedIntegrationRepo();
+    for (const ref of [
+      'HEAD',
+      'fix/stacked-child',
+      'main',
+      'origin/main',
+      'integration/agreement-2664',
+      'origin/integration/missing',
+      'origin/integration/agreement-404',
+    ]) {
+      const verdict = push(
+        fixture.dir,
+        `HARNESS_BASE_REF=${ref} git push origin fix/stacked-child`,
+      );
+      expect(verdict.status, `${ref}\n${verdict.output}`).toBe(2);
+      expect(verdict.output).toMatch(/trusted integration base/);
+    }
+  });
+
+  it('requires the remote ref identity to match its AGREEMENT pair', () => {
+    const fixture = trustedIntegrationRepo();
+    fixture.git(
+      'push',
+      '--quiet',
+      'origin',
+      `${fixture.integrationHead}:refs/heads/integration/agreement-999`,
+    );
+    fixture.git('fetch', '--quiet', 'origin');
+
+    const verdict = push(
+      fixture.dir,
+      'HARNESS_BASE_REF=origin/integration/agreement-999 git push origin fix/stacked-child',
+    );
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/matching open AGREEMENT-999 Task\/spec pair/);
+  });
+
+  it('rejects a stale remote-tracking claim instead of trusting its local value', () => {
+    const fixture = trustedIntegrationRepo();
+    const remoteMove = spawnSync(
+      'git',
+      [
+        '--git-dir',
+        fixture.remote,
+        'update-ref',
+        `refs/heads/${fixture.integrationBranch}`,
+        fixture.git('rev-parse', 'origin/develop'),
+      ],
+      { encoding: 'utf8' },
+    );
+    expect(remoteMove.status, `${remoteMove.stdout}${remoteMove.stderr}`).toBe(0);
+
+    const verdict = push(
+      fixture.dir,
+      'HARNESS_BASE_REF=origin/integration/agreement-2664 git push origin fix/stacked-child',
+    );
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/current remote ref/);
+  });
+
+  it('rejects a main-derived remote integration alias even with a matching pair', () => {
+    const fixture = trustedIntegrationRepo();
+    fixture.git('checkout', '--quiet', '-b', 'fixture/main-ahead', 'origin/main');
+    fixture.commit('main-only.txt', 'main\n', 'feat: advance main only');
+    fixture.git('push', '--quiet', 'origin', 'HEAD:main');
+    fixture.git('fetch', '--quiet', 'origin');
+    fixture.git('checkout', '--quiet', '-b', 'fixture/main-integration', 'origin/main');
+    fixture.git('checkout', fixture.integrationHead, '--', '.agents/tasks', '.agents/spec-docs');
+    fixture.git('add', '.agents/tasks', '.agents/spec-docs');
+    fixture.git('commit', '--quiet', '-m', 'docs: add matching agreement pair');
+    fixture.git(
+      'push',
+      '--quiet',
+      '--force',
+      'origin',
+      `HEAD:refs/heads/${fixture.integrationBranch}`,
+    );
+    fixture.git('fetch', '--quiet', 'origin');
+    fixture.git('checkout', '--quiet', '-b', 'fix/main-derived-child');
+    fixture.commit('main-derived-child.txt', 'child\n', 'fix: main-derived child');
+    record(fixture.dir, 'fix/main-derived-child', fixture.git('rev-parse', 'HEAD'));
+
+    const verdict = push(
+      fixture.dir,
+      'HARNESS_BASE_REF=origin/integration/agreement-2664 git push origin fix/main-derived-child',
+    );
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/main-derived/);
+  });
+
+  it('rejects a matching remote base that is not an ancestor of the child', () => {
+    const fixture = trustedIntegrationRepo();
+    fixture.git('checkout', '--quiet', '-b', 'fixture/unrelated-base', 'origin/develop');
+    fixture.git('checkout', fixture.integrationHead, '--', '.agents/tasks', '.agents/spec-docs');
+    fixture.git('add', '.agents/tasks', '.agents/spec-docs');
+    fixture.git('commit', '--quiet', '-m', 'docs: add unrelated agreement pair');
+    fixture.git(
+      'push',
+      '--quiet',
+      '--force',
+      'origin',
+      `HEAD:refs/heads/${fixture.integrationBranch}`,
+    );
+    fixture.git('fetch', '--quiet', 'origin');
+    fixture.git('checkout', '--quiet', 'fix/stacked-child');
+
+    const verdict = push(
+      fixture.dir,
+      'HARNESS_BASE_REF=origin/integration/agreement-2664 git push origin fix/stacked-child',
+    );
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/not an ancestor/);
+  });
+
+  it('rejects a child merge that is not contained by the trusted base', () => {
+    const fixture = trustedIntegrationRepo();
+    fixture.git('checkout', '--quiet', '-b', 'fixture/uncontained-merge');
+    fixture.commit('uncontained.txt', 'merge\n', 'fix: uncontained work');
+    fixture.git('checkout', '--quiet', 'fix/stacked-child');
+    fixture.git(
+      'merge',
+      '--quiet',
+      '--no-ff',
+      'fixture/uncontained-merge',
+      '-m',
+      'merge: uncontained work',
+    );
+    record(fixture.dir, 'fix/stacked-child', fixture.git('rev-parse', 'HEAD'));
+
+    const verdict = push(
+      fixture.dir,
+      'HARNESS_BASE_REF=origin/integration/agreement-2664 git push origin fix/stacked-child',
+    );
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/not contained by trusted integration base/);
+  });
+});
+
+describe('an integration base syncs current develop', () => {
+  it('allows one clean HEAD merge with remote integration first and current develop second', () => {
+    const fixture = trustedIntegrationSyncRepo();
+    const verdict = push(
+      fixture.dir,
+      `HARNESS_BASE_REF=origin/${fixture.integrationBranch} git push origin ${fixture.integrationBranch}`,
+    );
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
+  it('rejects reversed, stale, remote-stale, additional, own-path, and conflicted-tree sync variants', () => {
+    for (const variant of [
+      'reversed',
+      'stale',
+      'remote-stale',
+      'extra',
+      'own-path',
+      'conflict-tree',
+    ]) {
+      const fixture = trustedIntegrationSyncRepo({ variant });
+      const verdict = push(
+        fixture.dir,
+        `HARNESS_BASE_REF=origin/${fixture.integrationBranch} git push origin ${fixture.integrationBranch}`,
+      );
+
+      expect(verdict.status, `${variant}\n${verdict.output}`).toBe(2);
+      expect(verdict.output).toMatch(/invalid integration-base sync|origin\/develop is stale/);
+    }
+  });
+});
 
 describe('a feature-branch push carries a reviewed diff', () => {
   it('refuses a push with no local review recorded', () => {
