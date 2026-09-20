@@ -407,3 +407,18 @@ GATE VERDICT: PASS
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `98da05f4f76a` · base `origin/develop@f05926ecac6d` · document `.agents/spec-docs/active/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md` blob `556132e5d853` (modified)
+
+## Integration Port Verification
+
+The RULE-2582 implementation was replayed from the superseded legacy branch onto
+`origin/integration/agreement-2664@2aac6f855d4220e0b7e8ca33f6e543c4a2396f79`. The port preserves
+the approved behavior while isolating evaluator code from evaluated gate evidence in separate commits.
+
+- Focused verification: 3 files and 177 tests passed.
+- Affected repository verification: 62 scans passed, 1 skipped, and only the two unrelated historical
+  PR-context advisories were tolerated.
+- User-execution plan-order: 3 topic commits examined, exit 0.
+- Gate-evaluator isolation: 13 changed paths examined, exit 0.
+
+This port evidence supplements the preserved original GATE-COMPLETE entries; it does not rewrite the
+historical commands or verdicts recorded on the legacy base.
