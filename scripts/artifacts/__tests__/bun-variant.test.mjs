@@ -2,7 +2,10 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, it } from 'vitest';
-import { assertStandaloneNativeRuntime } from '../../../packages/agent-cli/scripts/e2e-native-file-authority.mjs';
+import {
+  assertStandaloneNativeRuntime,
+  resolveNativeFixtureWorkspace,
+} from '../../../packages/agent-cli/scripts/e2e-native-file-authority.mjs';
 import { makeTemp } from '../../harness/__tests__/make-temp.mjs';
 import { assembleGeneration, pinGeneration } from '../generation.mjs';
 import { createManifest } from '../manifest.mjs';
@@ -17,6 +20,16 @@ it('refuses standalone evidence beneath any node_modules ancestor', () => {
   expect(() => assertStandaloneNativeRuntime(path.join(binaryDirectory, 'robota'))).toThrow(
     /node_modules ancestor/u,
   );
+});
+
+it('anchors the native CLI fixture to the canonical Git worktree root', () => {
+  const root = realpathSync(makeTemp('robota-native-fixture-root-'));
+  const nested = path.join(root, 'nested');
+  mkdirSync(nested);
+  const initialized = spawnSync('git', ['init', '--quiet'], { cwd: root, encoding: 'utf8' });
+  expect(initialized.status, initialized.stderr).toBe(0);
+
+  expect(resolveNativeFixtureWorkspace(nested, process.env)).toBe(root);
 });
 
 it.skipIf(!available)(

@@ -37,6 +37,15 @@ export function assertStandaloneNativeRuntime(binaryPath) {
   }
 }
 
+/** Use the same canonical Git root that the production trust resolver binds into its authority. */
+export function resolveNativeFixtureWorkspace(cwd, env = process.env) {
+  const result = run('git', ['rev-parse', '--show-toplevel'], cwd, env);
+  if (result.status !== 0 || (result.stdout ?? '').trim().length === 0) {
+    throw commandFailure('git workspace root resolution', result);
+  }
+  return realpathSync(result.stdout.trim());
+}
+
 export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
   const binary = resolve(binaryPath);
   if (!existsSync(binary)) throw new Error(`The packaged Robota executable is missing: ${binary}`);
@@ -46,11 +55,9 @@ export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
 
   const fixtureRoot = realpathSync(mkdtempSync(join(tmpdir(), 'robota-native-cli-')));
   const home = join(fixtureRoot, 'home');
-  const workspace = join(fixtureRoot, 'workspace');
+  const workspaceDirectory = join(fixtureRoot, 'workspace');
   const outside = join(fixtureRoot, 'outside');
   const sessionId = 'session_1781000001000_native';
-  const logs = join(workspace, '.robota', 'logs');
-  const payloadDirectory = join(logs, `${sessionId}.payloads`);
   const serializedPayload = JSON.stringify('native replay preserved');
   const sha256 = createHash('sha256').update(serializedPayload).digest('hex');
   const payloadName = `${sha256}.json`;
@@ -61,9 +68,12 @@ export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
 
   try {
     mkdirSync(home, { recursive: true });
-    mkdirSync(workspace, { recursive: true });
-    const git = run('git', ['init', '--quiet'], workspace, env);
+    mkdirSync(workspaceDirectory, { recursive: true });
+    const git = run('git', ['init', '--quiet'], workspaceDirectory, env);
     if (git.status !== 0) throw commandFailure('git init', git);
+    const workspace = resolveNativeFixtureWorkspace(workspaceDirectory, env);
+    const logs = join(workspace, '.robota', 'logs');
+    const payloadDirectory = join(logs, `${sessionId}.payloads`);
 
     const trust = run(command, [...prefixArguments, 'trust', '--yes'], workspace, env);
     if (trust.status !== 0 || !/Workspace trust: trusted/u.test(trust.stdout ?? '')) {
