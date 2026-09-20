@@ -1091,6 +1091,60 @@ describe('topic ordering', () => {
     expect(findRecommendationTopicFindings(root, mergeBase)).toEqual([]);
   });
 
+  it('starts topic replay at immutable adoption when the requested base predates it', () => {
+    const { root, adoptionRevision: requestedBase } = repository({ introduceBaseline: false });
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
+    commit(root, 'legacy reviewed plan');
+    write(root, 'scripts/harness/legacy.mjs', 'export const legacy = true;\n');
+    const adoptionRevision = commit(root, 'adopt legacy recommendation state');
+    write(
+      root,
+      BASELINE,
+      `${JSON.stringify({ adoptionRevision, bootstrap: null }, null, 2)}\n`,
+    );
+    commit(root, 'introduce adoption baseline');
+    write(root, 'scripts/harness/current.mjs', 'export const current = true;\n');
+    commit(root, 'implement from adopted recommendation');
+
+    expect(findRecommendationTopicFindings(root, requestedBase)).toEqual([]);
+  });
+
+  it('does not replay an earlier topic merge after a later topic is merged', () => {
+    const { root } = repository();
+    const topicBase = git(root, ['rev-parse', 'HEAD']);
+    git(root, ['switch', '-c', 'topic-one']);
+    write(root, ACTIVE_SPEC, spec());
+    write(root, TASK, task());
+    const revision = commit(root, 'reviewed first topic');
+    write(
+      root,
+      LEDGER,
+      `${JSON.stringify(attestation({ digest: decisionProjectionDigest(spec()), revision }))}\n`,
+    );
+    write(root, TASK, `${task()}\nRecommendation review recorded.\n`);
+    write(root, ACTIVE_SPEC, spec({ evidence: 'Recommendation endorsement checkpoint recorded.' }));
+    commit(root, 'first endorsement checkpoint');
+    write(root, 'scripts/harness/first.mjs', 'export const first = true;\n');
+    commit(root, 'first implementation');
+
+    git(root, ['switch', 'develop']);
+    write(root, '.agents/rules/first-base.md', '# First base advance\n');
+    const requestedBase = commit(root, 'advance first integration base');
+    git(root, ['merge', '--no-ff', 'topic-one', '-m', 'merge first topic']);
+
+    git(root, ['switch', '-c', 'topic-two']);
+    write(root, 'scripts/harness/second.mjs', 'export const second = true;\n');
+    commit(root, 'second topic implementation');
+    git(root, ['switch', 'develop']);
+    write(root, '.agents/rules/second-base.md', '# Second base advance\n');
+    commit(root, 'advance second integration base');
+    git(root, ['merge', '--no-ff', 'topic-two', '-m', 'merge second topic']);
+
+    expect(requestedBase).not.toBe(topicBase);
+    expect(findRecommendationTopicFindings(root, requestedBase)).toEqual([]);
+  });
+
   it('seeds replay from a persisted ENDORSE checkpoint already present at the requested base', () => {
     const { root } = repository();
     write(root, ACTIVE_SPEC, spec());

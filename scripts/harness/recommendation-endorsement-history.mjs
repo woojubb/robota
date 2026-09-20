@@ -5,7 +5,9 @@ import {
   validLatestRecommendationAttestation,
 } from './recommendation-endorsement-checkpoint.mjs';
 import {
+  recommendationCommitExists,
   recommendationGit,
+  recommendationIsAncestor,
   resolveRecommendationBaseRef,
 } from './recommendation-endorsement-git.mjs';
 import {
@@ -25,6 +27,7 @@ import {
   ledgerAt,
   parseLedgerText,
   recommendationFinding,
+  recommendationObservationKey,
   recommendationObservations,
   recommendationTopicCommits,
   specAt,
@@ -97,6 +100,23 @@ function applyCommitCheckpoint(root, state, subject, digest, parent, commit, pat
     subject,
   );
   if (added.length === 0) return { state, findings: [] };
+  const parents = recommendationGit(root, ['show', '--no-patch', '--format=%P', commit])
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parents.length > 1) {
+    const inherited = new Set(
+      parents
+        .slice(1)
+        .flatMap((revision) =>
+          recommendationObservations(ledgerAt(root, revision), subject).map(
+            recommendationObservationKey,
+          ),
+        ),
+    );
+    if (added.every((record) => inherited.has(recommendationObservationKey(record)))) {
+      return { state, findings: [] };
+    }
+  }
   if (!isCommittedRecommendationCheckpoint(root, parent, commit, paths)) {
     return {
       state,
@@ -188,8 +208,13 @@ function replaySubject(root, base, commits, subject, baseline, governedHistory, 
 
 export function findRecommendationTopicFindings(root, requestedBase) {
   const baseline = readRecommendationBaseline(root);
-  const base = resolveRecommendationBaseRef(root, requestedBase);
-  if (!base) throw new Error('recommendation-endorsement: cannot resolve the topic base.');
+  const resolvedBase = resolveRecommendationBaseRef(root, requestedBase);
+  if (!resolvedBase) throw new Error('recommendation-endorsement: cannot resolve the topic base.');
+  const base =
+    recommendationCommitExists(root, resolvedBase) &&
+    recommendationIsAncestor(root, resolvedBase, baseline.adoptionRevision)
+    ? baseline.adoptionRevision
+    : resolvedBase;
   const commits = recommendationTopicCommits(root, base);
   const findings = [];
   const governed = historicallyGovernedSubjects(root, 'HEAD', baseline.adoptionRevision);
