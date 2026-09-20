@@ -16,6 +16,7 @@ import {
   priorPassDigest,
   rawGateImplementPassEntries,
 } from '../checkpoint-evidence-contract.mjs';
+import { evaluateGateImplementEntries } from '../gate-implement-entry-results.mjs';
 import { makeTemp } from './make-temp.mjs';
 
 const root = makeTemp('gate-checkpoint-evidence-');
@@ -55,6 +56,101 @@ describe('gate checkpoint evidence renderer', () => {
 
     expect(lines.join('\n')).toContain('<!-- checkpoint-evidence:v2:start -->');
     expect(lines.join('\n')).toContain('"deliveryMode": "single"');
+  });
+
+  it('filters owned lesson churn from a first checkpoint but retains and rejects real dirt', () => {
+    const subject = makeTemp('gate-checkpoint-churn-');
+    const subjectGit = (args) => {
+      const result = spawnSync('git', args, { cwd: subject, encoding: 'utf8' });
+      if (result.status !== 0) throw new Error(result.stderr);
+    };
+    try {
+      subjectGit(['init', '-q']);
+      subjectGit(['config', 'user.email', 'fixture@example.com']);
+      subjectGit(['config', 'user.name', 'Fixture']);
+      subjectGit(['commit', '--allow-empty', '-q', '-m', 'base']);
+      mkdirSync(path.join(subject, '.agents/evals/lessons'), { recursive: true });
+      mkdirSync(path.join(subject, '.agents/spec-docs/todo'), { recursive: true });
+      mkdirSync(path.join(subject, '.agents/tasks'), { recursive: true });
+      mkdirSync(path.join(subject, 'scripts/harness'), { recursive: true });
+      writeFileSync(path.join(subject, '.agents/evals/lessons/auto-lessons.md'), 'generated\n');
+      writeFileSync(path.join(subject, '.agents/evals/lessons/weekly-digest.md'), 'generated\n');
+
+      const ruleText = readFileSync(
+        path.resolve(import.meta.dirname, '../../../.agents/rules/backlog-execution.md'),
+        'utf8',
+      );
+      const taskRel = '.agents/tasks/DATA-999-fixture.md';
+      const specRel = '.agents/spec-docs/todo/DATA-999-fixture.md';
+      const specText =
+        '## Architecture Review\n\n### Decision\n\n**Delivery mode:** `single`\n\n## Completion Criteria\n\n- [ ] TC-01: observable result\n';
+      const taskText =
+        'TC-01\n\n## User Execution Test Scenarios\n\n**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`\n\n**Reason:** This repository checkpoint fixture exposes no runnable Robota product behavior or user-observable action.';
+      writeFileSync(path.join(subject, taskRel), taskText);
+      writeFileSync(path.join(subject, specRel), specText);
+
+      const render = () =>
+        firstCheckpointEvidence({
+          root: subject,
+          ruleText,
+          specText,
+          taskText,
+          taskRel,
+          specRel,
+        });
+      const lines = render();
+      const contract = parseCheckpointEvidenceContracts(ruleText).contracts.get(2);
+      const parsed = parseCheckpointEvidence(contract, 'gateImplementFirst', lines.join('\n'));
+      expect(parsed.ok, parsed.ok ? '' : parsed.error).toBe(true);
+      if (!parsed.ok) return;
+      expect(parsed.payload.worktreePaths).toEqual([specRel, taskRel].sort());
+
+      const firstEntry = ['**Status upgrade:** approved → in-progress', ...lines].join('\n');
+      const accepted = evaluateGateImplementEntries({
+        spec: specText,
+        binding: {
+          basename: path.basename(taskRel),
+          signal: { outcome: 'not-applicable', count: 0 },
+        },
+        ruleText,
+        entries: [firstEntry],
+        visibleEntryCount: 1,
+      });
+      expect(accepted).toHaveLength(1);
+      expect(accepted[0].ok, accepted[0].error).toBe(true);
+
+      writeFileSync(path.join(subject, 'scripts/harness/unrelated.mjs'), 'export {};\n');
+      const dirtyLines = render();
+      const dirtyParsed = parseCheckpointEvidence(
+        contract,
+        'gateImplementFirst',
+        dirtyLines.join('\n'),
+      );
+      expect(dirtyParsed.ok, dirtyParsed.ok ? '' : dirtyParsed.error).toBe(true);
+      if (!dirtyParsed.ok) return;
+      expect(dirtyParsed.payload.worktreePaths).toEqual(
+        [specRel, taskRel, 'scripts/harness/unrelated.mjs'].sort(),
+      );
+
+      const dirtyEntry = ['**Status upgrade:** approved → in-progress', ...dirtyLines].join('\n');
+      const rejected = evaluateGateImplementEntries({
+        spec: specText,
+        binding: {
+          basename: path.basename(taskRel),
+          signal: { outcome: 'not-applicable', count: 0 },
+        },
+        ruleText,
+        entries: [dirtyEntry],
+        visibleEntryCount: 1,
+      });
+      expect(rejected).toHaveLength(1);
+      expect(rejected[0]).toMatchObject({
+        ok: false,
+        error: expect.stringMatching(/paired Task\/spec plus only PLAN ledger paths/),
+      });
+    } finally {
+      rmSync(subject, { recursive: true, force: true });
+    }
   });
 
   it('fails closed before rendering when the prior raw PASS payload is malformed', () => {
@@ -291,6 +387,10 @@ describe('gate checkpoint evidence renderer', () => {
       continuationCheckpointEvidence({ root, ruleText, specText, taskText, taskRel, specRel }),
     ).toThrow(/historical.*Decision|corrective checkpoint/i);
 
+    mkdirSync(path.join(root, '.agents/evals/lessons'), { recursive: true });
+    writeFileSync(path.join(root, '.agents/evals/lessons/auto-lessons.md'), 'generated\n');
+    writeFileSync(path.join(root, '.agents/evals/lessons/weekly-digest.md'), 'generated\n');
+
     const correctionLines = correctionCheckpointEvidence({
       root,
       ruleText,
@@ -324,6 +424,7 @@ describe('gate checkpoint evidence renderer', () => {
       deliveryMode: 'sequenced',
       priorPass: priorPassDigest(rawGateImplementPassEntries(specText)[0]),
       firstPassIntroductionSha: expect.stringMatching(/^[0-9a-f]{40}$/),
+      worktreePaths: [specRel, taskRel].sort(),
     });
 
     expect(() =>
@@ -350,6 +451,14 @@ describe('gate checkpoint evidence renderer', () => {
     expect(continuationLines.join('\n')).toContain(
       `"priorPass": "${priorPassDigest(correctionRaw)}"`,
     );
+    const parsedContinuation = parseCheckpointEvidence(
+      correctionContract,
+      'gateImplementContinuation',
+      continuationLines.join('\n'),
+    );
+    expect(parsedContinuation.ok, parsedContinuation.ok ? '' : parsedContinuation.error).toBe(true);
+    if (!parsedContinuation.ok) return;
+    expect(parsedContinuation.payload.worktreePaths).toEqual([specRel, taskRel].sort());
   });
 });
 // harness-coverage: gate-checkpoint-evidence-common.mjs
