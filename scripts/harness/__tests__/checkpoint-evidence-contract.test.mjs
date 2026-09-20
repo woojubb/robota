@@ -665,3 +665,64 @@ describe('checkpoint evidence contract', () => {
   });
 });
 // harness-coverage: checkpoint-evidence-contract-v2.mjs
+
+/**
+ * Issue #2756. The payload binds the scenario text VERBATIM, and a scenario may legally name a code
+ * fence — SCREEN-2002's prerequisites say the canned reply "contains a fenced ```ts code block".
+ * With a three-backtick delimiter hardcoded, the fence inside the payload terminated the fence
+ * around it, so the record could not be written OR read back, and that item's closeout had no legal
+ * commit shape at all. The delimiter now clears whatever the payload carries.
+ */
+describe('a payload whose own text contains a fence', () => {
+  const RULE = readFileSync(
+    path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
+    'utf8',
+  );
+  const REAL = readFileSync(
+    path.join(
+      WORKSPACE_ROOT,
+      '.agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md',
+    ),
+    'utf8',
+  );
+
+  function stageOne() {
+    const declared = parseCheckpointEvidenceContract(RULE);
+    if (!declared.ok) throw new Error(declared.error);
+    const read = parseCheckpointEvidence(declared.contract, 'doneGateStageOne', REAL);
+    if (!read.ok) throw new Error(read.error);
+    return { contract: declared.contract, payload: read.payload };
+  }
+
+  it('round trips, and the emitted delimiter outruns the fence in the text', () => {
+    const { contract, payload } = stageOne();
+    const scenarios = payload.scenarios.map((scenario, index) =>
+      index === 0
+        ? {
+            ...scenario,
+            prerequisite: `${scenario.prerequisite} The reply holds a fenced \`\`\`ts block.`,
+          }
+        : scenario,
+    );
+    const formatted = formatCheckpointEvidence(contract, 'doneGateStageOne', {
+      ...payload,
+      scenarios,
+    });
+    expect(formatted.ok).toBe(true);
+    // Four backticks, not three: one longer than the run the payload carries.
+    expect(formatted.text).toContain('````json');
+
+    const read = parseCheckpointEvidence(contract, 'doneGateStageOne', formatted.text);
+    expect(read.ok).toBe(true);
+    if (read.ok) expect(read.payload.scenarios[0].prerequisite).toBe(scenarios[0].prerequisite);
+  });
+
+  it('still writes and reads a plain three-backtick record, so nothing already written is orphaned', () => {
+    const { contract, payload } = stageOne();
+    const formatted = formatCheckpointEvidence(contract, 'doneGateStageOne', payload);
+    expect(formatted.ok).toBe(true);
+    expect(formatted.text).toContain('```json');
+    expect(formatted.text).not.toContain('````');
+    expect(parseCheckpointEvidence(contract, 'doneGateStageOne', formatted.text).ok).toBe(true);
+  });
+});

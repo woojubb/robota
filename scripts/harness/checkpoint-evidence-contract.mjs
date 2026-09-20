@@ -342,15 +342,16 @@ function parseContractRegion(source, { version, start, end, shape }) {
     );
   }
   const region = source.slice(source.indexOf(start) + start.length, source.indexOf(end));
-  const fenced = /^\s*```json\s*\n([\s\S]*?)\n```\s*$/.exec(region);
-  if (!fenced) return failure('checkpoint evidence contract region must contain one json fence');
-  const duplicate = duplicateJsonMember(fenced[1]);
+  const fenced = fencedPayload(region, 'json');
+  if (fenced === null)
+    return failure('checkpoint evidence contract region must contain one json fence');
+  const duplicate = duplicateJsonMember(fenced);
   if (duplicate.error) return failure(`checkpoint evidence contract ${duplicate.error}`);
   if (duplicate.duplicate !== undefined)
     return failure(`duplicate checkpoint evidence contract field: ${duplicate.duplicate}`);
   let contract;
   try {
-    contract = JSON.parse(fenced[1]);
+    contract = JSON.parse(fenced);
   } catch (error) {
     return failure(`checkpoint evidence contract JSON is invalid: ${error.message}`);
   }
@@ -407,17 +408,45 @@ export function parseCheckpointEvidenceContracts(ruleText) {
   return { ok: true, contracts };
 }
 
+/**
+ * The fence that carries a checkpoint payload, as CommonMark defines one: at least three backticks,
+ * closed by a run of AT LEAST the same length.
+ *
+ * It is not always three. The payload binds the scenario text VERBATIM, and a scenario may legally
+ * name a code fence — SCREEN-2002's prerequisites say the canned reply "contains a fenced ```ts code
+ * block". Three backticks around that payload are terminated by the ones inside it, so the record
+ * could never be written, let alone re-bound; Prettier widens the delimiter to four for exactly this
+ * reason and the reader then refused what Prettier had just produced. Measured on issue #2756, where
+ * it left an item whose code had shipped with a record no commit shape could reconcile.
+ *
+ * Widening changes the delimiter only. What the payload must CONTAIN, and that it must bind the
+ * authored fields exactly, is unchanged — see `validatePayload`.
+ */
+function fencedPayload(region, infoString) {
+  const opened = new RegExp('^\\s*(`{3,})' + escapeRegExp(infoString) + '\\s*\\n').exec(region);
+  if (!opened) return null;
+  const delimiter = opened[1];
+  const closed = new RegExp('\\n`{' + delimiter.length + ',}\\s*$').exec(region);
+  if (!closed) return null;
+  const body = region.slice(opened[0].length, closed.index);
+  return body.length === 0 ? null : body;
+}
+
 export function formatCheckpointEvidence(contract, formName, payload) {
   const error = validatePayload(contract, formName, payload);
   if (error) return failure(error);
   const encoding = contract.entryEncoding;
+  const body = JSON.stringify(payload, null, 2);
+  // One backtick longer than the longest run the payload itself carries, never shorter than three.
+  const longest = Math.max(0, ...[...body.matchAll(/`+/g)].map((run) => run[0].length));
+  const delimiter = '`'.repeat(Math.max(3, longest + 1));
   return {
     ok: true,
     text: [
       encoding.startMarker,
-      `\`\`\`${encoding.fence}`,
-      JSON.stringify(payload, null, 2),
-      '```',
+      `${delimiter}${encoding.fence}`,
+      body,
+      delimiter,
       encoding.endMarker,
     ].join('\n'),
   };
@@ -435,17 +464,16 @@ export function parseCheckpointEvidence(contract, formName, body) {
     source.indexOf(encoding.startMarker) + encoding.startMarker.length,
     source.indexOf(encoding.endMarker),
   );
-  const fence = new RegExp(
-    '^\\s*```' + escapeRegExp(encoding.fence) + '\\s*\\n([\\s\\S]*?)\\n```\\s*$',
-  ).exec(region);
-  if (!fence) return failure(`${formName} evidence must contain one ${encoding.fence} fence`);
-  const duplicate = duplicateJsonMember(fence[1]);
+  const fenced = fencedPayload(region, encoding.fence);
+  if (fenced === null)
+    return failure(`${formName} evidence must contain one ${encoding.fence} fence`);
+  const duplicate = duplicateJsonMember(fenced);
   if (duplicate.error) return failure(`${formName} payload ${duplicate.error}`);
   if (duplicate.duplicate !== undefined)
     return failure(`duplicate ${formName} payload field: ${duplicate.duplicate}`);
   let payload;
   try {
-    payload = JSON.parse(fence[1]);
+    payload = JSON.parse(fenced);
   } catch (error) {
     return failure(`${formName} payload JSON is invalid: ${error.message}`);
   }
