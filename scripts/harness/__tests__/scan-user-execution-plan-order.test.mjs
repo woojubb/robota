@@ -139,6 +139,8 @@ function taskText({
   stage1 = false,
   subject = TASK_ID,
   browserAutomatable = false,
+  browserObservable = 'visible=fixture control active in browser UI',
+  prerequisite = 'fixture repository initialized',
 } = {}) {
   const subjectId = /^([A-Z][A-Z0-9]*-\d+)/.exec(subject)?.[1] ?? subject;
   const signal =
@@ -151,7 +153,7 @@ function taskText({
     'browser automation probe cannot access the operating-system security-key prompt';
   const observable =
     outcome === 'manual' || browserAutomatable
-      ? 'visible=fixture control active in browser UI'
+      ? browserObservable
       : 'exit=0; output-contains=visible result';
   const surfaceRationale =
     outcome === 'manual' || browserAutomatable
@@ -194,7 +196,7 @@ function taskText({
             ? '- product surface: robota-browser-ui'
             : '- product surface: robota-cli',
           `- surface rationale: ${surfaceRationale}`,
-          '- prerequisites: fixture repository initialized',
+          `- prerequisites: ${prerequisite}`,
           outcome === 'manual'
             ? `- UI steps: ${manualInvocation}`
             : browserAutomatable
@@ -236,9 +238,12 @@ function conversionTaskText(baseOid) {
   )}\n\nConversion evidence: issue=https://github.com/woojubb/robota/issues/900; task=HARNESS-900; marker=https://github.com/woojubb/robota/issues/900#issuecomment-1; marker-readback=2026-08-29T00:00:00Z; priority-removed=2026-08-29T00:00:01Z; base=develop; base-oid=${baseOid}\n\nCombined lifecycle eligibility: eligible; work-kind=enhancement; priority=P0; issue-state=OPEN; child-causes=0; security=none; data-correctness=none; user-decision=none; contract-change=none; owner-count=1\n`;
 }
 
-function v1AutomatableBrowserTask() {
+function v1AutomatableBrowserTask(
+  observable = 'visible=fixture control active in browser UI',
+  prerequisite = 'fixture repository initialized',
+  trailingNote = 'The recommendation was endorsed on 2026-08-25.',
+) {
   const invocation = 'open Robota browser UI and activate the fixture control';
-  const observable = 'visible=fixture control active in browser UI';
   const payload = formatCheckpointEvidence(LIVE_CONTRACT, 'doneGateStageOne', {
     version: 1,
     form: 'doneGateStageOne',
@@ -254,7 +259,7 @@ function v1AutomatableBrowserTask() {
         observableRationale: 'source=rendered-product-ui',
         guardianObservableVerdict: 'product-behavior',
         executability: 'agent-executable',
-        prerequisite: 'fixture repository initialized',
+        prerequisite,
         action: { kind: 'browserSteps', value: invocation },
         expectedObservable: observable,
         cleanup: 'none',
@@ -263,7 +268,11 @@ function v1AutomatableBrowserTask() {
     ],
   });
   if (!payload.ok) throw new Error(payload.error);
-  return `${taskText({ outcome: 'automatable', stage1: true, browserAutomatable: true })}\n${payload.text}\n`;
+  // A trailing level-2 section after the Stage-1 entry, exactly as the real SCREEN-2002 Task
+  // carries `## Recommendation Evidence`. Without one every fixture's suffix is empty and the
+  // suffix half of the outside-the-entry comparison is never exercised.
+  const trailing = ['', '## Recommendation Evidence', '', trailingNote, ''].join('\n');
+  return `${taskText({ outcome: 'automatable', stage1: true, browserAutomatable: true, browserObservable: observable, prerequisite })}\n${payload.text}\n${trailing}`;
 }
 
 function specText({
@@ -5867,5 +5876,136 @@ describe('user-execution PLAN order — integration AGREEMENT history (BRANCH-26
     expect(messages(findHistoryFindings(fixture.root, fixture.base))).toMatch(
       /child history is not merge-bounded/i,
     );
+  });
+});
+
+describe('Stage-1 rebind through a continuation checkpoint (issue #2774)', () => {
+  const AUTHORED = 'visible=fixture control active in browser UI';
+  // What running the scenario actually showed — the amendment that drifts the frozen payload.
+  const AMENDED = 'visible=fixture control reports its saved and its run value separately';
+  const ANCESTOR = 'a'.repeat(40);
+
+  /** The Task as first written: scenario text and payload agree. */
+  const bound = (observable, prerequisite, trailingNote) =>
+    v1AutomatableBrowserTask(observable, prerequisite, trailingNote);
+
+  /** The same Task after an implementation commit amended the scenario and left the payload. */
+  const drifted = () =>
+    bound(AUTHORED).replace(
+      `- expected observable: ${AUTHORED}`,
+      `- expected observable: ${AMENDED}`,
+    );
+
+  const parentSpecText = () =>
+    specText({ outcome: 'automatable', v1: true }).replace(
+      '## Evidence Log',
+      [
+        '## Architecture Review',
+        '',
+        '### Decision',
+        '',
+        '**Delivery mode:** `sequenced`',
+        '',
+        '**Continuation artifacts:** `scripts/harness/gate.mjs`',
+        '',
+        '## Evidence Log',
+      ].join('\n'),
+    );
+
+  const continuedSpec = (parentSpec) => {
+    const rendered = formatCheckpointEvidence(LIVE_V2_CONTRACT, 'gateImplementContinuation', {
+      version: 2,
+      form: 'gateImplementContinuation',
+      deliveryMode: 'sequenced',
+      sequencedArtifacts: ['scripts/harness/gate.mjs'],
+      priorPass: priorPassDigest(rawGateImplementPassEntries(parentSpec).at(-1)),
+      ancestorSha: ANCESTOR,
+      taskPath: TASK_PATH,
+      specPath: SPEC_PATH,
+      plan: { outcome: 'automatable', count: 1 },
+      worktreePaths: [SPEC_PATH, TASK_PATH].sort(),
+    });
+    if (!rendered.ok) throw new Error(rendered.error);
+    return `${parentSpec}### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-20\n\n${CONTINUATION_STATUS_LINE}\n\n${rendered.text}\n`;
+  };
+
+  const judge = (parentTask, task) => {
+    const parentSpec = parentSpecText();
+    return evaluatePlanTexts({
+      basename: `${TASK_ID}.md`,
+      parentTask,
+      parentSpec,
+      task,
+      spec: continuedSpec(parentSpec),
+      ruleText: LIVE_BACKLOG_RULE,
+      checkpointOptions: {
+        ancestorSha: ANCESTOR,
+        checkpointPaths: [SPEC_PATH, TASK_PATH].sort(),
+        legacyEntries: [],
+      },
+    });
+  };
+
+  it('accepts a continuation whose only Task change re-derives the drifted Stage-1 payload', () => {
+    expect(judge(drifted(), bound(AMENDED))).toEqual([]);
+  });
+
+  it('refuses a continuation that moves a Task byte outside the Stage-1 entry', () => {
+    const alsoRewritesTheScenario = bound(AMENDED).replace(
+      '- prerequisites: fixture repository initialized',
+      '- prerequisites: fixture repository initialized and a second control seeded',
+    );
+    expect(judge(drifted(), alsoRewritesTheScenario).join('\n')).toMatch(
+      /DONE-GATE-STAGE-1|continuation PASS/,
+    );
+  });
+
+  it('refuses a Task rewrite where the payload already binds — a rebind repairs a drift or nothing', () => {
+    const narrativeOnly = bound(AUTHORED).replace(
+      'executability, prerequisites, command/UI steps, expected observable, cleanup, and evidence field: complete.',
+      'every canonical field is present and was re-read at Stage 1: complete.',
+    );
+    expect(judge(bound(AUTHORED), narrativeOnly).join('\n')).toMatch(/continuation PASS/);
+  });
+
+  it('refuses a continuation that moves a byte the payload does not bind, even with a valid rebind', () => {
+    // The payload binds the scenario fields only, so a `## Test Plan` edit is refused by the
+    // outside-the-entry comparison alone — nothing else in the chain can catch it.
+    const alsoRewritesTestPlan = bound(AMENDED).replace(
+      'TC-01: this fixture carries more than fifty characters of concrete verification planning.',
+      'TC-01: this fixture carries more than fifty characters of concrete verification prose.',
+    );
+    expect(judge(drifted(), alsoRewritesTestPlan).join('\n')).toMatch(/continuation PASS/);
+  });
+
+  it('refuses a rebind whose Stage-1 heading is indented, rather than swallowing the scenario above it', () => {
+    // `atxHeading` accepts up to three leading spaces, so a heading this module itself reads must
+    // not shift where the excluded span begins. If it does, the `### Scenario 1` above the entry
+    // falls inside the span, and a FULLY re-derived payload for re-authored scenario text — which
+    // nothing else in the chain can catch — would be accepted.
+    const HEADING = '### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-25';
+    const indent = (text) => text.replace(HEADING, `  ${HEADING}`);
+    const REWRITTEN = 'fixture repository initialized and a second control seeded';
+    const parent = indent(drifted());
+    const reAuthored = indent(bound(AMENDED, REWRITTEN));
+    // The re-authoring is real: only the prerequisites line differs outside the Stage-1 entry.
+    expect(reAuthored).toContain(`- prerequisites: ${REWRITTEN}`);
+    expect(judge(parent, reAuthored).join('\n')).toMatch(/continuation PASS/);
+  });
+
+  it('refuses a rebind that rewrites a section AFTER the Stage-1 entry', () => {
+    // The excluded span has two sides. SCREEN-2002 — the unit this door exists for — carries
+    // `## Recommendation Evidence` after its Stage-1 entry, so the suffix is not hypothetical.
+    const rewritesTheTrailingSection = bound(
+      AMENDED,
+      undefined,
+      'The recommendation was endorsed on 2026-08-26 after a second round.',
+    );
+    expect(judge(drifted(), rewritesTheTrailingSection).join('\n')).toMatch(/continuation PASS/);
+  });
+
+  it('leaves the unchanged-Task continuation and the drifted refusal exactly as they were', () => {
+    expect(judge(bound(AUTHORED), bound(AUTHORED))).toEqual([]);
+    expect(judge(drifted(), drifted()).join('\n')).toMatch(/DONE-GATE-STAGE-1/);
   });
 });

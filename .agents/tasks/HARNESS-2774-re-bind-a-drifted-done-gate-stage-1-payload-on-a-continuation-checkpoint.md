@@ -42,7 +42,7 @@ closed in any commit shape. That is the other half of the develop red tracked by
 
 | TC-ID | Test Type                | Tool / Approach                                                | Notes                          |
 | ----- | ------------------------ | -------------------------------------------------------------- | ------------------------------ |
-| TC-01 | Unit                     | Vitest over `evaluatePlanTexts` / `isCheckpointTransition`     | Four cases, red before the fix |
+| TC-01 | Unit                     | Vitest over `evaluatePlanTexts` / `isCheckpointTransition`     | Seven cases; case 1 red before |
 | TC-02 | Engineering verification | `node scripts/harness/harness-test-tiers.mjs --tier contracts` | No test file — skipped by kind |
 
 ## User Execution Test Scenarios

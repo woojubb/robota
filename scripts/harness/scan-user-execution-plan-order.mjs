@@ -647,6 +647,81 @@ function gateImplementCorrectionCount(spec, binding = null, ruleText = null, opt
 const exactPlanSignal = (task) => readPlanSignal(task, markdownSection);
 
 /**
+ * The DONE-GATE-STAGE-1 entry's own span — its heading line and body — inside a Task. Everything
+ * else is the authored record: the scenarios the entry judged, and every other section.
+ */
+function stageOneEntrySpan(task, contract) {
+  const gate = contract.forms.doneGateStageOne.heading;
+  const entries = canonicalRawPassEntries(task, 'User Execution Test Scenarios', gate);
+  if (entries.length !== 1) return null;
+  const bodyStart = task.indexOf(entries[0]);
+  if (bodyStart === -1 || task.indexOf(entries[0], bodyStart + 1) !== -1) return null;
+  // The heading is the line immediately before the body, and it is read as a LINE rather than
+  // found by searching for the literal `'\n### '`. `atxHeading` accepts up to three leading spaces
+  // and a tab after the hashes, so a literal search for one spelling misses a heading this module
+  // itself accepts and lands on an EARLIER `###` — which would put authored scenario text inside
+  // the span this function exists to exclude, and the rebind would be free to re-author it.
+  if (bodyStart < 1 || task[bodyStart - 1] !== '\n') return null;
+  const start = task.lastIndexOf('\n', bodyStart - 2) + 1;
+  const heading = atxHeading(task.slice(start, bodyStart - 1));
+  if (heading?.level !== 3 || !isCanonicalDatedPass(heading.content, gate)) return null;
+  return { start, end: bodyStart + entries[0].length };
+}
+
+/**
+ * A Stage-1 REBIND (issue #2774): the one Task change a continuation checkpoint may carry.
+ *
+ * The payload binds the authored scenario text verbatim, and nothing refuses an implementation
+ * commit that amends that text — running a scenario is how a wrong expected observable is found, so
+ * the process expects the amendment. Once it happens the payload no longer binds, and every route
+ * out is refused: both checkpoint forms require the Task to be byte-identical once the pair is
+ * in-progress, and the archive freezes the scenarios section, so an `evidence: pending` left behind
+ * can never be filled. The unit is sealed.
+ *
+ * It rides the CONTINUATION form and not the correction form, which is not the general "this record
+ * was wrong" door it reads as: `correctionEntryError` admits it only at index 1, after exactly one
+ * legacy v1 first PASS and no continuation — a migration form. A unit far enough into a sequenced
+ * delivery to have drifted has already passed that point.
+ *
+ * The door is exactly one Task wide: the DONE-GATE-STAGE-1 entry is re-recorded and nothing else
+ * moves. The text the payload binds TO sits outside that entry and must be identical, so the door
+ * cannot be used to re-author a scenario — only to re-judge the one already written. Legal only
+ * where there IS a drift: a payload that already binds has nothing to repair.
+ *
+ * BOUND, stated because the door is narrower than the seal: `validateV2GateImplementDelivery`
+ * (`checkpoint-evidence-contract-v2.mjs:27`) refuses BOTH the continuation and the correction form
+ * unless the delivery is `sequenced`. A `single`-delivery unit that drifts has neither form to ride
+ * and stays sealed. SCREEN-2002, the unit this was measured on, is sequenced. The residual is
+ * recorded at github.com/woojubb/robota/issues/2774#issuecomment-5750809102.
+ */
+function isStageOneRebind(parentTask, task, ruleText) {
+  if (typeof parentTask !== 'string' || typeof task !== 'string' || parentTask === task)
+    return false;
+  const declared = parseCheckpointEvidenceContract(ruleText);
+  if (!declared.ok) return false;
+  const signal = exactPlanSignal(task);
+  if (signal === null || signal.outcome === 'not-applicable') return false;
+  const scenarios = sharedScenarioEntries(
+    markdownSection(task, '## User Execution Test Scenarios') ?? '',
+  );
+  if (scenarios.length !== signal.count) return false;
+  // The two halves are compared PAIRWISE rather than joined around a separator: a joined string
+  // makes the comparison depend on the separator never occurring in a Task.
+  const outsideEntry = (text) => {
+    const span = stageOneEntrySpan(text, declared.contract);
+    return span === null ? null : [text.slice(0, span.start), text.slice(span.end)];
+  };
+  const before = outsideEntry(parentTask);
+  const after = outsideEntry(task);
+  if (before === null || after === null) return false;
+  if (before[0] !== after[0] || before[1] !== after[1]) return false;
+  return (
+    !v1StageOneResult(parentTask, scenarios, signal.outcome, ruleText).ok &&
+    v1StageOneResult(task, scenarios, signal.outcome, ruleText).ok
+  );
+}
+
+/**
  * A paused sequenced Task has one legal way back into execution: its frontmatter status changes
  * from `blocked` to `in-progress` in the same checkpoint that appends the continuation PASS. No
  * other Task byte may change there; implementation evidence belongs after the checkpoint.
@@ -727,8 +802,11 @@ function isCheckpointTransition({
   // the base — a spec whose delivery is sequenced across PRs — and this commit re-records the gate
   // as exactly one more bound entry, in continuation form, so the new branch is bound to the same
   // pair by a guardian-judged entry. Anything else on an in-progress pair is not a checkpoint.
+  // A continuation checkpoint may additionally carry a Stage-1 REBIND (issue #2774) — the only Task
+  // change any checkpoint accepts on an in-progress pair. The correction form stays byte-strict.
+  const stageOneRebind = task !== parentTask && isStageOneRebind(parentTask, task, ruleText);
   const passDeltaIsOne =
-    (task === parentTask || resumedTask) &&
+    (task === parentTask || resumedTask || stageOneRebind) &&
     // The prior PASS must be bound to the SAME exact PLAN signal: a continuation that re-plans the
     // outcome is scope growth, not a continuation.
     gateImplementPassCount(parentSpec, binding, ruleText, checkpointOptions) >= 1 &&

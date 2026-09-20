@@ -57,6 +57,14 @@ The restriction is mechanically checkable because the derivation is already mech
 (`stageOneScenarioPayload`), so the door cannot be used to re-author a scenario: the text the payload
 binds TO is outside the entry and must not move.
 
+**What the door does NOT reach**, stated because it is narrower than the seal:
+`validateV2GateImplementDelivery` (`checkpoint-evidence-contract-v2.mjs:27`) refuses BOTH the
+continuation and the correction form unless the delivery is `sequenced`. A `single`-delivery unit
+that drifts has neither form to ride and stays sealed exactly as § Problem describes. SCREEN-2002,
+the unit this was measured on, is sequenced; the residual is recorded as
+[issue #2774 comment 5750809102](https://github.com/woojubb/robota/issues/2774#issuecomment-5750809102)
+rather than left as a pointer to nothing.
+
 ## Prior Art Research
 
 Waived: the question is not what other products do but what this repository's own checkpoint forms
@@ -119,7 +127,7 @@ binding before, binding after. The correction form is untouched and stays byte-s
 
 | TC-ID | Test Type                | Tool / Approach                                                | Notes                          |
 | ----- | ------------------------ | -------------------------------------------------------------- | ------------------------------ |
-| TC-01 | Unit                     | Vitest over `evaluatePlanTexts`                                | Four cases; case 1 red before  |
+| TC-01 | Unit                     | Vitest over `evaluatePlanTexts`                                | Seven cases; case 1 red before |
 | TC-02 | Engineering verification | `node scripts/harness/harness-test-tiers.mjs --tier contracts` | No test file — skipped by kind |
 
 ## User Execution Test Scenarios
@@ -218,6 +226,7 @@ repository between the gate writer and the scan that reads it.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -246,6 +255,7 @@ repository between the gate writer and the scan that reads it.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
