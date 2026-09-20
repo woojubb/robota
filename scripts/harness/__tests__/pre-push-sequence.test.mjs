@@ -286,6 +286,7 @@ describe('post-verdict guard reaches the real Git pre-push boundary', () => {
     const result = runPostVerdictGuard({
       cwd: '/tmp/fixture-repo',
       script: '/tmp/fixture-repo/.claude/hooks/pre-push-check.sh',
+      env: {},
       spawn(_command, _args, options) {
         expect(JSON.parse(options.input)).toMatchObject({
           tool_name: 'Bash',
@@ -300,6 +301,7 @@ describe('post-verdict guard reaches the real Git pre-push boundary', () => {
   it('allows only an explicit zero exit from the shared guard', () => {
     expect(
       runPostVerdictGuard({
+        env: {},
         spawn: () => ({ status: 0 }),
       }),
     ).toBe(true);
