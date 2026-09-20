@@ -1,13 +1,16 @@
 ---
 title: 'PUSH-2664: preserve trusted integration-base declarations through the Git pre-push wrapper'
 issue: https://github.com/woojubb/robota/issues/2664
-status: in-progress
+status: done
 created: 2026-09-20
 priority: high
 urgency: now
 area: scripts/harness Git pre-push guard bridge
 depends_on: [BRANCH-2664]
+completed: 2026-09-20
 ---
+
+Spec: `.agents/spec-docs/done/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md`
 
 # PUSH-2664: preserve trusted integration-base declarations through the Git pre-push wrapper
 
