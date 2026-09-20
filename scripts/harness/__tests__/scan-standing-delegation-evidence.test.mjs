@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -16,6 +18,15 @@ import {
   readExaminedApprovalCount,
   scanStandingDelegationEvidence,
 } from '../scan-standing-delegation-evidence.mjs';
+import {
+  deriveDispositionCategory,
+  extractEvidenceLog,
+  parseDispositionManifest,
+  serializeDispositionManifest,
+  validateAdoptedRecord,
+  validateDispositionManifest,
+  validateManifestIntroduction,
+} from '../standing-delegation-disposition.mjs';
 
 /**
  * ACCEPTANCE CRITERION (RULE-012's own fixture enumeration, written before the guard).
@@ -50,6 +61,244 @@ const REGISTRY = new Map([
 ]);
 
 const entry = (body) => `### [GATE-APPROVAL] — ✅ PASS | 2026-08-25\n\n${body}\n`;
+
+describe('frozen disposition categories', () => {
+  it('gives relayed authority precedence over quoted standing evidence', () => {
+    expect(
+      deriveDispositionCategory([
+        { kind: 'STANDING_CLASS_INSTRUCTION_QUOTED' },
+        { kind: 'USER_AUTHORITY_RELAYED' },
+      ]),
+    ).toBe('RELAYED_AUTHORITY_ONLY');
+  });
+
+  it('round-trips a canonical manifest byte-for-byte', () => {
+    const manifest = {
+      version: 1,
+      adoptionRevision: '87e961d86b9aa60b42d13279e641707deea8e698',
+      records: [
+        {
+          subject: 'FIX-001.md',
+          path: '.agents/spec-docs/done/FIX-001.md',
+          blob: '1111111111111111111111111111111111111111',
+          documentSha256: 'a'.repeat(64),
+          evidenceLogSha256: 'b'.repeat(64),
+          standingVerdictSha256: 'c'.repeat(64),
+          references: [
+            {
+              kind: 'DIRECT_ITEM_OR_BATCH_APPROVAL',
+              start: 0,
+              end: 8,
+              sha256: 'd'.repeat(64),
+            },
+          ],
+          category: 'HISTORICAL_DIRECT_SHAPE',
+          disposition: 'PRESERVE_FROZEN',
+          reason: 'HISTORICAL_DIRECT_NOT_CURRENT_AUTHORITY',
+        },
+      ],
+    };
+    const bytes = `${JSON.stringify(manifest, null, 2)}\n`;
+    expect(serializeDispositionManifest(parseDispositionManifest(bytes))).toBe(bytes);
+  });
+
+  it('serializes records in canonical subject order', () => {
+    const record = (subject, digest) => ({
+      subject,
+      path: `.agents/spec-docs/done/${subject}`,
+      blob: digest.repeat(40),
+      documentSha256: digest.repeat(64),
+      evidenceLogSha256: digest.repeat(64),
+      standingVerdictSha256: digest.repeat(64),
+      references: [
+        {
+          kind: 'DIRECT_ITEM_OR_BATCH_APPROVAL',
+          start: 0,
+          end: 1,
+          sha256: digest.repeat(64),
+        },
+      ],
+      category: 'HISTORICAL_DIRECT_SHAPE',
+      disposition: 'PRESERVE_FROZEN',
+      reason: 'HISTORICAL_DIRECT_NOT_CURRENT_AUTHORITY',
+    });
+    const bytes = serializeDispositionManifest({
+      version: 1,
+      adoptionRevision: '87e961d86b9aa60b42d13279e641707deea8e698',
+      records: [record('FIX-002.md', 'b'), record('FIX-001.md', 'a')],
+    });
+    expect(parseDispositionManifest(bytes).records.map(({ subject }) => subject)).toEqual([
+      'FIX-001.md',
+      'FIX-002.md',
+    ]);
+  });
+
+  it('verifies evidence offsets and hashes as UTF-8 bytes', () => {
+    const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+    const verdict = '승인';
+    const document = `# Fixture\n\n## Evidence Log\n\n${verdict}`;
+    const evidenceLog = `## Evidence Log\n\n${verdict}`;
+    const record = {
+      subject: 'FIX-001.md',
+      path: '.agents/spec-docs/done/FIX-001.md',
+      blob: '1111111111111111111111111111111111111111',
+      documentSha256: sha256(document),
+      evidenceLogSha256: sha256(evidenceLog),
+      standingVerdictSha256: sha256(verdict),
+      references: [
+        {
+          kind: 'DIRECT_ITEM_OR_BATCH_APPROVAL',
+          start: 0,
+          end: Buffer.byteLength(verdict),
+          sha256: sha256(verdict),
+        },
+      ],
+      category: 'HISTORICAL_DIRECT_SHAPE',
+      disposition: 'PRESERVE_FROZEN',
+      reason: 'HISTORICAL_DIRECT_NOT_CURRENT_AUTHORITY',
+    };
+    expect(() =>
+      validateAdoptedRecord(record, {
+        path: record.path,
+        blob: record.blob,
+        document,
+        evidenceLog,
+        verdict,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validateAdoptedRecord(
+        { ...record, references: [{ ...record.references[0], end: 5 }] },
+        {
+          path: record.path,
+          blob: record.blob,
+          document,
+          evidenceLog,
+          verdict,
+        },
+      ),
+    ).toThrow(/reference bytes/);
+  });
+
+  it('rejects a manifest that omits an adopted frozen subject', () => {
+    expect(() =>
+      validateDispositionManifest(
+        {
+          version: 1,
+          adoptionRevision: '87e961d86b9aa60b42d13279e641707deea8e698',
+          records: [],
+        },
+        new Map([['FIX-001.md', { path: '.agents/spec-docs/done/FIX-001.md' }]]),
+      ),
+    ).toThrow(/adopted frozen subject set/);
+  });
+
+  it('accepts one staged introduction and rejects later byte mutation', () => {
+    const root = makeTemp('robota-standing-manifest-');
+    const manifestRelative = 'scripts/harness/standing-delegation-dispositions.json';
+    const manifestPath = path.join(root, manifestRelative);
+    mkdirSync(path.dirname(manifestPath), { recursive: true });
+    const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+    git('init', '-q');
+    git('config', 'user.email', 'fixture@example.com');
+    git('config', 'user.name', 'Fixture');
+    writeFileSync(path.join(root, 'seed'), 'seed\n');
+    git('add', 'seed');
+    git('commit', '-qm', 'seed');
+    const adoption = git('rev-parse', 'HEAD').trim();
+    const bytes = '{"version":1}\n';
+    writeFileSync(manifestPath, bytes);
+    git('add', manifestRelative);
+    expect(() =>
+      validateManifestIntroduction(root, manifestRelative, bytes, adoption),
+    ).not.toThrow();
+    git('commit', '-qm', 'introduce manifest');
+    writeFileSync(manifestPath, '{"version":2}\n');
+    expect(() =>
+      validateManifestIntroduction(root, manifestRelative, '{"version":2}\n', adoption),
+    ).toThrow(/immutable introduction/);
+  });
+
+  it('keeps the immutable manifest enforced after the current baseline shrinks to zero', () => {
+    const root = makeTemp('robota-standing-shrink-');
+    const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+    const relative = 'done/FIX-001-legacy.md';
+    const specRelative = `.agents/spec-docs/${relative}`;
+    const specPath = path.join(root, specRelative);
+    const baselineRelative = 'scripts/harness/standing-delegation-baseline.json';
+    const manifestRelative = 'scripts/harness/standing-delegation-dispositions.json';
+    const baselinePath = path.join(root, baselineRelative);
+    const manifestPath = path.join(root, manifestRelative);
+    mkdirSync(path.dirname(specPath), { recursive: true });
+    mkdirSync(path.dirname(baselinePath), { recursive: true });
+    git('init', '-q');
+    git('config', 'user.email', 'fixture@example.com');
+    git('config', 'user.name', 'Fixture');
+    const legacyVerdict = '### [GATE-APPROVAL] — ✅ PASS | 2026-08-01\n\nLegacy direct approval.\n';
+    const adoptedDocument = `---\nstatus: done\n---\n\n# FIX-001\n\n## Evidence Log\n\n${legacyVerdict}`;
+    writeFileSync(specPath, adoptedDocument);
+    writeFileSync(baselinePath, `${JSON.stringify({ exempt: [relative] }, null, 2)}\n`);
+    git('add', specRelative, baselineRelative);
+    git('commit', '-qm', 'adopt frozen approval');
+    const adoptionRevision = git('rev-parse', 'HEAD').trim();
+    const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+    const adoptedVerdict = standingVerdict(adoptedDocument);
+    const manifest = {
+      version: 1,
+      adoptionRevision,
+      records: [
+        {
+          subject: 'FIX-001-legacy.md',
+          path: specRelative,
+          blob: git('rev-parse', `${adoptionRevision}:${specRelative}`).trim(),
+          documentSha256: sha256(adoptedDocument),
+          evidenceLogSha256: sha256(extractEvidenceLog(adoptedDocument)),
+          standingVerdictSha256: sha256(adoptedVerdict),
+          references: [
+            {
+              kind: 'DIRECT_ITEM_OR_BATCH_APPROVAL',
+              start: 0,
+              end: Buffer.byteLength(adoptedVerdict),
+              sha256: sha256(adoptedVerdict),
+            },
+          ],
+          category: 'HISTORICAL_DIRECT_SHAPE',
+          disposition: 'PRESERVE_FROZEN',
+          reason: 'HISTORICAL_DIRECT_NOT_CURRENT_AUTHORITY',
+        },
+      ],
+    };
+    const manifestBytes = serializeDispositionManifest(manifest);
+    writeFileSync(manifestPath, manifestBytes);
+    git('add', manifestRelative);
+    expect(findEvidenceFindings(root).findings).toEqual([]);
+    git('commit', '-qm', 'introduce disposition manifest');
+    writeFileSync(
+      specPath,
+      adoptedDocument.replace('Legacy direct approval.', 'Changed approval.'),
+    );
+    expect(findEvidenceFindings(root).findings.map(({ problem }) => problem)).toContain(
+      'current frozen Evidence Log differs from its adoption-time bytes',
+    );
+    writeFileSync(specPath, adoptedDocument);
+    writeFileSync(baselinePath, `${JSON.stringify({ exempt: [] }, null, 2)}\n`);
+    expect(findEvidenceFindings(root).findings[0].problem).toMatch(
+      /baseline shrink has no valid current DIRECT\/CLASS approval/,
+    );
+    writeFileSync(
+      specPath,
+      `${adoptedDocument}\n### [GATE-APPROVAL] — ✅ PASS | 2026-09-21\n\n` +
+        '**Approval route:** `DIRECT`\n' +
+        '**Instruction (verbatim):** "approve FIX-001"\n' +
+        '**Given:** 2026-09-21, fixture\n',
+    );
+    expect(findEvidenceFindings(root).findings).toEqual([]);
+    writeFileSync(manifestPath, `${manifestBytes}\n`);
+    expect(() => findEvidenceFindings(root)).toThrow(
+      /canonically serialized|immutable introduction/,
+    );
+  });
+});
 
 describe('the rule states criteria this guard can read', () => {
   it('finds the section that owns the form and the registry', () => {
@@ -587,5 +836,12 @@ describe('the guard on the live tree', () => {
     const result = scanStandingDelegationEvidence();
     expect(result.findings).toEqual([]);
     expect(result.examined).toMatch(/approved spec document\(s\)/);
+    expect(result.dispositions).toEqual({
+      HISTORICAL_DIRECT_SHAPE: 164,
+      HISTORICAL_QUOTED_CLASS_SHAPE: 26,
+      RELAYED_AUTHORITY_ONLY: 17,
+      NO_QUOTED_AUTHORITY: 11,
+    });
+    expect(result.examined).toContain('218 PRESERVE_FROZEN');
   });
 });

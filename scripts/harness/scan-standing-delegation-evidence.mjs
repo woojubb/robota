@@ -46,12 +46,20 @@ import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
+import {
+  extractEvidenceLog,
+  parseDispositionManifest,
+  readAdoptedSnapshots,
+  serializeDispositionManifest,
+  validateManifestIntroduction,
+} from './standing-delegation-disposition.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const SPEC_RELATIVE = '.agents/spec-docs';
 const GOVERNED_TREE = `${SPEC_RELATIVE}/done`;
 const BACKLOG_RULE = path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md');
-const BASELINE_FILE = path.join(import.meta.dirname, 'standing-delegation-baseline.json');
+const BASELINE_RELATIVE = 'scripts/harness/standing-delegation-baseline.json';
+const MANIFEST_RELATIVE = 'scripts/harness/standing-delegation-dispositions.json';
 
 const REGISTRY_HEADING = '### Delegated Approval Classes';
 
@@ -288,15 +296,16 @@ export function listApprovedSpecs(root = WORKSPACE_ROOT) {
       const full = path.join(dir, file);
       const text = readFileSync(full, 'utf8');
       const verdict = standingVerdict(text);
-      if (verdict) specs.push({ key: `${folder}/${file}`, verdict });
+      if (verdict) specs.push({ key: `${folder}/${file}`, subject: file, text, verdict });
     }
   }
   return specs;
 }
 
-function loadBaseline() {
-  if (!existsSync(BASELINE_FILE)) return { exempt: [] };
-  return JSON.parse(readFileSync(BASELINE_FILE, 'utf8'));
+function loadBaseline(root) {
+  const filename = path.join(root, BASELINE_RELATIVE);
+  if (!existsSync(filename)) return { exempt: [], manifestRequired: false };
+  return { ...JSON.parse(readFileSync(filename, 'utf8')), manifestRequired: true };
 }
 
 /**
@@ -379,6 +388,86 @@ export function classifyApproval(verdict, { form, registry }) {
   return { route };
 }
 
+function currentBaselineBySubject(exempt) {
+  const result = new Map();
+  for (const relative of exempt) {
+    const subject = relative.split('/').at(-1);
+    if (result.has(subject)) throw new Error(`current baseline duplicates subject ${subject}`);
+    result.set(subject, relative);
+  }
+  return result;
+}
+
+function dispositionState(root, baseline, specs, form, registry) {
+  if (!baseline.manifestRequired) return { findings: [], counts: undefined };
+  const manifestPath = path.join(root, MANIFEST_RELATIVE);
+  if (!existsSync(manifestPath)) {
+    throw new Error('frozen baseline exists without standing-delegation-dispositions.json');
+  }
+  const manifestBytes = readFileSync(manifestPath, 'utf8');
+  const manifest = parseDispositionManifest(manifestBytes);
+  if (serializeDispositionManifest(manifest) !== manifestBytes) {
+    throw new Error('standing-delegation disposition manifest is not canonically serialized');
+  }
+  validateManifestIntroduction(root, MANIFEST_RELATIVE, manifestBytes, manifest.adoptionRevision);
+  const adopted = readAdoptedSnapshots(root, manifest, standingVerdict);
+  const records = new Map(manifest.records.map((record) => [record.subject, record]));
+  const currentBaseline = currentBaselineBySubject(baseline.exempt);
+  const currentSpecs = new Map(specs.map((spec) => [spec.subject, spec]));
+  const findings = [];
+
+  for (const [subject, relative] of currentBaseline) {
+    const record = records.get(subject);
+    if (!record) {
+      findings.push({
+        spec: relative,
+        problem: 'current baseline subject is unknown to the manifest',
+      });
+      continue;
+    }
+    const spec = specs.find(({ key }) => key === relative);
+    if (!spec) {
+      findings.push({ spec: relative, problem: 'current baseline path does not resolve uniquely' });
+      continue;
+    }
+    if (extractEvidenceLog(spec.text) !== adopted.snapshots.get(subject).evidenceLog) {
+      findings.push({
+        spec: relative,
+        problem: 'current frozen Evidence Log differs from its adoption-time bytes',
+      });
+    }
+  }
+
+  for (const record of manifest.records) {
+    if (currentBaseline.has(record.subject)) continue;
+    const spec = currentSpecs.get(record.subject);
+    if (!spec) {
+      findings.push({
+        spec: record.path,
+        problem: 'subject left the baseline without a current standing approval',
+      });
+      continue;
+    }
+    if (
+      !extractEvidenceLog(spec.text).startsWith(adopted.snapshots.get(record.subject).evidenceLog)
+    ) {
+      findings.push({
+        spec: spec.key,
+        problem: 'baseline shrink rewrote the adopted Evidence Log prefix',
+      });
+      continue;
+    }
+    const result = classifyApproval(spec.verdict, { form, registry });
+    if (result.problem) {
+      findings.push({
+        spec: spec.key,
+        problem: `baseline shrink has no valid current DIRECT/CLASS approval: ${result.problem}`,
+      });
+    }
+  }
+  return { findings, counts: adopted.counts };
+}
+
 export function findEvidenceFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, [GOVERNED_TREE], {
     scan: 'standing-delegation-evidence',
@@ -408,10 +497,16 @@ export function findEvidenceFindings(root = WORKSPACE_ROOT) {
     );
   }
 
-  const exempt = new Set(loadBaseline().exempt);
+  const baseline = loadBaseline(root);
+  if (!Array.isArray(baseline.exempt)) {
+    throw new Error('standing-delegation baseline has no exempt array');
+  }
+  const exempt = new Set(baseline.exempt);
   const findings = [];
   const counts = { direct: 0, class: 0, exempt: 0, unrouted: 0 };
   const specs = listApprovedSpecs(root);
+  const dispositions = dispositionState(root, baseline, specs, form, registry);
+  findings.push(...dispositions.findings);
 
   for (const { key, verdict } of specs) {
     if (exempt.has(key)) {
@@ -427,7 +522,13 @@ export function findEvidenceFindings(root = WORKSPACE_ROOT) {
     counts[verdictResult.route === 'DIRECT' ? 'direct' : 'class'] += 1;
   }
 
-  return { findings, examined: specs.length, counts, registrySize: registry.size };
+  return {
+    findings,
+    examined: specs.length,
+    counts,
+    registrySize: registry.size,
+    dispositions: dispositions.counts,
+  };
 }
 
 /** Exported so a test can read the size this scan reports (measurement-provenance.md). */
@@ -436,14 +537,18 @@ export function readExaminedApprovalCount(root = WORKSPACE_ROOT) {
 }
 
 export function scanStandingDelegationEvidence() {
-  const { findings, examined, counts, registrySize } = findEvidenceFindings();
+  const { findings, examined, counts, registrySize, dispositions } = findEvidenceFindings();
+  const dispositionCount = dispositions
+    ? Object.values(dispositions).reduce((sum, count) => sum + count, 0)
+    : 0;
   return {
     name: 'standing-delegation-evidence',
     findings: findings.map((f) => `${f.spec}: ${f.problem}`),
     examined:
       `${examined} approved spec document(s); ${counts.direct} DIRECT, ${counts.class} CLASS, ` +
       `${counts.exempt} frozen (${counts.unrouted} of them with no route at all); ` +
-      `${registrySize} registered class(es)`,
+      `${registrySize} registered class(es); ${dispositionCount} PRESERVE_FROZEN disposition(s)`,
+    dispositions,
   };
 }
 
