@@ -1,7 +1,7 @@
 ---
 title: 'RULE-2380: Dispose of the frozen legacy approval corpus'
 issue: https://github.com/woojubb/robota/issues/2380
-status: todo
+status: in-progress
 created: 2026-09-20
 priority: high
 urgency: now
@@ -11,7 +11,7 @@ depends_on: [RULE-2326]
 
 # RULE-2380: Dispose of the frozen legacy approval corpus
 
-Spec: `.agents/spec-docs/todo/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
+Spec: `.agents/spec-docs/active/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
 
 ## Objective
 
@@ -61,3 +61,7 @@ Not applicable.
 
 **Reason:** This is a repository approval-record migration with no Robota product CLI, TUI, browser,
 public SDK, or installed-package behavior an end user can execute.
+
+## Progress
+
+- 2026-09-21: Approval committed; implementation checkpoint prepared.
