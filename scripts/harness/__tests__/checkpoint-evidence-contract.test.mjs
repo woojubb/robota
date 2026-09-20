@@ -665,3 +665,95 @@ describe('checkpoint evidence contract', () => {
   });
 });
 // harness-coverage: checkpoint-evidence-contract-v2.mjs
+
+/**
+ * Issue #2756. The payload binds the scenario text VERBATIM, and a scenario may legally name a code
+ * fence — SCREEN-2002's prerequisites say the canned reply "contains a fenced ```ts code block".
+ * With a three-backtick delimiter hardcoded, the fence inside the payload terminated the fence
+ * around it, so the record could not be written OR read back, and that item's closeout had no legal
+ * commit shape at all. The delimiter now clears whatever the payload carries.
+ */
+describe('a payload whose own text contains a fence', () => {
+  const RULE = readFileSync(
+    path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
+    'utf8',
+  );
+  const REAL = readFileSync(
+    path.join(
+      WORKSPACE_ROOT,
+      '.agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md',
+    ),
+    'utf8',
+  );
+
+  function stageOne() {
+    const declared = parseCheckpointEvidenceContract(RULE);
+    if (!declared.ok) throw new Error(declared.error);
+    const read = parseCheckpointEvidence(declared.contract, 'doneGateStageOne', REAL);
+    if (!read.ok) throw new Error(read.error);
+    return { contract: declared.contract, payload: read.payload };
+  }
+
+  it('round trips, and the emitted delimiter outruns the fence in the text', () => {
+    const { contract, payload } = stageOne();
+    const scenarios = payload.scenarios.map((scenario, index) =>
+      index === 0
+        ? {
+            ...scenario,
+            prerequisite: `${scenario.prerequisite} The reply holds a fenced \`\`\`ts block.`,
+          }
+        : scenario,
+    );
+    const formatted = formatCheckpointEvidence(contract, 'doneGateStageOne', {
+      ...payload,
+      scenarios,
+    });
+    expect(formatted.ok).toBe(true);
+    // Four backticks, not three: one longer than the run the payload carries.
+    expect(formatted.text).toContain('````json');
+
+    const read = parseCheckpointEvidence(contract, 'doneGateStageOne', formatted.text);
+    expect(read.ok).toBe(true);
+    if (read.ok) expect(read.payload.scenarios[0].prerequisite).toBe(scenarios[0].prerequisite);
+  });
+
+  /**
+   * The load-bearing invariant of HARNESS-2756 is that the writer's delimiter formula agrees with
+   * Prettier's. If they diverge, `format-check` rewrites what the gate writer just emitted and the
+   * two fight on every task file — which is the ORIGINAL defect, arriving from the other side. The
+   * assertion is on the DELIMITER, not the whole document: Prettier also inserts a blank line after
+   * the HTML marker, which is a pre-existing difference in the record's frame and not its fence.
+   */
+  it('emits a record Prettier does not rewrite', async () => {
+    const prettier = await import('prettier');
+    const { contract, payload } = stageOne();
+    for (const suffix of ['', ' a ``run``', ' a ```fence```', ' a ````wide```` run']) {
+      const scenarios = payload.scenarios.map((scenario, index) =>
+        index === 0 ? { ...scenario, prerequisite: `${scenario.prerequisite}${suffix}` } : scenario,
+      );
+      const formatted = formatCheckpointEvidence(contract, 'doneGateStageOne', {
+        ...payload,
+        scenarios,
+      });
+      expect(formatted.ok, suffix).toBe(true);
+      const document = `# probe\n\n${formatted.text}\n`;
+      const printed = await prettier.format(document, { parser: 'markdown' });
+      // The DELIMITER is what must survive: Prettier widening it is the original defect, and it
+      // widens only when the writer chose one too short. (Prettier also inserts a blank line after
+      // the HTML marker — a pre-existing difference in the record's frame, not in its fence.)
+      const chosen = /^(`{3,})json$/m.exec(formatted.text)?.[1];
+      const survived = /^(`{3,})json$/m.exec(printed)?.[1];
+      expect(survived, suffix).toBe(chosen);
+      expect(parseCheckpointEvidence(contract, 'doneGateStageOne', printed).ok, suffix).toBe(true);
+    }
+  });
+
+  it('still writes and reads a plain three-backtick record, so nothing already written is orphaned', () => {
+    const { contract, payload } = stageOne();
+    const formatted = formatCheckpointEvidence(contract, 'doneGateStageOne', payload);
+    expect(formatted.ok).toBe(true);
+    expect(formatted.text).toContain('```json');
+    expect(formatted.text).not.toContain('````');
+    expect(parseCheckpointEvidence(contract, 'doneGateStageOne', formatted.text).ok).toBe(true);
+  });
+});

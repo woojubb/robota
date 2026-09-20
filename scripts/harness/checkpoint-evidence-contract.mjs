@@ -19,6 +19,7 @@ import {
   validateV2GateImplementDelivery,
   validateV2GateImplementIdentity,
 } from './checkpoint-evidence-contract-v2.mjs';
+import { fencedPayload } from './markdown-visibility.mjs';
 
 const CONTRACT_START = '<!-- checkpoint-evidence-contract:v1:start -->';
 const CONTRACT_END = '<!-- checkpoint-evidence-contract:v1:end -->';
@@ -342,15 +343,16 @@ function parseContractRegion(source, { version, start, end, shape }) {
     );
   }
   const region = source.slice(source.indexOf(start) + start.length, source.indexOf(end));
-  const fenced = /^\s*```json\s*\n([\s\S]*?)\n```\s*$/.exec(region);
-  if (!fenced) return failure('checkpoint evidence contract region must contain one json fence');
-  const duplicate = duplicateJsonMember(fenced[1]);
+  const fenced = fencedPayload(region, 'json');
+  if (fenced === null)
+    return failure('checkpoint evidence contract region must contain one json fence');
+  const duplicate = duplicateJsonMember(fenced);
   if (duplicate.error) return failure(`checkpoint evidence contract ${duplicate.error}`);
   if (duplicate.duplicate !== undefined)
     return failure(`duplicate checkpoint evidence contract field: ${duplicate.duplicate}`);
   let contract;
   try {
-    contract = JSON.parse(fenced[1]);
+    contract = JSON.parse(fenced);
   } catch (error) {
     return failure(`checkpoint evidence contract JSON is invalid: ${error.message}`);
   }
@@ -411,13 +413,17 @@ export function formatCheckpointEvidence(contract, formName, payload) {
   const error = validatePayload(contract, formName, payload);
   if (error) return failure(error);
   const encoding = contract.entryEncoding;
+  const body = JSON.stringify(payload, null, 2);
+  // One backtick longer than the longest run the payload itself carries, never shorter than three.
+  const longest = Math.max(0, ...[...body.matchAll(/`+/g)].map((run) => run[0].length));
+  const delimiter = '`'.repeat(Math.max(3, longest + 1));
   return {
     ok: true,
     text: [
       encoding.startMarker,
-      `\`\`\`${encoding.fence}`,
-      JSON.stringify(payload, null, 2),
-      '```',
+      `${delimiter}${encoding.fence}`,
+      body,
+      delimiter,
       encoding.endMarker,
     ].join('\n'),
   };
@@ -435,17 +441,16 @@ export function parseCheckpointEvidence(contract, formName, body) {
     source.indexOf(encoding.startMarker) + encoding.startMarker.length,
     source.indexOf(encoding.endMarker),
   );
-  const fence = new RegExp(
-    '^\\s*```' + escapeRegExp(encoding.fence) + '\\s*\\n([\\s\\S]*?)\\n```\\s*$',
-  ).exec(region);
-  if (!fence) return failure(`${formName} evidence must contain one ${encoding.fence} fence`);
-  const duplicate = duplicateJsonMember(fence[1]);
+  const fenced = fencedPayload(region, encoding.fence);
+  if (fenced === null)
+    return failure(`${formName} evidence must contain one ${encoding.fence} fence`);
+  const duplicate = duplicateJsonMember(fenced);
   if (duplicate.error) return failure(`${formName} payload ${duplicate.error}`);
   if (duplicate.duplicate !== undefined)
     return failure(`duplicate ${formName} payload field: ${duplicate.duplicate}`);
   let payload;
   try {
-    payload = JSON.parse(fence[1]);
+    payload = JSON.parse(fenced);
   } catch (error) {
     return failure(`${formName} payload JSON is invalid: ${error.message}`);
   }
