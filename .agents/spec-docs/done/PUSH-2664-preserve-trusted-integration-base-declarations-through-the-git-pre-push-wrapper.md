@@ -107,20 +107,18 @@ None
 - [x] TC-03: Observable: whitespace, quote, newline, and metacharacter values are refused before
       payload construction or spawn, while lexically safe untrusted refs reach the existing
       trusted-base guard and receive no approval.
-- [x] TC-04: Commands: `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs
-  scripts/harness/__tests__/review-before-push.test.mjs` and
-      `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs
-  --affected --context pr --base origin/integration/agreement-2664` both exit 0 apart from
-      runner-classified repository-baseline advisories.
+- [x] TC-04: Commands: `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs scripts/harness/__tests__/review-before-push.test.mjs`
+      and `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/integration/agreement-2664`
+      both exit 0 apart from runner-classified repository-baseline advisories.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                     | Notes                                     |
-| ----- | ----------- | --------------------------------------------------- | ----------------------------------------- |
-| TC-01 | Unit        | `scripts/harness/__tests__/pre-push-sequence.test.mjs` | RED before bridge projection, GREEN after |
-| TC-02 | Unit        | `scripts/harness/__tests__/pre-push-sequence.test.mjs` | Exact present/absent command rendering    |
+| TC-ID | Test Type   | Tool / Approach                                                                                                 | Notes                                                                                     |
+| ----- | ----------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| TC-01 | Unit        | `scripts/harness/__tests__/pre-push-sequence.test.mjs`                                                          | RED before bridge projection, GREEN after                                                 |
+| TC-02 | Unit        | `scripts/harness/__tests__/pre-push-sequence.test.mjs`                                                          | Exact present/absent command rendering                                                    |
 | TC-03 | Integration | `scripts/harness/__tests__/pre-push-sequence.test.mjs`; `scripts/harness/__tests__/review-before-push.test.mjs` | Unsafe projection is refused before spawn; safe and untrusted values reach the real guard |
-| TC-04 | Suite       | `scripts/harness/__tests__/pre-push-sequence.test.mjs`; `scripts/harness/__tests__/review-before-push.test.mjs` | Public bridge plus policy owner |
+| TC-04 | Suite       | `scripts/harness/__tests__/pre-push-sequence.test.mjs`; `scripts/harness/__tests__/review-before-push.test.mjs` | Public bridge plus policy owner                                                           |
 
 ## User Execution Test Scenarios
 
@@ -189,6 +187,7 @@ not alter any Robota CLI, TUI, browser, public SDK, or installed-package behavio
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -225,6 +224,7 @@ not alter any Robota CLI, TUI, browser, public SDK, or installed-package behavio
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
@@ -235,9 +235,9 @@ not alter any Robota CLI, TUI, browser, public SDK, or installed-package behavio
 **Status upgrade:** in-progress → verifying
 **Failed criteria:**
 
-- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs scripts/harness/__tests__/review-before-push.test.mjs` → exit 1 ( ❯ scripts/harness/__tests__/pre-push-sequence.test.mjs:286:39 ⏎  ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯); `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/integration/agreement-2664` → exit 0 ( ⏎ 60 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (63 declared what they examined) ⏎ scan receipt NOT written: 2 advisory failure(s) were tolerated (progress-report-quantification, task-merged-citation), and a receipt must not certify them.)
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs scripts/harness/__tests__/review-before-push.test.mjs` → exit 1 ( ❯ `scripts/harness/__tests__/pre-push-sequence.test.mjs:286:39` ⏎ ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯); `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/integration/agreement-2664` → exit 0 ( ⏎ 60 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (63 declared what they examined) ⏎ scan receipt NOT written: 2 advisory failure(s) were tolerated (progress-report-quantification, task-merged-citation), and a receipt must not certify them.)
   **Required action:** make every verify command exit 0
-- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs scripts/harness/__tests__/review-before-push.test.mjs` → exit 1 ( ❯ scripts/harness/__tests__/pre-push-sequence.test.mjs:286:39 ⏎  ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯); `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/integration/agreement-2664` → exit 0 ( ⏎ 60 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (63 declared what they examined) ⏎ scan receipt NOT written: 2 advisory failure(s) were tolerated (progress-report-quantification, task-merged-citation), and a receipt must not certify them.)
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs scripts/harness/__tests__/review-before-push.test.mjs` → exit 1 ( ❯ `scripts/harness/__tests__/pre-push-sequence.test.mjs:286:39` ⏎ ⏎ ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯); `HARNESS_BASE_REF=origin/integration/agreement-2664 node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/integration/agreement-2664` → exit 0 ( ⏎ 60 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (63 declared what they examined) ⏎ scan receipt NOT written: 2 advisory failure(s) were tolerated (progress-report-quantification, task-merged-citation), and a receipt must not certify them.)
   **Required action:** make every verify command exit 0
 
 **Judged by:** `gate.mjs` mechanical evaluator
