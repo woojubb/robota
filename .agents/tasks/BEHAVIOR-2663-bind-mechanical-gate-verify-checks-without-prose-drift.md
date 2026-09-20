@@ -1,7 +1,7 @@
 ---
 title: 'BEHAVIOR-2663: Bind mechanical GATE-VERIFY checks without prose drift'
 issue: https://github.com/woojubb/robota/issues/2663
-status: todo
+status: in-progress
 created: 2026-09-20
 priority: high
 urgency: now
