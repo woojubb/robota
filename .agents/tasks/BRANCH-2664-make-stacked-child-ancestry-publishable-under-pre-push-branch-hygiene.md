@@ -23,11 +23,13 @@ not authorize bypassing hooks, hiding merge commits, or weakening review scope.
 
 ## Plan
 
-- [ ] Reproduce the refusal with a child stacked on an integration parent that contains merged child PRs.
-- [ ] Establish one authoritative branch-base model shared by multi-backlog orchestration, local review,
-      pre-push verification, and PR creation.
-- [ ] Add regression coverage proving valid stacked ancestry is publishable and foreign ancestry remains refused.
-- [ ] Migrate the active `AGREEMENT-2664` continuation to the corrected route without widening child diffs.
+- [ ] Reproduce both refusals with a child stacked on an integration parent and a final AGREEMENT-led range.
+- [ ] Make a trusted `origin/integration/<AGREEMENT-ID>` identity plus exact sync parents the pre-push distinction between supported stacked ancestry and foreign ancestry.
+- [ ] Validate each clean child merge's second-parent history with the existing single-unit state machine and the atomic AGREEMENT child order.
+- [ ] Add positive and fail-closed regression matrices for both enforcement surfaces.
+- [ ] Document the `AGREEMENT-2664` post-landing handoff that rebuilds from fresh develop and
+      re-lands completed children with ordered stable patch-ID and base-relative path equivalence
+      before retiring the legacy ref.
 
 ## Evidence
 
