@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [harness, process]
 lane: L2
@@ -243,7 +243,7 @@ Two declared, both fail-closed toward the binding, neither a silent path:
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: in the isolated `scan-user-execution-plan-order.test.mjs`, over a fixture
+- [x] TC-01: Observable: in the isolated `scan-user-execution-plan-order.test.mjs`, over a fixture
       whose topic range holds a v2 `single` first checkpoint for a non-`AGREEMENT` L2 unit,
       `findHistoryFindings(root, base)` returns exactly one finding whose `problem` names the unit's
       basename and contains `no delivery witness` and whose `commit` is the checkpoint SHA when the
@@ -264,13 +264,13 @@ Two declared, both fail-closed toward the binding, neither a silent path:
       every path under `.agents/memory/`, another unit's root Task, and another unit's `draft/`,
       `backlog/`, and `todo/` spec, and `true` for `scripts/harness/example.mjs`,
       `packages/x/src/y.ts`, another unit's `active/` spec, and another unit's `completed/` Task.
-- [ ] TC-02: Observable: over the TC-01 fixture with the checkpoint at HEAD, `findStagedFindings`
+- [x] TC-02: Observable: over the TC-01 fixture with the checkpoint at HEAD, `findStagedFindings`
       returns `[]` with `scripts/harness/example.mjs` staged and `[]` with only a loop-ledger append
       staged (the binding judges a range, never a commit); the CLI spawned as a child with `cwd` =
       the fixture root and `--base <base>` exits 1 with exactly one stderr line containing
       `no delivery witness` and the checkpoint's nine-character prefix, and `::examined::` on stdout;
       spawned with `--staged` over the same repository it exits 0.
-- [ ] TC-03: Observable: over a fixture whose base carries an `in-progress` pair with a `single`
+- [x] TC-03: Observable: over a fixture whose base carries an `in-progress` pair with a `single`
       first checkpoint and whose branch carries only the exact four-path post-merge completion
       closeout (both records at `status: done`, Evidence Log ending in `[GATE-COMPLETE] — ✅ PASS`,
       Task `## Result` naming a pull request, a landed OID whose subject carries `(#N)`, and an
@@ -278,7 +278,7 @@ Two declared, both fail-closed toward the binding, neither a silent path:
       `node scripts/harness/scan-user-execution-plan-order.mjs --base origin/develop` over the
       branch that carries this unit's checkpoint and implementation exits 0 with
       `::examined::` on stdout.
-- [ ] TC-04: Commands: `rg -c 'A `single` declaration is bound to the topic range that carries its
+- [x] TC-04: Commands: `rg -c 'A `single` declaration is bound to the topic range that carries its
 checkpoint' .agents/rules/backlog-execution.md` → `1`; `rg -c 'user-execution-plan-order'
 .agents/rules/backlog-execution.md` reports at least one match inside the § Pre-implementation
       planning checkpoint `Enforced by:` line (asserted by the isolated suite's owner-text case over
@@ -287,7 +287,7 @@ checkpoint' .agents/rules/backlog-execution.md` → `1`; `rg -c 'user-execution-
       and the archived Task's `## Result` names how `MANIFEST-2664` completes — through the
       post-merge completion closeout after `PROC-2680`'s receipt — with the `Contained —
 PROC-2664.` notes in `VERIFIER-2664` described as historical, not edited.
-- [ ] TC-05: Commands: `pnpm harness:test:hermetic`, `node scripts/harness/harness-test-tiers.mjs
+- [x] TC-05: Commands: `pnpm harness:test:hermetic`, `node scripts/harness/harness-test-tiers.mjs
 --tier contracts --affected --base-ref origin/develop --head-ref HEAD` (the isolated plan-order
       suite runs one file per invocation in this tier), `node
 scripts/harness/scan-harness-script-import-safety.mjs`, and `node
@@ -297,13 +297,13 @@ scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop 
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                    | Notes                                                                 |
-| ----- | ----------- | ------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| TC-01 | adversarial | Isolated plan-order suite; `make-temp.mjs` repositories            | Range refusal, padded planning-only range, witness, three exemptions  |
-| TC-02 | regression  | Same suite: `findStagedFindings` + CLI child (`spawnSync`)         | A commit is never judged; CLI exit map and stderr line                |
-| TC-03 | contract    | Same suite: closeout fixture; the scan over this unit's own branch | The recovery door stays open; self-application of the binding         |
-| TC-04 | contract    | `rg` command-form checks; owner-text case in the isolated suite    | Rule sentence, `Enforced by:`, header note, archived Task `## Result` |
-| TC-05 | suite       | Hermetic tier, contract tier runner, import safety, affected scans | Every path the CI `scans` job actually runs must exit 0               |
+| TC-ID | Test Type   | Tool / Approach                                                    | Notes                                                                                                                                                                                                                                                                                   |
+| ----- | ----------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | adversarial | Isolated plan-order suite; `make-temp.mjs` repositories            | Test written: `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs > PROC-2664 — a single delivery declaration is bound to the range that carries its checkpoint` (seven TC-01 cases) and `> PROC-016 … > an L1 PLAN checkpoint alone raises no delivery-witness finding` |
+| TC-02 | regression  | Same suite: `findStagedFindings` + CLI child (`spawnSync`)         | Test written: same describe, `> never judges a commit: the staged path is unchanged over the checkpoint (TC-02)` and `> exits 1 with one stderr line in range mode and 0 in staged mode through the CLI (TC-02)`                                                                        |
+| TC-03 | contract    | Same suite: closeout fixture; the scan over this unit's own branch | Test written: same describe, `> keeps the post-merge completion closeout admitted over a base holding a sealed single pair (TC-03)`; self-application recorded in the `[GATE-COMPLETE: TC-03]` entry                                                                                    |
+| TC-04 | contract    | `rg` command-form checks over the rule and the scanner             | Test skipped: TC-04 is prose and a header note asserted by the `rg` commands recorded in the `[GATE-COMPLETE: TC-04]` entry; the archived Task `## Result` is read by GATE-COMPLETE, no test file covers prose                                                                          |
+| TC-05 | suite       | Hermetic tier, contract tier runner, import safety, affected scans | Test skipped: TC-05 is the suite run itself — the four tier commands and their exit codes are recorded in the `[GATE-COMPLETE: TC-05]` entry                                                                                                                                            |
 
 ## User Execution Test Scenarios
 
@@ -319,7 +319,7 @@ terminal artifact, reached by CI's `scans` job and a manual `pnpm harness:scan`.
 
 ## Tasks
 
-- [ ] `.agents/tasks/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` — todo
+- [x] `.agents/tasks/completed/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` — done
 
 ## Evidence Log
 
@@ -382,6 +382,7 @@ terminal artifact, reached by CI's `scans` job and a manual `pnpm harness:scan`.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -422,6 +423,7 @@ terminal artifact, reached by CI's `scans` job and a manual `pnpm harness:scan`.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
@@ -446,3 +448,143 @@ Criteria judged and passed (re-run at this HEAD, not taken from the prior `gate.
 
 **Judged by:** `backlog-gate-guard` — the two Plan-item criteria `gate.mjs` left PENDING-GUARDIAN, plus re-judgement of the ordering check and the build/test criteria
 **Judged at:** HEAD `e03f751e4a60a04f270b497218543b0f5a608ca2` · base `origin/develop@1c02d9777d54c20c0dd3a72a66f9f16404a4d953` (merge-base `d5b4389f91e0be868e25c1d6cb00698316e062c1`) · document `.agents/spec-docs/active/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` blob `8276c633f0351049cea470ba9e25c8e3dfa0ae4d` (tracked; hashed before this entry was appended)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — Ordering check: the prior gate's last entry is `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-22` (`approved → in-progress`, judged at `4678963fbc0e`, committed as planning checkpoint `b2a770d20`, pair only); the `❌ FAIL` GATE-VERIFY entry above is this gate's own prior round, not the prior gate's, and does not bear on the plain last-entry rule. Frontmatter `status: in-progress`; file under `.agents/spec-docs/active/`, the folder `spec-workflow.md` maps to `in-progress`. Implementation (`0b25d3979`) and both fix-ups (`e03f751e4`, `a27371029`) follow the checkpoint.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): 5/5 `[x]`, each verified against `git diff origin/develop...HEAD` (8 files: two harness modules, the isolated suite, `backlog-execution.md`, the pair, two ledgers; no `packages/` or `apps/` path). TC-01 — `isDeliveryWitnessPath` in `plan-order-records.mjs` with the six-item negative list; seven TC-01 cases plus the L1 PLAN case present and passing ("red before the change" is not witnessable from the range — tests and implementation share `0b25d3979` — and was not verified). TC-02 — staged path reads `historyAnalysis`, never `rangeAnalysis`; CLI case exits 1 with one `no delivery witness` stderr line in range mode and 0 in `--staged` mode — present and passing. TC-03 — closeout fixture case present and passing; self-application `node scripts/harness/scan-user-execution-plan-order.mjs --base origin/develop` at `a27371029` → `::examined:: 9 topic commit(s)`, exit 0. TC-04 — binding sentence at `backlog-execution.md:532-533` (`rg -U -c` → 1), `Enforced by:` line at `:541-542` naming `user-execution-plan-order`/`rangeAnalysis`, header note rewritten (`rg -c 'stays sealed'` → 0, `'delivery witness'` → 1), and — the part the prior round failed — the Task now carries `## Result` (line 137, added in `a27371029`) stating that `MANIFEST-2664` completes through the existing post-merge completion closeout once `PROC-2680`'s receipt exists and that `VERIFIER-2664`'s `Contained — PROC-2664.` notes are historical and not edited; no `VERIFIER-2664` path is in the diff. TC-05 — see the build/test lines below.
+- GATE-VERIFY — No Plan item is blocked or pending: no `[ ]`, `[-]`, "blocked", or "pending" marker in the `## Plan` section; `depends_on: []`.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): the diff touches no workspace package, so the affected build set is empty; the build-shaped substitute `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts --skip task-archival` re-run at `a27371029` → exit 0 (66 passed, 1 skipped — `task-archival`, a fully-checked Task whose spec has not reached `done/`, the state this gate's successor produces — 2 advisory failures tolerated in pr context: `reference-kind-qualified` on `done/INFRA-2772…` and `task-merged-citation` on `MANIFEST-2664`/`SECRET-2664`, none on this unit's paths; `user-execution-plan-order` ✓, `task-plan-items` ✓). `node scripts/harness/scan-harness-script-import-safety.mjs` re-run → passed (347 scripts), exit 0.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `pnpm harness:test:hermetic` re-run at `a27371029` → 76 files, 1249 tests passed, exit 0; isolated `scan-user-execution-plan-order.test.mjs` re-run alone with the tier's vitest form → 287/287 passed, including the eleven cases in the `PROC-2664 —` describe block (the new `the rule section owns the binding sentence and names its enforcer (TC-04)` among them) and the `(PROC-2664 TC-01)` L1 PLAN case. Contract tier over the affected set (240 submitted, 0 failed) is the caller's report at the parent, not re-run here.
+- Observation carried forward for GATE-COMPLETE (not a GATE-VERIFY criterion): spec TC-04's literal first command `rg -c 'A `single` declaration is bound to the topic range that carries its checkpoint' .agents/rules/backlog-execution.md` still returns no match because the sentence is soft-wrapped across lines 532-533; the new owner-text case normalises whitespace before asserting, so the TC is proven by the suite, but the literal `rg -c … → 1` form as written is not. The auto-generated `.agents/evals/lessons/` churn from the re-runs was restored to HEAD; tree clean.
+
+**Judged by:** `backlog-gate-guard` — the two Plan-item criteria `gate.mjs` left PENDING-GUARDIAN, plus re-judgement of the ordering check and the build/test criteria at this head
+**Judged at:** HEAD `a27371029be9416769a77052028660f867c70170` · base `origin/develop@078d91b203927d8b2641dd5a6820a3ff36f5798c` (merge-base `d5b4389f91e0be868e25c1d6cb00698316e062c1`) · document `.agents/spec-docs/active/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` blob `a386fe5cbdc8287538ca3c2c8ed96fb97b1f219a` (tracked; hashed before this entry was appended)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t PROC-2664`
+**Exit:** 0
+**Output:** (last 10 of 23 line(s))
+
+```
+   ✓ PROC-2664 — a single delivery declaration is bound to the range that carries its checkpoint > never judges a commit: the staged path is unchanged over the checkpoint (TC-02)  1740ms
+   ✓ PROC-2664 — a single delivery declaration is bound to the range that carries its checkpoint > exits 1 with one stderr line in range mode and 0 in staged mode through the CLI (TC-02)  1809ms
+   ✓ PROC-2664 — a single delivery declaration is bound to the range that carries its checkpoint > keeps the post-merge completion closeout admitted over a base holding a sealed single pair (TC-03)  1395ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed | 274 skipped (287)
+   Start at  01:50:38
+   Duration  13.92s (transform 125ms, setup 0ms, collect 186ms, tests 13.59s, environment 0ms, prepare 29ms)
+
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a27371029be9` · base `origin/develop@078d91b20392` · document `.agents/spec-docs/active/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` blob `c1d84d5fc767` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t PROC-2664`
+**Exit:** 0
+**Output:** (last 10 of 23 line(s))
+
+```
+   ✓ PROC-2664 — a single delivery declaration is bound to the range that carries its checkpoint > never judges a commit: the staged path is unchanged over the checkpoint (TC-02)  1740ms
+   ✓ PROC-2664 — a single delivery declaration is bound to the range that carries its checkpoint > exits 1 with one stderr line in range mode and 0 in staged mode through the CLI (TC-02)  1809ms
+   ✓ PROC-2664 — a single delivery declaration is bound to the range that carries its checkpoint > keeps the post-merge completion closeout admitted over a base holding a sealed single pair (TC-03)  1395ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed | 274 skipped (287)
+   Start at  01:50:38
+   Duration  13.92s (transform 125ms, setup 0ms, collect 186ms, tests 13.59s, environment 0ms, prepare 29ms)
+
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a27371029be9` · base `origin/develop@078d91b20392` · document `.agents/spec-docs/active/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` blob `c6ae9d3c7a77` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t PROC-2664 && node scripts/harness/scan-user-execution-plan-order.mjs --base origin/develop`
+**Exit:** 0
+**Output:** (last 10 of 23 line(s))
+
+```
+   ✓ PROC-2664 — a single delivery declaration is bound to the range that carries its checkpoint > never judges a commit: the staged path is unchanged over the checkpoint (TC-02)  1740ms
+   ✓ PROC-2664 — a single delivery declaration is bound to the range that carries its checkpoint > exits 1 with one stderr line in range mode and 0 in staged mode through the CLI (TC-02)  1809ms
+   ✓ PROC-2664 — a single delivery declaration is bound to the range that carries its checkpoint > keeps the post-merge completion closeout admitted over a base holding a sealed single pair (TC-03)  1395ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed | 274 skipped (287)
+   Start at  01:50:38
+   Duration  13.92s (transform 125ms, setup 0ms, collect 186ms, tests 13.59s, environment 0ms, prepare 29ms)
+
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a27371029be9` · base `origin/develop@078d91b20392` · document `.agents/spec-docs/active/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` blob `cb9acc57b475` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-22
+
+**Command:** `rg -c -U 'A `single` declaration is bound to the topic range that\s+carries its checkpoint' .agents/rules/backlog-execution.md; rg -c 'stays sealed' scripts/harness/scan-user-execution-plan-order.mjs; rg -c 'delivery witness' scripts/harness/scan-user-execution-plan-order.mjs`
+**Exit:** 0
+**Output:** (last 9 of 9 line(s))
+
+```
+## rg -c -U 'A `single` declaration is bound to the topic range that\s+carries its checkpoint' .agents/rules/backlog-execution.md (prettier wraps the sentence at column 100)
+1
+## sed -n 526,545p .agents/rules/backlog-execution.md | rg -n -U 'Enforced by:\s+`user-execution-plan-order`' (the binding paragraph's own Enforced-by line, wrapped)
+1
+## rg -c 'stays sealed' scripts/harness/scan-user-execution-plan-order.mjs
+0
+## rg -c 'delivery witness' scripts/harness/scan-user-execution-plan-order.mjs
+1
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a27371029be9` · base `origin/develop@078d91b20392` · document `.agents/spec-docs/active/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` blob `4d6cd6fd3fd6` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm harness:test:hermetic && node scripts/harness/harness-test-tiers.mjs --tier contracts --affected --base-ref origin/develop --head-ref HEAD && node scripts/harness/scan-harness-script-import-safety.mjs && node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 25 line(s))
+
+```
+harness-script-import-safety scan passed (347 script(s) imported, 8 without a test at baseline).
+exit=0
+
+## node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts (after dropping the case citation the rule-case-narrative scan refused)
+
+67 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (70 declared what they examined)
+scan receipt NOT written: 2 advisory failure(s) were tolerated (reference-kind-qualified, task-merged-citation), and a receipt must not certify them.
+exit=0
+
+DONE
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a27371029be9` · base `origin/develop@078d91b20392` · document `.agents/spec-docs/active/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` blob `8569366a969a` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-22; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `a27371029be9` · base `origin/develop@078d91b20392` · document `.agents/spec-docs/active/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` blob `4a3896cf9f45` (modified)
