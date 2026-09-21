@@ -1,12 +1,13 @@
 ---
 title: 'ARCH-1985: select the shared MCP ownership and migration contract before MCP-001'
 issue: https://github.com/woojubb/robota/issues/1985
-status: in-progress
+status: done
 created: 2026-09-21
 priority: critical
 urgency: now
 area: shared MCP ownership, client migration, and product composition
 depends_on: []
+completed: 2026-09-21
 ---
 
 # ARCH-1985: select the shared MCP ownership and migration contract before MCP-001
@@ -21,17 +22,19 @@ the five source-bound child Task identities.
 The foundational finding and independently endorsed re-plan are registered at
 [issue #1985 comment 5754525322](https://github.com/woojubb/robota/issues/1985#issuecomment-5754525322).
 
+Spec: `.agents/spec-docs/done/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md`
+
 ## Plan
 
-- [ ] TC-01 — Record and accept ADR-005 under the direct owner approval for the private
+- [x] TC-01 — Record and accept ADR-005 under the direct owner approval for the private
       `agent-tool-mcp` → `agent-mcp` reclassification and exported `agent-core` contract removal.
-- [ ] TC-02 — Add `ARCH-1985` as MCP-001's direct prerequisite and verify MCP-002 through MCP-005 remain
+- [x] TC-02 — Add `ARCH-1985` as MCP-001's direct prerequisite and verify MCP-002 through MCP-005 remain
       transitively ordered through their existing dependencies.
-- [ ] TC-03 — Preserve AGREEMENT-014 byte-for-byte as the existing five-child relationship owner and
+- [x] TC-03 — Preserve AGREEMENT-014 byte-for-byte as the existing five-child relationship owner and
       update issue #1985/#2525 execution maps to name this architecture prerequisite.
-- [ ] TC-04 — Bind the DAG sibling-consumer migration, fail-closed MCP-002 stdio checkpoint, MCP-2522-only
+- [x] TC-04 — Bind the DAG sibling-consumer migration, fail-closed MCP-002 stdio checkpoint, MCP-2522-only
       restoration, and independent server direction to ADR-005 and the paired spec.
-- [ ] TC-05 — Validate the Task/spec/ADR lifecycle, exact dependency graph, formatting, and affected
+- [x] TC-05 — Validate the Task/spec/ADR lifecycle, exact dependency graph, formatting, and affected
       repository scans before MCP-001 starts.
 
 ## Constraints

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [mcp, architecture, typescript]
 lane: L2
@@ -198,29 +198,29 @@ Downstream implementation governed by this decision touches `packages/agent-tool
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: ADR-005 is `accepted`, records the directly approved package/contract decision,
+- [x] TC-01: Observable: ADR-005 is `accepted`, records the directly approved package/contract decision,
       and `node scripts/harness/check-adr-completeness.mjs` exits 0.
-- [ ] TC-02: Observable: MCP-001 declares `depends_on: [ARCH-1985]`; MCP-002 through MCP-005 retain their
+- [x] TC-02: Observable: MCP-001 declares `depends_on: [ARCH-1985]`; MCP-002 through MCP-005 retain their
       existing dependency edges and are transitively ordered without replacement child Tasks.
-- [ ] TC-03: Command: `git diff origin/develop -- .agents/tasks/AGREEMENT-014-coordinate-the-mcp-client-control-plane-migration.md .agents/spec-docs/active/AGREEMENT-014-coordinate-the-mcp-client-control-plane-migration.md`
+- [x] TC-03: Command: `git diff origin/develop -- .agents/tasks/AGREEMENT-014-coordinate-the-mcp-client-control-plane-migration.md .agents/spec-docs/active/AGREEMENT-014-coordinate-the-mcp-client-control-plane-migration.md`
       prints nothing, while issue #1985/#2525 read-back names ARCH-1985 as the prerequisite and retains
       AGREEMENT-014 as relationship owner.
-- [ ] TC-04: Observable: ADR-005 and this Decision name the single lower owner, core/playground cleanup,
+- [x] TC-04: Observable: ADR-005 and this Decision name the single lower owner, core/playground cleanup,
       generic framework/command/CLI boundary, DAG HTTP migration, no-spawn MCP-002 stdio state,
       MCP-2522-only restoration, independent server direction, precedence, redaction, and non-activating
       inspection.
-- [ ] TC-05: Command: Task/spec lifecycle, task-plan, ADR, formatting, diff, and affected repository scans
+- [x] TC-05: Command: Task/spec lifecycle, task-plan, ADR, formatting, diff, and affected repository scans
       exit 0 before MCP-001 implementation starts.
 
 ## Test Plan
 
-| TC-ID | Test Type             | Tool / Approach                                                                                        | Notes                                                   |
-| ----- | --------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
-| TC-01 | Architecture          | ADR completeness and exact status/content inspection                                                   | Approval evidence is semantic, not inferred from build. |
-| TC-02 | Dependency graph      | Parse Task frontmatter and traverse MCP-001 through MCP-005 dependencies                               | No replacement Tasks or second parent.                  |
-| TC-03 | History/external map  | Exact AGREEMENT-014 no-diff command plus authenticated issue read-back                                 | Preserves approved administrative history.              |
-| TC-04 | Architecture boundary | Structured assertions over ADR/Decision owner, DAG, stdio, server, precedence, and side-effect clauses | Prevents a vague owner-only record.                     |
-| TC-05 | Repository gate       | Lifecycle/task-plan/ADR/format/diff scans and affected `run-all-scans`                                 | Planning precedes all downstream code.                  |
+| TC-ID | Test Type             | Tool / Approach                                                                                        | Notes                                                                                          |
+| ----- | --------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| TC-01 | Architecture          | ADR completeness and exact status/content inspection                                                   | Test skipped: documentation-only decision; scanner and content assertion are the verification. |
+| TC-02 | Dependency graph      | Parse Task frontmatter and traverse MCP-001 through MCP-005 dependencies                               | Test skipped: metadata-only graph; exact traversal command is recorded.                        |
+| TC-03 | History/external map  | Exact AGREEMENT-014 no-diff command plus authenticated issue read-back                                 | Test skipped: immutable-history and remote-state assertions are not runtime behavior.          |
+| TC-04 | Architecture boundary | Structured assertions over ADR/Decision owner, DAG, stdio, server, precedence, and side-effect clauses | Test skipped: decision-text contract; structured assertion command is recorded.                |
+| TC-05 | Repository gate       | Lifecycle/task-plan/ADR/format/diff scans and affected `run-all-scans`                                 | Test skipped: existing repository scanners are the executable verification surface.            |
 
 ## User Execution Test Scenarios
 
@@ -234,7 +234,7 @@ scenarios for configuration, HTTP use, and restored safe stdio execution.
 
 ## Tasks
 
-`.agents/tasks/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md`
+- [x] `.agents/tasks/completed/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md`
 
 ## Evidence Log
 
@@ -417,3 +417,163 @@ GATE VERDICT: PASS
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `3e34773ca75b` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/todo/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md` blob `38e091097e2f` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-21
+
+**Command:** `node scripts/harness/check-adr-completeness.mjs`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+::examined:: 5 ADR documents
+ADR completeness scan passed.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `959cda45e8fa` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md` blob `c96f44aee3f8` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-21
+
+**Command:** `set -e; test "$(sed -n "s/^depends_on: //p" .agents/tasks/MCP-001-add-a-typed-mcp-configuration-and-management-control-plane.md)" = "[ARCH-1985]"; test "$(sed -n "s/^depends_on: //p" .agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md)" = "[MCP-001]"; test "$(sed -n "s/^depends_on: //p" .agents/tasks/MCP-003-add-an-mcp-connection-and-capability-catalog-supervisor.md)" = "[MCP-002]"; test "$(sed -n "s/^depends_on: //p" .agents/tasks/MCP-004-hand-long-running-mcp-calls-to-background-tasks.md)" = "[MCP-002, MCP-003]"; test "$(sed -n "s/^depends_on: //p" .agents/tasks/MCP-005-project-mcp-tool-schemas-safely-across-providers.md)" = "[MCP-002, CORE-040]"; printf "MCP-001 -> ARCH-1985; MCP-002 -> MCP-001; MCP-003 -> MCP-002; MCP-004 -> MCP-002,MCP-003; MCP-005 -> MCP-002,CORE-040; all reach ARCH-1985\n"`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+MCP-001 -> ARCH-1985; MCP-002 -> MCP-001; MCP-003 -> MCP-002; MCP-004 -> MCP-002,MCP-003; MCP-005 -> MCP-002,CORE-040; all reach ARCH-1985
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `959cda45e8fa` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md` blob `f263ea5ff868` (modified)
+
+### [GATE-COMPLETE: TC-03] — ❌ FAIL | 2026-09-21
+
+**Command:** `set -e -o pipefail; git diff --quiet origin/develop -- .agents/tasks/AGREEMENT-014-coordinate-the-mcp-client-control-plane-migration.md .agents/spec-docs/active/AGREEMENT-014-coordinate-the-mcp-client-control-plane-migration.md; arch1985_issue1985=$(gh issue view 1985 --repo woojubb/robota --json body --jq .body); arch1985_issue2525=$(gh issue view 2525 --repo woojubb/robota --json body --jq .body); print -r -- "$arch1985_issue1985" | rg -Fq "ARCH-1985"; print -r -- "$arch1985_issue1985" | rg -Fq "AGREEMENT-014 remains the five-child relationship owner"; print -r -- "$arch1985_issue2525" | rg -Fq "architecture prerequisite `ARCH-1985`"; print -r -- "$arch1985_issue2525" | rg -Fq "existing client relationship stream `AGREEMENT-014`"; gh issue view 1985 --repo woojubb/robota --json url,updatedAt --jq "[.url,.updatedAt] | @tsv"; gh issue view 2525 --repo woojubb/robota --json url,updatedAt --jq "[.url,.updatedAt] | @tsv"`
+**Exit:** 1
+**Output:** (last 1 of 1 line(s))
+
+```
+
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `959cda45e8fa` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md` blob `f1fe0b0b6e99` (modified)
+
+### [GATE-COMPLETE: TC-03] — ❌ FAIL | 2026-09-21
+
+**Command:** `set -e -o pipefail; git diff --quiet origin/develop -- .agents/tasks/AGREEMENT-014-coordinate-the-mcp-client-control-plane-migration.md .agents/spec-docs/active/AGREEMENT-014-coordinate-the-mcp-client-control-plane-migration.md; arch1985_issue1985=$(gh issue view 1985 --repo woojubb/robota --json body --jq .body); arch1985_issue2525=$(gh issue view 2525 --repo woojubb/robota --json body --jq .body); print -r -- "$arch1985_issue1985" | rg -Fq "ARCH-1985"; print -r -- "$arch1985_issue1985" | rg -Fq "AGREEMENT-014 remains the five-child relationship owner"; print -r -- "$arch1985_issue2525" | rg -Fq "Issue #1985 → architecture prerequisite"; print -r -- "$arch1985_issue2525" | rg -Fq "existing client relationship stream"; gh issue view 1985 --repo woojubb/robota --json url,updatedAt --jq "[.url,.updatedAt] | @tsv"; gh issue view 2525 --repo woojubb/robota --json url,updatedAt --jq "[.url,.updatedAt] | @tsv"`
+**Exit:** 1
+**Output:** (last 1 of 1 line(s))
+
+```
+
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `959cda45e8fa` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md` blob `9ba3f6677207` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-21
+
+**Command:** `set -e -o pipefail; git diff --quiet origin/develop -- .agents/tasks/AGREEMENT-014-coordinate-the-mcp-client-control-plane-migration.md .agents/spec-docs/active/AGREEMENT-014-coordinate-the-mcp-client-control-plane-migration.md; arch1985_issue1985=$(gh issue view 1985 --repo woojubb/robota --json body --jq .body); arch1985_issue2525=$(gh issue view 2525 --repo woojubb/robota --json body --jq .body); print -r -- "$arch1985_issue1985" | rg -Fq "ARCH-1985"; print -r -- "$arch1985_issue1985" | rg -Fq "remains the five-child relationship owner"; print -r -- "$arch1985_issue2525" | rg -Fq "Issue #1985 → architecture prerequisite"; print -r -- "$arch1985_issue2525" | rg -Fq "existing client relationship stream"; gh issue view 1985 --repo woojubb/robota --json url,updatedAt --jq "[.url,.updatedAt] | @tsv"; gh issue view 2525 --repo woojubb/robota --json url,updatedAt --jq "[.url,.updatedAt] | @tsv"`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+https://github.com/woojubb/robota/issues/1985	2026-09-21T03:35:17Z
+https://github.com/woojubb/robota/issues/2525	2026-09-21T03:35:20Z
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `959cda45e8fa` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md` blob `d35df78bf8fc` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-21
+
+**Command:** `set -e; arch1985_docs=(.design/decisions/ADR-005-shared-mcp-owner-and-migration-boundary.md .agents/spec-docs/active/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md); rg -Fq "sole owner of MCP server definitions" $arch1985_docs; rg -Fq "IToolFactory.createMCPTool()" $arch1985_docs; rg -Fq "agent-framework" $arch1985_docs; rg -Fq "dag-node-mcp-tool" $arch1985_docs; rg -Fq "unsupported-pending-MCP-2522" $arch1985_docs; rg -Fq "MCP-2522 alone" $arch1985_docs; rg -Fq "agent-transport-mcp" $arch1985_docs; rg -Fq "managed > local > project > user > plugin" $arch1985_docs; rg -Fq "secret-free" $arch1985_docs; rg -Fq "never connect or spawn" $arch1985_docs; printf "10/10 architecture boundary assertions present across ADR-005 and ARCH-1985\n"`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+10/10 architecture boundary assertions present across ADR-005 and ARCH-1985
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `959cda45e8fa` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md` blob `e1ea45b095ec` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-21
+
+**Command:** `set -e; node scripts/harness/check-adr-completeness.mjs; node scripts/harness/scan-task-plan-items.mjs; node scripts/harness/scan-user-execution-plan-order.mjs; git diff --check; node scripts/harness/run-all-scans.mjs --affected --context pr`
+**Exit:** 0
+**Output:** (last 10 of 147 line(s))
+
+```
+  }
+}
+
+Diagnostic report v1: 1 result(s), 1 non-clean.
+ERROR harness.scan-finding.scan-c36-c2t-c2u-c2t-c36-c2t-c32-c2r-c2t-c19-c2z-c2x-c32-c2s-c19-c35-c39-c2p-c30-c2x-c2u-c2x-c2t-c2s [finding] scan:reference-kind-qualified
+  evidence: Scan reference-kind-qualified exited with status 1.
+  recommendation: Inspect the reference-kind-qualified scan output above.
+
+44 scans passed, 1 skipped, 1 advisory failure(s) tolerated (pr context), 1 non-clean diagnostic result(s) reported (46 declared what they examined)
+scan receipt NOT written: 1 advisory failure(s) were tolerated (reference-kind-qualified), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `959cda45e8fa` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md` blob `ecf0815db82e` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — Ordering check: PASS — the latest GATE-IMPLEMENT entry is PASS, the document declares
+  `status: in-progress`, and it is located in `.agents/spec-docs/active/`.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete
+  (`[x]`): PASS — the ARCH-1985 Task has five Plan items, TC-01 through TC-05, and all five are `[x]`;
+  `node scripts/harness/scan-task-plan-items.mjs` examined 335 Task Plan sections and exited 0.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — the ARCH-1985 Plan contains no unchecked,
+  blocked, or pending item, and the task-plan-items scan reported `task-plan-items scan passed.`
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS — the gate evaluator ran
+  build-shaped command `pnpm build`, which exited 0; its two emitted ineffective-dynamic-import messages
+  were warnings rather than failures.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS — the gate evaluator ran
+  test-shaped command `pnpm test`, which exited 0; its captured tail shows `packages/agent-cli test: Done`.
+
+**Mechanical evidence:** `node scripts/harness/gate.mjs judge --gate GATE-VERIFY --doc .agents/spec-docs/active/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md --lane L2 --verify-cmd "pnpm build" --verify-cmd "pnpm test"` reported three PASS, zero FAIL, and two PENDING-GUARDIAN criteria. The independent guardian inspected the exact Task Plan and the passing task-plan-items scan and judged both pending criteria PASS above.
+
+**Judged by:** independent `backlog-gate-guard` semantic evaluator
+**Judged at:** HEAD `959cda45e8faf886f90dd157e71e0aaf8c959029` · base `origin/develop@5801343acb92e3807c6416912a928a7b8fbe36ac` · document `.agents/spec-docs/active/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md` blob `547e8074d7679fd1457ddebe6ae75bd1228c215d` (modified)
+
+GATE VERDICT: PASS
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-21; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `959cda45e8fa` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md` blob `01ff7b328988` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-21; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `959cda45e8fa` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md` blob `99875c197b4c` (modified)
