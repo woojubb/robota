@@ -1,15 +1,18 @@
 ---
 title: 'GATE-2525: scope delivery closeout receipts to the current pull request'
 issue: https://github.com/woojubb/robota/issues/2525
-status: todo
+status: done
 created: 2026-09-21
 priority: medium
 urgency: now
 area: post-merge delivery audit
 depends_on: []
+completed: 2026-09-21
 ---
 
 # GATE-2525: scope delivery closeout receipts to the current pull request
+
+Spec: `.agents/spec-docs/done/GATE-2525-scope-delivery-closeout-receipts-to-the-current-pull-request.md`
 
 ## Objective
 
@@ -19,11 +22,11 @@ deliveries on one umbrella Issue must not invalidate each other.
 
 ## Plan
 
-- [ ] Add a regression reproducing `ambiguous-completion` from valid receipts for different pull
+- [x] Add a regression reproducing `ambiguous-completion` from valid receipts for different pull
       requests on one umbrella Issue.
-- [ ] Scope completion-receipt selection to the live pull request before enforcing uniqueness.
-- [ ] Preserve missing, duplicate-for-the-same-PR, trust, edit, merge-parent, and issue-state refusals.
-- [ ] Run the focused authorization and post-merge delivery suites plus affected harness scans.
+- [x] Scope completion-receipt selection to the live pull request before enforcing uniqueness.
+- [x] Preserve missing, same-PR duplicate, trust, edit, first-parent binding, and issue-state refusals.
+- [x] Run the focused authorization and post-merge delivery suites plus affected harness scans.
 
 ## User Execution Test Scenarios
 
