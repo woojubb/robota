@@ -101,9 +101,10 @@ three paths and retain the existing explicit-zero/non-zero guard-result contract
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-03).
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Reason:** This change only preserves metadata between two internal repository delivery gates; it
+does not alter or expose any runnable Robota CLI, SDK, TUI, browser, or protocol behavior.
 
 ## Tasks
 
