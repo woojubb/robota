@@ -30,6 +30,14 @@ near-duplicates happens in batch, at lesson time.
 
 <!-- Append new `### LRN-<id>` entries below this line. Nothing above it is a record. -->
 
+### LRN-pre-push-base-ref-synthetic-command-loss
+
+- observed-at: 2026-09-21T13:37:13+09:00
+- observation: The real Git pre-push boundary discards a valid `HARNESS_BASE_REF` when it synthesizes the post-verdict guard command, so the documented integration-base sync path is mechanically impossible.
+- evidence: `scripts/harness/pre-push-local-checks.mjs:25`; `HARNESS_BASE_REF=origin/integration/agreement-014 git push origin integration/agreement-014` rejected clean sync `3290d394fc088145c5ab520ae47640dc5ada2f5c`; https://github.com/woojubb/robota/issues/2525#issuecomment-5755462483
+- source: ARCH-1985 post-merge cycle under AGREEMENT-2525
+- related: INFRA-2525, PR #2787, issue #2525
+
 ### LRN-work-run-removal-stale-evidence
 
 - observed-at: 2026-09-08T14:40:00+09:00

@@ -26,3 +26,4 @@
 {"runId":"r20260920154434","opened":"2026-09-20T15:44:34.272Z","closed":"2026-09-20T15:59:40.260Z","roundFindings":[],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260921024704","opened":"2026-09-21T02:47:04.485Z","closed":"2026-09-21T02:50:46.244Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md"}
 {"runId":"r20260921033720","opened":"2026-09-21T03:37:20.065Z","closed":"2026-09-21T03:54:36.602Z","roundFindings":[2,0],"extensions":{},"terminal":"converged","ref":null}
+{"runId":"r20260921045224","opened":"2026-09-21T04:52:24.611Z","closed":"2026-09-21T04:54:10.828Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":"INFRA-2525 post-format verification and scenario-contract correction"}
