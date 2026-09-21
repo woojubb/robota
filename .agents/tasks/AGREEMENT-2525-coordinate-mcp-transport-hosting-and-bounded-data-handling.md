@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-2525: coordinate MCP transport hosting and bounded data handling'
 issue: https://github.com/woojubb/robota/issues/2525
-status: in-progress
+status: todo
 created: 2026-09-21
 priority: high
 urgency: soon
@@ -12,7 +12,7 @@ children: [PAYLOAD-2153, MCP-2522, MCP-2525, MCP-2533]
 
 # AGREEMENT-2525: coordinate MCP transport hosting and bounded data handling
 
-Spec: `.agents/spec-docs/active/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md`
+Spec: `.agents/spec-docs/todo/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md`
 
 ## Objective
 
@@ -40,10 +40,6 @@ The four direct child records use canonical umbrella [issue #2525](https://githu
 - `MCP-2522` alone owns command, arguments, environment, working-directory, and child-process lifecycle authority for local stdio clients.
 - `MCP-2533` alone owns the MCP Streamable HTTP carrier, loopback network admission, and protocol-session mapping; it must not reuse Robota HTTP or WebSocket protocol carriers.
 - Every source outcome remains independently specified, approved, tested, and user-scenario verified. A future shared contract is allowed only when a child design proves a real common owner without merging these security boundaries.
-
-## Delivery Sequence
-
-This Agreement is delivered as a sequenced initiative. After each child lands, the parent Task and active spec are the only continuation artifacts updated to project that child's status and evidence.
 
 ## Plan
 
