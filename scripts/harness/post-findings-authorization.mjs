@@ -376,10 +376,11 @@ function trustedCloseoutEnvelope(envelope, parse) {
   };
 }
 
-function uniqueReceipt(comments, parse, missing, ambiguous) {
+function uniqueReceipt(comments, parse, missing, ambiguous, matchesSubject = () => true) {
   const matches = comments
     .map((comment) => trustedCloseoutEnvelope(comment, parse))
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter(matchesSubject);
   if (matches.length === 0) return { ok: false, reason: missing };
   if (matches.length !== 1) return { ok: false, reason: ambiguous };
   return { ok: true, receipt: matches[0] };
@@ -431,6 +432,7 @@ export function auditCloseoutReceipts({
     parseDeliveryCompletionReceipt,
     'missing-completion',
     'ambiguous-completion',
+    (receipt) => receipt.prNumber === pr.number,
   );
   if (!selectedCompletion.ok) return selectedCompletion;
   const completion = selectedCompletion.receipt;
