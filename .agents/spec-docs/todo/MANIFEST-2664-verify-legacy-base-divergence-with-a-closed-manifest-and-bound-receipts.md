@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [manifest, harness]
 lane: L2
@@ -592,3 +592,26 @@ further revision needed before GATE-APPROVAL.
 - GATE-WRITE — Structure: `## Tasks` present with the paired Task path (file exists); `## Evidence Log` present with no prior gate entry; no `## Status` / `## Classification` body sections — 3 mechanical PASS.
 
 **Judged at:** HEAD `09589460e` · base `origin/develop@24a646101` · document `.agents/spec-docs/draft/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md` blob `25aa211f2` (tracked)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "MANIFEST-2664 설계안을 승인합니다."
+**Given:** 2026-09-21, this conversation
+**Review fingerprint:** 002123e8da48 (review 8c9e59a9, type/tags a753ee2b)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-21, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (002123e8da48) equals the document's current fingerprint
+- GATE-APPROVAL — Ordering check (guardian): prior gate GATE-WRITE has a `✅ PASS | 2026-09-21` entry whose `**Status upgrade:** draft → review-ready` matches the document's current `status: review-ready` (the row's `recorded-pass` rule), and the file sits under `.agents/spec-docs/backlog/`, the folder `spec-workflow.md` maps to `review-ready`; none of the eight `## Affected Files` (`integration-migration-manifest.mjs`, its two tests, `.agents/evidence/migrations/`, the `HERMETIC_TEST_FILES` entry) exist in the tree, so no work this gate authorizes has already happened.
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: the recorded instruction "MANIFEST-2664 설계안을 승인합니다." names this document's ID (`MANIFEST-2664` is carried by exactly one spec document under `.agents/spec-docs/`) and its object ("설계안", the design proposal) with an unconditional approval verb ("승인합니다"); the orchestrator records it as typed by the owner in this document's own conversation on 2026-09-21 in reply to a request for that phrase for this document — not an option click, not a clarifying-question answer, not silence, and not a reuse of another item's phrase (`GATE-2664 설계안을 승인합니다.` was a different document's approval and was never reused). A relay from another session is not claimed. `scan-standing-delegation-evidence` examined this document's entry (route DIRECT, verbatim instruction, `Given` present) with 0 findings, exit 0.
+- GATE-APPROVAL — The item is inside the class as the registry defines it — a boundary the guard evaluates, not one the entry argues for: N/A — the entry records the approval route as DIRECT and names no class; the Route CLASS boundary judgement has no class to read the item against, and Route DIRECT does not use it.
+- GATE-APPROVAL — Independent architecture validation (conditional): applicable — the spec introduces one new harness module (`scripts/harness/integration-migration-manifest.mjs`) and a new evidence directory (`.agents/evidence/migrations/`). `proposal-reviewer` verdict is recorded, not self-claimed: orchestrator run `r20260921104830` is bound to the paired Task in `.agents/loop-runs/backlog-execution-orchestrator.jsonl` (`ref` = the Task file); the Task's `## Finding Evidence` records `REVIEW VERDICT: REVISE` on `d1539c1bd` ("placement correct, alternative 3 right, the merge deferral sound" — placement explicitly covered), `REVISE` on `5644a9850` (wording only), and `REVIEW VERDICT: ENDORSE` on `3f3cb9733` (2026-09-21, all requested changes present, no regression), mirrored in this Evidence Log's `### Architecture validation — 2026-09-21` record. Structure-channel placement evidence retained: fanouts `r20260921090348`, `r20260921092807`, `r20260921094601`, `r20260921102056` each exist in `.agents/loop-runs/architecture-audit-fanout.jsonl` with `terminal: converged` and an `architecture-structure-auditor` expectation over cells `m2664s1`–`m2664s7`; `finding-depth-triager` `DEPTH VERDICT: LOCAL` is recorded in the Task. Post-ENDORSE change inspected: `git diff 3f3cb9733 HEAD` on the spec shows one clause added to the Decision's `refuted` definition at `09589460e` ("— or refuted on ancestry alone —", consistent with the ancestry-precedes-enumeration change the second REVISE requested) plus the ENDORSE record itself; `### Affected Scope` is byte-identical, so the endorsed placement is the placement approved. The intro's four `BRANCH-2664-P2` fanout IDs (`r20260921070109`…`r20260921080947`) are origin narrative for the parent document, recorded on another branch (`33e7ae857`), and are not the placement evidence this criterion reads.
+- GATE-APPROVAL — Guardian tree binding: judged at HEAD `0d9847cb5` · base `origin/develop@24a646101` · document blob `b46835f11b83` (modified — HEAD blob `2e2735a7ce9c` plus the uncommitted `approve` entry above; the recorded `**Review fingerprint:**` 002123e8da48 was recomputed from the current text and matches).
+
+**Judged by:** `backlog-gate-guard` — semantic set (ordering check, "Approval is a direct, unambiguous statement directed at this spec document", "Independent architecture validation (conditional)")
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `0d9847cb59ea` · base `origin/develop@24a646101a00` · document `.agents/spec-docs/backlog/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md` blob `2e2735a7ce9c` (tracked)
