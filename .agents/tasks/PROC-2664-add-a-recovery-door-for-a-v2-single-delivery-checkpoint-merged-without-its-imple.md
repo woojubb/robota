@@ -92,9 +92,21 @@ credential, no state store.
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-**Reason:** This changes the repository's planning-checkpoint contract and its harness scripts under
-`scripts/harness/` and `.agents/rules/`; no Robota CLI, TUI, browser, SDK, configuration, or
-installed-package surface an end user can execute is involved.
+**Reason:** This binds the repository's own planning-checkpoint contract to the pull request that
+carries a checkpoint: a new range-mode finding in `scripts/harness/scan-user-execution-plan-order.mjs`
+and `scripts/harness/plan-order-records.mjs`, their isolated suite, and one binding sentence in
+`.agents/rules/backlog-execution.md`. Every affected file is under `scripts/harness/` or `.agents/`,
+none under `packages/` or `apps/`; no Robota CLI, TUI, browser, SDK, configuration, or installed
+package changes. Re-judged independently for this unit on 2026-09-22 at `63a1a5ba4`: this is not the
+unexposed-seam case, because no Robota product capability sits behind the binding awaiting surface
+wiring — the finding is itself the terminal artifact, and its intended consumers already reach it
+(`run-all-scans.mjs` registers `user-execution-plan-order` with `always: true`, so CI's `scans` job
+and a manual `pnpm harness:scan` judge every topic range; Husky invokes the same scanner with
+`--staged`). Those are maintainer gates on the repository, which the PLAN contract in
+`backlog-execution.md` classes as engineering evidence rather than a user surface. No end user can
+invoke them: the root package is `private: true` and declares no `bin`, and `scripts/harness/` is not
+in any workspace package's published `files` (for example `packages/agent-cli` ships only `dist` and
+`bin`). Verification is the engineering test plan above (TC-01 to TC-05).
 
 ## Finding Evidence
 

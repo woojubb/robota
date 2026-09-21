@@ -1,5 +1,5 @@
 ---
-status: draft
+status: review-ready
 type: INFRA
 tags: [harness, process]
 lane: L2
@@ -247,22 +247,23 @@ Two declared, both fail-closed toward the binding, neither a silent path:
       whose topic range holds a v2 `single` first checkpoint for a non-`AGREEMENT` L2 unit,
       `findHistoryFindings(root, base)` returns exactly one finding whose `problem` names the unit's
       basename and contains `no delivery witness` and whose `commit` is the checkpoint SHA when the
-      checkpoint is the range's last commit, and the same single finding when it is followed only by
-      a loop-ledger append, an `.agents/evals/lessons/auto-lessons.md` edit, and a
-      `scripts/harness/reference-kind-baseline.json` row; it returns `[]` when one later commit
-      changes `scripts/harness/example.mjs`, `[]` for a `sequenced` first checkpoint alone, `[]` for
-      an `AGREEMENT`-typed spec's `single` checkpoint alone, and an unchanged result for an L1 PLAN
-      commit and for a legacy v1 first PASS whose spec carries a `**Delivery mode:** \`single\``line
-    today (the contract is selected by the entry's own marker, as the validator selects it, so the
-    v1 entry reaches the reader's failure result and`mode: null`, not a binding); the same single finding when the checkpoint is followed only by
-    `.agents/memory/MEMORY.md`and a newly filed`todo`Task of another unit; a v2 checkpoint whose
-   `**Delivery mode:**`line was removed after the PASS yields a finding naming the basename and
-    containing`could not read the delivery mode`; and `isDeliveryWitnessPath`returns`false`for
-    the unit's Task and spec in every lifecycle folder, every`.agents/loop-runs/*.jsonl`,
-    `.agents/evals/lessons/**`, `.agents/evals/work-runs/**`, `scripts/harness/_baseline_.json`,
-    `.agents/memory/**`, another unit's root Task, and another unit's `draft/`, `backlog/`, and
-    `todo/`spec, and`true`for`scripts/harness/example.mjs`, `packages/x/src/y.ts`, another
-    unit's `active/`spec, and another unit's`completed/` Task.
+      checkpoint is the range's last commit; the same single finding when it is followed only by a
+      loop-ledger append, an `.agents/evals/lessons/auto-lessons.md` edit, and a
+      `scripts/harness/reference-kind-baseline.json` row; the same single finding when it is followed
+      only by `.agents/memory/MEMORY.md` and a newly filed `todo` Task of another unit; `[]` when one
+      later commit changes `scripts/harness/example.mjs`; `[]` for a `sequenced` first checkpoint
+      alone; `[]` for an `AGREEMENT`-typed spec's `single` checkpoint alone; an unchanged result for
+      an L1 PLAN commit; an unchanged result for a legacy v1 first PASS whose spec today carries a
+      Delivery mode line declaring `single` (the contract is selected by the entry's own marker, as
+      the validator selects it, so the v1 entry reaches the reader's failure result and `mode: null`,
+      not a binding); a finding naming the basename and containing `could not read the delivery mode`
+      for a v2 checkpoint whose Delivery mode line was removed after the PASS; and
+      `isDeliveryWitnessPath` returns `false` for the unit's Task and spec in every lifecycle folder,
+      every `.agents/loop-runs/*.jsonl`, every path under `.agents/evals/lessons/` and
+      `.agents/evals/work-runs/`, every `scripts/harness/` JSON file whose name contains `baseline`,
+      every path under `.agents/memory/`, another unit's root Task, and another unit's `draft/`,
+      `backlog/`, and `todo/` spec, and `true` for `scripts/harness/example.mjs`,
+      `packages/x/src/y.ts`, another unit's `active/` spec, and another unit's `completed/` Task.
 - [ ] TC-02: Observable: over the TC-01 fixture with the checkpoint at HEAD, `findStagedFindings`
       returns `[]` with `scripts/harness/example.mjs` staged and `[]` with only a loop-ledger append
       staged (the binding judges a range, never a commit); the CLI spawned as a child with `cwd` =
@@ -306,12 +307,41 @@ scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop 
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behaviour changes; verification evidence is recorded in the engineering test plan (TC-01 to TC-05).
+Not applicable.
 
-Recorded as the rule's required choice rather than skipped.
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Reason:** This changes a repository-internal planning-checkpoint gate — two harness modules under
+`scripts/harness/`, their isolated suite, and one rule sentence under `.agents/rules/`; every
+affected path is under `scripts/harness/` or `.agents/`, and it exposes no Robota CLI, TUI, browser,
+SDK, configuration, or installed-package surface an end user can execute. The finding it adds is the
+terminal artifact, reached by CI's `scans` job and a manual `pnpm harness:scan`.
 
 ## Tasks
 
 - [ ] `.agents/tasks/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` — todo
 
 ## Evidence Log
+
+### [GATE-WRITE] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** draft → review-ready
+
+- GATE-WRITE — Ordering check: entry gate, no prior gate required; `status: draft` in frontmatter, file under `draft/`, `## Evidence Log` empty before this entry — input state matches.
+- GATE-WRITE — Frontmatter (4 mechanical): `---` block, `status: draft`, `type: INFRA` (one of 11), `tags: [harness, process]` — all PASS per `gate.mjs judge --dry-run` (20 PASS / 0 FAIL / 7 PENDING-GUARDIAN), re-run at this HEAD.
+- GATE-WRITE — Contains a concrete symptom: `## Problem` names three refusal sites and their literal finding strings — `gate-checkpoint-evidence.mjs:86` "prior v2 delivery does not bind the current Decision contract", `gate-implement-correction-validation.mjs:26` (legacy v1 only), `scan-user-execution-plan-order.mjs:3338` "staged implementation has no planning checkpoint ancestor" — each verified present in the cited file; the sealed instance is named by commit (`e7025ca96` = MANIFEST-2664 checkpoint, `f185015f7` = merge of PR #2792, `79698d78d` = merge of PR #2805), all resolvable in this tree, and `git diff --stat f185015f7^ f185015f7` shows exactly the pair + three `loop-runs` ledgers + one `reference-kind-baseline.json` row the Problem claims.
+- GATE-WRITE — Contains a reproduction condition: two dated reproductions with their inputs and observed refusals (2026-09-21 from `f185015f7`, `--staged` with an implementation path; 2026-09-22 from `4543cf56d`, a `## Result` append to the `in-progress` Task), plus the general condition (a v2 `single` first checkpoint pushed and merged alone, then any later branch). The 21/10/1 measurement on `origin/develop@d5b4389f9` reproduced: 21 `active/` specs carry `"deliveryMode": "single"`, 10 of them `type: AGREEMENT`. Triager run `r20260921144518` exists in `.agents/loop-runs/backlog-execution-orchestrator.jsonl`.
+- GATE-WRITE — Does not contain TBD/TODO: PASS (mechanical).
+- GATE-WRITE — Prior Art Research present / substantiated-or-waived (3 mechanical): PASS — `Waived:` line with a reason (repository-internal checkpoint contract; closeout-receipt half owned by PROC-2680).
+- GATE-WRITE — Research findings feed Alternatives/Decision: external findings N/A under the recorded waiver; the recommendation is evidence-based, not asserted — alternative 1 rests on the scan being the one reader that replays the range (`historyAnalysis`/`findHistoryFindings`/`readExaminedPlanOrderCount` at `scan-user-execution-plan-order.mjs:3001-3023`, verified) and on `run-all-scans.mjs:658-660` (`user-execution-plan-order`, `always: true`, verified); alternative 3's rejection cites the triager's "fourth repetition" finding; alternative 4's rejection cites `postMergeCompletionPaths` (line 1799, verified); the six-item negative list is derived from the measured PR #2792 inventory plus the two classes the proposal review added.
+- GATE-WRITE — Architecture Review Checklist (3 mechanical: 4 items `[x]`, sibling scan with evidence, ≥2 alternatives with pro/con): PASS — 5/5 `[x]`, sibling scan lists the five v2-first-PASS readers inspected on 2026-09-22, 4 alternatives each with Pro and Con.
+- GATE-WRITE — Decision references the trade-off: yes — it accepts alternative 1's own Con (the finding first fires in CI because `pre-push-ci-mirror.mjs` executes no commands since LOCAL-2655, verified at line 3; a planning-only `single` push is refused outright), states the negative-list asymmetry against `isPreCheckpointPlanningPath` as deliberate ("each test must be conservative in the opposite direction"), rejects alternative 4 for refusing the admitted post-merge closeout, and records a known edge (item 6, Task-only L2 delivery) rather than carving it out.
+- GATE-WRITE — New-surface placement (conditional): N/A with reason — no new package, app, scan, workflow, hook, gate form, or contract version; the one new export `isDeliveryWitnessPath` sits in `plan-order-records.mjs`, which already owns `isPreCheckpointPlanningPath` (line 129, verified); `rangeAnalysis` and `isAgreementPairAt` are internal to the existing scan, the latter extracted from the AGREEMENT-pair test `integrationHistoryAnalysis` already performs (children list + `type: AGREEMENT`, lines ~2877-2884, verified). Checklist item 5 records the N/A explicitly.
+- GATE-WRITE — Every item has a TC-N prefix: PASS (mechanical) — TC-01..TC-05.
+- GATE-WRITE — At least 1 criterion per distinct feature/sub-item: Solution steps 1-2 (predicate; delivery reader via `checkpointDelivery`, `witnessed` fold, `rangeAnalysis` as single emit site, AGREEMENT exemption, mode-unreadable finding) → TC-01; staged path untouched + CLI exit map/stderr/`::examined::` → TC-02; post-merge closeout still admitted + self-application over this branch → TC-03; step 4 rule sentence + `Enforced by:` and the header residual-note rewrite → TC-04; suite/tier/import-safety/affected-scans gates → TC-05. Step 5 (Task § Plan mirror, `depends_on` cleared) is a planning-record edit judged by GATE-IMPLEMENT's Task criterion, not a deliverable feature; no feature is without a TC.
+- GATE-WRITE — Each criterion uses Command or Observable form: TC-01/TC-02/TC-03 are `Observable:` with named function inputs and exact outputs (`[]`, exactly one finding with named `problem` substrings and `commit`, exit 0/1, one stderr line); TC-04/TC-05 are `Commands:` with `rg -c` counts and exit-0 invocations. TC-01's v1 expectation (`mode: null` even when the spec carries a `**Delivery mode:**` line) matches `checkpoint-evidence-source.mjs:201` (`!contract.decisionDelivery` → failure). Observation, not a failure: TC-01 and Affected Scope carry formatter-damaged inline code spans (e.g. `_baseline_.json`, `` `single``line ``) that read unambiguously but should be tidied before implementation.
+- GATE-WRITE — No banned phrases: PASS (mechanical).
+- GATE-WRITE — Test Plan (4 mechanical): present; 5 rows = 5 TC-N (count matches); every row has Test Type and Tool; 0 manual rows.
+- GATE-WRITE — Structure (3 mechanical): `## Tasks` present with the paired Task path (file exists); `## Evidence Log` present and empty on this first run; no `## Status`/`## Classification` body sections.
+
+**Judged at:** HEAD `63a1a5ba421e99b5354d39ee4fd3d8d9f417c100` · base `origin/develop@d5b4389f91e0be868e25c1d6cb00698316e062c1` · document `.agents/spec-docs/draft/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` blob `1123b92a2bf273467cb635da631724de762d2424` (tracked)
