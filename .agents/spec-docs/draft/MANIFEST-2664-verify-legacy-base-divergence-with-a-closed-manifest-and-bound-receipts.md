@@ -21,12 +21,12 @@ field set names the review ref and the manifest pull-request flow, which the rem
 design in `BRANCH-2664-P2` still owns and may change. And merge own-content verification — the
 `merge-tree --write-tree` comparison — was moved out on 2026-09-21 after the third fanout on this
 document showed that path drawing a new environmental dependency every round; it goes to
-`BRANCH-2664-P2` on top of the shared merge-tree abstraction `MERGE-2664` owns. That publication
+`BRANCH-2664-P2`, on the merge-tree helper whose semantics `MERGE-2664` owns. That publication
 and authority layer stays in `BRANCH-2664-P2`, which depends on this bundle.
 
 ## Problem
 
-The legacy integration base at `4214cb540` cannot be advanced under the current plan-order contract.
+The legacy integration tip at `4214cb540` cannot be advanced under the current plan-order contract.
 Merging it with `origin/develop` first conflicts in
 `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs`. On the clean historical sync fixture
 `node scripts/harness/scan-user-execution-plan-order.mjs` examines 60 topic commits and reports an
@@ -64,10 +64,12 @@ standard:
   2.50.1) computes the tree Git's own merge would produce for two parents without touching the
   worktree, so a merge commit's _own_ content — what it carries beyond the automatic merge — is the
   delta between that tree and the commit's tree. The repository's plan-order scanner already judges
-  merges this way (`scan-user-execution-plan-order.mjs`, issue #2410), and `MERGE-2664` owns making
-  that helper a shared abstraction. Its result depends on `merge.*` configuration and on three
+  merges this way (`scan-user-execution-plan-order.mjs`, issue #2410), and `MERGE-2664` owns that
+  helper's semantics (preserving clean-versus-conflicted status); whether its scope also covers
+  extracting the helper for an importable consumer is a question `BRANCH-2664-P2` must settle with
+  it before that bundle is drafted. Its result depends on `merge.*` configuration and on three
   gitattributes sources, one without any override; that is why this bundle does not use it and the
-  merge own-content check is the publication bundle's, on `MERGE-2664`'s abstraction.
+  merge own-content check is the publication bundle's.
 - [`git patch-id --stable`](https://git-scm.com/docs/git-patch-id) is order-insensitive across hunks
   and whitespace-normalized; it is a useful diagnostic for "same content, different commit" but not
   equality authority: a measured mode-only change does alter it, but an empty diff yields no ID at
@@ -169,7 +171,10 @@ measured legacy base is `1ef05e0ea` and the replacement was rebuilt on `58f24c1b
 `develop` commits later — the legacy tip OID, the replacement tip OID, and exact planning and child
 segment membership. The verifier checks the one invariant those bases must satisfy,
 `git merge-base --is-ancestor <legacyBase> <replacementBase>`, whose answer is its exit status: 0 is
-the invariant holding, 1 is the `BASES_NOT_ANCESTRAL` finding, and 128 is an unknown OID. It does not
+the invariant holding, 1 is the `BASES_NOT_ANCESTRAL` finding, and 128 is an unknown OID — and, with
+the same command, that each tip descends from its own base (`TIP_NOT_DESCENDANT` otherwise), so a
+manifest whose tip and base are unrelated is refuted by name rather than by an enumeration that
+happens to overflow. It does not
 bind ref names: which refs carry the legacy, archive, and replacement tips is owned by the
 publication design, so a manifest is bound to OIDs only and stays valid however those refs are later
 named. Records are keyed by full source and/or replacement OIDs. A non-merge record has exactly one
@@ -189,15 +194,16 @@ two that differ in path or mode without reading tuple dumps; the flag is three-v
 empty patch), and the recomputed value must equal the recorded one.
 
 Merge commits are records too, but in this bundle they are structural: a `merge` record binds the
-merge OID and its exactly two parent OIDs, and the verifier checks that the enumeration agrees —
-every merge in either graph has a `merge` record naming its actual parents, and no `merge` record
-names a commit that is not a two-parent merge in that graph. What a merge carries beyond Git's
+merge OID and its exactly two parent OIDs in order (the first parent is the base line), and the
+verifier checks that the enumeration agrees — every merge in either graph has a `merge` record
+naming its actual parents in their actual order, and no `merge` record names a commit that is not a
+two-parent merge in that graph. What a merge carries beyond Git's
 automatic merge of its parents — the own-content an evil merge or a conflict resolution introduces —
 is **not verified by this bundle.** That check needs `git merge-tree --write-tree`, whose result three
 audit rounds showed to depend on the user's merge configuration and on three gitattributes sources
 one of which (`$GIT_DIR/info/attributes`) Git offers no override for, and the repository already has
-an owner for the shared merge-tree abstraction: `.agents/tasks/MERGE-2664-preserve-clean-versus-conflicted-status-in-shared-merge-tree-analysis.md`.
-Merge own-content verification is therefore the publication bundle's to add on that abstraction, and
+an owner for that helper's semantics: `.agents/tasks/MERGE-2664-preserve-clean-versus-conflicted-status-in-shared-merge-tree-analysis.md`.
+Merge own-content verification is therefore the publication bundle's to add on that helper, and
 the rule sentence this bundle lands says so in as many words (below), so the policy never claims a
 completeness the verifier does not have. Every merge in both #2664 graphs (eight each) was measured
 clean with empty own-content, so the deferral removes no finding the real migration would raise.
@@ -223,9 +229,10 @@ port; `diff-tree` is plumbing, so `diff.renames`, `core.abbrev`, `core.quotePath
 `diff.noprefix` — porcelain settings — were measured not to reach its `--raw -r` output at all, and
 `-z` plus `--no-renames` pin what remains; a measured `patch-id --stable` is stable under
 `diff.noprefix`, `diff.context`, and `diff.algorithm`. What does reach the pinned path is
-`core.attributesFile`: a global attributes file with `* -diff` was measured to change the
-`diff-tree -p | patch-id --stable` output, which is why the default adapter isolates global and
-system configuration and why the hostile-configuration test uses that key as its positive control. Stable patch ID and subject are retained as supporting diagnostics, not equality
+gitattributes: a `* -diff` line in any attributes source was measured to change an unpinned
+`diff-tree -p | patch-id --stable` output, which is why the pair is pinned with `--text` and why the
+hostile-configuration test uses attributes as its positive control; the default adapter's
+configuration isolation is belt and braces on top. Stable patch ID and subject are retained as supporting diagnostics, not equality
 authority. Missing, extra, duplicate, stale, or invented records fail closed, including
 replacement-only and legacy-only cardinality drift. There is no path-class exemption.
 
@@ -260,8 +267,8 @@ manifest ceilings — 8 MiB canonical bytes (`SIZE_LIMIT`), 64 segments (`SEGMEN
 records (`RECORD_LIMIT`), 100,000 aggregate tree tuples (`TUPLE_LIMIT`) — are checked before any Git
 call; a record costs at most four port invocations (a paired record: one `diff-tree` per side and,
 when `diverged`, one `patch-id` per side; a single-sided record: one `diff-tree`; a `merge` record:
-none), and graph enumeration is four constant calls (`rev-parse`, `merge-base`, one
-`rev-list --parents` per side), so 4,096 records take at most 16,388 invocations inside the 32,768
+none), and graph enumeration is six constant calls (`rev-parse`, three `merge-base`, one
+`rev-list --parents` per side), so 4,096 records take at most 16,390 invocations inside the 32,768
 budget.
 
 The port is the one injection seam, and its call shape is
@@ -290,8 +297,11 @@ stderr together), and returns the result synchronously —
 always a `Buffer`, never a decoded string (a spawn failure leaves `spawnSync` output undefined; the
 adapter normalises it to an empty `Buffer`), so two distinct invalid byte sequences in a path cannot
 collapse to one `pathBytesBase64`. The port's `patch-id` command takes a parent and a commit; the
-adapter runs `git diff-tree -p --no-renames <parent> <commit>` and pipes its stdout into
-`git patch-id --stable`, one budget take for the pair; the second spawn receives the timeout minus
+adapter runs `git diff-tree -p --no-renames --text <parent> <commit>` and pipes its stdout into
+`git patch-id --stable`, one budget take for the pair — `--text` is what makes the flag independent
+of every gitattributes source (`core.attributesFile`, `$GIT_DIR/info/attributes`, an uncommitted
+worktree `.gitattributes`), each of which was measured to move the patch ID of an unpinned pair even
+under the adapter's configuration isolation, which isolates configuration only; the second spawn receives the timeout minus
 the first's elapsed time, floored to an integer, and when less than one millisecond remains the
 adapter returns the `ETIMEDOUT` literal without spawning, because `spawnSync` treats a timeout of 0
 as unbounded and rejects a negative or fractional one. A port result is a failure whenever
@@ -327,7 +337,7 @@ complete, and the two never mix. A diagnostic or finding is `{ code, path, messa
 - parse diagnostics: `MALFORMED_JSON`, `NONCANONICAL_BYTES`, `UNKNOWN_FIELD`, `MISSING_FIELD`,
   `INVALID_FIELD`, `UNSUPPORTED_SCHEMA_VERSION`, `UNSUPPORTED_OBJECT_FORMAT`, `DUPLICATE_RECORD`,
   `SIZE_LIMIT`, `SEGMENT_LIMIT`, `RECORD_LIMIT`, `TUPLE_LIMIT`;
-- `refuted` findings: `BASES_NOT_ANCESTRAL`, `UNRECORDED_COMMIT`, `INVENTED_RECORD`,
+- `refuted` findings: `BASES_NOT_ANCESTRAL`, `TIP_NOT_DESCENDANT`, `UNRECORDED_COMMIT`, `INVENTED_RECORD`,
   `PARENT_CARDINALITY`, `SEGMENT_MEMBERSHIP`, `TUPLES_MISMATCH`, `EQUAL_NOT_EQUAL`,
   `PATCH_ID_FLAG_MISMATCH`;
 - `aborted` diagnostics: `REPOSITORY_OBJECT_FORMAT`, `UNKNOWN_OID`, `INVALID_LIMITS`,
@@ -356,7 +366,10 @@ committed, states that the verifier recomputes non-merge equality and merge stru
 own-content verification is added by the bundle that lands it, and does not delegate anything to a
 draft. The two documents that restate the policy today become pointers, so the next amendment —
 the publication clause and the merge own-content clause `BRANCH-2664-P2` will add — edits one
-sentence, not three.
+sentence, not three. Consolidating three policy statements into one owner changes an ownership
+boundary, which the Recommendation Gate reserves for the owner: the split that produced this bundle,
+and its scope, were owner-directed on 2026-09-21, and the direct approval phrase GATE-APPROVAL
+requires is that sign-off.
 
 The automated fixtures construct their own minimal SHA-1 graphs under `make-temp.mjs`; they perform no
 network access and do not depend on the retained #2664 refs. The real #2664 graphs are not a
@@ -462,12 +475,13 @@ manifest fails closed with a named diagnostic rather than degrading.
       paths written through `git update-index --add --cacheinfo`, because the filesystem refuses such
       names) run through the default adapter (`cwd` = the fixture repository, `env` injected) against
       a real temporary repository, the last asserting `Buffer.isBuffer` on the port result and the
-      exact base64 of the raw path bytes; under an injected hostile `env` whose `HOME` config sets
-      `core.attributesFile` to a file containing `* -diff` plus `diff.renames=true`,
-      `core.abbrev=12`, and `core.quotePath=false`, every default-adapter case yields the same tuple
-      set, patch-ID flag, and verdict, and a positive control shows the same pinned
-      `diff-tree -p | patch-id --stable` pair spawned with that `HOME` and without the adapter's
-      isolation variables yields a different patch ID; every declared size, record,
+      exact base64 of the raw path bytes; under a `* -diff` line written to the fixture repository's
+      `.git/info/attributes` (the source Git offers no override for), to an uncommitted worktree
+      `.gitattributes`, and to a `core.attributesFile` named by an injected hostile `env` whose
+      `HOME` config also sets `diff.renames=true`, `core.abbrev=12`, and `core.quotePath=false`,
+      every default-adapter case yields the same tuple set, patch-ID flag, and verdict, and a
+      positive control shows the same `diff-tree -p --no-renames | patch-id --stable` pair spawned
+      without `--text` under those sources yields a different patch ID; every declared size, record,
       tuple, invocation, and time bound accepts its stated boundary and rejects the next value with
       its named code, the invocation and time bounds through an injected `now` and an injected
       `limits` with a `commandBudget` of a few units over a two-record fixture, and a `limits` the
@@ -524,3 +538,17 @@ Robota CLI, TUI, browser, SDK, configuration, or installed-package surface an en
 - [ ] `.agents/tasks/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md` — todo
 
 ## Evidence Log
+
+### Architecture validation — 2026-09-21
+
+Placement and design were validated independently before GATE-WRITE, as `spec-workflow.md`
+§ New-Surface Placement requires: four `architecture-audit-fanout` runs over all 23 cells
+(`r20260921090348` H3, `r20260921092807` H3, `r20260921094601` H1 — which moved merge own-content
+out — and `r20260921102056` with no blocker or high in any dimension), each closed `converged`, and a
+`finding-depth-triager` run returning `DEPTH VERDICT: LOCAL` on the problem statement; the per-round
+findings and revisions are recorded in the paired Task's `## Finding Evidence`. The
+`proposal-reviewer` (orchestrator run `r20260921104830`, reopened bound to the Task after an unbound `r20260921103523` was voided) returned `REVIEW VERDICT: REVISE` on
+`d1539c1bd` — placement correct, alternative 3 right, one defect: the `patch-id` flag shared
+`merge-tree`'s gitattributes dependence — and the revision pins `--text` on the pair, adds the
+attributes sources to TC-03, adds the per-side `TIP_NOT_DESCENDANT` invariant, and corrects the
+`MERGE-2664` attribution. The re-review verdict is recorded below when it arrives.

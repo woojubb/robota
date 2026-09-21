@@ -167,6 +167,20 @@ Robota CLI, TUI, browser, public SDK, configuration, or installed-package behavi
   applied as wording (patch-ID does see mode changes; TC-02 is a premise test; TC-05 is CI-only;
   `maxBuffer` counts both streams; a non-regular path is `USAGE`; v1 frozen, additions are v2).
   The ID's "bound receipts" predates the split and is kept because it is in circulation.
+- Recommendation gate (orchestrator run `r20260921104830`, bound to this Task; the unbound `r20260921103523` it replaces is voided; 2026-09-21): `finding-depth-triager`
+  returned `DEPTH VERDICT: LOCAL` — every measured premise reproduced, the deferrals have filed
+  owners, and the one deeper question (post-prelude child amendment) neither produces this problem
+  nor would dissolve it. `proposal-reviewer` returned `REVIEW VERDICT: REVISE` on `d1539c1bd`:
+  placement correct, alternative 3 right, the merge deferral sound; one defect — the `patch-id`
+  flag recomputation was measured to move under `$GIT_DIR/info/attributes`, an uncommitted worktree
+  `.gitattributes`, and `core.attributesFile` even with the adapter's configuration isolation, so a
+  `PATCH_ID_FLAG_MISMATCH` refutation could depend on the reviewer's clone. Applied: the pair is
+  `diff-tree -p --no-renames --text | patch-id --stable` (measured to restore the clean ID under
+  every source), TC-03's hostile case writes `* -diff` to all three sources with the positive control
+  spawned without `--text`, `merge` records bind ordered parents, each tip must descend from its own
+  base (`TIP_NOT_DESCENDANT`), the `MERGE-2664` attribution is narrowed to the helper's semantics,
+  `4214cb540` is called the legacy tip, the owner-directed ownership consolidation is stated, and
+  the spec's `## Evidence Log` carries the validation record. Re-review pending.
 - Legacy sync experiment: merging `origin/integration/agreement-2664@4214cb540` with `origin/develop`
   conflicts in `gate-checkpoint-evidence.test.mjs`. The clean historical sync fixture examined 60 topic
   commits and produced undeclared PUSH, four out-of-order, and one checkpoint-mix finding.
