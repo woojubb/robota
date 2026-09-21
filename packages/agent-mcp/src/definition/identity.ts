@@ -32,15 +32,25 @@ import type { IMCPResolvedEntry, IMCPServerDefinitionResolved } from './types.js
 function digest(parts: readonly string[]): string {
   const hash = createHash('sha256');
   for (const part of parts) {
-    // Length-prefixed, so ['ab','c'] and ['a','bc'] cannot collide. The joins below use the
-    // ESCAPE `'\u0000'` rather than a literal NUL byte. A literal one makes git classify this
-    // file as binary, which hides the whole module from the diff, from `git blame`, and from
-    // every ripgrep/grep-based check a reviewer or a scan runs. Same bytes hashed, visible source.
+    // Length-prefixed, so ['ab','c'] and ['a','bc'] cannot collide.
     hash.update(String(part.length));
     hash.update(':');
     hash.update(part);
   }
   return hash.digest('hex').slice(0, 32);
+}
+
+/**
+ * A list as its own length-prefixed parts, preceded by its element count.
+ *
+ * NOT `join(separator)`. Review measured the collision that produces: `['a','b']` and
+ * `['a\u0000b']` join to the same string, so an argument list of two arguments and one of a single
+ * argument containing the separator fingerprinted identically — an approval bound to one would
+ * silently cover the other. The per-part length prefix in `digest` separates PARTS, not the
+ * elements inside one part; this makes each element a part.
+ */
+function listParts(label: string, values: readonly string[]): readonly string[] {
+  return [label, String(values.length), ...values];
 }
 
 /** What will run or be contacted, with no secret value in it. */
@@ -50,18 +60,11 @@ export function definitionFingerprint(definition: IMCPServerDefinitionResolved):
     definition.transport,
     'command',
     definition.command ?? '',
-    'args',
-    (definition.args ?? []).join('\u0000'),
+    ...listParts('args', definition.args ?? []),
     'url',
     definition.url ?? '',
-    'headerKeys',
-    Object.keys(definition.headers ?? {})
-      .sort()
-      .join('\u0000'),
-    'envKeys',
-    Object.keys(definition.env ?? {})
-      .sort()
-      .join('\u0000'),
+    ...listParts('headerKeys', Object.keys(definition.headers ?? {}).sort()),
+    ...listParts('envKeys', Object.keys(definition.env ?? {}).sort()),
     'timeout',
     definition.timeout === undefined ? '' : String(definition.timeout),
   ]);

@@ -121,15 +121,17 @@ describe('driving the whole pipeline contacts nothing', () => {
       throw new Error('the definition pipeline must not fetch');
     }) as typeof fetch;
 
-    // The guard's own red-proof: if the module replacement were not in effect, every assertion
-    // below would pass over a pipeline that was free to spawn and connect.
-    const childProcess = await import('node:child_process');
-    const net = await import('node:net');
-    expect(() => childProcess.spawn('true')).toThrow(/must not call child_process.spawn/);
-    expect(() => net.connect(1)).toThrow(/must not call net.connect/);
-    expect(() => globalThis.fetch('https://example.test')).toThrow(/must not fetch/);
-
     try {
+      // The guard's own red-proof, INSIDE the try: if the module replacement were not in effect,
+      // every assertion below would pass over a pipeline free to spawn and connect — and if one of
+      // these three fails, the `finally` still restores `fetch` instead of leaking the stub into
+      // the rest of the file.
+      const childProcess = await import('node:child_process');
+      const net = await import('node:net');
+      expect(() => childProcess.spawn('true')).toThrow(/must not call child_process.spawn/);
+      expect(() => net.connect(1)).toThrow(/must not call net.connect/);
+      expect(() => globalThis.fetch('https://example.test')).toThrow(/must not fetch/);
+
       const decoded = decodeSource(
         {
           mcpServers: {

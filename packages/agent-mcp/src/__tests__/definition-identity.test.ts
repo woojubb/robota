@@ -74,6 +74,23 @@ describe('definitionFingerprint', () => {
       definitionFingerprint(definition({ command: 'a', args: ['bc'] })),
     );
   });
+
+  it('does not collide when an argument contains the list separator', () => {
+    // Measured during review: the digest used to `join('\u0000')`, so `['a','b']` and
+    // `['a\u0000b']` produced the SAME input — two arguments and one argument containing the
+    // separator fingerprinted identically, and an approval bound to one silently covered the other.
+    const separator = String.fromCharCode(0);
+    expect(definitionFingerprint(definition({ args: ['a', 'b'] }))).not.toBe(
+      definitionFingerprint(definition({ args: [`a${separator}b`] })),
+    );
+  });
+
+  it('distinguishes an env key containing the separator from two env keys', () => {
+    const separator = String.fromCharCode(0);
+    expect(definitionFingerprint(definition({ env: { a: '1', b: '2' } }))).not.toBe(
+      definitionFingerprint(definition({ env: { [`a${separator}b`]: '1' } })),
+    );
+  });
 });
 
 describe('securityIdentity', () => {

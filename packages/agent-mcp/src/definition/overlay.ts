@@ -31,7 +31,7 @@ export interface IMCPDisableOverlay {
  * This THROWS on operator input (a mistyped server name) while `getServer` in
  * `../management/results.ts` returns a typed not-found for the same class of error, and
  * `MCPActivationController` throws a third kind. `operational.md` mandates `Result<T, E>` for
- * fallible public functions; `common-mistakes.md` (#57) permits either and records "Mechanism:
+ * fallible public functions; `common-mistakes.md` (entry 57) permits either and records "Mechanism:
  * none". Converting this one function would leave a caller handling failure two ways in one call
  * chain, so the convention is decided once, repository-wide, under RULE-2795.
  */

@@ -6,7 +6,6 @@ created: 2026-09-21
 area: scripts/harness
 priority: medium
 urgency: soon
-scripts/harness
 depends_on: []
 ---
 

@@ -155,7 +155,7 @@ All `ITool`-related types (`ITool`, `IToolResult`, `IToolExecutionContext`, `TTo
 | `projectEntry`                  | function  | Redacted projection of one entry; `env`/`headers` values become `[REDACTED]`, keys survive              |
 | `projectEntries`                | function  | The same projection over a whole resolved set, in order                                                  |
 | `REDACTED`                      | const     | The redaction marker a projection substitutes for a secret value                                         |
-| `IMCPDefinitionProjection`      | interface | A definition as it may be shown — secret-free by construction                                            |
+| `IMCPDefinitionProjection`      | interface | A definition as it may be shown, `env`/`headers` values redacted — see the SECURITY-2793 containment above |
 | `definitionFingerprint`         | function  | Hash over what will run or be contacted; secret VALUES are never hashed                                  |
 | `securityIdentity`              | function  | Hash over name, source and origin — which configured subject this is                                     |
 | `activationIdentity`            | function  | Both ids for one entry, or `null` when it is unresolved                                                  |

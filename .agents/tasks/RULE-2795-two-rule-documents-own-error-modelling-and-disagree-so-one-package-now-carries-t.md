@@ -6,7 +6,6 @@ created: 2026-09-21
 area: .agents/rules
 priority: medium
 urgency: soon
-.agents/rules
 depends_on: []
 ---
 
@@ -14,7 +13,7 @@ depends_on: []
 
 ## Objective
 
-`operational.md` mandates `Result<T, E>` for fallible public functions; `common-mistakes.md` (#57)
+`operational.md` mandates `Result<T, E>` for fallible public functions; `common-mistakes.md` (entry 57)
 permits either and records "Mechanism: none". `AGENTS.md` requires exactly one owner per fact.
 Nothing checks either, so the answer is chosen per function — and `agent-mcp` alone now carries
 three conventions for one class of operator error.
