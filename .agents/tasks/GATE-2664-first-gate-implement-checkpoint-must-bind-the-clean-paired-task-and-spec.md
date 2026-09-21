@@ -11,7 +11,7 @@ depends_on: []
 
 # GATE-2664: first GATE-IMPLEMENT checkpoint must bind the clean paired Task and spec
 
-Spec: `.agents/spec-docs/draft/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md`
+Spec: `.agents/spec-docs/backlog/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md`
 
 ## Objective
 
@@ -65,6 +65,8 @@ the fresh develop base and the DATA-integrated initiative state.
      not-applicable | automatable | manual; the count is the number of scenarios drafted. Keep the
      not-applicable form ONLY with a product-surface reason (≥ 50 characters, not build/typecheck
      evidence); otherwise write the scenario a user can run and raise the count. -->
+
+- **Canonical loop run:** `r20260921020517`
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 

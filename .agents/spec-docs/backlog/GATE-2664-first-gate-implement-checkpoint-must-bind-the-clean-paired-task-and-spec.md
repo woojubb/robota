@@ -1,5 +1,5 @@
 ---
-status: draft
+status: review-ready
 type: INFRA
 tags: [typescript]
 lane: L2
@@ -158,3 +158,34 @@ it adds no Robota CLI, TUI, browser, public SDK, configuration, or runtime behav
 - [ ] `.agents/tasks/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md` — todo
 
 ## Evidence Log
+
+### [GATE-WRITE] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** draft → review-ready
+
+- GATE-WRITE — Ordering check: PASS — GATE-WRITE is the entry gate with no predecessor; the document is in `draft/` and declares `status: draft`.
+- GATE-WRITE — Contains a concrete symptom: PASS — the Problem names `firstCheckpointEvidence(...)`, the omitted clean paired Task path, and the resulting `gateImplementFirst.worktreePaths` planning-checkpoint rejection.
+- GATE-WRITE — Contains a reproduction condition: PASS — the failure is bounded to a first GATE-IMPLEMENT run where the paired Task is committed and clean while the spec is changed by the gate transition; the PUSH-2664-P2 occurrence supplies a concrete instance.
+- GATE-WRITE — Research findings feed Alternatives Considered / Decision: PASS — the explicit waiver correctly limits the evidence source to the repository-local producer/consumer contract, and that contract drives the comparison between centralizing exact-pair inventory, weakening the consumer, and relying on incidental dirt.
+- GATE-WRITE — Decision references the trade-off that drove the choice: PASS — the Decision preserves fail-closed exact-pair binding and real-dirt rejection at the cost of routing three producers through a shared helper, rejecting both a weaker consumer contract and worktree-state dependence.
+- GATE-WRITE — New-surface placement: N/A — the change is confined to existing internal checkpoint producers, their shared helper, and tests; it introduces no package, app, presentation/interface surface, layer boundary, or product-family reclassification.
+- GATE-WRITE — At least one criterion per distinct feature or sub-item: PASS — TC-01 covers the required RED reproduction, TC-02 the exact sorted pair and shared producer path, TC-03 deduplication/PLAN-ledger/unrelated-dirt behavior, and TC-04 verification on both required integration bases.
+- GATE-WRITE — Each criterion uses Command or Observable behavior form: PASS — TC-01 through TC-03 specify inspectable payload or evaluator outcomes, and TC-04 names commands with exit-zero expectations.
+- GATE-WRITE — TC count cross-check: PASS — four Completion Criteria items (`TC-01`–`TC-04`) have four corresponding Test Plan rows; the supplied mechanical evaluation reported 20 PASS and no mechanical failure.
+
+**Judged by:** `backlog-gate-guard` semantic evaluator
+**Judged at:** HEAD `3b35d6aecc404496dee45bb2d66eec264b59cb7e` · base `origin/develop@5801343acb92e3807c6416912a928a7b8fbe36ac` · document `.agents/spec-docs/draft/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md` blob `32fd855e7e85d4bad9ddbde7e750056cf3b434d1` (tracked)
+
+GATE VERDICT: PASS
+
+### [RECOMMENDATION-REVIEW] — ✅ ENDORSE | 2026-09-21
+
+- Canonical loop run: `r20260921020517`
+- Projection digest: `7a9dd6a6fd34f8b9fa787c98057ee0fe0a6be4a374e2bc66c30b5bdc15b0e6af`
+- Independent `proposal-reviewer` verdict: `ENDORSE` with 0 actionable findings.
+- Premises verified: the first producer alone omits clean paired paths; continuation and correction
+  already union the pair; the independent consumer requires the exact pair and rejects unrelated dirt.
+- Design verdict: one producer-side sorted, deduplicating pair-inventory helper is the correct SSOT;
+  the consumer remains independent and DATA-2664 filtering remains owned by the existing dirt scanner.
+- Ownership verdict: the approved MAP-2664 predicates correctly classify GATE-2664 as a delivery
+  prerequisite rather than an eighth AGREEMENT child.
