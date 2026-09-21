@@ -174,7 +174,10 @@ segment membership. The verifier checks the one invariant those bases must satis
 the invariant holding, 1 is the `BASES_NOT_ANCESTRAL` finding, and 128 is an unknown OID — and, with
 the same command, that each tip descends from its own base (`TIP_NOT_DESCENDANT` otherwise), so a
 manifest whose tip and base are unrelated is refuted by name rather than by an enumeration that
-happens to overflow. It does not
+happens to overflow. These three ancestry checks run before enumeration, and when any fires the
+run is `refuted` on those findings alone without enumerating — the one case in which `refuted` is
+reached before every record was recomputed, because no record can be checked against a graph the
+bases do not bound. It does not
 bind ref names: which refs carry the legacy, archive, and replacement tips is owned by the
 publication design, so a manifest is bound to OIDs only and stays valid however those refs are later
 named. Records are keyed by full source and/or replacement OIDs. A non-merge record has exactly one
@@ -389,8 +392,8 @@ manifests.
 - [x] 영향 패키지/레이어 목록 작성 완료 — one new module, its exact-name test, one added case in the
       isolated plan-order suite (with its prelude fixture generalised), one classification entry,
       three owner-document edits (one sentence, two pointers) with their test.
-- [x] Sibling scan 완료 — plan-order's history analysis and its merge own-content technique (owned
-      for sharing by `MERGE-2664`), all eight #2664 replay segments and both graphs' eight merges
+- [x] Sibling scan 완료 — plan-order's history analysis and its merge own-content technique (whose
+      semantics `MERGE-2664` owns), all eight #2664 replay segments and both graphs' eight merges
       (all measured clean with empty own-content), the three documents that state the policy today,
       the import-safety and test-owning contracts, the hermetic runner's stripped stage and its
       existing git-spawning files, `make-temp.mjs` and `scan-temp-dir-owner.mjs`,
@@ -449,8 +452,11 @@ manifest fails closed with a named diagnostic rather than degrading.
 - [ ] TC-01: Observable: the SHA-1-only verifier recomputes explicit full-OID segment membership
       against separately bound `legacyBase` and `replacementBase` (a fixture whose bases differ passes;
       one whose replacement base does not descend from the legacy base is `refuted` with
-      `BASES_NOT_ANCESTRAL`), all four non-merge dispositions including a commit present in both
-      enumerations as one `equal` record, every merge's structural record, and sorted base64-path
+      `BASES_NOT_ANCESTRAL`, and one whose legacy tip does not descend from the legacy base is
+      `refuted` with `TIP_NOT_DESCENDANT` and no enumeration finding), all four non-merge
+      dispositions including a commit present in both enumerations as one `equal` record, every
+      merge's structural record (a record naming the right two parents in swapped order is
+      `PARENT_CARDINALITY`), and sorted base64-path
       recursive `--no-renames` raw tree tuples through the injected port; it rejects unknown fields,
       noncanonical bytes under `strict` and accepts them under `strict: false`, unsupported object
       formats, an unrecorded commit inside `rev-list --parents <ownBase>..<tip>` (including the
@@ -477,11 +483,15 @@ manifest fails closed with a named diagnostic rather than degrading.
       a real temporary repository, the last asserting `Buffer.isBuffer` on the port result and the
       exact base64 of the raw path bytes; under a `* -diff` line written to the fixture repository's
       `.git/info/attributes` (the source Git offers no override for), to an uncommitted worktree
-      `.gitattributes`, and to a `core.attributesFile` named by an injected hostile `env` whose
-      `HOME` config also sets `diff.renames=true`, `core.abbrev=12`, and `core.quotePath=false`,
-      every default-adapter case yields the same tuple set, patch-ID flag, and verdict, and a
-      positive control shows the same `diff-tree -p --no-renames | patch-id --stable` pair spawned
-      without `--text` under those sources yields a different patch ID; every declared size, record,
+      `.gitattributes`, and to a `core.attributesFile` set in the fixture repository's local
+      `.git/config` (the three sources the adapter's configuration isolation cannot reach), every
+      default-adapter case yields the same tuple set, patch-ID flag, and verdict, and a positive
+      control shows the same `diff-tree -p --no-renames | patch-id --stable` pair spawned without
+      `--text` under those sources yields a different patch ID; separately, under an injected
+      hostile `env` whose `HOME` config sets `core.attributesFile` to a `* -diff` file plus
+      `diff.renames=true`, `core.abbrev=12`, and `core.quotePath=false`, every default-adapter case
+      is again unchanged, which is the configuration-isolation control and not an attributes
+      source; every declared size, record,
       tuple, invocation, and time bound accepts its stated boundary and rejects the next value with
       its named code, the invocation and time bounds through an injected `now` and an injected
       `limits` with a `commandBudget` of a few units over a two-record fixture, and a `limits` the
@@ -551,4 +561,8 @@ findings and revisions are recorded in the paired Task's `## Finding Evidence`. 
 `d1539c1bd` — placement correct, alternative 3 right, one defect: the `patch-id` flag shared
 `merge-tree`'s gitattributes dependence — and the revision pins `--text` on the pair, adds the
 attributes sources to TC-03, adds the per-side `TIP_NOT_DESCENDANT` invariant, and corrects the
-`MERGE-2664` attribution. The re-review verdict is recorded below when it arrives.
+`MERGE-2664` attribution. The re-review on `5644a9850` returned `REVIEW VERDICT: REVISE` again,
+confined to completion-criteria precision: a named `TIP_NOT_DESCENDANT` and swapped-parent fixture
+in TC-01, the `core.attributesFile` leg of TC-03 moved to the fixture's local `.git/config` (a
+`HOME`-config source is already blocked by configuration isolation and so proved the wrong thing),
+and two leftover phrases; the revision applies all four. The next verdict is recorded below.

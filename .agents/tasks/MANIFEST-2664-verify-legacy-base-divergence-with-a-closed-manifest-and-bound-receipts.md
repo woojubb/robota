@@ -23,7 +23,7 @@ foundation.
 
 ## Problem
 
-The legacy remote base `4214cb540` conflicts when merged with `origin/develop`; on the clean
+The legacy integration tip `4214cb540` conflicts when merged with `origin/develop`; on the clean
 historical sync fixture, plan-order examines 60 topic commits and reports undeclared `PUSH-2664`, four
 out-of-order children, and a `RULE-2326` checkpoint mix. Measured replacement v3 `720eb5e84` passes
 over 62 topic commits, but only one of eight child segments has complete ordered stable patch-ID
@@ -180,7 +180,12 @@ Robota CLI, TUI, browser, public SDK, configuration, or installed-package behavi
   spawned without `--text`, `merge` records bind ordered parents, each tip must descend from its own
   base (`TIP_NOT_DESCENDANT`), the `MERGE-2664` attribution is narrowed to the helper's semantics,
   `4214cb540` is called the legacy tip, the owner-directed ownership consolidation is stated, and
-  the spec's `## Evidence Log` carries the validation record. Re-review pending.
+  the spec's `## Evidence Log` carries the validation record. Re-review on `5644a9850`: `REVISE`
+  again, wording only — TC-01 gains named `TIP_NOT_DESCENDANT` and swapped-parent fixtures and the
+  Decision states that the ancestry checks precede enumeration; TC-03's `core.attributesFile` leg
+  moves to the fixture's local `.git/config`, since a `HOME`-config source is blocked by
+  configuration isolation and proved that rather than `--text`; two leftover phrases fixed. Third
+  review pending (the orchestrator bounds revisions at two).
 - Legacy sync experiment: merging `origin/integration/agreement-2664@4214cb540` with `origin/develop`
   conflicts in `gate-checkpoint-evidence.test.mjs`. The clean historical sync fixture examined 60 topic
   commits and produced undeclared PUSH, four out-of-order, and one checkpoint-mix finding.
