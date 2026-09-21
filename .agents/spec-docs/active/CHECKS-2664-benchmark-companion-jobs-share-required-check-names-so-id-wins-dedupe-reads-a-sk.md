@@ -15,12 +15,12 @@ On pull request #2805 at head `dd342a2d6`, `gh api repos/woojubb/robota/commits/
 --paginate` returns TWO check-runs for each of the required contexts `review-gate` and `workflow
 provenance`:
 
-| name                  | id           | conclusion | workflow run                                    |
-| --------------------- | ------------ | ---------- | ----------------------------------------------- |
-| `review-gate`         | 106366028112 | `success`  | `review-gate.yml` (the owning workflow)         |
-| `review-gate`         | 106366050743 | `skipped`  | `ci.yml` job `benchmark-review-gate`            |
+| name                  | id           | conclusion | workflow run                                     |
+| --------------------- | ------------ | ---------- | ------------------------------------------------ |
+| `review-gate`         | 106366028112 | `success`  | `review-gate.yml` (the owning workflow)          |
+| `review-gate`         | 106366050743 | `skipped`  | `ci.yml` job `benchmark-review-gate`             |
 | `workflow provenance` | 106365959023 | `success`  | `workflow-provenance-gate.yml` (owning workflow) |
-| `workflow provenance` | 106365966060 | `skipped`  | `ci.yml` job `benchmark-workflow-provenance`    |
+| `workflow provenance` | 106365966060 | `skipped`  | `ci.yml` job `benchmark-workflow-provenance`     |
 
 The two `ci.yml` jobs are `workflow_dispatch`-only companions of the PR-free required-check benchmark
 (`if: github.event_name == 'workflow_dispatch'`), and they carry `name: review-gate` /
@@ -34,7 +34,7 @@ CHECK-RUN.
 name by "higher id wins" — the rule HARNESS-124 adopted so that a superseded, cancelled row cannot answer
 for a re-triggered check. On this head the `skipped` companion row has the higher id for both names, so
 the dedupe selects it and `checkRunEvidence` reports `'none'` for a check whose owning workflow passed.
-`merge-verifier` reported exactly that on #2805. The shadowing is not incidental to this PR: `ci.yml`'s
+`merge-verifier` reported exactly that on PR #2805. The shadowing is not incidental to this PR: `ci.yml`'s
 run is created after the two small gate workflows on most pushes, so the companion row wins on most PRs
 for as long as the names collide.
 
@@ -47,18 +47,18 @@ equals the context reports two publishers for `review-gate` (develop) and for `w
 
 Researched by the `prior-art-researcher` agent (2026-09-21) from product documentation only.
 
-| #   | Source                                                                                                                                                                                                                                                       | What it documents                                                                                                                                                                                                                                                              |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| R1  | GitHub Docs — [About protected branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)                                                                   | "If you use branch protection rules that require specific status checks, make sure that job names are unique across all workflows. Using the same job name in multiple workflows can cause ambiguous status check results and block pull requests from being merged."          |
-| R2  | GitHub Docs — [Using conditions to control job execution](https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/using-conditions-to-control-job-execution)                                                                   | "A job that is skipped will report its status as 'Success'. It will not prevent a pull request from merging, even if it is a required check." — a false `if:` still materialises a check-run ("This check was skipped").                                                       |
-| R3  | GitHub Docs — [Troubleshooting required status checks](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks)                            | Job skipped by a conditional → "The job reports 'Success'"; workflow skipped by a path/branch filter → stays "Pending".                                                                                                                                                         |
-| R4  | GitHub Docs — [Available rules for rulesets](https://docs.github.com/en/enterprise-cloud@latest/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets)                                              | Required checks are identified by context name, optionally pinned to an app; the separate "Require workflows" rule keys on workflow file path. No text on duplicate names.                                                                                                     |
-| R5  | GitHub REST — [List check runs for a Git reference](https://docs.github.com/en/rest/checks/runs?apiVersion=2022-11-28)                                                                                                                                       | `filter=latest` is per `completed_at` and returns both runs when they belong to different check suites. No documented rule for which same-named run is authoritative.                                                                                                          |
-| R6  | GitHub REST — [Combined status](https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28)                                                                                                                                                      | Legacy Status API defines latest-per-context; no equivalent for check-runs.                                                                                                                                                                                                    |
-| R7  | GitHub REST — [Workflow runs](https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28) / [Workflow jobs](https://docs.github.com/en/rest/actions/workflow-jobs?apiVersion=2022-11-28)                                                    | The documented join from a check-run to its owning workflow file (`check_suite_id` → run → `path`) — an extra call per run, not present in the check-runs payload.                                                                                                             |
-| R9  | Mergify Docs — [Conditions](https://docs.mergify.com/configuration/conditions/)                                                                                                                                                                              | "Two GitHub Apps can publish a check with the same name … The bare form is ambiguous"; disambiguation is by app only (`@app/check`), which cannot separate two same-app (`github-actions`) rows. `check-skipped` is a distinct list from `check-success`.                       |
-| R10 | GitHub CLI — [`gh pr checks`](https://cli.github.com/manual/gh_pr_checks)                                                                                                                                                                                    | `skipping` is its own bucket, not `pass`.                                                                                                                                                                                                                                      |
-| R11 | GitLab Docs — [Auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/auto_merge.html)                                                                                                                                                           | "skipped pipelines prevent merge requests from merging" unless explicitly opted in — the stricter default.                                                                                                                                                                     |
+| #   | Source                                                                                                                                                                                                                            | What it documents                                                                                                                                                                                                                                                     |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | GitHub Docs — [About protected branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)                                         | "If you use branch protection rules that require specific status checks, make sure that job names are unique across all workflows. Using the same job name in multiple workflows can cause ambiguous status check results and block pull requests from being merged." |
+| R2  | GitHub Docs — [Using conditions to control job execution](https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/using-conditions-to-control-job-execution)                                        | "A job that is skipped will report its status as 'Success'. It will not prevent a pull request from merging, even if it is a required check." — a false `if:` still materialises a check-run ("This check was skipped").                                              |
+| R3  | GitHub Docs — [Troubleshooting required status checks](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks) | Job skipped by a conditional → "The job reports 'Success'"; workflow skipped by a path/branch filter → stays "Pending".                                                                                                                                               |
+| R4  | GitHub Docs — [Available rules for rulesets](https://docs.github.com/en/enterprise-cloud@latest/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets)                   | Required checks are identified by context name, optionally pinned to an app; the separate "Require workflows" rule keys on workflow file path. No text on duplicate names.                                                                                            |
+| R5  | GitHub REST — [List check runs for a Git reference](https://docs.github.com/en/rest/checks/runs?apiVersion=2022-11-28)                                                                                                            | `filter=latest` is per `completed_at` and returns both runs when they belong to different check suites. No documented rule for which same-named run is authoritative.                                                                                                 |
+| R6  | GitHub REST — [Combined status](https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28)                                                                                                                           | Legacy Status API defines latest-per-context; no equivalent for check-runs.                                                                                                                                                                                           |
+| R7  | GitHub REST — [Workflow runs](https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28) / [Workflow jobs](https://docs.github.com/en/rest/actions/workflow-jobs?apiVersion=2022-11-28)                         | The documented join from a check-run to its owning workflow file (`check_suite_id` → run → `path`) — an extra call per run, not present in the check-runs payload.                                                                                                    |
+| R9  | Mergify Docs — [Conditions](https://docs.mergify.com/configuration/conditions/)                                                                                                                                                   | "Two GitHub Apps can publish a check with the same name … The bare form is ambiguous"; disambiguation is by app only (`@app/check`), which cannot separate two same-app (`github-actions`) rows. `check-skipped` is a distinct list from `check-success`.             |
+| R10 | GitHub CLI — [`gh pr checks`](https://cli.github.com/manual/gh_pr_checks)                                                                                                                                                         | `skipping` is its own bucket, not `pass`.                                                                                                                                                                                                                             |
+| R11 | GitLab Docs — [Auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/auto_merge.html)                                                                                                                                | "skipped pipelines prevent merge requests from merging" unless explicitly opted in — the stricter default.                                                                                                                                                            |
 
 Not found (searched, explicitly absent): any vendor statement of WHICH same-named, same-app check-run
 branch protection evaluates; any documented resolution heuristic. Every vendor documents prevention.
@@ -78,7 +78,7 @@ uniqueness within the DECLARED workflow only; uniqueness ACROSS workflow files i
 publishes a required context's name, and add a cross-workflow uniqueness scan. (b) would make the
 harness depend on a tiebreak no vendor documents, and "prefer concluded over skipped" resurrects the
 stale-row problem HARNESS-124 removed. The researcher's further suggestion — make the dedupe throw when
-one name spans two `check_suite.id`s — is NOT adopted: a re-triggered workflow run (the #2237 shape) is a
+one name spans two `check_suite.id`s — is NOT adopted: a re-triggered workflow run (the issue #2237 shape) is a
 new check suite too, so that throw would fire on every `pull_request: edited` re-dispatch.
 
 ## Architecture Review
@@ -159,7 +159,7 @@ Validation (wide blast radius — a CI policy file and the required-check floor)
   `length == 11` and `all(.conclusion == "success")` assertions are unchanged; only the lookup of two
   rows goes through the map. `publishedContexts` keeps returning a Set (its existing tests use
   `.has`), the "no job publishes it" finding keeps its text (existing tests match `permanently
-  pending`), and `scan-required-check-needs` still holds — verified by the existing suite (TC-01) and
+pending`), and `scan-required-check-needs` still holds — verified by the existing suite (TC-01) and
   the affected scan set (TC-02).
 - Adversarial pass: (i) a companion renamed in `name:` but not in `benchmark-summary` fails the
   benchmark's `expected exactly one benchmark job named` assertion — visible on the next dispatch, not
@@ -193,10 +193,10 @@ None
    `benchmark-workflow-provenance` gets `name: benchmark workflow provenance`; the comment above them
    states why the names differ from the contexts they measure. In `benchmark-summary`, the `required`
    list becomes a context → job-name map (`{"review-gate": "benchmark review-gate", "workflow
-   provenance": "benchmark workflow provenance"}`, identity for the other nine); the readiness loop and
+provenance": "benchmark workflow provenance"}`, identity for the other nine); the readiness loop and
    the measurement select `.name == $map[$context]` and report `$context` in the table.
 2. `scripts/harness/scan-main-required-checks.mjs` — new export `contextPublishers(root)` → `Map<name,
-   ["<file>#<jobId>", …]>` over every workflow file (same fail-closed throw as today when the directory
+["<file>#<jobId>", …]>` over every workflow file (same fail-closed throw as today when the directory
    is missing); `publishedContexts(root)` becomes `new Set(contextPublishers(root).keys())`.
    `findContextNameFindings` adds, per declared entry: (a) `publishers.length > 1` → finding listing
    every publisher and stating that the check-runs endpoint then carries two rows under one name, so
@@ -209,6 +209,10 @@ None
    `push`-only workflow with the name → finding; a duplicate in the same file → finding; the declared
    job as sole publisher → no finding; sole publisher is the wrong job → finding; a unique companion
    name → no finding; `contextPublishers` lists both spellings (explicit `name:` and job id).
+   `scripts/harness/__tests__/github-actions-maintenance.test.mjs` (found at implementation: it
+   pinned the companions to the required names, i.e. the collision itself) now pins each benchmark
+   job's display name and the summary's context → job map, and reads the companions' names from the
+   file to assert none equals a required context.
 4. `.agents/rules/git-branch.md` — under the "per LATEST run per check `name`" bullet, one sentence: a
    required context's name is published by exactly one job across the workflow files, enforced by
    `main-required-checks`, because id-wins is only a total order when one job owns the name.
@@ -218,38 +222,39 @@ None
 - `.github/workflows/ci.yml`
 - `scripts/harness/scan-main-required-checks.mjs`
 - `scripts/harness/__tests__/scan-main-required-checks.test.mjs`
+- `scripts/harness/__tests__/github-actions-maintenance.test.mjs`
 - `.agents/rules/git-branch.md`
 - `.agents/spec-docs/draft/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md`
 - `.agents/tasks/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md`
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs`
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs`
       → exits 0, and exits 1 with the `findContextNameFindings` change reverted (the two-publisher
       cases go red: the fixture asserts a finding naming `ci.yml#benchmark-review-gate`)
-- [ ] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
-- [ ] TC-03: `node scripts/harness/scan-main-required-checks.mjs` → exits 0 and prints
+- [x] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
+- [x] TC-03: `node scripts/harness/scan-main-required-checks.mjs` → exits 0 and prints
       `::examined::` on the fixed tree; exits 1 naming `ci.yml#benchmark-review-gate` and
       `ci.yml#benchmark-workflow-provenance` with the `ci.yml` rename reverted
-- [ ] TC-04: `pnpm exec vitest run scripts/harness/__tests__/github-api-check-runs.test.mjs` → exits 0,
+- [x] TC-04: `pnpm exec vitest run scripts/harness/__tests__/github-api-check-runs.test.mjs` → exits 0,
       `scripts/harness/github-api.mjs` unchanged (`git diff origin/develop -- scripts/harness/github-api.mjs` empty)
 - [ ] TC-05: `gh workflow run ci.yml --ref develop -f base_ref=develop -f head_ref=develop` after merge →
       `benchmark-summary` table still lists `review-gate` and `workflow provenance` rows (post-merge
       verification; the summary job only exists on dispatch)
-- [ ] TC-06: `grep -c 'main-required-checks' .agents/rules/git-branch.md` → `1`, and the match sits in
+- [x] TC-06: `grep -c 'main-required-checks' .agents/rules/git-branch.md` → `1`, and the match sits in
       the "Read check-run state per LATEST run per check `name`" bullet (`grep -n` line number lies
       between that bullet's first line and the next `- **` bullet)
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                                 | Notes                                                                                                                                      |
-| ----- | --------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| TC-01 | Unit      | `pnpm exec vitest run` on the existing scan suite               | RED with the finder change reverted (new two-publisher cases), GREEN with it; the pre-existing cases pin capability preservation           |
-| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`                     | Regression over the affected scan set, including `main-required-checks` on the renamed `ci.yml` and `required-check-needs`                 |
-| TC-03 | CI smoke  | `node scripts/harness/scan-main-required-checks.mjs`            | Direct execution on the tree: green after the rename, red naming both companion jobs before it — the red-proof of the CI-side fix          |
-| TC-04 | Unit      | `pnpm exec vitest run` on the dedupe suite + `git diff`         | Capability preservation: HARNESS-124's id-wins rule and its tests are untouched                                                            |
-| TC-05 | manual    | `gh workflow run ci.yml` on `develop` after merge               | The benchmark summary exists only on `workflow_dispatch` against `develop`; no pre-merge run can exercise it, so the dispatch is the check |
-| TC-06 | CI smoke  | `grep -c` / `grep -n` on `git-branch.md`                        | The rule sentence is observed by a command; it has no unit test of its own                                                                 |
+| TC-ID | Test Type | Tool / Approach                                         | Notes                                                                                                                                                                                                                                                                                                                      |
+| ----- | --------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit      | `pnpm exec vitest run` on the existing scan suite       | Test written: `scripts/harness/__tests__/scan-main-required-checks.test.mjs > a declared context name is published by exactly one job, the declared one (CHECKS-2664)` (7 cases; 6 RED before the finder change, all GREEN after); the pre-existing cases pin capability preservation                                      |
+| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr`             | Test skipped: no unit test — the affected scan run is itself the automated regression check; recorded as a `[GATE-COMPLETE: TC-02]` command entry                                                                                                                                                                          |
+| TC-03 | CI smoke  | `node scripts/harness/scan-main-required-checks.mjs`    | Test written: `scripts/harness/__tests__/github-actions-maintenance.test.mjs > PR-free develop required-context benchmark > never lets a workflow_dispatch-only companion publish a required context name (CHECKS-2664)` — RED on the pre-rename `ci.yml`; the direct scan execution is the `[GATE-COMPLETE: TC-03]` entry |
+| TC-04 | Unit      | `pnpm exec vitest run` on the dedupe suite + `git diff` | Test written (pre-existing): `scripts/harness/__tests__/github-api-check-runs.test.mjs > latestCheckRunsByName (issue #2237)` — capability preservation; `github-api.mjs` carries no diff                                                                                                                                  |
+| TC-05 | manual    | `gh workflow run ci.yml` on `develop` after merge       | The benchmark summary exists only on `workflow_dispatch` against `develop`; no pre-merge run can exercise it, so the dispatch is the check                                                                                                                                                                                 |
+| TC-06 | CI smoke  | `grep -c` / `grep -n` on `git-branch.md`                | Test skipped: a rule sentence has no unit test; the `grep` commands are the `[GATE-COMPLETE: TC-06]` entry                                                                                                                                                                                                                 |
 
 ## User Execution Test Scenarios
 
@@ -400,6 +405,7 @@ any runnable product surface. Engineering verification is TC-01 to TC-05 above.
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 4 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -446,7 +452,104 @@ any runnable product surface. Engineering verification is TC-01 to TC-05 above.
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `59196f9327f6` · base `origin/develop@59196f9327f6` · document `.agents/spec-docs/todo/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` blob `08dec0f1501d` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:18:37 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-4/.claude/worktrees/competent-cartwright-516210
+
+ ✓ scripts/harness/__tests__/scan-main-required-checks.test.mjs (52 tests) 29ms
+
+ Test Files  1 passed (1)
+      Tests  52 passed (52)
+   Start at  00:18:37
+   Duration  216ms (transform 40ms, setup 0ms, collect 55ms, tests 29ms, environment 0ms, prepare 27ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `35c294fcf0fc` · base `origin/develop@d5b4389f91e0` · document `.agents/spec-docs/active/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` blob `50305dff3170` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-22
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 217 line(s))
+
+```
+Diagnostic report v1: 2 result(s), 2 non-clean.
+ERROR harness.scan-finding.scan-c36-c2t-c2u-c2t-c36-c2t-c32-c2r-c2t-c19-c2z-c2x-c32-c2s-c19-c35-c39-c2p-c30-c2x-c2u-c2x-c2t-c2s [finding] scan:reference-kind-qualified
+  evidence: Scan reference-kind-qualified exited with status 1.
+  recommendation: Inspect the reference-kind-qualified scan output above.
+ERROR harness.scan-finding.scan-c38-c2p-c37-c2z-c19-c31-c2t-c36-c2v-c2t-c2s-c19-c2r-c2x-c38-c2p-c38-c2x-c33-c32 [finding] scan:task-merged-citation
+  evidence: Scan task-merged-citation exited with status 1.
+  recommendation: Inspect the task-merged-citation scan output above.
+
+84 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (87 declared what they examined)
+scan receipt NOT written: 2 advisory failure(s) were tolerated (reference-kind-qualified, task-merged-citation), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `35c294fcf0fc` · base `origin/develop@d5b4389f91e0` · document `.agents/spec-docs/active/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` blob `51a634143348` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-22
+
+**Command:** `node scripts/harness/scan-main-required-checks.mjs`
+**Exit:** 0
+**Output:** (last 2 of 2 line(s))
+
+```
+::examined:: 5 required contexts
+main-required-checks scan passed — 5 required context(s) on `main` all run and can fail: promotion ancestry, main PR source guard, promotion closes, release-grade verification, workflow provenance.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `35c294fcf0fc` · base `origin/develop@d5b4389f91e0` · document `.agents/spec-docs/active/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` blob `b080d264aed4` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/github-api-check-runs.test.mjs && git diff origin/develop --exit-code --stat -- scripts/harness/github-api.mjs`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:18:57 AM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-4/.claude/worktrees/competent-cartwright-516210
+
+ ✓ scripts/harness/__tests__/github-api-check-runs.test.mjs (6 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  00:18:57
+   Duration  152ms (transform 16ms, setup 0ms, collect 16ms, tests 3ms, environment 0ms, prepare 27ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `35c294fcf0fc` · base `origin/develop@d5b4389f91e0` · document `.agents/spec-docs/active/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` blob `02f1121d96e1` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-22
+
+**Command:** `grep -c 'main-required-checks' .agents/rules/git-branch.md && grep -n 'main-required-checks\|^- \*\*' .agents/rules/git-branch.md | grep -B1 -A1 'main-required-checks'`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+1
+421:- **Read check-run state per LATEST run per check `name`, never per row.** The check-runs endpoint
+431:  exactly one job across the workflow files, enforced by `main-required-checks`.
+444:- **Verify first, and verify the MERGE COMMIT — never the branch.** This repository squash-merges: a
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `35c294fcf0fc` · base `origin/develop@d5b4389f91e0` · document `.agents/spec-docs/active/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` blob `67694361a2f5` (modified)

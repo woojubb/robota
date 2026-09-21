@@ -355,7 +355,14 @@ export function declaredBranches(root = WORKSPACE_ROOT) {
  * GitHub names a check run after the job's `name:` when it has one, and after the job ID when it
  * does not. Branch protection matches on that string exactly.
  */
-export function publishedContexts(root = WORKSPACE_ROOT) {
+/**
+ * Every job across every workflow file, keyed by the context NAME it publishes, each publisher
+ * spelled `<file>#<jobId>`. ALL workflow files, whatever their trigger: a check-run is keyed by
+ * commit sha, so a `push`-triggered job on the branch head lands in the same list as the
+ * `pull_request`-triggered one, and a job whose `if:` is false is registered as a `skipped` run under
+ * its display name all the same.
+ */
+export function contextPublishers(root = WORKSPACE_ROOT) {
   const dir = path.join(root, '.github', 'workflows');
   // FAIL CLOSED for the same reason: an empty set makes EVERY declared context look unpublished,
   // which is loud rather than silent — but it is still a verdict over a tree that was never read.
@@ -364,16 +371,24 @@ export function publishedContexts(root = WORKSPACE_ROOT) {
       '.github/workflows is missing, so no published context could be read. That is a broken checkout, not a repository whose workflows publish nothing.',
     );
   }
-  const names = new Set();
-  for (const file of readdirSync(dir)) {
+  const publishers = new Map();
+  for (const file of readdirSync(dir).sort()) {
     if (!file.endsWith('.yml') && !file.endsWith('.yaml')) continue;
     const text = readFileSync(path.join(dir, file), 'utf8');
     for (const job of splitWorkflowJobs(text)) {
       const declared = jobLevelValue(job.text, 'name');
-      names.add(declared ? declared.replace(/^['"]|['"]$/g, '') : job.name);
+      const name = declared ? declared.replace(/^['"]|['"]$/g, '') : job.name;
+      const list = publishers.get(name) ?? [];
+      list.push(`${file}#${job.name}`);
+      publishers.set(name, list);
     }
   }
-  return names;
+  return publishers;
+}
+
+/** The set of context names some workflow job publishes — the keys of `contextPublishers`. */
+export function publishedContexts(root = WORKSPACE_ROOT) {
+  return new Set(contextPublishers(root).keys());
 }
 
 /**
@@ -405,7 +420,7 @@ export function findContextNameFindings(root = WORKSPACE_ROOT) {
     );
   }
   const declaration = JSON.parse(readFileSync(file, 'utf8'));
-  const published = publishedContexts(root);
+  const published = contextPublishers(root);
   const findings = [];
   for (const [branchName, branch] of Object.entries(declaration?.branches ?? {})) {
     for (const [list, entries] of [
@@ -417,11 +432,36 @@ export function findContextNameFindings(root = WORKSPACE_ROOT) {
         // A grouped entry names several contexts in one string for prose reasons; it is a label,
         // not a match target, and is skipped rather than reported as unpublished.
         if (typeof context !== 'string' || context.includes('/')) continue;
-        if (published.has(context)) continue;
-        findings.push({
-          context,
-          detail: `${DECLARATION_FILE} names it under \`branches.${branchName}.${list}\`, but no workflow job publishes that context. Branch protection matches on the NAME, so requiring it would leave every pull request permanently pending.`,
-        });
+        const publishers = published.get(context);
+        if (!publishers) {
+          findings.push({
+            context,
+            detail: `${DECLARATION_FILE} names it under \`branches.${branchName}.${list}\`, but no workflow job publishes that context. Branch protection matches on the NAME, so requiring it would leave every pull request permanently pending.`,
+          });
+          continue;
+        }
+        // CHECKS-2664 — the other bound. Two jobs publishing one name put two check-runs under that
+        // name on every commit (a job whose `if:` is false still registers as `skipped`), and then
+        // neither branch protection nor `latestCheckRunsByName` has a defined winner: measured on PR
+        // #2805, the higher-id `skipped` companion row shadowed the owning workflow's `success`.
+        if (publishers.length > 1) {
+          findings.push({
+            context,
+            detail: `${DECLARATION_FILE} names it under \`branches.${branchName}.${list}\`, and ${publishers.length} jobs publish that context: ${publishers.map((p) => `\`${p}\``).join(', ')}. Every one of them registers a check-run under the name on every commit — a job whose \`if:\` is false still publishes \`skipped\` — so the check-runs endpoint carries two rows for one required name and neither branch protection nor the id-wins dedupe has a defined winner. Give every job but the declared one a name no declared context uses.`,
+          });
+          continue;
+        }
+        // The one publisher must be the job the declaration names, or the name has moved onto a job
+        // the declaration does not describe.
+        const { workflow, job } = entry;
+        if (typeof workflow !== 'string' || typeof job !== 'string') continue;
+        const declaredPublisher = `${path.basename(workflow)}#${job}`;
+        if (publishers[0] !== declaredPublisher) {
+          findings.push({
+            context,
+            detail: `${DECLARATION_FILE} names it under \`branches.${branchName}.${list}\` as \`${declaredPublisher}\`, but the only job publishing that context is \`${publishers[0]}\`. The declared job is what every reader of the declaration verifies through; a name published by a different job is a context the declaration does not describe.`,
+          });
+        }
       }
     }
   }

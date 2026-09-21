@@ -14,6 +14,7 @@ import {
 } from '../required-status-checks-declaration.mjs';
 import {
   declaredBranches,
+  contextPublishers,
   findContextNameFindings,
   findRequiredCheckFindings,
   publishedContexts,
@@ -571,6 +572,149 @@ describe('a declared context name must be one a workflow actually publishes (iss
       'utf8',
     );
     expect(findContextNameFindings(root)).toEqual([]);
+  });
+});
+
+/**
+ * CHECKS-2664 — a declared context is published by EXACTLY one job, and it is the declared one.
+ *
+ * Measured on PR #2805 at head `dd342a2d6`: `review-gate` and `workflow provenance` each had two
+ * check-runs — the owning workflow's `success` and a `skipped` row from a `workflow_dispatch`-only
+ * benchmark companion in `ci.yml` that carried the same `name:`. A job whose `if:` is false is not
+ * absent: GitHub registers it as a `skipped` check-run under its display name on every run. Two rows
+ * under one name leave neither GitHub's required-check evaluation nor `latestCheckRunsByName` with a
+ * defined winner, and the higher-id `skipped` row shadowed the pass. The "at least one publisher"
+ * bound above cannot see this; every case here is red without the "exactly one" bound.
+ */
+describe('a declared context name is published by exactly one job, the declared one (CHECKS-2664)', () => {
+  function fixtureRoot({ workflows, declaration }) {
+    const root = makeTemp('ctxuniq-');
+    mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
+    for (const [file, text] of Object.entries(workflows)) {
+      writeFileSync(path.join(root, '.github', 'workflows', file), text, 'utf8');
+    }
+    writeFileSync(
+      path.join(root, '.github', 'required-status-checks.json'),
+      JSON.stringify(declaration),
+      'utf8',
+    );
+    return root;
+  }
+
+  /** The owning workflow, as shipped. */
+  const OWNER = 'jobs:\n  review-gate:\n    name: review-gate\n    steps: []\n';
+  const DECLARED = {
+    context: 'review-gate',
+    workflow: '.github/workflows/review-gate.yml',
+    job: 'review-gate',
+  };
+
+  it('lists every publisher of a name, keyed `<file>#<jobId>`, for both name spellings', () => {
+    const root = fixtureRoot({
+      workflows: {
+        'ci.yml':
+          'jobs:\n  benchmark-review-gate:\n    name: review-gate\n    steps: []\n  build:\n    steps: []\n',
+        'review-gate.yml': OWNER,
+      },
+      declaration: { branches: { develop: { required_status_checks: [DECLARED] } } },
+    });
+    const publishers = contextPublishers(root);
+    expect(publishers.get('review-gate')).toEqual([
+      'ci.yml#benchmark-review-gate',
+      'review-gate.yml#review-gate',
+    ]);
+    expect(publishers.get('build')).toEqual(['ci.yml#build']);
+    // The Set contract the older cases read with `.has` is derived from the same map.
+    expect([...publishedContexts(root)].sort()).toEqual(['build', 'review-gate']);
+  });
+
+  it('reports the shipped shape: a workflow_dispatch-only companion in another file with the required name', () => {
+    const root = fixtureRoot({
+      workflows: {
+        'ci.yml':
+          "jobs:\n  benchmark-review-gate:\n    name: review-gate\n    if: github.event_name == 'workflow_dispatch'\n    steps: []\n",
+        'review-gate.yml': OWNER,
+      },
+      declaration: { branches: { develop: { required_status_checks: [DECLARED] } } },
+    });
+    const findings = findContextNameFindings(root);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].context).toBe('review-gate');
+    expect(findings[0].detail).toMatch(/ci\.yml#benchmark-review-gate/);
+    expect(findings[0].detail).toMatch(/review-gate\.yml#review-gate/);
+    expect(findings[0].detail).toMatch(/skipped/);
+  });
+
+  it('reports a push-only workflow too — a check-run is keyed by commit, not by event', () => {
+    const root = fixtureRoot({
+      workflows: {
+        'nightly.yml':
+          'on:\n  push:\n    branches: [develop]\njobs:\n  gate:\n    name: review-gate\n    steps: []\n',
+        'review-gate.yml': OWNER,
+      },
+      declaration: { branches: { develop: { required_status_checks: [DECLARED] } } },
+    });
+    const findings = findContextNameFindings(root);
+    expect(findings.map((f) => f.context)).toEqual(['review-gate']);
+    expect(findings[0].detail).toMatch(/nightly\.yml#gate/);
+  });
+
+  it('reports a duplicate inside the owning file itself', () => {
+    const root = fixtureRoot({
+      workflows: {
+        'review-gate.yml': OWNER + '  again:\n    name: review-gate\n    steps: []\n',
+      },
+      declaration: { branches: { develop: { required_status_checks: [DECLARED] } } },
+    });
+    const findings = findContextNameFindings(root);
+    expect(findings.map((f) => f.context)).toEqual(['review-gate']);
+    expect(findings[0].detail).toMatch(/review-gate\.yml#again/);
+  });
+
+  it('reports a sole publisher that is not the declared job', () => {
+    const root = fixtureRoot({
+      workflows: {
+        'ci.yml': 'jobs:\n  benchmark-review-gate:\n    name: review-gate\n    steps: []\n',
+      },
+      declaration: { branches: { develop: { required_status_checks: [DECLARED] } } },
+    });
+    const findings = findContextNameFindings(root);
+    expect(findings.map((f) => f.context)).toEqual(['review-gate']);
+    expect(findings[0].detail).toMatch(/ci\.yml#benchmark-review-gate/);
+    expect(findings[0].detail).toMatch(/review-gate\.yml#review-gate/);
+  });
+
+  it('reports nothing once the companion carries a name no declared context uses', () => {
+    const root = fixtureRoot({
+      workflows: {
+        'ci.yml':
+          "jobs:\n  benchmark-review-gate:\n    name: benchmark review-gate\n    if: github.event_name == 'workflow_dispatch'\n    steps: []\n",
+        'review-gate.yml': OWNER,
+      },
+      declaration: { branches: { develop: { required_status_checks: [DECLARED] } } },
+    });
+    expect(findContextNameFindings(root)).toEqual([]);
+  });
+
+  it('reports one finding per branch that declares the colliding name', () => {
+    const root = fixtureRoot({
+      workflows: {
+        'ci.yml': 'jobs:\n  companion:\n    name: review-gate\n    steps: []\n',
+        'review-gate.yml': OWNER,
+      },
+      declaration: {
+        branches: {
+          develop: { required_status_checks: [DECLARED] },
+          main: { required_status_checks: [DECLARED] },
+        },
+      },
+    });
+    const findings = findContextNameFindings(root);
+    expect(findings).toHaveLength(2);
+    expect(findings.map((f) => f.detail)).toEqual([
+      expect.stringMatching(/branches\.develop\.required_status_checks/),
+      expect.stringMatching(/branches\.main\.required_status_checks/),
+    ]);
   });
 });
 

@@ -425,6 +425,10 @@ in the post-merge sequence, before any branch deletion.
   `scripts/harness/github-api.mjs` is the one place that dedupe lives; every gate or script reading
   check state goes through it. And `cancelled` is **evidence in neither direction** — not a failure,
   not a pass, but the absence of a result: wait for or trigger a real run (`checkRunEvidence`).
+  That dedupe is a total order only while ONE job owns each name: a second job publishing a
+  required context's name — even one whose `if:` is false, which still registers as `skipped` —
+  puts two rows under the name with no defined winner, so every declared context is published by
+  exactly one job across the workflow files, enforced by `main-required-checks`.
 
 **Why:** a merge that lands past a red required gate ships the failure to the integration branch, and
 nothing after the merge announces it — only an independent landing check sees it.

@@ -1,5 +1,5 @@
 ---
-title: 'CHECKS-2664: Benchmark companion jobs share required check names, so id-wins dedupe reads a skipped row over the owning workflow''s pass'
+title: "CHECKS-2664: Benchmark companion jobs share required check names, so id-wins dedupe reads a skipped row over the owning workflow's pass"
 issue: https://github.com/woojubb/robota/issues/2664
 status: in-progress
 created: 2026-09-21
@@ -25,25 +25,26 @@ https://github.com/woojubb/robota/issues/2664#issuecomment-5762394051 (no new is
 
 ## Plan
 
-- [ ] `.github/workflows/ci.yml`: `benchmark-review-gate` → `name: benchmark review-gate`,
+- [x] `.github/workflows/ci.yml`: `benchmark-review-gate` → `name: benchmark review-gate`,
       `benchmark-workflow-provenance` → `name: benchmark workflow provenance`; `benchmark-summary`
       resolves the eleven contexts through a context → job-name map
-- [ ] `scripts/harness/scan-main-required-checks.mjs`: `contextPublishers(root)` export;
+- [x] `scripts/harness/scan-main-required-checks.mjs`: `contextPublishers(root)` export;
       `findContextNameFindings` reports a declared context with more than one publisher, and a
       `required_status_checks` entry whose sole publisher is not the declared `workflow`/`job`
-- [ ] `scripts/harness/__tests__/scan-main-required-checks.test.mjs`: two-publisher cases (other file,
-      `push`-only workflow, same file), wrong-job case, unique-companion case, `contextPublishers` shape
-- [ ] `.agents/rules/git-branch.md`: one sentence under the "per LATEST run per check `name`" bullet
-- [ ] TC-01 — `pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs` green,
+- [x] `scripts/harness/__tests__/scan-main-required-checks.test.mjs`: two-publisher cases (other file,
+      `push`-only workflow, same file), wrong-job case, unique-companion case, `contextPublishers` shape;
+      `github-actions-maintenance.test.mjs` re-pinned to the companion names and the summary map
+- [x] `.agents/rules/git-branch.md`: one sentence under the "per LATEST run per check `name`" bullet
+- [x] TC-01 — `pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs` green,
       and red with the finder change reverted
-- [ ] TC-02 — `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` exits 0
-- [ ] TC-03 — `node scripts/harness/scan-main-required-checks.mjs` exits 0 on the fixed tree; exits 1 naming
+- [x] TC-02 — `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` exits 0
+- [x] TC-03 — `node scripts/harness/scan-main-required-checks.mjs` exits 0 on the fixed tree; exits 1 naming
       `ci.yml#benchmark-review-gate` and `ci.yml#benchmark-workflow-provenance` with the rename reverted
-- [ ] TC-04 — `pnpm exec vitest run scripts/harness/__tests__/github-api-check-runs.test.mjs` exits 0 and
+- [x] TC-04 — `pnpm exec vitest run scripts/harness/__tests__/github-api-check-runs.test.mjs` exits 0 and
       `git diff origin/develop -- scripts/harness/github-api.mjs` is empty
-- [ ] TC-05 — post-merge: `gh workflow run ci.yml --ref develop -f base_ref=develop -f head_ref=develop`
-      and the `benchmark-summary` table lists `review-gate` and `workflow provenance` rows
-- [ ] TC-06 — `grep -c 'main-required-checks' .agents/rules/git-branch.md` → `1`, inside the named bullet
+- [ ] TC-05 — `gh workflow run ci.yml --ref develop -f base_ref=develop -f head_ref=develop` once the
+      change is on `develop`: the `benchmark-summary` table lists `review-gate` and `workflow provenance` rows
+- [x] TC-06 — `grep -c 'main-required-checks' .agents/rules/git-branch.md` → `1`, inside the named bullet
 
 ## Test Plan
 
