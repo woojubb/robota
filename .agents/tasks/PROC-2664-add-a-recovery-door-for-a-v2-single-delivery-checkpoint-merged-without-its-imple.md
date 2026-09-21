@@ -133,3 +133,16 @@ in any workspace package's published `files` (for example `packages/agent-cli` s
   and other units' planning records, a second delivery-mode parser, two emit sites, a third
   AGREEMENT predicate, an overstated push-time reach, a stale dependency) and
   `REVIEW VERDICT: ENDORSE` at `fdd13b3e0` after all six were applied.
+
+## Result
+
+- The binding is on this branch (`0b25d3979`): a v2 `single` first checkpoint that reaches the end
+  of its topic range with no delivery witness is refused by `user-execution-plan-order` in range mode
+  (CI's `scans` job, `pnpm harness:scan`), never at the commit.
+- `MANIFEST-2664` completes through the existing post-merge completion closeout, not through a new
+  form: its implementation landed with `VERIFIER-2664` (PR #2805, merge commit `79698d78d`), and the
+  closeout's Task `## Result` receipt for a merge-commit landing is `PROC-2680`'s deliverable. Once
+  that receipt exists, the four-path archive (Task and spec at `status: done`, Evidence Log ending in
+  a GATE-COMPLETE PASS) is the range TC-03 proves this binding admits.
+- The `Contained — PROC-2664.` notes in `VERIFIER-2664`'s archived spec and Task are historical: they
+  record why a second identity was taken before this binding existed and are not edited.

@@ -6330,6 +6330,21 @@ describe('PROC-2664 — a single delivery declaration is bound to the range that
     expect(staged.stderr).not.toContain('no delivery witness');
   });
 
+  it('the rule section owns the binding sentence and names its enforcer (TC-04)', () => {
+    const rule = readFileSync(
+      path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
+      'utf8',
+    );
+    const start = rule.indexOf('### Pre-implementation planning checkpoint');
+    const end = rule.indexOf('\n### ', start + 1);
+    const section = rule.slice(start, end).replace(/\s+/g, ' ');
+    expect(section).toContain(
+      'A `single` declaration is bound to the topic range that carries its checkpoint',
+    );
+    expect(section).toMatch(/Enforced by: `user-execution-plan-order`/);
+    expect(section).toContain('`isDeliveryWitnessPath`');
+  });
+
   it('keeps the post-merge completion closeout admitted over a base holding a sealed single pair (TC-03)', () => {
     const { root } = repository({ withContract: true });
     git(root, ['switch', '-q', 'develop']);
