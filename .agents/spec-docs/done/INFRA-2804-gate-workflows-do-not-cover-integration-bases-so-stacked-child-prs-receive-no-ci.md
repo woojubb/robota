@@ -248,7 +248,7 @@ is still worth landing rather than waiting.
 
 **Delivery mode:** `single`
 
-One delivery. The four trigger filters and the `merge-gate.sh` refusal are a single coherent
+One delivery. The five trigger filters and the `merge-gate.sh` refusal are a single coherent
 change: widening the filters without the gate change leaves the vacuous-CLEAN detector broken,
 and the gate change without the filters refuses child pull requests it has no way to make pass.
 Splitting them would ship a half that is worse than either whole.
@@ -294,7 +294,7 @@ These three are recorded on issue #2804 as follow-up rather than left unmentione
 
 ### Architecture Review Checklist
 
-- [x] 영향 패키지/레이어 목록 작성 완료 — four workflow files plus one hook; no package source
+- [x] 영향 패키지/레이어 목록 작성 완료 — five workflow files plus one hook; no package source
 - [x] Sibling scan 완료 — all 15 files in `.github/workflows/` classified by trigger; the 6 that carry a
       `pull_request`/`pull_request_target` trigger are the subject, the 3 `push`-triggered ones are addressed explicitly under
       Alternatives rather than skipped, and the remaining 6 are `workflow_dispatch`/release-only
@@ -369,7 +369,7 @@ over the workflow files (mechanically checkable, so `manual` rows are avoided).
 Not applicable.
 
 **Reason:** This change alters no Robota product surface. The four contract surfaces are `robota-cli`,
-`robota-tui`, `robota-browser-ui` and `public-sdk-example`; this unit edits four GitHub Actions trigger
+`robota-tui`, `robota-browser-ui` and `public-sdk-example`; this unit edits five GitHub Actions trigger
 filters and one git hook, so a person running `robota`, opening the terminal or browser interface, or
 calling the public SDK observes identical behaviour before and after. Its only observable lives on
 github.com — which jobs GitHub dispatches for a pull request whose base matches `integration/**` — and

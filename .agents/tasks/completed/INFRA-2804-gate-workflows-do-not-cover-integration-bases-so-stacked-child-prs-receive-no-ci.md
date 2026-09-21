@@ -77,7 +77,7 @@ run of them was possible. See the spec's Decision.
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
 **Reason:** This change alters no Robota product surface. The four contract surfaces are `robota-cli`,
-`robota-tui`, `robota-browser-ui` and `public-sdk-example`; this unit edits four GitHub Actions trigger
+`robota-tui`, `robota-browser-ui` and `public-sdk-example`; this unit edits five GitHub Actions trigger
 filters and one git hook, so a person running `robota`, opening the TUI or browser UI, or calling the
 public SDK observes byte-for-byte identical behaviour before and after. Its only observable lives on
 github.com — which jobs GitHub dispatches for a pull request whose base matches `integration/**` — and
