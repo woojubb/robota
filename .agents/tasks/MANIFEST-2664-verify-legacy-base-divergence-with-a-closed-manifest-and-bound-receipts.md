@@ -16,7 +16,7 @@ Spec: `.agents/spec-docs/draft/MANIFEST-2664-verify-legacy-base-divergence-with-
 ## Objective
 
 Land the one contract of the AGREEMENT-2664 legacy-base migration that four architecture-audit
-fanouts never faulted — a generic closed divergence manifest and its verifier — on its own, with every
+fanouts never faulted — a generic closed divergence manifest and its non-merge verifier — on its own, with every
 test that verifies it and the one rule sentence that makes it the policy, so that the receipt binding
 and the remote publication layer (`BRANCH-2664-P2`) can be designed and verified on a landed
 foundation.
@@ -152,6 +152,21 @@ Robota CLI, TUI, browser, public SDK, configuration, or installed-package behavi
   is stated as the runtime enforces it, zero-parent commits and a bad `cwd` have codes, the CLI exit
   map and every port-failure code gain TC-03 cases, TC-02's rationale is corrected, TC-04 gains a
   positive control, TC-05 states the complete-tier fallback, and the entry guard is `isEntryPoint`.
+- Architecture fanout `r20260921102056` on the merge-deferral revision (spec blob `32098f81`, task
+  `aece9987`, commit `97cb24a0c`): all 23 cells covered, closed `converged`; raw signals structure
+  `high=0 medium=2 low=3`, design `high=0 medium=4 low=7`, runtime `high=0 medium=1 low=6`, gate
+  `high=0 medium=3 low=6` — **the first round with no blocker or high in any dimension.** The
+  distinct mediums, all applied: the resolver's `::root::` announcement precedes CLI diagnostics on
+  stderr, so the `EPIPE` assertion counts one line after it; the budget runtime reports both
+  refusals under one code, so the verifier maps them to a single `BUDGET_EXHAUSTED`; `diff.renames`
+  and `core.abbrev` were measured not to reach plumbing `diff-tree`, so the hostile-configuration
+  positive control now uses `core.attributesFile` with `* -diff`, which was measured to change the
+  `patch-id` pair; `createDefaultRunGit` never throws and surfaces a bad `cwd` as a port failure;
+  segment order is defined by the parent chain rather than `rev-list` output order; and the
+  never-decoded `Buffer` contract gains a non-UTF-8-path case through the default adapter. Lows
+  applied as wording (patch-ID does see mode changes; TC-02 is a premise test; TC-05 is CI-only;
+  `maxBuffer` counts both streams; a non-regular path is `USAGE`; v1 frozen, additions are v2).
+  The ID's "bound receipts" predates the split and is kept because it is in circulation.
 - Legacy sync experiment: merging `origin/integration/agreement-2664@4214cb540` with `origin/develop`
   conflicts in `gate-checkpoint-evidence.test.mjs`. The clean historical sync fixture examined 60 topic
   commits and produced undeclared PUSH, four out-of-order, and one checkpoint-mix finding.

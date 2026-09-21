@@ -70,7 +70,8 @@ standard:
   merge own-content check is the publication bundle's, on `MERGE-2664`'s abstraction.
 - [`git patch-id --stable`](https://git-scm.com/docs/git-patch-id) is order-insensitive across hunks
   and whitespace-normalized; it is a useful diagnostic for "same content, different commit" but not
-  equality authority, because it ignores mode, type, and empty diffs.
+  equality authority: a measured mode-only change does alter it, but an empty diff yields no ID at
+  all and hunk order and whitespace are invisible to it, so it cannot stand in for raw tuples.
 - [RFC 8785, JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785) defines a
   deterministic serialization (sorted object members, fixed number and string encoding) so a digest
   over the bytes is a digest over the data. The manifest is one RFC 8785 body followed by exactly one
@@ -208,16 +209,23 @@ of them needs a record. A commit in that set with no record is the `UNRECORDED_C
 record naming a commit outside it is `INVENTED_RECORD`; a non-merge record for a commit whose parent
 count is not one (including the zero-parent row `rev-list` emits when an unrelated history was merged)
 or a `merge` record whose parents differ from the graph's is `PARENT_CARDINALITY`; a segment whose
-membership or order disagrees with the enumeration is `SEGMENT_MEMBERSHIP`; a recomputed tuple set
+membership or order disagrees with ancestry is `SEGMENT_MEMBERSHIP` — order is never `rev-list`'s
+output order, which without `--topo-order` is committer-date order and was measured to differ from
+the scanner's, but the parent chain the `--parents` rows already give: each successive OID in a
+segment must have the previous one as its sole parent, and the first must have the segment's
+declared predecessor; a recomputed tuple set
 that differs from the recorded one is `TUPLES_MISMATCH`, and an `equal` record whose two sides
 recompute differently is `EQUAL_NOT_EQUAL`. A tip or base OID the repository does not have makes
 `rev-list` or `merge-base` exit 128, which is the `UNKNOWN_OID` abort — a stale tip cannot be
 refuted, only reported as unverifiable. The implementation binds the exact
 `git diff-tree --no-commit-id --raw -r -z --no-renames <parent> <commit>` shape through the injected
-port; `diff-tree --raw` is immune to `diff.renames`, `core.abbrev`, `core.quotePath`, and gitattributes
-by its flags and output form, and a measured `patch-id --stable` is stable under `diff.noprefix`,
-`diff.context`, and `diff.algorithm`. The default adapter still isolates global configuration as
-belt and braces. Stable patch ID and subject are retained as supporting diagnostics, not equality
+port; `diff-tree` is plumbing, so `diff.renames`, `core.abbrev`, `core.quotePath`, and
+`diff.noprefix` — porcelain settings — were measured not to reach its `--raw -r` output at all, and
+`-z` plus `--no-renames` pin what remains; a measured `patch-id --stable` is stable under
+`diff.noprefix`, `diff.context`, and `diff.algorithm`. What does reach the pinned path is
+`core.attributesFile`: a global attributes file with `* -diff` was measured to change the
+`diff-tree -p | patch-id --stable` output, which is why the default adapter isolates global and
+system configuration and why the hostile-configuration test uses that key as its positive control. Stable patch ID and subject are retained as supporting diagnostics, not equality
 authority. Missing, extra, duplicate, stale, or invented records fail closed, including
 replacement-only and legacy-only cardinality drift. There is no path-class exemption.
 
@@ -225,7 +233,7 @@ The format is closed canonical UTF-8 JSON: one RFC 8785 body (sorted object keys
 arrays, no insignificant whitespace, integers only, ASCII-only strings) followed by exactly one `\n`,
 with a fixed schema version, `objectFormat: "sha1"`, and no unknown fields. Its SHA-256 digest is
 computed over those exact bytes. Mode-only, symlink/object-type, add/delete, empty-patch, and rename
-policy are therefore observable even when blob IDs or patch IDs would not distinguish them.
+policy are therefore observable even when blob IDs would not distinguish them.
 `parseManifest(bytes, { strict = true })` is the only reader: strict mode refuses noncanonical bytes
 (`NONCANONICAL_BYTES`), and `strict: false` accepts any RFC 8259 JSON that satisfies the schema so
 that the `canonicalize` subcommand — the one caller that uses it — can turn an author's
@@ -240,9 +248,11 @@ one `takeVerificationCommand` per port invocation, so the deadline and the invoc
 enforced identically for the default adapter and for an injected fixture reader, and both are
 testable with an injected `now` and an injected `commandBudget` of a few units over a two-record
 fixture rather than real time or a 32,768-call manifest. The runtime accepts a take while
-`elapsed < timeoutMs` and refuses at `elapsed = timeoutMs` (`DEADLINE_EXHAUSTED`), and accepts
-`commandBudget` takes and refuses the next (`COMMAND_BUDGET_EXHAUSTED`); those are the boundaries
-TC-03 asserts. `takeVerificationCommand` hands every invocation `min(10_000, remainingMs)` as its
+`elapsed < timeoutMs` and refuses at `elapsed = timeoutMs`, and accepts `commandBudget` takes and
+refuses the next; those are the boundaries TC-03 asserts. The runtime reports both refusals through
+one `VerificationBudgetError` whose `code` is the same and whose message differs, and this bundle
+does not edit it, so the verifier maps either refusal to the single `BUDGET_EXHAUSTED` abort carrying
+the runtime's message rather than deriving two codes from a string it does not own. `takeVerificationCommand` hands every invocation `min(10_000, remainingMs)` as its
 timeout; that inherited ten-second per-invocation cap is a declared bound of this verifier, and
 exceeding it is the `PORT_TIMEOUT` abort. `verify` is total over any value: it re-runs the schema check
 and the pre-Git ceilings itself rather than trusting that its input came from `parseManifest`. The
@@ -261,22 +271,30 @@ where `command` is a member of the closed vocabulary `rev-parse`, `merge-base`, 
 strings cross the seam so that a fixture reader states a failure as the literal the adapter would
 return. A fixture reader implements exactly those five commands. The default adapter is
 `createDefaultRunGit({ cwd, env = process.env, executable = 'git', maxBufferBytes = DEFAULT_MAX_BUFFER_BYTES, defaultTimeoutMs = 10_000 })`:
-`cwd` is required and is checked at construction (`CWD_NOT_FOUND`); the CLI supplies the root from
-`resolveWorkspaceRoot(import.meta)` — the one resolver every harness entry uses, with its `--root` /
-`HARNESS_ROOT` overrides — while the tests supply each fixture repository, which is the only way a
+`cwd` is required; construction never throws, and a `cwd` that is not a directory yields a port
+whose every call returns `{ status: null, error: { code: 'CWD_NOT_FOUND' } }`, which `verify` maps
+like any port failure, so a bad `--root` reaches the CLI as an ordinary `aborted` (on a later
+`ENOENT` the adapter re-checks `cwd` to tell `CWD_NOT_FOUND` from `GIT_NOT_FOUND`, since `spawnSync`
+reports both identically). The CLI supplies the root from `resolveWorkspaceRoot(import.meta)`, called
+inside `main()` — the one resolver every harness entry uses, with its `--root` / `HARNESS_ROOT`
+overrides, whose `::root::` announcement on stderr precedes every diagnostic whenever an override
+applies — while the tests supply each fixture repository, which is the only way a
 `--pool=threads` worker can target a `make-temp` root, because `process.chdir` is unavailable there
 and `envWithoutGitVars` deliberately strips `GIT_DIR`. `env` is the base environment the tests
 inject a hostile one through; the adapter runs Git with `envWithoutGitVars(env)` plus
 `GIT_CONFIG_GLOBAL=/dev/null` and `GIT_CONFIG_NOSYSTEM=1` set after the strip, so a hook-injected
 `GIT_DIR` cannot redirect it and a user's global config cannot alter it. It uses `spawnSync` with the
 timeout the caller passes (the runtime's, inside `verify`; `defaultTimeoutMs` when a producer
-primitive is called outside it) and the 16 MiB `maxBuffer`, and returns the result synchronously —
+primitive is called outside it) and the 16 MiB `maxBuffer` (which Node accounts over stdout and
+stderr together), and returns the result synchronously —
 always a `Buffer`, never a decoded string (a spawn failure leaves `spawnSync` output undefined; the
 adapter normalises it to an empty `Buffer`), so two distinct invalid byte sequences in a path cannot
 collapse to one `pathBytesBase64`. The port's `patch-id` command takes a parent and a commit; the
 adapter runs `git diff-tree -p --no-renames <parent> <commit>` and pipes its stdout into
-`git patch-id --stable`, one budget take for the pair, the second spawn receiving the timeout minus
-the first's elapsed time so the pair stays inside one cap. A port result is a failure whenever
+`git patch-id --stable`, one budget take for the pair; the second spawn receives the timeout minus
+the first's elapsed time, floored to an integer, and when less than one millisecond remains the
+adapter returns the `ETIMEDOUT` literal without spawning, because `spawnSync` treats a timeout of 0
+as unbounded and rejects a negative or fractional one. A port result is a failure whenever
 `status` is non-zero (except the answers named above: `merge-base --is-ancestor` 1, and 128 from
 `rev-list`/`merge-base`, which is `UNKNOWN_OID`), `signal` is set, or `error` is set, and every
 failure aborts the run under a named code: `PORT_TIMEOUT` (`ETIMEDOUT`), `PORT_OUTPUT_LIMIT`
@@ -292,9 +310,16 @@ document means exactly those three properties, not the absence of I/O. Its expor
 `verify(manifest, options) → { ok: true } | { ok: false, outcome: 'refuted', findings } | { ok: false, outcome: 'aborted', diagnostics }`,
 `createDefaultRunGit(options)`, the frozen constants `MANIFEST_DIAGNOSTIC_CODES`, `DEFAULT_LIMITS`,
 and `DEFAULT_MAX_BUFFER_BYTES`, and the two producer primitives the verifier is built from —
-`treeTuples(runGit, parent, commit)` and `enumerate(runGit, base, tip)` — so the bundle that authors
-the #2664 manifest derives its tuples from the same functions that will recompute them; a primitive
-returns `{ ok: false, diagnostics }` on a port failure rather than throwing. `refuted` means the
+`treeTuples(runGit, parent, commit) → { ok: true, tuples }` and
+`enumerate(runGit, base, tip) → { ok: true, commits: [{ oid, parents }] }` — so the bundle that
+authors the #2664 manifest derives its tuples from the same functions that will recompute them; a
+primitive returns `{ ok: false, diagnostics }` on a port failure rather than throwing. A paired
+record carries one tuple set per side; a single-sided record carries one. Schema v1 is frozen: any
+added field or code — including the merge own-content fields the publication bundle will need — is
+v2, which this verifier refuses with `UNSUPPORTED_SCHEMA_VERSION`. Inside `verify`, a schema or
+ceiling failure is `aborted` carrying the parse code (`SIZE_LIMIT` is a byte ceiling and so applies
+only in `parseManifest` and the CLI), and an `aborted` result carries no findings — the run is
+unfinished, and partial findings would invite reading it as a verdict. `refuted` means the
 manifest was fully checked and disagrees with the repository; `aborted` means the check could not
 complete, and the two never mix. A diagnostic or finding is `{ code, path, message }`, and
 `MANIFEST_DIAGNOSTIC_CODES` is exactly this v1 set, which TC-01 asserts by equality, not membership:
@@ -306,14 +331,14 @@ complete, and the two never mix. A diagnostic or finding is `{ code, path, messa
   `PARENT_CARDINALITY`, `SEGMENT_MEMBERSHIP`, `TUPLES_MISMATCH`, `EQUAL_NOT_EQUAL`,
   `PATCH_ID_FLAG_MISMATCH`;
 - `aborted` diagnostics: `REPOSITORY_OBJECT_FORMAT`, `UNKNOWN_OID`, `INVALID_LIMITS`,
-  `DEADLINE_EXHAUSTED`, `COMMAND_BUDGET_EXHAUSTED`, `PORT_TIMEOUT`, `PORT_OUTPUT_LIMIT`,
+  `BUDGET_EXHAUSTED`, `PORT_TIMEOUT`, `PORT_OUTPUT_LIMIT`,
   `GIT_NOT_FOUND`, `CWD_NOT_FOUND`, `PORT_FAILURE`, `USAGE`, `STDOUT_EPIPE`, `UNEXPECTED_ERROR`.
 
-The CLI reads the manifest from the path in argv (`statSync` against the 8 MiB ceiling before any
-read) or from stdin when the path is `-` (consumed by async iteration with the ceiling applied while
+The CLI reads the manifest from the path in argv (`statSync` first: a non-regular file is `USAGE`,
+a size over the 8 MiB ceiling is `SIZE_LIMIT`, and nothing is read before either check) or from stdin when the path is `-` (consumed by async iteration with the ceiling applied while
 accumulating; a TTY stdin with `-` is `USAGE`); stdout carries only canonical bytes (`canonicalize`),
-the parsed manifest's digest and one `ok` line (`parse`), or the verify summary; every diagnostic goes
-to stderr; exit 0 is pass, 1 is `refuted` and nothing else, 2 is usage, malformed input, or `aborted`
+the parsed manifest's digest and one `ok` line (`parse`), or the verify summary; stderr carries the
+resolver's `::root::` announcement when one applies and then one line per diagnostic; exit 0 is pass, 1 is `refuted` and nothing else, 2 is usage, malformed input, or `aborted`
 — deliberately undifferentiated, because the codes on stderr carry the distinction. The guarded entry
 wraps `main()` so that any exception or rejection the named codes do not cover writes one
 `UNEXPECTED_ERROR` line and exits 2 rather than Node's default 1, which a shell caller would read as
@@ -365,7 +390,7 @@ manifests.
       existing precedent for a committed evidence artifact is
       `.agents/evidence/RULE-023-child-issue-migration-manifest.json`.
 - [x] 대안 최소 2개 검토 완료 — strict replay, path-category allowlist, and closed manifest are compared.
-- [x] 결정 근거 문서화 완료 — recomputed raw tree tuples plus merge own-content give fail-closed review
+- [x] 결정 근거 문서화 완료 — recomputed raw tree tuples plus merge structure give fail-closed review
       without the prelude contradiction, at the cost of one generic verifier module.
 - [x] New-surface placement: applicable and satisfied — the surface is repository-private
       `INFRA`/`harness` migration verification, sits beside the owners it reuses
@@ -432,13 +457,17 @@ manifest fails closed with a named diagnostic rather than degrading.
 - [ ] TC-03: Observable: an equivalent replay uses only `equal` and structural merge records; Task,
       ledger, source, test, chmod, mode-only, symlink/object-type, add/delete, rename-policy,
       empty-patch (patch-ID flag `null`), and one-byte changes fail unless their exact
-      disposition/tuple set and durable evidence are present, with the mode, type, rename-policy, and
-      merge-structure cases run through the default adapter (`cwd` = the fixture repository, `env`
-      injected) against a real temporary repository; under an injected hostile `env` whose `HOME`
-      config sets `diff.renames=true`, `diff.noprefix=true`, `core.abbrev=12`, and
-      `core.quotePath=false`, every default-adapter case yields the same tuple set, patch-ID flag, and
-      verdict, and a positive control shows the same repository's unpinned `git diff-tree --raw -r`
-      under that config reports an `R` entry the pinned argv does not; every declared size, record,
+      disposition/tuple set and durable evidence are present, with the mode (flag `false`), type,
+      rename-policy, empty-patch, merge-structure, and one non-UTF-8-plus-newline-path case (the
+      paths written through `git update-index --add --cacheinfo`, because the filesystem refuses such
+      names) run through the default adapter (`cwd` = the fixture repository, `env` injected) against
+      a real temporary repository, the last asserting `Buffer.isBuffer` on the port result and the
+      exact base64 of the raw path bytes; under an injected hostile `env` whose `HOME` config sets
+      `core.attributesFile` to a file containing `* -diff` plus `diff.renames=true`,
+      `core.abbrev=12`, and `core.quotePath=false`, every default-adapter case yields the same tuple
+      set, patch-ID flag, and verdict, and a positive control shows the same pinned
+      `diff-tree -p | patch-id --stable` pair spawned with that `HOME` and without the adapter's
+      isolation variables yields a different patch ID; every declared size, record,
       tuple, invocation, and time bound accepts its stated boundary and rejects the next value with
       its named code, the invocation and time bounds through an injected `now` and an injected
       `limits` with a `commandBudget` of a few units over a two-record fixture, and a `limits` the
@@ -451,13 +480,16 @@ manifest fails closed with a named diagnostic rather than degrading.
       the stated numbers; and the CLI spawned as a child with `cwd` = the fixture root, `--root`
       passed explicitly, and `HARNESS_ROOT` removed from its environment exits 0 with the summary on
       stdout for a passing manifest, 1 with findings on stderr for a refuted one, 2 for malformed
-      bytes, a missing path, a throwing port, and stdin `-` at 8 MiB plus one byte (accepting exactly
-      8 MiB), delivers a 4 MiB `canonicalize` through a pipe byte-complete, and exits 2 with exactly
-      one stderr line on an early-closed pipe.
+      bytes, a missing path, a non-regular path, a throwing port, and stdin `-` at 8 MiB plus one
+      byte (accepting exactly 8 MiB), delivers a 4 MiB `canonicalize` through a pipe byte-complete
+      (the test's own `spawnSync` raising its 1 MiB default `maxBuffer`), and on an early-closed pipe
+      exits 2 with exactly one stderr line after the `::root::` announcement, that line being
+      `STDOUT_EPIPE`; and one known manifest byte string maps to one stated SHA-256 digest.
 - [ ] TC-04: Observable: the contract-tier `integration-migration-owner-documents.test.mjs` finds the
       migration sentence and the `.agents/evidence/migrations/` identifier under `### Branch Policy`
-      in `git-branch.md`, finds a pointer to that section in `backlog-execution.md` § Base Branch
-      Workflow and in `multi-backlog-initiative/SKILL.md` § Steps and routing step 1, and finds that
+      in `git-branch.md`, finds a Markdown link whose target is `git-branch.md` with the
+      `#branch-policy` fragment in `backlog-execution.md` § Base Branch Workflow and in
+      `multi-backlog-initiative/SKILL.md` § Steps and routing step 1, and finds that
       `/stable\s+patch[\s-]?ids?/i` and `/changed-path (equality|equivalence)/i` each match at least
       once inside that one section and nowhere else across every file under `.agents/rules` and
       `.agents/skills`.
@@ -473,10 +505,10 @@ manifest fails closed with a named diagnostic rather than degrading.
 | TC-ID | Test Type   | Tool / Approach                                                    | Notes                                                    |
 | ----- | ----------- | ------------------------------------------------------------------ | -------------------------------------------------------- |
 | TC-01 | adversarial | `integration-migration-manifest.test.mjs` (hermetic; fixture port) | Tuples, merge structure, dispositions, closed code set   |
-| TC-02 | integration | Isolated plan-order suite, one added eight-children case           | In-process findings + examined count; no manifest import |
+| TC-02 | premise     | Isolated plan-order suite, one added eight-children case           | Characterises the unmodified scanner; no manifest import |
 | TC-03 | regression  | Same hermetic file; `make-temp.mjs` repos, default adapter, CLI    | Real argv, hostile env, port failures, exit codes        |
 | TC-04 | contract    | Heading/identifier assertions on the three owner documents         | One sentence, two pointers, positive + negative match    |
-| TC-05 | suite       | Hermetic tier, contract tier runner, import safety, affected scans | Every path CI and pre-push actually run must exit 0      |
+| TC-05 | suite       | Hermetic tier, contract tier runner, import safety, affected scans | Every path the CI `scans` job actually runs must exit 0  |
 
 ## User Execution Test Scenarios
 
