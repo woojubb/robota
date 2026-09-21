@@ -1,15 +1,18 @@
 ---
 title: "CHECKS-2664: Benchmark companion jobs share required check names, so id-wins dedupe reads a skipped row over the owning workflow's pass"
 issue: https://github.com/woojubb/robota/issues/2664
-status: in-progress
+status: done
 created: 2026-09-21
 priority: medium
 urgency: soon
 area: harness/ci
 depends_on: []
+completed: 2026-09-22
 ---
 
 # CHECKS-2664: Benchmark companion jobs share required check names, so id-wins dedupe reads a skipped row over the owning workflow's pass
+
+Spec: `.agents/spec-docs/done/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md`
 
 ## Objective
 
@@ -42,7 +45,7 @@ https://github.com/woojubb/robota/issues/2664#issuecomment-5762394051 (no new is
       `ci.yml#benchmark-review-gate` and `ci.yml#benchmark-workflow-provenance` with the rename reverted
 - [x] TC-04 — `pnpm exec vitest run scripts/harness/__tests__/github-api-check-runs.test.mjs` exits 0 and
       `git diff origin/develop -- scripts/harness/github-api.mjs` is empty
-- [ ] TC-05 — `gh workflow run ci.yml --ref develop -f base_ref=develop -f head_ref=develop` once the
+- [x] TC-05 — `gh workflow run ci.yml --ref develop -f base_ref=develop -f head_ref=develop` once the
       change is on `develop`: the `benchmark-summary` table lists `review-gate` and `workflow provenance` rows
 - [x] TC-06 — `grep -c 'main-required-checks' .agents/rules/git-branch.md` → `1`, inside the named bullet
 
@@ -66,3 +69,24 @@ merge is the one check no pre-merge run can perform.
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
 **Reason:** The change is to CI job display names and a repository-harness scan over workflow files. Its only observers are repository maintainers reading a pull request's check-runs list on GitHub and contributors running `pnpm harness:scan`; no end user of the Robota product (CLI, SDK, TUI, MCP server) can observe it through any runnable product surface.
+
+## Completion Criteria
+
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs` → exit 0 (52), red before the finder change
+- [x] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0
+- [x] TC-03: `node scripts/harness/scan-main-required-checks.mjs` → exit 0 on the fixed tree; exit 1 naming both companions before the rename
+- [x] TC-04: `pnpm exec vitest run scripts/harness/__tests__/github-api-check-runs.test.mjs` → exit 0; `github-api.mjs` unchanged
+- [x] TC-05: benchmark dispatch on `develop` (run 35622979521) — both companions success; the summary map resolved all eleven contexts
+- [x] TC-06: `grep -c 'main-required-checks' .agents/rules/git-branch.md` → `1`, inside the named bullet
+
+## Result
+
+Delivered by https://github.com/woojubb/robota/pull/2811, landed on `develop` as
+`1c02d9777d54c20c0dd3a72a66f9f16404a4d953` (squash, 2026-09-21T15:57:41Z; MERGE VERIFIED PASS by
+`merge-verifier`). Registration and completion record on the umbrella:
+https://github.com/woojubb/robota/issues/2664#issuecomment-5762394051 and
+https://github.com/woojubb/robota/issues/2664#issuecomment-5763797879. TC-05 ran after landing (run
+35622979521): both companions `success`, the summary map resolved all eleven contexts and reported
+`review-gate` / `workflow provenance` rows; the summary job's final assertion failed only on
+`commitlint`'s degenerate `develop..develop` range, a pre-existing benchmark property registered at
+https://github.com/woojubb/robota/issues/2680#issuecomment-5763788803.
