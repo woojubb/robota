@@ -1,7 +1,7 @@
 ---
 title: 'GATE-2664: first GATE-IMPLEMENT checkpoint must bind the clean paired Task and spec'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: in-progress
 created: 2026-09-21
 priority: high
 urgency: now
@@ -11,7 +11,7 @@ depends_on: []
 
 # GATE-2664: first GATE-IMPLEMENT checkpoint must bind the clean paired Task and spec
 
-Spec: `.agents/spec-docs/todo/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md`
+Spec: `.agents/spec-docs/active/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md`
 
 ## Objective
 
@@ -72,3 +72,7 @@ the fresh develop base and the DATA-integrated initiative state.
 
 **Reason:** This changes only an internal repository planning-checkpoint producer and commit guard;
 it adds no Robota CLI, TUI, browser, public SDK, configuration, or runtime behavior for an end user.
+
+## Progress
+
+- 2026-09-21: Approval committed; first GATE-IMPLEMENT checkpoint prepared before source changes.
