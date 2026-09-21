@@ -37,7 +37,7 @@ name: Review Gate
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, integration/**]
     # `labeled`/`unlabeled` are included so applying the acknowledge label re-runs the gate rather
     # than requiring a push.
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]

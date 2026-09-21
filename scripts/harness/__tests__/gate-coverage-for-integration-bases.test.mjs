@@ -33,6 +33,12 @@ const WIDENED = [
   ['gitleaks.yml', 'pull_request'],
   ['dependency-review.yml', 'pull_request'],
   ['workflow-provenance-gate.yml', 'pull_request_target'],
+  // Added after review: this one was excluded on a reason that does not hold. The recorded reason
+  // was that its code-scanning half would compare against a base with no CodeQL analysis — but that
+  // half is `if: ${{ false }}` at every base, so it runs nowhere and `review-gate` still reaches a
+  // verdict. Excluding it cost an integration child the RULE-016 body judge, the disposition
+  // withdrawal check and disarm-auto-merge, for a condition that does not occur.
+  ['review-gate.yml', 'pull_request'],
 ];
 
 function workflow(file) {
@@ -67,6 +73,26 @@ describe('INFRA-2804: the widened workflow triggers', () => {
   });
 
   // TC-03 — the whole safety argument for touching no job body rests on this split holding.
+  // TC-03 / TC-09 — the Test Plan named a diff assertion and the first cut shipped only parse
+  // assertions, which a review caught. This is that assertion: it compares each widened trigger
+  // against its base revision and allows exactly one difference, the `branches:` line.
+  it.each(WIDENED)('%s differs from its base revision only in the branches list', (file) => {
+    const before = execFileSync('git', ['show', `origin/develop:.github/workflows/${file}`], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    const after = readFileSync(path.join(WORKFLOWS, file), 'utf8');
+    const changed = after
+      .split('\n')
+      .map((line, i) => [line, before.split('\n')[i]])
+      .filter(([a, b]) => a !== b);
+    // Exactly one line moved, and it is the base filter. A rewritten trigger block — one that
+    // dropped `edited`, say — would show up here as a second changed line.
+    expect(changed).toHaveLength(1);
+    expect(changed[0][0]).toContain('branches:');
+    expect(changed[0][0]).toContain('integration/**');
+  });
+
   it('ci.yml jobs remain split on base_ref, so widening enables no promotion-only job', () => {
     const jobs = Object.entries(workflow('ci.yml').jobs);
     const conditionOf = ([, job]) => (job.if ? String(job.if) : null);
