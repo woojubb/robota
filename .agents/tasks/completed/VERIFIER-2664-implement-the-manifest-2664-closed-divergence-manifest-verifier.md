@@ -1,7 +1,8 @@
 ---
 title: 'VERIFIER-2664: Implement the MANIFEST-2664 closed divergence manifest verifier'
 issue: https://github.com/woojubb/robota/issues/2664
-status: in-progress
+status: done
+completed: 2026-09-21
 created: 2026-09-21
 priority: high
 urgency: now
@@ -11,7 +12,7 @@ depends_on: []
 
 # VERIFIER-2664: Implement the MANIFEST-2664 closed divergence manifest verifier
 
-Spec: `.agents/spec-docs/active/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md`
+Spec: `.agents/spec-docs/done/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md`
 
 ## Objective
 
@@ -44,24 +45,24 @@ first PASS cannot be corrected to it. The owner chose this thin unit as the reco
 
 ## Plan
 
-- [ ] TC-01 — Implement the manifest module: SHA-1 canonical manifest bound to OIDs only with
+- [x] TC-01 — Implement the manifest module: SHA-1 canonical manifest bound to OIDs only with
       separately bound legacy and replacement bases, four non-merge dispositions plus the structural
       `merge` record, deterministic base64-path recursive `--no-renames` tuples, one `rev-list
 --parents` enumeration per side, the `--text`-pinned `patch-id` pair, strict and lenient
       parsing, the three-valued `verify` result with the exported closed code set, the five-command
       port, the export list, and the CLI. Acceptance is SPEC TC-01.
-- [ ] TC-02 — Generalise the isolated plan-order suite's prelude fixture and add the eight-children
+- [x] TC-02 — Generalise the isolated plan-order suite's prelude fixture and add the eight-children
       minimal graph, asserting the in-process findings and examined count. Acceptance is SPEC TC-02.
-- [ ] TC-03 — Cover equality, content/mode/type/rename/empty-patch/merge-structure cases through the
+- [x] TC-03 — Cover equality, content/mode/type/rename/empty-patch/merge-structure cases through the
       default adapter (`cwd` and `env` injected) against `make-temp.mjs` repositories, the hostile
       configuration case with its positive control, every ceiling at its stated boundary through the
       run-scoped budget with an injected clock and injected limits, every port-failure code, and the
       CLI as a child process for exit codes, stdin, drain, and `EPIPE`. Acceptance is SPEC TC-03.
-- [ ] TC-04 — Make `git-branch.md` § Branch Policy the sole owner of the migration sentence (with
+- [x] TC-04 — Make `git-branch.md` § Branch Policy the sole owner of the migration sentence (with
       `.agents/evidence/migrations/` named there), reduce `backlog-execution.md` § Base Branch Workflow
       and the skill's step 1 to pointers, and assert by headings and identifiers that no third
       statement remains. Acceptance is SPEC TC-04.
-- [ ] TC-05 — Add the hermetic-tier entry, then run the hermetic tier, the contract-tier runner, the
+- [x] TC-05 — Add the hermetic-tier entry, then run the hermetic tier, the contract-tier runner, the
       import-safety scan, and the affected L2 scans with every command exiting zero. Acceptance is
       SPEC TC-05.
 

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [manifest, harness]
 lane: L2
@@ -163,7 +163,7 @@ manifest fails closed with a named diagnostic rather than degrading.
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: the SHA-1-only verifier recomputes explicit full-OID segment membership
+- [x] TC-01: Observable: the SHA-1-only verifier recomputes explicit full-OID segment membership
       against separately bound `legacyBase` and `replacementBase` (a fixture whose bases differ passes;
       one whose replacement base does not descend from the legacy base is `refuted` with
       `BASES_NOT_ANCESTRAL`, and one whose legacy tip does not descend from the legacy base is
@@ -182,12 +182,12 @@ manifest fails closed with a named diagnostic rather than degrading.
       `code`; `verify` returns `refuted` with findings for every disagreement and `aborted` with
       diagnostics for every port failure and unknown OID; and `MANIFEST_DIAGNOSTIC_CODES` equals the
       v1 set listed in the Decision.
-- [ ] TC-02: Observable: in the isolated `scan-user-execution-plan-order.test.mjs`, a minimal graph
+- [x] TC-02: Observable: in the isolated `scan-user-execution-plan-order.test.mjs`, a minimal graph
       built by the generalised `integrationAgreementPreludeFixture` whose prelude declares all eight
       children yields `findHistoryFindingsFromGit(root, base)` equal to `[]` through the unmodified
       scanner and `readExaminedPlanOrderCount(root, base)` equal to the fixture's single-parent commit
       count, alongside the suite's existing undeclared and out-of-order refusals.
-- [ ] TC-03: Observable: an equivalent replay uses only `equal` and structural merge records; Task,
+- [x] TC-03: Observable: an equivalent replay uses only `equal` and structural merge records; Task,
       ledger, source, test, chmod, mode-only, symlink/object-type, add/delete, rename-policy,
       empty-patch (patch-ID flag `null`), and one-byte changes fail unless their exact
       disposition/tuple set and durable evidence are present, with the mode (flag `false`), type,
@@ -223,7 +223,7 @@ manifest fails closed with a named diagnostic rather than degrading.
       (the test's own `spawnSync` raising its 1 MiB default `maxBuffer`), and on an early-closed pipe
       exits 2 with exactly one stderr line after the `::root::` announcement, that line being
       `STDOUT_EPIPE`; and one known manifest byte string maps to one stated SHA-256 digest.
-- [ ] TC-04: Observable: the contract-tier `integration-migration-owner-documents.test.mjs` finds the
+- [x] TC-04: Observable: the contract-tier `integration-migration-owner-documents.test.mjs` finds the
       migration sentence and the `.agents/evidence/migrations/` identifier under `### Branch Policy`
       in `git-branch.md`, finds a Markdown link whose target is `git-branch.md` with the
       `#branch-policy` fragment in `backlog-execution.md` § Base Branch Workflow and in
@@ -231,7 +231,7 @@ manifest fails closed with a named diagnostic rather than degrading.
       `/stable\s+patch[\s-]?ids?/i` and `/changed-path (equality|equivalence)/i` each match at least
       once inside that one section and nowhere else across every file under `.agents/rules` and
       `.agents/skills`.
-- [ ] TC-05: Commands: `pnpm harness:test:hermetic` (the new file in `HERMETIC_TEST_FILES`),
+- [x] TC-05: Commands: `pnpm harness:test:hermetic` (the new file in `HERMETIC_TEST_FILES`),
       `node scripts/harness/harness-test-tiers.mjs --tier contracts --affected --base-ref origin/develop --head-ref HEAD`
       (which falls to the complete contract tier for this changeset, because the new module has no
       contract-tier owner, and so runs the isolated plan-order suite one file per invocation and the
@@ -240,13 +240,13 @@ manifest fails closed with a named diagnostic rather than degrading.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                    | Notes                                                    |
-| ----- | ----------- | ------------------------------------------------------------------ | -------------------------------------------------------- |
-| TC-01 | adversarial | `integration-migration-manifest.test.mjs` (hermetic; fixture port) | Tuples, merge structure, dispositions, closed code set   |
-| TC-02 | premise     | Isolated plan-order suite, one added eight-children case           | Characterises the unmodified scanner; no manifest import |
-| TC-03 | regression  | Same hermetic file; `make-temp.mjs` repos, default adapter, CLI    | Real argv, hostile env, port failures, exit codes        |
-| TC-04 | contract    | Heading/identifier assertions on the three owner documents         | One sentence, two pointers, positive + negative match    |
-| TC-05 | suite       | Hermetic tier, contract tier runner, import safety, affected scans | Every path the CI `scans` job actually runs must exit 0  |
+| TC-ID | Test Type   | Tool / Approach                                                    | Notes                                                                                                                                                                                                                                                                            |
+| ----- | ----------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | adversarial | `integration-migration-manifest.test.mjs` (hermetic; fixture port) | Test written: `scripts/harness/__tests__/integration-migration-manifest.test.mjs > MANIFEST_DIAGNOSTIC_CODES is exactly the v1 set`, `> canonical bytes and digest`, `> parseManifest`, `> raw -z tuples`, `> verify through the fixture port`                                   |
+| TC-02 | premise     | Isolated plan-order suite, one added eight-children case           | Test written: `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs > admits a prelude that declares all eight children and examines every segment once (MANIFEST-2664 TC-02)`                                                                                      |
+| TC-03 | regression  | Same hermetic file; `make-temp.mjs` repos, default adapter, CLI    | Test written: `scripts/harness/__tests__/integration-migration-manifest.test.mjs > default adapter against real repositories` and `> CLI as a child process` — mode/type/rename/empty-patch/non-UTF-8 paths, hostile attributes with positive control, port failures, exit codes |
+| TC-04 | contract    | Heading/identifier assertions on the three owner documents         | Test written: `scripts/harness/__tests__/integration-migration-owner-documents.test.mjs > integration-migration owner documents (TC-04)` — one sentence, two pointers, positive + negative match                                                                                 |
+| TC-05 | suite       | Hermetic tier, contract tier runner, import safety, affected scans | Test skipped: TC-05 is the suite run itself — the four tier commands and their exit codes are recorded in the `[GATE-COMPLETE: TC-05]` Evidence Log entry; no separate test file tests the tier runner for this unit                                                             |
 
 ## User Execution Test Scenarios
 
@@ -260,7 +260,7 @@ SDK, configuration, or installed-package surface an end user can execute.
 
 ## Tasks
 
-- [ ] `.agents/tasks/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md` — todo
+- [x] `.agents/tasks/completed/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md` — done
 
 ## Evidence Log
 
@@ -371,3 +371,158 @@ SDK, configuration, or installed-package surface an end user can execute.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `bc5647f94143` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/todo/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md` blob `a83e807a31cb` (tracked)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-21
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts` → exit 1 ( recommendation: Inspect the task-archival scan output above. ⏎ ⏎ 1 of 75 scans failed); `pnpm harness:test:hermetic` → exit 0 ((Use `node --trace-warnings ...` to show where the warning was created) ⏎ [pre-push] Blocked: HARNESS_BASE_REF must name origin/integration/agreement-<number> at the Git pre-push boundary. ⏎ [pre-push] Blocked: post-verdict action-request guard did not approve this push.); `node scripts/harness/harness-test-tiers.mjs --tier contracts --affected --base-ref origin/develop --head-ref HEAD` → exit 0 (10:16:05 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead. ⏎ 10:16:06 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead. ⏎ 10:16:07 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); `node scripts/harness/scan-harness-script-import-safety.mjs` → exit 0 (::examined:: 347 harness scripts ⏎ harness-script-import-safety scan passed (347 script(s) imported, 8 without a test at baseline).)
+  **Required action:** make every verify command exit 0
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts` → exit 1 ( recommendation: Inspect the task-archival scan output above. ⏎ ⏎ 1 of 75 scans failed); `pnpm harness:test:hermetic` → exit 0 ((Use `node --trace-warnings ...` to show where the warning was created) ⏎ [pre-push] Blocked: HARNESS_BASE_REF must name origin/integration/agreement-<number> at the Git pre-push boundary. ⏎ [pre-push] Blocked: post-verdict action-request guard did not approve this push.); `node scripts/harness/harness-test-tiers.mjs --tier contracts --affected --base-ref origin/develop --head-ref HEAD` → exit 0 (10:16:05 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead. ⏎ 10:16:06 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead. ⏎ 10:16:07 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.); `node scripts/harness/scan-harness-script-import-safety.mjs` → exit 0 (::examined:: 347 harness scripts ⏎ harness-script-import-safety scan passed (347 script(s) imported, 8 without a test at baseline).)
+  **Required action:** make every verify command exit 0
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9cbeab9409a9` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md` blob `050c5ceb5e21` (tracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — Ordering check (guardian): prior gate GATE-IMPLEMENT's LAST entry is `✅ PASS | 2026-09-21` with `**Status upgrade:** approved → in-progress` (the row's blank re-run rule = last-entry rule); the document's frontmatter is `status: in-progress` and the file sits under `.agents/spec-docs/active/`, the folder `spec-workflow.md` (line 257) maps to `in-progress`. The preceding `[GATE-VERIFY] — ❌ FAIL | 2026-09-21` entry is a prior run of THIS gate, not of the prior gate; its sole failing command was `run-all-scans` exiting 1 on `task-archival`, re-examined below. No gate was bypassed: the implementation commit `9cbeab940` sits on top of the planning checkpoint `01033291e` that recorded GATE-IMPLEMENT PASS.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): `.agents/tasks/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md` § `## Plan` (lines 45-66) holds exactly 5 checkboxes, TC-01 through TC-05, all `[x]` (uncommitted edit, Task blob `0a4f2c5c528a`, HEAD blob `9e3985265`: the diff flips the 5 boxes and nothing else); `node scripts/harness/scan-task-plan-items.mjs` → exit 0 (342 Task Plan sections examined). The ticks are on work that exists: HEAD `9cbeab940` adds `scripts/harness/integration-migration-manifest.mjs` (1167 lines), `scripts/harness/__tests__/integration-migration-manifest.test.mjs` (1183), `scripts/harness/__tests__/integration-migration-owner-documents.test.mjs` (105), the `HERMETIC_TEST_FILES` entry in `harness-test-classification.mjs`, the plan-order fixture change (46 lines), and the sentence/pointer edits in `git-branch.md`, `backlog-execution.md`, `multi-backlog-initiative/SKILL.md`. PASS.
+- GATE-VERIFY — No Plan item is blocked or pending: the 5 Plan items contain no `blocked`, `pending`, `waiting`, or `deferred` wording and no unticked box; none is a disposition item (merge/land/close/publish) — TC-05's "run … every command exiting zero" is verification, not disposition. PASS.
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `git diff --name-only origin/develop...HEAD` touches no `packages/` or `apps/` path (15 files: `scripts/harness/**`, `.agents/**`), so there is no package build to run and the build-equivalent for a `scripts/**` scope applies (gate-operations.mjs header: `run-all-scans` / `harness:scan`). Re-run by the guardian: `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts --skip task-archival` → exit 0 ("71 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context)"; the two advisories are `reference-kind-qualified` on `.agents/spec-docs/done/INFRA-2772-…` and `task-merged-citation` on the `MANIFEST-2664` / `SECRET-2664` Task records — files this branch does not touch). The `--skip task-archival` is justified by the scan's own text, re-run standalone by the guardian: `node scripts/harness/check-task-archival.mjs` → exit 1, "VERIFIER-2664 … all 5 checkbox(es) checked but the spec has not reached spec-docs/done/ — run GATE-VERIFY/GATE-COMPLETE, move the spec to done/, then archive": it refuses precisely the state this gate's first criterion requires, is not a build, and cannot be green before this gate by construction. PASS.
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): re-run by the guardian: `pnpm harness:test:hermetic` → exit 0 (Test Files 76 passed, Tests 1248 passed — includes the new `integration-migration-manifest.test.mjs` via its `HERMETIC_TEST_FILES` entry); `node scripts/harness/harness-test-tiers.mjs --tier contracts --affected --base-ref origin/develop --head-ref HEAD` → exit 0 (275 tests passed); `node scripts/harness/scan-harness-script-import-safety.mjs` → exit 0 (347 harness scripts imported). PASS.
+
+**Note:** the caller reported a second `gate.mjs judge --gate GATE-VERIFY` run recording a PASS-shaped entry (3 PASS / 0 FAIL / 2 PENDING-GUARDIAN); no such entry exists in this document — the Evidence Log held only the `❌ FAIL` entry above when this judgement began. The two mechanical patterns `All tasks in … are marked complete` / `No tasks are blocked or pending` in `gate-operations.mjs` `verifyChecks()` do not match the catalogue's current criterion wording, which is why those two criteria came to the guardian; both were judged here.
+
+**Judged by:** `backlog-gate-guard` — every criterion (ordering check, both Plan criteria, and both command criteria re-executed rather than read from the prior entry)
+**Judged at:** HEAD `9cbeab9409a9` · base `origin/develop@a6490431cb89` (was `40d72b9b4943` when the run began; the one new commit adds only `.agents/tasks/INFRA-2798-…md`, which this branch does not touch) · document `.agents/spec-docs/active/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md` blob `17735eaa1bb9` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/integration-migration-manifest.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 19 line(s))
+
+```
+   ✓ default adapter against real repositories > is unchanged under hostile gitattributes and configuration, with a positive control  715ms
+   ✓ default adapter against real repositories > reports adapter failures under their named codes  418ms
+   ✓ CLI as a child process > maps pass, refuted, and aborted to exit 0, 1, and 2  756ms
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  22:27:54
+   Duration  4.69s (transform 37ms, setup 0ms, collect 52ms, tests 4.50s, environment 0ms, prepare 27ms)
+
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9cbeab9409a9` · base `origin/develop@a6490431cb89` · document `.agents/spec-docs/active/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md` blob `329efe45b6f5` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t 'admits a prelude that declares all eight children'`
+**Exit:** 0
+**Output:** (last 10 of 13 line(s))
+
+```
+
+ ✓ scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs (275 tests | 274 skipped) 9171ms
+   ✓ user-execution PLAN order — integration AGREEMENT history (BRANCH-2664) > admits a prelude that declares all eight children and examines every segment once (MANIFEST-2664 TC-02)  9144ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 274 skipped (275)
+   Start at  22:27:59
+   Duration  9.47s (transform 111ms, setup 0ms, collect 163ms, tests 9.17s, environment 0ms, prepare 27ms)
+
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9cbeab9409a9` · base `origin/develop@a6490431cb89` · document `.agents/spec-docs/active/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md` blob `db2673e7bf49` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/integration-migration-manifest.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 19 line(s))
+
+```
+   ✓ default adapter against real repositories > is unchanged under hostile gitattributes and configuration, with a positive control  715ms
+   ✓ default adapter against real repositories > reports adapter failures under their named codes  418ms
+   ✓ CLI as a child process > maps pass, refuted, and aborted to exit 0, 1, and 2  756ms
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  22:27:54
+   Duration  4.69s (transform 37ms, setup 0ms, collect 52ms, tests 4.50s, environment 0ms, prepare 27ms)
+
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9cbeab9409a9` · base `origin/develop@a6490431cb89` · document `.agents/spec-docs/active/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md` blob `a9c0ed440cf2` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/integration-migration-owner-documents.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 12 line(s))
+
+```
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-4/.claude/worktrees/greeting-7d333d
+
+ ✓ scripts/harness/__tests__/integration-migration-owner-documents.test.mjs (3 tests) 23ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  22:28:09
+   Duration  163ms (transform 10ms, setup 0ms, collect 9ms, tests 23ms, environment 0ms, prepare 27ms)
+
+exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9cbeab9409a9` · base `origin/develop@a6490431cb89` · document `.agents/spec-docs/active/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md` blob `47861fc15c85` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm harness:test:hermetic && node scripts/harness/harness-test-tiers.mjs --tier contracts --affected --base-ref origin/develop --head-ref HEAD && node scripts/harness/scan-harness-script-import-safety.mjs && node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 18 line(s))
+
+```
+[contract-tests] coverage: 0 cache-reused; 275 submitted to runners; 0 not invoked; 0 failed shard(s)
+contracts exit=0
+
+## node scripts/harness/scan-harness-script-import-safety.mjs
+harness-script-import-safety scan passed (347 script(s) imported, 8 without a test at baseline).
+exit=0
+
+## node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop --skip dist --skip build-contracts
+72 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (75 declared what they examined)
+scans exit=0
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9cbeab9409a9` · base `origin/develop@a6490431cb89` · document `.agents/spec-docs/active/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md` blob `5020e8db5be4` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-21; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `9cbeab9409a9` · base `origin/develop@a6490431cb89` · document `.agents/spec-docs/active/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md` blob `0ddee261f91d` (modified)
