@@ -1,7 +1,7 @@
 ---
 title: 'MANIFEST-2664: verify legacy-base divergence with a closed manifest and bound receipts'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: in-progress
 created: 2026-09-21
 priority: high
 urgency: now
@@ -9,7 +9,7 @@ area: repository integration-base migration verification
 depends_on: []
 ---
 
-Spec: `.agents/spec-docs/todo/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md`
+Spec: `.agents/spec-docs/active/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md`
 
 # MANIFEST-2664: verify legacy-base divergence with a closed manifest and bound receipts
 
@@ -89,7 +89,16 @@ network, a credential, or a state store.
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
 **Reason:** This is repository-internal Git history verification inside the harness. It adds no
-Robota CLI, TUI, browser, public SDK, configuration, or installed-package behavior for an end user.
+Robota CLI, TUI, browser, public SDK, configuration, or installed-package behavior for an end user:
+every affected file is under `scripts/harness/` or `.agents/`, none under `packages/` or `apps/`.
+The `parse` / `canonicalize` / `verify` command the module ships is a maintainer verification
+entry (`node scripts/harness/integration-migration-manifest.mjs ...`) of the same kind as the
+existing harness scanners, not a product surface, and its only real input — the issue #2664 manifest
+under `.agents/evidence/migrations/` — is authored by the later publishing bundle, so no end-to-end
+run over real history exists in this unit. This is not the library-seam case: no Robota product
+capability sits behind the verifier awaiting surface wiring; the deferred layers (receipt binding,
+remote publication, merge own-content) are likewise repository governance, owned by
+`BRANCH-2664-P2`. Verification is the engineering test plan above (TC-01 to TC-05).
 
 ## Finding Evidence
 
