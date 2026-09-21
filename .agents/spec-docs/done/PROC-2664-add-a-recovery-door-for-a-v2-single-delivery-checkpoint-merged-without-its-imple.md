@@ -344,6 +344,7 @@ terminal artifact, reached by CI's `scans` job and a manual `pnpm harness:scan`.
 - GATE-WRITE — Test Plan (4 mechanical): present; 5 rows = 5 TC-N (count matches); every row has Test Type and Tool; 0 manual rows.
 - GATE-WRITE — Structure (3 mechanical): `## Tasks` present with the paired Task path (file exists); `## Evidence Log` present and empty on this first run; no `## Status`/`## Classification` body sections.
 
+**Judged by:** `backlog-gate-guard` — every criterion, the 20 mechanical ones re-run through `gate.mjs judge --dry-run` (20 PASS, 0 FAIL, 7 PENDING-GUARDIAN) and the 7 semantic ones judged with each cited refusal string, commit, and measurement checked against the tree.
 **Judged at:** HEAD `63a1a5ba421e99b5354d39ee4fd3d8d9f417c100` · base `origin/develop@d5b4389f91e0be868e25c1d6cb00698316e062c1` · document `.agents/spec-docs/draft/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` blob `1123b92a2bf273467cb635da631724de762d2424` (tracked)
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-22
