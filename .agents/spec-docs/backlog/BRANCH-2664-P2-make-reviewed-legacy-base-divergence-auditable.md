@@ -1100,7 +1100,7 @@ and Phase B remains blocked before any review-ref or target mutation.
       numeric ID is checked through the extended `author.id` projection, and a login-only match with a
       different ID is refused. A fixture whose issue comment list exceeds 256 KiB, and one whose page takes
       longer than fifteen seconds, are read successfully through the runtime-supplied `{ timeout,
-    maxBuffer }`. The
+  maxBuffer }`. The
       migration reader calls `fetchCloseoutAudit()` with exact IDs: the landed PR-scoped selection accepts
       the manifest PR's completion alongside #2664's other per-PR historical records, a supplied ID that
       differs from the selected envelope is `closeout-comment-identity-mismatch`, and two trusted
@@ -1390,3 +1390,29 @@ it exposes no Robota product surface an end user can execute.
   128-second benchmark ceiling; and TC-05 with no test file.
 - This revision corrects only those contracts, as recorded in the Task's evidence for this run. A fresh
   full fanout and proposal review must judge this exact revised document before approval.
+
+### [ARCHITECTURE-AUDIT] — ⚠️ REVISE | 2026-09-21
+
+- Fanout run `r20260921080947` on spec blob `9630db8ddc395f2e1b1f8ac8c92806bcde637498` / Task blob
+  `54b906528b8893da6366b01fce16c5d930e3d710` (commit `c748d5dea`) at base `origin/develop@24a646101`.
+  All 23 cells covered, uncovered-cell count `[0]`, closed `converged`. Terminal signals: structure
+  `blocker=0 high=0 medium=5 low=10 coverage=7/7`, design `blocker=0 high=2 medium=6 low=6 coverage=6/6`,
+  runtime `blocker=0 high=1 medium=4 low=10 coverage=5/5`, gate `blocker=0 high=0 medium=6 low=7 coverage=5/5`.
+  No finding from the three earlier runs recurred.
+- The three high findings: a third pre-push refusal layer (`resolvePrePushBaseRef` refuses any hook push
+  whose remote is not literally `origin`, which a pinned-URL push guarantees) showing that a bypass list
+  threaded through existing layers cannot be closed — the seam must be one branch in `pre-push.mjs` that
+  never enters the ordinary runtime; the remote projection matrix has no admissible state for the tuple
+  before the review push exists; and the rename-based stale-lock reclaim can evict a live holder or admit
+  two. Medium findings name the Node-layer verification work still running inside the leased window,
+  `finished(process.stdout)` never resolving, the journal ceiling failing closed on mandatory writes, a
+  token released before the child is recorded, a third required-context pin, an unsatisfiable
+  pre-merge benchmark measurement, the Darwin producer bypassing per-file isolation, a per-file floor
+  blind to `it.todo`, Darwin's 104-byte socket path, the admission module's seven duties, an unowned
+  integration-branch pattern, seven command rows without a module, and a nonreproducible lint baseline
+  (measured 53 warnings, not 92).
+- Loop status: four full fanouts in this session (plus two on the earlier revision chain) each closed with
+  full coverage and each named a material set the previous revision introduced. High counts ran 5, 5, 5,
+  3 and medium 23, 35, 20, 21 — coverage converges, findings do not. Per the no-progress rule, the outer
+  correction loop is halted here for the owner's decision rather than iterated blindly; the round-4
+  findings are recorded in the Task and not yet applied.

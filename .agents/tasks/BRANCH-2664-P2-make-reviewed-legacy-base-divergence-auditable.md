@@ -236,6 +236,35 @@ Robota CLI, TUI, browser, public SDK, configuration, or installed-package behavi
   route, re-freezes the concurrency-footprint baseline, and takes the benchmark-ceiling decision. This
   Task's Source Constraints were reduced to problem-side constraints with the SPEC as the sole design
   owner. A fresh full fanout and proposal review are required on this exact revision.
+- Architecture fanout `r20260921080947` (commit `c748d5dea`): all 23 cells were covered and the ledger
+  closed `converged` with uncovered-cell count `[0]`; raw signals were structure `medium=5`, design
+  `high=2 medium=6`, runtime `high=1 medium=4`, gate `medium=6`. Nothing from the three earlier runs
+  recurred. Not yet applied — recorded for the owner's decision: (1) make `pre-push.mjs` the single
+  admission seam that dispatches an admitted update to a migration-only step pipeline and never enters
+  `createPrePushRuntime`/`resolvePrePushBaseRef`/subject resolution (a pinned-URL push is refused by
+  `pre-push-base-ref.mjs:260-267` today), with the shell layer receiving the verdict; (2) add
+  `remote:review-pending` as the first admissible projection state and give `prepare-operation` an
+  explicit operation kind; (3) replace rename-based stale-lock reclaim with an exclusive
+  `lock.reclaim` intent plus unlink-and-link, and forbid a holder that fails re-verification from writing
+  any journal transition; (4) skip clean-tree/lockfile/prerequisites/`runVerification` on the admitted
+  route and run only the bounded plan-order scan; (5) drain stdout through the `write` callback, not
+  `finished(process.stdout)`; (6) enforce the journal ceiling at generation admission only; (7) answer the
+  credential `get` only after the post-spawn `publication-bound@N` fsync; (8) split a leaf
+  `integration-migration-layout.mjs` and export the local-form integration-branch pattern from a leaf
+  owner; (9) add a Module/Entry column to the command table; (10) delete `.eslintignore` from TC-08;
+  (11) derive the Darwin producer as per-file `harness-test-tiers` invocations and assert
+  `numPendingTests == 0 && numTodoTests == 0` per file; (12) place the socket under a short `0700`
+  directory with a 104-byte path check; (13) add `classify-changed-paths.test.mjs` (a third
+  eleven-context pin) to Affected Files; (14) take the benchmark measurement from the Phase-A PR's
+  `pull_request` run and name the `jq` filter as the exclusion site; (15) make `author.id` optional in
+  the shared projection with the numeric check only in the migration predicate; (16) export a
+  discriminated strict-record parse result; (17) add a `classify-command` verb so the shell PreToolUse
+  path never carries a namespace regex; plus the low findings. Measured lint baseline over the
+  enumerated governed source set: `pnpm exec eslint --no-ignore --no-cache` → 1 error
+  (`scan-user-execution-plan-order.mjs:1802`), 53 warnings (37 in the conditionally governed scanner).
+- Loop status after four full fanouts this session: high counts 5, 5, 5, 3 and medium 23, 35, 20, 21;
+  coverage converges, material findings do not. Halted for the owner's decision under the no-progress
+  rule rather than iterated blindly.
 
 - Legacy sync experiment: merging `origin/integration/agreement-2664@4214cb540` with
   `origin/develop@6cbd65a21` conflicts in `gate-checkpoint-evidence.test.mjs`. The clean historical sync
