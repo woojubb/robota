@@ -98,13 +98,13 @@ peer, React ≥18). The **protocol/wire** transports — `agent-transport` core,
 
 `agent-transport-mcp` and `agent-mcp` are two distinct MCP roles. They must not be confused.
 
-| Aspect          | `agent-transport-mcp`                              | `agent-mcp`                                |
+| Aspect          | `agent-transport-mcp`                              | `agent-mcp`                                     |
 | --------------- | -------------------------------------------------- | ----------------------------------------------- |
 | MCP role        | **Server** — Robota acts as an MCP server          | **Client** — Robota consumes external MCP tools |
 | Direction       | External MCP clients → Robota session              | Robota session → external MCP tool servers      |
 | What it exposes | `InteractiveSession` as an MCP-compatible server   | MCP tool calls as `IToolResult` values          |
 | Layer           | Transport shell                                    | Tool adapter                                    |
-| Owner           | `agent-transport-mcp` (separate package)           | `agent-mcp` (separate package)             |
+| Owner           | `agent-transport-mcp` (separate package)           | `agent-mcp` (separate package)                  |
 | Consumer        | Hosts that want to expose a Robota session via MCP | Agents that need to call external MCP servers   |
 | SDK import      | `@modelcontextprotocol/sdk` (server-side)          | `@modelcontextprotocol/sdk` (client-side)       |
 

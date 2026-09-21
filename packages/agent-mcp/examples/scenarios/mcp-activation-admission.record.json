@@ -5,17 +5,15 @@
   "packageName": "@robota-sdk/agent-mcp",
   "command": {
     "executable": "pnpm",
-    "args": [
-      "scenario:verify"
-    ],
+    "args": ["scenario:verify"],
     "rendered": "pnpm scenario:verify"
   },
   "cwd": "<cwd>",
   "status": 0,
   "stdout": {
-    "raw": "\n> @robota-sdk/agent-mcp@3.0.0-beta.79 scenario:verify /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-mcp\n> pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --status && pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --lifecycle && pnpm exec tsx --conditions=source examples/verify-mcp-definition-control-plane.ts\n\nresult=status=untrusted; activationAttempts=0\nresult=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1\nresult=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; processesSpawned=0; socketsOpened=0\n",
-    "normalized": "result=status=untrusted; activationAttempts=0\nresult=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1\nresult=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; processesSpawned=0; socketsOpened=0",
-    "sha256": "2e478eade4bf08d7dc47ddaef9e377bcb51fda27c884c1955ae85c2780ebcb58"
+    "raw": "\n> @robota-sdk/agent-mcp@3.0.0-beta.79 scenario:verify /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-mcp\n> pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --status && pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --lifecycle && pnpm exec tsx --conditions=source examples/verify-mcp-definition-control-plane.ts\n\nresult=status=untrusted; activationAttempts=0\nresult=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1\nresult=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; networkAttempted=false\n",
+    "normalized": "result=status=untrusted; activationAttempts=0\nresult=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1\nresult=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; networkAttempted=false",
+    "sha256": "fb25c2649ea7ba3b8ed8e2bd307be67063f2cf84cd9b204b101bd090cebb1c26"
   },
   "stderr": {
     "raw": "",

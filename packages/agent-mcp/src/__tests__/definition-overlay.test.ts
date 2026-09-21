@@ -7,7 +7,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { applyDisableOverlay, clearDisable, isDisabled, MCPOverlayError } from '../definition/overlay.js';
+import {
+  applyDisableOverlay,
+  clearDisable,
+  isDisabled,
+  MCPOverlayError,
+} from '../definition/overlay.js';
 
 import type { IMCPResolvedEntry } from '../definition/types.js';
 
@@ -58,9 +63,9 @@ describe('applyDisableOverlay', () => {
 
   it('refuses an overlay naming a server that does not exist', () => {
     // A typo that reads as a successful disable is discovered when the server keeps running.
-    expect(() =>
-      applyDisableOverlay([entry('alpha')], { disabled: { alpah: 'typo' } }),
-    ).toThrow(MCPOverlayError);
+    expect(() => applyDisableOverlay([entry('alpha')], { disabled: { alpah: 'typo' } })).toThrow(
+      MCPOverlayError,
+    );
     expect(() => applyDisableOverlay([entry('alpha')], { disabled: { alpah: 'typo' } })).toThrow(
       /cannot disable unknown MCP server\(s\): alpah.*Known: alpha/s,
     );

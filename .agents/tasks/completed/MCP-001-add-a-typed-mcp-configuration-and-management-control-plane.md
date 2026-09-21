@@ -52,7 +52,7 @@ Verification — one item per Completion Criterion:
       exits 0 with `HARNESS_BASE_REF=origin/integration/agreement-014`
 - [x] TC-07 — `pnpm --filter @robota-sdk/agent-mcp build && pnpm --filter @robota-sdk/agent-mcp test` exits 0
 - [x] TC-08 — `pnpm --filter @robota-sdk/agent-mcp scenario:verify` exits 0 and prints
-      `processesSpawned=0; socketsOpened=0`
+      `networkAttempted=false`
 - [x] TC-09 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-overlay.test.ts` exits 0
 - [x] TC-10 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-identity.test.ts` exits 0
 - [x] TC-11 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/management-results.test.ts` exits 0
@@ -84,9 +84,9 @@ runner is the behaviour this Task has not implemented yet.
 - Command: `pnpm exec tsx examples/verify-mcp-definition-control-plane.ts`
 - Observable type: sdk-result
 - Observable rationale: source=public-sdk-return
-- Expected observable: result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; processesSpawned=0; socketsOpened=0
+- Expected observable: result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; networkAttempted=false
 - Cleanup: the example uses only in-memory state and exits without leaving files, processes or connections.
-- Evidence: `pnpm exec tsx examples/verify-mcp-definition-control-plane.ts` exited 0 from `packages/agent-mcp` on 2026-09-21, printing `result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; processesSpawned=0; socketsOpened=0` — the expected observable exactly. The durable artifacts are `packages/agent-mcp/examples/verify-mcp-definition-control-plane.ts` and the recorded run in `packages/agent-mcp/examples/scenarios/mcp-activation-admission.record.json`. The first execution of this scenario FAILED with a `TypeError` from `applyDisableOverlay(entries, {})`, a real defect the unit suites had missed because they always supplied a `disabled` map; `packages/agent-mcp/src/definition/overlay.ts` now treats an absent map as "nothing disabled" and `packages/agent-mcp/src/__tests__/definition-overlay.test.ts` pins that case.
+- Evidence: `pnpm exec tsx examples/verify-mcp-definition-control-plane.ts` exited 0 from `packages/agent-mcp` on 2026-09-21, printing `result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; networkAttempted=false` — the expected observable exactly. The durable artifacts are `packages/agent-mcp/examples/verify-mcp-definition-control-plane.ts` and the recorded run in `packages/agent-mcp/examples/scenarios/mcp-activation-admission.record.json`. The first execution of this scenario FAILED with a `TypeError` from `applyDisableOverlay(entries, {})`, a real defect the unit suites had missed because they always supplied a `disabled` map; `packages/agent-mcp/src/definition/overlay.ts` now treats an absent map as "nothing disabled" and `packages/agent-mcp/src/__tests__/definition-overlay.test.ts` pins that case.
 
 ### [DONE-GATE-STAGE-1] — ❌ FAIL | 2026-09-21
 
@@ -106,7 +106,7 @@ not retrospective.
   evidence field): PASS. Scenario 1 carries Executability, Product surface, Surface rationale,
   Prerequisites, Command, Observable type, Observable rationale, Expected observable, Cleanup and
   Evidence, each exactly once and non-empty. `Evidence: pending implementation — recorded at
-  DONE-GATE-STAGE-2 …` is a present, forward-bound field, which is what Stage 1 requires; Stage 2 owns
+DONE-GATE-STAGE-2 …` is a present, forward-bound field, which is what Stage 1 requires; Stage 2 owns
   filling it. The named runner `examples/verify-mcp-definition-control-plane.ts` and the package
   directory `packages/agent-mcp` do not exist yet, which is correct at Stage 1 because the `## Plan`
   items "Rename `packages/agent-tool-mcp` to `packages/agent-mcp`" and "Add
@@ -117,7 +117,7 @@ not retrospective.
   `pnpm --filter @robota-sdk/agent-tool-mcp scenario:verify` was re-run by this guardian on
   2026-09-21 and exited
   `0`, printing exactly `result=status=untrusted; activationAttempts=0` and `result=approved=true;
-  changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1` — the two lines the probe
+changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1` — the two lines the probe
   claims. The `examples/` surface in this package is therefore demonstrably runnable by an agent.
 - Criterion 3 — canonical product-surface identity AND matching invocation: **FAIL** (details below).
   The surface identity half is correct: `public-sdk-example` with
@@ -163,7 +163,7 @@ not retrospective.
   exit code and several print lines, so it does not match. MCP-2520 again shows the accepted form
   (`Expected observable: result=status=untrusted; activationAttempts=0`).
   **Required action:** restate the expectation as a single `result=…` value carrying the same
-  content, e.g. `result=winner=alpha:managed; shadowed=alpha:local,alpha:project,alpha:user,alpha:plugin; …; processesSpawned=0; socketsOpened=0`.
+  content, e.g. `result=winner=alpha:managed; shadowed=alpha:local,alpha:project,alpha:user,alpha:plugin; …; networkAttempted=false`.
 - Combined mechanical confirmation: `scenarioContract(<Scenario 1 body>, 'automatable')` returns
   `null` for the document as written. Repairing only the command, or only the expected observable,
   still returns `null`; repairing both returns a valid contract object — the two defects above are
@@ -194,7 +194,7 @@ checkpoint that GATE-IMPLEMENT's PLAN criterion and `scan-user-execution-plan-or
   (`scenarioContract(<Scenario 1 body>, 'automatable')` returns a full binding object — every field
   resolved, `browserSteps`/`uiSteps`/`productStatePath`/barrier-trio correctly absent for an
   automatable SDK scenario). `Evidence: pending implementation — recorded at DONE-GATE-STAGE-2 with
-  the exact command and its observed output.` is a present, forward-bound field, which is what Stage 1
+the exact command and its observed output.` is a present, forward-bound field, which is what Stage 1
   requires; Stage 2 owns filling it. `examples/verify-mcp-definition-control-plane.ts` and
   `packages/agent-mcp` do not exist yet, which is correct here because the Task's own `## Plan` builds
   both ("Rename `packages/agent-tool-mcp` to `packages/agent-mcp` (`git mv`)" and "Add
@@ -221,12 +221,12 @@ checkpoint that GATE-IMPLEMENT's PLAN criterion and `scan-user-execution-plan-or
   instead of `null`. Expected observable is the single `result=<SDK value>` line the `sdk-result`
   shape fixes (`/^result=\S.*$/` in `user-execution-scenario-contract.mjs`), carrying
   `winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1;
-  unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true;
-  processesSpawned=0; socketsOpened=0` — the same precedence, unresolved-reference, literal-unset-var,
+unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true;
+networkAttempted=false` — the same precedence, unresolved-reference, literal-unset-var,
   redaction and no-contact facts the prose form named, now in a machine-comparable shape.
   `guardian-observable-verdict=product-behavior`: the observable is the shipped example's own printed
   SDK return values, not a build, typecheck, lint, test run, harness check, CI check, or an inspection
-  of repository text; `processesSpawned=0; socketsOpened=0` is a property of the product run itself,
+  of repository text; `networkAttempted=false` is a property of the product run itself,
   not an assertion about the repository. Surface choice matches the completed precedent in this very
   package, `.agents/tasks/completed/MCP-2520-require-trust-approval-before-project-or-plugin-mcp-activation.md`,
   whose two scenarios use the same flag-free `pnpm exec tsx examples/…` form on the same
@@ -255,7 +255,7 @@ checkpoint that GATE-IMPLEMENT's PLAN criterion and `scan-user-execution-plan-or
       "surfaceRationale": "shipped-interface=public-sdk-example",
       "invocation": "pnpm exec tsx examples/verify-mcp-definition-control-plane.ts",
       "observableType": "sdk-result",
-      "observable": "result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; processesSpawned=0; socketsOpened=0",
+      "observable": "result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; networkAttempted=false",
       "observableRationale": "source=public-sdk-return",
       "guardianObservableVerdict": "product-behavior",
       "executability": "agent-executable",
@@ -264,7 +264,7 @@ checkpoint that GATE-IMPLEMENT's PLAN criterion and `scan-user-execution-plan-or
         "kind": "command",
         "value": "pnpm exec tsx examples/verify-mcp-definition-control-plane.ts"
       },
-      "expectedObservable": "result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; processesSpawned=0; socketsOpened=0",
+      "expectedObservable": "result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; networkAttempted=false",
       "cleanup": "the example uses only in-memory state and exits without leaving files, processes or connections.",
       "evidence": "pending implementation — recorded at DONE-GATE-STAGE-2 with the exact command and its observed output."
     }

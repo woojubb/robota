@@ -136,47 +136,47 @@ All `ITool`-related types (`ITool`, `IToolResult`, `IToolExecutionContext`, `TTo
 
 ### Definition control plane (MCP-001)
 
-| Export                          | Kind      | Description                                                                                             |
-| ------------------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
-| `decodeSource`                  | function  | Decode one foreign `mcpServers` container into definitions and named refusals                            |
-| `decodeEntry`                   | function  | Decode one raw entry; returns the definition or the problem that stopped it, never a partial             |
-| `readRawEntries`                | function  | Split a container into named raw entries, reporting container-level problems once                        |
-| `IMCPDecodeResult`              | interface | `{ definitions, problems }` returned by `decodeSource`                                                   |
-| `materializeDefinition`         | function  | Expand `${VAR}` / `${VAR:-default}` in `command`, `args`, `env`, `url`, `headers`                        |
-| `IMCPEnvironment`               | interface | The environment map materialization reads; never `process.env` directly                                  |
-| `MCP_SOURCE_PRECEDENCE`         | const     | `managed > local > project > user > plugin`, highest first                                               |
-| `resolveByPrecedence`           | function  | Whole-entry resolution; records shadows and keeps a malformed winner `unresolved`                        |
-| `IMCPSourceCandidates`          | interface | One source's decode output, tagged with its source and origin                                            |
-| `applyDisableOverlay`           | function  | Apply a reversible disable overlay; refuses an unknown server name                                       |
-| `clearDisable`                  | function  | Remove the overlay from one entry, restoring what precedence produced                                    |
-| `isDisabled`                    | function  | Whether an entry currently carries a disable overlay                                                     |
-| `IMCPDisableOverlay`            | interface | `{ disabled? }` — server names to disable with the reason shown beside each                              |
-| `MCPOverlayError`               | class     | Typed refusal for an overlay naming a server that does not exist                                         |
-| `projectEntry`                  | function  | Redacted projection of one entry; `env`/`headers` values become `[REDACTED]`, keys survive              |
-| `projectEntries`                | function  | The same projection over a whole resolved set, in order                                                  |
-| `REDACTED`                      | const     | The redaction marker a projection substitutes for a secret value                                         |
+| Export                          | Kind      | Description                                                                                                |
+| ------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------- |
+| `decodeSource`                  | function  | Decode one foreign `mcpServers` container into definitions and named refusals                              |
+| `decodeEntry`                   | function  | Decode one raw entry; returns the definition or the problem that stopped it, never a partial               |
+| `readRawEntries`                | function  | Split a container into named raw entries, reporting container-level problems once                          |
+| `IMCPDecodeResult`              | interface | `{ definitions, problems }` returned by `decodeSource`                                                     |
+| `materializeDefinition`         | function  | Expand `${VAR}` / `${VAR:-default}` in `command`, `args`, `env`, `url`, `headers`                          |
+| `IMCPEnvironment`               | interface | The environment map materialization reads; never `process.env` directly                                    |
+| `MCP_SOURCE_PRECEDENCE`         | const     | `managed > local > project > user > plugin`, highest first                                                 |
+| `resolveByPrecedence`           | function  | Whole-entry resolution; records shadows and keeps a malformed winner `unresolved`                          |
+| `IMCPSourceCandidates`          | interface | One source's decode output, tagged with its source and origin                                              |
+| `applyDisableOverlay`           | function  | Apply a reversible disable overlay; refuses an unknown server name                                         |
+| `clearDisable`                  | function  | Remove the overlay from one entry, restoring what precedence produced                                      |
+| `isDisabled`                    | function  | Whether an entry currently carries a disable overlay                                                       |
+| `IMCPDisableOverlay`            | interface | `{ disabled? }` — server names to disable with the reason shown beside each                                |
+| `MCPOverlayError`               | class     | Typed refusal for an overlay naming a server that does not exist                                           |
+| `projectEntry`                  | function  | Redacted projection of one entry; `env`/`headers` values become `[REDACTED]`, keys survive                 |
+| `projectEntries`                | function  | The same projection over a whole resolved set, in order                                                    |
+| `REDACTED`                      | const     | The redaction marker a projection substitutes for a secret value                                           |
 | `IMCPDefinitionProjection`      | interface | A definition as it may be shown, `env`/`headers` values redacted — see the SECURITY-2793 containment above |
-| `definitionFingerprint`         | function  | Hash over what will run or be contacted; secret VALUES are never hashed                                  |
-| `securityIdentity`              | function  | Hash over name, source and origin — which configured subject this is                                     |
-| `activationIdentity`            | function  | Both ids for one entry, or `null` when it is unresolved                                                  |
-| `IMCPActivationIdentity`        | interface | `{ serverId, definitionFingerprint, securityIdentity }`                                                  |
-| `MCPDefinitionRegistry`         | class     | `IMCPActivationDefinitionRegistry` over a resolved set; offers only resolved, enabled entries            |
-| `IMCPDefinitionRegistryOptions` | interface | Workspace trust snapshot passed through to admission unchanged                                           |
-| `listServers`                   | function  | Every configured server, projected                                                                       |
-| `getServer`                     | function  | One server by name, or a typed not-found carrying the names that exist                                   |
-| `statusOf`                      | function  | Counts (total, resolved, unresolved, disabled, unset-variable) plus the projected set                    |
-| `IMCPListResult`                | interface | `{ servers }` returned by `listServers`                                                                  |
-| `IMCPStatusResult`              | interface | Counts plus the projected set returned by `statusOf`                                                     |
-| `TMCPGetResult`                 | type      | `{ found: true, server }` or `{ found: false, name, knownNames }`                                        |
-| `IMCPServerDefinitionRaw`       | interface | An entry exactly as read, before validation                                                              |
-| `IMCPServerDefinition`          | interface | A decoded entry; environment templates not yet materialized                                              |
-| `IMCPServerDefinitionResolved`  | interface | A materialized definition plus the references that had no value                                          |
-| `IMCPResolvedEntry`             | interface | One server name's outcome: winner, status, shadows, and any disable reason                               |
-| `IMCPDefinitionProblem`         | interface | Why a name could not produce a usable definition                                                         |
-| `IMCPDefinitionShadow`          | interface | An entry a winner hid, with its own source and origin                                                    |
-| `IMCPUnsetVariable`             | interface | An unset `${VAR}`: the variable, the exact field, and the literal left in place                          |
-| `TMCPDefinitionSource`          | type      | `managed \| local \| project \| user \| plugin`                                                        |
-| `TMCPTransport`                 | type      | `stdio \| http \| sse \| ws`; `streamable-http` normalises to `http`                                    |
+| `definitionFingerprint`         | function  | Hash over what will run or be contacted; secret VALUES are never hashed                                    |
+| `securityIdentity`              | function  | Hash over name, source and origin — which configured subject this is                                       |
+| `activationIdentity`            | function  | Both ids for one entry, or `null` when it is unresolved                                                    |
+| `IMCPActivationIdentity`        | interface | `{ serverId, definitionFingerprint, securityIdentity }`                                                    |
+| `MCPDefinitionRegistry`         | class     | `IMCPActivationDefinitionRegistry` over a resolved set; offers only resolved, enabled entries              |
+| `IMCPDefinitionRegistryOptions` | interface | Workspace trust snapshot passed through to admission unchanged                                             |
+| `listServers`                   | function  | Every configured server, projected                                                                         |
+| `getServer`                     | function  | One server by name, or a typed not-found carrying the names that exist                                     |
+| `statusOf`                      | function  | Counts (total, resolved, unresolved, disabled, unset-variable) plus the projected set                      |
+| `IMCPListResult`                | interface | `{ servers }` returned by `listServers`                                                                    |
+| `IMCPStatusResult`              | interface | Counts plus the projected set returned by `statusOf`                                                       |
+| `TMCPGetResult`                 | type      | `{ found: true, server }` or `{ found: false, name, knownNames }`                                          |
+| `IMCPServerDefinitionRaw`       | interface | An entry exactly as read, before validation                                                                |
+| `IMCPServerDefinition`          | interface | A decoded entry; environment templates not yet materialized                                                |
+| `IMCPServerDefinitionResolved`  | interface | A materialized definition plus the references that had no value                                            |
+| `IMCPResolvedEntry`             | interface | One server name's outcome: winner, status, shadows, and any disable reason                                 |
+| `IMCPDefinitionProblem`         | interface | Why a name could not produce a usable definition                                                           |
+| `IMCPDefinitionShadow`          | interface | An entry a winner hid, with its own source and origin                                                      |
+| `IMCPUnsetVariable`             | interface | An unset `${VAR}`: the variable, the exact field, and the literal left in place                            |
+| `TMCPDefinitionSource`          | type      | `managed \| local \| project \| user \| plugin`                                                            |
+| `TMCPTransport`                 | type      | `stdio \| http \| sse \| ws`; `streamable-http` normalises to `http`                                       |
 
 ## Extension Points
 

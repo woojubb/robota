@@ -12,11 +12,17 @@ import { applyDisableOverlay } from '../definition/overlay.js';
 import { MCPDefinitionRegistry } from '../definition/registry.js';
 import { getServer, listServers, statusOf } from '../management/results.js';
 import { MCPActivationController } from '../mcp-activation-controller.js';
-import { MCPActivationAdmissionService, InMemoryMCPActivationApprovalStore } from '../mcp-activation.js';
+import {
+  MCPActivationAdmissionService,
+  InMemoryMCPActivationApprovalStore,
+} from '../mcp-activation.js';
 
 import type { IMCPResolvedEntry } from '../definition/types.js';
 
-const resolved = (name: string, source: IMCPResolvedEntry['source'] = 'project'): IMCPResolvedEntry => ({
+const resolved = (
+  name: string,
+  source: IMCPResolvedEntry['source'] = 'project',
+): IMCPResolvedEntry => ({
   name,
   source,
   origin: `${source}.json`,
@@ -28,7 +34,8 @@ const resolved = (name: string, source: IMCPResolvedEntry['source'] = 'project')
     transport: 'http',
     url: `https://${name}.example/mcp`,
     headers: { Authorization: 'Bearer secret' },
-    unsetVariables: name === 'gamma' ? [{ variable: 'MISSING', field: 'url', literal: '${MISSING}' }] : [],
+    unsetVariables:
+      name === 'gamma' ? [{ variable: 'MISSING', field: 'url', literal: '${MISSING}' }] : [],
   },
   shadowed: [{ name, source: 'user', origin: 'user.json' }],
 });

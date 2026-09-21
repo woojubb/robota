@@ -8,7 +8,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { activationIdentity, definitionFingerprint, securityIdentity } from '../definition/identity.js';
+import {
+  activationIdentity,
+  definitionFingerprint,
+  securityIdentity,
+} from '../definition/identity.js';
 
 import type { IMCPResolvedEntry, IMCPServerDefinitionResolved } from '../definition/types.js';
 
@@ -57,7 +61,9 @@ describe('definitionFingerprint', () => {
     const base = definitionFingerprint(definition());
     expect(definitionFingerprint(definition({ env: { OTHER_KEY: 'sk-1' } }))).not.toBe(base);
     expect(
-      definitionFingerprint(definition({ headers: { Authorization: 'x' }, env: { API_KEY: 'sk-1' } })),
+      definitionFingerprint(
+        definition({ headers: { Authorization: 'x' }, env: { API_KEY: 'sk-1' } }),
+      ),
     ).not.toBe(base);
   });
 

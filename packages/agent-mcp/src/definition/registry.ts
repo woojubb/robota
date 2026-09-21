@@ -73,7 +73,7 @@ export class MCPDefinitionRegistry implements IMCPActivationDefinitionRegistry {
       const request: IMCPActivationRequest = {
         serverId: identity.serverId,
         endpoint: endpointOf(entry),
-        source: entry.source as TMCPActivationSource,
+        source: entry.source,
         provenance: provenanceOf(entry, identity.definitionFingerprint),
         definitionFingerprint: identity.definitionFingerprint,
         securityIdentity: identity.securityIdentity,

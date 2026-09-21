@@ -64,7 +64,18 @@ const SOURCES: readonly IMCPSourceCandidates[] = [
 ];
 
 function run(): void {
-  const before = process.getActiveResourcesInfo();
+  // Replace the one network entry point this package can reach, so "contacted nothing" is a
+  // property the run ENFORCES rather than one it infers afterwards. The previous version diffed
+  // `process.getActiveResourcesInfo()` across the body — a measurement this PR's own
+  // `definition-no-side-effects.test.ts` documents as invalid, because that list is empty after a
+  // `spawnSync`, after a child that already exited, and after a socket that connected and hung up.
+  // It would have reported 0 over a pipeline that did all three.
+  let networkAttempted = false;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = ((...args: unknown[]): never => {
+    networkAttempted = true;
+    throw new Error(`the control plane called fetch(${String(args[0])})`);
+  }) as unknown as typeof globalThis.fetch;
 
   const entries = resolveByPrecedence(SOURCES, (definition: IMCPServerDefinition) =>
     materializeDefinition(definition, { HOME: process.env['HOME'] ?? '' }),
@@ -80,7 +91,10 @@ function run(): void {
     alpha.definition?.url === 'https://managed.example/mcp',
     'the winning definition was not taken whole',
   );
-  assertCondition(alpha.shadowed.length === 4, `alpha shadowed ${alpha.shadowed.length}, expected 4`);
+  assertCondition(
+    alpha.shadowed.length === 4,
+    `alpha shadowed ${alpha.shadowed.length}, expected 4`,
+  );
 
   assertCondition(beta.status === 'unresolved', 'a malformed winner did not fail closed');
   assertCondition(beta.source === 'local', 'a malformed winner fell through to a lower scope');
@@ -99,7 +113,10 @@ function run(): void {
   const listed = listServers(overlaid);
   const rendered = JSON.stringify(listed);
   assertCondition(!rendered.includes('sk-live-do-not-print'), 'a secret survived the projection');
-  assertCondition(!rendered.includes('Bearer ${MISSING_TOKEN}'), 'a header value survived the projection');
+  assertCondition(
+    !rendered.includes('Bearer ${MISSING_TOKEN}'),
+    'a header value survived the projection',
+  );
 
   const projection = listed.servers.find((server) => server.name === 'alpha');
   const envRedacted = projection?.env?.['API_KEY'] === '[REDACTED]';
@@ -121,21 +138,15 @@ function run(): void {
     'the activation registry offered the wrong set',
   );
 
-  const after = process.getActiveResourcesInfo();
-  const opened = (kind: string): number =>
-    after.filter((resource) => resource === kind).length -
-    before.filter((resource) => resource === kind).length;
-  const processesSpawned = opened('ChildProcess');
-  const socketsOpened = opened('TCPSocketWrap') + opened('TLSWrap');
-  assertCondition(processesSpawned === 0, 'the control plane spawned a process');
-  assertCondition(socketsOpened === 0, 'the control plane opened a socket');
+  globalThis.fetch = realFetch;
+  assertCondition(!networkAttempted, 'the control plane reached the network');
 
   process.stdout.write(
     `result=winner=alpha:${alpha.source}; alphaShadowed=${alpha.shadowed.length}; ` +
       `betaWinner=beta:${beta.source}; betaUnresolved=${beta.status === 'unresolved'}; ` +
       `betaShadowed=${beta.shadowed.length}; unsetVarPreservedLiterally=true; ` +
       `envRedacted=${envRedacted}; headersRedacted=${headersRedacted}; projectionKeysKept=${keysKept}; ` +
-      `processesSpawned=${processesSpawned}; socketsOpened=${socketsOpened}\n`,
+      `networkAttempted=${networkAttempted}\n`,
   );
 }
 

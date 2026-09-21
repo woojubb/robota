@@ -14,7 +14,11 @@ import { decodeSource } from '../definition/decode.js';
 import { MCP_SOURCE_PRECEDENCE, resolveByPrecedence } from '../definition/precedence.js';
 
 import type { IMCPSourceCandidates } from '../definition/precedence.js';
-import type { IMCPServerDefinition, IMCPServerDefinitionResolved, TMCPDefinitionSource } from '../definition/types.js';
+import type {
+  IMCPServerDefinition,
+  IMCPServerDefinitionResolved,
+  TMCPDefinitionSource,
+} from '../definition/types.js';
 
 /** The materializer is injected; precedence is about order, so identity keeps the two apart. */
 const noTemplates = (definition: IMCPServerDefinition): IMCPServerDefinitionResolved => ({
@@ -106,7 +110,10 @@ describe('resolveByPrecedence', () => {
   it('resolves each name independently', () => {
     const entries = resolveByPrecedence(
       [
-        source('plugin', { alpha: http('https://plugin.example'), gamma: http('https://g.example') }),
+        source('plugin', {
+          alpha: http('https://plugin.example'),
+          gamma: http('https://g.example'),
+        }),
         source('managed', { alpha: http('https://managed.example') }),
       ],
       noTemplates,
@@ -124,7 +131,11 @@ describe('resolveByPrecedence', () => {
     const entries = resolveByPrecedence(
       [
         source('user', { alpha: http('https://user.example') }),
-        { source: 'managed', origin: 'managed.json', ...decodeSource('not an object', 'managed', 'managed.json') },
+        {
+          source: 'managed',
+          origin: 'managed.json',
+          ...decodeSource('not an object', 'managed', 'managed.json'),
+        },
       ],
       noTemplates,
     );

@@ -15,7 +15,12 @@ export type {
   TMCPDefinitionSource,
   TMCPTransport,
 } from './definition/types.js';
-export { decodeEntry, decodeSource, readRawEntries, type IMCPDecodeResult } from './definition/decode.js';
+export {
+  decodeEntry,
+  decodeSource,
+  readRawEntries,
+  type IMCPDecodeResult,
+} from './definition/decode.js';
 export { materializeDefinition, type IMCPEnvironment } from './definition/env-template.js';
 export {
   MCP_SOURCE_PRECEDENCE,

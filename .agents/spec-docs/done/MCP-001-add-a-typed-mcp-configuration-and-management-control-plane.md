@@ -11,7 +11,7 @@ Paired with `.agents/tasks/MCP-001-add-a-typed-mcp-configuration-and-management-
 
 ## Problem
 
-Robota has no reachable owner for an MCP server *definition*. Measured on
+Robota has no reachable owner for an MCP server _definition_. Measured on
 `integration/agreement-014@139097e83c` (2026-09-21):
 
 - `@robota-sdk/agent-core` exports `IMCPToolConfig` and `IToolFactory.createMCPTool()`
@@ -30,7 +30,7 @@ Robota has no reachable owner for an MCP server *definition*. Measured on
   package**. Nothing consumes it.
 - The `/mcp` command (`packages/agent-command/src/mcp-activation/`) can only see activation
   decisions, because `IMCPActivationDefinitionRegistry.list()`
-  (`packages/agent-tool-mcp/src/mcp-activation-controller.ts:9`) is handed activation *requests*.
+  (`packages/agent-tool-mcp/src/mcp-activation-controller.ts:9`) is handed activation _requests_.
   There is no definition to list, get, or resolve, so `/mcp` cannot answer "what servers are
   configured, from where, and which entry won".
 
@@ -126,7 +126,7 @@ five scopes. `agent-cli`'s `mcpActivationAdapter` port already exists
 `/mcp` answers "not available in this environment" today; this child builds the registry that port
 will be handed, and MCP-002 supplies it from disk.
 
-What a person can run *now* is therefore not `/mcp` but the package's own scenario surface — the
+What a person can run _now_ is therefore not `/mcp` but the package's own scenario surface — the
 same one `agent-tool-mcp` already ships and which this child extends
 (`pnpm --filter @robota-sdk/agent-mcp scenario:verify` after the rename; the surface itself was
 proven on this tree on 2026-09-21 by running the package's current script under its current name,
@@ -134,7 +134,7 @@ proven on this tree on 2026-09-21 by running the package's current script under 
 is the one being honoured.
 
 **Recorded divergence (for the owner, not resolved here).** The current official Claude Code
-documentation places plugin-provided servers *above* user scope ("Additional sources that override
+documentation places plugin-provided servers _above_ user scope ("Additional sources that override
 user scope: 4. Plugin-provided servers"), while the approved contract places `plugin` last. ARCH-1985
 pins the literal string `managed > local > project > user > plugin` with a mechanical assertion
 (its TC-04) and was approved and merged; ADR-005 repeats it. This spec implements the approved order
@@ -234,26 +234,26 @@ which is a declared, warned, literal-preserving outcome rather than a substituti
 - [x] TC-05: `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-no-side-effects.test.ts` → exits 0 — every module under `src/definition/` and `src/management/` is asserted to import no process, socket or MCP-SDK module, so parse/import/resolve/list/get/status cannot connect or spawn
 - [x] TC-06: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0 with `HARNESS_BASE_REF=origin/integration/agreement-014` — the rename is consistent across every machine-read inventory and architecture map
 - [x] TC-07: `pnpm --filter @robota-sdk/agent-mcp build && pnpm --filter @robota-sdk/agent-mcp test` → exits 0 — the renamed package builds and its pre-existing activation suites still pass
-- [x] TC-08: `pnpm exec tsx examples/verify-mcp-definition-control-plane.ts` from `packages/agent-mcp` → exits 0 and prints one `result=` line carrying `winner=alpha:managed`, `alphaShadowed=4`, `betaUnresolved=true`, `unsetVarPreservedLiterally=true`, `envRedacted=true`, `headersRedacted=true`, `processesSpawned=0` and `socketsOpened=0`
+- [x] TC-08: `pnpm exec tsx examples/verify-mcp-definition-control-plane.ts` from `packages/agent-mcp` → exits 0 and prints one `result=` line carrying `winner=alpha:managed`, `alphaShadowed=4`, `betaUnresolved=true`, `unsetVarPreservedLiterally=true`, `envRedacted=true`, `headersRedacted=true` and `networkAttempted=false`
 - [x] TC-09: `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-overlay.test.ts` → exits 0 — a disabled entry stays listed with its provenance and a disabled reason rather than disappearing, re-enabling restores the identical resolved entry, and an overlay naming an unknown server is refused instead of silently creating one
 - [x] TC-10: `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-identity.test.ts` → exits 0 — the activation identity and fingerprint are stable across re-resolution of an unchanged entry, change when any materialized field changes, and differ between two entries that share a server name but come from different scopes
 - [x] TC-11: `pnpm exec vitest run packages/agent-mcp/src/__tests__/management-results.test.ts` → exits 0 — `list`, `get` and `status` return resolved entries with provenance and shadow records, `get` on an unknown name returns a typed not-found result rather than throwing, and `MCPActivationController` enumerates exactly the resolved set it is given through `IMCPActivationDefinitionRegistry`
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                         | Notes                                                                                 |
-| ----- | ----------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| TC-01 | Unit        | `vitest run` on `definition-precedence.test.ts`                         | RED when the source order is permuted; covers shadowing and fail-closed unresolved    |
-| TC-02 | Unit        | `vitest run` on `definition-env-template.test.ts`                       | Covers all five templated fields and the unset-with-no-default warning                |
-| TC-03 | Unit        | `vitest run` on `definition-decode.test.ts` + `definition-projection.test.ts` | Negative decoding paths and secret-free projection                                    |
-| TC-04 | Boundary    | `grep` over `packages/*/src apps/*/src` + `agent-core` build            | Test skipped: a removal is proven by ABSENCE — a unit test asserting a deleted type is gone cannot be written against a type that no longer exists to import. The grep plus the `agent-core` build are the automated check, recorded as a `[GATE-COMPLETE: TC-04]` command entry |
-| TC-05 | Unit        | `vitest run` on `definition-no-side-effects.test.ts`                    | Static import assertion over the pure directories — the side-effect ban made checkable |
-| TC-06 | Suite       | `run-all-scans.mjs --affected --context pr`                             | Rename consistency across inventories and maps; base bound to the integration branch  |
-| TC-07 | Package     | `pnpm --filter @robota-sdk/agent-mcp build && … test`                   | The renamed package still builds and its MCP-2520 suites still pass                   |
-| TC-08 | Scenario    | `pnpm exec tsx examples/verify-mcp-definition-control-plane.ts`         | Test written as an executable scenario runner rather than a vitest file: `packages/agent-mcp/examples/verify-mcp-definition-control-plane.ts`, wired into `scenario:verify` and recorded by `scenario:record`. The properties it asserts are additionally pinned by `packages/agent-mcp/src/__tests__/definition-precedence.test.ts` and `definition-projection.test.ts` |
-| TC-09 | Unit        | `vitest run` on `definition-overlay.test.ts`                            | Reversible disable/enable; a disabled entry stays visible; unknown-server overlay refused |
-| TC-10 | Unit        | `vitest run` on `definition-identity.test.ts`                           | Fingerprint stability, change detection, and scope-distinct identities                |
-| TC-11 | Unit        | `vitest run` on `management-results.test.ts`                            | Pure list/get/status results and the registry the activation controller enumerates    |
+| TC-ID | Test Type | Tool / Approach                                                               | Notes                                                                                                                                                                                                                                                                                                                                                                    |
+| ----- | --------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TC-01 | Unit      | `vitest run` on `definition-precedence.test.ts`                               | RED when the source order is permuted; covers shadowing and fail-closed unresolved                                                                                                                                                                                                                                                                                       |
+| TC-02 | Unit      | `vitest run` on `definition-env-template.test.ts`                             | Covers all five templated fields and the unset-with-no-default warning                                                                                                                                                                                                                                                                                                   |
+| TC-03 | Unit      | `vitest run` on `definition-decode.test.ts` + `definition-projection.test.ts` | Negative decoding paths and secret-free projection                                                                                                                                                                                                                                                                                                                       |
+| TC-04 | Boundary  | `grep` over `packages/*/src apps/*/src` + `agent-core` build                  | Test skipped: a removal is proven by ABSENCE — a unit test asserting a deleted type is gone cannot be written against a type that no longer exists to import. The grep plus the `agent-core` build are the automated check, recorded as a `[GATE-COMPLETE: TC-04]` command entry                                                                                         |
+| TC-05 | Unit      | `vitest run` on `definition-no-side-effects.test.ts`                          | Static import assertion over the pure directories — the side-effect ban made checkable                                                                                                                                                                                                                                                                                   |
+| TC-06 | Suite     | `run-all-scans.mjs --affected --context pr`                                   | Rename consistency across inventories and maps; base bound to the integration branch                                                                                                                                                                                                                                                                                     |
+| TC-07 | Package   | `pnpm --filter @robota-sdk/agent-mcp build && … test`                         | The renamed package still builds and its MCP-2520 suites still pass                                                                                                                                                                                                                                                                                                      |
+| TC-08 | Scenario  | `pnpm exec tsx examples/verify-mcp-definition-control-plane.ts`               | Test written as an executable scenario runner rather than a vitest file: `packages/agent-mcp/examples/verify-mcp-definition-control-plane.ts`, wired into `scenario:verify` and recorded by `scenario:record`. The properties it asserts are additionally pinned by `packages/agent-mcp/src/__tests__/definition-precedence.test.ts` and `definition-projection.test.ts` |
+| TC-09 | Unit      | `vitest run` on `definition-overlay.test.ts`                                  | Reversible disable/enable; a disabled entry stays visible; unknown-server overlay refused                                                                                                                                                                                                                                                                                |
+| TC-10 | Unit      | `vitest run` on `definition-identity.test.ts`                                 | Fingerprint stability, change detection, and scope-distinct identities                                                                                                                                                                                                                                                                                                   |
+| TC-11 | Unit      | `vitest run` on `management-results.test.ts`                                  | Pure list/get/status results and the registry the activation controller enumerates                                                                                                                                                                                                                                                                                       |
 
 ## User Execution Test Scenarios
 
@@ -274,10 +274,10 @@ MCP-2520. It is recorded in `examples/scenarios/mcp-activation-admission.record.
 - Prerequisites: Node.js and pnpm are installed and `pnpm install` has completed; run from `packages/agent-mcp`; the example builds its own in-memory five-scope fixture, including a malformed higher-precedence entry and an unset `${MISSING_TOKEN}` reference; no network, no MCP server, no provider credential and no external service is required
 - Command: `pnpm exec tsx examples/verify-mcp-definition-control-plane.ts`
 - Observable type: sdk-result
-- Expected observable: result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; processesSpawned=0; socketsOpened=0
+- Expected observable: result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; networkAttempted=false
 - Observable rationale: source=public-sdk-return
 - Cleanup: the example uses only in-memory state and exits without leaving files, processes or connections
-- Evidence: `pnpm exec tsx examples/verify-mcp-definition-control-plane.ts` exited 0 from `packages/agent-mcp` on 2026-09-21, printing `result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; processesSpawned=0; socketsOpened=0`. The first run of it failed with a `TypeError` out of `applyDisableOverlay(entries, {})`, a real defect the unit suites had missed because they always passed a `disabled` map; the overlay now treats an absent map as "nothing disabled" and `definition-overlay.test.ts` pins that case.
+- Evidence: `pnpm exec tsx examples/verify-mcp-definition-control-plane.ts` exited 0 from `packages/agent-mcp` on 2026-09-21, printing `result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; networkAttempted=false`. The last field replaced `processesSpawned=0; socketsOpened=0` during PR review: those two counters were a before/after diff of `process.getActiveResourcesInfo()`, which this change's own `definition-no-side-effects.test.ts` documents as empty after a `spawnSync`, after an exited child and after a closed socket — so they would have printed 0 over a run that did all three, and the receipt certified a property it could not observe. The example now replaces `fetch` with a throwing stub, which was proved to fire by injecting a call. The first run of it failed with a `TypeError` out of `applyDisableOverlay(entries, {})`, a real defect the unit suites had missed because they always passed a `disabled` map; the overlay now treats an absent map as "nothing disabled" and `definition-overlay.test.ts` pins that case.
 
 ## Tasks
 
@@ -346,7 +346,7 @@ MCP-2520. It is recorded in `examples/scenarios/mcp-activation-admission.record.
   (`.design/decisions/ADR-005-shared-mcp-owner-and-migration-boundary.md`, alternative 3, "Rename/reclassify
   private `agent-tool-mcp` to private `agent-mcp`") decides the placement, and the done spec ARCH-1985
   records the independent placement review (`New-surface placement: agent-session is the closest lower
-  neutral-contract/host-adapter analog`, with `REVIEW VERDICT: ENDORSE` from an independent
+neutral-contract/host-adapter analog`, with `REVIEW VERDICT: ENDORSE` from an independent
   `proposal-reviewer` and a GATE-WRITE guardian line judging the same conditional PASS). Requirement (b) is
   restated in this document's own § Decision: the dependency stays `agent-mcp → agent-core`,
   `agent-framework` does not import or re-export the private package, and no sibling PRODUCT is depended
@@ -425,7 +425,7 @@ was touched between the two runs.
   reclassification is owned upstream rather than self-claimed — ADR-005 alternative 3 ("Rename/reclassify
   private `agent-tool-mcp` to private `agent-mcp`") decides the placement, and the done spec ARCH-1985
   records the independent review (`New-surface placement: agent-session is the closest lower
-  neutral-contract/host-adapter analog`, an independent `proposal-reviewer` `REVIEW VERDICT: ENDORSE`, and
+neutral-contract/host-adapter analog`, an independent `proposal-reviewer` `REVIEW VERDICT: ENDORSE`, and
   a guardian PASS on this same conditional). Requirement (b) is restated in this document's § Decision:
   the dependency stays `agent-mcp → agent-core`, `agent-framework` does not import or re-export the
   private package, and no sibling PRODUCT is depended on. Note carried forward for GATE-APPROVAL: the
@@ -498,7 +498,7 @@ GATE VERDICT: PASS
   `IMCPToolConfig` and `IToolFactory.createMCPTool()` with no facade plus the playground stub, the eleven
   completion criteria, and the deferral of the `/mcp` CLI wiring to MCP-002) and that stated why Route
   DIRECT was required. Corroborated on the tree rather than taken on assertion: the `**Review
-  fingerprint:** 4e8ef5aace9b` recorded at approval equals the document's current fingerprint, so the
+fingerprint:** 4e8ef5aace9b` recorded at approval equals the document's current fingerprint, so the
   approval attaches to this content; the working tree contains exactly one spec document
   (`git status --porcelain` → only this untracked file), and the only other `review-ready` documents in
   `.agents/spec-docs/backlog/` (HARNESS-125, RULE-015) were last touched on 2026-08-29, so no second spec
@@ -575,6 +575,7 @@ GATE VERDICT: PASS
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -639,6 +640,7 @@ GATE VERDICT: PASS
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
@@ -722,7 +724,7 @@ src/hooks/executors/command-executor.ts (17:22) [33m[UNRESOLVED_IMPORT] [0mCou
     [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m src/hooks/executors/command-executor.ts:17:23 [38;5;246m][0m
     [38;5;246m│[0m
  [38;5;246m17 │[0m [38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m{[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249mp[0m[38;5;249ma[0m[38;5;249mw[0m[38;5;249mn[0m[38;5;249m [0m[38;5;249m}[0m[38;5;249m [0m[38;5;249mf[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mm[0m[38;5;249m [0m'node:child_process'[38;5;249m;[0m
- [38;5;240m   │[0m                       ──────────┬─────────  
+ [38;5;240m   │[0m                       ──────────┬─────────
  [38;5;240m   │[0m                                 ╰─────────── Module not found, treating it as an external dependency
 [38;5;246m────╯[0m
 
@@ -882,9 +884,9 @@ result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresol
 **Status remains:** in-progress
 **Failed criteria:**
 
-- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `HARNESS_BASE_REF=origin/integration/agreement-014 node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 1 (  recommendation: Inspect the task-archival scan output above. ⏎  ⏎ 1 of 124 scans failed); `pnpm --filter @robota-sdk/agent-mcp test` → exit 0 (   Duration  1.55s (transform 290ms, setup 0ms, collect 586ms, tests 1.31s, environment 1ms, prepare 441ms) ⏎  ⏎ 4:43:09 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.)
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): `HARNESS_BASE_REF=origin/integration/agreement-014 node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 1 ( recommendation: Inspect the task-archival scan output above. ⏎ ⏎ 1 of 124 scans failed); `pnpm --filter @robota-sdk/agent-mcp test` → exit 0 ( Duration 1.55s (transform 290ms, setup 0ms, collect 586ms, tests 1.31s, environment 1ms, prepare 441ms) ⏎ ⏎ 4:43:09 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.)
   **Required action:** make every verify command exit 0
-- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `HARNESS_BASE_REF=origin/integration/agreement-014 node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 1 (  recommendation: Inspect the task-archival scan output above. ⏎  ⏎ 1 of 124 scans failed); `pnpm --filter @robota-sdk/agent-mcp test` → exit 0 (   Duration  1.55s (transform 290ms, setup 0ms, collect 586ms, tests 1.31s, environment 1ms, prepare 441ms) ⏎  ⏎ 4:43:09 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.)
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): `HARNESS_BASE_REF=origin/integration/agreement-014 node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 1 ( recommendation: Inspect the task-archival scan output above. ⏎ ⏎ 1 of 124 scans failed); `pnpm --filter @robota-sdk/agent-mcp test` → exit 0 ( Duration 1.55s (transform 290ms, setup 0ms, collect 586ms, tests 1.31s, environment 1ms, prepare 441ms) ⏎ ⏎ 4:43:09 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.)
   **Required action:** make every verify command exit 0
 
 **Judged by:** `gate.mjs` mechanical evaluator
@@ -916,7 +918,7 @@ Independent guardian: backlog-gate-guard. The two Plan-item criteria were left P
   `registry.ts`) and `src/management/results.ts`; `packages/agent-mcp/package.json` reads
   `"name": "@robota-sdk/agent-mcp"` with `"private": true` and a `scenario:verify` script extended to
   run `examples/verify-mcp-definition-control-plane.ts`; `grep -rn 'IMCPToolConfig\|createMCPTool'
-  packages/*/src apps/*/src` returns no hit outside `packages/agent-mcp` (exit 1, no output), so the
+packages/*/src apps/*/src` returns no hit outside `packages/agent-mcp` (exit 1, no output), so the
   `agent-core` contract and the playground stub are gone; `.changeset/2519-mcp-001-typed-control-plane.md`
   declares `'@robota-sdk/agent-core': major`; the four machine-read inventories and the five
   architecture-map documents carry no residual `agent-tool-mcp` reference.
@@ -926,14 +928,14 @@ Independent guardian: backlog-gate-guard. The two Plan-item criteria were left P
   landing, closing the issue, or publishing; the `task-plan-items` scan passes in the run below.
 - GATE-VERIFY — build passes for all affected packages: PASS. Verify command
   `HARNESS_BASE_REF=origin/integration/agreement-014 node scripts/harness/run-all-scans.mjs --affected
-  --context pr --skip dist --skip build-contracts --skip task-archival` re-run by this guardian →
+--context pr --skip dist --skip build-contracts --skip task-archival` re-run by this guardian →
   exit 0: "120 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context)". The two
   tolerated advisories are `reference-kind-qualified` (two unqualified `#2790`/`#2791` citations in
   this spec, plus a pre-existing hit in `spec-docs/done/INFRA-2772-…`) and `task-merged-citation` (a
   `SECRET-2664` reconciliation unrelated to this item); both are advisory-not-blocking in `pr` context
   by the runner's own classification, and no scan receipt was written because of them. Package build
   is additionally evidenced by the `[GATE-COMPLETE: TC-04]` record (`pnpm --filter
-  @robota-sdk/agent-core build` → exit 0) and `[GATE-COMPLETE: TC-07]`.
+@robota-sdk/agent-core build` → exit 0) and `[GATE-COMPLETE: TC-07]`.
 - GATE-VERIFY — tests pass for all affected packages: PASS. Verify command
   `pnpm --filter @robota-sdk/agent-mcp test` re-run by this guardian → exit 0, 14 test files / 123
   tests passed, including all eight new `definition-*` / `management-results` suites. Spot re-runs of
@@ -942,8 +944,8 @@ Independent guardian: backlog-gate-guard. The two Plan-item criteria were left P
   tests; TC-04 removal grep → no hit outside `packages/agent-mcp`; TC-08
   `pnpm exec tsx examples/verify-mcp-definition-control-plane.ts` from `packages/agent-mcp` → exit 0,
   printing exactly `result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local;
-  betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true;
-  headersRedacted=true; projectionKeysKept=true; processesSpawned=0; socketsOpened=0` — byte-identical
+betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true;
+headersRedacted=true; projectionKeysKept=true; processesSpawned=0; socketsOpened=0` — byte-identical
   to the recorded TC-08 output and to the Task's expected observable.
 - GATE-VERIFY — the `--skip task-archival` deferral, verified rather than accepted: the scan was run
   on its own (`--only task-archival`, same base ref) and its sole finding is this item:
@@ -1007,3 +1009,26 @@ Independent guardian: backlog-gate-guard. The two Plan-item criteria were left P
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `73856f943634` · base `origin/develop@24a646101a00` · document `.agents/spec-docs/active/MCP-001-add-a-typed-mcp-configuration-and-management-control-plane.md` blob `f98f028f7139` (modified)
+
+### [CORRECTION: TC-08 observable] — 2026-09-21
+
+**What changed:** TC-08, the § User-Execution Verification block, and the recorded receipt
+`packages/agent-mcp/examples/scenarios/mcp-activation-admission.record.json` no longer name
+`processesSpawned=0; socketsOpened=0`. They name `networkAttempted=false`.
+
+**Why:** PR review found that those two counters were a before/after diff of
+`process.getActiveResourcesInfo()`. This change's own
+`packages/agent-mcp/src/__tests__/definition-no-side-effects.test.ts` documents that the same
+measurement is invalid — the list is empty after a `spawnSync`, after a child that has already
+exited, and after a socket that connected and hung up — so the scenario would have printed `0` over
+a run that did all three. The receipt certified a property it could not observe. The example now
+replaces `fetch` with a throwing stub; injecting a call was verified to abort the run with
+`the control plane called fetch(https://injected.example/proof)`, which the previous form would
+have reported as `socketsOpened=0`.
+
+**What is NOT changed:** the `[GATE-WRITE]`, `[GATE-VERIFY]` and `[GATE-COMPLETE: TC-08]` entries
+above still quote the old line. They are verbatim captures of what was run and judged at the time
+and are accurate as records; rewriting them would make the gate history say something that did not
+happen. This entry is the reconciliation between them and the current criterion.
+
+**Judged by:** recorded by the author during the PR review loop, not by a gate

@@ -6,8 +6,18 @@
  * inspected — listed, diffed, approved — before anything is contacted.
  */
 
-/** Where a definition came from. Ordered by precedence in `precedence.ts`, not here. */
-export type TMCPDefinitionSource = 'managed' | 'local' | 'project' | 'user' | 'plugin';
+import type { TMCPActivationSource } from '../mcp-activation.js';
+
+/**
+ * Where a definition came from. Ordered by precedence in `precedence.ts`, not here.
+ *
+ * This is the activation union, not a copy of it. A second five-member union spelled out here
+ * compiled against the first by coincidence, so `registry.ts` needed an assertion to bridge them
+ * and that assertion would have kept compiling through a divergence — into
+ * `requiresTrustedWorkspace`, which returns `false` for an unrecognised source and so routes it to
+ * the LESS restrictive path. One declaration cannot diverge from itself.
+ */
+export type TMCPDefinitionSource = TMCPActivationSource;
 
 /**
  * The transports a definition can name.

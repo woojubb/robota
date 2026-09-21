@@ -104,7 +104,9 @@ export function readRawEntries(
  * missing-`type` case is called out explicitly because it is the documented configuration error
  * that reads as a stdio server and then fails at connection time.
  */
-export function decodeEntry(raw: IMCPServerDefinitionRaw): IMCPServerDefinition | IMCPDefinitionProblem {
+export function decodeEntry(
+  raw: IMCPServerDefinitionRaw,
+): IMCPServerDefinition | IMCPDefinitionProblem {
   const { name, source, origin, entry } = raw;
   const problem = (reason: string): IMCPDefinitionProblem => ({ name, source, origin, reason });
 
@@ -147,6 +149,19 @@ export function decodeEntry(raw: IMCPServerDefinitionRaw): IMCPServerDefinition 
     if (entry['command'] !== undefined) {
       return problem(`a ${transport} definition must not carry a \`command\``);
     }
+    // The fourth cross-transport pair. Without it, `{"type":"http","url":…,"args":[…]}` decoded
+    // CLEANLY and dropped `args` on the floor: a stdio entry mistyped as `http` lost its whole
+    // command line with nothing said. Its three siblings were each refused by name; this one was
+    // the gap, and a silently discarded field is exactly the "partially built" entry the header
+    // above says never happens.
+    if (entry['args'] !== undefined) {
+      return problem(`a ${transport} definition must not carry \`args\``);
+    }
+    // `env` is deliberately NOT refused alongside it, and the asymmetry is the point: `env` is
+    // stored and carried on a remote definition (see the shared block below), so it is visible in
+    // a projection and hashed into the fingerprint. Nothing is silently lost, which is the only
+    // property this module promises. Whether a remote transport should ACT on it is MCP-002's
+    // question, and answering it here by rejecting the field would decide it early.
     const headers = entry['headers'];
     if (headers !== undefined) {
       const decoded = stringRecord(headers, 'headers');

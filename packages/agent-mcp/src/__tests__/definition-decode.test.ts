@@ -50,9 +50,9 @@ describe('decodeEntry', () => {
     expect((decodeEntry(raw({ type: 'stdio' })) as { reason: string }).reason).toMatch(
       /needs a non-empty `command`/,
     );
-    expect((decodeEntry(raw({ type: 'stdio', command: '  ' })) as { reason: string }).reason).toMatch(
-      /needs a non-empty `command`/,
-    );
+    expect(
+      (decodeEntry(raw({ type: 'stdio', command: '  ' })) as { reason: string }).reason,
+    ).toMatch(/needs a non-empty `command`/);
   });
 
   it('refuses a remote entry with no url', () => {
@@ -82,18 +82,41 @@ describe('decodeEntry', () => {
       (decodeEntry(raw({ type: 'stdio', command: 'x', headers: { a: 'b' } })) as { reason: string })
         .reason,
     ).toMatch(/must not carry `headers`/);
+    // The fourth pair. This one used to DECODE, silently dropping `args`: a stdio entry mistyped
+    // as `http` lost its whole command line with nothing reported.
+    expect(
+      (
+        decodeEntry(raw({ type: 'http', url: 'https://a', args: ['--secret', 'tok'] })) as {
+          reason: string;
+        }
+      ).reason,
+    ).toMatch(/must not carry `args`/);
+  });
+
+  it('carries `env` on a remote definition rather than dropping it', () => {
+    // The deliberate asymmetry with `args` above: `env` on a remote transport is not acted on
+    // today, but it is kept, so it stays visible in a projection and inside the fingerprint.
+    // Whether a remote client should honor it is MCP-002's call, not this decoder's.
+    const decoded = decodeEntry(raw({ type: 'http', url: 'https://a', env: { A: 'b' } }));
+    expect((decoded as { reason?: string }).reason).toBeUndefined();
+    expect((decoded as { env?: Record<string, string> }).env).toEqual({ A: 'b' });
   });
 
   it('refuses non-string args, env and header values', () => {
     expect(
-      (decodeEntry(raw({ type: 'stdio', command: 'x', args: ['a', 2] })) as { reason: string }).reason,
+      (decodeEntry(raw({ type: 'stdio', command: 'x', args: ['a', 2] })) as { reason: string })
+        .reason,
     ).toMatch(/`args` must be an array of strings/);
     expect(
-      (decodeEntry(raw({ type: 'stdio', command: 'x', env: { A: 1 } })) as { reason: string }).reason,
+      (decodeEntry(raw({ type: 'stdio', command: 'x', env: { A: 1 } })) as { reason: string })
+        .reason,
     ).toMatch(/`env\.A` must be a string/);
     expect(
-      (decodeEntry(raw({ type: 'http', url: 'https://a', headers: { A: null } })) as { reason: string })
-        .reason,
+      (
+        decodeEntry(raw({ type: 'http', url: 'https://a', headers: { A: null } })) as {
+          reason: string;
+        }
+      ).reason,
     ).toMatch(/`headers\.A` must be a string/);
   });
 
@@ -109,14 +132,23 @@ describe('readRawEntries and decodeSource', () => {
     const { entries, problems } = readRawEntries('nope', 'user', 'user.json');
     expect(entries).toEqual([]);
     expect(problems).toEqual([
-      { name: '', source: 'user', origin: 'user.json', reason: 'the configuration root is not an object' },
+      {
+        name: '',
+        source: 'user',
+        origin: 'user.json',
+        reason: 'the configuration root is not an object',
+      },
     ]);
   });
 
   it('refuses a container with no `mcpServers` key instead of reading it as a server map', () => {
     // This pinned the opposite until review: a `{"servers": {…}}` file decoded as a server map and
     // produced a bogus server named `servers`, rather than saying the file declares none.
-    const wrapped = decodeSource({ mcpServers: { a: { type: 'stdio', command: 'x' } } }, 'user', 'u');
+    const wrapped = decodeSource(
+      { mcpServers: { a: { type: 'stdio', command: 'x' } } },
+      'user',
+      'u',
+    );
     expect(wrapped.definitions).toHaveLength(1);
 
     const bare = decodeSource({ a: { type: 'stdio', command: 'x' } }, 'user', 'u');
