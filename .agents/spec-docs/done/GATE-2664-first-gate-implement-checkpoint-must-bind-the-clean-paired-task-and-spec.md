@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [typescript]
 lane: L2
@@ -124,15 +124,15 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: before the source fix, a first checkpoint rendered while both paired files
+- [x] TC-01: Observable: before the source fix, a first checkpoint rendered while both paired files
       are committed and clean omits them from `worktreePaths`; the new focused assertion fails RED.
-- [ ] TC-02: Observable: after the fix, the same generated payload contains the exact Task and `todo/`
+- [x] TC-02: Observable: after the fix, the same generated payload contains the exact Task and `todo/`
       spec paths once each in sorted order; first, continuation, and correction all obtain inventory
       from one shared helper.
-- [ ] TC-03: Observable: a dirty paired path does not create a duplicate, PLAN ledger paths remain
+- [x] TC-03: Observable: a dirty paired path does not create a duplicate, PLAN ledger paths remain
       allowed, and `evaluateGateImplementEntries(...)` with `priorEntries: []` plus exact
       `checkpointPaths` accepts the clean pair while rejecting an unrelated real worktree path.
-- [ ] TC-04: Command: `pnpm exec vitest run scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs`
+- [x] TC-04: Command: `pnpm exec vitest run scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs`
       and `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
       both exit 0 on `origin/develop`, and the focused checkpoint suite also exits 0 against the
       DATA-integrated `origin/integration/agreement-2664` state.
@@ -144,7 +144,7 @@ None
 | TC-01 | unit        | clean committed-pair fixture in `gate-checkpoint-evidence.test.mjs`                                                           | Capture RED before changing the producer.                      |
 | TC-02 | integration | assert first/continuation/correction call the shared pair-inventory helper and emit the exact sorted pair                     | Prevent producer drift without changing the evidence contract. |
 | TC-03 | adversarial | evaluate a current first entry with `priorEntries: []`, exact `checkpointPaths`, PLAN ledger, and unrelated dirt variants     | Exercise the failing current-entry consumer path.              |
-| TC-04 | suite       | focused Vitest and affected scans on develop, then focused compatibility verification on the DATA-integrated initiative state | Verify both required bases.                                    |
+| TC-04 | suite       | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs`, affected scans, and DATA-integrated compatibility run           | Verify both required bases.                                    |
 
 ## User Execution Test Scenarios
 
@@ -155,7 +155,7 @@ it adds no Robota CLI, TUI, browser, public SDK, configuration, or runtime behav
 
 ## Tasks
 
-- [ ] `.agents/tasks/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md` — todo
+- [x] `.agents/tasks/completed/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md` — in-progress
 - Planning checkpoint prepared after the approved state was committed.
 
 ## Evidence Log
@@ -266,3 +266,142 @@ GATE VERDICT: PASS
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `589e3390b461` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/todo/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md` blob `ba14b34d7cf0` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-4
+
+ ✓ scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs (5 tests) 2036ms
+   ✓ gate checkpoint evidence renderer > rejects a legacy v1 first PASS whose sequenced Decision was added only later  1329ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  11:43:03
+   Duration  2.31s (transform 82ms, setup 0ms, collect 126ms, tests 2.04s, environment 0ms, prepare 27ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `ec6ce1fe8b03` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md` blob `65dfbf0a97fe` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-4
+
+ ✓ scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs (5 tests) 2036ms
+   ✓ gate checkpoint evidence renderer > rejects a legacy v1 first PASS whose sequenced Decision was added only later  1329ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  11:43:03
+   Duration  2.31s (transform 82ms, setup 0ms, collect 126ms, tests 2.04s, environment 0ms, prepare 27ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `ec6ce1fe8b03` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md` blob `9e47cf2ff181` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-4
+
+ ✓ scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs (5 tests) 2036ms
+   ✓ gate checkpoint evidence renderer > rejects a legacy v1 first PASS whose sequenced Decision was added only later  1329ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  11:43:03
+   Duration  2.31s (transform 82ms, setup 0ms, collect 126ms, tests 2.04s, environment 0ms, prepare 27ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `ec6ce1fe8b03` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md` blob `86ef0c24e227` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-21
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 216 line(s))
+
+```
+Diagnostic report v1: 2 result(s), 2 non-clean.
+ERROR harness.scan-finding.scan-c36-c2t-c2u-c2t-c36-c2t-c32-c2r-c2t-c19-c2z-c2x-c32-c2s-c19-c35-c39-c2p-c30-c2x-c2u-c2x-c2t-c2s [finding] scan:reference-kind-qualified
+  evidence: Scan reference-kind-qualified exited with status 1.
+  recommendation: Inspect the reference-kind-qualified scan output above.
+ERROR harness.scan-finding.scan-c34-c36-c33-c2v-c36-c2t-c37-c37-c19-c36-c2t-c34-c33-c36-c38-c19-c35-c39-c2p-c32-c38-c2x-c2u-c2x-c2r-c2p-c38-c2x-c33-c32 [finding] scan:progress-report-quantification
+  evidence: Scan progress-report-quantification exited with status 1.
+  recommendation: Inspect the progress-report-quantification scan output above.
+
+61 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (64 declared what they examined)
+scan receipt NOT written: 2 advisory failure(s) were tolerated (reference-kind-qualified, progress-report-quantification), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `ec6ce1fe8b03` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md` blob `a809dfcd6ce6` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-21
+
+**Command:** `compat_dir=$(mktemp -d) && integration_sha=$(git rev-parse origin/integration/agreement-2664) && git clone -q --shared --no-checkout "$PWD" "$compat_dir" && git -C "$compat_dir" checkout -q "$integration_sha" && git diff --binary -- scripts/harness/gate-checkpoint-evidence-common.mjs scripts/harness/gate-checkpoint-evidence.mjs scripts/harness/gate-correction-checkpoint-evidence.mjs | git -C "$compat_dir" apply --3way - && ln -s "$PWD/node_modules" "$compat_dir/node_modules" && pnpm --dir "$compat_dir" exec vitest run scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs && echo "COMPAT_SHA=$integration_sha"`
+**Exit:** 0
+**Output:** (last 10 of 16 line(s))
+
+```
+
+ ✓ scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs (6 tests) 2125ms
+   ✓ gate checkpoint evidence renderer > rejects a legacy v1 first PASS whose sequenced Decision was added only later  1361ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  11:44:12
+   Duration  2.42s (transform 105ms, setup 0ms, collect 159ms, tests 2.13s, environment 0ms, prepare 30ms)
+
+COMPAT_SHA=4214cb540a54037410388a3a8107e474c224c86f
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `ec6ce1fe8b03` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md` blob `6659becfd8f8` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — Every item in the Task `## Plan` is marked complete: PASS — TC-01, TC-02, TC-03, and TC-04 are the complete Plan inventory, and all four are checked `[x]`.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — none of the four Plan items carries a blocked or pending state or qualifier.
+- GATE-VERIFY — Build passes for all affected packages: PASS — the supplied mechanical gate result reports build-shaped verification PASS with 0 FAIL.
+- GATE-VERIFY — Tests pass for all affected packages: PASS — the supplied mechanical gate result reports test-shaped verification PASS with 0 FAIL.
+
+**Judged by:** `backlog-gate-guard` semantic evaluator
+**Judged at:** HEAD `ec6ce1fe8b03` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md` blob `3dc61c6a9cc341795cf268795f120eabff4d66d2` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-21; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (4)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 4/4 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (4) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 4/4 tasks `[x]` in .agents/tasks/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `ec6ce1fe8b03` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md` blob `cff6b7aab517` (modified)

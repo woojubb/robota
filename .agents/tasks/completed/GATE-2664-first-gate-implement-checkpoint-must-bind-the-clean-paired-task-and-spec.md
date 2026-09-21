@@ -1,17 +1,18 @@
 ---
 title: 'GATE-2664: first GATE-IMPLEMENT checkpoint must bind the clean paired Task and spec'
 issue: https://github.com/woojubb/robota/issues/2664
-status: in-progress
+status: done
 created: 2026-09-21
 priority: high
 urgency: now
 area: scripts/harness GATE-IMPLEMENT checkpoint evidence
 depends_on: []
+completed: 2026-09-21
 ---
 
 # GATE-2664: first GATE-IMPLEMENT checkpoint must bind the clean paired Task and spec
 
-Spec: `.agents/spec-docs/active/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md`
+Spec: `.agents/spec-docs/done/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md`
 
 ## Objective
 
@@ -41,14 +42,14 @@ Source issue: https://github.com/woojubb/robota/issues/2664.
 
 ## Plan
 
-- [ ] TC-01: add a RED regression proving a first checkpoint rendered with a clean pair omits the
+- [x] TC-01: add a RED regression proving a first checkpoint rendered with a clean pair omits the
       required Task/spec inventory before the implementation change.
-- [ ] TC-02: add one shared pair-inventory helper that unions, deduplicates, and sorts `taskRel`,
+- [x] TC-02: add one shared pair-inventory helper that unions, deduplicates, and sorts `taskRel`,
       `specRel`, and the shared real-dirt inventory, then route first, continuation, and correction
       producers through it.
-- [ ] TC-03: prove the generated first payload binds through the existing consumer while unrelated
+- [x] TC-03: prove the generated first payload binds through the existing consumer while unrelated
       real dirt remains represented and rejected.
-- [ ] TC-04: run the complete checkpoint-evidence test file, affected harness scans, and the focused
+- [x] TC-04: run the complete checkpoint-evidence test file, affected harness scans, and the focused
       compatibility suite against the DATA-integrated `origin/integration/agreement-2664` state.
 
 ## Test Plan
@@ -76,3 +77,8 @@ it adds no Robota CLI, TUI, browser, public SDK, configuration, or runtime behav
 ## Progress
 
 - 2026-09-21: Approval committed; first GATE-IMPLEMENT checkpoint prepared before source changes.
+- 2026-09-21: RED reproduced an empty clean-pair inventory; GREEN centralizes the sorted pair
+  inventory for first, continuation, and correction producers while preserving PLAN-ledger allowance
+  and unrelated-dirt rejection. Focused tests pass on develop and on
+  `origin/integration/agreement-2664@4214cb540a54`; affected PR-context scans pass with two unrelated
+  advisory findings.

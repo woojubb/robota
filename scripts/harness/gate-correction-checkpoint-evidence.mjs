@@ -11,8 +11,8 @@ import {
 } from './checkpoint-evidence-git-contract.mjs';
 import {
   checkpointDeliveryDeclaration,
+  checkpointPairInventory,
   checkpointPlanSignal,
-  checkpointWorktreePaths,
   v2CheckpointContract,
 } from './gate-checkpoint-evidence-common.mjs';
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
@@ -76,7 +76,6 @@ export function correctionCheckpointEvidence({
   if (JSON.stringify(results[0].payload.taskItems) !== JSON.stringify(selected.items)) {
     throw new Error('GATE-IMPLEMENT correction prior first PASS does not bind current Task items');
   }
-  const worktreePaths = [...new Set([taskRel, specRel, ...checkpointWorktreePaths(root)])].sort();
   const payload = {
     version: contract.version,
     form: 'gateImplementCorrection',
@@ -88,7 +87,7 @@ export function correctionCheckpointEvidence({
     specPath: specRel,
     taskItems: selected.items,
     plan: signal,
-    worktreePaths,
+    worktreePaths: checkpointPairInventory(root, taskRel, specRel),
   };
   const rendered = formatCheckpointEvidence(contract, 'gateImplementCorrection', payload);
   if (!rendered.ok) throw new Error(`GATE-IMPLEMENT evidence payload invalid: ${rendered.error}`);
