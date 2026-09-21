@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [mcp, architecture, typescript]
 lane: L2
@@ -357,3 +357,63 @@ GATE VERDICT: PASS
 **Semantic judged at:** HEAD `5801343acb92e3807c6416912a928a7b8fbe36ac` · base `origin/develop@5801343acb92e3807c6416912a928a7b8fbe36ac` · document pre-evidence blob `d7d3493152783ab0d4b8699c88cdf96709ccd166`
 
 GATE VERDICT: PASS
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-21; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 489 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md",
+  "specPath": ".agents/spec-docs/todo/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md",
+    ".agents/tasks/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `3e34773ca75b` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/todo/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md` blob `38e091097e2f` (modified)

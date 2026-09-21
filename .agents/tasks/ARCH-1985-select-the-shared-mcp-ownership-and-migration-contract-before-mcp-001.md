@@ -1,7 +1,7 @@
 ---
 title: 'ARCH-1985: select the shared MCP ownership and migration contract before MCP-001'
 issue: https://github.com/woojubb/robota/issues/1985
-status: todo
+status: in-progress
 created: 2026-09-21
 priority: critical
 urgency: now
