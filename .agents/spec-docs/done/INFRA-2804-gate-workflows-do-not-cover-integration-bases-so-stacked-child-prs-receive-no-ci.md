@@ -354,15 +354,15 @@ absent CI result degrades silently into a passing one.
 Strategy derived from `type: INFRA` + `tags: [ci]` → CI pipeline smoke test, plus command-form assertions
 over the workflow files (mechanically checkable, so `manual` rows are avoided).
 
-| TC-ID | Test Type        | Tool / Approach                                                   | Notes                                                                                                |
-| ----- | ---------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| TC-01 | config assertion | `node` + `yaml` parse of `ci.yml`, assert the branches array      | Parsed, not grepped: a grep would pass on a commented-out line                                       |
-| TC-02 | config assertion | same, over the four remaining workflow files                     |                                                                                                      |
-| TC-03 | diff assertion   | `git diff origin/develop...HEAD -- .github/workflows/ci.yml`      | Proves the change is trigger-only; the whole safety argument rests on job conditions being untouched |
-| TC-06 | unit (shell)     | fixture-driven invocation of `merge-gate.sh` with a zero-check PR | Recorded `gh` output fixture; the hook must refuse                                                   |
-| TC-07 | unit (shell)     | same harness, with a passing-checks PR                            | Red-proof partner for TC-06: without it TC-06 passes trivially by refusing everything                |
+| TC-ID | Test Type        | Tool / Approach                                                                                              | Notes                                                                                                                      |
+| ----- | ---------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | config assertion | `node` + `yaml` parse of `ci.yml`, assert the branches array                                                 | Parsed, not grepped: a grep would pass on a commented-out line                                                             |
+| TC-02 | config assertion | same, over the four remaining workflow files                                                                 |                                                                                                                            |
+| TC-03 | diff assertion   | `git diff origin/develop...HEAD -- .github/workflows/ci.yml`                                                 | Proves the change is trigger-only; the whole safety argument rests on job conditions being untouched                       |
+| TC-06 | unit (shell)     | fixture-driven invocation of `merge-gate.sh` with a zero-check PR                                            | Recorded `gh` output fixture; the hook must refuse                                                                         |
+| TC-07 | unit (shell)     | same harness, with a passing-checks PR                                                                       | Red-proof partner for TC-06: without it TC-06 passes trivially by refusing everything                                      |
 | TC-09 | diff assertion   | `git diff origin/develop...HEAD` over all five workflows, asserting each keeps exactly its own `types:` list | Cheap to get wrong silently: a rewritten trigger block that drops `edited` breaks base-retargeting with no visible failure |
-| TC-08 | lint / scan      | `bash -n` + `run-all-scans.mjs --affected --context pr`           | Base-state scans are already red (issue #2423, issue #2778); the criterion is no NEW failure, not zero |
+| TC-08 | lint / scan      | `bash -n` + `run-all-scans.mjs --affected --context pr`                                                      | Base-state scans are already red (issue #2423, issue #2778); the criterion is no NEW failure, not zero                     |
 
 ## User Execution Test Scenarios
 
@@ -429,7 +429,7 @@ the next child opened against an integration branch and is recorded on issue #28
   `integration/*`", with the mechanism given as a 7-row trigger table. Every row verified against
   `.github/workflows/`: `ci.yml`, `dependency-review.yml`, `gitleaks.yml`, `review-gate.yml`
   `pull_request: [main, develop]`; `workflow-provenance-gate.yml` `pull_request_target: [main,
-  develop]`; `codeql.yml` `push: [main, develop]`; `scans-full.yml` `push: [develop]`. No pattern
+develop]`; `codeql.yml` `push: [main, develop]`; `scans-full.yml` `push: [develop]`. No pattern
   matches `integration/**`. The supporting hook citations also verify: `merge-gate.sh:19` is
   "1. Is CI green? `mergeStateStatus == CLEAN`.", line 183 is `if [[ "$STATE" != "CLEAN" ]]`, and
   line 6 reads "An unknown state is not a clean one".
@@ -438,8 +438,7 @@ the next child opened against an integration branch and is recorded on issue #28
   non-obvious half — that "no checks ran" is distinguishable from "checks passed" only under a ruleset
   targeting the base — which is carried into the Decision as a declared out-of-scope dependency rather
   than assumed away; R6/R7/R11/R13 are what alternative 4 is rejected ON; R11 bounds the cost
-  argument. Recommendation is derived, not asserted, and the one unverifiable source (CircleCI, HTTP
-  404) is named and explicitly not relied on. Issues cited as corroboration all exist and match:
+  argument. Recommendation is derived, not asserted, and the one unverifiable source (CircleCI, HTTP 404) is named and explicitly not relied on. Issues cited as corroboration all exist and match:
   #2798 (`protect-develop` targets no ref), #2756 (scans-full red on develop), #2797.
 - Architecture Review — new-surface placement (conditional): **N/A.** The change introduces no
   package, app, presentation or interface surface and reclassifies no layer or product-family
@@ -476,14 +475,14 @@ and neither decides this verdict.
   (`feat/mcp-001-typed-control-plane` → `integration/agreement-014`) with its complete check list.
   Re-verified live this run: `gh pr view 2803` returns `mergeStateStatus: CLEAN`,
   `mergeable: MERGEABLE`, and exactly 4 checks — `Claude review` SKIPPED plus `Cloudflare Pages:
-  robota` / `robota-docs` / `robota-www` SUCCESS. No `format-check`, `scans`, `build` or
+robota` / `robota-docs` / `robota-www` SUCCESS. No `format-check`, `scans`, `build` or
   `regression-red-proof`, as the document states.
 - GATE-WRITE — Problem contains a reproduction condition: "Open any pull request against a branch
   matching `integration/*`", with the mechanism given as a 7-row trigger table. Re-verified by parsing
   every file in `.github/workflows/` as YAML: `ci.yml`, `dependency-review.yml`, `gitleaks.yml`,
   `review-gate.yml` carry `pull_request` with `branches: [main, develop]`;
   `workflow-provenance-gate.yml` carries `pull_request_target` with the same; `codeql.yml` `push:
-  [main, develop]`; `scans-full.yml` `push: [develop]`. No pattern matches `integration/**`. Hook
+[main, develop]`; `scans-full.yml` `push: [develop]`. No pattern matches `integration/**`. Hook
   citations verified: `merge-gate.sh:19` = "1. Is CI green? `mergeStateStatus == CLEAN`.", line 183 =
   `if [[ "$STATE" != "CLEAN" ]]`, line 6 = "An unknown state is not a clean one".
 - GATE-WRITE — Research findings feed Alternatives Considered / Decision: R1/R2 (GitHub's documented
@@ -632,7 +631,7 @@ satisfied too. Expected input state also matches: `status: review-ready` ↔
   all five paths in § Affected Files exist at HEAD `40d72b9b4943` —
   `.github/workflows/{ci,gitleaks,dependency-review,workflow-provenance-gate}.yml` and
   `.claude/hooks/merge-gate.sh` — so every touched artifact is pre-existing; `git diff --stat
-  origin/develop -- packages apps scripts .github .claude/hooks/merge-gate.sh` is empty, so no new
+origin/develop -- packages apps scripts .github .claude/hooks/merge-gate.sh` is empty, so no new
   module has been created either; and § Solution confines the work to adding `integration/**` to a
   `branches:` list in four existing triggers plus a check-count assertion in one existing hook, with
   "No package source changes. No job bodies change." No new surface, no layer or product-family
@@ -678,6 +677,7 @@ the work itself has demonstrably not happened — no file in `.github/workflows/
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -734,6 +734,7 @@ the work itself has demonstrably not happened — no file in `.github/workflows/
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
@@ -959,7 +960,7 @@ criteria were evaluated.
 - GATE-VERIFY — Build passes for all affected packages: PASS, re-run independently this session.
   The scope changes no package source, so the catalogue's declared build-equivalent applies
   (`BUILD_COMMAND_SHAPE` — `harness:scan`/`run-all-scans`): `node scripts/harness/run-all-scans.mjs
-  --affected --context pr` exits 0 — "82 scans passed, 1 skipped, 3 advisory failure(s) tolerated (pr
+--affected --context pr` exits 0 — "82 scans passed, 1 skipped, 3 advisory failure(s) tolerated (pr
   context)", the three being `reference-kind-qualified`, `progress-report-quantification` and
   `task-merged-citation`. `bash -n .claude/hooks/merge-gate.sh` exits 0.
 - GATE-VERIFY — Tests pass for all affected packages: PASS, re-run at HEAD `eb870ce3590a`:
@@ -971,7 +972,7 @@ criteria were evaluated.
   (`on.pull_request_target`) — widened, not replaced.
 - Plan TC-03 / TC-09 (ticks verified): `git diff aa24b1d24..eb870ce35 -- .github/workflows/` is
   exactly four `-    branches: [main, develop]` / four `+    branches: [main, develop,
-  integration/**]` lines and nothing else — no `if:` line and no `types:` line appears in the diff.
+integration/**]` lines and nothing else — no `if:` line and no `types:` line appears in the diff.
   Parsed `types:` are `[opened, synchronize, reopened, edited]` for `ci.yml` and
   `workflow-provenance-gate.yml`, so INFRA-055's `edited` subscription survives.
 - Plan TC-06 / TC-07 (ticks verified): the commit adds a `1b. CI EXISTS` block to
@@ -996,7 +997,7 @@ keeping the same post-merge dependency — which is why the mechanical floor rep
 that remains unsatisfiable before this gate.
 
 **Judged by:** `backlog-gate-guard` — the two criteria `gate.mjs` reported `PENDING-GUARDIAN` (its
-bound patterns `/All tasks in \`.agents/tasks/<ID>.md\` are marked complete/` and `/No tasks are
+bound patterns ``/All tasks in `.agents/tasks/<ID>.md` are marked complete/`` and `/No tasks are
 blocked or pending/` no longer match this catalogue's current `## Plan` wording, so it binds no
 judgement to them), plus independent re-verification of the three it judged PASS
 **Judged at:** HEAD `eb870ce3590a` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `fab06aa28c8d` (modified)
@@ -1035,12 +1036,12 @@ replacement of that verdict.
   re-ticked.
 - GATE-VERIFY — Build passes for all affected packages: the scope changes no package source, so the
   catalogue's build-equivalent applies — `node scripts/harness/run-all-scans.mjs --affected --context
-  pr` exits 0, "82 scans passed, 1 skipped, 3 advisory failure(s) tolerated (pr context)"
+pr` exits 0, "82 scans passed, 1 skipped, 3 advisory failure(s) tolerated (pr context)"
   (`reference-kind-qualified`, `progress-report-quantification`, `task-merged-citation` — the same
   three as before the correction, so the correction introduced no new failure).
   `bash -n .claude/hooks/merge-gate.sh` exits 0.
 - GATE-VERIFY — Tests pass for all affected packages: `npx vitest run
-  scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs` re-run this session → exit
+scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs` re-run this session → exit
   0, 13/13 passed. Boundary stated: this is the one test file the unit adds; no package source is
   touched, and the repository-wide harness contract is covered by the scan run above.
 
@@ -1141,8 +1142,8 @@ are not this row's subject and do not bear on it — GATE-VERIFY's prior gate is
 GATE-COMPLETE.
 
 **The two out-of-order GATE-COMPLETE runs, judged rather than passed over.** Both entries fail on one
-criterion — `GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status \`verifying\`: status is
-\`in-progress\`, \`verifying\` expected` — and both record `**Status remains:** in-progress`. No
+criterion — ``GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: status is
+`in-progress`, `verifying` expected`` — and both record `**Status remains:** in-progress`. No
 GATE-COMPLETE criterion was evaluated in either run, so no completion evidence was produced and
 nothing was authorised. This is the ordering check doing its job, not a bypass, and the entries were
 retained rather than deleted, which is what keeps it legible. Tested against the definition of a
@@ -1173,7 +1174,7 @@ the current tree.
   (`reference-kind-qualified`, `progress-report-quantification`, `task-merged-citation`), so this
   round's document edits introduced no new failure. `bash -n .claude/hooks/merge-gate.sh` exits 0.
 - GATE-VERIFY — Tests pass for all affected packages: `npx vitest run
-  scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs` → exit 0, 13/13.
+scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs` → exit 0, 13/13.
 
 **The three residual findings from the previous run, verified from the tree:**
 

@@ -53,14 +53,14 @@ that cannot be done — see the spec's Decision.
 
 ## Test Plan
 
-| TC-ID | Approach                                                                                  | Reference                                    |
-| ----- | ----------------------------------------------------------------------------------------- | -------------------------------------------- |
-| TC-01 | YAML-parse `ci.yml` and assert the branches array — parsed, not grepped                   | `scripts/harness/__tests__/` (added)         |
-| TC-02 | same assertion over the four remaining workflow files                                    | `scripts/harness/__tests__/` (added)         |
-| TC-03 | exact-equality parse: each trigger's `branches` equals the three bases                      | parse assertion; the one-time diff is in the Evidence Log |
-| TC-06 | invoke `merge-gate.sh` against a recorded zero-check `gh` fixture; the hook must refuse    | `scripts/harness/__tests__/` (added)         |
-| TC-07 | same harness with a passing-checks fixture; the hook must accept                           | `scripts/harness/__tests__/` (added)         |
-| TC-08 | `bash -n .claude/hooks/merge-gate.sh` + `run-all-scans.mjs --affected --context pr`        | command                                      |
+| TC-ID | Approach                                                                                      | Reference                                                     |
+| ----- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| TC-01 | YAML-parse `ci.yml` and assert the branches array — parsed, not grepped                       | `scripts/harness/__tests__/` (added)                          |
+| TC-02 | same assertion over the four remaining workflow files                                         | `scripts/harness/__tests__/` (added)                          |
+| TC-03 | exact-equality parse: each trigger's `branches` equals the three bases                        | parse assertion; the one-time diff is in the Evidence Log     |
+| TC-06 | invoke `merge-gate.sh` against a recorded zero-check `gh` fixture; the hook must refuse       | `scripts/harness/__tests__/` (added)                          |
+| TC-07 | same harness with a passing-checks fixture; the hook must accept                              | `scripts/harness/__tests__/` (added)                          |
+| TC-08 | `bash -n .claude/hooks/merge-gate.sh` + `run-all-scans.mjs --affected --context pr`           | command                                                       |
 | TC-09 | exact-equality parse: each trigger's `types` equals that workflow's own list, across all five | `toEqual`, not `toContain` — a dropped or added event reddens |
 
 No manual rows remain. TC-04 and TC-05 were withdrawn at GATE-VERIFY: they asserted GitHub's
