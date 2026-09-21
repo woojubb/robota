@@ -47,16 +47,20 @@ Problem-side constraints this Task owns. Every design fact is owned by the SPEC'
 
 ## Plan
 
-- [ ] TC-01 — Implement the manifest module: SHA-1 canonical manifest bound to OIDs only, four
-      non-merge dispositions plus the `merge` record with `merge-tree` own-content, deterministic
-      base64-path recursive `--no-renames` tuples, first-parent-plus-second-parent enumeration, closed
-      parsing with closed diagnostic codes, the export list, and the CLI. Acceptance is SPEC TC-01.
-- [ ] TC-02 — Add the eight-children minimal graph to the isolated plan-order suite, asserting scanner
-      exit codes only. Acceptance is SPEC TC-02.
-- [ ] TC-03 — Cover equality, content/mode/type/rename/empty-patch/evil-merge cases through the default
-      adapter against `make-temp.mjs` repositories, every ceiling at boundary and boundary-plus-one
-      through the run-scoped budget with an injected clock, the closed command vocabulary, and the
-      stdout drain and `EPIPE` paths. Acceptance is SPEC TC-03.
+- [ ] TC-01 — Implement the manifest module: SHA-1 canonical manifest bound to OIDs only with
+      separately bound legacy and replacement bases, four non-merge dispositions plus the `merge`
+      record with pinned-configuration `merge-tree` own-content, deterministic base64-path recursive
+      `--no-renames` tuples, one `rev-list --parents` enumeration per side, closed parsing and the
+      three-valued `verify` result with exported diagnostic codes, the export list, and the CLI.
+      Acceptance is SPEC TC-01.
+- [ ] TC-02 — Generalise the isolated plan-order suite's prelude fixture and add the eight-children
+      minimal graph, asserting the in-process findings and examined count. Acceptance is SPEC TC-02.
+- [ ] TC-03 — Cover equality, content/mode/type/rename/empty-patch/conflict-resolution/evil-merge
+      cases through the default adapter (`cwd` = fixture repository) against `make-temp.mjs`
+      repositories, the hostile-configuration case, every ceiling at boundary and boundary-plus-one
+      through the run-scoped budget with an injected clock and injected limits, port-failure
+      diagnostics, the closed command vocabulary, and the stdout drain and `EPIPE` paths. Acceptance
+      is SPEC TC-03.
 - [ ] TC-04 — Make `git-branch.md` § Branch Policy the sole owner of the migration sentence (with
       `.agents/evidence/migrations/` named there), reduce `backlog-execution.md` § Base Branch Workflow
       and the skill's step 1 to pointers, and assert by headings and identifiers that no third
@@ -68,10 +72,12 @@ Problem-side constraints this Task owns. Every design fact is owned by the SPEC'
 ## Test Plan
 
 Use `make-temp.mjs` repositories initialised with `git init --object-format=sha1` to build all four
-non-merge dispositions, clean and evil merges, and content, mode, symlink/type, add/delete, rename,
-empty-patch, malformed-canonicalization, omitted, extra, and tampered histories; run the mode, type,
-rename-policy, and merge cases through the default adapter and the path-byte and ceiling cases
-through the fixture port with an injected clock and small injected limits, all in the hermetic tier.
+non-merge dispositions, clean, conflicted, and evil merges, two-base and drift-sync graphs, and
+content, mode, symlink/type, add/delete, rename, empty-patch, malformed-canonicalization, omitted,
+extra, and tampered histories; run the mode, type, rename-policy, merge, and hostile-configuration
+cases through the default adapter with `cwd` set to each fixture, and the path-byte, ceiling, and
+port-failure cases through the fixture port with an injected clock and injected limits, all in the
+hermetic tier.
 Assert the three owner documents by heading and identifier in the contract tier. The real #2664 graphs
 are not an input of this bundle: the replacement `720eb5e84` is reachable only from local branches in
 one clone, and a run over it needs the manifest the publishing bundle authors. No fixture reaches the
@@ -107,6 +113,23 @@ Robota CLI, TUI, browser, public SDK, configuration, or installed-package behavi
   repositories in the hermetic file, states the export list, diagnostic codes, exit codes, and closed
   command vocabulary, and replaces the raw isolated-suite Vitest command (which exits 1 under the
   root forks pool with every test passing) with the contract-tier runner.
+- Architecture fanout `r20260921092807` on the revised draft (spec blob `45f4b0a4`, task `9455dcba`,
+  commit `a5aa69b30`): all 23 cells covered, closed `converged`; raw signals structure
+  `high=1 medium=2 low=4`, design `high=1 medium=4 low=5`, runtime `high=1 medium=4 low=7`, gate
+  `high=0 medium=6 low=4`. The three highs were each a single-dimension finding: the option surfaces
+  omitted the `cwd` and `limits` injection points TC-03 depends on; one `sourceBase` could not bind
+  two graphs whose measured bases differ (`1ef05e0ea` and `58f24c1b7`); and a measured run showed
+  `merge-tree --write-tree` producing different trees under a user's `merge.*` configuration, which
+  `envWithoutGitVars` cannot isolate. The revision binds `legacyBase` and `replacementBase`
+  separately with a `merge-base --is-ancestor` invariant, enumerates each side with one
+  `rev-list --parents`, pins the `merge-tree` option set as a schema-v1 constant with global-config
+  isolation and a hostile-configuration test, adds `cwd` (from `resolveWorkspaceRoot`) and `limits`
+  to the surfaces, makes the `verify` result three-valued with exported codes, declares the inherited
+  ten-second per-invocation cap and the port-failure diagnostics, states `merge-tree`'s exit 0/1
+  semantics and the two-parent refusal, fixes the `patch-id` invocation shape and recomputes the
+  budget to 32,768, exports the producer primitives and default constants, strengthens TC-02 to
+  in-process findings and examined count and TC-04 to spelling-normalised patterns, and moves `EPIPE`
+  to exit 2.
 - Legacy sync experiment: merging `origin/integration/agreement-2664@4214cb540` with `origin/develop`
   conflicts in `gate-checkpoint-evidence.test.mjs`. The clean historical sync fixture examined 60 topic
   commits and produced undeclared PUSH, four out-of-order, and one checkpoint-mix finding.
