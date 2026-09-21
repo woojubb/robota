@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [ci]
 lane: L2
@@ -238,7 +238,7 @@ provenance": "benchmark workflow provenance"}`, identity for the other nine); th
       `ci.yml#benchmark-workflow-provenance` with the `ci.yml` rename reverted
 - [x] TC-04: `pnpm exec vitest run scripts/harness/__tests__/github-api-check-runs.test.mjs` → exits 0,
       `scripts/harness/github-api.mjs` unchanged (`git diff origin/develop -- scripts/harness/github-api.mjs` empty)
-- [ ] TC-05: `gh workflow run ci.yml --ref develop -f base_ref=develop -f head_ref=develop` after merge →
+- [x] TC-05: `gh workflow run ci.yml --ref develop -f base_ref=develop -f head_ref=develop` after merge →
       `benchmark-summary` table still lists `review-gate` and `workflow provenance` rows (post-merge
       verification; the summary job only exists on dispatch)
 - [x] TC-06: `grep -c 'main-required-checks' .agents/rules/git-branch.md` → `1`, and the match sits in
@@ -266,7 +266,7 @@ any runnable product surface. Engineering verification is TC-01 to TC-05 above.
 
 ## Tasks
 
-- [ ] `.agents/tasks/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` — todo
+- [x] `.agents/tasks/completed/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` — done 2026-09-22
 
 ## Evidence Log
 
@@ -553,3 +553,89 @@ main-required-checks scan passed — 5 required context(s) on `main` all run and
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `35c294fcf0fc` · base `origin/develop@d5b4389f91e0` · document `.agents/spec-docs/active/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` blob `67694361a2f5` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-22
+
+**Command:** `gh workflow run ci.yml --ref develop -f base_ref=develop -f head_ref=develop; gh api repos/woojubb/robota/actions/runs/35622979521/jobs?per_page=100 --paginate --slurp | jq <the benchmark-summary map filter>`
+**Exit:** 0
+**Output:** (last 10 of 15 line(s))
+
+```
+| scans | success |
+| dependency audit | success |
+| commitlint | failure |
+| tui-e2e | success |
+| examples-typecheck | success |
+| windows-shell | success |
+| review-gate | success |
+| workflow provenance | success |
+| regression-red-proof (enforcing: accidental-green only) | success |
+required-context benchmark summary job: failure — final assertion all(.conclusion=="success") fails on commitlint (range develop..develop is degenerate under INFRA-058; pre-existing, registered https://github.com/woojubb/robota/issues/2680#issuecomment-5763788803)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `2c04de4341bb` · base `origin/develop@1c02d9777d54` · document `.agents/spec-docs/active/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` blob `66130b2cc728` (tracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-21` recorded with `**Status upgrade:** approved → in-progress`; frontmatter `status: in-progress`; document under `.agents/spec-docs/active/`; the paired Task's frontmatter is also `status: in-progress`
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): PASS — `.agents/tasks/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` `## Plan` holds 10 checkbox items, all `[x]`: four implementation items (`ci.yml` companion rename + `benchmark-summary` map; `contextPublishers` + the two `findContextNameFindings` bounds; the scan-suite cases and the re-pinned `github-actions-maintenance.test.mjs`; the `git-branch.md` sentence) and six TC items (TC-01..TC-06). Only the `## Plan` section was read; the Task's `## Test Plan` prose carries no checkboxes. Each Plan item corresponds to a `[GATE-COMPLETE: TC-N]` entry above (TC-01..TC-06, all ✅ PASS 2026-09-22) and to the delivery landed on `develop` as `1c02d9777d54` (PR #2811), so the ticks describe work that is observably done, not intended
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — `grep -iE 'blocked|pending|\[ \]|\[-\]|\[~\]'` over the `## Plan` section returns nothing; no item carries a disposition marker, and no Plan item is a self-disposition (merge/land/close) that would be unsatisfiable at this gate
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): PASS — re-run by the guardian 2026-09-22: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0 (41 scans passed, 1 skipped, 3 advisory failures tolerated in pr context: `reference-kind-qualified`, `progress-report-quantification`, `task-merged-citation` — advisory, not gating, receipt withheld by design)
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): PASS — re-run by the guardian 2026-09-22: `pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs scripts/harness/__tests__/github-actions-maintenance.test.mjs scripts/harness/__tests__/github-api-check-runs.test.mjs` → exit 0, 3 files, 66 tests passed (52 + 8 + 6)
+
+**Mechanical set:** `node scripts/harness/gate.mjs judge --gate GATE-VERIFY --doc <this> --verify-cmd …` re-run by the guardian 2026-09-22 — 3 PASS, 0 FAIL, 2 PENDING-GUARDIAN (the two `## Plan` criteria, judged above), no entry written by the script
+**Judged by:** `backlog-gate-guard` (the two `## Plan` criteria); `gate.mjs` mechanical evaluator (ordering, build, tests)
+**Judged at:** HEAD `2c04de4341bb` · base `origin/develop@1c02d9777d54` · document `.agents/spec-docs/active/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` blob `7f7c6b5f0840` (modified)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-22
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: TC-05 (`gh workflow run ci.yml --ref develop -f base_ref=develop -f head_ref=develop; gh api repos/woojubb/robota/actions/runs/35622979521/jobs?per_page=100 --paginate --slurp | jq <the benchmark-summary map filter>`): **Command:** is a placeholder (`<…>`, TBD or TODO), not the command that produced the output
+  **Required action:** record the exact command that was run, verbatim
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `2c04de4341bb` · base `origin/develop@1c02d9777d54` · document `.agents/spec-docs/active/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` blob `0b58fe718e8e` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-22
+
+**Command:** `gh workflow run ci.yml --ref develop -f base_ref=develop -f head_ref=develop && gh api 'repos/woojubb/robota/actions/runs/35622979521/jobs?per_page=100' --paginate --slurp | jq -r -f /private/tmp/claude-501/-Users-jungyoun-Documents-dev-woojubb-robota-4--claude-worktrees-competent-cartwright-516210/25fb2120-9c5c-4bc2-9d85-ba8dcc9e9957/scratchpad/summary-map.jq`
+**Exit:** 0
+**Output:** (last 10 of 13 line(s))
+
+```
+| scans | success |
+| dependency audit | success |
+| commitlint | failure |
+| tui-e2e | success |
+| examples-typecheck | success |
+| windows-shell | success |
+| review-gate | success |
+| workflow provenance | success |
+| regression-red-proof (enforcing: accidental-green only) | success |
+required-context benchmark summary job: failure — final all(.conclusion=="success") assertion fails on commitlint (degenerate develop..develop range, INFRA-058; pre-existing, registered https://github.com/woojubb/robota/issues/2680#issuecomment-5763788803)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `2c04de4341bb` · base `origin/develop@1c02d9777d54` · document `.agents/spec-docs/active/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` blob `b7871a092ea5` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-22; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (6)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 6/6 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (6) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 10/10 tasks `[x]` in .agents/tasks/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `2c04de4341bb` · base `origin/develop@1c02d9777d54` · document `.agents/spec-docs/active/CHECKS-2664-benchmark-companion-jobs-share-required-check-names-so-id-wins-dedupe-reads-a-sk.md` blob `84426d18778e` (modified)
