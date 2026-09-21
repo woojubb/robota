@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-2798: protect-develop has targeted no ref since 2026-09-06, so its 11 required checks enforce nothing and the reconciler that reports it has not run since 2026-08-11'
 issue: https://github.com/woojubb/robota/issues/2798
-status: todo
+status: in-progress
 created: 2026-09-21
 priority: high
 urgency: soon
@@ -78,12 +78,12 @@ path rather than on a `develop` merge. `run-all-scans.mjs` registers only the he
 
 ## Plan
 
-- [ ] TC-01: Owner decision, recorded here: (a) restore
+- [x] TC-01: Owner decision, recorded here: (a) restore
       `conditions.ref_name.include: ["refs/heads/develop"]` on ruleset 18715844, or (b) declare the
       un-scoping permanent. No agent changes the ruleset — a control-plane change is the owner's
       (`git-branch.md` § "Landing a control-plane change" excludes protection changes from the
       delegated route).
-- [ ] TC-02: If (a): `gh api repos/woojubb/robota/rules/branches/develop` reports the 11 contexts,
+- [x] TC-02: If (a): `gh api repos/woojubb/robota/rules/branches/develop` reports the 11 contexts,
       `node scripts/harness/scan-main-required-checks.mjs --live` exits 0, and the new ruleset
       history version id is recorded here. If (b): `required-status-checks.json`'s
       `branches.develop` states that these 11 are a LOCAL floor with no live enforcement, and
@@ -136,6 +136,75 @@ being the mechanical half that can actually fail. TC-05: comment-only, same scan
 rule text. No Robota CLI, TUI, browser or SDK surface is touched, so there is no product behaviour a
 user could observe; the verification is the live control-plane read and the harness test in the
 Test Plan.
+
+## Outcome — TC-01 and TC-02 (2026-09-21)
+
+**TC-01 — decision: (a), restore the scope.** Taken by the repository owner on 2026-09-21 and
+recorded on [issue #2798](https://github.com/woojubb/robota/issues/2798#issuecomment-5760759192)
+with its grounds. The owner then directed the agent to execute the control-plane change on their
+behalf rather than perform it themselves, which lifted this session's standing instruction not to
+touch the ruleset; `AGENTS.md`'s precedence chain puts a user instruction above the harness rule
+that reserves the change. The execution is recorded as an agent action, with its authorization, at
+[issue #2798](https://github.com/woojubb/robota/issues/2798#issuecomment-5760886551) — a
+control-plane change made by an agent is reported as one, never as routine work.
+
+**TC-02 — verified.** `PUT repos/woojubb/robota/rulesets/18715844` sent the whole object rather
+than a `conditions`-only patch, which would risk dropping the rules; the payload was built
+read-only from the live ruleset and diffed field-by-field against history version 47297672 (the
+2026-08-22 state) before sending, and was identical to it.
+
+|                                        | before                                       | after                              |
+| -------------------------------------- | -------------------------------------------- | ---------------------------------- |
+| ruleset history version                | 48767623 (2026-09-06 00:05:41)               | **50381313 (2026-09-21 21:57:33)** |
+| `conditions.ref_name.include`          | `[]`                                         | `["refs/heads/develop"]`           |
+| rules                                  | `required_status_checks`, `non_fast_forward` | unchanged                          |
+| required contexts                      | 11                                           | unchanged, 11                      |
+| `strict_required_status_checks_policy` | `false`                                      | unchanged                          |
+| `bypass_actors`                        | `[{RepositoryRole 5, always}]`               | unchanged                          |
+
+Verified through paths independent of the write's own response:
+
+```
+$ gh api repos/woojubb/robota/rules/branches/develop --jq '[.[]|{type,ruleset_id}]|unique_by(.type)'
+[{"ruleset_id":18715844,"type":"non_fast_forward"},
+ {"ruleset_id":18715844,"type":"required_status_checks"}]
+
+$ node scripts/harness/scan-main-required-checks.mjs --live ; echo $?
+::examined:: 5 required contexts
+main-required-checks scan passed … Live ruleset reconciled.
+0
+```
+
+The reconciler reported **12 findings before the change and 0 after**. `protect-main` was not
+touched (`include: ["refs/heads/main"]`, unchanged). The pre-change state survives as history
+version 48767623, so the change is reversible.
+
+**What the restored scope changed about a red check that already existed.** The restore did not
+produce the failure — `scans` had already failed on this record's own pull request #2799 at
+12:34:03Z, 23 minutes before the scope returned at 12:57:33Z. What the restore changed is that the
+failure became REQUIRED, blocking and visible: `gh pr checks --required`, which had been answering
+with nothing, began reporting it. The defect was real — the pull request body wrote
+`Lane: L0 — documentation only.` while `scan-lane-declaration.mjs:90` matches
+`/^\s*Lane:\s*(L[0-2])\s*$/gim` and admits nothing after the lane. So the honest form of TC-01's
+grounds 3 and 6 is not "the gate caught something new"; it is that a red check sat on a pull
+request that the empty projection left merge-eligible, and restoring the scope is what turned it
+into a refusal.
+
+**How to re-derive the before-state, recorded because it is easy to get wrong.** The scope lives at
+`.state.conditions` in the history payload, not at the top level: `gh api
+repos/woojubb/robota/rulesets/18715844/history/48767623 --jq .conditions` returns nothing, while
+`--jq .state.conditions.ref_name.include` returns `[]`. `merge-verifier`, verifying PR #2799's
+landing, read the top-level key and concluded that the history endpoint does not expose scope and
+that this record's evidence trail could not be re-derived later. It can: all three versions
+(50381313, 48767623, 47297672) return their `include` list through `.state.conditions`. The same
+report also read the 13:08 CI batch as evidence that `review-gate` had certified a superseded pull
+request body; the 12:59:00Z batch that produced its `success` was itself triggered by the body
+edit, and 13:08 was a re-run of that batch, so there is nothing to file there either. Both are
+recorded as corrections rather than dropped, because an unchallenged verifier finding becomes the
+next session's premise.
+
+TC-03, TC-04 and TC-05 remain open; restoring the scope did not close them, and the detection they
+buy is what makes a future un-scoping visible without a cron.
 
 ## Notes
 
