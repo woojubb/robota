@@ -19,7 +19,10 @@
  * asserts, offline, that every context it names resolves to a workflow job that actually runs and can
  * actually fail on a `main` PR:
  *
- *   R1  The context resolves to exactly one job in the declared workflow.
+ *   R1  The context resolves to exactly one job in the declared workflow — and, for every declared
+ *       branch (`findContextNameFindings`, issue #2036 / CHECKS-2664), its name is published by
+ *       exactly one job ACROSS ALL workflow files, that job being the declared one. A second
+ *       publisher, even one whose `if:` is false, registers a `skipped` check-run under the name.
  *   R2  The workflow triggers on `pull_request` OR `pull_request_target` for `main`, with no
  *       `paths`/`paths-ignore` filter. Both planes dispatch off the base branch and both can carry a
  *       required context, so accepting only the first would have made INFRA-097's trusted control
