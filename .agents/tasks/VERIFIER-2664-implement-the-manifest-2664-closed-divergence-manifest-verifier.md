@@ -1,7 +1,7 @@
 ---
 title: 'VERIFIER-2664: Implement the MANIFEST-2664 closed divergence manifest verifier'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: in-progress
 created: 2026-09-21
 priority: high
 urgency: now
@@ -11,7 +11,7 @@ depends_on: []
 
 # VERIFIER-2664: Implement the MANIFEST-2664 closed divergence manifest verifier
 
-Spec: `.agents/spec-docs/todo/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md`
+Spec: `.agents/spec-docs/active/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md`
 
 ## Objective
 
@@ -85,7 +85,13 @@ in the contract tier. Merge own-content is not verified here; no fixture needs `
 affected file is under `scripts/harness/` or `.agents/`, none under `packages/` or `apps/`; the
 `parse` / `canonicalize` / `verify` command it ships is a maintainer verification entry of the same
 kind as the existing harness scanners, not a product surface, and its only real input — the manifest for
-issue #2664 under `.agents/evidence/migrations/` — is authored by the later publishing bundle.
+issue #2664 under `.agents/evidence/migrations/` — is authored by the later publishing bundle. Re-judged
+independently for this unit on 2026-09-21 at `bc5647f94`: this is not the unexposed-seam case, because
+no Robota product capability sits behind the verifier awaiting wiring — the verifier is itself the
+terminal artifact, reachable to maintainers only as harness tooling, which the PLAN contract in
+`backlog-execution.md` itself classes as engineering evidence rather than a user surface; the root
+package is `private` and `scripts/harness/` is not installed with any package, so no end user can
+invoke it. Verification is the engineering test plan above (TC-01 to TC-05).
 
 ## Finding Evidence
 
