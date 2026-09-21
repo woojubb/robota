@@ -58,7 +58,7 @@ Add unit/integration cases at the generic admission owner and MCP metadata adapt
 - Product surface: public-sdk-example
 - Surface rationale: shipped-interface=MCP tool execution result
 - Prerequisites: this Task adds a provider-free result-admission example and `scenario:verify:mcp-result-admission`; the example supplies a controlled MCP response and a recording provider boundary.
-- Command: `pnpm --filter @robota-sdk/agent-tool-mcp run scenario:verify:mcp-result-admission --within-limit` <!-- allow-undeclared-script: MCP-2525 creates this package script during implementation before this user execution test scenario is executed. -->
+- Command: `pnpm --filter @robota-sdk/agent-mcp run scenario:verify:mcp-result-admission --within-limit` <!-- allow-undeclared-script: MCP-2525 creates this package script during implementation before this user execution test scenario is executed. -->
 - Observable type: sdk-result
 - Observable rationale: source=recorded admission and provider request summary
 - Expected observable: `result=admitted; providerBoundRespected=true; spillCreated=false`
@@ -71,7 +71,7 @@ Add unit/integration cases at the generic admission owner and MCP metadata adapt
 - Product surface: public-sdk-example
 - Surface rationale: shipped-interface=MCP tool execution result lifecycle
 - Prerequisites: use the same provider-free example with a response exceeding the configured hard limit and an isolated spill root.
-- Command: `pnpm --filter @robota-sdk/agent-tool-mcp run scenario:verify:mcp-result-admission --overflow` <!-- allow-undeclared-script: MCP-2525 creates this package script during implementation before this user execution test scenario is executed. -->
+- Command: `pnpm --filter @robota-sdk/agent-mcp run scenario:verify:mcp-result-admission --overflow` <!-- allow-undeclared-script: MCP-2525 creates this package script during implementation before this user execution test scenario is executed. -->
 - Observable type: sdk-result
 - Observable rationale: source=opaque reference, redacted diagnostics, and cleanup result
 - Expected observable: `result=spilled; opaqueReference=true; payloadLeaked=false; cleanupRemoved=true`

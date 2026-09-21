@@ -57,8 +57,8 @@ Exercise the shared transport with a controlled local MCP fixture and assert bot
 - Executability: agent-executable
 - Product surface: public-sdk-example
 - Surface rationale: shipped-interface=shared MCP client admission and transport
-- Prerequisites: this Task adds a provider-free `agent-tool-mcp` stdio transport example and `scenario:verify:stdio-transport`; it contains an untrusted/dangerous-command fixture and records child spawn attempts in memory.
-- Command: `pnpm --filter @robota-sdk/agent-tool-mcp run scenario:verify:stdio-transport --denied` <!-- allow-undeclared-script: MCP-2522 creates this package script during implementation before this user execution test scenario is executed. -->
+- Prerequisites: this Task adds a provider-free `agent-mcp` stdio transport example and `scenario:verify:stdio-transport`; it contains an untrusted/dangerous-command fixture and records child spawn attempts in memory.
+- Command: `pnpm --filter @robota-sdk/agent-mcp run scenario:verify:stdio-transport --denied` <!-- allow-undeclared-script: MCP-2522 creates this package script during implementation before this user execution test scenario is executed. -->
 - Observable type: sdk-result
 - Observable rationale: source=admission result plus spawn counter
 - Expected observable: `result=denied; spawned=false; secretLeaked=false`
@@ -71,7 +71,7 @@ Exercise the shared transport with a controlled local MCP fixture and assert bot
 - Product surface: public-sdk-example
 - Surface rationale: shipped-interface=shared MCP client transport
 - Prerequisites: use the same provider-free example with an allowlisted local fixture server; no network or provider credential is required.
-- Command: `pnpm --filter @robota-sdk/agent-tool-mcp run scenario:verify:stdio-transport --allowed` <!-- allow-undeclared-script: MCP-2522 creates this package script during implementation before this user execution test scenario is executed. -->
+- Command: `pnpm --filter @robota-sdk/agent-mcp run scenario:verify:stdio-transport --allowed` <!-- allow-undeclared-script: MCP-2522 creates this package script during implementation before this user execution test scenario is executed. -->
 - Observable type: sdk-result
 - Observable rationale: source=tool discovery and call result
 - Expected observable: `result=called; discovered=true; spawned=true; shutdownClean=true`

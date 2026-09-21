@@ -16,7 +16,16 @@ import type { IMCPResolvedEntry, TMCPDefinitionSource, TMCPTransport } from './t
 
 export const REDACTED = '[REDACTED]';
 
-/** A definition as it may be shown. Secret-free by construction, not by the caller remembering. */
+/**
+ * A definition as it may be shown, with `env` and `headers` VALUES redacted.
+ *
+ * Contained — SECURITY-2793. This type said "secret-free by construction, not by the caller
+ * remembering", and that is not true today: `command` and `args` are materialized from the same
+ * environment map and are copied through verbatim, so `args: ['--header', 'Authorization: Bearer
+ * ${TOKEN}']` carries the expanded token into every projection. The claim is narrowed to what the
+ * code actually does rather than left standing; the fix needs value provenance out of
+ * materialization, which SECURITY-2793 owns (issue #2793).
+ */
 export interface IMCPDefinitionProjection {
   readonly name: string;
   readonly source: TMCPDefinitionSource;

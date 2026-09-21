@@ -54,8 +54,13 @@ behaviourally over a full pipeline run.
   an overlay naming an unknown server is refused.
 - `projection.ts` — redacted management projections. `env` and `headers` VALUES never leave; their
   keys do, because "header configured but redacted" and "no header" are different answers.
+  **Contained — SECURITY-2793 (issue #2793):** redaction is by field name, so a credential expanded
+  into `command` or `args` is NOT redacted. The projection is secret-free for `env`/`headers` only,
+  not "by construction".
 - `identity.ts` — `definitionFingerprint` over what will run, `securityIdentity` over where it came
   from. Secret values are never hashed, so rotating a token does not invalidate an approval.
+  **Contained — SECURITY-2793 (issue #2793):** only env/header KEYS are covered, so changing an
+  execution-controlling VALUE such as `NODE_OPTIONS` leaves an approval valid.
 - `registry.ts` — `MCPDefinitionRegistry`, the producer `MCPActivationController` was written
   against and never had. It offers only resolved, enabled entries as activation requests.
 

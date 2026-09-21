@@ -84,7 +84,13 @@ export function resolveByPrecedence(
     }
     for (const problem of source.problems) {
       // A container-level problem has no name — it cannot shadow or be shadowed by a named entry,
-      // so it is not a candidate for any name. The caller still receives it through `problems`.
+      // so it is not a candidate for any name. This `continue` is correct.
+      //
+      // Contained — BEHAVIOR-2794 (issue #2794). What is NOT correct is where it leaves the
+      // problem: this function returns `IMCPResolvedEntry[]`, which is keyed by server name and has
+      // no source-level channel, so an entirely unreadable managed policy reaches `statusOf` as
+      // `{total: 0, unresolved: 0}` and says nothing at all. Fixing it here would be wrong; the
+      // output type needs the channel, which BEHAVIOR-2794 owns.
       if (problem.name === '') continue;
       add(problem.name, { source: source.source, origin: problem.origin, problem });
     }

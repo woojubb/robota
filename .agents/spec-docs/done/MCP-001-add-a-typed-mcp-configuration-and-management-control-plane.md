@@ -456,7 +456,7 @@ was touched between the two runs.
   exact printed line `processesSpawned=0; socketsOpened=0`. No vague phrasing appears.
 
 **Prior additional findings, both closed:** the "filed as its own item" claims are now real, cited open
-issues (#2790, #2791, verified above); and the § Decision scenario sentence no longer claims the
+issues (issue #2790 and issue #2791, verified above); and the § Decision scenario sentence no longer claims the
 post-rename command was run — it states the surface was proven under the current name, which this
 guardian executed with an isolated `HOME`:
 `pnpm --filter @robota-sdk/agent-tool-mcp scenario:verify` → exit 0, printing exactly the two result

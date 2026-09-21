@@ -68,7 +68,17 @@ export function readRawEntries(
       problems: [{ name: '', source, origin, reason: 'the configuration root is not an object' }],
     };
   }
-  const servers = container['mcpServers'] ?? container;
+  // NO SHAPE FALLBACK. This read was `container['mcpServers'] ?? container`, which made a file
+  // spelled `{"servers": {…}}` decode as a server map and report a bogus server named `servers`
+  // instead of "this file declares no `mcpServers`" — an OR-fallback in the module whose contract
+  // is strict, fail-closed decoding (operational.md § No Fallback Policy).
+  const servers = container['mcpServers'];
+  if (servers === undefined) {
+    return {
+      entries: [],
+      problems: [{ name: '', source, origin, reason: 'no `mcpServers` key' }],
+    };
+  }
   if (!isPlainObject(servers)) {
     return {
       entries: [],

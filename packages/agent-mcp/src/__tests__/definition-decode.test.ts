@@ -113,11 +113,17 @@ describe('readRawEntries and decodeSource', () => {
     ]);
   });
 
-  it('accepts a bare server map as well as an mcpServers wrapper', () => {
+  it('refuses a container with no `mcpServers` key instead of reading it as a server map', () => {
+    // This pinned the opposite until review: a `{"servers": {…}}` file decoded as a server map and
+    // produced a bogus server named `servers`, rather than saying the file declares none.
     const wrapped = decodeSource({ mcpServers: { a: { type: 'stdio', command: 'x' } } }, 'user', 'u');
-    const bare = decodeSource({ a: { type: 'stdio', command: 'x' } }, 'user', 'u');
     expect(wrapped.definitions).toHaveLength(1);
-    expect(bare.definitions).toHaveLength(1);
+
+    const bare = decodeSource({ a: { type: 'stdio', command: 'x' } }, 'user', 'u');
+    expect(bare.definitions).toEqual([]);
+    expect(bare.problems).toEqual([
+      { name: '', source: 'user', origin: 'u', reason: 'no `mcpServers` key' },
+    ]);
   });
 
   it('keeps good entries when a sibling entry is refused', () => {

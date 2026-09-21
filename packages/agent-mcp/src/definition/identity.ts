@@ -8,9 +8,13 @@
  *
  * Two values, because they answer two questions:
  *
- * - `definitionFingerprint` covers everything that decides what will be executed or contacted —
- *   the transport, command, arguments, url, header and environment KEYS, and the timeout. Change
- *   any of it and a prior approval no longer describes what would now run.
+ * - `definitionFingerprint` covers the transport, command, arguments, url, header and environment
+ *   KEYS, and the timeout. Change any of it and a prior approval no longer describes what would now
+ *   run.
+ *   Contained — SECURITY-2793 (issue #2793): it does NOT cover env/header VALUES, so an approved
+ *   server whose `NODE_OPTIONS` value changes keeps its fingerprint while what it loads changes.
+ *   An earlier version of this comment claimed the fingerprint covered "everything that decides
+ *   what will be executed", which was false in exactly that case.
  * - `securityIdentity` covers where the definition came from — its name, source and origin. Two
  *   entries that run the identical command are still different subjects for approval if one is a
  *   managed policy and the other is a plugin's.
@@ -28,7 +32,10 @@ import type { IMCPResolvedEntry, IMCPServerDefinitionResolved } from './types.js
 function digest(parts: readonly string[]): string {
   const hash = createHash('sha256');
   for (const part of parts) {
-    // Length-prefixed, so ['ab','c'] and ['a','bc'] cannot collide.
+    // Length-prefixed, so ['ab','c'] and ['a','bc'] cannot collide. The joins below use the
+    // ESCAPE `'\u0000'` rather than a literal NUL byte. A literal one makes git classify this
+    // file as binary, which hides the whole module from the diff, from `git blame`, and from
+    // every ripgrep/grep-based check a reviewer or a scan runs. Same bytes hashed, visible source.
     hash.update(String(part.length));
     hash.update(':');
     hash.update(part);
