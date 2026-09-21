@@ -537,6 +537,40 @@ describe('single-pass remote closeout receipts', () => {
     });
   });
 
+  it('selects the current PR completion from repeated umbrella deliveries', () => {
+    const previousCompletion = closeoutEnvelope(
+      80,
+      2724,
+      completionBody
+        .replace('PR: 42', 'PR: 41')
+        .replace(`HEAD: ${mergeHead}`, `HEAD: ${'9'.repeat(40)}`)
+        .replace(`MERGE: ${mergeCommit}`, `MERGE: ${'8'.repeat(40)}`),
+      '2026-09-12T10:06:00Z',
+    );
+
+    expect(
+      auditCloseoutReceipts({
+        ...projection,
+        completionComments: [previousCompletion, completionComment],
+      }),
+    ).toMatchObject({
+      ok: true,
+      completion: { commentId: 82, prNumber: 42 },
+    });
+  });
+
+  it('still refuses multiple completion receipts for the current PR', () => {
+    expect(
+      auditCloseoutReceipts({
+        ...projection,
+        completionComments: [
+          completionComment,
+          closeoutEnvelope(83, 2724, completionBody, '2026-09-13T10:07:00Z'),
+        ],
+      }),
+    ).toEqual({ ok: false, reason: 'ambiguous-completion' });
+  });
+
   it('binds direct approval to the trusted comment author', () => {
     const directBody = mergeDecisionBody
       .replace('AUTHORITY: owner-delegated', 'AUTHORITY: direct')
