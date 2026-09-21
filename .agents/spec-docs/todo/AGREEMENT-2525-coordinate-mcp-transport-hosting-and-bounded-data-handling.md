@@ -83,7 +83,7 @@ None
 ## Affected Files
 
 - `.agents/tasks/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md`
-- `.agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`
+- `.agents/tasks/completed/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`
 - `.agents/tasks/MCP-2522-add-a-safe-stdio-mcp-client-transport.md`
 - `.agents/tasks/MCP-2525-bound-mcp-results-and-spill-oversized-output-securely.md`
 - `.agents/tasks/MCP-2533-add-authenticated-loopback-streamable-http-mcp-hosting.md`
@@ -129,7 +129,7 @@ and record its own product-surface scenario before it becomes terminal.
 
 ## Tasks
 
-- [ ] PAYLOAD-2153 — in-progress — `.agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`
+- [x] PAYLOAD-2153 — done — `.agents/tasks/completed/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`
 - [ ] MCP-2522 — todo — `.agents/tasks/MCP-2522-add-a-safe-stdio-mcp-client-transport.md`
 - [ ] MCP-2525 — todo — `.agents/tasks/MCP-2525-bound-mcp-results-and-spill-oversized-output-securely.md`
 - [ ] MCP-2533 — todo — `.agents/tasks/MCP-2533-add-authenticated-loopback-streamable-http-mcp-hosting.md`

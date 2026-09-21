@@ -1,8 +1,9 @@
 ---
 title: 'PAYLOAD-2153: provide stable cross-platform external payload replay handles'
 issue: https://github.com/woojubb/robota/issues/2525
-status: in-progress
+status: done
 created: 2026-09-21
+completed: 2026-09-21
 priority: high
 urgency: now
 area: packages/agent-session Node session-log external-payload filesystem authority
@@ -10,6 +11,8 @@ depends_on: [ARCH-042]
 ---
 
 # PAYLOAD-2153: provide stable cross-platform external payload replay handles
+
+Spec: `.agents/spec-docs/done/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`
 
 ## Objective
 
@@ -214,7 +217,8 @@ checks to a feature commit. Activating the context in `protect-develop` before t
 `develop` would block ordinary develop PRs that cannot publish it.
 
 **Recommendation:** keep the five real-host qualification legs, fail-closed fan-in implementation,
-repository required-check declaration, and anti-drift tests in PAYLOAD-2153. Transfer only the live
+repository required-check declaration for `stable payload native`, and anti-drift tests in
+PAYLOAD-2153. Transfer only the live
 `protect-develop` activation and `--live` parity proof to `AGREEMENT-2525`'s final
 integration-to-develop PR, where the current PR revision can first publish the exact context green. This
 is an ownership transfer, not a waiver; the final PR remains unmerged for a fresh user decision.
@@ -229,20 +233,20 @@ an implementation commit; a deliberately red feature-ref fan-in is guard evidenc
 
 ## Plan
 
-- [ ] Revalidate `session-log-sources`, the external-payload resolver, their public consumers, and native filesystem capabilities on Linux, macOS, and Windows.
-- [ ] Specify and implement one supported-host stable-handle contract at the lowest reusable filesystem-authority owner.
-- [ ] Preserve root containment, no-follow/replacement resistance, error classification, and secret-free diagnostics across every host implementation.
-- [ ] Add native-host replacement, missing-file, malformed-reference, and successful replay coverage.
-- [ ] Convert Bun CI/release packaging to exact host builds, fail-closed fan-in, and one least-privilege publisher without changing the established asset names.
-- [ ] Update the owning package contract and record the public replay scenario evidence.
+- [x] Revalidate `session-log-sources`, the external-payload resolver, their public consumers, and native filesystem capabilities on Linux, macOS, and Windows.
+- [x] Specify and implement one supported-host stable-handle contract at the lowest reusable filesystem-authority owner.
+- [x] Preserve root containment, no-follow/replacement resistance, error classification, and secret-free diagnostics across every host implementation.
+- [x] Add native-host replacement, missing-file, malformed-reference, and successful replay coverage.
+- [x] Convert Bun CI/release packaging to exact host builds, fail-closed fan-in, and one least-privilege publisher without changing the established asset names.
+- [x] Update the owning package contract and record the public replay scenario evidence.
 
 ## Completion Criteria
 
-- [ ] TC-01: The public Node replay factory resolves a valid external payload on Linux, macOS, and Windows without an ambient pathname-read fallback.
-- [ ] TC-02: Parent-directory and final-target replacement fixtures cannot redirect a replay read outside the payload root.
-- [ ] TC-03: Missing, malformed, unsupported, and unsafe payload references fail visibly without payload or credential leakage.
-- [ ] TC-04: Native-host tests, `@robota-sdk/agent-session` tests/typecheck/build, and the recorded public replay scenario pass.
-- [ ] TC-05: Every shipped Bun artifact passes the packaged replay/refusal smoke on its matching host, and one publisher emits and re-verifies exactly the five established binaries plus a five-entry checksum manifest.
+- [x] TC-01: The public Node replay factory resolves a valid external payload on Linux, macOS, and Windows without an ambient pathname-read fallback.
+- [x] TC-02: Parent-directory and final-target replacement fixtures cannot redirect a replay read outside the payload root.
+- [x] TC-03: Missing, malformed, unsupported, and unsafe payload references fail visibly without payload or credential leakage.
+- [x] TC-04: Native-host tests, `@robota-sdk/agent-session` tests/typecheck/build, and the recorded public replay scenario pass.
+- [x] TC-05: Every shipped Bun artifact passes the packaged replay/refusal smoke on its matching host, and one publisher emits and re-verifies exactly the five established binaries plus a five-entry checksum manifest.
 
 ## Test Plan
 
@@ -268,7 +272,34 @@ Use focused `agent-session` unit and integration tests for stable-root reads, re
 - Observable rationale: source=public-sdk-return
 - Expected observable: result=replay-preserved; replacementDenied=true; cleanupRemoved=true
 - Cleanup: the example removes its isolated session-log root, payload sidecar, outside marker, symlink or junction, and all other temporary fixture paths in `finally` on success or failure.
-- Evidence: pending; at DONE-GATE-STAGE-2 record each native host, the exact command, exit code, and exact result line from the completed implementation.
+- Evidence: completed revision `04c28547bd9a1762aa5de891296a6e74dffeeee9` produced exit 0 and the exact expected SDK result locally and on every supported native host; the concrete execution record follows.
+
+#### Execution record — 2026-09-21
+
+From `packages/agent-session` on the completed local revision, the exact scenario command
+`pnpm exec tsx examples/verify-external-payload-replay.ts` exited `0` and printed exactly:
+
+Durable product artifact: `packages/agent-session/examples/verify-external-payload-replay.ts`.
+
+```text
+result=replay-preserved; replacementDenied=true; cleanupRemoved=true
+```
+
+The same public example ran through
+`pnpm --filter @robota-sdk/agent-session run scenario:verify:external-payload-replay` at exact remote
+revision `04c28547bd9a1762aa5de891296a6e74dffeeee9`. Each native product invocation exited `0` and its log
+printed the same exact result line above:
+
+- Linux arm64 — [job 106169204827](https://github.com/woojubb/robota/actions/runs/35544989006/job/106169204827)
+- Linux x64 — [job 106169204847](https://github.com/woojubb/robota/actions/runs/35544989006/job/106169204847)
+- macOS arm64 — [job 106169204832](https://github.com/woojubb/robota/actions/runs/35544989006/job/106169204832)
+- macOS x64 — [job 106169204930](https://github.com/woojubb/robota/actions/runs/35544989006/job/106169204930)
+- Windows x64 — [job 106169204830](https://github.com/woojubb/robota/actions/runs/35544989006/job/106169204830)
+
+The observable itself proves all three scenario outcomes: the externalized payload was hydrated
+(`result=replay-preserved`), replacing the authorized payload directory could not redirect the read
+(`replacementDenied=true`), and the isolated fixture was removed (`cleanupRemoved=true`). No network,
+provider credential, or secret was used.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-21
 
@@ -333,3 +364,48 @@ Per criterion:
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** scenario written → scenario executed
+
+1. **Direct execution — PASS.** The exact command
+   `pnpm exec tsx examples/verify-external-payload-replay.ts` was run from
+   `packages/agent-session` against completed revision
+   `04c28547bd9a1762aa5de891296a6e74dffeeee9`, exited `0`, and the independent guardian reproduced it.
+2. **Expected observable — PASS.** The exact SDK result was
+   `result=replay-preserved; replacementDenied=true; cleanupRemoved=true`.
+3. **Concrete, subject-bound evidence — PASS.** Scenario 1 records the revision, command, exit code,
+   exact output, durable repository artifact, and the five native job receipts.
+4. **Product behavior — PASS.** The public example fails unless replay is preserved, replaced-root
+   redirection is refused as `OUTSIDE_ROOT`, and the isolated fixture is removed. The output therefore
+   reports public SDK behavior, not engineering verification.
+5. **Native-host corroboration — PASS.** Linux arm64/x64, macOS arm64/x64, and Windows x64 logs from
+   run `35544989006` each contain the same public example invocation and exact result on the same
+   revision.
+6. **Exceptions — N/A.** No manual-only or capability-absence exception is claimed; the single planned
+   scenario has been executed.
+
+**Guardian signal:** `DONE-GATE-STAGE-2: PASS — Scenario 1 directly executed at 04c28547bd9a1762aa5de891296a6e74dffeeee9 with pnpm exec tsx examples/verify-external-payload-replay.ts; exit 0; exact SDK result=result=replay-preserved; replacementDenied=true; cleanupRemoved=true; durable artifact packages/agent-session/examples/verify-external-payload-replay.ts; all five supported native-host logs record the same product result.`
+
+**Judged by:** independent `backlog-gate-guard` `/root/payload_done_gate_stage2`
+
+**ACTIONABLE FINDINGS:** `0`
+
+**GATE VERDICT:** `PASS`
+
+## Result
+
+Delivered a published, domain-free stable rooted-file authority and migrated the session and framework
+read paths to it without exposing raw native handles or restoring ambient pathname fallbacks. The
+public replay example now succeeds and refuses replacement redirection on Linux arm64/x64, macOS
+arm64/x64, and Windows x64; all five targeted native jobs at revision
+`04c28547bd9a1762aa5de891296a6e74dffeeee9` passed with the exact observable
+`result=replay-preserved; replacementDenied=true; cleanupRemoved=true`.
+
+The CLI/Bun qualification and release topology now use host-matched native builds, fail-closed evidence
+fan-in, and one least-privilege publisher while preserving the five established binary names. The
+repository declaration for `stable payload native` is complete. Its live `protect-develop` activation
+and parity proof remain deliberately owned by `AGREEMENT-2525` at the final integration-to-develop PR,
+where the exact current revision must first publish the context green and the PR must remain unmerged
+for the user's fresh decision.

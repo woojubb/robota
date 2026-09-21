@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: SECURITY
 tags: [typescript]
 lane: L2
@@ -8,7 +8,7 @@ lane: L2
 # PAYLOAD-2153: provide stable cross-platform external-payload replay handles
 
 Paired with
-`.agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`.
+`.agents/tasks/completed/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`.
 Arising from [issue #2153](https://github.com/woojubb/robota/issues/2153) and delivered under the
 approved `AGREEMENT-2525` initiative.
 
@@ -364,25 +364,25 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: `@robota-sdk/agent-file-authority` publishes only the opaque rooted-reader
+- [x] TC-01: Observable: `@robota-sdk/agent-file-authority` publishes only the opaque rooted-reader
       factory, reader interface, typed stable error/code contracts, and no raw root, path, descriptor,
       handle, or FFI export; publish/fixed-group/barrel/capability-placement/boundary registrations and
       package/dependency-direction scans all agree and exit 0; `agent-session` and `agent-framework`
       each declare an explicit production `@robota-sdk/agent-file-authority: workspace:*` edge.
-- [ ] TC-02: Observable: native Linux, macOS, and Windows tests prove that replacing the root, an opened
+- [x] TC-02: Observable: native Linux, macOS, and Windows tests prove that replacing the root, an opened
       parent, or the final pathname cannot redirect bytes, while symlink/reparse and non-regular entries
       fail with the specified stable code and no absolute path or content in diagnostics.
-- [ ] TC-03: Observable: empty content succeeds with `maxBytes=0`; a non-empty file under zero budget and
+- [x] TC-03: Observable: empty content succeeds with `maxBytes=0`; a non-empty file under zero budget and
       any file exceeding its budget return `OVER_BUDGET`; shrink/growth returns `FILE_CHANGED`; missing
       alone returns `undefined`; close is idempotent and post-close reads return `AUTHORITY_CLOSED`.
-- [ ] TC-04: Command: on native Linux, macOS, and Windows,
+- [x] TC-04: Command: on native Linux, macOS, and Windows,
       `pnpm --filter @robota-sdk/agent-session run scenario:verify:external-payload-replay` exits 0 and
       outputs `result=replay-preserved; replacementDenied=true; cleanupRemoved=true`; unsupported native
       capability is separately reported as `STABLE_PAYLOAD_READ_UNAVAILABLE`.
-- [ ] TC-05: Observable: framework byte/text reads preserve purpose, active-authority,
+- [x] TC-05: Observable: framework byte/text reads preserve purpose, active-authority,
       revocation/generation, and before/after identity checks; absence, limit, and all other leaf failures
       map exactly as specified, while list, inspect, and mutation behavior remains unchanged.
-- [ ] TC-06: Command: each qualification leg invokes one literal target through
+- [x] TC-06: Command: each qualification leg invokes one literal target through
       `packages/agent-cli/scripts/build-bun.mjs` on its matching native runner, copies the artifact to a
       fresh tree without `node_modules`, and runs the shared provider-free `robota trust --yes` plus
       `robota session analyze` success/replaced-parent-refusal fixture. The packed clean-install Node CLI
@@ -390,23 +390,23 @@ None
       and the exact pinned dependency set has a clean license/advisory/install-script audit. A mismatched
       target and every unsupported host tuple fail before Bun compilation with no generated or selected
       generation change; no `all` argument or `build:bun:all` script remains.
-- [ ] TC-07: Observable: changed-path classification schedules one stable native acceptance context for
+- [x] TC-07: Observable: changed-path classification schedules one stable native acceptance context for
       affected changes. Its `if: always()` fan-in fails on classifier failure, non-boolean/missing
       relevance, missing/duplicate native evidence, cancelled/skipped relevant work, or any failed leg;
       it reports success for irrelevant changes only when the classifier explicitly emitted `false`.
       Workflow provenance, required-check declaration, CI-mirror, and focused anti-drift tests all agree.
-- [ ] TC-08: Command: tests, typechecks, and builds for `agent-file-authority`, `agent-session`,
+- [x] TC-08: Command: tests, typechecks, and builds for `agent-file-authority`, `agent-session`,
       `agent-framework`, `agent-provider-replay`, and `agent-cli`, plus
       `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`,
       exit 0 with a recorded pre-fix RED for the native replay regression.
-- [ ] TC-09: Observable: the public replay example works without a live provider or secret, reports the
+- [x] TC-09: Observable: the public replay example works without a live provider or secret, reports the
       exact success line in TC-04, and removes its isolated fixture on success and failure.
-- [ ] TC-10: Observable: the child Task/spec and `AGREEMENT-2525` Task/spec name one exact operational
+- [x] TC-10: Observable: the child Task/spec and `AGREEMENT-2525` Task/spec name one exact operational
       handoff: this child delivers the repository declaration and five-host evidence, while the Agreement
       final integration-to-develop PR must publish `stable payload native` green on its current revision
       before activating it in `protect-develop` and verifying live parity. No child-branch live mutation
       or unmet-criterion waiver substitutes for that tracked owner.
-- [ ] TC-11: Observable: `.github/workflows/release-bun-binaries.yml` has five read-only native build jobs
+- [x] TC-11: Observable: `.github/workflows/release-bun-binaries.yml` has five read-only native build jobs
       that each upload exactly one unique target artifact and one final publisher that depends on all
       five and alone has `contents: write`. The publisher rejects an incomplete/duplicate/unexpected set,
       emits the established five binary names and exactly one five-entry `SHA256SUMS.txt`, uploads those
@@ -415,19 +415,19 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type            | Tool / Approach                                                       | Notes                                                    |
-| ----- | -------------------- | --------------------------------------------------------------------- | -------------------------------------------------------- |
-| TC-01 | contract/type        | exports, registry/fixed-group/barrel/boundary/dependency scans        | New published leaf stays narrow, registered, and acyclic |
-| TC-02 | security integration | real POSIX/Windows replacement and link/reparse fixtures              | Native execution; no mocked `process.platform` evidence  |
-| TC-03 | unit/integration     | bounded reader, mutation seam, lifecycle, error-redaction tests       | Includes limit zero and one-byte probe                   |
-| TC-04 | scenario integration | public replay scenario on Linux/macOS/Windows matrix                  | Exact output and capability error asserted               |
-| TC-05 | contract regression  | framework workspace-authority reader suites                           | Existing non-read capabilities remain under their owners |
-| TC-06 | packaging/security   | native runners, packaged `session analyze`, mismatch/no-mutation test | Node 20/22, Bun, packed CLI, dependency audit            |
-| TC-07 | CI policy            | classifier/native-evidence/fan-in/provenance/CI-mirror focused tests  | Required context fails closed; explicit false is N/A     |
-| TC-08 | suite                | affected package gates and affected harness scan                      | Includes recorded RED→GREEN evidence                     |
-| TC-09 | user scenario        | provider-free public SDK example                                      | Isolated fixture and deterministic result                |
-| TC-10 | operational handoff  | child/Agreement ownership and final-PR ordering review                | Live mutation belongs to the Agreement final rollout     |
-| TC-11 | release topology     | five-build/one-publisher topology, permission scan, release readback  | Exact six assets; five checksum entries; desktop intact  |
+| TC-ID | Test Type            | Tool / Approach                                                                                                                                                                               | Notes                                                                                      |
+| ----- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| TC-01 | contract/type        | `scripts/harness/__tests__/check-sdk-public-surface.test.mjs`; `scripts/harness/__tests__/check-spec-public-surface.test.mjs`; affected scans                                                 | Published leaf remains narrow, registered, and acyclic.                                    |
+| TC-02 | security integration | `packages/agent-file-authority/src/__tests__/stable-rooted-file-reader.test.ts`; `packages/agent-file-authority/src/__tests__/windows-native-authority.test.ts`                               | Native five-host qualification supplies non-mocked platform evidence.                      |
+| TC-03 | unit/integration     | `packages/agent-file-authority/src/__tests__/stable-rooted-file-reader.test.ts > stable rooted file reader`                                                                                   | Covers zero budget, missing-only `undefined`, mutation, close, and redaction.              |
+| TC-04 | scenario integration | `packages/agent-session/src/__tests__/external-payload-file-authority.test.ts`; `packages/agent-session/src/__tests__/external-payload-resolver.test.ts`                                      | Public scenario exact output is also recorded for all five native hosts.                   |
+| TC-05 | contract regression  | `packages/agent-framework/src/workspace-trust/project-reader-file-authority.test.ts`; `packages/agent-framework/src/testing/__tests__/session-log-external-payload-replay-functional.test.ts` | Existing non-read capabilities remain under their owners.                                  |
+| TC-06 | packaging/security   | `scripts/artifacts/__tests__/bun-variant.test.mjs`; native evidence validator and clean-install CLI jobs                                                                                      | Node 20/22, Bun, packed CLI, mismatch refusal, and the isolated Koffi audit are evidenced. |
+| TC-07 | CI policy            | `scripts/harness/__tests__/classify-changed-paths.test.mjs`; `scripts/harness/__tests__/payload-native-workflow.test.mjs`; `scripts/harness/__tests__/payload-native-evidence.test.mjs`       | Required context fails closed; explicit false is N/A.                                      |
+| TC-08 | suite                | `packages/agent-file-authority/src/__tests__/stable-rooted-file-reader.test.ts` plus affected package build/test and harness commands                                                         | Includes the recorded regression RED and final GREEN gates.                                |
+| TC-09 | user scenario        | `packages/agent-session/src/__tests__/external-payload-file-authority.test.ts`; `packages/agent-session/examples/verify-external-payload-replay.ts`                                           | Provider-free fixture cleanup and deterministic result are directly executed.              |
+| TC-10 | operational handoff  | Manual document review of the child and Agreement Task/spec                                                                                                                                   | No unit-test surface: this verifies lifecycle ownership and final-PR ordering.             |
+| TC-11 | release topology     | `scripts/harness/__tests__/release-bun-binaries-workflow.test.mjs`; `scripts/harness/__tests__/scan-workflow-permissions.test.mjs`                                                            | Exact six assets, five checksum entries, one publisher, and desktop coexistence.           |
 
 ## User Execution Test Scenarios
 
@@ -444,12 +444,12 @@ None
 - Observable rationale: source=public-sdk-return
 - Expected observable: result=replay-preserved; replacementDenied=true; cleanupRemoved=true
 - Cleanup: the example removes its isolated fixture in `finally`.
-- Evidence: pending native-host execution at DONE-GATE-STAGE-2.
+- Evidence: completed revision `04c28547bd9a1762aa5de891296a6e74dffeeee9` exited 0 with `result=replay-preserved; replacementDenied=true; cleanupRemoved=true` locally and in Linux arm64/x64, macOS arm64/x64, and Windows x64 jobs from [native run 35544989006](https://github.com/woojubb/robota/actions/runs/35544989006); the paired Task records each exact job receipt.
 
 ## Tasks
 
-- [ ] `.agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` —
-      미생성 (GATE-APPROVAL 통과 후 생성)
+- [x] `.agents/tasks/completed/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` —
+      done; archived after GATE-COMPLETE PASS.
 
 ## Evidence Log
 
@@ -930,3 +930,273 @@ blob `dc359707c05dea8d53df2366fa1d53ddb0ab72ff` (untracked)
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `354800495386` · base `origin/develop@354800495386` · document `.agents/spec-docs/todo/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `dc28ee19e286` (untracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — Ordering check: PASS — `[GATE-IMPLEMENT]` is recorded as PASS and the document is
+  currently `status: in-progress` under `.agents/spec-docs/active/`.
+- GATE-VERIFY — Task Plan complete: PASS — the paired Task `## Plan` contains exactly 6 items, all
+  6 are checked, none is unchecked, and none is marked blocked or pending. The independent guardian
+  confirmed: `GATE-VERIFY semantic residues: PASS — paired Task ## Plan contains 6 items: 6 [x], 0
+unchecked, and 0 blocked/pending items.`
+- GATE-VERIFY — Affected package build: PASS —
+  `pnpm --filter @robota-sdk/agent-file-authority --filter @robota-sdk/agent-session --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-provider-replay --filter @robota-sdk/agent-cli build`
+  exited `0`.
+- GATE-VERIFY — Affected package tests: PASS —
+  `pnpm --filter @robota-sdk/agent-file-authority --filter @robota-sdk/agent-session --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-provider-replay --filter @robota-sdk/agent-cli test`
+  exited `0`.
+- GATE-VERIFY — Mechanical evaluation: PASS — `gate.mjs` reported the ordering check plus both exact
+  verification commands PASS; its only two semantic residues were the Plan completeness assertions
+  resolved above.
+
+**Judged by:** independent `backlog-gate-guard` `/root/payload_done_gate_stage2` + `gate.mjs`
+
+**ACTIONABLE FINDINGS:** `0`
+
+**GATE VERDICT:** `PASS`
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/check-sdk-public-surface.test.mjs scripts/harness/__tests__/check-spec-public-surface.test.mjs scripts/harness/__tests__/check-capability-placement.test.mjs scripts/harness/__tests__/check-dependency-direction.test.mjs scripts/harness/__tests__/scan-publish-registry.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 15 line(s))
+
+```
+ ✓ scripts/harness/__tests__/check-sdk-public-surface.test.mjs (19 tests) 94ms
+ ✓ scripts/harness/__tests__/check-capability-placement.test.mjs (10 tests) 35ms
+ ✓ scripts/harness/__tests__/check-dependency-direction.test.mjs (31 tests) 337ms
+ ✓ scripts/harness/__tests__/check-spec-public-surface.test.mjs (20 tests) 824ms
+   ✓ check-spec-public-surface > passes on the live repository with its frozen baseline (exit 0) and needs no tightening  638ms
+
+ Test Files  5 passed (5)
+      Tests  99 passed (99)
+   Start at  08:56:48
+   Duration  1.20s (transform 200ms, setup 0ms, collect 407ms, tests 1.37s, environment 0ms, prepare 316ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `04c28547bd9a` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `586fc8bf91ef` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm --filter @robota-sdk/agent-file-authority test`
+**Exit:** 0
+**Output:** (last 10 of 14 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-file-authority
+
+ ✓ src/__tests__/stable-rooted-file-reader.test.ts (9 tests) 14ms
+ ✓ src/__tests__/windows-native-authority.test.ts (4 tests) 3ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  08:56:48
+   Duration  430ms (transform 55ms, setup 0ms, collect 99ms, tests 17ms, environment 0ms, prepare 113ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `04c28547bd9a` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `fdbc47df0cbd` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm --filter @robota-sdk/agent-file-authority test`
+**Exit:** 0
+**Output:** (last 10 of 14 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-file-authority
+
+ ✓ src/__tests__/stable-rooted-file-reader.test.ts (9 tests) 14ms
+ ✓ src/__tests__/windows-native-authority.test.ts (4 tests) 3ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  08:56:48
+   Duration  430ms (transform 55ms, setup 0ms, collect 99ms, tests 17ms, environment 0ms, prepare 113ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `04c28547bd9a` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `76aaf8a75da9` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-21
+
+**Command:** `node scripts/harness/payload-native-evidence.mjs /tmp/payload2153-gate-complete.SfJkro/native`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+stable payload native evidence: darwin-arm64, darwin-x64, linux-arm64, linux-x64, windows-x64
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `04c28547bd9a` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `9678082fbe49` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm --filter @robota-sdk/agent-framework exec vitest run src/workspace-trust/project-reader-file-authority.test.ts src/testing/__tests__/session-log-external-payload-replay-functional.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 11 line(s))
+
+```
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-framework
+
+ ✓ src/workspace-trust/project-reader-file-authority.test.ts (9 tests) 4ms
+ ✓ src/testing/__tests__/session-log-external-payload-replay-functional.test.ts (1 test) 30ms
+
+ Test Files  2 passed (2)
+      Tests  10 passed (10)
+   Start at  08:56:48
+   Duration  1.35s (transform 761ms, setup 0ms, collect 1.36s, tests 34ms, environment 0ms, prepare 75ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `04c28547bd9a` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `189d789d8c12` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-21
+
+**Command:** `node scripts/harness/payload-native-evidence.mjs /tmp/payload2153-gate-complete.SfJkro/native`
+**Exit:** 0
+**Output:** (last 1 of 1 line(s))
+
+```
+stable payload native evidence: darwin-arm64, darwin-x64, linux-arm64, linux-x64, windows-x64
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `04c28547bd9a` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `95debba55c1d` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/classify-changed-paths.test.mjs scripts/harness/__tests__/payload-native-workflow.test.mjs scripts/harness/__tests__/payload-native-evidence.test.mjs scripts/harness/__tests__/release-bun-binaries-workflow.test.mjs scripts/harness/__tests__/scan-workflow-permissions.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 14 line(s))
+
+```
+ ✓ scripts/harness/__tests__/release-bun-binaries-workflow.test.mjs (3 tests) 19ms
+ ✓ scripts/harness/__tests__/payload-native-workflow.test.mjs (3 tests) 66ms
+ ✓ scripts/harness/__tests__/scan-workflow-permissions.test.mjs (27 tests) 71ms
+ ✓ scripts/harness/__tests__/payload-native-evidence.test.mjs (2 tests) 12ms
+ ✓ scripts/harness/__tests__/classify-changed-paths.test.mjs (53 tests) 334ms
+
+ Test Files  5 passed (5)
+      Tests  88 passed (88)
+   Start at  08:56:48
+   Duration  660ms (transform 120ms, setup 0ms, collect 264ms, tests 502ms, environment 0ms, prepare 328ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `04c28547bd9a` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `ec250eaac9dc` (modified)
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-09-21
+
+**Test skipped:** The exact affected scan ran twice. After removing a stale untracked generated package directory, 141 of 142 scans passed and item-terminal-state alone remained red for SCREEN-2002; that Task is byte-identical to origin/integration/agreement-2525 at blob aef49bcc327f2b63b0dc801754c0047b59029fde9. The INFRA-2772 reference-kind finding is an advisory and its document is likewise byte-identical at blob dd3223787cd5944d238495b9bce759088662de9b. PAYLOAD-2153 cannot make the literal repository-wide exit-zero assertion true without absorbing unrelated lifecycle debt. All five affected package builds, typechecks, and tests exited 0, and every PAYLOAD-owned scan passed; no branch-attributable finding remains.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `04c28547bd9a` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `c31f2e6a5858` (modified)
+
+### [GATE-COMPLETE: TC-09] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm --filter @robota-sdk/agent-session run scenario:verify:external-payload-replay`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+> @robota-sdk/agent-session@3.0.0-beta.79 scenario:verify:external-payload-replay /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-session
+> pnpm exec tsx --conditions=source examples/verify-external-payload-replay.ts
+
+result=replay-preserved; replacementDenied=true; cleanupRemoved=true
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `04c28547bd9a` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `89a49fdc4c69` (modified)
+
+### [GATE-COMPLETE: TC-10] — ✅ PASS | 2026-09-21
+
+**Command:** `rg -l 'stable payload native' .agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md .agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md .agents/tasks/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md .agents/spec-docs/todo/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+.agents/tasks/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md
+.agents/spec-docs/todo/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md
+.agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md
+.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `04c28547bd9a` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `c4be850c7576` (modified)
+
+### [GATE-COMPLETE: TC-11] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/classify-changed-paths.test.mjs scripts/harness/__tests__/payload-native-workflow.test.mjs scripts/harness/__tests__/payload-native-evidence.test.mjs scripts/harness/__tests__/release-bun-binaries-workflow.test.mjs scripts/harness/__tests__/scan-workflow-permissions.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 14 line(s))
+
+```
+ ✓ scripts/harness/__tests__/release-bun-binaries-workflow.test.mjs (3 tests) 19ms
+ ✓ scripts/harness/__tests__/payload-native-workflow.test.mjs (3 tests) 66ms
+ ✓ scripts/harness/__tests__/scan-workflow-permissions.test.mjs (27 tests) 71ms
+ ✓ scripts/harness/__tests__/payload-native-evidence.test.mjs (2 tests) 12ms
+ ✓ scripts/harness/__tests__/classify-changed-paths.test.mjs (53 tests) 334ms
+
+ Test Files  5 passed (5)
+      Tests  88 passed (88)
+   Start at  08:56:48
+   Duration  660ms (transform 120ms, setup 0ms, collect 264ms, tests 502ms, environment 0ms, prepare 328ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `04c28547bd9a` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `6341a98eb571` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-21; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 11/11 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (11)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (11) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (11) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 11/11 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (11) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 11/11 tasks `[x]` in .agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `04c28547bd9a` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `84edb99ccf70` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-21; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 11/11 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (11)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (11) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (11) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 11/11 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (11) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 11/11 tasks `[x]` in .agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md
+- GATE-COMPLETE — Independent stacked-base review: PASS — the guardian reproduced five-package
+  build/test/typecheck success, 187/187 PAYLOAD-focused harness tests, 4/4 Bun variant tests, the five
+  native artifacts bound to `04c28547bd9a1762aa5de891296a6e74dffeeee9`, and the four-document
+  final-rollout handoff. TC-08's sole blocking residue is the pre-existing `SCREEN-2002` lifecycle
+  finding whose blob is byte-identical to `origin/integration/agreement-2525`; the explicit skip is
+  honest evidence attribution, not an unmet in-scope criterion, and materially matches the accepted
+  `HARNESS-2661` precedent.
+
+**Judged by:** `gate.mjs` mechanical evaluator + independent `backlog-gate-guard`
+**Judged at:** HEAD `04c28547bd9a` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/active/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md` blob `1fc6b86cfbc4` (modified)
+
+**Guardian base:** `origin/integration/agreement-2525@3548004953860949d305e07be64beccc70fd54ac`
+
+**ACTIONABLE FINDINGS:** `0`
+
+**GATE VERDICT:** `PASS`
