@@ -67,3 +67,4 @@
 {"runId":"r20260921103523","opened":"2026-09-21T10:35:23.813Z","closed":"2026-09-21T10:48:30.868Z","roundFindings":[],"extensions":{"void":{"reason":"opened unbound; reopened with --ref so the OPEN run can be committed (#2504)","at":"2026-09-21T10:48:30.902Z","priorTerminal":"abandoned"}},"terminal":"voided","ref":null}
 {"runId":"r20260921104830","opened":"2026-09-21T10:48:30.957Z","closed":"2026-09-21T12:19:45.685Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260921121945","opened":"2026-09-21T12:19:45.724Z","closed":"2026-09-21T13:41:35.332Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
+{"runId":"r20260921144518","opened":"2026-09-21T14:45:18.147Z","closed":"2026-09-21T14:50:33.876Z","roundFindings":[2],"extensions":{},"terminal":"halted-for-user","ref":null}
