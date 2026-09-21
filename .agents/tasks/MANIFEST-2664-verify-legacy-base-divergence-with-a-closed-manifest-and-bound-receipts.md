@@ -79,7 +79,7 @@ set per case, the path-byte, ceiling, and fixture-port failure cases through the
 injected clock and injected limits, and the exit-code, stdin, drain, and `EPIPE` cases through the
 CLI as a child, all in the hermetic tier. Merge own-content is not verified here; no fixture needs
 `merge-tree`.
-Assert the three owner documents by heading and identifier in the contract tier. The real #2664 graphs
+Assert the three owner documents by heading and identifier in the contract tier. The real issue #2664 graphs
 are not an input of this bundle: the replacement `720eb5e84` is reachable only from local branches in
 one clone, and a run over it needs the manifest the publishing bundle authors. No fixture reaches the
 network, a credential, or a state store.
@@ -111,9 +111,9 @@ remote publication, merge own-content) are likewise repository governance, owned
   commit `3e36f4568`): all 23 cells covered, closed `converged`; raw signals structure
   `high=2 medium=3`, design `high=3 medium=4`, runtime `medium=2`, gate `high=1 medium=5`. The three
   distinct high findings, each raised by two or three dimensions: merge commits had no record kind
-  (both #2664 graphs carry eight merges, all currently clean under `merge-tree --write-tree`); a third
+  (both issue #2664 graphs carry eight merges, all currently clean under `merge-tree --write-tree`); a third
   document, `backlog-execution.md` § Base Branch Workflow, restates the equality policy the draft said
-  it did not touch; and TC-02's offline run over the real graphs needed a #2664 manifest no bundle
+  it did not touch; and TC-02's offline run over the real graphs needed an issue #2664 manifest no bundle
   owned yet, over a replacement tip reachable only from local branches. The revision adds the `merge`
   record with `merge-tree` own-content and reachability enumeration, makes `git-branch.md` the sole
   policy owner with two pointers, drops the real-graph run from the criteria, binds the manifest to
@@ -152,7 +152,7 @@ remote publication, merge own-content) are likewise repository governance, owned
   directed on 2026-09-21 that merge verification move to `BRANCH-2664-P2`; this bundle keeps the
   `merge` record structural (OID and both parents, checked against the enumeration) and does not
   invoke `merge-tree` at all, so the port vocabulary is five commands and no merge configuration or
-  attribute source can reach a verdict. Both #2664 graphs' sixteen merges were measured clean with
+  attribute source can reach a verdict. Both issue #2664 graphs' sixteen merges were measured clean with
   empty own-content, so the deferral drops no finding the real migration raises. The mediums were
   applied: `parseManifest` gains `strict`, the port call shape `runGit(command, args, { timeoutMs })`
   and the adapter's `env` and `defaultTimeoutMs` options are stated, the full v1 code set is listed
@@ -197,6 +197,12 @@ remote publication, merge own-content) are likewise repository governance, owned
   review on `3f3cb9733`: `REVIEW VERDICT: ENDORSE` (2026-09-21) — all four present, the local
   `.git/config` premise reproduced on Git 2.50.1 under isolation, no regression; the recommendation
   gate is passed and the owner sign-off the Decision names is the next step.
+- Reference-kind ratchet: the spec carries nine `#2664` mentions that `reference-kind-qualified`
+  reports as unqualified; eight sit inside the approved `## Architecture Review`, whose fingerprint
+  GATE-APPROVAL binds, so qualifying them would invalidate the approval for a typographic change.
+  The spec is therefore frozen deliberately at nine in `scripts/harness/reference-kind-baseline.json`
+  (the ratchet's sanctioned form for a new document), and this Task's own four were qualified. The
+  count may only fall.
 - Legacy sync experiment: merging `origin/integration/agreement-2664@4214cb540` with `origin/develop`
   conflicts in `gate-checkpoint-evidence.test.mjs`. The clean historical sync fixture examined 60 topic
   commits and produced undeclared PUSH, four out-of-order, and one checkpoint-mix finding.

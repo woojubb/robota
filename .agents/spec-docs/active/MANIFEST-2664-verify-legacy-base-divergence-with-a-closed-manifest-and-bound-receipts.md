@@ -591,6 +591,7 @@ further revision needed before GATE-APPROVAL.
 - GATE-WRITE — Test Plan: section present; 5 rows = 5 TC criteria (count matches); each row has Test Type and Tool; 0 manual rows — 4 mechanical PASS.
 - GATE-WRITE — Structure: `## Tasks` present with the paired Task path (file exists); `## Evidence Log` present with no prior gate entry; no `## Status` / `## Classification` body sections — 3 mechanical PASS.
 
+**Judged by:** `backlog-gate-guard` — every criterion, the 20 mechanical ones re-run through `gate.mjs judge --dry-run` and the 7 semantic ones judged
 **Judged at:** HEAD `09589460e` · base `origin/develop@24a646101` · document `.agents/spec-docs/draft/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md` blob `25aa211f2` (tracked)
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-21
