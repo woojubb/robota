@@ -79,11 +79,11 @@ current PR.
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                                                                                           | Notes                                                                                                                                                |
-| ----- | --------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Unit      | `scripts/harness/__tests__/post-findings-authorization.test.mjs` / `it('selects the current PR completion from repeated umbrella deliveries')` | RED before the selector is PR-scoped; GREEN after                                                                                                    |
-| TC-02 | Suite     | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`                       | Regression — the affected set, not the full suite                                                                                                    |
-| TC-03 | Unit      | `scripts/harness/__tests__/post-findings-authorization.test.mjs` / `describe('single-pass remote closeout receipts')`      | Whole-file pass, including `it('still refuses multiple completion receipts for the current PR')`                                                     |
+| TC-ID | Test Type | Tool / Approach                                                                                                                                | Notes                                                                                            |
+| ----- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| TC-01 | Unit      | `scripts/harness/__tests__/post-findings-authorization.test.mjs` / `it('selects the current PR completion from repeated umbrella deliveries')` | RED before the selector is PR-scoped; GREEN after                                                |
+| TC-02 | Suite     | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`                                            | Regression — the affected set, not the full suite                                                |
+| TC-03 | Unit      | `scripts/harness/__tests__/post-findings-authorization.test.mjs` / `describe('single-pass remote closeout receipts')`                          | Whole-file pass, including `it('still refuses multiple completion receipts for the current PR')` |
 
 ## User Execution Test Scenarios
 
