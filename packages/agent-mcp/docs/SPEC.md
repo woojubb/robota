@@ -175,7 +175,7 @@ All `ITool`-related types (`ITool`, `IToolResult`, `IToolExecutionContext`, `TTo
 | `IMCPDefinitionProblem`         | interface | Why a name could not produce a usable definition                                                           |
 | `IMCPDefinitionShadow`          | interface | An entry a winner hid, with its own source and origin                                                      |
 | `IMCPUnsetVariable`             | interface | An unset `${VAR}`: the variable, the exact field, and the literal left in place                            |
-| `TMCPDefinitionSource`          | type      | `managed \| local \| project \| user \| plugin`                                                            |
+| `TMCPDefinitionSource`          | type      | An alias of `TMCPActivationSource`, NOT a second union — one declaration cannot diverge from itself        |
 | `TMCPTransport`                 | type      | `stdio \| http \| sse \| ws`; `streamable-http` normalises to `http`                                       |
 
 ## Extension Points
