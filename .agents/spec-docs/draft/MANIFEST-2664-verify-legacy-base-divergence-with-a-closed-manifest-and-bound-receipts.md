@@ -333,7 +333,7 @@ v2, which this verifier refuses with `UNSUPPORTED_SCHEMA_VERSION`. Inside `verif
 ceiling failure is `aborted` carrying the parse code (`SIZE_LIMIT` is a byte ceiling and so applies
 only in `parseManifest` and the CLI), and an `aborted` result carries no findings — the run is
 unfinished, and partial findings would invite reading it as a verdict. `refuted` means the
-manifest was fully checked and disagrees with the repository; `aborted` means the check could not
+manifest was fully checked — or refuted on ancestry alone — and disagrees with the repository; `aborted` means the check could not
 complete, and the two never mix. A diagnostic or finding is `{ code, path, message }`, and
 `MANIFEST_DIAGNOSTIC_CODES` is exactly this v1 set, which TC-01 asserts by equality, not membership:
 
@@ -565,4 +565,7 @@ attributes sources to TC-03, adds the per-side `TIP_NOT_DESCENDANT` invariant, a
 confined to completion-criteria precision: a named `TIP_NOT_DESCENDANT` and swapped-parent fixture
 in TC-01, the `core.attributesFile` leg of TC-03 moved to the fixture's local `.git/config` (a
 `HOME`-config source is already blocked by configuration isolation and so proved the wrong thing),
-and two leftover phrases; the revision applies all four. The next verdict is recorded below.
+and two leftover phrases; the revision applies all four. The third review, on `3f3cb9733`,
+returned `REVIEW VERDICT: ENDORSE` on 2026-09-21: every requested change present, the
+`core.attributesFile` premise reproduced under isolation on the host Git, no regression, and no
+further revision needed before GATE-APPROVAL.

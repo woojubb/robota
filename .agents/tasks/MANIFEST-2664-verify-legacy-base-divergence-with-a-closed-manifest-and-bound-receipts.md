@@ -185,7 +185,9 @@ Robota CLI, TUI, browser, public SDK, configuration, or installed-package behavi
   Decision states that the ancestry checks precede enumeration; TC-03's `core.attributesFile` leg
   moves to the fixture's local `.git/config`, since a `HOME`-config source is blocked by
   configuration isolation and proved that rather than `--text`; two leftover phrases fixed. Third
-  review pending (the orchestrator bounds revisions at two).
+  review on `3f3cb9733`: `REVIEW VERDICT: ENDORSE` (2026-09-21) — all four present, the local
+  `.git/config` premise reproduced on Git 2.50.1 under isolation, no regression; the recommendation
+  gate is passed and the owner sign-off the Decision names is the next step.
 - Legacy sync experiment: merging `origin/integration/agreement-2664@4214cb540` with `origin/develop`
   conflicts in `gate-checkpoint-evidence.test.mjs`. The clean historical sync fixture examined 60 topic
   commits and produced undeclared PUSH, four out-of-order, and one checkpoint-mix finding.
