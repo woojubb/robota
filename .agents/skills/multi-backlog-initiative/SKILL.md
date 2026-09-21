@@ -44,11 +44,10 @@ If any precondition fails → **terminate** and report which.
 
 **1. Establish the integration base branch, cut fresh from the integration branch.** Fetch first: a base
 cut from a stale local ref carries divergence into every child that follows. Name it exactly
-`integration/<agreement-id>` and cut it from fresh `origin/develop`. During a legacy migration, keep
-the old ref immutable and create the replacement with `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1`; replay
-only the AGREEMENT planning commits, then recreate completed children by replaying their non-merge
-commits in order. Before retiring the old ref, prove ordered stable patch-ID equality and
-base-relative changed-path equality for every replayed segment and verify each replacement merge.
+`integration/<agreement-id>` and cut it from fresh `origin/develop`. During a legacy migration, follow
+[`git-branch.md` § Branch Policy](../../rules/git-branch.md#branch-policy) — the sole owner of the
+migration rule — for the replay order, the divergence manifest that names every difference, and the
+immutability of the old ref until every replacement merge is verified.
 
 | Outcome                                                      | Route                                                                                        |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
