@@ -10,6 +10,18 @@ lane: L2
 Paired with `.agents/tasks/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md`.
 Arising from [issue #2664](https://github.com/woojubb/robota/issues/2664).
 
+> **Scope split, 2026-09-21.** After four architecture-audit fanouts the contracts this document had
+> accumulated were divided by their audit history. Everything the fanouts left verified — the closed
+> manifest and verifier, the review/decision/completion record binding through the exported shared
+> parser, the bounded-runtime seam extension, the static scan, the owner-document route, and their
+> tests (this document's former TC-01, TC-02, TC-03, TC-05, and TC-06) — now belongs to
+> `MANIFEST-2664`, on which this document depends. What remains here is the remote publication and
+> authority layer — rulesets, GitHub Apps, the durable journal and lease, the pre-push admission seam,
+> the credential handoff, the remote projection matrix, and the Darwin required context — together
+> with its own verification. The Decision below still carries the moved contracts' prose from the
+> last audited revision; the next revision of this document rewrites it to the remaining scope and
+> renumbers its criteria, and the round-4 findings recorded in the Task apply to that remaining scope.
+
 ## Problem
 
 The legacy integration base at `4214cb540` cannot be advanced under the current plan-order contract.
@@ -980,23 +992,20 @@ and Phase B remains blocked before any review-ref or target mutation.
 
 ## Affected Files
 
+Owned by `MANIFEST-2664` and therefore absent here: the manifest module, the review reader, the two
+shared closeout owners, the runtime seam, the static scan, `project-structure.md`, and their tests.
+
 - `.agents/rules/git-branch.md`
 - `.agents/rules/backlog-execution.md`
 - `.agents/skills/multi-backlog-initiative/SKILL.md`
-- `.agents/project-structure.md`
-- `scripts/harness/integration-migration-manifest.mjs`
 - `scripts/harness/integration-migration-admission.mjs`
 - `scripts/harness/integration-migration-operation.mjs`
 - `scripts/harness/integration-migration.mjs`
-- `scripts/harness/integration-migration-review.mjs`
 - `scripts/harness/integration-migration-provision.mjs`
 - `scripts/harness/integration-migration-journal.mjs`
 - `scripts/harness/integration-migration-github.mjs`
 - `scripts/harness/integration-migration-remote.mjs`
 - `scripts/harness/integration-migration-credential-helper.mjs`
-- `scripts/harness/post-findings-authorization.mjs`
-- `scripts/harness/post-findings-github-comment-verification.mjs`
-- `scripts/harness/verification-budget-runtime.mjs`
 - `scripts/harness/harness-test-classification.mjs`
 - `.github/integration-migration-authorities.json`
 - `.github/workflows/ci.yml`
@@ -1010,25 +1019,19 @@ and Phase B remains blocked before any review-ref or target mutation.
 - `scripts/harness/pre-push-work-run.mjs`
 - `scripts/harness/pre-push-local-checks.mjs`
 - `.claude/hooks/pre-push-check.sh`
-- `scripts/harness/__tests__/integration-migration-manifest.test.mjs`
 - `scripts/harness/__tests__/integration-migration-admission.test.mjs`
 - `scripts/harness/__tests__/integration-migration-operation.test.mjs`
 - `scripts/harness/__tests__/integration-migration.test.mjs`
-- `scripts/harness/__tests__/integration-migration-review.test.mjs`
 - `scripts/harness/__tests__/integration-migration-journal.test.mjs`
 - `scripts/harness/__tests__/integration-migration-github.test.mjs`
 - `scripts/harness/__tests__/integration-migration-remote.test.mjs`
 - `scripts/harness/__tests__/integration-migration-credential-helper.test.mjs`
 - `scripts/harness/__tests__/integration-migration-provision.test.mjs`
-- `scripts/harness/__tests__/post-findings-authorization.test.mjs`
-- `scripts/harness/__tests__/verification-budget-runtime.test.mjs`
 - `scripts/harness/__tests__/pre-push-sequence.test.mjs`
 - `.husky/pre-push`, `.claude/hooks/branch-guard.sh`, and hook parity tests only if reachability
   cannot be proven without an edit
 - `scripts/harness/scan-user-execution-plan-order.mjs` and
   `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` if required by the validated correction shape
-- `scripts/harness/scan-integration-migration-static.mjs`,
-  `scripts/harness/__tests__/scan-integration-migration-static.test.mjs`
 - `scripts/harness/scan-integration-migration-darwin-gate.mjs`,
   `scripts/harness/__tests__/scan-integration-migration-darwin-gate.test.mjs`
 - `.agents/evidence/migrations/BRANCH-2664-P2-agreement-2664-migration.json`
@@ -1100,7 +1103,7 @@ and Phase B remains blocked before any review-ref or target mutation.
       numeric ID is checked through the extended `author.id` projection, and a login-only match with a
       different ID is refused. A fixture whose issue comment list exceeds 256 KiB, and one whose page takes
       longer than fifteen seconds, are read successfully through the runtime-supplied `{ timeout,
-  maxBuffer }`. The
+maxBuffer }`. The
       migration reader calls `fetchCloseoutAudit()` with exact IDs: the landed PR-scoped selection accepts
       the manifest PR's completion alongside #2664's other per-PR historical records, a supplied ID that
       differs from the selected envelope is `closeout-comment-identity-mismatch`, and two trusted

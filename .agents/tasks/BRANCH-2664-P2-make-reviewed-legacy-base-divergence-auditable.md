@@ -6,7 +6,7 @@ created: 2026-09-21
 priority: high
 urgency: now
 area: repository integration-base migration policy and harness verification
-depends_on: []
+depends_on: [MANIFEST-2664]
 ---
 
 Spec: `.agents/spec-docs/backlog/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md`
@@ -14,6 +14,10 @@ Spec: `.agents/spec-docs/backlog/BRANCH-2664-P2-make-reviewed-legacy-base-diverg
 # BRANCH-2664-P2: make reviewed legacy-base divergence auditable
 
 ## Objective
+
+> Scope split 2026-09-21: the manifest verifier, record binding, runtime seam, static scan, and
+> owner-document route moved to `MANIFEST-2664` (this Task's former TC-01/02/03/05/06). This Task
+> keeps the remote publication and authority layer and its verification, and depends on that bundle.
 
 Unblock AGREEMENT-2664's legacy integration-base migration without weakening replay review. Land a
 generic verifier, tracked remote rulesets, and an atomic multi-ref adapter, then use one closed manifest
