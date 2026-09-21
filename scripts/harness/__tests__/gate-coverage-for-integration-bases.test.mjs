@@ -55,13 +55,6 @@ describe('INFRA-2804: the widened workflow triggers', () => {
     expect(branches).toContain('develop');
   });
 
-  // TC-09 — the constraint that is cheap to violate silently.
-  it.each(WIDENED)('%s keeps its %s types list intact', (file, key) => {
-    const types = workflow(file).on[key].types;
-    expect(types).toContain('opened');
-    expect(types).toContain('synchronize');
-  });
-
   it('ci.yml still subscribes `edited`, which is what makes a base retarget re-dispatch', () => {
     // INFRA-055 measured this on throwaway PR #1442: retargeting a base fires `edited`, not
     // `synchronize`. Widening the branch list is what makes an integration child in scope; `edited`
@@ -73,24 +66,36 @@ describe('INFRA-2804: the widened workflow triggers', () => {
   });
 
   // TC-03 — the whole safety argument for touching no job body rests on this split holding.
-  // TC-03 / TC-09 — the Test Plan named a diff assertion and the first cut shipped only parse
-  // assertions, which a review caught. This is that assertion: it compares each widened trigger
-  // against its base revision and allows exactly one difference, the `branches:` line.
-  it.each(WIDENED)('%s differs from its base revision only in the branches list', (file) => {
-    const before = execFileSync('git', ['show', `origin/develop:.github/workflows/${file}`], {
-      cwd: ROOT,
-      encoding: 'utf8',
-    });
-    const after = readFileSync(path.join(WORKFLOWS, file), 'utf8');
-    const changed = after
-      .split('\n')
-      .map((line, i) => [line, before.split('\n')[i]])
-      .filter(([a, b]) => a !== b);
-    // Exactly one line moved, and it is the base filter. A rewritten trigger block — one that
-    // dropped `edited`, say — would show up here as a second changed line.
-    expect(changed).toHaveLength(1);
-    expect(changed[0][0]).toContain('branches:');
-    expect(changed[0][0]).toContain('integration/**');
+  // TC-03 / TC-09 — "widened, not rewritten", asserted as a property of the file itself.
+  //
+  // The first cut of this compared each workflow against `git show origin/develop:<file>` and
+  // required exactly one differing line. A review caught that it is SELF-DESTROYING: the moment this
+  // lands on develop the two sides are identical, `changed.length` is 0, and the assertion fails —
+  // on every promotion PR to main (this file is in the contracts tier that `harness:verify:release`
+  // runs), on develop itself, and on any later PR touching these workflows. It also missed trailing
+  // deletions entirely, because it iterated the new file's lines only: deleting ci.yml's last 40
+  // lines still measured exactly one change.
+  //
+  // The property wanted is not a property of a diff against a moving ref. It is that each trigger
+  // names exactly these branches and exactly these types — base-independent, and still red on a
+  // dropped `edited` or a rewritten block. The one-time "the diff was trigger-only" observation
+  // belongs where it already is, in the spec's Evidence Log.
+  const EXPECTED_TYPES = new Map([
+    ['ci.yml', ['opened', 'synchronize', 'reopened', 'edited']],
+    ['gitleaks.yml', ['opened', 'synchronize']],
+    ['dependency-review.yml', ['opened', 'synchronize']],
+    ['workflow-provenance-gate.yml', ['opened', 'synchronize', 'reopened', 'edited']],
+    ['review-gate.yml', ['opened', 'synchronize', 'reopened', 'edited', 'labeled', 'unlabeled']],
+  ]);
+
+  it.each(WIDENED)('%s names exactly the three bases, in order', (file, key) => {
+    expect(workflow(file).on[key].branches).toEqual(['main', 'develop', 'integration/**']);
+  });
+
+  it.each(WIDENED)('%s keeps exactly its own types list', (file, key) => {
+    // `toEqual`, not `toContain`: a dropped `reopened` or an added `labeled` is a rewritten trigger
+    // block, which is the thing this pair of assertions exists to refuse.
+    expect(workflow(file).on[key].types).toEqual(EXPECTED_TYPES.get(file));
   });
 
   it('ci.yml jobs remain split on base_ref, so widening enables no promotion-only job', () => {

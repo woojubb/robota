@@ -158,11 +158,14 @@ vendor documents it, it doubles the frozen job-count surface, and the two defini
 - `.github/workflows/gitleaks.yml` — trigger filter only
 - `.github/workflows/dependency-review.yml` — trigger filter only
 - `.github/workflows/workflow-provenance-gate.yml` — trigger filter only
+- `.github/workflows/review-gate.yml` — trigger filter only; added in review, see the struck
+  exclusion under § Decision
 - `.claude/hooks/merge-gate.sh` — distinguish "checks passed" from "there were no checks"
 
 No package source changes. No job bodies change.
 
-**Sibling scan.** The four workflows above are the `pull_request`-triggered gates; `codeql.yml`,
+**Sibling scan.** The five workflows above are the `pull_request`-triggered gates — `review-gate.yml`
+was excluded in the first cut on a reason that did not hold and is widened with the others; `codeql.yml`,
 `scans-full.yml` and `security-scheduled.yml` are `push`-triggered and are a different axis, examined under
 Alternatives below rather than skipped silently.
 
@@ -196,7 +199,7 @@ Alternatives below rather than skipped silently.
 
 **Alternative 1, plus the `merge-gate` half of alternative 3.**
 
-Alternative 1 closes the hole for the four `pull_request` gates. The decisive fact is that it needs no job-body edits,
+Alternative 1 closes the hole for the five `pull_request` gates. The decisive fact is that it needs no job-body edits,
 and this was enumerated rather than assumed — all 20 jobs in `ci.yml`, parsed as YAML:
 
 | condition                                     | count | behaviour on an `integration/*` base                      |
@@ -229,9 +232,19 @@ targeting `integration/**` requiring the same check names `main`/`develop` requi
 repository protection setting, not code in this repository, and is outside this agent's authority** — the
 owner's delegation covers merges into `develop`, explicitly not protection changes. It is recorded on
 issue #2804 for the owner, and issue #2798 (a protection rule targeting no ref) is evidence that this
-second half needs attention on its own terms. The `merge-gate` change is what makes this change useful in
-the meantime: it is the local stand-in for the required-check assertion GitHub would make, and it is why
-alternative 1 without the ruleset is still worth landing rather than waiting.
+second half needs attention on its own terms.
+
+**Contained — HARNESS-2804 (issue #2804).** An earlier draft of this paragraph called the `merge-gate`
+change "the local stand-in for the required-check assertion GitHub would make", and the Recommendation
+above asks for "a non-empty, **name-matched** required-check set". What ships asserts a non-empty
+**count**, which is weaker in a way that matters: `ci.yml`'s unconditioned `changes` job satisfies it
+alone, and a lone gitleaks pass satisfies it while `ci.yml` never dispatched. The reason is not
+carelessness — `.github/required-status-checks.json` can key an exact branch name paired with a live
+ruleset and nothing else, so a branch CLASS has no required-check contract to match against anywhere in
+the repository. `.agents/tasks/HARNESS-2804-a-branch-class-has-no-required-check-contract-so-nothing-can-say-what-a-child-pr.md`
+owns that cause. What the block does close is the case it was built for: a pull request carrying no
+repository check at all, which is what PR #2803 was, and that is why alternative 1 without the ruleset
+is still worth landing rather than waiting.
 
 **Delivery mode:** `single`
 
@@ -264,16 +277,20 @@ withdrawal, which is part of how this unit reached its current shape, and deleti
 - `codeql.yml` — `push`-triggered, not a PR gate. Adding integration branches changes the code-scanning
   topology and is coupled to `review-gate.yml`'s code-scanning half; that pairing deserves its own
   decision rather than being carried along by a branch-filter edit.
-- `review-gate.yml` — its code-scanning half compares the PR's merge ref against the base branch's
-  analysis. With `codeql.yml` not analysing integration branches, the base side would not exist, so
-  enabling it here would add a check that cannot reach a verdict — re-creating this issue's own defect one
-  layer down. Blocked on the `codeql.yml` decision.
+- ~~`review-gate.yml`~~ — **NOT excluded; this reason was wrong and the workflow is widened.** The
+  reason above claimed its code-scanning half would compare against a base with no analysis and so
+  could not reach a verdict. At the base revision that half is `if: ${{ false }}` — the `analyze` job,
+  the confirm step and the collect step alike, disabled by `30dab40b9` — so it runs on no base at all,
+  and `review-gate` reaches SUCCESS on a develop pull request in 12 seconds. The exclusion cost an
+  integration child the RULE-016 body judge, the finding-depth withdrawal check and `disarm-auto-merge`,
+  for a condition that does not occur. Found in review; the sentence is kept struck rather than deleted
+  because the wrong reason is the thing worth seeing.
 - `scans-full.yml` — `push`-triggered on `develop`, and currently RED there (issue #2756). Adding
   integration branches would block every child PR on a pre-existing failure unrelated to it.
 - `security-scheduled.yml` — a scheduled posture scan, `push`/`schedule`-triggered with no pull-request
   contract at all. It is not a PR gate in any base, so this change neither reaches it nor should.
 
-These four are recorded on issue #2804 as follow-up rather than left unmentioned.
+These three are recorded on issue #2804 as follow-up rather than left unmentioned.
 
 ### Architecture Review Checklist
 
@@ -340,12 +357,12 @@ over the workflow files (mechanically checkable, so `manual` rows are avoided).
 | TC-ID | Test Type        | Tool / Approach                                                   | Notes                                                                                                |
 | ----- | ---------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | TC-01 | config assertion | `node` + `yaml` parse of `ci.yml`, assert the branches array      | Parsed, not grepped: a grep would pass on a commented-out line                                       |
-| TC-02 | config assertion | same, over the three remaining workflow files                     |                                                                                                      |
+| TC-02 | config assertion | same, over the four remaining workflow files                     |                                                                                                      |
 | TC-03 | diff assertion   | `git diff origin/develop...HEAD -- .github/workflows/ci.yml`      | Proves the change is trigger-only; the whole safety argument rests on job conditions being untouched |
 | TC-06 | unit (shell)     | fixture-driven invocation of `merge-gate.sh` with a zero-check PR | Recorded `gh` output fixture; the hook must refuse                                                   |
 | TC-07 | unit (shell)     | same harness, with a passing-checks PR                            | Red-proof partner for TC-06: without it TC-06 passes trivially by refusing everything                |
 | TC-09 | diff assertion   | `git diff origin/develop...HEAD` over the four workflows, asserting no `types:` line changes | Cheap to get wrong silently: a rewritten trigger block that drops `edited` breaks base-retargeting with no visible failure |
-| TC-08 | lint / scan      | `bash -n` + `run-all-scans.mjs --affected --context pr`           | Two base-state scans are already red (#2797, SECRET-2664); the criterion is no NEW failure, not zero |
+| TC-08 | lint / scan      | `bash -n` + `run-all-scans.mjs --affected --context pr`           | Base-state scans are already red (issue #2423, issue #2778); the criterion is no NEW failure, not zero |
 
 ## User Execution Test Scenarios
 

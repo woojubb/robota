@@ -36,14 +36,15 @@ that cannot be done — see the spec's Decision.
 
 - [x] TC-01 — add `integration/**` to `on.pull_request.branches` in `.github/workflows/ci.yml`,
       widening the list rather than replacing it
-- [x] TC-02 — same for `gitleaks.yml` and `dependency-review.yml` (`on.pull_request.branches`) and
-      `workflow-provenance-gate.yml` (`on.pull_request_target.branches`)
+- [x] TC-02 — same for `.github/workflows/gitleaks.yml`, `.github/workflows/dependency-review.yml`
+      and `.github/workflows/review-gate.yml` (`on.pull_request.branches`), and
+      `.github/workflows/workflow-provenance-gate.yml` (`on.pull_request_target.branches`)
 - [x] TC-03 — keep the change trigger-only: no job `if:` condition is modified, proved by the diff
       touching only `branches:` lists. The 20 jobs in `ci.yml` split 4 `base_ref == 'main'` (skip) /
       12 `!= 'main'` (run) / 3 `workflow_dispatch` (skip) / 1 unconditioned path filter, so widening
       alone is sufficient
-- [x] TC-09 — leave every `types:` list byte-identical; INFRA-055 subscribes `edited` because a base
-      retarget fires `edited`, not `synchronize`
+- [x] TC-09 — leave every `types:` list byte-identical across all five widened triggers; INFRA-055
+      subscribes `edited` because a base retarget fires `edited`, not `synchronize`
 - [x] TC-06 — change `.claude/hooks/merge-gate.sh` so a candidate carrying zero repository gate
       checks is refused by name instead of being read as green
 - [x] TC-07 — keep the normal path working: a candidate with passing gate checks is still accepted,
@@ -55,7 +56,7 @@ that cannot be done — see the spec's Decision.
 | TC-ID | Approach                                                                                  | Reference                                    |
 | ----- | ----------------------------------------------------------------------------------------- | -------------------------------------------- |
 | TC-01 | YAML-parse `ci.yml` and assert the branches array — parsed, not grepped                   | `scripts/harness/__tests__/` (added)         |
-| TC-02 | same assertion over the three remaining workflow files                                    | `scripts/harness/__tests__/` (added)         |
+| TC-02 | same assertion over the four remaining workflow files                                    | `scripts/harness/__tests__/` (added)         |
 | TC-03 | `git diff origin/develop...HEAD -- .github/workflows/ci.yml` touches only `branches:`     | diff assertion in the same test              |
 | TC-06 | invoke `merge-gate.sh` against a recorded zero-check `gh` fixture; the hook must refuse    | `scripts/harness/__tests__/` (added)         |
 | TC-07 | same harness with a passing-checks fixture; the hook must accept                           | `scripts/harness/__tests__/` (added)         |
