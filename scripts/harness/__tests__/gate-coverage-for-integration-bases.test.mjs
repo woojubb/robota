@@ -80,6 +80,18 @@ describe('INFRA-2804: the widened workflow triggers', () => {
   // names exactly these branches and exactly these types — base-independent, and still red on a
   // dropped `edited` or a rewritten block. The one-time "the diff was trigger-only" observation
   // belongs where it already is, in the spec's Evidence Log.
+  // Two of these events are load-bearing for documented reasons, and the reasons are named here
+  // because a hardcoded list with none invites the next reader to re-sync it when it legitimately
+  // goes red. The point of the guard is that such a change has to be argued with.
+  //
+  //   `edited`            — INFRA-055: retargeting a pull request's BASE fires `edited` and not
+  //                         `synchronize`, so dropping it means a child retargeted from an
+  //                         integration branch to develop never re-dispatches the pipeline it just
+  //                         became subject to. Measured on throwaway PR #1442.
+  //   `labeled`/`unlabeled` — review-gate's acknowledge label must re-run the gate with no push.
+  //
+  // The rest are GitHub's default activity set. A missing map entry makes `toEqual(undefined)` fail,
+  // so adding a workflow to WIDENED without adding it here is refused rather than skipped.
   const EXPECTED_TYPES = new Map([
     ['ci.yml', ['opened', 'synchronize', 'reopened', 'edited']],
     ['gitleaks.yml', ['opened', 'synchronize']],

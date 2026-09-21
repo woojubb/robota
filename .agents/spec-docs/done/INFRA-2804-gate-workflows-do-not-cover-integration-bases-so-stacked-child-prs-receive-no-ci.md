@@ -361,7 +361,7 @@ over the workflow files (mechanically checkable, so `manual` rows are avoided).
 | TC-03 | diff assertion   | `git diff origin/develop...HEAD -- .github/workflows/ci.yml`      | Proves the change is trigger-only; the whole safety argument rests on job conditions being untouched |
 | TC-06 | unit (shell)     | fixture-driven invocation of `merge-gate.sh` with a zero-check PR | Recorded `gh` output fixture; the hook must refuse                                                   |
 | TC-07 | unit (shell)     | same harness, with a passing-checks PR                            | Red-proof partner for TC-06: without it TC-06 passes trivially by refusing everything                |
-| TC-09 | diff assertion   | `git diff origin/develop...HEAD` over the four workflows, asserting no `types:` line changes | Cheap to get wrong silently: a rewritten trigger block that drops `edited` breaks base-retargeting with no visible failure |
+| TC-09 | diff assertion   | `git diff origin/develop...HEAD` over all five workflows, asserting each keeps exactly its own `types:` list | Cheap to get wrong silently: a rewritten trigger block that drops `edited` breaks base-retargeting with no visible failure |
 | TC-08 | lint / scan      | `bash -n` + `run-all-scans.mjs --affected --context pr`           | Base-state scans are already red (issue #2423, issue #2778); the criterion is no NEW failure, not zero |
 
 ## User Execution Test Scenarios
