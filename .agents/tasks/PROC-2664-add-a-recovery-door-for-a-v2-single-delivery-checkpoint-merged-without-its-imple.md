@@ -6,18 +6,21 @@ created: 2026-09-21
 priority: high
 urgency: soon
 area: harness planning-checkpoint contract
-depends_on: []
+depends_on: [PROC-2680]
 ---
 
 # PROC-2664: Add a recovery door for a v2 single-delivery checkpoint merged without its implementation
 
 ## Objective
 
-Give a v2 `single`-delivery unit whose planning checkpoint reached the integration base without its
-implementation a contract-admitted way to continue, and stop that state from arising unnoticed: bind
-the `Delivery mode` declaration to the shape of the pull request that carries the checkpoint, or add
-a v2 correction door from `single` to `sequenced`, or a first-form re-anchor for a checkpoint already
-on base — one of these, decided by its own recommendation gate.
+Stop a v2 `single`-delivery checkpoint from reaching the integration base without its implementation,
+by binding the `Delivery mode` declaration to the shape of the pull request that carries the
+checkpoint at the point where that shape is known (push and merge), and give the one existing sealed
+instance (`MANIFEST-2664`) a narrow, one-time recovery that the binding itself admits. Re-scoped
+2026-09-21 at the owner's direction after `finding-depth-triager` judged the item's own statement the
+root of the sealed-`single` facet and warned that a correction form or a re-anchor form alone would be
+a further evidence form on the same unreconciled premise (HARNESS-131 → PROC-029 → PROC-031 →
+issue #2774 → MANIFEST-2664). The closeout-receipt facet has its own root, `PROC-2680`.
 
 ## Problem
 
@@ -61,14 +64,17 @@ later, would pass it); which door a unit gets is decided by the invoker's merge 
 
 - [ ] TC-01 — Reproduce the sealed state in a fixture: a v2 `single` first PASS merged to the base with
       no implementation, then a later branch staging an implementation path; the scan refuses it.
-- [ ] TC-02 — Decide, through the recommendation gate, which door to build (declaration-to-PR binding
-      at push/merge time; a v2 `single` → `sequenced` correction form; or a first-form re-anchor) and
-      specify it in the paired spec.
-- [ ] TC-03 — Implement the door with the gate writer, the checkpoint contract, and the plan-order scan
-      in agreement, red-proofed against the fixture from TC-01.
-- [ ] TC-04 — Record how `MANIFEST-2664` is completed once the door exists — including a
-      post-merge completion receipt for a delivering merge commit, not only a squash subject — and
-      retire the `Contained — PROC-2664.` notes in `VERIFIER-2664`.
+- [ ] TC-02 — Decide, through the recommendation gate, where the declaration-to-PR binding lives
+      (the pre-push gate, the merge gate, the plan-order history scan, or more than one) and what the
+      one-time recovery for an already-sealed `single` checkpoint is; specify both in the paired spec.
+- [ ] TC-03 — Implement the binding and the recovery with the gate writer, the checkpoint contract,
+      and the plan-order scan in agreement, red-proofed against the fixture from TC-01: a `single`
+      checkpoint pushed or merged alone is refused by name, and the recovery admits exactly the
+      already-sealed state and nothing newer.
+- [ ] TC-04 — Record how `MANIFEST-2664` is completed once the recovery exists, and retire the
+      `Contained — PROC-2664.` notes in `VERIFIER-2664`. The post-merge completion receipt for a
+      delivering merge commit is `PROC-2680`'s to provide; this item consumes it and does not widen
+      one of the four subject grammars.
 
 ## Test Plan
 
@@ -98,3 +104,10 @@ installed-package surface an end user can execute is involved.
   https://github.com/woojubb/robota/issues/2664#issuecomment-5762078040.
 - Containment: `VERIFIER-2664` proceeds as a labelled containment (`Contained — PROC-2664.`) at the
   owner's direction; it duplicates the design's owner only until this item lands.
+- Re-scoped 2026-09-21 (orchestrator run `r20260921144518`, halted for the owner):
+  `finding-depth-triager` returned `DEPTH VERDICT: FOUNDATIONAL` twice — this item's statement IS the
+  root of the sealed-`single` facet (cause: `deliveryMode` is a prediction recorded at judgement time
+  and consumed as an immutable fact, never reconciled with the pull request that carried the
+  checkpoint), and the closeout-receipt facet has a root beneath this item, filed as `PROC-2680`
+  (https://github.com/woojubb/robota/issues/2680#issuecomment-5762510054). The owner chose to split
+  and to build the declaration-to-PR binding first, with a narrow recovery for the existing instance.
