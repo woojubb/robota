@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-2798: protect-develop has targeted no ref since 2026-09-06, so its 11 required checks enforce nothing and the reconciler that reports it has not run since 2026-08-11'
 issue: https://github.com/woojubb/robota/issues/2798
-status: todo
+status: in-progress
 created: 2026-09-21
 priority: high
 urgency: soon
@@ -78,12 +78,12 @@ path rather than on a `develop` merge. `run-all-scans.mjs` registers only the he
 
 ## Plan
 
-- [ ] TC-01: Owner decision, recorded here: (a) restore
+- [x] TC-01: Owner decision, recorded here: (a) restore
       `conditions.ref_name.include: ["refs/heads/develop"]` on ruleset 18715844, or (b) declare the
       un-scoping permanent. No agent changes the ruleset — a control-plane change is the owner's
       (`git-branch.md` § "Landing a control-plane change" excludes protection changes from the
       delegated route).
-- [ ] TC-02: If (a): `gh api repos/woojubb/robota/rules/branches/develop` reports the 11 contexts,
+- [x] TC-02: If (a): `gh api repos/woojubb/robota/rules/branches/develop` reports the 11 contexts,
       `node scripts/harness/scan-main-required-checks.mjs --live` exits 0, and the new ruleset
       history version id is recorded here. If (b): `required-status-checks.json`'s
       `branches.develop` states that these 11 are a LOCAL floor with no live enforcement, and
