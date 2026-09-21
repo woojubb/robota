@@ -16,7 +16,7 @@ name: Dependency Review
 # merge-gate change and is the owner's call.
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, integration/**]
     types: [opened, synchronize]
     # Dependency review is only meaningful when the dependency graph changes. This job is ADVISORY (not a
     # required status check), so a paths-skip is safe — for a REQUIRED check, a paths-filtered skip reports

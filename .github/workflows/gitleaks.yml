@@ -6,7 +6,7 @@ name: Secret Scan
 # failure. The repo routinely handles tokens (SEC-001 loopback tokens, provider API keys, deploy keys).
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, integration/**]
     types: [opened, synchronize]
 
 permissions:

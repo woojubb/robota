@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, integration/**]
     # INFRA-055: `edited` is NOT in GitHub's default activity set (`opened`, `synchronize`,
     # `reopened`), and retargeting a PR's BASE BRANCH fires `edited` — not `synchronize`. Without it
     # the whole `main`-only pipeline is bypassable through the GitHub UI in two clicks, MEASURED on
