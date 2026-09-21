@@ -1,12 +1,13 @@
 ---
 title: 'PROC-2664: Add a recovery door for a v2 single-delivery checkpoint merged without its implementation'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: done
+completed: 2026-09-22
 created: 2026-09-21
 priority: high
 urgency: soon
 area: harness planning-checkpoint contract
-depends_on: [PROC-2680]
+depends_on: []
 ---
 
 # PROC-2664: Add a recovery door for a v2 single-delivery checkpoint merged without its implementation
@@ -62,19 +63,24 @@ later, would pass it); which door a unit gets is decided by the invoker's merge 
 
 ## Plan
 
-- [ ] TC-01 — Reproduce the sealed state in a fixture: a v2 `single` first PASS merged to the base with
-      no implementation, then a later branch staging an implementation path; the scan refuses it.
-- [ ] TC-02 — Decide, through the recommendation gate, where the declaration-to-PR binding lives
-      (the pre-push gate, the merge gate, the plan-order history scan, or more than one) and what the
-      one-time recovery for an already-sealed `single` checkpoint is; specify both in the paired spec.
-- [ ] TC-03 — Implement the binding and the recovery with the gate writer, the checkpoint contract,
-      and the plan-order scan in agreement, red-proofed against the fixture from TC-01: a `single`
-      checkpoint pushed or merged alone is refused by name, and the recovery admits exactly the
-      already-sealed state and nothing newer.
-- [ ] TC-04 — Record how `MANIFEST-2664` is completed once the recovery exists, and retire the
-      `Contained — PROC-2664.` notes in `VERIFIER-2664`. The post-merge completion receipt for a
-      delivering merge commit is `PROC-2680`'s to provide; this item consumes it and does not widen
-      one of the four subject grammars.
+- [x] TC-01 — In the isolated plan-order suite, build the fixture whose topic range holds a v2
+      `single` first checkpoint for a non-`AGREEMENT` L2 unit and prove the range refusal (alone, and
+      padded with a ledger append, a lessons edit, and a baseline row), the delivery witness
+      (`scripts/harness/example.mjs` admits it), the `sequenced`, `AGREEMENT`, L1, and legacy v1
+      exemptions, and the `isDeliveryWitnessPath` negative list — red before the change.
+- [x] TC-02 — Prove the binding judges a range and never a commit: `findStagedFindings` unchanged
+      with an implementation path or a ledger append staged over the checkpoint; the CLI child exits
+      1 with one `no delivery witness` stderr line in range mode and 0 in `--staged` mode.
+- [x] TC-03 — Prove the recovery door stays open: the four-path post-merge completion closeout over a
+      base holding a sealed `single` pair yields `[]`; and the scan over this unit's own branch
+      (checkpoint plus implementation in one range) exits 0.
+- [x] TC-04 — Write the binding sentence and its `Enforced by:` line in `backlog-execution.md`
+      § Pre-implementation planning checkpoint, rewrite the scanner header's "stays sealed" note,
+      and at completion record in this Task's `## Result` how `MANIFEST-2664` completes after
+      `PROC-2680`'s receipt, describing the `Contained — PROC-2664.` notes in `VERIFIER-2664` as
+      historical rather than editing them.
+- [x] TC-05 — Run the hermetic tier, the contract-tier runner over the affected set, the import-safety
+      scan, and the affected scans; every one exits 0.
 
 ## Test Plan
 
@@ -87,9 +93,21 @@ credential, no state store.
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-**Reason:** This changes the repository's planning-checkpoint contract and its harness scripts under
-`scripts/harness/` and `.agents/rules/`; no Robota CLI, TUI, browser, SDK, configuration, or
-installed-package surface an end user can execute is involved.
+**Reason:** This binds the repository's own planning-checkpoint contract to the pull request that
+carries a checkpoint: a new range-mode finding in `scripts/harness/scan-user-execution-plan-order.mjs`
+and `scripts/harness/plan-order-records.mjs`, their isolated suite, and one binding sentence in
+`.agents/rules/backlog-execution.md`. Every affected file is under `scripts/harness/` or `.agents/`,
+none under `packages/` or `apps/`; no Robota CLI, TUI, browser, SDK, configuration, or installed
+package changes. Re-judged independently for this unit on 2026-09-22 at `63a1a5ba4`: this is not the
+unexposed-seam case, because no Robota product capability sits behind the binding awaiting surface
+wiring — the finding is itself the terminal artifact, and its intended consumers already reach it
+(`run-all-scans.mjs` registers `user-execution-plan-order` with `always: true`, so CI's `scans` job
+and a manual `pnpm harness:scan` judge every topic range; Husky invokes the same scanner with
+`--staged`). Those are maintainer gates on the repository, which the PLAN contract in
+`backlog-execution.md` classes as engineering evidence rather than a user surface. No end user can
+invoke them: the root package is `private: true` and declares no `bin`, and `scripts/harness/` is not
+in any workspace package's published `files` (for example `packages/agent-cli` ships only `dist` and
+`bin`). Verification is the engineering test plan above (TC-01 to TC-05).
 
 ## Finding Evidence
 
@@ -111,3 +129,21 @@ installed-package surface an end user can execute is involved.
   checkpoint), and the closeout-receipt facet has a root beneath this item, filed as `PROC-2680`
   (https://github.com/woojubb/robota/issues/2680#issuecomment-5762510054). The owner chose to split
   and to build the declaration-to-PR binding first, with a narrow recovery for the existing instance.
+- Recommendation gate 2026-09-22 (orchestrator run `r20260921153105`): `proposal-reviewer` returned
+  `REVIEW VERDICT: REVISE` at `6258dd693` (six findings: witness list gaps for repository memory
+  and other units' planning records, a second delivery-mode parser, two emit sites, a third
+  AGREEMENT predicate, an overstated push-time reach, a stale dependency) and
+  `REVIEW VERDICT: ENDORSE` at `fdd13b3e0` after all six were applied.
+
+## Result
+
+- The binding is on this branch (`0b25d3979`): a v2 `single` first checkpoint that reaches the end
+  of its topic range with no delivery witness is refused by `user-execution-plan-order` in range mode
+  (CI's `scans` job, `pnpm harness:scan`), never at the commit.
+- `MANIFEST-2664` completes through the existing post-merge completion closeout, not through a new
+  form: its implementation landed with `VERIFIER-2664` (PR #2805, merge commit `79698d78d`), and the
+  closeout's Task `## Result` receipt for a merge-commit landing is `PROC-2680`'s deliverable. Once
+  that receipt exists, the four-path archive (Task and spec at `status: done`, Evidence Log ending in
+  a GATE-COMPLETE PASS) is the range TC-03 proves this binding admits.
+- The `Contained — PROC-2664.` notes in `VERIFIER-2664`'s archived spec and Task are historical: they
+  record why a second identity was taken before this binding existed and are not edited.

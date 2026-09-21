@@ -60,12 +60,14 @@ import {
   legacyCheckpointEntries,
   checkpointHistoryBindings,
 } from './checkpoint-evidence-git-contract.mjs';
+import { checkpointDelivery } from './checkpoint-evidence-source.mjs';
 import { parseConversionEvidence } from './conversion-evidence.mjs';
 import {
   LANE_RULE_PATH,
   PRE_CHECKPOINT_SPEC_STATUS,
   SPEC_PREFIX,
   TASK_PREFIX,
+  isDeliveryWitnessPath,
   isExactCheckpointPairPath,
   isPreCheckpointPlanningPath,
   l0GroundDecision,
@@ -690,9 +692,12 @@ function stageOneEntrySpan(task, contract) {
  *
  * BOUND, stated because the door is narrower than the seal: `validateV2GateImplementDelivery`
  * (`checkpoint-evidence-contract-v2.mjs:27`) refuses BOTH the continuation and the correction form
- * unless the delivery is `sequenced`. A `single`-delivery unit that drifts has neither form to ride
- * and stays sealed. SCREEN-2002, the unit this was measured on, is sequenced. The residual is
- * recorded at github.com/woojubb/robota/issues/2774#issuecomment-5750809102.
+ * unless the delivery is `sequenced`. A `single`-delivery unit has neither form to ride: its
+ * declaration promises one pull request, and PROC-2664 binds that promise to the range that
+ * carries the checkpoint (`rangeAnalysis` below emits the delivery-witness finding), so a `single`
+ * checkpoint can no longer reach the base alone and need a door afterwards. SCREEN-2002, the unit
+ * this was measured on, is sequenced; the earlier residual is recorded at
+ * github.com/woojubb/robota/issues/2774#issuecomment-5750809102.
  */
 function isStageOneRebind(parentTask, task, ruleText) {
   if (typeof parentTask !== 'string' || typeof task !== 'string' || parentTask === task)
@@ -2782,7 +2787,18 @@ function singleHistoryAnalysis(
   const checkpointForm =
     lane === 'L2' ? gateImplementEntryForm(currentPasses[parentPasses.length]) : 'first';
   const firstEntryIndex = entries.findIndex((entry) => entry.commit === first.commit);
-  for (const entry of entries.slice(firstEntryIndex + 1)) {
+  const laterEntries = entries.slice(firstEntryIndex + 1);
+  const delivery =
+    lane === 'L2' && checkpointForm === 'first'
+      ? checkpointDeliveryState(
+          root,
+          first,
+          basename,
+          currentPasses[parentPasses.length] ?? null,
+          laterEntries,
+        )
+      : null;
+  for (const entry of laterEntries) {
     if (
       checkpointForm === 'correction' &&
       !correctionClosureOnly(entry.paths, textIn(entry.commit), textIn(entry.parent))
@@ -2816,10 +2832,98 @@ function singleHistoryAnalysis(
     base,
     commits,
     examined,
-    checkpoint: { commit: first.commit, basename, lane, form: checkpointForm },
+    checkpoint: { commit: first.commit, basename, lane, form: checkpointForm, delivery },
     pendingBasename: null,
     findings,
   };
+}
+
+/**
+ * The one definition of "this pair is an AGREEMENT at this commit" (PROC-2664 extracted it from the
+ * integration analysis so the delivery binding's exemption cannot drift from it): the Task declares
+ * non-empty, unique `children` and the spec's frontmatter `type` is `AGREEMENT`. Granted only on a
+ * positive read — an unreadable record is not an AGREEMENT.
+ */
+function isAgreementPairAt(root, commit, basename, specFolder) {
+  const task = gitText(root, commit, `${TASK_PREFIX}${basename}`);
+  const spec = gitText(root, commit, `${SPEC_PREFIX}${specFolder}/${basename}`);
+  // allow-fallback: unreadable AGREEMENT identity applies the binding
+  if (typeof task !== 'string' || typeof spec !== 'string') return false;
+  const children = asList(frontmatterObject(task).children).map((child) => asScalar(child).trim());
+  return (
+    children.length > 0 &&
+    new Set(children).size === children.length &&
+    asScalar(frontmatterObject(spec).type).trim() === 'AGREEMENT'
+  );
+}
+
+/**
+ * The `Delivery mode` a v2 first checkpoint declared, read by the reader the checkpoint validator
+ * binds the payload to (`checkpointDelivery`), with the contract selected by the entry's own marker
+ * exactly as `evaluateGateImplementEntries` selects it. A legacy v1 entry has no delivery
+ * declaration by contract and reads as `null`; a v2 entry whose mode the reader cannot return is a
+ * problem, never `null` — silence is not success.
+ */
+function checkpointDeliveryMode(ruleText, entryBody, specText) {
+  if (typeof ruleText !== 'string' || typeof entryBody !== 'string' || typeof specText !== 'string')
+    return { mode: null, problem: null };
+  const parsed = parseCheckpointEvidenceContracts(ruleText);
+  if (!parsed.ok) return { mode: null, problem: null };
+  const matching = [...parsed.contracts.values()].filter((contract) =>
+    entryBody.includes(contract.entryEncoding.startMarker),
+  );
+  if (matching.length !== 1) return { mode: null, problem: null };
+  const [contract] = matching;
+  // allow-fallback: legacy v1 has no delivery declaration by contract
+  if (!contract.decisionDelivery) return { mode: null, problem: null };
+  const delivery = checkpointDelivery(contract, specText);
+  return delivery.ok
+    ? { mode: delivery.deliveryMode, problem: null }
+    : { mode: null, problem: delivery.error };
+}
+
+/**
+ * PROC-2664: bind a `single` first checkpoint to the range that carries it. The pull request's
+ * shape is knowable only over the range, so this runs in `rangeAnalysis` and never in the staged
+ * path — the checkpoint commit stays planning-only and the implementation commit after it is
+ * admitted exactly as before.
+ */
+function checkpointDeliveryState(root, first, basename, entryBody, laterEntries) {
+  const specText = gitText(root, first.commit, `${SPEC_PREFIX}active/${basename}`);
+  const { mode, problem } = checkpointDeliveryMode(
+    gitText(root, first.commit, BACKLOG_RULE_PATH),
+    entryBody,
+    specText,
+  );
+  return {
+    mode,
+    problem,
+    agreement: isAgreementPairAt(root, first.commit, basename, 'active'),
+    witnessed: laterEntries.some((entry) =>
+      entry.paths.some((file) => isDeliveryWitnessPath(file, basename)),
+    ),
+  };
+}
+
+function deliveryFindings(analysis) {
+  const checkpoint = analysis.checkpoint;
+  const delivery = checkpoint?.delivery;
+  if (!delivery || checkpoint.form !== 'first') return [];
+  if (delivery.problem !== null) {
+    return [
+      finding(
+        `single-delivery binding could not read the delivery mode of \`${checkpoint.basename}\`: ${delivery.problem}.`,
+        checkpoint.commit,
+      ),
+    ];
+  }
+  if (delivery.mode !== 'single' || delivery.witnessed || delivery.agreement) return [];
+  return [
+    finding(
+      `single-delivery checkpoint \`${checkpoint.basename}\` reaches the end of the range with no delivery witness after ${checkpoint.commit.slice(0, 9)}: push the implementation with the checkpoint, or declare sequenced delivery with continuation artifacts.`,
+      checkpoint.commit,
+    ),
+  ];
 }
 
 function integrationAgreementId(root, env = process.env) {
@@ -2867,21 +2971,12 @@ function integrationHistoryAnalysis(root, requestedBase, agreementId) {
     };
   }
 
-  const agreementTask = gitText(root, agreementTip, `${TASK_PREFIX}${agreementBasename}`);
   const agreementSpecFolder = agreement.checkpoint === null ? 'todo' : 'active';
-  const agreementSpec = gitText(
-    root,
-    agreementTip,
-    `${SPEC_PREFIX}${agreementSpecFolder}/${agreementBasename}`,
-  );
+  const agreementTask = gitText(root, agreementTip, `${TASK_PREFIX}${agreementBasename}`);
   const declaredChildren = asList(frontmatterObject(agreementTask ?? '').children).map((child) =>
     asScalar(child).trim(),
   );
-  if (
-    declaredChildren.length === 0 ||
-    new Set(declaredChildren).size !== declaredChildren.length ||
-    asScalar(frontmatterObject(agreementSpec ?? '').type).trim() !== 'AGREEMENT'
-  ) {
+  if (!isAgreementPairAt(root, agreementTip, agreementBasename, agreementSpecFolder)) {
     return {
       ...agreement,
       findings: [
@@ -3005,9 +3100,19 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
     : integrationHistoryAnalysis(root, requestedBase, agreementId);
 }
 
+/**
+ * The range reader: history plus the judgements only a whole range can answer (PROC-2664's delivery
+ * binding). `findStagedFindings` reads `historyAnalysis` directly and never this — a commit is not a
+ * range.
+ */
+function rangeAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
+  const analysis = historyAnalysis(root, requestedBase);
+  return { ...analysis, findings: [...analysis.findings, ...deliveryFindings(analysis)] };
+}
+
 export function findHistoryFindings(root = WORKSPACE_ROOT, requestedBase = undefined) {
   try {
-    return historyAnalysis(root, requestedBase).findings;
+    return rangeAnalysis(root, requestedBase).findings;
   } catch (error) {
     return [
       finding(
@@ -3019,7 +3124,7 @@ export function findHistoryFindings(root = WORKSPACE_ROOT, requestedBase = undef
 
 /** Exported so the self-reported traversal size is asserted as an output. */
 export function readExaminedPlanOrderCount(root = WORKSPACE_ROOT, requestedBase = undefined) {
-  return historyAnalysis(root, requestedBase).examined;
+  return rangeAnalysis(root, requestedBase).examined;
 }
 
 /**
@@ -3393,7 +3498,7 @@ export function scanUserExecutionPlanOrder(args = process.argv.slice(2)) {
       }
     : (() => {
         try {
-          const analysis = historyAnalysis(WORKSPACE_ROOT, requestedBase);
+          const analysis = rangeAnalysis(WORKSPACE_ROOT, requestedBase);
           return { findings: analysis.findings, examined: analysis.examined };
         } catch (error) {
           return {
