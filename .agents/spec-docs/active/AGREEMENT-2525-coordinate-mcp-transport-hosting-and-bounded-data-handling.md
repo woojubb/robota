@@ -125,7 +125,7 @@ No runtime file changes are authorized by this Agreement checkpoint. Each child 
      not-applicable form ONLY with a product-surface reason (≥ 50 characters, not build/typecheck
      evidence); otherwise write the scenario a user can run and raise the count. -->
 
-**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+Not applicable.
 
 **Reason:** This Agreement coordinates child ownership, dependency evidence, and the final required-check
 rollout; it exposes no independent runnable product behavior. Every direct child must author, execute,

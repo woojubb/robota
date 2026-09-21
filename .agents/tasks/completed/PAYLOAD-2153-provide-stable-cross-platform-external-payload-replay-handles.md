@@ -187,6 +187,9 @@ the check is green and remains a separate external mutation requiring its own au
 
 ### Verification recommendation
 
+**Delivered evidence:** PR #2784, replayed by PR #2785; native qualification run
+https://github.com/woojubb/robota/actions/runs/35544989006.
+
 - Red first: native final-target and parent-directory replacement attempts cannot redirect the held
   read; traversal, links/reparse points, non-regular files, root replacement, mutation during read,
   unsupported host, missing file, and byte-budget cases are classified without leaking paths or bytes.
