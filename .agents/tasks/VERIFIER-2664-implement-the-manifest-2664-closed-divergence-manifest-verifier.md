@@ -11,7 +11,7 @@ depends_on: []
 
 # VERIFIER-2664: Implement the MANIFEST-2664 closed divergence manifest verifier
 
-Spec: `.agents/spec-docs/draft/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md`
+Spec: `.agents/spec-docs/backlog/VERIFIER-2664-implement-the-manifest-2664-closed-divergence-manifest-verifier.md`
 
 ## Objective
 
