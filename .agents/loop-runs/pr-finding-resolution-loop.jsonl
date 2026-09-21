@@ -48,3 +48,4 @@
 {"runId":"r20260920155949","opened":"2026-09-20T15:59:49.027Z","closed":"2026-09-20T16:03:24.127Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260920172522","opened":"2026-09-20T17:25:22.387Z","closed":"2026-09-20T17:39:07.439Z","roundFindings":[3,0],"extensions":{},"terminal":"converged","ref":"AGREEMENT-2525 planning prelude local review: 3,0; repaired head bba9737f3; all three source-alignment findings closed"}
 {"runId":"r20260921025154","opened":"2026-09-21T02:51:54.131Z","closed":"2026-09-21T02:54:25.528Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
+{"runId":"r20260921035537","opened":"2026-09-21T03:55:37.317Z","closed":"2026-09-21T03:58:28.972Z","roundFindings":[],"extensions":{},"terminal":"abandoned","ref":"ARCH-1985: remote develop advanced before Round A completed; superseded by a fresh post-rebase review run"}
