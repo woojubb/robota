@@ -139,12 +139,12 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                                                                               | Notes                                                          |
-| ----- | ----------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| TC-01 | unit        | clean committed-pair fixture in `gate-checkpoint-evidence.test.mjs`                                                           | Capture RED before changing the producer.                      |
-| TC-02 | integration | assert first/continuation/correction call the shared pair-inventory helper and emit the exact sorted pair                     | Prevent producer drift without changing the evidence contract. |
-| TC-03 | adversarial | evaluate a current first entry with `priorEntries: []`, exact `checkpointPaths`, PLAN ledger, and unrelated dirt variants     | Exercise the failing current-entry consumer path.              |
-| TC-04 | suite       | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs`, affected scans, and DATA-integrated compatibility run           | Verify both required bases.                                    |
+| TC-ID | Test Type   | Tool / Approach                                                                                                           | Notes                                                          |
+| ----- | ----------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| TC-01 | unit        | clean committed-pair fixture in `gate-checkpoint-evidence.test.mjs`                                                       | Capture RED before changing the producer.                      |
+| TC-02 | integration | assert first/continuation/correction call the shared pair-inventory helper and emit the exact sorted pair                 | Prevent producer drift without changing the evidence contract. |
+| TC-03 | adversarial | evaluate a current first entry with `priorEntries: []`, exact `checkpointPaths`, PLAN ledger, and unrelated dirt variants | Exercise the failing current-entry consumer path.              |
+| TC-04 | suite       | `scripts/harness/__tests__/gate-checkpoint-evidence.test.mjs`, affected scans, and DATA-integrated compatibility run      | Verify both required bases.                                    |
 
 ## User Execution Test Scenarios
 
@@ -226,6 +226,7 @@ GATE VERDICT: PASS
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -262,6 +263,7 @@ GATE VERDICT: PASS
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
