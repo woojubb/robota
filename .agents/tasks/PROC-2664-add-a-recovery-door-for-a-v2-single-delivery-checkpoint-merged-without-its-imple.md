@@ -1,7 +1,7 @@
 ---
 title: 'PROC-2664: Add a recovery door for a v2 single-delivery checkpoint merged without its implementation'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: in-progress
 created: 2026-09-21
 priority: high
 urgency: soon

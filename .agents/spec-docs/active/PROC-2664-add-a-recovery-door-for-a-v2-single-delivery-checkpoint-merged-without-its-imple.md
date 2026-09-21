@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [harness, process]
 lane: L2
@@ -368,3 +368,61 @@ terminal artifact, reached by CI's `scans` job and a manual `pnpm harness:scan`.
 **Judged by:** `backlog-gate-guard` — semantic set (ordering check, "Approval is a direct, unambiguous statement directed at this spec document", "The item is inside the class as the registry defines it", "Independent architecture validation (conditional)")
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `60743b06b578` · base `origin/develop@1c02d9777d54` · document `.agents/spec-docs/backlog/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` blob `019b8db6d48f` (tracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-22; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 328 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md",
+  "specPath": ".agents/spec-docs/todo/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md",
+    ".agents/tasks/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `4678963fbc0e` · base `origin/develop@1c02d9777d54` · document `.agents/spec-docs/todo/PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple.md` blob `95c8bb0e6d45` (tracked)
