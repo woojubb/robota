@@ -16,6 +16,7 @@ import {
   priorPassDigest,
   rawGateImplementPassEntries,
 } from '../checkpoint-evidence-contract.mjs';
+import { gateImplementEntryResults } from '../scan-user-execution-plan-order.mjs';
 import { makeTemp } from './make-temp.mjs';
 
 const root = makeTemp('gate-checkpoint-evidence-');
@@ -33,28 +34,122 @@ describe('gate checkpoint evidence renderer', () => {
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  it('renders the declared v2 first-checkpoint payload', () => {
+  it('binds a clean pair, permits PLAN ledger dirt, and preserves unrelated dirt for rejection', () => {
     git(['init', '-q']);
     git(['config', 'user.email', 'fixture@example.com']);
     git(['config', 'user.name', 'Fixture']);
     git(['commit', '--allow-empty', '-q', '-m', 'base']);
+    const basename = 'PROC-999-fixture.md';
+    const taskRel = `.agents/tasks/${basename}`;
+    const specRel = `.agents/spec-docs/todo/${basename}`;
     const ruleText = readFileSync(
       path.resolve(import.meta.dirname, '../../../.agents/rules/backlog-execution.md'),
       'utf8',
     );
+    const specText =
+      '## Architecture Review\n\n### Decision\n\n**Delivery mode:** `single`\n\n## Completion Criteria\n\n- [ ] TC-01: observable result\n';
+    const taskText =
+      'TC-01\n\n## User Execution Test Scenarios\n\n**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`\n\n**Reason:** This repository checkpoint fixture exposes no runnable Robota product behavior or user-observable action.';
+    for (const [relative, text] of [
+      [taskRel, taskText],
+      [specRel, specText],
+    ]) {
+      const file = path.join(root, relative);
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, text);
+    }
+    git(['add', taskRel, specRel]);
+    git(['commit', '-q', '-m', 'clean planning pair']);
+
     const lines = firstCheckpointEvidence({
       root,
       ruleText,
-      specText:
-        '## Architecture Review\n\n### Decision\n\n**Delivery mode:** `single`\n\n## Completion Criteria\n\n- [ ] TC-01: observable result\n',
-      taskText:
-        'TC-01\n\n## User Execution Test Scenarios\n\n**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`\n\n**Reason:** This repository checkpoint fixture exposes no runnable Robota product behavior or user-observable action.',
-      taskRel: '.agents/tasks/PROC-999-fixture.md',
-      specRel: '.agents/spec-docs/todo/PROC-999-fixture.md',
+      specText,
+      taskText,
+      taskRel,
+      specRel,
     });
 
-    expect(lines.join('\n')).toContain('<!-- checkpoint-evidence:v2:start -->');
-    expect(lines.join('\n')).toContain('"deliveryMode": "single"');
+    const rendered = lines.join('\n');
+    expect(rendered).toContain('<!-- checkpoint-evidence:v2:start -->');
+    expect(rendered).toContain('"deliveryMode": "single"');
+    const contract = parseCheckpointEvidenceContracts(ruleText).contracts.get(2);
+    const parsed = parseCheckpointEvidence(contract, 'gateImplementFirst', rendered);
+    expect(parsed.ok, parsed.ok ? '' : parsed.error).toBe(true);
+    expect(parsed.payload.worktreePaths).toEqual([specRel, taskRel].sort());
+
+    const resultsFor = (evidence, checkpointPaths) =>
+      gateImplementEntryResults(
+        [
+          specText,
+          '## Evidence Log',
+          '',
+          '### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-21',
+          '',
+          '**Status upgrade:** approved → in-progress',
+          '',
+          evidence,
+          '',
+        ].join('\n'),
+        { basename, signal: { outcome: 'not-applicable', count: 0 } },
+        ruleText,
+        { priorEntries: [], checkpointPaths },
+      );
+    const results = resultsFor(rendered, [taskRel, specRel].sort());
+    expect(results).toHaveLength(1);
+    expect(results[0].ok, results[0].error).toBe(true);
+
+    const ledgerRel = '.agents/loop-runs/user-execution-scenario.jsonl';
+    const unrelatedRel = 'scripts/unrelated.mjs';
+    for (const relative of [ledgerRel, unrelatedRel]) {
+      mkdirSync(path.dirname(path.join(root, relative)), { recursive: true });
+    }
+    try {
+      writeFileSync(path.join(root, ledgerRel), '{}\n');
+      const ledgerRendered = firstCheckpointEvidence({
+        root,
+        ruleText,
+        specText,
+        taskText,
+        taskRel,
+        specRel,
+      }).join('\n');
+      const parsedLedger = parseCheckpointEvidence(contract, 'gateImplementFirst', ledgerRendered);
+      expect(parsedLedger.ok, parsedLedger.ok ? '' : parsedLedger.error).toBe(true);
+      expect(parsedLedger.payload.worktreePaths).toEqual([ledgerRel, specRel, taskRel].sort());
+      const ledgerResults = resultsFor(ledgerRendered, [ledgerRel, specRel, taskRel].sort());
+      expect(ledgerResults[0].ok, ledgerResults[0].error).toBe(true);
+
+      writeFileSync(path.join(root, unrelatedRel), 'export {};\n');
+      const unrelatedRendered = firstCheckpointEvidence({
+        root,
+        ruleText,
+        specText,
+        taskText,
+        taskRel,
+        specRel,
+      }).join('\n');
+      const parsedUnrelated = parseCheckpointEvidence(
+        contract,
+        'gateImplementFirst',
+        unrelatedRendered,
+      );
+      expect(parsedUnrelated.ok, parsedUnrelated.ok ? '' : parsedUnrelated.error).toBe(true);
+      expect(parsedUnrelated.payload.worktreePaths).toEqual(
+        [ledgerRel, specRel, taskRel, unrelatedRel].sort(),
+      );
+      const unrelatedResults = resultsFor(
+        unrelatedRendered,
+        [ledgerRel, specRel, taskRel, unrelatedRel].sort(),
+      );
+      expect(unrelatedResults[0]).toMatchObject({
+        ok: false,
+        error: expect.stringMatching(/paired Task\/spec plus only PLAN ledger paths/i),
+      });
+    } finally {
+      rmSync(path.join(root, ledgerRel), { force: true });
+      rmSync(path.join(root, unrelatedRel), { force: true });
+    }
   });
 
   it('fails closed before rendering when the prior raw PASS payload is malformed', () => {

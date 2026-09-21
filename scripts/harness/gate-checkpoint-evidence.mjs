@@ -13,8 +13,8 @@ import {
 import {
   checkpointDeliveryDeclaration,
   checkpointGit,
+  checkpointPairInventory,
   checkpointPlanSignal,
-  checkpointWorktreePaths,
   v2CheckpointContract,
 } from './gate-checkpoint-evidence-common.mjs';
 import { correctionCheckpointEvidence } from './gate-correction-checkpoint-evidence.mjs';
@@ -142,7 +142,7 @@ export function firstCheckpointEvidence({ root, ruleText, specText, taskText, ta
     specPath: specRel,
     taskItems: taskItems.items,
     plan: checkpointPlanSignal(ruleText, taskText),
-    worktreePaths: checkpointWorktreePaths(root),
+    worktreePaths: checkpointPairInventory(root, taskRel, specRel),
   };
   const rendered = formatCheckpointEvidence(contract, 'gateImplementFirst', payload);
   if (!rendered.ok) throw new Error(`GATE-IMPLEMENT evidence payload invalid: ${rendered.error}`);
@@ -176,7 +176,6 @@ export function continuationCheckpointEvidence({
       'GATE-IMPLEMENT continuation has no preceding integration commit that introduced its prior PASS',
     );
   }
-  const worktreePaths = [...new Set([taskRel, specRel, ...checkpointWorktreePaths(root)])].sort();
   const payload = {
     version: contract.version,
     form: 'gateImplementContinuation',
@@ -187,7 +186,7 @@ export function continuationCheckpointEvidence({
     taskPath: taskRel,
     specPath: specRel,
     plan: checkpointPlanSignal(ruleText, taskText),
-    worktreePaths,
+    worktreePaths: checkpointPairInventory(root, taskRel, specRel),
   };
   const rendered = formatCheckpointEvidence(contract, 'gateImplementContinuation', payload);
   if (!rendered.ok) throw new Error(`GATE-IMPLEMENT evidence payload invalid: ${rendered.error}`);

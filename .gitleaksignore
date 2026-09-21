@@ -1,0 +1,2 @@
+# Contained — SECRET-2664. Exact PR #2786 false-positive fingerprint only; the root item owns the general policy boundary.
+494b7500170b6ecb5b09206b2618241ea037c1e5:.agents/loop-runs/backlog-execution-orchestrator.jsonl:generic-api-key:62

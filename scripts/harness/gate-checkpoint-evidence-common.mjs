@@ -29,6 +29,10 @@ export function checkpointWorktreePaths(root) {
     .sort();
 }
 
+export function checkpointPairInventory(root, taskRel, specRel) {
+  return [...new Set([taskRel, specRel, ...checkpointWorktreePaths(root)])].sort();
+}
+
 export function v2CheckpointContract(ruleText) {
   const parsed = parseCheckpointEvidenceContracts(ruleText);
   if (!parsed.ok) throw new Error(`GATE-IMPLEMENT evidence contract unreadable: ${parsed.error}`);
