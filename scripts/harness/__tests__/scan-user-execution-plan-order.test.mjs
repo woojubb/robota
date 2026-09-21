@@ -5429,11 +5429,14 @@ const INTEGRATION_AGREEMENT_CHILDREN = [
   ['DATA-2664', 'DATA-2664-child'],
 ];
 
-function integrationAgreementPreludeFixture() {
+// The children list is a parameter (MANIFEST-2664 / VERIFIER-2664 TC-02): the real AGREEMENT-2664
+// replacement declares all eight of its children in one prelude, and the case below is the minimal
+// graph that proves the unmodified scanner admits such a prelude.
+function integrationAgreementPreludeFixture(declared = INTEGRATION_AGREEMENT_CHILDREN) {
   const { root, base } = repository();
   git(root, ['branch', '-m', 'integration/agreement-2664']);
   const issue = 'https://github.com/woojubb/robota/issues/2664';
-  const children = INTEGRATION_AGREEMENT_CHILDREN.map(([id]) => id).join(', ');
+  const children = declared.map(([id]) => id).join(', ');
   write(
     root,
     `.agents/tasks/${INTEGRATION_AGREEMENT_PARENT}.md`,
@@ -5448,7 +5451,7 @@ function integrationAgreementPreludeFixture() {
       '',
       '## Children',
       '',
-      ...INTEGRATION_AGREEMENT_CHILDREN.map(
+      ...declared.map(
         ([id, basename]) =>
           `- [ ] ${id} — todo — \`.agents/tasks/${basename}.md\` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->`,
       ),
@@ -5468,13 +5471,13 @@ function integrationAgreementPreludeFixture() {
       '',
       '## Tasks',
       '',
-      ...INTEGRATION_AGREEMENT_CHILDREN.map(
+      ...declared.map(
         ([id, basename]) =>
           `- [ ] ${id} — todo — \`.agents/tasks/${basename}.md\` <!-- allow-missing-artifact: isolated Git fixture creates this Task path at runtime -->`,
       ),
     ].join('\n'),
   );
-  for (const [id, basename] of INTEGRATION_AGREEMENT_CHILDREN) {
+  for (const [id, basename] of declared) {
     write(
       root,
       `.agents/tasks/${basename}.md`,
@@ -5483,13 +5486,13 @@ function integrationAgreementPreludeFixture() {
   }
   commit(root, 'record atomic agreement manifest');
 
-  return { root, base, integration: 'integration/agreement-2664' };
+  return { root, base, integration: 'integration/agreement-2664', declared };
 }
 
 function stageIntegrationAgreementActivation(fixture) {
-  const { root } = fixture;
+  const { root, declared = INTEGRATION_AGREEMENT_CHILDREN } = fixture;
   const issue = 'https://github.com/woojubb/robota/issues/2664';
-  const children = INTEGRATION_AGREEMENT_CHILDREN.map(([id]) => id).join(', ');
+  const children = declared.map(([id]) => id).join(', ');
 
   write(
     root,
@@ -5508,8 +5511,8 @@ function stageIntegrationAgreementActivation(fixture) {
   git(root, ['add', '-A']);
 }
 
-function integrationAgreementFixture() {
-  const fixture = integrationAgreementPreludeFixture();
+function integrationAgreementFixture(declared = INTEGRATION_AGREEMENT_CHILDREN) {
+  const fixture = integrationAgreementPreludeFixture(declared);
   stageIntegrationAgreementActivation(fixture);
   const { root } = fixture;
   commit(root, 'authorize agreement implementation');
@@ -5587,6 +5590,29 @@ describe('user-execution PLAN order — integration AGREEMENT history (BRANCH-26
     mergeAgreementChild(fixture.root, fixture.integration, 'DATA-2664');
 
     expect(findHistoryFindings(fixture.root, fixture.base)).toEqual([]);
+  });
+
+  it('admits a prelude that declares all eight children and examines every segment once (MANIFEST-2664 TC-02)', () => {
+    // The real AGREEMENT-2664 replacement declares eight children (the seven of the legacy prelude
+    // plus PUSH-2664) before the first child merge. Every segment — the prelude, the activation, and
+    // each child's authorize + implement pair — is a single-parent commit the scanner examines
+    // exactly once; the eight clean merges contribute no own content and are not examined.
+    const eight = [
+      'BEHAVIOR-2664',
+      'PUSH-2664',
+      'DATA-2664',
+      'RULE-2326',
+      'RULE-2380',
+      'RULE-2582',
+      'BEHAVIOR-2663',
+      'RULE-2665',
+    ].map((id) => [id, `${id}-child`]);
+    const fixture = integrationAgreementFixture(eight);
+    for (const [id] of eight) mergeAgreementChild(fixture.root, fixture.integration, id);
+
+    expect(findHistoryFindingsFromGit(fixture.root, fixture.base)).toEqual([]);
+    // prelude + activation + (authorize + implement) × 8 = 18 single-parent commits.
+    expect(readExaminedPlanOrderCount(fixture.root, fixture.base)).toBe(2 + eight.length * 2);
   });
 
   it('rejects an out-of-order child even though its own checkpoint history is valid', () => {

@@ -46,6 +46,7 @@ export const HERMETIC_TEST_FILES = Object.freeze([
   'scripts/harness/__tests__/file-name-shape.test.mjs',
   'scripts/harness/__tests__/frontmatter-parser-ssot.test.mjs',
   'scripts/harness/__tests__/governed-tree.test.mjs',
+  'scripts/harness/__tests__/integration-migration-manifest.test.mjs',
   'scripts/harness/__tests__/list-source-files.test.mjs',
   'scripts/harness/__tests__/live-provider-smoke.test.mjs',
   'scripts/harness/__tests__/live-smoke-provider-coverage.test.mjs',

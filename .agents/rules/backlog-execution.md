@@ -1164,9 +1164,10 @@ base remains open uses `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1`. A child creation us
 whose first parent is that remote base and whose second parent is current `origin/develop`. Plan-order
 judges each clean child merge by its second-parent history and accepts only a unique ordered prefix of
 the AGREEMENT children; the AGREEMENT completion projection and final-PR gate separately own final
-completeness. A legacy-base migration replays the AGREEMENT planning commits and each child's
-non-merge commits in order, proves ordered stable patch-ID and base-relative changed-path equivalence,
-and leaves the legacy ref immutable until every replacement merge is verified.
+completeness. A legacy-base migration follows
+[`git-branch.md` § Branch Policy](git-branch.md#branch-policy), the sole owner of the migration rule:
+strict replay by default, a verified closed divergence manifest for every named difference, and an
+immutable legacy ref until every replacement merge is verified.
 
 The ordering, the drift handling, and the failure edges are owned by
 [`multi-backlog-initiative`](../skills/multi-backlog-initiative/SKILL.md).

@@ -258,9 +258,16 @@ so an `export` in an earlier statement does not reach it.
   and admits only a unique ordered prefix of the AGREEMENT children; final completeness remains the
   AGREEMENT completion and final-PR gate's responsibility. When migrating a legacy base, create the
   new integration branch from fresh develop with `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1`, replay the
-  AGREEMENT planning commits and child non-merge commits in order, verify ordered stable patch IDs
-  and base-relative changed-path sets, and keep the legacy ref immutable until every replacement
-  merge is verified.
+  AGREEMENT planning commits and child non-merge commits in order, and prove ordered stable patch-ID
+  and base-relative changed-path equality for every replayed segment — strict equality is the
+  default. Where the replacement must differ (an approved child the legacy prelude never declared, a
+  base adaptation), every difference is named in a closed divergence manifest committed under
+  `.agents/evidence/migrations/` and verified by
+  `node scripts/harness/integration-migration-manifest.mjs verify`, which recomputes every non-merge
+  commit's raw tree delta and every merge's parents; merge own-content verification is added by the
+  bundle that lands it. A manual waiver is not a manifest, and the legacy ref stays immutable until
+  every replacement merge is verified. Enforced by: nothing mechanical yet — the publication bundle
+  adds the gate; until then the reviewer of a migration runs the verifier and records its exit code.
 - Merging `develop` into `main` requires explicit user approval and is a release-level action. **Build the
   promotion branch with `node scripts/harness/promote.mjs` — never by hand** (§ Promotion below).
 - When merging a branch, always merge back to the branch it was forked from. Verify the fork point before proposing a merge target.
