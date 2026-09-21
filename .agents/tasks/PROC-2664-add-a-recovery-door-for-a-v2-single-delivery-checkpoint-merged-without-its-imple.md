@@ -116,3 +116,8 @@ installed-package surface an end user can execute is involved.
   checkpoint), and the closeout-receipt facet has a root beneath this item, filed as `PROC-2680`
   (https://github.com/woojubb/robota/issues/2680#issuecomment-5762510054). The owner chose to split
   and to build the declaration-to-PR binding first, with a narrow recovery for the existing instance.
+- Recommendation gate 2026-09-22 (orchestrator run `r20260921153105`): `proposal-reviewer` returned
+  `REVIEW VERDICT: REVISE` at `6258dd693` (six findings: witness list gaps for repository memory
+  and other units' planning records, a second delivery-mode parser, two emit sites, a third
+  AGREEMENT predicate, an overstated push-time reach, a stale dependency) and
+  `REVIEW VERDICT: ENDORSE` at `fdd13b3e0` after all six were applied.

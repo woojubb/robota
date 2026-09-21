@@ -177,7 +177,10 @@ Validated recommendation:
   `null`; a push that carries the implementation in a later commit of the same range is admitted; a
   `sequenced` planning-only pull request is admitted (its continuation door governs); an `AGREEMENT`
   prelude is admitted; the closeout range carries no first checkpoint and is admitted; a `--staged`
-  run never emits the finding; the CLI exit map is unchanged (1 on any finding).
+  run never emits the finding; the CLI exit map is unchanged (1 on any finding). Known edge, owned
+  by the list: an L2 `single` unit whose entire delivery is edits to other units' root Tasks would
+  be judged unwitnessed under item (6); no such unit reaches a first PASS today (a Task-only diff
+  is L0 and has no spec), so the edge is recorded here rather than carved out.
 
 **Delivery mode:** `single`
 
@@ -249,15 +252,17 @@ Two declared, both fail-closed toward the binding, neither a silent path:
       `scripts/harness/reference-kind-baseline.json` row; it returns `[]` when one later commit
       changes `scripts/harness/example.mjs`, `[]` for a `sequenced` first checkpoint alone, `[]` for
       an `AGREEMENT`-typed spec's `single` checkpoint alone, and an unchanged result for an L1 PLAN
-      commit and for a legacy v1 first PASS; the same single finding when the checkpoint is followed only by
-      `.agents/memory/MEMORY.md` and a newly filed `todo` Task of another unit; a v2 checkpoint whose
-      `**Delivery mode:**` line was removed after the PASS yields a finding naming the basename and
-      containing `could not read the delivery mode`; and `isDeliveryWitnessPath` returns `false` for
-      the unit's Task and spec in every lifecycle folder, every `.agents/loop-runs/*.jsonl`,
-      `.agents/evals/lessons/**`, `.agents/evals/work-runs/**`, `scripts/harness/*baseline*.json`,
-      `.agents/memory/**`, another unit's root Task, and another unit's `draft/`, `backlog/`, and
-      `todo/` spec, and `true` for `scripts/harness/example.mjs`, `packages/x/src/y.ts`, another
-      unit's `active/` spec, and another unit's `completed/` Task.
+      commit and for a legacy v1 first PASS whose spec carries a `**Delivery mode:** \`single\``line
+    today (the contract is selected by the entry's own marker, as the validator selects it, so the
+    v1 entry reaches the reader's failure result and`mode: null`, not a binding); the same single finding when the checkpoint is followed only by
+    `.agents/memory/MEMORY.md`and a newly filed`todo`Task of another unit; a v2 checkpoint whose
+   `**Delivery mode:**`line was removed after the PASS yields a finding naming the basename and
+    containing`could not read the delivery mode`; and `isDeliveryWitnessPath`returns`false`for
+    the unit's Task and spec in every lifecycle folder, every`.agents/loop-runs/*.jsonl`,
+    `.agents/evals/lessons/**`, `.agents/evals/work-runs/**`, `scripts/harness/_baseline_.json`,
+    `.agents/memory/**`, another unit's root Task, and another unit's `draft/`, `backlog/`, and
+    `todo/`spec, and`true`for`scripts/harness/example.mjs`, `packages/x/src/y.ts`, another
+    unit's `active/`spec, and another unit's`completed/` Task.
 - [ ] TC-02: Observable: over the TC-01 fixture with the checkpoint at HEAD, `findStagedFindings`
       returns `[]` with `scripts/harness/example.mjs` staged and `[]` with only a loop-ledger append
       staged (the binding judges a range, never a commit); the CLI spawned as a child with `cwd` =
