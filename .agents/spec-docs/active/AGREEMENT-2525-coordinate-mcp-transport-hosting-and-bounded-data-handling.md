@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: AGREEMENT
 tags: [cli, mcp, auth]
 lane: L2
@@ -53,6 +53,10 @@ Choose Alternative 3. `AGREEMENT-2525` owns only source-map consistency, depende
 This explicitly accepts Alternative 3's cost — four separate L2 designs, approvals, verification cycles, and a later umbrella close — in exchange for preserving the independent filesystem, subprocess, data-lifecycle, and network-admission security boundaries. A shorter single-feature path is rejected because it would make a partial delivery look complete while leaving at least one boundary without its own negative-path evidence.
 
 Reachability is preserved because the shared client (`MCP-002`) remains the prerequisite for stdio and result-admission integrations, the served product (`MCP-007`) remains the prerequisite for the HTTP carrier, and `ARCH-042` remains the completed authority substrate for cross-platform payload replay. Capability preservation is explicit: no Task may replace a stable handle with a raw path, local process authorization with generic connection configuration, a result reference with context injection, or bearer admission with a session-id assertion. An independent finding-depth triage classified the umbrella as **FOUNDATIONAL**, specifically because these are independent external lifecycles; the prior-art research above provides the adversarial boundary check before any child design is presented for approval.
+
+**Delivery mode:** `sequenced`
+
+**Continuation artifacts:** `.agents/spec-docs/active/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md`, `.agents/tasks/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md`
 
 ### Architecture Review Checklist
 
@@ -116,6 +120,8 @@ No runtime file changes are authorized by this Agreement checkpoint. Each child 
 **Reason:** This Agreement changes only planning ownership and dependency evidence; it exposes no independent runnable product behavior. Every direct child must author, execute, and record its own product-surface scenario before it becomes terminal.
 
 ## Tasks
+
+Paired parent Task: `.agents/tasks/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md`.
 
 - [ ] PAYLOAD-2153 — todo — `.agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`
 - [ ] MCP-2522 — todo — `.agents/tasks/MCP-2522-add-a-safe-stdio-mcp-client-transport.md`
@@ -230,3 +236,83 @@ GATE VERDICT: PASS
 **Judged at:** HEAD `e040f298fe53` · base `origin/develop@e040f298fe53` · document `.agents/spec-docs/backlog/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md` blob `82540383ec908d8c571f76d8296f7a9b75e2d420` (working-tree blob before this evidence entry)
 
 GATE VERDICT: PASS
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** approved → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "모두 승인하고, 앞으로의 것도 모두 타당한 근거와 함께 제시된 추천안이라면 그게ㅏ 타당할 경우 사전 승입합니다."
+**Given:** 2026-09-21, this conversation
+**Review fingerprint:** a4ef96585332 (review 3699009a, type/tags d9750093)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-21, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (a4ef96585332) equals the document's current fingerprint
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `5801343acb92` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/todo/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md` blob `ab6ce0a65804` (modified)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-21; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (5)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 383 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    ".agents/spec-docs/active/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md",
+    ".agents/tasks/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md"
+  ],
+  "taskPath": ".agents/tasks/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md",
+  "specPath": ".agents/spec-docs/todo/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md",
+    ".agents/tasks/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `5801343acb92` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/todo/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md` blob `acef8e6c8cdc` (modified)
