@@ -35,6 +35,19 @@ residual with no unit to measure it on; `MANIFEST-2664` is that unit. The recove
 `VERIFIER-2664`, a second Task/spec identity for one approved design — is the alternative PROC-031
 rejected for the v1 case ("duplicates the durable owner … hides the missing recovery edge").
 
+The seal also holds after the implementation has landed. With `VERIFIER-2664` merged to `develop` at
+`79698d78d` (PR #2805, `gh pr merge --merge` — the form `merge-gate.sh`'s hints prescribe; the
+method itself is unenforced for `develop`, and `git-branch.md` describes feature PRs as squashed),
+`MANIFEST-2664`'s own records still cannot be completed (reproduced 2026-09-21 on a branch cut from
+`4543cf56d`): a `## Result` append or a Plan checkbox on the `in-progress` Task is refused as
+implementation without a checkpoint ancestor, and the post-merge completion closeout door
+(`postMergeCompletionProblems` → `validateRemoteCompletionReceipt`) admits only a delivering merge
+whose subject carries `(#N)` — the squash-merge subject GitHub writes — so a unit delivered by a
+merge commit (`Merge pull request #2805 from …`) has no receipt the door accepts. The door the
+catalogue names "Squash-merge completion exception" is therefore unreachable for any unit delivered
+by a merge commit, as PR #2805 was (`4543cf56d … (#2806)`, squashed through the same gate one commit
+later, would pass it); which door a unit gets is decided by the invoker's merge flag.
+
 ## Source Constraints
 
 - The first PASS's raw evidence stays byte-for-byte unchanged; any door is additive (a new form, a
@@ -53,8 +66,9 @@ rejected for the v1 case ("duplicates the durable owner … hides the missing re
       specify it in the paired spec.
 - [ ] TC-03 — Implement the door with the gate writer, the checkpoint contract, and the plan-order scan
       in agreement, red-proofed against the fixture from TC-01.
-- [ ] TC-04 — Record how `MANIFEST-2664` is completed once the door exists, and retire the
-      `Contained — PROC-2664.` notes in `VERIFIER-2664`.
+- [ ] TC-04 — Record how `MANIFEST-2664` is completed once the door exists — including a
+      post-merge completion receipt for a delivering merge commit, not only a squash subject — and
+      retire the `Contained — PROC-2664.` notes in `VERIFIER-2664`.
 
 ## Test Plan
 
@@ -79,6 +93,8 @@ installed-package surface an end user can execute is involved.
   PROC-026/029 (v2 contract and `Delivery mode`, 2026-09-02), PROC-031 (v1-only correction form,
   2026-09-02, v2 explicitly excluded), issue #2774 comment 5750809102 (the `single` sealed state
   recorded as residual), MANIFEST-2664 (this instance). Registered on the umbrella issue #2664:
-  https://github.com/woojubb/robota/issues/2664#issuecomment-5760461966.
+  https://github.com/woojubb/robota/issues/2664#issuecomment-5760461966. The post-merge closeout
+  facet (reproduced after PR #2805 merged) is registered as an extension at
+  https://github.com/woojubb/robota/issues/2664#issuecomment-5762078040.
 - Containment: `VERIFIER-2664` proceeds as a labelled containment (`Contained — PROC-2664.`) at the
   owner's direction; it duplicates the design's owner only until this item lands.
