@@ -188,6 +188,51 @@ if [[ "$STATE" != "CLEAN" ]]; then
   exit 2
 fi
 
+# --- 1b. CI EXISTS ----------------------------------------------------------------------------
+# CLEAN is not the same answer as "the checks passed". GitHub reports CLEAN when no required check is
+# FAILING, and a pull request with no checks at all satisfies that vacuously. Measured on PR #2803, a
+# child opened against `integration/agreement-014` before INFRA-2804 widened the workflow triggers:
+# `mergeStateStatus: CLEAN`, `mergeable: MERGEABLE`, and a check list of three Cloudflare Pages deploy
+# previews plus one skipped job — no build, no test, no scans, no format-check. The gate above said
+# CLEAN and would have let it through. This header's own first line says an unknown state is not a
+# clean one; an EMPTY state is not one either, and until now nothing here said so.
+#
+# The discriminator is `workflowName`: a check produced by a workflow in THIS repository carries one,
+# while an external provider posting a commit check (Cloudflare Pages) leaves it empty. SKIPPED is
+# excluded because a skipped job ran nothing — on PR #2803 the single repository check was
+# `Claude review`, SKIPPED, which is precisely the shape that must not read as coverage. A healthy
+# develop-base pull request measured 15 non-skipped repository checks against that 0.
+GATE_CHECKS=$(bounded_gh pr view "$PR" --json statusCheckRollup \
+  --jq '[.statusCheckRollup[] | select((.workflowName // "") != "" and (.conclusion // "") != "SKIPPED")] | length' || echo "")
+if [[ -z "$GATE_CHECKS" ]]; then
+  echo "[merge-gate] Blocked: could not read PR #$PR's check list." >&2
+  echo "[merge-gate] An unreadable check list is not an empty one, and neither is a pass." >&2
+  exit 2
+fi
+# Contained — HARNESS-2804 (issue #2804). This asserts a non-empty COUNT. The spec that authorised
+# it specified a non-empty, NAME-MATCHED required-check set, and the difference is real: `ci.yml`'s
+# `changes` job carries no condition, so that one job satisfies this gate on its own, and a lone
+# gitleaks pass satisfies it while `ci.yml` never dispatched at all. Ten of develop's eleven declared
+# required contexts could be absent here and this would still report coverage.
+#
+# It ships as a count because there is nothing to match against. `.github/required-status-checks.json`
+# can key an EXACT branch name paired with a live ruleset and nothing else, so `integration/**` — a
+# branch class with no ruleset — has no required-check contract anywhere. Hardcoding the names here
+# would make this hook a second owner of that fact; HARNESS-2804 owns deciding where it belongs.
+#
+# What this block does close is the case it was built for: a pull request with NO repository check at
+# all, which is what PR #2803 was.
+if [[ "$GATE_CHECKS" -eq 0 ]]; then
+  echo "[merge-gate] Blocked: PR #$PR ran NO repository gate check." >&2
+  echo "[merge-gate]   Not a failure — an absence. Nothing verified this pull request." >&2
+  echo "[merge-gate]   Every check on it is external or skipped, so the merge state above is" >&2
+  echo "[merge-gate]   vacuous rather than green." >&2
+  echo "[merge-gate]   Usual cause: no workflow's trigger matches this base branch. Check that" >&2
+  echo "[merge-gate]   .github/workflows/ci.yml lists it under on.pull_request.branches (INFRA-2804)." >&2
+  echo "[merge-gate] Verify by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge <n> --merge" >&2
+  exit 2
+fi
+
 # --- 2. Review --------------------------------------------------------------------------------
 # WHO THE REVIEWER IS, asked once, up front (INFRA-2631 / issue: MERGE-GATE-REVIEWER-BOT-RETIRED).
 # Every check below this point assumes a comment or review from this identity exists to check —

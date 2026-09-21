@@ -35,9 +35,28 @@ name: Workflow Provenance Gate
 # — so registering it here before the flip would make that registry state something untrue. The same
 # held-membership shape `regression-red-proof` uses, and for the same reason.
 
+# INFRA-2804 widened this to `integration/**`. The absolute claim below holds differently there, and
+# the difference is worth stating rather than leaving for a reader to discover: an integration branch
+# carries no ruleset, so "a pull request cannot change what this file says about it" is no longer held
+# by branch protection on that base. What holds it instead is this gate guarding its own file —
+# `scan-workflow-provenance.mjs` unions the guarded set across ALL registry branch keys, so a child
+# editing this workflow goes red, `mergeStateStatus` becomes UNSTABLE, and merge-gate's first check
+# refuses it. The job's own safety properties — base-only checkout, the head fetched but never checked
+# out, nothing installed, `contents: read` — hold so long as that self-guard holds, not regardless of
+# it: on an integration base the text that runs is the integration branch's copy of this file.
+#
+# One carrier the self-guard does NOT cover, stated so nobody reads more into this than it says:
+# `scan-workflow-provenance.mjs` filters changed files against the WORKFLOW list, and
+# `.github/required-status-checks.json` — the registry that defines which workflows are guarded — is
+# not in it; it is only required to exist. A child deleting the `workflow provenance` entry from that
+# registry on an integration base shrinks the guarded set for the next child and is not refused here.
+# Pre-existing rather than introduced: before INFRA-2804 nothing ran on an integration base at all.
+#
+# That the guarantee now rests on a local hook plus a self-guard rather than on protection is the
+# same cause as HARNESS-2804 (issue #2804).
 on:
   pull_request_target:
-    branches: [main, develop]
+    branches: [main, develop, integration/**]
     # `edited` is not decoration and not GitHub's default. Retargeting a pull request's base fires it
     # and nothing else does, so without it a branch moved develop->main keeps the conclusion it
     # earned against the OLD base while branch protection reports the context satisfied. Measured on
