@@ -62,23 +62,23 @@ later, would pass it); which door a unit gets is decided by the invoker's merge 
 
 ## Plan
 
-- [ ] TC-01 — In the isolated plan-order suite, build the fixture whose topic range holds a v2
+- [x] TC-01 — In the isolated plan-order suite, build the fixture whose topic range holds a v2
       `single` first checkpoint for a non-`AGREEMENT` L2 unit and prove the range refusal (alone, and
       padded with a ledger append, a lessons edit, and a baseline row), the delivery witness
       (`scripts/harness/example.mjs` admits it), the `sequenced`, `AGREEMENT`, L1, and legacy v1
       exemptions, and the `isDeliveryWitnessPath` negative list — red before the change.
-- [ ] TC-02 — Prove the binding judges a range and never a commit: `findStagedFindings` unchanged
+- [x] TC-02 — Prove the binding judges a range and never a commit: `findStagedFindings` unchanged
       with an implementation path or a ledger append staged over the checkpoint; the CLI child exits
       1 with one `no delivery witness` stderr line in range mode and 0 in `--staged` mode.
-- [ ] TC-03 — Prove the recovery door stays open: the four-path post-merge completion closeout over a
+- [x] TC-03 — Prove the recovery door stays open: the four-path post-merge completion closeout over a
       base holding a sealed `single` pair yields `[]`; and the scan over this unit's own branch
       (checkpoint plus implementation in one range) exits 0.
-- [ ] TC-04 — Write the binding sentence and its `Enforced by:` line in `backlog-execution.md`
+- [x] TC-04 — Write the binding sentence and its `Enforced by:` line in `backlog-execution.md`
       § Pre-implementation planning checkpoint, rewrite the scanner header's "stays sealed" note,
       and at completion record in this Task's `## Result` how `MANIFEST-2664` completes after
       `PROC-2680`'s receipt, describing the `Contained — PROC-2664.` notes in `VERIFIER-2664` as
       historical rather than editing them.
-- [ ] TC-05 — Run the hermetic tier, the contract-tier runner over the affected set, the import-safety
+- [x] TC-05 — Run the hermetic tier, the contract-tier runner over the affected set, the import-safety
       scan, and the affected scans; every one exits 0.
 
 ## Test Plan

@@ -539,7 +539,7 @@ alone is refused at the range, never at the commit: the checkpoint commit stays 
 implementation commit after it is admitted as before. An `AGREEMENT` pair is exempt (its delivery is
 its children's merges and final pull request). A unit that wants a planning-only pull request declares
 `sequenced` and names its artifacts — that is what the declaration means. Enforced by:
-`user-execution-plan-order` (`rangeAnalysis` in `scan-user-execution-plan-order.mjs`; PROC-2664).
+`user-execution-plan-order` (`rangeAnalysis` in `scan-user-execution-plan-order.mjs`).
 
 Mechanized by `scripts/harness/scan-user-execution-plan-order.mjs`: Husky invokes `--staged` before each
 commit, and `harness:scan` replays every commit after the topic merge base. Both fail closed for a
