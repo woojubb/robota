@@ -477,31 +477,16 @@ describe('canonical bytes and digest', () => {
     expect(parsed.ok).toBe(true);
     expect(Buffer.from(canonicalize(parsed.manifest)).equals(bytes)).toBe(true);
     expect(digest(bytes)).toMatch(/^[0-9a-f]{64}$/);
-    expect(digest(Buffer.from('{}\n'))).toBe(
-      '4c3c14e9f9f3d19ea5f7b9b42fbbf2b9a52b4a0f3d0b1d3a2a6f4f4fbbd2bd2f'.length === 64
-        ? digest(Buffer.from('{}\n'))
-        : null,
-    );
   });
 
   it('one known byte string maps to one stated digest', () => {
+    // sha256 of the two bytes `{}` + newline, stated as a constant so the algorithm and the exact
+    // input bytes are both pinned (`printf '{}\n' | shasum -a 256`).
     expect(digest(Buffer.from('{}\n'))).toBe(
-      '7d0a4ea6ce7c00f0c0c0c8c9b7fcfefc9f4b4bd8f27cbb9bfc6eb6cf5a0e6b1a'.replace(/.*/, () =>
-        require_digest(),
-      ),
+      'ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356',
     );
   });
 });
-
-// The reference digest is computed once here, in the test, from Node's crypto; the assertion above
-// proves `digest` is SHA-256 over the exact bytes and nothing else.
-function require_digest() {
-  return createHashHex('{}\n');
-}
-import { createHash } from 'node:crypto';
-function createHashHex(text) {
-  return createHash('sha256').update(Buffer.from(text)).digest('hex');
-}
 
 describe('parseManifest', () => {
   it('refuses noncanonical bytes under strict and accepts them under strict: false', () => {
@@ -547,6 +532,14 @@ describe('parseManifest', () => {
     expect(codesOf(parseManifest(Buffer.from(`${JSON.stringify(unicode)}\n`)))).toContain(
       'INVALID_FIELD',
     );
+    // A `kind` that names an inherited property is not a record kind: the guard must answer with
+    // the closed code, not reach `Object.prototype` and throw.
+    for (const inherited of ['__proto__', 'toString', 'hasOwnProperty']) {
+      const proto = clone(manifest);
+      proto.records[0] = { kind: inherited };
+      expect(() => validateManifest(proto)).not.toThrow();
+      expect(codesOf(parseManifest(bytes(proto)))).toContain('INVALID_FIELD');
+    }
   });
 
   it('accepts each ceiling at its boundary and refuses it at boundary plus one', () => {
@@ -1049,6 +1042,27 @@ describe('default adapter against real repositories', () => {
       input: control.stdout,
     }).stdout.toString();
     expect(controlId).not.toBe(cleanId);
+  });
+
+  it('is unchanged under a repository-local replace ref, with a positive control', () => {
+    const g = twoGraphs();
+    const runGit = createDefaultRunGit({ cwd: g.root, env: fixtureEnv() });
+    const manifest = manifestFor(g, runGit);
+    const before = treeTuples(runGit, g.legacyBase, g.l1);
+    expect(before.tuples).toHaveLength(1);
+    // `refs/replace/<l1>` makes every default read of l1 return the base commit instead — state
+    // that is neither configuration nor attributes, and that no OID in the manifest can name.
+    git(g.root, ['replace', g.l1, g.legacyBase]);
+    expect(treeTuples(runGit, g.legacyBase, g.l1)).toEqual(before);
+    expect(verify(manifest, { runGit })).toEqual({ ok: true });
+    // Positive control: the same diff-tree spawned without the pin sees an empty delta.
+    const control = spawnSync(
+      'git',
+      ['diff-tree', '--no-commit-id', '--raw', '-r', '-z', '--no-renames', g.legacyBase, g.l1],
+      { cwd: g.root, env: fixtureEnv() },
+    );
+    expect(control.status).toBe(0);
+    expect(control.stdout.length).toBe(0);
   });
 
   it('reports adapter failures under their named codes', () => {

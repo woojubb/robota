@@ -386,7 +386,7 @@ function checkRecord(record, at, out, claim) {
     return 0;
   }
   const { kind } = record;
-  if (!(kind in RECORD_FIELDS)) {
+  if (typeof kind !== 'string' || !Object.hasOwn(RECORD_FIELDS, kind)) {
     out.push(
       item(
         'INVALID_FIELD',
@@ -597,9 +597,9 @@ function failure(code, message) {
 /**
  * The default adapter: real Git, one `spawnSync` per invocation (two for the `patch-id` pair), with
  * `cwd` and `env` injected so a `--pool=threads` test worker can target a fixture repository, the
- * environment stripped of hook-inherited `GIT_*` variables and isolated from global and system
- * configuration. Construction never throws: a `cwd` that is not a directory yields a port whose every
- * call reports `CWD_NOT_FOUND`.
+ * environment stripped of hook-inherited `GIT_*` variables, isolated from global and system
+ * configuration, and reading objects with replace refs disabled. Construction never throws: a `cwd`
+ * that is not a directory yields a port whose every call reports `CWD_NOT_FOUND`.
  */
 export function createDefaultRunGit({
   cwd,
@@ -612,6 +612,9 @@ export function createDefaultRunGit({
     ...envWithoutGitVars(env),
     GIT_CONFIG_GLOBAL: '/dev/null',
     GIT_CONFIG_NOSYSTEM: '1',
+    // `refs/replace/*` would make every read of a commit return another object while the OID the
+    // manifest binds stays the same; the pin keeps the verifier reading the objects it names.
+    GIT_NO_REPLACE_OBJECTS: '1',
   };
   const cwdIsDirectory = () => {
     try {
