@@ -525,7 +525,7 @@
       "packages/agent-session/src/index.ts",
       "packages/agent-subagent-runner/src/index.ts",
       "packages/agent-tool-defaults/src/index.ts",
-      "packages/agent-tool-mcp/src/index.ts",
+      "packages/agent-mcp/src/index.ts",
       "packages/agent-tools/src/index.ts",
       "packages/agent-ui-web/src/index.ts",
       "packages/agent-transport-http/src/index.ts",

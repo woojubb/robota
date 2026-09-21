@@ -23,7 +23,7 @@ flowchart TD
   Sessions["Session services\nagent-session"]
   Executor["Runtime services\nagent-executor"]
   Domain["Domain contracts\nagent-core (ZERO deps from other agent-* packages),\nauth (planned), credits (planned)"]
-  Adapters["Adapters and providers\nagent-provider, agent-tools, agent-tool-mcp,\nagent-plugin"]
+  Adapters["Adapters and providers\nagent-provider, agent-tools, agent-mcp,\nagent-plugin"]
   OptIn["Optional runners\nagent-subagent-runner (opt-in)"]
 
   ProductShells --> Assembly

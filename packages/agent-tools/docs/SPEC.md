@@ -13,7 +13,7 @@ Owns the tool factory constructors, tool result types, sandbox execution ports, 
 - Does not own the abstract tool base class (`AbstractTool`) or tool interface contracts (`IToolWithEventService`, `IToolResult`, `IToolExecutionContext`). Those belong to `@robota-sdk/agent-core`.
 - Does not own the concrete `FunctionTool` / `ToolRegistry` classes or their parameter validation. Those are dependency-free runtime primitives owned by `@robota-sdk/agent-core` (DATA-005). This package's factories construct core's `FunctionTool`.
 - Does not own permission evaluation or hook execution. Tool permission wrapping is performed by consumers (e.g., `@robota-sdk/agent-session`).
-- Does not own MCP tool protocol. MCP tools live in `@robota-sdk/agent-tool-mcp`.
+- Does not own MCP tool protocol. MCP definitions and tools live in `@robota-sdk/agent-mcp`.
 - Does not own provider-specific behavior. Tools are provider-agnostic.
 - Does not own provider SDK installation. Provider sandbox adapters are structural adapters; applications decide whether to install concrete provider SDKs such as E2B.
 - Does not own CLI manifest file parsing. YAML/JSON CLI parsing belongs to the CLI composition layer and must converge into the `IWorkspaceManifest` contract owned here.
@@ -150,7 +150,7 @@ Types owned by this package (SSOT):
 | `PageComputerDriver`                    | Class    | SELFHOST-010 — zero-dep reference `IComputerDriver` duck-typing a browser page via `IBrowserPageAdapter` (imports NO browser SDK; surface passes the page)   |
 | `createToolSearchTool`                  | Function | CLI-1990 — the resident `ToolSearch` tool: loads withheld tool schemas by query or exact name through the runtime's deferred-tool catalog                    |
 | `toolSearchTool`                        | Const    | CLI-1990 — a default `ToolSearch` instance, as the other builtins publish one                                                                                |
-| `TOOL_SEARCH_NAME`                      | Const    | CLI-1990 — agent-core's `TOOL_SEARCH_TOOL_NAME` re-exported under this package's name (one owner, no second literal)                                                      |
+| `TOOL_SEARCH_NAME`                      | Const    | CLI-1990 — agent-core's `TOOL_SEARCH_TOOL_NAME` re-exported under this package's name (one owner, no second literal)                                         |
 | `matchDeferredTools`                    | Function | CLI-1990 — the pure match/rank half: which withheld tools a query selects, best match first, capped at a limit                                               |
 | `DEFAULT_TOOL_SEARCH_LIMIT`             | Const    | CLI-1990 — default results per query (5), the default both vendors use                                                                                       |
 | `IToolSearchOutput`                     | Type     | CLI-1990 — the tool's result payload: `{ loaded, unavailableSources }`                                                                                       |

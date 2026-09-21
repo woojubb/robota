@@ -58,7 +58,7 @@ execute paths are required either way.
 - Cleanup: stop the local server.
 - Evidence (2026-06-11): implemented a real MCP client over Streamable HTTP (decision: implement,
   zero new dependencies — global fetch). The User Execution Test Scenario's required fixture (a
-  local mock MCP server) was built at `packages/agent-tool-mcp/src/__tests__/mock-mcp-server.ts`
+  local mock MCP server) was built at `packages/agent-tool-mcp/src/__tests__/mock-mcp-server.ts` <!-- evidence-superseded: MCP-001 renamed packages/agent-tool-mcp to packages/agent-mcp; the file is unchanged at the new path and the recorded evidence remains historically accurate. -->
   and the scenario is executed by the integration suite (9/9 pass): real round-trip
   initialize → notifications/initialized → tools/call returning actual result text
   ("echoed: hi" — not "Not implemented"), and killing/refusing the server produces a clear

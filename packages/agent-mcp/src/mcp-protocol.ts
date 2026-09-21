@@ -229,7 +229,7 @@ export async function initializeMCPSession(config: IMCPConfig): Promise<string |
     params: {
       protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: 'robota-agent-tool-mcp', version: '1.0.0' },
+      clientInfo: { name: 'robota-agent-mcp', version: '1.0.0' },
     },
   };
 

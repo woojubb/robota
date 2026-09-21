@@ -164,7 +164,7 @@ export type {
   TToolMetadata,
 } from './tool';
 
-export type { IToolFactory, IOpenAPIToolConfig, IMCPToolConfig } from './tool-integration';
+export type { IToolFactory, IOpenAPIToolConfig } from './tool-integration';
 
 // SELFHOST-006: per-role model routing contract (opaque-key role→fallback-chain map).
 export type { IModelRef, TRoleModelMap } from './role-model';

@@ -11,7 +11,7 @@ Paired with `.agents/tasks/completed/MCP-2520-require-trust-approval-before-proj
 
 ## Problem
 
-Today `MCPTool.execute()` at `packages/agent-tool-mcp/src/mcp-tool.ts:74` calls
+Today `MCPTool.execute()` at `packages/agent-mcp/src/mcp-tool.ts:74` calls
 `ensureConnection()` before sending `tools/call`, and `ensureConnection()` at `:209` calls
 `initializeMCPSession(this.mcpConfig)` directly. There is no approval/admission check in that path.
 When a project/plugin definition is wired from an untrusted checkout or installed plugin, the first
@@ -51,11 +51,11 @@ Sources: [MCP transports](https://modelcontextprotocol.io/specification/2025-11-
 
 - `packages/agent-framework/src/workspace-trust/` — reuse identity, generation, and restricted/
   trusted authority; do not mint ambient project authority.
-- `packages/agent-tool-mcp/src/` — inject the admission port and require it before handshake,
+- `packages/agent-mcp/src/` — inject the admission port and require it before handshake,
   connection, or helper activation.
 - `packages/agent-command/src/` — own typed approve/reject/revoke/status effects and audit results.
 - `packages/agent-cli/src/startup/` — compose the policy and render generic status/confirmation.
-- `packages/agent-tool-mcp/docs/SPEC.md`, `packages/agent-framework/docs/SPEC.md`,
+- `packages/agent-mcp/docs/SPEC.md`, `packages/agent-framework/docs/SPEC.md`,
   `packages/agent-command/docs/SPEC.md`, and `packages/agent-cli/docs/SPEC.md` — update only the
   contracts owned by each package after implementation.
 
@@ -119,7 +119,7 @@ future stdio/helper paths and direct lower-client calls able to bypass the secur
 - [x] New-surface placement: the admission interface mirrors the opaque authority and
       dependency-injected capability pattern in `packages/agent-framework/src/workspace-trust/types.ts`
       and `workspace-trust-service.ts`, plus the constructor-injected `IMCPConfig` and
-      `ensureConnection()` seam in `packages/agent-tool-mcp/src/mcp-tool.ts`. Its taxonomy is the
+      `ensureConnection()` seam in `packages/agent-mcp/src/mcp-tool.ts`. Its taxonomy is the
       shared MCP infrastructure/contract layer, not a new product or presentation package; trust
       policy/effects stay with framework/command owners and CLI remains a sibling renderer.
 
@@ -133,7 +133,7 @@ a helper as a fallback.
 ## Solution
 
 1. Add the provider-neutral activation request, provenance/fingerprint handoff, admission result, and
-   lease/refusal types in the owner selected by AGREEMENT-2520; update `packages/agent-tool-mcp/src/index.ts`
+   lease/refusal types in the owner selected by AGREEMENT-2520; update `packages/agent-mcp/src/index.ts`
    only for the intended contract surface.
 2. Implement approval persistence and admission against `WorkspaceTrustService` and the exact
    definition/provenance/identity fingerprint; ensure stale/revoked/rejected records cannot be used.
@@ -147,10 +147,10 @@ a helper as a fallback.
 ## Affected Files
 
 - `packages/agent-framework/src/workspace-trust/`
-- `packages/agent-tool-mcp/src/`
+- `packages/agent-mcp/src/`
 - `packages/agent-command/src/`
 - `packages/agent-cli/src/startup/`
-- `packages/agent-tool-mcp/docs/SPEC.md`
+- `packages/agent-mcp/docs/SPEC.md`
 - `packages/agent-framework/docs/SPEC.md`
 - `packages/agent-command/docs/SPEC.md`
 - `packages/agent-cli/docs/SPEC.md`
@@ -193,26 +193,26 @@ a helper as a fallback.
 - Executability: agent-executable
 - Product surface: public-sdk-example
 - Surface rationale: shipped-interface=public-sdk-example
-- Prerequisites: Node.js and pnpm are installed; run from `packages/agent-tool-mcp`; the example creates an isolated in-memory untrusted workspace fixture; no network or provider credential is required.
+- Prerequisites: Node.js and pnpm are installed; run from `packages/agent-mcp`; the example creates an isolated in-memory untrusted workspace fixture; no network or provider credential is required.
 - Command: `pnpm exec tsx examples/verify-mcp-activation-admission.ts --status`
 - Observable type: sdk-result
 - Observable rationale: source=public-sdk-return
 - Expected observable: result=status=untrusted; activationAttempts=0
 - Cleanup: the example uses only in-memory state and exits without leaving files or connections.
-- Evidence: `packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)
+- Evidence: `packages/agent-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)
 
 ### Scenario 2: exact approval, change, and revocation control activation
 
 - Executability: agent-executable
 - Product surface: public-sdk-example
 - Surface rationale: shipped-interface=public-sdk-example
-- Prerequisites: Node.js and pnpm are installed; run from `packages/agent-tool-mcp`; the example creates trusted and mutated in-memory request fixtures; no network or provider credential is required.
+- Prerequisites: Node.js and pnpm are installed; run from `packages/agent-mcp`; the example creates trusted and mutated in-memory request fixtures; no network or provider credential is required.
 - Command: `pnpm exec tsx examples/verify-mcp-activation-admission.ts --lifecycle`
 - Observable type: sdk-result
 - Observable rationale: source=public-sdk-return
 - Expected observable: result=approved=true; changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1
 - Cleanup: the example uses only in-memory state and exits without leaving files or connections.
-- Evidence: `packages/agent-tool-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)
+- Evidence: `packages/agent-mcp/examples/verify-mcp-activation-admission.ts` (pending until implementation)
 
 ## Tasks
 

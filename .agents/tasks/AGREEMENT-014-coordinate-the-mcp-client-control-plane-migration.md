@@ -18,7 +18,7 @@ Coordinate typed MCP configuration, client transport, supervision, background ca
 
 ## Children
 
-- [ ] MCP-001 — todo — `.agents/tasks/MCP-001-add-a-typed-mcp-configuration-and-management-control-plane.md`
+- [x] MCP-001 — done — `.agents/tasks/completed/MCP-001-add-a-typed-mcp-configuration-and-management-control-plane.md`
 - [ ] MCP-002 — todo — `.agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md`
 - [ ] MCP-003 — todo — `.agents/tasks/MCP-003-add-an-mcp-connection-and-capability-catalog-supervisor.md`
 - [ ] MCP-004 — todo — `.agents/tasks/MCP-004-hand-long-running-mcp-calls-to-background-tasks.md`

@@ -775,13 +775,13 @@
       "reason": "Repository-owned strict TypeScript baseline; this exact package configuration inherits the shared root contract."
     },
     {
-      "source": "packages/agent-tool-mcp/tsconfig.eslint.json",
+      "source": "packages/agent-mcp/tsconfig.eslint.json",
       "target": "tsconfig.eslint.json",
       "kind": "config",
       "reason": "Repository-owned lint compiler settings; this exact package configuration inherits the shared root contract."
     },
     {
-      "source": "packages/agent-tool-mcp/tsconfig.json",
+      "source": "packages/agent-mcp/tsconfig.json",
       "target": "tsconfig.base.json",
       "kind": "config",
       "reason": "Repository-owned strict TypeScript baseline; this exact package configuration inherits the shared root contract."
