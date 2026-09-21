@@ -209,6 +209,19 @@ if [[ -z "$GATE_CHECKS" ]]; then
   echo "[merge-gate] An unreadable check list is not an empty one, and neither is a pass." >&2
   exit 2
 fi
+# Contained — HARNESS-2804 (issue #2804). This asserts a non-empty COUNT. The spec that authorised
+# it specified a non-empty, NAME-MATCHED required-check set, and the difference is real: `ci.yml`'s
+# `changes` job carries no condition, so that one job satisfies this gate on its own, and a lone
+# gitleaks pass satisfies it while `ci.yml` never dispatched at all. Ten of develop's eleven declared
+# required contexts could be absent here and this would still report coverage.
+#
+# It ships as a count because there is nothing to match against. `.github/required-status-checks.json`
+# can key an EXACT branch name paired with a live ruleset and nothing else, so `integration/**` — a
+# branch class with no ruleset — has no required-check contract anywhere. Hardcoding the names here
+# would make this hook a second owner of that fact; HARNESS-2804 owns deciding where it belongs.
+#
+# What this block does close is the case it was built for: a pull request with NO repository check at
+# all, which is what PR #2803 was.
 if [[ "$GATE_CHECKS" -eq 0 ]]; then
   echo "[merge-gate] Blocked: PR #$PR ran NO repository gate check." >&2
   echo "[merge-gate]   Not a failure — an absence. Nothing verified this pull request." >&2
