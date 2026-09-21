@@ -9,7 +9,7 @@ area: repository integration-base migration verification
 depends_on: []
 ---
 
-Spec: `.agents/spec-docs/draft/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md`
+Spec: `.agents/spec-docs/backlog/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md`
 
 # MANIFEST-2664: verify legacy-base divergence with a closed manifest and bound receipts
 
