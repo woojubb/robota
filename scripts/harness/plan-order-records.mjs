@@ -133,6 +133,39 @@ export function isPreCheckpointPlanningPath(file, basename) {
   return PRE_CHECKPOINT_SPEC_STATUS.has(folder);
 }
 
+/**
+ * Whether a changed path proves that a `single`-delivery unit delivered something (PROC-2664).
+ *
+ * A `single` first checkpoint promises that the pull request carrying it also carries the
+ * implementation. The witness is decided by a CLOSED negative list — the inventory a planning-only
+ * pull request has been observed to carry (PR #2792: the pair, three ledgers, one baseline row) plus
+ * the two planning-adjacent classes its review added — and not by lane floors (a documentation
+ * unit would sit at L0) or by the spec's ungated `## Affected Files`. The list is a deliberate
+ * asymmetry with the prelude question: a baseline row or a memory note is implementation-class
+ * BEFORE a checkpoint and is not a witness AFTER one, because each test is conservative in the
+ * opposite direction. A path class this list misses is a finding against the list, never a reason
+ * to widen it silently.
+ *
+ * Not a witness: (1) the unit's own Task/spec in any lifecycle folder; (2) a loop ledger;
+ * (3) a lessons or work-run record under `.agents/evals/`; (4) a harness baseline JSON;
+ * (5) repository memory; (6) another unit's pre-checkpoint planning record — a Task at the tasks
+ * root, or a spec under draft/backlog/todo. Another unit's active spec, archived records, and every
+ * other path are witnesses.
+ */
+export function isDeliveryWitnessPath(file, basename) {
+  if (taskBasename(file) === basename || specBasename(file) === basename) return false;
+  if (/^\.agents\/loop-runs\/[^/]+\.jsonl$/.test(file)) return false;
+  if (file.startsWith('.agents/evals/lessons/') || file.startsWith('.agents/evals/work-runs/'))
+    return false;
+  if (/^scripts\/harness\/[^/]*baseline[^/]*\.json$/.test(file)) return false;
+  if (file.startsWith('.agents/memory/')) return false;
+  const otherTask = taskBasename(file);
+  if (otherTask !== null && file === `${TASK_PREFIX}${otherTask}`) return false;
+  const otherSpec = specBasename(file);
+  if (otherSpec !== null && isPreCheckpointPlanningPath(file, otherSpec)) return false;
+  return true;
+}
+
 export function l1SpecPaths(basename) {
   return {
     taskPath: `${TASK_PREFIX}${basename}`,

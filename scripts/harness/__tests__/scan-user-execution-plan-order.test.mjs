@@ -28,7 +28,7 @@ import {
   parseUserExecutionPlanContract,
   validateTaskUserExecutionPlan,
 } from '../user-execution-plan-contract.mjs';
-import { l0GroundDecision } from '../plan-order-records.mjs';
+import { isDeliveryWitnessPath, l0GroundDecision } from '../plan-order-records.mjs';
 
 const TASK_ID = 'HARNESS-900-plan-order-fixture';
 const TASK_PATH = `.agents/tasks/${TASK_ID}.md`;
@@ -4728,6 +4728,16 @@ describe('PROC-016 — the L1 lane checkpoint and loop-run ledger appends', () =
     expect(findStagedFindings(root, base)).toEqual([]);
   });
 
+  it('an L1 PLAN checkpoint alone raises no delivery-witness finding (PROC-2664 TC-01)', () => {
+    // An L1 unit has no `Delivery mode` declaration; the single-delivery binding is v2 L2's.
+    const { root, base } = repository();
+    l1Prelude(root);
+    l1Checkpoint(root);
+    const findings = findHistoryFindingsFromGit(root, base);
+    expect(findings.filter((item) => /delivery/.test(item.problem))).toEqual([]);
+    expect(findings).toEqual([]);
+  });
+
   it('accepts an L1 checkpoint whose Task is already in-progress, and one with a ledger append', () => {
     const { root, base } = repository();
     l1Prelude(root);
@@ -6033,5 +6043,327 @@ describe('Stage-1 rebind through a continuation checkpoint (issue #2774)', () =>
   it('leaves the unchanged-Task continuation and the drifted refusal exactly as they were', () => {
     expect(judge(bound(AUTHORED), bound(AUTHORED))).toEqual([]);
     expect(judge(drifted(), drifted()).join('\n')).toMatch(/DONE-GATE-STAGE-1/);
+  });
+});
+
+// PROC-2664 — a v2 `single` delivery declaration is bound to the topic range that carries its
+// checkpoint. The binding is a RANGE judgement: `findHistoryFindings` (and the CLI without
+// `--staged`) refuse a range whose `single` first checkpoint is followed by no delivery witness;
+// `findStagedFindings` never sees it, because a commit is not a range.
+const BINDING_ID = 'INFRA-910-single-binding-fixture';
+const BINDING_TASK = `.agents/tasks/${BINDING_ID}.md`;
+const BINDING_SPEC = `.agents/spec-docs/active/${BINDING_ID}.md`;
+
+function bindingTaskText({ children = null, specPath = BINDING_SPEC } = {}) {
+  return [
+    '---',
+    'status: in-progress',
+    ...(children ? [`children: [${children.join(', ')}]`] : []),
+    '---',
+    '',
+    `Spec: \`${specPath}\``,
+    '',
+    '# INFRA-910: fixture',
+    '',
+    '## Plan',
+    '',
+    '- [ ] TC-01: build the fixture.',
+    '',
+    '## Completion Criteria',
+    '',
+    '- [ ] TC-01: the fixture is complete.',
+    '',
+    '## Test Plan',
+    '',
+    'Isolated fixture repositories; assert the range and staged verdicts.',
+    '',
+    '## User Execution Test Scenarios',
+    '',
+    '**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`',
+    '',
+    '**Reason:** This fixture changes repository lifecycle governance only and exposes no runnable Robota product surface for any user.',
+    '',
+  ].join('\n');
+}
+
+function bindingSpecText({
+  deliveryMode = 'single',
+  type = 'INFRA',
+  lane = 'L2',
+  decisionLine = true,
+  v1 = false,
+} = {}) {
+  const todoPath = `.agents/spec-docs/todo/${BINDING_ID}.md`;
+  const payload = v1
+    ? formatCheckpointEvidence(LIVE_CONTRACT, 'gateImplementFirst', {
+        version: 1,
+        form: 'gateImplementFirst',
+        taskPath: BINDING_TASK,
+        specPath: todoPath,
+        taskItems: [{ kind: 'tc-id', value: 'TC-01' }],
+        plan: { outcome: 'not-applicable', count: 0 },
+        worktreePaths: [todoPath, BINDING_TASK].sort(),
+      })
+    : formatCheckpointEvidence(LIVE_V2_CONTRACT, 'gateImplementFirst', {
+        version: 2,
+        form: 'gateImplementFirst',
+        deliveryMode,
+        sequencedArtifacts: deliveryMode === 'sequenced' ? ['scripts/harness/gate.mjs'] : [],
+        taskPath: BINDING_TASK,
+        specPath: todoPath,
+        taskItems: [{ kind: 'tc-id', value: 'TC-01' }],
+        plan: { outcome: 'not-applicable', count: 0 },
+        worktreePaths: [todoPath, BINDING_TASK].sort(),
+      });
+  if (!payload.ok) throw new Error(payload.error);
+  return [
+    '---',
+    'status: in-progress',
+    `type: ${type}`,
+    'tags: [harness]',
+    ...(lane ? [`lane: ${lane}`] : []),
+    '---',
+    '',
+    `# ${BINDING_ID}: fixture`,
+    '',
+    '## Architecture Review',
+    '',
+    '### Decision',
+    '',
+    ...(decisionLine ? [`**Delivery mode:** \`${deliveryMode}\``, ''] : []),
+    ...(deliveryMode === 'sequenced'
+      ? ['**Continuation artifacts:** `scripts/harness/gate.mjs`', '']
+      : []),
+    '## Completion Criteria',
+    '',
+    '- [ ] TC-01: the fixture is complete.',
+    '',
+    '## Tasks',
+    '',
+    `- [x] \`${BINDING_TASK}\``,
+    '',
+    '## Evidence Log',
+    '',
+    '### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-22',
+    '',
+    '**Status upgrade:** approved → in-progress',
+    '',
+    `- Task artifact: \`${BINDING_TASK}\` exists and maps the completion criteria.`,
+    '- Subject-bound PLAN terminal result: `SCENARIO DRAFTED: not-applicable | 0` is recorded with its concrete reason.',
+    `- Whole-worktree precondition: only \`${BINDING_TASK}\` and \`${todoPath}\` are present; no implementation path exists.`,
+    payload.text,
+    '',
+  ].join('\n');
+}
+
+/** A feature branch whose first commit is the v2 first checkpoint of the fixture unit. */
+function bindingFixture(options = {}) {
+  const { root, base } = repository({ withContract: true });
+  write(root, BINDING_TASK, bindingTaskText(options));
+  write(root, BINDING_SPEC, bindingSpecText(options));
+  const checkpoint = commit(root, 'planning checkpoint');
+  return { root, base, checkpoint };
+}
+
+function bindingCli(root, args) {
+  return spawnSync(process.execPath, [SCAN_SCRIPT, ...args], {
+    cwd: root,
+    env: { ...process.env, HARNESS_ROOT: root },
+    encoding: 'utf8',
+  });
+}
+
+const SCAN_SCRIPT = path.join(WORKSPACE_ROOT, 'scripts/harness/scan-user-execution-plan-order.mjs');
+
+describe('PROC-2664 — a single delivery declaration is bound to the range that carries its checkpoint', () => {
+  const witnessFinding = (findings) =>
+    findings.filter((item) => /no delivery witness/.test(item.problem));
+
+  it('classifies delivery witnesses by the closed six-item negative list (TC-01)', () => {
+    const basename = `${BINDING_ID}.md`;
+    const notWitness = [
+      BINDING_TASK,
+      `.agents/tasks/completed/${BINDING_ID}.md`,
+      `.agents/spec-docs/draft/${BINDING_ID}.md`,
+      `.agents/spec-docs/backlog/${BINDING_ID}.md`,
+      `.agents/spec-docs/todo/${BINDING_ID}.md`,
+      BINDING_SPEC,
+      `.agents/spec-docs/done/${BINDING_ID}.md`,
+      '.agents/loop-runs/backlog-execution-orchestrator.jsonl',
+      '.agents/loop-runs/user-execution-scenario.jsonl',
+      '.agents/evals/lessons/auto-lessons.md',
+      '.agents/evals/lessons/weekly-digest.md',
+      '.agents/evals/work-runs/0f3ac07c-0000-4000-8000-000000000000/g0-r0.json',
+      'scripts/harness/reference-kind-baseline.json',
+      'scripts/harness/spec-user-execution-baseline.json',
+      '.agents/memory/MEMORY.md',
+      '.agents/memory/split-uncertain-work-into-a-certain-first-bundle.md',
+      '.agents/tasks/INFRA-911-root-item.md',
+      '.agents/spec-docs/draft/INFRA-911-root-item.md',
+      '.agents/spec-docs/backlog/INFRA-911-root-item.md',
+      '.agents/spec-docs/todo/INFRA-911-root-item.md',
+    ];
+    const witness = [
+      'scripts/harness/example.mjs',
+      'packages/x/src/y.ts',
+      '.agents/spec-docs/active/INFRA-911-root-item.md',
+      '.agents/tasks/completed/INFRA-911-root-item.md',
+      '.agents/rules/backlog-execution.md',
+      'scripts/harness/__tests__/example.test.mjs',
+      'scripts/harness/baseline-reader.mjs',
+    ];
+    for (const file of notWitness)
+      expect([file, isDeliveryWitnessPath(file, basename)]).toEqual([file, false]);
+    for (const file of witness)
+      expect([file, isDeliveryWitnessPath(file, basename)]).toEqual([file, true]);
+  });
+
+  it('refuses a range whose single first checkpoint is its last commit (TC-01)', () => {
+    const { root, base, checkpoint } = bindingFixture();
+    const findings = findHistoryFindingsFromGit(root, base);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].problem).toContain(BINDING_ID);
+    expect(findings[0].problem).toContain('no delivery witness');
+    expect(findings[0].commit).toBe(checkpoint);
+  });
+
+  it('still refuses when the checkpoint is followed only by a ledger append, a lessons edit, and a baseline row (TC-01)', () => {
+    const { root, base } = bindingFixture();
+    write(
+      root,
+      '.agents/loop-runs/backlog-execution-orchestrator.jsonl',
+      `${JSON.stringify(userScenarioRecord(BINDING_ID))}\n`,
+    );
+    write(root, '.agents/evals/lessons/auto-lessons.md', '# lessons\n');
+    write(root, 'scripts/harness/reference-kind-baseline.json', '{"rows":[]}\n');
+    commit(root, 'planning-adjacent padding');
+    const findings = findHistoryFindingsFromGit(root, base);
+    expect(witnessFinding(findings)).toHaveLength(1);
+    expect(findings).toHaveLength(1);
+  });
+
+  it("still refuses when the checkpoint is followed only by a memory note and another unit's new todo Task (TC-01)", () => {
+    const { root, base } = bindingFixture();
+    write(root, '.agents/memory/MEMORY.md', '- [note](note.md)\n');
+    write(
+      root,
+      '.agents/tasks/INFRA-911-root-item.md',
+      '---\nstatus: todo\n---\n\n# INFRA-911: root item\n',
+    );
+    commit(root, 'memory and a root item');
+    const findings = findHistoryFindingsFromGit(root, base);
+    expect(witnessFinding(findings)).toHaveLength(1);
+    expect(findings).toHaveLength(1);
+  });
+
+  it('admits the range once a later commit carries a delivery witness (TC-01)', () => {
+    const { root, base } = bindingFixture();
+    write(root, 'scripts/harness/example.mjs', 'export const example = true;\n');
+    commit(root, 'implementation');
+    expect(findHistoryFindingsFromGit(root, base)).toEqual([]);
+  });
+
+  it('leaves a sequenced first checkpoint, an AGREEMENT pair, and a legacy v1 first PASS to their own doors (TC-01)', () => {
+    const sequenced = bindingFixture({ deliveryMode: 'sequenced' });
+    expect(['sequenced', findHistoryFindingsFromGit(sequenced.root, sequenced.base)]).toEqual([
+      'sequenced',
+      [],
+    ]);
+
+    const agreement = bindingFixture({ type: 'AGREEMENT', children: ['INFRA-912', 'INFRA-913'] });
+    expect(['agreement', findHistoryFindingsFromGit(agreement.root, agreement.base)]).toEqual([
+      'agreement',
+      [],
+    ]);
+
+    const legacy = bindingFixture({ v1: true });
+    expect(witnessFinding(findHistoryFindingsFromGit(legacy.root, legacy.base))).toEqual([]);
+  });
+
+  it('reports a v2 checkpoint whose Delivery mode line vanished after the PASS instead of reading null (TC-01)', () => {
+    // The PASS payload says `single`; the Decision line it was read from is gone by the time the
+    // checkpoint is committed. The reader the validator binds the payload to fails, and that failure
+    // is a finding of its own — never a silent `mode: null` that would exempt the unit.
+    const { root, base } = bindingFixture({ decisionLine: false });
+    write(root, 'scripts/harness/example.mjs', 'export const example = true;\n');
+    commit(root, 'implementation');
+    const findings = findHistoryFindingsFromGit(root, base);
+    const unreadable = findings.filter(
+      (item) =>
+        item.problem.includes(BINDING_ID) &&
+        item.problem.includes('could not read the delivery mode'),
+    );
+    expect(unreadable).toHaveLength(1);
+    expect(unreadable[0].problem).toMatch(/Delivery mode line must occur exactly once/);
+  });
+
+  it('never judges a commit: the staged path is unchanged over the checkpoint (TC-02)', () => {
+    const { root, base } = bindingFixture();
+    write(root, 'scripts/harness/example.mjs', 'export const example = true;\n');
+    git(root, ['add', '-A']);
+    expect(findStagedFindings(root, base)).toEqual([]);
+    git(root, ['reset', '-q', '--hard', 'HEAD']);
+    write(
+      root,
+      '.agents/loop-runs/backlog-execution-orchestrator.jsonl',
+      `${JSON.stringify(userScenarioRecord(BINDING_ID))}\n`,
+    );
+    git(root, ['add', '-A']);
+    expect(findStagedFindings(root, base)).toEqual([]);
+  });
+
+  it('exits 1 with one stderr line in range mode and 0 in staged mode through the CLI (TC-02)', () => {
+    const { root, base, checkpoint } = bindingFixture();
+    const range = bindingCli(root, ['--base', base]);
+    expect(range.status).toBe(1);
+    const lines = range.stderr
+      .split('\n')
+      .filter((line) => line !== '' && !line.startsWith('::root::'));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('no delivery witness');
+    expect(lines[0]).toContain(checkpoint.slice(0, 9));
+    expect(range.stdout).toContain('::examined::');
+    write(root, 'scripts/harness/example.mjs', 'export const example = true;\n');
+    git(root, ['add', '-A']);
+    const staged = bindingCli(root, ['--staged', '--base', base]);
+    expect(staged.status).toBe(0);
+    expect(staged.stderr).not.toContain('no delivery witness');
+  });
+
+  it('keeps the post-merge completion closeout admitted over a base holding a sealed single pair (TC-03)', () => {
+    const { root } = repository({ withContract: true });
+    git(root, ['switch', '-q', 'develop']);
+    write(root, BINDING_TASK, bindingTaskText());
+    write(root, BINDING_SPEC, bindingSpecText());
+    const base = commit(root, 'sealed single checkpoint on develop (#1)');
+    git(root, ['update-ref', 'refs/remotes/origin/develop', base]);
+    git(root, ['switch', '-q', '-C', 'feature', base]);
+    const taskDestination = `.agents/tasks/completed/${BINDING_ID}.md`;
+    const specDestination = `.agents/spec-docs/done/${BINDING_ID}.md`;
+    mkdirSync(path.dirname(path.join(root, taskDestination)), { recursive: true });
+    mkdirSync(path.dirname(path.join(root, specDestination)), { recursive: true });
+    git(root, ['mv', BINDING_TASK, taskDestination]);
+    git(root, ['mv', BINDING_SPEC, specDestination]);
+    const doneTask = bindingTaskText({ specPath: specDestination })
+      .replace('status: in-progress', 'status: done\ncompleted: 2026-09-22')
+      .replace('- [ ] TC-01: build the fixture.', '- [x] TC-01: build the fixture.')
+      .replace('- [ ] TC-01: the fixture is complete.', '- [x] TC-01: the fixture is complete.');
+    write(
+      root,
+      taskDestination,
+      `${doneTask}\n## Result\n\n- [Pull Request #1](https://github.com/example/repo/pull/1) landed as \`${base}\`.\n- Completion receipt: https://github.com/example/repo/issues/1#issuecomment-1\n`,
+    );
+    const doneSpec = `${bindingSpecText()
+      .replace('status: in-progress', 'status: done')
+      .replace('- [ ] TC-01: the fixture is complete.', '- [x] TC-01: the fixture is complete.')
+      .replace(
+        `- [x] \`${BINDING_TASK}\``,
+        `- [x] \`${taskDestination}\``,
+      )}### [GATE-VERIFY] — ✅ PASS | 2026-09-22\n\n**Status upgrade:** in-progress → verifying\n\n### [GATE-COMPLETE] — ✅ PASS | 2026-09-22\n\n**Status upgrade:** verifying → done\n`;
+    write(root, specDestination, doneSpec);
+    git(root, ['add', '-A']);
+    expect(findStagedFindings(root, base)).toEqual([]);
+    commit(root, 'archive the sealed single pair after its delivery landed');
+    expect(findHistoryFindingsFromGit(root, base)).toEqual([]);
   });
 });

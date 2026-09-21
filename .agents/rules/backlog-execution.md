@@ -529,6 +529,18 @@ recorded in the continuation form the gate catalogue enumerates and committed al
 before any implementation path. The first checkpoint, already on the base, does not bind a later
 branch — the scan requires a checkpoint inside the branch's own range.
 
+The converse holds for `single` delivery. A `single` declaration is bound to the topic range that
+carries its checkpoint: the range replayed by `harness:scan` (and by CI's `scans` job for every pull
+request) must, after a v2 `single` first checkpoint, change at least one **delivery witness** — any
+path outside the closed negative list `isDeliveryWitnessPath` in `plan-order-records.mjs` owns (the
+unit's own pair, loop ledgers, `.agents/evals/` lessons and work-run records, harness baselines,
+repository memory, and another unit's pre-checkpoint planning record). A `single` checkpoint pushed
+alone is refused at the range, never at the commit: the checkpoint commit stays planning-only and the
+implementation commit after it is admitted as before. An `AGREEMENT` pair is exempt (its delivery is
+its children's merges and final pull request). A unit that wants a planning-only pull request declares
+`sequenced` and names its artifacts — that is what the declaration means. Enforced by:
+`user-execution-plan-order` (`rangeAnalysis` in `scan-user-execution-plan-order.mjs`; PROC-2664).
+
 Mechanized by `scripts/harness/scan-user-execution-plan-order.mjs`: Husky invokes `--staged` before each
 commit, and `harness:scan` replays every commit after the topic merge base. Both fail closed for a
 missing, mixed, ambiguous, retrospective, or unreadable checkpoint. Historical
