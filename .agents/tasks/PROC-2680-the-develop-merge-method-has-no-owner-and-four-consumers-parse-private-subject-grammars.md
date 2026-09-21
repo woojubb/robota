@@ -54,16 +54,16 @@ release notes unattributed to a pull request and outside its `(#N)` de-duplicati
 
 ## Plan
 
-- [ ] TC-01 — Measure and record the current landing mix on `develop` (first-parent commits since the
-      2026-09-11 baseline, squash vs merge commit) and enumerate every consumer that parses a landing
+- [ ] TC-01 — Measure and record the current mix of arrival shapes on `develop` (first-parent commits
+      since the 2026-09-11 baseline, squash vs two-parent) and enumerate every consumer that parses an arrival
       subject, with the grammar each accepts.
 - [ ] TC-02 — Decide, through the recommendation gate, between one enforced method for `develop` and
       one shared landing-PR reader; specify it in the paired spec, including how existing
       merge-commit landings are read.
 - [ ] TC-03 — Implement the decision so the four named consumers agree, red-proofed against a fixture
       holding one squash landing and one merge-commit landing of the same PR number.
-- [ ] TC-04 — Bring `git-branch.md`, `merge-gate.sh`'s hints, and the `protect-develop` ruleset into
-      agreement with the decision, and record the receipt `PROC-2664` TC-04 depends on.
+- [ ] TC-04 — Bring `git-branch.md`, the hook hints, and the `protect-develop` ruleset into agreement
+      with the decision, and record the receipt `PROC-2664` TC-04 depends on.
 
 ## Test Plan
 
