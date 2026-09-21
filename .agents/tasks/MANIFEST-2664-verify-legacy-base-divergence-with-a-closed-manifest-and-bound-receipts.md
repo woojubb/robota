@@ -48,19 +48,18 @@ Problem-side constraints this Task owns. Every design fact is owned by the SPEC'
 ## Plan
 
 - [ ] TC-01 — Implement the manifest module: SHA-1 canonical manifest bound to OIDs only with
-      separately bound legacy and replacement bases, four non-merge dispositions plus the `merge`
-      record with pinned-configuration `merge-tree` own-content, deterministic base64-path recursive
-      `--no-renames` tuples, one `rev-list --parents` enumeration per side, closed parsing and the
-      three-valued `verify` result with exported diagnostic codes, the export list, and the CLI.
-      Acceptance is SPEC TC-01.
+      separately bound legacy and replacement bases, four non-merge dispositions plus the structural
+      `merge` record (OID and both parents; own-content deferred), deterministic base64-path
+      recursive `--no-renames` tuples, one `rev-list --parents` enumeration per side, strict and
+      lenient parsing, the three-valued `verify` result with the exported closed code set, the
+      five-command port, the export list, and the CLI. Acceptance is SPEC TC-01.
 - [ ] TC-02 — Generalise the isolated plan-order suite's prelude fixture and add the eight-children
       minimal graph, asserting the in-process findings and examined count. Acceptance is SPEC TC-02.
-- [ ] TC-03 — Cover equality, content/mode/type/rename/empty-patch/conflict-resolution/evil-merge
-      cases through the default adapter (`cwd` = fixture repository) against `make-temp.mjs`
-      repositories, the hostile-configuration case, every ceiling at boundary and boundary-plus-one
-      through the run-scoped budget with an injected clock and injected limits, port-failure
-      diagnostics, the closed command vocabulary, and the stdout drain and `EPIPE` paths. Acceptance
-      is SPEC TC-03.
+- [ ] TC-03 — Cover equality, content/mode/type/rename/empty-patch/merge-structure cases through the
+      default adapter (`cwd` and `env` injected) against `make-temp.mjs` repositories, the hostile
+      configuration case with its positive control, every ceiling at its stated boundary through the
+      run-scoped budget with an injected clock and injected limits, every port-failure code, and the
+      CLI as a child process for exit codes, stdin, drain, and `EPIPE`. Acceptance is SPEC TC-03.
 - [ ] TC-04 — Make `git-branch.md` § Branch Policy the sole owner of the migration sentence (with
       `.agents/evidence/migrations/` named there), reduce `backlog-execution.md` § Base Branch Workflow
       and the skill's step 1 to pointers, and assert by headings and identifiers that no third
@@ -72,12 +71,14 @@ Problem-side constraints this Task owns. Every design fact is owned by the SPEC'
 ## Test Plan
 
 Use `make-temp.mjs` repositories initialised with `git init --object-format=sha1` to build all four
-non-merge dispositions, clean, conflicted, and evil merges, two-base and drift-sync graphs, and
-content, mode, symlink/type, add/delete, rename, empty-patch, malformed-canonicalization, omitted,
-extra, and tampered histories; run the mode, type, rename-policy, merge, and hostile-configuration
-cases through the default adapter with `cwd` set to each fixture, and the path-byte, ceiling, and
-port-failure cases through the fixture port with an injected clock and injected limits, all in the
-hermetic tier.
+non-merge dispositions, two-parent merges with correct and misnamed parents, two-base and drift-sync
+graphs, and content, mode, symlink/type, add/delete, rename, empty-patch, malformed-canonicalization,
+omitted, extra, and tampered histories; run the mode, type, rename-policy, merge-structure,
+hostile-configuration, and adapter-failure cases through the default adapter with `cwd` and `env`
+set per case, the path-byte, ceiling, and fixture-port failure cases through the fixture port with an
+injected clock and injected limits, and the exit-code, stdin, drain, and `EPIPE` cases through the
+CLI as a child, all in the hermetic tier. Merge own-content is not verified here; no fixture needs
+`merge-tree`.
 Assert the three owner documents by heading and identifier in the contract tier. The real #2664 graphs
 are not an input of this bundle: the replacement `720eb5e84` is reachable only from local branches in
 one clone, and a run over it needs the manifest the publishing bundle authors. No fixture reaches the
@@ -130,6 +131,27 @@ Robota CLI, TUI, browser, public SDK, configuration, or installed-package behavi
   budget to 32,768, exports the producer primitives and default constants, strengthens TC-02 to
   in-process findings and examined count and TC-04 to spelling-normalised patterns, and moves `EPIPE`
   to exit 2.
+- Architecture fanout `r20260921094601` on that revision (spec blob `45018367`, task `8183e731`,
+  commit `f59ecf240`): all 23 cells covered, closed `converged`; raw signals structure
+  `high=0 medium=3 low=4`, design `high=0 medium=3 low=4`, runtime `high=1 medium=2 low=7`, gate
+  `high=0 medium=3 low=4`. Every round-2 closure was confirmed by all four dimensions. The one high
+  was measured: `merge-tree --write-tree` also reads gitattributes from `$GIT_DIR/info/attributes`
+  (no Git override exists), an uncommitted worktree `.gitattributes`, and `core.attributesFile`, and
+  a `merge=union` line turns a conflicted automatic merge into a clean one with a different tree.
+  With that path drawing a new environmental dependency in three consecutive rounds (configuration,
+  then attributes) and an existing owner for the shared abstraction (`MERGE-2664`), the owner
+  directed on 2026-09-21 that merge verification move to `BRANCH-2664-P2`; this bundle keeps the
+  `merge` record structural (OID and both parents, checked against the enumeration) and does not
+  invoke `merge-tree` at all, so the port vocabulary is five commands and no merge configuration or
+  attribute source can reach a verdict. Both #2664 graphs' sixteen merges were measured clean with
+  empty own-content, so the deferral drops no finding the real migration raises. The mediums were
+  applied: `parseManifest` gains `strict`, the port call shape `runGit(command, args, { timeoutMs })`
+  and the adapter's `env` and `defaultTimeoutMs` options are stated, the full v1 code set is listed
+  and asserted by equality, `merge-base --is-ancestor`'s exit 1 is the `BASES_NOT_ANCESTRAL` finding
+  and 128 the `UNKNOWN_OID` abort, the entry catches escaped exceptions to exit 2, the time boundary
+  is stated as the runtime enforces it, zero-parent commits and a bad `cwd` have codes, the CLI exit
+  map and every port-failure code gain TC-03 cases, TC-02's rationale is corrected, TC-04 gains a
+  positive control, TC-05 states the complete-tier fallback, and the entry guard is `isEntryPoint`.
 - Legacy sync experiment: merging `origin/integration/agreement-2664@4214cb540` with `origin/develop`
   conflicts in `gate-checkpoint-evidence.test.mjs`. The clean historical sync fixture examined 60 topic
   commits and produced undeclared PUSH, four out-of-order, and one checkpoint-mix finding.

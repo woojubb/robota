@@ -15,11 +15,14 @@ without argument: it contains only the contract that four architecture-audit fan
 defect in — the closed divergence manifest and its verifier — together with every test that verifies
 it and the one rule sentence that makes the verifier the policy. It changes no shared harness module's
 behaviour, adds no scan or CI job, mints no credential, opens no state store, and mutates no remote
-ref. The ID's "bound receipts" names the receipt binding that follows as its own bundle and is
-deliberately not here: the `MIGRATION_MANIFEST_REVIEW` record's field set names the review ref and
-the manifest pull-request flow, which the remote publication design in `BRANCH-2664-P2` still owns
-and may change. That publication and authority layer stays in `BRANCH-2664-P2`, which depends on this
-bundle.
+ref. Two things the ID or the design might suggest are deliberately not here. The "bound receipts"
+names the receipt binding that follows as its own bundle: the `MIGRATION_MANIFEST_REVIEW` record's
+field set names the review ref and the manifest pull-request flow, which the remote publication
+design in `BRANCH-2664-P2` still owns and may change. And merge own-content verification — the
+`merge-tree --write-tree` comparison — was moved out on 2026-09-21 after the third fanout on this
+document showed that path drawing a new environmental dependency every round; it goes to
+`BRANCH-2664-P2` on top of the shared merge-tree abstraction `MERGE-2664` owns. That publication
+and authority layer stays in `BRANCH-2664-P2`, which depends on this bundle.
 
 ## Problem
 
@@ -61,7 +64,10 @@ standard:
   2.50.1) computes the tree Git's own merge would produce for two parents without touching the
   worktree, so a merge commit's _own_ content — what it carries beyond the automatic merge — is the
   delta between that tree and the commit's tree. The repository's plan-order scanner already judges
-  merges this way (`scan-user-execution-plan-order.mjs`, issue #2410).
+  merges this way (`scan-user-execution-plan-order.mjs`, issue #2410), and `MERGE-2664` owns making
+  that helper a shared abstraction. Its result depends on `merge.*` configuration and on three
+  gitattributes sources, one without any override; that is why this bundle does not use it and the
+  merge own-content check is the publication bundle's, on `MERGE-2664`'s abstraction.
 - [`git patch-id --stable`](https://git-scm.com/docs/git-patch-id) is order-insensitive across hunks
   and whitespace-normalized; it is a useful diagnostic for "same content, different commit" but not
   equality authority, because it ignores mode, type, and empty diffs.
@@ -72,8 +78,8 @@ standard:
   RFC's number and escaping rules are exercised only in their trivial cases.
 
 These contracts fix the design: raw `diff-tree` tuples are the equality authority for non-merge
-commits, `merge-tree` own-content is the authority for merges, patch IDs are diagnostics, and
-canonical bytes carry the digest.
+commits, merges are bound structurally (OID and both parents) with their own-content authority
+deferred, patch IDs are diagnostics, and canonical bytes carry the digest.
 
 ## Architecture Review
 
@@ -82,36 +88,41 @@ canonical bytes carry the digest.
 - `scripts/harness/integration-migration-manifest.mjs` — one new importable, lease-free module that
   reads no environment of its own: schema, canonical bytes and digest, tuple extraction, the verifier
   core over an injected `runGit` port with a run-scoped budget, the default adapter, and the `parse`
-  / `canonicalize` / `verify` CLI. It imports the three existing owners it must not re-own —
+  / `canonicalize` / `verify` CLI. It imports the existing owners it must not re-own —
   `envWithoutGitVars` and `resolveWorkspaceRoot` from `shared.mjs` (which evaluates its own
-  `WORKSPACE_ROOT` at load, hence "of its own"), and `createVerificationRuntime` /
-  `takeVerificationCommand` from `verification-budget-runtime.mjs` — and nothing else outside `node:`.
+  `WORKSPACE_ROOT` at load, hence "of its own"), `isEntryPoint` from `entrypoint.mjs`, and
+  `createVerificationRuntime` / `takeVerificationCommand` from `verification-budget-runtime.mjs` —
+  and nothing else outside `node:`.
   Its exported surface is listed in the Decision. One file until a second consumer exists; the receipt
   bundle will import named exports, and the split-by-concern precedent applies when it does.
 - `scripts/harness/__tests__/integration-migration-manifest.test.mjs` — the exact-name test that
   `test-owning.mjs` and the import-safety scan require; owns TC-01 and TC-03; joins
   `HERMETIC_TEST_FILES`. It drives the verifier core through the fixture raw `-z` reader for path-byte
-  and ceiling cases, and drives the default adapter — with `cwd` set to each fixture repository —
-  against real temporary repositories (built under `__tests__/make-temp.mjs` as other hermetic files
-  already build theirs; this bundle adds the explicit `git init --object-format=sha1`) for the mode,
-  type, rename-policy, merge, and hostile-configuration cases, so the exact `diff-tree` and
-  `merge-tree` argv are exercised by an automated test and not only by a manual run.
+  and ceiling cases, and drives the default adapter — with `cwd` and `env` set per case — against
+  real temporary repositories (built under `__tests__/make-temp.mjs` as other hermetic files already
+  build theirs; this bundle adds the explicit `git init --object-format=sha1`) for the mode, type,
+  rename-policy, merge-structure, hostile-configuration, and port-failure cases, and spawns the CLI as
+  a child for the exit-code, stdin, drain, and `EPIPE` cases, so the exact `diff-tree` argv and the
+  exit-code map are exercised by an automated test and not only by a manual run.
 - `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` — one added case in the
   existing isolated suite: a minimal graph whose prelude declares all eight children passes the
   unmodified scanner. It generalises the suite's existing `integrationAgreementPreludeFixture` (fixed
   today to two children) over a children list, asserts in-process that
   `findHistoryFindingsFromGit(root, base)` is `[]` and that `readExaminedPlanOrderCount(root, base)`
-  equals the fixture's own single-parent commit count — the AGREEMENT cases in that suite already
-  assert this way, and a subprocess run could neither be pointed at a `make-temp` root nor observe
-  the examined count — and imports nothing from the manifest module, so `test-owning.mjs` never
-  selects this serial suite for a manifest change. The scanner itself is not modified.
+  equals the fixture's own single-parent commit count — the form the suite's AGREEMENT cases already
+  use, which yields structured findings rather than an exit status (a subprocess run could also be
+  pointed at the fixture through `--root`, but would give only the `::examined::` line to parse) —
+  and imports nothing from the manifest module, so `test-owning.mjs` never selects this serial suite
+  for a manifest change. The scanner itself is not modified.
 - `scripts/harness/harness-test-classification.mjs` — one entry added to `HERMETIC_TEST_FILES`.
 - `.agents/rules/git-branch.md` — § Branch Policy becomes the sole owner of the migration sentence:
-  strict equality remains the default, a closed manifest verified by
-  `integration-migration-manifest.mjs` and committed under `.agents/evidence/migrations/` names every
-  divergence, manual waivers are prohibited, and the legacy ref stays immutable until every
-  replacement merge is verified. The sentence does not name how a verified replacement is published;
-  that clause is added to this same section by the bundle that lands it.
+  ordered stable patch-ID and base-relative changed-path equality remains the default, a closed
+  manifest verified by `integration-migration-manifest.mjs` and committed under
+  `.agents/evidence/migrations/` names every non-merge divergence and every merge's parents, merge
+  own-content verification is added by the bundle that lands it, manual waivers are prohibited, and
+  the legacy ref stays immutable until every replacement merge is verified. The sentence does not
+  name how a verified replacement is published; that clause is added to this same section by the
+  bundle that lands it.
 - `.agents/rules/backlog-execution.md` — § Base Branch Workflow's restatement ("proves ordered stable
   patch-ID and base-relative changed-path equivalence") becomes a pointer to `git-branch.md`
   § Branch Policy. Today it is a third, competing statement of the policy.
@@ -148,7 +159,7 @@ first file in it is the #2664 manifest, which the bundle that publishes the repl
 
 ### Decision
 
-Choose alternative 3, and ship only the verifier here.
+Choose alternative 3, and ship only the non-merge verifier here.
 
 Schema v1 is explicitly SHA-1-only and refuses repositories whose `git rev-parse --show-object-format`
 is not `sha1`. The closed manifest binds the exact AGREEMENT ID, GitHub issue, two base OIDs —
@@ -156,51 +167,57 @@ is not `sha1`. The closed manifest binds the exact AGREEMENT ID, GitHub issue, t
 measured legacy base is `1ef05e0ea` and the replacement was rebuilt on `58f24c1b7`, seventeen
 `develop` commits later — the legacy tip OID, the replacement tip OID, and exact planning and child
 segment membership. The verifier checks the one invariant those bases must satisfy,
-`git merge-base --is-ancestor <legacyBase> <replacementBase>`, and refuses a manifest whose
-replacement base is not a descendant of the legacy base. It does not bind ref names: which refs carry
-the legacy, archive, and replacement tips is owned by the publication design, so a manifest is bound
-to OIDs only and stays valid however those refs are later named. Records are keyed by full source
-and/or replacement OIDs. A non-merge record has exactly one
+`git merge-base --is-ancestor <legacyBase> <replacementBase>`, whose answer is its exit status: 0 is
+the invariant holding, 1 is the `BASES_NOT_ANCESTRAL` finding, and 128 is an unknown OID. It does not
+bind ref names: which refs carry the legacy, archive, and replacement tips is owned by the
+publication design, so a manifest is bound to OIDs only and stays valid however those refs are later
+named. Records are keyed by full source and/or replacement OIDs. A non-merge record has exactly one
 disposition: `equal`, `diverged`, `replacement-only`, or `legacy-only`. Pairing is explicit; array
-position and commit subject are never identity. For every non-merge record the verifier recomputes a
-canonical raw tree delta produced from the commit and its sole parent with rename/copy detection
-disabled, so a conceptual rename is two tuples, delete plus add. Each tuple contains
-`pathBytesBase64`, status (`A`, `D`, `M`, or `T`), old/new mode, and old/new OID; object type is not
-stored, because under `-r` it is a pure function of the mode (`100644`/`100755` blob, `120000`
-symlink blob, `160000` commit) and a stored copy could only disagree with its source. Tuples sort by
-decoded path bytes and then the remaining fixed fields. A `diverged` record additionally carries the
-stable patch-ID equality flag as a required field, so a reviewer can tell the sixteen records that
-differ only in blob OIDs from the two that differ in path or mode without reading tuple dumps.
+position and commit subject are never identity; a commit present in both enumerations (a `develop`
+commit that sync merges brought into both graphs) is one `equal` record whose two sides are the same
+OID and costs one `diff-tree`. For every non-merge record the verifier recomputes a canonical raw
+tree delta produced from the commit and its sole parent with rename/copy detection disabled, so a
+conceptual rename is two tuples, delete plus add. Each tuple contains `pathBytesBase64`, status
+(`A`, `D`, `M`, or `T`), old/new mode, and old/new OID; object type is not stored, because under `-r`
+it is a pure function of the mode (`100644`/`100755` blob, `120000` symlink blob, `160000` commit) and
+a stored copy could only disagree with its source. Tuples sort by decoded path bytes and then the
+remaining fixed fields. A `diverged` record additionally carries the stable patch-ID equality flag as
+a required field, so a reviewer can tell the sixteen records that differ only in blob OIDs from the
+two that differ in path or mode without reading tuple dumps; the flag is three-valued (`true`,
+`false`, or `null` when either side's patch is empty, because `git patch-id` prints nothing for an
+empty patch), and the recomputed value must equal the recorded one.
 
-Merge commits are records too, because an evil merge is how content arrives that no non-merge record
-describes: a `merge` record binds the merge OID, both parent OIDs, and its own-content tuple set — the
-raw delta between `git merge-tree --write-tree <p1> <p2>` and the merge's tree — which must be empty
-unless the record names those tuples with a reason and durable evidence exactly as a `diverged` record
-does. The verifier enumerates each graph with exactly one `git rev-list --parents <ownBase>..<tip>`
-per side — the same set the plan-order scanner examines, bounded at the bound base, so a drift-sync
-merge whose second parent shares history with the base brings those base-side commits into the set
-and each of them needs a record — and a merge or non-merge commit in that set that has no record is a
-cardinality finding, while a record naming a commit outside it is an invented record. A merge whose
-parent count is not exactly two has no single automatic result to compare against and is a named
-cardinality finding, as the plan-order scanner already refuses it. `merge-tree --write-tree` exits 0
-for a clean merge and 1 for a conflicted one, and in both cases the tree OID is the first stdout line;
-both statuses are valid input (a conflicted automatic tree is compared like any other, so a
-conflict resolution is own content the record must name), a status of 2 or more or a first line that
-is not an OID is a port diagnostic, and status 129 — the usage exit a Git older than 2.38 gives
-`--write-tree` — is the `GIT_TOO_OLD` diagnostic. The plan-order scanner's private
-`automaticMergeTree` and `mergeOwnPaths` implement exactly these semantics for its own purpose; this
-bundle restates them in the manifest module rather than exporting from a scanner it must not modify,
-and a shared owner for the technique is a follow-up once both consumers have landed. The
-implementation binds the exact `git diff-tree --no-commit-id --raw -r -z --no-renames <parent> <commit>`
-and `git merge-tree --write-tree <p1> <p2>` shapes through the injected port and never depends on user
-Git configuration or similarity thresholds: `diff-tree` is immune by its flags, and `merge-tree`,
-whose result a measured run showed changes under a user's `merge.renames`, `merge.renameLimit`,
-`merge.conflictStyle`, and `merge.renormalize`, is pinned by the default adapter with the schema-v1
-constant option set `-c diff.renames=true -c merge.renames=true -c merge.renameLimit=7000
--c merge.directoryRenames=conflict -c merge.conflictStyle=merge -c merge.renormalize=false`, run in an
-environment where `GIT_CONFIG_GLOBAL=/dev/null` and `GIT_CONFIG_NOSYSTEM=1` are set after
-`envWithoutGitVars` strips the inherited `GIT_*` variables. Changing that option set is a schema
-version change. Stable patch ID and subject are retained as supporting diagnostics, not equality
+Merge commits are records too, but in this bundle they are structural: a `merge` record binds the
+merge OID and its exactly two parent OIDs, and the verifier checks that the enumeration agrees —
+every merge in either graph has a `merge` record naming its actual parents, and no `merge` record
+names a commit that is not a two-parent merge in that graph. What a merge carries beyond Git's
+automatic merge of its parents — the own-content an evil merge or a conflict resolution introduces —
+is **not verified by this bundle.** That check needs `git merge-tree --write-tree`, whose result three
+audit rounds showed to depend on the user's merge configuration and on three gitattributes sources
+one of which (`$GIT_DIR/info/attributes`) Git offers no override for, and the repository already has
+an owner for the shared merge-tree abstraction: `.agents/tasks/MERGE-2664-preserve-clean-versus-conflicted-status-in-shared-merge-tree-analysis.md`.
+Merge own-content verification is therefore the publication bundle's to add on that abstraction, and
+the rule sentence this bundle lands says so in as many words (below), so the policy never claims a
+completeness the verifier does not have. Every merge in both #2664 graphs (eight each) was measured
+clean with empty own-content, so the deferral removes no finding the real migration would raise.
+
+The verifier enumerates each graph with exactly one `git rev-list --parents <ownBase>..<tip>` per
+side — the same set the plan-order scanner examines, bounded at the bound base, so a drift-sync merge
+whose second parent shares history with the base brings those base-side commits into the set and each
+of them needs a record. A commit in that set with no record is the `UNRECORDED_COMMIT` finding; a
+record naming a commit outside it is `INVENTED_RECORD`; a non-merge record for a commit whose parent
+count is not one (including the zero-parent row `rev-list` emits when an unrelated history was merged)
+or a `merge` record whose parents differ from the graph's is `PARENT_CARDINALITY`; a segment whose
+membership or order disagrees with the enumeration is `SEGMENT_MEMBERSHIP`; a recomputed tuple set
+that differs from the recorded one is `TUPLES_MISMATCH`, and an `equal` record whose two sides
+recompute differently is `EQUAL_NOT_EQUAL`. A tip or base OID the repository does not have makes
+`rev-list` or `merge-base` exit 128, which is the `UNKNOWN_OID` abort — a stale tip cannot be
+refuted, only reported as unverifiable. The implementation binds the exact
+`git diff-tree --no-commit-id --raw -r -z --no-renames <parent> <commit>` shape through the injected
+port; `diff-tree --raw` is immune to `diff.renames`, `core.abbrev`, `core.quotePath`, and gitattributes
+by its flags and output form, and a measured `patch-id --stable` is stable under `diff.noprefix`,
+`diff.context`, and `diff.algorithm`. The default adapter still isolates global configuration as
+belt and braces. Stable patch ID and subject are retained as supporting diagnostics, not equality
 authority. Missing, extra, duplicate, stale, or invented records fail closed, including
 replacement-only and legacy-only cardinality drift. There is no path-class exemption.
 
@@ -209,78 +226,111 @@ arrays, no insignificant whitespace, integers only, ASCII-only strings) followed
 with a fixed schema version, `objectFormat: "sha1"`, and no unknown fields. Its SHA-256 digest is
 computed over those exact bytes. Mode-only, symlink/object-type, add/delete, empty-patch, and rename
 policy are therefore observable even when blob IDs or patch IDs would not distinguish them.
+`parseManifest(bytes, { strict = true })` is the only reader: strict mode refuses noncanonical bytes
+(`NONCANONICAL_BYTES`), and `strict: false` accepts any RFC 8259 JSON that satisfies the schema so
+that the `canonicalize` subcommand — the one caller that uses it — can turn an author's
+pretty-printed draft into canonical bytes; `verify` and `parse` are strict.
 
 The verifier core owns a run-scoped budget above the port, not inside any adapter: it constructs the
 existing `createVerificationRuntime({ timeoutMs, commandBudget, now })` from the `limits` option of
-`verify(manifest, { runGit, now, limits })` — default `{ timeoutMs: 600_000, commandBudget: 32_768 }`,
-exported as `DEFAULT_LIMITS` — and takes one `takeVerificationCommand` per port invocation, so the
-ten-minute deadline and the invocation ceiling are enforced identically for the default adapter and
-for an injected fixture reader, and both are testable at boundary and boundary-plus-one with an
-injected `now` and an injected `commandBudget` of a few units over a two-record fixture rather than
-real time or a 32,768-call manifest. `takeVerificationCommand` hands every invocation
-`min(10_000, remainingMs)` as its timeout; that inherited ten-second per-invocation cap is a declared
-bound of this verifier, and exceeding it is the `PORT_TIMEOUT` diagnostic. `verify` is total over any
-value: it re-runs the schema check and the pre-Git ceilings itself rather than trusting that its
-input came from `parseManifest`. The manifest ceilings — 8 MiB canonical bytes, 64 segments, 4,096
-commit records, 100,000 aggregate tree tuples — are checked before any Git call; a record costs at
-most four port invocations (a paired record: one `diff-tree` per side and, when `diverged`, one
-`patch-id` per side; a single-sided record: one `diff-tree`; a `merge` record: one `merge-tree` and
-one `diff-tree`), and graph enumeration is four constant calls (`rev-parse`, `merge-base`, one
+`verify(manifest, { runGit, now = Date.now, limits = DEFAULT_LIMITS })` — `DEFAULT_LIMITS` is
+`{ timeoutMs: 600_000, commandBudget: 32_768 }`, a missing `runGit` is a `TypeError`, and a `limits`
+value the runtime rejects is the `INVALID_LIMITS` abort rather than an escaped `TypeError` — and takes
+one `takeVerificationCommand` per port invocation, so the deadline and the invocation ceiling are
+enforced identically for the default adapter and for an injected fixture reader, and both are
+testable with an injected `now` and an injected `commandBudget` of a few units over a two-record
+fixture rather than real time or a 32,768-call manifest. The runtime accepts a take while
+`elapsed < timeoutMs` and refuses at `elapsed = timeoutMs` (`DEADLINE_EXHAUSTED`), and accepts
+`commandBudget` takes and refuses the next (`COMMAND_BUDGET_EXHAUSTED`); those are the boundaries
+TC-03 asserts. `takeVerificationCommand` hands every invocation `min(10_000, remainingMs)` as its
+timeout; that inherited ten-second per-invocation cap is a declared bound of this verifier, and
+exceeding it is the `PORT_TIMEOUT` abort. `verify` is total over any value: it re-runs the schema check
+and the pre-Git ceilings itself rather than trusting that its input came from `parseManifest`. The
+manifest ceilings — 8 MiB canonical bytes (`SIZE_LIMIT`), 64 segments (`SEGMENT_LIMIT`), 4,096 commit
+records (`RECORD_LIMIT`), 100,000 aggregate tree tuples (`TUPLE_LIMIT`) — are checked before any Git
+call; a record costs at most four port invocations (a paired record: one `diff-tree` per side and,
+when `diverged`, one `patch-id` per side; a single-sided record: one `diff-tree`; a `merge` record:
+none), and graph enumeration is four constant calls (`rev-parse`, `merge-base`, one
 `rev-list --parents` per side), so 4,096 records take at most 16,388 invocations inside the 32,768
-budget. The default adapter is `createDefaultRunGit({ cwd, executable = 'git', maxBufferBytes =
-16 MiB })`, exported alongside `DEFAULT_MAX_BUFFER_BYTES`: `cwd` is required and the CLI supplies the
-root from `resolveWorkspaceRoot(import.meta)` — the one resolver every harness entry uses, with its
-`--root` / `HARNESS_ROOT` overrides — while the tests supply each fixture repository, which is the only
-way a `--pool=threads` worker can target a `make-temp` root, because `process.chdir` is unavailable
-there and `envWithoutGitVars` deliberately strips `GIT_DIR`. It runs Git with that `cwd`, an
-environment from `envWithoutGitVars` plus the two config-isolation variables named above, so a
-hook-injected `GIT_DIR` cannot redirect it and a user's global config cannot alter it, `spawnSync`
-with the per-call timeout the runtime hands it and the 16 MiB `maxBuffer`, and returns
-`{ status, signal, error, stdout: Buffer, stderr: Buffer }` synchronously — always a `Buffer`, never a
-decoded string (a spawn failure leaves `spawnSync` output undefined; the adapter normalises it to an
-empty `Buffer`), so two distinct invalid byte sequences in a path cannot collapse to one
-`pathBytesBase64`. The port's `patch-id` command takes a parent and a commit; the adapter runs
-`git diff-tree -p --no-renames <parent> <commit>` and pipes its stdout into `git patch-id --stable`,
-one budget take and one per-call timeout for the pair. A port result is a failure whenever `status`
-is non-zero (except `merge-tree`'s 1), `signal` is set, or `error` is set, and every failure is a
-named diagnostic that aborts the run: `PORT_TIMEOUT` (`ETIMEDOUT`), `PORT_OUTPUT_LIMIT` (`ENOBUFS`,
-including a patch larger than `maxBufferBytes`), `GIT_NOT_FOUND` (`ENOENT`), `GIT_TOO_OLD`, and
-`PORT_FAILURE` for the rest, each carrying the argv and the first stderr line. `merge-tree
---write-tree` writes the automatic tree's objects into the repository's object database; an
-unwritable object store is therefore a `PORT_FAILURE`, not a finding. Every limit accepts its exact
-boundary and fails closed with a named budget diagnostic at boundary plus one. The port's command
-vocabulary is closed: `rev-parse --show-object-format`, `merge-base --is-ancestor`,
-`rev-list --parents`, `diff-tree`, `merge-tree --write-tree`, and `patch-id`; a fixture reader
-implements exactly those six.
+budget.
+
+The port is the one injection seam, and its call shape is
+`runGit(command, args, { timeoutMs }) → { status, signal, error, stdout: Buffer, stderr: Buffer }`,
+where `command` is a member of the closed vocabulary `rev-parse`, `merge-base`, `rev-list`,
+`diff-tree`, and `patch-id`, and the result is deliberately the `spawnSync` shape — Node's errno
+strings cross the seam so that a fixture reader states a failure as the literal the adapter would
+return. A fixture reader implements exactly those five commands. The default adapter is
+`createDefaultRunGit({ cwd, env = process.env, executable = 'git', maxBufferBytes = DEFAULT_MAX_BUFFER_BYTES, defaultTimeoutMs = 10_000 })`:
+`cwd` is required and is checked at construction (`CWD_NOT_FOUND`); the CLI supplies the root from
+`resolveWorkspaceRoot(import.meta)` — the one resolver every harness entry uses, with its `--root` /
+`HARNESS_ROOT` overrides — while the tests supply each fixture repository, which is the only way a
+`--pool=threads` worker can target a `make-temp` root, because `process.chdir` is unavailable there
+and `envWithoutGitVars` deliberately strips `GIT_DIR`. `env` is the base environment the tests
+inject a hostile one through; the adapter runs Git with `envWithoutGitVars(env)` plus
+`GIT_CONFIG_GLOBAL=/dev/null` and `GIT_CONFIG_NOSYSTEM=1` set after the strip, so a hook-injected
+`GIT_DIR` cannot redirect it and a user's global config cannot alter it. It uses `spawnSync` with the
+timeout the caller passes (the runtime's, inside `verify`; `defaultTimeoutMs` when a producer
+primitive is called outside it) and the 16 MiB `maxBuffer`, and returns the result synchronously —
+always a `Buffer`, never a decoded string (a spawn failure leaves `spawnSync` output undefined; the
+adapter normalises it to an empty `Buffer`), so two distinct invalid byte sequences in a path cannot
+collapse to one `pathBytesBase64`. The port's `patch-id` command takes a parent and a commit; the
+adapter runs `git diff-tree -p --no-renames <parent> <commit>` and pipes its stdout into
+`git patch-id --stable`, one budget take for the pair, the second spawn receiving the timeout minus
+the first's elapsed time so the pair stays inside one cap. A port result is a failure whenever
+`status` is non-zero (except the answers named above: `merge-base --is-ancestor` 1, and 128 from
+`rev-list`/`merge-base`, which is `UNKNOWN_OID`), `signal` is set, or `error` is set, and every
+failure aborts the run under a named code: `PORT_TIMEOUT` (`ETIMEDOUT`), `PORT_OUTPUT_LIMIT`
+(`ENOBUFS`, including a patch larger than `maxBufferBytes`), `GIT_NOT_FOUND` (`ENOENT` on the
+executable), and `PORT_FAILURE` for the rest, each carrying the argv, the `cwd`, and the first stderr
+line. Every limit accepts its exact boundary and fails closed with a named diagnostic at boundary
+plus one.
 
 The module is importable, reads no environment of its own, and is lease-free — "pure" in this
 document means exactly those three properties, not the absence of I/O. Its exports are
-`parseManifest(bytes) → { ok: true, manifest } | { ok: false, diagnostics }`,
+`parseManifest(bytes, options) → { ok: true, manifest } | { ok: false, diagnostics }`,
 `canonicalize(manifest) → Uint8Array`, `digest(bytes) → string`,
-`verify(manifest, { runGit, now, limits }) → { ok: true } | { ok: false, outcome: 'refuted', findings } | { ok: false, outcome: 'aborted', diagnostics }`,
+`verify(manifest, options) → { ok: true } | { ok: false, outcome: 'refuted', findings } | { ok: false, outcome: 'aborted', diagnostics }`,
 `createDefaultRunGit(options)`, the frozen constants `MANIFEST_DIAGNOSTIC_CODES`, `DEFAULT_LIMITS`,
-and `DEFAULT_MAX_BUFFER_BYTES`, and the three producer primitives the verifier is built from —
-`treeTuples(runGit, parent, commit)`, `mergeOwnTuples(runGit, merge, p1, p2)`, and
-`enumerate(runGit, base, tip)` — so the bundle that authors the #2664 manifest derives its tuples
-from the same functions that will recompute them. `refuted` means the manifest was fully checked and
-disagrees with the repository; `aborted` means the check could not complete (port failure, budget
-exhaustion, unsupported object format), and the two never mix. A diagnostic or finding is
-`{ code, path, message }`, and every `code` is a member of `MANIFEST_DIAGNOSTIC_CODES`, which the test
-enumerates. The CLI reads the manifest from the path in argv or from stdin when the path is `-`
-(consumed by async iteration with the 8 MiB ceiling applied while accumulating; a TTY stdin with `-`
-is a usage error); stdout carries only canonical bytes (`canonicalize`), the parsed manifest's digest
-and one `ok` line (`parse`), or the verify summary; every diagnostic goes to stderr; exit 0 is pass,
-1 is `refuted`, 2 is usage, malformed input, or `aborted`. It sets `process.exitCode` and lets stdout
-drain rather than calling `process.exit`, because a pipe-backed stdout on Darwin is asynchronous and
-`process.exit` truncates it, and it maps an `EPIPE` on stdout to exit 2 — an operational failure, not
-a verdict — with one named stderr line instead of an uncaught exception. The entry is import-inert
-behind the repository's `path.resolve` main guard, as `scan-harness-script-import-safety.mjs`
-requires of every harness module.
+and `DEFAULT_MAX_BUFFER_BYTES`, and the two producer primitives the verifier is built from —
+`treeTuples(runGit, parent, commit)` and `enumerate(runGit, base, tip)` — so the bundle that authors
+the #2664 manifest derives its tuples from the same functions that will recompute them; a primitive
+returns `{ ok: false, diagnostics }` on a port failure rather than throwing. `refuted` means the
+manifest was fully checked and disagrees with the repository; `aborted` means the check could not
+complete, and the two never mix. A diagnostic or finding is `{ code, path, message }`, and
+`MANIFEST_DIAGNOSTIC_CODES` is exactly this v1 set, which TC-01 asserts by equality, not membership:
+
+- parse diagnostics: `MALFORMED_JSON`, `NONCANONICAL_BYTES`, `UNKNOWN_FIELD`, `MISSING_FIELD`,
+  `INVALID_FIELD`, `UNSUPPORTED_SCHEMA_VERSION`, `UNSUPPORTED_OBJECT_FORMAT`, `DUPLICATE_RECORD`,
+  `SIZE_LIMIT`, `SEGMENT_LIMIT`, `RECORD_LIMIT`, `TUPLE_LIMIT`;
+- `refuted` findings: `BASES_NOT_ANCESTRAL`, `UNRECORDED_COMMIT`, `INVENTED_RECORD`,
+  `PARENT_CARDINALITY`, `SEGMENT_MEMBERSHIP`, `TUPLES_MISMATCH`, `EQUAL_NOT_EQUAL`,
+  `PATCH_ID_FLAG_MISMATCH`;
+- `aborted` diagnostics: `REPOSITORY_OBJECT_FORMAT`, `UNKNOWN_OID`, `INVALID_LIMITS`,
+  `DEADLINE_EXHAUSTED`, `COMMAND_BUDGET_EXHAUSTED`, `PORT_TIMEOUT`, `PORT_OUTPUT_LIMIT`,
+  `GIT_NOT_FOUND`, `CWD_NOT_FOUND`, `PORT_FAILURE`, `USAGE`, `STDOUT_EPIPE`, `UNEXPECTED_ERROR`.
+
+The CLI reads the manifest from the path in argv (`statSync` against the 8 MiB ceiling before any
+read) or from stdin when the path is `-` (consumed by async iteration with the ceiling applied while
+accumulating; a TTY stdin with `-` is `USAGE`); stdout carries only canonical bytes (`canonicalize`),
+the parsed manifest's digest and one `ok` line (`parse`), or the verify summary; every diagnostic goes
+to stderr; exit 0 is pass, 1 is `refuted` and nothing else, 2 is usage, malformed input, or `aborted`
+— deliberately undifferentiated, because the codes on stderr carry the distinction. The guarded entry
+wraps `main()` so that any exception or rejection the named codes do not cover writes one
+`UNEXPECTED_ERROR` line and exits 2 rather than Node's default 1, which a shell caller would read as
+`refuted`. It sets `process.exitCode` and lets stdout drain rather than calling `process.exit`,
+because a pipe-backed stdout on Darwin is asynchronous and `process.exit` truncates it, and it
+installs — inside the entry guard only, never at module scope — a stdout `error` listener that maps
+`EPIPE` to exit 2 with one `STDOUT_EPIPE` line instead of an uncaught exception. The entry guard is
+`isEntryPoint(import.meta)` from `entrypoint.mjs`, the realpath-aware guard `resolveWorkspaceRoot`
+itself uses, so the CLI and the resolver agree on "am I the entry" by construction; it is one of the
+forms `scan-harness-script-import-safety.mjs` accepts.
 
 The rule sentence in `git-branch.md` § Branch Policy keeps the existing immutability clause and adds
 the manifest requirement; it names `.agents/evidence/migrations/` as where verified manifests are
-committed and does not delegate anything to a draft. The two documents that restate the policy today
-become pointers, so the next amendment — the publication clause `BRANCH-2664-P2` will add — edits one
+committed, states that the verifier recomputes non-merge equality and merge structure and that merge
+own-content verification is added by the bundle that lands it, and does not delegate anything to a
+draft. The two documents that restate the policy today become pointers, so the next amendment —
+the publication clause and the merge own-content clause `BRANCH-2664-P2` will add — edits one
 sentence, not three.
 
 The automated fixtures construct their own minimal SHA-1 graphs under `make-temp.mjs`; they perform no
@@ -289,9 +339,10 @@ completion criterion of this bundle: the replacement `720eb5e84` is reachable on
 in one clone, and a run over it needs the #2664 manifest that the publishing bundle authors, so that
 run belongs there. Reachability covers the #2664 migration and later legacy initiatives. Capability
 preservation keeps strict all-equal replay valid with an empty divergence set and changes no existing
-behaviour, because the two imported owners are consumed, not edited. The adversarial pass covers
-omitted and invented divergences, unrecorded merges and evil merges, reordered segments, altered
-blobs, replacement descendants outside the declared graph, stale tips, and malformed manifests.
+behaviour, because the imported owners are consumed, not edited. The adversarial pass covers omitted
+and invented divergences, unrecorded merges and merges with misnamed parents, reordered segments,
+altered blobs, replacement descendants outside the declared graph, stale tips, and malformed
+manifests.
 
 **Delivery mode:** `single`
 
@@ -300,22 +351,26 @@ blobs, replacement descendants outside the declared graph, stale tips, and malfo
 - [x] 영향 패키지/레이어 목록 작성 완료 — one new module, its exact-name test, one added case in the
       isolated plan-order suite (with its prelude fixture generalised), one classification entry,
       three owner-document edits (one sentence, two pointers) with their test.
-- [x] Sibling scan 완료 — plan-order's history analysis and its merge own-content technique, all eight
-      #2664 replay segments and both graphs' eight merges (all currently clean under `merge-tree`),
-      the three documents that state the policy today, the import-safety and test-owning contracts,
-      the hermetic runner's stripped stage and its existing git-spawning files, `make-temp.mjs` and
-      `scan-temp-dir-owner.mjs`, `verification-budget-runtime.mjs` (including its ten-second
-      per-invocation cap), `envWithoutGitVars` and `resolveWorkspaceRoot` as the owners to reuse,
-      `merge-tree --write-tree`'s dependence on user merge configuration, the two graphs' distinct
-      bases, and the Vitest pool behaviour of the isolated and hermetic suites were measured; the closest
+- [x] Sibling scan 완료 — plan-order's history analysis and its merge own-content technique (owned
+      for sharing by `MERGE-2664`), all eight #2664 replay segments and both graphs' eight merges
+      (all measured clean with empty own-content), the three documents that state the policy today,
+      the import-safety and test-owning contracts, the hermetic runner's stripped stage and its
+      existing git-spawning files, `make-temp.mjs` and `scan-temp-dir-owner.mjs`,
+      `verification-budget-runtime.mjs` (including its ten-second per-invocation cap and its
+      boundary semantics), `envWithoutGitVars`, `resolveWorkspaceRoot`, and `isEntryPoint` as the
+      owners to reuse, `merge-tree --write-tree`'s dependence on user merge configuration and on
+      gitattributes, `patch-id --stable`'s independence from `diff.*` configuration, the two graphs'
+      distinct bases, and the Vitest pool behaviour of the isolated and hermetic suites were
+      measured; the closest
       existing precedent for a committed evidence artifact is
       `.agents/evidence/RULE-023-child-issue-migration-manifest.json`.
 - [x] 대안 최소 2개 검토 완료 — strict replay, path-category allowlist, and closed manifest are compared.
 - [x] 결정 근거 문서화 완료 — recomputed raw tree tuples plus merge own-content give fail-closed review
       without the prelude contradiction, at the cost of one generic verifier module.
 - [x] New-surface placement: applicable and satisfied — the surface is repository-private
-      `INFRA`/`harness` migration verification, sits beside the `pre-push-*` family in
-      `scripts/harness/` as one file until a second consumer exists, places evidence under the existing
+      `INFRA`/`harness` migration verification, sits beside the owners it reuses
+      (`verification-budget-runtime.mjs`, `shared.mjs`) and the scanner whose enumeration it mirrors
+      in `scripts/harness/` as one file until a second consumer exists, places evidence under the existing
       `.agents/evidence/` layer, and reuses the shared budget and environment owners rather than
       re-owning them.
 
@@ -327,12 +382,14 @@ manifest fails closed with a named diagnostic rather than degrading.
 ## Solution
 
 1. `scripts/harness/integration-migration-manifest.mjs`: define the SHA-1 schema, deterministic
-   recursive `--no-renames` raw tree tuples, the four non-merge dispositions and the `merge` record,
-   canonical bytes and digest, the run-scoped budget over the injected port, the default adapter, the
-   closed command vocabulary with the pinned `merge-tree` configuration, the export list, and the CLI.
+   recursive `--no-renames` raw tree tuples, the four non-merge dispositions and the structural
+   `merge` record, canonical bytes and digest, the run-scoped budget over the injected port, the
+   default adapter, the closed five-command vocabulary, the closed code set, the export list, and
+   the CLI.
 2. `scripts/harness/__tests__/integration-migration-manifest.test.mjs` plus the
-   `HERMETIC_TEST_FILES` entry: topology, two-base, canonicalization, path-byte, disposition, merge,
-   ceiling, port-failure, default-adapter, hostile-configuration, and adversarial cases.
+   `HERMETIC_TEST_FILES` entry: topology, two-base, canonicalization, path-byte, disposition,
+   merge-structure, ceiling, port-failure, default-adapter, hostile-configuration, CLI, and
+   adversarial cases.
 3. `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs`: generalise the prelude fixture
    and add the eight-children minimal graph that passes the unmodified scanner.
 4. `git-branch.md`, `backlog-execution.md`, `multi-backlog-initiative/SKILL.md`, and the
@@ -353,59 +410,72 @@ manifest fails closed with a named diagnostic rather than degrading.
 
 - [ ] TC-01: Observable: the SHA-1-only verifier recomputes explicit full-OID segment membership
       against separately bound `legacyBase` and `replacementBase` (a fixture whose bases differ passes;
-      one whose replacement base does not descend from the legacy base is refused), all four non-merge
-      dispositions, merge own-content through `merge-tree --write-tree` for clean and conflicted
-      automatic merges, and sorted base64-path recursive `--no-renames` raw tree tuples through the
-      injected port; it rejects unknown fields, noncanonical bytes, unsupported object formats, an
-      unrecorded commit inside `rev-list --parents <ownBase>..<tip>` (including the base-side commits a
-      drift-sync merge brings in), a record naming a commit outside it, a merge with unnamed own
-      content, a merge with other than two parents, and every omitted/extra/altered record. Raw `-z`
+      one whose replacement base does not descend from the legacy base is `refuted` with
+      `BASES_NOT_ANCESTRAL`), all four non-merge dispositions including a commit present in both
+      enumerations as one `equal` record, every merge's structural record, and sorted base64-path
+      recursive `--no-renames` raw tree tuples through the injected port; it rejects unknown fields,
+      noncanonical bytes under `strict` and accepts them under `strict: false`, unsupported object
+      formats, an unrecorded commit inside `rev-list --parents <ownBase>..<tip>` (including the
+      base-side commits a drift-sync merge brings in), a record naming a commit outside it, a `merge`
+      record whose parents differ from the graph's, a non-merge record for a zero-parent or two-parent
+      commit, and every omitted/extra/altered record, each by the code the Decision names. Raw `-z`
       fixtures prove byte-for-byte round-trip and decoded-byte ordering for non-UTF-8, newline, tab,
       and independently changed nested paths; `parseManifest` reports each malformation by its closed
-      `code`, `verify` returns `refuted` with findings for every disagreement and `aborted` with
-      diagnostics for every port failure, and every emitted `code` is a member of
-      `MANIFEST_DIAGNOSTIC_CODES`.
+      `code`; `verify` returns `refuted` with findings for every disagreement and `aborted` with
+      diagnostics for every port failure and unknown OID; and `MANIFEST_DIAGNOSTIC_CODES` equals the
+      v1 set listed in the Decision.
 - [ ] TC-02: Observable: in the isolated `scan-user-execution-plan-order.test.mjs`, a minimal graph
       built by the generalised `integrationAgreementPreludeFixture` whose prelude declares all eight
       children yields `findHistoryFindingsFromGit(root, base)` equal to `[]` through the unmodified
       scanner and `readExaminedPlanOrderCount(root, base)` equal to the fixture's single-parent commit
       count, alongside the suite's existing undeclared and out-of-order refusals.
-- [ ] TC-03: Observable: an equivalent replay uses only `equal` and empty merge records; Task, ledger,
-      source, test, chmod, mode-only, symlink/object-type, add/delete, rename-policy, empty-patch,
-      one-byte, conflict-resolution, and evil-merge changes fail unless their exact disposition/tuple
-      set and durable evidence are present, with the mode, type, rename-policy, and both merge cases
-      run through the default adapter (`cwd` = the fixture repository) against a real temporary
-      repository; under a hostile `HOME`/`GIT_CONFIG_GLOBAL` that sets `merge.renames=false`,
-      `merge.conflictStyle=diff3`, `diff.renames=false`, and `core.abbrev=12`, every default-adapter
-      case yields the same tuple set and verdict; every declared size, record, tuple, invocation, and
-      per-invocation and total time bound accepts its limit and rejects limit-plus-one with a named
-      diagnostic, the invocation and time bounds through an injected `now` and an injected `limits`
-      with a `commandBudget` of a few units over a two-record fixture; a fixture port returning
-      `{ status: null, error: { code: 'ETIMEDOUT' } }` and one returning a non-zero `status` each
-      produce `aborted` with the named diagnostic and never a disposition; `DEFAULT_LIMITS` and
-      `DEFAULT_MAX_BUFFER_BYTES` equal the stated numbers; a 4 MiB `canonicalize` piped through a
-      child spawned with `cwd` = the repository root arrives byte-complete and an early-closed pipe
-      exits 2 with exactly one stderr line.
+- [ ] TC-03: Observable: an equivalent replay uses only `equal` and structural merge records; Task,
+      ledger, source, test, chmod, mode-only, symlink/object-type, add/delete, rename-policy,
+      empty-patch (patch-ID flag `null`), and one-byte changes fail unless their exact
+      disposition/tuple set and durable evidence are present, with the mode, type, rename-policy, and
+      merge-structure cases run through the default adapter (`cwd` = the fixture repository, `env`
+      injected) against a real temporary repository; under an injected hostile `env` whose `HOME`
+      config sets `diff.renames=true`, `diff.noprefix=true`, `core.abbrev=12`, and
+      `core.quotePath=false`, every default-adapter case yields the same tuple set, patch-ID flag, and
+      verdict, and a positive control shows the same repository's unpinned `git diff-tree --raw -r`
+      under that config reports an `R` entry the pinned argv does not; every declared size, record,
+      tuple, invocation, and time bound accepts its stated boundary and rejects the next value with
+      its named code, the invocation and time bounds through an injected `now` and an injected
+      `limits` with a `commandBudget` of a few units over a two-record fixture, and a `limits` the
+      runtime rejects aborts with `INVALID_LIMITS`; a fixture port returning
+      `{ status: null, error: { code: 'ETIMEDOUT' } }`, one returning a non-zero `status`, one
+      returning `128` for `rev-list`, and one that throws each produce `aborted` with the named code
+      and never a disposition; `createDefaultRunGit({ cwd, executable: '<absent>' })` aborts with
+      `GIT_NOT_FOUND`, a missing `cwd` with `CWD_NOT_FOUND`, and `maxBufferBytes: 16` over the
+      one-byte fixture with `PORT_OUTPUT_LIMIT`; `DEFAULT_LIMITS` and `DEFAULT_MAX_BUFFER_BYTES` equal
+      the stated numbers; and the CLI spawned as a child with `cwd` = the fixture root, `--root`
+      passed explicitly, and `HARNESS_ROOT` removed from its environment exits 0 with the summary on
+      stdout for a passing manifest, 1 with findings on stderr for a refuted one, 2 for malformed
+      bytes, a missing path, a throwing port, and stdin `-` at 8 MiB plus one byte (accepting exactly
+      8 MiB), delivers a 4 MiB `canonicalize` through a pipe byte-complete, and exits 2 with exactly
+      one stderr line on an early-closed pipe.
 - [ ] TC-04: Observable: the contract-tier `integration-migration-owner-documents.test.mjs` finds the
       migration sentence and the `.agents/evidence/migrations/` identifier under `### Branch Policy`
       in `git-branch.md`, finds a pointer to that section in `backlog-execution.md` § Base Branch
       Workflow and in `multi-backlog-initiative/SKILL.md` § Steps and routing step 1, and finds that
-      `/stable\s+patch[\s-]?ids?/i` and `/changed-path (equality|equivalence)/i` match, across every
-      file under `.agents/rules` and `.agents/skills`, only inside that one section.
+      `/stable\s+patch[\s-]?ids?/i` and `/changed-path (equality|equivalence)/i` each match at least
+      once inside that one section and nowhere else across every file under `.agents/rules` and
+      `.agents/skills`.
 - [ ] TC-05: Commands: `pnpm harness:test:hermetic` (the new file in `HERMETIC_TEST_FILES`),
       `node scripts/harness/harness-test-tiers.mjs --tier contracts --affected --base-ref origin/develop --head-ref HEAD`
-      (which runs the isolated plan-order suite one file per invocation and the owner-documents test),
-      `node scripts/harness/scan-harness-script-import-safety.mjs`, and
-      `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop` exit 0.
+      (which falls to the complete contract tier for this changeset, because the new module has no
+      contract-tier owner, and so runs the isolated plan-order suite one file per invocation and the
+      owner-documents test among the rest), `node scripts/harness/scan-harness-script-import-safety.mjs`,
+      and `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop` exit 0. No ESLint or dead-export gate covers `scripts/harness/*.mjs`; none is claimed.
 
 ## Test Plan
 
 | TC-ID | Test Type   | Tool / Approach                                                    | Notes                                                    |
 | ----- | ----------- | ------------------------------------------------------------------ | -------------------------------------------------------- |
-| TC-01 | adversarial | `integration-migration-manifest.test.mjs` (hermetic; fixture port) | Tuples, merges, dispositions, closed diagnostics         |
+| TC-01 | adversarial | `integration-migration-manifest.test.mjs` (hermetic; fixture port) | Tuples, merge structure, dispositions, closed code set   |
 | TC-02 | integration | Isolated plan-order suite, one added eight-children case           | In-process findings + examined count; no manifest import |
-| TC-03 | regression  | Same hermetic file; `make-temp.mjs` repos through default adapter  | Real argv, hostile config; injected clock/limits         |
-| TC-04 | contract    | Heading/identifier assertions on the three owner documents         | One sentence, two pointers, no third statement           |
+| TC-03 | regression  | Same hermetic file; `make-temp.mjs` repos, default adapter, CLI    | Real argv, hostile env, port failures, exit codes        |
+| TC-04 | contract    | Heading/identifier assertions on the three owner documents         | One sentence, two pointers, positive + negative match    |
 | TC-05 | suite       | Hermetic tier, contract tier runner, import safety, affected scans | Every path CI and pre-push actually run must exit 0      |
 
 ## User Execution Test Scenarios
