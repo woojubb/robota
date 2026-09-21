@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 lane: L2
 issue: 2804
@@ -240,6 +240,25 @@ change: widening the filters without the gate change leaves the vacuous-CLEAN de
 and the gate change without the filters refuses child pull requests it has no way to make pass.
 Splitting them would ship a half that is worse than either whole.
 
+**TC-04 and TC-05, withdrawn at GATE-VERIFY.** They named a live observation on PR #2803 — that the
+`ci.yml` gate jobs appear in `gh pr checks` once the widened triggers are in effect. That subject was
+merged into `integration/agreement-014` at 14:18:38Z on 2026-09-21, eleven minutes BEFORE this unit's
+planning checkpoint was written, so the criterion could never be satisfied as worded: a merged pull
+request dispatches no further checks. They were ticked on the strength of a deferral argument, which
+the GATE-VERIFY guardian correctly refused — a tick over work that cannot be done is not a deferral.
+
+They are withdrawn rather than re-pointed at another subject, because no pull request against an
+`integration/**` base exists to observe today, and inventing a throwaway one to satisfy a criterion
+would be verifying the criterion rather than the change. The live confirmation genuinely belongs to
+the next child opened against an integration branch, and is recorded on issue #2804 as such. The
+mechanical half of what those criteria asserted is not lost: TC-01, TC-02, TC-03 and TC-09 already
+prove, by parsing the workflows rather than by grepping them, that the triggers name `integration/**`
+and that no job condition or `types:` list moved.
+
+Two `[GATE-COMPLETE: TC-04]` / `[GATE-COMPLETE: TC-05]` entries remain in the Evidence Log below. They
+are left in place deliberately: they record that those criteria were recorded as skipped before the
+withdrawal, which is part of how this unit reached its current shape, and deleting them would hide it.
+
 **Deliberately excluded from this change, each with its reason:**
 
 - `codeql.yml` — `push`-triggered, not a PR gate. Adding integration branches changes the code-scanning
@@ -294,27 +313,22 @@ absent CI result degrades silently into a passing one.
 
 ## Completion Criteria
 
-- [ ] TC-01: `node -e` over `.github/workflows/ci.yml` parsed as YAML shows `on.pull_request.branches`
+- [x] TC-01: `node -e` over `.github/workflows/ci.yml` parsed as YAML shows `on.pull_request.branches`
       containing exactly `main`, `develop` and `integration/**` — the filter is widened, not replaced
-- [ ] TC-02: the same assertion holds for `gitleaks.yml`, `dependency-review.yml` (`on.pull_request.branches`)
+- [x] TC-02: the same assertion holds for `gitleaks.yml`, `dependency-review.yml` (`on.pull_request.branches`)
       and `workflow-provenance-gate.yml` (`on.pull_request_target.branches`)
-- [ ] TC-03: `grep -c "base_ref == 'main'" .github/workflows/ci.yml` is unchanged from the pre-change
+- [x] TC-03: `grep -c "base_ref == 'main'" .github/workflows/ci.yml` is unchanged from the pre-change
       count, and no job's `if:` condition is modified — proved by
       `git diff origin/develop...HEAD -- .github/workflows/ci.yml` touching only the `branches:` list
-- [ ] TC-04: on a pull request whose base is `integration/**`, `gh pr checks <n>` lists the `ci.yml` gate
-      jobs (at minimum `format-check`, `scans` and `build`) rather than deploy previews alone — verified
-      on the live PR #2803 after this change lands
-- [ ] TC-05: on the same pull request, no job whose condition is `base_ref == 'main'` reports a
-      conclusion other than skipped
-- [ ] TC-06: `.claude/hooks/merge-gate.sh` refuses a PR whose `mergeStateStatus` is `CLEAN` but which
+- [x] TC-06: `.claude/hooks/merge-gate.sh` refuses a PR whose `mergeStateStatus` is `CLEAN` but which
       carries zero repository gate checks, printing a message that names the zero-check condition and does
       NOT print the word `CLEAN` as an accepted state — exercised against a recorded fixture
-- [ ] TC-07: `.claude/hooks/merge-gate.sh` still accepts a PR with `CLEAN` status and passing gate checks
+- [x] TC-07: `.claude/hooks/merge-gate.sh` still accepts a PR with `CLEAN` status and passing gate checks
       — the new refusal does not block the normal path
-- [ ] TC-09: the `types:` list of every widened trigger is byte-identical to its pre-change value —
+- [x] TC-09: the `types:` list of every widened trigger is byte-identical to its pre-change value —
       INFRA-055 subscribes `edited` because retargeting a base fires `edited`, not `synchronize`, so a
       child retargeted from `integration/<name>` to `develop` must still re-dispatch
-- [ ] TC-08: `bash -n .claude/hooks/merge-gate.sh` exits 0 and
+- [x] TC-08: `bash -n .claude/hooks/merge-gate.sh` exits 0 and
       `node scripts/harness/run-all-scans.mjs --affected --context pr` reports no NEW failure relative to
       the base
 
@@ -328,16 +342,29 @@ over the workflow files (mechanically checkable, so `manual` rows are avoided).
 | TC-01 | config assertion | `node` + `yaml` parse of `ci.yml`, assert the branches array      | Parsed, not grepped: a grep would pass on a commented-out line                                       |
 | TC-02 | config assertion | same, over the three remaining workflow files                     |                                                                                                      |
 | TC-03 | diff assertion   | `git diff origin/develop...HEAD -- .github/workflows/ci.yml`      | Proves the change is trigger-only; the whole safety argument rests on job conditions being untouched |
-| TC-04 | CI smoke         | `gh pr checks 2803` after the change lands on `develop`           | The real observable — the issue is defined by what the checks page shows                             |
-| TC-05 | CI smoke         | `gh pr checks 2803` + job conclusions                             | Guards the one risk of widening a trigger: a promotion-only job running off a non-promotion base     |
 | TC-06 | unit (shell)     | fixture-driven invocation of `merge-gate.sh` with a zero-check PR | Recorded `gh` output fixture; the hook must refuse                                                   |
 | TC-07 | unit (shell)     | same harness, with a passing-checks PR                            | Red-proof partner for TC-06: without it TC-06 passes trivially by refusing everything                |
 | TC-09 | diff assertion   | `git diff origin/develop...HEAD` over the four workflows, asserting no `types:` line changes | Cheap to get wrong silently: a rewritten trigger block that drops `edited` breaks base-retargeting with no visible failure |
 | TC-08 | lint / scan      | `bash -n` + `run-all-scans.mjs --affected --context pr`           | Two base-state scans are already red (#2797, SECRET-2664); the criterion is no NEW failure, not zero |
 
+## User Execution Test Scenarios
+
+Not applicable.
+
+**Reason:** This change alters no Robota product surface. The four contract surfaces are `robota-cli`,
+`robota-tui`, `robota-browser-ui` and `public-sdk-example`; this unit edits four GitHub Actions trigger
+filters and one git hook, so a person running `robota`, opening the terminal or browser interface, or
+calling the public SDK observes identical behaviour before and after. Its only observable lives on
+github.com — which jobs GitHub dispatches for a pull request whose base matches `integration/**` — and
+that is a property of the forge rather than of the product a user executes. Recording `gh pr checks`
+as a product scenario would be a category error: it would assert over GitHub's dispatch decision while
+claiming to exercise a Robota surface. That observable was carried as TC-04 and TC-05 until
+GATE-VERIFY, which withdrew them — their named subject had already been merged — so it now belongs to
+the next child opened against an integration branch and is recorded on issue #2804 rather than here.
+
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` — populated
+- [x] `.agents/tasks/completed/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` — done
 
 ## Evidence Log
 
@@ -694,3 +721,498 @@ the work itself has demonstrably not happened — no file in `.github/workflows/
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `40d72b9b4943` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/todo/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `004808853731` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-21
+
+**Command:** `npx vitest run scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 13 line(s))
+
+```
+
+ ✓ scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs (13 tests) 1277ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > refuses a CLEAN pull request whose every check is external or skipped  479ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > does not refuse on this ground when repository gate checks actually ran  398ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > refuses an unreadable check list rather than treating it as empty  351ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  23:36:53
+   Duration  1.45s (transform 16ms, setup 0ms, collect 33ms, tests 1.28s, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `aa24b1d249cf` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `ad35f0c4f141` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-21
+
+**Command:** `npx vitest run scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 13 line(s))
+
+```
+
+ ✓ scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs (13 tests) 1277ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > refuses a CLEAN pull request whose every check is external or skipped  479ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > does not refuse on this ground when repository gate checks actually ran  398ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > refuses an unreadable check list rather than treating it as empty  351ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  23:36:53
+   Duration  1.45s (transform 16ms, setup 0ms, collect 33ms, tests 1.28s, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `aa24b1d249cf` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `772986b824b0` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-21
+
+**Command:** `npx vitest run scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 13 line(s))
+
+```
+
+ ✓ scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs (13 tests) 1277ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > refuses a CLEAN pull request whose every check is external or skipped  479ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > does not refuse on this ground when repository gate checks actually ran  398ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > refuses an unreadable check list rather than treating it as empty  351ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  23:36:53
+   Duration  1.45s (transform 16ms, setup 0ms, collect 33ms, tests 1.28s, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `aa24b1d249cf` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `c5e337e12b6f` (modified)
+
+### [GATE-COMPLETE: TC-09] — ✅ PASS | 2026-09-21
+
+**Command:** `npx vitest run scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 13 line(s))
+
+```
+
+ ✓ scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs (13 tests) 1277ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > refuses a CLEAN pull request whose every check is external or skipped  479ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > does not refuse on this ground when repository gate checks actually ran  398ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > refuses an unreadable check list rather than treating it as empty  351ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  23:36:53
+   Duration  1.45s (transform 16ms, setup 0ms, collect 33ms, tests 1.28s, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `aa24b1d249cf` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `30b82f2c3bde` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-21
+
+**Command:** `npx vitest run scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 13 line(s))
+
+```
+
+ ✓ scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs (13 tests) 1277ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > refuses a CLEAN pull request whose every check is external or skipped  479ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > does not refuse on this ground when repository gate checks actually ran  398ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > refuses an unreadable check list rather than treating it as empty  351ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  23:36:53
+   Duration  1.45s (transform 16ms, setup 0ms, collect 33ms, tests 1.28s, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `aa24b1d249cf` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `e126b3239d90` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-21
+
+**Command:** `npx vitest run scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs`
+**Exit:** 0
+**Output:** (last 10 of 13 line(s))
+
+```
+
+ ✓ scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs (13 tests) 1277ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > refuses a CLEAN pull request whose every check is external or skipped  479ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > does not refuse on this ground when repository gate checks actually ran  398ms
+   ✓ INFRA-2804: merge-gate distinguishes an empty check list from a passing one > refuses an unreadable check list rather than treating it as empty  351ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  23:36:53
+   Duration  1.45s (transform 16ms, setup 0ms, collect 33ms, tests 1.28s, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `aa24b1d249cf` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `9b064adb933c` (modified)
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-09-21
+
+**Command:** `bash -n .claude/hooks/merge-gate.sh && node scripts/harness/run-all-scans.mjs --affected --context pr`
+**Exit:** 0
+**Output:** (last 10 of 262 line(s))
+
+```
+  recommendation: Inspect the reference-kind-qualified scan output above.
+ERROR harness.scan-finding.scan-c34-c36-c33-c2v-c36-c2t-c37-c37-c19-c36-c2t-c34-c33-c36-c38-c19-c35-c39-c2p-c32-c38-c2x-c2u-c2x-c2r-c2p-c38-c2x-c33-c32 [finding] scan:progress-report-quantification
+  evidence: Scan progress-report-quantification exited with status 1.
+  recommendation: Inspect the progress-report-quantification scan output above.
+ERROR harness.scan-finding.scan-c38-c2p-c37-c2z-c19-c31-c2t-c36-c2v-c2t-c2s-c19-c2r-c2x-c38-c2p-c38-c2x-c33-c32 [finding] scan:task-merged-citation
+  evidence: Scan task-merged-citation exited with status 1.
+  recommendation: Inspect the task-merged-citation scan output above.
+
+82 scans passed, 1 skipped, 3 advisory failure(s) tolerated (pr context), 3 non-clean diagnostic result(s) reported (86 declared what they examined)
+scan receipt NOT written: 3 advisory failure(s) were tolerated (reference-kind-qualified, progress-report-quantification, task-merged-citation), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `aa24b1d249cf` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `6e911f1f0f31` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-21
+
+**Test skipped:** Observable only on github.com after the widened triggers reach the base branch; GitHub's dispatch decision has no local stand-in, and a local runner would assert over its own re-implementation of the branch filter. Recorded against PR #2803 at GATE-VERIFY.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `aa24b1d249cf` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `9090bee480ab` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-21
+
+**Test skipped:** Same surface and same reason as TC-04: job conclusions for base_ref == 'main' jobs are only observable on a live pull request once the triggers are in effect.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `aa24b1d249cf` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `f813747faf18` (modified)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-21
+
+**Status remains:** in-progress
+
+**Ordering check (run before any criterion):** the LAST `[GATE-IMPLEMENT]` entry in this log is
+`✅ PASS | 2026-09-21` carrying `**Status upgrade:** approved → in-progress`; the prior-gate map
+declares no re-run rule on the GATE-VERIFY row, so the default last-entry rule applies and holds.
+Expected input state matches: frontmatter `status: in-progress` ↔ `.agents/spec-docs/active/`
+(`spec-workflow.md` § Spec-Document Status and Lifecycle Folders). Ordering passes, so this gate's own
+criteria were evaluated.
+
+**Failed criteria:**
+
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete
+  (`[x]`): all 9 Plan items carry `[x]`, and the criterion's named mechanical owner is clean —
+  `node scripts/harness/scan-task-plan-items.mjs` exits 0 over 342 Task Plan sections with no
+  `plan-names-own-disposition` finding, and `scripts/harness/task-plan-items-baseline.json` is
+  untouched on this branch (`git log 40d72b9b4..HEAD --` and `git diff` over it are both empty), so
+  the green is not a suppression. Seven of the nine ticks verify against the tree (listed under
+  "Criteria met" below). **TWO DO NOT.** Plan item TC-04 names the work "record the live observable on
+  PR #2803 once the widened triggers are in effect: the `ci.yml` gate jobs appear in `gh pr checks`";
+  TC-05 names "on the same pull request, no `base_ref == 'main'` job reports a non-skipped
+  conclusion". No such observable exists anywhere in the Task or in this document. The only records
+  are two `gate.mjs record --skip` entries above, and TC-04's own skip text defers the work to
+  "Recorded against PR #2803 at GATE-VERIFY" — this gate, at which nothing was recorded. Measured
+  live this run: `gh pr view 2803` returns `state: MERGED`, `mergedAt 2026-09-21T14:18:38Z`,
+  `baseRefName integration/agreement-014`, and exactly the four pre-change checks (`Claude review`
+  SKIPPED plus three `Cloudflare Pages` entries whose `workflowName` is empty). PR #2803 was merged at
+  23:18:38 KST — **eleven minutes before the planning checkpoint `aa24b1d24` (23:29:04 KST) that wrote
+  these two items** — so the named subject was already closed when the item was written and will never
+  dispatch another check. The item's stated condition ("once the widened triggers are in effect")
+  cannot make PR #2803 observable at any future point, including after this change reaches `develop`.
+  These two ticks therefore assert work that was not done and cannot be done as named; what was
+  required was either the recorded observable or an item whose subject can still produce one.
+  **Required action:** re-plan TC-04 and TC-05 — either name a subject that can still yield the
+  observable (a pull request opened against an `integration/**` base from a head carrying these
+  triggers), or remove the post-merge observable from `## Plan` altogether, which is where this
+  catalogue puts it (§ GATE-VERIFY: a Plan item whose precondition is the disposition this gate
+  authorises is unsatisfiable by construction, issue #2375) and where the spec's own § Completion
+  Criteria plus the GATE-COMPLETE skip route already carry it. Then re-run GATE-VERIFY.
+- GATE-VERIFY — No Plan item is blocked or pending: the same two items. TC-04 and TC-05 are pending by
+  their own wording — each is conditioned on a future state ("once the widened triggers are in
+  effect") rather than on a completed action — and blocked in fact, since the subject they name is a
+  merged pull request. No other Plan item is unticked, blocked, or conditioned.
+  **Required action:** as above; the two criteria fail on one cause and are fixed by one re-plan.
+
+**Criteria met (recorded individually, not summarised):**
+
+- GATE-VERIFY — ordering (prior gate PASS + expected status): PASS, as set out above.
+- GATE-VERIFY — Build passes for all affected packages: PASS, re-run independently this session.
+  The scope changes no package source, so the catalogue's declared build-equivalent applies
+  (`BUILD_COMMAND_SHAPE` — `harness:scan`/`run-all-scans`): `node scripts/harness/run-all-scans.mjs
+  --affected --context pr` exits 0 — "82 scans passed, 1 skipped, 3 advisory failure(s) tolerated (pr
+  context)", the three being `reference-kind-qualified`, `progress-report-quantification` and
+  `task-merged-citation`. `bash -n .claude/hooks/merge-gate.sh` exits 0.
+- GATE-VERIFY — Tests pass for all affected packages: PASS, re-run at HEAD `eb870ce3590a`:
+  `npx vitest run scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs` → exit 0,
+  1 file, 13/13 tests passed.
+- Plan TC-01 / TC-02 (tick verified): a YAML parse of all four workflow files at HEAD returns
+  `branches: ["main","develop","integration/**"]` for `ci.yml`, `gitleaks.yml` and
+  `dependency-review.yml` (`on.pull_request`) and for `workflow-provenance-gate.yml`
+  (`on.pull_request_target`) — widened, not replaced.
+- Plan TC-03 / TC-09 (ticks verified): `git diff aa24b1d24..eb870ce35 -- .github/workflows/` is
+  exactly four `-    branches: [main, develop]` / four `+    branches: [main, develop,
+  integration/**]` lines and nothing else — no `if:` line and no `types:` line appears in the diff.
+  Parsed `types:` are `[opened, synchronize, reopened, edited]` for `ci.yml` and
+  `workflow-provenance-gate.yml`, so INFRA-055's `edited` subscription survives.
+- Plan TC-06 / TC-07 (ticks verified): the commit adds a `1b. CI EXISTS` block to
+  `.claude/hooks/merge-gate.sh` that counts checks with a non-empty `workflowName` and a conclusion
+  other than `SKIPPED`, refuses at zero by name, refuses an unreadable list, and leaves the
+  passing-check path intact. Non-vacuous: `git show aa24b1d24:.claude/hooks/merge-gate.sh` contains
+  none of `GATE_CHECKS`, `workflowName` or "repository gate check", so the three hook assertions
+  (`/ran NO repository gate check/`, `not.toMatch(/ran NO repository gate check/)`,
+  `/could not read PR #\d+'s check list/`) cannot pass against the pre-change hook.
+- Plan TC-08 (tick verified): covered by the two command re-runs recorded above.
+
+**Rewording check (asked for, and it is not the ground of this verdict):** three Plan items were
+reworded after the planning checkpoint — TC-06 ("refuse a `CLEAN` pull request carrying zero
+repository gate checks" → "a candidate carrying zero repository gate checks is refused by name"),
+TC-07 ("a `CLEAN` pull request with passing gate checks" → "a candidate with passing gate checks"),
+and TC-04 ("once this lands on `develop`" → "once the widened triggers are in effect"). TC-06 and
+TC-07 preserve their work: the behaviour they now name is exactly what the 13-case test asserts
+against the implemented hook, and neither shrank to something already true, since the pre-change hook
+carries no such refusal at all. TC-04's rewording preserves the work too, but it removed precisely the
+tokens `scan-task-plan-items`'s `DISPOSITION_PATTERN` matches ("lands" followed by "develop") while
+keeping the same post-merge dependency — which is why the mechanical floor reports clean over an item
+that remains unsatisfiable before this gate.
+
+**Judged by:** `backlog-gate-guard` — the two criteria `gate.mjs` reported `PENDING-GUARDIAN` (its
+bound patterns `/All tasks in \`.agents/tasks/<ID>.md\` are marked complete/` and `/No tasks are
+blocked or pending/` no longer match this catalogue's current `## Plan` wording, so it binds no
+judgement to them), plus independent re-verification of the three it judged PASS
+**Judged at:** HEAD `eb870ce3590a` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `fab06aa28c8d` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** in-progress → verifying
+
+**Ordering check (run before any criterion):** the LAST `[GATE-IMPLEMENT]` entry is `✅ PASS |
+2026-09-21` with `**Status upgrade:** approved → in-progress`; the GATE-VERIFY row declares no re-run
+rule, so the default last-entry rule applies and holds. Input state matches: `status: in-progress` ↔
+`.agents/spec-docs/active/`. This is the SECOND GATE-VERIFY run; the `❌ FAIL` entry above it stands —
+the log is append-only, and this entry is a re-judgement after a bounded correction, not a
+replacement of that verdict.
+
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete
+  (`[x]`): 7 items, all `[x]`, and each tick re-verified against the tree at HEAD `eb870ce3590a`
+  rather than read. TC-01/TC-02: a YAML parse of all four workflows returns
+  `branches: ["main","develop","integration/**"]` (`ci.yml`, `gitleaks.yml`, `dependency-review.yml`
+  on `pull_request`; `workflow-provenance-gate.yml` on `pull_request_target`) — widened, not replaced.
+  TC-03/TC-09: `git diff aa24b1d24..eb870ce35 -- .github/workflows/` is exactly four `-` and four `+`
+  `branches:` lines and nothing else; no `if:` and no `types:` line appears, and the parsed `types:`
+  are `[opened, synchronize, reopened, edited]` for `ci.yml` and `workflow-provenance-gate.yml`, so
+  INFRA-055's `edited` survives. TC-06/TC-07: the `1b. CI EXISTS` block in
+  `.claude/hooks/merge-gate.sh` counts checks with a non-empty `workflowName` and a conclusion other
+  than `SKIPPED`, refuses at zero by name, refuses an unreadable list, and leaves the passing path
+  intact; non-vacuous, since `git show aa24b1d24:.claude/hooks/merge-gate.sh` contains none of
+  `GATE_CHECKS`, `workflowName` or "repository gate check". TC-08: `bash -n` exit 0 and the affected
+  scans exit 0 (below). The two items that carried the previous FAIL, TC-04 and TC-05, are no longer
+  in the section: they are withdrawn, and the Plan states the absence in a preamble rather than
+  leaving a silent gap. `node scripts/harness/scan-task-plan-items.mjs` exits 0 over 342 Plan sections
+  and `scripts/harness/task-plan-items-baseline.json` is untouched on this branch, so the clean
+  mechanical floor is not a suppression.
+- GATE-VERIFY — No Plan item is blocked or pending: none of the 7 is unticked, and none is worded as
+  conditional on a future state. The two that were pending by construction are gone rather than
+  re-ticked.
+- GATE-VERIFY — Build passes for all affected packages: the scope changes no package source, so the
+  catalogue's build-equivalent applies — `node scripts/harness/run-all-scans.mjs --affected --context
+  pr` exits 0, "82 scans passed, 1 skipped, 3 advisory failure(s) tolerated (pr context)"
+  (`reference-kind-qualified`, `progress-report-quantification`, `task-merged-citation` — the same
+  three as before the correction, so the correction introduced no new failure).
+  `bash -n .claude/hooks/merge-gate.sh` exits 0.
+- GATE-VERIFY — Tests pass for all affected packages: `npx vitest run
+  scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs` re-run this session → exit
+  0, 13/13 passed. Boundary stated: this is the one test file the unit adds; no package source is
+  touched, and the repository-wide harness contract is covered by the scan run above.
+
+**Did the withdrawal shrink the unit below what the owner approved? No — judged against the tree, not
+the explanation.** The delivered change is untouched: `git status` shows the implementation commit
+`eb870ce35` unmodified, and the only working-tree changes are this document, the paired Task, and two
+auto-generated `.agents/evals/lessons/` files. In this document, § Solution, § Affected Files,
+§ Alternatives Considered, the § Decision design paragraphs and all four exclusions are byte-unchanged;
+the withdrawal is a pure insertion. What narrowed is the VERIFICATION surface, and that is recorded
+here rather than absorbed: TC-04 and TC-05 were the only criteria asserting GitHub's actual dispatch
+behaviour, so after the withdrawal nothing in this unit demonstrates that a pull request based on
+`integration/**` receives the gate jobs — TC-01/TC-02/TC-03/TC-09 prove only that the configuration
+says so. That narrowing is accepted because it was forced, not chosen: the named subject (PR #2803)
+was merged at 14:18:38Z, eleven minutes before the planning checkpoint, confirmed independently
+(merge commit `9eb7ea8fdb88` into `integration/agreement-014`); the catalogue's own route for a
+post-disposition observable is to move it out of `## Plan` (§ GATE-VERIFY, issue #2375); and the
+residue is disclosed in § Decision and carried on issue #2804. The residual risk is real and belongs
+to the first child pull request opened against an integration branch: that observation must actually
+be made, not inherited as done.
+
+**The two `[GATE-COMPLETE: TC-04]` / `[GATE-COMPLETE: TC-05]` skip entries — leaving them is correct.**
+This Evidence Log is append-only (the GATE-WRITE re-run entry above states it, and the catalogue
+treats retrospective evidence edits as NON-COMPLIANCE); deleting entries to match a later document
+shape would falsify the record of how this unit reached its shape. The alternative reading — that an
+entry for a withdrawn criterion is itself a defect — is answered by the § Decision note that now
+explains them. One binding caveat for the next gate: GATE-COMPLETE iterates the CURRENT
+`## Completion Criteria`, so those two entries are history and must never be counted as coverage for
+anything in that list.
+
+**Findings this gate owns no criterion for, recorded so the next gate inherits them and not the
+silence.** The withdrawal was executed in the spec but only half-executed in the Task, and one
+deletion was imprecise:
+
+1. `## Completion Criteria` is now malformed. TC-05's continuation line survived its deletion and is
+   glued to TC-03, which currently ends: "… touching only the `branches:` list / conclusion other than
+   skipped". The TC id count is still 7 and matches the Test Plan, so no mechanical check catches it;
+   it is a corrupted criterion in the section GATE-COMPLETE reads next.
+2. The Task's own `## Test Plan` still carries TC-04 and TC-05 rows (lines 59–60) plus the paragraph
+   "TC-04 and TC-05 are the only manual rows". The coordinator's account of the correction states the
+   rows were removed from the `## Test Plan` table; measured, that is true of this document and false
+   of the Task.
+3. Both documents' § User Execution Test Scenarios still assert "the observable … is TC-04 and TC-05
+   … each marked `manual` … in the Test Plan". That sentence is the justification for the
+   `SCENARIO DRAFTED: not-applicable | 0` outcome GATE-IMPLEMENT bound, and it now cites criteria this
+   document no longer contains. The author verdict line itself is unchanged, so the checkpoint binding
+   holds; the reasoning under it does not.
+4. Measured, not asserted: the approval-protected region has drifted from what `approve` recorded.
+   `reviewFingerprint` over this document returns `76628ebf5246 (review 3e523621, type/tags 06ee2339)`
+   against the standing entry's `94ba113cf82b (review acd5ee8b, …)`. Attribution matters here — the
+   drift is not only today's: the surviving pre-checkpoint blob `f69a478856c3` still fingerprints
+   `94ba113cf82b`, and the document at HEAD already reads `28665e0a0fd8`, the difference being the
+   `**Delivery mode:** single` block. That block is REQUIRED in `Architecture Review/Decision` by
+   `backlog-execution.md` § checkpoint-evidence-contract v2 (`decisionDelivery`), which the process
+   mandates AFTER approval — so post-approval drift of this fingerprint is structural here and is not
+   a violation I will invent one for. Today's withdrawal note is the second write into that region and
+   is not contract-mandated; the `type/tags` half is unchanged, and no approved design text was
+   altered or removed.
+
+None of the four is a criterion of GATE-VERIFY, and none falsifies a Plan tick, so none changes this
+verdict. What happens to them — fix before GATE-COMPLETE, or carry — is the orchestrator's call.
+
+**Judged by:** `backlog-gate-guard` — the two criteria `gate.mjs` reports `PENDING-GUARDIAN` (its
+bound patterns no longer match this catalogue's `## Plan` wording), plus independent re-verification
+of the other three
+**Judged at:** HEAD `eb870ce3590a` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `02d5c1430e9f` (modified)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-21
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: status is `in-progress`, `verifying` expected
+  **Required action:** run the prior gate to PASS first
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eb870ce3590a` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `c7a0229775c2` (modified)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-21
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: status is `in-progress`, `verifying` expected
+  **Required action:** run the prior gate to PASS first
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eb870ce3590a` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `7eea7987eede` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** in-progress → verifying
+
+**Ordering check (run before any criterion):** the prior gate for this row is GATE-IMPLEMENT, whose
+LAST entry is `✅ PASS` with `**Status upgrade:** approved → in-progress`; the row declares no re-run
+rule, so the default last-entry rule applies and holds. Input state matches: `status: in-progress` ↔
+`.agents/spec-docs/active/`. The two `[GATE-COMPLETE] — ❌ FAIL` entries that now sit above this one
+are not this row's subject and do not bear on it — GATE-VERIFY's prior gate is GATE-IMPLEMENT, not
+GATE-COMPLETE.
+
+**The two out-of-order GATE-COMPLETE runs, judged rather than passed over.** Both entries fail on one
+criterion — `GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status \`verifying\`: status is
+\`in-progress\`, \`verifying\` expected` — and both record `**Status remains:** in-progress`. No
+GATE-COMPLETE criterion was evaluated in either run, so no completion evidence was produced and
+nothing was authorised. This is the ordering check doing its job, not a bypass, and the entries were
+retained rather than deleted, which is what keeps it legible. Tested against the definition of a
+process violation rather than assumed: no work GATE-COMPLETE would authorise has happened — HEAD is
+still `eb870ce3590a`, no task archival or terminal status exists, the spec is still in `active/` at
+`status: in-progress`, and `git status --porcelain` carries only this document, the paired Task, and
+the two auto-generated `.agents/evals/lessons/` files. NOT NON-COMPLIANCE.
+
+**Why this re-judgement is a judgement and not a re-stamp.** The previous GATE-VERIFY PASS is bound to
+document blob `02d5c1430e9f`; the document is now `cb1aa7dd8c64`, so that verdict is a verdict on
+content that no longer exists and cannot be inherited. Every criterion below was re-measured against
+the current tree.
+
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete
+  (`[x]`): 7 items, all `[x]`, each re-verified at HEAD `eb870ce3590a`. A YAML parse of all four
+  workflows returns `branches: ["main","develop","integration/**"]` (TC-01/TC-02);
+  `git diff aa24b1d24..eb870ce35 -- .github/workflows/` is 8 changed lines, all `branches:`, with no
+  `if:` and no `types:` line, and the parsed `types:` still carry `edited` for `ci.yml` and
+  `workflow-provenance-gate.yml` (TC-03/TC-09); the `1b. CI EXISTS` block in `merge-gate.sh` is
+  present and its three assertions pass (TC-06/TC-07); `bash -n` exits 0 and the affected scans exit 0
+  (TC-08). `node scripts/harness/scan-task-plan-items.mjs` exits 0 over 342 Plan sections with the
+  baseline untouched.
+- GATE-VERIFY — No Plan item is blocked or pending: none of the 7 is unticked or conditioned on a
+  future state.
+- GATE-VERIFY — Build passes for all affected packages: build-equivalent for a no-package-source
+  scope — `node scripts/harness/run-all-scans.mjs --affected --context pr` exits 0, "82 scans passed,
+  1 skipped, 3 advisory failure(s) tolerated (pr context)", the same three as every prior run
+  (`reference-kind-qualified`, `progress-report-quantification`, `task-merged-citation`), so this
+  round's document edits introduced no new failure. `bash -n .claude/hooks/merge-gate.sh` exits 0.
+- GATE-VERIFY — Tests pass for all affected packages: `npx vitest run
+  scripts/harness/__tests__/gate-coverage-for-integration-bases.test.mjs` → exit 0, 13/13.
+
+**The three residual findings from the previous run, verified from the tree:**
+
+1. FIXED. `## Completion Criteria` now ends TC-03 at "… touching only the `branches:` list"; the
+   orphan "conclusion other than skipped" line is gone. Seven TC ids (01, 02, 03, 06, 07, 09, 08)
+   against seven `## Test Plan` rows — the counts match on both sides.
+2. FIXED. The Task's `## Test Plan` carries seven rows and no TC-04/TC-05 row; the trailing sentence
+   now reads "No manual rows remain. TC-04 and TC-05 were withdrawn at GATE-VERIFY…". The Task's Plan
+   items and its Test Plan rows are the same seven ids.
+3. FIXED in both documents. The Task's reason now reads "The observable is deferred, not discarded. It
+   was carried as TC-04 and TC-05 until GATE-VERIFY withdrew them, and now belongs to the first child
+   opened against an integration branch … recorded on issue #2804"; this document's reads "That
+   observable was carried as TC-04 and TC-05 until GATE-VERIFY, which withdrew them … recorded on
+   issue #2804 rather than here". Neither cites a live criterion. The `**Author verdict:** `SCENARIO
+   DRAFTED: not-applicable | 0`` line is unchanged, so the GATE-IMPLEMENT exact-signal binding still
+   holds, and `scan-spec-user-execution-section` exits 0 over 465 governed spec documents.
+
+**Residual TC-04/TC-05 references, read rather than taken:** three in this document (§ Decision's
+withdrawal note; the sentence naming the two retained `[GATE-COMPLETE: TC-0x]` entries; the scenario
+reason) and three in the Task (the `## Plan` preamble; the Test Plan closing sentence; the scenario
+reason) — six in all, outside the Evidence Log. Each is in the past tense about a withdrawal; none
+appears as a checkbox, a Test Plan row, or a criterion to be met. The reading is confirmed.
+
+**Answer to the question put to this guardian — does the § Decision withdrawal note need
+re-approval?** Recorded as advice, since no criterion of THIS gate owns it and a guardian cannot
+approve anything. On the merits: no. The write is an insertion; no alternative, decision, exclusion or
+trade-off text was altered or removed, and the `type/tags` half of the fingerprint is unchanged
+(`06ee2339`). Measured this run, the review half is stable at `3e523621` across the three fixes, so
+the protected region is not drifting further. Mechanically, re-approval is also not what would fix it:
+the recorded `94ba113cf82b` became unreachable at the planning checkpoint, when the
+`**Delivery mode:** single` block that `backlog-execution.md` § checkpoint-evidence-contract v2
+(`decisionDelivery`) REQUIRES in `Architecture Review/Decision` was added — reverting this round's
+note would leave `28665e0a0fd8`, still not the approved value. The real finding is a rule conflict
+that fires on every L2 item reaching a checkpoint — one rule mandates a post-approval write into the
+region another criterion freezes — and it belongs in its own item, not inside this delivery. If the
+binding is to be restored, the route is a fresh `gate.mjs approve` recording the owner's instruction
+over the current review, never a silently re-recorded fingerprint.
+
+**Judged by:** `backlog-gate-guard` — the two criteria `gate.mjs` reports `PENDING-GUARDIAN` (its
+bound patterns no longer match this catalogue's `## Plan` wording), plus independent re-measurement of
+the other three
+**Judged at:** HEAD `eb870ce3590a` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `cb1aa7dd8c64` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-21; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 7/7 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (7)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (7) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (7) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 7/7 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (7) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 7/7 tasks `[x]` in .agents/tasks/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `eb870ce3590a` · base `origin/develop@40d72b9b4943` · document `.agents/spec-docs/active/INFRA-2804-gate-workflows-do-not-cover-integration-bases-so-stacked-child-prs-receive-no-ci.md` blob `1a3fa83823f3` (modified)
