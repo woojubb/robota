@@ -19,19 +19,37 @@ function jobBlock(source, jobId) {
   return next < 0 ? source.slice(start) : source.slice(start, start + 1 + next);
 }
 
+/**
+ * jobId → [required context, the display name the job publishes]. Nine jobs ARE the required
+ * context and publish its name. The two `workflow_dispatch`-only companions stand in for gates owned
+ * by other workflows and MUST publish a different name: a job whose `if:` is false is still
+ * registered as a `skipped` check-run under its display name on every commit, so a companion named
+ * after the required context put two rows under one required name on every pull request
+ * (CHECKS-2664). `benchmark-summary` maps the context to the companion name instead.
+ */
 const REQUIRED_BENCHMARK_JOBS = new Map([
-  ['build', 'build'],
-  ['quality', 'quality'],
-  ['scans', 'scans'],
-  ['dependency-audit', 'dependency audit'],
-  ['commitlint', 'commitlint'],
-  ['tui-e2e', 'tui-e2e'],
-  ['examples-typecheck', 'examples-typecheck'],
-  ['windows-shell', 'windows-shell'],
-  ['benchmark-review-gate', 'review-gate'],
-  ['benchmark-workflow-provenance', 'workflow provenance'],
-  ['regression-red-proof', 'regression-red-proof (enforcing: accidental-green only)'],
+  ['build', ['build', 'build']],
+  ['quality', ['quality', 'quality']],
+  ['scans', ['scans', 'scans']],
+  ['dependency-audit', ['dependency audit', 'dependency audit']],
+  ['commitlint', ['commitlint', 'commitlint']],
+  ['tui-e2e', ['tui-e2e', 'tui-e2e']],
+  ['examples-typecheck', ['examples-typecheck', 'examples-typecheck']],
+  ['windows-shell', ['windows-shell', 'windows-shell']],
+  ['benchmark-review-gate', ['review-gate', 'benchmark review-gate']],
+  ['benchmark-workflow-provenance', ['workflow provenance', 'benchmark workflow provenance']],
+  [
+    'regression-red-proof',
+    [
+      'regression-red-proof (enforcing: accidental-green only)',
+      'regression-red-proof (enforcing: accidental-green only)',
+    ],
+  ],
 ]);
+
+const REQUIRED_CONTEXTS = new Set(
+  [...REQUIRED_BENCHMARK_JOBS.values()].map(([context]) => context),
+);
 
 describe('GitHub Actions runtime maintenance', () => {
   it('uses the current v6 majors for setup-node, pnpm setup, and cache references', () => {
@@ -64,9 +82,9 @@ describe('PR-free develop required-context benchmark', () => {
   });
 
   it('runs and measures exactly one job for each of the 11 required contexts', () => {
-    for (const [jobId, context] of REQUIRED_BENCHMARK_JOBS) {
+    for (const [jobId, [, jobName]] of REQUIRED_BENCHMARK_JOBS) {
       const block = jobBlock(ci, jobId);
-      const escaped = context.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+      const escaped = jobName.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
       expect(block).toMatch(new RegExp(`^    name: ['"]?${escaped}['"]?$`, 'mu'));
       expect(block).toContain('Refuse unsafe benchmark check attachment');
     }
@@ -78,9 +96,26 @@ describe('PR-free develop required-context benchmark', () => {
     expect(summary).toContain('elapsed_seconds');
     expect(summary).toContain('map(.elapsed_seconds) | max) <= 128');
     expect(summary).toContain('length == 11');
-    for (const context of REQUIRED_BENCHMARK_JOBS.values()) {
-      expect(summary).toContain(JSON.stringify(context));
+    // The summary's map is keyed by the required context and resolves to the measuring job.
+    for (const [context, jobName] of REQUIRED_BENCHMARK_JOBS.values()) {
+      expect(summary).toContain(`${JSON.stringify(context)}:${JSON.stringify(jobName)}`);
     }
+  });
+
+  it('never lets a workflow_dispatch-only companion publish a required context name (CHECKS-2664)', () => {
+    // The red-proof for the collision: a job that exists only for the dispatch benchmark is still
+    // registered as a `skipped` check-run on every pull request, so the display name the FILE gives
+    // it must not be one branch protection matches on. Read from the block, not from the map above,
+    // so a companion renamed back to the context is caught by the file and not excused by the table.
+    let companions = 0;
+    for (const jobId of REQUIRED_BENCHMARK_JOBS.keys()) {
+      const block = jobBlock(ci, jobId);
+      if (!/^    if: github\.event_name == 'workflow_dispatch'$/mu.test(block)) continue;
+      companions += 1;
+      const published = /^    name: ['"]?(.+?)['"]?$/mu.exec(block)?.[1] ?? jobId;
+      expect(REQUIRED_CONTEXTS.has(published), `${jobId} publishes \`${published}\``).toBe(false);
+    }
+    expect(companions).toBe(2);
   });
 
   it('attaches manual check runs only to develop, never to a feature PR head', () => {

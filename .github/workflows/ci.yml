@@ -1552,9 +1552,15 @@ jobs:
 
   # Manual-only companions complete the 11-context develop benchmark without creating a pull
   # request. Normal pull_request behavior remains owned by review-gate.yml and
-  # workflow-provenance-gate.yml; these jobs never run for that event.
+  # workflow-provenance-gate.yml; these jobs' STEPS never run for that event — but a job whose `if:`
+  # is false is still registered as a `skipped` check-run under its display name, on every commit.
+  # So their names must NOT equal the required contexts they stand in for: two check-runs under one
+  # required name leave neither branch protection nor the harness's id-wins dedupe a defined winner
+  # (CHECKS-2664 — the skipped companion row shadowed review-gate.yml's pass on PR #2805).
+  # `benchmark-summary` maps each required context to its companion name; `main-required-checks`
+  # refuses a required context published by more than one job.
   benchmark-review-gate:
-    name: review-gate
+    name: benchmark review-gate
     if: github.event_name == 'workflow_dispatch'
     needs: changes
     runs-on: ubuntu-latest
@@ -1583,7 +1589,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   benchmark-workflow-provenance:
-    name: workflow provenance
+    name: benchmark workflow provenance
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
@@ -1638,7 +1644,10 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          required='["build","quality","scans","dependency audit","commitlint","tui-e2e","examples-typecheck","windows-shell","review-gate","workflow provenance","regression-red-proof (enforcing: accidental-green only)"]'
+          # Required context → the job that measures it in THIS run. Nine measure under their own
+          # name; the two companions carry a `benchmark ` prefix so they never publish a required
+          # name on a pull request (see the comment above `benchmark-review-gate`).
+          required='{"build":"build","quality":"quality","scans":"scans","dependency audit":"dependency audit","commitlint":"commitlint","tui-e2e":"tui-e2e","examples-typecheck":"examples-typecheck","windows-shell":"windows-shell","review-gate":"benchmark review-gate","workflow provenance":"benchmark workflow provenance","regression-red-proof (enforcing: accidental-green only)":"regression-red-proof (enforcing: accidental-green only)"}'
           run_created_at="$(gh api --paginate "repos/${REPOSITORY}/actions/runs/${RUN_ID}" --jq '.created_at')"
           for attempt in {1..10}; do
             gh api --paginate --slurp \
@@ -1646,7 +1655,7 @@ jobs:
               > "$RUNNER_TEMP/job-pages.json"
             if jq -e --argjson required "$required" '
               [.[].jobs[]] as $jobs
-              | [$required[] as $name | $jobs[] | select(.name == $name)]
+              | [$required | to_entries[] | .value as $job | $jobs[] | select(.name == $job)]
               | length == 11 and all(.[]; (.completed_at | type) == "string")
             ' "$RUNNER_TEMP/job-pages.json" >/dev/null; then
               break
@@ -1659,14 +1668,14 @@ jobs:
           done
           jq --argjson required "$required" --arg run_created_at "$run_created_at" '
             [.[].jobs[]] as $jobs
-            | [$required[] as $name
+            | [$required | to_entries[] | .key as $context | .value as $name
               | [$jobs[] | select(.name == $name)] as $matches
               | if ($matches | length) != 1 then
-                  error("expected exactly one benchmark job named " + $name)
+                  error("expected exactly one benchmark job named " + $name + " for context " + $context)
                 else
                   $matches[0]
                   | {
-                      name,
+                      name: $context,
                       conclusion,
                       started_at,
                       completed_at,
