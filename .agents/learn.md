@@ -259,6 +259,7 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - observed-at: 2026-09-13T11:00:00+09:00
 - observation: GATE-IMPLEMENT can report PASS with only the spec dirty, then advance activates the Task and the checkpoint consumer rejects the script's own spec-only inventory.
 - evidence: `scripts/harness/gate-checkpoint-evidence-common.mjs` produces the first checkpoint evidence from observed dirty paths; `scripts/harness/gate-implement-entry-results.mjs:96` requires both Task and spec. At HEAD `5cfa1b18f91a5005f3fe4060b9176a062f2dd3ce`, the judge returned 7 PASS but commit failed with `gateImplementFirst.worktreePaths must be the paired Task/spec plus only PLAN ledger paths`. The original uncommitted payload and withdrawal are preserved in the BOUNDARY-2655 spec; rejudging actual Task/spec planning changes produced the accepted checkpoint `36f4ff11e8dbe5ea525978c8648ceca9720ee329`.
+- evidence (2026-09-21T12:31:51+09:00): ARCH-1985 reproduced the same mismatch after a clean approved prelude at `3e34773ca`; the first PASS recorded `worktreePaths: []`, and `scan-user-execution-plan-order.mjs --staged` rejected the activated pair until the uncommitted entry was withdrawn and the gate was rerun with the exact Task/spec pair dirty.
 - source: BOUNDARY-2655
 - related: Issue #2655
 
@@ -293,3 +294,11 @@ Worked around for now via a`scan-task-path-citations.mjs` `SENTENCE_CONTRADICTS_
 - evidence: BRANCH-2664 retained review reproduced the shared helper collapsing exit 0 and exit 1 into one tree identity; the integration-history call site is conservatively contained while MERGE-2664 owns the shared correction; https://github.com/woojubb/robota/issues/2664#issuecomment-5747991049
 - source: BRANCH-2664 local review
 - related: MERGE-2664, Issue #2664
+
+### LRN-reference-kind-unfrozen-completed-spec
+
+- observed-at: 2026-09-21T12:31:51+09:00
+- observation: The current develop baseline contains an unqualified issue-like token in an unfrozen completed spec, so `reference-kind-qualified` is advisory in PR context but will block the same affected scan in integration context.
+- evidence: `node scripts/harness/run-all-scans.mjs --affected --context pr` on ARCH-1985 reported `.agents/spec-docs/done/INFRA-2772-bound-the-session-start-task-notice.md:513` with unqualified `#2375` and stated that the same finding blocks the integration run on develop.
+- source: ARCH-1985 implementation verification
+- related: INFRA-2772

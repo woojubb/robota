@@ -6,7 +6,7 @@ created: 2026-09-03
 priority: critical
 urgency: now
 area: MCP configuration
-depends_on: []
+depends_on: [ARCH-1985]
 ---
 
 # MCP-001: add a typed MCP configuration and management control plane
