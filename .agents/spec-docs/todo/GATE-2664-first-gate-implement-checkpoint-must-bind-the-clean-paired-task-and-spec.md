@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [typescript]
 lane: L2
@@ -189,3 +189,25 @@ GATE VERDICT: PASS
   the consumer remains independent and DATA-2664 filtering remains owned by the existing dirt scanner.
 - Ownership verdict: the approved MAP-2664 predicates correctly classify GATE-2664 as a delivery
   prerequisite rather than an eighth AGREEMENT child.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "GATE-2664 설계안을 승인합니다."
+**Given:** 2026-09-21, this conversation
+**Review fingerprint:** 2de3d905c138 (review 3c432742, type/tags 74b52707)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-21, this conversation
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: PASS — the verbatim instruction names `GATE-2664`, approves its design, and is neither a clarification response nor approval of another item.
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — The item is inside the class as the registry defines it: PASS (N/A) — the mutually exclusive approval route is `DIRECT`; no delegated class is named or relied upon.
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (2de3d905c138) equals the document's current fingerprint
+- GATE-APPROVAL — Independent architecture validation (conditional): PASS (N/A) — the Architecture Review limits the change to existing internal checkpoint producers, one shared helper, and focused tests; it introduces no package, app, interface or presentation surface, and does not reclassify a layer or product-family boundary.
+
+**Judged by:** `backlog-gate-guard` semantic evaluator
+**Judged at:** HEAD `494b7500170b` · base `origin/develop@5801343acb92` · document `.agents/spec-docs/backlog/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md` blob `9ea115b56809` (tracked)
+
+GATE VERDICT: PASS

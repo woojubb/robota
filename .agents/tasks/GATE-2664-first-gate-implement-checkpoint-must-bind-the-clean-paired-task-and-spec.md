@@ -11,7 +11,7 @@ depends_on: []
 
 # GATE-2664: first GATE-IMPLEMENT checkpoint must bind the clean paired Task and spec
 
-Spec: `.agents/spec-docs/backlog/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md`
+Spec: `.agents/spec-docs/todo/GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md`
 
 ## Objective
 
