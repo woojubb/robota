@@ -1,8 +1,9 @@
 ---
 title: 'MEMORY-2680: Mirror the desktop-worktree session startup note into in-repo memory (memory-mirroring)'
 issue: https://github.com/woojubb/robota/issues/2680
-status: todo
+status: done
 created: 2026-09-22
+completed: 2026-09-22
 priority: medium
 urgency: soon
 area: harness/memory
@@ -22,9 +23,9 @@ issue #2680 — the note is local/CI-consistency knowledge).
 
 ## Plan
 
-- [ ] `.agents/memory/desktop-worktree-session-startup-sequence.md` — the mirrored note
-- [ ] `.agents/memory/MEMORY.md` — one index line beside the execution-permissions entry
-- [ ] TC-01 — `grep -c 'desktop-worktree-session-startup-sequence' .agents/memory/MEMORY.md` → `1`, and the file exists
+- [x] `.agents/memory/desktop-worktree-session-startup-sequence.md` — the mirrored note
+- [x] `.agents/memory/MEMORY.md` — one index line beside the execution-permissions entry
+- [x] TC-01 — `grep -c 'desktop-worktree-session-startup-sequence' .agents/memory/MEMORY.md` → `1`, and the file exists
 
 ## Test Plan
 
@@ -41,3 +42,9 @@ TC-01 is a `grep`/`test -f` command over the two files; the note's prose is not 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
 **Reason:** Two Markdown files under `.agents/memory/` read only by agents at session start; no end user of the Robota product (CLI, SDK, TUI, MCP server) can observe them through any runnable surface.
+
+## Result
+
+Delivered on `docs/checks-2664-closeout` in `65445c715` (mirror) after the prelude `198c82ec3`.
+TC-01: `grep -c 'desktop-worktree-session-startup-sequence' .agents/memory/MEMORY.md` → `1`; the file
+exists. Completed 2026-09-22.
