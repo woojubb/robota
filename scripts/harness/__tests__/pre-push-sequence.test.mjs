@@ -232,9 +232,39 @@ describe('pre-push prerequisites follow its local work, not the product change c
 });
 
 describe('post-verdict guard reaches the real Git pre-push boundary', () => {
+  it('preserves a trusted integration-base declaration in the replayed command', () => {
+    const spawn = vi.fn(() => ({ status: 0 }));
+
+    expect(
+      runPostVerdictGuard({
+        env: { HARNESS_BASE_REF: 'origin/integration/agreement-014' },
+        spawn,
+      }),
+    ).toBe(true);
+    expect(JSON.parse(spawn.mock.calls[0][2].input)).toMatchObject({
+      tool_name: 'Bash',
+      tool_input: {
+        command: 'HARNESS_BASE_REF=origin/integration/agreement-014 git push',
+      },
+    });
+  });
+
+  it('rejects a malformed non-empty base declaration before spawning the guard', () => {
+    const spawn = vi.fn(() => ({ status: 0 }));
+
+    expect(
+      runPostVerdictGuard({
+        env: { HARNESS_BASE_REF: 'origin/integration/agreement-014; false' },
+        spawn,
+      }),
+    ).toBe(false);
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
   it('refuses when the shared agent guard returns a non-zero status', () => {
     const result = runPostVerdictGuard({
       cwd: '/tmp/fixture-repo',
+      env: {},
       script: '/tmp/fixture-repo/.claude/hooks/pre-push-check.sh',
       spawn(_command, _args, options) {
         expect(JSON.parse(options.input)).toMatchObject({
@@ -250,6 +280,7 @@ describe('post-verdict guard reaches the real Git pre-push boundary', () => {
   it('allows only an explicit zero exit from the shared guard', () => {
     expect(
       runPostVerdictGuard({
+        env: {},
         spawn: () => ({ status: 0 }),
       }),
     ).toBe(true);

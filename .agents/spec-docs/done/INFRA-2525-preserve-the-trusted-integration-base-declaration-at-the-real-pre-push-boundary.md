@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [infra]
 lane: L1
@@ -87,17 +87,17 @@ three paths and retain the existing explicit-zero/non-zero guard-result contract
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs --pool=threads --maxWorkers=1 --minWorkers=1` → exits 0, and the valid-base regression fails with the implementation reverted
-- [ ] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
-- [ ] TC-03: the focused suite proves absent declarations remain `git push`, a valid trusted base is preserved exactly once, and a malformed non-empty base is rejected before the guard spawns
+- [x] TC-01: `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs --pool=threads --maxWorkers=1 --minWorkers=1` → exits 0, and the valid-base regression fails with the implementation reverted
+- [x] TC-02: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0
+- [x] TC-03: the focused suite proves absent declarations remain `git push`, a valid trusted base is preserved exactly once, and a malformed non-empty base is rejected before the guard spawns
 
 ## Test Plan
 
 | TC-ID | Test Type | Tool / Approach                             | Notes                                             |
 | ----- | --------- | ------------------------------------------- | ------------------------------------------------- |
-| TC-01 | Unit      | focused Vitest command named above          | RED with the fix reverted, GREEN with it          |
-| TC-02 | Suite     | `run-all-scans.mjs --affected --context pr` | Regression — the affected set, not the full suite |
-| TC-03 | Unit      | focused Vitest assertions over spawn input  | Covers valid, absent, and malformed declarations  |
+| TC-01 | Unit      | `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs --pool=threads --maxWorkers=1 --minWorkers=1` | `scripts/harness/__tests__/pre-push-sequence.test.mjs` — `describe('post-verdict guard reaches the real Git pre-push boundary')` / `it('preserves a trusted integration-base declaration in the replayed command')`; RED with the fix reverted, GREEN with it |
+| TC-02 | Suite     | `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` | Affected scans plus `scripts/harness/__tests__/pre-push-sequence.test.mjs` — `describe('post-verdict guard reaches the real Git pre-push boundary')` / `it('preserves a trusted integration-base declaration in the replayed command')` |
+| TC-03 | Unit      | `scripts/harness/__tests__/pre-push-sequence.test.mjs` spawn-input assertions | `describe('post-verdict guard reaches the real Git pre-push boundary')` / `it('refuses when the shared agent guard returns a non-zero status')`, `it('preserves a trusted integration-base declaration in the replayed command')`, and `it('rejects a malformed non-empty base declaration before spawning the guard')` |
 
 ## User Execution Test Scenarios
 
@@ -107,7 +107,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-2525-preserve-the-trusted-integration-base-declaration-at-the-real-pre-push-boundary.md` — todo
+- [x] `.agents/tasks/completed/INFRA-2525-preserve-the-trusted-integration-base-declaration-at-the-real-pre-push-boundary.md` — done
 
 ## Evidence Log
 
@@ -201,3 +201,105 @@ Recorded as the rule's required choice rather than skipped.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `120a895cca0e` · base `origin/develop@120a895cca0e` · document `.agents/spec-docs/draft/INFRA-2525-preserve-the-trusted-integration-base-declaration-at-the-real-pre-push-boundary.md` blob `f20aa09cc6e8` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs --pool=threads --maxWorkers=1 --minWorkers=1`
+**Exit:** 0
+**Output:** (last 10 of 12 line(s))
+
+```
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+[pre-push] Blocked: HARNESS_BASE_REF must name origin/integration/agreement-<number> at the Git pre-push boundary.
+[pre-push] Blocked: post-verdict action-request guard did not approve this push.
+ ✓ scripts/harness/__tests__/pre-push-sequence.test.mjs (31 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  31 passed (31)
+   Start at  13:43:02
+   Duration  157ms (transform 40ms, setup 0ms, collect 50ms, tests 6ms, environment 0ms, prepare 23ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `6353115de986` · base `origin/develop@120a895cca0e` · document `.agents/spec-docs/todo/INFRA-2525-preserve-the-trusted-integration-base-declaration-at-the-real-pre-push-boundary.md` blob `177b85df2383` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-21
+
+**Command:** `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+**Exit:** 0
+**Output:** (last 10 of 193 line(s))
+
+```
+Diagnostic report v1: 2 result(s), 2 non-clean.
+ERROR harness.scan-finding.scan-c36-c2t-c2u-c2t-c36-c2t-c32-c2r-c2t-c19-c2z-c2x-c32-c2s-c19-c35-c39-c2p-c30-c2x-c2u-c2x-c2t-c2s [finding] scan:reference-kind-qualified
+  evidence: Scan reference-kind-qualified exited with status 1.
+  recommendation: Inspect the reference-kind-qualified scan output above.
+ERROR harness.scan-finding.scan-c38-c2p-c37-c2z-c19-c31-c2t-c36-c2v-c2t-c2s-c19-c2r-c2x-c38-c2p-c38-c2x-c33-c32 [finding] scan:task-merged-citation
+  evidence: Scan task-merged-citation exited with status 1.
+  recommendation: Inspect the task-merged-citation scan output above.
+
+61 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (64 declared what they examined)
+scan receipt NOT written: 2 advisory failure(s) were tolerated (reference-kind-qualified, task-merged-citation), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `6353115de986` · base `origin/develop@120a895cca0e` · document `.agents/spec-docs/todo/INFRA-2525-preserve-the-trusted-integration-base-declaration-at-the-real-pre-push-boundary.md` blob `bd19f92b45b6` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-21
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs --pool=threads --maxWorkers=1 --minWorkers=1`
+**Exit:** 0
+**Output:** (last 10 of 12 line(s))
+
+```
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+[pre-push] Blocked: HARNESS_BASE_REF must name origin/integration/agreement-<number> at the Git pre-push boundary.
+[pre-push] Blocked: post-verdict action-request guard did not approve this push.
+ ✓ scripts/harness/__tests__/pre-push-sequence.test.mjs (31 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  31 passed (31)
+   Start at  13:43:02
+   Duration  157ms (transform 40ms, setup 0ms, collect 50ms, tests 6ms, environment 0ms, prepare 23ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `6353115de986` · base `origin/develop@120a895cca0e` · document `.agents/spec-docs/todo/INFRA-2525-preserve-the-trusted-integration-base-declaration-at-the-real-pre-push-boundary.md` blob `20241bb26240` (modified)
+
+### [GATE-DONE] — ❌ FAIL | 2026-09-21
+
+**Status remains:** approved
+**Failed criteria:**
+
+- GATE-COMPLETE — For each TC-N in `## Test Plan`, a written test records the test file path plus the test function/describe name: TC-01, TC-02, and TC-03 name `scripts/harness/__tests__/pre-push-sequence.test.mjs`, but none records the exact `describe`/`it` name that supplies its evidence.
+  **Required action:** update each Test Plan row with the exact test reference under `post-verdict guard reaches the real Git pre-push boundary` (and retain the scan command for TC-02), or record an explicit skip reason where no automated test exists.
+- GATE-COMPLETE — No TC-N is silently unaddressed: all three rows have a test-file path, but the catalogue-defined test-reference form is incomplete without a function/describe name.
+  **Required action:** bind TC-01 through TC-03 to their exact `describe`/`it` names.
+- GATE-COMPLETE — `## Test Plan` is updated with test references or skip reasons for all TC-N rows: the current rows stop at a file or generic "spawn-input assertions" description and therefore do not meet the required reference shape.
+  **Required action:** replace the generic references with exact file-plus-test-name references.
+
+**Observed verification:** `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs --pool=threads --maxWorkers=1 --minWorkers=1` → exit 0, 31/31 tests passed; `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exit 0, 61 scans passed with two unrelated PR-context advisories.
+**Judged by:** `backlog-gate-guard` independent semantic review
+
+### [GATE-DONE] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** approved → done
+
+- GATE-DONE — ordering: recorded `[GATE-PLAN] — ✅ PASS` upgraded this L1 document from `draft` to its current `approved` status.
+- GATE-VERIFY — Every item in the exact Task's `## Plan` is marked complete: 4/4 items are `[x]`.
+- GATE-VERIFY — No Plan item is blocked or pending: all four items are complete and none is labelled blocked or pending.
+- GATE-VERIFY — Build passes for the affected scope: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` exited 0 with 61 scans passed; the two reported failures are unrelated advisories explicitly tolerated in PR context.
+- GATE-VERIFY — Tests pass for the affected scope: `pnpm exec vitest run scripts/harness/__tests__/pre-push-sequence.test.mjs --pool=threads --maxWorkers=1 --minWorkers=1` exited 0 with 31/31 tests passed.
+- GATE-COMPLETE — Every Completion Criteria checkbox is checked: TC-01 through TC-03 are `[x]`.
+- GATE-COMPLETE — Every TC has a verification entry: `[GATE-COMPLETE: TC-01]`, `[GATE-COMPLETE: TC-02]`, and `[GATE-COMPLETE: TC-03]` each record the exact command, observed output, and exit 0.
+- GATE-COMPLETE — Every Test Plan row records a complete automated-test reference: each names `scripts/harness/__tests__/pre-push-sequence.test.mjs` plus the exact `describe` and applicable `it` name(s); TC-02 also retains the affected-scan command.
+- GATE-COMPLETE — No TC is silently unaddressed: TC-01, TC-02, and TC-03 each have both verification evidence and an exact test reference.
+- GATE-COMPLETE — The spec's `## Completion Criteria` is complete: 3/3 checkboxes are `[x]`.
+- GATE-COMPLETE — The spec's `## Test Plan` is complete: 3/3 rows carry file-plus-test-name references.
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active Task path under `.agents/tasks/`.
+- GATE-COMPLETE — The active Task exists and is completion-ready: its four Plan items are `[x]`, with no pending or blocked item.
+
+**Judged by:** `backlog-gate-guard` independent semantic review
+**Judged at:** HEAD `6353115de986` · base `origin/develop@120a895cca0e` · document `.agents/spec-docs/todo/INFRA-2525-preserve-the-trusted-integration-base-declaration-at-the-real-pre-push-boundary.md` blob `e1ec494cfe83` (modified)

@@ -1,15 +1,18 @@
 ---
 title: 'INFRA-2525: preserve the trusted integration base declaration at the real pre-push boundary'
 issue: https://github.com/woojubb/robota/issues/2525
-status: todo
+status: done
 created: 2026-09-21
 priority: medium
 urgency: now
 area: harness pre-push delivery gate
 depends_on: []
+completed: 2026-09-21
 ---
 
 # INFRA-2525: preserve the trusted integration base declaration at the real pre-push boundary
+
+Spec: `.agents/spec-docs/done/INFRA-2525-preserve-the-trusted-integration-base-declaration-at-the-real-pre-push-boundary.md`
 
 ## Objective
 
@@ -19,12 +22,12 @@ base evidence at both the outer command boundary and the Git hook boundary.
 
 ## Plan
 
-- [ ] Add a regression that reproduces the declaration loss in `runPostVerdictGuard`.
-- [ ] Reconstruct only the validated `origin/integration/agreement-<number>` declaration in the
+- [x] Add a regression that reproduces the declaration loss in `runPostVerdictGuard`.
+- [x] Reconstruct only the validated `origin/integration/agreement-<number>` declaration in the
       synthetic guard command, while retaining the existing bare `git push` path when none is set.
-- [ ] Fail closed before spawning the guard when a non-empty declaration is not a trusted
+- [x] Fail closed before spawning the guard when a non-empty declaration is not a trusted
       integration-base ref.
-- [ ] Run the focused pre-push sequence suite and affected harness scans, then complete the L1 gates.
+- [x] Run the focused pre-push sequence suite and affected harness scans, then complete the L1 gates.
 
 ## Evidence
 
@@ -32,6 +35,11 @@ base evidence at both the outer command boundary and the Git hook boundary.
 - Reproduction: `HARNESS_BASE_REF=origin/integration/agreement-014 git push origin integration/agreement-014`
   reached `.husky/pre-push`, where the replayed guard received only `git push` and rejected the exact
   clean sync merge `3290d394fc088145c5ab520ae47640dc5ada2f5c` as foreign history.
+- TDD RED: the new valid-base assertion failed because the payload still contained only `git push`;
+  the malformed-base assertion then failed because the guard spawned instead of refusing.
+- GREEN: `scripts/harness/__tests__/pre-push-sequence.test.mjs` passed 31/31; the broader pre-push
+  set passed 126/126; the affected harness scan passed 61 scans with two pre-existing PR-context
+  advisories (`reference-kind-qualified`, `task-merged-citation`).
 
 ## User Execution Test Scenarios
 
