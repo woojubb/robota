@@ -68,3 +68,4 @@
 {"runId":"r20260921104830","opened":"2026-09-21T10:48:30.957Z","closed":"2026-09-21T12:19:45.685Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260921121945","opened":"2026-09-21T12:19:45.724Z","closed":"2026-09-21T13:41:35.332Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
 {"runId":"r20260921144518","opened":"2026-09-21T14:45:18.147Z","closed":"2026-09-21T14:50:33.876Z","roundFindings":[2],"extensions":{},"terminal":"halted-for-user","ref":null}
+{"runId":"r20260921153105","opened":"2026-09-21T15:31:05.465Z","closed":null,"roundFindings":[],"extensions":{},"terminal":null,"ref":"PROC-2664-add-a-recovery-door-for-a-v2-single-delivery-checkpoint-merged-without-its-imple"}

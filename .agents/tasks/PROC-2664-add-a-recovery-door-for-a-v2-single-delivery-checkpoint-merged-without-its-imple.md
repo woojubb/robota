@@ -6,7 +6,7 @@ created: 2026-09-21
 priority: high
 urgency: soon
 area: harness planning-checkpoint contract
-depends_on: [PROC-2680]
+depends_on: []
 ---
 
 # PROC-2664: Add a recovery door for a v2 single-delivery checkpoint merged without its implementation
