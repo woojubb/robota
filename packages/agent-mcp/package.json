@@ -1,5 +1,5 @@
 {
-  "name": "@robota-sdk/agent-tool-mcp",
+  "name": "@robota-sdk/agent-mcp",
   "version": "3.0.0-beta.79",
   "description": "MCP protocol tool implementations for Robota SDK",
   "type": "module",
@@ -37,8 +37,8 @@
     "typecheck": "tsgo --noEmit",
     "lint": "eslint src/ --ext .ts,.tsx",
     "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
-    "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --status && pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --lifecycle",
-    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-tool-mcp --output examples/scenarios/mcp-activation-admission.record.json -- pnpm scenario:verify",
+    "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --status && pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --lifecycle && pnpm exec tsx --conditions=source examples/verify-mcp-definition-control-plane.ts",
+    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-mcp --output examples/scenarios/mcp-activation-admission.record.json -- pnpm scenario:verify",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },

@@ -13,7 +13,7 @@ Owns the tool factory constructors, tool result types, sandbox execution ports, 
 - Does not own the abstract tool base class (`AbstractTool`) or tool interface contracts (`IToolWithEventService`, `IToolResult`, `IToolExecutionContext`). Those belong to `@robota-sdk/agent-core`.
 - Does not own the concrete `FunctionTool` / `ToolRegistry` classes or their parameter validation. Those are dependency-free runtime primitives owned by `@robota-sdk/agent-core` (DATA-005). This package's factories construct core's `FunctionTool`.
 - Does not own permission evaluation or hook execution. Tool permission wrapping is performed by consumers (e.g., `@robota-sdk/agent-session`).
-- Does not own MCP tool protocol. MCP tools live in `@robota-sdk/agent-tool-mcp`.
+- Does not own MCP tool protocol. MCP definitions and tools live in `@robota-sdk/agent-mcp`.
 - Does not own provider-specific behavior. Tools are provider-agnostic.
 - Does not own provider SDK installation. Provider sandbox adapters are structural adapters; applications decide whether to install concrete provider SDKs such as E2B.
 - Does not own CLI manifest file parsing. YAML/JSON CLI parsing belongs to the CLI composition layer and must converge into the `IWorkspaceManifest` contract owned here.

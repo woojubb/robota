@@ -3,7 +3,7 @@
 /**
  * Check that publishable package sources contain no stub markers.
  *
- * Lesson source: @robota-sdk/agent-tool-mcp shipped to npm with
+ * Lesson source: @robota-sdk/agent-mcp (under its earlier tool-scoped name) shipped to npm with
  * "TODO: Implement" / "Not implemented" in its core execution path
  * (HARNESS-008, 2026-06-11).
  *

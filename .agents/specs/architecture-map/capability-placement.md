@@ -30,7 +30,7 @@ flowchart TB
   end
   subgraph Adapters["Adapters — vendor + tool + plugin"]
     PROV["agent-provider\nprovider defs · model catalogs"]
-    TOOLS["agent-tools · agent-tool-mcp"]
+    TOOLS["agent-tools · agent-mcp"]
     PLUGIN["agent-plugin"]
   end
   subgraph Orchestration["Orchestration — multi-agent coordination"]
@@ -79,7 +79,7 @@ it belongs in the layer below both of them.
 | Provider definitions, setup metadata, model catalogs    | `agent-provider` through `agent-core` contracts                                                                        | Compose selected providers and display provider/profile state.                                                      |
 | Preset profiles (named option bundles + live switching) | `agent-preset` (option data: `IPreset` + `resolvePreset`) + `agent-framework` (application via `applyPresetToSession`) | Select preset id + forward CLI-flag overrides only; `agent-cli` is a thin shell that holds no preset feature logic. |
 | Provider transport and vendor SDK behavior              | `agent-provider`, the `agent-transport-*` packages, or server-side service packages                                    | Supply credentials through allowed adapters; never hardcode vendor logic.                                           |
-| Tool contracts, sandbox policy, MCP integration         | `agent-tools`, `agent-tool-mcp`, and `agent-core` contracts                                                            | Render tool progress/results and pass host adapters.                                                                |
+| Tool contracts, sandbox policy, MCP integration         | `agent-tools`, `agent-mcp`, and `agent-core` contracts                                                            | Render tool progress/results and pass host adapters.                                                                |
 | Auth and credits policy                                 | `auth` (planned), `credits` (planned), and their package SPEC files (no such packages exist yet)                       | Collect product-specific input and call owner APIs.                                                                 |
 | Orchestration policies (cost, auth, retry, routing)     | Orchestrator layer — not the runtime API surface                                                                       | Call orchestrator APIs; never add policy to the native Runtime API surface.                                         |
 | Playground reusable behavior                            | `agent-playground`, `agent-remote-client`, `agent-framework`, `agent-core`                                             | `agent-web` owns routes and deployment host only.                                                                   |

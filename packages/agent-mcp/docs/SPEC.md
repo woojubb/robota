@@ -1,14 +1,29 @@
-# agent-tool-mcp Specification
+# agent-mcp Specification
 
 ## Scope
 
-MCP (Model Context Protocol) tool implementations for Robota SDK. Provides `MCPTool` (a JSON-RPC 2.0 tool executor) and `RelayMcpTool` (a relay adapter that bridges third-party MCP commands into Robota agent flows). The package is an internal, private (unpublished) workspace package (`"private": true` in `package.json`) named `@robota-sdk/agent-tool-mcp`.
+The MCP (Model Context Protocol) client-side owner for Robota SDK. It owns two things that stay
+deliberately separate:
+
+1. **Definitions** (MCP-001) — what an MCP server IS: the raw, validated and resolved forms, source
+   provenance and shadow metadata, strict foreign `mcpServers` decoding, environment templates,
+   whole-entry precedence, reversible disable overlays, redacted management projections, activation
+   identity and fingerprints, and pure list/get/status results. Nothing in this half connects or
+   spawns.
+2. **Activation and execution** — whether a definition may be used (`mcp-activation.ts`, MCP-2520)
+   and the tools that use it (`MCPTool`, `RelayMcpTool`).
+
+The package is an internal, private (unpublished) workspace package (`"private": true` in
+`package.json`) named `@robota-sdk/agent-mcp`. It was renamed in place by MCP-001 from its
+previous `agent-tool-mcp` identity: that name classified it as one tool among many, which is no longer
+what it is. MCP-002 owns its publication, the official MCP TypeScript SDK client, and the first
+product-reachable slice (ADR-005).
 
 ## Boundaries
 
 - Allowed dependencies: `@robota-sdk/agent-core` (sole peer dependency). The Streamable HTTP client is implemented with the global `fetch` — no protocol SDK dependency.
 - Must not import `agent-framework`, `agent-session`, `agent-cli`, or any other `agent-*` package.
-- `MCPTool` implements `ITool` directly (not via `AbstractTool`) to avoid a circular runtime dependency (`agent-tool-mcp` → `agents` → `tools` → `agents`); `RelayMcpTool` is structurally `ITool`-shaped (no declared `implements` clause).
+- `MCPTool` implements `ITool` directly (not via `AbstractTool`) to avoid a circular runtime dependency (`agent-mcp` → `agents` → `tools` → `agents`); `RelayMcpTool` is structurally `ITool`-shaped (no declared `implements` clause).
 - Does not own a tool registry or factory. The consumer (composition root or CLI) selects and wires tools at construction time.
 - Transport: MCP Streamable HTTP (JSON-RPC 2.0 over HTTP POST via global `fetch`). stdio transport is out of scope — `IMCPConfig` has no command/args surface.
 - MCP activation policy is transport-neutral and host-injected. This package owns the admission port,
@@ -19,6 +34,33 @@ MCP (Model Context Protocol) tool implementations for Robota SDK. Provides `MCPT
 ## Architecture Overview
 
 Single entry point `./` backed by `src/index.ts`.
+
+**`definition/`** (MCP-001) is the pure control plane, one module per stage, and none of them
+imports a process, socket or SDK module — asserted by
+`src/__tests__/definition-no-side-effects.test.ts` both statically over the import graph and
+behaviourally over a full pipeline run.
+
+- `types.ts` — raw / validated / resolved definitions, provenance, shadow records, problems.
+- `decode.ts` — strict decoding of a foreign `mcpServers` object. A bad entry is refused and named,
+  never partially built; `streamable-http` normalises to `http`; a `url` with no `type` is refused
+  rather than read as stdio.
+- `env-template.ts` — `${VAR}` and `${VAR:-default}` in `command`, `args`, `env`, `url`, `headers`.
+  An unset reference with no default is a reported warning whose literal text survives, because an
+  empty substitution would produce a working-looking address that authenticates as nobody.
+- `precedence.ts` — whole-entry resolution over `managed > local > project > user > plugin`. Entries
+  are never field-merged, every loser is recorded as a shadow, and a malformed winner resolves
+  `unresolved` while still shadowing rather than handing its name to a lower-trust source.
+- `overlay.ts` — reversible disable. A disabled entry stays listed with its provenance and reason;
+  an overlay naming an unknown server is refused.
+- `projection.ts` — redacted management projections. `env` and `headers` VALUES never leave; their
+  keys do, because "header configured but redacted" and "no header" are different answers.
+- `identity.ts` — `definitionFingerprint` over what will run, `securityIdentity` over where it came
+  from. Secret values are never hashed, so rotating a token does not invalidate an approval.
+- `registry.ts` — `MCPDefinitionRegistry`, the producer `MCPActivationController` was written
+  against and never had. It offers only resolved, enabled entries as activation requests.
+
+**`management/results.ts`** returns pure `list` / `get` / `status` values over a resolved set.
+`get` on an unknown name returns a typed not-found rather than throwing.
 
 **`MCPTool`** (`src/mcp-tool.ts`) implements `ITool` and speaks JSON-RPC 2.0 to a remote MCP server over Streamable HTTP. Every `execute()` first calls the injected `IMCPActivationAdmission`; denied, stale, rejected, revoked, untrusted, or incomplete requests fail before any connection attempt. The first admitted `execute()` performs the MCP `initialize` handshake followed by the `notifications/initialized` notification (`initializeMCPSession`), captures the `Mcp-Session-Id` response header when present, and echoes it on subsequent requests. Admission is checked again when a connected session is reused, so revocation and trust-generation changes take effect. `disconnect()` sends a best-effort HTTP DELETE with the session id (`terminateMCPSession`). It manages a `TMCPConnectionStatus` state machine (`disconnected → connecting → connected → disconnecting → disconnected | error`); `connected` is only reached after a successful handshake. Protocol helpers (`buildMCPRequest`, `sendMCPRequest`, `initializeMCPSession`, `terminateMCPSession`, `processMCPResponse`) live in `src/mcp-protocol.ts`.
 
@@ -86,6 +128,50 @@ All `ITool`-related types (`ITool`, `IToolResult`, `IToolExecutionContext`, `TTo
 | `ThirdPartySchemaValidator`              | class     | CORE-040: the parameter validator BOTH tool classes use — one owner for the trust-boundary decision    |
 | `INarrowedSchema`                        | interface | `{ schema, unenforceable }` — the enforceable copy and the paths dropped from it                       |
 | `TUnenforceableSchemaReporter`           | type      | `(toolName, paths) => void` — told once per tool when part of its schema cannot be enforced            |
+
+### Definition control plane (MCP-001)
+
+| Export                          | Kind      | Description                                                                                             |
+| ------------------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
+| `decodeSource`                  | function  | Decode one foreign `mcpServers` container into definitions and named refusals                            |
+| `decodeEntry`                   | function  | Decode one raw entry; returns the definition or the problem that stopped it, never a partial             |
+| `readRawEntries`                | function  | Split a container into named raw entries, reporting container-level problems once                        |
+| `IMCPDecodeResult`              | interface | `{ definitions, problems }` returned by `decodeSource`                                                   |
+| `materializeDefinition`         | function  | Expand `${VAR}` / `${VAR:-default}` in `command`, `args`, `env`, `url`, `headers`                        |
+| `IMCPEnvironment`               | interface | The environment map materialization reads; never `process.env` directly                                  |
+| `MCP_SOURCE_PRECEDENCE`         | const     | `managed > local > project > user > plugin`, highest first                                               |
+| `resolveByPrecedence`           | function  | Whole-entry resolution; records shadows and keeps a malformed winner `unresolved`                        |
+| `IMCPSourceCandidates`          | interface | One source's decode output, tagged with its source and origin                                            |
+| `applyDisableOverlay`           | function  | Apply a reversible disable overlay; refuses an unknown server name                                       |
+| `clearDisable`                  | function  | Remove the overlay from one entry, restoring what precedence produced                                    |
+| `isDisabled`                    | function  | Whether an entry currently carries a disable overlay                                                     |
+| `IMCPDisableOverlay`            | interface | `{ disabled? }` — server names to disable with the reason shown beside each                              |
+| `MCPOverlayError`               | class     | Typed refusal for an overlay naming a server that does not exist                                         |
+| `projectEntry`                  | function  | Redacted projection of one entry; `env`/`headers` values become `[REDACTED]`, keys survive              |
+| `projectEntries`                | function  | The same projection over a whole resolved set, in order                                                  |
+| `REDACTED`                      | const     | The redaction marker a projection substitutes for a secret value                                         |
+| `IMCPDefinitionProjection`      | interface | A definition as it may be shown — secret-free by construction                                            |
+| `definitionFingerprint`         | function  | Hash over what will run or be contacted; secret VALUES are never hashed                                  |
+| `securityIdentity`              | function  | Hash over name, source and origin — which configured subject this is                                     |
+| `activationIdentity`            | function  | Both ids for one entry, or `null` when it is unresolved                                                  |
+| `IMCPActivationIdentity`        | interface | `{ serverId, definitionFingerprint, securityIdentity }`                                                  |
+| `MCPDefinitionRegistry`         | class     | `IMCPActivationDefinitionRegistry` over a resolved set; offers only resolved, enabled entries            |
+| `IMCPDefinitionRegistryOptions` | interface | Workspace trust snapshot passed through to admission unchanged                                           |
+| `listServers`                   | function  | Every configured server, projected                                                                       |
+| `getServer`                     | function  | One server by name, or a typed not-found carrying the names that exist                                   |
+| `statusOf`                      | function  | Counts (total, resolved, unresolved, disabled, unset-variable) plus the projected set                    |
+| `IMCPListResult`                | interface | `{ servers }` returned by `listServers`                                                                  |
+| `IMCPStatusResult`              | interface | Counts plus the projected set returned by `statusOf`                                                     |
+| `TMCPGetResult`                 | type      | `{ found: true, server }` or `{ found: false, name, knownNames }`                                        |
+| `IMCPServerDefinitionRaw`       | interface | An entry exactly as read, before validation                                                              |
+| `IMCPServerDefinition`          | interface | A decoded entry; environment templates not yet materialized                                              |
+| `IMCPServerDefinitionResolved`  | interface | A materialized definition plus the references that had no value                                          |
+| `IMCPResolvedEntry`             | interface | One server name's outcome: winner, status, shadows, and any disable reason                               |
+| `IMCPDefinitionProblem`         | interface | Why a name could not produce a usable definition                                                         |
+| `IMCPDefinitionShadow`          | interface | An entry a winner hid, with its own source and origin                                                    |
+| `IMCPUnsetVariable`             | interface | An unset `${VAR}`: the variable, the exact field, and the literal left in place                          |
+| `TMCPDefinitionSource`          | type      | `managed \| local \| project \| user \| plugin`                                                        |
+| `TMCPTransport`                 | type      | `stdio \| http \| sse \| ws`; `streamable-http` normalises to `http`                                    |
 
 ## Extension Points
 

@@ -27,7 +27,7 @@ cast through `updateTools`).
 
 ## Evidence (adversarially verified 2026-08-13, CONFIRMED)
 
-- `packages/agent-tool-mcp/src/mcp-tool.ts:33` — `class MCPTool implements ITool`;
+- `packages/agent-tool-mcp/src/mcp-tool.ts:33` — `class MCPTool implements ITool`; <!-- evidence-superseded: MCP-001 renamed packages/agent-tool-mcp to packages/agent-mcp; the file is unchanged at the new path and the recorded evidence remains historically accurate. -->
   `relay-mcp-tool.ts:46` — `RelayMcpTool` (a doc comment claims `ITool`-shaped; no `implements` clause).
   Neither defines `getName()` or `setEventService()`.
 - `packages/agent-core/src/interfaces/agent.ts:95` — `tools?: Array<IToolWithEventService>`;

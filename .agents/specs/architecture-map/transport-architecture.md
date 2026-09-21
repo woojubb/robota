@@ -96,20 +96,20 @@ peer, React ≥18). The **protocol/wire** transports — `agent-transport` core,
 
 ## MCP Disambiguation
 
-`agent-transport-mcp` and `agent-tool-mcp` are two distinct MCP roles. They must not be confused.
+`agent-transport-mcp` and `agent-mcp` are two distinct MCP roles. They must not be confused.
 
-| Aspect          | `agent-transport-mcp`                              | `agent-tool-mcp`                                |
+| Aspect          | `agent-transport-mcp`                              | `agent-mcp`                                |
 | --------------- | -------------------------------------------------- | ----------------------------------------------- |
 | MCP role        | **Server** — Robota acts as an MCP server          | **Client** — Robota consumes external MCP tools |
 | Direction       | External MCP clients → Robota session              | Robota session → external MCP tool servers      |
 | What it exposes | `InteractiveSession` as an MCP-compatible server   | MCP tool calls as `IToolResult` values          |
 | Layer           | Transport shell                                    | Tool adapter                                    |
-| Owner           | `agent-transport-mcp` (separate package)           | `agent-tool-mcp` (separate package)             |
+| Owner           | `agent-transport-mcp` (separate package)           | `agent-mcp` (separate package)             |
 | Consumer        | Hosts that want to expose a Robota session via MCP | Agents that need to call external MCP servers   |
 | SDK import      | `@modelcontextprotocol/sdk` (server-side)          | `@modelcontextprotocol/sdk` (client-side)       |
 
 **Rule**: When a developer needs to call external MCP tool servers from within a Robota agent, they
-use `agent-tool-mcp`. When they need to expose a Robota session to external MCP clients, they use
+use `agent-mcp`. When they need to expose a Robota session to external MCP clients, they use
 `agent-transport-mcp`.
 
 ## Type Contract Ownership
@@ -139,5 +139,5 @@ Read `transport-architecture.md` before:
 - Adding a new transport package or protocol adapter.
 - Changing the `ITransportAdapter` or `IConfigurableTransport` contracts.
 - Wiring a new shell (product or app) to the session transport API.
-- Working on MCP server exposure (`agent-transport-mcp`) or MCP tool integration (`agent-tool-mcp`).
+- Working on MCP server exposure (`agent-transport-mcp`) or MCP tool integration (`agent-mcp`).
 - Debugging React bundling issues in protocol/wire consumers (React isolation boundary).

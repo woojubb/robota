@@ -16,7 +16,7 @@ flowchart TD
   Preset["agent-preset\nnamed preset profiles + resolvePreset\n(option-data layer; depends on framework only)"]
   Sessions["agent-session\nconversation lifecycle + neutral log/store ports"]
   Executor["agent-executor\nbackground task lifecycle"]
-  Tools["agent-tools + agent-tool-mcp\ntools + sandbox ports + MCP integration"]
+  Tools["agent-tools + agent-mcp\ntools + sandbox ports + MCP integration"]
   Core["agent-core\nprovider/history/permission contracts\n(ZERO deps from other agent-* packages)"]
   Providers["agent-provider\nprovider definitions"]
   SubagentRunner["agent-subagent-runner\nChildProcessSubagentRunner + worker\n(optional — install only when needed)"]

@@ -1,4 +1,4 @@
-# @robota-sdk/agent-tool-mcp
+# @robota-sdk/agent-mcp
 
 ## 3.0.0-beta.79
 

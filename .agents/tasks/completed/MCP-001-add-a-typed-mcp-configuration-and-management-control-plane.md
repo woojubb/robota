@@ -1,8 +1,9 @@
 ---
 title: 'MCP-001: add a typed MCP configuration and management control plane'
 issue: https://github.com/woojubb/robota/issues/2519
-status: in-progress
+status: done
 created: 2026-09-03
+completed: 2026-09-21
 priority: critical
 urgency: now
 area: MCP configuration
@@ -23,38 +24,38 @@ Preserve and deliver the independently verifiable outcome of [issue #2519](https
 
 ## Plan
 
-Spec: `.agents/spec-docs/active/MCP-001-add-a-typed-mcp-configuration-and-management-control-plane.md`
+Spec: `.agents/spec-docs/done/MCP-001-add-a-typed-mcp-configuration-and-management-control-plane.md`
 
 Implementation:
 
-- [ ] Rename `packages/agent-tool-mcp` to `packages/agent-mcp` (`git mv`), set the npm identity to
+- [x] Rename `packages/agent-tool-mcp` to `packages/agent-mcp` (`git mv`), set the npm identity to
       `@robota-sdk/agent-mcp`, keep it `private`, and update the four machine-read inventories and the
       five architecture-map documents in the same commit
-- [ ] Add `src/definition/{types,decode,env-template,precedence,overlay,projection,identity}.ts` —
+- [x] Add `src/definition/{types,decode,env-template,precedence,overlay,projection,identity}.ts` —
       the pure pipeline the spec's § Solution steps 2-8 enumerate
-- [ ] Add `src/management/results.ts` and wire `IMCPActivationDefinitionRegistry` to the resolved set
-- [ ] Remove `agent-core`'s `IMCPToolConfig` and `IToolFactory.createMCPTool()` with no facade, remove
+- [x] Add `src/management/results.ts` and wire `IMCPActivationDefinitionRegistry` to the resolved set
+- [x] Remove `agent-core`'s `IMCPToolConfig` and `IToolFactory.createMCPTool()` with no facade, remove
       the playground stub, and add the breaking changeset
-- [ ] Add `examples/verify-mcp-definition-control-plane.ts` and extend `scenario:verify`
-- [ ] Update `packages/agent-mcp/docs/SPEC.md`, its README, and `packages/agent-core/docs/SPEC.md`
+- [x] Add `examples/verify-mcp-definition-control-plane.ts` and extend `scenario:verify`
+- [x] Update `packages/agent-mcp/docs/SPEC.md`, its README, and `packages/agent-core/docs/SPEC.md`
 
 Verification — one item per Completion Criterion:
 
-- [ ] TC-01 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-precedence.test.ts`
+- [x] TC-01 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-precedence.test.ts`
       exits 0, and exits 1 when the source order is permuted
-- [ ] TC-02 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-env-template.test.ts` exits 0
-- [ ] TC-03 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-decode.test.ts packages/agent-mcp/src/__tests__/definition-projection.test.ts` exits 0
-- [ ] TC-04 — the removal grep returns no hit outside `packages/agent-mcp` and
+- [x] TC-02 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-env-template.test.ts` exits 0
+- [x] TC-03 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-decode.test.ts packages/agent-mcp/src/__tests__/definition-projection.test.ts` exits 0
+- [x] TC-04 — the removal grep returns no hit outside `packages/agent-mcp` and
       `pnpm --filter @robota-sdk/agent-core build` exits 0
-- [ ] TC-05 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-no-side-effects.test.ts` exits 0
-- [ ] TC-06 — `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
+- [x] TC-05 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-no-side-effects.test.ts` exits 0
+- [x] TC-06 — `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`
       exits 0 with `HARNESS_BASE_REF=origin/integration/agreement-014`
-- [ ] TC-07 — `pnpm --filter @robota-sdk/agent-mcp build && pnpm --filter @robota-sdk/agent-mcp test` exits 0
-- [ ] TC-08 — `pnpm --filter @robota-sdk/agent-mcp scenario:verify` exits 0 and prints
+- [x] TC-07 — `pnpm --filter @robota-sdk/agent-mcp build && pnpm --filter @robota-sdk/agent-mcp test` exits 0
+- [x] TC-08 — `pnpm --filter @robota-sdk/agent-mcp scenario:verify` exits 0 and prints
       `processesSpawned=0; socketsOpened=0`
-- [ ] TC-09 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-overlay.test.ts` exits 0
-- [ ] TC-10 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-identity.test.ts` exits 0
-- [ ] TC-11 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/management-results.test.ts` exits 0
+- [x] TC-09 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-overlay.test.ts` exits 0
+- [x] TC-10 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/definition-identity.test.ts` exits 0
+- [x] TC-11 — `pnpm exec vitest run packages/agent-mcp/src/__tests__/management-results.test.ts` exits 0
 
 ## Test Plan
 
@@ -85,7 +86,7 @@ runner is the behaviour this Task has not implemented yet.
 - Observable rationale: source=public-sdk-return
 - Expected observable: result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; processesSpawned=0; socketsOpened=0
 - Cleanup: the example uses only in-memory state and exits without leaving files, processes or connections.
-- Evidence: pending implementation — recorded at DONE-GATE-STAGE-2 with the exact command and its observed output.
+- Evidence: `pnpm exec tsx examples/verify-mcp-definition-control-plane.ts` exited 0 from `packages/agent-mcp` on 2026-09-21, printing `result=winner=alpha:managed; alphaShadowed=4; betaWinner=beta:local; betaUnresolved=true; betaShadowed=1; unsetVarPreservedLiterally=true; envRedacted=true; headersRedacted=true; projectionKeysKept=true; processesSpawned=0; socketsOpened=0` — the expected observable exactly. The durable artifacts are `packages/agent-mcp/examples/verify-mcp-definition-control-plane.ts` and the recorded run in `packages/agent-mcp/examples/scenarios/mcp-activation-admission.record.json`. The first execution of this scenario FAILED with a `TypeError` from `applyDisableOverlay(entries, {})`, a real defect the unit suites had missed because they always supplied a `disabled` map; `packages/agent-mcp/src/definition/overlay.ts` now treats an absent map as "nothing disabled" and `packages/agent-mcp/src/__tests__/definition-overlay.test.ts` pins that case.
 
 ### [DONE-GATE-STAGE-1] — ❌ FAIL | 2026-09-21
 
@@ -112,8 +113,9 @@ not retrospective.
   `examples/verify-mcp-definition-control-plane.ts` and extend `scenario:verify`" build them inside
   this Task.
 - Criterion 2 — executability decision recorded: PASS. `Executability: agent-executable` is declared,
-  and the § Executability probe was verified rather than accepted: `pnpm --filter
-  @robota-sdk/agent-tool-mcp scenario:verify` was re-run by this guardian on 2026-09-21 and exited
+  and the § Executability probe was verified rather than accepted:
+  `pnpm --filter @robota-sdk/agent-tool-mcp scenario:verify` was re-run by this guardian on
+  2026-09-21 and exited
   `0`, printing exactly `result=status=untrusted; activationAttempts=0` and `result=approved=true;
   changedDefinitionDenied=true; revokedDenied=true; activationAttempts=1` — the two lines the probe
   claims. The `examples/` surface in this package is therefore demonstrably runnable by an agent.

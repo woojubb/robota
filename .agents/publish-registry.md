@@ -67,7 +67,7 @@ someone might otherwise reverse by accident.
 | `@robota-sdk/agent-transport-webrtc-web` | Internal browser WebRTC peer, not standalone   |
 | `@robota-sdk/agent-playground`           | Development playground app                     |
 | `@robota-sdk/agent-remote-client`        | Internal remote client                         |
-| `@robota-sdk/agent-tool-mcp`             | Experimental MCP tool adapter                  |
+| `@robota-sdk/agent-mcp`                  | MCP definition owner and control plane         |
 
 ### Three entries this table used to carry, and why they are wrong
 
