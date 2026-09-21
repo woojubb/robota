@@ -6,7 +6,7 @@ created: 2026-09-21
 priority: high
 urgency: now
 area: repository integration-base migration verification
-depends_on: [MANIFEST-2664]
+depends_on: []
 ---
 
 # VERIFIER-2664: Implement the MANIFEST-2664 closed divergence manifest verifier
@@ -28,6 +28,9 @@ merged base, `scan-user-execution-plan-order.mjs --staged` refuses every impleme
 the continuation checkpoint form exists only for `sequenced` delivery, and a recorded v2 `single`
 first PASS cannot be corrected to it. The owner chose this thin unit as the recovery.
 
+> **Contained — PROC-2664.** Judged FOUNDATIONAL by `finding-depth-triager` on 2026-09-21; the root
+> item owns the missing door. This unit is the labelled containment and stands until it lands.
+
 ## Source Constraints
 
 - The design is `MANIFEST-2664` § Architecture Review › Decision at the approval-bound revision; this
@@ -37,14 +40,14 @@ first PASS cannot be corrected to it. The owner chose this thin unit as the reco
   credential; open no state store; mutate no remote ref. Keep root `.eslintrc.json` unchanged.
 - Do not close issue #2664 here; keep MAP-2664 parked. `MANIFEST-2664` is completed by its own
   GATE-VERIFY / GATE-COMPLETE after this unit lands.
-- The harness gap (no v2 `single` → `sequenced` correction) is filed separately, not fixed here.
+- The harness gap (no v2 `single` → `sequenced` door) is `PROC-2664`, not fixed here.
 
 ## Plan
 
 - [ ] TC-01 — Implement the manifest module: SHA-1 canonical manifest bound to OIDs only with
       separately bound legacy and replacement bases, four non-merge dispositions plus the structural
       `merge` record, deterministic base64-path recursive `--no-renames` tuples, one `rev-list
-  --parents` enumeration per side, the `--text`-pinned `patch-id` pair, strict and lenient
+--parents` enumeration per side, the `--text`-pinned `patch-id` pair, strict and lenient
       parsing, the three-valued `verify` result with the exported closed code set, the five-command
       port, the export list, and the CLI. Acceptance is SPEC TC-01.
 - [ ] TC-02 — Generalise the isolated plan-order suite's prelude fixture and add the eight-children
@@ -93,3 +96,14 @@ issue #2664 under `.agents/evidence/migrations/` — is authored by the later pu
   inside the branch's own range"), and the closed continuation/correction routes were traced in
   `scan-user-execution-plan-order.mjs`, `gate-checkpoint-evidence.mjs`, and
   `gate-implement-correction-validation.mjs` before the owner chose this unit.
+- `proposal-reviewer` (orchestrator run `r20260921121945`, 2026-09-21) returned `REVIEW VERDICT:
+REVISE` on `1544283db`: alternative 3 correct and the document re-decides nothing; the "filed
+  separately" claim was false at that moment (now `PROC-2664`), "three places" misattributed the
+  three documents to `git-branch.md`, and the precedence clause did not cover the duplicated TCs; the
+  reviewer also excluded a fourth alternative (revert the merged checkpoint), refused by the scan and
+  wrong in spirit. Applied without re-review, as the reviewer allowed for sentence-level edits.
+- Recommendation gate (orchestrator run `r20260921121945`, 2026-09-21): `finding-depth-triager`
+  returned `DEPTH VERDICT: FOUNDATIONAL` — every premise holds; the cause is the harness's missing
+  door for a v2 `single` checkpoint merged alone (repeat trail: HARNESS-131, PROC-026/029, PROC-031,
+  issue #2774 comment 5750809102). Disposition: labelled containment under the root item
+  `PROC-2664`, filed the same day and registered on umbrella issue #2664.

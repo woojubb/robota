@@ -15,8 +15,10 @@ Paired with `.agents/tasks/VERIFIER-2664-implement-the-manifest-2664-closed-dive
 `.agents/spec-docs/active/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md`,
 `status: in-progress`, landed by PR #2792 at `f185015f7`), but nothing implements it: none of
 `scripts/harness/integration-migration-manifest.mjs`, its tests, the `HERMETIC_TEST_FILES` entry, or
-the rule sentence exists in the tree, so the migration rule still has no verifier behind it and
-`.agents/rules/git-branch.md` § Branch Policy still states unconditional equality in three places.
+the rule sentence exists in the tree, so the migration rule still has no verifier behind it and the
+unconditional equality sentence still stands in three documents (`.agents/rules/git-branch.md`
+§ Branch Policy, `.agents/rules/backlog-execution.md` § Base Branch Workflow,
+`.agents/skills/multi-backlog-initiative/SKILL.md` step 1).
 The implementation cannot ride on that unit's next branch: its checkpoint was recorded with
 `Delivery mode: single` and merged alone, and on a branch cut from the merged base
 `node scripts/harness/scan-user-execution-plan-order.mjs --staged` refuses any implementation path
@@ -26,6 +28,14 @@ staged), because the rule requires a checkpoint inside the branch's own range an
 form exists only for `sequenced` delivery, which a recorded v2 `single` first PASS cannot be
 corrected to. This unit is the recovery the owner chose on 2026-09-21: a thin implementation unit that
 carries its own checkpoint and the implementation in one pull request.
+
+> **Contained — PROC-2664.** `finding-depth-triager` judged this problem FOUNDATIONAL on 2026-09-21:
+> the harness lets a `single` checkpoint merge without its implementation and offers a v2 unit no
+> door afterwards (continuation is `sequenced`-only, the correction form is v1-only by PROC-031's
+> deliberate exclusion), a state issue #2774's closing comment recorded as a known residual. A second
+> identity for one approved design is the alternative PROC-031 rejected for the v1 case. This unit
+> stands, at the owner's direction, only until `PROC-2664` lands a door; it duplicates the design's
+> owner and re-decides nothing.
 
 ## Prior Art Research
 
@@ -67,13 +77,19 @@ No shared-module behaviour, scan registry, workflow, ruleset, or `project-struct
 2. Amend the harness first so a v2 `single` first PASS can be corrected to `sequenced`.
    - Pro: the principled fix for the gap; would let the original unit continue.
    - Con: a rule and scan amendment with its own gates before any implementation can start; the
-     owner's direction for this bundle is to pass quickly. The gap is worth filing separately.
+     owner's direction for this bundle is to pass quickly, and — the reason that carries — the gap is a
+     process-contract defect whose correct shape (refuse a checkpoint-only PR for `single` delivery, a
+     recovery form, or both) is a harness decision this unit neither depends on nor should pre-decide.
+     Filed as `PROC-2664`.
 3. A thin implementation unit (this document) whose planning checkpoint and implementation land in
    one pull request, implementing `MANIFEST-2664`'s approved Decision verbatim.
    - Pro: contract-compliant today, no harness change, one gate pass over a short document; the
      approved design is referenced, never re-decided.
    - Con: a second Task/spec pair for one design; `MANIFEST-2664` is completed afterwards by its own
-     GATE-VERIFY / GATE-COMPLETE over the landed implementation.
+     GATE-VERIFY / GATE-COMPLETE over the landed implementation, through the post-merge completion
+     closeout form the plan-order scan admits for an in-progress pair (its Task `## Result` names
+     this unit's merged pull request and a landed OID whose subject carries `(#N)`, plus an
+     issue-comment receipt).
 
 ### Decision
 
@@ -86,10 +102,11 @@ side, ancestry checks before enumeration, the `--text`-pinned `patch-id` pair, t
 five-command port with the run-scoped budget over `createVerificationRuntime`, the default adapter
 with `cwd` / `env` injection and configuration isolation, the three-valued `verify` result with the
 closed `MANIFEST_DIAGNOSTIC_CODES` set, the export list, the CLI exit map, and the one rule sentence
-with two pointers. Where this document and that Decision could be read differently, that Decision
-governs. The trade-off accepted is a second pair of planning documents in exchange for an
+with two pointers. TC-01..TC-05, the Test Plan, and the Affected Files below are byte-identical to
+`MANIFEST-2664`'s at that revision. Where this document and `MANIFEST-2664` could be read differently,
+`MANIFEST-2664` governs. The trade-off accepted is a second pair of planning documents in exchange for an
 implementation that the plan-order contract admits today; the alternative that avoids the second pair
-is not available without amending the harness, which is filed as its own follow-up rather than done
+is not available without amending the harness, which is filed as `PROC-2664` rather than done
 here. Reachability, capability preservation, and the adversarial pass are the ones `MANIFEST-2664`
 records; this unit adds nothing they did not cover.
 
