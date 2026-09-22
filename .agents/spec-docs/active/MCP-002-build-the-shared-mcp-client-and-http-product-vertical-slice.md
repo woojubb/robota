@@ -489,6 +489,30 @@ against an in-process mock server, plus type-level assertions on the catalog con
 | TC-30 | unit                 | vitest over catalog registration + a caller grep excluding the definition and the barrel | The CORE-040 boundary loses both call sites to this unit's deletions; an exported-but-uncalled validator is the state prevented  |
 | TC-27 | config + scan        | manifest read, registry row grep, `scan-publish-registry.mjs`                            | An ordinary regression check on the published closure; an earlier row claimed it resolved a criteria conflict that never existed |
 
+## User Execution Test Scenarios
+
+**Author verdict:** `SCENARIO DRAFTED: automatable | 1`
+
+**Why this surface:** the product composition this unit adds (`agent-cli → agent-mcp`, TC-21) wires
+the manager without a rendering command of its own — `/mcp` gains a supplier but no new user-visible
+verb in this unit — so the surface a person can execute to observe the delivered behaviour is the
+package's `examples/` runner, the same `public-sdk-example` surface MCP-001 and MCP-2520 ship in this
+package. The paired Task's `## User Execution Test Scenarios` carries the same scenario with its
+`DONE-GATE-STAGE-1` PASS and the bound `doneGateStageOne` record; this section mirrors it.
+
+### Scenario 1: discover and invoke a tool over Streamable HTTP through the shared client
+
+- Executability: agent-executable
+- Product surface: public-sdk-example
+- Surface rationale: shipped-interface=public-sdk-example
+- Prerequisites: Node.js and pnpm are installed and `pnpm install` has completed; `@robota-sdk/agent-core` and `@robota-sdk/agent-mcp` are built; run from `packages/agent-mcp`; the example starts the repository's in-process mock MCP server on loopback (`127.0.0.1`, an ephemeral port) exposing three tools and admits it through an injected loopback-allowing `TEgressLookup`; it points `HOME` at a fresh temporary directory before anything reads settings; no network beyond loopback, no MCP server other than the mock, no provider credential and no external service is required. The runner `examples/verify-mcp-client.ts` is built by this unit (TC-20).
+- Command: `pnpm exec tsx examples/verify-mcp-client.ts`
+- Observable type: sdk-result
+- Observable rationale: source=public-sdk-return
+- Expected observable: result=transport=streamable-http; discoveredTools=3; invoked=mock-mcp__echo; catalogSource=mock-mcp
+- Cleanup: the example closes the mock server and the MCP session and removes its temporary `HOME` before exiting; it leaves no files, processes or connections
+- Evidence: pending implementation — recorded at DONE-GATE-STAGE-2 with the command, its exit code and the single printed `result=` line
+
 ## Tasks
 
 - [ ] `.agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` — populated
