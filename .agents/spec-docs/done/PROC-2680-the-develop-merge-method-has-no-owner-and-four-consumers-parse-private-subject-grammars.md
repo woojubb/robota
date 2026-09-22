@@ -189,7 +189,9 @@ warns that the required check will refuse the PR until authoritative derivation 
 
 ## User Execution Test Scenarios
 
-Not applicable — no runnable user-facing behavior changes; verification evidence is recorded in the
+Not applicable.
+
+**Reason:** No runnable user-facing behavior changes; verification evidence is recorded in the
 engineering test plan (TC-01 to TC-05).
 
 Recorded as the rule's required choice rather than skipped.

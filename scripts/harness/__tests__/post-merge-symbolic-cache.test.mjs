@@ -20,6 +20,11 @@ describe('post-merge ledger reads across HEAD movement without Git fixtures', ()
       }) + '\n';
     const failed = record('r20260825000000', 'halted-for-user', [1]);
     const success = record('r20260825000001', 'converged', [0]);
+    const readPull = (mergeOid, prNumber) => ({
+      number: prNumber,
+      baseRefName: 'develop',
+      mergeCommit: { oid: mergeOid },
+    });
     let head = '';
     let index = failed;
     git.mockImplementation((command, args) => {
@@ -35,13 +40,13 @@ describe('post-merge ledger reads across HEAD movement without Git fixtures', ()
       return { status: 0, stdout, stderr: '' };
     });
 
-    expect(validatePostMergePrelude('/memory-only-ledger', 'HEAD', null, [ledger], base)).toBe(
-      false,
-    );
+    expect(
+      validatePostMergePrelude('/memory-only-ledger', 'HEAD', null, [ledger], base, readPull),
+    ).toBe(false);
     head = failed;
     index = failed + success;
-    expect(validatePostMergePrelude('/memory-only-ledger', 'HEAD', null, [ledger], base)).toBe(
-      true,
-    );
+    expect(
+      validatePostMergePrelude('/memory-only-ledger', 'HEAD', null, [ledger], base, readPull),
+    ).toBe(true);
   });
 });
