@@ -11,14 +11,18 @@ depends_on: []
 
 # PROC-2680: The develop merge method has no owner, and four consumers parse private subject grammars
 
+**Spec:** `.agents/spec-docs/draft/PROC-2680-the-develop-merge-method-has-no-owner-and-four-consumers-parse-private-subject-grammars.md`
+
+**Lane:** L1 — the implementation changes internal scripts; no L2 path or external product contract
+is changed. The merge hook and live ruleset remain unchanged.
+
 ## Objective
 
-Give the method that lands a pull request on `develop` one owner, and give every consumer that must
-answer "which pull request landed this commit" one shared reader instead of a private subject
-grammar: either declare and enforce one landing method for `develop` (the `protect-develop` ruleset's
-`allowed_merge_methods`, the rule text, and the merge-gate hint agreeing), or resolve the landing PR
-without parsing the subject at all (the pull request's `mergeCommit.oid`, or a receipt that carries
-it) — one of these, decided by its own recommendation gate.
+Give the method that lands a pull request on `develop` one owner, and give the delivery-critical
+closeout and promotion consumers one shared reader instead of a private subject grammar. Resolve the
+delivering PR without parsing the subject, using exact base plus the pull request's
+`mergeCommit.oid`; keep the distinct release-topology and workflow-authentication cause as a
+separate follow-up on issue #2680 whose Task is allocated when selected.
 
 ## Problem
 
@@ -41,6 +45,12 @@ delivered by PR #2805 as merge commit `79698d78d`, cannot pass the post-merge co
 door; roughly 27 of the last 60 `develop` landings are invisible to promotion-closes and reach the
 release notes unattributed to a pull request and outside its `(#N)` de-duplication.
 
+Independent proposal review established that the release consumer is not the same implementation
+unit: tagged releases traverse `main` promotion topology, not `develop` first-parent arrivals, and
+the two release workflows currently promise network-free generation. Issue #2680 retains that
+separate L2 workflow/topology follow-up; this item owns the shared selector and the consumers that
+immediately block #2664.
+
 ## Source Constraints
 
 - `main` keeps `allowed_merge_methods: ["merge"]` and the promotion-ancestry gate unchanged; this
@@ -49,36 +59,49 @@ release notes unattributed to a pull request and outside its `(#N)` de-duplicati
   usually registering work, not delivering it (`git-branch.md` "Work that reaches `develop` is
   resolved").
 - Historical `develop` landings of both shapes stay readable; no history rewrite.
-- Whichever direction the recommendation gate chooses, the four consumers end up reading one fact
-  from one owner, never four private grammars.
+- The closeout and promotion consumers read one fact from one owner, never private subject grammars.
+- The release-note parser is unchanged by this L1 item; issue #2680 retains the separate follow-up,
+  whose Task is allocated only when that work is selected and will depend on this shared selector.
 
 ## Plan
 
-- [ ] TC-01 — Measure and record the current mix of arrival shapes on `develop` (first-parent commits
-      since the 2026-09-11 baseline, squash vs two-parent) and enumerate every consumer that parses an arrival
-      subject, with the grammar each accepts.
-- [ ] TC-02 — Decide, through the recommendation gate, between one enforced method for `develop` and
-      one shared landing-PR reader; specify it in the paired spec, including how existing
-      merge-commit landings are read.
-- [ ] TC-03 — Implement the decision so the four named consumers agree, red-proofed against a fixture
-      holding one squash landing and one merge-commit landing of the same PR number.
-- [ ] TC-04 — Bring `git-branch.md`, the hook hints, and the `protect-develop` ruleset into agreement
-      with the decision, and record the receipt `PROC-2664` TC-04 depends on.
+- [ ] TC-01 — Add one exact base/OID commit-to-PR selector and bounded GitHub adapter, red-proofed for
+      squash, two-parent, missing, mismatched, unmerged, and ambiguous projections.
+- [ ] TC-02 — Replace the two post-merge subject checks with an authoritative GitHub read while
+      preserving the existing Task Result/comment shape, local commit-existence check, and
+      target-ancestry proof.
+- [ ] TC-03 — Make promotion-close derivation resolve every first-parent landing through the shared
+      selector before reading pull-request bodies in both `promote.mjs` and the required check.
+- [ ] TC-04 — Correct squash-only rule prose, document why the unrestricted develop ruleset and the
+      hook's permitted `--merge` hint require no mutation, and record the separate release cause on
+      issue #2680 without allocating its Task early.
+- [ ] TC-05 — Run the focused tests and affected scan, then record the PR #2805 receipt that
+      `MANIFEST-2664` closeout depends on.
 
 ## Test Plan
 
-Fixture repositories under `make-temp.mjs` with a base branch carrying one squash landing
-(`subject (#N)`) and one merge-commit landing (`Merge pull request #N from …`) of known PR numbers;
-assert each consumer's answer before and after the change. The ruleset half, if chosen, is verified
-by reading the live ruleset through `gh api` and recording the JSON, never by a merge attempt.
+Focused injected GitHub projections and temporary repositories carry one squash landing and one
+two-parent landing. Tests prove exact OID/base selection, authoritative closeout binding, retained
+ancestry checks, promotion body lookup, the `promote.mjs` loud fallback, and required-check failure;
+the affected scan supplies the integration regression proof.
+
+## Recommendation
+
+Use one shared landing-PR reader keyed by exact `mergeCommit.oid` and expected base. Do not enforce a
+single merge method on `develop`: that policy would not make historical mixed landings readable and
+would add an external ruleset mutation without removing any of this implementation. Three independent
+read-only reviews reached the same selector result. The revised design uses live authoritative reads
+for closeout, includes both promotion callers, and transfers release topology/authentication to a
+separate #2680 follow-up after independent review disproved one first-parent algorithm across
+`develop` and `main`.
 
 ## User Execution Test Scenarios
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
 **Reason:** This changes the repository's merge-landing contract, harness scripts under
-`scripts/harness/` and `scripts/release/`, a rule document, and a hook hint; no Robota CLI, TUI,
-browser, SDK, configuration, or installed-package surface an end user can execute is involved.
+`scripts/harness/`, and a rule document; no Robota CLI, TUI, browser, SDK, configuration, or
+installed-package surface an end user can execute is involved.
 
 ## Finding Evidence
 
