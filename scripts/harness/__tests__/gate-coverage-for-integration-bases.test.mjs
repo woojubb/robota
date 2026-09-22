@@ -30,8 +30,6 @@ const WORKFLOWS = path.join(ROOT, '.github/workflows');
 /** The four triggers INFRA-2804 widened, with the trigger key each one uses. */
 const WIDENED = [
   ['ci.yml', 'pull_request'],
-  ['gitleaks.yml', 'pull_request'],
-  ['dependency-review.yml', 'pull_request'],
   ['workflow-provenance-gate.yml', 'pull_request_target'],
   // Added after review: this one was excluded on a reason that does not hold. The recorded reason
   // was that its code-scanning half would compare against a base with no CodeQL analysis — but that
@@ -94,8 +92,6 @@ describe('INFRA-2804: the widened workflow triggers', () => {
   // so adding a workflow to WIDENED without adding it here is refused rather than skipped.
   const EXPECTED_TYPES = new Map([
     ['ci.yml', ['opened', 'synchronize', 'reopened', 'edited']],
-    ['gitleaks.yml', ['opened', 'synchronize']],
-    ['dependency-review.yml', ['opened', 'synchronize']],
     ['workflow-provenance-gate.yml', ['opened', 'synchronize', 'reopened', 'edited']],
     ['review-gate.yml', ['opened', 'synchronize', 'reopened', 'edited', 'labeled', 'unlabeled']],
   ]);

@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-182: restore green CI from the current develop baseline'
 issue: https://github.com/woojubb/robota/issues/2617
-status: in-progress
+status: superseded
 created: 2026-09-08
 priority: high
 urgency: now
@@ -13,6 +13,13 @@ depends_on: []
 ---
 
 # INFRA-182: restore green CI from the current develop baseline
+
+## Disposition
+
+**Superseded by issue #2826's current CI contract.** The cited baseline and its lifecycle scans are
+retired; dependency/security verification remains selected by dependency and policy inputs, while
+the stable required result is now the four-context aggregate contract. Historical remediation
+evidence is preserved below.
 
 ## Objective
 

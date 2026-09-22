@@ -88,11 +88,13 @@ export function vitestInvocation(
 /** Forward parent cancellation to every active async shard without leaking listeners. */
 export function createActiveShardChildRegistry(parentProcess = process) {
   const active = new Map();
+  let cancellationSignal = null;
   const forward = (signal) => {
+    cancellationSignal ??= signal;
     for (const [child, state] of active) {
-      state.cancellationSignal ??= signal;
+      state.cancellationSignal ??= cancellationSignal;
       try {
-        child.kill(signal);
+        child.kill(cancellationSignal);
       } catch {
         // A concurrent close may win; its non-success result remains authoritative.
       }
@@ -107,9 +109,18 @@ export function createActiveShardChildRegistry(parentProcess = process) {
   };
   return {
     register(child) {
-      const state = { cancellationSignal: null };
-      if (active.size === 0) attach();
+      const state = { cancellationSignal };
+      if (active.size === 0 && cancellationSignal === null) attach();
       active.set(child, state);
+      if (cancellationSignal !== null) {
+        queueMicrotask(() => {
+          try {
+            child.kill(cancellationSignal);
+          } catch {
+            // The child may have closed before the cancellation microtask ran.
+          }
+        });
+      }
       let released = false;
       return {
         get cancellationSignal() {
@@ -124,13 +135,19 @@ export function createActiveShardChildRegistry(parentProcess = process) {
       };
     },
     forward,
+    get cancellationSignal() {
+      return cancellationSignal;
+    },
+    get cancelled() {
+      return cancellationSignal !== null;
+    },
     get size() {
       return active.size;
     },
   };
 }
 
-const ACTIVE_SHARD_CHILDREN = createActiveShardChildRegistry();
+export const ACTIVE_SHARD_CHILDREN = createActiveShardChildRegistry();
 
 /** Async Vitest process used only by the four-way complete affected fallback. */
 export function vitestInvocationAsync(
@@ -143,6 +160,8 @@ export function vitestInvocationAsync(
     killGraceMs = DEFAULT_CONTRACT_SHARD_KILL_GRACE_MS,
     schedule = setTimeout,
     cancelSchedule = clearTimeout,
+    execution = undefined,
+    onOutput = undefined,
   } = {},
 ) {
   if (!validateVitestRoot(root)) return Promise.resolve(unavailableVitest());
@@ -152,14 +171,24 @@ export function vitestInvocationAsync(
   return new Promise((resolve) => {
     let child;
     try {
-      child = spawnChild(process.execPath, vitestArguments(root, files), {
+      child = spawnChild(process.execPath, vitestArguments(root, files, undefined, execution), {
         cwd: root,
         env: harnessTestEnvironment(process.env, suiteTempRoot),
         stdio: ['ignore', 'pipe', 'pipe'],
       });
     } catch (error) {
       rmSync(suiteTempRoot, { recursive: true, force: true });
-      resolve({ status: 1, stdout: '', stderr: '', signal: null, timedOut: false, error });
+      const stderr = `Vitest shard failed to start: ${error?.message ?? String(error)}\n`;
+      let outputForwarded = false;
+      if (typeof onOutput === 'function') {
+        try {
+          onOutput('stderr', stderr);
+          outputForwarded = true;
+        } catch {
+          // The buffered stderr remains available to the completion reporter.
+        }
+      }
+      resolve({ status: 1, stdout: '', stderr, signal: null, timedOut: false, error, outputForwarded });
       return;
     }
     const registration = childRegistry.register(child);
@@ -169,10 +198,30 @@ export function vitestInvocationAsync(
     let timedOut = false;
     let deadlineTimer;
     let killTimer;
+    let forwardingFailed = false;
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
-    const onStdout = (chunk) => (stdout += chunk);
-    const onStderr = (chunk) => (stderr += chunk);
+    const forwardOutput = (stream, chunk) => {
+      if (typeof onOutput !== 'function') return;
+      try {
+        onOutput(stream, chunk);
+      } catch (error) {
+        forwardingFailed = true;
+        stderr += `\ncontract output forwarding failed: ${error?.message ?? String(error)}\n`;
+      }
+    };
+    const appendStderr = (message) => {
+      stderr += message;
+      forwardOutput('stderr', message);
+    };
+    const onStdout = (chunk) => {
+      stdout += chunk;
+      forwardOutput('stdout', chunk);
+    };
+    const onStderr = (chunk) => {
+      stderr += chunk;
+      forwardOutput('stderr', chunk);
+    };
     child.stdout.on('data', onStdout);
     child.stderr.on('data', onStderr);
     const finish = (result) => {
@@ -196,11 +245,15 @@ export function vitestInvocationAsync(
         signal,
         timedOut,
         termination: timedOut ? 'timeout' : signal ? 'signal' : 'exit',
+        outputForwarded: typeof onOutput === 'function' && !forwardingFailed,
       });
     };
-    const onError = (error) => finish({ status: 1, error });
+    const onError = (error) => {
+      appendStderr(`Vitest shard process error: ${error?.message ?? String(error)}\n`);
+      finish({ status: 1, error });
+    };
     const onClose = (code, signal) => {
-      if (signal) stderr += `\nVitest shard terminated by signal ${signal}.\n`;
+      if (signal) appendStderr(`\nVitest shard terminated by signal ${signal}.\n`);
       finish({ status: code ?? 1, signal });
     };
     child.once('error', onError);
@@ -208,7 +261,7 @@ export function vitestInvocationAsync(
     deadlineTimer = schedule(() => {
       if (settled) return;
       timedOut = true;
-      stderr += `\nVitest shard exceeded process deadline (${timeoutMs}ms); sending SIGTERM.\n`;
+      appendStderr(`\nVitest shard exceeded process deadline (${timeoutMs}ms); sending SIGTERM.\n`);
       try {
         child.kill('SIGTERM');
       } catch {
@@ -217,7 +270,7 @@ export function vitestInvocationAsync(
       if (settled) return;
       killTimer = schedule(() => {
         if (settled) return;
-        stderr += `Vitest shard ignored SIGTERM for ${killGraceMs}ms; sending SIGKILL.\n`;
+        appendStderr(`Vitest shard ignored SIGTERM for ${killGraceMs}ms; sending SIGKILL.\n`);
         try {
           child.kill('SIGKILL');
         } catch {

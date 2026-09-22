@@ -52,13 +52,12 @@ function githubPathMatches(pattern, candidate) {
 }
 
 describe('CodeQL runs post-merge without extending the required PR path', () => {
-  it('keeps the former PR analyzer mechanically disabled and the policy gate stable', () => {
+  it('removes the former PR analyzer instead of retaining a disabled compatibility job', () => {
     const live = executableLines(REVIEW_GATE);
-    expect(live).toMatch(/^  analyze:\n/m);
-    expect(live).toContain('uses: github/codeql-action/analyze@v4');
-    expect(live).toContain('if: ${{ false }}');
-    expect(live).toMatch(/^    needs: \[classify, analyze\]$/m);
-    expect(live).toMatch(/^  review-gate:\n/m);
+    expect(live).not.toMatch(/^  analyze:\n/m);
+    expect(live).not.toContain('github/codeql-action');
+    expect(live).not.toContain('if: ${{ false }}');
+    expect(live).toMatch(/^  review-policy:\n/m);
     expect(REVIEW_GATE).not.toContain('queries: security-and-quality');
     expect(CODEQL).toContain('queries: security-and-quality');
   });
@@ -115,9 +114,15 @@ describe('scans-full only auto-runs for verification ownership changes', () => {
   });
 });
 
-describe('required scans has a bounded process envelope', () => {
-  it('times out the aggregate instead of waiting forever for a hung child', () => {
-    const scans = CI.slice(CI.indexOf('\n  scans:\n'), CI.indexOf('\n  dependency-audit:\n'));
-    expect(scans).toContain('timeout-minutes: 10');
+describe('pull-request harness children have bounded process envelopes', () => {
+  it('times out each independently retriable harness responsibility', () => {
+    for (const job of ['repo-checks', 'harness-contracts', 'harness-hermetic']) {
+      const start = CI.indexOf(`\n  ${job}:\n`);
+      const tail = CI.slice(start + 1);
+      const next = tail.search(/\n  [a-zA-Z0-9_-]+:\n/u);
+      const block = next < 0 ? tail : tail.slice(0, next);
+      expect(start, job).toBeGreaterThanOrEqual(0);
+      expect(block, job).toContain('timeout-minutes: 10');
+    }
   });
 });

@@ -61,11 +61,19 @@ beforeAll(() => {
       '  exit 0',
       'fi',
       'if [[ "$*" == *"headRefOid"* ]]; then',
-      '  printf \'%s\\n\' "$STUB_REMOTE_HEAD"',
+      '  printf \'%s\\t%s\\n\' "$STUB_REMOTE_HEAD" "$STUB_PR_AUTHOR"',
+      '  exit 0',
+      'fi',
+      'if [[ "$*" == *"mergeStateStatus"* ]]; then',
+      '  printf \'%s\\n\' "$STUB_MERGE_STATE"',
       '  exit 0',
       'fi',
       'if [[ "$*" == *"repo view"* ]]; then',
       "  printf '%s\\n' 'owner'",
+      '  exit 0',
+      'fi',
+      'if [[ "$*" == *"pulls/"*"/reviews"* ]]; then',
+      '  cat "$STUB_REVIEWS_PAYLOAD"',
       '  exit 0',
       'fi',
       'if [[ "$*" == *"comments"* ]]; then',
@@ -117,40 +125,38 @@ function stubGh({
   fixtureDir,
   prNumber,
   findings,
-  author = 'github-actions[bot]',
+  author = 'reviewer',
+  reviewState = 'COMMENTED',
+  reviewAssociation = author === 'some-contributor' ? 'CONTRIBUTOR' : 'MEMBER',
   failingChecks = 0,
   approved = false,
   approvalAuthor = 'woojubb',
   approvalAssociation = 'OWNER',
   approvedBy = approvalAuthor,
+  approvalGround = 'finding',
+  mergeStateStatus = 'CLEAN',
   remoteHead = 'a'.repeat(40),
   ghFailure = false,
 }) {
-  // The payload real `gh` would have fetched, in the shape the hook's `--json comments,reviews` asks
-  // for. The stub does NOT pre-compute an answer from it: it runs the hook's OWN `--jq` expression
-  // over this with real jq, so the filter, the marker pattern and the `sort_by(.at)` ordering are all
-  // exercised as written in the hook.
-  //
-  // The earlier stub echoed a body it had decided in JS, which left the jq string untested — and a
-  // malformed jq is swallowed by the hook's `2>/dev/null`, yielding an empty count that reads as
-  // unknown and lets the push through. That is fail-open on exactly the scenario this gate exists to
-  // block, and the tests would have stayed green through it.
+  const reviews =
+    findings === null
+      ? []
+      : [
+          {
+            id: 100,
+            user: { login: author },
+            body:
+              reviewState === 'COMMENTED'
+                ? `INDEPENDENT_REVIEW\nREVIEWER: agent:/root/reviewer\nREVIEWED HEAD: ${remoteHead}\nACTIONABLE FINDINGS: ${findings}`
+                : '',
+            state: reviewState,
+            commit_id: remoteHead,
+            submitted_at: '2020-01-02T00:00:00Z',
+            author_association: reviewAssociation,
+          },
+        ];
   const payload = {
-    comments:
-      findings === null
-        ? []
-        : [
-            {
-              author: { login: 'someone-else' },
-              body: 'unrelated chatter',
-              createdAt: '2020-01-01T00:00:00Z',
-            },
-            {
-              author: { login: author },
-              body: `REVIEWED HEAD: ${remoteHead}\nACTIONABLE FINDINGS: ${findings}`,
-              createdAt: '2020-01-02T00:00:00Z',
-            },
-          ],
+    comments: [],
     reviews: [],
   };
   if (approved) {
@@ -161,17 +167,22 @@ function stubGh({
       url: `https://github.com/example/repo/pull/${prNumber}#issuecomment-9001`,
       author: { login: approvalAuthor },
       authorAssociation: approvalAssociation,
-      body: `POST_FINDINGS_ACTION_REQUEST\nPR: ${prNumber}\nHEAD: ${remoteHead}\nVERDICT: ${findings}\nACTION: push\nGROUND: finding\nEVIDENCE: https://github.com/example/evidence\nSCOPE: test fixture\nAPPROVED: yes\nAPPROVED-BY: @${approvedBy}`,
+      body: `POST_FINDINGS_ACTION_REQUEST\nPR: ${prNumber}\nHEAD: ${remoteHead}\nVERDICT: ${findings}\nACTION: push\nGROUND: ${approvalGround}\nEVIDENCE: https://github.com/example/evidence\nSCOPE: test fixture\nAPPROVED: yes\nAPPROVED-BY: @${approvedBy}`,
       createdAt: '2020-01-03T00:00:00Z',
     });
   }
   const payloadPath = path.join(fixtureDir, '.git', 'stub-gh-payload.json');
+  const reviewsPath = path.join(fixtureDir, '.git', 'stub-gh-reviews.json');
   writeFileSync(payloadPath, JSON.stringify(payload));
+  writeFileSync(reviewsPath, JSON.stringify([reviews]));
   return {
     STUB_FAILING_CHECKS: String(failingChecks),
     STUB_GH_PAYLOAD: payloadPath,
+    STUB_REVIEWS_PAYLOAD: reviewsPath,
     STUB_PR_NUMBER: String(prNumber),
     STUB_REMOTE_HEAD: remoteHead,
+    STUB_PR_AUTHOR: 'pr-author',
+    STUB_MERGE_STATE: mergeStateStatus,
     STUB_GH_FAIL: ghFailure ? '1' : '0',
   };
 }
@@ -180,12 +191,16 @@ function push({
   findings,
   prNumber = 4242,
   author,
+  reviewState,
+  reviewAssociation,
   prefix = '',
   failingChecks = 0,
   approved = false,
   approvalAuthor,
   approvalAssociation,
   approvedBy,
+  approvalGround,
+  mergeStateStatus,
   remoteHead,
   ghFailure,
 }) {
@@ -195,11 +210,15 @@ function push({
     prNumber,
     findings,
     author,
+    reviewState,
+    reviewAssociation,
     failingChecks,
     approved,
     approvalAuthor,
     approvalAssociation,
     approvedBy,
+    approvalGround,
+    mergeStateStatus,
     remoteHead,
     ghFailure,
   });
@@ -232,18 +251,30 @@ describe('pre-push open-PR freeze — RED direction', () => {
   it('refuses a push when the open PR’s latest review reports zero findings', () => {
     const res = push({ findings: 0 });
     expect(res.status).toBe(2);
-    expect(res.output).toMatch(/ACTIONABLE FINDINGS verdict \(0\)/);
+    expect(res.output).toMatch(/ACTIONABLE FINDINGS verdict 0/);
     // What the guard OBSERVED, not a diagnosis it never established (issue #2338): the wording used
     // to assert "new work on a merge-ready PR", which was false in every measured instance.
     expect(res.output).toMatch(/POST_FINDINGS_ACTION_REQUEST/);
     expect(res.output).not.toMatch(/already merge-ready/);
   });
 
+  it('freezes on a trusted independent APPROVED review through the same projection', () => {
+    const res = push({ findings: 0, reviewState: 'APPROVED' });
+    expect(res.status).toBe(2);
+    expect(res.output).toMatch(/canonical approval review/);
+  });
+
+  it('freezes on an active trusted change request through the same projection', () => {
+    const res = push({ findings: 0, reviewState: 'CHANGES_REQUESTED' });
+    expect(res.status).toBe(2);
+    expect(res.output).toMatch(/canonical changes-requested review/);
+  });
+
   it('names the recovery, not only the refusal', () => {
     const res = push({ findings: 0 });
     // It must name ALL THREE grounds, and say which two it read — a refusal that lists only the
     // remedy it can see trains the author to override for the one it cannot (issue #2338).
-    expect(res.output).toMatch(/GROUND finding\|red-check\|rebase/);
+    expect(res.output).toMatch(/GROUND finding\|red-check\|conflict/);
     // The hatch is this rule's own. It used to be PRE_PUSH_ALLOW_UNREVIEWED, and that was the
     // defect: one switch disarmed two unrelated rules while its message claimed only the first.
     expect(res.output).toMatch(/Local review records and override tokens/);
@@ -300,6 +331,28 @@ describe('pre-push open-PR freeze — GREEN direction', () => {
     const res = push({ findings: 2, approved: true, remoteHead: 'a'.repeat(40) });
     expect(res.status).toBe(0);
     expect(res.output).toMatch(/Approved post-verdict change request/);
+  });
+
+  it('allows conflict resolution only while GitHub reports an actual conflict', () => {
+    const res = push({
+      findings: 0,
+      approved: true,
+      approvalGround: 'conflict',
+      mergeStateStatus: 'DIRTY',
+    });
+    expect(res.status).toBe(0);
+    expect(res.output).toMatch(/Approved post-verdict change request/);
+  });
+
+  it('rejects conflict ground when the target advance is conflict-free', () => {
+    const res = push({
+      findings: 0,
+      approved: true,
+      approvalGround: 'conflict',
+      mergeStateStatus: 'CLEAN',
+    });
+    expect(res.status).toBe(2);
+    expect(res.output).toMatch(/requires GitHub mergeStateStatus DIRTY/);
   });
 
   it('rejects an approval whose APPROVED-BY does not match the actual author', () => {

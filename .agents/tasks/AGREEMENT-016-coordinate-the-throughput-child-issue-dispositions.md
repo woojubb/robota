@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-016: coordinate the throughput child-Issue dispositions'
 issue: https://github.com/woojubb/robota/issues/2512
-status: in-progress
+status: superseded
 created: 2026-09-03
 priority: high
 urgency: soon
@@ -11,6 +11,12 @@ children: [INFRA-154]
 ---
 
 # AGREEMENT-016: coordinate the throughput child-Issue dispositions
+
+## Disposition
+
+**Superseded by GitHub issue #2826.** The separate parent/child migration ceremony is retired. Its only
+implementation child, INFRA-154, is delivered directly by issue #2826's input-valid reuse, bounded
+parallel execution, and independently retriable CI responsibilities.
 
 ## Objective
 

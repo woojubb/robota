@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-176: a computed refusal reason is discarded, so a pending planning unit reads as no checkpoint at all'
 issue: https://github.com/woojubb/robota/issues/2597
-status: todo
+status: superseded
 created: 2026-09-06
 priority: high
 urgency: now
@@ -11,6 +11,11 @@ depends_on: []
 ---
 
 # INFRA-176: a computed refusal reason is discarded, so a pending planning unit reads as no checkpoint at all
+
+## Disposition
+
+**Superseded by issue #2826.** The mandatory plan-order checkpoint scanner and its refusal path were
+deleted. No compatibility diagnostic is retained for a planning ceremony that no longer executes.
 
 ## Objective
 

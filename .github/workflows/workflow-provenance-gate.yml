@@ -21,19 +21,17 @@ name: Workflow Provenance Gate
 #   - installs nothing; the scan it runs imports only Node builtins and files from the base
 #   - holds `contents: read` and nothing else
 #
-# That is also why the required checks themselves cannot simply move here: `build`, `quality`,
-# `scans` and the rest exist to compile and execute the PR's code, which is exactly what a trusted
-# plane must not do. The split is not a convenience — it is the only shape in which both halves can
-# be true at once.
+# That is also why executable verification cannot move here: `pr-validation` aggregates children
+# that compile and execute the PR's code, which is exactly what a trusted plane must not do. The
+# split is the shape in which provenance and execution remain independently trustworthy.
 #
 # WHAT IT DECIDES. One question, and only one it can answer without running anything: does this pull
 # request modify a file that a required check loads? If it does, the change can move its own gate,
 # and this context fails. That makes a self-edit impossible to merge rather than merely visible.
 #
-# NOT YET REQUIRED. Making this context required is a live-ruleset change and therefore the owner's,
-# and `.github/required-status-checks.json` is compared against the live ruleset by `ruleset-drift`
-# — so registering it here before the flip would make that registry state something untrue. The same
-# held-membership shape `regression-red-proof` uses, and for the same reason.
+# REQUIRED on protected pull requests. `.github/required-status-checks.json` declares the context,
+# and the live ruleset is reconciled separately so this trusted base-side decision cannot be replaced
+# by a pull request's own workflow edit.
 
 # INFRA-2804 widened this to `integration/**`. The absolute claim below holds differently there, and
 # the difference is worth stating rather than leaving for a reader to discover: an integration branch
@@ -45,12 +43,10 @@ name: Workflow Provenance Gate
 # out, nothing installed, `contents: read` — hold so long as that self-guard holds, not regardless of
 # it: on an integration base the text that runs is the integration branch's copy of this file.
 #
-# One carrier the self-guard does NOT cover, stated so nobody reads more into this than it says:
-# `scan-workflow-provenance.mjs` filters changed files against the WORKFLOW list, and
-# `.github/required-status-checks.json` — the registry that defines which workflows are guarded — is
-# not in it; it is only required to exist. A child deleting the `workflow provenance` entry from that
-# registry on an integration base shrinks the guarded set for the next child and is not refused here.
-# Pre-existing rather than introduced: before INFRA-2804 nothing ran on an integration base at all.
+# The self-guard also covers its carrier, `.github/required-status-checks.json`. A change to that
+# registry goes red before it can shrink the guarded workflow set for the next pull request. A
+# legitimate registry edit therefore uses the same explicit owner-authorized control-plane landing
+# record as a guarded workflow edit and includes a comparison with the live ruleset.
 #
 # That the guarantee now rests on a local hook plus a self-guard rather than on protection is the
 # same cause as HARNESS-2804 (issue #2804).
@@ -115,7 +111,7 @@ jobs:
           # working tree stays on the base for the whole job.
           git fetch --no-tags origin "pull/${PR_NUMBER}/head"
 
-          # No install. The scan imports Node builtins and two files from the base checkout, so
-          # there is no dependency resolution step for a PR-supplied manifest to influence.
+          # No install. The scan and its literal local import closure come from the base checkout,
+          # so there is no dependency resolution step for a PR-supplied manifest to influence.
           node scripts/harness/scan-workflow-provenance.mjs \
             --base-ref "${BASE_SHA}" --head-ref FETCH_HEAD

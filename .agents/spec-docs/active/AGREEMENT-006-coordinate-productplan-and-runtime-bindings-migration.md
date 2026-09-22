@@ -147,7 +147,7 @@ None
 | Criterion | Test Type         | Tool/Approach                                                      | Expected Evidence                                             |
 | --------- | ----------------- | ------------------------------------------------------------------ | ------------------------------------------------------------- |
 | TC-01     | Manifest/live     | JSON assertions plus authenticated GitHub read-back                | Exact four candidates; all held; no mutation authority        |
-| TC-02     | Lifecycle         | Task placement, AGREEMENT projection, and plan-order scans         | Exact paths, IDs, statuses, and dependency order              |
+| TC-02     | Lifecycle         | Direct Task placement and AGREEMENT projection review              | Exact paths, IDs, statuses, and dependency order              |
 | TC-03     | Live ownership    | Read linked issues 2044, 2443, and 2048 plus cited Task records    | Live prerequisites and historical evidence remain distinct    |
 | TC-04     | Gate/architecture | ARCH-116 Task text plus future recommendation and placement review | No inherited placement or policy approval                     |
 | TC-05     | Live migration    | Frozen apply, immediate read-back, and hierarchy audit             | Four exact `NOT_PLANNED` results with preserved history/edges |

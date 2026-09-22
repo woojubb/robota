@@ -8,7 +8,6 @@ import {
   judgeExamined,
   judgeExaminedAdoption,
   parseSkips,
-  runReusedScanReceipt,
   runScans,
   writeAdoptionBaseline,
   ensureExaminedDeclaration,
@@ -38,6 +37,14 @@ function diagnosticResult(overrides = {}) {
 }
 
 describe('run-all-scans', () => {
+  it('caches only audited tree-contained scans and never an always-run scan', () => {
+    const cacheable = SCAN_COMMANDS.filter((scan) => scan.cacheable).map((scan) => scan.name);
+    expect(cacheable.length).toBeGreaterThan(0);
+    expect(SCAN_COMMANDS.filter((scan) => scan.always && scan.cacheable)).toEqual([]);
+    expect(SCAN_COMMANDS.map((scan) => scan.name)).not.toContain('promotion-ancestry');
+    expect(cacheable).not.toContain('document-authority');
+  });
+
   it('runs every scan even when an early one fails and exits 1', async () => {
     const ran = [];
     const scans = ['a', 'b', 'c'].map((name, index) => ({
@@ -97,6 +104,56 @@ describe('run-all-scans', () => {
     expect(out).toContain('1 of 2 scans failed');
   });
 
+  it('publishes a completed failure without waiting for an independent slow scan', async () => {
+    let releaseSlow;
+    const slow = new Promise((resolve) => {
+      releaseSlow = () => resolve({ code: 0, output: '' });
+    });
+    const lines = [];
+    const run = runScans(
+      [
+        {
+          name: 'fast-failure',
+          command: ['node', 'scripts/harness/fail fixture.mjs', '--flag'],
+          run: () => Promise.resolve({ code: 1, output: 'fast diagnostic\n' }),
+        },
+        { name: 'slow-independent', run: () => slow },
+      ],
+      (line) => lines.push(line),
+      2,
+    );
+
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(lines.join('\n')).toContain('fast diagnostic');
+    expect(lines.join('\n')).toContain(
+      "[harness-scan] reproduce: node 'scripts/harness/fail fixture.mjs' --flag",
+    );
+    releaseSlow();
+    await expect(run).resolves.toBe(1);
+  });
+
+  it('publishes an empty-output failure and its reproduction without waiting', async () => {
+    let releaseSlow;
+    const slow = new Promise((resolve) => {
+      releaseSlow = () => resolve({ code: 0, output: '' });
+    });
+    const lines = [];
+    const run = runScans(
+      [
+        { name: 'silent-failure', command: ['node', 'silent.mjs'], run: () => Promise.resolve(2) },
+        { name: 'slow-independent', run: () => slow },
+      ],
+      (line) => lines.push(line),
+      2,
+    );
+
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(lines.join('\n')).toContain('silent-failure (FAILED)');
+    expect(lines.join('\n')).toContain('[harness-scan] reproduce: node silent.mjs');
+    releaseSlow();
+    await expect(run).resolves.toBe(1);
+  });
+
   it('exits 0 and reports all-pass when every scan succeeds', async () => {
     const lines = [];
     const exitCode = await runScans([stubScan('x', 0), stubScan('y', 0)], (line) =>
@@ -118,22 +175,37 @@ describe('run-all-scans', () => {
     expect(lines.join('\n')).toContain('2 of 3 scans failed');
   });
 
-  it('converts a rejected scan to a visible unavailable result in the opt-in diagnostic seam', async () => {
+  it('fails and publishes a rejected scan without waiting for an independent slow scan', async () => {
+    let releaseSlow;
+    const slow = new Promise((resolve) => {
+      releaseSlow = () => resolve({ code: 0, output: '' });
+    });
     const lines = [];
-    const exitCode = await runScans(
-      [{ name: 'rejected', run: () => Promise.reject(new Error('fixture timed out')) }],
+    const run = runScans(
+      [
+        {
+          name: 'rejected',
+          command: ['node', 'rejected.mjs'],
+          run: () => Promise.reject(new Error('fixture timed out')),
+        },
+        { name: 'slow-independent', run: () => slow },
+      ],
       (line) => lines.push(line),
-      1,
+      2,
       { diagnosticResults: [] },
     );
 
-    expect(exitCode).toBe(0);
+    await new Promise((resolve) => setImmediate(resolve));
     const output = lines.join('\n');
-    expect(output).toContain('harness.scan-unavailable.scan-c36-c2t-c2y-c2t-c2r-c38-c2t-c2s');
+    expect(output).toContain('rejected (UNAVAILABLE — failed)');
+    expect(output).toContain('[harness-scan] reproduce: node rejected.mjs');
     expect(output).toContain('fixture timed out');
-    expect(output).toContain('⚠ rejected (unavailable)');
-    expect(output).toContain('0 scans passed, 1 unavailable');
-    expect(output).not.toContain('✓ rejected');
+    releaseSlow();
+    expect(await run).toBe(1);
+    const finalOutput = lines.join('\n');
+    expect(finalOutput).toContain('harness.scan-unavailable.scan-c36-c2t-c2y-c2t-c2r-c38-c2t-c2s');
+    expect(finalOutput).toContain('⚠ rejected (unavailable)');
+    expect(finalOutput).not.toContain('✓ rejected');
   });
 
   it('converts a malformed resolved scan outcome to an unavailable diagnostic', async () => {
@@ -145,7 +217,7 @@ describe('run-all-scans', () => {
       { diagnosticResults: [] },
     );
 
-    expect(exitCode).toBe(0);
+    expect(exitCode).toBe(1);
     expect(lines.join('\n')).toContain(
       'harness.scan-unavailable.scan-c31-c2p-c30-c2u-c33-c36-c31-c2t-c2s',
     );
@@ -161,7 +233,7 @@ describe('run-all-scans', () => {
       { diagnosticResults: [] },
     );
 
-    expect(exitCode).toBe(0);
+    expect(exitCode).toBe(1);
     expect(lines.join('\n')).toContain('harness.scan-unavailable.');
     expect(lines.join('\n')).toContain('returned a non-integer exit code');
   });
@@ -275,7 +347,7 @@ describe('run-all-scans', () => {
       { checkAdoption: true, diagnosticResults: [] },
     );
 
-    expect(exitCode).toBe(0);
+    expect(exitCode).toBe(1);
     expect(lines.join('\n')).not.toContain('FELL:');
   });
 
@@ -287,99 +359,6 @@ describe('run-all-scans', () => {
 
     expect(exitCode).toBe(0);
     expect(lines.join('\n')).toContain('1 scans passed, 1 non-clean diagnostic result(s) reported');
-  });
-
-  it('replays a cached finding and re-runs only that covered scan plus tree-external work', async () => {
-    const lines = [];
-    const calls = [];
-    const cachedReport = createDiagnosticReport([
-      diagnosticResult({
-        id: 'harness.fixture.cached-finding',
-        subject: { kind: 'scan', value: 'covered' },
-        examined: [{ kind: 'scan', value: 'covered' }],
-      }),
-    ]);
-    const scans = [stubScan('covered', 0), stubScan('clean-covered', 0), stubScan('dist', 0)];
-
-    const replay = await runReusedScanReceipt({
-      scans,
-      reuse: {
-        reuse: true,
-        diagnosticReport: cachedReport,
-        recheckCoveredScans: ['covered'],
-      },
-      write: (line) => lines.push(line),
-      runScansImpl: async (selected, _write, _concurrency, options) => {
-        calls.push({ names: selected.map((scan) => scan.name), options });
-        return 0;
-      },
-    });
-
-    expect(lines.join('\n')).toContain('harness.fixture.cached-finding');
-    expect(calls).toEqual([
-      {
-        names: ['covered', 'dist'],
-        options: expect.objectContaining({ checkAdoption: false, diagnosticResults: [] }),
-      },
-    ]);
-    expect(replay).toEqual({ exitCode: 0, rerunNames: ['covered', 'dist'], completeSuite: false });
-  });
-
-  it('replays a cached unavailable result and re-runs only its covered scan plus tree-external work', async () => {
-    const lines = [];
-    const calls = [];
-    const cachedReport = createDiagnosticReport([
-      diagnosticResult({
-        id: 'harness.fixture.cached-unavailable',
-        state: 'unavailable',
-        subject: { kind: 'scan', value: 'covered' },
-        examined: [{ kind: 'scan', value: 'covered' }],
-        unavailable: {
-          code: 'fixture-unavailable',
-          detail: 'the cached detector dependency was unavailable',
-        },
-      }),
-    ]);
-    const scans = [stubScan('covered', 0), stubScan('clean-covered', 0), stubScan('dist', 0)];
-
-    const replay = await runReusedScanReceipt({
-      scans,
-      reuse: {
-        reuse: true,
-        diagnosticReport: cachedReport,
-        recheckCoveredScans: ['covered'],
-      },
-      write: (line) => lines.push(line),
-      runScansImpl: async (selected, _write, _concurrency, options) => {
-        calls.push({ names: selected.map((scan) => scan.name), options });
-        return 0;
-      },
-    });
-
-    expect(lines.join('\n')).toContain('harness.fixture.cached-unavailable');
-    expect(calls).toEqual([
-      {
-        names: ['covered', 'dist'],
-        options: expect.objectContaining({ checkAdoption: false, diagnosticResults: [] }),
-      },
-    ]);
-    expect(replay).toEqual({ exitCode: 0, rerunNames: ['covered', 'dist'], completeSuite: false });
-  });
-
-  it('keeps clean covered scans skipped while retaining the tree-external rerun', async () => {
-    const calls = [];
-    const replay = await runReusedScanReceipt({
-      scans: [stubScan('covered', 0), stubScan('dist', 0)],
-      reuse: { reuse: true, diagnosticReport: null, recheckCoveredScans: [] },
-      write: () => {},
-      runScansImpl: async (selected) => {
-        calls.push(selected.map((scan) => scan.name));
-        return 0;
-      },
-    });
-
-    expect(calls).toEqual([['dist']]);
-    expect(replay).toEqual({ exitCode: 0, rerunNames: ['dist'], completeSuite: false });
   });
 
   it('reports writer failure even when the first summary write cannot be published', async () => {
@@ -811,10 +790,9 @@ describe('the registry holds what has been registered', () => {
     expect(names.length).toBe(new Set(names).size);
   });
 
-  it('holds the floors added for INFRA-126 and INFRA-127', () => {
+  it('holds the live floors added for INFRA-126', () => {
     expect(names).toContain('temp-dir-owner');
     expect(names).toContain('rule-table-shape');
-    expect(names).toContain('task-frontmatter-fields');
   });
 
   it('points each registration at a command, so a name cannot be registered with nothing behind it', () => {

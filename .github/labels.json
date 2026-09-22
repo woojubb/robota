@@ -187,17 +187,6 @@
       "consumers": ["GitHub filters"]
     },
     {
-      "name": "review-findings-acknowledged",
-      "color": "b60205",
-      "description": "review-gate override: findings read and consciously accepted. Say why in a PR comment.",
-      "category": "pr-protocol",
-      "appliesTo": ["pull_request"],
-      "lifecycle": "system",
-      "protected": true,
-      "producers": ["human review disposition"],
-      "consumers": ["scripts/harness/check-review-gate.mjs"]
-    },
-    {
       "name": "silent-defect",
       "color": "d73a4a",
       "description": "Does not announce its own absence — bypass, silent pass, unfalsifiable check",

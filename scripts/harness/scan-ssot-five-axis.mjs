@@ -7,10 +7,6 @@ import path from 'node:path';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
 const ROOT = resolveWorkspaceRoot(import.meta);
-export const scanDefinition = {
-  name: 'ssot-five-axis',
-  examines: ['packages', 'scripts/harness/scan-ssot-five-axis.mjs'],
-};
 
 function setDifference(left, right) {
   const other = new Set(right);

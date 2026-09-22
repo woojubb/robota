@@ -18,7 +18,7 @@
  * `resolving-claims` checks markdown LINKS. The instances that keep landing are bare names inside
  * prose and inside source comments: a test file named in a docstring, a scan named in a rule, a hook
  * named in a task. No link, so nothing looked. Measured: a module comment named
- * `mirrors-the-ci-scans-job` while the file was `pre-push-mirrors-ci-scans.test.mjs`, and it was a
+ * a historical test nickname while its file had a different name, and it was a
  * human who noticed.
  *
  * ## What counts as naming a file

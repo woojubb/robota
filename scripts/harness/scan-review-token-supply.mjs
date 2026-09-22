@@ -24,7 +24,8 @@
  * That deletion is only safe while the input stays. This scan is the anti-rot floor: every
  * workflow that invokes the action MUST supply a non-empty `github_token` in the step's `with:`
  * block. Drop the input and the silent-skip failure mode returns — with nothing left to detect it,
- * because the parity scan is gone. Hence this fails the required `scans` job instead.
+ * because the parity scan is gone. Hence a selected `repo-checks` failure flows into the required
+ * `pr-validation` decision.
  *
  * Exit code 0 = every governed step supplies `github_token`, 1 = at least one does not.
  */

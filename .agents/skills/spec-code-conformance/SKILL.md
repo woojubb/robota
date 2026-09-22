@@ -114,15 +114,15 @@ The test must fail before the fix and pass after.
 
 **Never modify the spec in this step.** If you believe the spec is wrong, flag it to the user but still fix the code to match the current spec. Spec corrections are a separate workflow.
 
-### Step 5: Build and test
+### Step 5: Test and typecheck
 
 ```bash
-pnpm --filter <affected-package> build
 pnpm --filter <affected-package> test
 pnpm --filter <affected-package> exec tsc -p tsconfig.json --noEmit
 ```
 
-All must pass. If not, fix and retry.
+Both must pass. Build locally only when the selected executable or contract check consumes generated
+output; otherwise PR CI owns the clean affected build. If a selected check fails, fix and retry.
 
 Then return to Step 2 for the repaired claims and affected consequences. Do not repeat unchanged
 comparisons or already-passing commands on identical inputs.
@@ -165,7 +165,7 @@ The verification is complete when ALL of the following are true:
 - [ ] Every spec assertion has a matching implementation
 - [ ] Every fix has a corresponding contract test
 - [ ] All contract tests pass
-- [ ] All affected packages build without errors
+- [ ] Required CI clean builds pass; any locally consumed package output builds without errors
 - [ ] All affected packages pass typecheck without errors
 - [ ] Full regression test suite passes for affected packages
 
@@ -183,17 +183,3 @@ The verification is complete when ALL of the following are true:
 - **Single-pass verification:** Reading the spec once and declaring "all good" without re-reading after fixes. Gaps cascade — always re-verify.
 - **Fixing code without a test:** Every code fix must have a corresponding contract test. A fix without a test will regress.
 - **Skipping regression:** Passing contract tests is necessary but not sufficient. Regression tests catch unintended side effects.
-
-## Record the run
-
-Open a ledger entry before the first round, record each round's finding count, and close it with the
-terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
-`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
-run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
-what each terminal reason means).
-
-```bash
-node scripts/harness/loop-run.mjs open  --loop spec-code-conformance
-node scripts/harness/loop-run.mjs round --loop spec-code-conformance --run <id> --findings <n>
-node scripts/harness/loop-run.mjs close --loop spec-code-conformance --run <id> --terminal <reason>
-```

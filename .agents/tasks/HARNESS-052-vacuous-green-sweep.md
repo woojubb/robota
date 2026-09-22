@@ -1,7 +1,7 @@
 ---
 id: HARNESS-052
 title: 'HARNESS-052: sweep for checks that report success over work they did not do'
-status: in-progress
+status: superseded
 priority: high
 urgency: soon
 type: INFRA
@@ -9,6 +9,13 @@ area: scripts/harness, .github/workflows, .claude/hooks, packages
 created: 2026-07-26
 depends_on: []
 ---
+
+## Current Disposition
+
+**Superseded by issue #2826.** The concrete false-green lessons that remain applicable are retained
+in their focused checks and the stable PR aggregates. The broad recurring sweep, its retired
+patch-coverage subject, and its old `scans`/`quality` job assumptions are not an active execution
+plan and require no compatibility library. Historical falsification evidence below remains intact.
 
 ## Problem
 

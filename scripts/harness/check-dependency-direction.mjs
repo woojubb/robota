@@ -12,7 +12,7 @@
  *    ARCH-PROVIDER-004 / Stage C): only sanctioned composition roots may STATICALLY import a
  *    guarded composition aggregator (see `checkEntryPointOnly`).
  * 9. Workspace-package-name guard (absorbed from the former check-architecture-conformance.mjs,
- *    INFRA-003/GATE-CONFORMANCE mechanical core): canonical architecture docs must reference
+ *    INFRA-003 architecture-conformance mechanical core): canonical architecture docs must reference
  *    only real workspace packages (see `checkWorkspacePackageNames`).
  * 10. Package purity (absorbed from the former check-sdk-react-free.mjs, HARNESS-016/ARL-16g):
  *    config-driven `purity` rules forbid a package from importing or declaring specific modules
@@ -20,7 +20,7 @@
  * 7, 11, 12. Family rules (dag-node leaf, FAMILY-SIBLINGS, UNDECLARED-IMPORT): `family-siblings.mjs`.
  *
  * `--conformance-json` additionally emits the machine-readable summary between
- * CONFORMANCE_JSON_BEGIN/END that the GATE-CONFORMANCE consumers parse — `pnpm
+ * CONFORMANCE_JSON_BEGIN/END for machine-readable consumers — `pnpm
  * harness:conformance` is an alias for this mode, preserving the former standalone
  * entrypoint's contract without the subprocess wrapper.
  *
@@ -388,7 +388,7 @@ export function checkEntryPointOnly(sourcePackages) {
 }
 
 /**
- * Rule 9 (INFRA-003 / GATE-CONFORMANCE mechanical core, absorbed from
+ * Rule 9 (INFRA-003 architecture-conformance mechanical core, absorbed from
  * check-architecture-conformance.mjs): canonical architecture documents (configured in
  * `architectureDocs.files`/`.dirs` + every `packages/<name>/docs/SPEC.md`) must reference only
  * REAL workspace packages. A `<internalPackagePrefix><token>` reference that is not a workspace
@@ -643,8 +643,8 @@ function runScan({ conformanceJson = false } = {}) {
   );
 
   if (conformanceJson) {
-    // GATE-CONFORMANCE machine-readable summary (contract kept from the absorbed
-    // check-architecture-conformance.mjs — consumed by the conformance skills/gates).
+    // Architecture-conformance machine-readable summary (contract kept from the absorbed
+    // check-architecture-conformance.mjs — consumed by the conformance skills).
     const summary = {
       dependencyDirection: dependencyViolationCount === 0 ? 'pass' : 'fail',
       packageNameViolations: packageNameViolations.length,

@@ -5,9 +5,14 @@ name: Secret Scan
 # (it stays in history and is indexed even if deleted), so this is a cheap gate against a severe, unrecoverable
 # failure. The repo routinely handles tokens (SEC-001 loopback tokens, provider API keys, deploy keys).
 on:
-  pull_request:
-    branches: [main, develop, integration/**]
-    types: [opened, synchronize]
+  workflow_call:
+    inputs:
+      base_ref:
+        required: true
+        type: string
+      head_ref:
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -26,18 +31,15 @@ env:
 # previous run to finish work whose answer is already stale, and it is billed in full.
 # Scoped to the pull request, so runs on different PRs never cancel each other.
 concurrency:
-  group: secret-scan-${{ github.event.pull_request.number }}
+  group: secret-scan-${{ github.event.pull_request.number || format('{0}-{1}', inputs.base_ref, inputs.head_ref) }}
   cancel-in-progress: true
 
 jobs:
   gitleaks:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest
-    # SCOPE, stated so the green is auditable: same-repo PRs only. A FORK PR is not scanned at all — the job
-    # is SKIPPED, not passed. That is tolerable only because this repo does not accept external code
-    # contributions during the active architecture phase (fork PRs are closed, not merged). If that policy
-    # changes, this condition is the first thing that must go.
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    # Read-only and safe for fork PRs: external contributions receive the same secret-detection floor
+    # as same-repository work. The checkout and downloaded scanner receive no write-capable token.
     steps:
       # INFRA-050: full history, and NO depth-limited fetch. A `--depth` fetch GRAFTS the whole
       # repository, and the scan range below (`origin/<base>..HEAD`) is a history walk: a truncated
@@ -46,6 +48,7 @@ jobs:
       # INFRA-049 measured that exact divergence (109 commits locally vs 97, a different set, in CI).
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.head_ref }}
           fetch-depth: 0
       - name: Install gitleaks
         run: |
@@ -60,7 +63,7 @@ jobs:
           "$RUNNER_TEMP/gitleaks" detect \
             --source . \
             --config .gitleaks.toml \
-            --log-opts "origin/${{ github.base_ref }}..HEAD" \
+            --log-opts "origin/${{ inputs.base_ref }}..HEAD" \
             --redact \
             --no-banner \
             --verbose

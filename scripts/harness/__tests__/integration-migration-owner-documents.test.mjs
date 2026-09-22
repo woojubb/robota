@@ -17,7 +17,6 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = path.resolve(import.meta.dirname, '../../..');
 const GIT_BRANCH = path.join(ROOT, '.agents/rules/git-branch.md');
-const BACKLOG_EXECUTION = path.join(ROOT, '.agents/rules/backlog-execution.md');
 const SKILL = path.join(ROOT, '.agents/skills/multi-backlog-initiative/SKILL.md');
 
 const PATCH_ID = /stable\s+patch[\s-]?ids?/gi;
@@ -67,25 +66,13 @@ describe('integration-migration owner documents (TC-04)', () => {
     expect(count(policy, CHANGED_PATH)).toBeGreaterThanOrEqual(1);
   });
 
-  it('backlog-execution.md § Base Branch Workflow and the skill step 1 carry a link to that section and no restatement', () => {
-    const workflow = section(readFileSync(BACKLOG_EXECUTION, 'utf8'), '## Base Branch Workflow');
-    expect(workflow).not.toBeNull();
-    expect(workflow).toMatch(
-      /\[`git-branch\.md` § Branch Policy\]\(git-branch\.md#branch-policy\)/,
-    );
-    expect(count(workflow, PATCH_ID)).toBe(0);
-    expect(count(workflow, CHANGED_PATH)).toBe(0);
-
+  it('the initiative skill links to the branch-policy owner without restating it', () => {
     const skill = readFileSync(SKILL, 'utf8');
-    const step = /\*\*1\. Establish the integration base branch[\s\S]*?(?=\n\| Outcome)/.exec(
-      skill,
-    )?.[0];
-    expect(step).toBeDefined();
-    expect(step).toMatch(
+    expect(skill).toMatch(
       /\[`git-branch\.md` § Branch Policy\]\(\.\.\/\.\.\/rules\/git-branch\.md#branch-policy\)/,
     );
-    expect(count(step, PATCH_ID)).toBe(0);
-    expect(count(step, CHANGED_PATH)).toBe(0);
+    expect(count(skill, PATCH_ID)).toBe(0);
+    expect(count(skill, CHANGED_PATH)).toBe(0);
   });
 
   it('no other file under .agents/rules or .agents/skills states the equality policy', () => {

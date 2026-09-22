@@ -129,6 +129,21 @@ describe('static half', () => {
     expect(findings[0].detail).toMatch(/no `action\.yml`/);
   });
 
+  it('GREEN: an existing local reusable workflow is verified as a file', () => {
+    const created = root({
+      'caller.yml': STEP('./.github/workflows/reusable.yml'),
+      'reusable.yml': 'name: reusable\non:\n  workflow_call:\n',
+    });
+    expect(findStaticFindings(readWorkflowSources(created), created)).toEqual([]);
+  });
+
+  it('RED: a missing local reusable workflow fails closed', () => {
+    const created = root({ 'caller.yml': STEP('./.github/workflows/missing.yml') });
+    expect(findStaticFindings(readWorkflowSources(created), created)[0].detail).toMatch(
+      /existing reusable workflow/,
+    );
+  });
+
   it('RED: a reference shape the guard cannot verify fails closed rather than passing', () => {
     const sources = readWorkflowSources(root({ 'a.yml': STEP('docker://alpine:3.20') }));
     expect(findStaticFindings(sources)[0].detail).toMatch(/cannot verify/);

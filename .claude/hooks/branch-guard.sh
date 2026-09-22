@@ -1163,7 +1163,7 @@ while read -r STMT_START STMT_LEN; do
     echo "[branch-guard] Blocked: '$SKIP_WHAT' disables the gate rather than satisfying it. Zero exceptions." >&2
     echo "[branch-guard] Four agents bypassed in one day; the gate was broken (HARNESS-058) and was fixed." >&2
     echo "[branch-guard] If a check is wrong, unrunnable, or fires on correct work, change the CHECK." >&2
-    echo "[branch-guard] A fresh worktree needs 'pnpm install --frozen-lockfile' and 'pnpm build' once." >&2
+    echo "[branch-guard] Prepare this checkout with 'pnpm install --frozen-lockfile'; build locally only when the selected reproducer or check consumes generated output." >&2
     exit 2
   fi
 

@@ -10,6 +10,12 @@ depends_on: ['INFRA-026']
 
 # env-gated 프로바이더 라이브 스모크 1콜 + 로컬/CI 검증 정렬
 
+## Issue #2826 disposition (2026-09-23)
+
+The deleted `verify-like-ci` route is no longer a dependency or closure condition. H14/H15 now own
+local responsibility checks and the required GitHub CI aggregates. This Task retains only the
+independent owner-secret provisioning and one observed live scheduled run described below.
+
 Re-audit P2-15 (GATE-005/006). 프로바이더·전송 경계 전부 mock — IPC usage·Anthropic 400·
 maxTokens 부류를 수동 라이브만 잡은 전력 3회. 로컬/CI 검증 범위 양방향 불일치. CI job 추가는
 사용자 사전 승인 완료(안건 2 포괄).
@@ -72,7 +78,7 @@ maxTokens 부류를 수동 라이브만 잡은 전력 3회. 로컬/CI 검증 범
 "harness:live-smoke": "node scripts/harness/live-provider-smoke.mjs"
 ```
 
-### What 2 — 로컬/CI 검증 비대칭 문서화: 별도 작업이 커버
+### What 2 — 로컬/CI 검증 비대칭: issue #2826에서 대체됨
 
-같은 웨이브의 `scripts/harness/verify-like-ci.mjs` 작업이 로컬/CI 정렬을 다룬다. 여기서 중복
-구현하지 않는다. 이 항목이 닫히려면 그 작업의 결과를 확인해야 한다.
+H14/H15의 책임별 로컬 검증과 required GitHub CI aggregate가 이 범위를 대체한다. 삭제된
+단일 CI 미러는 이 Task를 더 이상 막지 않는다.

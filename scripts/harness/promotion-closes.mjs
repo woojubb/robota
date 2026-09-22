@@ -57,29 +57,8 @@ import { readAssociatedPull as readAssociatedPullFromGitHub } from './landing-pu
  */
 const CLOSING_KEYWORD = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b/gi;
 
-/** Legacy parser retained for callers that inspect historical squash subjects. */
-const TRAILING_PULL_REFERENCE = /\(#(\d+)\)\s*$/;
-
 /** The heading the promotion pull-request body carries above the derived lines. */
 export const BLOCK_HEADING = '## Issues this promotion closes';
-
-/**
- * Pull-request numbers encoded in legacy squash subjects, in the order given.
- *
- * Only the TRAILING `(#N)` counts: a subject may mention an issue mid-sentence ("undo the change
- * from #1409"), and that is a cross-reference, not the pull request the commit came from.
- *
- * @param {string[]} subjects one commit subject per entry, newest first
- * @returns {number[]}
- */
-export function parsePullRequestNumbers(subjects) {
-  const numbers = [];
-  for (const subject of subjects) {
-    const match = TRAILING_PULL_REFERENCE.exec(String(subject));
-    if (match) numbers.push(Number(match[1]));
-  }
-  return numbers;
-}
 
 /** Resolve first-parent integration commits to the PRs that introduced them. */
 export function resolveLandingPullNumbers({ landingOids, baseRefName, readAssociatedPull }) {

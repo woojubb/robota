@@ -24,10 +24,10 @@ delete these comments.
 
 ## How it was verified
 
-<!-- Commands run and what you observed. For a bug/regression fix, confirm the new test FAILS without the fix (prove it red against the pre-fix state). The user-execution scenario result, or the not-applicable reason. -->
+<!-- Focused commands run against the affected behavior and what you observed. For a bug/regression fix, confirm the new test FAILS without the fix (prove it red against the pre-fix state). Record any applicable user-visible scenario. Do not claim broad root suites by habit: exact-head required CI is read directly from GitHub before merge. -->
 
-- [ ] `pnpm build` / `pnpm typecheck` / `pnpm lint` / `pnpm test` pass for the affected packages
-- [ ] `pnpm harness:scan` passes (repo gates)
+- [ ] Focused local tests pass; any local build required by a selected executable or check is recorded above
+- [ ] Exact-head required CI is the remote merge evidence and is not duplicated locally
 - [ ] Tests added/updated for the change (a bug fix's regression test is proven red-before-green)
 - [ ] Docs updated where relevant (package `docs/SPEC.md`, README, `content/`)
 - [ ] Targets `develop` (feature → develop → main; only `develop`/`release/*`/`hotfix/*` may target `main`)

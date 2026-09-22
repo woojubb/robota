@@ -86,7 +86,8 @@ framework effort mapping. Unsupported settings must be visible rather than silen
 - Capability-resolution table tests across provider/model fixtures.
 - Provider request-builder tests asserting native fields and absence when unsupported.
 - Contract tests for exact, clamped, default, and not-applied outcomes.
-- Affected package builds, `pnpm harness:scan`, and CI-equivalent verification before merge.
+- Affected package tests/builds/typechecks, `pnpm harness:scan`, and the required GitHub CI
+  aggregates on the exact PR head before merge.
 
 ## Implementation Checklist
 
@@ -108,8 +109,8 @@ framework effort mapping. Unsupported settings must be visible rather than silen
       retain GREEN receipts.
 - [ ] TC-13 — Update affected Core, framework, CLI, preset, remote, and provider specifications; run
       spec-code conformance.
-- [ ] TC-14 — Run targeted tests/builds/typechecks, harness scan, CI-equivalent verification, and exact
-      PR-head GitHub CI.
+- [ ] TC-14 — Run targeted tests/builds/typechecks, harness scan, and the required GitHub CI
+      aggregates on the exact PR head.
 
 ## User Execution Test Scenarios
 

@@ -33,7 +33,8 @@ point (`test(<pkg>): add characterization tests for <target> before refactor`).
 ### 3. Extract (one coherent batch)
 
 Extract related targets under the approved plan — pure moves, no behavior changes. Keep focused
-tests available while editing; run the affected build and tests on the coherent batch and commit
+tests available while editing; run focused tests on the coherent batch, building locally only when
+the selected executable or check reads generated output, and commit
 the batch together. Do not create per-module commits or checkpoints. P1 first; P2 needs its
 interface defined before the move. Follow [execution-cadence.md](../../rules/execution-cadence.md).
 

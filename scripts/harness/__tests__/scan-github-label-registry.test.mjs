@@ -39,7 +39,6 @@ const PROTECTED = [
       'scripts/harness/record-local-review.mjs',
     ],
   ],
-  ['review-findings-acknowledged', ['scripts/harness/check-review-gate.mjs']],
 ];
 
 function label(name, category) {
@@ -131,9 +130,9 @@ describe('GitHub label registry core', () => {
 
     const passing = scanGithubLabelRegistry(root);
     expect(passing.findings).toEqual([]);
-    expect(readExaminedGithubLabelRegistryCount(root)).toBe(20);
+    expect(readExaminedGithubLabelRegistryCount(root)).toBe(18);
     scanGithubLabelRegistry(root);
-    expect(readExaminedGithubLabelRegistryCount(root)).toBe(20);
+    expect(readExaminedGithubLabelRegistryCount(root)).toBe(18);
 
     writeFileSync(path.join(root, '.claude/hooks/merge-gate.sh'), 'disposition-containment\n');
     writeFileSync(

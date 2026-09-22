@@ -20,14 +20,21 @@ export function changedManifestKeys(before, after) {
   return Array.from(keys).filter((key) => !valuesEqual(before?.[key], after?.[key]));
 }
 
-const DEVELOPER_QUALITY_SCRIPT_NAMES = new Set(['lint:fix', 'lint:fix:staged']);
+// These commands are local authoring conveniences only. CI, product execution, build, test,
+// release, and affected-scope entrypoints deliberately do not qualify by prefix or suffix.
+const DEVELOPER_QUALITY_SCRIPT_NAMES = new Set([
+  'harness:cleanup',
+  'harness:lessons:digest',
+  'harness:plan',
+  'harness:record',
+  'harness:review',
+  'harness:run-context',
+  'lint:fix',
+  'lint:fix:staged',
+]);
 
 function isDeveloperQualityScript(name) {
-  return (
-    DEVELOPER_QUALITY_SCRIPT_NAMES.has(name) ||
-    name.startsWith('harness:') ||
-    name.endsWith(':affected')
-  );
+  return DEVELOPER_QUALITY_SCRIPT_NAMES.has(name);
 }
 
 export function classifyRootManifestChange({ before, after }) {

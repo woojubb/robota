@@ -23,7 +23,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { enumerateFiles } from './enumerate-files.mjs';
@@ -266,7 +266,7 @@ const ALLOWED_FILES = new Set([
  * that the choice has an owner and reports what it enumerated, instead of being made privately here.
  */
 function trackedFiles() {
-  return enumerateFiles();
+  return enumerateFiles().filter((file) => existsSync(path.join(WORKSPACE_ROOT, file)));
 }
 
 /**

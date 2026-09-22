@@ -136,9 +136,9 @@ enforces this is [`ci-gate-watch`](../skills/ci-gate-watch/SKILL.md).
 
 ### Dist Artifact Invariant
 
-CI quality jobs that run with `--skip-build` depend on package build output. If the planned checks include
-`build`, `test`, or `typecheck`, the CI build job MUST run the root monorepo build once and pass package
-`dist` artifacts to the quality job.
+Selected CI consumers that run without rebuilding depend on package build output. If planned checks
+include `build`, `test`, or `typecheck`, the CI build job MUST run the root monorepo build once and
+share the package `dist` artifact with those selected consumer jobs.
 
 Never reintroduce per-package CI builds for a monorepo release path. Build once at the root and reuse artifacts.
 

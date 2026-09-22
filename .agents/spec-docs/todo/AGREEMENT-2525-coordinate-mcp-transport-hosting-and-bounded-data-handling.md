@@ -88,9 +88,9 @@ No runtime file changes are authorized by this Agreement checkpoint. Each child 
 
 ## Completion Criteria
 
-- [ ] TC-01: `node scripts/harness/scan-user-execution-plan-order.mjs --staged` → exits 0 and reports one exact parent/child projection for the four direct Tasks.
-- [ ] TC-02: `node scripts/harness/scan-task-frontmatter-fields.mjs --staged` → exits 0 with no missing required metadata, invalid dependency, or unpaired AGREEMENT relation.
-- [ ] TC-03: Observable: the `GATE-WRITE` mechanical judge reports no failed criterion, then an independent guardian records `GATE VERDICT: PASS` for the semantic residue and this draft advances to `review-ready` without runtime changes.
+- [ ] TC-01: Direct review confirms one exact parent/child projection for the four direct Tasks and no nested AGREEMENT ownership.
+- [ ] TC-02: Direct review confirms required metadata, child uniqueness, and dependency order in the five fixed records.
+- [ ] TC-03: Observable: the approved decision and user authorization remain recorded here; no deleted multi-gate lifecycle is required before a child starts its own implementation.
 - [ ] TC-04: `node scripts/harness/run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts` → exits 0 for the planning checkpoint.
 - [ ] TC-05: The final parent audit reads all twelve retained Task records and their merged evidence, and proves no source-register row is closed only by a planning or administrative disposition.
 
@@ -98,9 +98,9 @@ No runtime file changes are authorized by this Agreement checkpoint. Each child 
 
 | TC-ID | Test Type               | Tool / Approach                                                                             | Notes                                                                                                                                  |
 | ----- | ----------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Agreement projection    | `scan-user-execution-plan-order.mjs --staged`                                               | Verifies the direct child list and paired spec projection; existing Agreements are source-register prerequisites, not nested children. |
-| TC-02 | Task graph contract     | `scan-task-frontmatter-fields.mjs --staged`                                                 | Verifies frontmatter, child uniqueness, and dependency graph integrity.                                                                |
-| TC-03 | Two-stage document gate | `gate.mjs judge --gate GATE-WRITE --doc …`, then independent `backlog-gate-guard` evidence  | The mechanical result and guardian verdict are distinct; no user approval or runtime implementation is claimed by this result.         |
+| TC-01 | Agreement projection    | Direct fixed-record review                                                                  | Verifies the direct child list and paired spec projection; existing Agreements are source-register prerequisites, not nested children. |
+| TC-02 | Task graph contract     | Direct fixed-record review                                                                  | Verifies metadata, child uniqueness, and dependency graph integrity.                                                                   |
+| TC-03 | Decision boundary       | Approved document plus recorded user authorization                                          | No deleted compatibility gate or new runtime authorization is implied.                                                                 |
 | TC-04 | Planning regression     | `run-all-scans.mjs --affected --context pr --skip dist --skip build-contracts`              | Validates the complete documentation checkpoint rather than a source-code path.                                                        |
 | TC-05 | Delivery audit          | Read source Issues, Task/spec records, merged PR evidence, and executable scenario receipts | Manual final audit because it spans independently released outcomes and cannot be represented by one unit test.                        |
 

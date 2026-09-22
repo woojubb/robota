@@ -197,12 +197,12 @@ describe('formatPrerequisiteFailure', () => {
   };
 
   it('states it is not a verdict on the change', () => {
-    const message = formatPrerequisiteFailure('verify-like-ci', unpreparedNested());
+    const message = formatPrerequisiteFailure('the pre-push gate', unpreparedNested());
     expect(message).toContain('NOT a verdict on your change');
   });
 
   it('names every missing prerequisite and the command that satisfies it, in order', () => {
-    const message = formatPrerequisiteFailure('verify-like-ci', unpreparedNested());
+    const message = formatPrerequisiteFailure('the pre-push gate', unpreparedNested());
     expect(message).toContain('MISSING  install');
     expect(message).toContain('MISSING  build-output');
     expect(message.indexOf('pnpm install --frozen-lockfile')).toBeLessThan(
@@ -212,14 +212,14 @@ describe('formatPrerequisiteFailure', () => {
 
   it('names the tree and its parent clone, because "the deps are right there" is the misdiagnosis', () => {
     const state = unpreparedNested();
-    const message = formatPrerequisiteFailure('verify-like-ci', state);
+    const message = formatPrerequisiteFailure('the pre-push gate', state);
     expect(message).toContain(state.root);
     expect(message).toContain(state.tree.parent);
     expect(message).toContain('does NOT share');
   });
 
   it('explains a nested worktree by the upward module resolution that makes it look installed', () => {
-    const message = formatPrerequisiteFailure('verify-like-ci', unpreparedNested());
+    const message = formatPrerequisiteFailure('the pre-push gate', unpreparedNested());
     expect(message).toContain('walks UP into the parent');
     expect(message).toContain('tsgo: not found');
   });
@@ -228,7 +228,7 @@ describe('formatPrerequisiteFailure', () => {
     const { git } = createGitRepo();
     const sibling = path.join(realpathSync(makeTemp('tree-prerequisites-sibling-')), 'wt');
     git('worktree', 'add', '-q', '-b', `sibling-${Date.now()}`, sibling);
-    const message = formatPrerequisiteFailure('verify-like-ci', inspectTree(sibling));
+    const message = formatPrerequisiteFailure('the pre-push gate', inspectTree(sibling));
     expect(message).toContain("Could not resolve 'vitest/config'");
   });
 
@@ -244,7 +244,7 @@ describe('formatPrerequisiteFailure', () => {
   describe('cause `build-failed`', () => {
     const message = () =>
       formatPrerequisiteFailure(
-        'verify-like-ci stage `typecheck`',
+        'a selected verification command',
         unpreparedNested(),
         'build-failed',
       );
@@ -270,7 +270,7 @@ describe('formatPrerequisiteFailure', () => {
 
   it('refuses a cause it cannot explain rather than printing a generic one', () => {
     expect(() =>
-      formatPrerequisiteFailure('verify-like-ci', unpreparedNested(), 'mystery'),
+      formatPrerequisiteFailure('the pre-push gate', unpreparedNested(), 'mystery'),
     ).toThrow(/unknown prerequisite cause/);
   });
 });
@@ -282,14 +282,14 @@ describe('checkTreePrerequisites', () => {
       'packages/built/package.json': BUILDABLE_MANIFEST,
       'packages/built/dist/index.js': '',
     });
-    const result = checkTreePrerequisites('verify-like-ci', root);
+    const result = checkTreePrerequisites('the pre-push gate', root);
     expect(result.ok).toBe(true);
     expect(result.message).toBe('');
   });
 
   it('is not ok, and carries the naming message, on an unprepared tree', () => {
     const root = createFixture({ 'packages/unbuilt/package.json': BUILDABLE_MANIFEST });
-    const result = checkTreePrerequisites('verify-like-ci', root);
+    const result = checkTreePrerequisites('the pre-push gate', root);
     expect(result.ok).toBe(false);
     expect(result.message).toContain('missing a verification prerequisite');
   });

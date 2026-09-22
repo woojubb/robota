@@ -1,7 +1,7 @@
 ---
 title: "INFRA-169: Declare GATE-DONE's recorded-pass re-run rule in gate-catalogue.md"
 issue: https://github.com/woojubb/robota/issues/2588
-status: todo
+status: superseded
 created: 2026-09-06
 priority: medium
 urgency: soon
@@ -10,6 +10,11 @@ depends_on: []
 ---
 
 # INFRA-169: Declare GATE-DONE's recorded-pass re-run rule in gate-catalogue.md
+
+## Disposition
+
+**Superseded by issue #2826.** GATE-DONE, its evaluator, and the active gate catalogue were retired;
+the historical catalogue is archived and no compatibility parser or re-run rule is retained.
 
 ## Objective
 

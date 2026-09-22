@@ -225,37 +225,6 @@ function comparisonLandingOids(repo, baseOid, headOid) {
   return comparisonFirstParentLandingOids({ headOid, pages });
 }
 
-/**
- * Legacy subject decoder retained for focused compatibility tests.
- *
- * The encoding is not decoration. `--jq '.[].commit.message'` prints a scalar RAW, so a squash
- * message's body arrives as further lines of stdout and every one of them reads as another commit's
- * subject. A body line that happens to end in `(#123)` — quoting another pull request, which a
- * promotion body routinely does — could otherwise be mistaken for a carried pull request. The
- * production guard now resolves first-parent landing OIDs through GitHub instead; `@json` keeps this
- * historical decoder's old input shape explicit and testable.
- */
-export function parseCommitSubjects(stdout) {
-  return (stdout ?? '')
-    .split('\n')
-    .filter((line) => line.trim() !== '')
-    .map((line) => {
-      let message;
-      try {
-        message = JSON.parse(line);
-      } catch {
-        // Fail loudly: the caller turns a throw into UNAVAILABLE, which BLOCKS. Guessing at a
-        // half-decoded line would let a mis-parse read as "no pull requests carried" — a pass.
-        throw new Error(`commit message line is not JSON-encoded: ${line.slice(0, 80)}`);
-      }
-      if (typeof message !== 'string') {
-        throw new Error(`commit message is not a string: ${line.slice(0, 80)}`);
-      }
-      return message.split('\n')[0].trim();
-    })
-    .filter((subject) => subject !== '');
-}
-
 function parseArgs(argv) {
   const args = {
     pr: undefined,

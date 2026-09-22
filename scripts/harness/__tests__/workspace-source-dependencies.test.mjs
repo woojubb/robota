@@ -241,6 +241,27 @@ describe('workspace source reference evidence', () => {
     ]);
   });
 
+  it('resolves top-level path constants without guessing dynamic function arguments', () => {
+    const source = [
+      "import { readFileSync } from 'node:fs';",
+      "import path from 'node:path';",
+      "const ROOT = path.resolve(import.meta.dirname, '../../..');",
+      "const POLICY = path.join(ROOT, '.agents/rules/git-branch.md');",
+      "readFileSync(POLICY, 'utf8');",
+      "function dynamic(file) { return readFileSync(file, 'utf8'); }",
+    ].join('\n');
+    const reads = extractSourceReferences(
+      source,
+      'scripts/harness/__tests__/owner.test.mjs',
+    ).filter((reference) => reference.kind === 'read-content');
+
+    expect(reads).toMatchObject([
+      { expression: 'POLICY', specifier: '.agents/rules/git-branch.md', anchor: 'cwd' },
+      { expression: 'file', anchor: 'cwd' },
+    ]);
+    expect(reads[1].specifier).toBeUndefined();
+  });
+
   it('does not interpret a shadowing function parameter as the imported filesystem function', () => {
     const references = extractSourceReferences(
       "import { readFileSync as read } from 'node:fs'; function sample(read) { return read('./data.json'); }",

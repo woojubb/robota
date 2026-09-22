@@ -1,11 +1,23 @@
-# Process Rules — routing moved
+# Process Rules
 
-Mandatory rules for development process, testing, build verification, and publishing.
 Parent: [AGENTS.md](../../AGENTS.md)
+Index: [index.md](index.md)
 
-The process routing table lives in ONE place: the rules index. This stub keeps existing links
-resolving.
+## Ordinary delivery
 
-See [index.md](index.md) § "Process Sub-Rules" for the full routing to spec-workflow,
-tdd-and-planning, verification, testing-layering, publish (the release runbook),
-documentation-sync, research, backlog-execution, operational, and learning-loop.
+Ordinary work has two decision boundaries:
+
+1. **Entry** — understand one authoritative request/issue, its intended outcome, scope, risks, and focused verification.
+2. **Completion** — prove the outcome, obtain one independent final review, pass selected CI, merge, and update the authoritative record.
+
+No intermediate role chain, lane declaration, lifecycle move, loop ledger, or receipt commit is mandatory. Extra design review is selected by material risk.
+
+## Routed owners
+
+- Public package behavior and contracts: [spec-workflow.md](spec-workflow.md)
+- RED/GREEN and planning: [tdd-and-planning.md](tdd-and-planning.md)
+- Affected verification ownership: [verification.md](verification.md)
+- Git and publication: [git-branch.md](git-branch.md), [publish.md](publish.md)
+- Work execution and findings: [backlog-execution.md](backlog-execution.md)
+
+A process failure must still be visible and actionable. Simplification removes duplicate decisions, not error reporting.

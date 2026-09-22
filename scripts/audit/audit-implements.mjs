@@ -81,7 +81,9 @@ const classes = [];
 for (const file of files) {
   const abs = path.resolve(process.cwd(), file);
   const sourceText = fs.readFileSync(abs, 'utf8');
-  const sourceFile = ts.createSourceFile(file, sourceText, ts.ScriptTarget.Latest, true);
+  const sourceFile = ts.createSourceFile(file, sourceText, {
+    scriptKind: file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  });
 
   /** @param {ts.Node} n */
   function visit(n) {
@@ -95,7 +97,7 @@ for (const file of files) {
         });
       }
     }
-    ts.forEachChild(n, visit);
+    n.forEachChild(visit);
   }
 
   visit(sourceFile);

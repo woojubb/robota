@@ -141,6 +141,33 @@ describe('detectChangedFiles fail-closed (INFRA-048-C)', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Changed files: 1');
   });
+
+  it('retains the source owner when a committed file is renamed out of its workspace', async () => {
+    const root = await createWorkspaceFixture({ baseBranch: 'develop', sourceChange: false });
+    mkdirSync(path.join(root, 'notes'), { recursive: true });
+    git(root, ['mv', 'packages/widget/src/index.ts', 'notes/widget.ts']);
+    git(root, ['commit', '-q', '-m', 'move widget source']);
+
+    const result = run(PLAN_SCRIPT, root);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Changed files: 2');
+    expect(result.stdout).toContain('notes/widget.ts');
+    expect(result.stdout).toContain('packages/widget');
+  });
+
+  it('retains the source owner for the same rename before it is committed', async () => {
+    const root = await createWorkspaceFixture({ baseBranch: 'develop', sourceChange: false });
+    mkdirSync(path.join(root, 'notes'), { recursive: true });
+    git(root, ['mv', 'packages/widget/src/index.ts', 'notes/widget.ts']);
+
+    const result = run(PLAN_SCRIPT, root);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Changed files: 2');
+    expect(result.stdout).toContain('notes/widget.ts');
+    expect(result.stdout).toContain('packages/widget');
+  });
 });
 
 /**
@@ -152,8 +179,8 @@ describe('detectChangedFiles fail-closed (INFRA-048-C)', () => {
  * clean, so its plan always comes from `origin/<base>...HEAD`. Locally the two diverge, and they
  * diverge silently in the UNDER-counting direction: one dirty scratch file is enough to make a
  * branch full of package-source commits plan zero package scopes, print "No package or app scope
- * detected" and exit 0 having verified nothing. That is what `verify-like-ci`'s `affected-verify`
- * stage would inherit, so it is fixed here rather than worked around there.
+ * detected" and exit 0 having verified nothing. Fix the change detector itself rather than
+ * working around it in each caller.
  */
 describe('detectChangedFiles unions the working tree with the base diff (INFRA-056)', () => {
   /** A dirty file OUTSIDE any package — the shape of a stray lesson/scratch file. */

@@ -120,9 +120,7 @@ export function namedImportsOf(file, sourceText) {
   const sourceFile = ts.createSourceFile(
     file,
     sourceText,
-    ts.ScriptTarget.Latest,
-    /* setParentNodes */ false,
-    file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+    { scriptKind: file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS },
   );
   const bySpecifier = new Map();
   const add = (specifier, name) => {

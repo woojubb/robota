@@ -1,5 +1,9 @@
 # A Claude desktop worktree session starts off-policy, and what brings it back
 
+> Historical evidence only. Issue #2826 removed the loop ledger and this startup sequence is not
+> operative guidance. Current worktree and branch policy lives in `.agents/rules/git-branch.md` and
+> `.agents/memory/current-execution-permissions.md`.
+
 In-repo mirror (memory-mirroring rule) of a host-memory note written 2026-09-21 while landing
 CHECKS-2664 (PR #2811). Owner permission is owned by
 [current-execution-permissions.md](current-execution-permissions.md): **agent-created worktrees are

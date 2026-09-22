@@ -1,46 +1,48 @@
-/**
- * A receipt for the SCAN SUITE, so an identical tree is not scanned twice (HARNESS-109).
- *
- * ## Why this exists
- *
- * `verification-receipt.mjs` already makes `verify-like-ci` reusable. The suite this file covers is
- * the one that actually repeats: `pre-push` runs it through `CI_SCANS_JOB_MIRROR` on every push, CI
- * runs it again, and an agent runs it by hand whenever it wants a signal. Nothing connected those
- * runs, so scanning one tree three times was indistinguishable, to the harness, from scanning three
- * trees. Measured on 2026-08-19: resolving a three-line JSON conflict ran the full suite twice on
- * trees whose scanned content was identical.
- *
- * ## What the identity covers, and what it deliberately cannot
- *
- * `headTree` is the content of every TRACKED file — every scan script, every baseline, every source
- * file they read — so any change to what the suite reads or how it reads it invalidates the receipt.
- * The toolchain is carried separately because it is not in the tree.
- *
- * A tree hash cannot cover scans reading outside the tracked tree: `dist` and `build-contracts`
- * compare ignored output against `src/`. Two runs with one tree hash can therefore disagree. Those
- * scans ALWAYS RE-RUN. Making the whole run ineligible (HARNESS-109's first shape) meant
- * `pnpm harness:scan` could never be reused, which is the command the item filed about.
- *
- * They are also excluded from the receipt's identity, so a full local run and CI's
- * `--skip dist --skip build-contracts` share one receipt: what the receipt asserts is the result of
- * the scans a tree hash CAN speak for, and that set is the same in both.
- *
- * ## The direction this fails in
- * A receipt that is missing, malformed, or written against a different identity re-runs the suite.
- * There is no path where an unreadable receipt is treated as a pass — reuse is an optimisation, and
- * an optimisation that can invent a green is not one.
- */
+/** Content-addressed success markers for explicitly audited repository scans. */
 
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-import { isCleanTree, realDirtyLines } from './verification-receipt.mjs';
-import { assertDiagnosticReport } from './diagnostic-core.mjs';
+import { isCleanTree } from './verification-receipt-storage.mjs';
 
-const RECEIPT_SCHEMA_VERSION = 2;
-const RECEIPT_FILE = 'robota-verification/harness-scan.json';
+export const SCAN_SUCCESS_CACHE_SCHEMA = 'robota-scan-success-v2';
+
+const SCAN_SUCCESS_ENVIRONMENT_KEYS = [
+  'CI',
+  'COMSPEC',
+  'FORCE_COLOR',
+  'GITHUB_ACTIONS',
+  'HOME',
+  'ImageOS',
+  'ImageVersion',
+  'LANG',
+  'LC_ALL',
+  'NODE_OPTIONS',
+  'NO_COLOR',
+  'PATH',
+  'PATHEXT',
+  'RUNNER_ARCH',
+  'RUNNER_OS',
+  'SHELL',
+  'SystemRoot',
+  'TEMP',
+  'TMP',
+  'TMPDIR',
+  'TZ',
+  'USERPROFILE',
+  'WINDIR',
+];
 
 /**
  * Scans whose inputs are NOT wholly represented by the tree, so a tree hash cannot speak for them.
@@ -48,7 +50,7 @@ const RECEIPT_FILE = 'robota-verification/harness-scan.json';
  * state must be added here in the same change, and the test asserting it is re-run on a hit is what
  * makes that visible.
  */
-export const TREE_EXTERNAL_SCANS = new Set(['dist', 'build-contracts']);
+export const TREE_EXTERNAL_SCANS = new Set(['action-references', 'build-contracts', 'dist']);
 
 function run(command, args, root) {
   const result = spawnSync(command, args, { cwd: root, encoding: 'utf8' });
@@ -68,213 +70,226 @@ function hashFile(root, relativePath) {
   }
 }
 
-/** The requested scans a tree hash CAN speak for — the only ones a receipt ever asserts. */
-export function receiptCoveredScans(scanNames) {
-  return [...scanNames].filter((name) => !TREE_EXTERNAL_SCANS.has(name)).sort();
-}
-
-/** The requested scans that must run on every invocation, receipt or not. */
-export function scansThatAlwaysRun(scanNames) {
-  return [...scanNames].filter((name) => TREE_EXTERNAL_SCANS.has(name)).sort();
-}
-
-export function computeScanIdentity({ scanNames, root }) {
+function scanSuccessBaseIdentity(root) {
+  const runnerEnvironment = Object.fromEntries(
+    SCAN_SUCCESS_ENVIRONMENT_KEYS.map((key) => [key, process.env[key] ?? '']),
+  );
   return {
-    headTree: run('git', ['rev-parse', 'HEAD^{tree}'], root),
-    scans: receiptCoveredScans(scanNames),
     nodeVersion: process.version,
+    platform: process.platform,
+    architecture: process.arch,
     pnpmVersion: run('pnpm', ['--version'], root),
+    gitVersion: run('git', ['--version'], root),
+    bashVersion: run('bash', ['--version'], root).split(/\r?\n/u)[0],
     lockfileHash: hashFile(root, 'pnpm-lock.yaml'),
+    runnerEnvironment,
   };
 }
 
-function normalized(identity) {
-  if (!identity || typeof identity !== 'object') return null;
-  const scalars = ['headTree', 'nodeVersion', 'pnpmVersion', 'lockfileHash'];
+function normalizedScanSuccessIdentity(identity) {
+  if (!identity || typeof identity !== 'object' || Array.isArray(identity)) return null;
+  const scalars = [
+    'nodeVersion',
+    'platform',
+    'architecture',
+    'pnpmVersion',
+    'gitVersion',
+    'bashVersion',
+    'lockfileHash',
+  ];
   if (scalars.some((field) => typeof identity[field] !== 'string' || !identity[field])) return null;
-  if (!Array.isArray(identity.scans) || identity.scans.some((s) => typeof s !== 'string')) {
-    return null;
-  }
-  return Object.fromEntries([
-    ...scalars.map((field) => [field, identity[field]]),
-    ['scans', [...identity.scans].sort()],
-  ]);
-}
-
-function receiptDiagnosticReuse(receipt, expectedIdentity) {
-  if (receipt === null || typeof receipt !== 'object' || Array.isArray(receipt)) return null;
-  const expectedKeys = ['schemaVersion', 'status', 'scannedAt', 'identity', 'diagnosticReport'];
+  const runnerEnvironment = identity.runnerEnvironment;
+  const runnerKeys = SCAN_SUCCESS_ENVIRONMENT_KEYS;
   if (
-    Object.keys(receipt).length !== expectedKeys.length ||
-    expectedKeys.some((key) => !Object.hasOwn(receipt, key)) ||
-    receipt.schemaVersion !== RECEIPT_SCHEMA_VERSION ||
-    receipt.status !== 'pass' ||
-    typeof receipt.scannedAt !== 'string' ||
-    receipt.scannedAt.trim().length === 0
+    !runnerEnvironment ||
+    typeof runnerEnvironment !== 'object' ||
+    Array.isArray(runnerEnvironment) ||
+    JSON.stringify(Object.keys(runnerEnvironment).sort()) !== JSON.stringify(runnerKeys.sort()) ||
+    runnerKeys.some((key) => typeof runnerEnvironment[key] !== 'string')
   ) {
     return null;
   }
-  const actual = normalized(receipt.identity);
-  const expected = normalized(expectedIdentity);
-  if (!actual || !expected || JSON.stringify(actual) !== JSON.stringify(expected)) return null;
-  if (receipt.diagnosticReport === null) {
-    return { diagnosticReport: null, recheckCoveredScans: [] };
-  }
-  try {
-    const diagnosticReport = assertDiagnosticReport(receipt.diagnosticReport);
-    const covered = new Set(actual.scans);
-    const recheckCoveredScans = [
-      ...new Set(
-        diagnosticReport.results.map((result) => {
-          if (
-            result.state === 'clean' ||
-            result.subject.kind !== 'scan' ||
-            !covered.has(result.subject.value)
-          ) {
-            throw new TypeError(
-              'diagnostic receipt result is not bound to a covered non-clean scan',
-            );
-          }
-          return result.subject.value;
-        }),
-      ),
-    ].sort();
-    if (diagnosticReport.totals.nonClean === 0 || recheckCoveredScans.length === 0) return null;
-    return { diagnosticReport, recheckCoveredScans };
-  } catch {
+  return {
+    ...Object.fromEntries(scalars.map((field) => [field, identity[field]])),
+    runnerEnvironment: Object.fromEntries(runnerKeys.map((key) => [key, runnerEnvironment[key]])),
+  };
+}
+
+function normalizedScanInputs(root, input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const patterns = [...new Set(input.patterns ?? [])].sort();
+  const files = [...new Set(input.files ?? [])].sort();
+  if (
+    patterns.some((value) => typeof value !== 'string' || !value) ||
+    files.some((value) => typeof value !== 'string' || !value)
+  ) {
     return null;
   }
+  const digests = files.map((file) => {
+    const absolute = path.join(root, file);
+    const stat = lstatSync(absolute);
+    const content = stat.isSymbolicLink()
+      ? `symlink:${readlinkSync(absolute)}`
+      : readFileSync(absolute);
+    return [file, createHash('sha256').update(content).digest('hex')];
+  });
+  return { patterns, files: digests };
 }
 
-export function scanReceiptMatches(receipt, expectedIdentity) {
-  return receiptDiagnosticReuse(receipt, expectedIdentity) !== null;
-}
-
-export function scanReceiptPath(root) {
-  const commonDir = run('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], root);
-  return path.join(commonDir, RECEIPT_FILE);
-}
-
-export function readScanReceipt(root) {
-  try {
-    return JSON.parse(readFileSync(scanReceiptPath(root), 'utf8'));
-  } catch {
-    return null;
+function scanSuccessKey(identity, scanName, context, command, inputs) {
+  const normalizedIdentity = normalizedScanSuccessIdentity(identity);
+  if (!normalizedIdentity || typeof scanName !== 'string' || !scanName.trim()) {
+    throw new Error('Cannot create a scan-success key from invalid identity.');
   }
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        schema: SCAN_SUCCESS_CACHE_SCHEMA,
+        scan: scanName,
+        context,
+        command,
+        identity: normalizedIdentity,
+        inputs,
+      }),
+    )
+    .digest('hex');
+}
+
+function scanSuccessMarkerPath(cacheRoot, key) {
+  return path.join(cacheRoot, key.slice(0, 2), `${key}.json`);
+}
+
+function scanSuccessMarker(record, output) {
+  return {
+    schema: SCAN_SUCCESS_CACHE_SCHEMA,
+    key: record.key,
+    scan: record.scan,
+    context: record.context,
+    result: 'pass',
+    output,
+  };
 }
 
 /**
- * The whole reuse decision as one pure function, so every branch is testable without a repository.
- * Returns the reason in BOTH directions: a run that could not be reused has to say why, or the
- * operator learns the receipt is doing nothing only by watching the clock.
+ * Read independently proven per-scan successes. A missing/corrupt marker, dirty tree, side-effecting
+ * adoption run, or tree-external scan is always a miss.
  */
-export function decideScanReuse({
+export function inspectScanSuccessCache({
   scanNames,
+  cacheableScanNames = [],
+  scanInputs = new Map(),
+  scanCommands = new Map(),
+  root,
+  context,
+  cacheRoot = path.join(root, '.cache', 'robota-scan-successes'),
   identity,
-  receipt,
   clean,
-  dirtyReason,
   writeAdoption = false,
 }) {
+  const names = [...new Set(scanNames)];
+  const cacheable = new Set(cacheableScanNames);
+  const misses = [];
+  const hits = new Map();
+  const records = new Map();
   if (writeAdoption) {
-    // A re-freeze is a request to OBSERVE a pass, not to be told one happened earlier. Reusing here
-    // would leave the baseline unwritten and the run looking successful — the caller asked for a
-    // side effect, and a cache that swallows a requested side effect is a defect, not a saving.
-    return {
-      reuse: false,
-      eligible: false,
-      reason: '--write-adoption-baseline re-freezes from an observed pass',
+    return { cacheRoot, hits, misses: names, records, reason: 'adoption re-freeze requested' };
+  }
+  const eligible = clean ?? isCleanTree(root);
+  if (!eligible) {
+    return { cacheRoot, hits, misses: names, records, reason: 'working tree is not clean' };
+  }
+
+  let baseIdentity;
+  try {
+    baseIdentity = normalizedScanSuccessIdentity(identity ?? scanSuccessBaseIdentity(root));
+    if (!baseIdentity) throw new Error('invalid scan-success identity');
+  } catch {
+    return { cacheRoot, hits, misses: names, records, reason: 'execution identity unavailable' };
+  }
+
+  for (const scan of names) {
+    if (!cacheable.has(scan) || TREE_EXTERNAL_SCANS.has(scan)) {
+      misses.push(scan);
+      continue;
+    }
+    let inputs;
+    try {
+      inputs = normalizedScanInputs(root, scanInputs.get(scan));
+      if (!inputs) throw new Error('invalid scan inputs');
+    } catch {
+      misses.push(scan);
+      continue;
+    }
+    const command = scanCommands.get(scan);
+    if (!Array.isArray(command) || command.some((part) => typeof part !== 'string')) {
+      misses.push(scan);
+      continue;
+    }
+    const key = scanSuccessKey(baseIdentity, scan, context, command, inputs);
+    const record = {
+      scan,
+      context,
+      key,
+      file: scanSuccessMarkerPath(cacheRoot, key),
     };
-  }
-  if (receiptCoveredScans(scanNames).length === 0) {
-    // Nothing a receipt could assert. Reusing here would report a saving over an empty set.
-    return { reuse: false, eligible: false, reason: 'no scan in this set is covered by a receipt' };
-  }
-  if (!clean) {
-    return { reuse: false, eligible: false, reason: `working tree is not clean: ${dirtyReason}` };
-  }
-  if (!receipt) return { reuse: false, eligible: true, reason: 'no receipt for this tree' };
-  const matchedReceipt = receiptDiagnosticReuse(receipt, identity);
-  if (matchedReceipt === null) {
-    return { reuse: false, eligible: true, reason: 'receipt does not match this identity' };
+    records.set(scan, record);
+    try {
+      if (!existsSync(record.file)) throw new Error('missing');
+      const marker = JSON.parse(readFileSync(record.file, 'utf8'));
+      if (
+        JSON.stringify(marker) !==
+        JSON.stringify(scanSuccessMarker(record, String(marker?.output ?? '')))
+      ) {
+        throw new Error('invalid');
+      }
+      hits.set(scan, { code: 0, output: marker.output });
+    } catch {
+      misses.push(scan);
+    }
   }
   return {
-    reuse: true,
-    eligible: true,
-    reason: `identical tree scanned at ${receipt.scannedAt}`,
-    ...matchedReceipt,
+    cacheRoot,
+    hits,
+    misses,
+    records,
+    reason: hits.size > 0 ? `${hits.size} independently proven success(es)` : 'no matching success',
   };
 }
 
-export function createScanReceipt(identity, scannedAt, diagnosticReport = null) {
-  const normalizedIdentity = normalized(identity);
-  if (!normalizedIdentity)
-    throw new Error('Cannot create a scan receipt from an invalid identity.');
-  const diagnosticReuse = receiptDiagnosticReuse(
-    {
-      schemaVersion: RECEIPT_SCHEMA_VERSION,
-      status: 'pass',
-      scannedAt,
-      identity: normalizedIdentity,
-      diagnosticReport,
-    },
-    normalizedIdentity,
-  );
-  if (diagnosticReuse === null) {
-    throw new Error('Cannot create a scan receipt from an invalid diagnostic report.');
-  }
-  return {
-    schemaVersion: RECEIPT_SCHEMA_VERSION,
-    status: 'pass',
-    scannedAt,
-    identity: normalizedIdentity,
-    diagnosticReport: diagnosticReuse.diagnosticReport,
-  };
-}
-
-export function writeScanReceipt({
-  scanNames,
-  root,
-  scannedAt = new Date().toISOString(),
-  diagnosticReport = null,
-}) {
-  if (receiptCoveredScans(scanNames).length === 0) {
-    return { written: false, reason: 'no scan in this set is covered by a receipt' };
-  }
-  const dirty = realDirtyLines(root);
-  if (dirty.length > 0) {
-    return { written: false, reason: `working tree is not clean: ${dirty.join(', ')}` };
-  }
-  const target = scanReceiptPath(root);
-  const receipt = createScanReceipt(
-    computeScanIdentity({ scanNames, root }),
-    scannedAt,
-    diagnosticReport,
-  );
-  mkdirSync(path.dirname(target), { recursive: true });
-  const temporary = `${target}.${process.pid}.tmp`;
-  writeFileSync(temporary, `${JSON.stringify(receipt, null, 2)}\n`, 'utf8');
-  renameSync(temporary, target);
-  return { written: true, target, receipt };
-}
-
-/** The read half, wired for a real repository: identity + receipt + cleanliness in one call. */
-export function planScanReuse({ scanNames, root, writeAdoption = false }) {
-  if (writeAdoption) {
-    return decideScanReuse({
-      scanNames,
-      identity: null,
-      receipt: null,
-      clean: false,
-      writeAdoption,
+function writeScanSuccessMarker(record, output) {
+  mkdirSync(path.dirname(record.file), { recursive: true });
+  const temporary = `${record.file}.tmp-${process.pid}-${Math.random().toString(16).slice(2)}`;
+  try {
+    writeFileSync(temporary, `${JSON.stringify(scanSuccessMarker(record, output))}\n`, {
+      flag: 'wx',
     });
+    renameSync(temporary, record.file);
+  } finally {
+    rmSync(temporary, { force: true });
   }
-  const dirty = realDirtyLines(root);
-  return decideScanReuse({
-    scanNames,
-    identity: computeScanIdentity({ scanNames, root }),
-    receipt: readScanReceipt(root),
-    clean: isCleanTree(root),
-    dirtyReason: dirty.join(', '),
+}
+
+/** Persist each clean raw pass even when a sibling failed, was cancelled, or was unavailable. */
+export function recordSuccessfulScanResults({ cache, results, warn = console.warn }) {
+  let recorded = 0;
+  for (const result of results) {
+    if (result.code !== 0 || result.unavailable) continue;
+    const record = cache.records.get(result.name);
+    if (!record) continue;
+    try {
+      writeScanSuccessMarker(record, String(result.output ?? ''));
+      recorded += 1;
+    } catch (error) {
+      warn(`[harness-scan] success cache write failed for ${result.name}: ${error.message}`);
+    }
+  }
+  return recorded;
+}
+
+/** Keep cached scans in the aggregate verdict while replacing only their expensive execution. */
+export function applyScanSuccessCache(scans, cache) {
+  return scans.map((scan) => {
+    const cached = cache.hits.get(scan.name);
+    return cached ? { ...scan, run: () => Promise.resolve(cached), cached: true } : scan;
   });
 }

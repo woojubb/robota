@@ -16,7 +16,7 @@
 #     `grep -o '"file_path"…"[^"]*"'`, which stops at the first ESCAPED quote. A file named
 #     `we"ird.ts` was read as `we\`, the `-f` test then failed, and the file was silently never
 #     formatted — the hook exits 0 either way, which is why nothing noticed.
-#   * `correction-detect`, `revert-detect` and `spec-first-gate` each carried an identical
+#   * several prompt-reading hooks each carried an identical
 #     `read_json()` that calls jq and has NO python3 fallback, while the Bash guards fall back. On a
 #     host without jq, half this directory went silently off while the other half kept working.
 #   * Four repository resolutions under two rules. The validating one validated with a BARE `git -C`,
@@ -181,8 +181,7 @@ hook_file_path_of() {
 #
 # The reason those callers wanted the type test is unchanged and now lives where the rule does: a
 # structured node is not TEXT, and returning the JSON blob would have `correction-detect` grep it for
-# correction keywords and log it as `prompt_excerpt`, and `spec-first-gate` scan it for
-# implementation intent.
+# correction keywords and log it as `prompt_excerpt`.
 
 # The user's prompt text, under whichever of the three keys the event carries it.
 #

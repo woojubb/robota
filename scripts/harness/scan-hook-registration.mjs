@@ -78,7 +78,7 @@ export function declaredInvoker(text) {
 /**
  * Every `.claude/hooks/*.sh` basename named by a matcher, and how many matcher entries were read.
  *
- * The command is a shell string — `"$CLAUDE_PROJECT_DIR"/.claude/hooks/task-tracking.sh start` —
+ * The command may be a shell string with arguments — for example, `hook.sh start` —
  * so the file is extracted by path shape rather than by equality with a constructed string. Reading
  * it as an exact path would have missed the two argument-carrying registrations on this tree and
  * reported both hooks unregistered, and a floor that fires on correct work gets switched off.

@@ -105,7 +105,8 @@ without sweeping those ten leaves the port bypassed on day one.
   (`error-humanizer.ts:12,55`).
 - Assert the library default session path (`session-store.ts:64`) comes from the injected port.
 - Register the extended scan in `run-all-scans` and confirm local reachability.
-- `pnpm harness:verify-like-ci` green.
+- Targeted package tests/build/typecheck, `pnpm harness:scan`, and the required GitHub CI aggregates
+  on the exact PR head are green.
 
 ## User Execution Test Scenarios
 

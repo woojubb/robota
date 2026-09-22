@@ -94,8 +94,8 @@ export { DECLARATION_FILE, readDeclaration };
 /** The protected branch whose contexts this scan asserts can FAIL. `develop`'s required list
  *  deliberately contains jobs that skip on a docs-only PR (tui-e2e / examples-typecheck /
  *  windows-shell, gated on `changes`), so the R1-R7 assertions below do not apply there.
- *  `protect-develop` is nonetheless DECLARED in the same file (INFRA-056) — as the list
- *  `verify-like-ci` claims equivalence with — and `--live` reconciles both (`RECONCILED_BRANCHES`). */
+ *  `protect-develop` is nonetheless DECLARED in the same file, and `--live` reconciles both
+ *  (`RECONCILED_BRANCHES`). */
 export { GOVERNED_BRANCH, RECONCILED_BRANCHES, originSlug, reconcileLive, reconcileLiveBranch };
 
 /** A condition that makes a job or step conditional on the PR's base branch — the vacuous shape. */
@@ -402,11 +402,9 @@ export function publishedContexts(root = WORKSPACE_ROOT) {
  * branch protection matches, and it is identical on `develop`. The `main`-only scope was a
  * contingent fact about which branch was being hardened when R1 was written, hardened into the rule.
  *
- * MEASURED when this was added: `develop`'s `deliberately_not_required` named `patch-coverage` and
- * `regression-red-proof`, while the jobs publish `patch-coverage (advisory)` and
- * `regression-red-proof (enforcing: accidental-green only)`. Neither was required, so neither was
- * harmful — and both were staged for promotion, where moving the existing entry would have required
- * a name nothing publishes and blocked every `develop` pull request permanently.
+ * MEASURED when this was added: a deliberately-not-required declaration used friendly context names
+ * that differed from the workflow jobs' published names. Neither was required yet, but promoting an
+ * unmatched name would have blocked every pull request permanently.
  *
  * So `deliberately_not_required` is IN SCOPE. An entry there is a promotion waiting to happen, and
  * checking only the live list would leave the trap exactly where it was found.

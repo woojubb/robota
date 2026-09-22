@@ -12,7 +12,7 @@ import {
 import { collectFiles } from './enumerate-files.mjs';
 import { envWithoutGitVars } from './shared.mjs';
 
-export const CONTRACT_TEST_CACHE_SCHEMA = 'robota-contract-tests-v2';
+export const CONTRACT_TEST_CACHE_SCHEMA = 'robota-contract-tests-v3';
 
 export const CONTRACT_TEST_GLOBAL_INPUTS = CONTRACT_CONTROL_PLANE_INPUTS;
 
@@ -24,11 +24,105 @@ const normalizePath = (value) =>
 
 const defaultCacheRoot = (root) => path.join(root, '.cache', 'robota-contract-tests');
 
+const EXECUTION_ENVIRONMENT_KEYS = [
+  'COMSPEC',
+  'CI',
+  'FORCE_COLOR',
+  'GITHUB_ACTIONS',
+  'HARNESS_CONTRACT_SHARD_TIMEOUT_MS',
+  'HOME',
+  'ImageOS',
+  'ImageVersion',
+  'LANG',
+  'LC_ALL',
+  'NODE_OPTIONS',
+  'NO_COLOR',
+  'PATH',
+  'PATHEXT',
+  'RUNNER_ARCH',
+  'RUNNER_OS',
+  'SHELL',
+  'SystemRoot',
+  'TEMP',
+  'TMP',
+  'TMPDIR',
+  'TZ',
+  'USERPROFILE',
+  'WINDIR',
+];
+
 function hashPart(hash, label, value) {
   const bytes = Buffer.isBuffer(value) ? value : Buffer.from(String(value));
   hash.update(`${label}\0${bytes.byteLength}\0`);
   hash.update(bytes);
   hash.update('\0');
+}
+
+function commandVersion(command, args, runCommand, environment) {
+  const result = runCommand(command, args, {
+    encoding: 'utf8',
+    env: envWithoutGitVars(environment),
+  });
+  if ((result.status ?? 1) !== 0 || result.signal) {
+    throw new Error(`${command} version could not be resolved`);
+  }
+  const version = String(result.stdout ?? '')
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .find(Boolean);
+  if (!version) throw new Error(`${command} version was empty`);
+  return version;
+}
+
+/** Resolve every process/tool/runner input that can change a contract verdict outside the tree. */
+export function resolveContractExecutionContext({
+  environment = process.env,
+  nodeVersion = process.version,
+  platform = process.platform,
+  architecture = process.arch,
+  runCommand = spawnSync,
+} = {}) {
+  return Object.freeze({
+    nodeVersion,
+    platform,
+    architecture,
+    gitVersion: commandVersion('git', ['--version'], runCommand, environment),
+    bashVersion: commandVersion('bash', ['--version'], runCommand, environment),
+    ...Object.fromEntries(
+      EXECUTION_ENVIRONMENT_KEYS.map((key) => [`environment.${key}`, environment[key] ?? '']),
+    ),
+  });
+}
+
+function validatedExecutionContext(executionContext) {
+  if (
+    !executionContext ||
+    typeof executionContext !== 'object' ||
+    Array.isArray(executionContext)
+  ) {
+    throw new Error('contract cache execution context is invalid');
+  }
+  const entries = Object.entries(executionContext).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  const expectedKeys = [
+    'architecture',
+    'bashVersion',
+    'gitVersion',
+    'nodeVersion',
+    'platform',
+    ...EXECUTION_ENVIRONMENT_KEYS.map((key) => `environment.${key}`),
+  ].sort((left, right) => left.localeCompare(right));
+  if (
+    JSON.stringify(entries.map(([key]) => key)) !== JSON.stringify(expectedKeys) ||
+    entries.some(([, value]) => typeof value !== 'string') ||
+    ['architecture', 'bashVersion', 'gitVersion', 'nodeVersion', 'platform'].some(
+      (key) => !executionContext[key].trim(),
+    )
+  ) {
+    throw new Error('contract cache execution context is invalid');
+  }
+  return entries;
 }
 
 function repositoryInputFiles(root, runGit = spawnSync) {
@@ -121,8 +215,7 @@ export function createContractTestCacheKey({
   entry,
   trackedFiles,
   globalInputs = CONTRACT_TEST_GLOBAL_INPUTS,
-  nodeMajor = process.versions.node.split('.')[0],
-  platform = process.platform,
+  executionContext = resolveContractExecutionContext(),
   runGit,
   contentDigests = new Map(),
   repositoryMatches = new Map(),
@@ -150,8 +243,9 @@ export function createContractTestCacheKey({
   const hash = createHash('sha256');
   hashPart(hash, 'schema', CONTRACT_TEST_CACHE_SCHEMA);
   hashPart(hash, 'test', normalizePath(entry.test));
-  hashPart(hash, 'node-major', nodeMajor);
-  hashPart(hash, 'platform', platform);
+  for (const [name, value] of validatedExecutionContext(executionContext)) {
+    hashPart(hash, `execution-context:${name}`, value);
+  }
   for (const [kind, files] of [
     ['implementation', inputs.implementation],
     ['repository', inputs.repository],
@@ -196,8 +290,7 @@ export function inspectContractTestCache({
   tests,
   cacheRoot = defaultCacheRoot(root),
   globalInputs,
-  nodeMajor,
-  platform,
+  executionContext,
   runGit,
 }) {
   const byTest = new Map(entries.map((entry) => [normalizePath(entry.test), entry]));
@@ -217,6 +310,18 @@ export function inspectContractTestCache({
   const records = new Map();
   const contentDigests = new Map();
   const repositoryMatches = new Map();
+  let resolvedExecutionContext;
+  try {
+    resolvedExecutionContext = executionContext ?? resolveContractExecutionContext();
+    validatedExecutionContext(resolvedExecutionContext);
+  } catch {
+    return {
+      cacheRoot,
+      hits: [],
+      misses: tests.map(normalizePath),
+      records: new Map(),
+    };
+  }
 
   for (const test of tests.map(normalizePath)) {
     const entry = byTest.get(test);
@@ -230,8 +335,7 @@ export function inspectContractTestCache({
         entry,
         trackedFiles,
         globalInputs,
-        nodeMajor,
-        platform,
+        executionContext: resolvedExecutionContext,
         contentDigests,
         repositoryMatches,
       });

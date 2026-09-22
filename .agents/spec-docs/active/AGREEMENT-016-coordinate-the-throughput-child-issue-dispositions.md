@@ -1,11 +1,17 @@
 ---
-status: in-progress
+status: rejected
 type: AGREEMENT
 tags: [github, migration, batching]
 lane: L2
 ---
 
 # AGREEMENT-016: coordinate the throughput child-Issue dispositions
+
+## Disposition
+
+**Superseded by issue #2826.** This coordination layer is no longer an active prerequisite; the
+substantive INFRA-154 outcome is delivered by the simplified harness without a duplicate Issue-to-
+Task migration lifecycle.
 
 ## Problem
 

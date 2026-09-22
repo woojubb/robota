@@ -3,7 +3,8 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { planWorkspaceAffected, readWorkspaceGraph } from './workspace-affected.mjs';
+import { planWorkspaceAffected } from './workspace-affected-plan.mjs';
+import { readWorkspaceGraph } from './workspace-graph.mjs';
 import {
   executeWorkspaceExecution,
   summarizeWorkspaceExecution,

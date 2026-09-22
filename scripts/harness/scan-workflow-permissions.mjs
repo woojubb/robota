@@ -73,13 +73,18 @@ export const JUSTIFIED_WRITE_SCOPES = {
  * job scope so a grant cannot hide one level down and be excused only in a comment (HARNESS-082).
  */
 export const JUSTIFIED_JOB_WRITE_SCOPES = {
+  'ci.yml': {
+    'dependency-policy': {
+      'pull-requests':
+        'passes the on-failure dependency and license summary permission to the required security policy workflow',
+    },
+  },
+  'dependency-review.yml': {
+    'dependency-review': {
+      'pull-requests': 'posts the on-failure dependency and license summary on the pull request',
+    },
+  },
   'review-gate.yml': {
-    analyze: {
-      'security-events': 'uploads the pull request SARIF analysis before the required gate runs',
-    },
-    'review-gate': {
-      'pull-requests': 'posts blocking findings and supersession notes to the pull request',
-    },
     'disarm-auto-merge': {
       contents:
         'the disable-auto-merge mutation requires it (INFRA-048/#1409 belt-and-braces lever)',
@@ -87,7 +92,7 @@ export const JUSTIFIED_JOB_WRITE_SCOPES = {
     },
   },
   'scans-full.yml': {
-    'scans-full': {
+    'full-harness': {
       issues:
         'files (or comments on) the `scans-full is red on develop` issue when the full suite fails — the promotion blocker PROC-016 names',
     },

@@ -297,27 +297,27 @@ application outcome.
       as GATE-VERIFY evidence.
 - [ ] TC-13: Core, framework, CLI, preset, remote, and provider SPECs describe the owner, transport,
       native mapping, degradation, and verification contract; spec-code conformance finds no discrepancy.
-- [ ] TC-14: Targeted package test/build/typecheck checks, affected harness scan, CI-equivalent
-      verification, and required GitHub CI pass on the exact PR head.
+- [ ] TC-14: Targeted package test/build/typecheck checks, affected harness scan, and the required
+      GitHub CI aggregates pass on the exact PR head.
 
 ## Test Plan
 
-| TC-ID | Test Type            | Tool / Approach                                                                      | Notes                                                                                        |
-| ----- | -------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| TC-01 | Unit + type          | Core table/resolver Vitest tests and package typecheck                               | Includes `none`, `minimal`, every resolution, and fingerprint fields                         |
-| TC-02 | Boundary integration | Preset/frontmatter/remote validator tests plus framework effort tests                | Covers all accepted tiers and preserves `auto` provenance                                    |
-| TC-03 | Core integration     | Execution-round and forced-summary tests                                             | Covers topology authority, cache/opaque fallbacks, callback error, and native-event ordering |
-| TC-04 | Core integration     | Abstract raw provider plus AbstractExecutor/LocalExecutor contract tests             | Direct/executor matrix with one terminal-result envelope on local and generic routes         |
-| TC-05 | Cache integration    | Two-turn cached execution test                                                       | Asserts selected effort bypasses lookup and store until DATA-007                             |
-| TC-06 | Adapter unit         | OpenAI Responses/Chat Completions request and static-config tests                    | Includes unknown/custom and conflict paths                                                   |
-| TC-07 | Adapter unit         | Anthropic Messages request and `baseURL` tests                                       | Verifies output-config merge and negative paths                                              |
-| TC-08 | Adapter unit         | Gemini Generate Content request and static-thinking tests                            | Asserts exclusive controls and preserved non-control fields                                  |
-| TC-09 | Remote contract      | Remote client/server HTTP and SSE tests                                              | Server adapter is authoritative; client transports one terminal outcome                      |
-| TC-10 | Provider contract    | Base provider/no-table focused tests                                                 | Canonical `not-applied` fallback                                                             |
-| TC-11 | Public example       | Example `tsconfig` plus `tsx --conditions=source` commands                           | Requires the provider key/model environment variables from the Task                          |
-| TC-12 | Regression           | TDD RED output then deterministic GREEN receipts                                     | RED occurs before the corresponding production edit                                          |
-| TC-13 | Conformance          | `spec-code-conformance` procedure plus contract tests                                | The final loop fixes code to match accepted SPECs                                            |
-| TC-14 | Regression           | affected builds/tests, `pnpm harness:scan`, `pnpm harness:verify-like-ci`, GitHub CI | No partial command is reported as CI-equivalent                                              |
+| TC-ID | Test Type            | Tool / Approach                                                           | Notes                                                                                        |
+| ----- | -------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| TC-01 | Unit + type          | Core table/resolver Vitest tests and package typecheck                    | Includes `none`, `minimal`, every resolution, and fingerprint fields                         |
+| TC-02 | Boundary integration | Preset/frontmatter/remote validator tests plus framework effort tests     | Covers all accepted tiers and preserves `auto` provenance                                    |
+| TC-03 | Core integration     | Execution-round and forced-summary tests                                  | Covers topology authority, cache/opaque fallbacks, callback error, and native-event ordering |
+| TC-04 | Core integration     | Abstract raw provider plus AbstractExecutor/LocalExecutor contract tests  | Direct/executor matrix with one terminal-result envelope on local and generic routes         |
+| TC-05 | Cache integration    | Two-turn cached execution test                                            | Asserts selected effort bypasses lookup and store until DATA-007                             |
+| TC-06 | Adapter unit         | OpenAI Responses/Chat Completions request and static-config tests         | Includes unknown/custom and conflict paths                                                   |
+| TC-07 | Adapter unit         | Anthropic Messages request and `baseURL` tests                            | Verifies output-config merge and negative paths                                              |
+| TC-08 | Adapter unit         | Gemini Generate Content request and static-thinking tests                 | Asserts exclusive controls and preserved non-control fields                                  |
+| TC-09 | Remote contract      | Remote client/server HTTP and SSE tests                                   | Server adapter is authoritative; client transports one terminal outcome                      |
+| TC-10 | Provider contract    | Base provider/no-table focused tests                                      | Canonical `not-applied` fallback                                                             |
+| TC-11 | Public example       | Example `tsconfig` plus `tsx --conditions=source` commands                | Requires the provider key/model environment variables from the Task                          |
+| TC-12 | Regression           | TDD RED output then deterministic GREEN receipts                          | RED occurs before the corresponding production edit                                          |
+| TC-13 | Conformance          | `spec-code-conformance` procedure plus contract tests                     | The final loop fixes code to match accepted SPECs                                            |
+| TC-14 | Regression           | affected builds/tests, `pnpm harness:scan`, required GitHub CI aggregates | The required contexts pass on the exact PR head                                              |
 
 ## User Execution Test Scenarios
 

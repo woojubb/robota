@@ -1,7 +1,7 @@
 ---
 title: 'RULE-2515: bound non-blocking issue intake by measured net growth'
 issue: https://github.com/woojubb/robota/issues/2515
-status: todo
+status: superseded
 created: 2026-09-09
 priority: critical
 urgency: now
@@ -10,6 +10,13 @@ depends_on: [AGREEMENT-2515, OBSERVABILITY-2515]
 ---
 
 # RULE-2515: bound non-blocking issue intake by measured net growth
+
+## Disposition
+
+**Superseded by GitHub issue #2826.** The root-cause and duplicate-grouping intent remains recommended in
+the existing issue-triage owner, and blocker/security/data-correctness findings remain immediate.
+The proposed threshold-driven mechanical filing gate is retired because it would add another
+mandatory procedure to the delivery path that issue #2826 is simplifying.
 
 ## Problem
 
@@ -28,12 +35,9 @@ separate foundational contract remains issue #2580.
 
 ## Completion Criteria
 
-- [ ] TC-01 — A checked-in policy declares a measurable positive-net threshold and explicit slow/stop/group
-      response for non-blocking filings.
-- [ ] TC-02 — Duplicate/root-cause grouping is required before filing non-blocking manifestations, while
-      blocker/security/data-correctness exceptions remain immediate-file.
-- [ ] TC-03 — Tests demonstrate enforcement, exception handling, visible failures, and no suppression,
-      relabeling, silent closing, or metric-gaming path.
+- [x] TC-01 — Superseded: no threshold-driven mandatory filing gate is introduced.
+- [x] TC-02 — Retained as recommendation guidance; immediate-file risk exceptions remain unchanged.
+- [x] TC-03 — Superseded with the enforcement mechanism; no suppression, relabeling, or silent closing is added.
 
 ## Test Plan
 
@@ -60,8 +64,6 @@ Evidence: record exact commands, observable output, and exit codes before comple
 
 ## Tasks
 
-- [ ] Write the child spec and pass GATE-WRITE/GATE-APPROVAL before implementation.
-- [ ] Implement with TDD RED → GREEN → REFACTOR.
-- [ ] Record TC evidence and pass GATE-IMPLEMENT/GATE-VERIFY/GATE-COMPLETE.
+- [x] Superseded by issue #2826; no child spec, enforcement implementation, or legacy gate transition remains.
 
 ## Evidence Log

@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import * as ts from './lib/ts-ast.mjs';
 
 function literalModuleReference(node) {
@@ -49,6 +51,58 @@ function importedBindings(parsed) {
     }
   }
   return bindings;
+}
+
+function topLevelInitializers(parsed) {
+  const initializers = new Map();
+  for (const statement of parsed.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.initializer) {
+        initializers.set(declaration.name.text, declaration.initializer);
+      }
+    }
+  }
+  return initializers;
+}
+
+function staticPathValue(node, { bindings, fileName, initializers }, seen = new Set()) {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+  if (ts.isIdentifier(node)) {
+    if (seen.has(node.text)) return undefined;
+    const initializer = initializers.get(node.text);
+    if (!initializer) return undefined;
+    return staticPathValue(
+      initializer,
+      { bindings, fileName, initializers },
+      new Set([...seen, node.text]),
+    );
+  }
+  if (ts.isPropertyAccessExpression(node) && node.getText() === 'import.meta.dirname') {
+    return path.posix.dirname(fileName);
+  }
+  if (!ts.isCallExpression(node)) return undefined;
+  if (
+    ts.isPropertyAccessExpression(node.expression) &&
+    node.expression.getText() === 'process.cwd' &&
+    node.arguments.length === 0
+  ) {
+    return '.';
+  }
+  const expression = node.expression;
+  const namespaceCall =
+    ts.isPropertyAccessExpression(expression) && ts.isIdentifier(expression.expression);
+  const identifier = namespaceCall ? expression.expression : expression;
+  if (!ts.isIdentifier(identifier)) return undefined;
+  const binding = bindings.get(identifier.text);
+  if (!binding || !['node:path', 'path'].includes(binding.module)) return undefined;
+  const operation = namespaceCall ? expression.name.text : binding.name;
+  if (!['join', 'resolve'].includes(operation)) return undefined;
+  const parts = node.arguments.map((argument) =>
+    staticPathValue(argument, { bindings, fileName, initializers }, seen),
+  );
+  if (parts.some((part) => part === undefined)) return undefined;
+  return path.posix.normalize(path.posix.join(...parts));
 }
 
 function bindingDeclares(binding, name) {
@@ -192,6 +246,7 @@ export function extractSourceReferences(source, fileName = 'workspace-reference.
   const references = [];
   return ts.withSourceFile(fileName, text, (parsed) => {
     const bindings = importedBindings(parsed);
+    const initializers = topLevelInitializers(parsed);
     const visit = (node) => {
       const moduleReference = literalModuleReference(node);
       const input = moduleReference
@@ -201,6 +256,9 @@ export function extractSourceReferences(source, fileName = 'workspace-reference.
       if (reference) {
         const literal =
           ts.isStringLiteral(reference) || ts.isNoSubstitutionTemplateLiteral(reference);
+        const staticSpecifier = literal
+          ? reference.text
+          : staticPathValue(reference, { bindings, fileName, initializers });
         references.push({
           source: fileName,
           span: { start: reference.pos, end: reference.end },
@@ -237,14 +295,14 @@ export function extractSourceReferences(source, fileName = 'workspace-reference.
                 },
               }
             : {}),
-          ...(literal ? { specifier: reference.text } : {}),
+          ...(staticSpecifier === undefined ? {} : { specifier: staticSpecifier }),
           expression: text.slice(reference.pos, reference.end).trim(),
           typeOnly:
             ts.isImportTypeNode(node) ||
             (ts.isImportDeclaration(node) && ts.isTypeOnlyImportClause(node.importClause)),
         });
       }
-      ts.forEachChild(node, visit);
+      node.forEachChild(visit);
     };
     visit(parsed);
     return references;

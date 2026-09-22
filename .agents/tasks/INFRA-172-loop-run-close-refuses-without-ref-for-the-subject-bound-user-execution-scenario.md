@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-172: loop-run close refuses without --ref for the subject-bound user-execution-scenario ledger'
 issue: https://github.com/woojubb/robota/issues/2587
-status: todo
+status: superseded
 created: 2026-09-05
 priority: medium
 urgency: soon
@@ -11,6 +11,12 @@ depends_on: []
 ---
 
 # INFRA-172: loop-run close refuses without --ref for the subject-bound user-execution-scenario ledger
+
+## Disposition
+
+**Superseded by issue #2826.** The manually committed loop-run ledger and its closing command were
+deleted, so preserving another compatibility rule for that retired surface would recreate the
+overhead this change removes. Historical evidence below remains descriptive only.
 
 ## Objective
 

@@ -18,7 +18,7 @@ import {
   CONTRACT_CONTROL_PLANE_INPUTS,
   CONTRACT_SAFETY_FLOOR,
   createContractTestRegistry,
-  relativeImportClosure,
+  resolveContractTestInputs,
   validateContractTestRegistry,
 } from '../contract-test-inputs.mjs';
 import {
@@ -26,6 +26,7 @@ import {
   groupContractTestsByOwner,
   inferContractTestPrimaryOwner,
 } from '../contract-test-owners.mjs';
+import { runBoundedContractTasks } from '../harness-contract-execution.mjs';
 import {
   classifyHarnessTestFiles,
   contractShardTimeoutMs,
@@ -92,7 +93,8 @@ function fixture() {
     cwd: '.',
   };
   const registry = declarations.map(({ test, inputs }) => {
-    const implementationInputs = relativeImportClosure(root, test, referenceContext);
+    const implementationInputs = resolveContractTestInputs(root, test, referenceContext)
+      .implementationInputs;
     const floor = CONTRACT_SAFETY_FLOOR.find((entry) => entry.test === test);
     return {
       test,
@@ -120,18 +122,92 @@ function fixture() {
 }
 
 describe('affected contract selection', () => {
-  it('keeps contract shard execution bounded instead of launching every shard at once', () => {
+  it('keeps a continuously filled bounded pool instead of batch barriers', () => {
     const source = readFileSync(
       path.join(REPO_ROOT, 'scripts/harness/harness-contract-execution.mjs'),
       'utf8',
     );
 
     expect(source).toContain('DEFAULT_CONTRACT_SHARD_CONCURRENCY = 2');
-    expect(source).toMatch(
-      /for \(let index = 0; index < shardFiles\.length; index \+= concurrency\)/,
+    expect(source).toContain('export async function runBoundedContractTasks');
+    expect(source).toContain('onComplete(task, result)');
+    expect(source).toContain('Array.from({ length: workerCount }, () => worker())');
+    expect(source).not.toContain('const batch = await Promise.all(');
+  });
+
+  it('reports a synchronous task failure and continues draining independent work', async () => {
+    const completed = [];
+    const runs = await runBoundedContractTasks({
+      shards: [['broken.test.mjs'], ['rejected.test.mjs'], ['healthy.test.mjs']],
+      isolated: [],
+      concurrency: 1,
+      runShard(files) {
+        if (files[0] === 'broken.test.mjs') throw new Error('fixture setup failed');
+        if (files[0] === 'rejected.test.mjs') {
+          return Promise.reject(new Error('async launch failed'));
+        }
+        return Promise.resolve({ status: 0, signal: null, stdout: 'ok', stderr: '' });
+      },
+      runIsolated: () => Promise.resolve({ status: 0, signal: null, stdout: '', stderr: '' }),
+      onComplete(task, result) {
+        completed.push({ file: task.files[0], status: result.status });
+      },
+    });
+
+    expect(runs).toHaveLength(3);
+    expect(runs[0].result).toMatchObject({
+      status: 1,
+      stderr: expect.stringContaining('fixture setup failed'),
+    });
+    expect(runs[1].result).toMatchObject({
+      status: 1,
+      stderr: expect.stringContaining('async launch failed'),
+    });
+    expect(runs[2].result.status).toBe(0);
+    expect(completed).toEqual([
+      { file: 'broken.test.mjs', status: 1 },
+      { file: 'rejected.test.mjs', status: 1 },
+      { file: 'healthy.test.mjs', status: 0 },
+    ]);
+  });
+
+  it('latches parent cancellation and does not start queued shards', async () => {
+    const parent = new EventEmitter();
+    const childRegistry = createActiveShardChildRegistry(parent);
+    const runShard = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          let registration;
+          const child = {
+            kill(signal) {
+              registration.release();
+              resolve({ status: 1, signal, stdout: '', stderr: '' });
+              return true;
+            },
+          };
+          registration = childRegistry.register(child);
+        }),
     );
-    expect(source).toContain('shardFiles.slice(index, index + concurrency)');
-    expect(source).toContain('const batch = await Promise.all(');
+
+    const pending = runBoundedContractTasks({
+      shards: [['active.test.mjs'], ['queued.test.mjs']],
+      isolated: [],
+      concurrency: 1,
+      runShard,
+      runIsolated: vi.fn(),
+      isCancelled: () => childRegistry.cancelled,
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    parent.emit('SIGTERM');
+    const runs = await pending;
+
+    expect(childRegistry.cancellationSignal).toBe('SIGTERM');
+    expect(runShard).toHaveBeenCalledTimes(1);
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toMatchObject({
+      files: ['active.test.mjs'],
+      result: { status: 1, signal: 'SIGTERM' },
+    });
   });
 
   it('keeps complete fallback contract shards split into sixteen deterministic groups', () => {
@@ -169,7 +245,6 @@ describe('affected contract selection', () => {
             ...[
               'check-agent-def-convention',
               'agents-cannot-be-told-to-dispatch',
-              'depth-verdict-reachable',
               'scan-retired-agent-references',
             ].map((name) => `${TEST_ROOT}/${name}.test.mjs`),
           ]),
@@ -612,7 +687,10 @@ describe('contract input registry', () => {
 
   it('follows relative static re-exports and rejects duplicate declarations', () => {
     const data = fixture();
-    expect(relativeImportClosure(data.root, data.files.alpha, data.referenceContext)).toEqual([
+    expect(
+      resolveContractTestInputs(data.root, data.files.alpha, data.referenceContext)
+        .implementationInputs,
+    ).toEqual([
       data.files.alpha,
       'scripts/harness/lib/alpha.mjs',
       'scripts/harness/lib/shared.mjs',
@@ -661,6 +739,50 @@ describe('contract input registry', () => {
       if (previous === undefined) delete process.env.AFFECTED_TEMP_CAPTURE;
       else process.env.AFFECTED_TEMP_CAPTURE = previous;
     }
+  });
+
+  it('forwards shard output while the child is still running', async () => {
+    const root = makeTemp('robota-affected-stream-');
+    mkdirSync(path.join(root, 'node_modules/vitest'), { recursive: true });
+    writeFileSync(path.join(root, 'package.json'), '{"type":"module"}\n');
+    writeFileSync(path.join(root, 'node_modules/vitest/vitest.mjs'), 'export {};\n');
+    let child;
+    const chunks = [];
+    const pending = vitestInvocationAsync(root, ['fixture.test.mjs'], {
+      spawnChild: () => {
+        child = new EventEmitter();
+        child.stdout = new PassThrough();
+        child.stderr = new PassThrough();
+        child.kill = vi.fn(() => true);
+        return child;
+      },
+      onOutput: (stream, chunk) => chunks.push(`${stream}:${chunk}`),
+    });
+
+    child.stderr.write('failure detected\n');
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(chunks).toContain('stderr:failure detected\n');
+    child.emit('close', 1, null);
+    await expect(pending).resolves.toMatchObject({ status: 1, outputForwarded: true });
+  });
+
+  it('reports a synchronous shard spawn failure through the streaming channel', async () => {
+    const root = makeTemp('robota-affected-spawn-failure-');
+    mkdirSync(path.join(root, 'node_modules/vitest'), { recursive: true });
+    writeFileSync(path.join(root, 'package.json'), '{"type":"module"}\n');
+    writeFileSync(path.join(root, 'node_modules/vitest/vitest.mjs'), 'export {};\n');
+    const chunks = [];
+
+    const result = await vitestInvocationAsync(root, ['fixture.test.mjs'], {
+      spawnChild: () => {
+        throw new Error('fixture spawn refused');
+      },
+      onOutput: (stream, chunk) => chunks.push(`${stream}:${chunk}`),
+    });
+
+    expect(result).toMatchObject({ status: 1, outputForwarded: true });
+    expect(result.stderr).toContain('fixture spawn refused');
+    expect(chunks.join('')).toContain('stderr:Vitest shard failed to start: fixture spawn refused');
   });
 
   it.each(['SIGINT', 'SIGTERM'])(
@@ -721,6 +843,7 @@ describe('contract input registry', () => {
       const childRegistry = createActiveShardChildRegistry(parent);
       let ownedTemp;
       let child;
+      const chunks = [];
       const spawnChild = (_command, _args, options) => {
         ownedTemp = options.env.TMPDIR;
         child = new EventEmitter();
@@ -737,6 +860,7 @@ describe('contract input registry', () => {
         childRegistry,
         timeoutMs: 25,
         killGraceMs: 10,
+        onOutput: (stream, chunk) => chunks.push(`${stream}:${chunk}`),
       });
 
       await vi.advanceTimersByTimeAsync(25);
@@ -751,6 +875,7 @@ describe('contract input registry', () => {
         termination: 'timeout',
       });
       expect(result.stderr).toContain('exceeded process deadline');
+      expect(chunks.join('')).toContain('stderr:\nVitest shard exceeded process deadline');
       expect(existsSync(ownedTemp)).toBe(false);
       expect(childRegistry.size).toBe(0);
       expect(vi.getTimerCount()).toBe(0);
@@ -770,6 +895,7 @@ describe('contract input registry', () => {
       const childRegistry = createActiveShardChildRegistry(parent);
       let ownedTemp;
       let child;
+      const chunks = [];
       const spawnChild = (_command, _args, options) => {
         ownedTemp = options.env.TMPDIR;
         child = new EventEmitter();
@@ -783,6 +909,7 @@ describe('contract input registry', () => {
         childRegistry,
         timeoutMs: 20,
         killGraceMs: 5,
+        onOutput: (stream, chunk) => chunks.push(`${stream}:${chunk}`),
       });
 
       await vi.advanceTimersByTimeAsync(20);
@@ -801,6 +928,8 @@ describe('contract input registry', () => {
         termination: 'timeout',
       });
       expect(result.stderr).toContain('ignored SIGTERM');
+      expect(chunks.join('')).toContain('ignored SIGTERM');
+      expect(chunks.join('')).toContain('terminated by signal SIGKILL');
       expect(existsSync(ownedTemp)).toBe(false);
       expect(childRegistry.size).toBe(0);
       expect(parent.listenerCount('SIGTERM')).toBe(0);

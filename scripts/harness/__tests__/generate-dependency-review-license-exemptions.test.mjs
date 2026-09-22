@@ -279,12 +279,12 @@ describe('the live dependency-review workflow contract', () => {
     expect(sharpPurls).toEqual(STATIC_SHARP_PURLS);
   });
 
-  it('runs when manifests, the generator, or the workflow contract changes', () => {
-    expect(WORKFLOW).toContain("- '**/package.json'");
-    expect(WORKFLOW).toContain(
-      "- 'scripts/harness/generate-dependency-review-license-exemptions.mjs'",
-    );
-    expect(WORKFLOW).toContain("- '.github/workflows/dependency-review.yml'");
+  it('is a reusable policy owned by the semantically selected required security decision', () => {
+    expect(WORKFLOW).toContain('workflow_call:');
+    const ci = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
+    expect(ci).toContain('uses: ./.github/workflows/dependency-review.yml');
+    expect(ci).toContain("needs.changes.outputs.dependencies == 'true'");
+    expect(ci).toContain('needs: [changes, dependency-security, dependency-policy, secret-scan]');
   });
 
   it('preserves the global policy and non-license security inputs', () => {

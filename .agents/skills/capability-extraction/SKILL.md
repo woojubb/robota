@@ -31,8 +31,8 @@ The predefined agents (spawn by `agentType`):
 4. **Author.** Call `agent-skill-author` with the endorsed decomposition. It writes each named
    `.claude/agents/*.md` / `.agents/skills/*/SKILL.md` to the agent-definition convention and registers
    them.
-5. **Re-audit.** Run the `agent-def-convention` guard (`pnpm harness:scan` → `agent-def-convention`, plus
-   `check-document-standards-index` if a document-type row changed) over the authored files. This
+5. **Re-audit.** Run `node scripts/harness/check-agent-def-convention.mjs`, plus
+   `node scripts/harness/check-document-standards-index.mjs` if a document-type row changed. This
    mechanical PASS/FAIL is the convergence signal — the analogue of an auditor's `ACTIONABLE FINDINGS`.
 6. **Converged?** Stop only when the re-audit is green. If it fails, route the guard's findings back to
    `agent-skill-author` (step 4) and re-audit. Never stop on a round count.
@@ -40,17 +40,3 @@ The predefined agents (spawn by `agentType`):
    returned into the repo's gated backlog.
 
 That is the whole skill. Everything else is the agents'.
-
-## Record the run
-
-Open a ledger entry before the first round, record each round's finding count, and close it with the
-terminal reason it actually reached — `converged`, `no-progress`, `bound-reached`, `halted-for-user`, or
-`abandoned` if it stopped without reaching any of them. A run that leaves no record cannot be told from a
-run that never happened ([a loop run is recorded](../../rules/enforcement-architecture.md), which owns
-what each terminal reason means).
-
-```bash
-node scripts/harness/loop-run.mjs open  --loop capability-extraction
-node scripts/harness/loop-run.mjs round --loop capability-extraction --run <id> --findings <n>
-node scripts/harness/loop-run.mjs close --loop capability-extraction --run <id> --terminal <reason>
-```
