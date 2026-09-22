@@ -71,7 +71,8 @@ admission seam, credential handoff, CI registration — is owned by the SPEC's `
       the current behavior on overlapping paths.
 - [ ] TC-07 — Reconcile and terminalize BRANCH-2664-P2, MERGE-2664, MAP-2664, and AGREEMENT-2664 with one
       delivered-or-terminal owner for every issue row.
-- [ ] TC-08 — Land the final PR, independently verify it, audit one completion record, and close #2664.
+- [ ] TC-08 — Confirm the final hosted state, independent verification, one completion-record audit,
+      and issue #2664 in the CLOSED state.
 
 ## Superseded Plan (historical)
 
