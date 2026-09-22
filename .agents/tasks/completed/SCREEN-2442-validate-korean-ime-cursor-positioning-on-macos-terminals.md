@@ -80,10 +80,10 @@ left five positions to the middle, Korean was selected with Ctrl+Space, and `ㅎ
 composed without pressing Return. Left and right arrows were then sent before the TUI was exited with
 Ctrl+C after restoring ABC.
 
-| Cell | Command | Observed composition position | Movement and process result | Evidence |
-| --- | --- | --- | --- | --- |
-| 1, default | `pnpm exec robota` | `한` first appeared below the input line at its left edge, rather than at the mid-line composition point. | Left committed `한` between `hello ` and `world`; right moved again; `node`/`robota` remained present, so no crash. | `/tmp/robota-screen-2442-cell1-ascii-left5.png`, `/tmp/robota-screen-2442-cell1-korean-compose.png`, `/tmp/robota-screen-2442-cell1-korean-left.png`, `/tmp/robota-screen-2442-cell1-korean-right.png` |
-| 2, opt-in | `ROBOTA_IME_CURSOR=1 pnpm exec robota` | `한` again first appeared below the input line at its left edge, not at the requested mid-line composition point. | Left committed `한` between `hello ` and `world`; right moved again; `node`/`robota` remained present, so no crash. | `/tmp/robota-screen-2442-cell2-ascii-left5.png`, `/tmp/robota-screen-2442-cell2-korean-compose.png`, `/tmp/robota-screen-2442-cell2-korean-left.png`, `/tmp/robota-screen-2442-cell2-korean-right.png` |
+| Cell       | Command                                | Observed composition position                                                                                     | Movement and process result                                                                                         | Evidence                                                                                                                                                                                               |
+| ---------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1, default | `pnpm exec robota`                     | `한` first appeared below the input line at its left edge, rather than at the mid-line composition point.         | Left committed `한` between `hello ` and `world`; right moved again; `node`/`robota` remained present, so no crash. | `/tmp/robota-screen-2442-cell1-ascii-left5.png`, `/tmp/robota-screen-2442-cell1-korean-compose.png`, `/tmp/robota-screen-2442-cell1-korean-left.png`, `/tmp/robota-screen-2442-cell1-korean-right.png` |
+| 2, opt-in  | `ROBOTA_IME_CURSOR=1 pnpm exec robota` | `한` again first appeared below the input line at its left edge, not at the requested mid-line composition point. | Left committed `한` between `hello ` and `world`; right moved again; `node`/`robota` remained present, so no crash. | `/tmp/robota-screen-2442-cell2-ascii-left5.png`, `/tmp/robota-screen-2442-cell2-korean-compose.png`, `/tmp/robota-screen-2442-cell2-korean-left.png`, `/tmp/robota-screen-2442-cell2-korean-right.png` |
 
 **Decision:** retain invariant I5 and the `TERM_PROGRAM === 'Apple_Terminal'` default-off branch.
 The opt-in cell did not crash, but it failed the required cursor-placement half of the decision rule;
@@ -147,7 +147,7 @@ These are engineering regressions only; the Terminal.app screenshots in the scen
 
 - Criterion 1 — complete, canonical scenario fields: `validateApplicableScenarioSection` reports
   `applicable Scenario 1: Terminal.app default Korean IME cursor observation is incomplete or
-  non-canonical`; both Scenario 1 and Scenario 2 return `null` from `scenarioContract` for
+non-canonical`; both Scenario 1 and Scenario 2 return `null` from `scenarioContract` for
   `automatable` and `manual`. Each uses an `Action:` field, which the declared contract does not
   accept. Under the declared `automatable` outcome, no supported field binds the required Terminal/IME
   interaction steps; under `manual`, the required `manual-only`, barrier, unavailable-capability,

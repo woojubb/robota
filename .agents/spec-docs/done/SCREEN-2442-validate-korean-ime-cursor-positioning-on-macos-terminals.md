@@ -88,13 +88,13 @@ None
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                             | Notes                                             |
-| ----- | --------- | ------------------------------------------- | ------------------------------------------------- |
-| TC-01 | Real product UI | Two dedicated Terminal.app cells with Korean 2-Set input | Test skipped: actual Terminal.app/Korean-IME composition is hardware-only; the eight cited screenshots and Stage 2 evidence are the authority. |
-| TC-02 | Component/capability/fallback | Focused Vitest command | Test: `packages/agent-ui-terminal/src/__tests__/terminal-capabilities.test.ts` — terminal capability defaults; `real-cursor-positioning.test.tsx` — `CLI-062 — real cursor positioning`; `cjk-fallback-render.test.tsx` (3 files / 46 tests). |
-| TC-03 | PTY regression | Focused PTY Vitest command | Test: `packages/agent-ui-terminal/src/__tests__/pty/ime-cursor.ptytest.ts` — `CLI-062 — IME hardware-cursor positioning through a real PTY`; `ime-cursor-tmux.ptytest.ts` — `CLI-062 terminal matrix` (2 files / 9 tests). |
-| TC-04 | Documentation conformance | Read I5 against the real-cell outcome | Test skipped: the authoritative check is the completed direct observation against invariant I5; retain the branch because the opt-in placement is wrong. |
-| TC-05 | Lifecycle | Task archive and AGREEMENT projection checks | Test skipped: this atomic finalization is verified by the completed Task path and both parent projections after the gate passes. |
+| TC-ID | Test Type                     | Tool / Approach                                          | Notes                                                                                                                                                                                                                                         |
+| ----- | ----------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Real product UI               | Two dedicated Terminal.app cells with Korean 2-Set input | Test skipped: actual Terminal.app/Korean-IME composition is hardware-only; the eight cited screenshots and Stage 2 evidence are the authority.                                                                                                |
+| TC-02 | Component/capability/fallback | Focused Vitest command                                   | Test: `packages/agent-ui-terminal/src/__tests__/terminal-capabilities.test.ts` — terminal capability defaults; `real-cursor-positioning.test.tsx` — `CLI-062 — real cursor positioning`; `cjk-fallback-render.test.tsx` (3 files / 46 tests). |
+| TC-03 | PTY regression                | Focused PTY Vitest command                               | Test: `packages/agent-ui-terminal/src/__tests__/pty/ime-cursor.ptytest.ts` — `CLI-062 — IME hardware-cursor positioning through a real PTY`; `ime-cursor-tmux.ptytest.ts` — `CLI-062 terminal matrix` (2 files / 9 tests).                    |
+| TC-04 | Documentation conformance     | Read I5 against the real-cell outcome                    | Test skipped: the authoritative check is the completed direct observation against invariant I5; retain the branch because the opt-in placement is wrong.                                                                                      |
+| TC-05 | Lifecycle                     | Task archive and AGREEMENT projection checks             | Test skipped: this atomic finalization is verified by the completed Task path and both parent projections after the gate passes.                                                                                                              |
 
 ## User Execution Test Scenarios
 
@@ -305,6 +305,7 @@ GATE VERDICT: PASS
 - GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
 
 <!-- checkpoint-evidence:v2:start -->
+
 ```json
 {
   "version": 2,
@@ -345,6 +346,7 @@ GATE VERDICT: PASS
   ]
 }
 ```
+
 <!-- checkpoint-evidence:v2:end -->
 
 **Judged by:** `gate.mjs` mechanical evaluator
