@@ -211,7 +211,6 @@ function isConfigurationFailure(
   message: string,
 ): boolean {
   return (
-    error instanceof MCPTransportRedirectRefusedError ||
     rpcCode === JSON_RPC_INVALID_PARAMS ||
     message.includes('invalid url') ||
     message.includes('unsupported protocol') ||
@@ -244,6 +243,11 @@ function isTransientFailure(
 
 /** Classify a thrown failure; owned here so every caller reads one answer (TC-13). */
 export function classifyMcpFailure(error: unknown): TMCPFailureClass {
+  // Typed refusals first: a redirect refusal embeds the `Location` text in its message, so it must
+  // never reach the message heuristics below (a target path containing "unauthorized" is not auth).
+  if (error instanceof MCPTransportRedirectRefusedError) {
+    return 'config';
+  }
   if (error instanceof UnauthorizedError) {
     return 'auth';
   }

@@ -6,6 +6,5 @@
   "review-change.mjs",
   "scan-consistency.mjs",
   "scan-release-verification-gate.mjs",
-  "scan-single-connection-state-union.mjs",
   "self-hosting-verification-commands.mjs"
 ]

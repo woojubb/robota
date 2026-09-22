@@ -61,4 +61,18 @@ describe('constructStreamableHttpTransport — redirect refusal', () => {
 
     expect(classifyMcpFailure(caught)).toBe('config');
   });
+
+  it('classifies a redirect refusal as config regardless of the Location text (it never reaches the message heuristics)', () => {
+    const admitted = 'https://mcp.example.test/mcp';
+    for (const location of [
+      'https://mcp.example.test/unauthorized',
+      'https://mcp.example.test/v401/',
+      'https://mcp.example.test/not found',
+      'https://mcp.example.test/timeout',
+      undefined,
+    ]) {
+      const error = new MCPTransportRedirectRefusedError(302, location, admitted);
+      expect(classifyMcpFailure(error), `location=${String(location)}`).toBe('config');
+    }
+  });
 });
