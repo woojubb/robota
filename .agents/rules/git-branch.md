@@ -319,7 +319,7 @@ unrecoverable by button. Re-run `promote.mjs` instead; it rebuilds the branch fr
 
 | Layer            | Mechanism                                                                                                                   | What it blocks                                                                                                                                                   |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Merge **method** | `protect-main` ruleset, `pull_request` rule with `allowed_merge_methods: ["merge"]`                                         | GitHub refuses to squash- or rebase-merge any PR into `main`. `protect-develop` is untouched, so feature PRs still squash.                                       |
+| Merge **method** | `protect-main` ruleset, `pull_request` rule with `allowed_merge_methods: ["merge"]`                                         | GitHub refuses to squash- or rebase-merge any PR into `main`. `protect-develop` remains independent and may admit its configured landing methods.                |
 | Merge **input**  | `promotion ancestry` CI job (required status check on `protect-main`) running `scripts/harness/scan-promotion-ancestry.mjs` | A promotion whose head does not contain `origin/main` (**A1**), carries non-merge commits `develop` has never seen (**A2**), or changes develop's tree (**A3**). |
 
 Both are gates, not detectors: they block before the merge, not after. A **plain `develop → main` PR
@@ -441,10 +441,10 @@ judgement conditions above govern, and when one of them holds the branch stays a
 **Never** use `gh pr merge --delete-branch` (see the ban above) — delete explicitly, only after confirming
 the branch is merged:
 
-- **Verify first, and verify the MERGE COMMIT — never the branch.** This repository squash-merges: a
-  squash merge writes a NEW commit on the target, so a merged branch's own commits are ancestors of
-  nothing there. Ancestry of the branch therefore answers a question nobody asked. Ask instead whether
-  the branch's pull request LANDED on the target:
+- **Verify first, and verify the landing commit — never the branch.** `develop` accepts more than one
+  landing method. In particular, a squash merge writes a NEW commit on the target, so a merged
+  branch's own commits need not be ancestors there. Branch ancestry therefore answers a question
+  nobody asked. Ask instead whether the branch's pull request LANDED on the target:
 
   ```bash
   MC=$(gh pr list --state merged --head "<branch>" --json mergeCommit --jq '.[0].mergeCommit.oid')
@@ -458,8 +458,8 @@ the branch is merged:
 
 - **Name the target deliberately.** `main` trails `develop` between promotions, so a branch merged to
   `develop` is legitimately absent from `main`. Check against the branch it was merged INTO.
-- **Local:** `git branch -D <branch>`, after the same verification. `-d` is not a usable guard here: it
-  applies the same ancestry test and so refuses every squash-merged branch. The verification above is
+- **Local:** `git branch -D <branch>`, after the same verification. `-d` is not a sufficient guard here:
+  it applies branch ancestry and so refuses squash-landed branches. The verification above is
   the guard; `-D` without it is not.
 - **Remote:** `gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<branch>`.
 

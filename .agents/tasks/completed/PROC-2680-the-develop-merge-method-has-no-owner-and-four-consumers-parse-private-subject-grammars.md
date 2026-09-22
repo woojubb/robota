@@ -1,17 +1,18 @@
 ---
 title: 'PROC-2680: The develop merge method has no owner, and four consumers parse private subject grammars'
 issue: https://github.com/woojubb/robota/issues/2680
-status: todo
+status: done
 created: 2026-09-21
 priority: high
 urgency: soon
 area: harness merge landing and post-merge receipts
 depends_on: []
+completed: 2026-09-22
 ---
 
 # PROC-2680: The develop merge method has no owner, and four consumers parse private subject grammars
 
-**Spec:** `.agents/spec-docs/draft/PROC-2680-the-develop-merge-method-has-no-owner-and-four-consumers-parse-private-subject-grammars.md`
+Spec: `.agents/spec-docs/done/PROC-2680-the-develop-merge-method-has-no-owner-and-four-consumers-parse-private-subject-grammars.md`
 
 **Lane:** L1 — the implementation changes internal scripts; no L2 path or external product contract
 is changed. The merge hook and live ruleset remain unchanged.
@@ -49,7 +50,7 @@ Independent proposal review established that the release consumer is not the sam
 unit: tagged releases traverse `main` promotion topology, not `develop` first-parent arrivals, and
 the two release workflows currently promise network-free generation. Issue #2680 retains that
 separate L2 workflow/topology follow-up; this item owns the shared selector and the consumers that
-immediately block #2664.
+immediately block issue #2664.
 
 ## Source Constraints
 
@@ -59,23 +60,29 @@ immediately block #2664.
   usually registering work, not delivering it (`git-branch.md` "Work that reaches `develop` is
   resolved").
 - Historical `develop` landings of both shapes stay readable; no history rewrite.
+- Multi-commit rebase landings remain readable only when their associated PR's exact final
+  `mergeCommit.oid` is present in the same first-parent range.
 - The closeout and promotion consumers read one fact from one owner, never private subject grammars.
+- The required promotion check keeps its shallow checkout and derives graph data from complete,
+  paginated GitHub projections rather than silently assuming local history.
 - The release-note parser is unchanged by this L1 item; issue #2680 retains the separate follow-up,
   whose Task is allocated only when that work is selected and will depend on this shared selector.
 
 ## Plan
 
-- [ ] TC-01 — Add one exact base/OID commit-to-PR selector and bounded GitHub adapter, red-proofed for
-      squash, two-parent, missing, mismatched, unmerged, and ambiguous projections.
-- [ ] TC-02 — Replace the two post-merge subject checks with an authoritative GitHub read while
+- [x] TC-01 — Add exact and association commit-to-PR selectors plus a bounded GitHub adapter,
+      red-proofed for squash, two-parent, rebase, missing, mismatched, unmerged, and ambiguous
+      projections while retaining an exact in-range final merge OID.
+- [x] TC-02 — Replace the two post-merge subject checks with an authoritative GitHub read while
       preserving the existing Task Result/comment shape, local commit-existence check, and
       target-ancestry proof.
-- [ ] TC-03 — Make promotion-close derivation resolve every first-parent landing through the shared
-      selector before reading pull-request bodies in both `promote.mjs` and the required check.
-- [ ] TC-04 — Correct squash-only rule prose, document why the unrestricted develop ruleset and the
+- [x] TC-03 — Make promotion-close derivation resolve every first-parent landing through the shared
+      selector before reading pull-request bodies in both `promote.mjs` and the required check;
+      reconstruct required-check topology from GitHub and reject reverse-parent promotions.
+- [x] TC-04 — Correct squash-only rule prose, document why the unrestricted develop ruleset and the
       hook's permitted `--merge` hint require no mutation, and record the separate release cause on
       issue #2680 without allocating its Task early.
-- [ ] TC-05 — Run the focused tests and affected scan, then record the PR #2805 receipt that
+- [x] TC-05 — Run the focused tests and affected scan, then record the PR #2805 receipt that
       `MANIFEST-2664` closeout depends on.
 
 ## Test Plan
@@ -92,7 +99,7 @@ single merge method on `develop`: that policy would not make historical mixed la
 would add an external ruleset mutation without removing any of this implementation. Three independent
 read-only reviews reached the same selector result. The revised design uses live authoritative reads
 for closeout, includes both promotion callers, and transfers release topology/authentication to a
-separate #2680 follow-up after independent review disproved one first-parent algorithm across
+separate issue #2680 follow-up after independent review disproved one first-parent algorithm across
 `develop` and `main`.
 
 ## User Execution Test Scenarios
@@ -116,3 +123,16 @@ installed-package surface an end user can execute is involved.
   Registered on the umbrella issue #2680:
   https://github.com/woojubb/robota/issues/2680#issuecomment-5762510054.
 - `PROC-2664` TC-04 depends on this item instead of widening one of the four grammars.
+
+## Result
+
+- Added one exact `develop` base plus `mergeCommit.oid` reader and routed closeout and promotion
+  consumers through it without a subject fallback.
+- Live readback resolved PR #2805 to
+  `79698d78de86bf52cb7c5c4967b3599feb26fdf7`, unblocking the MANIFEST-2664 closeout path.
+- Focused suites passed: 10 selector tests, 63 promotion tests, and the authoritative/mismatched plus
+  non-ancestor closeout scenarios. The full closeout file also completed all 287 tests; Vitest emitted
+  one worker status-report timeout after test completion, so the bounded focused rerun is the terminal
+  exit-0 evidence.
+- The distinct release-note topology/authentication cause remains on issue #2680 at
+  https://github.com/woojubb/robota/issues/2680#issuecomment-5773610902.

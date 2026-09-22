@@ -28,8 +28,10 @@ import {
   examinedIssueRecordCount,
   examinedPullBodyCount,
   extractIssueReferences,
+  firstParentLandingOids,
   parsePullRequestNumbers,
   renderBlock,
+  resolveLandingPullNumbers,
 } from '../promotion-closes.mjs';
 
 /** The subjects `git log --format=%s origin/main..origin/develop` produced on 2026-08-17. */
@@ -67,6 +69,86 @@ describe('parsePullRequestNumbers', () => {
 
   it('takes only the TRAILING reference, so an issue named mid-subject is not read as a PR', () => {
     expect(parsePullRequestNumbers(['fix: undo the change from #1409 (#1500)'])).toEqual([1500]);
+  });
+});
+
+describe('resolveLandingPullNumbers', () => {
+  it('uses landing OIDs rather than squash and merge subject spellings', () => {
+    const squash = 'a'.repeat(40);
+    const merge = 'b'.repeat(40);
+    const pullNumbers = resolveLandingPullNumbers({
+      landingOids: [squash, merge],
+      baseRefName: 'develop',
+      readAssociatedPull: (oid, baseRefName) => ({
+        number: oid === squash ? 2806 : 2805,
+        baseRefName,
+        mergeCommit: { oid },
+      }),
+    });
+    expect(pullNumbers).toEqual([2806, 2805]);
+    expect(
+      collectClosingLines({
+        pullNumbers,
+        ...readerFrom(
+          { 2806: 'Closes #2664.', 2805: 'Closes #2680.' },
+          {
+            2664: { state: 'open', isPullRequest: false },
+            2680: { state: 'open', isPullRequest: false },
+          },
+        ),
+      }).lines,
+    ).toEqual(['Closes #2664', 'Closes #2680']);
+  });
+
+  it('groups a multi-commit rebase landing under its exact final merge OID', () => {
+    const final = 'c'.repeat(40);
+    const earlier = 'd'.repeat(40);
+    expect(
+      resolveLandingPullNumbers({
+        landingOids: [final, earlier],
+        baseRefName: 'develop',
+        readAssociatedPull: () => ({
+          number: 2807,
+          baseRefName: 'develop',
+          mergeCommit: { oid: final },
+        }),
+      }),
+    ).toEqual([2807]);
+  });
+
+  it('rejects an association whose authoritative merge OID is outside the landing range', () => {
+    expect(() =>
+      resolveLandingPullNumbers({
+        landingOids: ['d'.repeat(40)],
+        baseRefName: 'develop',
+        readAssociatedPull: () => ({
+          number: 2807,
+          baseRefName: 'develop',
+          mergeCommit: { oid: 'c'.repeat(40) },
+        }),
+      }),
+    ).toThrow(/absent from the first-parent landing range/);
+  });
+});
+
+describe('firstParentLandingOids', () => {
+  it('walks only the integration first-parent commits in the requested range', () => {
+    const calls = [];
+    const first = 'a'.repeat(40);
+    const second = 'b'.repeat(40);
+    expect(
+      firstParentLandingOids({
+        base: 'origin/main',
+        head: 'origin/develop',
+        git: (args) => {
+          calls.push(args);
+          return { code: 0, stdout: `${first}\n${second}\n`, stderr: '' };
+        },
+      }),
+    ).toEqual([first, second]);
+    expect(calls).toEqual([
+      ['log', '--first-parent', '--format=%H', 'origin/main..origin/develop'],
+    ]);
   });
 });
 
