@@ -1,0 +1,289 @@
+{
+  "name": "deeply_nested_tool",
+  "description": "A schema nested 40 levels deep - over every profile maxDepth (32).",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "child": {
+        "type": "object",
+        "properties": {
+          "child": {
+            "type": "object",
+            "properties": {
+              "child": {
+                "type": "object",
+                "properties": {
+                  "child": {
+                    "type": "object",
+                    "properties": {
+                      "child": {
+                        "type": "object",
+                        "properties": {
+                          "child": {
+                            "type": "object",
+                            "properties": {
+                              "child": {
+                                "type": "object",
+                                "properties": {
+                                  "child": {
+                                    "type": "object",
+                                    "properties": {
+                                      "child": {
+                                        "type": "object",
+                                        "properties": {
+                                          "child": {
+                                            "type": "object",
+                                            "properties": {
+                                              "child": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "child": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "child": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                          "child": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                              "child": {
+                                                                "type": "object",
+                                                                "properties": {
+                                                                  "child": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                      "child": {
+                                                                        "type": "object",
+                                                                        "properties": {
+                                                                          "child": {
+                                                                            "type": "object",
+                                                                            "properties": {
+                                                                              "child": {
+                                                                                "type": "object",
+                                                                                "properties": {
+                                                                                  "child": {
+                                                                                    "type": "object",
+                                                                                    "properties": {
+                                                                                      "child": {
+                                                                                        "type": "object",
+                                                                                        "properties": {
+                                                                                          "child": {
+                                                                                            "type": "object",
+                                                                                            "properties": {
+                                                                                              "child": {
+                                                                                                "type": "object",
+                                                                                                "properties": {
+                                                                                                  "child": {
+                                                                                                    "type": "object",
+                                                                                                    "properties": {
+                                                                                                      "child": {
+                                                                                                        "type": "object",
+                                                                                                        "properties": {
+                                                                                                          "child": {
+                                                                                                            "type": "object",
+                                                                                                            "properties": {
+                                                                                                              "child": {
+                                                                                                                "type": "object",
+                                                                                                                "properties": {
+                                                                                                                  "child": {
+                                                                                                                    "type": "object",
+                                                                                                                    "properties": {
+                                                                                                                      "child": {
+                                                                                                                        "type": "object",
+                                                                                                                        "properties": {
+                                                                                                                          "child": {
+                                                                                                                            "type": "object",
+                                                                                                                            "properties": {
+                                                                                                                              "child": {
+                                                                                                                                "type": "object",
+                                                                                                                                "properties": {
+                                                                                                                                  "child": {
+                                                                                                                                    "type": "object",
+                                                                                                                                    "properties": {
+                                                                                                                                      "child": {
+                                                                                                                                        "type": "object",
+                                                                                                                                        "properties": {
+                                                                                                                                          "child": {
+                                                                                                                                            "type": "object",
+                                                                                                                                            "properties": {
+                                                                                                                                              "child": {
+                                                                                                                                                "type": "object",
+                                                                                                                                                "properties": {
+                                                                                                                                                  "child": {
+                                                                                                                                                    "type": "object",
+                                                                                                                                                    "properties": {
+                                                                                                                                                      "child": {
+                                                                                                                                                        "type": "object",
+                                                                                                                                                        "properties": {
+                                                                                                                                                          "child": {
+                                                                                                                                                            "type": "object",
+                                                                                                                                                            "properties": {
+                                                                                                                                                              "child": {
+                                                                                                                                                                "type": "object",
+                                                                                                                                                                "properties": {
+                                                                                                                                                                  "child": {
+                                                                                                                                                                    "type": "string"
+                                                                                                                                                                  }
+                                                                                                                                                                },
+                                                                                                                                                                "required": [
+                                                                                                                                                                  "child"
+                                                                                                                                                                ]
+                                                                                                                                                              }
+                                                                                                                                                            },
+                                                                                                                                                            "required": [
+                                                                                                                                                              "child"
+                                                                                                                                                            ]
+                                                                                                                                                          }
+                                                                                                                                                        },
+                                                                                                                                                        "required": [
+                                                                                                                                                          "child"
+                                                                                                                                                        ]
+                                                                                                                                                      }
+                                                                                                                                                    },
+                                                                                                                                                    "required": [
+                                                                                                                                                      "child"
+                                                                                                                                                    ]
+                                                                                                                                                  }
+                                                                                                                                                },
+                                                                                                                                                "required": [
+                                                                                                                                                  "child"
+                                                                                                                                                ]
+                                                                                                                                              }
+                                                                                                                                            },
+                                                                                                                                            "required": [
+                                                                                                                                              "child"
+                                                                                                                                            ]
+                                                                                                                                          }
+                                                                                                                                        },
+                                                                                                                                        "required": [
+                                                                                                                                          "child"
+                                                                                                                                        ]
+                                                                                                                                      }
+                                                                                                                                    },
+                                                                                                                                    "required": [
+                                                                                                                                      "child"
+                                                                                                                                    ]
+                                                                                                                                  }
+                                                                                                                                },
+                                                                                                                                "required": [
+                                                                                                                                  "child"
+                                                                                                                                ]
+                                                                                                                              }
+                                                                                                                            },
+                                                                                                                            "required": [
+                                                                                                                              "child"
+                                                                                                                            ]
+                                                                                                                          }
+                                                                                                                        },
+                                                                                                                        "required": [
+                                                                                                                          "child"
+                                                                                                                        ]
+                                                                                                                      }
+                                                                                                                    },
+                                                                                                                    "required": [
+                                                                                                                      "child"
+                                                                                                                    ]
+                                                                                                                  }
+                                                                                                                },
+                                                                                                                "required": [
+                                                                                                                  "child"
+                                                                                                                ]
+                                                                                                              }
+                                                                                                            },
+                                                                                                            "required": [
+                                                                                                              "child"
+                                                                                                            ]
+                                                                                                          }
+                                                                                                        },
+                                                                                                        "required": [
+                                                                                                          "child"
+                                                                                                        ]
+                                                                                                      }
+                                                                                                    },
+                                                                                                    "required": [
+                                                                                                      "child"
+                                                                                                    ]
+                                                                                                  }
+                                                                                                },
+                                                                                                "required": [
+                                                                                                  "child"
+                                                                                                ]
+                                                                                              }
+                                                                                            },
+                                                                                            "required": [
+                                                                                              "child"
+                                                                                            ]
+                                                                                          }
+                                                                                        },
+                                                                                        "required": [
+                                                                                          "child"
+                                                                                        ]
+                                                                                      }
+                                                                                    },
+                                                                                    "required": [
+                                                                                      "child"
+                                                                                    ]
+                                                                                  }
+                                                                                },
+                                                                                "required": [
+                                                                                  "child"
+                                                                                ]
+                                                                              }
+                                                                            },
+                                                                            "required": ["child"]
+                                                                          }
+                                                                        },
+                                                                        "required": ["child"]
+                                                                      }
+                                                                    },
+                                                                    "required": ["child"]
+                                                                  }
+                                                                },
+                                                                "required": ["child"]
+                                                              }
+                                                            },
+                                                            "required": ["child"]
+                                                          }
+                                                        },
+                                                        "required": ["child"]
+                                                      }
+                                                    },
+                                                    "required": ["child"]
+                                                  }
+                                                },
+                                                "required": ["child"]
+                                              }
+                                            },
+                                            "required": ["child"]
+                                          }
+                                        },
+                                        "required": ["child"]
+                                      }
+                                    },
+                                    "required": ["child"]
+                                  }
+                                },
+                                "required": ["child"]
+                              }
+                            },
+                            "required": ["child"]
+                          }
+                        },
+                        "required": ["child"]
+                      }
+                    },
+                    "required": ["child"]
+                  }
+                },
+                "required": ["child"]
+              }
+            },
+            "required": ["child"]
+          }
+        },
+        "required": ["child"]
+      }
+    },
+    "required": ["child"]
+  }
+}

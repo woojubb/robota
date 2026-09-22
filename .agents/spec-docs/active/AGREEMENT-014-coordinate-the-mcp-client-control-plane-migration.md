@@ -94,7 +94,7 @@ Paired execution record:
 - [x] MCP-002 — done — `.agents/tasks/completed/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md`
 - [x] MCP-003 — superseded — `.agents/tasks/completed/MCP-003-add-an-mcp-connection-and-capability-catalog-supervisor.md`
 - [x] MCP-004 — done — `.agents/tasks/completed/MCP-004-hand-long-running-mcp-calls-to-background-tasks.md`
-- [ ] MCP-005 — todo — `.agents/tasks/MCP-005-project-mcp-tool-schemas-safely-across-providers.md`
+- [x] MCP-005 — done — `.agents/tasks/completed/MCP-005-project-mcp-tool-schemas-safely-across-providers.md`
 
 ## Evidence Log
 

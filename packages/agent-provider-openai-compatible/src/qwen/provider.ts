@@ -1,4 +1,8 @@
-import { AbstractAIProvider, SilentLogger } from '@robota-sdk/agent-core';
+import {
+  AbstractAIProvider,
+  PERMISSIVE_TOOL_SCHEMA_PROFILE,
+  SilentLogger,
+} from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
 
 import { QWEN_CAPABILITY_TABLE } from './capability-table';
@@ -22,6 +26,7 @@ import type {
   IProviderCapabilityTable,
   IChatOptions,
   IProviderCapabilities,
+  IToolSchemaProjectionProfile,
   TTextDeltaCallback,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -110,7 +115,7 @@ export class QwenProvider extends AbstractAIProvider {
     return chatWithQwenResponsesApi({
       client,
       messages,
-      chatOptions: options,
+      chatOptions: this.projectChatOptions(options),
       defaultModel: this.options.defaultModel,
       builtInWebTools: this.options.builtInWebTools,
       onTextDelta: this.onTextDelta,
@@ -187,7 +192,7 @@ export class QwenProvider extends AbstractAIProvider {
       yield* chatStreamWithQwenResponsesApi({
         client: this.responsesClient,
         messages,
-        chatOptions: options,
+        chatOptions: this.projectChatOptions(options),
         defaultModel: this.options.defaultModel,
         builtInWebTools: this.options.builtInWebTools,
         onTextDelta: this.onTextDelta,
@@ -247,6 +252,29 @@ export class QwenProvider extends AbstractAIProvider {
     // OpenAI-compatible Qwen clients do not need explicit cleanup.
   }
 
+  /**
+   * MCP-005: qwen (chat-completions and its Responses surface alike) accepts standard JSON Schema —
+   * the permissive profile.
+   */
+  protected override projectionProfile(): IToolSchemaProjectionProfile | undefined {
+    return { ...PERMISSIVE_TOOL_SCHEMA_PROFILE, providerName: 'qwen' };
+  }
+
+  /**
+   * Project `options.tools` before EITHER request-building surface reaches a converter — the shared
+   * Chat-Completions builder (`request-builder.ts:78-79`) and the Qwen Responses surface
+   * (`responses-chat.ts:158`, live when `builtInWebTools` is on). `options.tools` itself is never
+   * mutated.
+   */
+  private projectChatOptions(options: IChatOptions | undefined): IChatOptions | undefined {
+    if (!options?.tools) {
+      return options;
+    }
+    const model = options.model ?? this.options.defaultModel ?? '';
+    const projected = this.projectTools(options.tools, model);
+    return { ...options, tools: projected && projected.length > 0 ? projected : undefined };
+  }
+
   private buildRequestParams(
     messages: TUniversalMessage[],
     options: IChatOptions | undefined,
@@ -255,7 +283,7 @@ export class QwenProvider extends AbstractAIProvider {
 
     return buildOpenAICompatibleRequestParams({
       messages,
-      options,
+      options: this.projectChatOptions(options),
       defaultModel: this.options.defaultModel,
       capabilityTable: this.capabilityTable(),
     });

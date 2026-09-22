@@ -82,6 +82,25 @@ preserves unrelated `thinkingConfig` fields, and rejects a conflicting static `t
 unverified routes report `not-applied` without inventing a numeric `thinkingBudget` mapping. The
 provider emits one serializable resolution/native-control/dispatch result through the local observer.
 
+## Tool Schema Projection (MCP-005)
+
+`GeminiProvider.projectionProfile()` returns `@robota-sdk/agent-core`'s `PERMISSIVE_TOOL_SCHEMA_PROFILE`
+with `providerName: 'gemini'`, `unknownKeywords: 'strip'`, and `unsupportedMembers:
+['additionalProperties']` — Gemini's `Schema` type is a fixed OpenAPI-3.0 subset, not standard JSON
+Schema, so a foreign keyword is stripped (or, for a node left with no `type`/`anyOf`, replaced by the
+accept-anything node) and `additionalProperties` — the one universal-subset member `Schema` cannot
+carry, `tool-schema-converter.ts`'s own comment names the fragility — is stripped and RECORDED before
+`convertToolsToGeminiFormat`'s field-by-field rebuild ever sees the schema. `AbstractAIProvider.
+projectTools()` runs at the one request-building site (`execution-helpers.ts:134-135`, reached by both
+`chat()` and `chatStream()` through `GeminiProvider`'s `projectChatOptions()` helper) before the rebuild
+runs, so the rebuild's fixed key list no longer drops a member silently: every member it does not copy
+was already stripped-and-changed by the projector, root included.
+
+A tool `projectToolSchema` rejects is omitted from that request alone and reported once per cache
+identity as one `tool_schema_quarantined` line on agent-core's global-sink `ToolSchemaProjection`
+logger — audible even though `GeminiProvider` constructs with no injected logger (`this.logger` is
+`SilentLogger`).
+
 `examples/verify-model-effort.ts` is typechecked with this package and source-runs with
 `GEMINI_API_KEY` loaded from the Git-ignored repository-root `.env.local`; it selects the verified
 `gemini-3-flash-preview` model itself, then prints `high`, `max`, and `auto` outcomes without creating
