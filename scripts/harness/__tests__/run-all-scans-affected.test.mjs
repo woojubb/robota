@@ -332,7 +332,7 @@ describe('the live registry declares what every scan reads', () => {
 describe('the runner on the live registry (TC-07)', () => {
   const integrationRegistry = selectScansForExecutionContext(SCAN_COMMANDS, {
     context: 'integration',
-    environment: {},
+    environment: process.env,
   });
   function list(args) {
     const result = spawnSync(process.execPath, [RUNNER, '--affected', '--list', ...args], {

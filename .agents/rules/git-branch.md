@@ -598,8 +598,9 @@ The first such edit — the lint-warning ceiling step in the required `quality` 
 landed on an owner decision taken in conversation, because none of the above was written; this
 section is that decision written down so the next one costs a read.
 
-Enforced by: `workflow-provenance` — it makes the edit visible and unmergeable through the ordinary
-path, and its finding points here. Steps 1–4 and delegation applicability remain operator-reviewed
+Enforced by: `workflow-provenance` for visibility and ordinary-path refusal — it makes the edit
+visible and unmergeable through the ordinary path, and its finding points here. Steps 1–4 and
+delegation applicability remain operator-reviewed
 and are checked by the independent landing verifier; no scan validates these decision records.
 This routing amendment is recorded, not mechanized; the existing recurrence ledger L7 remains OPEN.
 
