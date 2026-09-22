@@ -18,6 +18,8 @@ import {
   examinedIssueCount,
   findMissingKeywords,
   parseCommitSubjects,
+  comparisonFirstParentLandingOids,
+  promotionDevelopHead,
 } from '../scan-promotion-closes.mjs';
 import { parsePullRequestNumbers } from '../promotion-closes.mjs';
 
@@ -144,5 +146,76 @@ describe('parseCommitSubjects', () => {
   it('is empty for empty output', () => {
     expect(parseCommitSubjects('')).toEqual([]);
     expect(parseCommitSubjects(undefined)).toEqual([]);
+  });
+});
+
+describe('promotionDevelopHead', () => {
+  it('uses the first parent of the sanctioned promotion merge as the develop tip', () => {
+    const develop = 'a'.repeat(40);
+    const main = 'b'.repeat(40);
+    const head = 'c'.repeat(40);
+    expect(
+      promotionDevelopHead({
+        headOid: head,
+        baseOid: main,
+        parents: [develop, main],
+      }),
+    ).toBe(develop);
+  });
+
+  it('rejects a reverse merge that puts main in the first-parent position', () => {
+    const develop = 'a'.repeat(40);
+    const main = 'b'.repeat(40);
+    expect(() =>
+      promotionDevelopHead({
+        headOid: 'c'.repeat(40),
+        baseOid: main,
+        parents: [main, develop],
+      }),
+    ).toThrow(/second parent/);
+  });
+});
+
+describe('comparisonFirstParentLandingOids', () => {
+  it('reconstructs only the first-parent develop landings from paginated API data', () => {
+    const base = 'a'.repeat(40);
+    const first = 'b'.repeat(40);
+    const side = 'c'.repeat(40);
+    const head = 'd'.repeat(40);
+    expect(
+      comparisonFirstParentLandingOids({
+        headOid: head,
+        pages: [
+          {
+            merge_base_commit: { sha: base },
+            total_commits: 3,
+            commits: [
+              { sha: first, parents: [{ sha: base }] },
+              { sha: side, parents: [{ sha: base }] },
+            ],
+          },
+          {
+            merge_base_commit: { sha: base },
+            total_commits: 3,
+            commits: [{ sha: head, parents: [{ sha: first }, { sha: side }] }],
+          },
+        ],
+      }),
+    ).toEqual([head, first]);
+  });
+
+  it('fails closed when a comparison page is missing', () => {
+    expect(() =>
+      comparisonFirstParentLandingOids({
+        headOid: 'b'.repeat(40),
+        pages: [
+          {
+            merge_base_commit: { sha: 'a'.repeat(40) },
+            total_commits: 2,
+            commits: [{ sha: 'b'.repeat(40), parents: [{ sha: 'a'.repeat(40) }] }],
+          },
+        ],
+      }),
+    ).toThrow(/incomplete/);
   });
 });

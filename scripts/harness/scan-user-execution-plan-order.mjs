@@ -62,6 +62,8 @@ import {
 } from './checkpoint-evidence-git-contract.mjs';
 import { checkpointDelivery } from './checkpoint-evidence-source.mjs';
 import { parseConversionEvidence } from './conversion-evidence.mjs';
+import { readLandingPull } from './landing-pull-request.mjs';
+import { originSlug } from './required-status-checks-live.mjs';
 import {
   LANE_RULE_PATH,
   PRE_CHECKPOINT_SPEC_STATUS,
@@ -1751,7 +1753,36 @@ function validateCheckpointCommit(root, parent, commit, paths, basename) {
   return problems;
 }
 
-function validatePostMergeRecord(root, before, after, base) {
+function defaultLandingPullReader(root) {
+  const repository = process.env.GITHUB_REPOSITORY || originSlug(root);
+  if (!repository) {
+    return () => {
+      throw new Error('could not resolve owner/name for authoritative landing lookup');
+    };
+  }
+  return (mergeOid, prNumber) =>
+    readLandingPull({
+      repository,
+      landingOid: mergeOid,
+      baseRefName: 'develop',
+      pullNumber: Number(prNumber),
+    });
+}
+
+function exactLandingPull(readPull, mergeOid, prNumber) {
+  try {
+    const pull = readPull(mergeOid, Number(prNumber));
+    return (
+      pull?.number === Number(prNumber) &&
+      pull?.baseRefName === 'develop' &&
+      pull?.mergeCommit?.oid === mergeOid.toLowerCase()
+    );
+  } catch {
+    return false;
+  }
+}
+
+function validatePostMergeRecord(root, before, after, base, readPull) {
   const record = appendedRecord(before, after);
   if (!successfulLoopRecord(record)) return false;
   const prMatches = [...String(record.ref ?? '').matchAll(/\bPR\s+#(\d+)\b/g)];
@@ -1763,17 +1794,10 @@ function validatePostMergeRecord(root, before, after, base) {
   const resolves = runGit(root, ['rev-parse', '--verify', '--quiet', `${mergeOid}^{commit}`]);
   if (resolves.code !== 0) return false;
   if (runGit(root, ['merge-base', '--is-ancestor', mergeOid, base]).code !== 0) return false;
-  const subject = runGit(root, ['show', '-s', '--format=%s', mergeOid]);
-  const explicitlyRecordedSquash = /\bSQUASH MERGE VERIFIED PASS\b/.test(String(record.ref));
-  return (
-    subject.code === 0 &&
-    (subject.stdout.includes(`(#${prNumber})`) ||
-      new RegExp(`\\bpull request #${prNumber}\\b`, 'i').test(subject.stdout) ||
-      (explicitlyRecordedSquash && mergeOid === base))
-  );
+  return exactLandingPull(readPull, mergeOid, prNumber);
 }
 
-function validateRemoteCompletionReceipt(root, task, base) {
+function validateRemoteCompletionReceipt(root, task, base, readPull) {
   const result = markdownSection(task, '## Result');
   if (result === null) return false;
   const prNumber = /github\.com\/[^/\s]+\/[^/\s]+\/pull\/(\d+)/i.exec(result)?.[1];
@@ -1789,13 +1813,12 @@ function validateRemoteCompletionReceipt(root, task, base) {
     runGit(root, ['merge-base', '--is-ancestor', mergeOid, base]).code !== 0
   )
     return false;
-  const subject = runGit(root, ['show', '-s', '--format=%s', mergeOid]);
-  return subject.code === 0 && subject.stdout.includes(`(#${prNumber})`);
+  return exactLandingPull(readPull, mergeOid, prNumber);
 }
 
 /**
- * A delivering PR may be squash-merged before its Task/spec completion records are archived. In
- * that case the old planning checkpoint is not in the new branch's ancestry, so the exact archive
+ * A delivering PR may land before its Task/spec completion records are archived. On a fresh
+ * closeout branch the old planning checkpoint may not be in topic ancestry, so the exact archive
  * itself is the only candidate the guard can inspect. Keep this exception narrower than a generic
  * active-to-done move: both records must move together, the terminal evidence must already be in
  * them. Current closeouts bind the archived Task's Result to a remote completion receipt and an
@@ -1881,6 +1904,7 @@ function postMergeCompletionProblems({
   root,
   paths,
   base,
+  readPull,
   textForPath,
   parentTextForPath,
   ledgerBefore,
@@ -1991,8 +2015,8 @@ function postMergeCompletionProblems({
   const hasHistoricalLedgerWitness = paths.includes(POST_MERGE_LEDGER);
   if (
     hasHistoricalLedgerWitness
-      ? !validatePostMergeRecord(root, ledgerBefore, ledgerAfter, base)
-      : !validateRemoteCompletionReceipt(root, task, base)
+      ? !validatePostMergeRecord(root, ledgerBefore, ledgerAfter, base, readPull)
+      : !validateRemoteCompletionReceipt(root, task, base, readPull)
   ) {
     problems.push(
       hasHistoricalLedgerWitness
@@ -2003,11 +2027,12 @@ function postMergeCompletionProblems({
   return { basename, problems };
 }
 
-function validatePostMergeCompletion(root, parent, commit, paths, base) {
+function validatePostMergeCompletion(root, parent, commit, paths, base, readPull) {
   return postMergeCompletionProblems({
     root,
     paths,
     base,
+    readPull,
     textForPath: (file) => gitText(root, commit, file),
     parentTextForPath: (file) => gitText(root, parent, file),
     ledgerBefore: gitText(root, parent, POST_MERGE_LEDGER) ?? '',
@@ -2019,11 +2044,12 @@ function validatePostMergeCompletion(root, parent, commit, paths, base) {
   });
 }
 
-function stagedPostMergeCompletion(root, paths, base) {
+function stagedPostMergeCompletion(root, paths, base, readPull) {
   return postMergeCompletionProblems({
     root,
     paths,
     base,
+    readPull,
     textForPath: (file) => indexText(root, file),
     parentTextForPath: (file) => gitText(root, 'HEAD', file),
     ledgerBefore: gitText(root, 'HEAD', POST_MERGE_LEDGER) ?? '',
@@ -2310,13 +2336,13 @@ export function isPostMergeCompletionBatch({
   });
 }
 
-export function validatePostMergePrelude(root, parent, commit, paths, base) {
+export function validatePostMergePrelude(root, parent, commit, paths, base, readPull) {
   const before = gitText(root, parent, POST_MERGE_LEDGER) ?? '';
   const afterText = (file) =>
     commit === null ? indexText(root, file) : gitText(root, commit, file);
   const after = afterText(POST_MERGE_LEDGER) ?? '';
   return (
-    validatePostMergeRecord(root, before, after, base) &&
+    validatePostMergeRecord(root, before, after, base, readPull) &&
     isPostMergeDeliveryBatch({
       paths,
       textBefore: (file) => gitText(root, parent, file),
@@ -2379,6 +2405,7 @@ function singleHistoryAnalysis(
   root = WORKSPACE_ROOT,
   requestedBase = undefined,
   headRevision = 'HEAD',
+  readPull = defaultLandingPullReader(root),
 ) {
   const docs = documentationBatchReader(root, runGit, gitText, indexText, exactPlanSignal);
   requireWorktreeTopLevel(root);
@@ -2583,6 +2610,7 @@ function singleHistoryAnalysis(
         entry.commit,
         entry.paths,
         base,
+        readPull,
       );
       if (completion !== null) {
         if (
@@ -2605,7 +2633,7 @@ function singleHistoryAnalysis(
         }
         continue;
       }
-      if (validatePostMergePrelude(root, entry.parent, entry.commit, entry.paths, base)) {
+      if (validatePostMergePrelude(root, entry.parent, entry.commit, entry.paths, base, readPull)) {
         postMergePreludes += 1;
         if (postMergePreludes > 1 || planningStarted) {
           findings.push(
@@ -2712,7 +2740,7 @@ function singleHistoryAnalysis(
   for (const entry of entries) {
     if (entry.commit === first.commit) break;
     if (postMergeHistoryBetween(root, entry.parent, entry.commit, entry.paths)) continue;
-    if (validatePostMergePrelude(root, entry.parent, entry.commit, entry.paths, base)) {
+    if (validatePostMergePrelude(root, entry.parent, entry.commit, entry.paths, base, readPull)) {
       postMergePreludes += 1;
       if (postMergePreludes > 1 || planningStarted) {
         findings.push(
@@ -2936,7 +2964,7 @@ function integrationAgreementId(root, env = process.env) {
   return match ? match[1].toUpperCase() : null;
 }
 
-function integrationHistoryAnalysis(root, requestedBase, agreementId) {
+function integrationHistoryAnalysis(root, requestedBase, agreementId, readPull) {
   requireWorktreeTopLevel(root);
   const base = resolveTopicMergeBase(root, requestedBase);
   const listed = runGit(root, [
@@ -2956,7 +2984,7 @@ function integrationHistoryAnalysis(root, requestedBase, agreementId) {
   const firstMergeIndex = rows.findIndex((row) => row.parents.length > 1);
   const agreementTip =
     firstMergeIndex < 0 ? (rows.at(-1)?.commit ?? 'HEAD') : rows[firstMergeIndex].parents[0];
-  const agreement = singleHistoryAnalysis(root, base, agreementTip);
+  const agreement = singleHistoryAnalysis(root, base, agreementTip, readPull);
   if (agreement.findings.length > 0) return agreement;
   const agreementBasename = agreement.checkpoint?.basename ?? agreement.pendingBasename ?? null;
   if (agreementBasename === null || subjectId(agreementBasename) !== agreementId) {
@@ -3056,7 +3084,7 @@ function integrationHistoryAnalysis(root, requestedBase, agreementId) {
       findings.push(finding('child history is not merge-bounded.', row.commit));
       continue;
     }
-    const child = singleHistoryAnalysis(root, firstParent, secondParent);
+    const child = singleHistoryAnalysis(root, firstParent, secondParent, readPull);
     examined += child.examined;
     commits.push(...child.commits, row.commit);
     if (child.findings.length > 0) {
@@ -3093,11 +3121,15 @@ function integrationHistoryAnalysis(root, requestedBase, agreementId) {
   };
 }
 
-function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
+function historyAnalysis(
+  root = WORKSPACE_ROOT,
+  requestedBase = undefined,
+  readPull = defaultLandingPullReader(root),
+) {
   const agreementId = integrationAgreementId(root);
   return agreementId === null
-    ? singleHistoryAnalysis(root, requestedBase)
-    : integrationHistoryAnalysis(root, requestedBase, agreementId);
+    ? singleHistoryAnalysis(root, requestedBase, 'HEAD', readPull)
+    : integrationHistoryAnalysis(root, requestedBase, agreementId, readPull);
 }
 
 /**
@@ -3105,14 +3137,22 @@ function historyAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
  * binding). `findStagedFindings` reads `historyAnalysis` directly and never this — a commit is not a
  * range.
  */
-function rangeAnalysis(root = WORKSPACE_ROOT, requestedBase = undefined) {
-  const analysis = historyAnalysis(root, requestedBase);
+function rangeAnalysis(
+  root = WORKSPACE_ROOT,
+  requestedBase = undefined,
+  readPull = defaultLandingPullReader(root),
+) {
+  const analysis = historyAnalysis(root, requestedBase, readPull);
   return { ...analysis, findings: [...analysis.findings, ...deliveryFindings(analysis)] };
 }
 
-export function findHistoryFindings(root = WORKSPACE_ROOT, requestedBase = undefined) {
+export function findHistoryFindings(
+  root = WORKSPACE_ROOT,
+  requestedBase = undefined,
+  readPull = defaultLandingPullReader(root),
+) {
   try {
-    return rangeAnalysis(root, requestedBase).findings;
+    return rangeAnalysis(root, requestedBase, readPull).findings;
   } catch (error) {
     return [
       finding(
@@ -3123,8 +3163,12 @@ export function findHistoryFindings(root = WORKSPACE_ROOT, requestedBase = undef
 }
 
 /** Exported so the self-reported traversal size is asserted as an output. */
-export function readExaminedPlanOrderCount(root = WORKSPACE_ROOT, requestedBase = undefined) {
-  return rangeAnalysis(root, requestedBase).examined;
+export function readExaminedPlanOrderCount(
+  root = WORKSPACE_ROOT,
+  requestedBase = undefined,
+  readPull = defaultLandingPullReader(root),
+) {
+  return rangeAnalysis(root, requestedBase, readPull).examined;
 }
 
 /**
@@ -3238,12 +3282,16 @@ export function hasPriorPostMergeDelivery(commits, pathsForCommit, isHistoryOnly
   });
 }
 
-export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefined) {
+export function findStagedFindings(
+  root = WORKSPACE_ROOT,
+  requestedBase = undefined,
+  readPull = defaultLandingPullReader(root),
+) {
   const docs = documentationBatchReader(root, runGit, gitText, indexText, exactPlanSignal);
   try {
     const staged = stagedPaths(root);
     if (staged.length === 0) return [];
-    const history = historyAnalysis(root, requestedBase);
+    const history = historyAnalysis(root, requestedBase, readPull);
     if (history.findings.length > 0) return history.findings;
     if (postMergeHistoryBetween(root, 'HEAD', null, staged)) {
       const residue = worktreePaths(root);
@@ -3290,11 +3338,13 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
     }
     // A normal completion archive follows an already-recognised planning checkpoint and is
     // validated by the existing post-checkpoint path below. The bounded post-merge exception is
-    // only needed when squash-merge history removed that checkpoint from the topic ancestry; do
+    // only needed when the closeout branch does not carry that checkpoint in topic ancestry; do
     // not reinterpret an ordinary archive plus its user-request-gate closeout as a post-merge
     // ledger transaction.
     const completion =
-      history.checkpoint == null ? stagedPostMergeCompletion(root, staged, history.base) : null;
+      history.checkpoint == null
+        ? stagedPostMergeCompletion(root, staged, history.base, readPull)
+        : null;
     if (completion !== null) {
       if (completion.problems.length > 0) {
         return [
@@ -3333,8 +3383,8 @@ export function findStagedFindings(root = WORKSPACE_ROOT, requestedBase = undefi
         !priorTopicLedgerChange &&
         residue.length === 0 &&
         (history.checkpoint != null
-          ? validatePostMergeRecord(root, before, after, history.base)
-          : validatePostMergePrelude(root, 'HEAD', null, staged, history.base));
+          ? validatePostMergeRecord(root, before, after, history.base, readPull)
+          : validatePostMergePrelude(root, 'HEAD', null, staged, history.base, readPull));
       // A planned implementation may carry its predecessor's delivery evidence in the same
       // batch. It still reaches the ordinary post-checkpoint checks (including second-PLAN refusal).
       if (!(validPrelude && history.checkpoint != null))

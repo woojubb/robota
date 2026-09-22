@@ -16,8 +16,8 @@ import {
 } from '../checkpoint-evidence-contract.mjs';
 import {
   evaluatePlanTexts,
-  findHistoryFindings as findHistoryFindingsFromGit,
-  findStagedFindings,
+  findHistoryFindings as rawFindHistoryFindings,
+  findStagedFindings as rawFindStagedFindings,
   readExaminedPlanOrderCount,
   CONTINUATION_STATUS_LINE,
   CORRECTION_STATUS_LINE,
@@ -41,6 +41,22 @@ const LIVE_BACKLOG_RULE = readFileSync(
 const LIVE_CONTRACT = parseCheckpointEvidenceContract(LIVE_BACKLOG_RULE).contract;
 const LIVE_V2_CONTRACT = parseCheckpointEvidenceContracts(LIVE_BACKLOG_RULE).contracts.get(2);
 const execFileAsync = promisify(execFile);
+
+function authoritativeLandingPull(mergeOid, prNumber) {
+  return {
+    number: Number(prNumber),
+    baseRefName: 'develop',
+    mergeCommit: { oid: mergeOid.toLowerCase() },
+  };
+}
+
+function findHistoryFindingsFromGit(root, requestedBase, readPull = authoritativeLandingPull) {
+  return rawFindHistoryFindings(root, requestedBase, readPull);
+}
+
+function findStagedFindings(root, requestedBase, readPull = authoritativeLandingPull) {
+  return rawFindStagedFindings(root, requestedBase, readPull);
+}
 
 // These integration fixtures create and inspect real temporary Git repositories. A focused `-t` run
 // can make an individual fixture exceed Vitest's 10-second unit-test default even though it is still
@@ -3387,7 +3403,7 @@ describe('user-execution PLAN order — branch history', () => {
     },
   );
 
-  it('accepts a bounded post-merge Task/spec completion on a fresh branch without checkpoint ancestry', () => {
+  it('accepts authoritative landing evidence without a squash-subject suffix and rejects a mismatched PR', () => {
     const staged = deliveredCloseoutFixture();
     stageCloseout(staged);
     expect(findStagedFindings(staged.root, staged.base)).toEqual([]);
@@ -3400,6 +3416,17 @@ describe('user-execution PLAN order — branch history', () => {
     const squashed = deliveredCloseoutFixture({ squashed: true });
     stageCloseout(squashed);
     expect(findStagedFindings(squashed.root, squashed.base)).toEqual([]);
+
+    const mismatched = deliveredCloseoutFixture({ squashed: true });
+    stageCloseout(mismatched);
+    const wrongPull = (mergeOid, prNumber) => ({
+      number: Number(prNumber) + 1,
+      baseRefName: 'develop',
+      mergeCommit: { oid: mergeOid.toLowerCase() },
+    });
+    expect(messages(findStagedFindings(mismatched.root, mismatched.base, wrongPull))).toMatch(
+      /merge ancestor|ledger record/i,
+    );
 
     const remoteReceipt = deliveredCloseoutFixture({ specStatus: 'verifying' });
     stageCloseout(remoteReceipt, { ledger: false, receipt: true });
