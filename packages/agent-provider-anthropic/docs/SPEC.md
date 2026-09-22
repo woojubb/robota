@@ -68,3 +68,15 @@ observer receives exactly one serializable resolution/native-control/dispatch ou
 `ANTHROPIC_API_KEY` loaded from the Git-ignored repository-root `.env.local`; it selects the active
 `claude-sonnet-4-6` model itself, then prints results for `high`, `max`, and `auto` without writing
 settings or cache files.
+
+## Tool Schema Projection (MCP-005)
+
+`AnthropicProvider.projectionProfile()` returns `@robota-sdk/agent-core`'s
+`PERMISSIVE_TOOL_SCHEMA_PROFILE` with `providerName: 'anthropic'` — Anthropic accepts standard JSON
+Schema with an `object` root, so no keyword stripping or object closure runs. `AbstractAIProvider.
+projectTools()` calls `projectToolSchema()` at both request-building sites (`provider.ts:138` for
+`chat()`, `:235` for `chatStream()`) before `convertToolsToAnthropicFormat` ever sees a tool's
+`parameters`. A tool `projectToolSchema` rejects (a non-`object` root, a prototype-key property name,
+a cycle, or a schema over the shared depth/node ceiling) is omitted from that request alone — every
+other tool on the turn is unaffected — and reported once per cache identity as one
+`tool_schema_quarantined` line on `agent-core`'s global-sink `ToolSchemaProjection` logger.

@@ -1,0 +1,18 @@
+{
+  "name": "flexible_root",
+  "description": "A tool whose root is a union rather than a single object — no documented provider accepts this.",
+  "parameters": {
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": { "a": { "type": "string" } },
+        "required": ["a"]
+      },
+      {
+        "type": "object",
+        "properties": { "b": { "type": "number" } },
+        "required": ["b"]
+      }
+    ]
+  }
+}

@@ -103,7 +103,7 @@ RETAIN IDs: issue #1989, issue #1990, issue #2066, issue #2067, issue #2073, iss
 | issue #2521  | `.agents/tasks/completed/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md`              |
 | issue #2523  | `.agents/tasks/completed/MCP-003-add-an-mcp-connection-and-capability-catalog-supervisor.md`                  |
 | issue #2524  | `.agents/tasks/completed/MCP-004-hand-long-running-mcp-calls-to-background-tasks.md`                          |
-| issue #2528  | `.agents/tasks/MCP-005-project-mcp-tool-schemas-safely-across-providers.md`                                   |
+| issue #2528  | `.agents/tasks/completed/MCP-005-project-mcp-tool-schemas-safely-across-providers.md`                         |
 | issue #2530  | `.agents/tasks/MCP-006-export-canonical-session-runtime-tools-through-mcp.md`                                 |
 | issue #2531  | `.agents/tasks/MCP-007-ship-robota-mcp-serve-as-a-carrier-owning-stdio-product-mode.md`                       |
 | issue #2532  | `.agents/tasks/MCP-008-prove-an-mcp-served-session-can-also-consume-mcp-tools.md`                             |

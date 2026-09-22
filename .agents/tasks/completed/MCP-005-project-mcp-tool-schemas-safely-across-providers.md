@@ -1,8 +1,9 @@
 ---
 title: 'MCP-005: project MCP tool schemas safely across providers'
 issue: https://github.com/woojubb/robota/issues/2528
-status: in-progress
+status: done
 created: 2026-09-03
+completed: 2026-09-22
 priority: high
 urgency: soon
 area: MCP schema projection
@@ -23,13 +24,13 @@ Preserve and deliver the independently verifiable outcome of [issue #2528](https
 
 ## Plan
 
-Spec: `.agents/spec-docs/active/MCP-005-project-mcp-tool-schemas-safely-across-providers.md`
+Spec: `.agents/spec-docs/done/MCP-005-project-mcp-tool-schemas-safely-across-providers.md`
 
-- [ ] S1 · TC-01, TC-02, TC-03, TC-04, TC-12 — `agent-core`: `project-tool-schema.ts` (contract, constants, `projectToolSchema`, stable hash) built on `closeObjectSchemas`; shared fixture set under `schema/__tests__/fixtures/tool-schema-projection/`; seeded generator sweep
-- [ ] S1 · TC-05, TC-06 — `agent-core`: `AbstractAIProvider.projectionProfile()` / `projectTools()` with the instance memo and the single structured `logger.warn` quarantine line; default profile `undefined` adopts unchanged
-- [ ] S2 · TC-07, TC-08, TC-09, TC-10, TC-13 — providers: anthropic, openai (strict closure moves into the profile; converter drops its own `closeObjectSchemas`), openai-compatible (gemma/qwen/deepseek), gemini (field rebuild fed the projected schema, no silent drop); one conformance test per package over the shared fixtures
-- [ ] S2 · TC-11 — `agent-mcp`: execution-validation test only (`DiscoveredMCPTool` still validates against the CORE-040 original); no production change
-- [ ] TC-14, TC-15 — package tests, `pnpm build`, affected scans; SPEC layers for `agent-core` and the four provider packages name the contract, the profile and `tool_schema_quarantined`
+- [x] S1 · TC-01, TC-02, TC-03, TC-04, TC-12 — `agent-core`: `project-tool-schema.ts` (contract, constants, `projectToolSchema`, stable hash) built on `closeObjectSchemas`; shared fixture set under `schema/__tests__/fixtures/tool-schema-projection/`; seeded generator sweep
+- [x] S1 · TC-05, TC-06 — `agent-core`: `AbstractAIProvider.projectionProfile()` / `projectTools()` with the instance memo and the single structured `logger.warn` quarantine line; default profile `undefined` adopts unchanged
+- [x] S2 · TC-07, TC-08, TC-09, TC-10, TC-13 — providers: anthropic, openai (strict closure moves into the profile; converter drops its own `closeObjectSchemas`), openai-compatible (gemma/qwen/deepseek), gemini (field rebuild fed the projected schema, no silent drop); one conformance test per package over the shared fixtures
+- [x] S2 · TC-11 — `agent-mcp`: execution-validation test only (`DiscoveredMCPTool` still validates against the CORE-040 original); no production change
+- [x] TC-14, TC-15 — package tests, `pnpm build`, affected scans; SPEC layers for `agent-core` and the four provider packages name the contract, the profile and `tool_schema_quarantined`
 
 ## Test Plan
 
@@ -52,13 +53,13 @@ Exercise the source Issue's primary success path and at least one failure or ref
 - Observable rationale: source=public-sdk-return
 - Expected observable: result=provider=openai; sent=2; quarantined=1; diagnostic=tool_schema_quarantined; repeated=0
 - Cleanup: the example uses only in-process fakes and removes its log sink before exiting; it leaves no files, processes or connections.
-- Evidence: pending implementation — recorded at DONE-GATE-STAGE-2 with the command, its exit code and the single printed `result=` line, plus the durable runner path `packages/agent-provider-openai/examples/verify-tool-schema-projection.ts`.
+- Evidence: recorded 2026-09-22 — `cd packages/agent-provider-openai && pnpm scenario:verify:tool-schema-projection` → exit 0, single printed line `result=provider=openai; sent=2; quarantined=1; diagnostic=tool_schema_quarantined; repeated=0`; durable runner `packages/agent-provider-openai/examples/verify-tool-schema-projection.ts`.
 
 ### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-22
 
 **Status upgrade:** scenario drafted → scenario written
 
-Ordering check: DONE-GATE-STAGE-1 has no prior gate (gate-catalogue.md § Prior-gate map) — exempt. Input state matches: `## User Execution Test Scenarios` carries `SCENARIO DRAFTED: automatable | 1` and exactly one `### Scenario N:` heading; `validateApplicableScenarioSection` (scripts/harness/user-execution-scenario-contract.mjs) returned `ok: true` with 1 scenario. Paired spec `.agents/spec-docs/active/MCP-005-project-mcp-tool-schemas-safely-across-providers.md` is `status: in-progress` with `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-22` whose payload binds `plan: { outcome: automatable, count: 1 }` — the same verdict and count judged here. Judged by `backlog-gate-guard` against gate-catalogue.md § DONE-GATE-STAGE-1; tree premises against `origin/integration/agreement-014` @ `648521d83094235a8732ff38ebd41291d574c3f5` (HEAD equals it; `origin/develop` appears on the Judged-at line only for parser conformance).
+Ordering check: DONE-GATE-STAGE-1 has no prior gate (gate-catalogue.md § Prior-gate map) — exempt. Input state matches: `## User Execution Test Scenarios` carries `SCENARIO DRAFTED: automatable | 1` and exactly one `### Scenario N:` heading; `validateApplicableScenarioSection` (scripts/harness/user-execution-scenario-contract.mjs) returned `ok: true` with 1 scenario. Paired spec `.agents/spec-docs/done/MCP-005-project-mcp-tool-schemas-safely-across-providers.md` is `status: in-progress` with `[GATE-IMPLEMENT] — ✅ PASS | 2026-09-22` whose payload binds `plan: { outcome: automatable, count: 1 }` — the same verdict and count judged here. Judged by `backlog-gate-guard` against gate-catalogue.md § DONE-GATE-STAGE-1; tree premises against `origin/integration/agreement-014` @ `648521d83094235a8732ff38ebd41291d574c3f5` (HEAD equals it; `origin/develop` appears on the Judged-at line only for parser conformance).
 
 - DONE-GATE-STAGE-1 — Every scenario is written with exact commands or UI steps, prerequisites, an expected observable result, and an evidence field: PASS — Scenario 1 carries `Command: pnpm exec tsx examples/verify-tool-schema-projection.ts` (one literal script path below `examples/`, no options, no chaining); `Prerequisites:` names the toolchain state (`pnpm install` done, `@robota-sdk/agent-core` and `@robota-sdk/agent-provider-openai-compatible` built), the working directory (`packages/agent-provider-openai`), the fixture the example constructs (real `OpenAIProvider` with `strictTools: true` over a fake HTTP client plus a capturing log sink, three tool schemas of which one carries a `__proto__` property name, one `chat()`), and that no API key or network is needed; `Expected observable: result=provider=openai; sent=2; quarantined=1; diagnostic=tool_schema_quarantined; repeated=0`; `Evidence:` is present and pending, naming what DONE-GATE-STAGE-2 must record (command, exit code, the printed `result=` line, durable runner path `packages/agent-provider-openai/examples/verify-tool-schema-projection.ts`). `Cleanup:` is present.
 - DONE-GATE-STAGE-1 — Every scenario carries its executability decision: PASS — `Executability: agent-executable`; the decision holds on evidence checked here, not on the author’s word: `pnpm exec tsx --version` from `packages/agent-provider-openai` resolves `tsx v4.23.1` (root devDependency); `examples/verify-model-effort.ts` and `tsconfig.examples.json` exist in that package, so an `examples/*.ts` runner is an established shape there (API-001 Scenario 1 uses the identical `pnpm exec tsx examples/<script>.ts` form); `OpenAIProvider` accepts an injected `client?: OpenAI` (`src/openai/types.ts:174`) so the fake HTTP client is a real seam, and `strictTools` is a real option (`types.ts:160`); the spec’s § Affected Files names `examples/verify-tool-schema-projection.ts` (new) as this scenario’s runner. Observation, not a failure: the `Executability probe` paragraph describes `pnpm scenario:verify` as `pnpm exec tsx --conditions=source examples/verify-model-effort.ts`, but that package’s `scenario:verify` script is `pnpm typecheck` (package.json:52); the runner shape the probe relies on exists regardless, and the probe paragraph is not a scenario field.
