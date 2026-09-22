@@ -1,15 +1,16 @@
 ---
 title: 'MANIFEST-2664: verify legacy-base divergence with a closed manifest and bound receipts'
 issue: https://github.com/woojubb/robota/issues/2664
-status: in-progress
+status: done
 created: 2026-09-21
 priority: high
 urgency: now
 area: repository integration-base migration verification
 depends_on: []
+completed: 2026-09-22
 ---
 
-Spec: `.agents/spec-docs/active/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md`
+Spec: `.agents/spec-docs/done/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md`
 
 # MANIFEST-2664: verify legacy-base divergence with a closed manifest and bound receipts
 
@@ -47,26 +48,34 @@ Problem-side constraints this Task owns. Every design fact is owned by the SPEC'
 
 ## Plan
 
-- [ ] TC-01 — Implement the manifest module: SHA-1 canonical manifest bound to OIDs only with
+- [x] TC-01 — Implement the manifest module: SHA-1 canonical manifest bound to OIDs only with
       separately bound legacy and replacement bases, four non-merge dispositions plus the structural
       `merge` record (OID and both parents; own-content deferred), deterministic base64-path
       recursive `--no-renames` tuples, one `rev-list --parents` enumeration per side, strict and
       lenient parsing, the three-valued `verify` result with the exported closed code set, the
       five-command port, the export list, and the CLI. Acceptance is SPEC TC-01.
-- [ ] TC-02 — Generalise the isolated plan-order suite's prelude fixture and add the eight-children
+- [x] TC-02 — Generalise the isolated plan-order suite's prelude fixture and add the eight-children
       minimal graph, asserting the in-process findings and examined count. Acceptance is SPEC TC-02.
-- [ ] TC-03 — Cover equality, content/mode/type/rename/empty-patch/merge-structure cases through the
+- [x] TC-03 — Cover equality, content/mode/type/rename/empty-patch/merge-structure cases through the
       default adapter (`cwd` and `env` injected) against `make-temp.mjs` repositories, the hostile
       configuration case with its positive control, every ceiling at its stated boundary through the
       run-scoped budget with an injected clock and injected limits, every port-failure code, and the
       CLI as a child process for exit codes, stdin, drain, and `EPIPE`. Acceptance is SPEC TC-03.
-- [ ] TC-04 — Make `git-branch.md` § Branch Policy the sole owner of the migration sentence (with
+- [x] TC-04 — Make `git-branch.md` § Branch Policy the sole owner of the migration sentence (with
       `.agents/evidence/migrations/` named there), reduce `backlog-execution.md` § Base Branch Workflow
       and the skill's step 1 to pointers, and assert by headings and identifiers that no third
       statement remains. Acceptance is SPEC TC-04.
-- [ ] TC-05 — Add the hermetic-tier entry, then run the hermetic tier, the contract-tier runner
+- [x] TC-05 — Add the hermetic-tier entry, then run the hermetic tier, the contract-tier runner
       (`harness-test-tiers.mjs --tier contracts --affected`), the import-safety scan, and the affected
       L2 scans with every command exiting zero. Acceptance is SPEC TC-05.
+
+## Completion Criteria
+
+- [x] TC-01 — The closed manifest module, schema, verifier, result model, command port, and CLI are delivered.
+- [x] TC-02 — The eight-child plan-order fixture is generalized and verified.
+- [x] TC-03 — Hermetic repository, hostile-environment, budget, adapter-failure, and CLI cases pass.
+- [x] TC-04 — The migration policy has one rule owner and two verified pointers.
+- [x] TC-05 — Hermetic, contract, import-safety, affected-scan, and required-CI evidence is green.
 
 ## Test Plan
 
@@ -216,3 +225,11 @@ remote publication, merge own-content) are likewise repository governance, owned
 - Capture: `.agents/learn.md` entry
   `LRN-agreement-migration-equivalence-cannot-correct-invalid-prelude` is preserved in the parked MAP
   work state.
+
+## Result
+
+Delivered by https://github.com/woojubb/robota/pull/2805, landed on `develop` as
+`79698d78de86bf52cb7c5c4967b3599feb26fdf7` (MERGE VERIFIED PASS). The audited delivery completion
+record is https://github.com/woojubb/robota/issues/2664#issuecomment-5762031340. Closeout verification
+re-ran the 27-test manifest suite, the three owner-document contract tests, the eight-child
+plan-order case, and the import-safety scan successfully on 2026-09-22.
