@@ -217,6 +217,18 @@ Repairs are limited to an empty user settings file (rewritten as `{}`) and a mis
 user storage directory; everything else is reported with the path to fix. `/doctor` runs the same
 report inside a session, and `/doctor repair <check-id>` asks before writing.
 
+### MCP Servers
+
+Declare remote MCP servers under an `mcpServers` key in any layered settings file (managed, user, or
+project `.robota`/`.claude` settings) — the same precedence order every other setting uses. Each
+entry names a `"type": "http"` transport and a `url`; `${VAR}`/`${VAR:-default}` references in `url`,
+`headers`, and `env` are resolved from the process environment. Every declared server is
+**deny-by-default**: a server must be explicitly approved with `/mcp approve <serverId>` before its
+tools are connected. Use `/mcp` (or `/mcp list`) to see every declared server's admission status,
+and `/mcp reject`/`/mcp revoke` to withdraw approval. Only approved servers already known at startup
+are connected — approval is in-memory for the current unit of this product, so a server approved
+via `/mcp approve` mid-session is connected on the NEXT `robota` start, not the current one.
+
 ### CLI Updates
 
 Robota can check npm for a newer `@robota-sdk/agent-cli` version:

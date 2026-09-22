@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import { MCPActivationController } from '../mcp-activation-controller.js';
 import {
   InMemoryMCPActivationApprovalStore,
   MCPActivationAdmissionService,
   MCPActivationPolicyError,
   createFailClosedMCPActivationAdmission,
 } from '../mcp-activation.js';
-import { MCPActivationController } from '../mcp-activation-controller.js';
 
 import type { IMCPActivationRequest } from '../mcp-activation.js';
 

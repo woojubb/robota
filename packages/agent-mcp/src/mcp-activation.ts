@@ -2,7 +2,8 @@
  * MCP activation is a policy boundary, not a transport concern.
  *
  * The request deliberately contains only public identity material. Connection secrets such as
- * API keys and arbitrary headers stay in IMCPConfig and are never persisted in this ledger.
+ * API keys and arbitrary headers stay in IMCPServerDefinition(Resolved) and are never persisted in
+ * this ledger.
  */
 
 export type TMCPActivationSource = 'managed' | 'user' | 'project' | 'plugin' | 'local';
@@ -134,8 +135,10 @@ export class InMemoryMCPActivationApprovalStore implements IMCPActivationApprova
   }
 }
 
+/** Sources whose approvals bind to no repository or trust generation. Everything else requires a trusted workspace — deny by default, so a member added later fails closed (MCP-002, TC-29). */
+const TRUST_NOT_REQUIRED_SOURCES: ReadonlySet<TMCPActivationSource> = new Set(['managed', 'user']);
 function requiresTrustedWorkspace(source: TMCPActivationSource): boolean {
-  return source === 'project' || source === 'plugin' || source === 'local';
+  return !TRUST_NOT_REQUIRED_SOURCES.has(source);
 }
 
 function isExactMatch(

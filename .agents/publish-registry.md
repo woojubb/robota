@@ -31,6 +31,7 @@ Last audited: 2026-08-03 (INFRA-086 — reconciled against the manifests and giv
 | `@robota-sdk/agent-interface-session-mobility` | beta    | Session-mobility contract interfaces for the Robota SDK — peer messaging between live sessions and handoff of session authority                                    |
 | `@robota-sdk/agent-interface-transport`        | beta    | Transport contract interfaces for the Robota SDK (ITransportAdapter, IConfigurableTransport, ITransportConfig)                                                     |
 | `@robota-sdk/agent-interface-tui`              | beta    | TUI interaction contract interfaces for the Robota SDK (ITuiPickerItem, ITuiCommandInteraction, ITuiPickerInteraction, ITuiConfirmInteraction)                     |
+| `@robota-sdk/agent-mcp`                        | beta    | Shared MCP client owner: definitions, activation, SDK client, catalogs and connection supervision                                                                  |
 | `@robota-sdk/agent-plugin`                     | beta    | Consolidated plugin implementations for Robota SDK                                                                                                                 |
 | `@robota-sdk/agent-preset`                     | beta    | Preset contract and resolver for the Robota SDK (IPreset, resolvePreset, listPresets, built-in presets)                                                            |
 | `@robota-sdk/agent-process`                    | beta    | Domain-free child-process termination primitives for the Robota SDK — killProcessTree (SIGTERM→grace→SIGKILL, process-group aware)                                 |
@@ -67,7 +68,6 @@ someone might otherwise reverse by accident.
 | `@robota-sdk/agent-transport-webrtc-web` | Internal browser WebRTC peer, not standalone   |
 | `@robota-sdk/agent-playground`           | Development playground app                     |
 | `@robota-sdk/agent-remote-client`        | Internal remote client                         |
-| `@robota-sdk/agent-mcp`                  | MCP definition owner and control plane         |
 
 ### Three entries this table used to carry, and why they are wrong
 

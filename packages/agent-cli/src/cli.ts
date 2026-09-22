@@ -60,6 +60,7 @@ import {
   createInitialCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
 } from './startup/workspace-project-composition.js';
+import { composeMcpClientForStartup } from './startup/mcp-startup.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
@@ -215,6 +216,20 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     reducedMotionFlag: args.reducedMotion,
     env: process.env,
   });
+  // MCP-002: source the product's own `mcpServers` settings and compose the `/mcp` port + tools —
+  // a caller-supplied `mcpActivationAdapter` (tests do this) always wins and skips composition.
+  const mcp =
+    options.mcpActivationAdapter === undefined
+      ? await composeMcpClientForStartup({
+          settingsSources: createInitialCliWorkspaceComposition(cwd, startupOptions)
+            .settingsSources,
+          projectAccess,
+          cwd,
+          env: process.env,
+          reportDiagnostic: (message) => terminal.writeError(message),
+        })
+      : undefined;
+  if (mcp !== undefined) startupOptions.mcpActivationAdapter = mcp.activationAdapter;
   const {
     commandHostAdapters,
     outputStyleRegistry,
@@ -398,6 +413,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       ...(args.permissionMode !== undefined ? { permissionMode: args.permissionMode } : {}),
       projectAccess: workspaceComposition.projectAccess,
     });
+  // MCP-002: every admitted, connected Streamable HTTP server's tools join the generic dynamic-tool
+  // surface — refusals/failures were already reported via `reportDiagnostic` above.
+  if (mcp !== undefined) toolOptions.additionalTools.push(...(await mcp.connect()));
   // A capability the merge refused (a colliding id) is reported, never silently dropped.
   for (const { kind, id, reason } of product.rejectedCapabilities) {
     terminal.writeError(`Capability ${kind} "${id}" was not composed: ${reason}.`);
@@ -464,6 +482,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       memorySessionOptions,
       workspaceComposition.projectAccess,
     );
+    if (mcp !== undefined) await mcp.shutdown();
     return;
   }
 
@@ -501,6 +520,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       preset: presetSurface,
       memorySessionOptions,
     });
+    if (mcp !== undefined) await mcp.shutdown();
     return;
   }
 
@@ -574,5 +594,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     reducedMotionOverride: theme.reducedMotionOverride,
     ...toSessionOptions(presetSurface),
   });
+  if (mcp !== undefined) await mcp.shutdown();
   process.exit(0);
 }

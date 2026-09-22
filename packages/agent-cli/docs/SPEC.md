@@ -83,8 +83,11 @@ brings its own and reuses the same kernel.
 - OWNS: CLI argument parsing, process lifecycle and assembly, `TransportRegistry`, `ITuiCliAdapter` wiring, provider composition
 - OWNS: CLI package-version update checks and user-level update-check cache
 - OWNS: Concrete local host adapters (background runner, child-process subagent, Git worktree, settings I/O incl. the CMD-004 `delete()` reset capability)
-- OWNS: Generic host wiring for an injected MCP activation adapter; approval policy and MCP client
-  lifecycle remain in lower reusable packages, while CLI rendering only consumes secret-free status/results.
+- OWNS: Sourcing `mcpServers` from the product's own settings layers and composing the MCP
+  activation adapter from them (MCP-002; see "MCP Client Composition" below) — or hosting a
+  caller-supplied adapter, which always wins. Decoding, precedence, admission policy, and MCP
+  client lifecycle remain in `@robota-sdk/agent-mcp`; CLI rendering only consumes secret-free
+  status/results.
 - OWNS: CMD-004 Phase 2 host-action adapter wiring (`src/startup/host-action-adapters.ts`): the `/remote-control` host adapter (status/devices + host-executed `enable()`/`stop()`) and the late-bound per-mode `process` adapter — TUI (deferred SIGTERM → the App's existing graceful signal flow), serve (deferred shared-host shutdown; local == remote, REMOTE-006), print (exit satisfied by the end-of-run exit-code contract; restart surfaced explicitly)
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-framework`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-framework`
@@ -215,6 +218,36 @@ The CLI is a pure TUI layer. All business logic (session lifecycle, slash comman
    without letting command packages import CLI files. Session persistence is passed only through
    SDK-owned facade types.
 6. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
+
+### MCP Client Composition (MCP-002)
+
+`@robota-sdk/agent-mcp` (MCP-001/MCP-002) owns definition decoding, precedence, admission policy and
+the connection/catalog manager; this package's ONE job is making that manager reachable from the
+product's own startup rather than only from tests. Three modules in `src/startup/`, run in this
+order from `cli.ts`:
+
+1. **Source** — `mcp-definition-sources.ts`'s `resolveMcpDefinitions()` reads every layer of the
+   product's own settings sources (`@robota-sdk/agent-framework`'s `readSettingsSourceText`; a layer
+   that is not valid JSON is a reported problem), decodes
+   each layer's `mcpServers` object (`agent-mcp`'s `decodeSource`), and resolves precedence across
+   layers (`agent-mcp`'s `resolveByPrecedence`) into `IMCPResolvedEntry[]`. Every unreadable/corrupt
+   layer and every decode refusal is returned as a problem, never silently dropped.
+2. **Workspace** — `mcp-workspace.ts`'s `toMcpActivationWorkspace()` projects the CLI's own
+   `TWorkspaceProjectAccess` decision (`ARCH-042`) plus a separately-resolved workspace-trust
+   `{ state, generation }` snapshot into `agent-mcp`'s secret-free `IMCPActivationWorkspace`.
+3. **Compose** — `mcp-startup.ts`'s `composeMcpClientForStartup()` calls the two modules above,
+   reports every problem through the caller's diagnostic sink, and hands the result to
+   `mcp-client-composition.ts`'s `createMcpClientComposition()` (the MCP-002 manager wiring: admission,
+   connection, catalog, and the generic `IToolWithEventService[]` tool surface).
+
+`cli.ts` wires the result into `IStartCliOptions.mcpActivationAdapter` (the `/mcp` command port) and
+appends `connect()`'s tools to `toolOptions.additionalTools` — unless a caller already supplied its
+own `mcpActivationAdapter` (tests do this), which always wins and skips composition entirely. Zero
+resolved definitions is a normal, silent-diagnostic outcome: the `/mcp` adapter simply lists nothing.
+
+**Current limit:** approval is in-memory in this unit (`createMcpClientComposition`'s default
+approval store is session-scoped, per-process), so a server approved via `/mcp approve` mid-session
+is connected on the NEXT `robota` start, not this one.
 
 Whitebox internals are not specified here. See:
 

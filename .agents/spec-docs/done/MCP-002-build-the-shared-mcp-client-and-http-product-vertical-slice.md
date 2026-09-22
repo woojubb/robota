@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: API
 lane: L2
 issue: 2521
@@ -424,33 +424,33 @@ refuses rather than probing.
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm exec vitest run packages/agent-mcp/src/__tests__/client-initialize.test.ts` → exits 0 — a Streamable HTTP server completes `initialize`, the negotiated `protocolVersion`, `serverInfo` and capabilities are stored, and a server answering with an unsupported version is disconnected rather than used
-- [ ] TC-02: `pnpm exec vitest run packages/agent-mcp/src/__tests__/client-pagination.test.ts` → exits 0 — a three-page `tools/list` is fully drained by following `nextCursor` until absent, a missing `nextCursor` ends the loop, and an invalid cursor surfaces `-32602` as a named domain failure rather than a partial catalog reported as complete
-- [ ] TC-03: `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-naming.test.ts` → exits 0 — two servers exposing the same tool name both resolve to distinct `<server>__<tool>` names, characters outside `[A-Za-z0-9_-]` become `_`, a name over the 64-character budget is middle-truncated deterministically, and a residual collision records the loser as `rejected` with a reason
-- [ ] TC-04: `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-capability.test.ts` → exits 0 — a server declaring no `prompts` capability yields `unsupported` and is never called, a server declaring `prompts` with zero items yields `supported/empty`, and the two are distinguishable in the catalog
-- [ ] TC-05: `pnpm exec vitest run packages/agent-mcp/src/__tests__/client-url-admission.test.ts` → exits 0 — an `http://` non-loopback URL, a private-range host, and `169.254.169.254` are each refused through `egress-policy` BEFORE any connection attempt, and the refusal names the policy's reason
-- [ ] TC-06: `grep -rn 'StreamableHTTPClientTransport' packages/agent-mcp/src` returns hits, and `grep -rnE 'StdioClientTransport|SSEClientTransport|WebSocket' packages/agent-mcp/src --exclude-dir=__tests__` returns none — this unit's transport set is exactly Streamable HTTP. Two things the command must do, both verified by running it against a file that ships all three: `-E`, because without it `grep` reads `|` as a literal and the absence half can never fail; and `--exclude-dir=__tests__`, because TC-07's own fixture must name SSE and WebSocket to record them as rejected. The stdio adapter is absent ON PURPOSE — it ships with MCP-2522, which carries the subprocess-security conditions this unit does not
-- [ ] TC-07: `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-dispositions.test.ts` → exits 0 — an SSE-only and a WebSocket server each appear in the `rejected` bucket with a reason, not silently absent
-- [ ] TC-08: `pnpm exec vitest run packages/agent-mcp/src/__tests__/dynamic-tool-registration.test.ts` → exits 0 — a discovered tool registers through the existing generic dynamic-tool contract — and `git diff --stat origin/integration/agreement-014...HEAD -- packages/agent-framework/src` is EMPTY, proving no MCP-specific runtime branch was added. A diff against the base, not a bare grep: `grep -rn 'mcp' packages/agent-framework/src` already returns 93 hits today, so it reports the same thing before and after and decides nothing. Red the moment this unit edits that package at all
-- [ ] TC-09: `pnpm exec vitest run packages/agent-mcp/src/__tests__/connection-supervisor.test.ts` → exits 0 — the supervisor opens, reuses and closes a connection, and a `listChanged` notification marks the affected catalog domain stale (absorbed MCP-003)
-- [ ] TC-11: `grep -rnE 'sendMCPRequest|initializeMCPSession|TMCPConnectionStatus' packages/agent-mcp/src packages/agent-cli/src` returns NO hit, and `pnpm --filter @robota-sdk/agent-mcp build` exits 0 — the hand-written stack and its connection-state type are removed, not folded, so exactly one client stack is authoritative. An earlier draft counted files instead, because § Affected Scope then permitted folding; § Decision now decides removal, so the plain absence check is the correct instrument and the weaker count is gone. `-E` for the reason TC-06 records. Red today: `mcp-protocol.ts:73`, `mcp-tool.ts:58` and the two entry points all match
-- [ ] TC-12: `pnpm --filter @robota-sdk/agent-mcp test && pnpm --filter @robota-sdk/agent-mcp build` → exits 0, and `node scripts/harness/run-all-scans.mjs --affected --context pr` reports no NEW failure relative to the base
-- [ ] TC-10: `pnpm exec vitest run packages/agent-mcp/src/__tests__/canonical-failed-state.test.ts` → exits 0 — the RUNTIME half: a failed connection exposes one failed value carrying its classification, and the same classification is readable from it rather than re-derived by the caller (MCP-003 condition 8)
-- [ ] TC-23: `pnpm --filter @robota-sdk/agent-mcp typecheck` → exits 0, and deleting the failed member from the supervisor's exported connection-state union makes it exit non-zero — the TYPE half, asserted by `tsgo --noEmit` rather than by `vitest run`. The runner matters: vitest erases type assertions unless `--typecheck` is set, and `expect-type` binds every matcher to a function returning `true`, so a false type assertion under `vitest run` throws nothing. This package's `tsconfig.json` includes `src/**/*`, so a `__tests__` type assertion is enforced by the typecheck script
-- [ ] TC-24: `pnpm exec vitest run packages/agent-mcp/src/__tests__/single-connection-state-union.test.ts` → exits 0, and adding a second exported union modelling connection state ANYWHERE under `packages/agent-mcp/src/**` makes it exit non-zero — the "no second status model" half of MCP-003 condition 8. Three properties, each bought by a specific earlier defect: it **parses with the TypeScript compiler API** rather than asserting a type, because the claim is a negative existential over every type the package declares and TypeScript can only speak about types an assertion names; it is **invoked directly**, because the first draft asked that `run-all-scans --affected` report no new finding, which a non-existent instrument satisfies by never reporting one; and it is scoped to **`src/**`, not `src/supervisor`**, because § Decision permits mechanics to be folded and a subdirectory-scoped check reports green on exactly the outcome that breaks the invariant — `mcp-protocol.ts:73`'s surviving `TMCPConnectionStatus`. It is a package-local test rather than a repository scan because the invariant is one package's internal type, backs no repository-wide rule, and a path-literal scan in `scripts/harness/` is the shape `scan-harness-scope-literal` exists to discourage. Red today
-- [ ] TC-22: `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-cache-identity.test.ts` → exits 0 — a retained last-known-good catalog carries an explicit identity (server id plus negotiated `protocolVersion` plus `serverInfo.version`), a reconnect whose identity differs invalidates it rather than reusing it, and nothing is inferred from a stale session id (MCP-003 condition 9)
-- [ ] TC-13: `pnpm exec vitest run packages/agent-mcp/src/__tests__/failure-classification.test.ts` → exits 0 — a transient, an authentication, a configuration and a not-found failure each classify distinctly, and only the transient class is retried; the other three are refused on first response rather than retried blindly (MCP-003)
-- [ ] TC-14: `pnpm exec vitest run packages/agent-mcp/src/__tests__/reconnect-backoff.test.ts` → exits 0 under a fake clock — reconnect uses bounded exponential backoff, the observable state moves pending → failed → manual-retry, the retry bound is reached rather than looping, and every timer is deterministic with no foreground polling (MCP-003)
-- [ ] TC-15: `pnpm exec vitest run packages/agent-mcp/src/__tests__/last-known-good.test.ts` → exits 0 — a `listChanged` notification refreshes the affected catalog domain WITHOUT reconnecting, and a refresh that fails preserves the prior catalog and exposes `stale` plus the error rather than emptying it (MCP-003)
-- [ ] TC-16: `pnpm exec vitest run packages/agent-mcp/src/__tests__/timeout-semantics.test.ts` → exits 0 — startup, per-call, global-default and idle timeouts are four distinct typed settings, each independently configurable, and a value set for one does not change another (MCP-003)
-- [ ] TC-17: `pnpm exec vitest run packages/agent-mcp/src/__tests__/shutdown-no-live-requests.test.ts` → exits 0 — after cancellation and after session shutdown the transport's own close is asserted called and no reconnect timer remains armed under the fake clock (MCP-003)
-- [ ] TC-18: `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-provenance.test.ts` → exits 0 — every catalog entry carries its originating server id, the negotiated `protocolVersion` and `serverInfo.version`, and the `adopted` and `adapted` buckets are populated with reasons, not only `rejected`
-- [ ] TC-19: `pnpm exec vitest run packages/agent-mcp/src/__tests__/discovery-bounds.test.ts` → exits 0 — a server returning an unbounded cursor chain stops at the declared page bound with a named refusal rather than looping, and a per-request timeout fires as its own classified failure
-- [ ] TC-20: `pnpm scenario:verify:mcp-client` from `packages/agent-mcp` → exits 0 and prints one line `result=transport=streamable-http; discoveredTools=<n>; invoked=<tool>; catalogSource=<server-id>` with `discoveredTools` greater than zero. A NEW script name, and field values only the HTTP vertical can produce. The first draft named the existing `pnpm scenario:verify`, which already exits 0 today and prints three `result=` lines from MCP-001's scenarios — it was satisfied by work this unit has not done. Red today because the script does not exist
-- [ ] TC-30: `grep -rn 'narrowToUniversalSubset\|ThirdPartySchemaValidator' packages/agent-mcp/src --include='*.ts' --exclude-dir=__tests__` returns a hit OUTSIDE `third-party-schema.ts` and `index.ts`, and `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-schema-narrowing.test.ts` exits 0 — a discovered tool whose `inputSchema` carries a construct the runtime cannot enforce is narrowed and the unenforceable construct is reported. The CORE-040 third-party trust boundary has exactly two call sites today (`mcp-tool.ts:18,206`, `relay-mcp-tool.ts:3,128`) and this unit DELETES both files, so without a named successor an enforcement step that runs on every MCP tool invocation today disappears with its callers while `docs/SPEC.md:198` still documents it. The grep excludes the definition and the barrel because an exported-but-uncalled validator is exactly the state being prevented. Red today — the only non-test callers are the two files being deleted
-- [ ] TC-29: `pnpm exec vitest run packages/agent-mcp/src/__tests__/host-admission-trust-binding.test.ts` → exits 0 — a `project`-sourced MCP server in an UNTRUSTED workspace is refused, and an approval granted under one `workspaceGeneration` does NOT admit after the generation changes. Plus the deny-by-default half: a source value absent from `requiresTrustedWorkspace`'s not-required allowlist requires trust rather than skipping it. This criterion exists because no other criterion exercises the trust predicate's DEFAULT: every other test either supplies an explicit admission or never reaches the gate, so a permissive default — the fail-open hole a new source member would have opened — is invisible to the rest of the set. Red today: the file does not exist, and `mcp-activation.ts:137-139` is still the require-list form, so the deny-by-default half fails on the current tree
-- [ ] TC-27: `node -e` over `packages/agent-mcp/package.json` shows no `private` field, `grep -n '@robota-sdk/agent-mcp' .agents/publish-registry.md` shows its row in the Published table and not the Private table, and `node scripts/harness/scan-publish-registry.mjs` exits 0 — `agent-mcp` is published, as ADR-005 assigns to this unit by name and the owner approved on 2026-09-22. The scan half is an ordinary regression check, NOT the resolution of a criteria conflict: an earlier draft of this criterion claimed it was the check TC-21 would otherwise turn red, which the structure-channel audit falsified and § Decision now records as struck. The published dependency closure is what the scan actually protects here — `agent-mcp`'s only workspace edge is a `peerDependency` on `agent-core`, which is itself Published. Red today — `packages/agent-mcp/package.json:59` is `"private": true`
-- [ ] TC-21: `node -e` over `packages/agent-cli/package.json` shows `@robota-sdk/agent-mcp` in **`devDependencies`** and NOT in `dependencies`, `node scripts/harness/check-publish-safety.mjs` exits 0, and `grep -rnE 'StreamableHTTPClientTransport|tools/list|prompts/list|resources/list' packages/agent-cli/src --exclude-dir=__tests__` returns none — the product composes the manager without owning protocol logic. The edge KIND is asserted, not just its presence: `agent-cli` publishes as a self-contained bundle under INFRA-028 (measured: 0 runtime `@robota-sdk` deps, 26 dev), and `check-publish-safety.mjs:139-149` errors on any `@robota-sdk/*` in its runtime `dependencies` — so the naive form of this edge is a NEW failure TC-12 forbids. An earlier draft asserted only that an edge existed, on a rationale § Decision now records as false. `-E` for the reason TC-06 records. The term `catalog` is deliberately NOT banned: composing and rendering a catalog is exactly what the CLI is supposed to do, so banning it would fail on correct code
+- [x] TC-01: `pnpm exec vitest run packages/agent-mcp/src/__tests__/client-initialize.test.ts` → exits 0 — a Streamable HTTP server completes `initialize`, the negotiated `protocolVersion`, `serverInfo` and capabilities are stored, and a server answering with an unsupported version is disconnected rather than used
+- [x] TC-02: `pnpm exec vitest run packages/agent-mcp/src/__tests__/client-pagination.test.ts` → exits 0 — a three-page `tools/list` is fully drained by following `nextCursor` until absent, a missing `nextCursor` ends the loop, and an invalid cursor surfaces `-32602` as a named domain failure rather than a partial catalog reported as complete
+- [x] TC-03: `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-naming.test.ts` → exits 0 — two servers exposing the same tool name both resolve to distinct `<server>__<tool>` names, characters outside `[A-Za-z0-9_-]` become `_`, a name over the 64-character budget is middle-truncated deterministically, and a residual collision records the loser as `rejected` with a reason
+- [x] TC-04: `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-capability.test.ts` → exits 0 — a server declaring no `prompts` capability yields `unsupported` and is never called, a server declaring `prompts` with zero items yields `supported/empty`, and the two are distinguishable in the catalog
+- [x] TC-05: `pnpm exec vitest run packages/agent-mcp/src/__tests__/client-url-admission.test.ts` → exits 0 — an `http://` non-loopback URL, a private-range host, and `169.254.169.254` are each refused through `egress-policy` BEFORE any connection attempt, and the refusal names the policy's reason
+- [x] TC-06: `grep -rn 'StreamableHTTPClientTransport' packages/agent-mcp/src` returns hits, and `grep -rnE 'StdioClientTransport|SSEClientTransport|WebSocket' packages/agent-mcp/src --exclude-dir=__tests__` returns none — this unit's transport set is exactly Streamable HTTP. Two things the command must do, both verified by running it against a file that ships all three: `-E`, because without it `grep` reads `|` as a literal and the absence half can never fail; and `--exclude-dir=__tests__`, because TC-07's own fixture must name SSE and WebSocket to record them as rejected. The stdio adapter is absent ON PURPOSE — it ships with MCP-2522, which carries the subprocess-security conditions this unit does not
+- [x] TC-07: `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-dispositions.test.ts` → exits 0 — an SSE-only and a WebSocket server each appear in the `rejected` bucket with a reason, not silently absent
+- [x] TC-08: `pnpm exec vitest run packages/agent-mcp/src/__tests__/dynamic-tool-registration.test.ts` → exits 0 — a discovered tool registers through the existing generic dynamic-tool contract — and `git diff --stat origin/integration/agreement-014...HEAD -- packages/agent-framework/src` is EMPTY, proving no MCP-specific runtime branch was added. A diff against the base, not a bare grep: `grep -rn 'mcp' packages/agent-framework/src` already returns 93 hits today, so it reports the same thing before and after and decides nothing. Red the moment this unit edits that package at all
+- [x] TC-09: `pnpm exec vitest run packages/agent-mcp/src/__tests__/connection-supervisor.test.ts` → exits 0 — the supervisor opens, reuses and closes a connection, and a `listChanged` notification marks the affected catalog domain stale (absorbed MCP-003)
+- [x] TC-11: `grep -rnE 'sendMCPRequest|initializeMCPSession|TMCPConnectionStatus' packages/agent-mcp/src packages/agent-cli/src` returns NO hit, and `pnpm --filter @robota-sdk/agent-mcp build` exits 0 — the hand-written stack and its connection-state type are removed, not folded, so exactly one client stack is authoritative. An earlier draft counted files instead, because § Affected Scope then permitted folding; § Decision now decides removal, so the plain absence check is the correct instrument and the weaker count is gone. `-E` for the reason TC-06 records. Red today: `mcp-protocol.ts:73`, `mcp-tool.ts:58` and the two entry points all match
+- [x] TC-12: `pnpm --filter @robota-sdk/agent-mcp test && pnpm --filter @robota-sdk/agent-mcp build` → exits 0, and `node scripts/harness/run-all-scans.mjs --affected --context pr` reports no NEW failure relative to the base
+- [x] TC-10: `pnpm exec vitest run packages/agent-mcp/src/__tests__/canonical-failed-state.test.ts` → exits 0 — the RUNTIME half: a failed connection exposes one failed value carrying its classification, and the same classification is readable from it rather than re-derived by the caller (MCP-003 condition 8)
+- [x] TC-23: `pnpm --filter @robota-sdk/agent-mcp typecheck` → exits 0, and deleting the failed member from the supervisor's exported connection-state union makes it exit non-zero — the TYPE half, asserted by `tsgo --noEmit` rather than by `vitest run`. The runner matters: vitest erases type assertions unless `--typecheck` is set, and `expect-type` binds every matcher to a function returning `true`, so a false type assertion under `vitest run` throws nothing. This package's `tsconfig.json` includes `src/**/*`, so a `__tests__` type assertion is enforced by the typecheck script
+- [x] TC-24: `pnpm exec vitest run packages/agent-mcp/src/__tests__/single-connection-state-union.test.ts` → exits 0, and adding a second exported union modelling connection state ANYWHERE under `packages/agent-mcp/src/**` makes it exit non-zero — the "no second status model" half of MCP-003 condition 8. Three properties, each bought by a specific earlier defect: it **parses with the TypeScript compiler API** rather than asserting a type, because the claim is a negative existential over every type the package declares and TypeScript can only speak about types an assertion names; it is **invoked directly**, because the first draft asked that `run-all-scans --affected` report no new finding, which a non-existent instrument satisfies by never reporting one; and it is scoped to **`src/**`, not `src/supervisor`**, because § Decision permits mechanics to be folded and a subdirectory-scoped check reports green on exactly the outcome that breaks the invariant — `mcp-protocol.ts:73`'s surviving `TMCPConnectionStatus`. It is a package-local test rather than a repository scan because the invariant is one package's internal type, backs no repository-wide rule, and a path-literal scan in `scripts/harness/` is the shape `scan-harness-scope-literal` exists to discourage. Red today
+- [x] TC-22: `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-cache-identity.test.ts` → exits 0 — a retained last-known-good catalog carries an explicit identity (server id plus negotiated `protocolVersion` plus `serverInfo.version`), a reconnect whose identity differs invalidates it rather than reusing it, and nothing is inferred from a stale session id (MCP-003 condition 9)
+- [x] TC-13: `pnpm exec vitest run packages/agent-mcp/src/__tests__/failure-classification.test.ts` → exits 0 — a transient, an authentication, a configuration and a not-found failure each classify distinctly, and only the transient class is retried; the other three are refused on first response rather than retried blindly (MCP-003)
+- [x] TC-14: `pnpm exec vitest run packages/agent-mcp/src/__tests__/reconnect-backoff.test.ts` → exits 0 under a fake clock — reconnect uses bounded exponential backoff, the observable state moves pending → failed → manual-retry, the retry bound is reached rather than looping, and every timer is deterministic with no foreground polling (MCP-003)
+- [x] TC-15: `pnpm exec vitest run packages/agent-mcp/src/__tests__/last-known-good.test.ts` → exits 0 — a `listChanged` notification refreshes the affected catalog domain WITHOUT reconnecting, and a refresh that fails preserves the prior catalog and exposes `stale` plus the error rather than emptying it (MCP-003)
+- [x] TC-16: `pnpm exec vitest run packages/agent-mcp/src/__tests__/timeout-semantics.test.ts` → exits 0 — startup, per-call, global-default and idle timeouts are four distinct typed settings, each independently configurable, and a value set for one does not change another (MCP-003)
+- [x] TC-17: `pnpm exec vitest run packages/agent-mcp/src/__tests__/shutdown-no-live-requests.test.ts` → exits 0 — after cancellation and after session shutdown the transport's own close is asserted called and no reconnect timer remains armed under the fake clock (MCP-003)
+- [x] TC-18: `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-provenance.test.ts` → exits 0 — every catalog entry carries its originating server id, the negotiated `protocolVersion` and `serverInfo.version`, and the `adopted` and `adapted` buckets are populated with reasons, not only `rejected`
+- [x] TC-19: `pnpm exec vitest run packages/agent-mcp/src/__tests__/discovery-bounds.test.ts` → exits 0 — a server returning an unbounded cursor chain stops at the declared page bound with a named refusal rather than looping, and a per-request timeout fires as its own classified failure
+- [x] TC-20: `pnpm scenario:verify:mcp-client` from `packages/agent-mcp` → exits 0 and prints one line `result=transport=streamable-http; discoveredTools=<n>; invoked=<tool>; catalogSource=<server-id>` with `discoveredTools` greater than zero. A NEW script name, and field values only the HTTP vertical can produce. The first draft named the existing `pnpm scenario:verify`, which already exits 0 today and prints three `result=` lines from MCP-001's scenarios — it was satisfied by work this unit has not done. Red today because the script does not exist
+- [x] TC-30: `grep -rn 'narrowToUniversalSubset\|ThirdPartySchemaValidator' packages/agent-mcp/src --include='*.ts' --exclude-dir=__tests__` returns a hit OUTSIDE `third-party-schema.ts` and `index.ts`, and `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-schema-narrowing.test.ts` exits 0 — a discovered tool whose `inputSchema` carries a construct the runtime cannot enforce is narrowed and the unenforceable construct is reported. The CORE-040 third-party trust boundary has exactly two call sites today (`mcp-tool.ts:18,206`, `relay-mcp-tool.ts:3,128`) and this unit DELETES both files, so without a named successor an enforcement step that runs on every MCP tool invocation today disappears with its callers while `docs/SPEC.md:198` still documents it. The grep excludes the definition and the barrel because an exported-but-uncalled validator is exactly the state being prevented. Red today — the only non-test callers are the two files being deleted
+- [x] TC-29: `pnpm exec vitest run packages/agent-mcp/src/__tests__/host-admission-trust-binding.test.ts` → exits 0 — a `project`-sourced MCP server in an UNTRUSTED workspace is refused, and an approval granted under one `workspaceGeneration` does NOT admit after the generation changes. Plus the deny-by-default half: a source value absent from `requiresTrustedWorkspace`'s not-required allowlist requires trust rather than skipping it. This criterion exists because no other criterion exercises the trust predicate's DEFAULT: every other test either supplies an explicit admission or never reaches the gate, so a permissive default — the fail-open hole a new source member would have opened — is invisible to the rest of the set. Red today: the file does not exist, and `mcp-activation.ts:137-139` is still the require-list form, so the deny-by-default half fails on the current tree
+- [x] TC-27: `node -e` over `packages/agent-mcp/package.json` shows no `private` field, `grep -n '@robota-sdk/agent-mcp' .agents/publish-registry.md` shows its row in the Published table and not the Private table, and `node scripts/harness/scan-publish-registry.mjs` exits 0 — `agent-mcp` is published, as ADR-005 assigns to this unit by name and the owner approved on 2026-09-22. The scan half is an ordinary regression check, NOT the resolution of a criteria conflict: an earlier draft of this criterion claimed it was the check TC-21 would otherwise turn red, which the structure-channel audit falsified and § Decision now records as struck. The published dependency closure is what the scan actually protects here — `agent-mcp`'s only workspace edge is a `peerDependency` on `agent-core`, which is itself Published. Red today — `packages/agent-mcp/package.json:59` is `"private": true`
+- [x] TC-21: `node -e` over `packages/agent-cli/package.json` shows `@robota-sdk/agent-mcp` in **`devDependencies`** and NOT in `dependencies`, `node scripts/harness/check-publish-safety.mjs` exits 0, and `grep -rnE 'StreamableHTTPClientTransport|tools/list|prompts/list|resources/list' packages/agent-cli/src --exclude-dir=__tests__` returns none — the product composes the manager without owning protocol logic. The edge KIND is asserted, not just its presence: `agent-cli` publishes as a self-contained bundle under INFRA-028 (measured: 0 runtime `@robota-sdk` deps, 26 dev), and `check-publish-safety.mjs:139-149` errors on any `@robota-sdk/*` in its runtime `dependencies` — so the naive form of this edge is a NEW failure TC-12 forbids. An earlier draft asserted only that an edge existed, on a rationale § Decision now records as false. `-E` for the reason TC-06 records. The term `catalog` is deliberately NOT banned: composing and rendering a catalog is exactly what the CLI is supposed to do, so banning it would fail on correct code
 
 ## Test Plan
 
@@ -459,35 +459,35 @@ against an in-process mock server, plus type-level assertions on the catalog con
 
 **Every criterion below names the condition that turns it red, and that requirement is written here because six GATE-WRITE rounds were spent on its absence.** The failures were not six mistakes but one, in four tool families: a `grep` whose `|` was literal without `-E` and passed against a file shipping everything it forbade; a type assertion under `vitest run`, which erases them because `expect-type` binds every matcher to a function returning `true`; a scan satisfied by its own absence; and a scenario command that already exited 0 on a previous unit's work. An instrument that cannot fail is not a weaker check than one that can — it is the absence of a check wearing one's clothes.
 
-| TC-ID | Test Type            | Tool / Approach                                                                          | Notes                                                                                                                            |
-| ----- | -------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | protocol integration | vitest + in-process mock MCP server over the SDK transport                               | Version-mismatch disconnect is the negative half                                                                                 |
-| TC-02 | protocol integration | mock server returning three cursor pages, then an invalid cursor                         | The invalid-cursor case is what stops a partial catalog reading as complete                                                      |
-| TC-03 | unit                 | vitest over the naming function                                                          | Two servers, one shared tool name — the collision case the protocol does not prevent                                             |
-| TC-04 | protocol integration | mock servers with capability absent vs declared-empty                                    | Two-valued models cannot express this; the test is what keeps the third state honest                                             |
-| TC-05 | unit                 | vitest with a stubbed `TEgressLookup`                                                    | Asserts refusal happens before connection, not after                                                                             |
-| TC-06 | config assertion     | `grep` over `packages/agent-mcp/src`                                                     | Absence half is the load-bearing one: no SSE, no WebSocket                                                                       |
-| TC-07 | unit                 | vitest over the disposition buckets                                                      | Rejected-with-reason rather than silently absent                                                                                 |
-| TC-08 | integration          | vitest registering a discovered tool through the generic contract                        | Plus an absence grep proving no MCP-only branch was added to `agent-framework`                                                   |
-| TC-09 | integration          | vitest over the supervisor lifecycle                                                     | Absorbed MCP-003                                                                                                                 |
-| TC-11 | migration assertion  | absence `grep -E` for the entry points and the old type + package build                  | Removal, not folding: § Decision settled it, so the weaker per-file count is gone                                                |
-| TC-12 | build / scan         | package test + build + affected scans                                                    | Base-state advisories are tolerated; the criterion is no NEW failure                                                             |
-| TC-10 | unit                 | vitest over the exposed failed value                                                     | Runtime half only — the type half is TC-23, because vitest erases type assertions                                                |
-| TC-23 | type-level           | `tsgo --noEmit` via the package typecheck script                                         | Red-proof is deleting the failed member; `vitest run` would report nothing                                                       |
-| TC-24 | unit (compiler API)  | vitest parsing `packages/agent-mcp/src/**` with the TypeScript compiler API              | Red-proof is adding a second union anywhere in the package; package scope, not `src/supervisor`                                  |
-| TC-22 | unit                 | vitest reconnecting with a changed server identity                                       | Invalidation is the half that silently serves a stale catalog if untested                                                        |
-| TC-13 | unit                 | vitest over the classifier with four induced failure shapes                              | The negative half is what stops an auth failure being retried as if transient                                                    |
-| TC-14 | unit (fake clock)    | vitest with `vi.useFakeTimers`                                                           | Fake clock is the requirement, not a convenience: real timers make the bound untestable                                          |
-| TC-15 | integration          | mock server emitting `listChanged`, then failing the refresh                             | Preserving last-known-good is the half that fails silently if untested                                                           |
-| TC-16 | unit                 | vitest over the typed settings surface                                                   | Four distinct timeouts; asserts independence, not just presence                                                                  |
-| TC-17 | unit (fake clock)    | vitest asserting transport close and no armed timer                                      | Deliberately NOT `getActiveResourcesInfo` — MCP-001 recorded why that measurement is invalid                                     |
-| TC-18 | unit                 | vitest over catalog entries                                                              | `adopted`/`adapted` were asserted nowhere in the first draft                                                                     |
-| TC-19 | protocol integration | mock server returning an endless cursor chain                                            | A bound with no test is a bound nobody knows the value of                                                                        |
-| TC-20 | scenario             | `pnpm scenario:verify` from the package                                                  | The end-to-end product path issue #2521 requires; a user-runnable surface                                                        |
-| TC-21 | config + grep        | manifest read plus an absence grep over `agent-cli`                                      | Both halves: the edge exists AND the CLI owns no protocol logic                                                                  |
-| TC-29 | unit (security)      | vitest over admission with an untrusted workspace and a rotated generation               | Only this criterion exercises the trust predicate's default, so only it can see a fail-open hole                                 |
-| TC-30 | unit                 | vitest over catalog registration + a caller grep excluding the definition and the barrel | The CORE-040 boundary loses both call sites to this unit's deletions; an exported-but-uncalled validator is the state prevented  |
-| TC-27 | config + scan        | manifest read, registry row grep, `scan-publish-registry.mjs`                            | An ordinary regression check on the published closure; an earlier row claimed it resolved a criteria conflict that never existed |
+| TC-ID | Test Type            | Tool / Approach                                                                          | Notes                                                                                                                                                                                                                                                                                                          |
+| ----- | -------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | protocol integration | vitest + in-process mock MCP server over the SDK transport                               | Test: `packages/agent-mcp/src/__tests__/client-initialize.test.ts` > openMcpSession — initialize (TC-01) — Version-mismatch disconnect is the negative half                                                                                                                                                    |
+| TC-02 | protocol integration | mock server returning three cursor pages, then an invalid cursor                         | Test: `packages/agent-mcp/src/__tests__/client-pagination.test.ts` > MCP discovery pagination (TC-02) — The invalid-cursor case is what stops a partial catalog reading as complete                                                                                                                            |
+| TC-03 | unit                 | vitest over the naming function                                                          | Test: `packages/agent-mcp/src/__tests__/catalog-naming.test.ts` > canonicalName — Two servers, one shared tool name — the collision case the protocol does not prevent                                                                                                                                         |
+| TC-04 | protocol integration | mock servers with capability absent vs declared-empty                                    | Test: `packages/agent-mcp/src/__tests__/catalog-capability.test.ts` > capability state is three-valued and distinguishable — Two-valued models cannot express this; the test is what keeps the third state honest                                                                                              |
+| TC-05 | unit                 | vitest with a stubbed `TEgressLookup`                                                    | Test: `packages/agent-mcp/src/__tests__/client-url-admission.test.ts` > admitHttpEndpoint — URL admission (TC-05) — Asserts refusal happens before connection, not after                                                                                                                                       |
+| TC-06 | config assertion     | `grep` over `packages/agent-mcp/src`                                                     | Skipped: command-form criterion (grep/manifest/scan); the exact command and its output are the [GATE-COMPLETE] evidence entry — Absence half is the load-bearing one: no SSE, no WebSocket                                                                                                                     |
+| TC-07 | unit                 | vitest over the disposition buckets                                                      | Test: `packages/agent-mcp/src/__tests__/catalog-dispositions.test.ts` > deprecated and unsupported transports are rejected, not silently absent — Rejected-with-reason rather than silently absent                                                                                                             |
+| TC-08 | integration          | vitest registering a discovered tool through the generic contract                        | Test: `packages/agent-mcp/src/__tests__/dynamic-tool-registration.test.ts` > a discovered MCP tool satisfies the runtime tool slot — Plus an absence grep proving no MCP-only branch was added to `agent-framework`                                                                                            |
+| TC-09 | integration          | vitest over the supervisor lifecycle                                                     | Test: `packages/agent-mcp/src/__tests__/connection-supervisor.test.ts` > MCPConnectionSupervisor — open / reuse / close / listChanged (TC-09) — Absorbed MCP-003                                                                                                                                               |
+| TC-11 | migration assertion  | absence `grep -E` for the entry points and the old type + package build                  | Skipped: command-form criterion (grep/manifest/scan); the exact command and its output are the [GATE-COMPLETE] evidence entry — Removal, not folding: § Decision settled it, so the weaker per-file count is gone                                                                                              |
+| TC-12 | build / scan         | package test + build + affected scans                                                    | Skipped: package test+build+affected scans; recorded as the [GATE-COMPLETE] evidence entry — Base-state advisories are tolerated; the criterion is no NEW failure                                                                                                                                              |
+| TC-10 | unit                 | vitest over the exposed failed value                                                     | Test: `packages/agent-mcp/src/__tests__/canonical-failed-state.test.ts` > MCPConnectionSupervisor — canonical failed state (TC-10) — Runtime half only — the type half is TC-23, because vitest erases type assertions                                                                                         |
+| TC-23 | type-level           | `tsgo --noEmit` via the package typecheck script                                         | Skipped: type-level criterion asserted by the package typecheck script, not a vitest file — Red-proof is deleting the failed member; `vitest run` would report nothing                                                                                                                                         |
+| TC-24 | unit (compiler API)  | vitest parsing `packages/agent-mcp/src/**` with the TypeScript compiler API              | Test: `packages/agent-mcp/src/__tests__/single-connection-state-union.test.ts` > package-scope invariant — exactly one connection-state union (TC-24) — Red-proof is adding a second union anywhere in the package; package scope, not `src/supervisor`                                                        |
+| TC-22 | unit                 | vitest reconnecting with a changed server identity                                       | Test: `packages/agent-mcp/src/__tests__/catalog-cache-identity.test.ts` > MCPConnectionSupervisor — last-known-good catalog identity (TC-22) — Invalidation is the half that silently serves a stale catalog if untested                                                                                       |
+| TC-13 | unit                 | vitest over the classifier with four induced failure shapes                              | Test: `packages/agent-mcp/src/__tests__/failure-classification.test.ts` > classifyMcpFailure — pure classification (TC-13) — The negative half is what stops an auth failure being retried as if transient                                                                                                     |
+| TC-14 | unit (fake clock)    | vitest with `vi.useFakeTimers`                                                           | Test: `packages/agent-mcp/src/__tests__/reconnect-backoff.test.ts` > MCPConnectionSupervisor — reconnect backoff (TC-14) — Fake clock is the requirement, not a convenience: real timers make the bound untestable                                                                                             |
+| TC-15 | integration          | mock server emitting `listChanged`, then failing the refresh                             | Test: `packages/agent-mcp/src/__tests__/last-known-good.test.ts` > MCPConnectionSupervisor — last-known-good on listChanged (TC-15) — Preserving last-known-good is the half that fails silently if untested                                                                                                   |
+| TC-16 | unit                 | vitest over the typed settings surface                                                   | Test: `packages/agent-mcp/src/__tests__/timeout-semantics.test.ts` > MCPConnectionSupervisor — four distinct timeouts (TC-16) — Four distinct timeouts; asserts independence, not just presence                                                                                                                |
+| TC-17 | unit (fake clock)    | vitest asserting transport close and no armed timer                                      | Test: `packages/agent-mcp/src/__tests__/shutdown-no-live-requests.test.ts` > MCPConnectionSupervisor — shutdown leaves no live request (TC-17) — Deliberately NOT `getActiveResourcesInfo` — MCP-001 recorded why that measurement is invalid                                                                  |
+| TC-18 | unit                 | vitest over catalog entries                                                              | Test: `packages/agent-mcp/src/__tests__/catalog-provenance.test.ts` > catalog provenance — `adopted`/`adapted` were asserted nowhere in the first draft                                                                                                                                                        |
+| TC-19 | protocol integration | mock server returning an endless cursor chain                                            | Test: `packages/agent-mcp/src/__tests__/discovery-bounds.test.ts` > MCP discovery bounds (TC-19) — A bound with no test is a bound nobody knows the value of                                                                                                                                                   |
+| TC-20 | scenario             | `pnpm scenario:verify` from the package                                                  | Skipped: scenario criterion, not a vitest file — verified by running `pnpm scenario:verify:mcp-client` (`examples/verify-mcp-client.ts`); the command and its exact `result=` line are the `[GATE-COMPLETE: TC-20]` evidence entry — The end-to-end product path issue #2521 requires; a user-runnable surface |
+| TC-21 | config + grep        | manifest read plus an absence grep over `agent-cli`                                      | Skipped: command-form criterion (grep/manifest/scan); the exact command and its output are the [GATE-COMPLETE] evidence entry — Both halves: the edge exists AND the CLI owns no protocol logic                                                                                                                |
+| TC-29 | unit (security)      | vitest over admission with an untrusted workspace and a rotated generation               | Test: `packages/agent-mcp/src/__tests__/host-admission-trust-binding.test.ts` > MCP activation host admission trust binding — Only this criterion exercises the trust predicate's default, so only it can see a fail-open hole                                                                                 |
+| TC-30 | unit                 | vitest over catalog registration + a caller grep excluding the definition and the barrel | Test: `packages/agent-mcp/src/__tests__/catalog-schema-narrowing.test.ts` > CORE-040 narrowing at catalog registration — The CORE-040 boundary loses both call sites to this unit's deletions; an exported-but-uncalled validator is the state prevented                                                       |
+| TC-27 | config + scan        | manifest read, registry row grep, `scan-publish-registry.mjs`                            | Skipped: command-form criterion (grep/manifest/scan); the exact command and its output are the [GATE-COMPLETE] evidence entry — An ordinary regression check on the published closure; an earlier row claimed it resolved a criteria conflict that never existed                                               |
 
 ## User Execution Test Scenarios
 
@@ -515,7 +515,7 @@ package. The paired Task's `## User Execution Test Scenarios` carries the same s
 
 ## Tasks
 
-- [ ] `.agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` — populated
+- [x] `.agents/tasks/completed/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` — done
 
 ## Evidence Log
 
@@ -2302,3 +2302,1248 @@ re-encode is GATE-IMPLEMENT's input, not this gate's, and bears on nothing here.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `9eb7ea8fdb88` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/todo/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `64422a748936` (untracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/client-initialize.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:24:10 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/client-initialize.test.ts (2 tests) 27ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  12:24:10
+   Duration  313ms (transform 40ms, setup 0ms, collect 129ms, tests 27ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `c0d0cbd5404d` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/client-pagination.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:24:11 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/client-pagination.test.ts (2 tests) 27ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  12:24:11
+   Duration  313ms (transform 40ms, setup 0ms, collect 130ms, tests 27ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `4dd42c8b0eb1` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-naming.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:24:12 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/catalog-naming.test.ts (14 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  12:24:12
+   Duration  183ms (transform 19ms, setup 0ms, collect 23ms, tests 3ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `9df9d1fcce81` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-capability.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:24:13 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/catalog-capability.test.ts (6 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  12:24:13
+   Duration  298ms (transform 113ms, setup 0ms, collect 142ms, tests 2ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `d4720d6037bd` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/client-url-admission.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:24:14 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/client-url-admission.test.ts (4 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  12:24:14
+   Duration  234ms (transform 30ms, setup 0ms, collect 69ms, tests 5ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `6db5fffe3cde` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-22
+
+**Command:** `grep -rn 'StreamableHTTPClientTransport' packages/agent-mcp/src | head -n 3 && ! grep -rnE 'StdioClientTransport|SSEClientTransport|WebSocket' packages/agent-mcp/src --exclude-dir=__tests__`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+packages/agent-mcp/src/client/transport.ts:15:import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+packages/agent-mcp/src/client/transport.ts:88:): StreamableHTTPClientTransport {
+packages/agent-mcp/src/client/transport.ts:89:  return new StreamableHTTPClientTransport(admitted.url, {
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `9f1371173840` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-dispositions.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:24:15 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/catalog-dispositions.test.ts (5 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  12:24:15
+   Duration  292ms (transform 110ms, setup 0ms, collect 138ms, tests 2ms, environment 0ms, prepare 27ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `8de58b19a50e` (modified)
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/dynamic-tool-registration.test.ts && git diff --stat origin/integration/agreement-014...HEAD -- packages/agent-framework/src && test -z "$(git diff --stat origin/integration/agreement-014...HEAD -- packages/agent-framework/src)" && echo 'agent-framework/src diff: EMPTY'`
+**Exit:** 0
+**Output:** (last 10 of 12 line(s))
+
+```
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/dynamic-tool-registration.test.ts (14 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  12:24:16
+   Duration  313ms (transform 118ms, setup 0ms, collect 153ms, tests 4ms, environment 0ms, prepare 29ms)
+
+agent-framework/src diff: EMPTY
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `f18b15e51093` (modified)
+
+### [GATE-COMPLETE: TC-09] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/connection-supervisor.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:24:16 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/connection-supervisor.test.ts (6 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  12:24:16
+   Duration  250ms (transform 33ms, setup 0ms, collect 93ms, tests 3ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `26a041f6d0c0` (modified)
+
+### [GATE-COMPLETE: TC-11] — ✅ PASS | 2026-09-22
+
+**Command:** `! grep -rnE 'sendMCPRequest|initializeMCPSession|TMCPConnectionStatus' packages/agent-mcp/src packages/agent-cli/src && echo 'absence: none' && pnpm --filter @robota-sdk/agent-mcp build`
+**Exit:** 0
+**Output:** (last 6 of 6 line(s))
+
+```
+absence: none
+
+> @robota-sdk/agent-mcp@3.0.0-beta.79 build /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-mcp
+> node ../../scripts/artifacts/build-package.mjs
+
+artifact generation ac4a5d70-f7db-46a6-bdd8-8470d7abb5d7: 5 files
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `091d15c38d5d` (modified)
+
+### [GATE-COMPLETE: TC-12] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm --filter @robota-sdk/agent-mcp test && pnpm --filter @robota-sdk/agent-mcp build && HARNESS_BASE_REF=origin/integration/agreement-014 node scripts/harness/run-all-scans.mjs --affected --context pr`
+**Exit:** 0
+**Output:** (last 10 of 300 line(s))
+
+```
+Diagnostic report v1: 2 result(s), 2 non-clean.
+ERROR harness.scan-finding.scan-c36-c2t-c2u-c2t-c36-c2t-c32-c2r-c2t-c19-c2z-c2x-c32-c2s-c19-c35-c39-c2p-c30-c2x-c2u-c2x-c2t-c2s [finding] scan:reference-kind-qualified
+  evidence: Scan reference-kind-qualified exited with status 1.
+  recommendation: Inspect the reference-kind-qualified scan output above.
+ERROR harness.scan-finding.scan-c38-c2p-c37-c2z-c19-c31-c2t-c36-c2v-c2t-c2s-c19-c2r-c2x-c38-c2p-c38-c2x-c33-c32 [finding] scan:task-merged-citation
+  evidence: Scan task-merged-citation exited with status 1.
+  recommendation: Inspect the task-merged-citation scan output above.
+
+114 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (117 declared what they examined)
+scan receipt NOT written: 2 advisory failure(s) were tolerated (reference-kind-qualified, task-merged-citation), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `0d907c6b5390` (modified)
+
+### [GATE-COMPLETE: TC-10] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/canonical-failed-state.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:25:36 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/canonical-failed-state.test.ts (2 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  12:25:36
+   Duration  286ms (transform 35ms, setup 0ms, collect 106ms, tests 2ms, environment 0ms, prepare 37ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `c9dfc6c54df4` (modified)
+
+### [GATE-COMPLETE: TC-23] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm --filter @robota-sdk/agent-mcp typecheck && cp packages/agent-mcp/src/supervisor/connection.ts /tmp/mcp002-conn.bak && node -e "const fs=require('fs');const p='packages/agent-mcp/src/supervisor/connection.ts';const s=fs.readFileSync(p,'utf8');const r=s.replace(/^\s*\|\s*\{\s*readonly kind: 'failed'[\s\S]*?\}\s*$/m,'');if(r===s)throw new Error('failed member not removed');fs.writeFileSync(p,r)" && (pnpm --filter @robota-sdk/agent-mcp typecheck >/dev/null 2>&1; echo "red-proof typecheck exit=$?"); cp /tmp/mcp002-conn.bak packages/agent-mcp/src/supervisor/connection.ts && git diff --quiet -- packages/agent-mcp/src/supervisor/connection.ts || true; pnpm --filter @robota-sdk/agent-mcp typecheck`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+> @robota-sdk/agent-mcp@3.0.0-beta.79 typecheck /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-mcp
+> tsgo --noEmit
+
+red-proof typecheck exit=1
+
+> @robota-sdk/agent-mcp@3.0.0-beta.79 typecheck /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-mcp
+> tsgo --noEmit
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `aa4badfdbfa1` (modified)
+
+### [GATE-COMPLETE: TC-24] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/single-connection-state-union.test.ts && printf '%s\n' "export type TMCPSecondConnectionState = { readonly kind: 'idle' } | { readonly kind: 'connected' } | { readonly kind: 'failed' };" > packages/agent-mcp/src/supervisor/zz-red-proof.ts && (pnpm exec vitest run packages/agent-mcp/src/__tests__/single-connection-state-union.test.ts >/dev/null 2>&1; echo "red-proof vitest exit=$?"); rm -f packages/agent-mcp/src/supervisor/zz-red-proof.ts; pnpm exec vitest run packages/agent-mcp/src/__tests__/single-connection-state-union.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 22 line(s))
+
+```
+12:25:40 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/single-connection-state-union.test.ts (1 test) 37ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  12:25:40
+   Duration  449ms (transform 14ms, setup 0ms, collect 246ms, tests 37ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `704484e24547` (modified)
+
+### [GATE-COMPLETE: TC-22] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-cache-identity.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:25:41 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/catalog-cache-identity.test.ts (2 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  12:25:41
+   Duration  250ms (transform 32ms, setup 0ms, collect 92ms, tests 2ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `2e21ca018e01` (modified)
+
+### [GATE-COMPLETE: TC-13] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/failure-classification.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:25:42 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/failure-classification.test.ts (8 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  12:25:42
+   Duration  262ms (transform 33ms, setup 0ms, collect 96ms, tests 3ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `2b26c2e60f82` (modified)
+
+### [GATE-COMPLETE: TC-14] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/reconnect-backoff.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:25:43 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/reconnect-backoff.test.ts (3 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  12:25:43
+   Duration  256ms (transform 34ms, setup 0ms, collect 98ms, tests 3ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `b4defbe7984b` (modified)
+
+### [GATE-COMPLETE: TC-15] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/last-known-good.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:25:43 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/last-known-good.test.ts (2 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  12:25:43
+   Duration  252ms (transform 33ms, setup 0ms, collect 92ms, tests 3ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `cb3a00896131` (modified)
+
+### [GATE-COMPLETE: TC-16] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/timeout-semantics.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:25:44 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/timeout-semantics.test.ts (5 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  12:25:44
+   Duration  281ms (transform 37ms, setup 0ms, collect 100ms, tests 3ms, environment 0ms, prepare 32ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `2c28775515d1` (modified)
+
+### [GATE-COMPLETE: TC-17] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/shutdown-no-live-requests.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:25:45 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/shutdown-no-live-requests.test.ts (4 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  12:25:45
+   Duration  287ms (transform 36ms, setup 0ms, collect 113ms, tests 3ms, environment 0ms, prepare 32ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `6078be4c24a7` (modified)
+
+### [GATE-COMPLETE: TC-18] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-provenance.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:25:46 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/catalog-provenance.test.ts (5 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  12:25:46
+   Duration  308ms (transform 121ms, setup 0ms, collect 148ms, tests 3ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `369b5591ffc6` (modified)
+
+### [GATE-COMPLETE: TC-19] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/discovery-bounds.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:25:47 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/discovery-bounds.test.ts (2 tests) 86ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  12:25:47
+   Duration  368ms (transform 39ms, setup 0ms, collect 122ms, tests 86ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `2a699b5853c5` (modified)
+
+### [GATE-COMPLETE: TC-20] — ✅ PASS | 2026-09-22
+
+**Command:** `cd packages/agent-mcp && pnpm scenario:verify:mcp-client`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+> @robota-sdk/agent-mcp@3.0.0-beta.79 scenario:verify:mcp-client /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-mcp
+> pnpm exec tsx --conditions=source examples/verify-mcp-client.ts
+
+result=transport=streamable-http; discoveredTools=3; invoked=mock-mcp__echo; catalogSource=mock-mcp
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `27dd54859d20` (modified)
+
+### [GATE-COMPLETE: TC-30] — ✅ PASS | 2026-09-22
+
+**Command:** `grep -rn 'narrowToUniversalSubset\|ThirdPartySchemaValidator' packages/agent-mcp/src --include='*.ts' --exclude-dir=__tests__ | grep -vE 'third-party-schema\.ts|src/index\.ts' && pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-schema-narrowing.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 16 line(s))
+
+```
+12:25:49 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/catalog-schema-narrowing.test.ts (5 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  12:25:49
+   Duration  302ms (transform 113ms, setup 0ms, collect 139ms, tests 4ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `ff58e35f9ff0` (modified)
+
+### [GATE-COMPLETE: TC-29] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/host-admission-trust-binding.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+12:25:50 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/host-admission-trust-binding.test.ts (3 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  12:25:50
+   Duration  182ms (transform 18ms, setup 0ms, collect 17ms, tests 2ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `1bbfc1c2cb77` (modified)
+
+### [GATE-COMPLETE: TC-27] — ✅ PASS | 2026-09-22
+
+**Command:** `node -e "const p=require('./packages/agent-mcp/package.json');console.log('private field present:', 'private' in p)" && grep -n '@robota-sdk/agent-mcp' .agents/publish-registry.md && node scripts/harness/scan-publish-registry.mjs`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+private field present: false
+34:| `@robota-sdk/agent-mcp`                        | beta    | Shared MCP client owner: definitions, activation, SDK client, catalogs and connection supervision                                                                  |
+::examined:: 90 workspace packages
+publish-registry scan passed (90 workspace package(s) reconciled against .agents/publish-registry.md).
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `c0b0e697e404` (modified)
+
+### [GATE-COMPLETE: TC-21] — ✅ PASS | 2026-09-22
+
+**Command:** `node -e "const p=require('./packages/agent-cli/package.json');console.log('devDependencies:', !!p.devDependencies['@robota-sdk/agent-mcp'], 'dependencies:', !!(p.dependencies||{})['@robota-sdk/agent-mcp'])" && node scripts/harness/check-publish-safety.mjs && ! grep -rnE 'StreamableHTTPClientTransport|tools/list|prompts/list|resources/list' packages/agent-cli/src --exclude-dir=__tests__ && echo 'absence: none'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+devDependencies: true dependencies: false
+✅ agent-core has zero @robota-sdk dependencies
+✅ agent-core has zero @robota-sdk devDependencies
+✅ Checked prepublishOnly hooks on 37 publishable package(s) (43 private package(s) skipped, of 80 in the workspace)
+✅ check-pnpm-publish.sh exists
+✅ agent-cli publishes self-contained — zero @robota-sdk runtime dependencies (INFRA-028)
+✅ No private package SPEC claims npm publication
+
+✅ Publish safety check passed
+absence: none
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `f899b8b433fa` (modified)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-22
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — No Plan item is blocked or pending (`mechanical`; returned PENDING-GUARDIAN by
+  `gate.mjs judge`, judged here): **Found:** the `## Plan` item for TC-21 in
+  `.agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` is ticked
+  `[x]`, but its own text records an undelivered part and names what it waits on — "live `bin.ts`
+  wiring is deferred — no unit has built the settings pipeline that sources `IMCPResolvedEntry[]`, and
+  inventing it here would widen scope." That clause is not in the checkpointed item: `git show HEAD:`
+  of the Task (line 76) reads only "`agent-cli` composes the manager; `@robota-sdk/agent-mcp` in
+  `devDependencies` (INFRA-028); no protocol logic in `agent-cli/src`"; the deferral was appended to
+  the item after the GATE-IMPLEMENT checkpoint, in the same uncommitted edit that ticked it. Measured
+  against the tree: `grep -rn mcp-client-composition packages/agent-cli/src --include='*.ts' | grep -v
+__tests__` returns NO hit — `packages/agent-cli/src/startup/mcp-client-composition.ts` is imported by
+  nothing except its own test; `command-setup.ts:190` and `doctor-inputs.ts:153` forward
+  `options.mcpActivationAdapter` but no product code supplies one from this module; the module's own
+  header states it "does not yet SOURCE `IMCPResolvedEntry[]`" and waits for "the composition root
+  that eventually reads those settings". **Required instead:** the criterion holds only when no Plan
+  item is pending or blocked; an item that declares a deferred deliverable and the missing
+  prerequisite it waits on is both, whatever its checkbox says. The spec fixes what "composes" means
+  here — § Solution step 9: "so the vertical is reachable from a product rather than only from
+  tests"; § User Execution Test Scenarios: "`/mcp` gains a supplier" — and on this tree the
+  composition is reachable only from `mcp-client-composition.test.ts` and `/mcp` gains no supplier.
+  The spec's TC-21 command-level checks (dev-dependency edge, `check-publish-safety.mjs`, protocol
+  grep absence) pass and are not disputed; they are GATE-COMPLETE's instrument, and they do not make a
+  Plan item that says "deferred" complete.
+  **Required action:** either (a) wire the composition into the product start-up path (the
+  `bin.ts` / start-cli composition root) so `mcpActivationAdapter` and the discovered tool set are
+  supplied from `mcp-client-composition.ts`, sourcing `IMCPResolvedEntry[]` from the settings surface
+  MCP-001 already resolves, then tick TC-21 without a deferral clause; or (b) obtain an owner decision
+  that the live wiring is outside this unit, record it in the spec (§ Solution step 9 and § User
+  Execution Test Scenarios amended; the decision in this Evidence Log) and in the Task as a separate,
+  explicitly descoped item naming the successor unit — a Plan item may not narrow its own scope by a
+  note appended to a ticked box. Then re-run `node scripts/harness/gate.mjs judge --gate GATE-VERIFY
+--doc <spec> --verify-cmd ...`.
+
+Other criteria, recorded so this entry carries the whole run and not only the failure:
+
+- GATE-VERIFY — ordering: the LAST `[GATE-IMPLEMENT]` entry (line 2158) is `✅ PASS | 2026-09-22`,
+  `approved → in-progress`, Judged at HEAD `9eb7ea8fdb88`; the earlier `[GATE-IMPLEMENT]` PASS at
+  line 1773 is annotated superseded and precedes it, so the last-entry rule reads a PASS. Frontmatter
+  `status: in-progress`; document under `.agents/spec-docs/active/`. Ordering PASS. The 27
+  `[GATE-COMPLETE: TC-NN]` entries already present were written by `gate.mjs record --tc` (Judged at
+  HEAD `d9bb939fe278`), the catalogue's sanctioned per-criterion recording step that GATE-COMPLETE
+  later consumes; no GATE-COMPLETE summary judgement and no `verifying` transition has been recorded,
+  so they are not a bypass of this gate.
+- GATE-VERIFY — Every item in the `## Plan` section is marked complete: 28 checkbox items in the
+  Task's `## Plan` section, 28 `[x]`, 0 `[ ]`; `node scripts/harness/scan-task-plan-items.mjs` →
+  "::examined:: 345 Task Plan sections — task-plan-items scan passed.", exit 0. Met on its letter; the
+  substance of the TC-21 tick is the failed criterion above.
+- GATE-VERIFY — Build passes for all affected packages: re-run by the guardian rather than taken from
+  the caller — `HARNESS_BASE_REF=origin/integration/agreement-014 pnpm --filter @robota-sdk/agent-mcp
+build && pnpm --filter @robota-sdk/agent-cli build` → exit 0 (agent-cli artifact generation
+  `09a504e9-…`, 45 files). PASS.
+- GATE-VERIFY — Tests pass for all affected packages: re-run by the guardian — `pnpm --filter
+@robota-sdk/agent-mcp test && pnpm --filter @robota-sdk/agent-cli exec vitest run
+src/startup/__tests__/mcp-client-composition.test.ts` → exit 0; agent-mcp "Test Files 31 passed (31)
+  / Tests 184 passed (184)"; agent-cli "Test Files 1 passed (1) / Tests 5 passed (5)". PASS.
+
+**Judged by:** `backlog-gate-guard` (full gate; `gate.mjs judge` exited 2 and, per its PENDING-GUARDIAN rule, wrote no entry)
+**Judged at:** HEAD `d9bb939fe2788454a015324b22b132d6ad36711e` · base `origin/integration/agreement-014@9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `8c4aeca866dce0233a8d2fae63b94bb152c1b33e` (modified)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/client-initialize.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:04:31 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/client-initialize.test.ts (2 tests) 27ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  13:04:31
+   Duration  443ms (transform 138ms, setup 0ms, collect 247ms, tests 27ms, environment 0ms, prepare 38ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `d82aca581880` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/client-pagination.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:04:32 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/client-pagination.test.ts (2 tests) 27ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  13:04:32
+   Duration  420ms (transform 123ms, setup 0ms, collect 231ms, tests 27ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `d44953601c41` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-naming.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:04:33 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/catalog-naming.test.ts (14 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  13:04:33
+   Duration  193ms (transform 20ms, setup 0ms, collect 25ms, tests 3ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `f3ef968c7a17` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-capability.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:04:34 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/catalog-capability.test.ts (6 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  13:04:34
+   Duration  350ms (transform 131ms, setup 0ms, collect 170ms, tests 2ms, environment 0ms, prepare 39ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `a8748629bf48` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/client-url-admission.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:04:35 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/client-url-admission.test.ts (4 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  13:04:35
+   Duration  357ms (transform 41ms, setup 0ms, collect 90ms, tests 6ms, environment 0ms, prepare 45ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `ab7093244baf` (modified)
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-09-22
+
+**Command:** `grep -rn 'StreamableHTTPClientTransport' packages/agent-mcp/src | head -n 3 && ! grep -rnE 'StdioClientTransport|SSEClientTransport|WebSocket' packages/agent-mcp/src --exclude-dir=__tests__`
+**Exit:** 0
+**Output:** (last 3 of 3 line(s))
+
+```
+packages/agent-mcp/src/client/transport.ts:14:import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+packages/agent-mcp/src/client/transport.ts:88:): StreamableHTTPClientTransport {
+packages/agent-mcp/src/client/transport.ts:89:  return new StreamableHTTPClientTransport(admitted.url, {
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `2ef6c03411d4` (modified)
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-dispositions.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:04:36 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/catalog-dispositions.test.ts (5 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  13:04:36
+   Duration  348ms (transform 126ms, setup 0ms, collect 156ms, tests 2ms, environment 0ms, prepare 36ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `5938dd3f74c4` (modified)
+
+### [GATE-COMPLETE: TC-08] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/dynamic-tool-registration.test.ts && git diff --stat origin/integration/agreement-014...HEAD -- packages/agent-framework/src && test -z "$(git diff --stat origin/integration/agreement-014...HEAD -- packages/agent-framework/src)" && echo 'agent-framework/src diff: EMPTY'`
+**Exit:** 0
+**Output:** (last 10 of 12 line(s))
+
+```
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/dynamic-tool-registration.test.ts (14 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  13:04:37
+   Duration  359ms (transform 124ms, setup 0ms, collect 157ms, tests 5ms, environment 0ms, prepare 34ms)
+
+agent-framework/src diff: EMPTY
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `3bec81e55a86` (modified)
+
+### [GATE-COMPLETE: TC-09] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/connection-supervisor.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:04:38 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/connection-supervisor.test.ts (6 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  13:04:38
+   Duration  381ms (transform 117ms, setup 0ms, collect 202ms, tests 4ms, environment 0ms, prepare 32ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `208a56b71f89` (modified)
+
+### [GATE-COMPLETE: TC-11] — ✅ PASS | 2026-09-22
+
+**Command:** `! grep -rnE 'sendMCPRequest|initializeMCPSession|TMCPConnectionStatus' packages/agent-mcp/src packages/agent-cli/src && echo 'absence: none' && pnpm --filter @robota-sdk/agent-mcp build`
+**Exit:** 0
+**Output:** (last 6 of 6 line(s))
+
+```
+absence: none
+
+> @robota-sdk/agent-mcp@3.0.0-beta.79 build /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-mcp
+> node ../../scripts/artifacts/build-package.mjs
+
+artifact generation 2d0537dc-9a5c-4fce-b517-46bb025c025e: 5 files
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `e0a6d4e044a1` (modified)
+
+### [GATE-COMPLETE: TC-12] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm --filter @robota-sdk/agent-mcp test && pnpm --filter @robota-sdk/agent-mcp build && HARNESS_BASE_REF=origin/integration/agreement-014 node scripts/harness/run-all-scans.mjs --affected --context pr`
+**Exit:** 0
+**Output:** (last 10 of 300 line(s))
+
+```
+Diagnostic report v1: 2 result(s), 2 non-clean.
+ERROR harness.scan-finding.scan-c36-c2t-c2u-c2t-c36-c2t-c32-c2r-c2t-c19-c2z-c2x-c32-c2s-c19-c35-c39-c2p-c30-c2x-c2u-c2x-c2t-c2s [finding] scan:reference-kind-qualified
+  evidence: Scan reference-kind-qualified exited with status 1.
+  recommendation: Inspect the reference-kind-qualified scan output above.
+ERROR harness.scan-finding.scan-c38-c2p-c37-c2z-c19-c31-c2t-c36-c2v-c2t-c2s-c19-c2r-c2x-c38-c2p-c38-c2x-c33-c32 [finding] scan:task-merged-citation
+  evidence: Scan task-merged-citation exited with status 1.
+  recommendation: Inspect the task-merged-citation scan output above.
+
+114 scans passed, 1 skipped, 2 advisory failure(s) tolerated (pr context), 2 non-clean diagnostic result(s) reported (117 declared what they examined)
+scan receipt NOT written: 2 advisory failure(s) were tolerated (reference-kind-qualified, task-merged-citation), and a receipt must not certify them.
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `a24ae246b824` (modified)
+
+### [GATE-COMPLETE: TC-10] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/canonical-failed-state.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:06:00 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/canonical-failed-state.test.ts (2 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  13:06:00
+   Duration  362ms (transform 117ms, setup 0ms, collect 205ms, tests 2ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `b32da67b1ee7` (modified)
+
+### [GATE-COMPLETE: TC-23] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm --filter @robota-sdk/agent-mcp typecheck && cp packages/agent-mcp/src/supervisor/connection.ts /tmp/mcp002-conn.bak && node -e "const fs=require('fs');const p='packages/agent-mcp/src/supervisor/connection.ts';const s=fs.readFileSync(p,'utf8');const r=s.replace(/^\s*\|\s*\{\s*readonly kind: 'failed'[\s\S]*?\}\s*$/m,'');if(r===s)throw new Error('failed member not removed');fs.writeFileSync(p,r)" && (pnpm --filter @robota-sdk/agent-mcp typecheck >/dev/null 2>&1; echo "red-proof typecheck exit=$?"); cp /tmp/mcp002-conn.bak packages/agent-mcp/src/supervisor/connection.ts && git diff --quiet -- packages/agent-mcp/src/supervisor/connection.ts || true; pnpm --filter @robota-sdk/agent-mcp typecheck`
+**Exit:** 0
+**Output:** (last 7 of 7 line(s))
+
+```
+> @robota-sdk/agent-mcp@3.0.0-beta.79 typecheck /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-mcp
+> tsgo --noEmit
+
+red-proof typecheck exit=1
+
+> @robota-sdk/agent-mcp@3.0.0-beta.79 typecheck /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-mcp
+> tsgo --noEmit
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `4cb0c6b8961a` (modified)
+
+### [GATE-COMPLETE: TC-24] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/single-connection-state-union.test.ts && printf '%s\n' "export type TMCPSecondConnectionState = { readonly kind: 'idle' } | { readonly kind: 'connected' } | { readonly kind: 'failed' };" > packages/agent-mcp/src/supervisor/zz-red-proof.ts && (pnpm exec vitest run packages/agent-mcp/src/__tests__/single-connection-state-union.test.ts >/dev/null 2>&1; echo "red-proof vitest exit=$?"); rm -f packages/agent-mcp/src/supervisor/zz-red-proof.ts; pnpm exec vitest run packages/agent-mcp/src/__tests__/single-connection-state-union.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 22 line(s))
+
+```
+1:06:04 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/single-connection-state-union.test.ts (1 test) 37ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  13:06:04
+   Duration  451ms (transform 14ms, setup 0ms, collect 246ms, tests 37ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `c16c01252154` (modified)
+
+### [GATE-COMPLETE: TC-22] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-cache-identity.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:06:05 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/catalog-cache-identity.test.ts (2 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  13:06:05
+   Duration  356ms (transform 121ms, setup 0ms, collect 199ms, tests 2ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `b974f726c6e4` (modified)
+
+### [GATE-COMPLETE: TC-13] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/failure-classification.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:06:06 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/failure-classification.test.ts (8 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  13:06:06
+   Duration  361ms (transform 126ms, setup 0ms, collect 203ms, tests 3ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `2010a80b720a` (modified)
+
+### [GATE-COMPLETE: TC-14] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/reconnect-backoff.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:06:07 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/reconnect-backoff.test.ts (3 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  13:06:07
+   Duration  355ms (transform 118ms, setup 0ms, collect 196ms, tests 3ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `125a106c3fd6` (modified)
+
+### [GATE-COMPLETE: TC-15] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/last-known-good.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:06:08 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/last-known-good.test.ts (2 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  13:06:08
+   Duration  354ms (transform 118ms, setup 0ms, collect 195ms, tests 3ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `07578a93045e` (modified)
+
+### [GATE-COMPLETE: TC-16] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/timeout-semantics.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:06:09 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/timeout-semantics.test.ts (5 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  13:06:09
+   Duration  353ms (transform 120ms, setup 0ms, collect 196ms, tests 3ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `e721f3d9c1e7` (modified)
+
+### [GATE-COMPLETE: TC-17] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/shutdown-no-live-requests.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:06:10 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/shutdown-no-live-requests.test.ts (4 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  13:06:10
+   Duration  358ms (transform 123ms, setup 0ms, collect 200ms, tests 3ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `91c9bd8b591f` (modified)
+
+### [GATE-COMPLETE: TC-18] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-provenance.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:06:11 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/catalog-provenance.test.ts (5 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  13:06:11
+   Duration  300ms (transform 112ms, setup 0ms, collect 139ms, tests 3ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `ff007b90016d` (modified)
+
+### [GATE-COMPLETE: TC-19] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/discovery-bounds.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:06:12 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/discovery-bounds.test.ts (2 tests) 86ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  13:06:12
+   Duration  471ms (transform 126ms, setup 0ms, collect 225ms, tests 86ms, environment 0ms, prepare 28ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `ae675e54e481` (modified)
+
+### [GATE-COMPLETE: TC-20] — ✅ PASS | 2026-09-22
+
+**Command:** `cd packages/agent-mcp && pnpm scenario:verify:mcp-client`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+> @robota-sdk/agent-mcp@3.0.0-beta.79 scenario:verify:mcp-client /Users/jungyoun/Documents/dev/woojubb/robota-2/packages/agent-mcp
+> pnpm exec tsx --conditions=source examples/verify-mcp-client.ts
+
+result=transport=streamable-http; discoveredTools=3; invoked=mock-mcp__echo; catalogSource=mock-mcp
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `5a3cf85f72fa` (modified)
+
+### [GATE-COMPLETE: TC-30] — ✅ PASS | 2026-09-22
+
+**Command:** `grep -rn 'narrowToUniversalSubset\|ThirdPartySchemaValidator' packages/agent-mcp/src --include='*.ts' --exclude-dir=__tests__ | grep -vE 'third-party-schema\.ts|src/index\.ts' && pnpm exec vitest run packages/agent-mcp/src/__tests__/catalog-schema-narrowing.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 16 line(s))
+
+```
+1:06:13 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/catalog-schema-narrowing.test.ts (5 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  13:06:13
+   Duration  300ms (transform 108ms, setup 0ms, collect 135ms, tests 4ms, environment 0ms, prepare 29ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `5773275aa8d9` (modified)
+
+### [GATE-COMPLETE: TC-29] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run packages/agent-mcp/src/__tests__/host-admission-trust-binding.test.ts`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+1:06:14 PM [vite] warning: `esbuild` option was specified by "vitest" plugin. This option is deprecated, please use `oxc` instead.
+
+ RUN  v3.2.6 /Users/jungyoun/Documents/dev/woojubb/robota-2
+
+ ✓ packages/agent-mcp/src/__tests__/host-admission-trust-binding.test.ts (3 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  13:06:14
+   Duration  180ms (transform 18ms, setup 0ms, collect 17ms, tests 2ms, environment 0ms, prepare 34ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `b6bb860460b4` (modified)
+
+### [GATE-COMPLETE: TC-27] — ✅ PASS | 2026-09-22
+
+**Command:** `node -e "const p=require('./packages/agent-mcp/package.json');console.log('private field present:', 'private' in p)" && grep -n '@robota-sdk/agent-mcp' .agents/publish-registry.md && node scripts/harness/scan-publish-registry.mjs`
+**Exit:** 0
+**Output:** (last 4 of 4 line(s))
+
+```
+private field present: false
+34:| `@robota-sdk/agent-mcp`                        | beta    | Shared MCP client owner: definitions, activation, SDK client, catalogs and connection supervision                                                                  |
+::examined:: 90 workspace packages
+publish-registry scan passed (90 workspace package(s) reconciled against .agents/publish-registry.md).
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `625eb2489629` (modified)
+
+### [GATE-COMPLETE: TC-21] — ✅ PASS | 2026-09-22
+
+**Command:** `node -e "const p=require('./packages/agent-cli/package.json');console.log('devDependencies:', !!p.devDependencies['@robota-sdk/agent-mcp'], 'dependencies:', !!(p.dependencies||{})['@robota-sdk/agent-mcp'])" && node scripts/harness/check-publish-safety.mjs && ! grep -rnE 'StreamableHTTPClientTransport|tools/list|prompts/list|resources/list' packages/agent-cli/src --exclude-dir=__tests__ && echo 'absence: none'`
+**Exit:** 0
+**Output:** (last 10 of 10 line(s))
+
+```
+devDependencies: true dependencies: false
+✅ agent-core has zero @robota-sdk dependencies
+✅ agent-core has zero @robota-sdk devDependencies
+✅ Checked prepublishOnly hooks on 37 publishable package(s) (43 private package(s) skipped, of 80 in the workspace)
+✅ check-pnpm-publish.sh exists
+✅ agent-cli publishes self-contained — zero @robota-sdk runtime dependencies (INFRA-028)
+✅ No private package SPEC claims npm publication
+
+✅ Publish safety check passed
+absence: none
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `592cd5d38dc9` (modified)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: the LAST `[GATE-IMPLEMENT]` entry (line 2158) is `✅ PASS | 2026-09-22`, `approved → in-progress`, Judged at HEAD `9eb7ea8fdb88`; frontmatter `status: in-progress`; document under `.agents/spec-docs/active/`. The 54 `[GATE-COMPLETE: TC-NN]` entries present were written by `gate.mjs record --tc` (`backlog-pipeline` skill step 8, "`record` per TC → `judge`"), which precedes this gate by design; no GATE-COMPLETE summary judgement and no `verifying` transition is recorded. Ordering PASS. Re-run after the `❌ FAIL | 2026-09-22` entry at line 2874, whose one failed criterion is re-judged below against the changed tree.
+- GATE-VERIFY — Every item in the `## Plan` section of `.agents/tasks/<ID>.md` is marked complete (`[x]`): `.agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` `## Plan` holds 28 checkbox items, 28 `[x]`, 0 `[ ]` (counted by the guardian; Test Plan and scenario sections not read). `node scripts/harness/scan-task-plan-items.mjs` → "::examined:: 345 Task Plan sections / task-plan-items scan passed.", exit 0. PASS.
+- GATE-VERIFY — No Plan item is blocked or pending (returned PENDING-GUARDIAN by `gate.mjs judge`, judged here): the TC-21 item that failed the prior run no longer carries the deferral clause ("live `bin.ts` wiring is deferred — no unit has built the settings pipeline …"); it now records delivered state, and each claim was checked against the tree rather than taken from the text — (a) `packages/agent-cli/src/startup/mcp-definition-sources.ts:20` imports `decodeSource, materializeDefinition, resolveByPrecedence` from `@robota-sdk/agent-mcp` and `resolveMcpDefinitions()` (line 114) reads every `TSettingsSource`, decodes `mcpServers` (line 90-92) and resolves precedence (line 132-133); (b) `mcp-workspace.ts:40` `toMcpActivationWorkspace()` returns `IMCPActivationWorkspace` carrying trust state + generation; (c) `mcp-startup.ts:62` `composeMcpClientForStartup()` calls `createMcpClientComposition` (line 84); (d) `packages/agent-cli/src/cli.ts:63` imports `composeMcpClientForStartup`, line ~219-231 composes it when no caller-supplied adapter exists and assigns `startupOptions.mcpActivationAdapter`, line ~418 pushes `await mcp.connect()` into `toolOptions.additionalTools`, and `mcp.shutdown()` is awaited on all three exit paths (21 inserted lines, `git diff --stat`); `grep -rn mcp-startup packages/agent-cli/src --include='*.ts' | grep -v __tests__` now returns the `cli.ts` import, where the prior run found no product consumer. (e) The item's binary claim was reproduced by the guardian: with `HOME` pointed at a fresh scratch directory holding `.robota/settings.json` = `{"mcpServers":{"probe":{"type":"http","url":"http://127.0.0.1:1/mcp"}}}`, an isolated cwd, and a placeholder `ANTHROPIC_API_KEY`, `node packages/agent-cli/bin/robota.cjs -p "/mcp list"` exited 0 and printed `MCP server "probe" was not admitted (pending): No explicit trust approval exists for this MCP definition.` followed by `probe (probe) — pending — user — …` — the configured server is listed and its pending admission reported, so `/mcp` has a product supplier (§ User Execution Test Scenarios) and the vertical is reachable from a product rather than only from tests (§ Solution step 9); the real `~/.robota/settings.json` was not touched (mtime Sep 21 before and after). The item's closing sentence ("Approval is in-memory in this unit, so a server approved mid-session connects on the next start") describes a property of the delivered behaviour, not an undelivered part of this item nor a prerequisite it waits on: no TC and no Solution step of this spec requires persisted approval (the approval store is MCP-2520/MCP-001's `deps.approvalStore`, passed through unchanged at `mcp-client-composition.ts:286`), so it is not a deferral. The only other Plan match for "pending" is TC-14's state name `pending → failed → manual-retry`, a state-machine label, not a blocked item. No Plan item names a successor unit, a follow-up, or a missing prerequisite. PASS.
+- GATE-VERIFY — Build passes for all affected packages: re-run by the guardian — `HARNESS_BASE_REF=origin/integration/agreement-014 pnpm --filter @robota-sdk/agent-mcp build && pnpm --filter @robota-sdk/agent-cli build` → exit 0 (agent-mcp artifact generation `5f1d2f0e-…`, 5 files; agent-cli artifact generation `236f2bcc-…`, 45 files; only `INEFFECTIVE_DYNAMIC_IMPORT` warnings, pre-existing and unrelated). PASS.
+- GATE-VERIFY — Tests pass for all affected packages: re-run by the guardian — `pnpm --filter @robota-sdk/agent-mcp test && pnpm --filter @robota-sdk/agent-cli exec vitest run src/startup/__tests__` → exit 0; agent-mcp "Test Files 31 passed (31) / Tests 184 passed (184)"; agent-cli startup "Test Files 26 passed (26) / Tests 158 passed | 3 skipped (161)", including the three new suites `mcp-client-composition.test.ts`, `mcp-definition-sources.test.ts`, `mcp-startup.test.ts`. PASS.
+
+**Judged by:** `backlog-gate-guard` (full gate; `gate.mjs judge` returned PENDING-GUARDIAN on the two Plan criteria and, per its rule, wrote no entry)
+**Judged at:** HEAD `d9bb939fe2788454a015324b22b132d6ad36711e` · base `origin/integration/agreement-014@9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `078d36b3d98a1831fb4859ce932468eac6612c94` (modified)
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-22
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-20: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-20: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-20: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `0656151ed0b7` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-22; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 27/27 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (27)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (27) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (27) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 27/27 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (27) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 28/28 tasks `[x]` in .agents/tasks/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `d9bb939fe278` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `54126853ad69` (modified)

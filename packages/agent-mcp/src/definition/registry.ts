@@ -23,7 +23,6 @@ import type {
   IMCPActivationProvenance,
   IMCPActivationRequest,
   IMCPActivationWorkspace,
-  TMCPActivationSource,
 } from '../mcp-activation.js';
 import type { IMCPResolvedEntry } from './types.js';
 

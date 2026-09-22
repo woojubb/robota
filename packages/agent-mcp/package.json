@@ -38,6 +38,7 @@
     "lint": "eslint src/ --ext .ts,.tsx",
     "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
     "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --status && pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --lifecycle && pnpm exec tsx --conditions=source examples/verify-mcp-definition-control-plane.ts",
+    "scenario:verify:mcp-client": "pnpm exec tsx --conditions=source examples/verify-mcp-client.ts",
     "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-mcp --output examples/scenarios/mcp-activation-admission.record.json -- pnpm scenario:verify",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
@@ -45,8 +46,12 @@
   "peerDependencies": {
     "@robota-sdk/agent-core": "workspace:*"
   },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",
+    "@types/node": "^20.10.0",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
@@ -56,7 +61,6 @@
   "publishConfig": {
     "access": "public"
   },
-  "private": true,
   "volta": {
     "extends": "../../package.json"
   }

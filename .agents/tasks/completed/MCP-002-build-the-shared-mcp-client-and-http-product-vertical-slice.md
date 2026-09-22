@@ -1,8 +1,9 @@
 ---
 title: 'MCP-002: build the shared MCP client and HTTP product vertical slice'
 issue: https://github.com/woojubb/robota/issues/2521
-status: in-progress
+status: done
 created: 2026-09-03
+completed: 2026-09-22
 priority: critical
 urgency: now
 area: agent-mcp, agent-cli, publish-registry
@@ -32,55 +33,57 @@ per ADR-005. Scope was widened by owner decision (2026-09-22: `이 유닛에 다
 
 ## Plan
 
+Spec: `.agents/spec-docs/done/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md`
+
 One item per completion criterion; the TC id is the join key to the spec. Grouped by the spec's
 Solution steps. Landing steps live in the spec's gate evidence, not here.
 
 Client seam (`packages/agent-mcp/src/client/`):
 
-- [ ] TC-01 — `session.ts`: `initialize` against Streamable HTTP; store `protocolVersion`, `serverInfo`,
+- [x] TC-01 — `session.ts`: `initialize` against Streamable HTTP; store `protocolVersion`, `serverInfo`,
       capabilities; disconnect on an unsupported version
-- [ ] TC-02 — `discovery.ts`: caller-owned `nextCursor` loop; invalid cursor surfaces `-32602` as a named failure
-- [ ] TC-19 — `discovery.ts`: bounded page count with a named refusal; per-request timeout as its own class
-- [ ] TC-05 — `transport.ts`: admit-then-construct; URL admission through `egress-policy` before any connection
-- [ ] TC-06 — transport set is exactly Streamable HTTP in `src/`; stdio, SSE and WebSocket absent outside tests
+- [x] TC-02 — `discovery.ts`: caller-owned `nextCursor` loop; invalid cursor surfaces `-32602` as a named failure
+- [x] TC-19 — `discovery.ts`: bounded page count with a named refusal; per-request timeout as its own class
+- [x] TC-05 — `transport.ts`: admit-then-construct; URL admission through `egress-policy` before any connection
+- [x] TC-06 — transport set is exactly Streamable HTTP in `src/`; stdio, SSE and WebSocket absent outside tests
 
 Catalog (`packages/agent-mcp/src/catalog/`):
 
-- [ ] TC-03 — `naming.ts`: unconditional `<server>__<tool>` prefix, sanitisation, deterministic middle-truncation, residual-collision loser rejected
-- [ ] TC-04 — three-valued capability state: `unsupported` never called, `supported/empty`, `supported/N`
-- [ ] TC-07 — `rejected` bucket with reasons for SSE-only and WebSocket servers
-- [ ] TC-18 — provenance on every entry; `adopted` and `adapted` buckets populated with reasons
-- [ ] TC-08 — register discovered tools through the generic dynamic-tool contract; `agent-framework` diff stays empty
-- [ ] TC-30 — `build.ts` calls `narrowToUniversalSubset` at registration so the CORE-040 boundary keeps a caller; re-point `third-party-schema-enforcement.test.ts`
+- [x] TC-03 — `naming.ts`: unconditional `<server>__<tool>` prefix, sanitisation, deterministic middle-truncation, residual-collision loser rejected
+- [x] TC-04 — three-valued capability state: `unsupported` never called, `supported/empty`, `supported/N`
+- [x] TC-07 — `rejected` bucket with reasons for SSE-only and WebSocket servers
+- [x] TC-18 — provenance on every entry; `adopted` and `adapted` buckets populated with reasons
+- [x] TC-08 — register discovered tools through the generic dynamic-tool contract; `agent-framework` diff stays empty
+- [x] TC-30 — `build.ts` calls `narrowToUniversalSubset` at registration so the CORE-040 boundary keeps a caller; re-point `third-party-schema-enforcement.test.ts`
 
 Supervisor (`packages/agent-mcp/src/supervisor/`, absorbed MCP-003):
 
-- [ ] TC-09 — open / reuse / close; `listChanged` marks the affected domain stale
-- [ ] TC-13 — classify transient / auth / config / not-found; retry only transient
-- [ ] TC-14 — bounded exponential backoff under a fake clock; pending → failed → manual-retry
-- [ ] TC-15 — refresh on `listChanged` without reconnecting; failed refresh keeps last-known-good with `stale` + error
-- [ ] TC-16 — four distinct typed timeouts, independently configurable
-- [ ] TC-17 — cancellation and shutdown leave no live request and no armed timer
-- [ ] TC-22 — last-known-good identity = server id + `protocolVersion` + `serverInfo.version`; mismatch invalidates
-- [ ] TC-10 — one failed value carries its classification (runtime half)
-- [ ] TC-23 — the failed member is required by the type (typecheck half, `tsgo --noEmit`)
-- [ ] TC-24 — package-local compiler-API test: exactly one connection-state union under `src/**`
+- [x] TC-09 — open / reuse / close; `listChanged` marks the affected domain stale
+- [x] TC-13 — classify transient / auth / config / not-found; retry only transient
+- [x] TC-14 — bounded exponential backoff under a fake clock; pending → failed → manual-retry
+- [x] TC-15 — refresh on `listChanged` without reconnecting; failed refresh keeps last-known-good with `stale` + error
+- [x] TC-16 — four distinct typed timeouts, independently configurable
+- [x] TC-17 — cancellation and shutdown leave no live request and no armed timer
+- [x] TC-22 — last-known-good identity = server id + `protocolVersion` + `serverInfo.version`; mismatch invalidates
+- [x] TC-10 — one failed value carries its classification (runtime half)
+- [x] TC-23 — the failed member is required by the type (typecheck half, `tsgo --noEmit`)
+- [x] TC-24 — package-local compiler-API test: exactly one connection-state union under `src/**`
 
 Removal and activation:
 
-- [ ] TC-11 — delete `mcp-protocol.ts`, `mcp-tool.ts`, `relay-mcp-tool.ts` and `TMCPConnectionStatus`; their three suites go with them
-- [ ] TC-29 — `mcp-activation.ts`: invert `requiresTrustedWorkspace` to a not-required allowlist; untrusted workspace refused, rotated generation invalidates, unknown source requires trust
+- [x] TC-11 — delete `mcp-protocol.ts`, `mcp-tool.ts`, `relay-mcp-tool.ts` and `TMCPConnectionStatus`; their three suites go with them
+- [x] TC-29 — `mcp-activation.ts`: invert `requiresTrustedWorkspace` to a not-required allowlist; untrusted workspace refused, rotated generation invalidates, unknown source requires trust
 
 Product composition and manifests:
 
-- [ ] TC-21 — `agent-cli` composes the manager; `@robota-sdk/agent-mcp` in `devDependencies` (INFRA-028); no protocol logic in `agent-cli/src`
-- [ ] TC-27 — clear `private` in `packages/agent-mcp/package.json`, move its row out of the Private table in `.agents/publish-registry.md`; registry scan exits 0
-- [ ] TC-20 — `examples/` scenario + `scenario:verify:mcp-client` script printing the single `result=` line; isolate `HOME` to a temp dir
+- [x] TC-21 — `agent-cli` composes the manager; `@robota-sdk/agent-mcp` in `devDependencies` (INFRA-028); no protocol logic in `agent-cli/src` Delivered end to end: `startup/mcp-definition-sources.ts` sources `mcpServers` from the layered settings files through MCP-001's `decodeSource` → `resolveByPrecedence` → `materializeDefinition`; `startup/mcp-workspace.ts` maps workspace trust (state + generation) onto `IMCPActivationWorkspace`; `startup/mcp-startup.ts` composes `createMcpClientComposition` and `cli.ts` binds its adapter to the `/mcp` port and its discovered tools to `additionalTools`. Verified from the built binary: `robota -p "/mcp list"` under an isolated HOME lists the configured server and reports its pending admission. Approval is in-memory in this unit, so a server approved mid-session connects on the next start.
+- [x] TC-27 — clear `private` in `packages/agent-mcp/package.json`, move its row out of the Private table in `.agents/publish-registry.md`; registry scan exits 0
+- [x] TC-20 — `examples/` scenario + `scenario:verify:mcp-client` script printing the single `result=` line; isolate `HOME` to a temp dir
 
 Verification and docs:
 
-- [ ] TC-12 — package test + build green; affected scans report no NEW failure against the measured base (126 tests, expected floor 81 + new)
-- [ ] Update `packages/agent-mcp/docs/SPEC.md` (public surface, CORE-040 section, connection-state SSOT), `README.md`, `.agents/project-structure.md` and `ARCHITECTURE.md` one-line classification
+- [x] TC-12 — package test + build green; affected scans report no NEW failure against the measured base (126 tests, expected floor 81 + new)
+- [x] Update `packages/agent-mcp/docs/SPEC.md` (public surface, CORE-040 section, connection-state SSOT), `README.md`, `.agents/project-structure.md` and `ARCHITECTURE.md` one-line classification
 
 ## Test Plan
 
