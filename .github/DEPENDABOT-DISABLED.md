@@ -17,12 +17,15 @@ override incidents).
 
 Removing Dependabot removed **automated update PRs only**, not vulnerability detection:
 
-- **`dependency audit` (osv-scanner) in `.github/workflows/ci.yml`** is a REQUIRED check and still scans
-  the whole lockfile on every PR. Every advisory handled on 2026-07-25 —
+- **`security` in `.github/workflows/ci.yml`** is the stable required context. It selects the
+  lockfile-wide osv-scanner job when a package manifest, lockfile, or scanner policy changes. Every
+  advisory handled on 2026-07-25 —
   `builder-util-runtime` (credential leak), `postcss` (path traversal), `tar` (recursion DoS),
   `brace-expansion` — was caught by that job, not by Dependabot.
-- **`Dependency Review`** still gates newly-introduced dependencies by vulnerability and license.
-- **CodeQL** still runs; `SEC-003` tracks its alert backlog.
+- **`Dependency Review`** still reports newly-introduced dependency vulnerability and license policy
+  findings as an advisory check.
+- **Secret Scan** checks same-repository PR commits, and **CodeQL** analyzes pushes to `develop` and
+  `main`; neither is represented as an additional required context.
 - **Repo-level Dependabot security updates were already `disabled`** before this change.
 
 So the workflow is now: the scanners report, and a human or agent applies a **bounded** `pnpm.overrides`

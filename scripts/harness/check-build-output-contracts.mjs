@@ -21,6 +21,23 @@ const CANONICAL_DTS_PATTERN = /\.d\.ts$/u;
 const JAVASCRIPT_OUTPUT_PATTERN = /\.(?:js|cjs|mjs)$/u;
 const KNOWN_DIST_OUTPUT_PATTERN = /\.(?:js|cjs|mjs|d\.ts|d\.cts|d\.mts)$/u;
 
+function findAgentCoreBrowserBundleFindings(root = WORKSPACE_ROOT) {
+  const packageDirectory = path.join(root, 'packages/agent-core');
+  const bundle = path.join(packageDirectory, 'dist/browser/index.js');
+  if (!fs.existsSync(bundle)) return [];
+  const manifest = JSON.parse(fs.readFileSync(path.join(packageDirectory, 'package.json'), 'utf8'));
+  const workspaceName = manifest.name ?? 'packages/agent-core';
+  const source = fs.readFileSync(bundle, 'utf8');
+  const builtins = [
+    ...new Set(
+      [...source.matchAll(/["']node:([a-z0-9_./-]+)["']/giu)].map((match) => `node:${match[1]}`),
+    ),
+  ].sort();
+  return builtins.length === 0
+    ? []
+    : [`${workspaceName}: browser bundle imports Node builtins: ${builtins.join(', ')}`];
+}
+
 function collectExportPaths(value, paths = []) {
   if (typeof value === 'string') {
     paths.push(value);
@@ -208,15 +225,19 @@ export function findDistFileFindings(
   return findings;
 }
 
-export async function findBuildOutputContractFindings(root = WORKSPACE_ROOT, options = {}) {
+async function inspectBuildOutputContracts(root, options) {
   const findings = [];
   const scopes = await listWorkspaceScopes(root);
+  let checkedPackages = 0;
+  let distPresentPackages = 0;
 
   for (const scope of scopes.filter((item) => item.kind === 'package')) {
     const pkgDir = path.join(root, scope.relativeDir);
     const packageJson = await readJson(path.join(pkgDir, 'package.json'));
     if (!hasDistContract(packageJson)) continue;
 
+    checkedPackages += 1;
+    if (fs.existsSync(path.join(pkgDir, 'dist'))) distPresentPackages += 1;
     const name = scope.workspaceName;
     findings.push(...findScriptPairFindings(name, packageJson));
     findings.push(...findPackageFieldFindings(name, packageJson));
@@ -225,25 +246,27 @@ export async function findBuildOutputContractFindings(root = WORKSPACE_ROOT, opt
     findings.push(...findDtsExtensionFindings(name, packageJson));
     findings.push(...findDistFileFindings(name, packageJson, pkgDir, options));
   }
+  findings.push(...findAgentCoreBrowserBundleFindings(root));
 
-  return findings;
+  return { findings, checkedPackages, distPresentPackages };
+}
+
+export async function findBuildOutputContractFindings(root = WORKSPACE_ROOT, options = {}) {
+  return (await inspectBuildOutputContracts(root, options)).findings;
 }
 
 /**
  * The pass-line plus, when the dist-file rule could not run everywhere, ONE advisory line.
  *
  * HARNESS-052, reachability axis. `findDistFileFindings` returns `[]` the moment a package has no
- * `dist/` — measured: the same manifest with an EMPTY `dist/` yields two findings — and ci.yml's
- * `quality` job restores `dist` only `if: needs.build.outputs.package_dist_required == 'true'`.
- * Measured through `createVerificationPlan`, that is FALSE for every docs-only, `.agents/**` and
- * `scripts/harness/**` PR, so on those the job's `pnpm harness:scan:build-contracts` step ran the
- * dist-file rule against nothing while printing `Build output contract check passed for N
- * package(s)` — a count of manifests inspected, read as a count of contracts resolved.
+ * `dist/` — measured: the same manifest with an EMPTY `dist/` yields two findings. PR CI now runs
+ * this scan in the build job only when selected package output exists or build machinery changed.
+ * Standalone/full repository scans may still lack `dist/`, so they report the coverage shortfall
+ * explicitly instead of claiming every declared output path was resolved.
  *
  * The pass line now states the count whose `dist/` was actually READ, and the shortfall goes out on
  * `ADVISORY_MARKER` (HARNESS-053), which reaches `pnpm harness:scan`'s summary without touching the
- * verdict. Turning the shortfall into a FAILURE would redden `quality` on every docs-only PR; that
- * is a workflow change (this file cannot restore an artifact) and is recorded, not made here.
+ * verdict. The artifact-owning build job is the blocking owner when output contracts apply.
  */
 export function renderDistCoverage({ checked, distPresent }) {
   const lines = [
@@ -259,37 +282,22 @@ export function renderDistCoverage({ checked, distPresent }) {
   return lines;
 }
 
-async function main() {
+export async function main(root = WORKSPACE_ROOT, argv = process.argv.slice(2)) {
   const options = {
-    requireVerifiedGeneration: process.argv.includes('--require-verified-generation'),
+    requireVerifiedGeneration: argv.includes('--require-verified-generation'),
   };
-  const scopes = await listWorkspaceScopes();
-  let checkedPackages = 0;
-  let distPresentPackages = 0;
-  const findings = [];
-
-  for (const scope of scopes.filter((item) => item.kind === 'package')) {
-    const pkgDir = path.join(WORKSPACE_ROOT, scope.relativeDir);
-    const packageJson = await readJson(path.join(pkgDir, 'package.json'));
-    if (!hasDistContract(packageJson)) continue;
-
-    checkedPackages += 1;
-    if (fs.existsSync(path.join(pkgDir, 'dist'))) distPresentPackages += 1;
-    const name = scope.workspaceName;
-    findings.push(...findScriptPairFindings(name, packageJson));
-    findings.push(...findPackageFieldFindings(name, packageJson));
-    findings.push(...findExportPathFindings(name, packageJson));
-    findings.push(...findBinPathFindings(name, packageJson));
-    findings.push(...findDtsExtensionFindings(name, packageJson));
-    findings.push(...findDistFileFindings(name, packageJson, pkgDir, options));
-  }
+  const { findings, checkedPackages, distPresentPackages } = await inspectBuildOutputContracts(
+    root,
+    options,
+  );
 
   if (findings.length > 0) {
     for (const finding of findings) {
       console.error(`[error] ${finding}`);
     }
     console.error(`Build output contract check failed with ${findings.length} error(s).`);
-    process.exit(1);
+    process.exitCode = 1;
+    return { status: 1, findings, checkedPackages, distPresentPackages };
   }
 
   // Emitted at the call site, not inside `renderDistCoverage`. The renderer's contract is the
@@ -303,8 +311,9 @@ async function main() {
   })) {
     console.log(line);
   }
+  return { status: 0, findings, checkedPackages, distPresentPackages };
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
-  void main();
+  await main();
 }

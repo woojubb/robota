@@ -15,14 +15,14 @@ describe('manifest-change-classification', () => {
     ).toEqual([]);
   });
 
-  it('limits developer-quality classification to harness scripts', () => {
+  it('limits developer-quality classification to explicit local authoring scripts', () => {
     const before = { scripts: { build: 'pnpm build' } };
-    const harnessOnly = {
-      scripts: { ...before.scripts, 'harness:scan': 'node scripts/harness/run-all-scans.mjs' },
+    const localOnly = {
+      scripts: { ...before.scripts, 'harness:review': 'node scripts/harness/review-change.mjs' },
     };
     const productScript = { scripts: { ...before.scripts, build: 'pnpm build:all' } };
 
-    expect(classifyRootManifestChange({ before, after: harnessOnly })).toMatchObject({
+    expect(classifyRootManifestChange({ before, after: localOnly })).toMatchObject({
       kind: 'developer-quality-only',
       workspaceWide: false,
     });
@@ -32,21 +32,21 @@ describe('manifest-change-classification', () => {
     });
   });
 
-  it('treats affected execution entry points as verification tooling, not product-wide changes', () => {
+  it.each([
+    'harness:workspace:run',
+    'harness:scan:build-contracts',
+    'harness:test:contracts:affected',
+    'harness:verify:release',
+    'build:affected',
+    'test:affected',
+    'examples:typecheck:affected',
+  ])('fails closed for CI or product execution entrypoint %s', (script) => {
     const before = { scripts: { build: 'pnpm build', test: 'pnpm test' } };
-    const after = {
-      scripts: {
-        ...before.scripts,
-        'build:affected': 'node scripts/harness/workspace-affected-run.mjs --operation build',
-        'test:affected': 'node scripts/harness/workspace-affected-run.mjs --operation test',
-        'examples:typecheck:affected':
-          'node scripts/harness/workspace-affected-run.mjs --operation examples-typecheck',
-      },
-    };
+    const after = { scripts: { ...before.scripts, [script]: 'changed command' } };
 
     expect(classifyRootManifestChange({ before, after })).toMatchObject({
-      kind: 'developer-quality-only',
-      workspaceWide: false,
+      kind: 'workspace-wide',
+      workspaceWide: true,
     });
   });
 });

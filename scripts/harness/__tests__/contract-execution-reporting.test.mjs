@@ -27,10 +27,8 @@ vi.mock('../contract-test-cache.mjs', () => ({
   recordSuccessfulContractShard: () => 0,
 }));
 vi.mock('../harness-vitest-process.mjs', () => ({
+  ACTIVE_SHARD_CHILDREN: { cancelled: false },
   vitestInvocationAsync: async () => ({ status: 1, signal: null }),
-  vitestInvocation: () => {
-    throw new Error('isolated shard must not start after failure');
-  },
 }));
 
 import { runAffectedContractTier } from '../harness-contract-execution.mjs';
@@ -46,8 +44,8 @@ it('returns truthful coverage from the actual tier orchestration path', async ()
     });
     expect(result.coverage).toMatchObject({
       cacheHits: ['cached'],
-      invoked: ['failed'],
-      notInvoked: ['isolated'],
+      invoked: ['failed', 'isolated'],
+      notInvoked: [],
     });
     expect(result.status).toBe(1);
   } finally {

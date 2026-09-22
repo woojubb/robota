@@ -34,95 +34,35 @@ describe('architecture audit dimensional contracts', () => {
       expect(definition).toContain(
         `AUDIT-DIM-COMPLETE: dim=${dimension} shard=<k>/<n> blocker=<n> high=<n> medium=<n> low=<n> coverage=<covered>/<total> uncovered=<cells|none>`,
       );
-      expect(definition).toMatch(/exactly one terminal line/i);
-      expect(definition).toMatch(/Only\s+blocker\/high\/medium are material/i);
     }
   });
 });
 
-describe('nested and outer architecture orchestration', () => {
+describe('issue #2826 architecture routing', () => {
   const fanout = read('.agents/skills/architecture-audit-fanout/SKILL.md');
   const refresh = read('.agents/skills/architecture-refresh/SKILL.md');
   const map = read('.agents/specs/orchestration-map.md');
-  const commonMistakes = read('.agents/rules/common-mistakes.md');
-  const enforcement = read('.agents/rules/enforcement-architecture.md');
-  const skillIndex = read('.agents/skills/index.md');
 
-  it('bounds coverage retries and keeps unrelated judgements outside the fanout', () => {
-    expect(fanout).toMatch(/loop: over=finding-set; escape=no-progress; bound=3 rounds/);
-    expect(fanout).toMatch(/redispatch only the exact prior uncovered-cell set/i);
-    expect(fanout).toMatch(/never merges, deduplicates, promotes, rejects, verifies,/i);
-    expect(fanout).toMatch(/not a fanout dimension/i);
+  it('retries uncovered cells without a committed loop ledger', () => {
+    expect(fanout).toMatch(/loop: over=uncovered-cells; escape=no-progress; bound=3 rounds/);
+    expect(fanout).toMatch(/Retry only uncovered cells/i);
+    expect(fanout).toMatch(/Do not write a per-skill ledger/i);
+    expect(fanout).not.toContain('loop-run.mjs');
   });
 
-  it('routes every outer guardian and every terminal outcome', () => {
-    for (const agent of [
-      'architecture-conformance-auditor',
-      'architecture-audit-synthesizer',
-      'finding-verifier',
-      'finding-depth-triager',
-      'finding-reconciler',
-      'architecture-fixer',
-      'architecture-implementer',
-    ]) {
-      expect(refresh).toContain(agent);
-    }
-    for (const outcome of ['CONFIRMED', 'REFUTED', 'UNPROVABLE']) {
-      expect(refresh).toContain(outcome);
-    }
-    for (const outcome of ['LOCAL', 'INVALID', 'UNDETERMINED', 'FOUNDATIONAL']) {
-      expect(refresh).toContain(outcome);
-    }
-    for (const outcome of ['NEW', 'KNOWN', 'EXTENDS', 'UNSURE']) {
-      expect(refresh).toContain(outcome);
-    }
-    expect(refresh).toMatch(/Low findings remain .* do not keep the loop alive/i);
+  it('uses specialist classification only when it contributes a distinct decision', () => {
+    expect(refresh).toMatch(/only for a genuinely foundational or ambiguous finding/i);
+    expect(refresh).toMatch(/not mandatory links in the\s+normal chain/i);
+    expect(refresh).not.toContain('loop-run.mjs');
   });
 
-  it('registers every nested/outer direct edge and both re-audit loop-backs in the map', () => {
-    expect(map).toMatch(
-      /\| \*\*Architecture audit fanout\*\* \(nested\).*`architecture-audit-fanout`/,
-    );
-    expect(map).toMatch(/\| \*\*Architecture refresh\*\*.*nested `architecture-audit-fanout`/);
-    for (const edge of [
-      'AR[architecture-refresh<br/>outer orchestrator] --> AAF[architecture-audit-fanout',
-      'AAF --> ASAUD[architecture-structure-auditor',
-      'AAF --> ADAUD[architecture-design-auditor',
-      'AAF --> ARAUD[architecture-runtime-auditor',
-      'AAF --> AGAUD[architecture-gate-auditor',
-      'AR --> ACA[architecture-conformance-auditor',
-      'AR --> AAS[architecture-audit-synthesizer',
-      'AR --> FV[finding-verifier',
-      'AR --> ARD[finding-depth-triager',
-      'AR --> FR[finding-reconciler',
-      'AR --> AF[architecture-fixer',
-      'AR --> AI[architecture-implementer',
-      'AF -. corrected / contained .-> AR',
-      'AI -. corrected / contained .-> AR',
-    ]) {
-      expect(map).toContain(edge);
+  it('registers the normal route and keeps all specialists reachable without making a chain', () => {
+    expect(map).toContain('There is no required proposal-reviewer');
+    expect(map).toContain('conflict-free target advance does not restart');
+    for (const agent of Object.keys(dimensions).map((name) => `architecture-${name}-auditor`)) {
+      expect(map).toContain(`\`${agent}\``);
     }
-  });
-
-  it('keeps the entry-point guidance, index, and mechanical floors wired', () => {
-    for (const skill of ['architecture-refresh', 'architecture-audit-fanout']) {
-      expect(skillIndex).toContain(`[${skill}](${skill}/SKILL.md)`);
-    }
-    for (const agent of [
-      'architecture-structure-auditor',
-      'architecture-design-auditor',
-      'architecture-runtime-auditor',
-      'architecture-gate-auditor',
-      'architecture-audit-synthesizer',
-      'finding-verifier',
-      'finding-reconciler',
-    ]) {
-      expect(skillIndex).toContain(`\`${agent}\``);
-    }
-    expect(commonMistakes).toMatch(
-      /architecture-refresh.*architecture-audit-fanout.*architecture-conformance-auditor/i,
-    );
-    expect(enforcement).toContain('architecture-refresh-signals');
-    expect(enforcement).toContain('retired-agent-references');
+    expect(map).toContain('`finding-depth-triager`');
+    expect(map).toContain('optional helpers, not universal dispatch requirements');
   });
 });

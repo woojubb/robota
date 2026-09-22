@@ -60,8 +60,9 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { idOf } from './check-backlog-placement.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
+
+const idOf = (name) => /^([A-Z]+(?:-[A-Z]+)*-\d+(?:-P\d+)*)/.exec(name)?.[1] ?? null;
 
 const SCRIPT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 

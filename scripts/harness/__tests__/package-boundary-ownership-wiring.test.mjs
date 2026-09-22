@@ -1,12 +1,10 @@
-import * as fs from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { afterEach, expect, it, vi } from 'vitest';
+import { expect, it, vi } from 'vitest';
 
-vi.mock('node:fs', async (importOriginal) => ({ ...(await importOriginal()) }));
-
-import { discoverAdditionalScans } from '../discovery-loader.mjs';
+import { SCAN_COMMANDS } from '../run-all-scans.mjs';
 import { MANDATORY_TREE_GUARDS } from '../scan-guard-scope-fail-closed.mjs';
 import { findPackageBoundaryOwnershipFindings } from '../scan-package-boundary-ownership.mjs';
 
@@ -14,9 +12,7 @@ const root = fileURLToPath(new URL('../../../', import.meta.url));
 const file = 'scan-package-boundary-ownership.mjs';
 const scanPath = `scripts/harness/${file}`;
 const name = 'package-boundary-ownership';
-const readJson = (relative) => JSON.parse(fs.readFileSync(path.join(root, relative), 'utf8'));
-
-afterEach(() => vi.restoreAllMocks());
+const readJson = (relative) => JSON.parse(readFileSync(path.join(root, relative), 'utf8'));
 
 it('registers the boundary scan in both measurement ledgers without adding measurement debt', () => {
   expect(readJson('scripts/harness/examined-adoption-baseline.json').declaring).toContain(name);
@@ -50,34 +46,21 @@ it('refuses the missing governed policy with injected population and no Git enum
   expect(readFile.mock.calls).toEqual([['.agents/package-boundaries.json']]);
 });
 
-function discoverOnlyBoundary(source) {
-  const harnessDirectory = path.join(root, 'scripts/harness');
-  const read = fs.readFileSync;
-  vi.spyOn(fs, 'existsSync').mockImplementation((target) => target === harnessDirectory);
-  vi.spyOn(fs, 'readdirSync').mockReturnValue([{ name: file, isFile: () => true }]);
-  vi.spyOn(fs, 'readFileSync').mockImplementation((target, ...args) =>
-    target === path.join(root, scanPath) ? source : read(target, ...args),
-  );
-  return discoverAdditionalScans({ root });
-}
-
-it('discovers the actual non-advisory boundary command without adding a legacy runner duplicate', async () => {
-  const source = fs.readFileSync(path.join(root, scanPath), 'utf8');
-  const runner = fs.readFileSync(path.join(root, 'scripts/harness/run-all-scans.mjs'), 'utf8');
-  expect(runner).not.toContain(`'${scanPath}'`);
-  const scans = await discoverOnlyBoundary(source);
+it('registers the non-advisory boundary command exactly once in the canonical runner table', () => {
+  const scans = SCAN_COMMANDS.filter((entry) => entry.name === name);
   expect(scans).toEqual([
-    expect.objectContaining({ name, always: true, command: ['node', scanPath] }),
+    expect.objectContaining({
+      name,
+      command: ['node', scanPath],
+      examines: expect.arrayContaining([
+        '.agents/package-boundaries.json',
+        'package.json',
+        'pnpm-workspace.yaml',
+        'packages/**',
+        'apps/**',
+      ]),
+    }),
   ]);
+  expect(scans[0].always).not.toBe(true);
   expect(scans[0].advisory).not.toBe(true);
-});
-
-it('refuses an in-memory removal of the same scan registration instead of silently omitting it', async () => {
-  const source = fs.readFileSync(path.join(root, scanPath), 'utf8');
-  const withoutRegistration = source.replace(
-    /export\s+const\s+scanDefinition\s*=/u,
-    'const removedDefinition =',
-  );
-  expect(withoutRegistration).not.toBe(source);
-  await expect(discoverOnlyBoundary(withoutRegistration)).rejects.toThrow('without scanDefinition');
 });

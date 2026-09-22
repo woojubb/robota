@@ -56,7 +56,6 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
   beforeEach(() => {
     home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-obs-home-')));
     project = realpathSync(mkdtempSync(join(tmpdir(), 'robota-obs-proj-')));
-    vi.stubEnv('HOME', home);
     stdout = [];
     stderr = [];
     exitCode = undefined;
@@ -76,7 +75,6 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.unstubAllEnvs();
     rmSync(home, { recursive: true, force: true });
     rmSync(project, { recursive: true, force: true });
   });
@@ -87,6 +85,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
         argv,
         project,
         createNodeHostSessionStore(join(project, '.robota', 'sessions')),
+        createNodeHostSessionStore(join(home, '.robota', 'sessions')),
       );
     } catch (error) {
       if (!(error instanceof Error) || !error.message.startsWith('process.exit:')) throw error;

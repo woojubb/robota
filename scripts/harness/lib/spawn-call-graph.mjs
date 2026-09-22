@@ -284,7 +284,7 @@ function indexBindings(sourceFile) {
     if (node.kind === K.FunctionDeclaration && node.name?.kind === K.Identifier)
       declare(nearestScope(node), node.name.text, { kind: 'function', node });
 
-    ts.forEachChild(node, walk);
+    node.forEachChild(walk);
   };
   walk(sourceFile);
 
@@ -332,7 +332,7 @@ function indexCallSites(sourceFile, resolveCallee) {
         callsTo.get(fn).push(node);
       }
     }
-    ts.forEachChild(node, walk);
+    node.forEachChild(walk);
   };
   walk(sourceFile);
   return callsTo;
@@ -678,7 +678,7 @@ export function analyzeSpawnTargets(sourceText, fileName = 'module.mjs') {
       const collect = (node) => {
         if (node.kind === K.ReturnStatement && node.expression) out.push(node.expression);
         if (FUNCTION_KINDS.has(node.kind) && node !== fn) return; // a nested function's returns are its own
-        ts.forEachChild(node, collect);
+        node.forEachChild(collect);
       };
       collect(body);
     }
@@ -821,7 +821,7 @@ export function analyzeSpawnTargets(sourceText, fileName = 'module.mjs') {
   const walk = (node) => {
     if (node.kind === K.CallExpression && isSpawnCall(node))
       recordSpawn(node, spawnFunctionName(node));
-    ts.forEachChild(node, walk);
+    node.forEachChild(walk);
   };
   walk(sourceFile);
 

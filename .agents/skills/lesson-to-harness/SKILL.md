@@ -59,7 +59,9 @@ prevention (steps 8–9) does.
    PASSES. The check carries its own coverage and stays scoped to the class. Record the
    before/after result.
 10. **Ship** per [git-branch.md](../../rules/git-branch.md) (branch → conventional commit → PR →
-    Pre-Merge Code-Review Gate → merge), `pnpm harness:scan` green before the PR.
+    Pre-Merge Code-Review Gate → merge). Before the PR, run the new mechanism's focused reproducer
+    and the affected scan selected for its owned inputs; consume complete repository/contract/hermetic
+    results from exact-head required CI.
 11. **Report once for the batch** — files wired and swept instances. Between cycles, report the
     lesson as OPEN with its existing tracked follow-up; do not claim mechanization. At the cycle's
     mechanism boundary, report the terminal state and step-9 proof. No terminal state means the

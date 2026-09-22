@@ -7,6 +7,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -68,6 +69,24 @@ describe('harness test tiers', () => {
     expect(
       tierOwner.distributedAffectedTimeoutMs({ HARNESS_CONTRACT_SHARD_TIMEOUT_MS: 'invalid' }),
     ).toBe(tierOwner.DEFAULT_DISTRIBUTED_AFFECTED_TIMEOUT_MS);
+  });
+
+  it('fingerprints a dirty tree whose binary diff exceeds the child-process default buffer', () => {
+    const { worktreeFingerprint } = tierOwner;
+    const fixtureRoot = makeTemp('robota-harness-large-fingerprint-');
+    const largeFile = path.join(fixtureRoot, 'large.txt');
+    execFileSync('git', ['init', '--quiet'], { cwd: fixtureRoot });
+    execFileSync('git', ['config', 'user.email', 'harness@example.invalid'], {
+      cwd: fixtureRoot,
+    });
+    execFileSync('git', ['config', 'user.name', 'Harness Test'], { cwd: fixtureRoot });
+    writeFileSync(largeFile, 'a'.repeat(2 * 1024 * 1024));
+    execFileSync('git', ['add', 'large.txt'], { cwd: fixtureRoot });
+    execFileSync('git', ['commit', '--quiet', '-m', 'fixture'], { cwd: fixtureRoot });
+    const clean = worktreeFingerprint(fixtureRoot);
+    writeFileSync(largeFile, 'b'.repeat(2 * 1024 * 1024));
+
+    expect(worktreeFingerprint(fixtureRoot)).not.toBe(clean);
   });
 
   it('does not forward hook git context across the Vitest subprocess boundary', async () => {
@@ -268,7 +287,7 @@ describe('harness test tiers', () => {
     const tiers = classifyHarnessTestFiles(REPO_ROOT);
     const repositoryContractTests = [
       'scripts/harness/__tests__/integration-migration-evidence.test.mjs',
-      'scripts/harness/__tests__/verification-receipt.test.mjs',
+      'scripts/harness/__tests__/verification-receipt-storage.test.mjs',
     ];
 
     for (const file of repositoryContractTests) {
@@ -285,11 +304,9 @@ describe('harness test tiers', () => {
     const executed = invocations.flat();
 
     expect(ISOLATED_CONTRACT_TEST_FILES).toEqual([
-      'scripts/harness/__tests__/artifact-ci-framework-proof.test.mjs',
       'scripts/harness/__tests__/hook-reading-matches-bash.test.mjs',
       'scripts/harness/__tests__/remaining-hooks-run.test.mjs',
       'scripts/harness/__tests__/scan-progress-report-quantification.test.mjs',
-      'scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs',
     ]);
     expect(invocations.slice(1)).toEqual(ISOLATED_CONTRACT_TEST_FILES.map((file) => [file]));
     expect(invocations[0]).not.toEqual(expect.arrayContaining(ISOLATED_CONTRACT_TEST_FILES));
@@ -322,6 +339,31 @@ describe('harness test tiers', () => {
     expect(scripts['harness:test']).toContain('--verify-hermetic-stripped');
     expect(scripts['harness:test']).not.toContain('--tier all');
     expect(scripts['harness:test:tiers:guard']).toContain('--verify-hermetic-stripped');
+  });
+
+  it('routes the complete contract tier through the cache-aware bounded executor', async () => {
+    const fixtureRoot = makeTemp('robota-harness-complete-contract-tier-');
+    writeFileSync(path.join(fixtureRoot, 'package.json'), '{"type":"module"}\n');
+    const previousExitCode = process.exitCode;
+
+    try {
+      const result = await tierOwner.runCompleteContractTier(fixtureRoot, {
+        contract: [],
+        isolatedContract: [],
+      });
+
+      expect(result.reason).toContain('distributed shard');
+      expect(result.coverage).toEqual({
+        cacheHits: [],
+        invoked: [],
+        notInvoked: [],
+        failedShards: [],
+      });
+      expect(result.status).toBe(0);
+    } finally {
+      process.exitCode = previousExitCode;
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
   });
 
   it('preserves the real registry error for an empty --distributed-shard fixture', async () => {

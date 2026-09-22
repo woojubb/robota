@@ -5,16 +5,22 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 import {
-  createWorkspaceAffectedPlan,
   formatWorkspaceAffectedPlan,
   parseCliArgs,
-  parseNameStatusDiff,
-  parseWorkspacePatterns,
-  planWorkspaceAffected,
-  readWorkspaceGraph,
-  resolveChangedFiles,
 } from '../workspace-affected.mjs';
-import { workspaceDependenciesForOperation } from '../workspace-graph.mjs';
+import {
+  parseNameStatusDiff,
+  resolveChangedFiles,
+} from '../workspace-affected-git.mjs';
+import {
+  createWorkspaceAffectedPlan,
+  planWorkspaceAffected,
+} from '../workspace-affected-plan.mjs';
+import {
+  parseWorkspacePatterns,
+  readWorkspaceGraph,
+  workspaceDependenciesForOperation,
+} from '../workspace-graph.mjs';
 
 const fixtureRoots = vi.hoisted(() => new Set());
 
@@ -852,7 +858,7 @@ describe('workspace affected planner', () => {
     const plan = planWorkspaceAffected({
       root: fixture(),
       operation: 'test',
-      changedFiles: ['scripts/harness/allocate-work-item-id.mjs'],
+      changedFiles: ['scripts/harness/scan-rule-case-narrative.mjs'],
     });
     expect(plan).toMatchObject({
       mode: 'none',

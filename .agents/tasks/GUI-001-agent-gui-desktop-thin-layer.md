@@ -10,9 +10,10 @@ depends_on: []
 
 # GUI-001: agent-gui — a thin GUI presentation layer + desktop app
 
-> **This item is research-first.** It is NOT ready to implement directly — it goes through the spec gate
-> (`.agents/spec-docs/draft/<TYPE>-*.md` → GATE-WRITE → GATE-APPROVAL) before any code, exactly like
-> REMOTE-001. Requested 2026-07-12; sequenced AFTER Stage E of REMOTE-001 (REMOTE-011..014) completes.
+> **This item is research-first.** Resolve the named shell and package-boundary choices in one entry
+> decision before implementation; use a design document only when those durable decisions need it.
+> No separate proposal-review or phase-gate chain is required. Requested 2026-07-12; sequenced AFTER
+> Stage E of REMOTE-001 (REMOTE-011..014) completes.
 
 ## Problem / Goal
 
@@ -45,12 +46,13 @@ contract as sensible, rather than re-implement session logic.
      constraints, the INFRA-028 self-contained bundle + DIST-00x native/Bun distribution direction, node-side
      deps the session needs, and packaging/signing per-OS. Deliverable: a findings doc + a recommended
      architecture feeding the spec.
-2. **Spec phase (gate).** Author `.agents/spec-docs/draft/*` and take it through GATE-APPROVAL
-   (proposal-reviewer ENDORSE). Decide: the new package boundary (`agent-ui-web` presentation layer vs
+2. **Design decision.** Record the durable recommendation in the owning issue or one design document
+   when needed, then make the implementation entry decision. Decide: the new package boundary (`agent-ui-web` presentation layer vs
    reusing `agent-web-ui`), the desktop shell, how the GUI hosts the session (in-process node vs a local
    agent-server the GUI connects to), the command/permission/ask surface, and packaging.
-3. **Development phase (gated stages).** Build the thin GUI presentation layer + the `agent-gui` desktop app
-   as gated stages with tests, mirroring the TUI layer's seams.
+3. **Development and completion.** Build the thin GUI presentation layer + the `agent-gui` desktop
+   app in coherent implementation batches, verify the affected user surface, and make one completion
+   decision after review and CI.
 
 ## Open Questions (resolve in the spec)
 

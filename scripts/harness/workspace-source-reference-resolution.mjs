@@ -154,6 +154,13 @@ function resolveFileReference(reference, context) {
   const module = reference.kind === undefined || reference.kind === 'module';
   const anchor = reference.anchor ?? (module ? 'source' : 'cwd');
   if (!['source', 'cwd'].includes(anchor)) return unresolved('unknown-reference-anchor');
+  if (
+    reference.kind === 'execute' &&
+    /^[A-Za-z0-9_.-]+$/u.test(reference.specifier) &&
+    !reference.specifier.startsWith('.')
+  ) {
+    return { status: 'external', evidenceInputs: [] };
+  }
   let directory = anchor === 'source' ? path.posix.dirname(reference.source) : context.cwd;
   if (directory === undefined) return unresolved('missing-cwd');
   if (!isRepositoryPath(directory)) return unresolved('reference-escapes-repository');

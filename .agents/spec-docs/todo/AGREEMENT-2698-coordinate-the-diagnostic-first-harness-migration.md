@@ -1,11 +1,17 @@
 ---
-status: approved
+status: rejected
 type: AGREEMENT
 tags: [infra]
 lane: L2
 ---
 
 # AGREEMENT-2698: Coordinate the diagnostic-first harness migration
+
+## Disposition
+
+**Superseded as a separate initiative by issue #2826.** Its intended diagnostic-first behavior is
+implemented by the current simplification, while the old gate/loop migration procedure is retired.
+Historical judgments below are evidence, not active instructions.
 
 Paired with `.agents/tasks/AGREEMENT-2698-coordinate-the-diagnostic-first-harness-migration.md`.
 Arising from [issue #2698](https://github.com/woojubb/robota/issues/2698).
@@ -82,7 +88,8 @@ matrix must state and verify the chosen live state for each protected branch.
 ### New Diagnostic-Core Placement
 
 `diagnostic-core.mjs` is a **private development-tooling shared core**, classified alongside the
-existing reusable `scripts/harness/shared.mjs` and verification-receipt modules—not as a workspace
+existing reusable `scripts/harness/shared.mjs`, `scan-receipt.mjs`, and
+`verification-receipt-storage.mjs` modules—not as a workspace
 package, application, public interface, or product-family surface. `shared.mjs` is the closest
 structural analogue: it is a harness-local module used by independent scripts without creating a
 package-level dependency. The new core deliberately narrows that established shape: it is I/O-free
@@ -198,14 +205,14 @@ after every merged slice.
 - `.claude/settings.json`, `.claude/hooks/`, `.husky/` — local-policy migration
 - `scripts/harness/gate*.mjs`, `scripts/harness/scan-*.mjs`, baselines, package scripts — gate/scan migration
 - `.github/workflows/ci.yml`, `.github/workflows/scans-full.yml`, `.github/workflows/review-gate.yml`, `.github/workflows/workflow-provenance-gate.yml`, `.github/required-status-checks.json` — CI migration
-- `scripts/harness/scan-workflow-provenance.mjs`, `scripts/harness/check-review-gate.mjs`, and a final-audit script — policy split and live-state verification
+- `scripts/harness/scan-workflow-provenance.mjs`, the deterministic `review-policy` workflow, and a final-audit script — policy split and live-state verification
 - `.agents/harness-diagnostic-migration.json` and its tests — frozen source population and disposition matrix
 - `.agents/rules/`, `.agents/skills/`, `AGENTS.md` — recommended-workflow documentation
 
 ## Completion Criteria
 
 - [ ] TC-01: versioned `clean`, `finding`, `unavailable`, and `diagnostic-publication-unavailable` fixtures validate their state-specific fields, stable IDs, severity, locations, examined-subject provenance, evidence, and recommendation in machine-readable and concise human reports.
-- [ ] TC-02: a seeded policy finding, rejected detector, timed-out detector, and output-truncated detector all remain visible in the final report while the default diagnostic command exits 0 and renders completed sibling results.
+- [ ] TC-02: a seeded policy finding remains visible without blocking; rejected, timed-out, and output-truncated detectors remain visible, fail the selected run, and still render completed sibling results.
 - [ ] TC-03: a two-run receipt fixture proves that a finding or unavailable result is re-rendered on an unchanged-tree reuse, while only a wholly clean covered result may be reused without its detector rerunning.
 - [ ] TC-04: every PreToolUse registration and Husky exit source in the migration manifest either emits one correlated shared diagnostic or is retired with a reason; no repository-process policy path exits non-zero.
 - [ ] TC-05: the migration manifest has exactly one classified disposition for each of the 161 baseline scans, each hook/Husky source, and every current required-status context; unknown/new sources fail manifest validation.

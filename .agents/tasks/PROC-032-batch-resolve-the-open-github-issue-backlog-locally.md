@@ -1,7 +1,7 @@
 ---
 title: 'PROC-032: batch-resolve the open GitHub issue backlog locally'
 issue: https://github.com/woojubb/robota/issues/2512
-status: todo
+status: superseded
 created: 2026-09-04
 priority: high
 urgency: now
@@ -10,6 +10,12 @@ depends_on: []
 ---
 
 # PROC-032: batch-resolve the open GitHub issue backlog locally
+
+## Disposition
+
+**Superseded by issue #2826.** The backlog-wide batch, per-issue commit ledger, and one mandatory
+local CI-equivalent pass duplicated the ordinary delivery lifecycle and are retired. Individual
+issues keep their own disposition and implementation ownership; this record is historical only.
 
 Registered as issue #2512 (closure capacity must exceed intake); the unit spans the whole open backlog (227 issues on 2026-09-04), every fix commit names its own issue as `(#N)`, and the closing-comment source is the local disposition ledger.
 

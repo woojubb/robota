@@ -193,10 +193,8 @@ describe('fact 1 — the payload file_path has one reader', () => {
 describe('fact 2 — reading a JSON field has one reader', () => {
   /**
    * Signal: the UserPromptSubmit payload, sent by the tool host on every user turn. Three hooks
-   * carried an identical `read_json()` that calls `jq` and has no python3 fallback, while
-   * `lib/command-scan.sh` — which the Bash guards use — falls back. On a host without jq the two
-   * halves of this directory therefore disagree about whether the payload is readable at all:
-   * `branch-guard` keeps guarding and `spec-first-gate` prints nothing.
+   * carried duplicate JSON readers without the shared python3 fallback. On a host without jq the
+   * two halves of this directory therefore disagreed about whether the payload was readable at all.
    */
   const noJq = pathWithout(['jq']);
 
@@ -208,15 +206,6 @@ describe('fact 2 — reading a JSON field has one reader', () => {
     expect(
       spawnSync('/bin/bash', ['-c', 'command -v python3'], { env: { PATH: noJq } }).status,
     ).toBe(0);
-  });
-
-  it('spec-first-gate still injects the SPEC-GATE reminder without jq', () => {
-    const run = runHook(
-      'spec-first-gate.sh',
-      { prompt: 'please implement a new command for the CLI', session_id: 'user-1' },
-      { env: { PATH: noJq } },
-    );
-    expect(run.output).toContain('SPEC-GATE');
   });
 
   it('correction-detect still records a correction without jq', () => {
@@ -268,8 +257,8 @@ describe('fact 2 — reading a JSON field has one reader', () => {
     // wrote "". So `hook_prompt_of` returned a JSON blob as "the user's prompt" on a host with jq and
     // nothing on a host without — and `{"message": {"role": …, "content": …}}` is the ordinary
     // transcript shape, not an exotic one. correction-detect would then grep a JSON blob for
-    // correction keywords and log it as `prompt_excerpt`; spec-first-gate would scan it for
-    // implementation intent. A structured node is not prompt TEXT, so the answer is "" — on both
+    // correction keywords and log it as `prompt_excerpt`. A structured node is not prompt TEXT,
+    // so the answer is "" — on both
     // hosts. INFRA-081 (#1574) closed that in `hook_json_string` itself; this case stays because the
     // property it pins is the reader's contract, not the history of one defect.
     const payload = { message: { role: 'user', content: 'hello' } };

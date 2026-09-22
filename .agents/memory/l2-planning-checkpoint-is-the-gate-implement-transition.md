@@ -1,5 +1,8 @@
 # The L2 planning checkpoint is the GATE-IMPLEMENT transition, not GATE-APPROVAL
 
+> Superseded by issue #2826. The gate/ledger/Task-spec transition sequence below is historical
+> incident evidence and is not an instruction for current work.
+
 ## STATUS: learned 2026-09-21 landing MANIFEST-2664's planning checkpoint (PR #2792)
 
 In-repo mirror (memory-mirroring rule). Host mirror: `l2-planning-checkpoint-is-the-gate-implement-transition`.

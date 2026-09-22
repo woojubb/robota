@@ -29,19 +29,9 @@ import {
   examinedPullBodyCount,
   extractIssueReferences,
   firstParentLandingOids,
-  parsePullRequestNumbers,
   renderBlock,
   resolveLandingPullNumbers,
 } from '../promotion-closes.mjs';
-
-/** The subjects `git log --format=%s origin/main..origin/develop` produced on 2026-08-17. */
-const MEASURED_SUBJECTS = [
-  'fix(triage): close seven open GitHub issues from the priority triage (#1804)',
-  'docs(harness): define issue and task boundaries (#1813)',
-  'feat(agent-core): decide the structured-output transport before the first call (CORE-043) (#1802)',
-  'fix(agent-provider-openai): strictTools sent a schema OpenAI refuses (#1801)',
-  'refactor(agent-core,providers): three payloads in one struct become three things (#1799)',
-];
 
 function readerFrom(bodies, states) {
   return {
@@ -55,22 +45,6 @@ function readerFrom(bodies, states) {
     },
   };
 }
-
-describe('parsePullRequestNumbers', () => {
-  it('takes the trailing (#N) GitHub appends to every squash subject', () => {
-    expect(parsePullRequestNumbers(MEASURED_SUBJECTS)).toEqual([1804, 1813, 1802, 1801, 1799]);
-  });
-
-  it('ignores a subject with no pull-request suffix — a promotion merge commit has none', () => {
-    expect(
-      parsePullRequestNumbers(["chore(release): record main's ancestry into the promotion"]),
-    ).toEqual([]);
-  });
-
-  it('takes only the TRAILING reference, so an issue named mid-subject is not read as a PR', () => {
-    expect(parsePullRequestNumbers(['fix: undo the change from #1409 (#1500)'])).toEqual([1500]);
-  });
-});
 
 describe('resolveLandingPullNumbers', () => {
   it('uses landing OIDs rather than squash and merge subject spellings', () => {

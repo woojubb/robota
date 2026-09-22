@@ -37,8 +37,8 @@ every compaction, so every line here is paid on every turn: it routes, and it do
 | [ARCHITECTURE.md](ARCHITECTURE.md)                                                     | System architecture — canonical, guarded by `harness.config.json` → `architectureDocs`                              |
 | [.agents/project-structure.md](.agents/project-structure.md)                           | Package listing and dependency rules                                                                                |
 | [.agents/skills/index.md](.agents/skills/index.md)                                     | All procedural workflow skills                                                                                      |
-| [.agents/tasks/README.md](.agents/tasks/README.md)                                     | **Tasks** — the record of a unit of work (the problem), and its lifecycle                                           |
-| `.agents/spec-docs/`                                                                   | Gate-pipeline spec documents (the plan) — one per Task ID that reaches a design                                     |
+| [.agents/tasks/README.md](.agents/tasks/README.md)                                     | Optional fixed-path local work records when an issue/request is insufficient                                        |
+| `.agents/spec-docs/`                                                                   | Historical work plans and optional detailed designs; never a mandatory Task pair                                    |
 | [.agents/templates/spec-template.md](.agents/templates/spec-template.md)               | SPEC.md authoring template                                                                                          |
 | [.agents/specs/README.md](.agents/specs/README.md)                                     | Cross-cutting specs that span multiple packages                                                                     |
 | [.agents/specs/orchestration-map.md](.agents/specs/orchestration-map.md)               | Single at-a-glance registry of the orchestrator/worker/guardian pipelines (mechanically kept current)               |
@@ -70,9 +70,9 @@ The most-hit refusals, in imperative form. Reasoning lives in [git-branch.md](.a
 
 - **Never** `gh pr merge --delete-branch`. Merge, confirm merged, then delete the branch explicitly.
 - **Record a local review before the first push**: `pnpm harness:review:record --findings <n>`.
-- **A merge needs**: CI green, a reviewer verdict quoting the _exact_ current head and a base that is current or moved over no file the PR touches, `ACTIONABLE FINDINGS: 0`, and every review thread **answered and resolved** — fixing a finding is not answering it.
+- **A merge needs**: CI green, a reviewer verdict quoting the _exact_ current head and its historical base, `ACTIONABLE FINDINGS: 0`, every review thread **answered and resolved**, and no merge conflict. A conflict-free target advance does not invalidate that verdict.
 - **Cut branches from a freshly-fetched `origin/develop`**, one at a time.
-- **A push into an open PR needs a NAMED GROUND — a published finding, a red check, or a rebase.** Nothing else, including your own re-reading and advice attached to a passing verdict. If you cannot name which one, the push does not happen. A verdict you never published is the input to no gate ([git-branch.md](.agents/rules/git-branch.md)).
+- **A push into an open PR needs a NAMED GROUND — a published finding, a red check, or a verified real conflict requiring a resolution push.** A conflict-free target advance is not a ground. Nothing else, including your own re-reading and advice attached to a passing verdict. If you cannot name which one, the push does not happen. A verdict you never published is the input to no gate ([git-branch.md](.agents/rules/git-branch.md)).
 - **Never enumerate files in a way that follows symlinks** (`find -L`, `grep -R`, `rg --follow`): in a pnpm workspace it reaches the dependency store, where a write is invisible to `git status` and to every scan.
 - **Never wait in the foreground** — a `sleep` budget over 60s, or a loop polling a remote status. Run it in the background, or use `Monitor`.
 

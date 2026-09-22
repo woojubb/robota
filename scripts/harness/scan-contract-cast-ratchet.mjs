@@ -37,10 +37,8 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import {
-  ScriptTarget,
   SyntaxKind,
   createSourceFile,
-  forEachChild,
   isAsExpression,
   isTypeReferenceNode,
 } from './lib/ts-ast.mjs';
@@ -76,7 +74,7 @@ function sourceFiles(dir, out = []) {
  * one names the contract. Comments and strings are not expressions and never reach the walk.
  */
 function countCastsInSource(source, fileName, contracts, tally) {
-  const ast = createSourceFile(fileName, source, ScriptTarget.Latest, true);
+  const ast = createSourceFile(fileName, source);
 
   /** The contract this cast names, or undefined for anything else. */
   const contractOf = (typeNode) => {
@@ -98,7 +96,7 @@ function countCastsInSource(source, fileName, contracts, tally) {
         entry.files.add(fileName);
       }
     }
-    forEachChild(node, visit);
+    node.forEachChild(visit);
   };
   visit(ast);
 }

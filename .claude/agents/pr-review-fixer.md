@@ -38,8 +38,8 @@ related LOCAL corrections. Do not request a new verdict, commit, or re-review pe
    the unfixed code, and watch it fail: a regression test that passes on the unfixed code guards nothing.
 4. For a SHOULD you cannot fix cleanly in scope, do NOT silently drop it: file-and-link a justified backlog item
    (per git-branch.md's Pre-Merge Code-Review Gate) and note it, so the reviewer can see it is addressed, not ignored.
-5. Keep the build and tests green (`pnpm typecheck`, the touched package's tests). Commit on the PR branch following
-   the repo's git rules.
+5. Keep the affected scope green (the touched package's typecheck and focused tests). Exact-head CI owns
+   repository-wide typecheck and test coverage. Commit on the PR branch following the repo's git rules.
 6. Report what you changed (file:line) and what you deferred-with-backlog. Then hand back for re-review.
 
 ## Rules

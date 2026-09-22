@@ -6,8 +6,8 @@ const ROOT = path.resolve(import.meta.dirname, '../../..');
 
 describe('test-owning', () => {
   it('selects the matching focused suite for a harness module', () => {
-    expect(owningTests('scripts/harness/scan-item-terminal-state.mjs', ROOT)).toContain(
-      'scripts/harness/__tests__/scan-item-terminal-state.test.mjs',
+    expect(owningTests('scripts/harness/scan-hook-registration.mjs', ROOT)).toContain(
+      'scripts/harness/__tests__/scan-hook-registration.test.mjs',
     );
   });
 });

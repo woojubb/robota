@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-145: allocator sentinel floor discards live work-item claims'
 issue: https://github.com/woojubb/robota/issues/2390
-status: todo
+status: superseded
 created: 2026-08-29
 priority: medium
 urgency: soon
@@ -10,6 +10,12 @@ depends_on: []
 ---
 
 # INFRA-145: allocator sentinel floor discards live work-item claims
+
+## Disposition
+
+**Superseded by issue #2826.** Mandatory work-item allocation and its sentinel-based allocator were
+deleted with the duplicate Task/spec lifecycle. No compatibility allocator remains; stable work
+identity is supplied directly by the canonical request or existing record.
 
 ## Objective
 

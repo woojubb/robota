@@ -12,9 +12,9 @@
  * what another treated as history. The spec-doc pipeline is now gated too, and the states are chosen
  * rather than swept:
  *
- *   - `backlog/`, `todo/`, `active/` — GATED. These are post-GATE-WRITE (see spec-docs/README.md),
- *     and `spec-workflow.md` requires every spec change to carry a verification test plan.
- *   - `draft/` — NOT gated. A draft is pre-GATE-WRITE, incomplete by design; failing it would fire
+ *   - `backlog/`, `todo/`, `active/` — checked because they are active authoring states, and
+ *     `spec-workflow.md` requires an authored design to carry a verification test plan.
+ *   - `draft/` — NOT checked. A draft is incomplete by design; failing it would fire
  *     on correct work, and a gate that fires on correct work gets routed around. Measured: 1 of the
  *     3 current drafts would have failed.
  *   - `done/`, `rejected/` — NOT gated. Immutable history; the same exclusion
@@ -53,15 +53,13 @@ const ARCHIVE_HALF = 'archive';
  * entry would have started demanding a `## Test Plan` of every one — 34 of the 66 do not have one.
  *
  * A rename must not introduce a new gate on 66 pre-existing documents as a side effect. And the
- * gate would be wrong on the merits anyway, by the criterion this file already applies to
- * `spec-docs/draft/`: a draft is pre-GATE-WRITE and incomplete by design, so failing it fires on
+ * check would be wrong on the merits anyway, by the criterion this file already applies to
+ * `spec-docs/draft/`: a draft is incomplete by design, so failing it fires on
  * correct work. A Task is the PROBLEM STATEMENT — it exists before a plan is knowable, which is
  * exactly what finding-depth.md § "Where a root item lives" establishes about the two trees.
  *
- * The requirement itself is not dropped. `scan-unearned-done-claims` reads the Task tree and checks
- * evidence at DONE time, which is where the Task README's test-plan clause is enforced. Whether an
- * OPEN Task should carry one is a decision worth making deliberately, with the 34 fixed — filed
- * rather than smuggled in behind a directory rename.
+ * Completion verification owns evidence for current work. Historical records are not retrofitted
+ * with a new section merely because their containing directory was renamed.
  */
 const SCAN_DIRS = [
   { dir: 'docs/superpowers/plans', half: ARCHIVE_HALF },

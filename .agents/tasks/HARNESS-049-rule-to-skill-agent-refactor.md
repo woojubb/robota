@@ -1,6 +1,6 @@
 ---
 title: 'HARNESS-049: refactor rules into thin orchestration skills + extracted agent definitions'
-status: in-progress
+status: superseded
 created: 2026-07-26
 priority: high
 urgency: soon
@@ -9,6 +9,13 @@ depends_on: []
 ---
 
 # HARNESS-049: procedure belongs in skills, roles belong in agent files
+
+**Superseded by issue #2826.** The former `backlog-pipeline` and `backlog-gate-guard` architecture is
+deleted and must not be recreated from the historical plan below. The durable separation principle
+(rules own invariants; skills own reusable procedure; agents own genuinely reusable roles) remains
+guidance, but this Task is no longer an active execution owner. Any still-valid independent item
+mentioned in the 2026-07-26 remainder—such as documentation deployment repair or a narrowly justified
+mechanical floor—requires its own current issue and evidence rather than continuation under HARNESS-049.
 
 ## Remainder (reconciled 2026-07-26) — read this first
 
@@ -112,7 +119,7 @@ in the skill above it.
 ## Phase 1 — DONE (2026-07-26)
 
 Step 1 below is complete. The classification table and everything derived from it live in
-[`.agents/specs/harness-composition-inventory.md`](../specs/harness-composition-inventory.md) —
+[`.agents/archive/harness-legacy/harness-composition-inventory.md`](../archive/harness-legacy/harness-composition-inventory.md) —
 the companion to the design doc. Phase 2 picks up from there. Headline results:
 
 - **142 sections across 22 rule files: 116 `invariant`, 21 `procedure`, 5 `role`.** 82% of rule
@@ -462,7 +469,7 @@ Everything else — 87 of 91 — stays textually. Nothing is dropped.
 **1. The gate catalogue was filed as the wrong artifact kind — MOVED, and it named a fourth kind.**
 `.agents/skills/backlog-gate-guard/SKILL.md` was a fact catalogue wearing a skill's frontmatter: nothing
 ever invoked it (`backlog-pipeline` passes it as a _data input_: `Criteria catalogue: <path>`). It is now
-[`.agents/specs/gate-catalogue.md`](../specs/gate-catalogue.md), alongside `orchestration-map.md` and
+[`.agents/archive/harness-legacy/gate-catalogue.md`](../archive/harness-legacy/gate-catalogue.md), alongside `orchestration-map.md` and
 `deployment-matrix.md`. All eight inbound links repointed; the skill row removed from
 `.agents/skills/index.md` (the **agent** stays registered there, which is what `agent-def-convention`
 requires); rows added to `.agents/specs/README.md`.
@@ -628,7 +635,7 @@ been resolved:
 | `delegated-refactor-green-gate` | **NOT STARTED** — two inlined roles (worker charter + a guardian duty asked of the orchestrator) |
 | `dependency-graph-extraction`   | **NOT STARTED** — not a pipeline at all; §4 recommends folding it in and deleting the file       |
 
-Both are analysed in [inventory §4](../specs/harness-composition-inventory.md#4-skills-that-inline-roles)
+Both are analysed in [inventory §4](../archive/harness-legacy/harness-composition-inventory.md#4-skills-that-inline-roles)
 with concrete recommendations, and `dependency-graph-extraction` is additionally recorded in §9.10.
 Neither needs a new agent; both are single-increment work. **Closing this item without them would close
 it on two thirds of its own problem statement.**

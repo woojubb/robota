@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-170: record gate audit dispositions before any deletion'
-status: in-progress
+status: superseded
 created: 2026-09-06
 priority: medium
 urgency: soon
@@ -12,6 +12,12 @@ documentation_batch_instruction: '그런 게이트가 다 꼭 필요한 것들�
 ---
 
 # INFRA-170: record gate audit dispositions before any deletion
+
+## Disposition
+
+**Superseded by the owner-approved issue #2826 implementation.** The new canonical decision deletes
+the redundant gate families directly and preserves only historical records; the old 158-scan audit
+and deleted archival checker are not prerequisites or compatibility surfaces.
 
 ## Objective
 

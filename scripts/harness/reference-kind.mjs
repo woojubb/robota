@@ -86,7 +86,7 @@ export function specimenRanges(text) {
   // A `**Instruction (verbatim):**` line is a quote of what someone else typed, not this document's
   // own prose making a claim — the same reason a fenced block is a specimen. It also cannot be
   // rewritten to add a qualifier: the record IS the exact words, and editing them to satisfy this
-  // rule would falsify the thing GATE-APPROVAL's evidence log exists to preserve.
+  // rule would falsify the historical approval evidence the quoted text exists to preserve.
   const verbatimInstruction = /^\*\*Instruction \(verbatim\):\*\*.*$/gm;
   while ((match = verbatimInstruction.exec(text)) !== null) {
     ranges.push([match.index, match.index + match[0].length]);

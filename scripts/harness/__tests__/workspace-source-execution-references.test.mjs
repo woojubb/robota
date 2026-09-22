@@ -28,6 +28,17 @@ it('records the script supplied directly to the Node executable', () => {
   ]);
 });
 
+it('classifies a bare executable as external runtime input', () => {
+  const [reference] = extractSourceReferences(
+    "import { execFileSync } from 'node:child_process'; execFileSync('git', ['status']);",
+    'scripts/harness/example.test.mjs',
+  ).filter((entry) => entry.kind === 'execute');
+  expect(resolveSourceReference(reference, { files: new Set(), cwd: '.' }).resolution).toEqual({
+    status: 'external',
+    evidenceInputs: [],
+  });
+});
+
 it('retains a literal execution cwd separately from the executable and caller context', () => {
   for (const invocation of [
     "execFileSync('./runner.mjs', [], { cwd: 'another-directory' });",

@@ -4,8 +4,7 @@
  * tree-prerequisites — the ONE place that answers "what does this working tree owe before it can be
  * verified?", and the one place that says so in a message naming the prerequisite.
  *
- * WHY (HARNESS-058). `verify-like-ci` and the husky pre-push gate are named across the rules and
- * skills as the verification entry points, and they are run from `git worktree` checkouts, because
+ * WHY (HARNESS-058). Verification entry points are run from `git worktree` checkouts, because
  * that is how parallel sub-agents work. A fresh worktree has no `node_modules` and no `dist/`, and
  * every gate that needed one reported the absence as a defect in the branch under test:
  *
@@ -54,8 +53,7 @@ export const PREREQUISITE_ORDER = ['install', 'build-output'];
 const PNPM_INSTALL_MARKER = path.join('node_modules', '.modules.yaml');
 
 /** Where the written contract lives, quoted in every message so the answer has one address. */
-export const CONTRACT_DOC =
-  '.agents/tasks/completed/HARNESS-058-verify-like-ci-cannot-go-green-in-a-worktree.md';
+export const CONTRACT_DOC = '.agents/rules/verification.md';
 
 // ---------------------------------------------------------------------------
 // detection
@@ -74,8 +72,8 @@ export function isInstalled(root, exists = existsSync) {
 }
 
 /**
- * Managed build capabilities include private Vite packages. A legacy build:js script remains a
- * compatibility signal, not a separate JavaScript/types build owner.
+ * Managed build capabilities include private Vite packages. The root build contract currently
+ * selects package outputs through either an artifact declaration or the package's build:js script.
  */
 export function listBuildablePackageDirs(root) {
   const roots = [path.join(root, 'packages'), path.join(root, 'packages', 'dag-nodes')];
@@ -297,7 +295,7 @@ export function formatPrerequisiteFailure(entryPoint, state, cause = 'unprepared
       ...remedyCommands(state.missing).map((command) => `    ${command}`),
     ]),
     '',
-    `  The fresh-worktree contract: ${CONTRACT_DOC} § The fresh-worktree contract`,
+    `  The fresh-worktree contract: ${CONTRACT_DOC} § Pre-Push Local Verification Requirement`,
     RULE,
     '',
   ].join('\n');

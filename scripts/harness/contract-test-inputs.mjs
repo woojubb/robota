@@ -27,8 +27,15 @@ export const CONTRACT_CONTROL_PLANE_INPUTS = Object.freeze([
   'scripts/harness/affected-contract-tests.mjs',
   'scripts/harness/canonical-temporary-directory.mjs',
   'scripts/harness/contract-test-cache.mjs',
+  'scripts/harness/contract-change-resolution.mjs',
+  'scripts/harness/contract-input-matching.mjs',
   'scripts/harness/contract-test-inputs.mjs',
   'scripts/harness/contract-test-owners.mjs',
+  'scripts/harness/contract-selection-plan.mjs',
+  'scripts/harness/contract-test-sharding.mjs',
+  'scripts/harness/harness-contract-execution.mjs',
+  'scripts/harness/harness-test-classification.mjs',
+  'scripts/harness/harness-vitest-process.mjs',
   'scripts/harness/workspace-source-dependencies.mjs',
   'scripts/harness/workspace-source-reference-extraction.mjs',
   'scripts/harness/workspace-source-reference-resolution.mjs',
@@ -50,6 +57,81 @@ export const CONTRACT_SAFETY_FLOOR = Object.freeze([
   }),
 ]);
 
+/**
+ * Audited dynamic reads whose variable path cannot be recovered from a single call expression.
+ * Every group names the exact unresolved reference evidence it covers. Unmatched uncertainty is
+ * never treated as permission to skip: its owning entry becomes always-run below.
+ */
+const CONTRACT_UNCERTAINTY_DISPOSITIONS = Object.freeze({
+  [`${TEST_ROOT}agents-cannot-be-told-to-dispatch.test.mjs`]: Object.freeze([
+    Object.freeze({
+      kind: 'dynamic-input',
+      reason: 'the test enumerates and reads every registered agent definition',
+      inputs: Object.freeze([
+        Object.freeze({ targetOrPattern: '.claude/agents/*', sensitivity: 'content' }),
+      ]),
+      references: Object.freeze([
+        Object.freeze({
+          source: `${TEST_ROOT}agents-cannot-be-told-to-dispatch.test.mjs`,
+          kind: 'list-names',
+          expression: 'AGENTS_DIR',
+        }),
+        Object.freeze({
+          source: `${TEST_ROOT}agents-cannot-be-told-to-dispatch.test.mjs`,
+          kind: 'read-content',
+          expression: 'path.join(AGENTS_DIR, name)',
+        }),
+      ]),
+    }),
+  ]),
+  [`${TEST_ROOT}architecture-refresh-contracts.test.mjs`]: Object.freeze([
+    Object.freeze({
+      kind: 'dynamic-input',
+      reason: 'the shared read helper consumes the named architecture agents and routing owners',
+      inputs: Object.freeze(
+        [
+          '.claude/agents/architecture-design-auditor.md',
+          '.claude/agents/architecture-gate-auditor.md',
+          '.claude/agents/architecture-runtime-auditor.md',
+          '.claude/agents/architecture-structure-auditor.md',
+          '.agents/skills/architecture-audit-fanout/SKILL.md',
+          '.agents/skills/architecture-refresh/SKILL.md',
+          '.agents/specs/orchestration-map.md',
+        ].map((targetOrPattern) => Object.freeze({ targetOrPattern, sensitivity: 'content' })),
+      ),
+      references: Object.freeze([
+        Object.freeze({
+          source: `${TEST_ROOT}architecture-refresh-contracts.test.mjs`,
+          kind: 'read-content',
+          expression: 'path.join(ROOT, relative)',
+        }),
+      ]),
+    }),
+  ]),
+  [`${TEST_ROOT}integration-migration-owner-documents.test.mjs`]: Object.freeze([
+    Object.freeze({
+      kind: 'dynamic-input',
+      reason: 'the recursive policy-owner sweep reads every rule and skill Markdown file',
+      inputs: Object.freeze([
+        Object.freeze({ targetOrPattern: '.agents/rules/**', sensitivity: 'content' }),
+        Object.freeze({ targetOrPattern: '.agents/skills/**', sensitivity: 'content' }),
+      ]),
+      references: Object.freeze([
+        Object.freeze({
+          source: `${TEST_ROOT}integration-migration-owner-documents.test.mjs`,
+          kind: 'list-names',
+          expression: 'dir',
+        }),
+        Object.freeze({
+          source: `${TEST_ROOT}integration-migration-owner-documents.test.mjs`,
+          kind: 'read-content',
+          expression: 'file',
+        }),
+      ]),
+    }),
+  ]),
+});
+
 const normalize = (value) =>
   String(value ?? '')
     .trim()
@@ -70,7 +152,7 @@ function regularInput(root, file) {
 
 function referenceContext(root, options) {
   // Integration may supply the existing graph's packages and regular-file inventory. The
-  // compatibility entry point delegates tracked + untracked names to their existing owner.
+  // Delegate tracked + untracked names to their existing owner.
   const names = options.files ?? collectFiles([], { cwd: root, includeUntracked: true });
   const files = new Set([...names].filter((file) => regularInput(root, file)));
   const readFile = (file) => {
@@ -78,7 +160,7 @@ function referenceContext(root, options) {
       throw new Error(`not a regular contract input: ${file}`);
     return options.readFile ? options.readFile(file) : readFileSync(path.join(root, file), 'utf8');
   };
-  return { ...options, files, readFile };
+  return { cwd: '.', ...options, files, readFile };
 }
 
 function collectContractInputs(testFile, context) {
@@ -106,22 +188,45 @@ function collectContractInputs(testFile, context) {
   return { implementationInputs: [...visited].sort(), references };
 }
 
-/** Compatibility view of the shared-reference module/execution closure, including the test. */
-export function relativeImportClosure(root, testFile, options = {}) {
-  const result = collectContractInputs(testFile, referenceContext(root, options));
-  const uncertainInputs = validateContractReferenceEvidence(result.references);
-  // This legacy array cannot carry uncertainty; never present a partial closure as complete.
-  if (uncertainInputs.length > 0) throw new Error(uncertaintyReason(uncertainInputs));
-  return result.implementationInputs;
+function matchesUncertainReference(reference, expected) {
+  return (
+    reference.source === expected.source &&
+    reference.kind === expected.kind &&
+    reference.expression === expected.expression
+  );
 }
 
-function uncertaintyReason(uncertainInputs) {
-  return uncertainInputs
-    .map(
-      ({ source, span, kind, expression, reason }) =>
-        `unresolved contract input ${source}:${span.start} (${kind} ${expression}): ${reason}`,
-    )
-    .join('; ');
+function uncertaintyDispositions(test, uncertainInputs) {
+  const dispositions = [];
+  const claimed = new Set();
+  for (const declaration of CONTRACT_UNCERTAINTY_DISPOSITIONS[test] ?? []) {
+    const matches = uncertainInputs.filter((reference) =>
+      declaration.references.some((expected) => matchesUncertainReference(reference, expected)),
+    );
+    if (matches.length === 0) {
+      throw new Error(`stale contract uncertainty disposition: ${test}`);
+    }
+    for (const reference of matches) {
+      if (claimed.has(reference.referenceId)) {
+        throw new Error(`duplicate contract uncertainty disposition: ${reference.referenceId}`);
+      }
+      claimed.add(reference.referenceId);
+      dispositions.push({
+        referenceId: reference.referenceId,
+        kind: declaration.kind,
+        reason: declaration.reason,
+        projectedInputs: declaration.inputs ?? [],
+      });
+    }
+  }
+  return dispositions.sort((left, right) => left.referenceId.localeCompare(right.referenceId));
+}
+
+/** Resolve one test's typed reference evidence and executable import closure. */
+export function resolveContractTestInputs(root, testFile, options = {}) {
+  const result = collectContractInputs(testFile, referenceContext(root, options));
+  const uncertainInputs = validateContractReferenceEvidence(result.references);
+  return { ...result, uncertainInputs };
 }
 
 export function validateContractReferenceEvidence(references) {
@@ -179,18 +284,28 @@ export function validateContractInputProjection(entry) {
     return [];
   }
   const uncertainInputs = validateContractReferenceEvidence(entry.references);
-  const floorReason = CONTRACT_SAFETY_FLOOR.find(({ test }) => test === entry.test)?.reason;
+  const dispositions = uncertaintyDispositions(entry.test, uncertainInputs);
+  if (JSON.stringify(entry.uncertaintyDispositions) !== JSON.stringify(dispositions)) {
+    throw new Error(`invalid contract uncertainty disposition: ${entry.test}`);
+  }
+  const disposed = new Set(dispositions.map(({ referenceId }) => referenceId));
+  const undisposed = uncertainInputs.filter(({ referenceId }) => !disposed.has(referenceId));
+  const safetyReason = CONTRACT_SAFETY_FLOOR.find(({ test }) => test === entry.test)?.reason;
+  const expectedAlwaysReason =
+    safetyReason ??
+    (undisposed.length > 0
+      ? `${undisposed.length} unresolved repository input(s) lack an explicit disposition`
+      : null);
   if (
-    (uncertainInputs.length > 0 &&
-      (entry.always !== true ||
-        entry.cacheable !== false ||
-        entry.alwaysReason !== (floorReason ?? uncertaintyReason(uncertainInputs)))) ||
+    (uncertainInputs.length > 0 && entry.cacheable !== false) ||
     ((uncertainInputs.length > 0 || entry.uncertainInputs !== undefined) &&
-      JSON.stringify(entry.uncertainInputs) !== JSON.stringify(uncertainInputs))
+      JSON.stringify(entry.uncertainInputs) !== JSON.stringify(uncertainInputs)) ||
+    entry.always !== (expectedAlwaysReason !== null) ||
+    entry.alwaysReason !== expectedAlwaysReason
   ) {
     throw new Error(`invalid contract input uncertainty policy: ${entry.test}`);
   }
-  const expected = projectReferences(entry.test, entry.references);
+  const expected = projectReferences(entry.test, entry.references, dispositions);
   if (
     JSON.stringify(entry.projectedInputs) !== JSON.stringify(expected) ||
     JSON.stringify(entry.implementationInputs) !== JSON.stringify(projectedPaths(expected, true)) ||
@@ -201,7 +316,7 @@ export function validateContractInputProjection(entry) {
   return uncertainInputs;
 }
 
-function projectReferences(test, references) {
+function projectReferences(test, references, uncertaintyDispositions = []) {
   const inputs = new Map();
   const add = (targetOrPattern, sensitivity, referenceId) => {
     if (!isRepositoryPath(targetOrPattern))
@@ -214,6 +329,11 @@ function projectReferences(test, references) {
     inputs.set(key, input);
   };
   add(test, 'execution');
+  for (const disposition of uncertaintyDispositions) {
+    for (const input of disposition.projectedInputs) {
+      add(input.targetOrPattern, input.sensitivity, disposition.referenceId);
+    }
+  }
   for (const reference of references) {
     const sensitivity = ['module', 'execute'].includes(reference.kind)
       ? 'execution'
@@ -272,15 +392,25 @@ export function createContractTestRegistry(root, contractTests, options = {}) {
     }
     const { implementationInputs, references } = collectContractInputs(test, context);
     const uncertainInputs = validateContractReferenceEvidence(references);
-    const always = safetyFloor.has(test) || uncertainInputs.length > 0;
-    const projectedInputs = projectReferences(test, references);
+    const dispositions = uncertaintyDispositions(test, uncertainInputs);
+    const disposed = new Set(dispositions.map(({ referenceId }) => referenceId));
+    const undisposed = uncertainInputs.filter(({ referenceId }) => !disposed.has(referenceId));
+    const safetyReason = safetyFloor.get(test);
+    const alwaysReason =
+      safetyReason ??
+      (undisposed.length > 0
+        ? `${undisposed.length} unresolved repository input(s) lack an explicit disposition`
+        : null);
+    const always = alwaysReason !== null;
+    const projectedInputs = projectReferences(test, references, dispositions);
     const repositoryInputs = projectedPaths(projectedInputs, false);
     return Object.freeze({
       test,
       always,
-      alwaysReason: safetyFloor.get(test) ?? (always ? uncertaintyReason(uncertainInputs) : null),
-      cacheable: !always,
+      alwaysReason,
+      cacheable: !always && uncertainInputs.length === 0,
       uncertainInputs: Object.freeze(uncertainInputs),
+      uncertaintyDispositions: Object.freeze(dispositions),
       implementationInputs: Object.freeze(implementationInputs),
       repositoryInputs: Object.freeze(repositoryInputs),
       references: Object.freeze(references),

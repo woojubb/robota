@@ -30,16 +30,20 @@ authoring time. That is why the answer has to be a mechanism, not a resolution t
 
 ## The third axis
 
+> Issue #2826 retired the `ci-mirror-map` and `verify-like-ci` implementation named in the historical
+> incident below. Current ownership is `.github/required-status-checks.json`, checked by
+> `scan-required-check-local-reachability` and `scan-main-required-checks`.
+
 Two invariants existed and neither covered this:
 
-- `ci-mirror-map` (INFRA-056) — local stages vs **`protect-develop`'s** required jobs.
+- `.github/required-status-checks.json` — required-context ownership and local reachability.
 - `scan-main-required-checks` (INFRA-055) — a required check **can fail**.
 
-Missing: **local reachability.** Every required status check should be runnable locally _before_ you
-reach it, or declared not-runnable with a reason. `protect-main`'s `release-grade verification` runs
+The historical missing axis was **local reachability.** Every required status check should be
+runnable locally _before_ you reach it, or declared not-runnable with a reason.
+`protect-main`'s `release-grade verification` ran
 on no other branch, so its verdict was unknowable until a promotion PR was already open — while the
-command that reproduces it sat in `package.json` and was even named in `verify-like-ci.mjs`'s own
-header. **Writing it down was not enough.**
+command that reproduced it sat in `package.json`. **Writing it down was not enough.**
 
 Closed for that gate: `promote.mjs` runs it and discards the branch when it fails, with
 `promotion-preflight-parity` pinning the CONNECTION — whatever entry point the required job runs,

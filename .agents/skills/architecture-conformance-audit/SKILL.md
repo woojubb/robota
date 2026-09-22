@@ -1,6 +1,6 @@
 ---
 name: architecture-conformance-audit
-description: Check architecture documents against code before releases, after cross-package changes, or for GATE-CONFORMANCE.
+description: Check architecture documents against code before releases or after cross-package changes.
 ---
 
 # Architecture Conformance Audit (router)
@@ -34,5 +34,6 @@ names the two layers; every judgement lives in the agents (see
 3. **Remediation planning.** When findings need follow-up backlogs + guard recommendations, use
    [improvement-proposal-authoring](../improvement-proposal-authoring/SKILL.md).
 
-PASS/FAIL is decided by GATE-CONFORMANCE (`.agents/rules/spec-workflow.md` > GATE-CONFORMANCE, run
-via `backlog-gate-guard`): the scan exits 0 and no unresolved P0 finding remains.
+Completion is decided directly by the `architecture-refresh` loop: the mechanical scan exits 0 and
+the final synthesis/re-audit reports `ACTIONABLE FINDINGS: 0`. There is no separate legacy gate
+verdict or paired gate record.

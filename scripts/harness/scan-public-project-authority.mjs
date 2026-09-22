@@ -269,7 +269,7 @@ export function findPublicProjectAuthorityFindings(
           );
         }
       }
-      ts.forEachChild(node, visit);
+      node.forEachChild(visit);
     };
     visit(sourceFile);
 

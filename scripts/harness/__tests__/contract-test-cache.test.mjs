@@ -10,10 +10,42 @@ import {
   createContractTestCacheKey,
   inspectContractTestCache,
   recordSuccessfulContractShard,
+  resolveContractExecutionContext,
 } from '../contract-test-cache.mjs';
 import { CONTRACT_CONTROL_PLANE_INPUTS } from '../contract-test-inputs.mjs';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
+const EXECUTION_CONTEXT = Object.freeze({
+  architecture: 'test-arch',
+  bashVersion: 'GNU bash, version test',
+  'environment.COMSPEC': '',
+  'environment.CI': 'true',
+  'environment.FORCE_COLOR': '',
+  'environment.GITHUB_ACTIONS': 'true',
+  'environment.HARNESS_CONTRACT_SHARD_TIMEOUT_MS': '120000',
+  'environment.HOME': '/test/home',
+  'environment.ImageOS': 'ubuntu22',
+  'environment.ImageVersion': 'test-image',
+  'environment.LANG': 'C.UTF-8',
+  'environment.LC_ALL': 'C.UTF-8',
+  'environment.NODE_OPTIONS': '',
+  'environment.NO_COLOR': '',
+  'environment.PATH': '/test/bin:/usr/bin',
+  'environment.PATHEXT': '',
+  'environment.RUNNER_ARCH': 'X64',
+  'environment.RUNNER_OS': 'Linux',
+  'environment.SHELL': '/bin/bash',
+  'environment.SystemRoot': '',
+  'environment.TEMP': '/test/temp',
+  'environment.TMP': '/test/tmp',
+  'environment.TMPDIR': '/test/tmpdir',
+  'environment.TZ': 'UTC',
+  'environment.USERPROFILE': '',
+  'environment.WINDIR': '',
+  gitVersion: 'git version test',
+  nodeVersion: 'v22.19.0',
+  platform: 'test-platform',
+});
 
 function fixture() {
   const root = makeTemp('robota-contract-cache-');
@@ -37,32 +69,34 @@ function fixture() {
   const entry = {
     test: files.test,
     always: false,
+    alwaysReason: null,
+    cacheable: true,
+    uncertainInputs: [],
+    uncertaintyDispositions: [],
     implementationInputs: [files.test, files.implementation],
     repositoryInputs: ['docs/**'],
   };
   return { root, files, runGit, entry, globalInputs: [files.global] };
 }
 
-function inspect(data, entry = data.entry) {
+function inspect(data, entry = data.entry, executionContext = EXECUTION_CONTEXT) {
   return inspectContractTestCache({
     root: data.root,
     entries: [entry],
     tests: [entry.test],
     cacheRoot: path.join(data.root, '.cache', 'robota-contract-tests'),
     globalInputs: data.globalInputs,
-    nodeMajor: '22',
-    platform: 'test-platform',
+    executionContext,
     runGit: data.runGit,
   });
 }
 
-function key(data) {
+function key(data, executionContext = EXECUTION_CONTEXT) {
   return createContractTestCacheKey({
     root: data.root,
     entry: data.entry,
     globalInputs: data.globalInputs,
-    nodeMajor: '22',
-    platform: 'test-platform',
+    executionContext,
     runGit: data.runGit,
   });
 }
@@ -102,6 +136,94 @@ function declareInput(data, kind, target) {
 }
 
 describe('content-addressed contract-test cache', () => {
+  it('captures exact runtime, tool, runner-image, and relevant environment identity', () => {
+    const calls = [];
+    const context = resolveContractExecutionContext({
+      environment: {
+        CI: 'true',
+        GITHUB_ACTIONS: 'true',
+        HARNESS_CONTRACT_SHARD_TIMEOUT_MS: '180000',
+        HOME: '/home/runner',
+        ImageOS: 'ubuntu24',
+        ImageVersion: '20260920.1',
+        RUNNER_ARCH: 'X64',
+        RUNNER_OS: 'Linux',
+        PATH: '/opt/hostedtoolcache/node/bin:/usr/bin',
+        SHELL: '/usr/bin/bash',
+        TEMP: '/runner/temp',
+        TMP: '/runner/tmp',
+        TMPDIR: '/runner/tmpdir',
+      },
+      nodeVersion: 'v22.20.1',
+      platform: 'linux',
+      architecture: 'x64',
+      runCommand: (command) => {
+        calls.push(command);
+        return {
+          status: 0,
+          signal: null,
+          stdout: command === 'git' ? 'git version 2.51.0\n' : 'GNU bash, version 5.2.21\n',
+        };
+      },
+    });
+
+    expect(calls).toEqual(['git', 'bash']);
+    expect(context).toMatchObject({
+      nodeVersion: 'v22.20.1',
+      platform: 'linux',
+      architecture: 'x64',
+      gitVersion: 'git version 2.51.0',
+      bashVersion: 'GNU bash, version 5.2.21',
+      'environment.ImageOS': 'ubuntu24',
+      'environment.ImageVersion': '20260920.1',
+      'environment.HARNESS_CONTRACT_SHARD_TIMEOUT_MS': '180000',
+      'environment.HOME': '/home/runner',
+      'environment.PATH': '/opt/hostedtoolcache/node/bin:/usr/bin',
+      'environment.RUNNER_OS': 'Linux',
+      'environment.TEMP': '/runner/temp',
+      'environment.TMP': '/runner/tmp',
+      'environment.TMPDIR': '/runner/tmpdir',
+    });
+  });
+
+  it('turns every execution-context change into a miss', () => {
+    const data = fixture();
+    const cache = inspect(data);
+    recordSuccessfulContractShard({
+      cache,
+      files: [data.entry.test],
+      result: { status: 0, signal: null },
+    });
+    expect(inspect(data)).toMatchObject({ hits: [data.entry.test], misses: [] });
+
+    for (const [field, value] of Object.entries(EXECUTION_CONTEXT)) {
+      const changed = { ...EXECUTION_CONTEXT, [field]: `${value}-changed` };
+      expect(inspect(data, data.entry, changed), field).toMatchObject({
+        hits: [],
+        misses: [data.entry.test],
+      });
+    }
+  });
+
+  it('fails closed when an external tool version cannot be resolved', () => {
+    const data = fixture();
+    expect(() =>
+      resolveContractExecutionContext({
+        runCommand: () => ({ status: 127, signal: null, stdout: '' }),
+      }),
+    ).toThrow(/version could not be resolved/);
+    expect(
+      inspectContractTestCache({
+        root: data.root,
+        entries: [data.entry],
+        tests: [data.entry.test],
+        globalInputs: data.globalInputs,
+        runGit: data.runGit,
+        executionContext: {},
+      }),
+    ).toMatchObject({ hits: [], misses: [data.entry.test] });
+  });
+
   it('refuses to cache unresolved reference evidence', () => {
     const data = fixture();
     declareInput(data, 'read-content', data.files.repositoryA);
@@ -207,6 +329,9 @@ describe('content-addressed contract-test cache', () => {
 
   it('uses the selector control-plane SSOT as its global cache dependency list', () => {
     expect(CONTRACT_TEST_GLOBAL_INPUTS).toBe(CONTRACT_CONTROL_PLANE_INPUTS);
+    expect(CONTRACT_TEST_GLOBAL_INPUTS).toContain(
+      'scripts/harness/harness-test-classification.mjs',
+    );
   });
 
   it('invalidates for implementation, every matching repository file, and global content', () => {
@@ -315,19 +440,28 @@ describe('content-addressed contract-test cache', () => {
 
   it('restores cross-head markers under an immutable per-run key and revalidates their content', () => {
     const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
-    const cacheStepStart = workflow.indexOf(
-      '- name: Restore cross-head contract-test content cache',
-    );
+    const cacheStepStart = workflow.indexOf('- name: Restore validated contract-test successes');
     const cacheStep = workflow.slice(
       cacheStepStart,
-      workflow.indexOf('- name: Install dependencies', cacheStepStart),
+      workflow.indexOf('- run: pnpm install --frozen-lockfile', cacheStepStart),
     );
 
-    expect(cacheStep).toContain('uses: actions/cache@v6');
+    expect(cacheStep).toContain('id: contract-cache');
+    expect(cacheStep).toContain('uses: actions/cache/restore@v6');
     expect(cacheStep).toContain('path: .cache/robota-contract-tests');
     expect(cacheStep).toContain('${{ github.event.pull_request.head.sha || inputs.head_ref }}');
     expect(cacheStep).toContain('${{ github.run_id }}-${{ github.run_attempt }}');
     expect(cacheStep).toContain('restore-keys:');
     expect(cacheStep).toContain(`${CONTRACT_TEST_CACHE_SCHEMA}-` + '${{ runner.os }}-node22-');
+
+    for (const file of ['.github/workflows/ci.yml', '.github/workflows/scans-full.yml']) {
+      const source = readFileSync(path.join(REPO_ROOT, file), 'utf8');
+      expect(source).toContain('uses: actions/cache/save@v6');
+      expect(source).toMatch(
+        /name: Persist independently proven contract successes\n\s+if: \$\{\{ always\(\) \}\}/,
+      );
+      expect(source).toContain('key: ${{ steps.contract-cache.outputs.cache-primary-key }}');
+      expect(source).not.toContain('uses: actions/cache@v6');
+    }
   });
 });

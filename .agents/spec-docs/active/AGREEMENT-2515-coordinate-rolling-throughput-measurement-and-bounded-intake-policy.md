@@ -1,11 +1,18 @@
 ---
-status: in-progress
+status: rejected
 type: AGREEMENT
 tags: [process, github, intake, measurement]
 lane: L2
 ---
 
 # AGREEMENT-2515: coordinate rolling throughput measurement and bounded intake policy
+
+## Current Disposition
+
+GitHub issue #2826 supersedes this paired initiative and its mandatory lifecycle. The delivered
+`OBSERVABILITY-2515` measurement remains valid. The proposed `RULE-2515` mechanical intake gate is
+retired; root-cause grouping remains guidance and high-risk findings remain immediately fileable.
+This document remains in place as historical design evidence and is not an active execution plan.
 
 Paired with `.agents/tasks/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md`. Arising from [issue #2515](https://github.com/woojubb/robota/issues/2515).
 
@@ -130,7 +137,7 @@ Paired execution record:
 `.agents/tasks/AGREEMENT-2515-coordinate-rolling-throughput-measurement-and-bounded-intake-policy.md`.
 
 - [x] OBSERVABILITY-2515 — done — `.agents/tasks/completed/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`
-- [ ] RULE-2515 — todo — `.agents/tasks/RULE-2515-bound-non-blocking-issue-intake-by-measured-net-growth.md`
+- [x] RULE-2515 — superseded by issue #2826 — `.agents/tasks/RULE-2515-bound-non-blocking-issue-intake-by-measured-net-growth.md`
 
 ## Evidence Log
 

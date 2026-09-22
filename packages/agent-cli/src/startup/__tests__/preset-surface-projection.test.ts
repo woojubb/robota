@@ -22,11 +22,11 @@ import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
  * measured, not assumed: re-declaring `IPrintModePresetOptions` produces 12 `tsgo` errors and 3
  * green vitest cases.
  *
- * `pnpm typecheck` is a stage of `harness:verify-like-ci`, so the gate is real; it is simply not this
- * file. The assignment case is kept because it FAILS THE BUILD at the point a copy reappears, and
- * because it names the property in the place someone editing these types will look — but it is
- * documentation of a compile-time contract, not a runtime assertion, and calling it the latter would
- * be the "case that cannot fail on the condition it names" defect this repository scans for.
+ * `pnpm typecheck` owns that repository-wide check; it is simply not this file. The assignment case
+ * is kept because it FAILS THE BUILD at the point a copy reappears, and because it names the property
+ * in the place someone editing these types will look — but it is documentation of a compile-time
+ * contract, not a runtime assertion, and calling it the latter would be the "case that cannot fail on
+ * the condition it names" defect this repository scans for.
  *
  * The two `model` cases below are ordinary runtime assertions and do fail on their condition:
  * dropping the projection turns the first red.

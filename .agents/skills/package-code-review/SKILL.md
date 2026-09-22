@@ -28,16 +28,15 @@ format). The underlying code rules are NOT restated here — they are owned by
 Classification rules: any Mandatory Rules violation → **MUST**; SPEC.md quality gate gap or
 untested public API surface → **SHOULD**; everything else → **CONSIDER** or **NIT**.
 
-## Depth — the second axis, and a separate owner
+## Depth — the second axis
 
 Severity above says how much a finding matters. It does not say WHERE the defect is, and the two are
 independent: a MUST can be local and a NIT can be the visible tip of a wrong design.
 
-Every finding therefore also carries a depth verdict from `finding-depth-triager` (guardian), per
-[finding-depth.md](../../rules/finding-depth.md) — LOCAL, FOUNDATIONAL, INVALID or UNDETERMINED. This applies
-to a review invoked by hand exactly as it does to one the orchestration runs: a review that skips it produces
-findings someone then fixes where they surfaced, which is the failure the rule exists to prevent, entering
-through the door that is not watched.
+The reviewer or responsible author classifies a material finding per
+[finding-depth.md](../../rules/finding-depth.md): LOCAL, FOUNDATIONAL, INVALID, or UNDETERMINED. Dispatch
+`finding-depth-triager` only when the evidence is ambiguous or the suspected root cause would materially
+expand scope; it is not a mandatory handoff for every finding.
 
 A FOUNDATIONAL finding is reported with its cause and NOT fixed in place. What happens next — re-plan, or a
 labelled containment naming a filed root item — is the caller's routing decision, not this skill's.
@@ -73,8 +72,10 @@ is a **SHOULD** until the other paths are named — fixed, or filed and linked.
 1. **Scope** the target package(s)/file set; read SPEC.md, package.json, index.ts for the boundary.
 2. **Review** each production source file through all six perspectives; record findings with
    severity, perspective, `file:line`, description.
-3. **Cross-check** mechanically: `pnpm --filter <pkg> build && pnpm --filter <pkg> test` +
-   `pnpm harness:scan`.
+3. **Cross-check** the existing exact-head verification evidence supplied with the change or visible
+   on its PR. Run only a specifically justified focused reproducer when a suspected finding needs
+   direct confirmation. Do not rerun broad package or repository suites as a default review step;
+   report missing or stale evidence as a verification gap instead of manufacturing duplicate work.
 4. **Report** in the format below.
 
 ## Output Format

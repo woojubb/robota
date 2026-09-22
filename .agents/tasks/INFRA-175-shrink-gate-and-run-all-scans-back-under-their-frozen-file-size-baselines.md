@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-175: shrink gate.mjs and run-all-scans.mjs back under their frozen file-size baselines'
 issue: https://github.com/woojubb/robota/issues/2596
-status: in-progress
+status: superseded
 created: 2026-09-06
 priority: high
 urgency: now
@@ -13,6 +13,12 @@ depends_on: []
 ---
 
 # INFRA-175: shrink gate.mjs and run-all-scans.mjs back under their frozen file-size baselines
+
+## Disposition
+
+**Superseded by issue #2826.** `gate.mjs` was deleted instead of split into compatibility modules;
+remaining repository diagnostics are selected and reported directly. Its old size-baseline work is
+therefore no longer an active implementation target.
 
 ## Objective
 

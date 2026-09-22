@@ -1,303 +1,346 @@
-/**
- * HARNESS-109. The decision is a pure function precisely so every branch is reachable here without a
- * repository — including the ones that must NOT reuse, which are the branches that matter: a reuse
- * mechanism can only fail in one dangerous direction, and it is this one.
- */
+/** Per-scan success caching: audited inputs and execution identity or a mandatory miss. */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
 
-import { isCleanTree, realDirtyLines } from '../verification-receipt.mjs';
-import { createDiagnosticReport } from '../diagnostic-core.mjs';
+import { isCleanTree, realDirtyLines } from '../verification-receipt-storage.mjs';
+import { scanSuccessInputs } from '../run-all-scans.mjs';
 
 import {
+  SCAN_SUCCESS_CACHE_SCHEMA,
   TREE_EXTERNAL_SCANS,
-  createScanReceipt,
-  decideScanReuse,
-  receiptCoveredScans,
-  scanReceiptMatches,
-  scansThatAlwaysRun,
+  applyScanSuccessCache,
+  inspectScanSuccessCache,
+  recordSuccessfulScanResults,
 } from '../scan-receipt.mjs';
 
-const IDENTITY = {
-  headTree: 'a'.repeat(40),
-  scans: ['consistency', 'file-size'],
+const SCAN_SUCCESS_IDENTITY = {
   nodeVersion: 'v22.14.0',
+  platform: 'linux',
+  architecture: 'x64',
   pnpmVersion: '10.0.0',
+  gitVersion: 'git version 2.51.0',
+  bashVersion: 'GNU bash, version 5.2.21',
   lockfileHash: 'b'.repeat(64),
+  runnerEnvironment: {
+    CI: 'true',
+    COMSPEC: '',
+    FORCE_COLOR: '',
+    GITHUB_ACTIONS: 'true',
+    HOME: '/home/runner',
+    ImageOS: 'ubuntu24',
+    ImageVersion: '20260920.1',
+    LANG: 'C.UTF-8',
+    LC_ALL: '',
+    NODE_OPTIONS: '',
+    NO_COLOR: '',
+    PATH: '/usr/bin:/bin',
+    PATHEXT: '',
+    RUNNER_ARCH: 'X64',
+    RUNNER_OS: 'Linux',
+    SHELL: '/bin/bash',
+    SystemRoot: '',
+    TEMP: '/tmp/temp',
+    TMP: '/tmp/tmp',
+    TMPDIR: '/tmp/tmpdir',
+    TZ: 'UTC',
+    USERPROFILE: '',
+    WINDIR: '',
+  },
 };
 
-const receiptFor = (identity) => createScanReceipt(identity, '2026-08-19T00:00:00.000Z');
-
-const findingReport = () =>
-  createDiagnosticReport([
-    {
-      version: 1,
-      id: 'harness.receipt.finding',
-      detectorId: 'harness.receipt.detector',
-      state: 'finding',
-      subject: { kind: 'scan', value: 'consistency' },
-      examined: [{ kind: 'scan', value: 'consistency' }],
-      severity: 'warning',
-      evidence: ['The previous run found a policy problem.'],
-      recommendation: 'Run the affected scan again.',
-    },
-  ]);
-
-const unavailableReport = () =>
-  createDiagnosticReport([
-    {
-      version: 1,
-      id: 'harness.receipt.unavailable',
-      detectorId: 'harness.receipt.detector',
-      state: 'unavailable',
-      subject: { kind: 'scan', value: 'file-size' },
-      examined: [{ kind: 'scan', value: 'file-size' }],
-      severity: 'error',
-      evidence: ['The detector dependency was unavailable.'],
-      recommendation: 'Restore the dependency and run the affected scan again.',
-      unavailable: {
-        code: 'diagnostic-dependency-failure',
-        detail: 'fixture dependency unavailable',
-      },
-    },
-  ]);
-
-const decide = (overrides = {}) =>
-  decideScanReuse({
-    scanNames: IDENTITY.scans,
-    identity: IDENTITY,
-    receipt: receiptFor(IDENTITY),
-    clean: true,
-    ...overrides,
-  });
-
-describe('decideScanReuse — the reusing direction', () => {
-  it('reuses an identical identity on a clean tree, and names when it was scanned', () => {
-    const decision = decide();
-    expect(decision.reuse).toBe(true);
-    expect(decision.reason).toContain('2026-08-19T00:00:00.000Z');
-  });
-
-  it('does not care about the order the scans were listed in', () => {
-    expect(decide({ scanNames: ['file-size', 'consistency'] }).reuse).toBe(true);
-  });
-});
-
-describe('non-clean diagnostic receipt reuse', () => {
-  it('retains a canonical finding and schedules only its covered scan for re-check', () => {
-    const diagnosticReport = findingReport();
-    const receipt = createScanReceipt(IDENTITY, '2026-08-19T00:00:00.000Z', diagnosticReport);
-
-    expect(receipt).toMatchObject({
-      schemaVersion: 2,
-      diagnosticReport,
-    });
-    expect(
-      decideScanReuse({
-        scanNames: IDENTITY.scans,
-        identity: IDENTITY,
-        receipt,
-        clean: true,
-      }),
-    ).toMatchObject({
-      reuse: true,
-      diagnosticReport,
-      recheckCoveredScans: ['consistency'],
-    });
-  });
-
-  it('retains an unavailable result and schedules its named covered scan for re-check', () => {
-    const diagnosticReport = unavailableReport();
-    const receipt = createScanReceipt(IDENTITY, '2026-08-19T00:00:00.000Z', diagnosticReport);
-
-    expect(
-      decideScanReuse({
-        scanNames: IDENTITY.scans,
-        identity: IDENTITY,
-        receipt,
-        clean: true,
-      }),
-    ).toMatchObject({
-      reuse: true,
-      diagnosticReport,
-      recheckCoveredScans: ['file-size'],
-    });
-  });
-
-  it('accepts correlation on a scan result but refuses a hook delivery as cacheable scan evidence', () => {
-    const correlatedScan = createDiagnosticReport([
-      {
-        ...findingReport().results[0],
-        correlationId: 'hook-migration.full',
-      },
-    ]);
-    expect(() =>
-      createScanReceipt(IDENTITY, '2026-08-19T00:00:00.000Z', correlatedScan),
-    ).not.toThrow();
-
-    const hookDelivery = createDiagnosticReport([
-      {
-        ...findingReport().results[0],
-        id: 'hook.diagnostic-migration-inventory',
-        detectorId: 'hook.diagnostic-migration-inventory',
-        correlationId: 'hook-migration.full',
-        subject: { kind: 'hook-diagnostic-migration', value: 'fixture' },
-        examined: [{ kind: 'hook-diagnostic-migration', value: 'fixture' }],
-      },
-    ]);
-    expect(() => createScanReceipt(IDENTITY, '2026-08-19T00:00:00.000Z', hookDelivery)).toThrow(
-      /invalid diagnostic report/,
-    );
-  });
-});
-
-describe('decideScanReuse — every refusing direction', () => {
-  it('refuses when the tree content differs', () => {
-    const decision = decide({ identity: { ...IDENTITY, headTree: 'c'.repeat(40) } });
-    expect(decision.reuse).toBe(false);
-    expect(decision.reason).toMatch(/does not match/);
-  });
-
-  it('refuses when a different scan set ran', () => {
-    const decision = decide({
-      scanNames: ['consistency'],
-      identity: { ...IDENTITY, scans: ['consistency'] },
-    });
-    expect(decision.reuse).toBe(false);
-  });
-
-  it('refuses on a different toolchain', () => {
-    expect(decide({ identity: { ...IDENTITY, nodeVersion: 'v20.0.0' } }).reuse).toBe(false);
-    expect(decide({ identity: { ...IDENTITY, pnpmVersion: '9.0.0' } }).reuse).toBe(false);
-    expect(decide({ identity: { ...IDENTITY, lockfileHash: 'd'.repeat(64) } }).reuse).toBe(false);
-  });
-
-  it('refuses when the working tree is dirty, and says what was dirty', () => {
-    const decision = decide({ clean: false, dirtyReason: ' M packages/x/src/a.ts' });
-    expect(decision.reuse).toBe(false);
-    expect(decision.reason).toContain('packages/x/src/a.ts');
-  });
-
-  it('refuses when there is no receipt', () => {
-    expect(decide({ receipt: null }).reuse).toBe(false);
-  });
-
-  it('refuses a malformed, failed, or wrong-version receipt', () => {
-    expect(decide({ receipt: { schemaVersion: 1, status: 'pass' } }).reuse).toBe(false);
-    expect(decide({ receipt: { ...receiptFor(IDENTITY), status: 'fail' } }).reuse).toBe(false);
-    expect(decide({ receipt: { ...receiptFor(IDENTITY), schemaVersion: 1 } }).reuse).toBe(false);
-    expect(decide({ receipt: { ...receiptFor(IDENTITY), schemaVersion: 3 } }).reuse).toBe(false);
-    expect(decide({ receipt: { ...receiptFor(IDENTITY), diagnosticReport: {} } }).reuse).toBe(
-      false,
-    );
-    expect(decide({ receipt: 'not an object' }).reuse).toBe(false);
-  });
-
-  it('refuses a report with duplicate diagnostic IDs rather than reusing it as clean', () => {
-    const diagnosticReport = structuredClone(findingReport());
-    diagnosticReport.results.push(structuredClone(diagnosticReport.results[0]));
-    diagnosticReport.totals = { ...diagnosticReport.totals, finding: 2, nonClean: 2 };
-    const receipt = {
-      ...createScanReceipt(IDENTITY, '2026-08-19T00:00:00.000Z', findingReport()),
-      diagnosticReport,
-    };
-
-    expect(decide({ receipt }).reuse).toBe(false);
-  });
-
-  it('refuses a report whose diagnostic scan is not in the covered receipt identity', () => {
-    const diagnosticReport = structuredClone(findingReport());
-    diagnosticReport.results[0].subject.value = 'uncovered-scan';
-    diagnosticReport.results[0].examined[0].value = 'uncovered-scan';
-    const receipt = {
-      ...createScanReceipt(IDENTITY, '2026-08-19T00:00:00.000Z', findingReport()),
-      diagnosticReport,
-    };
-
-    expect(decide({ receipt }).reuse).toBe(false);
-  });
-
-  it('refuses a receipt whose identity is missing a field rather than treating absence as equal', () => {
-    const receipt = receiptFor(IDENTITY);
-    delete receipt.identity.headTree;
-    expect(scanReceiptMatches(receipt, IDENTITY)).toBe(false);
-  });
-});
-
-describe('a requested side effect is never swallowed by the cache', () => {
-  it('refuses reuse when --write-adoption-baseline asked for an observed pass', () => {
-    // Review finding on #1888: with a receipt hit the run returned early, so the re-freeze the
-    // caller explicitly asked for silently did not happen and the output said only "not re-run".
-    const decision = decide({ writeAdoption: true });
-    expect(decision.reuse).toBe(false);
-    expect(decision.reason).toContain('--write-adoption-baseline');
-  });
-
-  it('refuses it even on an otherwise perfectly reusable identity', () => {
-    expect(decide({ writeAdoption: true, clean: true }).reuse).toBe(false);
-    expect(decide({ writeAdoption: false }).reuse).toBe(true);
-  });
-});
+function scanCacheInputs(root, scanNames) {
+  const scanInputs = new Map();
+  const scanCommands = new Map();
+  const files = new Map();
+  for (const scan of scanNames) {
+    const file = `inputs/${scan}.txt`;
+    const target = path.join(root, file);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, `${scan}:v1\n`);
+    files.set(scan, file);
+    scanInputs.set(scan, { patterns: [`inputs/${scan}.*`], files: [file] });
+    scanCommands.set(scan, ['node', `scripts/${scan}.mjs`]);
+  }
+  return { scanInputs, scanCommands, files };
+}
 
 describe('scans whose inputs are not in the tree', () => {
   it('names them, so adding one later is a visible change', () => {
-    expect([...TREE_EXTERNAL_SCANS].sort()).toEqual(['build-contracts', 'dist']);
-  });
-
-  it('keeps them out of what a receipt asserts, so one receipt serves both call sites', () => {
-    // A full local run and CI's `--skip dist --skip build-contracts` differ only by these two, and
-    // the receipt never spoke for them — so both must produce the SAME identity, or the command the
-    // item was filed about (a plain `pnpm harness:scan`) can never be reused.
-    expect(receiptCoveredScans(['consistency', 'dist', 'build-contracts'])).toEqual([
-      'consistency',
+    expect([...TREE_EXTERNAL_SCANS].sort()).toEqual([
+      'action-references',
+      'build-contracts',
+      'dist',
     ]);
-    expect(receiptCoveredScans(['consistency'])).toEqual(['consistency']);
   });
 
-  it('re-runs them on a hit instead of blocking the hit', () => {
-    const scans = ['consistency', 'file-size', 'dist'];
-    const identity = { ...IDENTITY, scans: receiptCoveredScans(scans) };
-    const decision = decideScanReuse({
-      scanNames: scans,
-      identity,
-      receipt: receiptFor(identity),
+  it('never records the live remote/GitHub half of action-references', () => {
+    const root = makeTemp('scan-success-live-action-refs-');
+    const cache = inspectScanSuccessCache({
+      scanNames: ['action-references'],
+      cacheableScanNames: ['action-references'],
+      root,
+      context: 'pr',
+      cacheRoot: path.join(root, 'cache'),
+      identity: SCAN_SUCCESS_IDENTITY,
       clean: true,
     });
-
-    expect(decision.reuse).toBe(true);
-    expect(receiptCoveredScans(scans)).toEqual(['consistency', 'file-size']);
-    expect(scansThatAlwaysRun(scans)).toEqual(['dist']);
-  });
-
-  it('does not claim a saving when the set is nothing but those scans', () => {
-    const scans = ['dist', 'build-contracts'];
-    const decision = decideScanReuse({
-      scanNames: scans,
-      identity: null,
-      receipt: null,
-      clean: true,
-    });
-    expect(decision.reuse).toBe(false);
-    expect(decision.reason).toMatch(/no scan in this set is covered/);
+    expect(cache.records.size).toBe(0);
+    expect(
+      recordSuccessfulScanResults({
+        cache,
+        results: [{ name: 'action-references', code: 0, output: 'live success' }],
+      }),
+    ).toBe(0);
   });
 });
 
-describe('createScanReceipt', () => {
-  it('refuses to create one from an invalid identity', () => {
-    expect(() => createScanReceipt({ headTree: 'a' }, '2026-08-19T00:00:00.000Z')).toThrow();
+describe('independently persisted scan successes', () => {
+  it('reruns only failed and tree-external scans after a mixed-result suite', async () => {
+    const root = makeTemp('scan-success-cache-');
+    const cacheRoot = path.join(root, 'cache');
+    const inputs = scanCacheInputs(root, ['passed', 'failed', 'dist']);
+    const options = {
+      scanNames: ['passed', 'failed', 'dist'],
+      cacheableScanNames: ['passed', 'failed', 'dist'],
+      root,
+      context: 'pr',
+      cacheRoot,
+      identity: SCAN_SUCCESS_IDENTITY,
+      clean: true,
+      ...inputs,
+    };
+    const first = inspectScanSuccessCache(options);
+    expect(first.hits.size).toBe(0);
+    expect(first.misses).toEqual(['passed', 'failed', 'dist']);
+    expect(
+      recordSuccessfulScanResults({
+        cache: first,
+        results: [
+          { name: 'passed', code: 0, output: '::examined:: 1 fixture' },
+          { name: 'failed', code: 1, output: 'failure' },
+          { name: 'dist', code: 0, output: 'external pass' },
+        ],
+      }),
+    ).toBe(1);
+
+    const retry = inspectScanSuccessCache(options);
+    expect([...retry.hits]).toEqual([['passed', { code: 0, output: '::examined:: 1 fixture' }]]);
+    expect(retry.misses).toEqual(['failed', 'dist']);
+
+    const invoked = [];
+    const wrapped = applyScanSuccessCache(
+      options.scanNames.map((name) => ({
+        name,
+        run: async () => {
+          invoked.push(name);
+          return { code: 0, output: '' };
+        },
+      })),
+      retry,
+    );
+    await Promise.all(wrapped.map((scan) => scan.run()));
+    expect(invoked).toEqual(['failed', 'dist']);
+  });
+
+  it('never writes failed, unavailable, or tree-external outcomes', () => {
+    const root = makeTemp('scan-success-refusal-');
+    const inputs = scanCacheInputs(root, ['failed', 'unavailable', 'build-contracts']);
+    const cache = inspectScanSuccessCache({
+      scanNames: ['failed', 'unavailable', 'build-contracts'],
+      cacheableScanNames: ['failed', 'unavailable', 'build-contracts'],
+      root,
+      context: 'integration',
+      cacheRoot: path.join(root, 'cache'),
+      identity: SCAN_SUCCESS_IDENTITY,
+      clean: true,
+      ...inputs,
+    });
+    expect(
+      recordSuccessfulScanResults({
+        cache,
+        results: [
+          { name: 'failed', code: 1, output: '' },
+          { name: 'unavailable', code: 0, output: '', unavailable: true },
+          { name: 'build-contracts', code: 0, output: '' },
+        ],
+      }),
+    ).toBe(0);
+    expect(cache.records.has('build-contracts')).toBe(false);
+    expect(existsSync(path.join(root, 'cache'))).toBe(false);
+  });
+
+  it('invalidates successes across context and execution-identity changes', () => {
+    const root = makeTemp('scan-success-identity-');
+    const cacheRoot = path.join(root, 'cache');
+    const inputs = scanCacheInputs(root, ['passed']);
+    const options = {
+      scanNames: ['passed'],
+      cacheableScanNames: ['passed'],
+      root,
+      context: 'pr',
+      cacheRoot,
+      identity: SCAN_SUCCESS_IDENTITY,
+      clean: true,
+      ...inputs,
+    };
+    const first = inspectScanSuccessCache(options);
+    recordSuccessfulScanResults({
+      cache: first,
+      results: [{ name: 'passed', code: 0, output: '' }],
+    });
+    expect(inspectScanSuccessCache(options).hits.has('passed')).toBe(true);
+    expect(inspectScanSuccessCache({ ...options, context: 'integration' }).hits.size).toBe(0);
+    expect(
+      inspectScanSuccessCache({
+        ...options,
+        identity: { ...SCAN_SUCCESS_IDENTITY, gitVersion: 'git version changed' },
+      }).hits.size,
+    ).toBe(0);
+    for (const key of Object.keys(SCAN_SUCCESS_IDENTITY.runnerEnvironment)) {
+      expect(
+        inspectScanSuccessCache({
+          ...options,
+          identity: {
+            ...SCAN_SUCCESS_IDENTITY,
+            runnerEnvironment: {
+              ...SCAN_SUCCESS_IDENTITY.runnerEnvironment,
+              [key]: `${SCAN_SUCCESS_IDENTITY.runnerEnvironment[key]}:changed`,
+            },
+          },
+        }).hits.size,
+        key,
+      ).toBe(0);
+    }
+  });
+
+  it('survives unrelated commits but invalidates relevant content, patterns, and commands', () => {
+    const root = makeTemp('scan-success-inputs-');
+    const inputs = scanCacheInputs(root, ['passed']);
+    const options = {
+      scanNames: ['passed'],
+      cacheableScanNames: ['passed'],
+      root,
+      context: 'pr',
+      cacheRoot: path.join(root, 'cache'),
+      identity: SCAN_SUCCESS_IDENTITY,
+      clean: true,
+      ...inputs,
+    };
+    const first = inspectScanSuccessCache(options);
+    recordSuccessfulScanResults({
+      cache: first,
+      results: [{ name: 'passed', code: 0, output: '' }],
+    });
+
+    writeFileSync(path.join(root, 'unrelated.txt'), 'unrelated change\n');
+    expect(inspectScanSuccessCache(options).hits.has('passed')).toBe(true);
+
+    const relevant = path.join(root, inputs.files.get('passed'));
+    writeFileSync(relevant, 'passed:v2\n');
+    expect(inspectScanSuccessCache(options).hits.size).toBe(0);
+    writeFileSync(relevant, 'passed:v1\n');
+    expect(inspectScanSuccessCache(options).hits.has('passed')).toBe(true);
+
+    const changedPatterns = new Map(inputs.scanInputs);
+    changedPatterns.set('passed', {
+      ...inputs.scanInputs.get('passed'),
+      patterns: ['inputs/passed.txt'],
+    });
+    expect(inspectScanSuccessCache({ ...options, scanInputs: changedPatterns }).hits.size).toBe(0);
+
+    const changedCommands = new Map(inputs.scanCommands);
+    changedCommands.set('passed', ['node', 'scripts/passed.mjs', '--strict']);
+    expect(inspectScanSuccessCache({ ...options, scanCommands: changedCommands }).hits.size).toBe(
+      0,
+    );
+  });
+
+  it('invalidates a success when a transitive scan implementation helper changes', () => {
+    const root = makeTemp('scan-success-import-closure-');
+    writeFileSync(
+      path.join(root, 'scan.mjs'),
+      "import { helper } from './helper.mjs';\nhelper();\n",
+    );
+    writeFileSync(
+      path.join(root, 'helper.mjs'),
+      "import { value } from './nested.mjs';\nexport const helper = () => value;\n",
+    );
+    writeFileSync(path.join(root, 'nested.mjs'), 'export const value = 1;\n');
+    const scan = {
+      name: 'passed',
+      command: ['node', 'scan.mjs'],
+      examines: ['governed/**'],
+      cacheable: true,
+    };
+    const options = {
+      scanNames: ['passed'],
+      cacheableScanNames: ['passed'],
+      scanInputs: scanSuccessInputs([scan], ['scan.mjs', 'helper.mjs', 'nested.mjs'], root),
+      scanCommands: new Map([['passed', scan.command]]),
+      root,
+      context: 'pr',
+      cacheRoot: path.join(root, 'cache'),
+      identity: SCAN_SUCCESS_IDENTITY,
+      clean: true,
+    };
+    const first = inspectScanSuccessCache(options);
+    recordSuccessfulScanResults({
+      cache: first,
+      results: [{ name: 'passed', code: 0, output: '' }],
+    });
+    expect(inspectScanSuccessCache(options).hits.has('passed')).toBe(true);
+
+    writeFileSync(path.join(root, 'nested.mjs'), 'export const value = 2;\n');
+    expect(inspectScanSuccessCache(options).hits.size).toBe(0);
+  });
+
+  it('never creates records for history/base/live scans without an audited cacheable declaration', () => {
+    const root = makeTemp('scan-success-history-');
+    for (const identity of [
+      { ...SCAN_SUCCESS_IDENTITY, headCommit: 'head-a', baseRef: 'base-a' },
+      { ...SCAN_SUCCESS_IDENTITY, headCommit: 'head-b', baseRef: 'base-b' },
+    ]) {
+      const cache = inspectScanSuccessCache({
+        scanNames: ['promotion-ancestry', 'document-authority'],
+        cacheableScanNames: [],
+        root,
+        context: 'pr',
+        cacheRoot: path.join(root, 'cache'),
+        identity,
+        clean: true,
+      });
+      expect(cache.hits.size).toBe(0);
+      expect(cache.records.size).toBe(0);
+      expect(cache.misses).toEqual(['promotion-ancestry', 'document-authority']);
+    }
+  });
+
+  it('is persisted by both repository-check workflows even when a sibling fails', () => {
+    expect(SCAN_SUCCESS_CACHE_SCHEMA).toBe('robota-scan-success-v2');
+    for (const file of ['.github/workflows/ci.yml', '.github/workflows/scans-full.yml']) {
+      const source = readFileSync(
+        path.join(path.resolve(import.meta.dirname, '../../..'), file),
+        'utf8',
+      );
+      expect(source).toContain('path: .cache/robota-scan-successes');
+      expect(source).toContain('robota-scan-success-v2-${{ runner.os }}-node22-');
+      expect(source).toMatch(
+        /name: Persist independently proven scan successes\n\s+if: \$\{\{ always\(\) \}\}/,
+      );
+    }
   });
 });
 
-describe('receipt eligibility in a real agent clone (HARNESS-109)', () => {
+describe('scan-success cache eligibility in a real agent clone', () => {
   /**
    * The hole this closes was not theoretical: an untracked file the agent harness writes into every
-   * clone made `isCleanTree()` false for whole sessions, so no receipt was ever written and every
-   * push re-ran the full gate. The ignore rule is a CLASS, and this asserts the class matches —
+   * clone made `isCleanTree()` false for whole sessions, so no success marker was ever reusable.
+   * The ignore rule is a CLASS, and this asserts the class matches —
    * without it the assertion would be about git, which is not ours to test.
    */
   it('a per-clone harness config file does not make the tree dirty', () => {
@@ -317,8 +360,8 @@ describe('receipt eligibility in a real agent clone (HARNESS-109)', () => {
       writeFileSync(path.join(root, '.claude', 'settings.local.json'), '{}\n');
       expect(isCleanTree(root)).toBe(true);
 
-      // The exemption is narrow: anything else still makes the tree unclean, so a receipt can never
-      // stand behind a tree a human changed.
+      // The exemption is narrow: anything else still makes the tree unclean, so cached success can
+      // never stand behind a tree a human changed.
       writeFileSync(path.join(root, '.claude', 'settings.json'), '{}\n');
       expect(realDirtyLines(root)).toEqual(['?? .claude/settings.json']);
     } finally {

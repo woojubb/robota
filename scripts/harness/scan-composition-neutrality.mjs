@@ -111,10 +111,10 @@ export function findDisallowedDependencies(manifest, rule) {
 // Syntax helpers — the shared AST vocabulary both content guards read.
 // ---------------------------------------------------------------------------
 
-/** Parse one source string. `setParentNodes` is required: the guards walk upward to reject declarations. */
+/** Parse one source string; the native parser always supplies parent links for guard traversal. */
 function parseSource(source, file) {
   const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
-  return ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, kind);
+  return ts.createSourceFile(file, source, { scriptKind: kind });
 }
 
 /** Every node in the tree, in source order. Comments produce no nodes — the guards ignore them for free. */
@@ -122,7 +122,7 @@ function collectNodes(root) {
   const out = [];
   const visit = (node) => {
     out.push(node);
-    ts.forEachChild(node, visit);
+    node.forEachChild(visit);
   };
   visit(root);
   return out;
@@ -229,7 +229,7 @@ function collectAliases(nodes) {
       } else if (isBindingPattern(node.name)) {
         bindPattern(node.name, basePath, aliases, identityLocals);
       }
-    } else if (ts.isParameter(node) && isBindingPattern(node.name)) {
+    } else if (ts.isParameterDeclaration(node) && isBindingPattern(node.name)) {
       bindPattern(node.name, undefined, aliases, identityLocals);
     }
   }
@@ -296,12 +296,12 @@ function isReferencePosition(node) {
   // as a parameter, a method/property/type/enum member name, …).
   const declaresName =
     ts.isVariableDeclaration(parent) ||
-    ts.isParameter(parent) ||
+    ts.isParameterDeclaration(parent) ||
     ts.isPropertyAssignment(parent) ||
     ts.isPropertyDeclaration(parent) ||
-    ts.isPropertySignature(parent) ||
+    ts.isPropertySignatureDeclaration(parent) ||
     ts.isMethodDeclaration(parent) ||
-    ts.isMethodSignature(parent) ||
+    ts.isMethodSignatureDeclaration(parent) ||
     ts.isGetAccessorDeclaration(parent) ||
     ts.isSetAccessorDeclaration(parent) ||
     ts.isFunctionDeclaration(parent) ||

@@ -128,10 +128,12 @@ Report it per finding, not in aggregate. Silence from automation you never waite
 Three rounds, and the loop was allowed to stop only at round 3 — because round 3 is the first run that
 observed the round-2 push and returned nothing.
 
-**Latest-verdict action gate.** Before each edit, push, rebase, or merge, read the latest
-`ACTIONABLE FINDINGS: N` verdict and publish the head- and verdict-bound
-`POST_FINDINGS_ACTION_REQUEST` comment with the applicable approval route owned by `git-branch.md`. A zero or
-non-zero count, a local review record, or an internal judgement never substitutes for that current
+**Latest-verdict action gate.** Before each edit, push, or merge, read the latest
+`ACTIONABLE FINDINGS: N` verdict. A post-verdict push requires the head- and verdict-bound
+`POST_FINDINGS_ACTION_REQUEST` comment with the applicable approval route owned by `git-branch.md`.
+A rebase is not a separately accepted action; it is only one possible implementation of an approved
+conflict-resolution push, and only while the pull request has a verified real conflict. A zero or
+non-zero count, a local review record, or an internal judgement never substitutes for the current
 decision record; a new verdict or head requires a new comment.
 
 ## What This Skill Does NOT Do
@@ -151,5 +153,6 @@ If you find yourself restating a rule here, stop — link the rule instead.
 The PR owns this remote loop: published findings, per-thread replies/dispositions, and the final
 `PR_MERGE_DECISION` are its durable evidence. Do not append a tracked loop row after the diff freezes.
 When no automated feedback exists, the clean no-feedback path records that observation once in the
-merge decision rather than manufacturing an empty finding round. The merge gate reads it back and
-binds it to the live base/head pair.
+merge decision rather than manufacturing an empty finding round. The merge gate reads it back,
+keeps the exact head and historical base, and accepts a later target advance only when that base is
+still an ancestor and the live merge remains conflict-free.

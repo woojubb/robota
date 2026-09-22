@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-177: the gate-evaluator isolation unit is a commit, not a branch range'
 issue: https://github.com/woojubb/robota/issues/2610
-status: todo
+status: superseded
 created: 2026-09-06
 priority: high
 urgency: now
@@ -11,6 +11,11 @@ depends_on: []
 ---
 
 # INFRA-177: the gate-evaluator isolation unit is a commit, not a branch range
+
+## Disposition
+
+**Superseded by issue #2826.** The gate evaluator and its isolation scan were deleted. No legacy
+adapter is retained for a rule whose entire execution surface no longer exists.
 
 ## Objective
 

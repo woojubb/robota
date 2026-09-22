@@ -69,7 +69,7 @@ export function inspectRunAdvancementOwnership(
   for (const file of files) {
     const source = readFile(file);
     if (!source.includes('processOnce')) continue;
-    const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+    const sourceFile = ts.createSourceFile(file, source);
     const visit = (node) => {
       if (isNamed(node)) {
         const kind = classify(node);
@@ -86,7 +86,7 @@ export function inspectRunAdvancementOwnership(
           findings.push({ file, line: lineOf(sourceFile, node), kind });
         }
       }
-      ts.forEachChild(node, visit);
+      node.forEachChild(visit);
     };
     visit(sourceFile);
   }

@@ -279,19 +279,17 @@ describe('HARNESS-041 file classification', () => {
     const afterAFlag = [
       "import { spawnSync } from 'node:child_process';",
       "import path from 'node:path';",
-      "spawnSync('bash', ['-n', path.join(HOOKS_DIR, 'spec-first-gate.sh')]);",
+      "spawnSync('bash', ['-n', path.join(HOOKS_DIR, 'branch-guard.sh')]);",
     ].join('\n');
     const asAnArgumentToSomethingElse = [
       "import { spawnSync } from 'node:child_process';",
       "import path from 'node:path';",
-      "spawnSync('node', [path.join(HARNESS_DIR, 'scan-hook-registration.mjs'), 'spec-first-gate.sh']);",
+      "spawnSync('node', [path.join(HARNESS_DIR, 'scan-hook-registration.mjs'), 'branch-guard.sh']);",
     ].join('\n');
 
-    expect(testExecutesHook(afterAFlag, '.claude/hooks/spec-first-gate.sh')).toBe(
-      EXECUTION.EXECUTES,
-    );
+    expect(testExecutesHook(afterAFlag, '.claude/hooks/branch-guard.sh')).toBe(EXECUTION.EXECUTES);
     expect(
-      testExecutesHook(asAnArgumentToSomethingElse, '.claude/hooks/spec-first-gate.sh'),
+      testExecutesHook(asAnArgumentToSomethingElse, '.claude/hooks/branch-guard.sh'),
       'a name handed to a scanner AS DATA was read as the file that ran',
     ).toBe(EXECUTION.NOT_EXECUTED);
   });
@@ -1098,20 +1096,15 @@ describe('what blocks a merge once the gate is enforcing (INFRA-046)', () => {
   });
 
   it('does not turn its own crash into a merge refusal while advisory', () => {
-    // The reasoning this replaces was wrong in a way worth keeping: it said a red here "blocks
-    // nothing" because the job is not a required check. In THIS repository that is false. The
-    // merge gate refuses on any `mergeStateStatus` other than CLEAN, and GitHub reports UNSTABLE
-    // precisely when a NON-required check fails — so an unconditional non-zero on a network
-    // hiccup, a bad worktree or a vitest infra failure would push EVERY merge through the manual
-    // override until someone fixed it. That is the untested refusal in the merge path this
-    // promotion holds required-check membership specifically to avoid, arriving by another door.
+    // The merge gate accepts GitHub's conflict-free BEHIND state so a moving target does not cause
+    // a rebase/retest loop. It still rejects conflicting or otherwise blocked states. This local
+    // proof therefore remains advisory on infrastructure failure and enforcement is explicit.
     const gate = readFileSync(
       path.resolve(import.meta.dirname, '../../../.claude/hooks/merge-gate.sh'),
       'utf8',
     );
-    expect(gate, 'the merge gate no longer refuses a non-CLEAN state — re-decide this').toMatch(
-      /"\$STATE" != "CLEAN"/,
-    );
+    expect(gate).toContain('CLEAN | BEHIND)');
+    expect(gate).toContain('is $STATE, not CLEAN or conflict-free BEHIND');
 
     expect(enforceOnCrash({})).toBe(false);
     expect(enforceOnCrash({ REGRESSION_RED_PROOF_ENFORCE: '1' })).toBe(true);
@@ -1140,16 +1133,17 @@ describe('what blocks a merge once the gate is enforcing (INFRA-046)', () => {
     expect(advisory.said).toMatch(/could not|failed|error/i);
   });
 
-  it('is enforcing in the workflow that runs it', () => {
-    // The flag is the promotion. Without this the mapping above is a capability nothing switches on —
-    // and a policy that no run applies is the vacuity this harness spends its time removing.
+  it('keeps mutation proof out of pull-request CI', () => {
+    // RED→GREEN evidence belongs to the local defect workflow and independent review. Re-running
+    // source mutation for every pull request duplicated those decisions and made the stable aggregate
+    // wait for a compatibility job that was not part of product correctness.
     const ci = readFileSync(
       path.resolve(import.meta.dirname, '../../../.github/workflows/ci.yml'),
       'utf8',
     );
-    const job = ci.slice(ci.indexOf('  regression-red-proof:'), ci.indexOf('  patch-coverage:'));
 
-    expect(job).toMatch(/REGRESSION_RED_PROOF_ENFORCE:\s*'1'/);
+    expect(ci).not.toContain('regression-red-proof:');
+    expect(ci).not.toContain('REGRESSION_RED_PROOF_ENFORCE');
   });
 });
 

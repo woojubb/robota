@@ -211,21 +211,10 @@ describe('job-level write grants are held to JUSTIFIED_JOB_WRITE_SCOPES (HARNESS
   });
 
   it('passes a job-level write grant that IS justified, and counts it as examined', () => {
-    // Review Gate's analyzer owns the PR SARIF upload in the same workflow DAG.
     const src = `name: x
 on:
   pull_request:
 jobs:
-  analyze:
-    permissions:
-      security-events: write
-    steps:
-      - run: true
-  review-gate:
-    permissions:
-      pull-requests: write
-    steps:
-      - run: true
   disarm-auto-merge:
     permissions:
       contents: write
@@ -235,13 +224,18 @@ jobs:
 `;
     const findings = findWorkflowPermissionFindings(root({ 'review-gate.yml': src }));
     expect(findings).toEqual([]);
-    expect(examinedWriteScopeCount()).toBe(4);
+    expect(examinedWriteScopeCount()).toBe(2);
   });
 
   it('flags a STALE job-level excuse the job no longer requests (anti-rot)', () => {
-    const src = 'name: x\non:\n  pull_request:\njobs:\n  analyze:\n    steps:\n      - run: true\n';
+    const src =
+      'name: x\non:\n  pull_request:\njobs:\n  disarm-auto-merge:\n    permissions:\n      contents: write\n    steps:\n      - run: true\n';
     const findings = findWorkflowPermissionFindings(root({ 'review-gate.yml': src }));
-    expect(findings.some((f) => /still excuses job `analyze`/.test(f.detail))).toBe(true);
+    expect(
+      findings.some((f) =>
+        /still excuses job `disarm-auto-merge`'s `pull-requests: write`/.test(f.detail),
+      ),
+    ).toBe(true);
   });
 });
 
@@ -351,9 +345,9 @@ describe('the examined count is what was read, not what was declared', () => {
   });
 });
 
-describe('scans-full.yml is justified where it asks for issues: write (PROC-016)', () => {
+describe('scans-full.yml is justified where its aggregator asks for issues: write', () => {
   it('names the job scope with a reason, and the live tree reports no finding for it', () => {
-    const entry = JUSTIFIED_JOB_WRITE_SCOPES['scans-full.yml']?.['scans-full'];
+    const entry = JUSTIFIED_JOB_WRITE_SCOPES['scans-full.yml']?.['full-harness'];
     expect(typeof entry?.issues).toBe('string');
     expect(entry.issues.length).toBeGreaterThan(20);
     const findings = findWorkflowPermissionFindings();

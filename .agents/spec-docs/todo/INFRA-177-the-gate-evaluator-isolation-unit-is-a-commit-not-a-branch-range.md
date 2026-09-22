@@ -1,11 +1,16 @@
 ---
-status: approved
+status: rejected
 type: INFRA
 tags: [infra]
 lane: L2
 ---
 
 # INFRA-177: the gate-evaluator isolation unit is a commit, not a branch range
+
+## Disposition
+
+**Superseded by issue #2826.** The deleted evaluator/isolation subsystem has no prospective
+commit-versus-range policy. The remaining text records the historical defect only.
 
 Paired with `.agents/tasks/INFRA-177-the-gate-evaluator-isolation-unit-is-a-commit-not-a-branch-range.md`.
 Arising from [issue #2610](https://github.com/woojubb/robota/issues/2610).

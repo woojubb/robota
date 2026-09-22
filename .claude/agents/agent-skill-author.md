@@ -21,7 +21,7 @@ verdict is REVISE/REJECT, stop and report — you do not author from an unreview
 ## Non-negotiable output contract
 
 Every file you emit or edit MUST satisfy the agent-definition convention that
-`scripts/harness/check-agent-def-convention.mjs` (`pnpm harness:scan` → `agent-def-convention`) enforces.
+`node scripts/harness/check-agent-def-convention.mjs` enforces.
 Concretely, for each agent file you write:
 
 1. **Frontmatter** has `name`, `description`, `tools`.
@@ -44,8 +44,8 @@ Concretely, for each agent file you write:
    policy body (a role that only works in this repo is mis-scoped). If the endorsed decomposition would
    require a non-neutral role, stop and report rather than emit it.
 
-After writing, **re-run the guard yourself** (`node scripts/harness/check-agent-def-convention.mjs`, or
-the aggregated `pnpm harness:scan`) and do not consider a file done until it is green. The guard PASS —
+After writing, **re-run the owning guard yourself**
+(`node scripts/harness/check-agent-def-convention.mjs`) and do not consider a file done until it is green. The guard PASS —
 not any self-declared signal of your own — is your completion evidence.
 
 ## What you do NOT do

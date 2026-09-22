@@ -35,11 +35,9 @@ export function originSlug(root = WORKSPACE_ROOT) {
 /**
  * Every branch whose declaration is reconciled against its live ruleset.
  *
- * `main` because its contexts must be able to fail (INFRA-055). `develop` because its list is what
- * `verify-like-ci` claims equivalence with (INFRA-056): `ci-mirror-map.mjs` pins the stage list to
- * the DECLARATION offline, so a declaration that has silently fallen behind the live ruleset would
- * let the mirror certify coverage of a check nobody requires any more — or, worse, stay silent about
- * one that was newly added.
+ * `main` because its contexts must be able to fail (INFRA-055). `develop` because its four stable
+ * decisions must stay aligned with the live ruleset; a declaration that silently falls behind would
+ * make local policy and GitHub enforcement disagree.
  */
 export const RECONCILED_BRANCHES = [GOVERNED_BRANCH, 'develop'];
 

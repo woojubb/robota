@@ -14,7 +14,9 @@
  *   STATIC (always). Every `uses:` is parsed and must be a shape this guard can verify: no missing
  *   `@ref`, no `main`/`master`/`HEAD` (a moving pointer cannot be verified — what ran yesterday is
  *   not what runs today), no `${{ }}` expression, no unsupported scheme, and a local `./` reference
- *   must actually carry an action manifest. Unrecognised shapes FAIL rather than pass unexamined.
+ *   must actually carry an action manifest, or be an existing reusable workflow at the only local
+ *   path GitHub permits (`./.github/workflows/<file>.yml`). Unrecognised shapes FAIL rather than
+ *   pass unexamined.
  *   The parser also counts `uses:` lines INDEPENDENTLY of what it managed to parse and fails when
  *   the two disagree — a parser blind spot otherwise reports a complete answer from a partial scan,
  *   the same shape as a single-page `gh` query that looks exactly like a finished one.
@@ -32,13 +34,10 @@
  * forever — a hang is not a verdict either.
  *
  * WHERE IT RUNS is a separate question from how it fails, and the two were conflated in this item's
- * first design. The live half is ON in CI on a PR to `develop`, OFF locally, and OFF when
- * `GITHUB_BASE_REF` is `main` (`--live` / `--offline` force it either way). `harness:scan` is
- * reached by `harness:verify:release` → the `release-grade verification` REQUIRED check on
- * `protect-main`, so a live half running there converts any github.com incident into a blocked
- * promotion — the failure mode `ruleset-drift.yml` documents in its own header ("an outage costs a
- * red cron, never a blocked promotion"). The develop-side `scans` job already ruled on the identical
- * tree, which `scan-promotion-ancestry.mjs` A3 pins, so the promotion is not running unverified.
+ * first design. The live half is selected inside `repo-checks` for relevant pull requests to
+ * `develop`, OFF locally, and OFF when `GITHUB_BASE_REF` is `main` (`--live` / `--offline` force it
+ * either way). The release path runs only the offline half, so a github.com incident cannot block a
+ * promotion after the identical develop tree already received its selected PR checks.
  *
  * DELIBERATELY NOT A FINDING: a major ref that resolves through `refs/heads/<v>` rather than a tag
  * (measured: `pnpm/action-setup@v2`, `actions/dependency-review-action@v5`). It resolves, so it is
@@ -52,7 +51,7 @@
  *     INFRA-059 and is filed as INFRA-064 rather than left implied.
  *   - The SHA-pin rule has ZERO live subjects today: all 13 references are `@vN`, none is
  *     SHA-pinned. Its passing says nothing about this repository — only the tests exercise it.
- *   - PR-time coverage stops at `develop`: the `scans` job carries `if: github.base_ref != 'main'`.
+ *   - PR-time live coverage stops at `develop`; promotion verification uses the offline half.
  *   - A reference rots without a PR (an upstream repo deleted, a tag force-moved). No PR-time check
  *     can see that; catching it needs a scheduled run, which is INFRA-064's other half.
  *
@@ -192,7 +191,13 @@ function staticFindingsFor(reference, repoRoot) {
     );
   }
   if (reference.kind === 'local') {
-    const dir = path.join(repoRoot, reference.raw);
+    if (/^\.\/\.github\/workflows\/[^/]+\.ya?ml$/u.test(reference.raw)) {
+      const workflow = path.resolve(repoRoot, reference.raw);
+      return fs.existsSync(workflow) && fs.statSync(workflow).isFile()
+        ? []
+        : fail('does not name an existing reusable workflow in this repository');
+    }
+    const dir = path.resolve(repoRoot, reference.raw);
     const present = MANIFEST_NAMES.some((name) => fs.existsSync(path.join(dir, name)));
     return present
       ? []

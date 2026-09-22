@@ -7,6 +7,15 @@ lane: L2
 
 # BRANCH-2664-P2: Make reviewed legacy-base divergence auditable
 
+## Issue #2826 coordination
+
+This design remains open for its migration authority and remote-state scope. Prospective work uses
+the current applicable-check contract: deleted plan-order and CI-mirror modules named in older
+sections are historical evidence, not affected files or completion criteria. A Darwin-specific
+check, if still needed, is a selected child aggregated by `pr-validation`; it does not expand the
+stable required set beyond `pr-validation`, `security`, `review-policy`, and trusted
+`workflow provenance`.
+
 Paired with `.agents/tasks/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md`.
 Arising from [issue #2664](https://github.com/woojubb/robota/issues/2664).
 
@@ -192,22 +201,15 @@ closure is the governing goal.
   identifier assertions on the three owner documents), and the relevant hook-boundary parity tests —
   equal, divergent, tampered, remote-state, admission, and bypass regressions. Every new module has its
   exact-name test so `test-owning.mjs` and the import-safety scan's ownership rule hold.
-- `scripts/harness/scan-user-execution-plan-order.mjs` and its tests only if the validated manifest must
-  expose one pre-child correction transition to the existing history state machine; the admission route
-  runs it unchanged over `HEAD`, which admission requires to equal the pushed OID.
-- `scripts/harness/scan-integration-migration-static.mjs` and its tests — a discoverable `scanDefinition`
-  that applies the unchanged root ESLint policy with `--no-ignore --no-cache` plus `node --check` over the
-  complete governed file set whenever a governed source or lint configuration is affected.
-- `.github/workflows/ci.yml`, `.github/required-status-checks.json`,
-  `scripts/harness/ci-mirror-exclusions.mjs`, `scripts/harness/ci-footprint-baseline.json`,
-  `scripts/harness/__tests__/ci-mirror-map.test.mjs`, and
-  `scripts/harness/__tests__/github-actions-maintenance.test.mjs` plus
-  `scripts/harness/scan-integration-migration-darwin-gate.mjs` and its tests — a real `macos-latest`
-  production-state/lease producer registered as its own CI-owned required context, with mechanical
-  runner, command, applicability, and registration reachability checks; the benchmark pin in the test and
-  the three literals in `ci.yml`'s `benchmark-summary` (`required='[…]'`, `length == 11`, "Measure all
-  11") derived from the declaration instead of hand-written; and the concurrency-footprint baseline
-  re-frozen for the added job.
+- The landed migration verifier and its focused tests own any correction transition needed by the
+  validated manifest; no deleted plan-order compatibility route is retained.
+- `scripts/harness/scan-integration-migration-static.mjs` and its tests — an explicit `SCAN_COMMANDS`
+  registry entry that applies the unchanged root ESLint policy with `--no-ignore --no-cache` plus
+  `node --check` over the complete governed file set whenever a governed source or lint configuration
+  is affected.
+- `.github/workflows/ci.yml`, `.github/required-status-checks.json`, changed-capability selection,
+  and workflow-maintenance tests — a real affected Darwin production-state/lease child, if retained,
+  is aggregated by `pr-validation` and never added as a separate required context.
 - `.agents/project-structure.md` — names `.agents/evidence/` (informal TC receipts) and
   `.agents/evidence/migrations/` (immutable authority-bearing manifests) as two documented classes; today
   the directory exists only by precedent.
@@ -861,8 +863,8 @@ invariants; `multi-backlog-initiative` owns migration order, state transitions, 
 `backlog-execution.md` links to those owners without copying either contract. The paired Task mirrors
 TC-01 through TC-08 exactly and adds no second source of acceptance truth.
 
-The static scan is named for what it governs: `scan-integration-migration-static.mjs`. Its
-`scanDefinition.examines` is derived from the family globs `scripts/harness/integration-migration*.mjs`,
+The static scan is named for what it governs: `scan-integration-migration-static.mjs`. Its explicit
+`SCAN_COMMANDS` entry derives `examines` from the family globs `scripts/harness/integration-migration*.mjs`,
 `scripts/harness/scan-integration-migration*.mjs`, and
 and the named shared source owners it touches (`post-findings-authorization.mjs`,
 `post-findings-github-comment-verification.mjs`, `verification-budget-runtime.mjs`, `pre-push.mjs`, and
@@ -881,7 +883,7 @@ child does not recompute a base or depend on runner-private changed-path state. 
 unchanged: there is no new file glob, rule override, or severity delta, and the scan carries no inline
 override. Errors fail; warnings are reported under the existing root severities; an unresolvable ESLint
 binary fails closed with a named `lint-unavailable` diagnostic rather
-than reporting nothing. Both new `scanDefinition`s pin `advisory: false` explicitly. Wiring tests cover one
+than reporting nothing. Both new registry entries pin `advisory: false` explicitly. Wiring tests cover one
 governed source change, configuration-only change, an untracked governed `.mjs`, explicit non-default
 runner base, and effective ESLint-config equality with the root configuration. If the conditionally listed
 plan-order scanner is actually modified, it joins the governed set and its existing `no-param-reassign`
@@ -1030,8 +1032,6 @@ shared closeout owners, the runtime seam, the static scan, `project-structure.md
 - `.github/integration-migration-authorities.json`
 - `.github/workflows/ci.yml`
 - `.github/required-status-checks.json`
-- `scripts/harness/ci-mirror-exclusions.mjs`
-- `scripts/harness/__tests__/ci-mirror-map.test.mjs`
 - `scripts/harness/__tests__/github-actions-maintenance.test.mjs`
 - `scripts/harness/pre-push.mjs`
 - `scripts/harness/pre-push-updates.mjs`
@@ -1050,8 +1050,7 @@ shared closeout owners, the runtime seam, the static scan, `project-structure.md
 - `scripts/harness/__tests__/pre-push-sequence.test.mjs`
 - `.husky/pre-push`, `.claude/hooks/branch-guard.sh`, and hook parity tests only if reachability
   cannot be proven without an edit
-- `scripts/harness/scan-user-execution-plan-order.mjs` and
-  `scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs` if required by the validated correction shape
+- focused migration-verifier tests required by the validated correction shape
 - `scripts/harness/scan-integration-migration-darwin-gate.mjs`,
   `scripts/harness/__tests__/scan-integration-migration-darwin-gate.test.mjs`
 - `.agents/evidence/migrations/BRANCH-2664-P2-agreement-2664-migration.json`
@@ -1061,8 +1060,8 @@ shared closeout owners, the runtime seam, the static scan, `project-structure.md
 - [ ] TC-01: Observable: shared merge analysis returns the synthesized tree and clean/conflicted status
       together; clean, manual-resolution, staged, and persisted-conflict-marker regressions preserve
       their distinct attribution outcomes.
-- [ ] TC-02: Command: focused plan-order Vitest and the full plan-order test file exit 0, and
-      `scan-user-execution-plan-order.mjs` accepts the final replacement/sync history.
+- [ ] TC-02: Command: focused migration-verifier tests and affected harness contracts exit 0 for
+      the final replacement/sync history.
 - [ ] TC-03: Observable: the MANIFEST-2664 reference-kind baseline key moves from `active/` to `done/`
       with value `9` and unchanged baseline cardinality; the qualified-reference scan exits 0.
 - [ ] TC-04: Observable: a canonical migration manifest under `.agents/evidence/migrations/` binds the
@@ -1226,7 +1225,7 @@ maxBuffer }`. The
 - [ ] TC-08: Commands: focused migration, admission, operation, pre-push, hook parity, budget-seam, and
       plan-order Vitest suites (real-process race files in the isolated tier, every new module with its
       exact-name test, the entry and helper import-inert under `scan-harness-script-import-safety`) plus
-      the auto-discovered `scan-integration-migration-static` `scanDefinition` (unchanged root
+      the explicitly registered `scan-integration-migration-static` command (unchanged root
       `.eslintrc.json` is the policy SSOT; the scan uses `--no-ignore --no-cache`, has no inline override,
       pins `advisory: false`, fails closed when ESLint is unresolvable, and lint/checks its glob-derived
       complete governed file set when any governed source, `.eslintrc.json`, `.eslintignore`, root

@@ -59,13 +59,14 @@ function parseSessionAnalyzeArgs(argv: string[]): ISessionAnalyzeArgs {
  * id ascending — session ids are timestamp-prefixed, so lexical order is chronological.
  */
 function loadSessionRecords(
+  userSessionStore: IInteractiveSessionStore,
   projectSessionStore: IInteractiveSessionStore | undefined,
 ): TSessionAnalysisInput[] {
   // TRANS-007: analysis needs readable records, so unreadable entries are skipped HERE rather than
   // by the store — the store now reports them, and each consumer decides what it can do with one.
   // An analyzer has nothing to analyse in a record it cannot decode.
   const byId = new Map<string, TSessionAnalysisInput>();
-  for (const entry of createUserSessionStore().list()) {
+  for (const entry of userSessionStore.list()) {
     if (entry.outcome.status === 'valid') byId.set(entry.id, entry.outcome.record);
   }
   for (const entry of projectSessionStore?.list() ?? []) {
@@ -78,9 +79,10 @@ export async function runSessionAnalyze(
   argv: string[],
   cwd: string = process.cwd(),
   projectSessionStore?: IInteractiveSessionStore,
+  userSessionStore: IInteractiveSessionStore = createUserSessionStore(),
 ): Promise<void> {
   const args = parseSessionAnalyzeArgs(argv);
-  const records = loadSessionRecords(projectSessionStore);
+  const records = loadSessionRecords(userSessionStore, projectSessionStore);
 
   if (records.length === 0) {
     process.stderr.write(

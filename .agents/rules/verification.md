@@ -5,11 +5,15 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Build Requirements
 
-- Source changes require an affected-scope build at the coherent implementation-batch boundary,
-  following [execution-cadence.md](execution-cadence.md), not after each edit.
-- Never commit code that does not build successfully.
-- Batch changes, build, test, and repair failures together. Keep local build artifacts current for
-  the user; a commit alone does not invalidate a successful build of identical source inputs.
+- PR CI owns the clean affected build and shared artifacts for normal source changes. Do not
+  duplicate that build locally by default.
+- Build locally only when a focused executable, reproducer, or selected local check reads generated
+  output, or when the user explicitly requests a local build. Run it at the coherent
+  implementation-batch boundary, not after each edit.
+- Never merge source that has not completed its required clean build successfully.
+- Batch any required local build with its focused tests and repair failures. Keep its artifacts
+  current only for the executable or check that consumes them; a commit alone does not invalidate a
+  successful build of identical source inputs.
 - Workers and the integration owner share the verification boundary defined in execution-cadence;
   do not duplicate a pre-commit build with a post-commit build when its inputs are unchanged.
 
@@ -33,20 +37,25 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Pre-Push Local Verification Requirement
 
-Before pushing, identify and execute focused tests for each changed behavior and build affected
-product source at the batch boundary. Inspect the selected commands and fixtures before execution;
-do not invoke a suite that violates the owner's working-directory constraints. The complete
+Before pushing, identify and execute focused tests for each changed behavior. Run a local build only
+when the selected executable, reproducer, or check consumes generated output. Inspect the selected
+commands and fixtures before execution; do not invoke a suite that violates the owner's
+working-directory constraints. The complete
 repository-contract, hermetic and pristine scan suites remain CI's responsibility, not an automatic
 local prerequisite. A local green command proves only its stated scope.
 
-- The automatic `pnpm harness:pre-push` path checks the push subject, clean tree, lockfile, change
-  plan and formatting. It does not run package/scenario suites or reproduce CI. Those local tests
+- The automatic `pnpm harness:pre-push` path checks the push subject, clean tree, lockfile, and changed
+  input plan. Formatting and commit-message checks are reused from commit hooks rather than repeated.
+  It does not run package/scenario suites or reproduce CI. Those local tests
   are intentionally selected by the implementation owner; the hook reports them as not executed.
+- In a fresh worktree, prepare that tree itself before running selected verification: run
+  `pnpm install --frozen-lockfile`, and run `pnpm build` before a selected check that reads build
+  output. A worktree does not share another checkout's workspace install or package outputs.
 - Pre-push resolves one comparison base. `HARNESS_BASE_REF` wins; otherwise an exact single-current-
   branch push to the matching `origin` destination may use the unique same-repository open PR's
   immutable base. Failed or ambiguous discovery reports its reason and uses the broader resolver.
-- Explicit `pnpm harness:verify` and `pnpm harness:verify-like-ci` diagnostics remain available when
-  their execution scope is appropriate. No full local mirror or full-mirror receipt is required.
+- Explicit `pnpm harness:verify` remains available when its execution scope is specifically
+  requested. It is not a normal delivery gate and issues no reusable CI-equivalence receipt.
 - Do not repeat affected build/test results on unchanged inputs merely because a push follows.
 - Delete-only pushes, branch cleanup after a squash-merged PR, and tree-equivalent pushes MUST NOT re-run package build/test/lint/typecheck. The pre-push hook must skip these mechanically.
 - Tree-equivalent skip is valid only when the working tree is clean. Dirty working tree changes must still be planned and verified when `pnpm harness:pre-push` is run manually.
@@ -73,7 +82,7 @@ local prerequisite. A local green command proves only its stated scope.
   branch. Inspect its evidence and preserve failures; never promote a partial result to full green.
 - The integration owner verifies the final affected batch and checks the actual required remote
   results under [git-branch.md](git-branch.md), plus a frozen-lockfile install when the lockfile
-  changed. Workers do focused verification; no actor must duplicate the complete remote scans job
+  changed. Workers do focused verification; no actor must duplicate all selected remote CI groups
   locally. Cadence and re-run triggers are owned by [execution-cadence.md](execution-cadence.md).
 
 ### Headless CLI Verification Requirement
@@ -105,7 +114,8 @@ local prerequisite. A local green command proves only its stated scope.
 
 ### Harness Direction
 
-- All harness changes (scan, verify, record, review scripts) must be backward-compatible with existing scenario records.
+- Historical scenario records remain readable evidence, but retired harness executables and
+  compatibility APIs are removed rather than preserved for them.
 - Harness scripts must not destructively modify scenario records without an explicit `--force` or `--record` flag.
 - Scenario ownership maps must be updated before the harness can verify a new scope.
 

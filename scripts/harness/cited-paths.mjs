@@ -54,8 +54,7 @@ export const LOCAL_SOURCE_PATH_PATTERN = /(?<![\w/])src\/[\w\-./]+\.(?:tsx|ts|mj
  * Any repo-rooted workspace file path with an extension: `(packages|apps|scripts)/….<ext>`.
  * Capture group 1 is the path; group 0 includes the preceding delimiter.
  *
- * Re-exported by check-done-evidence as `PATH_PATTERN` for `scan-unearned-done-claims.mjs`, which
- * already consumes it under that name.
+ * Shared citation grammar for scanners that recognize repository paths in Markdown evidence.
  */
 export const REPO_FILE_PATH_PATTERN =
   /(?:^|[\s`("'[])((?:packages|apps|scripts)\/[A-Za-z0-9_\-./]+\.[A-Za-z0-9]+)/g;
@@ -103,9 +102,9 @@ export function citedRepoPaths(line, options = {}) {
   const { pattern = REPO_SOURCE_PATH_PATTERN, vocabulary = ABSENCE_VOCABULARY } = options;
   if (vocabulary !== null && vocabulary.test(line)) return [];
   // These patterns are module-level `/g` objects shared across scans, and `matchAll` starts from the
-  // object's `lastIndex`. `scan-unearned-done-claims` calls `.test()` on one of them, which leaves
+  // object's `lastIndex`. Callers may use `.test()` repeatedly, which leaves
   // `lastIndex` past the match — a stale value here would silently skip the start of a line. It
-  // already resets before its own `.test()`; this is the same defence on the reading side.
+  // a stale value; reset on the reading side as well.
   pattern.lastIndex = 0;
   const paths = [];
   for (const match of line.matchAll(pattern)) {

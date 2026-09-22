@@ -9,6 +9,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 
 import { runPrePushVerification } from '../pre-push-verification-execution.mjs';
 
@@ -68,24 +69,21 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
 
 describe('globbed harness suite remains CI-owned, not automatic pre-push work (LOCAL-2655)', () => {
   it('CI runs affected contracts and gates only the hermetic tier on the develop path', () => {
-    const content = read('.github/workflows/ci.yml');
-    const stepIndex = content.indexOf(
-      'Harness affected verification (concurrent, dist-independent)',
+    const jobs = parse(read('.github/workflows/ci.yml')).jobs;
+    expect(
+      jobs['harness-contracts'].steps.find(
+        (step) => step.name === 'Run affected harness contracts',
+      ).run,
+    ).toContain(
+      'pnpm harness:test:contracts:affected',
     );
-
-    expect(stepIndex).toBeGreaterThanOrEqual(0);
-
-    const stepBlock = content.slice(stepIndex, stepIndex + 1_800);
-    expect(stepBlock).toContain('pnpm harness:test:contracts:affected');
-    expect(stepBlock).toContain('pnpm harness:test:hermetic');
-    expect(stepBlock).toContain("needs.changes.result != 'success'");
-
-    const scansHeader = content.slice(
-      content.indexOf('\n  scans:\n'),
-      content.indexOf('steps:', content.indexOf('\n  scans:\n')),
+    expect(jobs['harness-hermetic'].steps.at(-1).run).toBe('pnpm harness:test:hermetic');
+    expect(jobs['harness-contracts'].if).toContain(
+      "needs.changes.outputs.harness == 'true'",
     );
-    expect(scansHeader).toContain('!cancelled()');
-    expect(scansHeader).toContain("(github.base_ref || inputs.base_ref) != 'main'");
+    expect(jobs['harness-hermetic'].if).toContain(
+      "needs.changes.outputs.hermetic == 'true'",
+    );
   });
 
   // INFRA-055: on a main PR the `scans` job no longer runs at all, so the release gate is the only
@@ -99,7 +97,7 @@ describe('globbed harness suite remains CI-owned, not automatic pre-push work (L
     expect(packageJson.scripts?.['harness:verify:release']).toContain('pnpm harness:test');
   });
 
-  it('pre-push runs planning and formatting without invoking any harness or product test suite', () => {
+  it('pre-push runs planning without invoking any harness or product test suite', () => {
     const calls = [];
     runPrePushVerification(
       {
@@ -112,15 +110,7 @@ describe('globbed harness suite remains CI-owned, not automatic pre-push work (L
       { run: (command, args) => calls.push([command, args]), write: () => {} },
     );
 
-    // Exact command arguments: a substring search for harness:verify also accepts the
-    // format-only harness:verify-like-ci command and cannot establish this boundary.
-    expect(calls).toEqual([
-      ['pnpm', ['harness:plan', '--', '--base-ref', 'origin/develop']],
-      [
-        'pnpm',
-        ['harness:verify-like-ci', '--', '--base-ref', 'origin/develop', '--only', 'format-check'],
-      ],
-    ]);
+    expect(calls).toEqual([['pnpm', ['harness:plan', '--', '--base-ref', 'origin/develop']]]);
   });
 });
 

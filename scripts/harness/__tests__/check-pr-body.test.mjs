@@ -145,7 +145,7 @@ describe('the required check reaches the judge', () => {
 
   it('sits after the base-sha checkout, before the first applicable classifier-gated step, with no if:', () => {
     const job = WORKFLOW.slice(
-      WORKFLOW.indexOf('\n  review-gate:'),
+      WORKFLOW.indexOf('\n  review-policy:'),
       WORKFLOW.indexOf('\n  disarm-auto-merge:'),
     );
     const checkoutAt = job.indexOf('ref: ${{ github.event.pull_request.base.sha }}');

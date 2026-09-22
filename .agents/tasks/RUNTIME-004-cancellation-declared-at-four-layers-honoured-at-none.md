@@ -111,7 +111,8 @@ executes one more node after cancellation.
 - Assert `IDagOrchestrationPort` exposes cancel, and that
   `http-dag-runtime-provider.ts:215-223`'s honest rejection is preserved where the capability is
   genuinely absent.
-- `pnpm harness:verify-like-ci` green.
+- Targeted runtime tests/build/typecheck, `pnpm harness:scan`, and the required GitHub CI aggregates
+  on the exact PR head are green.
 
 ## User Execution Test Scenarios
 

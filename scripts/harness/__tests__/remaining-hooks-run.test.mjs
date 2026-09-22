@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
@@ -10,11 +10,11 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
 
 /**
- * Execution coverage for the four hooks that had none.
+ * Execution coverage for the remaining hooks that had none.
  *
  * `hooks-have-execution-coverage` — the mechanical floor for PROC-003's third question, "is it
- * reached?" — found these on its first run: `memory-mirror-reminder`, `post-tool-format`,
- * `spec-first-gate` and `task-tracking` were described by no test and executed by none. That is the
+ * reached?" — found `memory-mirror-reminder` and `post-tool-format` described by no test and
+ * executed by none. That is the
  * shape that left `worktree-cwd-guard` switched off in every real session with ten green tests
  * beside it, so a hook nobody runs is a hook nobody has checked.
  *
@@ -26,7 +26,6 @@ const scratch = [];
 afterAll(() => {
   for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
 });
-
 function scratchDir(prefix) {
   const dir = makeTemp(prefix);
   scratch.push(dir);
@@ -201,124 +200,5 @@ describe('post-tool-format', () => {
 
     expect(call(formatted).status ?? 1).toBe(0);
     expect(existsSync(marker), 'a supported extension never reached the formatter').toBe(true);
-  });
-});
-
-describe('spec-first-gate', () => {
-  // Signal: the UserPromptSubmit payload's `prompt`. The gate reads intent from the text, so the
-  // cases are prompts.
-  it('keeps the large reminder on the direct printf path', async () => {
-    const source = readFileSync(path.join(HOOKS_DIR, 'spec-first-gate.sh'), 'utf8');
-
-    expect(source).toContain("printf '%s\\n' \\");
-    expect(source).not.toContain("cat <<'EOF'");
-  });
-
-  it('injects the gate when a prompt states implementation intent without a spec', async () => {
-    // The case the earlier pair claimed and did not reach: both of those took the silent path, so
-    // breaking the intent match or deleting the SPEC-GATE block entirely would have left them green.
-    const verdict = await run('spec-first-gate.sh', {
-      input: JSON.stringify({ prompt: 'implement the retry queue for the worker' }),
-    });
-
-    expect(verdict.status, verdict.output).toBe(0);
-    expect(verdict.output, 'the gate said nothing about implementation intent').toMatch(
-      /SPEC-GATE/,
-    );
-  });
-
-  it('stays quiet when the prompt already refers to a spec', async () => {
-    // The other half of the same branch: a prompt that names a spec has already done what the gate
-    // asks for, and a gate that fires anyway is one people learn to scroll past.
-    const verdict = await run('spec-first-gate.sh', {
-      input: JSON.stringify({ prompt: 'implement the retry queue per its spec-doc' }),
-    });
-
-    expect(verdict.status).toBe(0);
-    expect(verdict.output.trim()).toBe('');
-  });
-
-  it('says nothing when the prompt states no implementation intent', async () => {
-    const verdict = await run('spec-first-gate.sh', {
-      input: JSON.stringify({ prompt: 'what does this package do?' }),
-    });
-
-    expect(verdict.status, verdict.output).toBe(0);
-    expect(verdict.output.trim()).toBe('');
-  });
-
-  it('says nothing on an empty prompt', async () => {
-    const verdict = await run('spec-first-gate.sh', { input: JSON.stringify({ prompt: '' }) });
-
-    expect(verdict.status).toBe(0);
-    expect(verdict.output.trim()).toBe('');
-  });
-});
-
-describe('task-tracking', () => {
-  // Signals: the `start`/`stop` mode argument, and a tasks directory under CLAUDE_PROJECT_DIR. Both
-  // come from the deployment — the mode from `.claude/settings.json`, the directory from the repo.
-  function repoWithTasks(files) {
-    const dir = scratchDir('task-tracking-');
-    const tasks = path.join(dir, '.agents', 'tasks');
-    mkdirSync(tasks, { recursive: true });
-    for (const [name, body] of Object.entries(files)) {
-      writeFileSync(path.join(tasks, name), body);
-    }
-    return dir;
-  }
-
-  function track(dir, mode) {
-    const result = spawnSync('bash', [path.join(HOOKS_DIR, 'task-tracking.sh'), mode], {
-      input: '{}',
-      encoding: 'utf8',
-      cwd: dir,
-      env: { ...process.env, CLAUDE_PROJECT_DIR: dir },
-    });
-    return {
-      status: result.status ?? 1,
-      output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
-    };
-  }
-
-  it('classifies what is in the directory, open from finished', () => {
-    // The hook's actual job, which the guard-clause cases never reached. It lists both, and the
-    // classification is the content: an unchecked box is open work, `status: completed` is work that
-    // needs archiving. Asserting only that a name appears would pass with the classifier deleted.
-    const dir = repoWithTasks({
-      'TASK-1.md': '---\nstatus: in-progress\n---\n# One\n\n- [ ] still to do\n',
-      'TASK-2.md': '---\nstatus: done\ncompleted: 2026-08-14\n---\n# Two\n\n- [ ] leftover\n',
-    });
-    const verdict = track(dir, 'start');
-
-    expect(verdict.output, 'the open task went unmentioned').toMatch(/TASK-1/);
-    expect(verdict.output, 'the open task was called finished').not.toMatch(/TASK-1\.md — DONE/);
-    expect(verdict.output, 'a finished task was not marked for archival').toMatch(
-      /TASK-2\.md — DONE/,
-    );
-  });
-
-  it('does not call body prose completed', () => {
-    const dir = repoWithTasks({
-      'TASK-1.md': '---\nstatus: in-progress\n---\n# One\n\nStatus: completed\n',
-    });
-    const verdict = track(dir, 'start');
-    expect(verdict.output).toMatch(/TASK-1\.md — in progress/);
-    expect(verdict.output).not.toMatch(/TASK-1\.md — DONE/);
-  });
-
-  it('refuses a mode it does not handle, and says so', async () => {
-    // Invoked with no mode it is not a no-op — it is a misuse, and the hook names the two it takes.
-    const verdict = await run('task-tracking.sh', { input: '{}' });
-
-    expect(verdict.status, verdict.output).not.toBe(0);
-    expect(verdict.output).toMatch(/Usage: task-tracking\.sh <start\|stop>/);
-  });
-
-  it('does nothing when there is no tasks directory', () => {
-    const dir = scratchDir('task-tracking-empty-');
-    mkdirSync(path.join(dir, '.claude'), { recursive: true });
-
-    expect(track(dir, 'start').status).toBe(0);
   });
 });

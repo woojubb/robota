@@ -11,7 +11,7 @@ backlog).
 
 ## Rule Anchor
 
-- `.agents/rules/spec-workflow.md` > HARD GATE (fix specs authored from concrete findings only)
+- `.agents/rules/spec-workflow.md` > one authoritative work record and explicit entry decision
 - `AGENTS.md` > Document Discovery Policy — prefer a mechanical check over adding more prose
 - Reference schema: `.design/architecture-audit/2026-06-13/improvement-proposal.md` (INFRA-002)
 
@@ -30,8 +30,8 @@ backlog).
 ## Rules
 
 - Every P0 and P1 finding MUST map to a remediation + a proposed backlog ID + type prefix.
-- Proposed backlog IDs are _proposed_ — each still passes GATE-WRITE → GATE-APPROVAL before
-  implementation. Allocate collision-free IDs against existing `.agents/spec-docs/**`.
+- Proposed backlog IDs are _proposed_ — the responsible owner still makes an explicit entry decision
+  before implementation. Allocate collision-free IDs against existing `.agents/spec-docs/**`.
 - Recurring drift MUST carry a mechanical-guard recommendation (prose-only remediation is the last resort).
 
 ## Output
@@ -41,6 +41,6 @@ whose criteria require it) one draft backlog per P0 finding under `.agents/spec-
 
 ## What This Skill Does NOT Do
 
-- Apply any fix → fixes are separate backlogs through the gate pipeline.
+- Apply any fix → fixes are separate backlog work units unless the caller explicitly expands scope.
 - Assign findings or severities → that is `conformance-finding-report`.
-- Approve or implement the proposed backlogs → `backlog-pipeline`.
+- Approve or implement the proposed work → `user-request-gate`.

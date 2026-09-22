@@ -13,6 +13,14 @@ Spec: `.agents/spec-docs/active/BRANCH-2664-P2-make-reviewed-legacy-base-diverge
 
 # BRANCH-2664: P2 make reviewed legacy-base divergence auditable
 
+## Issue #2826 coordination
+
+This Task remains open, but its prospective verification consumes the current applicable-check
+contract. Deleted plan-order and CI-mirror modules are historical references only. Any Darwin
+migration check must be an affected child aggregated by `pr-validation`, not a fifth required
+context; the stable required contexts remain `pr-validation`, `security`, `review-policy`, and
+trusted `workflow provenance`.
+
 ## Objective
 
 > Scope split 2026-09-21: the manifest verifier, record binding, runtime seam, static scan, and
@@ -60,7 +68,7 @@ admission seam, credential handoff, CI registration — is owned by the SPEC's `
 
 - [ ] TC-01 — Preserve clean/conflicted merge status and own-path attribution in the shared helper,
       with clean, manual-resolution, staged, and persisted-conflict-marker regressions.
-- [ ] TC-02 — Run focused and full plan-order verification against the exact replacement/sync history.
+- [ ] TC-02 — Run the landed migration verifier and affected harness contracts against the exact replacement/sync history.
 - [ ] TC-03 — Re-key MANIFEST-2664's reference-kind baseline from `active/` to `done/` with value and
       baseline cardinality unchanged.
 - [ ] TC-04 — Commit and verify the canonical AGREEMENT-2664 migration manifest against exact legacy and
@@ -79,7 +87,7 @@ admission seam, credential handoff, CI registration — is owned by the SPEC's `
 - [ ] TC-01 — Implement the pure manifest module: the SHA-1 canonical manifest, four dispositions,
       deterministic base64-path recursive `--no-renames` tuples, closed parsing, raw non-UTF-8/control-byte
       paths, and exact field diagnostics. Acceptance is SPEC TC-01.
-- [ ] TC-02 — Reproduce the legacy findings with a hermetic minimal graph in the isolated plan-order
+- [ ] TC-02 — Reproduce the legacy findings with a hermetic minimal graph in the migration-verifier
       suite (the command half) and record bounded Phase-B evidence with fetch commands, OIDs, and output
       digests for the exact remote legacy/fresh-replacement graph (the observable half) without a
       live-network default test. Acceptance is SPEC TC-02.
@@ -108,8 +116,8 @@ admission seam, credential handoff, CI registration — is owned by the SPEC's `
       cleanup runtime, the disjoint remote projection matrix with stable `remote:complete`, and the
       handshake-driven real-process fixtures in the isolated tier under a dedicated `test/` sub-root with
       dead-owner sweeps. The acceptance list is SPEC TC-07 verbatim; this Task adds nothing to it.
-- [ ] TC-08 — Keep root `.eslintrc.json` unchanged as the lint-policy SSOT and add the auto-discovered
-      `scan-integration-migration-static` `scanDefinition` (glob-derived governed set including the new
+- [ ] TC-08 — Keep root `.eslintrc.json` unchanged as the lint-policy SSOT and add an explicit
+      `SCAN_COMMANDS` entry for `scan-integration-migration-static` (glob-derived governed set including the new
       scans, `advisory: false`, fail-closed on a missing ESLint binary, no inline override) that checks the
       complete governed file set via `--no-ignore --no-cache` when source or lint configuration is
       affected; register `migration-darwin-contract` as its own `ciOwned` required context through the
@@ -120,7 +128,7 @@ admission seam, credential handoff, CI registration — is owned by the SPEC's `
 
 ## Test Plan
 
-Run the focused and full plan-order Vitest suite, the plan-order history scan, reference-kind scan,
+Run the focused migration-verifier suite, affected harness contracts, reference-kind scan,
 canonical migration verifier, exact remote-ref read-backs, Task/spec projection scans, required GitHub
 checks, independent merge verification, and the closeout audit. TC-08 is complete only when issue #2664
 reads `CLOSED`.
@@ -198,20 +206,22 @@ Robota CLI, TUI, browser, public SDK, configuration, or installed-package behavi
   The integrated correction adds exact absent-ref-lease smart object publication, separated publisher/protector Apps
   with an owner-operated provisioner, injected remote ports, credential scrubbing/revocation and
   redaction tests, raw path-byte fixtures, owner-dispatched drift wiring, and a registered affected-harness
-  static scan. A fresh fanout must validate that revised surface before approval.
+  static scan. Issue #2826 replaced discovery with explicit registry wiring, so implementation and
+  the fresh fanout must validate the registry entry rather than a `scanDefinition` export.
 - Post-fanout recommendation review: `REVIEW VERDICT: REVISE | 2026-09-21` with three in-scope findings.
   The revised transport now recognizes that each develop sync also creates a local-only object: GraphQL
   remains exclusive to atomic target/review application, while review creation and every sync use native
   Git smart pushes with explicit absent-ref or exact-old-tip leases and lost-response classification.
-  `scan-harness-mjs-static.mjs` follows the existing auto-discovered `scanDefinition` contract rather than
-  editing the runner registry.
+  `scan-harness-mjs-static.mjs` was originally reviewed against the then-current discovery contract;
+  issue #2826 supersedes that wiring choice with an explicit runner registry entry.
 - Recommendation review: `REVIEW VERDICT: ENDORSE | 2026-09-21`. The retained reviewer verified exact
   native Git lease syntax for review/sync object publication, GraphQL-only atomic target/review apply,
-  capability-probe cleanup, SIGKILL residual-risk wording, and auto-discovered static-scan registration.
+  capability-probe cleanup and SIGKILL residual-risk wording. Its discovery recommendation is
+  superseded by issue #2826's explicit static-scan registry.
   Loop run `r20260921052726` converged with findings `[3, 0]`.
 - Final architecture fanout `r20260921053723`: all 23 cells were covered; design was clean, while
   structure/runtime/gate retained five material contract gaps. The correction retains root
-  `.eslintrc.json` as the unchanged lint-policy owner, makes the auto-discovered scan evaluate a complete governed set,
+  `.eslintrc.json` as the unchanged lint-policy owner, makes the explicitly registered scan evaluate a complete governed set,
   captures every child argv/environment, installs bounded signal cleanup, and gives capability-probe
   create/delete lost responses unconditional state-based cleanup. A final delta fanout and fresh
   GATE-WRITE are required before approval.

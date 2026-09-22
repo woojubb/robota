@@ -47,10 +47,8 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import {
-  ScriptTarget,
   SyntaxKind,
   createSourceFile,
-  forEachChild,
   isAsExpression,
   isBinaryExpression,
   isIdentifier,
@@ -77,7 +75,7 @@ function sourceFiles(dir, out = []) {
 }
 
 function parse(file, source) {
-  return createSourceFile(file, source, ScriptTarget.Latest, true);
+  return createSourceFile(file, source);
 }
 
 /**
@@ -111,7 +109,7 @@ export function collectStringUnions(files, readFile = (f) => readFileSync(f, 'ut
           else if (existing !== null) for (const m of members) existing.add(m);
         }
       }
-      forEachChild(node, visit);
+      node.forEachChild(visit);
     };
     visit(ast);
   }
@@ -189,7 +187,7 @@ export function findLiteralCastViolations(
           }
         }
       }
-      forEachChild(node, visit);
+      node.forEachChild(visit);
     };
     visit(ast);
   }

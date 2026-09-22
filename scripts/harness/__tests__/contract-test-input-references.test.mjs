@@ -11,7 +11,7 @@ import {
   CONTRACT_CONTROL_PLANE_INPUTS,
   CONTRACT_SAFETY_FLOOR,
   createContractTestRegistry,
-  relativeImportClosure,
+  resolveContractTestInputs,
   validateContractTestRegistry,
   validateContractReferenceEvidence,
   validateContractInputProjection,
@@ -46,7 +46,7 @@ it('uses the enumeration owner including unstaged new source without requiring f
   expect(entry.implementationInputs).toContain('scripts/harness/new-helper.mjs');
 });
 
-it('retains dynamic evidence as entry-local always-run uncertainty without invalidating the registry', () => {
+it('expands undisposed dynamic evidence to an always-run noncacheable entry', () => {
   const { root, context } = fixture({ [TEST]: 'await import(selectedModule);' });
   const registry = createContractTestRegistry(root, [TEST], context);
   expect(registry[0].references).toEqual([
@@ -57,10 +57,16 @@ it('retains dynamic evidence as entry-local always-run uncertainty without inval
       resolution: expect.objectContaining({ status: 'unresolved', reason: 'nonliteral-reference' }),
     }),
   ]);
-  expect(() => relativeImportClosure(root, TEST, context)).toThrow(/nonliteral-reference/);
+  expect(resolveContractTestInputs(root, TEST, context).uncertainInputs).toEqual([
+    expect.objectContaining({ reason: 'nonliteral-reference' }),
+  ]);
   const [entry] = registry;
-  expect(entry).toMatchObject({ always: true, cacheable: false });
-  expect(entry.alwaysReason).toContain('nonliteral-reference');
+  expect(entry).toMatchObject({
+    always: true,
+    alwaysReason: '1 unresolved repository input(s) lack an explicit disposition',
+    cacheable: false,
+    uncertaintyDispositions: [],
+  });
   expect(entry.uncertainInputs).toEqual([
     {
       referenceId: entry.references[0].id,
@@ -92,16 +98,14 @@ function fixture(entries) {
   };
 }
 
-it('refuses removing uncertainty or its always-run/noncacheable policy', () => {
+it('refuses removing uncertainty or its noncacheable policy', () => {
   const { root, context } = fixture({ [TEST]: 'await import(selectedModule);' });
   const [entry] = createContractTestRegistry(root, [TEST], context);
   for (const patch of [
     { uncertainInputs: [] },
     { uncertainInputs: undefined },
-    { always: false },
     { cacheable: true },
     { cacheable: undefined },
-    { alwaysReason: 'pretend complete' },
   ]) {
     expect(() => validateContractInputProjection({ ...entry, ...patch })).toThrow(/uncertainty/);
   }
@@ -183,7 +187,10 @@ it('does not recurse into executable-looking string data or fake imports in comm
     'scripts/harness/data.mjs': "import './unrelated.mjs';",
     'scripts/harness/unrelated.mjs': '',
   });
-  expect(relativeImportClosure(root, TEST, context)).toEqual([TEST, 'scripts/harness/actual.mjs']);
+  expect(resolveContractTestInputs(root, TEST, context).implementationInputs).toEqual([
+    TEST,
+    'scripts/harness/actual.mjs',
+  ]);
   const [entry] = createContractTestRegistry(root, [TEST], context);
   expect(entry.implementationInputs).toEqual([TEST, 'scripts/harness/actual.mjs']);
   expect(entry.repositoryInputs).toEqual([]);
@@ -243,6 +250,7 @@ it('invalidates contract selection/cache control inputs when the shared evidence
       'scripts/harness/workspace-source-reference-extraction.mjs',
       'scripts/harness/workspace-source-reference-resolution.mjs',
       'scripts/harness/workspace-source-config-resolution.mjs',
+      'scripts/harness/harness-test-classification.mjs',
       'scripts/harness/lib/ts-ast.mjs',
     ]),
   );
@@ -306,17 +314,16 @@ it('does not read symlinked files or paths below symlinked directories even if l
   expect(validateContractTestRegistry(root, [TEST], registry)).toBe(registry);
 });
 
-it('retains the missing cwd reason rather than guessing that a file read uses repository root', () => {
+it('defaults content reads to the repository cwd used by contract execution', () => {
   const { root, context } = fixture({
     [TEST]: "import { readFileSync } from 'node:fs'; readFileSync('input.json');",
     'input.json': '{}',
   });
   const [entry] = createContractTestRegistry(root, [TEST], context);
+  expect(entry.repositoryInputs).toEqual(['input.json']);
   expect(
-    entry.references.find((reference) => reference.kind === 'read-content').resolution.reason,
-  ).toBe('missing-cwd');
-  const [withCwd] = createContractTestRegistry(root, [TEST], { ...context, cwd: '.' });
-  expect(withCwd.repositoryInputs).toEqual(['input.json']);
+    entry.references.find((reference) => reference.kind === 'read-content').resolution,
+  ).toMatchObject({ status: 'resolved', targets: ['input.json'] });
 });
 
 it.each([

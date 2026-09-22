@@ -65,7 +65,8 @@ try/catch. A companion-aware sibling would serve the remaining eight.
 - **Required red-first regression, per site:** feed each command a definition file carrying
   `status: 'active'` and assert it is reported. Against current code every one of them accepts it.
 - One case per command asserting an unrecognised shape is reported rather than passed on.
-- `pnpm harness:verify-like-ci` green.
+- Targeted DAG tests/build/typecheck, `pnpm harness:scan`, and the required GitHub CI aggregates on
+  the exact PR head are green.
 
 ## User Execution Test Scenarios
 

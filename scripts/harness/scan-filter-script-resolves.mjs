@@ -61,7 +61,7 @@
  * Exit code 0 = every filtered package declares the script named after it.
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { isImmutableHistoricalRecord } from './check-ghost-package-refs.mjs';
@@ -143,6 +143,7 @@ export function findFilterScriptFindings(root = WORKSPACE_ROOT) {
   for (const relative of collectFiles(PATHSPECS, { cwd: root })) {
     const normalized = relative.split(path.sep).join('/');
     if (isImmutableHistoricalRecord(normalized)) continue;
+    if (!existsSync(path.join(root, relative))) continue;
     examinedFiles += 1;
     findings.push(
       ...judgeText(readFileSync(path.join(root, relative), 'utf8'), normalized, scriptsByPackage),

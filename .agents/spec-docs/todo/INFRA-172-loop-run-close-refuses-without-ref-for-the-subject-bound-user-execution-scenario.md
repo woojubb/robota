@@ -1,11 +1,16 @@
 ---
-status: approved
+status: rejected
 type: INFRA
 tags: [infra]
 lane: L1
 ---
 
 # INFRA-172: loop-run close refuses without --ref for the subject-bound user-execution-scenario ledger
+
+## Disposition
+
+**Superseded by issue #2826.** The loop ledger, writer, and judging scans were deleted rather than
+kept behind a compatibility path. The remainder of this document is historical evidence.
 
 Paired with `.agents/tasks/INFRA-172-loop-run-close-refuses-without-ref-for-the-subject-bound-user-execution-scenario.md`. Arising from [issue #2587](https://github.com/woojubb/robota/issues/2587).
 

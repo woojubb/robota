@@ -11,7 +11,7 @@ import { DISPOSITION_LABELS } from '../record-local-review.mjs';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/merge-gate.sh');
 const WORKFLOW = path.join(WORKSPACE_ROOT, '.github/workflows/review-gate.yml');
-const HEAD_OID = '2222222222222222222222222222222222222222';
+let HEAD_OID = '';
 
 /**
  * The disposition a merge is judged against belongs to the PR, not to a checkout (PROC-007).
@@ -64,6 +64,12 @@ beforeAll(() => {
   gitIn(seed, 'commit', '--quiet', '-m', 'develop base');
   BASE_OID = gitIn(seed, 'rev-parse', 'HEAD');
   gitIn(seed, 'push', '--quiet', origin, 'develop');
+  gitIn(seed, 'switch', '--quiet', '-c', 'feat/disposition-fixture');
+  writeFileSync(path.join(seed, 'feature.txt'), 'head\n');
+  gitIn(seed, 'add', 'feature.txt');
+  gitIn(seed, 'commit', '--quiet', '-m', 'feature head');
+  HEAD_OID = gitIn(seed, 'rev-parse', 'HEAD');
+  gitIn(seed, 'push', '--quiet', origin, 'feat/disposition-fixture');
 
   ELSEWHERE = scratchDir('merge-gate-elsewhere-');
   execFileSync('git', ['clone', '--quiet', origin, ELSEWHERE]);
