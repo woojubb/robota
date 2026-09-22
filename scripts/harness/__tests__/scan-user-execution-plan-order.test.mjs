@@ -18,6 +18,7 @@ import {
   evaluatePlanTexts,
   findHistoryFindings as rawFindHistoryFindings,
   findStagedFindings as rawFindStagedFindings,
+  mergeOwnPaths,
   readExaminedPlanOrderCount,
   CONTINUATION_STATUS_LINE,
   CORRECTION_STATUS_LINE,
@@ -1910,6 +1911,65 @@ describe('user-execution PLAN order — branch history', () => {
     expect(evil.staged).toMatch(/no planning checkpoint ancestor/);
     expect(evil.history).toContain('scripts/harness/evil.mjs');
     expect(evil.history).not.toContain('README.md');
+  });
+
+  it('preserves conflicted status when a merge commit persists Git conflict-marker output', () => {
+    const { root, base } = repository();
+    const conflictPath = 'scripts/harness/conflict-marker.mjs';
+
+    write(root, conflictPath, 'export const side = "feature";\n');
+    const feature = commit(root, 'feature side of add/add conflict');
+    git(root, ['switch', '-q', 'develop']);
+    write(root, conflictPath, 'export const side = "develop";\n');
+    const develop = commit(root, 'develop side of add/add conflict');
+
+    const mergeTree = spawnSync(
+      'git',
+      ['merge-tree', '--write-tree', '--name-only', '-z', feature, develop],
+      { cwd: root, encoding: 'utf8' },
+    );
+    expect(mergeTree.status).toBe(1);
+    const [conflictTree] = mergeTree.stdout.split('\0');
+    const conflictCommit = git(root, [
+      'commit-tree',
+      conflictTree,
+      '-p',
+      feature,
+      '-p',
+      develop,
+      '-m',
+      'persist conflict-marker tree',
+    ]);
+
+    expect(mergeOwnPaths(root, conflictCommit, [feature, develop])).toEqual({
+      clean: false,
+      paths: [conflictPath],
+    });
+    expect(base).toMatch(/^[0-9a-f]{40}$/);
+  });
+
+  it('attributes a manually resolved conflicted merge to its conflicted path', () => {
+    const { root } = repository();
+    const conflictPath = 'scripts/harness/manual-resolution.mjs';
+
+    write(root, conflictPath, 'export const side = "feature";\n');
+    const feature = commit(root, 'feature side of manual conflict');
+    git(root, ['switch', '-q', 'develop']);
+    write(root, conflictPath, 'export const side = "develop";\n');
+    const develop = commit(root, 'develop side of manual conflict');
+    git(root, ['switch', '-q', 'feature']);
+    const merge = spawnSync('git', ['merge', '--no-ff', '--no-commit', develop], {
+      cwd: root,
+      encoding: 'utf8',
+    });
+    expect(merge.status).toBe(1);
+    write(root, conflictPath, 'export const side = "resolved";\n');
+    const resolved = commit(root, 'resolve add/add conflict');
+
+    expect(mergeOwnPaths(root, resolved, [feature, develop])).toEqual({
+      clean: false,
+      paths: [conflictPath],
+    });
   });
 
   it('accepts a continuation checkpoint on a pair already in-progress at the base (HARNESS-131)', () => {

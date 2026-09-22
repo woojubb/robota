@@ -256,32 +256,27 @@ function changedPaths(root, from, to) {
 }
 
 /**
- * The tree Git itself would produce by merging `ours` and `theirs` (issue #2410). Conflicted paths
- * are written with their markers, so a resolution differs from this tree at exactly those paths.
+ * The result Git itself would produce by merging `ours` and `theirs` (issues #2410 / MERGE-2664).
+ * `--name-only -z` preserves the conflicted path set separately from the synthesized tree: a commit
+ * that persists Git's conflict-marker tree must not become indistinguishable from a clean merge.
  */
-function automaticMergeTree(root, ours, theirs) {
-  const result = runGit(root, ['merge-tree', '--write-tree', ours, theirs]);
+function automaticMerge(root, ours, theirs) {
+  const result = runGit(root, ['merge-tree', '--write-tree', '--name-only', '-z', ours, theirs]);
   // 0: clean, 1: conflicts (the tree is still on the first line), anything else: not a merge result.
   if (result.code !== 0 && result.code !== 1) {
     throw new Error(
       `git merge-tree ${ours} ${theirs} failed: ${result.stderr || '(no stderr)'} — a merge's own content cannot be attributed`,
     );
   }
-  const tree = result.stdout.split('\n', 1)[0].trim();
+  const [treeField = '', ...fields] = result.stdout.split('\0');
+  const tree = treeField.trim();
   if (!/^[0-9a-f]{40,64}$/.test(tree)) {
     throw new Error(`git merge-tree ${ours} ${theirs} wrote no tree: ${result.stdout.trim()}`);
   }
-  return tree;
-}
-
-function automaticMergeIsClean(root, ours, theirs) {
-  const result = runGit(root, ['merge-tree', '--write-tree', ours, theirs]);
-  if (result.code !== 0 && result.code !== 1) {
-    throw new Error(
-      `git merge-tree ${ours} ${theirs} failed: ${result.stderr || '(no stderr)'} — merge cleanliness cannot be established`,
-    );
-  }
-  return result.code === 0;
+  const pathEnd = fields.indexOf('');
+  const conflictedPaths =
+    result.code === 1 ? fields.slice(0, pathEnd < 0 ? fields.length : pathEnd) : [];
+  return { tree, clean: result.code === 0, conflictedPaths };
 }
 
 /**
@@ -291,13 +286,18 @@ function automaticMergeIsClean(root, ours, theirs) {
  * and an evil merge (a path present in neither parent) are exactly what remains. An octopus merge
  * has no single automatic result to compare against and is refused rather than guessed.
  */
-function mergeOwnPaths(root, commit, parents) {
+export function mergeOwnPaths(root, commit, parents) {
   if (parents.length !== 2) {
     throw new Error(
       `${commit} is a ${parents.length}-parent merge; its own content cannot be attributed`,
     );
   }
-  return changedPaths(root, automaticMergeTree(root, parents[0], parents[1]), commit);
+  const automatic = automaticMerge(root, parents[0], parents[1]);
+  const resolvedPaths = changedPaths(root, automatic.tree, commit);
+  return {
+    clean: automatic.clean,
+    paths: [...new Set([...automatic.conflictedPaths, ...resolvedPaths])].sort(),
+  };
 }
 
 function stagedPaths(root) {
@@ -305,8 +305,9 @@ function stagedPaths(root) {
   // A merge in progress (issue #2410): the index against HEAD is the whole other side. The proposed
   // merge's own content is what the index adds beyond Git's automatic merge of HEAD and MERGE_HEAD.
   const mergeHead = runGit(root, ['rev-parse', '--verify', '--quiet', 'MERGE_HEAD^{commit}']);
-  const against =
-    mergeHead.code === 0 ? automaticMergeTree(root, 'HEAD', mergeHead.stdout.trim()) : 'HEAD';
+  const automatic =
+    mergeHead.code === 0 ? automaticMerge(root, 'HEAD', mergeHead.stdout.trim()) : null;
+  const against = automatic?.tree ?? 'HEAD';
   const result = runGit(root, [
     'diff-index',
     '--cached',
@@ -317,7 +318,7 @@ function stagedPaths(root) {
     '--',
   ]);
   if (result.code !== 0) throw new Error(`staged diff failed: ${result.stderr || '(no stderr)'}`);
-  return nulPaths(result.stdout);
+  return [...new Set([...(automatic?.conflictedPaths ?? []), ...nulPaths(result.stdout)])].sort();
 }
 
 /**
@@ -2558,9 +2559,9 @@ function singleHistoryAnalysis(
       continue;
     }
     const own = mergeOwnPaths(root, commit, parents);
-    if (own.length === 0) continue;
+    if (own.paths.length === 0) continue;
     examined += 1;
-    entries.push({ commit, parent: parents[0], paths: own, merge: true });
+    entries.push({ commit, parent: parents[0], paths: own.paths, merge: true });
   }
   const commits = entries.map((entry) => entry.commit);
 
@@ -3049,13 +3050,12 @@ function integrationHistoryAnalysis(root, requestedBase, agreementId, readPull) 
       continue;
     }
     const [firstParent, secondParent] = row.parents;
-    // Contained — MERGE-2664. The shared tree-only helper intentionally still serves staged manual
-    // resolution attribution; this integration contract separately refuses a conflicted auto-merge.
-    if (!automaticMergeIsClean(root, firstParent, secondParent)) {
+    const own = mergeOwnPaths(root, row.commit, row.parents);
+    if (!own.clean) {
       findings.push(finding('child history is not merge-bounded.', row.commit));
       continue;
     }
-    if (mergeOwnPaths(root, row.commit, row.parents).length > 0) {
+    if (own.paths.length > 0) {
       findings.push(finding('child history is not merge-bounded.', row.commit));
       continue;
     }
