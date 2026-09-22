@@ -1,7 +1,8 @@
 ---
 title: 'SCREEN-2442: Validate Korean IME cursor positioning on macOS terminals'
 issue: https://github.com/woojubb/robota/issues/2773
-status: in-progress
+status: done
+completed: 2026-09-22
 created: 2026-09-14
 priority: high
 urgency: now
@@ -29,8 +30,8 @@ machine that day and is not rewritten to match a later scope.
 - [x] TC-01 — Inventory macOS, Terminal.app, iTerm2 and enabled Korean input-source versions.
 - [x] TC-01 — Execute and capture both real Terminal.app/IME cells, including mid-line composition and movement.
 - [x] TC-04 — Decide and implement the Terminal.app default policy from the observed crash/position behavior.
-- [ ] TC-02 and TC-03 — Rerun capability, component, fallback and PTY suites after the decision.
-- [ ] TC-05 — Archive SCREEN-2442 and update the AGREEMENT-2670 projections after both user-execution gate stages pass.
+- [x] TC-02 and TC-03 — Rerun capability, component, fallback and PTY suites after the decision.
+- [x] TC-05 — Archive SCREEN-2442 and update the AGREEMENT-2670 projections after both user-execution gate stages pass.
 
 ## Inventory and automated baseline (2026-09-21)
 
@@ -94,6 +95,15 @@ real-hardware observation.
 
 Use the real built CLI in Terminal.app with Korean IME plus the existing automated environment,
 component, fallback and PTY matrix. Record observable per-cell evidence rather than environment simulation alone.
+
+## Post-decision engineering verification (2026-09-22)
+
+The retained I5 policy was followed by the relevant component, fallback, capability, and PTY suites:
+
+- `npx vitest run src/__tests__/terminal-capabilities.test.ts src/__tests__/real-cursor-positioning.test.tsx src/__tests__/cjk-fallback-render.test.tsx` → 3 files / 46 tests, exit 0.
+- `npx vitest run --config vitest.pty.config.ts src/__tests__/pty/ime-cursor.ptytest.ts src/__tests__/pty/ime-cursor-tmux.ptytest.ts` → 2 files / 9 tests, exit 0.
+
+These are engineering regressions only; the Terminal.app screenshots in the scenario evidence are the separate product-execution evidence for this Task.
 
 ## User Execution Test Scenarios
 
@@ -235,3 +245,31 @@ component, fallback and PTY matrix. Record observable per-cell evidence rather t
 ```
 
 <!-- checkpoint-evidence:v1:end -->
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** scenario written → scenario executed
+
+- Ordering: PASS — the latest `DONE-GATE-STAGE-1` entry is a valid 2026-09-22 PASS for both canonical
+  `automatable` scenarios; the current scenario section also parses successfully with
+  `validateApplicableScenarioSection`.
+- Scenario 1: PASS — the agent directly ran `pnpm exec robota` in Terminal.app, entered `hello world`,
+  moved left five times, composed `한`, then sent Left and Right. The screenshots show the initial `한`
+  composition below the input line at its left edge, followed by committed `hello 한world` and a still-live
+  Robota TUI: `/tmp/robota-screen-2442-cell1-ascii-left5.png`,
+  `/tmp/robota-screen-2442-cell1-korean-compose.png`,
+  `/tmp/robota-screen-2442-cell1-korean-left.png`, and
+  `/tmp/robota-screen-2442-cell1-korean-right.png`.
+- Scenario 2: PASS — the agent directly ran `pnpm exec robota` with the declared
+  `ROBOTA_IME_CURSOR=1` prerequisite in Terminal.app and performed the same interaction. The screenshots
+  show the same incorrect initial left-edge composition, committed `hello 한world` after Left, and a
+  still-live Robota TUI after Right: `/tmp/robota-screen-2442-cell2-ascii-left5.png`,
+  `/tmp/robota-screen-2442-cell2-korean-compose.png`,
+  `/tmp/robota-screen-2442-cell2-korean-left.png`, and
+  `/tmp/robota-screen-2442-cell2-korean-right.png`.
+- Expected-observable match: PASS — both direct executions matched their written rendered-UI observable:
+  they expose the opt-in cursor-placement defect without a process crash. This supports retaining I5's
+  Terminal.app default-off policy; no production-code change is delivered by the retain decision.
+- Evidence integrity: PASS — all eight cited PNG artifacts exist, are nonempty 2560×1440 PNGs, and were
+  opened and visually checked. No engineering verification or capability-absence claim is cited as
+  user-execution evidence.

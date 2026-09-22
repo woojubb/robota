@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: SCREEN
 tags: [desktop, cli, i18n]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # SCREEN-2442: Validate Terminal.app Korean IME cursor positioning
 
-Paired with `.agents/tasks/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md`. Arising from [issue #2773](https://github.com/woojubb/robota/issues/2773).
+Paired with `.agents/tasks/completed/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md`. Arising from [issue #2773](https://github.com/woojubb/robota/issues/2773).
 
 ## Problem
 
@@ -27,7 +27,7 @@ Waived: This is a bounded real-hardware validation record for existing shipped b
 ### Affected Scope
 
 - `packages/agent-ui-terminal/docs/SPEC.md` — record the real Terminal.app result beside invariant I5.
-- `.agents/tasks/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md` — retain the two-cell product-execution evidence and terminal lifecycle record.
+- `.agents/tasks/completed/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md` — retain the two-cell product-execution evidence and terminal lifecycle record.
 - `.agents/tasks/AGREEMENT-2670-complete-cli-and-tui-usability-accessibility-and-diagnostics.md` and its paired AGREEMENT spec — project the child Task's terminal state.
 
 ### Alternatives Considered
@@ -74,27 +74,27 @@ None
 ## Affected Files
 
 - `packages/agent-ui-terminal/docs/SPEC.md`
-- `.agents/tasks/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md`
+- `.agents/tasks/completed/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md`
 - `.agents/tasks/AGREEMENT-2670-complete-cli-and-tui-usability-accessibility-and-diagnostics.md`
 - `.agents/spec-docs/draft/AGREEMENT-2670-complete-cli-and-tui-usability-accessibility-and-diagnostics.md`
 
 ## Completion Criteria
 
-- [ ] TC-01: Both real Terminal.app cells record macOS 27.0 (26A428), Terminal.app 2.15 (488), Korean 2-Set input, mid-line `한` composition, Left/Right movement, and screenshots; the opt-in cell's initial placement is incorrect without a crash.
-- [ ] TC-02: `npx vitest run src/__tests__/terminal-capabilities.test.ts src/__tests__/real-cursor-positioning.test.tsx src/__tests__/cjk-fallback-render.test.tsx` exits 0 with 46 passing tests.
-- [ ] TC-03: `npx vitest run --config vitest.pty.config.ts src/__tests__/pty/ime-cursor.ptytest.ts src/__tests__/pty/ime-cursor-tmux.ptytest.ts` exits 0 with 9 passing tests.
-- [ ] TC-04: I5 in `packages/agent-ui-terminal/docs/SPEC.md` records the observed incorrect opt-in placement and retains the Apple_Terminal default-off branch.
-- [ ] TC-05: SCREEN-2442 is archived after both user-execution gate stages pass, and both AGREEMENT-2670 projections name its done status and completed path.
+- [x] TC-01: Both real Terminal.app cells record macOS 27.0 (26A428), Terminal.app 2.15 (488), Korean 2-Set input, mid-line `한` composition, Left/Right movement, and screenshots; the opt-in cell's initial placement is incorrect without a crash.
+- [x] TC-02: `npx vitest run src/__tests__/terminal-capabilities.test.ts src/__tests__/real-cursor-positioning.test.tsx src/__tests__/cjk-fallback-render.test.tsx` exits 0 with 46 passing tests.
+- [x] TC-03: `npx vitest run --config vitest.pty.config.ts src/__tests__/pty/ime-cursor.ptytest.ts src/__tests__/pty/ime-cursor-tmux.ptytest.ts` exits 0 with 9 passing tests.
+- [x] TC-04: I5 in `packages/agent-ui-terminal/docs/SPEC.md` records the observed incorrect opt-in placement and retains the Apple_Terminal default-off branch.
+- [x] TC-05: SCREEN-2442 is archived after both user-execution gate stages pass, and both AGREEMENT-2670 projections name its done status and completed path.
 
 ## Test Plan
 
 | TC-ID | Test Type | Tool / Approach                             | Notes                                             |
 | ----- | --------- | ------------------------------------------- | ------------------------------------------------- |
-| TC-01 | Real product UI | Two dedicated Terminal.app cells with Korean 2-Set input | Screenshot and process-survival evidence, not a PTY substitute |
-| TC-02 | Component/capability/fallback | Focused Vitest command | 3 files / 46 tests |
-| TC-03 | PTY regression | Focused PTY Vitest command | 2 files / 9 tests |
-| TC-04 | Documentation conformance | Read I5 against the real-cell outcome | Retain branch only because the opt-in placement is wrong |
-| TC-05 | Lifecycle | Task archive and AGREEMENT projection checks | Both user-execution gate entries must be PASS |
+| TC-01 | Real product UI | Two dedicated Terminal.app cells with Korean 2-Set input | Test skipped: actual Terminal.app/Korean-IME composition is hardware-only; the eight cited screenshots and Stage 2 evidence are the authority. |
+| TC-02 | Component/capability/fallback | Focused Vitest command | Test: `packages/agent-ui-terminal/src/__tests__/terminal-capabilities.test.ts` — terminal capability defaults; `real-cursor-positioning.test.tsx` — `CLI-062 — real cursor positioning`; `cjk-fallback-render.test.tsx` (3 files / 46 tests). |
+| TC-03 | PTY regression | Focused PTY Vitest command | Test: `packages/agent-ui-terminal/src/__tests__/pty/ime-cursor.ptytest.ts` — `CLI-062 — IME hardware-cursor positioning through a real PTY`; `ime-cursor-tmux.ptytest.ts` — `CLI-062 terminal matrix` (2 files / 9 tests). |
+| TC-04 | Documentation conformance | Read I5 against the real-cell outcome | Test skipped: the authoritative check is the completed direct observation against invariant I5; retain the branch because the opt-in placement is wrong. |
+| TC-05 | Lifecycle | Task archive and AGREEMENT projection checks | Test skipped: this atomic finalization is verified by the completed Task path and both parent projections after the gate passes. |
 
 ## User Execution Test Scenarios
 
@@ -126,7 +126,7 @@ None
 
 ## Tasks
 
-- [ ] `.agents/tasks/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md` — todo
+- [x] `.agents/tasks/completed/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md` — done
 
 ## Evidence Log
 
@@ -349,3 +349,117 @@ GATE VERDICT: PASS
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `58559d6dbd75` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/todo/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md` blob `910d27d21f61` (modified)
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-09-22
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- GATE-VERIFY — Build passes for all affected packages (`pnpm build`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+- GATE-VERIFY — Tests pass for all affected packages (`pnpm test`): no `--verify-cmd` supplied, so nothing was run
+  **Required action:** pass the build/test command(s) via --verify-cmd
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8db8e9d8f62f` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md` blob `fd6c4f0d465d` (tracked)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — Every item in the Task `## Plan` is complete: PASS — all 5/5 TC-labelled Plan rows
+  are `[x]`: both TC-01 real-terminal observations, TC-04 policy decision, the combined TC-02/TC-03
+  post-decision regressions, and TC-05 after the two user-execution stages.
+- GATE-VERIFY — No Plan item is blocked or pending: PASS — the Plan has no unchecked row and no
+  blocked/pending marker.
+- Cross-check: PASS — the latest `DONE-GATE-STAGE-1` and `DONE-GATE-STAGE-2` entries both pass; the
+  latter records direct Terminal.app observation for both default and `ROBOTA_IME_CURSOR=1` cells with
+  the eight inspected screenshot artifacts. The Task's post-decision verification records the affected
+  46-test Vitest command and 9-test PTY Vitest command as exit 0. Those command results are the separate
+  build/test criteria for the gate runner, not user-execution evidence.
+
+**Judged by:** independent GATE-VERIFY guardian, semantic Task-Plan criteria only
+
+GATE VERDICT: PASS
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-22
+
+**Test skipped:** Direct Terminal.app/Korean-IME behavior is hardware-only; both real cells, eight screenshots, and DONE-GATE-STAGE-2 PASS are recorded in the paired Task.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8db8e9d8f62f` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md` blob `49dc72a3b2f0` (modified)
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-22
+
+**Command:** `cd packages/agent-ui-terminal && npx vitest run src/__tests__/terminal-capabilities.test.ts src/__tests__/real-cursor-positioning.test.tsx src/__tests__/cjk-fallback-render.test.tsx`
+**Exit:** 0
+**Output:** (last 10 of 15 line(s))
+
+```
+ ✓ src/__tests__/cjk-fallback-render.test.tsx (6 tests) 371ms
+ ✓ src/__tests__/real-cursor-positioning.test.tsx (4 tests) 1970ms
+   ✓ CLI-062 — real cursor positioning (interactive ink render) > shows the hardware cursor on the input row at the composition column and tracks CJK growth  379ms
+   ✓ CLI-062 — real cursor positioning (interactive ink render) > SIGSEGV guard: the positioned row FOLLOWS the layout, so a constant y (the y:0 bug) is unrepresentable  731ms
+   ✓ CLI-062 — real cursor positioning (interactive ink render) > I4: blur withdraws the position (no shows after focus loss) and unmount leaves the cursor visible  613ms
+[?25h
+ Test Files  3 passed (3)
+      Tests  46 passed (46)
+   Start at  15:51:32
+   Duration  2.37s (transform 93ms, setup 0ms, collect 564ms, tests 2.35s, environment 0ms, prepare 111ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8db8e9d8f62f` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md` blob `99d510989731` (modified)
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-22
+
+**Command:** `cd packages/agent-ui-terminal && npx vitest run --config vitest.pty.config.ts src/__tests__/pty/ime-cursor.ptytest.ts src/__tests__/pty/ime-cursor-tmux.ptytest.ts`
+**Exit:** 0
+**Output:** (last 10 of 20 line(s))
+
+```
+   ✓ CLI-062 terminal matrix — observable cursor contract per terminal > Ghostty / ROBOTA_IME_CURSOR=0 → never shows the cursor  1494ms
+ ✓ src/__tests__/pty/ime-cursor-tmux.ptytest.ts (3 tests) 8452ms
+   ✓ CLI-062 terminal matrix — tmux, a real emulator reporting its own cursor > 24-row pane: tmux reports the cursor VISIBLE on the input row at the composition column  2993ms
+   ✓ CLI-062 terminal matrix — tmux, a real emulator reporting its own cursor > 5-row pane (frame ≥ viewport, I2): tmux reports the cursor hidden, never positioned  2726ms
+   ✓ CLI-062 terminal matrix — tmux, a real emulator reporting its own cursor > ROBOTA_IME_CURSOR=0 kill switch: tmux reports the cursor hidden even at 24 rows  2733ms
+
+ Test Files  2 passed (2)
+      Tests  9 passed (9)
+   Start at  15:51:35
+   Duration  20.47s (transform 33ms, setup 0ms, collect 62ms, tests 20.20s, environment 0ms, prepare 59ms)
+```
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8db8e9d8f62f` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md` blob `f861a81b4763` (modified)
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-22
+
+**Test skipped:** Invariant I5 is documentation-only: compare its retained Apple_Terminal default-off branch with the direct opt-in screenshot result recorded in the paired Task.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8db8e9d8f62f` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md` blob `8eee326fa363` (modified)
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-22
+
+**Test skipped:** The Task status/move and AGREEMENT projections are the required atomic finalization immediately after GATE-COMPLETE; both user-execution gate stages already pass.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8db8e9d8f62f` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md` blob `c9e27feab966` (modified)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-22; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8db8e9d8f62f` · base `origin/develop@c8cd7ea65962` · document `.agents/spec-docs/active/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md` blob `e9f34da21af5` (modified)
