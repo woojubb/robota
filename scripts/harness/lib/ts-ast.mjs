@@ -212,6 +212,16 @@ export function isTypeOnlyImportClause(clause) {
   return clause?.phaseModifier === SyntaxKind.TypeKeyword;
 }
 
+/**
+ * A node's `modifiers` array, or `[]` when it has none. The native AST does not carry a
+ * `canHaveModifiers` guard the way the legacy compiler API did — `modifiers` is simply present or
+ * absent on the node — so a call site reads the array directly rather than gating a legacy-style
+ * type guard first.
+ */
+export function getModifiers(node) {
+  return node?.modifiers ?? [];
+}
+
 // The `isXxx` type guards the four scans actually use, re-exported so call sites read
 // `ts.isClassDeclaration` exactly as they did against the legacy API. This is a deliberate subset of
 // the package's 347, not a re-export of all of them: each name here is checked at import time
@@ -263,8 +273,10 @@ export const {
   isStringLiteral,
   isSwitchStatement,
   isTypeAliasDeclaration,
+  isTypeLiteralNode,
   isTypeParameterDeclaration,
   isTypeReferenceNode,
+  isUnionTypeNode,
   isVariableDeclaration,
   isVariableStatement,
 } = guards;
@@ -344,8 +356,10 @@ export const isPropertySignature = guards.isPropertySignatureDeclaration;
     isStringLiteral,
     isSwitchStatement,
     isTypeAliasDeclaration,
+    isTypeLiteralNode,
     isTypeParameterDeclaration,
     isTypeReferenceNode,
+    isUnionTypeNode,
     isVariableDeclaration,
     isVariableStatement,
   };

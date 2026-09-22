@@ -14,6 +14,10 @@ export const NON_SCAN_ENTRYPOINTS = new Set([
   'check-review-gate.mjs',
   'scan-promotion-closes.mjs',
   'scan-receipt.mjs',
+  // TC-24's package-scope invariant check (PERF-005): a helper the agent-mcp vitest suite spawns
+  // directly (`single-connection-state-union.test.ts`), not a member of the harness CI suite. It
+  // is exercised by that test on every `agent-mcp` test run, not by `run-all-scans`.
+  'scan-single-connection-state-union.mjs',
 ]);
 
 function candidateFiles(harnessDir) {

@@ -115,6 +115,7 @@
     "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-session-mobility": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-mcp": "workspace:*",
     "@robota-sdk/agent-preset": "workspace:*",
     "@robota-sdk/agent-product": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",

@@ -82,6 +82,25 @@ independent. MCP-003 adds capability-catalogue supervision, MCP-004 integrates l
 background-task owner, and MCP-005 integrates provider-safe schema projection. Those children consume or
 extend the same package without moving background or provider policy into it.
 
+**Amendment, 2026-09-22 (owner decision, verbatim: `MCP-002에서 분리, 별도 제거 유닛`).** The DAG is
+delivered as a command (`agent-cli` `/workflows` via `agent-command-workflows`), not in MCP form, and the
+command-form DAG references neither `dag-node-mcp-tool` nor the DAG-as-MCP-server surfaces. Measured on
+that date: zero references to the node in `agent-command-workflows`, `dag-nodes-default`, `dag-builder`
+and `dag-framework`; the node is absent from the product's default catalog; `dag-mcp-server` has no
+consumer; `dag-cli` is private with no consumer but itself. Therefore:
+
+- MCP-002 **no longer** migrates `dag-node-mcp-tool` onto the shared seam and **no longer** returns an
+  unsupported-pending-MCP-2522 result for DAG stdio. Both sentences above are withdrawn for MCP-002.
+- The node, `dag-mcp-server` and `dag-cli/src/mcp` are **removed** by `MCP-2817`
+  ([issue #2817](https://github.com/woojubb/robota/issues/2817)). `MCP-2816` (issue #2816), which would
+  have wired the node into `/workflows`, is superseded by that removal.
+- The target graph is `agent-mcp → agent-core` and `agent-cli → agent-mcp`. The edge
+  `dag-node-mcp-tool → agent-mcp` is withdrawn with the node.
+- MCP-2522 still adds the admitted shared `StdioClientTransport` adapter for the agent line; "restores
+  DAG stdio execution" is moot.
+
+The original text above is kept so the record shows what was decided and later withdrawn.
+
 ## Consequences
 
 - MCP-001 has a larger mechanical change, but no interim branch contains a new canonical contract under a
@@ -92,11 +111,13 @@ extend the same package without moving background or provider policy into it.
 - Removing an exported prerelease `agent-core` contract is intentionally breaking; direct owner approval
   was received on 2026-09-21, and MCP-001 must still provide the required SPEC/changelog treatment.
 - `agent-mcp` remains private until MCP-002 proves and publishes the official-SDK vertical slice.
-- MCP-002 has a larger migration because it removes the DAG node's direct official-SDK ownership, but the
-  DAG product remains independently testable through a thin node-specific adapter over the shared seam.
-- DAG stdio is intentionally unavailable between the MCP-002 and MCP-2522 integration checkpoints; this
+- ~~MCP-002 has a larger migration because it removes the DAG node's direct official-SDK ownership, but
+  the DAG product remains independently testable through a thin node-specific adapter over the shared
+  seam.~~ Withdrawn 2026-09-22: the node is removed by MCP-2817 (see the Decision amendment).
+- ~~DAG stdio is intentionally unavailable between the MCP-002 and MCP-2522 integration checkpoints; this
   fails closed instead of publishing an unaudited subprocess path, and the outer integration cannot land
-  on `develop` until MCP-2522 restores and verifies it.
+  on `develop` until MCP-2522 restores and verifies it.~~ Withdrawn 2026-09-22 with the node; the outer
+  integration no longer waits on MCP-2522 for a DAG path.
 - AGREEMENT-014 remains the sole administrative relationship owner for MCP-001 through MCP-005;
   ARCH-1985 owns this product architecture prerequisite without replacing that history.
 
@@ -105,6 +126,8 @@ extend the same package without moving background or provider policy into it.
 - [Issue #1985](https://github.com/woojubb/robota/issues/1985)
 - [Issue #2521](https://github.com/woojubb/robota/issues/2521)
 - [Issue #2522](https://github.com/woojubb/robota/issues/2522)
+- [Issue #2817](https://github.com/woojubb/robota/issues/2817) — removal of the DAG↔MCP surfaces (amendment of 2026-09-22)
+- [Issue #2816](https://github.com/woojubb/robota/issues/2816) — superseded by issue #2817
 - [Foundational re-plan record](https://github.com/woojubb/robota/issues/1985#issuecomment-5754525322)
 - `.agents/spec-docs/active/ARCH-1985-select-the-shared-mcp-ownership-and-migration-contract-before-mcp-001.md`
 - `.agents/spec-docs/active/AGREEMENT-014-coordinate-the-mcp-client-control-plane-migration.md`

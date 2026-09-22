@@ -2,7 +2,8 @@
  * MCP activation is a policy boundary, not a transport concern.
  *
  * The request deliberately contains only public identity material. Connection secrets such as
- * API keys and arbitrary headers stay in IMCPConfig and are never persisted in this ledger.
+ * API keys and arbitrary headers stay in IMCPServerDefinition(Resolved) and are never persisted in
+ * this ledger.
  */
 
 export type TMCPActivationSource = 'managed' | 'user' | 'project' | 'plugin' | 'local';
@@ -134,10 +135,18 @@ export class InMemoryMCPActivationApprovalStore implements IMCPActivationApprova
   }
 }
 
+/** Sources whose approvals bind to no repository or trust generation. Everything else requires a trusted workspace — deny by default, so a member added later fails closed (MCP-002, TC-29). */
+const TRUST_NOT_REQUIRED_SOURCES: ReadonlySet<TMCPActivationSource> = new Set(['managed', 'user']);
 function requiresTrustedWorkspace(source: TMCPActivationSource): boolean {
-  return source === 'project' || source === 'plugin' || source === 'local';
+  return !TRUST_NOT_REQUIRED_SOURCES.has(source);
 }
 
+/** Authorities allowed to decide (approve/reject/revoke) — an allowlist, deny-by-default (TC-29). */
+const DECIDING_AUTHORITIES: ReadonlySet<TMCPApprovalAuthority> = new Set([
+  'managed',
+  'user',
+  'local',
+]);
 function isExactMatch(
   request: IMCPActivationRequest,
   record: IMCPActivationApprovalRecord,
@@ -249,7 +258,7 @@ export class MCPActivationAdmissionService implements IMCPActivationAdmission {
     request: IMCPActivationRequest,
     authority: TMCPApprovalAuthority = 'user',
   ): IMCPActivationStatusResult {
-    if (authority === 'project' || authority === 'plugin') {
+    if (!DECIDING_AUTHORITIES.has(authority)) {
       throw new MCPActivationPolicyError(
         'Project and plugin definitions may request approval but cannot approve themselves.',
       );
@@ -268,7 +277,7 @@ export class MCPActivationAdmissionService implements IMCPActivationAdmission {
     request: IMCPActivationRequest,
     authority: TMCPApprovalAuthority = 'user',
   ): IMCPActivationStatusResult {
-    if (authority === 'project' || authority === 'plugin') {
+    if (!DECIDING_AUTHORITIES.has(authority)) {
       throw new MCPActivationPolicyError(
         'Project and plugin definitions may request approval but cannot reject on behalf of the operator.',
       );
@@ -283,7 +292,7 @@ export class MCPActivationAdmissionService implements IMCPActivationAdmission {
     request: IMCPActivationRequest,
     authority: TMCPApprovalAuthority = 'user',
   ): IMCPActivationStatusResult {
-    if (authority === 'project' || authority === 'plugin') {
+    if (!DECIDING_AUTHORITIES.has(authority)) {
       throw new MCPActivationPolicyError(
         'Project and plugin definitions may request approval but cannot revoke operator approval.',
       );
