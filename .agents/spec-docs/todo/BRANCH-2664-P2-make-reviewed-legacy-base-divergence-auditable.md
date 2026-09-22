@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [harness]
 lane: L2
@@ -66,6 +66,26 @@ current enforcement code, archived ref, and measured scanner outcomes remain the
 manifest contents.
 
 ## Architecture Review
+
+### Closeout Amendment — 2026-09-22
+
+The owner has directed this work to optimize for one outcome: land the verified AGREEMENT-2664
+replacement on `develop` and close issue #2664. This amendment supersedes the reusable remote
+publication automation described later in this historical design. The migration is a one-time,
+owner-authorized operation, so GitHub App provisioning, new rulesets, a durable cross-host journal,
+socket credential brokerage, and a new Darwin required context are not prerequisites for this
+execution. They are terminally out of scope rather than silently deferred.
+
+The retained implementation is the smallest set that preserves the safety properties the audits
+identified: keep the legacy ref immutable and archived; preserve Git's clean/conflicted merge result
+in the shared merge-tree abstraction; generate and verify one closed divergence manifest; update the
+frozen reference-kind path without changing its count; publish only the already-measured replacement
+OID with an exact lease; sync current `develop` with explicit conflict resolution; verify the final
+tree and CI; reconcile the AGREEMENT/Task map; and close #2664 only after the landed state is read back.
+The approved recommendation is grounded by the existing MANIFEST-2664 verifier, replacement
+`720eb5e841ba7a5361ac667b9658e034212bb58e`, archived legacy
+`4214cb540a54037410388a3a8107e474c224c86f`, and the user's 2026-09-22 instruction that GitHub issue
+closure is the governing goal.
 
 ### Affected Scope
 
@@ -1038,6 +1058,42 @@ shared closeout owners, the runtime seam, the static scan, `project-structure.md
 
 ## Completion Criteria
 
+- [ ] TC-01: Observable: shared merge analysis returns the synthesized tree and clean/conflicted status
+      together; clean, manual-resolution, staged, and persisted-conflict-marker regressions preserve
+      their distinct attribution outcomes.
+- [ ] TC-02: Command: focused plan-order Vitest and the full plan-order test file exit 0, and
+      `scan-user-execution-plan-order.mjs` accepts the final replacement/sync history.
+- [ ] TC-03: Observable: the MANIFEST-2664 reference-kind baseline key moves from `active/` to `done/`
+      with value `9` and unchanged baseline cardinality; the qualified-reference scan exits 0.
+- [ ] TC-04: Observable: a canonical migration manifest under `.agents/evidence/migrations/` binds the
+      immutable legacy OID, replacement OID, segment dispositions, and merge parents; the landed
+      verifier exits 0 against the exact committed bytes.
+- [ ] TC-05: Observable: the legacy integration tip remains archived and immutable, while the replacement
+      publication and subsequent sync use exact expected OIDs and no unverified force update.
+- [ ] TC-06: Observable: the final integration history contains the eight declared children in order,
+      resolves the three measured current-develop conflicts without conflict markers, and preserves
+      current `develop` behavior on overlapping files.
+- [ ] TC-07: Observable: AGREEMENT-2664, MAP-2664, MERGE-2664, and this BRANCH-2664-P2 record have one
+      truthful terminal disposition, with every retained issue row mapped to delivered or terminal
+      evidence.
+- [ ] TC-08: Observable: the final PR lands on `develop` with required checks green, independent merge
+      verification passes, one completion record is audited, and GitHub issue #2664 reads `CLOSED`.
+
+## Test Plan
+
+| TC-ID | Test Type   | Tool / Approach                                             | Notes                                      |
+| ----- | ----------- | ----------------------------------------------------------- | ------------------------------------------ |
+| TC-01 | regression  | `scan-user-execution-plan-order.test.mjs`                   | Four merge-result classes                  |
+| TC-02 | integration | focused Vitest plus plan-order CLI                          | Exact replacement/sync history             |
+| TC-03 | contract    | `scan-reference-kind-qualified.mjs`                         | Key-only reindex, value/cardinality stable |
+| TC-04 | adversarial | `integration-migration-manifest.mjs verify`                 | Canonical bytes and exact OIDs             |
+| TC-05 | integration | `git ls-remote`, archive read-back, exact lease publication | No legacy mutation                         |
+| TC-06 | integration | merge-tree, conflict-marker scan, plan-order scan           | Current develop wins where required        |
+| TC-07 | contract    | Task/spec/issue projection scans                            | One terminal owner per row                 |
+| TC-08 | remote      | GitHub checks, merge-verifier, closeout audit               | Issue state must be CLOSED                 |
+
+## Superseded Completion Criteria (historical)
+
 - [ ] TC-01: Observable: the SHA-1-only verifier recomputes explicit full-OID segment membership, all
       four dispositions, and sorted base64-path recursive `--no-renames` raw tree tuples; it rejects
       unknown fields, noncanonical bytes, unsupported object formats, and every omitted/extra/altered
@@ -1188,7 +1244,7 @@ maxBuffer }`. The
       `scan-main-required-checks.mjs --live` after the post-merge owner step, and
       `node scripts/harness/run-all-scans.mjs --affected --context pr --base origin/develop` exit 0.
 
-## Test Plan
+## Superseded Test Plan (historical)
 
 | TC-ID | Test Type   | Tool / Approach                                                    | Notes                                               |
 | ----- | ----------- | ------------------------------------------------------------------ | --------------------------------------------------- |
@@ -1419,3 +1475,20 @@ it exposes no Robota product surface an end user can execute.
   3 and medium 23, 35, 20, 21 — coverage converges, findings do not. Per the no-progress rule, the outer
   correction loop is halted here for the owner's decision rather than iterated blindly; the round-4
   findings are recorded in the Task and not yet applied.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "모두 승인하고, 앞으로의 것도 모두 타당한 근거와 함께 제시된 추천안이라면 그게 타당할 경우 사전 승인합니다."
+**Given:** 2026-09-21, this conversation
+**Review fingerprint:** 2c4c5061030f (review af72f278, type/tags cf40db57)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-21, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (2c4c5061030f) equals the document's current fingerprint
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `5098140f4757` · base `origin/develop@165debe19a59` · document `.agents/spec-docs/backlog/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md` blob `866e062f82dc` (modified)

@@ -9,9 +9,9 @@ area: repository integration-base migration policy and harness verification
 depends_on: [MANIFEST-2664]
 ---
 
-Spec: `.agents/spec-docs/backlog/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md`
+Spec: `.agents/spec-docs/todo/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md`
 
-# BRANCH-2664-P2: make reviewed legacy-base divergence auditable
+# BRANCH-2664: P2 make reviewed legacy-base divergence auditable
 
 ## Objective
 
@@ -19,9 +19,9 @@ Spec: `.agents/spec-docs/backlog/BRANCH-2664-P2-make-reviewed-legacy-base-diverg
 > owner-document route moved to `MANIFEST-2664` (this Task's former TC-01/02/03/05/06). This Task
 > keeps the remote publication and authority layer and its verification, and depends on that bundle.
 
-Unblock AGREEMENT-2664's legacy integration-base migration without weakening replay review. Land a
-generic verifier, tracked remote rulesets, and an atomic multi-ref adapter, then use one closed manifest
-to verify every replay disposition before a server-side compare-and-swap replacement.
+Unblock AGREEMENT-2664's legacy integration-base migration without weakening replay review. Use the
+landed generic verifier and one closed manifest to verify the measured replacement, preserve merge
+cleanliness as first-class data, land the reconciled history on `develop`, and close issue #2664.
 
 ## Problem
 
@@ -57,6 +57,23 @@ admission seam, credential handoff, CI registration — is owned by the SPEC's `
   written there; where this Task and the SPEC could be read differently, the SPEC governs.
 
 ## Plan
+
+- [ ] TC-01 — Preserve clean/conflicted merge status and own-path attribution in the shared helper,
+      with clean, manual-resolution, staged, and persisted-conflict-marker regressions.
+- [ ] TC-02 — Run focused and full plan-order verification against the exact replacement/sync history.
+- [ ] TC-03 — Re-key MANIFEST-2664's reference-kind baseline from `active/` to `done/` with value and
+      baseline cardinality unchanged.
+- [ ] TC-04 — Commit and verify the canonical AGREEMENT-2664 migration manifest against exact legacy and
+      replacement OIDs.
+- [ ] TC-05 — Preserve the archived legacy ref and publish the verified replacement only through exact
+      expected-OID checks.
+- [ ] TC-06 — Sync current `develop`, resolve the three measured conflicts without markers, and preserve
+      the current behavior on overlapping paths.
+- [ ] TC-07 — Reconcile and terminalize BRANCH-2664-P2, MERGE-2664, MAP-2664, and AGREEMENT-2664 with one
+      delivered-or-terminal owner for every issue row.
+- [ ] TC-08 — Land the final PR, independently verify it, audit one completion record, and close #2664.
+
+## Superseded Plan (historical)
 
 - [ ] TC-01 — Implement the pure manifest module: the SHA-1 canonical manifest, four dispositions,
       deterministic base64-path recursive `--no-renames` tuples, closed parsing, raw non-UTF-8/control-byte
@@ -102,6 +119,13 @@ admission seam, credential handoff, CI registration — is owned by the SPEC's `
 
 ## Test Plan
 
+Run the focused and full plan-order Vitest suite, the plan-order history scan, reference-kind scan,
+canonical migration verifier, exact remote-ref read-backs, Task/spec projection scans, required GitHub
+checks, independent merge verification, and the closeout audit. TC-08 is complete only when issue #2664
+reads `CLOSED`.
+
+## Superseded Test Plan (historical)
+
 Use temporary Git repositories to build all four dispositions plus content, mode, symlink/type,
 add/delete, rename, empty-patch, malformed-canonicalization, omitted, extra, and tampered histories.
 Exercise deterministic temporary Git graphs plus injected credential/clock/protector/Git/GraphQL
@@ -128,6 +152,14 @@ credential helper against a local authenticated smart-HTTP remote with a capturi
 Robota CLI, TUI, browser, public SDK, configuration, or installed-package behavior for an end user.
 
 ## Finding Evidence
+
+- Closeout recommendation, 2026-09-22: replace the reusable publication-control-plane build with a
+  bounded one-time owner-authorized migration. The reusable GitHub App/ruleset/journal/Darwin surfaces
+  do not contribute to the required final state; the immutable archive, exact leases, canonical manifest,
+  merge-status correction, current-develop sync, and remote read-back preserve the safety properties.
+- Owner direction, 2026-09-22: "깃헙 이슈를 닫기 위한거라서 너는 그 목표대로 해야함". This makes
+  #2664 closure the governing outcome and approves removing nonessential reusable automation from the
+  closeout path under the previously granted standing approval for evidence-backed recommendations.
 
 - Recommendation review: `REVIEW VERDICT: REVISE | 2026-09-21`. Three bounded review rounds reduced
   actionable findings from eight to five to one. The remaining finding is that the shared
