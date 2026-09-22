@@ -20,7 +20,7 @@ import type {
 // earlier revision of this comment said "there were none", which was wrong about the very consumer
 // this change had to redirect. The type is still imported above for this file's own use.
 
-export type TBackgroundTaskKind = 'agent' | 'process' | 'scheduled';
+export type TBackgroundTaskKind = 'agent' | 'process' | 'scheduled' | 'tool-invocation';
 
 export type TBackgroundTaskMode = 'foreground' | 'background';
 
@@ -155,8 +155,34 @@ export interface IScheduledBackgroundTaskRequest extends IBaseBackgroundTaskRequ
   outputLimitBytes?: number;
 }
 
+/**
+ * MCP-004 §S1: an in-flight MCP tool call handed off to the background-task manager. Data only —
+ * the naming split is deliberate: the KIND is `'tool-invocation'` (INFRA-025's closed vocabulary
+ * names the thing that runs), while the feature, its files and its tests keep the name "tool-call
+ * handoff" (what a user does with it). Provenance is flattened into primitive fields rather than a
+ * nested object so the request stays data-only and the executor helpers can project the same
+ * fields into `metadata` for `/tasks` to read (agent-executor, not this package, owns that
+ * projection). The remaining budget rides the base request's `maxRuntimeMs` — no dedicated field.
+ */
+export interface IToolInvocationBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
+  kind: 'tool-invocation';
+  toolName: string;
+  /** Looked up by the runner's adoption registry (`agent-executor`) to find the already-running call. */
+  adoptionToken: string;
+  /** MCP-004 provenance: the only owner today. A closed union of one, matching the request's origin. */
+  provenanceOwner: 'mcp';
+  serverId: string;
+  sourceName: string;
+  securityIdentity?: string;
+  /** Provenance metadata for `/tasks` and the notification — not an enforcement carrier (§ Decision). */
+  permissionMode: string;
+}
+
 export type TBackgroundTaskRequest =
-  IAgentBackgroundTaskRequest | IProcessBackgroundTaskRequest | IScheduledBackgroundTaskRequest;
+  | IAgentBackgroundTaskRequest
+  | IProcessBackgroundTaskRequest
+  | IScheduledBackgroundTaskRequest
+  | IToolInvocationBackgroundTaskRequest;
 
 /**
  * ANALYTICS-001 (Phase 2): token usage a completed task/subagent consumed, for source attribution.

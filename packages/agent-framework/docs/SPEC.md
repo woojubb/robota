@@ -481,6 +481,8 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `ICommandCostBudgetAdapter`                  | type      | CMD-007: the narrow storage port `/cost budget` reads and writes through, so the command owns no file location                                                                                                                                                                                                                                                                                                                                |
 | `ISubagentParentContext`                     | type      | Issue #2317: the context members a subagent assembly reads (`agentsMd`, `projectNotesMd`, …) — a projection of the parent's `ILoadedContext`, not the whole                                                                                                                                                                                                                                                                                   |
 | `ICreateSessionOptions`                      | type      | Option SSOT for the internal `createSession()` factory, kept exported although the factory is not (issue #2270): `agent-preset`, `agent-cli`, `agent-transport`, `agent-ui-terminal` read indexed-access types off it; it is this package's OWN type (ownership, not pass-through), and re-exporting `agent-core`'s `TPermissionMode`/`TModelEffort` instead is a banned pass-through (STRUCT-07). The factory is intentionally not public    |
+| `IToolCallHandoffPolicy`                     | type      | MCP-004 §S3: `ICreateSessionOptions.toolCallHandoff` shape — `thresholdMs`, `budgetMs`, `toolNames`, `provenance` (keyed by tool name). Reachable from the exported `ICreateSessionOptions` signature, so this type must itself be exported (`scan-barrel-parameter-types`)                                                                                                                                                                   |
+| `IToolCallHandoffProvenance`                 | type      | MCP-004 §S3: one `IToolCallHandoffPolicy.provenance` entry — `serverId`, `sourceName`, `securityIdentity`, `permissionMode` (all required)                                                                                                                                                                                                                                                                                                    |
 | `ISessionRecordRestoreResult`                | type      | CLI-1994: what `restoreSessionRecordIntoSession` did — whether the resumed record carried a system prompt the session now runs under                                                                                                                                                                                                                                                                                                          |
 | `IResolveExecutionAttachInput`               | type      | CLI-1994: what `resolveExecutionAttach` needs from the surface — a presence predicate over the session store, never the store itself, because the caller is a renderer                                                                                                                                                                                                                                                                        |
 | `TExecutionAttachOutcome`                    | type      | CLI-1994: switch the surface's view onto the forked session, or refuse with the reason. A view switch, never a merge                                                                                                                                                                                                                                                                                                                          |
@@ -2979,6 +2981,8 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 
 **Tool filtering order:**
 
+0. MCP-004 §S3: unwrap any tool-call handoff wrapper (`unwrapToolCallHandoff`) — a no-op for a tool
+   that was never wrapped; see § Tool-call handoff below
 1. Remove disallowed tools (denylist from agent definition)
 2. Keep only allowed tools (allowlist from agent definition, if specified)
 3. Always remove agent-spawning tools such as `Agent` and `robota_command_agent` (subagents cannot spawn subagents)
@@ -3122,6 +3126,63 @@ With no contributed `Write`/`Edit` this is byte-identical to the previous behavi
 
 Absent `defaultTools` **and** absent a duplicate name, the whole assembly is byte-identical to
 before ARCH-006.
+
+### Tool-call handoff (`toolCallHandoff`, MCP-004 §S3)
+
+`ICreateSessionOptions.toolCallHandoff?: IToolCallHandoffPolicy` hands a main-turn tool call that
+outruns a threshold to a `tool-invocation` background task instead of blocking the turn. The two
+exported types are `IToolCallHandoffPolicy` (`thresholdMs`, `budgetMs`, `toolNames`, `provenance`
+keyed by tool name) and `IToolCallHandoffProvenance` (`serverId`, `sourceName`, `securityIdentity`,
+`permissionMode` — all required). Every name in `toolNames` MUST have a `provenance` entry;
+`buildToolCallHandoff` refuses at build time (throws) otherwise rather than spawning a task with
+missing provenance later.
+
+`buildToolCallHandoff(options, backgroundTaskManager, sessionId, cwd, tools)` runs in
+`create-session-runtime.ts` beside `buildBackgroundProcessTool`, called from the same site in
+`create-session.ts`. When the policy is set AND a runner with `kind: 'tool-invocation'` is present in
+`options.backgroundTaskRunners` (the `hasProcessRunner` pattern, narrowed by `'adopt' in runner` to
+the `IToolInvocationAdopter` port `agent-executor`'s runner also implements), it REPLACES — by
+index — each entry in the session-local `tools` array whose `getName()` is named in `toolNames` with
+a wrapper. It never mutates `options.additionalTools`, a different array `cli.ts` shares across every
+session the process creates. Absent policy or absent runner: no-op.
+
+The wrapper (`ToolCallHandoffTool`, `assembly/tool-call-handoff.ts`, off the package barrel)
+implements `IToolWithEventService` by delegating every member except `execute` to the inner tool
+(same name, schema, description, validation). Per call:
+
+- Starts the inner `execute` exactly once with a controller LINKED to `context.signal` (the turn
+  claim) and races it against the threshold timer.
+- Settles before the threshold: the inner result (or rejection) is returned unchanged; the timer is
+  cleared; `manager.spawn` is never called.
+- Threshold first: commits to the background path even if the call settles while `spawn` is still
+  pending. It calls `runner.adopt(token, { settled, abort })`, then `manager.spawn` with
+  `kind: 'tool-invocation'`, the flat provenance fields, `adoptionToken`, and
+  `maxRuntimeMs = budgetMs - elapsed` (informational only — the supervisor's own `toolCallMs`, S2 in
+  `agent-mcp`, is the one enforcer of the call's actual budget). Only AFTER a successful `spawn` does
+  it unlink the turn signal, so a later turn-claim abort cannot reach (and misreport as failed) a call
+  the manager now owns. It returns
+  `{ success: true, data: { backgroundTaskId, status: 'running', serverId, toolName, message } }`.
+- **The one declared fallback** (§ Fallback & Degradation, `admission refused after the threshold
+fired`): if `spawn` throws, the wrapper releases the adoption token, leaves the turn-signal link in
+  place, and keeps awaiting the SAME in-flight call in the foreground — nothing is retried or
+  re-sent. The eventual result's `data.message` gains `handoff refused: <reason>` (a non-object
+  `data`, or none, is wrapped rather than discarded), and the same reason is reported once through
+  `ICreateSessionOptions.sessionLogger` (`sessionLogger.log(sessionId, 'tool_call_handoff_refused',
+{ toolName, reason })`) — the same seam `build-agent-runtime.ts` already uses to report
+  `background_task_event` to an embedding host.
+
+`unwrapToolCallHandoff(tool)` and `isToolCallHandoff(tool)` (same module) return the inner tool for a
+wrapper (the tool itself otherwise) and identify a wrapper. `createSubagentSession`'s `filterTools`
+maps every parent tool through `unwrapToolCallHandoff` as filtering step 0, before the deny/allow
+steps — the ONE derivation point both the in-process subagent runner and `interactive-session-fork.ts`
+reach, so subagents and forks never hold a wrapper even though the parent session's own tool list
+does.
+
+The tracker (`interactive-session-background-tracker.ts`) and `/tasks`
+(`background-command-api.ts`) render a `tool-invocation` task through their EXISTING generic views —
+`task.kind`, `task.commandPreview` (`"<toolName> (<serverId>)"`, projected by `agent-executor`'s
+helpers from the request's flat provenance fields into the state's `metadata`/preview) — no
+kind-specific branch was added for this unit.
 
 ### Tool residency through session assembly (CLI-1990)
 

@@ -1,8 +1,9 @@
 ---
 title: 'MCP-004: hand long-running MCP calls to background tasks'
 issue: https://github.com/woojubb/robota/issues/2524
-status: in-progress
+status: done
 created: 2026-09-03
+completed: 2026-09-22
 priority: medium
 urgency: soon
 area: MCP background execution
@@ -23,19 +24,19 @@ Preserve and deliver the independently verifiable outcome of [issue #2524](https
 
 ## Plan
 
-Spec: `.agents/spec-docs/active/MCP-004-hand-long-running-mcp-calls-to-background-tasks.md`
+Spec: `.agents/spec-docs/done/MCP-004-hand-long-running-mcp-calls-to-background-tasks.md`
 
-- [ ] S1 · TC-12, TC-16, TC-22 — `agent-interface-execution`: `'tool-invocation'` in `TBackgroundTaskKind` + `IToolInvocationBackgroundTaskRequest`; `agent-session`: `TASK_KINDS` member (`Contained — DATA-010.`) with a codec round-trip test; DATA-010 Plan line
-- [ ] S1 · TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-20 — `agent-executor`: `ToolInvocationBackgroundTaskRunner` with its adopter port; runner-declared `admission: 'already-running'` honoured by `spawn` (never queued, no slot, cancel reaches abort); helpers' state projection
-- [ ] S1 · TC-17 — `agent-executor`: register the runner in `createDefaultBackgroundTaskRunners()`
-- [ ] S2 · TC-18 — `agent-mcp`: `IMCPTimeouts.toolCallMs`, honoured by `callTool`; `perCallMs` unchanged; composition sets it from `mcp.callTimeoutMs`
-- [ ] S3 · TC-01, TC-02, TC-04, TC-09, TC-21, TC-23 — `agent-framework`: `buildToolCallHandoff` beside `buildBackgroundProcessTool` (threshold race, single request, commit flag, unlink after a successful `spawn`, placeholder result in `data`, provenance + informational `maxRuntimeMs`, declared spawn-refusal continuation with token release)
-- [ ] S3 · TC-10, TC-24 — `agent-framework`: wrap by replacement in the session-local list; `createSubagentSession` unwraps for subagents and forks; `scriptedSession()` functional test + `functional-coverage-manifest.json` row
-- [ ] S3 · TC-12 — `agent-framework`: tracker and `/tasks` render the kind
-- [ ] S3 · TC-11, TC-18, TC-25 — `agent-cli`: read `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` beside `mcpServers`, set `toolCallMs` from `mcp.callTimeoutMs`, pass `toolCallHandoff` for interactive and serve, omit it for print with one diagnostic
-- [ ] TC-13 — `agent-core` untouched; `agent-mcp` on `agent-core` only; no wrapper code in `agent-cli`
-- [ ] TC-14 — `packages/agent-cli/examples/verify-mcp-background.ts` behind `pnpm scenario:verify:mcp-background`
-- [ ] TC-15, TC-19 — six packages' tests, build, affected scans; SPEC/README layers name the kind and the keys
+- [x] S1 · TC-12, TC-16, TC-22 — `agent-interface-execution`: `'tool-invocation'` in `TBackgroundTaskKind` + `IToolInvocationBackgroundTaskRequest`; `agent-session`: `TASK_KINDS` member (`Contained — DATA-010.`) with a codec round-trip test; DATA-010 Plan line
+- [x] S1 · TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-20 — `agent-executor`: `ToolInvocationBackgroundTaskRunner` with its adopter port; runner-declared `admission: 'already-running'` honoured by `spawn` (never queued, no slot, cancel reaches abort); helpers' state projection
+- [x] S1 · TC-17 — `agent-executor`: register the runner in `createDefaultBackgroundTaskRunners()`
+- [x] S2 · TC-18 — `agent-mcp`: `IMCPTimeouts.toolCallMs`, honoured by `callTool`; `perCallMs` unchanged; composition sets it from `mcp.callTimeoutMs`
+- [x] S3 · TC-01, TC-02, TC-04, TC-09, TC-21, TC-23 — `agent-framework`: `buildToolCallHandoff` beside `buildBackgroundProcessTool` (threshold race, single request, commit flag, unlink after a successful `spawn`, placeholder result in `data`, provenance + informational `maxRuntimeMs`, declared spawn-refusal continuation with token release)
+- [x] S3 · TC-10, TC-24 — `agent-framework`: wrap by replacement in the session-local list; `createSubagentSession` unwraps for subagents and forks; `scriptedSession()` functional test + `functional-coverage-manifest.json` row
+- [x] S3 · TC-12 — `agent-framework`: tracker and `/tasks` render the kind
+- [x] S3 · TC-11, TC-18, TC-25 — `agent-cli`: read `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` beside `mcpServers`, set `toolCallMs` from `mcp.callTimeoutMs`, pass `toolCallHandoff` for interactive and serve, omit it for print with one diagnostic
+- [x] TC-13 — `agent-core` untouched; `agent-mcp` on `agent-core` only; no wrapper code in `agent-cli`
+- [x] TC-14 — `packages/agent-cli/examples/verify-mcp-background.ts` behind `pnpm scenario:verify:mcp-background`
+- [x] TC-15, TC-19 — six packages' tests, build, affected scans; SPEC/README layers name the kind and the keys
 
 ## Test Plan
 

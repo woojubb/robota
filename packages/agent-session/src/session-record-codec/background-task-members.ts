@@ -37,6 +37,8 @@ export const TASK_KINDS = [
   'agent',
   'process',
   'scheduled',
+  // Contained — DATA-010.
+  'tool-invocation',
 ] as const satisfies readonly TBackgroundTaskKind[];
 export const TASK_MODES = [
   'foreground',

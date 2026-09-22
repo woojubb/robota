@@ -61,16 +61,29 @@ import type {
 import type { IToolWithEventService, TToolParameters } from '@robota-sdk/agent-core';
 
 /**
- * Operational defaults for the four supervisor timeouts (`agent-mcp`'s SPEC leaves the numbers to
+ * Operational defaults for the five supervisor timeouts (`agent-mcp`'s SPEC leaves the numbers to
  * the caller; nothing about their VALUES is protocol logic). Overridable via
- * {@link IMcpClientCompositionDeps.timeouts}.
+ * {@link IMcpClientCompositionDeps.timeouts}. `toolCallMs` here is the MCP-002 placeholder value —
+ * a caller that cares about MCP-004's tool-call budget uses {@link buildMcpClientTimeouts} instead of
+ * this constant directly.
  */
 const DEFAULT_MCP_CLIENT_TIMEOUTS: IMCPTimeouts = {
   startupMs: 10_000,
   perCallMs: 30_000,
   globalDefaultMs: 60_000,
   idleMs: 300_000,
+  toolCallMs: 30_000,
 };
+
+/**
+ * MCP-004 S3: the five supervisor timeouts with `toolCallMs` set from the resolved
+ * `mcp.callTimeoutMs` setting (`mcp-settings.ts`) — `startupMs`, `perCallMs`, `globalDefaultMs` and
+ * `idleMs` keep their MCP-002 defaults untouched. The one caller, `mcp-startup.ts`, passes the result
+ * as {@link IMcpClientCompositionDeps.timeouts}.
+ */
+export function buildMcpClientTimeouts(callTimeoutMs: number): IMCPTimeouts {
+  return { ...DEFAULT_MCP_CLIENT_TIMEOUTS, toolCallMs: callTimeoutMs };
+}
 
 export interface IMcpClientCompositionDeps {
   /** MCP-001's resolved definitions — see the module doc for why this is injected, not sourced. */
@@ -101,6 +114,18 @@ export interface IMcpClientCompositionDeps {
   readonly reportDiagnostic: (message: string) => void;
 }
 
+/**
+ * MCP-004 S3: one connected tool's handoff-relevant provenance — everything
+ * `IToolCallHandoffProvenance` (`@robota-sdk/agent-framework`) needs beyond `permissionMode`, which
+ * is a session-level input `mcp-startup.ts` supplies, not a per-server fact this module holds.
+ */
+export interface IMcpConnectedToolProvenance {
+  readonly serverId: string;
+  /** The tool's name as the MCP server declared it — distinct from its exposed canonical name. */
+  readonly sourceName: string;
+  readonly securityIdentity: string;
+}
+
 export interface IMcpClientComposition {
   /** Wire directly into `IStartCliOptions.mcpActivationAdapter` — the `/mcp` command port. */
   readonly activationAdapter: ICommandMCPActivationAdapter;
@@ -113,6 +138,12 @@ export interface IMcpClientComposition {
   connect(signal?: AbortSignal): Promise<readonly IToolWithEventService[]>;
   /** Closes every supervisor opened by `connect`, cancelling their armed timers. */
   shutdown(): Promise<void>;
+  /**
+   * Provenance for every tool the most recent `connect()` call returned, keyed by the tool's exposed
+   * canonical name (`getName()`). Empty until `connect()` resolves at least once. `mcp-startup.ts`
+   * reads this to build MCP-004's `toolCallHandoff` policy — never mutated outside `connect()`.
+   */
+  readonly connectedToolProvenance: ReadonlyMap<string, IMcpConnectedToolProvenance>;
 }
 
 /**
@@ -264,17 +295,32 @@ function buildActivationAdapter(controller: MCPActivationController): ICommandMC
   };
 }
 
-/** Every adopted/adapted tool entry whose server has a live connection, wrapped as a runtime tool. */
+/**
+ * Every adopted/adapted tool entry whose server has a live connection, wrapped as a runtime tool.
+ * `provenanceByCanonicalName` is populated as a side effect (MCP-004 S3) — one entry per returned
+ * tool, keyed by the exact name `getName()` reports.
+ */
 function collectToolsFromCatalog(
   catalog: IMCPCatalog,
   connectionByServerId: ReadonlyMap<string, IMcpServerConnection>,
+  securityIdentityByServerId: ReadonlyMap<string, string>,
+  provenanceByCanonicalName: Map<string, IMcpConnectedToolProvenance>,
 ): IToolWithEventService[] {
   const tools: IToolWithEventService[] = [];
   for (const entry of [...catalog.adopted, ...catalog.adapted]) {
     if (entry.kind !== 'tool') continue;
     const connection = connectionByServerId.get(entry.provenance.serverId);
     if (connection === undefined) continue;
-    tools.push(createDiscoveredTool(entry, connection));
+    const tool = createDiscoveredTool(entry, connection);
+    tools.push(tool);
+    const securityIdentity = securityIdentityByServerId.get(entry.provenance.serverId);
+    if (securityIdentity !== undefined) {
+      provenanceByCanonicalName.set(tool.getName(), {
+        serverId: entry.provenance.serverId,
+        sourceName: entry.sourceName,
+        securityIdentity,
+      });
+    }
   }
   return tools;
 }
@@ -292,10 +338,12 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   const createSupervisor =
     deps.createSupervisor ??
     ((options: IMCPConnectionSupervisorOptions) => new MCPConnectionSupervisor(options));
+  const connectedToolProvenance = new Map<string, IMcpConnectedToolProvenance>();
 
   async function connect(signal?: AbortSignal): Promise<readonly IToolWithEventService[]> {
     const catalogInputs: IMCPCatalogInput[] = [];
     const connectionByServerId = new Map<string, IMcpServerConnection>();
+    const securityIdentityByServerId = new Map<string, string>();
     const context: IConnectServerContext = { admission, createSupervisor, timeouts, deps, signal };
 
     for (const request of registry.list()) {
@@ -313,6 +361,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       if (connected.connection !== undefined) {
         openConnections.push(connected.connection);
         connectionByServerId.set(request.serverId, connected.connection);
+        securityIdentityByServerId.set(request.serverId, request.securityIdentity);
       }
     }
 
@@ -329,12 +378,18 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       );
     }
 
-    return collectToolsFromCatalog(catalog, connectionByServerId);
+    connectedToolProvenance.clear();
+    return collectToolsFromCatalog(
+      catalog,
+      connectionByServerId,
+      securityIdentityByServerId,
+      connectedToolProvenance,
+    );
   }
 
   async function shutdown(): Promise<void> {
     await Promise.all(openConnections.map((connection) => connection.shutdown()));
   }
 
-  return { activationAdapter, connect, shutdown };
+  return { activationAdapter, connect, shutdown, connectedToolProvenance };
 }

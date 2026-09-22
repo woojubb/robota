@@ -27,6 +27,7 @@ Preserve and deliver the independently verifiable outcome of [issue #2089](https
 - [ ] Implement the target behavior without parallel ownership or a forwarding facade.
 - [ ] Add negative and positive regression evidence for the source acceptance conditions.
 - [ ] Update affected specifications and run package, type, build, and boundary verification.
+- [ ] Coordination — MCP-004 (AGREEMENT-009): the kind-indexed contract map this Task defines must carry the `tool-invocation` member (`IToolInvocationBackgroundTaskRequest`, `agent-interface-execution`) added by MCP-004 S1, not drop it as an unrecognized kind.
 
 ## Test Plan
 

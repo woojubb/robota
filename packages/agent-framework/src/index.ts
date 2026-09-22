@@ -563,6 +563,10 @@ export type {
 // about a public surface at any count. It is the return type of a factory that is no longer public,
 // so it describes nothing a consumer can obtain.
 export type { ICreateSessionOptions, TSessionResponseFormat } from './assembly/index.js';
+// MCP-004 §S3: the `toolCallHandoff` policy shape reachable from `ICreateSessionOptions` — the ONLY
+// barrel addition this unit makes; `buildToolCallHandoff`, the wrapper class and
+// `unwrapToolCallHandoff` stay off the barrel (`tool-call-handoff.ts`'s own module doc).
+export type { IToolCallHandoffPolicy, IToolCallHandoffProvenance } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
 export { createCommandExecutionTool } from './tools/command-execution-tool.js';

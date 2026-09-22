@@ -49,6 +49,7 @@ import type {
   TWorkspaceProjectAccess,
   EditCheckpointStore,
   IOrgPolicy,
+  IToolCallHandoffPolicy,
 } from '@robota-sdk/agent-framework';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type {
@@ -106,6 +107,8 @@ export interface IRenderOptions {
   forkSession?: boolean;
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** MCP-004: the tool-call handoff policy the composition root computed for this runtime. */
+  toolCallHandoff?: IToolCallHandoffPolicy;
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /**
    * ARCH-005: subagent definitions contributed by the composition root (the capability packs
@@ -219,6 +222,7 @@ export function toChannelOptions(
     forkSession: options.forkSession,
     sessionName: options.sessionName,
     backgroundTaskRunners: options.backgroundTaskRunners,
+    ...(options.toolCallHandoff !== undefined ? { toolCallHandoff: options.toolCallHandoff } : {}),
     subagentRunnerFactory: options.subagentRunnerFactory,
     ...(options.agentDefinitions !== undefined
       ? { agentDefinitions: options.agentDefinitions }

@@ -18,9 +18,10 @@ import path from 'node:path';
 import { InMemoryMCPActivationApprovalStore, MCPDefinitionRegistry } from '@robota-sdk/agent-mcp';
 import { describe, expect, it } from 'vitest';
 
-import { createMcpClientComposition } from '../mcp-client-composition.js';
+import { buildMcpClientTimeouts, createMcpClientComposition } from '../mcp-client-composition.js';
 
 import type {
+  IMCPConnectionSupervisorOptions,
   IMCPDiscovery,
   IMCPResolvedEntry,
   IMCPServerDefinitionResolved,
@@ -150,6 +151,37 @@ describe('createMcpClientComposition', () => {
     await composition.shutdown();
   });
 
+  it('records connected-tool provenance (serverId, sourceName, securityIdentity) for MCP-004', async () => {
+    const entries = [resolvedEntry()];
+    const approvalStore = approvedApprovalStore(entries);
+    const diagnostics = diagnosticsSink();
+    const { connection } = fakeConnection(discoveryWithOneTool());
+
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      transport: {
+        fetch: async () => {
+          throw new Error('the fake connection never opens a real transport; fetch must not run');
+        },
+        lookup: async () => ['93.184.216.34'],
+      },
+      createSupervisor: () => connection,
+      reportDiagnostic: diagnostics.reportDiagnostic,
+    });
+
+    const tools = await composition.connect();
+    const canonicalName = tools[0]!.getName();
+    const provenance = composition.connectedToolProvenance.get(canonicalName);
+
+    expect(provenance?.serverId).toBe('weather');
+    expect(provenance?.sourceName).toBe('forecast');
+    expect(typeof provenance?.securityIdentity).toBe('string');
+    expect(provenance?.securityIdentity.length).toBeGreaterThan(0);
+
+    await composition.shutdown();
+  });
+
   it('surfaces an admission refusal as a diagnostic and never attempts a connection', async () => {
     // No approval is recorded — a `user`-source definition with no approval record is `pending`,
     // i.e. `allowed: false`.
@@ -180,6 +212,80 @@ describe('createMcpClientComposition', () => {
     expect(diagnostics.messages).toHaveLength(1);
     expect(diagnostics.messages[0]).toContain('weather');
     expect(diagnostics.messages[0]).toContain('not admitted');
+
+    await composition.shutdown();
+  });
+});
+
+// --- MCP-004 (TC-18): `toolCallMs` is a fifth, independently-set timeout — `buildMcpClientTimeouts`
+// sets it from the resolved `mcp.callTimeoutMs`, and the composition passes the result straight
+// through to the supervisor, leaving the other four MCP-002 defaults untouched.
+
+describe('buildMcpClientTimeouts (TC-18)', () => {
+  it('sets toolCallMs from callTimeoutMs while the other four keep their MCP-002 defaults', () => {
+    const timeouts = buildMcpClientTimeouts(900_000);
+
+    expect(timeouts).toEqual({
+      startupMs: 10_000,
+      perCallMs: 30_000,
+      globalDefaultMs: 60_000,
+      idleMs: 300_000,
+      toolCallMs: 900_000,
+    });
+  });
+
+  it('setting callTimeoutMs never changes the other four', () => {
+    expect(buildMcpClientTimeouts(30_000)).toEqual(
+      expect.objectContaining({
+        startupMs: 10_000,
+        perCallMs: 30_000,
+        globalDefaultMs: 60_000,
+        idleMs: 300_000,
+      }),
+    );
+    expect(buildMcpClientTimeouts(600_000)).toEqual(
+      expect.objectContaining({
+        startupMs: 10_000,
+        perCallMs: 30_000,
+        globalDefaultMs: 60_000,
+        idleMs: 300_000,
+      }),
+    );
+  });
+
+  it('the composition passes the resolved timeouts straight through to the supervisor', async () => {
+    const entries = [resolvedEntry()];
+    const approvalStore = approvedApprovalStore(entries);
+    const diagnostics = diagnosticsSink();
+    const { connection } = fakeConnection(discoveryWithOneTool());
+    let capturedOptions: IMCPConnectionSupervisorOptions | undefined;
+
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      timeouts: buildMcpClientTimeouts(900_000),
+      transport: {
+        fetch: async () => {
+          throw new Error('the fake connection never opens a real transport; fetch must not run');
+        },
+        lookup: async () => ['93.184.216.34'],
+      },
+      createSupervisor: (options) => {
+        capturedOptions = options;
+        return connection;
+      },
+      reportDiagnostic: diagnostics.reportDiagnostic,
+    });
+
+    await composition.connect();
+
+    expect(capturedOptions?.timeouts).toEqual({
+      startupMs: 10_000,
+      perCallMs: 30_000,
+      globalDefaultMs: 60_000,
+      idleMs: 300_000,
+      toolCallMs: 900_000,
+    });
 
     await composition.shutdown();
   });
