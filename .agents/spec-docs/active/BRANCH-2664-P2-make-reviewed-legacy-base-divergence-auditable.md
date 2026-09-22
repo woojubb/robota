@@ -1568,3 +1568,45 @@ it exposes no Robota product surface an end user can execute.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `70f2940a4f7c` · base `origin/develop@165debe19a59` · document `.agents/spec-docs/todo/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md` blob `4a03e0738358` (tracked)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** in-progress → in-progress (continuation)
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-IMPLEMENT PASS and status `in-progress`: [GATE-IMPLEMENT] — ✅ PASS | 2026-09-22; status `in-progress`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (8)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 322 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+```json
+{
+  "version": 2,
+  "form": "gateImplementContinuation",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    ".agents/spec-docs/active/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md",
+    ".agents/tasks/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md",
+    ".agents/evidence/migrations/BRANCH-2664-P2-agreement-2664-migration.json"
+  ],
+  "priorPass": "sha256:587beeefcc4e1ec9fcee7c7293c0c1802d6c76f019d3650d8c95b490c9b41c7e",
+  "ancestorSha": "bb8fd38f7aaae9fcf0f59828e3f18e7d87d9c912",
+  "taskPath": ".agents/tasks/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md",
+  "specPath": ".agents/spec-docs/active/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md",
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/active/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md",
+    ".agents/tasks/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md"
+  ]
+}
+```
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `bb8fd38f7aaa` · base `origin/develop@bb8fd38f7aaa` · document `.agents/spec-docs/active/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md` blob `199c66f30eec` (tracked)
