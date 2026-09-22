@@ -11,7 +11,7 @@ import {
   fixtureIdentity,
   fixtureTimeouts,
 } from './supervisor-test-helpers.js';
-import { MCPConnectionSupervisor } from '../supervisor/connection.js';
+import { MCPConnectionSupervisor, MCPSupervisorError } from '../supervisor/connection.js';
 
 describe('MCPConnectionSupervisor — shutdown leaves no live request (TC-17)', () => {
   it('closes the live session and clears the idle timer, leaving zero pending timers', async () => {
@@ -97,5 +97,38 @@ describe('MCPConnectionSupervisor — shutdown leaves no live request (TC-17)', 
 
     expect(clock.pendingCount).toBe(0);
     expect(supervisor.getState()).toEqual({ kind: 'closed' });
+  });
+
+  it('closes a session that finishes opening after shutdown(), never announcing it as connected', async () => {
+    const clock = new FakeSupervisorClock();
+    const identity = fixtureIdentity();
+    const session = new FakeMcpSession({ identity });
+
+    let resolveOpen: (session: FakeMcpSession) => void = () => {
+      throw new Error('resolveOpen called before assignment');
+    };
+    const opened = new Promise<FakeMcpSession>((resolve) => {
+      resolveOpen = resolve;
+    });
+
+    const supervisor = new MCPConnectionSupervisor({
+      serverId: identity.serverId,
+      openSession: () => opened,
+      timeouts: fixtureTimeouts(),
+      clock,
+    });
+
+    const pending = supervisor.ensureConnected();
+    expect(supervisor.getState().kind).toBe('connecting');
+
+    await supervisor.shutdown();
+    expect(supervisor.getState()).toEqual({ kind: 'closed' });
+
+    resolveOpen(session);
+
+    await expect(pending).rejects.toBeInstanceOf(MCPSupervisorError);
+    expect(supervisor.getState()).toEqual({ kind: 'closed' });
+    expect(session.closeCalls).toBe(1);
+    expect(clock.pendingCount).toBe(0);
   });
 });

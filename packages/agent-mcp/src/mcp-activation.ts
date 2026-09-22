@@ -141,6 +141,12 @@ function requiresTrustedWorkspace(source: TMCPActivationSource): boolean {
   return !TRUST_NOT_REQUIRED_SOURCES.has(source);
 }
 
+/** Authorities allowed to decide (approve/reject/revoke) — an allowlist, deny-by-default (TC-29). */
+const DECIDING_AUTHORITIES: ReadonlySet<TMCPApprovalAuthority> = new Set([
+  'managed',
+  'user',
+  'local',
+]);
 function isExactMatch(
   request: IMCPActivationRequest,
   record: IMCPActivationApprovalRecord,
@@ -252,7 +258,7 @@ export class MCPActivationAdmissionService implements IMCPActivationAdmission {
     request: IMCPActivationRequest,
     authority: TMCPApprovalAuthority = 'user',
   ): IMCPActivationStatusResult {
-    if (authority === 'project' || authority === 'plugin') {
+    if (!DECIDING_AUTHORITIES.has(authority)) {
       throw new MCPActivationPolicyError(
         'Project and plugin definitions may request approval but cannot approve themselves.',
       );
@@ -271,7 +277,7 @@ export class MCPActivationAdmissionService implements IMCPActivationAdmission {
     request: IMCPActivationRequest,
     authority: TMCPApprovalAuthority = 'user',
   ): IMCPActivationStatusResult {
-    if (authority === 'project' || authority === 'plugin') {
+    if (!DECIDING_AUTHORITIES.has(authority)) {
       throw new MCPActivationPolicyError(
         'Project and plugin definitions may request approval but cannot reject on behalf of the operator.',
       );
@@ -286,7 +292,7 @@ export class MCPActivationAdmissionService implements IMCPActivationAdmission {
     request: IMCPActivationRequest,
     authority: TMCPApprovalAuthority = 'user',
   ): IMCPActivationStatusResult {
-    if (authority === 'project' || authority === 'plugin') {
+    if (!DECIDING_AUTHORITIES.has(authority)) {
       throw new MCPActivationPolicyError(
         'Project and plugin definitions may request approval but cannot revoke operator approval.',
       );

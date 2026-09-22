@@ -18,6 +18,7 @@
       "@robota-sdk/agent-interface-session-mobility",
       "@robota-sdk/agent-interface-transport",
       "@robota-sdk/agent-interface-tui",
+      "@robota-sdk/agent-mcp",
       "@robota-sdk/agent-plugin",
       "@robota-sdk/agent-preset",
       "@robota-sdk/agent-process",

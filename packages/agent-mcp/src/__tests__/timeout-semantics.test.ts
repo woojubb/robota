@@ -119,4 +119,41 @@ describe('MCPConnectionSupervisor — four distinct timeouts (TC-16)', () => {
     expect(supervisor.getState().kind).toBe('idle');
     expect(session.closeCalls).toBe(1);
   });
+
+  it('records a close failure without an unhandled rejection when the idle-timeout close rejects', async () => {
+    const clock = new FakeSupervisorClock();
+    const identity = fixtureIdentity();
+    const closeError = new Error('close failed');
+    const session = new FakeMcpSession({
+      identity,
+      close: async () => {
+        throw closeError;
+      },
+    });
+    const supervisor = new MCPConnectionSupervisor({
+      serverId: identity.serverId,
+      openSession: async () => session,
+      timeouts: { startupMs: 9_999, perCallMs: 9_999, globalDefaultMs: 9_999, idleMs: 30 },
+      clock,
+    });
+
+    await supervisor.ensureConnected();
+    expect(supervisor.lastCloseFailure).toBeUndefined();
+
+    const unhandledRejections: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown): void => {
+      unhandledRejections.push(reason);
+    };
+    process.on('unhandledRejection', onUnhandledRejection);
+    try {
+      await clock.advance(30);
+      await flushMicrotasks();
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection);
+    }
+
+    expect(unhandledRejections).toEqual([]);
+    expect(supervisor.getState().kind).toBe('idle');
+    expect(supervisor.lastCloseFailure?.message).toContain('close failed');
+  });
 });

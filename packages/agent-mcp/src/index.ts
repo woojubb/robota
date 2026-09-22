@@ -90,6 +90,7 @@ export {
   admitHttpEndpoint,
   constructStreamableHttpTransport,
   createStreamableHttpAdapter,
+  MCPTransportRedirectRefusedError,
   type IMCPAdmittedHttpEndpoint,
   type IMCPHttpEndpoint,
   type IMCPHttpTransportDeps,

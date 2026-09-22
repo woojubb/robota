@@ -54,6 +54,30 @@ export interface IMCPHttpTransportDeps {
 
 const POLICY_REFUSAL = 'egress-policy';
 
+/** Inclusive HTTP redirect status range (300–399). */
+const HTTP_REDIRECT_STATUS_MIN = 300;
+const HTTP_REDIRECT_STATUS_MAX_EXCLUSIVE = 400;
+
+/**
+ * The admitted URL is the only URL spoken to — a redirect is REFUSED, never followed. Thrown by the
+ * fetch wrapper `constructStreamableHttpTransport` installs when the admitted origin responds with
+ * any 3xx: following it would hand the request's headers (set by the caller as trusted for the
+ * admitted origin) to a second, un-admitted destination, defeating the whole point of admission.
+ */
+export class MCPTransportRedirectRefusedError extends Error {
+  constructor(
+    readonly status: number,
+    readonly location: string | undefined,
+    admittedUrl: string,
+  ) {
+    super(
+      `Streamable HTTP transport refused a redirect (${status}) from ${admittedUrl} to ` +
+        `${location ?? 'an undisclosed location'}: the admitted URL is the only URL spoken to`,
+    );
+    this.name = 'MCPTransportRedirectRefusedError';
+  }
+}
+
 /**
  * Admit a Streamable HTTP endpoint. `http:` outside loopback, private ranges and cloud metadata
  * addresses are refused by the shared policy with its own reason; nothing is connected to decide.
@@ -86,10 +110,33 @@ export function constructStreamableHttpTransport(
   admitted: IMCPAdmittedHttpEndpoint,
   deps: IMCPHttpTransportDeps = {},
 ): StreamableHTTPClientTransport {
+  const baseFetch = deps.fetch ?? globalThis.fetch;
+  const admittedUrl = admitted.url.toString();
+
+  // The admitted URL is the only URL spoken to: every call this transport makes is forced to
+  // `redirect: 'manual'` (never trusting the SDK's default of following one), and any 3xx response
+  // from the admitted origin is refused rather than chased to a second, un-admitted destination.
+  const redirectRefusingFetch: typeof globalThis.fetch = async (input, init) => {
+    const response = await baseFetch(input, { ...init, redirect: 'manual' });
+    if (
+      response.status >= HTTP_REDIRECT_STATUS_MIN &&
+      response.status < HTTP_REDIRECT_STATUS_MAX_EXCLUSIVE
+    ) {
+      throw new MCPTransportRedirectRefusedError(
+        response.status,
+        response.headers.get('location') ?? undefined,
+        admittedUrl,
+      );
+    }
+    return response;
+  };
+
   return new StreamableHTTPClientTransport(admitted.url, {
-    requestInit:
-      Object.keys(admitted.headers).length > 0 ? { headers: admitted.headers } : undefined,
-    ...(deps.fetch ? { fetch: deps.fetch } : {}),
+    requestInit: {
+      redirect: 'manual',
+      ...(Object.keys(admitted.headers).length > 0 ? { headers: admitted.headers } : {}),
+    },
+    fetch: redirectRefusingFetch,
   });
 }
 

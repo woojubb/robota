@@ -624,6 +624,7 @@ package. The paired Task's `## User Execution Test Scenarios` carries the same s
   `dag-cli` and `dag-mcp-server`; `packages/agent-mcp/package.json` does not yet declare it, consistent
   with "gains".
 
+**Judged by:** `backlog-gate-guard` (semantic set; attribution line added at archival — Contained — HARNESS-2664.)
 **Judged at:** HEAD `9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · base `origin/integration/agreement-014@9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · document `.agents/spec-docs/draft/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `7a172bd3e9b707e7afb380599b1eb49c1704d58d` (untracked)
 
 ### [GATE-WRITE] — ❌ FAIL | 2026-09-22
@@ -727,6 +728,7 @@ genuinely covered with their negative halves; two are not, against an explicit c
   this gate's — but a figure known to be wrong and left in place is read differently by the next gate
   than one not yet noticed.
 
+**Judged by:** `backlog-gate-guard` (semantic set; attribution line added at archival — Contained — HARNESS-2664.)
 **Judged at:** HEAD `9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · base `origin/integration/agreement-014@9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · document `.agents/spec-docs/draft/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `1387784d25cf69ae26eb863f4804860bbf79393f` (untracked)
 
 ### [GATE-WRITE] — ❌ FAIL | 2026-09-22
@@ -810,6 +812,7 @@ genuinely covered with their negative halves; two are not, against an explicit c
   line 181 now reads "two Task records" above two bullets with the range corrected to
   "TC-13 through TC-17, TC-10 and TC-22".
 
+**Judged by:** `backlog-gate-guard` (semantic set; attribution line added at archival — Contained — HARNESS-2664.)
 **Judged at:** HEAD `9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · base `origin/integration/agreement-014@9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · document `.agents/spec-docs/draft/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `8c04e725d45d71797f16df6e69364597904a0f56` (untracked)
 
 ### [GATE-WRITE] — ❌ FAIL | 2026-09-22
@@ -882,6 +885,7 @@ genuinely covered with their negative halves; two are not, against an explicit c
   6→TC-17; 8→TC-10; 9→TC-22). Condition 8's scope split remains honest — issue #2523's parent-checklist line
   scopes model projection to issue #1990 — and TC-10's defect is its instrument, not its coverage.
 
+**Judged by:** `backlog-gate-guard` (semantic set; attribution line added at archival — Contained — HARNESS-2664.)
 **Judged at:** HEAD `9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · base `origin/integration/agreement-014@9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · document `.agents/spec-docs/draft/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `44c1fdb0b334b50d1864e8fd5546d93c7e49ebee` (untracked)
 
 ### [GATE-WRITE] — ❌ FAIL | 2026-09-22
@@ -962,6 +966,7 @@ form, which is why stating it was the right thing to do.
   right decomposition — each part is now assigned to a tool that can decide it; only TC-24's is stated
   in a form that cannot go red.
 
+**Judged by:** `backlog-gate-guard` (semantic set; attribution line added at archival — Contained — HARNESS-2664.)
 **Judged at:** HEAD `9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · base `origin/integration/agreement-014@9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · document `.agents/spec-docs/draft/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `c96668060c8142cf291111b04225af85b5ac7010` (untracked)
 
 ### [GATE-WRITE] — ❌ FAIL | 2026-09-22
@@ -1040,6 +1045,7 @@ criterion per distinct feature or sub-item — PASS: 24 criteria, 24 Test Plan r
 mapped, condition 8 correctly decomposed across TC-10 / TC-23 / TC-24. The coverage is right; three
 instruments cannot measure what they cover.
 
+**Judged by:** `backlog-gate-guard` (semantic set; attribution line added at archival — Contained — HARNESS-2664.)
 **Judged at:** HEAD `9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · base `origin/integration/agreement-014@9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · document `.agents/spec-docs/draft/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `7e63858ee9c63d17c6810f4085ead29871acaac7` (untracked)
 
 ### [GATE-WRITE] — ✅ PASS | 2026-09-22
@@ -1140,6 +1146,7 @@ this entry's `X → Y` to match the document's CURRENT `status:` — so the fron
 `review-ready` before GATE-APPROVAL can open. This gate did not change it; a status change follows a
 verdict rather than forming part of one.
 
+**Judged by:** `backlog-gate-guard` (semantic set; attribution line added at archival — Contained — HARNESS-2664.)
 **Judged at:** HEAD `9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · base `origin/integration/agreement-014@9eb7ea8fdb88fefd502540ef121b944f8e81b8f0` · document `.agents/spec-docs/draft/MCP-002-build-the-shared-mcp-client-and-http-product-vertical-slice.md` blob `1d7fc861d9b9da374222cc96ed2e1387af9748f5` (untracked)
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-09-22

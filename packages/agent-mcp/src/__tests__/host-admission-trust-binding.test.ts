@@ -3,12 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
   InMemoryMCPActivationApprovalStore,
   MCPActivationAdmissionService,
+  MCPActivationPolicyError,
 } from '../mcp-activation.js';
 
 import type {
   IMCPActivationApprovalRecord,
   IMCPActivationRequest,
   TMCPActivationSource,
+  TMCPApprovalAuthority,
 } from '../mcp-activation.js';
 
 function request(overrides: Partial<IMCPActivationRequest> = {}): IMCPActivationRequest {
@@ -126,5 +128,26 @@ describe('MCP activation host admission trust binding', () => {
     const userResult = service.admit(userRequest);
     expect(userResult.status).toBe('approved');
     expect(userResult.allowed).toBe(true);
+  });
+
+  it('denies by default: an authority outside the union cannot approve, reject, or revoke', () => {
+    const service = new MCPActivationAdmissionService();
+    const trustedRequest = request();
+
+    // Mirrors the unknown-SOURCE red-proof above, but for the DECIDING authority instead: with the
+    // old require-list form (`authority === 'project' || authority === 'plugin'`), an authority
+    // outside the union — cast the same way the unknown-source case does — would fall through to
+    // `false` and be treated as allowed to decide. The allowlist form refuses by default.
+    const unknownAuthority = 'workflow' as unknown as TMCPApprovalAuthority;
+
+    expect(() => service.approve(trustedRequest, unknownAuthority)).toThrow(
+      MCPActivationPolicyError,
+    );
+    expect(() => service.reject(trustedRequest, unknownAuthority)).toThrow(
+      MCPActivationPolicyError,
+    );
+    expect(() => service.revoke(trustedRequest, unknownAuthority)).toThrow(
+      MCPActivationPolicyError,
+    );
   });
 });

@@ -14,6 +14,7 @@ import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 
 import { catalogIdentityOf, sameCatalogIdentity } from '../catalog/types.js';
 import { MCPSessionError } from '../client/session.js';
+import { MCPTransportRedirectRefusedError } from '../client/transport.js';
 
 import type {
   IMCPCatalogIdentity,
@@ -204,8 +205,13 @@ function isNotFoundFailure(
   );
 }
 
-function isConfigurationFailure(rpcCode: number | undefined, message: string): boolean {
+function isConfigurationFailure(
+  error: unknown,
+  rpcCode: number | undefined,
+  message: string,
+): boolean {
   return (
+    error instanceof MCPTransportRedirectRefusedError ||
     rpcCode === JSON_RPC_INVALID_PARAMS ||
     message.includes('invalid url') ||
     message.includes('unsupported protocol') ||
@@ -256,7 +262,7 @@ export function classifyMcpFailure(error: unknown): TMCPFailureClass {
   if (isNotFoundFailure(status, rpcCode, message)) {
     return 'not-found';
   }
-  if (isConfigurationFailure(rpcCode, message)) {
+  if (isConfigurationFailure(error, rpcCode, message)) {
     return 'config';
   }
   if (isTransientFailure(status, errnoCode, message)) {
@@ -304,6 +310,7 @@ export class MCPConnectionSupervisor {
   private lastBackgroundRefreshFailure:
     | { readonly domain: TMCPCapabilityDomain; readonly message: string; readonly at: number }
     | undefined;
+  private lastBackgroundCloseFailure: { readonly message: string; readonly at: number } | undefined;
 
   private pendingAttempt: Promise<TMCPAttemptOutcome> | undefined;
   private activeAbortController: AbortController | undefined;
@@ -429,6 +436,16 @@ export class MCPConnectionSupervisor {
     | { readonly domain: TMCPCapabilityDomain; readonly message: string; readonly at: number }
     | undefined {
     return this.lastBackgroundRefreshFailure;
+  }
+
+  /**
+   * The most recent close failure recorded from a background close — one with no caller awaiting
+   * it directly, e.g. the idle-timeout close (`handleIdleTimeout`) or the close of a session that
+   * finished opening after `shutdown()` already moved the state to `closed` (`runOpenAttempt`).
+   * Never thrown, for the same reason as `lastRefreshFailure`.
+   */
+  get lastCloseFailure(): { readonly message: string; readonly at: number } | undefined {
+    return this.lastBackgroundCloseFailure;
   }
 
   /** Explicit operator action after `manual-retry`. */
@@ -595,6 +612,23 @@ export class MCPConnectionSupervisor {
         () => controller.abort(),
       );
       this.clearActiveController(controller);
+      if (this.state.kind === 'closed' || controller.signal.aborted) {
+        // `shutdown()` moved the state to `closed` (or aborted this very attempt) while the open
+        // was still settling. The session that just arrived was never announced — closing it here,
+        // rather than calling `onConnected`, is what keeps a post-shutdown open from resurrecting a
+        // connection nothing asked for.
+        await session.close().then(
+          () => undefined,
+          (error: unknown) => this.recordBackgroundCloseFailure(error),
+        );
+        return {
+          ok: false,
+          error: new MCPSupervisorError(
+            'config',
+            'supervisor was shut down while the open attempt was settling',
+          ),
+        };
+      }
       this.onConnected(session);
       return { ok: true, session };
     } catch (error) {
@@ -683,6 +717,13 @@ export class MCPConnectionSupervisor {
     };
   }
 
+  private recordBackgroundCloseFailure(error: unknown): void {
+    this.lastBackgroundCloseFailure = {
+      message: extractErrorMessage(error),
+      at: this.clock.now(),
+    };
+  }
+
   private recordRefreshSuccess(
     domain: TMCPCapabilityDomain,
     identity: IMCPServerIdentity,
@@ -761,7 +802,13 @@ export class MCPConnectionSupervisor {
     }
     this.setState({ kind: 'idle' });
     if (session) {
-      await session.close();
+      // No caller is awaiting this close (armed by a timer, not a request) — mirrors
+      // `refreshInBackground`: the failure is recorded as state (`lastCloseFailure`) rather than
+      // left to reject an unhandled promise.
+      await session.close().then(
+        () => undefined,
+        (error: unknown) => this.recordBackgroundCloseFailure(error),
+      );
     }
   }
 }
