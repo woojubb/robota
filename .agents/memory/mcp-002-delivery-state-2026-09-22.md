@@ -2,9 +2,9 @@
 
 **The sentence, because it is the whole entry:**
 
-> MCP-002 is delivered and committed on `feat/mcp-002-shared-client-and-http-vertical` (base
-> `integration/agreement-014`); what remains is review, push and the child PR, then the later
-> AGREEMENT-014 units.
+> MCP-002 landed on `integration/agreement-014` through PR #2818 (owner-merged 2026-09-22, merge
+> `a63fe09f8`) after a three-round local review (8 → 3 → 0); MCP-003 is superseded by it, and the
+> later AGREEMENT-014 units start from MCP-004.
 
 ## Where it stands
 
@@ -21,7 +21,6 @@
 
 ## What comes next
 
-Round A `pr-review-reviewer` → one repair batch → `pnpm harness:review:record --findings 0` → push →
-PR into `integration/agreement-014`; then MCP-004/005/2525, 006/007, 008/2533, MCP-2522 (stdio),
+MCP-004 (background handoff for long MCP calls) is next on `feat/mcp-004-background-mcp-calls`; then MCP-005/2525, 006/007, 008/2533, MCP-2522 (stdio),
 MCP-2817 (remove the DAG↔MCP surfaces). The final `integration/agreement-014 → develop` PR stays open
 for the owner. Session memory: `robota-mcp-002-session-state`.
