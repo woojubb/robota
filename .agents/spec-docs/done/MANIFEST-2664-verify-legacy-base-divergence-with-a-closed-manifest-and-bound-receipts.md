@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [manifest, harness]
 lane: L2
@@ -449,7 +449,7 @@ manifest fails closed with a named diagnostic rather than degrading.
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: the SHA-1-only verifier recomputes explicit full-OID segment membership
+- [x] TC-01: Observable: the SHA-1-only verifier recomputes explicit full-OID segment membership
       against separately bound `legacyBase` and `replacementBase` (a fixture whose bases differ passes;
       one whose replacement base does not descend from the legacy base is `refuted` with
       `BASES_NOT_ANCESTRAL`, and one whose legacy tip does not descend from the legacy base is
@@ -468,12 +468,12 @@ manifest fails closed with a named diagnostic rather than degrading.
       `code`; `verify` returns `refuted` with findings for every disagreement and `aborted` with
       diagnostics for every port failure and unknown OID; and `MANIFEST_DIAGNOSTIC_CODES` equals the
       v1 set listed in the Decision.
-- [ ] TC-02: Observable: in the isolated `scan-user-execution-plan-order.test.mjs`, a minimal graph
+- [x] TC-02: Observable: in the isolated `scan-user-execution-plan-order.test.mjs`, a minimal graph
       built by the generalised `integrationAgreementPreludeFixture` whose prelude declares all eight
       children yields `findHistoryFindingsFromGit(root, base)` equal to `[]` through the unmodified
       scanner and `readExaminedPlanOrderCount(root, base)` equal to the fixture's single-parent commit
       count, alongside the suite's existing undeclared and out-of-order refusals.
-- [ ] TC-03: Observable: an equivalent replay uses only `equal` and structural merge records; Task,
+- [x] TC-03: Observable: an equivalent replay uses only `equal` and structural merge records; Task,
       ledger, source, test, chmod, mode-only, symlink/object-type, add/delete, rename-policy,
       empty-patch (patch-ID flag `null`), and one-byte changes fail unless their exact
       disposition/tuple set and durable evidence are present, with the mode (flag `false`), type,
@@ -509,7 +509,7 @@ manifest fails closed with a named diagnostic rather than degrading.
       (the test's own `spawnSync` raising its 1 MiB default `maxBuffer`), and on an early-closed pipe
       exits 2 with exactly one stderr line after the `::root::` announcement, that line being
       `STDOUT_EPIPE`; and one known manifest byte string maps to one stated SHA-256 digest.
-- [ ] TC-04: Observable: the contract-tier `integration-migration-owner-documents.test.mjs` finds the
+- [x] TC-04: Observable: the contract-tier `integration-migration-owner-documents.test.mjs` finds the
       migration sentence and the `.agents/evidence/migrations/` identifier under `### Branch Policy`
       in `git-branch.md`, finds a Markdown link whose target is `git-branch.md` with the
       `#branch-policy` fragment in `backlog-execution.md` § Base Branch Workflow and in
@@ -517,7 +517,7 @@ manifest fails closed with a named diagnostic rather than degrading.
       `/stable\s+patch[\s-]?ids?/i` and `/changed-path (equality|equivalence)/i` each match at least
       once inside that one section and nowhere else across every file under `.agents/rules` and
       `.agents/skills`.
-- [ ] TC-05: Commands: `pnpm harness:test:hermetic` (the new file in `HERMETIC_TEST_FILES`),
+- [x] TC-05: Commands: `pnpm harness:test:hermetic` (the new file in `HERMETIC_TEST_FILES`),
       `node scripts/harness/harness-test-tiers.mjs --tier contracts --affected --base-ref origin/develop --head-ref HEAD`
       (which falls to the complete contract tier for this changeset, because the new module has no
       contract-tier owner, and so runs the isolated plan-order suite one file per invocation and the
@@ -526,13 +526,13 @@ manifest fails closed with a named diagnostic rather than degrading.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                    | Notes                                                    |
-| ----- | ----------- | ------------------------------------------------------------------ | -------------------------------------------------------- |
-| TC-01 | adversarial | `integration-migration-manifest.test.mjs` (hermetic; fixture port) | Tuples, merge structure, dispositions, closed code set   |
-| TC-02 | premise     | Isolated plan-order suite, one added eight-children case           | Characterises the unmodified scanner; no manifest import |
-| TC-03 | regression  | Same hermetic file; `make-temp.mjs` repos, default adapter, CLI    | Real argv, hostile env, port failures, exit codes        |
-| TC-04 | contract    | Heading/identifier assertions on the three owner documents         | One sentence, two pointers, positive + negative match    |
-| TC-05 | suite       | Hermetic tier, contract tier runner, import safety, affected scans | Every path the CI `scans` job actually runs must exit 0  |
+| TC-ID | Test Type   | Tool / Approach                                                    | Notes                                                                                                          |
+| ----- | ----------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| TC-01 | adversarial | `integration-migration-manifest.test.mjs` (hermetic; fixture port) | Tuples, merge structure, dispositions, closed code set                                                         |
+| TC-02 | premise     | Isolated plan-order suite, one added eight-children case           | Characterises the unmodified scanner; no manifest import                                                       |
+| TC-03 | regression  | Same hermetic file; `make-temp.mjs` repos, default adapter, CLI    | Real argv, hostile env, port failures, exit codes                                                              |
+| TC-04 | contract    | Heading/identifier assertions on the three owner documents         | One sentence, two pointers, positive + negative match                                                          |
+| TC-05 | suite       | Hermetic tier, contract tier runner, import safety, affected scans | Skip reason: command-only aggregate verification; the constituent tests are referenced by TC-01 through TC-04. |
 
 ## User Execution Test Scenarios
 
@@ -545,7 +545,7 @@ Robota CLI, TUI, browser, SDK, configuration, or installed-package surface an en
 
 ## Tasks
 
-- [ ] `.agents/tasks/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md` — todo
+- [x] `.agents/tasks/completed/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md` — complete
 
 ## Evidence Log
 
@@ -677,3 +677,105 @@ further revision needed before GATE-APPROVAL.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `4f61b6fe0d3f` · base `origin/develop@24a646101a00` · document `.agents/spec-docs/todo/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md` blob `5bcbf62bcaa6` (tracked)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/integration-migration-manifest.test.mjs`
+**Exit:** 0
+**Output:** 1 test file passed; 27 tests passed, covering schema, canonicalization, ceilings, dispositions, structural merge records, and closed diagnostics.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `3218d68ecb48` · base `origin/develop@3218d68ecb48`
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/scan-user-execution-plan-order.test.mjs -t "MANIFEST-2664 TC-02"`
+**Exit:** 0
+**Output:** the eight-child integration AGREEMENT case passed and examined every declared segment once.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `3218d68ecb48` · base `origin/develop@3218d68ecb48`
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/integration-migration-manifest.test.mjs`
+**Exit:** 0
+**Output:** 27 tests passed, including real repositories, hostile configuration and attributes, replace refs, adapter failures, budgets, and CLI exit behavior.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `3218d68ecb48` · base `origin/develop@3218d68ecb48`
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-09-22
+
+**Command:** `pnpm exec vitest run scripts/harness/__tests__/integration-migration-owner-documents.test.mjs`
+**Exit:** 0
+**Output:** 1 test file passed; all 3 owner-document contract tests passed.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `3218d68ecb48` · base `origin/develop@3218d68ecb48`
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-09-22
+
+**Command:** `gh pr checks 2805 --required && node scripts/harness/scan-harness-script-import-safety.mjs`
+**Exit:** 0
+**Output:** PR #2805 required checks were green, including `scans`; import safety examined 348 harness scripts and passed.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `3218d68ecb48` · base `origin/develop@3218d68ecb48`
+
+### [GATE-VERIFY] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** in-progress → verifying
+
+- GATE-VERIFY — ordering: the prior GATE-IMPLEMENT PASS records approved → in-progress and both paired records are in progress.
+- GATE-VERIFY — Every item in the Task Plan is complete: 5/5 TC items are checked.
+- GATE-VERIFY — No Plan item is blocked or pending: the Plan contains no unchecked or disposition-marked item.
+- GATE-VERIFY — Build-shaped affected verification passes: 36 scans passed, 5 were explicitly skipped, and only two pre-existing PR-context advisories remained.
+- GATE-VERIFY — Tests pass for the affected implementation: 30 focused manifest and owner-document tests passed.
+
+**Mechanical set:** `gate.mjs judge --gate GATE-VERIFY --dry-run` reported 3 PASS, 0 FAIL, and 2 PENDING-GUARDIAN; the two semantic Plan criteria are judged above.
+**Judged by:** current-session guardian applying the approved closeout plan; `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `3218d68ecb48` · base `origin/develop@3218d68ecb48`
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-09-22
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : TC-05: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: TC-05: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: TC-05: no test reference and no skip reason
+  **Required action:** name the test or record why it was skipped
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `3218d68ecb48` · base `origin/develop@3218d68ecb48` · document `.agents/spec-docs/active/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md` blob `338b56c301c4` (modified)
+
+### [GATE-COMPLETE CORRECTION AUTHORIZATION] | 2026-09-22
+
+**Standing instruction (verbatim):** "모두 승인하고, 앞으로의 것도 모두 타당한 근거와 함께 제시된 추천안이라면 그게ㅏ 타당할 경우 사전 승입합니다."
+
+The failed criteria identify only TC-05's missing explicit test-reference or skip-reason wording.
+The aggregate suite is already verified by exact commands and PR #2805's green required checks, so
+the bounded correction records that it is command-only verification whose constituent test files are
+owned by TC-01 through TC-04. No scope, implementation, or acceptance behavior changes.
+
+**Judged by:** current-session guardian applying the recorded standing authorization
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** verifying → done
+
+- GATE-COMPLETE — ordering: prior gate GATE-VERIFY PASS and status `verifying`: [GATE-VERIFY] — ✅ PASS | 2026-09-22; status `verifying`
+- GATE-COMPLETE — The checkbox is checked (`[x]`): 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — A `[GATE-COMPLETE: TC-N]` Evidence Log entry exists with: - The exact command or action used to verify - The a: a `[GATE-COMPLETE: TC-N]` entry with command/output exists for every TC (5)
+- GATE-COMPLETE — **One of the following is recorded:** - **Test written:** test file path + test function/describe name (e.g., : every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — No TC-N is silently unaddressed — every row must have either a test reference or a skip reason: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — Spec document `## Completion Criteria` checkboxes are all `[x]`: 5/5 TC checkboxes `[x]`
+- GATE-COMPLETE — `## Test Plan` updated with test references or skip reasons for all TC-N rows: every Test Plan row (5) carries a test reference or a skip reason
+- GATE-COMPLETE — The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`: `## Tasks` names `.agents/tasks/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md`, which exists
+- GATE-COMPLETE — That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item: 5/5 tasks `[x]` in .agents/tasks/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `3218d68ecb48` · base `origin/develop@3218d68ecb48` · document `.agents/spec-docs/active/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md` blob `a10865fe10f0` (modified)
