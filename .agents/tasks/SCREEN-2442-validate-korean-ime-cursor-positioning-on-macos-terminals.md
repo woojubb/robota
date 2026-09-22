@@ -1,7 +1,7 @@
 ---
 title: 'SCREEN-2442: Validate Korean IME cursor positioning on macOS terminals'
-issue: https://github.com/woojubb/robota/issues/2442
-status: todo
+issue: https://github.com/woojubb/robota/issues/2773
+status: in-progress
 created: 2026-09-14
 priority: high
 urgency: now
@@ -26,10 +26,11 @@ machine that day and is not rewritten to match a later scope.
 
 ## Plan
 
-- [x] Inventory macOS, Terminal.app, iTerm2 and enabled Korean input-source versions.
-- [x] Execute and capture both real Terminal.app/IME cells, including mid-line composition and movement.
-- [x] Decide and implement the Terminal.app default policy from the observed crash/position behavior.
-- [ ] Rerun capability, component, fallback and PTY suites after the decision.
+- [x] TC-01 — Inventory macOS, Terminal.app, iTerm2 and enabled Korean input-source versions.
+- [x] TC-01 — Execute and capture both real Terminal.app/IME cells, including mid-line composition and movement.
+- [x] TC-04 — Decide and implement the Terminal.app default policy from the observed crash/position behavior.
+- [ ] TC-02 and TC-03 — Rerun capability, component, fallback and PTY suites after the decision.
+- [ ] TC-05 — Archive SCREEN-2442 and update the AGREEMENT-2670 projections after both user-execution gate stages pass.
 
 ## Inventory and automated baseline (2026-09-21)
 
