@@ -3,12 +3,19 @@
  * completing the reachability step MCP-002's spec asks for — sourcing (`mcp-definition-sources.ts`)
  * → workspace projection (`mcp-workspace.ts`) → composition (`mcp-client-composition.ts`, MCP-002's
  * existing manager wiring) → the `/mcp` adapter and connected tools `cli.ts` consumes.
+ *
+ * MCP-004 S3 adds: reading `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` beside `mcpServers`
+ * (`mcp-settings.ts`), setting the supervisor's `toolCallMs` from the resolved `callTimeoutMs`, and
+ * — via {@link IMcpStartupComposition.buildToolCallHandoff} — producing the per-mode
+ * `toolCallHandoff` session-option contribution once `connect()` has resolved. `print` never
+ * receives a policy; a positive `autoBackgroundMs` in `print` mode is reported once as ignored.
  */
 
 import { createNodeWorkspaceTrustStore } from '@robota-sdk/agent-framework';
 
-import { createMcpClientComposition } from './mcp-client-composition.js';
+import { buildMcpClientTimeouts, createMcpClientComposition } from './mcp-client-composition.js';
 import { resolveMcpDefinitions } from './mcp-definition-sources.js';
+import { resolveMcpSettings } from './mcp-settings.js';
 import { toMcpActivationWorkspace } from './mcp-workspace.js';
 
 import type {
@@ -17,7 +24,19 @@ import type {
   TWorkspaceProjectAccess,
   TWorkspaceTrustState,
 } from '@robota-sdk/agent-framework';
+import type {
+  IToolCallHandoffPolicy,
+  IToolCallHandoffProvenance,
+} from '@robota-sdk/agent-framework';
+import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { IMcpClientComposition } from './mcp-client-composition.js';
+
+/**
+ * The three session runtimes that ever compose MCP tools (spec § Modes). `interactive` is the ink
+ * TUI, `serve` is the headless GUI runtime over the same `InteractiveSession`; both adopt
+ * `toolCallHandoff`. `print` is a one-shot run with no drain and never adopts it.
+ */
+export type TMcpStartupMode = 'interactive' | 'serve' | 'print';
 
 /** The raw `{ state, generation }` a workspace-trust inspection produces for one `cwd`. */
 export interface IMcpWorkspaceTrustSnapshot {
@@ -30,10 +49,29 @@ export interface IComposeMcpClientForStartupInput {
   readonly projectAccess: TWorkspaceProjectAccess;
   readonly cwd: string;
   readonly env: NodeJS.ProcessEnv;
-  /** Every sourcing/admission/connection problem, one line each — never swallowed. */
+  /** Every sourcing/admission/connection/settings problem, one line each — never swallowed. */
   readonly reportDiagnostic: (message: string) => void;
   /** Overridable for tests; defaults to the real node host workspace-trust store. */
   readonly inspectTrust?: (cwd: string) => Promise<IMcpWorkspaceTrustSnapshot>;
+  /** MCP-004 S3: which runtime this composition serves — gates `toolCallHandoff` (§ Modes). */
+  readonly mode: TMcpStartupMode;
+}
+
+/**
+ * MCP-002's composition plus MCP-004 S3's per-mode `toolCallHandoff` builder. `buildToolCallHandoff`
+ * reads `connect()`'s already-resolved tool provenance (`IMcpClientComposition.connectedToolProvenance`)
+ * — call it AFTER `await connect()`, exactly where `cli.ts` builds each mode's session options.
+ */
+export interface IMcpStartupComposition extends IMcpClientComposition {
+  /**
+   * `undefined` in every one of these cases: `mode === 'print'`; `mcp.autoBackgroundMs === 0`; or
+   * `mcp.autoBackgroundMs >= mcp.callTimeoutMs` (already reported as one diagnostic by
+   * `composeMcpClientForStartup`). Otherwise carries `thresholdMs`/`budgetMs` from the resolved
+   * settings and one provenance entry per tool `connect()` returned, stamped with `permissionMode`.
+   */
+  buildToolCallHandoff(
+    permissionMode: TPermissionMode | undefined,
+  ): IToolCallHandoffPolicy | undefined;
 }
 
 /**
@@ -53,7 +91,8 @@ async function inspectRealWorkspaceTrust(
 
 /**
  * Compose the product's live MCP client for one startup: source every layer's `mcpServers`,
- * report every problem, resolve the workspace-trust snapshot, and hand both to
+ * resolve `mcp.autoBackgroundMs` / `mcp.callTimeoutMs` (MCP-004 S3) from the SAME layers, report
+ * every problem, resolve the workspace-trust snapshot, and hand it all to
  * `createMcpClientComposition`.
  *
  * Zero resolved definitions is a normal outcome — the returned composition's adapter simply lists
@@ -61,11 +100,29 @@ async function inspectRealWorkspaceTrust(
  */
 export async function composeMcpClientForStartup(
   input: IComposeMcpClientForStartupInput,
-): Promise<IMcpClientComposition> {
+): Promise<IMcpStartupComposition> {
   const { entries, problems } = resolveMcpDefinitions(input.settingsSources, input.env);
   for (const problem of problems) {
     input.reportDiagnostic(
       `MCP definition "${problem.name}" from ${problem.source} (${problem.origin}) was refused: ${problem.reason}`,
+    );
+  }
+
+  const settings = resolveMcpSettings(input.settingsSources);
+  for (const problem of settings.problems) {
+    input.reportDiagnostic(
+      `MCP setting "${problem.key}" from ${problem.source} (${problem.origin}) was refused: ${problem.reason}`,
+    );
+  }
+  for (const diagnostic of settings.diagnostics) input.reportDiagnostic(diagnostic);
+  // spec § Modes: `print` is a one-shot run with no drain and never adopts the policy; a positive
+  // `autoBackgroundMs` is still the operator's stated intent, so its being ignored here is reported
+  // once — independently of `settings.handoffEnabled` (an already-disabled setting has nothing new
+  // to say in print mode, and stays silent per the `0`/`>=` rules above).
+  if (input.mode === 'print' && settings.autoBackgroundMs > 0) {
+    input.reportDiagnostic(
+      'MCP tool-call handoff ("mcp.autoBackgroundMs") is ignored in print mode; a long MCP tool call ' +
+        'runs to completion in the foreground, bounded only by "mcp.callTimeoutMs".',
     );
   }
 
@@ -81,9 +138,44 @@ export async function composeMcpClientForStartup(
 
   const workspace = toMcpActivationWorkspace(input.projectAccess, trust);
 
-  return createMcpClientComposition({
+  const mcp = createMcpClientComposition({
     resolvedEntries: entries,
     workspace,
+    timeouts: buildMcpClientTimeouts(settings.callTimeoutMs),
     reportDiagnostic: input.reportDiagnostic,
   });
+
+  function buildToolCallHandoff(
+    permissionMode: TPermissionMode | undefined,
+  ): IToolCallHandoffPolicy | undefined {
+    if (input.mode !== 'interactive' && input.mode !== 'serve') return undefined;
+    if (!settings.handoffEnabled) return undefined;
+
+    // `IToolCallHandoffProvenance.permissionMode` is informational metadata for `/tasks` and the
+    // notification, never an enforcement carrier (spec § Permission context and provenance) — so
+    // when the shell has not resolved an explicit mode yet, this mirrors the framework's OWN
+    // ultimate fallback (`create-session-runtime.ts`'s `options.permissionMode ?? ... ?? 'default'`)
+    // rather than inventing a second default.
+    const resolvedPermissionMode: string = permissionMode ?? 'default';
+    const toolNames: string[] = [];
+    const provenance: Record<string, IToolCallHandoffProvenance> = {};
+    for (const [canonicalName, toolProvenance] of mcp.connectedToolProvenance) {
+      toolNames.push(canonicalName);
+      provenance[canonicalName] = {
+        serverId: toolProvenance.serverId,
+        sourceName: toolProvenance.sourceName,
+        securityIdentity: toolProvenance.securityIdentity,
+        permissionMode: resolvedPermissionMode,
+      };
+    }
+
+    return {
+      thresholdMs: settings.autoBackgroundMs,
+      budgetMs: settings.callTimeoutMs,
+      toolNames,
+      provenance,
+    };
+  }
+
+  return { ...mcp, buildToolCallHandoff };
 }

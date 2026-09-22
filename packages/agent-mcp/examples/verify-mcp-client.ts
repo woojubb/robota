@@ -61,7 +61,13 @@ async function run(): Promise<void> {
           timeouts: { startupMs: 5000, perCallMs: 5000 },
           signal,
         }),
-      timeouts: { startupMs: 5000, perCallMs: 5000, globalDefaultMs: 5000, idleMs: 60000 },
+      timeouts: {
+        startupMs: 5000,
+        perCallMs: 5000,
+        globalDefaultMs: 5000,
+        idleMs: 60000,
+        toolCallMs: 5000,
+      },
     });
 
     try {

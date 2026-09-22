@@ -60,6 +60,7 @@ export function fixtureTimeouts(overrides: Partial<IMCPTimeouts> = {}): IMCPTime
     perCallMs: 5_000,
     globalDefaultMs: 5_000,
     idleMs: 60_000,
+    toolCallMs: 5_000,
     ...overrides,
   };
 }

@@ -19,6 +19,7 @@ import type {
   IPromptHistoryOptions,
   IPerTurnRecallConfig,
   IRemoteCommandPolicy,
+  IToolCallHandoffPolicy,
   TShellExecFn,
   TSubagentRunnerFactory,
   TWorkspaceProjectAccess,
@@ -73,6 +74,8 @@ export interface ITuiInteractionChannelOptions {
   sessionName?: string;
   onAutoNamed?: (name: string) => void;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** MCP-004: forwarded to `ICreateSessionOptions.toolCallHandoff`. */
+  toolCallHandoff?: IToolCallHandoffPolicy;
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** ARCH-005: composition-root-contributed subagent definitions (merged capability packs). */
   agentDefinitions?: readonly IAgentDefinition[];

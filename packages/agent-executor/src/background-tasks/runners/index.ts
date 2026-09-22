@@ -1,5 +1,6 @@
 import { createManagedShellProcessRunner } from './managed-shell-process-runner.js';
 import { createScheduledTaskRunner } from './scheduled-task-runner.js';
+import { createToolInvocationBackgroundTaskRunner } from '../tool-invocation-runner.js';
 
 import type { IBackgroundTaskRunner } from '../types.js';
 
@@ -15,6 +16,14 @@ export type {
   IResolvedBackgroundTaskShellCommand,
 } from './shell-command-resolution.js';
 
+// MCP-004 §S1: re-exported here too so a consumer of `runners/index.js` finds every runner factory
+// in one place, alongside its registration in `createDefaultBackgroundTaskRunners()` below.
+export { createToolInvocationBackgroundTaskRunner } from '../tool-invocation-runner.js';
+
 export function createDefaultBackgroundTaskRunners(): IBackgroundTaskRunner[] {
-  return [createManagedShellProcessRunner(), createScheduledTaskRunner()];
+  return [
+    createManagedShellProcessRunner(),
+    createScheduledTaskRunner(),
+    createToolInvocationBackgroundTaskRunner(),
+  ];
 }

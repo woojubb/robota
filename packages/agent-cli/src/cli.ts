@@ -61,6 +61,7 @@ import {
   resolveInitialCliWorkspaceProjectAccess,
 } from './startup/workspace-project-composition.js';
 import { composeMcpClientForStartup } from './startup/mcp-startup.js';
+import type { TMcpStartupMode } from './startup/mcp-startup.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
@@ -216,6 +217,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     reducedMotionFlag: args.reducedMotion,
     env: process.env,
   });
+  // MCP-004 S3: the same mode discriminant `print`/`serve`/interactive branch on below, resolved
+  // early because `composeMcpClientForStartup` gates `toolCallHandoff` on it (spec § Modes).
+  const mcpStartupMode: TMcpStartupMode =
+    args.printMode || args.goal ? 'print' : args.serve ? 'serve' : 'interactive';
   // MCP-002: source the product's own `mcpServers` settings and compose the `/mcp` port + tools —
   // a caller-supplied `mcpActivationAdapter` (tests do this) always wins and skips composition.
   const mcp =
@@ -226,6 +231,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
           projectAccess,
           cwd,
           env: process.env,
+          mode: mcpStartupMode,
           reportDiagnostic: (message) => terminal.writeError(message),
         })
       : undefined;
@@ -416,6 +422,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // MCP-002: every admitted, connected Streamable HTTP server's tools join the generic dynamic-tool
   // surface — refusals/failures were already reported via `reportDiagnostic` above.
   if (mcp !== undefined) toolOptions.additionalTools.push(...(await mcp.connect()));
+  // MCP-004 S3: `mcp.connectedToolProvenance` is populated by the `connect()` call just above, so the
+  // handoff policy — carrying the connected MCP tools' names and provenance — is built here, once,
+  // before either mode-specific session-options object is assembled.
+  const toolCallHandoff = mcp?.buildToolCallHandoff(permissionMode);
   // A capability the merge refused (a colliding id) is reported, never silently dropped.
   for (const { kind, id, reason } of product.rejectedCapabilities) {
     terminal.writeError(`Capability ${kind} "${id}" was not composed: ${reason}.`);
@@ -502,6 +512,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       subagentRunnerFactory,
       agentDefinitions,
       ...toolOptions,
+      // MCP-004 S3: serve is one of the two runtimes that adopts the handoff policy (spec § Modes).
+      ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
       commandHostAdapters,
       transportRegistry,
@@ -534,8 +546,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     markOnboarded();
   }
 
+  // MCP-004 § Modes: the interactive TUI adopts the handoff policy exactly as serve mode does.
   await renderApp({
     providerDefinitions,
+    ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
     ...(initialInput !== undefined
       ? { initialInput, initialInputOrigin: 'external-link' as const }
       : {}),

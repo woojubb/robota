@@ -36,14 +36,17 @@ import {
 } from './harness-workspace-inspectors.js';
 import { InteractiveSession } from '../interactive/index.js';
 
+import type { IToolCallHandoffPolicy } from '../assembly/index.js';
 import type { ICommandModule } from '../command-api/index.js';
 import type {
   IAIProvider,
+  IToolWithEventService,
   IUserInteraction,
   TPermissionMode,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
+import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type {
   IExecutionResult,
@@ -107,6 +110,12 @@ export interface IScriptedSessionOptions {
   model?: string;
   /** TERM-001: inject a (fake) terminal-handoff capability to exercise the handoff orchestration. */
   terminalHandoff?: ITerminalHandoff;
+  /** Additional tools registered alongside the default CLI tools (e.g. a fake slow MCP-like tool). */
+  additionalTools?: IToolWithEventService[];
+  /** Runtime-composed background task runners (e.g. the `tool-invocation` runner, MCP-004). */
+  backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** MCP-004 §S3: hand a main-turn tool call exceeding its threshold to a background task. */
+  toolCallHandoff?: IToolCallHandoffPolicy;
 }
 
 const COLLECTED_EVENTS: readonly TInteractiveEventName[] = [
@@ -121,6 +130,8 @@ const COLLECTED_EVENTS: readonly TInteractiveEventName[] = [
   'goal_event',
   'turn_source',
   'user_message',
+  // MCP-004 §S3 (TC-24): the tracker's forwarded background-task lifecycle events.
+  'background_task_event',
 ];
 
 /**
@@ -200,6 +211,11 @@ export class ScriptedSessionHarness {
       ...(options.maxTurns !== undefined ? { maxTurns: options.maxTurns } : {}),
       ...(options.model !== undefined ? { model: options.model } : {}),
       ...(options.terminalHandoff ? { terminalHandoff: options.terminalHandoff } : {}),
+      ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
+      ...(options.backgroundTaskRunners
+        ? { backgroundTaskRunners: options.backgroundTaskRunners }
+        : {}),
+      ...(options.toolCallHandoff ? { toolCallHandoff: options.toolCallHandoff } : {}),
     });
 
     for (const name of COLLECTED_EVENTS) {

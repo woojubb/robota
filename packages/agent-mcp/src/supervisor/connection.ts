@@ -44,12 +44,17 @@ const JSON_RPC_INVALID_PARAMS = -32602;
 /** Only `transient` is ever retried; the other three are refused on first response (TC-13). */
 export type TMCPFailureClass = 'transient' | 'auth' | 'config' | 'not-found';
 
-/** Four DISTINCT typed settings; setting one never changes another (TC-16). */
+/** Five DISTINCT typed settings; setting one never changes another (TC-16, TC-18). */
 export interface IMCPTimeouts {
   readonly startupMs: number;
   readonly perCallMs: number;
   readonly globalDefaultMs: number;
   readonly idleMs: number;
+  /**
+   * The budget of one `callTool` request. Distinct from `perCallMs`, which stays the per-request
+   * timeout for discovery and protocol calls; `callTool` uses `toolCallMs` instead.
+   */
+  readonly toolCallMs: number;
 }
 
 export interface IMCPBackoffPolicy {
@@ -421,7 +426,7 @@ export class MCPConnectionSupervisor {
         // never retried here.
         return await session.callTool(name, args, {
           signal: effectiveSignal,
-          timeoutMs: this.options.timeouts.perCallMs,
+          timeoutMs: this.options.timeouts.toolCallMs,
         });
       } catch (error) {
         const classification = classifyMcpFailure(error);

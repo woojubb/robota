@@ -9,6 +9,7 @@ import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type { ITerminalOutput } from '@robota-sdk/agent-session';
 
 // Mock Session to capture constructor args
@@ -30,6 +31,7 @@ import { DEFERRED_WITHOUT_LOADER_MESSAGE, TOOL_SEARCH_TOOL_NAME } from '@robota-
 
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { DEFERRED_TOOL_ROSTER_HEADER } from '../assembly/deferred-tool-roster.js';
+import { ToolCallHandoffTool, isToolCallHandoff } from '../assembly/tool-call-handoff.js';
 
 function makeTool(name: string): IToolWithEventService {
   return {
@@ -702,6 +704,45 @@ describe('createSubagentSession', () => {
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
     expect(passedOptions['maxTurns']).toBeUndefined();
+  });
+
+  it('TC-10: unwraps a tool-call handoff wrapper before filtering — the child never holds a wrapper', () => {
+    const inner = makeTool('SlowMcpTool');
+    const wrapped = new ToolCallHandoffTool(inner, {
+      manager: { spawn: vi.fn() } as unknown as IBackgroundTaskManager,
+      runner: { adopt: vi.fn() },
+      sessionId: 'session-parent',
+      cwd: SUBAGENT_ROOT,
+      thresholdMs: 1000,
+      budgetMs: 5000,
+      provenance: {
+        serverId: 'server-1',
+        sourceName: 'slow_tool',
+        securityIdentity: 'identity-1',
+        permissionMode: 'default',
+      },
+    });
+    const agent = makeAgentDef();
+
+    // MCP-004 §S3: `createSubagentSession` is the ONE derivation point every derived session's tool
+    // list passes through — both the in-process subagent runner and `interactive-session-fork.ts`
+    // reach it with the parent's (possibly wrapped) tool list, so exercising it here covers both
+    // callers by construction.
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [wrapped],
+      provider: mockProvider,
+      terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
+    });
+
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    const passedTools = passedOptions['tools'] as IToolWithEventService[];
+    expect(passedTools).toHaveLength(1);
+    expect(passedTools[0]).toBe(inner);
+    expect(isToolCallHandoff(passedTools[0]!)).toBe(false);
   });
 });
 

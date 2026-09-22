@@ -260,6 +260,59 @@ Whitebox internals are not specified here. See:
 | [`docs/design/message-architecture.md`](design/message-architecture.md) | the internal message type and its guards            |
 | [`docs/design/subagent-wiring.md`](design/subagent-wiring.md)           | the Node process adapters injected into the session |
 
+### MCP Background Handoff (MCP-004)
+
+A long-running MCP tool call blocks the turn unless the host opts a session into handing it to a
+background task. This unit owns settings plumbing and per-mode wiring only — the wrapper itself
+(`buildToolCallHandoff`, `ToolCallHandoffTool`) is `@robota-sdk/agent-framework`'s.
+
+**Settings** — `src/startup/mcp-settings.ts`'s `resolveMcpSettings()` reads `mcp.autoBackgroundMs`
+and `mcp.callTimeoutMs` from the SAME layered settings documents `mcpServers` is read from (never
+through `@robota-sdk/agent-framework`'s schema-typed `SettingsSchema`, which does not declare `mcp`):
+
+```json
+{
+  "mcp": {
+    "autoBackgroundMs": 120000,
+    "callTimeoutMs": 600000
+  }
+}
+```
+
+- Defaults: `autoBackgroundMs` = 120000, `callTimeoutMs` = 600000.
+- Layering is PER KEY (not whole-object like `mcpServers`): each key folds independently across
+  layers by the same precedence order (`managed > local > project > user > plugin`), so a managed
+  policy can fix one key while leaving the other to the user layer.
+- `autoBackgroundMs: 0` disables the handoff silently — no diagnostic.
+- `autoBackgroundMs >= callTimeoutMs` disables the handoff with exactly one diagnostic.
+- A negative or non-integer value for either key is a REPORTED settings problem; that document's
+  WHOLE `mcp` object is refused (both keys, not only the invalid one) and folding continues as if it
+  had declared no `mcp` object — the default is never silently substituted for an invalid value.
+
+**Composition** — `mcp-client-composition.ts`'s `buildMcpClientTimeouts(callTimeoutMs)` sets the
+`agent-mcp` supervisor's `toolCallMs` (the tool-call budget, S2) from the resolved `callTimeoutMs`;
+`startupMs`, `perCallMs`, `globalDefaultMs` and `idleMs` keep their MCP-002 defaults. Every connected
+tool's provenance (`serverId`, `sourceName`, `securityIdentity`) is recorded on
+`connectedToolProvenance`, keyed by the tool's exposed canonical name, once `connect()` resolves.
+
+**Per-mode policy** — `mcp-startup.ts`'s `composeMcpClientForStartup()` takes a `mode:
+'interactive' | 'serve' | 'print'` input and returns `buildToolCallHandoff(permissionMode)`, called
+AFTER `connect()`:
+
+- `interactive` (TUI) and `serve` adopt the policy: `{ thresholdMs, budgetMs, toolNames, provenance
+}`, with one `provenance` entry per connected tool stamping `permissionMode`.
+- `print` never adopts it — a one-shot run with no drain — and reports exactly one diagnostic when
+  `autoBackgroundMs > 0` naming that the setting is ignored in print mode.
+- `autoBackgroundMs: 0`, or `autoBackgroundMs >= callTimeoutMs`, carries no policy in any mode.
+
+The interactive TUI receives the policy through `@robota-sdk/agent-ui-terminal`'s `IRenderOptions.toolCallHandoff`
+(forwarded by `toChannelOptions` into the session options); `robota --serve` passes it directly.
+
+The spawned background task's `kind` is `'tool-invocation'` (`IToolInvocationBackgroundTaskRequest`,
+`@robota-sdk/agent-interface-execution`) — see `examples/verify-mcp-background.ts`
+(`pnpm scenario:verify:mcp-background`) for an end-to-end proof against a mock MCP server under an
+isolated `HOME`.
+
 ## Type Ownership
 
 | Type                      | Location                         | Purpose                                                                                                                   |

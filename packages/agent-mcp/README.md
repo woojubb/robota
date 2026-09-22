@@ -36,7 +36,13 @@ if (!admission.ok) {
   throw new Error(`${admission.reason}: ${admission.message}`);
 }
 
-const timeouts = { startupMs: 10_000, perCallMs: 30_000, globalDefaultMs: 30_000, idleMs: 60_000 };
+const timeouts = {
+  startupMs: 10_000,
+  perCallMs: 30_000,
+  globalDefaultMs: 30_000,
+  idleMs: 60_000,
+  toolCallMs: 30_000,
+};
 const serverId = 'example';
 
 const supervisor = new MCPConnectionSupervisor({

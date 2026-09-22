@@ -53,10 +53,11 @@ upward edge in the interface tree.
 
 ## Type Ownership
 
-| Type                                                                    | Location                           | Purpose                                                                                      |
-| ----------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------- |
-| `TBackgroundTaskRequest` and its four request shapes                    | `src/background-task-contracts.ts` | what is being asked of the executor; agent requests carry optional core-owned `TModelEffort` |
-| `IBackgroundTaskState`, `IBackgroundTaskResult`, `IBackgroundTaskError` | `src/background-task-contracts.ts` | the lifecycle of one task                                                                    |
+| Type                                                                    | Location                           | Purpose                                                                                                                                                                                                                                                                                                                        |
+| ----------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `TBackgroundTaskRequest` and its five request shapes                    | `src/background-task-contracts.ts` | what is being asked of the executor; agent requests carry optional core-owned `TModelEffort`                                                                                                                                                                                                                                   |
+| `IBackgroundTaskState`, `IBackgroundTaskResult`, `IBackgroundTaskError` | `src/background-task-contracts.ts` | the lifecycle of one task                                                                                                                                                                                                                                                                                                      |
+| `IToolInvocationBackgroundTaskRequest` (`kind: 'tool-invocation'`)      | `src/background-task-contracts.ts` | MCP-004 §S1: an in-flight MCP tool call adopted by the background-task manager — `toolName`, `adoptionToken` and flattened provenance (`provenanceOwner: 'mcp'`, `serverId`, `sourceName`, `securityIdentity?`, `permissionMode`) as primitive fields, data only; the remaining budget rides the base request's `maxRuntimeMs` |
 
 A `kind: 'scheduled'` request carries **no `permissionPolicy`, by decision** (issue #2354): a schedule with `agentInstruction` wakes the HOST session rather than spawning an agent, and the woken turn runs under that session's own permission configuration. Only `kind: 'agent'` — a separate agent — declares a policy. `src/__tests__/contracts.test.ts` fails if a policy field is added to the scheduled request without that wiring being designed.
 | `IBackgroundTaskLogCursor`, `IBackgroundTaskLogPage`, `IBackgroundTaskListFilter` | `src/background-task-contracts.ts` | reading a task's output and the task list |
@@ -93,13 +94,14 @@ carries the `resumeSessionId` the view switches onto.
 
 ## Public API Surface
 
-| Export                      | Kind | Description                                                                            |
-| --------------------------- | ---- | -------------------------------------------------------------------------------------- |
-| every name above            | type | contract declarations; see Type Ownership                                              |
-| `TExecutionNormalizedState` | type | SCREEN-1992: the five-word state every workspace entry carries (`working` … `stopped`) |
-| `TExecutionHeadlineKind`    | type | SCREEN-1992: `activity` / `question` / `result` — which kind of line the headline is   |
-| `IExecutionHeadline`        | type | SCREEN-1992: the entry's one-line text, the row-text SSOT                              |
-| `IExecutionPendingRequest`  | type | SCREEN-1992: the parked permission/ask the main thread waits on (`kind`, `text`)       |
+| Export                                 | Kind | Description                                                                            |
+| -------------------------------------- | ---- | -------------------------------------------------------------------------------------- |
+| every name above                       | type | contract declarations; see Type Ownership                                              |
+| `IToolInvocationBackgroundTaskRequest` | type | MCP-004 §S1: `kind: 'tool-invocation'` request — see Type Ownership                    |
+| `TExecutionNormalizedState`            | type | SCREEN-1992: the five-word state every workspace entry carries (`working` … `stopped`) |
+| `TExecutionHeadlineKind`               | type | SCREEN-1992: `activity` / `question` / `result` — which kind of line the headline is   |
+| `IExecutionHeadline`                   | type | SCREEN-1992: the entry's one-line text, the row-text SSOT                              |
+| `IExecutionPendingRequest`             | type | SCREEN-1992: the parked permission/ask the main thread waits on (`kind`, `text`)       |
 
 **No runtime value is exported.** The Interface Package Rule permits a package's entry to publish its
 contracts' vocabulary (a `const` holding a value) and their discriminators (a type predicate); this

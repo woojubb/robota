@@ -2,8 +2,13 @@
  * TC-16: startup, per-call, global-default and idle timeouts are four distinct typed settings, each
  * independently configurable, and a value set for one does not change another (MCP-003).
  *
+ * TC-18 (first half, MCP-004 S2): `toolCallMs` is a fifth distinct typed setting — the budget of one
+ * `callTool` request. Setting it changes only the `callTool` request budget; setting any of the other
+ * four never changes it. `callTool` passes `toolCallMs` to the SDK request where `discover`/`refresh`
+ * keep passing `perCallMs`.
+ *
  * Decision recorded for this test file (no contract text pins it down further): `perCallMs` is
- * forwarded verbatim as the per-request budget on every `discover`/`callTool` request; `globalDefaultMs`
+ * forwarded verbatim as the per-request budget on every `discover` request; `globalDefaultMs`
  * is the DEFAULT overall abort budget applied by the supervisor only when the caller passes no
  * `signal` of their own to `discover`/`refresh`/`callTool` — a caller-supplied signal means the caller
  * owns cancellation and the default is not layered on top of it.
@@ -19,7 +24,7 @@ import {
 } from './supervisor-test-helpers.js';
 import { MCPConnectionSupervisor } from '../supervisor/connection.js';
 
-describe('MCPConnectionSupervisor — four distinct timeouts (TC-16)', () => {
+describe('MCPConnectionSupervisor — five distinct timeouts (TC-16, TC-18)', () => {
   it('setting one timeout field leaves the others at their configured values', () => {
     const base = fixtureTimeouts();
     const onlyIdleChanged = { ...base, idleMs: 1 };
@@ -27,6 +32,7 @@ describe('MCPConnectionSupervisor — four distinct timeouts (TC-16)', () => {
     expect(onlyIdleChanged.startupMs).toBe(base.startupMs);
     expect(onlyIdleChanged.perCallMs).toBe(base.perCallMs);
     expect(onlyIdleChanged.globalDefaultMs).toBe(base.globalDefaultMs);
+    expect(onlyIdleChanged.toolCallMs).toBe(base.toolCallMs);
     expect(onlyIdleChanged.idleMs).toBe(1);
   });
 
@@ -35,7 +41,13 @@ describe('MCPConnectionSupervisor — four distinct timeouts (TC-16)', () => {
     const supervisor = new MCPConnectionSupervisor({
       serverId: 'server-1',
       openSession: () => new Promise<never>(() => undefined), // never resolves
-      timeouts: { startupMs: 50, perCallMs: 9_999, globalDefaultMs: 9_999, idleMs: 9_999 },
+      timeouts: {
+        startupMs: 50,
+        perCallMs: 9_999,
+        globalDefaultMs: 9_999,
+        idleMs: 9_999,
+        toolCallMs: 9_999,
+      },
       clock,
     });
 
@@ -56,7 +68,13 @@ describe('MCPConnectionSupervisor — four distinct timeouts (TC-16)', () => {
     const supervisor = new MCPConnectionSupervisor({
       serverId: identity.serverId,
       openSession: async () => session,
-      timeouts: { startupMs: 1_111, perCallMs: 42, globalDefaultMs: 2_222, idleMs: 3_333 },
+      timeouts: {
+        startupMs: 1_111,
+        perCallMs: 42,
+        globalDefaultMs: 2_222,
+        idleMs: 3_333,
+        toolCallMs: 42,
+      },
     });
 
     await supervisor.ensureConnected();
@@ -65,6 +83,64 @@ describe('MCPConnectionSupervisor — four distinct timeouts (TC-16)', () => {
 
     await supervisor.callTool('noop', {});
     expect(session.callToolCalls[0]?.timeoutMs).toBe(42);
+  });
+
+  it('toolCallMs bounds only the callTool request budget, independent of the other four (TC-18)', async () => {
+    const identity = fixtureIdentity();
+    const session = new FakeMcpSession({ identity });
+    const supervisor = new MCPConnectionSupervisor({
+      serverId: identity.serverId,
+      openSession: async () => session,
+      timeouts: {
+        startupMs: 1_111,
+        perCallMs: 42,
+        globalDefaultMs: 2_222,
+        idleMs: 3_333,
+        toolCallMs: 77,
+      },
+    });
+
+    await supervisor.ensureConnected();
+
+    // discover/refresh keep using perCallMs; toolCallMs never reaches them.
+    await supervisor.discover();
+    expect(session.discoverCalls[0]?.perRequestTimeoutMs).toBe(42);
+
+    // callTool uses toolCallMs, not perCallMs.
+    await supervisor.callTool('noop', {});
+    expect(session.callToolCalls[0]?.timeoutMs).toBe(77);
+
+    // Changing any of the other four leaves the value callTool receives at toolCallMs.
+    const otherSupervisor = new MCPConnectionSupervisor({
+      serverId: identity.serverId,
+      openSession: async () => session,
+      timeouts: {
+        startupMs: 9_999,
+        perCallMs: 9_999,
+        globalDefaultMs: 9_999,
+        idleMs: 9_999,
+        toolCallMs: 77,
+      },
+    });
+    await otherSupervisor.ensureConnected();
+    await otherSupervisor.callTool('noop', {});
+    expect(session.callToolCalls[1]?.timeoutMs).toBe(77);
+  });
+
+  it('callTool uses toolCallMs, not perCallMs, when they differ (TC-18)', async () => {
+    const identity = fixtureIdentity();
+    const session = new FakeMcpSession({ identity });
+    const supervisor = new MCPConnectionSupervisor({
+      serverId: identity.serverId,
+      openSession: async () => session,
+      timeouts: fixtureTimeouts({ perCallMs: 111, toolCallMs: 222 }),
+    });
+
+    await supervisor.ensureConnected();
+    await supervisor.callTool('noop', {});
+
+    expect(session.callToolCalls[0]?.timeoutMs).toBe(222);
+    expect(session.callToolCalls[0]?.timeoutMs).not.toBe(111);
   });
 
   it('globalDefaultMs bounds a call only when the caller supplies no signal', async () => {
@@ -77,7 +153,13 @@ describe('MCPConnectionSupervisor — four distinct timeouts (TC-16)', () => {
     const supervisor = new MCPConnectionSupervisor({
       serverId: identity.serverId,
       openSession: async () => session,
-      timeouts: { startupMs: 9_999, perCallMs: 9_999, globalDefaultMs: 75, idleMs: 9_999 },
+      timeouts: {
+        startupMs: 9_999,
+        perCallMs: 9_999,
+        globalDefaultMs: 75,
+        idleMs: 9_999,
+        toolCallMs: 9_999,
+      },
       clock,
     });
     await supervisor.ensureConnected();
@@ -105,7 +187,13 @@ describe('MCPConnectionSupervisor — four distinct timeouts (TC-16)', () => {
     const supervisor = new MCPConnectionSupervisor({
       serverId: identity.serverId,
       openSession: async () => session,
-      timeouts: { startupMs: 9_999, perCallMs: 9_999, globalDefaultMs: 9_999, idleMs: 30 },
+      timeouts: {
+        startupMs: 9_999,
+        perCallMs: 9_999,
+        globalDefaultMs: 9_999,
+        idleMs: 30,
+        toolCallMs: 9_999,
+      },
       clock,
     });
 
@@ -133,7 +221,13 @@ describe('MCPConnectionSupervisor — four distinct timeouts (TC-16)', () => {
     const supervisor = new MCPConnectionSupervisor({
       serverId: identity.serverId,
       openSession: async () => session,
-      timeouts: { startupMs: 9_999, perCallMs: 9_999, globalDefaultMs: 9_999, idleMs: 30 },
+      timeouts: {
+        startupMs: 9_999,
+        perCallMs: 9_999,
+        globalDefaultMs: 9_999,
+        idleMs: 30,
+        toolCallMs: 9_999,
+      },
       clock,
     });
 

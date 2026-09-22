@@ -47,8 +47,11 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * Maps a settings source to the `TMCPDefinitionSource` `agent-mcp`'s precedence order is keyed by.
  * A host source's scope (`'managed' | 'user'`) already spells the same two `TMCPDefinitionSource`
  * members; a workspace project source's two scopes each name a different member.
+ *
+ * Exported for `mcp-settings.ts` (MCP-004 S3), which layers the `mcp` settings object across the
+ * SAME sources by the SAME precedence — one mapping, not a second copy that could drift from this one.
  */
-function definitionSourceOf(source: TSettingsSource): TMCPDefinitionSource {
+export function definitionSourceOf(source: TSettingsSource): TMCPDefinitionSource {
   if (source.kind === 'host') return source.scope;
   switch (source.scope) {
     case 'project':

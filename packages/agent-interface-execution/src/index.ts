@@ -22,6 +22,7 @@ export type {
   IAgentBackgroundTaskRequest,
   IProcessBackgroundTaskRequest,
   IScheduledBackgroundTaskRequest,
+  IToolInvocationBackgroundTaskRequest,
   TBackgroundTaskRequest,
   IBackgroundTaskUsage,
   IBackgroundTaskResult,

@@ -229,6 +229,29 @@ and `/mcp reject`/`/mcp revoke` to withdraw approval. Only approved servers alre
 are connected — approval is in-memory for the current unit of this product, so a server approved
 via `/mcp approve` mid-session is connected on the NEXT `robota` start, not the current one.
 
+### MCP Background Handoff
+
+A slow MCP tool call can be handed to a background task instead of blocking the turn. Configure it
+under an `mcp` key (beside `mcpServers`, in the same layered settings files):
+
+```json
+{
+  "mcp": {
+    "autoBackgroundMs": 120000,
+    "callTimeoutMs": 600000
+  }
+}
+```
+
+- `autoBackgroundMs` (default 120000 ms): a tool call still running at this point is handed to a
+  `tool-invocation` background task; `/tasks` shows it like any other background task. `0` disables
+  the handoff.
+- `callTimeoutMs` (default 600000 ms): the tool call's own budget, enforced by the MCP client in
+  every mode — including print. `autoBackgroundMs` must be less than `callTimeoutMs`, or the handoff
+  is disabled with a warning.
+- The handoff applies to the interactive TUI and `robota --serve`. In print mode (`-p`) a slow MCP call always runs to completion in the
+  foreground, bounded by `callTimeoutMs`; a positive `autoBackgroundMs` is reported as ignored there.
+
 ### CLI Updates
 
 Robota can check npm for a newer `@robota-sdk/agent-cli` version:

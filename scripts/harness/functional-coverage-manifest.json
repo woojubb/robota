@@ -66,6 +66,11 @@
       "id": "session-log-external-payload-replay",
       "description": "ARCH-014: a real InteractiveSession log externalizes a large response, and a second real session replays it byte-exactly without shifting the next response.",
       "test": "packages/agent-framework/src/testing/__tests__/session-log-external-payload-replay-functional.test.ts"
+    },
+    {
+      "id": "tool-call-handoff",
+      "description": "MCP-004: a main-turn tool call exceeding the threshold is handed to a tool-invocation background task; subagents never are.",
+      "test": "packages/agent-framework/src/testing/__tests__/tool-call-handoff-functional.test.ts"
     }
   ]
 }

@@ -71,7 +71,7 @@ Design rules:
 
 | Type                             | Location                                                  | Purpose                                                                                                                                                                                        |
 | -------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TBackgroundTaskKind`            | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'agent' \| 'process' \| 'scheduled'`                                                                                                                                                          |
+| `TBackgroundTaskKind`            | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'agent' \| 'process' \| 'scheduled' \| 'tool-invocation'` (MCP-004 §S1)                                                                                                                       |
 | `TBackgroundTaskMode`            | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'foreground' \| 'background'`                                                                                                                                                                 |
 | `TBackgroundTaskIsolation`       | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'none' \| 'worktree'`                                                                                                                                                                         |
 | `TBackgroundTaskStatus`          | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'queued' \| 'running' \| 'waiting_permission' \| 'sleeping' \| 'paused' \| 'completed' \| 'failed' \| 'cancelled'` (SELFHOST-012: `paused` = non-destructively paused schedule, non-terminal) |
@@ -155,22 +155,36 @@ the job — and attaching to it is a **view switch, not a merge**.
 
 ### Public API: Background Tasks
 
-| Export                                  | Kind      | Description                                                                                                                                |
-| --------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `BackgroundTaskManager`                 | class     | In-memory task registry and scheduler                                                                                                      |
-| `BackgroundTaskError`                   | class     | Typed runtime error with category and recoverability                                                                                       |
-| `transitionBackgroundTaskStatus`        | function  | Pure state transition function                                                                                                             |
-| `isTerminalBackgroundTaskStatus`        | function  | Terminal-state predicate                                                                                                                   |
-| `getBackgroundTaskTransitions`          | function  | Transition table snapshot for tests/audits                                                                                                 |
-| `createLimitedOutputCapture`            | function  | UTF-8-safe bounded output capture helper                                                                                                   |
-| `appendPrefixedLogLines`                | function  | Append source-prefixed non-empty log lines                                                                                                 |
-| `createBackgroundTaskLogPage`           | function  | Cursor-based log pagination helper                                                                                                         |
-| `DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE` | constant  | Default page size (200 lines) for log pagination                                                                                           |
-| `deliverToObservers`                    | function  | ARCH-053: deliver one event to every observer, isolating each — a throwing observer is reported, not propagated; returns the failure count |
-| `reportObserverFailureAsWarning`        | function  | Default `TObserverFailureReporter`: surfaces the failure as a process `warning` (stderr) outside the emitter's call stack                  |
-| `OBSERVER_FAILURE_WARNING_CODE`         | constant  | `ROBOTA_BACKGROUND_OBSERVER_FAILURE` — the warning code the default reporter emits                                                         |
-| `IObserverFailure`                      | interface | The `event` an observer was handed and the `error` it threw                                                                                |
-| `TObserverFailureReporter`              | type      | `(failure: IObserverFailure) => void` — the host's own channel for observer defects                                                        |
+| Export                                  | Kind      | Description                                                                                                                                                                            |
+| --------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BackgroundTaskManager`                 | class     | In-memory task registry and scheduler                                                                                                                                                  |
+| `BackgroundTaskError`                   | class     | Typed runtime error with category and recoverability                                                                                                                                   |
+| `transitionBackgroundTaskStatus`        | function  | Pure state transition function                                                                                                                                                         |
+| `isTerminalBackgroundTaskStatus`        | function  | Terminal-state predicate                                                                                                                                                               |
+| `getBackgroundTaskTransitions`          | function  | Transition table snapshot for tests/audits                                                                                                                                             |
+| `createLimitedOutputCapture`            | function  | UTF-8-safe bounded output capture helper                                                                                                                                               |
+| `appendPrefixedLogLines`                | function  | Append source-prefixed non-empty log lines                                                                                                                                             |
+| `createBackgroundTaskLogPage`           | function  | Cursor-based log pagination helper                                                                                                                                                     |
+| `DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE` | constant  | Default page size (200 lines) for log pagination                                                                                                                                       |
+| `deliverToObservers`                    | function  | ARCH-053: deliver one event to every observer, isolating each — a throwing observer is reported, not propagated; returns the failure count                                             |
+| `reportObserverFailureAsWarning`        | function  | Default `TObserverFailureReporter`: surfaces the failure as a process `warning` (stderr) outside the emitter's call stack                                                              |
+| `OBSERVER_FAILURE_WARNING_CODE`         | constant  | `ROBOTA_BACKGROUND_OBSERVER_FAILURE` — the warning code the default reporter emits                                                                                                     |
+| `IObserverFailure`                      | interface | The `event` an observer was handed and the `error` it threw                                                                                                                            |
+| `TObserverFailureReporter`              | type      | `(failure: IObserverFailure) => void` — the host's own channel for observer defects                                                                                                    |
+| `IToolInvocationAdopter`                | interface | MCP-004 §S1: the port a `tool-invocation` runner exposes — `adopt(token, { settled, abort })` registers an already-running call before `spawn()` is called; returns a release function |
+
+**MCP-004 §S1 — the `admission` capability and `spawn`'s already-running branch.**
+`IBackgroundTaskRunner` gains an optional `readonly admission?: 'queued' | 'already-running'`
+(default `'queued'`, every runner before this unit). A runner declaring `'already-running'` tells
+`BackgroundTaskManager.spawn` that its work already runs OUTSIDE the manager — nothing to queue, no
+manager-provisioned concurrency slot to bound. `spawn` looks the resolved runner's `admission` up
+right after `validateBackgroundTaskRequest`: for `'already-running'` it constructs the task's state
+as `running` (a `status` parameter on `createQueuedBackgroundTaskState`, default `'queued'`) BEFORE
+emitting `background_task_created`, then starts the runner directly — the handle bound, `started`
+emitted — WITHOUT pushing onto the queue and WITHOUT `acquireSlot`, so `cancel()` reaches the handle
+immediately regardless of `maxConcurrent`. `releaseSlot` on completion/failure/cancellation stays the
+pre-existing idempotent no-op for a task that never held a slot. Every terminal guard
+(`isTerminalBackgroundTaskStatus`) is unchanged. `IBackgroundTaskManager` gains no method.
 
 ### Public API: Background Task Runners (Concrete — default implementations)
 
@@ -178,11 +192,28 @@ The following are concrete `IBackgroundTaskRunner` implementations provided by t
 They depend on Node.js `child_process`. CLI and SDK shells use them as default runners;
 test environments may substitute no-op runners through the `IBackgroundTaskRunner` port.
 
-| Export                              | Kind     | Description                                                                                                |
-| ----------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
-| `createManagedShellProcessRunner`   | function | Spawns a shell command via `node:child_process.spawn`; streams stdout/stderr as logs                       |
-| `createScheduledTaskRunner`         | function | Schedules cron-pattern tasks via `croner`; triggers a child runner on each firing                          |
-| `resolveBackgroundTaskShellCommand` | function | Pure shared request adapter; applies core precedence/classification and returns executable + matching args |
+| Export                                     | Kind     | Description                                                                                                                                                                |
+| ------------------------------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createManagedShellProcessRunner`          | function | Spawns a shell command via `node:child_process.spawn`; streams stdout/stderr as logs                                                                                       |
+| `createScheduledTaskRunner`                | function | Schedules cron-pattern tasks via `croner`; triggers a child runner on each firing                                                                                          |
+| `resolveBackgroundTaskShellCommand`        | function | Pure shared request adapter; applies core precedence/classification and returns executable + matching args                                                                 |
+| `createToolInvocationBackgroundTaskRunner` | function | MCP-004 §S1: builds the `kind: 'tool-invocation'` runner (`admission: 'already-running'`) that ADOPTS an already-running MCP tool call rather than starting one; see below |
+
+**MCP-004 §S1 — the `tool-invocation` runner ADOPTS, it does not start.** Every runner above starts
+work when `start()` is called. `createToolInvocationBackgroundTaskRunner()` returns one that instead
+satisfies `IToolInvocationAdopter`: its instance-owned registry (`Map<adoptionToken, work>`, never a
+module singleton) is populated by `adopt(token, { settled, abort })` BEFORE `manager.spawn()` is ever
+called — the wrapper (`agent-framework`, a later seam) commits to the handoff, adopts the in-flight
+call, and only then spawns. `start(task)` looks the request's `adoptionToken` up: found → the token is
+consumed (deleted) and the handle's `cancel(reason)` calls `abort(reason)`; when `settled` resolves,
+the handle's `result` resolves to `{ output }` where `output` is the tool result's text — derived
+exactly as `discovered-tool.ts` derives a tool's own text (`data` as-is when it is already a string,
+else `JSON.stringify`) — and when `settled` rejects, `result` rejects with
+`BackgroundTaskError('runner', message, false)` (`recoverable: false`). Token NOT found → `start()`
+throws `BackgroundTaskError('validation', …)` naming the token: a programmer-error refusal (spawning
+without adopting first), not the restart path. The runner is registered in
+`createDefaultBackgroundTaskRunners()` so a `tool-invocation` task never fails product-side with
+"No runner for task kind".
 
 Both concrete runners call `resolveBackgroundTaskShellCommand` and pass its `executable` and `args`
 directly to `spawn`. Neither runner may replace one half after resolution. Blank request shells are absent;

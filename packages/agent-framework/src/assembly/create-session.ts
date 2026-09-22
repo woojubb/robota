@@ -15,6 +15,7 @@ import {
   buildAgentRuntime,
   buildBackgroundProcessTool,
   buildSessionSystemPrompt,
+  buildToolCallHandoff,
   wireSessionDeps,
 } from './create-session-runtime.js';
 import { assertConfiguredHookTypesExecutable } from './hook-type-reachability.js';
@@ -165,6 +166,9 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
     cwd,
     tools,
   );
+
+  // MCP-004 §S3: replaces the selected entries in the session-local `tools` array in place.
+  buildToolCallHandoff(options, backgroundTaskManager, sessionId, cwd, tools);
 
   const { finalSystemMessage, rebuildSystemMessage } = buildSessionSystemPrompt(
     options,
