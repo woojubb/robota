@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [harness]
 lane: L2
@@ -1492,3 +1492,79 @@ it exposes no Robota product surface an end user can execute.
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `5098140f4757` · base `origin/develop@165debe19a59` · document `.agents/spec-docs/backlog/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md` blob `866e062f82dc` (modified)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-22
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-22; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (8)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 322 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 0 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "sequenced",
+  "sequencedArtifacts": [
+    ".agents/spec-docs/active/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md",
+    ".agents/tasks/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md",
+    ".agents/evidence/migrations/BRANCH-2664-P2-agreement-2664-migration.json"
+  ],
+  "taskPath": ".agents/tasks/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md",
+  "specPath": ".agents/spec-docs/todo/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-06"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-07"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-08"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md",
+    ".agents/tasks/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `70f2940a4f7c` · base `origin/develop@165debe19a59` · document `.agents/spec-docs/todo/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md` blob `4a03e0738358` (tracked)

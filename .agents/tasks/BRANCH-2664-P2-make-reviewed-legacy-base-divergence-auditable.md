@@ -1,7 +1,7 @@
 ---
 title: 'BRANCH-2664-P2: make reviewed legacy-base divergence auditable'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: in-progress
 created: 2026-09-21
 priority: high
 urgency: now
@@ -9,7 +9,7 @@ area: repository integration-base migration policy and harness verification
 depends_on: [MANIFEST-2664]
 ---
 
-Spec: `.agents/spec-docs/todo/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md`
+Spec: `.agents/spec-docs/active/BRANCH-2664-P2-make-reviewed-legacy-base-divergence-auditable.md`
 
 # BRANCH-2664: P2 make reviewed legacy-base divergence auditable
 
