@@ -3,7 +3,7 @@
 ## Scope
 
 Native DAG runtime HTTP server (WORKFLOW-002). Serves an in-process DAG framework's
-`IDagOrchestrationPort` and separate build, validation, node-catalog, and cost capabilities over the `/v1/dag/*` route surface using Hono. Owns the route → port-method
+run, definition, build, validation, node-catalog, and cost capabilities over the `/v1/dag/*` route surface using Hono. Owns the route → port-method
 mapping and the server entrypoint.
 
 ## Boundaries
@@ -16,11 +16,7 @@ mapping and the server entrypoint.
 
 ## Architecture Overview
 
-`createDagRuntimeServer(port, costMeta, runDrafts, build, validation, catalog, definitionReads, definitionMutations, progressSource?, assets?)` returns a Hono app. Legacy orchestration `/v1/dag/*` handlers map:
-parse path/query/body → call the matching `IDagOrchestrationPort` method → return
-`c.json(response.payload, response.status)` (every port method returns a uniform
-`IDagOrchestrationHttpResponse`). Definition reads and mutations, build, definition validation, node-catalog, cost metadata, and run-draft routes instead map separate
-domain capabilities to the same HTTP envelope. Build validation failures answer 400;
+`createDagRuntimeServer(runs, costMeta, runDrafts, build, validation, catalog, definitionReads, definitionMutations, progressSource?, assets?)` returns a Hono app. Route handlers parse path/query/body, call domain capabilities, and map results to the existing HTTP envelopes. Run preparation retains its implicit definition create/publish behavior, while the server chooses the public response for each failure phase. Build validation failures answer 400;
 definition validation findings remain a successful 200 response with `valid: false` and `errors`.
 The definition-read, definition-mutation, build, validation, and catalog capabilities are required at server construction. Run-draft request JSON is decoded before calling
 `IRunDraftOperationsPort`; an invalid field returns 400, a missing draft 404, a storage failure 500
@@ -95,7 +91,7 @@ The `HttpDagRuntimeProvider` (for the `--provider http` path) now exists, export
 
 | Export                            | Kind     | Description                                                 |
 | --------------------------------- | -------- | ----------------------------------------------------------- |
-| `createDagRuntimeServer`          | function | Build the Hono app over an `IDagOrchestrationPort`.         |
+| `createDagRuntimeServer`          | function | Build the Hono app over domain capabilities.                |
 | `startDagRuntimeServer`           | function | Compose a framework + serve the app; returns a stop handle. |
 | `DAG_RUNTIME_SERVER_PACKAGE_NAME` | const    | Package-name constant.                                      |
 
@@ -105,8 +101,8 @@ New routes are added by mapping a path to a port method in `createDagRuntimeServ
 
 ## Error Taxonomy
 
-Remaining general orchestration methods return `IDagOrchestrationHttpResponse` with an HTTP `status`; the handler
-forwards `status` + `payload` verbatim. Cost handlers validate their input and map typed domain
+Run handlers map domain results to the existing success/error envelopes, including 404 for missing
+runs and a phase-specific 400 when implicit definition preparation fails. Cost handlers validate their input and map typed domain
 results: unsupported → 501, missing → 404, invalid → 400, success → 200/201.
 Unexpected cost failures map to 500 with a generic detail so internal paths and storage errors
 are not exposed. Problem details remain inside the API's existing `errors` envelope.
@@ -139,9 +135,9 @@ None.
 
 ### Cross-Package Port Consumers
 
-| Owner                                              | Consumer       | Location        |
-| -------------------------------------------------- | -------------- | --------------- |
-| `dag-orchestration-client` `IDagOrchestrationPort` | route handlers | `src/app.ts`    |
-| `dag-cost` `ICostMetaOperationsPort`               | cost routes    | `src/app.ts`    |
-| `dag-core` `IAssetStore`                           | asset routes   | `src/app.ts`    |
-| `dag-framework` `createDagFramework`               | server entry   | `src/server.ts` |
+| Owner                                | Consumer       | Location        |
+| ------------------------------------ | -------------- | --------------- |
+| `dag-api` run lifecycle port         | route handlers | `src/app.ts`    |
+| `dag-cost` `ICostMetaOperationsPort` | cost routes    | `src/app.ts`    |
+| `dag-core` `IAssetStore`             | asset routes   | `src/app.ts`    |
+| `dag-framework` `createDagFramework` | server entry   | `src/server.ts` |

@@ -26,7 +26,7 @@ describe('HttpDagRuntimeProvider round-trip against the in-process server', () =
     framework = await createDagFramework();
     await framework.start();
     const app = createDagRuntimeServer(
-      framework.client,
+      framework.runs,
       framework.costMeta,
       framework.runDrafts,
       framework.build,

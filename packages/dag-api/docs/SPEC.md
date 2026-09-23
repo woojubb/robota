@@ -27,6 +27,9 @@ implementations, and the narrow service ports those controllers consume.
   callers can branch on error category without parsing message text.
 - Definition-list grouping follows the domain summary policy in `dag-core`; this API layer only
   adds the transport response envelope.
+- The in-process run lifecycle port reports run preparation, start, and reads as domain results.
+  Implicit definition create/publish failures identify their phase without carrying HTTP status or
+  problem details; the server chooses the public error response.
 - Composition factories accept port interfaces rather than concrete implementations, so callers can
   substitute custom `IStoragePort`, `IQueuePort`, `IClockPort`, `ILeasePort`, and
   `ITaskExecutorPort` implementations without touching controller code.

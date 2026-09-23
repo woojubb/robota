@@ -45,7 +45,7 @@ import { resolveAssetRoot, resolveStorageRoot } from './config/resolve-storage-r
 import { AssetAwareTaskExecutorPort } from './adapters/asset-aware-executor.js';
 import { LocalFsAssetStore } from './adapters/local-fs-asset-store.js';
 import { DagPromptBackend } from './adapters/prompt-backend.js';
-import { DagFrameworkOrchestrationAdapter } from './adapters/orchestration-adapter.js';
+import { DagFrameworkRunLifecycle } from './adapters/dag-run-lifecycle.js';
 import { DagFrameworkBuildOperations } from './adapters/dag-build-operations.js';
 import { DagFrameworkValidationOperations } from './adapters/dag-validation-operations.js';
 import { DagFrameworkDefinitionReads } from './adapters/dag-definition-reads.js';
@@ -177,15 +177,9 @@ export async function createDagFramework(
   // 9. Run-draft store (in-memory by default; persistence is opt-in)
   const runDraftStore: IRunDraftStore = options.ports?.runDraftStore ?? new InMemoryRunDraftStore();
 
-  // 10. Orchestration adapter
-  const client = new DagFrameworkOrchestrationAdapter({
-    storage,
-    execution,
-  });
-
-  // 11. Framework instance
+  // 10. Framework instance
   const framework: IDagFramework = {
-    client,
+    runs: new DagFrameworkRunLifecycle(storage, execution),
     build: new DagFrameworkBuildOperations(assembly.manifests),
     validation: new DagFrameworkValidationOperations(assembly.manifests),
     catalog: { listNodes: async () => structuredClone(assembly.manifests) },

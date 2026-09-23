@@ -27,7 +27,7 @@ export async function startDagRuntimeServer(
   const framework = await createDagFramework({ executionRoot: process.cwd() });
   await framework.start();
   const app = createDagRuntimeServer(
-    framework.client,
+    framework.runs,
     framework.costMeta,
     framework.runDrafts,
     framework.build,

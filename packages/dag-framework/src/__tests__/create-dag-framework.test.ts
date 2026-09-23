@@ -31,9 +31,9 @@ async function pollRunStatus(
 ): Promise<string> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const res = await fw.client.getRunStatus(dagRunId);
+    const res = await fw.runs.getRun(dagRunId);
     if (!res.ok) return 'error';
-    const dagRun = (res.payload as { data: { dagRun: { status: string } } }).data.dagRun;
+    const dagRun = res.value.dagRun;
     if (dagRun.status === 'success' || dagRun.status === 'failed') {
       return dagRun.status;
     }
@@ -55,22 +55,23 @@ describe('Input → TextOutput (2-node pipeline)', () => {
       edges: [{ from: 'src', to: 'out', bindings: [{ outputKey: 'text', inputKey: 'text' }] }],
     };
 
-    const runRes = await framework.client.createRun({ definition });
+    const runRes = await framework.runs.createRun({ definition });
     expect(runRes.ok).toBe(true);
-    expect(runRes.status).toBe(201);
+    expect(runRes).not.toHaveProperty('status');
 
-    const { dagRunId } = (runRes.payload as { data: { dagRunId: string; preparationId: string } })
-      .data;
+    if (!runRes.ok) throw new Error('Expected a created run.');
+    const { dagRunId } = runRes.value;
     expect(typeof dagRunId).toBe('string');
 
-    await framework.client.startRun(dagRunId);
+    await framework.runs.startRun(dagRunId);
 
     const finalStatus = await pollRunStatus(framework, dagRunId);
     expect(finalStatus).toBe('success');
 
-    const resultRes = await framework.client.getRunResult(dagRunId);
+    const resultRes = await framework.runs.getRun(dagRunId);
     expect(resultRes.ok).toBe(true);
-    const taskRuns = (resultRes.payload as { data: { taskRuns: unknown[] } }).data.taskRuns;
+    if (!resultRes.ok) throw new Error('Expected a run result.');
+    const taskRuns = resultRes.value.taskRuns;
     expect(taskRuns.length).toBeGreaterThanOrEqual(2);
   });
 });
@@ -97,12 +98,13 @@ describe('Input → Transform → TextOutput (3-node pipeline)', () => {
       ],
     };
 
-    const runRes = await framework.client.createRun({ definition });
+    const runRes = await framework.runs.createRun({ definition });
     expect(runRes.ok).toBe(true);
 
-    const { dagRunId } = (runRes.payload as { data: { dagRunId: string } }).data;
+    if (!runRes.ok) throw new Error('Expected a created run.');
+    const { dagRunId } = runRes.value;
 
-    await framework.client.startRun(dagRunId);
+    await framework.runs.startRun(dagRunId);
 
     const finalStatus = await pollRunStatus(framework, dagRunId);
     expect(finalStatus).toBe('success');
