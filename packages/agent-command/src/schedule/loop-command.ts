@@ -8,6 +8,8 @@ const LOOP_LABEL = 'Loop: ';
 const SECONDS_PER_MINUTE = 60;
 const HOURS_PER_DAY = 24;
 const MAX_LABEL_LENGTH = 48;
+const TRAILING_INTERVAL =
+  /^([\s\S]+?)\s+every\s+(\d+)\s*(seconds?|minutes?|hours?|days?|s|m|h|d)$/i;
 const USAGE =
   'Usage: /loop <N><s|m|h|d> <prompt> | /loop <prompt> every <N> <seconds|minutes|hours|days> | /loop list | /loop stop <id>. Fixed intervals up to one day are supported.';
 
@@ -65,19 +67,13 @@ function parseCreate(args: string): { instruction: string; requestedMs: number }
   if (leading) {
     const instruction = leading[3]!.trim();
     const requestedMs = parseDuration(leading[1]!, leading[2]!.toLowerCase());
-    if (
-      instruction &&
-      requestedMs !== undefined &&
-      !/\s+every\s+\d+\s*[a-z]+$/i.test(instruction)
-    ) {
+    if (instruction && requestedMs !== undefined && !TRAILING_INTERVAL.test(instruction)) {
       return { instruction, requestedMs };
     }
     return undefined;
   }
 
-  const trailing = /^([\s\S]+?)\s+every\s+(\d+)\s*(seconds?|minutes?|hours?|days?|s|m|h|d)$/i.exec(
-    args,
-  );
+  const trailing = TRAILING_INTERVAL.exec(args);
   if (!trailing) return undefined;
   const instruction = trailing[1]!.trim();
   const unit = trailing[3]!.toLowerCase();
@@ -96,7 +92,7 @@ function activeLoops(host: Pick<IAgentJobHostContext, 'listSchedules'>): IBackgr
     .listSchedules()
     .filter(
       (task) =>
-        task.label.startsWith(LOOP_LABEL) &&
+        task.metadata?.['sessionLoop'] === true &&
         task.status !== 'cancelled' &&
         task.status !== 'completed' &&
         task.status !== 'failed',
@@ -122,9 +118,7 @@ function listLoops(host: Pick<IAgentJobHostContext, 'listSchedules'>): ICommandR
     message:
       loops.length === 0
         ? 'No active loops.'
-        : loops
-            .map((task) => `- ${task.id} [${task.status}] ${task.label.slice(LOOP_LABEL.length)}`)
-            .join('\n'),
+        : loops.map((task) => `- ${task.id} [${task.status}] ${task.label}`).join('\n'),
     data: { count: loops.length },
   };
 }
@@ -158,16 +152,17 @@ async function createLoop(
     label,
     cronExpression: cadence.cronExpression,
     agentInstruction: parsed.instruction,
+    sessionLoop: true,
   });
   const rounded = cadence.milliseconds !== parsed.requestedMs ? ' (rounded up)' : '';
   const nextFire = task.nextFireAt ? ` Next fire: ${task.nextFireAt}.` : '';
   return {
     success: true,
-    message: `Loop ${task.id} runs every ${cadence.description}${rounded}, aligned to the local clock.${nextFire} Stop with /loop stop ${task.id}.`,
+    message: `Loop ${task.id} uses a ${cadence.description}${rounded} local-clock step; elapsed gaps can change with daylight saving.${nextFire} Stop with /loop stop ${task.id}.`,
     data: {
       taskId: task.id,
       requestedMs: parsed.requestedMs,
-      cadenceMs: cadence.milliseconds,
+      cadenceLabel: cadence.description,
       cronExpression: cadence.cronExpression,
     },
   };

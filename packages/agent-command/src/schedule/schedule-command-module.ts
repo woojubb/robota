@@ -99,7 +99,9 @@ function createLoopSystemCommand(): ISystemCommand {
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
-    requiresPermission: false,
+    // A static conservative classification keeps remote read-only policies from admitting
+    // create/stop through this mixed read/write command; list is gated too.
+    requiresPermission: true,
     userInvocable: true,
     modelInvocable: true,
     argumentHint: entry.argumentHint,

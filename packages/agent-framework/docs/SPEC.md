@@ -2861,6 +2861,9 @@ runs to a completed turn:
 
 Distinct scheduled wake sources sharing the agent driver never coalesce with each other. Cancelling
 one queued source settles only that source's accepted turn; a turn already executing is not aborted.
+`IAgentJobSchedules.spawnScheduledWake` accepts an optional `sessionLoop` marker that the session
+stores in task metadata. Restored scheduled tasks forward this metadata when re-armed, so an editable
+label cannot erase a loop's identity. The runtime task ID can still change on resume.
 
 `InteractiveSession` exposes background task controls:
 

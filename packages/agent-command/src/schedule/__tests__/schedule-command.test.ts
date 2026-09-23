@@ -18,6 +18,9 @@ describe('in-session repeat command', () => {
     const module = createScheduleCommandModule();
     expect(module.systemCommands?.map((command) => command.name)).toContain('loop');
     expect(
+      module.systemCommands?.find((command) => command.name === 'loop')?.requiresPermission,
+    ).toBe(true);
+    expect(
       module.commandSources?.flatMap((source) =>
         source.getCommands().map((command) => command.name),
       ),

@@ -35,6 +35,13 @@ describe('/loop command in a real interactive session', () => {
     expect(harness.requests.length).toBe(1);
     await new Promise<void>((resolve) => setImmediate(resolve));
 
+    const edited = await harness.command(
+      'schedule',
+      `edit ${loopId} cron "0 0 * * *" renamed check`,
+    );
+    expect(edited?.success).toBe(true);
+    expect((await harness.command('loop', 'list'))?.message).toContain(loopId);
+
     const stopped = await harness.command('loop', `stop ${loopId}`);
     expect(stopped?.message).toContain('Loop stopped:');
     expect(await harness.wake('check the build', loopId)).toBeNull();
