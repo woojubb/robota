@@ -28,6 +28,7 @@
     "contract-cast-ratchet",
     "contract-disposition",
     "coverage-scripts",
+    "dag-node-registration-owner",
     "dep-kind",
     "deployment-matrix",
     "deprecated-markers",

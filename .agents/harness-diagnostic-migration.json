@@ -821,6 +821,22 @@
       "owner": "repository-harness",
       "subject": {
         "kind": "scan",
+        "value": "dag-node-registration-owner"
+      },
+      "diagnosticId": "hook.migration.scan.dag-node-registration-owner",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
         "value": "github-label-registry"
       },
       "diagnosticId": "hook.migration.scan.github-label-registry",
