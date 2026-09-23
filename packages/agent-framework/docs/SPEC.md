@@ -586,13 +586,13 @@ failed, silently, at a refactor five months downstream. Treating "unexported" as
 is the mistake, not the specific export.
 
 **Restriction remains inexpressible at this seam, for every caller, internal and external.** The
-seeding stands against issue #2238 — the option contract that infers "replace" from a non-empty array
-and "extend" from an empty one — which is the defect that produced the original deny-all and the only
-thing whose fix would make an opt-out coherent. It is recorded here as a LIVE GAP, deliberately not as
-a labelled containment: `.agents/rules/finding-depth.md` permits containment only with a root item
-whose ID resolves under `.agents/tasks/`, and that issue has no such item, so calling this contained
-would assert a status nothing backs. Issue #2270's export half is
-closed here; its no-opt-out half stays open against issue #2238.
+seeding fixed the original default-dropping failure described by issue #2238, which was closed as
+already done, but it did not provide a way to request a restricted executor set. That separate
+no-opt-out concern remains recorded under issue #2423. This is an explicit deferred capability, not
+a labelled containment: the current `.agents/rules/finding-depth.md` makes an existing GitHub issue
+the root record for a general foundational finding and does not require a repository Task or a
+`Contained — <ID>` label. The unchanged seeding behavior, rather than its description, determines
+the disposition. Issue #2270's export half is closed; its no-opt-out observation remains true.
 
 `ICreateSessionOptions` remains exported although the factory does not. Four packages read
 indexed-access types off it as the option SSOT — `agent-preset`, `agent-cli`, `agent-transport` and
@@ -607,7 +607,7 @@ The type is inert without the factory — no exported function accepts it, so no
 (it remains on `src/assembly/index.ts`): it is the return type of a factory that is no longer public,
 so it describes nothing a consumer can obtain.
 
-**The opt-out** is filed rather than fixed here for a reason worth recording: it would be a new public
+**The opt-out** remains a separate design concern for a reason worth recording: it would be a new public
 capability, and this repository's `option-reachability` scan refuses a declared option that no
 production code assigns — _"a capability nothing can turn on is not delivered"_. An option only an
 external consumer can set is, from inside this repository, unverifiable; delivering it means also
