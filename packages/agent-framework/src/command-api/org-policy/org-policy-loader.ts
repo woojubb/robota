@@ -25,6 +25,9 @@ import type { IUniversalObjectValue, TUniversalValue } from '@robota-sdk/agent-c
  * and two files over. This loader was the one that did not.
  */
 export function loadOrgPolicy(policyPath: string): IOrgPolicy | null {
+  if (typeof policyPath !== 'string' || policyPath.trim() === '') {
+    throw new TypeError('Organization policy path is required');
+  }
   if (!existsSync(policyPath)) return null;
   let parsed: TUniversalValue;
   try {

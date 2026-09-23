@@ -36,6 +36,13 @@ afterEach(() => {
 });
 
 describe('loadOrgPolicy (issue #2023)', () => {
+  it('rejects a missing or empty host path instead of silently disabling policy', () => {
+    withPolicyFile(JSON.stringify({ blockedCommands: ['clear'] }));
+
+    expect(() => loadOrgPolicy(undefined as never)).toThrow(/policy path is required/i);
+    expect(() => loadOrgPolicy('')).toThrow(/policy path is required/i);
+  });
+
   it('returns null when no policy is deployed — the common case still does not throw', () => {
     // The `allow-fallback` comment this replaces was right to care about startup. A MISSING file is
     // what it was protecting, and it still returns null.
