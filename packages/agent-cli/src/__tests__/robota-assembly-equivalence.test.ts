@@ -22,7 +22,7 @@
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
-import { DEFAULT_AGENT_NAME, createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { describe, expect, it } from 'vitest';
@@ -37,6 +37,7 @@ import {
   createRobotaProfile,
   packCommandModuleNames,
 } from '../product/robota-profile.js';
+import { ROBOTA_DEFAULT_AGENT_NAME } from '../product/robota-preset-defaults.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 import { resolveShellPreset } from '../startup/preset-selection.js';
 
@@ -192,7 +193,7 @@ function assembleRobota(
   const product = assembleProduct(
     createRobotaProfile({
       version: '0.0.0-test',
-      agentName: DEFAULT_AGENT_NAME,
+      agentName: ROBOTA_DEFAULT_AGENT_NAME,
       providerDefinitions,
       provider: createScriptedProvider([{ text: 'ok' }]).provider,
       preset,
@@ -332,7 +333,7 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
     const product = assembleProduct(
       createRobotaProfile({
         version: '0.0.0-test',
-        agentName: DEFAULT_AGENT_NAME,
+        agentName: ROBOTA_DEFAULT_AGENT_NAME,
         providerDefinitions,
         providerSettings: { name: 'anthropic', model: 'claude-test', apiKey: 'sk-test' },
         preset: resolveShellPreset([], MINIMAL_ARGS, undefined),
@@ -377,7 +378,7 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
     expect(createDefaultTools({ cwd: '/tmp/equivalence' }).map((t) => t.getName())).toEqual(
       BASELINE_DEFAULT_TOOL_NAMES,
     );
-    expect(DEFAULT_AGENT_NAME).toBe(BASELINE_DEFAULT_AGENT_NAME);
+    expect(ROBOTA_DEFAULT_AGENT_NAME).toBe(BASELINE_DEFAULT_AGENT_NAME);
   });
 
   it('resolves presets identically (built-ins reachable through the instance registry)', () => {

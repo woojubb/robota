@@ -1,4 +1,4 @@
-import { DEFAULT_AGENT_NAME } from '@robota-sdk/agent-preset';
+import { ROBOTA_DEFAULT_AGENT_NAME } from '../product/robota-preset-defaults.js';
 
 import { buildAppendSystemPrompt } from './append-system-prompt.js';
 import { buildJsonSchemaResponseFormat } from './json-schema-response-format.js';
@@ -138,7 +138,7 @@ export function buildPresetSurfaceOptions(
   return {
     ...(resolved.model !== undefined ? { model: resolved.model } : {}),
     ...(outputStyle !== undefined ? { outputStyle } : {}),
-    agentName: resolved.agentName ?? DEFAULT_AGENT_NAME,
+    agentName: resolved.agentName ?? ROBOTA_DEFAULT_AGENT_NAME,
     activePresetId: presetId,
     persona: resolved.persona,
     ...(permissionMode !== undefined ? { permissionMode } : {}),
