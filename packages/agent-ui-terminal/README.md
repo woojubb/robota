@@ -24,4 +24,4 @@ See [docs/SPEC.md](./docs/SPEC.md) for the full contract.
 
 PTY test support is internal to `src/__tests__/pty/`; the former private `agent-testing`
 workspace package has been removed. These helpers are not public exports. See the
-[test strategy](./docs/SPEC.md#test-strategy) for runtime verification and isolation constraints.
+[test strategy](./docs/SPEC.md) for runtime verification and isolation constraints.

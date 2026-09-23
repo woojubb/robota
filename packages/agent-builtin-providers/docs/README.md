@@ -4,4 +4,4 @@
 - [Offline DeepSeek example](../examples/deepseek-provider-demo.mjs): from the package directory,
   run `node examples/deepseek-provider-demo.mjs` after building this package and its provider
   prerequisites. It checks definition metadata and default composition without API keys or requests;
-  see [Test Strategy](SPEC.md#test-strategy) for the separate CLI verification boundary.
+  see [Test Strategy](SPEC.md) for the separate CLI verification boundary.

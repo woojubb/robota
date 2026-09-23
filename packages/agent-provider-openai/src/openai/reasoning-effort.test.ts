@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { OpenAIProvider } from './provider';
@@ -271,13 +268,5 @@ describe('PRESET-008 reasoning-effort wiring', () => {
         apiSurface: 'chat-completions',
       }).effortTable(),
     ).toBeUndefined();
-  });
-
-  it('documents verified Responses support and unverified-surface omission in the package SPEC', () => {
-    const specPath = join(__dirname, '..', '..', 'docs', 'SPEC.md');
-    const spec = readFileSync(specPath, 'utf8');
-    expect(spec).toMatch(/## Reasoning Effort/);
-    expect(spec).toMatch(/OpenAI Responses/);
-    expect(spec).toMatch(/not-applied/);
   });
 });

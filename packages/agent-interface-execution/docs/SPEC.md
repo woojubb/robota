@@ -1,133 +1,55 @@
 # SPEC.md — @robota-sdk/agent-interface-execution
 
-## Scope
+## Purpose
 
-This package owns the **execution-bounded contract families**: background tasks, background job
-groups, subagent jobs, and execution workspaces. It is the SSOT for those type contracts, shared
-between the runtime that schedules execution and the surfaces that display it.
-
-It contains type declarations only. No class, no runtime logic, no mechanism.
-
-## Package Identity
-
-- **npm name**: `@robota-sdk/agent-interface-execution`
-- **Dependency position**: Layer 0. The package manifest declares only `@robota-sdk/agent-core`.
+Owns the execution-bounded contract families — background tasks, background job groups, subagent
+jobs, and execution workspaces — shared between the runtime that schedules execution and the surfaces
+that display it. Type declarations only: no class, no runtime logic, no mechanism. A consumer that
+wants behavior depends on an owner package; this one gives it the vocabulary to describe the
+behavior.
 
 ## Boundaries
 
-**Not owned here.**
+Not owned here:
 
-| Concern                                                    | Owner                                                                         |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Session, interaction, event, turn and driver contracts     | `agent-interface-session`                                                   |
-| Command contracts                                          | `agent-interface-command`                                                   |
-| Transport adapter, config, channel and admission contracts | `agent-interface-transport`                                                   |
-| The RUNTIME that executes a background task                | `agent-executor`, `agent-subagent-runner`                                     |
-| Persisting or projecting execution state                   | `agent-session`, `agent-transport-*`                                          |
+| Concern                                                    | Owner                                     |
+| ---------------------------------------------------------- | ----------------------------------------- |
+| Session, interaction, event, turn and driver contracts     | `agent-interface-session`                 |
+| Command contracts                                          | `agent-interface-command`                 |
+| Transport adapter, config, channel and admission contracts | `agent-interface-transport`               |
+| The runtime that executes a background task                | `agent-executor`, `agent-subagent-runner` |
+| Persisting or projecting execution state                   | `agent-session`, `agent-transport-*`      |
 
-**This package does not implement anything it declares.** A consumer that wants behavior depends on
-an owner package; this one gives it the vocabulary to describe the behavior.
+## Invariants
 
-## Architecture Overview
+- **Layer 0**: depends on no peer `agent-interface-*` package. Composition runs downward into it
+  (e.g. `agent-interface-session` names these types); this package never names a session type.
+- A `kind: 'scheduled'` background-task request carries no `permissionPolicy`, by decision (issue
+  #2354): a schedule with `agentInstruction` wakes the host session rather than spawning an agent, and
+  the woken turn runs under that session's own permission configuration. Only `kind: 'agent'` — a
+  separate agent — declares a policy. A dedicated test enforces this.
+- `IBackgroundTaskError` describes the shape of a failure that crossed a boundary; this package
+  throws nothing and decides no recovery policy itself.
+- No runtime value is exported, only types. The Interface Package Rule would allow publishing a
+  contract's vocabulary/discriminator as a runtime value; this package currently needs neither.
 
-**Layer 0.** It depends on **no peer `agent-interface-*` package** — that boundary is the
-commitment this document makes; which packages it does depend on is the manifest's to say (see
-Package Identity). Composition runs downward into it — `agent-interface-session` names these types;
-this package never names a session type.
-
-Four modules, one contract family each, and the dependency between them runs one way:
-
-```text
-subagent-contracts        → background-task-contracts
-background-group-contracts → background-task-contracts
-workspace-contracts        → background-task-contracts, background-group-contracts
-```
-
-`workspace-contracts` reaching `IBackgroundJobGroupState` is the edge that used to run through a
-re-export in `session-contracts`; ARCH-103 redirected it to the declaring module. That was the only
-upward edge in the interface tree.
-
-## Type Ownership
-
-| Type                                                                    | Location                           | Purpose                                                                                                                                                                                                                                                                                                                        |
-| ----------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `TBackgroundTaskRequest` and its five request shapes                    | `src/background-task-contracts.ts` | what is being asked of the executor; agent requests carry optional core-owned `TModelEffort`                                                                                                                                                                                                                                   |
-| `IBackgroundTaskState`, `IBackgroundTaskResult`, `IBackgroundTaskError` | `src/background-task-contracts.ts` | the lifecycle of one task                                                                                                                                                                                                                                                                                                      |
-| `IToolInvocationBackgroundTaskRequest` (`kind: 'tool-invocation'`)      | `src/background-task-contracts.ts` | MCP-004 §S1: an in-flight MCP tool call adopted by the background-task manager — `toolName`, `adoptionToken` and flattened provenance (`provenanceOwner: 'mcp'`, `serverId`, `sourceName`, `securityIdentity?`, `permissionMode`) as primitive fields, data only; the remaining budget rides the base request's `maxRuntimeMs` |
-
-A `kind: 'scheduled'` request carries **no `permissionPolicy`, by decision** (issue #2354): a schedule with `agentInstruction` wakes the HOST session rather than spawning an agent, and the woken turn runs under that session's own permission configuration. Only `kind: 'agent'` — a separate agent — declares a policy. `src/__tests__/contracts.test.ts` fails if a policy field is added to the scheduled request without that wiring being designed.
-| `IBackgroundTaskLogCursor`, `IBackgroundTaskLogPage`, `IBackgroundTaskListFilter` | `src/background-task-contracts.ts` | reading a task's output and the task list |
-| `IBackgroundTaskUsage` | `src/background-task-contracts.ts` | token/cost attribution for a task |
-| `IBackgroundJobGroupState`, `IBackgroundJobGroupSummary`, `IBackgroundJobResultEnvelope` | `src/background-group-contracts.ts` | several tasks waited on as one unit |
-| `TBackgroundJobWaitPolicy`, `TBackgroundJobGroupStatus` | `src/background-group-contracts.ts` | how a group completes |
-| `ISubagentJobState`, `ISubagentJobResult`, `ISubagentSpawnRequest` | `src/subagent-contracts.ts` | a subagent job as a data record |
-| `IExecutionWorkspaceSnapshot`, `IExecutionWorkspaceEntry`, `IExecutionWorkspaceEvent` | `src/workspace-contracts.ts` | the switchable view over running work |
-| `IExecutionDetailRecord`, `IExecutionDetailPage`, `IExecutionDetailCursor` | `src/workspace-contracts.ts` | the detail pane behind one workspace entry |
-| `TExecutionNormalizedState`, `IExecutionHeadline`, `TExecutionHeadlineKind`, `IExecutionPendingRequest` | `src/workspace-contracts.ts` | SCREEN-1992: the five-word state (`working` / `needs-input` / `completed` / `failed` / `stopped`), the row's one-line text (activity / question / result) and the parked prompt the main thread waits on — carried on `IExecutionWorkspaceEntry` (`state`, `headline`, `nextFireAt`) and `ICreateMainThreadEntryInput` (`pendingRequest`), derived once by the projection |
-
-An agent request's optional `effort` is typed by `@robota-sdk/agent-core` and is carried unchanged
-through `ISubagentSpawnRequest`. An explicit request value is more specific than the selected agent
-definition; when both are absent, the framework supplies the parent's effective effort before a
-runner projection.
-
-64 declarations in total. `src/index.ts` is the single entry point; there is no subpath export.
+## Design decisions
 
 ### Forking a conversation into a background task (CLI-1994)
 
-`IAgentBackgroundTaskRequest.resumeSessionId?` names a persisted session record the child **restores**
-before its first turn. It is how a **fork** — a COPY of a live conversation, written under a fresh id
-by `/fork` — reaches a background job. Only the id travels: the conversation itself never rides on the
-request and therefore never crosses the child-process wire, so the ARCH-044 projection boundary is
-unchanged; the child reads the record from the session store, exactly as `--fork-session` does at
-startup. `IBackgroundTaskState.resumeSessionId?` carries it onto the task's state so a surface can
-tell a fork's task from an ordinary one. Absent ⇒ the child starts with an empty conversation, as
-before.
+`IAgentBackgroundTaskRequest.resumeSessionId?` names a persisted session record the child restores
+before its first turn — how a fork (a copy of a live conversation, written under a fresh id by
+`/fork`) reaches a background job. Only the id travels; the conversation itself never crosses the
+child-process wire. `IBackgroundTaskState.resumeSessionId?` carries it onto the task's state so a
+surface can tell a fork's task from an ordinary one; absent, the child starts with an empty
+conversation.
 
-A fork is a **copy**, not a branch of one live thing: from the moment the record is written the two
-conversations are separate records that never rejoin. `TExecutionControl` gains `'attach'` for exactly
-that reason — attaching to a fork is a **view switch** onto its record, never a merge, and the entry
-carries the `resumeSessionId` the view switches onto.
+A fork is a copy, not a branch of one live thing: from the moment the record is written the two
+conversations are separate records that never rejoin. `TExecutionControl` gains `'attach'` for
+exactly that reason — attaching to a fork is a view switch onto its record, never a merge.
 
-## Public API Surface
+## Non-goals
 
-| Export                                 | Kind | Description                                                                            |
-| -------------------------------------- | ---- | -------------------------------------------------------------------------------------- |
-| every name above                       | type | contract declarations; see Type Ownership                                              |
-| `IToolInvocationBackgroundTaskRequest` | type | MCP-004 §S1: `kind: 'tool-invocation'` request — see Type Ownership                    |
-| `TExecutionNormalizedState`            | type | SCREEN-1992: the five-word state every workspace entry carries (`working` … `stopped`) |
-| `TExecutionHeadlineKind`               | type | SCREEN-1992: `activity` / `question` / `result` — which kind of line the headline is   |
-| `IExecutionHeadline`                   | type | SCREEN-1992: the entry's one-line text, the row-text SSOT                              |
-| `IExecutionPendingRequest`             | type | SCREEN-1992: the parked permission/ask the main thread waits on (`kind`, `text`)       |
-
-**No runtime value is exported.** The Interface Package Rule permits a package's entry to publish its
-contracts' vocabulary (a `const` holding a value) and their discriminators (a type predicate); this
-package currently needs neither.
-
-## Extension Points
-
-None by design. A contract package is extended by amending a declaration, not by subclassing or
+None by design: a contract package is extended by amending a declaration, not by subclassing or
 registering. A consumer needing a narrower shape declares it in its own package and states how it
 relates to the type here.
-
-## Error Taxonomy
-
-| Error                  | Code                           | Category                          | Recoverable                 |
-| ---------------------- | ------------------------------ | --------------------------------- | --------------------------- |
-| `IBackgroundTaskError` | `TBackgroundTaskErrorCategory` | data contract, not a thrown error | described, not decided here |
-
-`IBackgroundTaskError` is the SHAPE of a failure that crossed a boundary. This package throws nothing
-and decides no recovery policy — `TBackgroundTaskTimeoutReason` and `TBackgroundTaskErrorCategory`
-give an owner the vocabulary to report why, and the owner decides what follows.
-
-## Test Strategy
-
-The package has no tests of its own and needs none: it declares types and exports no behavior, so the
-only assertion available is that it compiles, which `pnpm typecheck` makes on every run.
-
-Its contracts are exercised by the suites of the packages that implement them — `agent-executor`,
-`agent-subagent-runner`, `agent-framework` and the transport surfaces. Consumers import these
-contracts from this package; its four modules keep their dependencies within the declared family.
-
-## Class Contract Registry
-
-None. This package declares no class.

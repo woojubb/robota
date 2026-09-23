@@ -1,489 +1,216 @@
 # Agent Executor Specification
 
-> **INFRA-025 (2026-07-04):** the background-task DATA contracts (statuses, states, events,
-> errors, requests, results, log pages) and the subagent job state family moved to
-> `@robota-sdk/agent-interface-execution` as their SSOT. This package keeps the runtime SPI
-> (`BackgroundTaskError`, runner/manager ports, handles) and imports the contracts; its
-> public index does not re-export them.
-
-## Scope
+## Purpose
 
 `@robota-sdk/agent-executor` owns reusable runtime primitives for long-running Robota work:
+background task lifecycle, queueing, cancellation, events, and state snapshots; a subagent job
+compatibility facade over the generic background task layer; subagent runner ports and worktree
+isolation decoration; and provider factory helpers that construct provider instances from
+serializable config or profiles.
 
-- background task lifecycle, queueing, cancellation, events, and state snapshots
-- subagent job compatibility facade over the generic background task layer
-- subagent runner ports and worktree isolation runner decoration
-- provider factory helpers that construct `IAIProvider` instances from serializable config or profiles
+It is a composable material layer: it provides stateful runtime services and ports that higher
+packages assemble with providers, sessions, processes, transports, and UI. It does not itself
+create sessions, tools, prompts, child processes (other than through its own shell/scheduled task
+runners), Git worktrees, transports, or TUI state, and it does not read config files or project
+context.
 
-This package is a composable material layer. It provides stateful runtime services and ports that higher packages assemble with providers, sessions, processes, transports, and UI.
+The background-task DATA contracts (statuses, states, events, errors, requests, results, log
+pages) and the subagent job state family are owned elsewhere (`@robota-sdk/agent-interface-execution`);
+this package owns the runtime SPI — the error class, runner/manager ports, and handles — and
+imports those contracts rather than redefining them.
 
-## Boundaries
+## Non-goals / Boundaries
 
-- Does not create sessions, tools, prompts, child processes (except via `createManagedShellProcessRunner`), Git worktrees, transports, or TUI state.
+- Does not create sessions, tools, prompts, child processes (except via its own managed shell/scheduled
+  runners), Git worktrees, transports, or TUI state.
 - Does not read config files or project context.
 - Does not import `agent-framework`, `agent-session`, `agent-tools`, provider packages, or `agent-cli`.
-- Provider factory helpers (`src/providers/`) depend only on `@robota-sdk/agent-core` provider definitions; they do not import provider-specific packages.
-- Concrete I/O belongs in adapters owned by runtime shells or dedicated adapter packages.
-- SDK assembly may re-export this package for compatibility, but this package remains the SSOT for runtime lifecycle contracts.
-- **Layer position — below agent-framework.** `agent-framework` consumes agent-executor services;
-  agent-executor must never depend on agent-framework. `agent-session` does **not** depend on
-  agent-executor. Dependency direction is strictly upward:
-  `agent-core` ← `agent-executor` ← `agent-framework`.
-- **Contract stability.** Public API shapes are stable runtime lifecycle contracts. Higher-layer
-  packages (`agent-framework`) depend on these contracts. Breaking changes to the
-  public API surface require coordinating all consumers before merging.
-
-## Architecture Overview
-
-```text
-agent-executor
-  ├── background-tasks/
-  │   ├── state-machine.ts                      -- pure lifecycle transitions
-  │   ├── background-task-manager.ts            -- registry, queue, wait/cancel/close/send/read
-  │   ├── background-task-manager-helpers.ts    -- internal state helpers and deferred primitives
-  │   ├── background-task-manager-state.ts      -- internal state mutation helpers
-  │   ├── background-task-watchdogs.ts          -- idle/max-runtime/output watchdog controller
-  │   ├── log-pages.ts                          -- output capture and cursor-based log page helpers
-  │   ├── runners/
-  │   │   ├── shell-command-resolution.ts        -- pure request → executable/argument-family adapter
-  │   │   ├── managed-shell-process-runner.ts   -- child_process.spawn-based runner
-  │   │   └── scheduled-task-runner.ts          -- croner-based scheduled runner
-  │   └── types.ts                              -- task requests, state, result, runner ports
-  ├── providers/
-  │   └── provider-factory.ts                   -- resolveProfileApiKey, createProviderFromProfile
-  └── subagents/
-      ├── types.ts                              -- subagent job contracts and runner port
-      ├── subagent-manager.ts                   -- compatibility facade over BackgroundTaskManager
-      └── worktree-subagent-runner.ts           -- runner decorator using injected worktree adapter (port only; concrete Git adapter lives in agent-cli)
-```
-
-Design rules:
-
-- lifecycle transitions are pure and table-driven
-- managers own registries and concurrency, not execution I/O
-- runners execute one job and report through handles/events
-- decorators add behavior by wrapping runner ports
-- concrete side effects are injected behind ports
-
-## Type Ownership
-
-### Background Task Primitive Types
-
-| Type                             | Location                                                  | Purpose                                                                                                                                                                                        |
-| -------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TBackgroundTaskKind`            | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | `'agent' \| 'process' \| 'scheduled' \| 'tool-invocation'` (MCP-004 §S1)                                                                                                                       |
-| `TBackgroundTaskMode`            | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | `'foreground' \| 'background'`                                                                                                                                                                 |
-| `TBackgroundTaskIsolation`       | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | `'none' \| 'worktree'`                                                                                                                                                                         |
-| `TBackgroundTaskStatus`          | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | `'queued' \| 'running' \| 'waiting_permission' \| 'sleeping' \| 'paused' \| 'completed' \| 'failed' \| 'cancelled'` (SELFHOST-012: `paused` = non-destructively paused schedule, non-terminal) |
-| `TBackgroundPermissionPolicy`    | `@robota-sdk/agent-core` (SSOT; CORE-025)                 | `'inherit-allowlist' \| 'preapproved' \| 'prompt' \| 'deny'`                                                                                                                                   |
-| `TBackgroundTaskTimeoutReason`   | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | Watchdog terminal reason union                                                                                                                                                                 |
-| `TBackgroundTaskErrorCategory`   | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | Error category union used by `BackgroundTaskError`                                                                                                                                             |
-| `TBackgroundPrimitive`           | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | `string \| number \| boolean` — opaque metadata value type                                                                                                                                     |
-| `TBackgroundTaskEvent`           | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | Lifecycle/progress event union emitted by `BackgroundTaskManager`                                                                                                                              |
-| `TBackgroundTaskEventListener`   | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | Listener callback type for `TBackgroundTaskEvent`                                                                                                                                              |
-| `TBackgroundTaskRunnerEvent`     | `src/background-tasks/types.ts` (owned)                   | Events reported by runners to the manager during execution                                                                                                                                     |
-| `TBackgroundTaskIdFactory`       | `src/background-tasks/types.ts` (owned)                   | Function type for custom task ID generation                                                                                                                                                    |
-| `TBackgroundTaskTransitionEvent` | `src/background-tasks/state-machine.ts`                   | State machine input events (e.g. `START`, `SLEEP`, `WAKE`, `CANCEL`)                                                                                                                           |
-
-### Background Task Interface Types
-
-| Type                                    | Location                                                       | Purpose                                                                                                                                                |
-| --------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `IBackgroundTaskError`                  | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Structured error shape with category and recoverability                                                                                                |
-| `ISerializableProviderProfile`          | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Provider profile handoff for background workers, including credential references and provider-owned `options`                                          |
-| `IBaseBackgroundTaskRequest`            | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Common fields for all task request variants                                                                                                            |
-| `IAgentBackgroundTaskRequest`           | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Agent task request (`kind: 'agent'`)                                                                                                                   |
-| `IProcessBackgroundTaskRequest`         | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Shell process task request (`kind: 'process'`)                                                                                                         |
-| `IScheduledBackgroundTaskRequest`       | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Cron-scheduled task request (`kind: 'scheduled'`)                                                                                                      |
-| `TBackgroundTaskRequest`                | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Union of all three task request variants                                                                                                               |
-| `IBackgroundTaskResult`                 | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Completed task output and metadata                                                                                                                     |
-| `IBackgroundTaskState`                  | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Immutable task state snapshot shape                                                                                                                    |
-| `IBackgroundTaskInput`                  | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Input sent to a running task via `send()`                                                                                                              |
-| `IBackgroundTaskLogCursor`              | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Cursor for paginated log reads                                                                                                                         |
-| `IBackgroundTaskLogPage`                | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Paginated log page result                                                                                                                              |
-| `IBackgroundTaskListFilter`             | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Filter shape for `list()` queries                                                                                                                      |
-| `IBackgroundTaskStart`                  | `src/background-tasks/types.ts` (owned)                        | Argument passed from manager to runner `start()` call                                                                                                  |
-| `IBackgroundTaskHandle`                 | `src/background-tasks/types.ts` (owned)                        | Cancellable handle returned by `IBackgroundTaskRunner.start()`                                                                                         |
-| `IBackgroundTaskRunner`                 | `src/background-tasks/types.ts` (owned)                        | Port for executing one task kind                                                                                                                       |
-| `IBackgroundTaskManager`                | `src/background-tasks/types.ts` (owned)                        | Generic background task registry API                                                                                                                   |
-| `IBackgroundTaskManagerOptions`         | `src/background-tasks/types.ts` (owned)                        | Constructor options for `BackgroundTaskManager`                                                                                                        |
-| `IScheduleEditPatch`                    | `src/background-tasks/types.ts` (owned)                        | ARCH-025: parameter of the public `editScheduledTask`/`editSchedule`; any provided field replaces the current value, task identity kept (SELFHOST-012) |
-| `IManagedShellProcessRunnerOptions`     | `src/background-tasks/runners/managed-shell-process-runner.ts` | Options for the shell process runner factory                                                                                                           |
-| `IScheduledTaskRunnerOptions`           | `src/background-tasks/runners/scheduled-task-runner.ts`        | Options for the scheduled task runner factory                                                                                                          |
-| `IBackgroundTaskShellCommand`           | `src/background-tasks/runners/shell-command-resolution.ts`     | Minimal command/request-shell projection consumed identically by both command runners                                                                  |
-| `IBackgroundTaskShellResolutionOptions` | `src/background-tasks/runners/shell-command-resolution.ts`     | Pure simulated `env`/`platform` inputs for deterministic resolver matrices                                                                             |
-| `IResolvedBackgroundTaskShellCommand`   | `src/background-tasks/runners/shell-command-resolution.ts`     | One inseparable executable plus matching argument array                                                                                                |
-| `ILimitedOutputCapture`                 | `src/background-tasks/log-pages.ts`                            | UTF-8-safe bounded output capture used by process-like adapters                                                                                        |
-| `ICreateLimitedOutputCaptureOptions`    | `src/background-tasks/log-pages.ts`                            | Options for `createLimitedOutputCapture()`                                                                                                             |
-
-### Subagent Types
-
-| Type                              | Location                                                                                | Purpose                                                                                                                          |
-| --------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `TSubagentJobStatus`              | `@robota-sdk/agent-interface-execution` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent job status union — derived `Exclude<TBackgroundTaskStatus, 'paused'>` (TYPE-003)                                        |
-| `TSubagentJobMode`                | `@robota-sdk/agent-interface-execution` (SSOT; re-exported at `src/subagents/types.ts`) | `'foreground' \| 'background'`                                                                                                   |
-| `ISubagentSpawnRequest`           | `@robota-sdk/agent-interface-execution` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent spawn request — derived `Omit<IAgentBackgroundTaskRequest, 'kind'>` (ARCH-031)                                          |
-| `ISubagentJobState`               | `@robota-sdk/agent-interface-execution` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent job state projection                                                                                                    |
-| `ISubagentJobResult`              | `@robota-sdk/agent-interface-execution` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent completion output and metadata — derived `Omit<IBackgroundTaskResult, 'kind' \| 'exitCode' \| 'signalCode'>` (ARCH-031) |
-| `ISubagentJobStart`               | `src/subagents/types.ts` (owned)                                                        | Argument passed from manager to runner `start()` call                                                                            |
-| `ISubagentJobHandle`              | `src/subagents/types.ts` (owned)                                                        | Cancellable handle returned by `ISubagentRunner.start()`                                                                         |
-| `ISubagentRunner`                 | `src/subagents/types.ts` (owned)                                                        | Port for executing one subagent job                                                                                              |
-| `ISubagentManager`                | `src/subagents/types.ts` (owned)                                                        | Subagent job compatibility facade                                                                                                |
-| `ISubagentManagerOptions`         | `src/subagents/types.ts` (owned)                                                        | Constructor options for `SubagentManager`                                                                                        |
-| `ISubagentWorktreeAdapter`        | `src/subagents/worktree-subagent-runner.ts`                                             | Port for concrete worktree I/O                                                                                                   |
-| `ISubagentWorktreePrepareRequest` | `src/subagents/worktree-subagent-runner.ts`                                             | Request passed to `ISubagentWorktreeAdapter.prepare()`                                                                           |
-| `IPreparedSubagentWorktree`       | `src/subagents/worktree-subagent-runner.ts`                                             | Prepared worktree handoff data                                                                                                   |
-| `IWorktreeSubagentRunnerOptions`  | `src/subagents/worktree-subagent-runner.ts`                                             | Constructor options for `WorktreeSubagentRunner`                                                                                 |
-
-Hook event types and hook execution are owned by `agent-core`.
-
-#### Forked conversations pass through, they are not interpreted (CLI-1994)
-
-`ISubagentSpawnRequest` is derived `Omit<IAgentBackgroundTaskRequest, 'kind'>`, so
-`resumeSessionId?` — the persisted session record a **fork** job restores before its first turn —
-arrives here for free, and `SubagentManager.toBackgroundRequest` (`{ kind: 'agent', ...request }`)
-carries it through untouched. `createQueuedBackgroundTaskState` copies it onto
-`IBackgroundTaskState.resumeSessionId` so a surface can tell a fork's task from an ordinary one and
-offer the `attach` control.
-
-This package never reads the record. Only the id passes through it; resolving the id into a
-conversation is the runner's job, on whichever side of the process boundary it runs. A fork is a
-**copy** of a conversation under its own record — the parent's record is neither read nor written by
-the job — and attaching to it is a **view switch, not a merge**.
-
-## Public API Surface
-
-### Public API: Background Tasks
-
-| Export                                  | Kind      | Description                                                                                                                                                                            |
-| --------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BackgroundTaskManager`                 | class     | In-memory task registry and scheduler                                                                                                                                                  |
-| `BackgroundTaskError`                   | class     | Typed runtime error with category and recoverability                                                                                                                                   |
-| `transitionBackgroundTaskStatus`        | function  | Pure state transition function                                                                                                                                                         |
-| `isTerminalBackgroundTaskStatus`        | function  | Terminal-state predicate                                                                                                                                                               |
-| `getBackgroundTaskTransitions`          | function  | Transition table snapshot for tests/audits                                                                                                                                             |
-| `createLimitedOutputCapture`            | function  | UTF-8-safe bounded output capture helper                                                                                                                                               |
-| `appendPrefixedLogLines`                | function  | Append source-prefixed non-empty log lines                                                                                                                                             |
-| `createBackgroundTaskLogPage`           | function  | Cursor-based log pagination helper                                                                                                                                                     |
-| `DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE` | constant  | Default page size (200 lines) for log pagination                                                                                                                                       |
-| `deliverToObservers`                    | function  | ARCH-053: deliver one event to every observer, isolating each — a throwing observer is reported, not propagated; returns the failure count                                             |
-| `reportObserverFailureAsWarning`        | function  | Default `TObserverFailureReporter`: surfaces the failure as a process `warning` (stderr) outside the emitter's call stack                                                              |
-| `OBSERVER_FAILURE_WARNING_CODE`         | constant  | `ROBOTA_BACKGROUND_OBSERVER_FAILURE` — the warning code the default reporter emits                                                                                                     |
-| `IObserverFailure`                      | interface | The `event` an observer was handed and the `error` it threw                                                                                                                            |
-| `TObserverFailureReporter`              | type      | `(failure: IObserverFailure) => void` — the host's own channel for observer defects                                                                                                    |
-| `IToolInvocationAdopter`                | interface | MCP-004 §S1: the port a `tool-invocation` runner exposes — `adopt(token, { settled, abort })` registers an already-running call before `spawn()` is called; returns a release function |
-
-**MCP-004 §S1 — the `admission` capability and `spawn`'s already-running branch.**
-`IBackgroundTaskRunner` gains an optional `readonly admission?: 'queued' | 'already-running'`
-(default `'queued'`, every runner before this unit). A runner declaring `'already-running'` tells
-`BackgroundTaskManager.spawn` that its work already runs OUTSIDE the manager — nothing to queue, no
-manager-provisioned concurrency slot to bound. `spawn` looks the resolved runner's `admission` up
-right after `validateBackgroundTaskRequest`: for `'already-running'` it constructs the task's state
-as `running` (a `status` parameter on `createQueuedBackgroundTaskState`, default `'queued'`) BEFORE
-emitting `background_task_created`, then starts the runner directly — the handle bound, `started`
-emitted — WITHOUT pushing onto the queue and WITHOUT `acquireSlot`, so `cancel()` reaches the handle
-immediately regardless of `maxConcurrent`. `releaseSlot` on completion/failure/cancellation stays the
-pre-existing idempotent no-op for a task that never held a slot. Every terminal guard
-(`isTerminalBackgroundTaskStatus`) is unchanged. `IBackgroundTaskManager` gains no method.
-
-### Public API: Background Task Runners (Concrete — default implementations)
-
-The following are concrete `IBackgroundTaskRunner` implementations provided by this package.
-They depend on Node.js `child_process`. CLI and SDK shells use them as default runners;
-test environments may substitute no-op runners through the `IBackgroundTaskRunner` port.
-
-| Export                                     | Kind     | Description                                                                                                                                                                |
-| ------------------------------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createManagedShellProcessRunner`          | function | Spawns a shell command via `node:child_process.spawn`; streams stdout/stderr as logs                                                                                       |
-| `createScheduledTaskRunner`                | function | Schedules cron-pattern tasks via `croner`; triggers a child runner on each firing                                                                                          |
-| `resolveBackgroundTaskShellCommand`        | function | Pure shared request adapter; applies core precedence/classification and returns executable + matching args                                                                 |
-| `createToolInvocationBackgroundTaskRunner` | function | MCP-004 §S1: builds the `kind: 'tool-invocation'` runner (`admission: 'already-running'`) that ADOPTS an already-running MCP tool call rather than starting one; see below |
-
-**MCP-004 §S1 — the `tool-invocation` runner ADOPTS, it does not start.** Every runner above starts
-work when `start()` is called. `createToolInvocationBackgroundTaskRunner()` returns one that instead
-satisfies `IToolInvocationAdopter`: its instance-owned registry (`Map<adoptionToken, work>`, never a
-module singleton) is populated by `adopt(token, { settled, abort })` BEFORE `manager.spawn()` is ever
-called — the wrapper (`agent-framework`, a later seam) commits to the handoff, adopts the in-flight
-call, and only then spawns. `start(task)` looks the request's `adoptionToken` up: found → the token is
-consumed (deleted) and the handle's `cancel(reason)` calls `abort(reason)`; when `settled` resolves,
-the handle's `result` resolves to `{ output }` where `output` is the tool result's text — derived
-exactly as `discovered-tool.ts` derives a tool's own text (`data` as-is when it is already a string,
-else `JSON.stringify`) — and when `settled` rejects, `result` rejects with
-`BackgroundTaskError('runner', message, false)` (`recoverable: false`). Token NOT found → `start()`
-throws `BackgroundTaskError('validation', …)` naming the token: a programmer-error refusal (spawning
-without adopting first), not the restart path. The runner is registered in
-`createDefaultBackgroundTaskRunners()` so a `tool-invocation` task never fails product-side with
-"No runner for task kind".
-
-Both concrete runners call `resolveBackgroundTaskShellCommand` and pass its `executable` and `args`
-directly to `spawn`. Neither runner may replace one half after resolution. Blank request shells are absent;
-unknown non-blank explicit shells propagate agent-core's typed `UnsupportedShellError` synchronously before
-any spawn attempt. Scheduled agent-wake-only requests do not resolve or spawn a shell.
-
-**`croner` production dependency**: `croner@^10.0.1` is used by `createScheduledTaskRunner`
-to parse cron expressions and fire scheduled background tasks. It has no Node.js native
-bindings and is safe for any Node.js runtime target.
-`nextScheduledFireOnOrAfter(cronExpression, firstAllowedAt, options?)` exposes the same Croner
-slot calculation without arming a timer; the boundary is inclusive and `options.timezone`
-matches the runner option. A session restore can use it to distinguish a skipped early slot
-from a genuinely missed eligible wake. The built-in scheduled runner exposes that calculation
-through the optional runner port; `BackgroundTaskManager.nextScheduledFireOnOrAfter` delegates
-to the configured runner, retaining its timezone. A custom runner without the calculation
-uses the default Croner timezone semantics.
-
-**SELFHOST-012 — non-destructive schedule lifecycle.** `IBackgroundTaskManager` exposes
-`pauseScheduledTask`/`resumeScheduledTask`/`editScheduledTask(taskId, patch)` for `kind: 'scheduled'` tasks,
-wiring croner's own `.pause()`/`.resume()` on the handle (`IBackgroundTaskHandle.pause`/`resume`/`editSchedule`)
-— distinct from the irreversible `.stop()` that `cancel` uses. A `paused` schedule holds no concurrency slot
-(like `sleeping`), does not fire, and keeps its identity across `pause → resume`; `edit` re-arms the croner job
-in place (same task id + `schedule`). No new scheduler is introduced — this is a thin lifecycle extension over
-the existing runner. (Persistence of `paused` across restart is the FLOW-003 re-arm path — a later slice.)
-
-**SCREEN-1992 — a one-shot schedule finishes.** After a fire, when croner reports no next run (an ISO
-timestamp / `in <N>` schedule that has just fired) and the schedule is neither paused nor cancelled, the
-runner resolves its handle with the accumulated log as output, and the manager moves the task through
-its ordinary `running → completed` transition. A recurring schedule re-arms to `sleeping` with a new
-`nextFireAt` exactly as before. Previously such a task stayed `running` with no `nextFireAt` forever,
-because only `cancel` resolved the handle.
-
-### Public API: Subagents
-
-| Export                         | Kind     | Description                                                                                                                                                                                                                                                             |
-| ------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SubagentManager`              | class    | Subagent facade over `BackgroundTaskManager`                                                                                                                                                                                                                            |
-| `WorktreeSubagentRunner`       | class    | Decorates an `ISubagentRunner` with worktree isolation behavior                                                                                                                                                                                                         |
-| `createWorktreeSubagentRunner` | function | Factory for `WorktreeSubagentRunner`                                                                                                                                                                                                                                    |
-| `subagentExecutionRoot`        | function | ARCH-010: the single answer to which directory a spawned subagent runs in — `job.worktree?.path ?? job.request.cwd` — read off the runner ENVELOPE (ARCH-031), not the request, never the process directory. Both runners read it rather than each writing the rule out |
-
-**Note on the concrete worktree adapter (ARCH-FIX-024 — DONE)**: The concrete
-`GitWorktreeIsolationAdapter` (calls `execFileSync`, performs Git operations) has been moved out of
-this package to `agent-cli/src/subagents/git-worktree-isolation-adapter.ts` (the composition root),
-completing ARCH-FIX-024 (INFRA-031). `agent-executor` now owns only the `ISubagentWorktreeAdapter`
-port and the pure `WorktreeSubagentRunner` decorator — its "does not create Git worktrees" boundary is
-literally true. (This package still legitimately uses `node:child_process`/`fs` for its managed-shell
-and scheduled task runners; that usage is documented above and is unrelated to worktree creation.)
-
-The package entrypoint exports these symbols explicitly from `src/index.ts`. SDK compatibility barrels may re-export the same symbols, but they must not redefine the contracts.
-
-### Public API: Provider Factory
-
-Functions in `src/providers/` resolve serializable provider config or profiles into live `IAIProvider` instances. They depend only on `@robota-sdk/agent-core` provider definitions and are provider-package-agnostic.
-
-| Export                      | Kind     | Description                                                                                  |
-| --------------------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `resolveProfileApiKey`      | function | Resolves `apiKey` (direct or `$ENV:`) or `apiKeyEnv` from an `ISerializableProviderProfile`  |
-| `createProviderFromProfile` | function | Convenience: normalizes a profile and delegates to `agent-core`'s `createProviderFromConfig` |
-
-## Extension Points
-
-Consumers extend the runtime by implementing ports:
-
-| Port                           | Implemented by                                    | Contract                                                               |
-| ------------------------------ | ------------------------------------------------- | ---------------------------------------------------------------------- |
-| `IBackgroundTaskRunner`        | SDK, CLI, test, or transport-adapter packages     | Executes one task kind and returns a cancellable handle                |
-| `ISubagentRunner`              | SDK in-process runner or CLI child-process runner | Executes one subagent job and reports structured progress              |
-| `ISubagentWorktreeAdapter`     | CLI or a future Node adapter package              | Creates, inspects, and removes concrete worktrees                      |
-| `TBackgroundTaskEventListener` | SDK, transports, CLI state manager                | Receives task lifecycle/progress events without mutating runtime state |
-
-Runtime ports own required shapes. Adapter packages own concrete I/O and must not add global task registries outside `BackgroundTaskManager`.
-
-Runner handles may expose `logPath` and `transcriptPath` for append-only diagnostic streams. `BackgroundTaskManager` projects those paths into task state immediately after runner start and preserves matching result metadata on completion.
-
-Task requests may include generic primitive `metadata`. The runtime treats this as opaque
-provenance/control-plane data: it clones metadata into `IBackgroundTaskState`, preserves it in state
-snapshots, and never interprets SDK-, command-, skill-, transport-, or UI-specific keys. Higher
-layers may use metadata for origin projection, grouping, or workspace read models, but lifecycle
-transitions, queueing, cancellation, and runner behavior must not depend on those keys.
-
-## Transparent Workflow Relationship
-
-`agent-executor` owns the mechanical background task lifecycle state machine and transition
-validation for agent/process work. It does not own command authorization provenance, user-local
-preference semantics, memory inspection, or TUI disclosure policy.
-
-Current runtime statuses are `queued`, `running`, `waiting_permission`, `sleeping`, `completed`, `failed`, and
-`cancelled`. The transparent workflow user-facing vocabulary displays `waiting_permission` as
-`waiting-for-input`; a future API change may alias or rename this status only with compatibility
-tests. `archived` is a visibility/retention projection over terminal records, not a state that
-restarts execution. Runtime `close()` remains the mechanical terminal-record dismissal operation.
-
-## User-Local Storage Relationship
-
-`agent-executor` does not resolve storage roots, validate repository boundaries, or persist baseline
-workflow state. It may expose session-local task ids, metadata, events, and state snapshots; SDK
-storage contracts decide whether and how higher layers persist those associations.
-
-## User-Local Memory Relationship
-
-`agent-executor` may expose task ids, group ids, lifecycle state, and metadata that SDK projections
-use for user-local associations. Runtime must not read or write user-local memory, project memory,
-or command-history preferences, and remembered values must not influence runtime command execution.
-
-## Process Execution Relationship
-
-`agent-executor` owns generic process task lifecycle, stdout/stderr log paging contracts, timeout,
-cancellation, send/read controls, exit code, signal code, and state transitions. Runtime does not
-own command selection, command meaning, environment-summary presentation, action provenance, or
-correctness interpretation.
-
-## Background Work State Relationship
-
-`agent-executor` owns mechanical task lifecycle, events, cancellation, wait, send, close, and log
-read operations. It does not own selected workspace entry state, filled/empty UI indicators,
-presentation grouping, archive visibility, or TUI detail rendering.
-
-Runtime may expose retention metadata only as task lifecycle or registry state protected by
-state-machine tests. `archived` remains a visibility/retention projection over terminal records, not
-a status that restarts or resumes execution.
-
-## Error Taxonomy
-
-`BackgroundTaskError` is the package error class for lifecycle and runner failures.
-
-| Category     | Recoverable | Typical source                                                        |
-| ------------ | ----------- | --------------------------------------------------------------------- |
-| `validation` | yes         | Invalid depth, unknown runner kind, invalid state transition          |
-| `capacity`   | yes         | Future queue/capacity enforcement                                     |
-| `permission` | yes         | Future permission flow denial or timeout                              |
-| `timeout`    | yes         | Idle, max runtime, output limit, repetition, or stale worker watchdog |
-| `runner`     | yes         | Runner start, cancellation, unsupported send/log operations           |
-| `crash`      | no          | Future process crash projection from adapters                         |
-| `provider`   | yes         | Provider failure projected by a runner                                |
-| `process`    | yes         | Shell/process task failure projected by a runner                      |
-
-Adapters may map external failures into `BackgroundTaskError` categories, but they must not expose vendor-specific error objects through public runtime state.
-Shell request validation is the exception to runner error mapping: `UnsupportedShellError` is owned by
-agent-core and propagates unchanged before spawn so callers can identify and correct the invalid executable.
-
-## Event Architecture
-
-`BackgroundTaskManager` emits `TBackgroundTaskEvent` through:
-
-- an optional constructor `eventSink`
-- zero or more `subscribe(listener)` registrations
-
-Events contain cloned task snapshots or primitive progress data. Consumers may project these events into TUI rows, transport messages, or logs, but event listeners must not mutate manager state directly.
-
-**Observer-failure contract (ARCH-053, issue #2157).** Events are emitted only after the authoritative
-state transition is committed, so an observer that throws must never unwind the emitter. `emit`
-delivers through `deliverToObservers` (`background-tasks/observer-delivery.ts`): every observer —
-the `eventSink` first, then listeners in registration order — is isolated, delivery continues past a
-throwing one, and each failure is passed to `IBackgroundTaskManagerOptions.onObserverFailure`
-(default: a `process.emitWarning` with code `ROBOTA_BACKGROUND_OBSERVER_FAILURE`). The sibling
-lifecycle owner `BackgroundJobOrchestrator` (agent-framework) uses the same helper and option.
-
-## Watchdog and Shutdown Contract
-
-`BackgroundTaskManager` owns provider-neutral watchdog semantics for long-running agent tasks:
-
-- `idleTimeoutMs` means no new runner progress event has arrived within the configured window. Text deltas, tool start/end events, and permission requests all refresh `lastActivityAt`.
-- `maxRuntimeMs` is a separate wall-clock cap. The default is `0`, so background agents do not have a default wall-clock cap; consumers may opt in per request or manager configuration. Legacy agent `timeoutMs` maps to `idleTimeoutMs`; process `timeoutMs` remains the runner-owned wall-clock process timeout.
-- Agent requests may set `outputLimitBytes`, `maxTextDeltas`, `repetitionWindow`, and `repetitionThreshold` to stop runaway streams.
-- Watchdog failures set `IBackgroundTaskState.timeoutReason` to `idle`, `max_runtime`, `output_limit`, `repetition`, or `stale_worker`, cancel the runner handle when possible, and fail the task with `BackgroundTaskError` category `timeout`.
-- Terminal task records, logs, and transcript paths remain in the registry until `close()` is called.
-
-`IBackgroundTaskManager.shutdown(reason?)` is the runtime-owned graceful shutdown API. It is idempotent, rejects new spawns after shutdown starts, cancels all queued/running tasks through their handles, emits terminal events before resolving when possible, and never deletes terminal records.
-
-## Concurrency and Slot Accounting (CORE-024)
-
-The manager admits at most `maxConcurrent` (default 4) **actively-executing** tasks; the rest queue. A slot is held only while a task is doing work, never while it merely exists:
-
-- A task acquires a slot when it starts executing and releases it when it transitions to a non-executing state — terminal (`completed`/`failed`/`cancelled`) **or `sleeping`**.
-- **Scheduled tasks must release their slot while sleeping.** A cron task spends nearly all its life in `sleeping` between fires; holding a slot there permanently wedges the budget (RUNTIME-17: four sleeping schedules starved every other spawn). It re-acquires a slot when it wakes to fire, and releases it again when the fire completes and it returns to `sleeping`.
-- Slot accounting is idempotent and keyed by task id (a set of slot-holders), so a release for a task that already released is a no-op — sleep/wake cycles and a terminal transition from either state stay consistent. Releasing a slot drains the queue.
-
-### Scheduled Fire Watchdog (CORE-024)
-
-The scheduled runner uses croner `protect: true`, which skips a fire while the previous one is still running. A fire that hangs therefore starves **every** subsequent fire (RUNTIME-18). Each fire is bounded by a per-fire timeout: when a fired child exceeds it, the child is killed (`killProcessTree`, process-group) and the schedule returns to `sleeping` so the next fire can run. The timeout is the request's `timeoutMs` when set; the fire watchdog is independent of the manager-level agent watchdogs.
-
-## Worktree Runner Contract
-
-`WorktreeSubagentRunner` depends on:
-
-- an inner `ISubagentRunner`
-- an `ISubagentWorktreeAdapter`
-- optional hooks and hook executors
-
-For non-worktree requests it delegates unchanged. For `isolation: 'worktree'` it must:
-
-- prepare a worktree through the adapter
-- set `worktree: { path, branch }` on the job envelope handed to the inner runner. ARCH-031: the
-  request is NOT rewritten — `request.cwd` stays the parent checkout, and `subagentExecutionRoot` is
-  the single carrier of the execution root
-- fire `WorktreeCreate` after preparation
-- remove clean worktrees exactly once on success, async failure, sync start failure, or successful cancellation
-- preserve dirty worktrees and return `worktreePath`, `branchName`, `worktreeStatus`, and `worktreeNextAction` metadata
-- propagate adapter-provided `baseRevision` and `parentStatus` as handoff metadata when available
-- preserve existing result metadata
-- fire `WorktreeRemove` when a clean worktree is removed
-
-## Package Integration
+- Provider factory helpers depend only on core provider definitions; they do not import
+  provider-specific packages.
+- Concrete I/O belongs in adapters owned by runtime shells or dedicated adapter packages — this
+  package owns ports, not concrete Git/process implementations beyond its own shell and scheduled
+  task runners.
+- Layer position: below `agent-framework`, which consumes this package's services. `agent-executor`
+  must never depend on `agent-framework`. `agent-session` does not depend on `agent-executor`.
+  Dependency direction is strictly upward: `agent-core` ← `agent-executor` ← `agent-framework`.
+- Does not own command authorization provenance, user-local preference semantics, memory
+  inspection, or TUI disclosure policy.
+- Does not resolve storage roots, validate repository boundaries, or persist baseline workflow
+  state.
+- Must not read or write user-local memory, project memory, or command-history preferences, and
+  remembered values must not influence runtime command execution.
+- Does not own command selection, command meaning, environment-summary presentation, action
+  provenance, or correctness interpretation of process tasks.
+- Does not own selected workspace entry state, filled/empty UI indicators, presentation grouping,
+  archive visibility, or TUI detail rendering.
+
+## Contract stability
+
+Public API shapes are stable runtime lifecycle contracts. Higher-layer packages (`agent-framework`)
+depend on them; breaking changes to the public surface require coordinating all consumers before
+merging.
+
+## Forked conversations pass through, they are not interpreted
+
+A subagent spawn request carries an optional `resumeSessionId` — the persisted session record a
+**fork** job restores before its first turn. This package never reads that record; only the id
+passes through it, onto the queued task's state, so a surface can distinguish a fork's task from
+an ordinary one and offer an "attach" control. Resolving the id into a conversation is the
+runner's job. A fork is a **copy** of a conversation under its own record — the parent's record is
+neither read nor written by the job — and attaching to it is a **view switch, not a merge**.
+
+## Tool-invocation runner: adopts, does not start
+
+Unlike the other runner kinds, the tool-invocation runner does not start work when `start()` is
+called — it ADOPTS an already-running MCP tool call. A caller registers the in-flight call
+(token, settlement, and abort) before the manager ever spawns the task; `start()` looks the
+request's adoption token up, and a token not found is treated as a programmer error (spawning
+without adopting first), not a restart path. This lets the manager's lifecycle, cancellation, and
+event model cover work that began outside it, without a manager-provisioned concurrency slot.
+
+## Non-destructive schedule lifecycle
+
+Scheduled tasks support pause/resume/edit as distinct from the irreversible cancel: a paused
+schedule holds no concurrency slot, does not fire, and keeps its identity across pause → resume;
+edit re-arms the schedule in place under the same task id. This is a thin lifecycle extension over
+the existing scheduled runner, not a new scheduler.
+
+A one-shot schedule that has no next run after firing (and is neither paused nor cancelled)
+completes through the ordinary running → completed transition instead of being left running
+forever with no next fire time — only a recurring schedule re-arms to sleeping.
+
+The scheduled runner can compute the next eligible fire on or after a boundary without arming a timer,
+using the same timezone semantics as the running schedule, so a restored session can tell a skipped
+early slot from a genuinely missed wake.
+
+## Shell command resolution
+
+Both concrete shell-backed runners resolve the executable and its matching argument list through a
+single shared, pure resolver and pass that pair to `spawn` without replacing either half
+afterward — this keeps the two runners' shell-selection behavior identical. An unknown, non-blank
+explicit shell fails synchronously with a typed error before any spawn attempt; a blank request
+shell is treated as absent. Scheduled agent-wake-only requests do not resolve or spawn a shell at
+all.
+
+## Error taxonomy
+
+The package error class carries a category and a recoverability flag. Categories in use: a
+validation category for invalid requests or state transitions, a queue/capacity category, a
+permission-denial category, a watchdog timeout category
+(idle, max runtime, output limit, repetition, or stale worker), a runner-start/cancel/log-operation
+category, a non-recoverable crash category for process-crash projection, a provider-failure
+category, and a shell/process-failure category. Adapters may map external failures into these
+categories but must not expose vendor-specific error objects through public runtime state. Shell
+request validation is the one exception to that mapping rule: an unsupported-shell error is owned
+upstream and propagates unchanged before spawn so callers can identify and correct the invalid
+executable.
+
+## Event architecture
+
+The manager emits lifecycle/progress events only after the authoritative state transition is
+already committed, so an observer must never be able to unwind the emitter by throwing. Delivery
+isolates each observer (an optional sink first, then subscribers in registration order); a
+throwing observer does not stop delivery to the rest, and each failure is reported through a
+caller-supplied hook (default: a process warning) rather than propagated. Event payloads are
+cloned task snapshots or primitive progress data; consumers may project them into UI rows,
+transport messages, or logs, but must not mutate manager state directly from a listener.
+
+## Watchdog and shutdown contract
+
+- An idle timeout means no new runner progress event has arrived within the configured window;
+  text deltas, tool start/end events, and permission requests all refresh the activity clock.
+- A max-runtime timeout is a separate wall-clock cap, defaulting to no cap (`0`) so background
+  agents are not bounded unless a caller opts in. A legacy agent-level timeout maps to the idle
+  timeout; a process task's timeout remains its own runner-owned wall-clock timeout.
+- Agent requests may bound output size, text-delta count, and repetition to stop runaway streams.
+- A watchdog failure records which kind fired (idle, max runtime, output limit, repetition, or
+  stale worker), cancels the runner handle when possible, and fails the task with the timeout error
+  category.
+- Terminal task records, logs, and transcript paths remain in the registry until explicitly closed.
+
+Shutdown is idempotent, rejects new spawns once started, cancels all queued/running tasks through
+their handles, emits terminal events before resolving when possible, and never deletes terminal
+records.
+
+## Concurrency and slot accounting
+
+The manager admits at most a configured number of actively-executing tasks (default 4); the rest
+queue. A slot is held only while a task is doing work, never while it merely exists: a task
+acquires a slot when it starts executing and releases it when it moves to a non-executing state —
+terminal, or sleeping. Scheduled tasks in particular must release their slot while sleeping,
+because a cron task spends nearly all its life sleeping between fires; holding a slot there would
+permanently starve the concurrency budget. Slot accounting is idempotent and keyed by task id, so a
+release for a task that already released is a no-op, and releasing a slot drains the queue.
+
+The scheduled runner uses croner's own overlap protection, which skips a fire while the previous
+one is still running — so a hung fire would otherwise starve every subsequent fire. Each fire is
+therefore bounded by its own per-fire timeout (the request's timeout when set); a fire that exceeds
+it is killed as a process-group and the schedule returns to sleeping so the next fire can run. This
+fire watchdog is independent of the manager-level agent watchdogs above.
+
+## Worktree runner contract
+
+The worktree subagent runner delegates non-worktree requests unchanged. For a worktree-isolated
+request it must: prepare a worktree through an injected adapter; hand the inner runner the prepared
+worktree path/branch on the job envelope rather than rewriting the request (the request's working
+directory stays the parent checkout; a single execution-root helper is the sole reader of which
+directory a job actually runs in); remove a clean worktree exactly once, whether preparation
+succeeded and the job completed, failed asynchronously, failed synchronously at start, or was
+cancelled successfully; preserve a dirty worktree instead of removing it, and surface enough
+metadata (path, branch, status, next action) for a caller to act on it; and propagate
+adapter-provided base-revision/parent-status metadata when available without discarding existing
+result metadata.
+
+The concrete Git worktree adapter itself lives outside this package, in the composition root that
+performs Git operations; this package owns only the adapter port and the pure runner decorator, so
+its "does not create Git worktrees" boundary is literally true (it still legitimately shells out for
+its own managed-shell and scheduled-task runners, which is unrelated to worktree creation).
+
+## Provider factory
+
+Provider factory helpers resolve serializable provider config or profiles into live provider
+instances, depending only on core provider definitions so they stay provider-package-agnostic. Both
+the direct-key and the key-by-environment-variable-name resolution paths route through an injected
+environment resolver rather than reading `process.env` directly, so tests can inject a fake resolver
+instead of mutating the process environment; this is enforced by a repository-wide scan barring
+direct `process.env` reads in this module.
+
+## Transparent workflow relationship
+
+This package owns the mechanical background task lifecycle state machine and transition validation
+for agent/process work; it does not own command authorization provenance, user-local preference
+semantics, memory inspection, or TUI disclosure policy. A "waiting for permission" status and an
+"archived" designation are both projections a higher layer may rename or add for display — archived
+in particular is a visibility/retention projection over terminal records, not a state that restarts
+execution, and the runtime's `close()` is the mechanical terminal-record dismissal operation
+underneath it.
+
+## Extension points
+
+Consumers extend the runtime by implementing its ports: a task runner (executes one task kind and
+returns a cancellable handle), a subagent runner (executes one subagent job and reports structured
+progress), a worktree adapter (creates, inspects, and removes concrete worktrees), and an event
+listener (receives lifecycle/progress events without mutating runtime state). Adapter packages own
+concrete I/O and must not add global task registries outside the manager.
+
+Runner handles may expose paths for append-only log/transcript streams; the manager projects those
+into task state immediately after runner start and preserves matching metadata on completion.
+
+Task requests may carry opaque primitive metadata. The runtime clones it into task state and
+preserves it across snapshots, but never interprets caller-specific keys — lifecycle transitions,
+queueing, cancellation, and runner behavior must not depend on metadata contents. Higher layers may
+use it for origin projection, grouping, or workspace read models.
+
+## Package integration
 
 - `agent-framework` imports this package and composes it with config/context/session assembly.
-- `agent-cli` injects concrete adapters such as child-process runners and Git worktree adapters through SDK/runtime ports.
+- `agent-cli` injects concrete adapters such as child-process runners and Git worktree adapters
+  through SDK/runtime ports.
 - Transport packages consume task events and controls but do not own task transitions.
-
-## Test Strategy
-
-Unit tests cover:
-
-- background state-machine transitions (including `sleeping`/`SLEEP`/`WAKE` paths)
-- background task manager lifecycle, queueing, cancellation, progress, metadata projection, watchdogs, and shutdown
-- bounded output capture and cursor-based log pagination helpers
-- managed shell process runner and scheduled task runner (unit-level with mock child process)
-- the shared pure shell adapter's POSIX/Windows defaults, override precedence, cross-family executable and
-  argument matrices, blank overrides, path/case variants, and typed unknown-shell failure; runner tests
-  assert both spawn paths consume the pair and unknown shells record zero spawn attempts
-- subagent manager lifecycle facade behavior
-- worktree runner clean/dirty/failure/delegation/hook behavior with fake adapters
-- provider factory: `resolveProfileApiKey`, `createProviderFromProfile`. **`normalizeProviderConfig` and
-  `createProviderFromConfig` are `agent-core`'s and are not re-exported here (ARCH-111)** — they were,
-  "so existing consumers are unaffected", and the duplicate name is what let `agent-framework` and
-  `agent-product` import the same function from two different packages.
-
-Adapter packages or shells must add integration tests for concrete side effects such as local Git or child processes.
-
-The package-owned deterministic scenario `pnpm scenario:verify` records the shared resolver/runner contract
-under `examples/scenarios/shell-resolution-contract.record.json`. The Windows-only
-`scenario:verify:windows-shell` executes real managed and scheduled default-PowerShell paths in CI job
-`windows-shell` and writes the downloadable ARCH-026 JSON artifact; simulated platforms do not replace it.
-
-## Class Contract Registry
-
-| Class                    | Implements               | Depends on                                                                                      |
-| ------------------------ | ------------------------ | ----------------------------------------------------------------------------------------------- |
-| `BackgroundTaskManager`  | `IBackgroundTaskManager` | `IBackgroundTaskRunner`, `TBackgroundTaskEventListener`, pure transition helpers, watchdog ctrl |
-| `BackgroundTaskError`    | `IBackgroundTaskError`   | none (plain Error subclass)                                                                     |
-| `SubagentManager`        | `ISubagentManager`       | `IBackgroundTaskManager`, `IBackgroundTaskRunner`, `ISubagentRunner`                            |
-| `WorktreeSubagentRunner` | `ISubagentRunner`        | inner `ISubagentRunner`, `ISubagentWorktreeAdapter`, agent-core hook runner                     |
-
-Pure helper contracts:
-
-- `createLimitedOutputCapture()` owns bounded output truncation semantics for adapters that need a
-  provider-neutral output string.
-- `appendPrefixedLogLines()` owns source-prefixed log line projection.
-- `createBackgroundTaskLogPage()` owns cursor pagination for append-only task logs.
-- `createDefaultBackgroundTaskRunners()` returns `[createManagedShellProcessRunner(), createScheduledTaskRunner()]` as the default runner set for CLI/SDK assembly.
-
-This package's provider factory functions are `resolveProfileApiKey` and `createProviderFromProfile`; they depend on the executor-owned `ISerializableProviderProfile` and delegate normalization to `agent-core`.
-
-Since issue #2347 they are deterministic from their arguments and an injected `TEnvResolver` (`resolve`, defaulting to `processEnvResolver` from `agent-core`): `resolveProfileApiKey(profile, resolve)` routes BOTH its `apiKey` (`$ENV:` reference) and `apiKeyEnv` (variable name) branches through `resolve`, and `createProviderFromProfile(profile, model, definitions, resolve)` hands the same resolver to `normalizeProviderConfig`. None of them reads `process.env`; the `provider-env-resolution` scan refuses it in `agent-executor/src/providers/provider-factory.ts`, `agent-core/src/utils/env-ref.ts` and `agent-core/src/providers/provider-factory.ts`. A unit test injects `createRecordEnvResolver({...})` instead of mutating the process environment.
-
-Cross-package port consumers:
-
-- `agent-framework` consumes `SubagentManager`, `IBackgroundTaskRunner`, `ISubagentRunner`, and `TBackgroundTaskEvent`.
-- `agent-cli` consumes runtime contracts through SDK re-exports and implements concrete child-process/Git adapters.
-- Transport packages consume task events and control APIs through SDK `InteractiveSession`.
 
 ## Dependencies
 
-Production dependencies:
-
-| Package                                 | Reason                                                                                                                                                             |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `@robota-sdk/agent-core`                | Hook types, hook runner (`WorktreeSubagentRunner`), and provider definition types (factories)                                                                      |
-| `@robota-sdk/agent-interface-execution` | Contract SSOT (INFRA-025) for background-task/subagent state families (`src/background-tasks/types.ts`, `src/subagents/types.ts`)                                  |
-| `@robota-sdk/agent-process`             | `killProcessTree`/`DEFAULT_KILL_GRACE_MS` for process-tree teardown in the background-task runners (`scheduled-task-runner.ts`, `managed-shell-process-runner.ts`) |
-| `croner`                                | Cron expression parsing and scheduling for `createScheduledTaskRunner`                                                                                             |
-
-This package must not depend on SDK, sessions, tool, concrete-provider, concrete-transport, or CLI packages.
+This package must not depend on SDK, sessions, tool, concrete-provider, concrete-transport, or CLI
+packages. Its own production dependencies are limited to core hook/provider types, the contract SSOT
+package for background-task/subagent state, a process-tree teardown helper, and a cron-parsing
+library used only by the scheduled task runner.

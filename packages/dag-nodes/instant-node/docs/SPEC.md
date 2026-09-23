@@ -1,180 +1,67 @@
 # SPEC: @robota-sdk/dag-node-instant-node
 
-## Package Identity
-
-| Field    | Value                               |
-| -------- | ----------------------------------- |
-| Package  | `@robota-sdk/dag-node-instant-node` |
-| Location | `packages/dag-nodes/instant-node`   |
-| Layer    | Node implementation                 |
-| Phase    | VISION-003 Phase A                  |
-
 ## Purpose
 
-Enables AI agents to create custom DAG node types at runtime without writing TypeScript or restarting any process. Phase A delivers **Prompt-Backed Instant Nodes**: nodes whose execution behavior is defined by a system prompt template applied to input port values.
+Enables AI agents to create custom DAG node types at runtime without writing TypeScript or
+restarting any process. Phase A delivers **Prompt-Backed Instant Nodes**: nodes whose execution
+behavior is defined by a system prompt template applied to input port values. A composite variant
+wraps an inner DAG behind exposed input/output ports.
 
-## Exports
+## Persistence contract
 
-```typescript
-export type { ICreatePromptNodeInput };
-export { PromptBackedNodeDefinition, createPromptBackedNodeDefinition };
-export type {
-  ICreateCompositeNodeInput,
-  IExposedInputPort,
-  IExposedOutputPort,
-  ICompositeSubRunner,
-};
-export { CompositeInstantNodeDefinition, createCompositeInstantNodeDefinition };
-// Persistence view (BEHAVIOR-006)
-export type {
-  IPersistableInstantNode,
-  IPersistedPromptNode,
-  IPersistedCompositeNode,
-  TPersistedInstantNode,
-};
-// Provider-definition registry + persistence round-trip (DATA-003)
-export { isPersistableInstantNode };
-export { parsePersistedInstantNode, rehydrateInstantNode };
-export type { IRehydrateInstantNodeDeps };
-```
+Each instant-node definition exposes the serializable data needed to reload it via
+`toPersisted()`. This lets a persistence layer serialize a node from its `IDagNodeDefinition`
+alone and reconstruct it later — a composite's `runner` is behavioral and is **rebuilt on
+reload**, never serialized.
 
-## Persistence View (BEHAVIOR-006)
-
-Each instant-node definition owns the serializable data needed to reload it, exposed via
-`IPersistableInstantNode.toPersisted(): TPersistedInstantNode`. This lets a persistence layer
-serialize a node from its `IDagNodeDefinition` alone (at any save call site) and reconstruct it
-later — the `runner` of a composite is behavioral and is **rebuilt on reload**, never serialized.
-
-```typescript
-interface IPersistableInstantNode {
-  toPersisted(): TPersistedInstantNode;
-}
-
-type TPersistedInstantNode = IPersistedPromptNode | IPersistedCompositeNode;
-
-interface IPersistedPromptNode {
-  readonly kind: 'prompt';
-  readonly nodeType: string;
-  readonly displayName: string;
-  readonly systemPromptTemplate: string;
-  readonly inputPorts: ReadonlyArray<{ readonly key: string; readonly description?: string }>;
-  readonly outputPort: { readonly key: string; readonly description?: string };
-  readonly provider?: string;
-  readonly model?: string;
-}
-
-interface IPersistedCompositeNode {
-  readonly kind: 'composite';
-  readonly nodeType: string;
-  readonly displayName: string;
-  readonly innerDag: IDagDefinition; // from @robota-sdk/dag-core
-  readonly exposedInputPort: IExposedInputPort;
-  readonly exposedOutputPorts: ReadonlyArray<IExposedOutputPort>;
-  readonly maxDepth?: number;
-}
-```
-
-Both `PromptBackedNodeDefinition` and `CompositeInstantNodeDefinition` implement
-`IPersistableInstantNode`. This package owns **both halves** of the round-trip (DATA-003):
-
-- `isPersistableInstantNode(node): node is IPersistableInstantNode` — runtime guard (replaces
-  duck-typed `as unknown as` probes at call sites).
-- `parsePersistedInstantNode(raw: unknown): TPersistedInstantNode | null` — validate/narrow an
-  untrusted parsed manifest into a typed record (both kinds); never throws.
-- `rehydrateInstantNode(record, { compositeRunner?, providers? }): IDagNodeDefinition` — the read half of
-  `toPersisted()`. Prompt → `createPromptBackedNodeDefinition` after validating the persisted provider
-  against the injected `IProviderDefinition[]`; composite →
-  `createCompositeInstantNodeDefinition` with the injected `compositeRunner` (its runner is behavioral
-  and never serialized). A composite record **without** a runner throws — never a half-built node.
-
-Consumers no longer hand-roll deserialization; they parse + rehydrate through the owner.
+This package owns both halves of the round-trip: a runtime guard for persistable nodes, a
+validating parse from an untrusted manifest that never throws, and a rehydration step that
+recreates the typed definition. Rehydrating a composite record without an injected runner throws
+— never a half-built node. Consumers parse and rehydrate through this package rather than
+hand-rolling deserialization.
 
 ## Composite execution lineage
 
-Every composite invocation passes an `IDagExecutionLineage` to its injected
-`ICompositeSubRunner.run(dag, input, lineage)`. The lineage names the root run, the immediate
-parent run, the child DAG depth, the tightest inherited depth ceiling, and the ordered ancestor composite node types. The in-process
-CLI and workflow runners must forward it into every child node's execution context; a new child
-run cannot reset the depth by constructing a fresh runner.
+Every composite invocation carries an execution lineage naming the root run, the immediate parent
+run, the child DAG depth, the tightest inherited depth ceiling, and the ordered ancestor composite
+node types. Runners must forward this lineage into every child node's execution context; a new
+child run cannot reset the depth by constructing a fresh runner.
 
-Before calling the sub-runner, the composite rejects a child DAG that contains its own node
-type or any ancestor composite node type. It also rejects a child launch beyond `maxDepth`
-(default and hard maximum: three nested DAG boundaries; zero disables child launches).
-This is a runtime guard, not a constructor-time guess. Direct and indirect recursion fail
-before launching the next child run. Budget and cancellation propagation remain separate
-unfinished parts of issue #2163.
-If a child fails, its terminal error code and retryability are preserved rather than replaced
-with a generic composite failure.
+Before launching a child run, the composite rejects a child DAG that contains its own node type or
+any ancestor composite node type, and rejects launches beyond `maxDepth` (default and hard maximum:
+three nested DAG boundaries; zero disables child launches). This is a runtime guard, not a
+constructor-time guess — direct and indirect recursion fail before the next child run starts.
+Budget and cancellation propagation remain separate unfinished parts of issue #2163. If a child
+fails, its terminal error code and retryability are preserved rather than replaced with a generic
+composite failure.
 
-## Provider Registry (DATA-003)
+## Provider registry
 
-Persisted prompt nodes store a plain provider string. The node package does not own a closed provider
-union or vendor list; creation and rehydration receive an injected `IProviderDefinition[]` registry
-and validate the string through `findProviderDefinition`. An unknown provider returns the typed
-`DAG_VALIDATION_INSTANT_NODE_PROVIDER_UNKNOWN` diagnostic. Provider definitions are retained as a
-runtime seam so the composition root owns concrete SDK selection and credential resolution.
+Persisted prompt nodes store a plain provider string. This package does not own a closed provider
+union or vendor list; creation and rehydration receive an injected provider-definition registry and
+validate the string against it. An unknown provider yields a typed diagnostic rather than a thrown
+error. The default provider when none is specified is `anthropic`, but it is still resolved through
+the injected registry — provider defaults, credential declarations, and concrete SDK factories stay
+owned by the composition root, and this package only ever persists the selected name.
 
-## ICreatePromptNodeInput
+## Template rendering
 
-```typescript
-interface ICreatePromptNodeInput {
-  nodeType: string; // unique identifier for the new node type
-  displayName: string; // human-readable name
-  systemPromptTemplate: string; // {{portKey}} placeholders replaced at execution time
-  inputPorts: ReadonlyArray<{
-    readonly key: string;
-    readonly description?: string;
-  }>;
-  outputPort: {
-    readonly key: string;
-    readonly description?: string;
-  };
-  provider?: string;
-  model?: string;
-}
-```
+`{{portKey}}` placeholders in the system prompt template are replaced with the string value of the
+corresponding input port. Unknown placeholders are left intact rather than rejected.
 
-## PromptBackedNodeDefinition
+## Error semantics
 
-Extends `AbstractNodeDefinition`. Dynamically sets:
+Failure is distinguished by cause: a missing API key, a missing required input port, and an LLM
+call failure are reported as distinct typed errors, with LLM call failure marked retryable so
+callers can distinguish transient from configuration failures without inspecting message text.
 
-- `nodeType`, `displayName` from spec
-- `inputs` derived from `spec.inputPorts` (all type `string`, required)
-- `outputs` derived from `spec.outputPort` (type `string`, required)
-- `defaultInputPort` = first input port key (for auto-wiring in `dag_build`)
-- `defaultOutputPort` = output port key
+## Non-goals / constraints
 
-Config schema: `{ model?: string }` — allows per-node-instance model override.
-
-## Template Rendering
-
-`{{portKey}}` placeholders in `systemPromptTemplate` are replaced with the
-string value of the corresponding input port. All input port values are
-rendered as strings. Unknown placeholders are left intact.
-
-## Provider Support (Phase A)
-
-The default provider when not specified is `anthropic`, but it is still resolved through the injected
-registry. Provider defaults, credential declarations, and concrete SDK factories are owned by the
-composition root (normally `agent-builtin-providers`); this package only persists the selected name.
-
-## Error Handling
-
-- Missing API key → `buildValidationError('DAG_VALIDATION_INSTANT_NODE_API_KEY_REQUIRED', ...)`
-- Missing required input port → `buildValidationError('DAG_VALIDATION_NODE_INPUT_MISSING', ...)`
-- LLM call failure → `buildTaskExecutionError('DAG_TASK_EXECUTION_LLM_GENERATION_FAILED', ..., retryable: true)`
-
-## Constraints
-
-- This package follows the DAG-node composition rule: it depends on `agent-core` contracts, but does
-  not import concrete `agent-provider-*` packages.
-- API keys are never stored in node config — the injected provider definition resolves credentials at
-  execution time.
-- `systemPromptTemplate` must not be treated as arbitrary code — only `{{key}}` substitution is performed.
-
-## Phase A Limitations
-
-- Only string input/output ports (no binary)
-- No persistent storage — nodes live in-memory for the duration of the MCP server process
-- Promotion to permanent registry is out of scope (Phase B)
-- Code-evaluated nodes are out of scope (Phase C)
+- This package follows the DAG-node composition rule: it depends on `agent-core` contracts, but
+  never imports a concrete `agent-provider-*` package.
+- API keys are never stored in node config — the injected provider definition resolves credentials
+  at execution time.
+- The system prompt template is not arbitrary code — only `{{key}}` substitution is performed.
+- Only string input/output ports are supported (no binary) in Phase A.
+- Nodes are held in-memory only; no persistent storage backs them beyond the process lifetime.
+- Promotion to a permanent registry (Phase B) and code-evaluated nodes (Phase C) are out of scope.

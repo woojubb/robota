@@ -2,239 +2,91 @@
 
 ## Scope
 
-Owns the preset contract for the Robota SDK: the `IPreset` definition shape, the resolved
-framework-option subset (`IResolvedPresetOptions`), the built-in `default` preset, and the
-instance-scoped `createPresetRegistry` resolver. A preset is a named, pre-tuned bundle of
-framework option overrides (persona, model/effort, permission posture, command-module selection,
-execution capabilities, autonomy). This package produces option data only; it performs no session
-assembly.
+Owns the preset contract for the Robota SDK: the preset definition shape, the resolved
+framework-option subset a preset resolves into, a small set of built-in presets, and an
+instance-scoped registry resolver. A preset is a named, pre-tuned bundle of framework option
+overrides (persona, model/effort, permission posture, command-module selection, execution
+capabilities, autonomy). This package produces option data only; it performs no session assembly.
 
 It also owns the provider-neutral output-style catalog: built-in style definitions, Markdown style
-file parsing, and an instance-scoped registry with built-in < external-source precedence.
+file parsing, and an instance-scoped registry with built-in-beats-external precedence.
 
 ## Boundaries
 
 - Does **not** assemble sessions, synthesize system prompts, apply permission modes, or select
-  command modules — those belong to `agent-framework` (assembly), `agent-core`/`agent-executor`
-  (execution capability), and `agent-command` (module selection).
-- Does **not** parse CLI flags, read settings, or render active-preset UI — that is `agent-cli`
-  (shell) and `agent-transport` (TUI render).
-- Does **not** re-export `agent-framework` (no pass-through re-export). It depends on the framework
-  only to consume option types as the single source of truth.
-- Depends on exactly one workspace package: `@robota-sdk/agent-framework` (option types).
+  command modules — those belong to the assembly package, the execution-capability packages, and
+  the command-module package respectively.
+- Does **not** parse CLI flags, read settings, or render active-preset UI.
+- Does **not** re-export the framework package it depends on; it consumes the framework's option
+  types as the single source of truth for the option shape rather than redefining them.
+- Depends on exactly one workspace package, for option types only.
 
-## Architecture Overview
+Preset resolution merges three layers by precedence (low to high): the preset's own options, then
+CLI overrides, then explicit overrides. Later layers win; values left `undefined` are skipped. The
+identity triple (id/title/description) is stripped before merging, so a preset with no overrides at
+all resolves to the caller's overrides unchanged — a no-regression guarantee for the baseline
+preset.
 
-```
-agent-framework            ← neutral assembly + option-type SSOT
-  └── agent-preset         ← this package: IPreset contract + preset registry + built-in presets
-        ├── preset-types.ts              ← IPreset / IResolvedPresetOptions / enums (SSOT for the preset shape)
-        ├── presets/default.ts           ← neutral baseline preset (no overrides — pure no-op)
-        ├── presets/autonomous-builder.ts← opinionated preset: persona + effort/autonomy/parallel/self-verify mechanism
-        ├── presets/careful-reviewer.ts  ← opinionated preset: ask-first reviewing posture
-        ├── presets/neutral-executor.ts  ← opinionated preset: thin, steerable, literal-execution posture
-        ├── resolve-preset.ts            ← createPresetRegistry + partitionExternalPresets + DEFAULT_AGENT_NAME
-        ├── load-external-presets.ts     ← scan ~/.robota/presets/*.json → validate → RETURN (PRESET-007)
-        └── preset-validation.ts         ← manual IPreset type-guard for external presets (no schema library)
-```
+## Contract
 
-`registry.resolvePreset(id, context)` merges three layers by precedence (LOW → HIGH):
-preset options < `context.cliOverrides` < `context.explicit`. Later layers win; `undefined` values
-are skipped. The identity triple (`id`/`title`/`description`) is stripped before merging. Because the
-`default` preset carries no overrides, resolving it returns the merged overrides unchanged
-(no-regression guarantee).
+### Command-module selection
 
-## Type Ownership
+A preset (or an override layer) may narrow the default command set with an allow-list and a
+deny-list of module names. The deny-list is applied after the allow-list, so deny always wins over
+allow. Both lists match against a module's canonical long-form name, not its short slash-command
+name. This package only produces these field values — the actual filtering happens downstream. A
+configured name that matches no known module is surfaced as a non-fatal notice to the caller rather
+than being silently dropped.
 
-Types owned by this package (SSOT):
+### External preset loading
 
-| Type                        | Location                   | Purpose                                                                                                         |
-| --------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `IPreset`                   | `preset-types.ts`          | Named preset: identity triple + `IResolvedPresetOptions` overrides                                              |
-| `IResolvedPresetOptions`    | `preset-types.ts`          | Framework-facing option subset a preset resolves into                                                           |
-| `TPresetEffort`             | `preset-types.ts`          | Core-owned effort selection: `auto` or `'none' \| 'minimal' \| 'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'` |
-| `TPresetAutonomy`           | `preset-types.ts`          | Behaviour posture: `'ask-first' \| 'balanced' \| 'act-first'`                                                   |
-| `TPresetPermissionMode`     | `preset-types.ts`          | Reused from `ICreateSessionOptions['permissionMode']` (framework SSOT)                                          |
-| `IPresetSummary`            | `resolve-preset.ts`        | `{ id, title, description }` discovery view of a preset                                                         |
-| `IResolvePresetContext`     | `resolve-preset.ts`        | `{ cliOverrides?, explicit? }` override layers for `resolvePreset`                                              |
-| `IPresetRegistrationResult` | `resolve-preset.ts`        | `{ accepted, rejected }` outcome of `partitionExternalPresets`                                                  |
-| `IPresetRegistry`           | `resolve-preset.ts`        | `{ resolvePreset, getPreset, listPresets }` instance-scoped registry (R8)                                       |
-| `IExternalPresetLoadResult` | `load-external-presets.ts` | `{ loaded, errors }` outcome of an external-preset load                                                         |
-| `TPresetValidationResult`   | `preset-validation.ts`     | `{ ok: true; preset } \| { ok: false; error }` validation result                                                |
-| `IOutputStyle`              | `output-style-types.ts`    | Full selectable response-style definition                                                                       |
-| `IOutputStyleSummary`       | `output-style-types.ts`    | Discovery projection of a selectable response style                                                             |
-| `IOutputStyleSource`        | `output-style-types.ts`    | Trusted external style input source                                                                             |
-| `IOutputStyleLoadResult`    | `output-style-types.ts`    | Per-file style load outcomes                                                                                    |
-| `IOutputStyleRegistry`      | `output-style-types.ts`    | Instance-scoped list/get output-style resolver                                                                  |
-| `TOutputStyleSource`        | `output-style-types.ts`    | Style source scope union                                                                                        |
-| `TOutputStyleTokenCost`     | `output-style-types.ts`    | Qualitative style prompt-cost label union                                                                       |
+User-authored presets are loaded at runtime from a JSON file per preset in a conventional
+directory (overridable). Each file is parsed and validated with a manual type-guard (no schema
+library); the untrusted effort field is validated through the framework's shared parser so external
+presets accept the same effort vocabulary as built-ins. Loading applies a conflict policy and
+returns the survivors as a value — it registers nothing globally, so a second load in the same
+process does not see a previous load's presets, and two products sharing a process each see only
+their own.
 
-`TPresetPermissionMode` reuses `agent-framework`'s `ICreateSessionOptions['permissionMode']` via
-indexed access rather than redefining the permission-mode union.
+Conflict policy:
 
-## Public API Surface
+- Built-ins always win — an external preset whose id collides with a built-in is rejected, and
+  built-in ids can never be overridden. A duplicate id among external presets is also rejected,
+  keeping the first.
+- Per-file isolation — a parse or validation failure is recorded against its file and that file is
+  skipped; the rest of the directory still loads. A missing directory yields an empty result, never
+  an error.
 
-| Export                        | Kind      | Description                                                                                                                                                                                                             |
-| ----------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `IPreset`                     | Interface | Preset definition shape (identity + option overrides)                                                                                                                                                                   |
-| `IResolvedPresetOptions`      | Interface | Resolved framework-option subset                                                                                                                                                                                        |
-| `TPresetEffort`               | Type      | Effort dial union                                                                                                                                                                                                       |
-| `TPresetAutonomy`             | Type      | Autonomy posture union                                                                                                                                                                                                  |
-| `TPresetPermissionMode`       | Type      | Permission-mode union (reused from framework)                                                                                                                                                                           |
-| `IPresetSummary`              | Interface | `{ id, title, description }` summary                                                                                                                                                                                    |
-| `IResolvePresetContext`       | Interface | Override layers for resolution                                                                                                                                                                                          |
-| `DEFAULT_AGENT_NAME`          | Const     | Default agent identity (`'robota-cli'`), owned by this package                                                                                                                                                          |
-| `defaultPreset`               | Const     | Built-in neutral baseline preset                                                                                                                                                                                        |
-| `autonomousBuilderPreset`     | Const     | Opinionated preset: proactive/self-verifying persona + `effort: 'high'`, `autonomy: 'act-first'`, `enableParallelSubagents`, `selfVerification`                                                                         |
-| `createPresetRegistry`        | Function  | `(externalPresets?) => IPresetRegistry`; per-call instance-scoped resolver over `[built-ins, ...externalPresets]`. Called with no argument it IS the built-ins. Since ARCH-009 the only registry there is (ARCH-005 R8) |
-| `IPresetRegistry`             | Interface | `{ resolvePreset, getPreset, listPresets }` — an instance-scoped preset registry                                                                                                                                        |
-| `partitionExternalPresets`    | Function  | `(presets) => IPresetRegistrationResult`; applies the conflict policy to ONE list, reading and mutating nothing outside it                                                                                              |
-| `loadExternalPresets`         | Function  | `(options?: { dir? }) => IExternalPresetLoadResult`; load+validate `*.json` presets from `options.dir` (default `~/.robota/presets`) and RETURN them — registers nothing                                                |
-| `loadExternalPresetsFromDir`  | Function  | `(dir) => IExternalPresetLoadResult`; same as `loadExternalPresets` against an explicit directory; missing directory yields an empty result                                                                             |
-| `defaultExternalPresetDir`    | Function  | `() => string`; the conventional external-preset directory (`~/.robota/presets`)                                                                                                                                        |
-| `validateExternalPreset`      | Function  | `(value: unknown) => TPresetValidationResult`; manual `IPreset` type-guard (no schema library); drops unrecognised keys                                                                                                 |
-| `IExternalPresetLoadResult`   | Interface | `{ presets: readonly IPreset[]; loaded: readonly string[]; errors: readonly { file; error }[] }` — per-file errors collected, run continues                                                                             |
-| `IPresetRegistrationResult`   | Interface | `{ accepted: readonly IPreset[]; rejected: readonly { id; reason }[] }`                                                                                                                                                 |
-| `TPresetValidationResult`     | Type      | `{ ok: true; preset } \| { ok: false; error }` result of `validateExternalPreset`                                                                                                                                       |
-| `builtInOutputStyles`         | Const     | Provider-neutral built-ins: `default`, `concise`, `proactive`, `explanatory`, `learning`                                                                                                                                |
-| `createOutputStyleRegistry`   | Function  | Builds an instance-scoped style registry from built-ins plus trusted sources                                                                                                                                            |
-| `loadOutputStylesFromSources` | Function  | Parses source Markdown files, collecting per-file errors without aborting other sources                                                                                                                                 |
-| `parseOutputStyleFile`        | Function  | Parses one frontmatter/body Markdown style file into an `IOutputStyle`                                                                                                                                                  |
-| `IOutputStyle`                | Interface | Full provider-neutral response-style definition                                                                                                                                                                         |
-| `IOutputStyleFile`            | Interface | Trusted Markdown style file payload supplied to the parser                                                                                                                                                              |
-| `IOutputStyleSummary`         | Interface | Secret-free discovery projection of a response style                                                                                                                                                                    |
-| `IOutputStyleSource`          | Interface | Trusted source descriptor containing style files                                                                                                                                                                        |
-| `IOutputStyleLoadResult`      | Interface | Loaded styles, successful files, and isolated parse errors                                                                                                                                                              |
-| `IOutputStyleRegistry`        | Interface | Instance-scoped style listing and lookup contract                                                                                                                                                                       |
-| `TOutputStyleSource`          | Type      | Built-in, managed, user, or project source scope                                                                                                                                                                        |
-| `TOutputStyleTokenCost`       | Type      | Baseline/low/medium/high/unspecified prompt-cost estimate                                                                                                                                                               |
+The output-style registry applies the same shape of precedence for style files: built-in styles win
+on id collision, and a per-file parse or validation failure is isolated rather than aborting the
+whole load.
 
-The built-in registry holds **4** presets (`default`, `autonomous-builder`, `careful-reviewer`, `neutral-executor`), but only `defaultPreset` and `autonomousBuilderPreset` are exported as individual consts — `careful-reviewer` and `neutral-executor` are registry-only (reachable through a `createPresetRegistry()` instance, not as named exports).
+### Removed: `defaultTrustLevel`
 
-### Command-module selection fields (`enabledCommandModules` / `disabledCommandModules`)
+The preset contract used to carry a `defaultTrustLevel` field that nothing read. It was removed by
+owner decision rather than wired up, because a preset already states its trust/permission posture
+three other ways (permission mode, default permission mode, and autonomy), and resolution already
+promotes the latter two into the first — a fourth spelling would have been a second answer to a
+question that already had one. The trust axis itself is untouched elsewhere in the system; only the
+preset's own redundant copy of it is gone.
 
-`IResolvedPresetOptions` carries two optional command-module filters that a preset (or a `cliOverrides` /
-`explicit` override layer) can set to narrow the default command set:
+### Built-in presets
 
-- `enabledCommandModules?: readonly string[]` — allow-list: keep only modules whose name matches.
-- `disabledCommandModules?: readonly string[]` — deny-list: applied after the allow-list (deny > allow).
-
-This package only produces the field values; the actual filtering is applied downstream by
-`agent-command`'s `createDefaultCommandModules`, which delegates to `agent-framework`'s
-`selectCommandModules` (the single filter implementation). Both fields match against
-`ICommandModule.name`, whose canonical values are the **long `agent-command-*` form** —
-`agent-command-editor`, `agent-command-provider`, etc. — **not** the short slash-command name
-(`editor`, `provider`). A value that matches no module name is **no longer silently dropped**
-(INFRA-032): `agent-framework`'s `findUnknownModuleNames` surfaces it as a non-fatal notice on both the
-startup `--preset` path (CLI terminal) and the in-session `/preset` path (command result). The full
-vocabulary (owned by `agent-command`, one entry per assembled module):
-
-`agent-command-agent`, `agent-command-background`, `agent-command-compact`, `agent-command-context`,
-`agent-command-editor`, `agent-command-exit`, `agent-command-goal`, `agent-command-help`,
-`agent-command-language`, `agent-command-memory`, `agent-command-mode`, `agent-command-permissions`,
-`agent-command-plugin`, `agent-command-preset`, `agent-command-provider`, `agent-command-reset`,
-`agent-command-rewind`, `agent-command-schedule`, `agent-command-session`, `agent-command-settings`,
-`agent-command-shell`, `agent-command-skills`, `agent-command-statusline`, `agent-command-user-local`.
-
-## Extension Points
-
-| Extension Point          | Kind      | How to extend                                                                                |
-| ------------------------ | --------- | -------------------------------------------------------------------------------------------- |
-| `IPreset`                | Interface | Author a new preset object conforming to `IPreset`; add it to the registry                   |
-| `IResolvedPresetOptions` | Interface | Extended by `IPreset`; consumers pass instances as override layers                           |
-| External preset files    | JSON      | Drop a `*.json` `IPreset` document in `~/.robota/presets/`; loaded via `loadExternalPresets` |
-
-New built-in presets are added to the internal registry in `resolve-preset.ts`.
-
-### External preset loading (PRESET-007, shipped)
-
-User-authored presets are loaded at runtime, not just compile time. `loadExternalPresets()` scans
-`~/.robota/presets/*.json` (override the directory via `options.dir`; `defaultExternalPresetDir()`
-returns the conventional path), JSON-parses and validates each file with `validateExternalPreset`
-(a manual type-guard — no Zod or schema library), applies the conflict policy with
-`partitionExternalPresets`, and RETURNS the survivors on `IExternalPresetLoadResult.presets`. Its
-untrusted `effort` field is validated through the framework's Core-owned parser, so every current
-Core tier (including `none` and `minimal`) and `auto` share one runtime vocabulary. The
-caller builds a `createPresetRegistry(...)` over them and owns it. Policy:
-
-- **Built-ins always win** — an external preset whose `id` collides with a built-in is rejected
-  (`'collides with built-in preset'`); built-in ids cannot be overridden. A duplicate external id
-  is rejected too (`'duplicate preset id'`, the first one wins).
-- **Per-file isolation** — a parse failure or validation error is recorded against its file in
-  `IExternalPresetLoadResult.errors` and skipped; the remaining files still load (the run
-  continues). A missing directory yields an empty result, never an error.
-- **A load registers nothing** (ARCH-009). There is no module-global registry to clear, and no
-  teardown to forget: a second load in the same process cannot see the first one's presets, and two
-  products in one process each read only their own.
-
-### Removed: `defaultTrustLevel` (ARCH-040)
-
-The preset contract carried a `defaultTrustLevel` that nothing read. It was removed by owner decision
-rather than wired, and the reason is stronger than "unconsumed": a preset already states its posture
-three ways — `permissionMode`, `defaultPermissionMode` and `autonomy` — and `resolvePreset` PROMOTES
-the last two into the first. A fourth spelling would be a second answer to one question, which is what
-the projection scan calls `derivationOnly`.
-
-The trust axis itself is untouched: `config.defaultTrustLevel` still reaches the session and still
-maps to a permission mode. What is gone is the preset's own copy of it.
+The built-ins span the autonomy spectrum deliberately: a neutral baseline that applies no
+overrides at all (the no-op reference point), an opinionated proactive/self-verifying builder
+posture, a deliberate ask-first/plan-first counterpart for careful review work, and a thin
+literal-execution posture for predictable scripted use. Each shipped persona carries portable
+behavioural content only (e.g. proactivity, scope discipline, self-verification, non-sycophantic
+honesty) — none of them embed runtime/environment content such as working directory, tool schemas,
+product identity, dates, or permission text, since that is the assembling framework's
+responsibility to inject.
 
 ## Error Taxonomy
 
-| Condition                | Behaviour                                                                    |
-| ------------------------ | ---------------------------------------------------------------------------- |
-| unknown id on a registry | Throws `Error("Unknown preset: \"<id>\". Available presets: <comma-list>.")` |
-
-No custom error classes are defined; the single failure mode throws a plain `Error` with a message
-listing the available preset ids.
-
-## Test Strategy
-
-`src/__tests__/resolve-preset.test.ts` (vitest) covers: default-preset no-op resolution (TC-05),
-precedence merging — `explicit` > `cliOverrides` > preset (TC-06), `listPresets()` containing the
-`default` entry (TC-07), the `{ id, title, description }` summary shape, `getPreset` lookup, and the
-unknown-preset error message. It also covers the `autonomous-builder` preset (PRESET-005): non-empty
-persona with the portable behaviour-guide keywords, `effort: 'high'`, `autonomy: 'act-first'`,
-`enableParallelSubagents`, `selfVerification`, and its `listPresets()` entry. The `test` script runs
-`vitest run --passWithNoTests`.
-
-### Built-in preset catalog
-
-| Preset               | Identity                | Resolved overrides                                                                                                                                               |
-| -------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `default`            | neutral baseline        | none (pure no-op — reproduces standard agent behaviour)                                                                                                          |
-| `autonomous-builder` | opinionated builder     | `persona` (portable proactive/self-verifying block) + `effort: 'high'`, `autonomy: 'act-first'`, `enableParallelSubagents: true`, `selfVerification: true`       |
-| `careful-reviewer`   | opinionated reviewer    | `persona` (portable read-first/plan-first block) + `effort: 'high'`, `autonomy: 'ask-first'`, `enableParallelSubagents: false`, `selfVerification: true`         |
-| `neutral-executor`   | thin steerable executor | `persona` (portable literal/minimal-scope/terse block) + `effort: 'medium'`, `autonomy: 'balanced'`, `enableParallelSubagents: false`, `selfVerification: false` |
-
-The `autonomous-builder` persona carries portable behavioural principles only (proactivity,
-scope-constraint, self-verification, tool-result grounding, non-sycophantic honesty, concise output).
-It holds no runtime/environment content — working directory, tool schemas, product identity, dates,
-and permission text remain the framework RUNTIME layer's responsibility. The identifier is generic; a
-work-style sourcing footnote appears only in `description`.
-
-The `careful-reviewer` preset is the deliberate counterpart to `autonomous-builder` on the autonomy
-axis: `autonomy: 'ask-first'` maps (PRESET-004) onto the ask-on-write permission posture, and the
-portable persona guides read/analyse-first → propose a plan → wait for confirmation, conservative
-scope, and trade-off explanation. It runs focused (`enableParallelSubagents: false`) and self-verifies.
-Like every shipped persona it holds portable behavioural content only — no runtime/environment tokens —
-and its identifier is generic with no work-style attribution in source.
-
-The `neutral-executor` preset is a thin, steerable counterpart to `default`: where `default` pins
-behaviour in no direction, `neutral-executor` actively pins a terse, literal, minimal-scope posture
-for predictable scripted/automation use. Its portable persona follows the system/user instructions
-literally, editorialises little, stays strictly in scope, and keeps output terse; it turns capability
-_off_ (`enableParallelSubagents: false`, `selfVerification: false`) at `effort: 'medium'` with
-`autonomy: 'balanced'`. Identifier is generic — any work-style attribution is confined to `description`.
-
-## Class Contract Registry
-
-This package contains no classes. It exports interfaces, type unions, two constants, and pure
-functions (the instance-scoped `createPresetRegistry` factory and the registry it returns, the
-`partitionExternalPresets` conflict policy, and the external-preset loaders). The only
-intra-package inheritance is `IPreset extends IResolvedPresetOptions`. No abstract classes or
-cross-package port implementations are defined here.
+Looking up an unknown preset id throws a plain `Error` naming the id and listing the available
+ids. No custom error classes are defined for this package's single failure mode.
 
 ## Dependencies
 
-- `@robota-sdk/agent-framework` — consumed for the `ICreateSessionOptions` option type
-  (`TPresetPermissionMode` indexed access). No other workspace dependency.
+Depends on the framework package's session-option types (for the permission-mode type, via indexed
+access) and no other workspace package.

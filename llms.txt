@@ -24,7 +24,7 @@ Three packages; the other `@robota-sdk/*` packages are optional assembly on top 
 - **Schema-enforced structured output** — `run(prompt, { output: zodSchema })` returns a validated typed object with provider-native mapping + bounded retry: [packages/agent-core/docs/SPEC.md](packages/agent-core/docs/SPEC.md) § Structured Output Contract
 - **Runtime tool validation** — zod schemas validate tool args before executors run: [packages/agent-tools/README.md](packages/agent-tools/README.md)
 - **Step control** — `maxExecutionRounds` (a round = one model call + its requested tool executions): [content/guide/building-agents.md](content/guide/building-agents.md) § Execution Contracts
-- **Real-terminal E2E testing** — TUI-owned internal PTY test support: [Test Strategy](packages/agent-ui-terminal/docs/SPEC.md#test-strategy)
+- **Real-terminal E2E testing** — TUI-owned internal PTY test support: [Test Strategy](packages/agent-ui-terminal/docs/SPEC.md)
 
 ## Behavior contracts
 

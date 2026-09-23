@@ -1,220 +1,65 @@
 # SPEC.md — @robota-sdk/agent-ui-web
 
-## Transport Admission (SEC-008)
+## Transport Admission
 
-transport-admission: none — a presentation layer. It renders a `TServerMessage` stream that some other transport has already admitted a peer onto, and opens no socket of its own.
+transport-admission: none — a presentation layer. It renders a server-message stream that some
+other transport has already admitted a peer onto, and opens no socket of its own.
 
-## Scope
+## Purpose
 
-The **GUI presentation layer** for a running robota session — the graphical analog of the terminal
-presentation in `@robota-sdk/agent-ui-terminal`. It reconstructs conversation state from the
-transport-neutral `TServerMessage` stream and renders it as React components, and it ships the desktop
-**session shell** (title/status bar, conversation column, background-activity rail, composer, permission
-modal). It is consumed by both GUI product surfaces: the desktop app (`apps/agent-app`, Electron) and the
-browser-remote surface (`@robota-sdk/agent-transport-webrtc-web`).
+The GUI presentation layer for a running robota session — the graphical analog of the terminal
+presentation package. It reconstructs conversation state from the transport-neutral server-message
+stream and renders it as React components, and it ships the desktop session shell (title/status
+bar, conversation column, background-activity rail, composer, permission modal). It is consumed by
+both GUI product surfaces: the desktop app (Electron) and the browser-remote surface.
 
-Provides:
+This package sits in the transport/presentation layer. It is a pure UI + wire-reducer library — it
+does not own session lifecycle, conversation history, or agent runtime state.
 
-- **`useSessionClient(makeClient)`** — the transport-neutral session reducer. Generic over the connection
-  status type (`useSessionClient<TStatus>`) so a transport can widen the status union (the WebRTC surface adds
-  `pairing | failed`). Reconstructs messages, streaming text, thinking, active tools, the execution-workspace
-  snapshot, and the pending permission/ask prompts from `TServerMessage` events.
-- **`useWsSession(url)`** — a thin wrapper binding the reducer to a localhost WebSocket sidecar via
-  `createWsSessionClient`.
-- **`createWsSessionClient(url, callbacks)`** — the browser WebSocket client (reconnect on disconnect), the
-  localhost transport for the reducer.
-- **Prompt state** — `applyPromptEvent` / `permissionResponse` / `askResponse` (pure), the REMOTE-007
-  permission/ask model folded by the reducer for BOTH transports.
-- **UI-intent state (CMD-004 Stage D)** — `applyUiIntentEvent` / `removeUiIntentNotice` /
-  `describeUiIntentForGui` (pure). A `ui_intent` server message (requester-routed to this surface by
-  the server) folds into an explicit, dismissible `IUiIntentNotice` rendered by `SessionSurface`; the
-  reducer exposes `uiIntentNotices` + `dismissUiIntentNotice`. The GUI has no full-screen equivalent
-  of the four intents yet (`show-settings` / `show-session-picker` / `show-plugin-manager` /
-  `show-agent-switcher`), so v1 folds EVERY intent — including unknown future kinds arriving on the
-  wire — into an explicit "not available on this surface" notice, never a silent no-op (TC-05, the
-  no-fallback rule). When a GUI screen for an intent lands, its arm in `describeUiIntentForGui`
-  switches from a notice to the mapped surface state.
-- **Broadcast session-state events (CMD-004 Stage E)** — the reducer folds `session_renamed` into
-  `IWsSessionState.sessionName` (co-driving titles follow the host-executed rename) and
-  `history_cleared` into an emptied transcript (messages + streaming state reset) — a clear
-  performed by ANY surface refreshes this one.
-- **Personal usage dashboard (SCREEN-2577)** — the reducer sends request-correlated 7/30-day usage
-  queries and folds success/error replies with latest-request-wins semantics. An opt-in
-  `SessionSurface` exposes a Chat/Usage navigation switch; the usage screen renders totals, complete
-  calendar-day buckets, model/provider/surface/source/activity breakdowns, loading/empty/error
-  states, contributor-session drill-down, current-session trace, and coverage warnings without
-  receiving prompt content. Browser/remote consumers remain opted out by default.
-- **Protocol reachability (ARCH-2164)** — `SERVER_MESSAGE_HANDLING` is an exhaustive
-  `Record<TServerMessage['type'], ...>` that assigns every wire variant to a specialized reducer,
-  transport lifecycle, or explicit intentionally-not-rendered disposition. Slash composer input uses the
-  command wire path; command results and protocol/session errors become dismissible notices. A
-  session error finalizes partial text and clears thinking/running-tool state before another turn.
-- **Components** — `ConversationView` (pure conversation render, markdown), `AgentActivityPanel` (background
-  task rail), `PermissionPrompt` (permission/ask modal), `SessionSurface` (the full terminal-noir desktop
-  layout over an `IWsSessionState`), and `CenteredChrome` (pre-session / fatal chrome).
-- **Theme** — `styles/theme.css`, the "terminal-noir" design tokens + Tailwind `@theme inline` token map +
-  base/scrollbar/utility layers. Shipped as source: the package authors Tailwind utility classes and ships NO
-  compiled CSS — the **consumer** owns the Tailwind entry (`@import 'tailwindcss'` + `@source` over this
-  package's `src`) and `@import`s this file.
+## Contract and guarantees
 
-This package sits in the **transport / presentation** layer. It is a pure UI + wire-reducer library — it does
-not own session lifecycle, conversation history, or agent runtime state.
+- The session reducer is generic over the connection-status type, so a transport can widen the
+  status union (e.g. to add pairing/failure states) without this package depending on that
+  transport.
+- Every server-message wire variant is assigned an explicit disposition — a specialized reducer
+  path, transport lifecycle handling, or an explicit "intentionally not rendered" marker. An
+  unrecognized or not-yet-supported message never falls through silently.
+- A UI-intent this surface has no dedicated screen for (e.g. settings, session picker, plugin
+  manager, agent switcher) folds into an explicit, dismissible "not available on this surface"
+  notice rather than a silent no-op — including intent kinds not yet known when this package was
+  written. When a GUI screen for an intent lands, its handling switches from a notice to the
+  mapped surface state.
+- A session-rename or history-clear broadcast from any other surface is folded into this reducer's
+  state, so co-driving surfaces stay in sync.
+- The personal usage dashboard is opt-in per surface (browser/remote consumers stay opted out by
+  default) and correlates its own requests, keeping latest-request-wins semantics on responses.
+- A session error finalizes any partial streamed text and clears thinking/running-tool state
+  before the next turn begins.
+- Malformed server frames are surfaced through the client's callback path and never thrown inside
+  the socket handler.
+- The package ships no compiled CSS — it authors Tailwind utility classes as source, and the
+  consumer owns the Tailwind entry point that compiles them.
 
-## Boundaries
+## Non-goals / boundaries
 
-- Does NOT own the WS/RTC wire protocol framing — `TServerMessage` / `TClientMessage` are owned by
-  `@robota-sdk/agent-transport`.
-- Does NOT own the transport-facing contract types (interaction/event/workspace) — those live in
-  `@robota-sdk/agent-interface-transport`.
-- Does NOT own `InteractiveSession`, session/runtime contracts, or `agent-core` types — no dependency on
-  `agent-framework` / `agent-session` / `agent-core`.
-- Does NOT own the CLI sidecar server — that is `agent-cli` (`startWebSidecarServer`).
-- Does NOT own the WebRTC remote peer / pairing — that is `@robota-sdk/agent-transport-webrtc-web` (REMOTE-009), which
-  consumes this package's reducer + components and widens the status union.
-- Does NOT own the Electron shell / sidecar supervision — that is `apps/agent-app`.
-- OWNS: the transport-neutral session reducer (`useSessionClient`) + its state/handle contract
-  (`IWsSessionState`, `ISessionClientHandle`, `TMakeSessionClient`, `IConversationMessage`, `IActiveTool`).
-- OWNS: the localhost WebSocket client (`createWsSessionClient`) + `TConnectionStatus`
-  (`disconnected | connecting | connected | error`).
-- OWNS: the permission/ask prompt state (`applyPromptEvent`, `permissionResponse`, `askResponse`,
-  `TPendingPrompt`).
-- OWNS: the ui-intent notice state (`applyUiIntentEvent`, `removeUiIntentNotice`,
-  `describeUiIntentForGui`, `IUiIntentNotice`) — CMD-004 Stage D.
-- OWNS: the React presentation — `ConversationView`, `AgentActivityPanel`, `PermissionPrompt`,
-  `SessionSurface`, `CenteredChrome`.
-- OWNS: the "terminal-noir" theme (`styles/theme.css`).
+- Does not own the wire protocol framing (message types) — that belongs to the transport package.
+- Does not own the transport-facing contract types (interaction/event/workspace) — those belong to
+  the transport-interface package.
+- Does not own session/runtime contracts or agent-core types, and has no dependency on the
+  agent framework, session, or core packages.
+- Does not own the CLI sidecar server.
+- Does not own the WebRTC remote peer or pairing flow — that is a separate package that consumes
+  this package's reducer and components and widens the status union.
+- Does not own the Electron shell or sidecar process supervision — that is the desktop app.
+- Is not re-exported through a sibling product package; consumers import it directly.
 
-## Architecture Overview
+## Design decisions
 
-```
-apps/agent-app (Electron renderer)          agent-transport-webrtc-web (browser remote)
-        │                                            │
-        │ useWsSession(loopbackUrl)                  │ useRtcSession({relay,…})
-        ▼                                            ▼
-  ┌──────────────────────  useSessionClient<TStatus>(makeClient)  ──────────────────────┐
-  │  reducer over TServerMessage: messages · text_delta · thinking · tool_start/end ·   │
-  │  execution_workspace_event · permission_request/ask_request/prompt_resolved ·       │
-  │  complete/interrupted  →  IWsSessionState<TStatus>                                   │
-  └──────────────────────────────────────────────────────────────────────────────────┘
-        │                                            │
-        │ createWsSessionClient (localhost)          │ createRtcSessionClient (agent-transport-webrtc-web)
-        ▼                                            ▼
-  agent-transport  (TServerMessage / TClientMessage)
-```
-
-`useSessionClient` is generic over `TStatus extends string = TConnectionStatus`: the WS path uses
-`TConnectionStatus`; the WebRTC path (agent-transport-webrtc-web) instantiates `useSessionClient<TSessionStatus>` where
-`TSessionStatus = TConnectionStatus | TRtcConnectionStatus`. This keeps the RTC-only status states out of this
-package (no dependency on the RTC client) — the reason the reducer is generic rather than importing a widened
-union (which would create a package cycle).
-
-`SessionSurface` is pure presentation over `IWsSessionState`: title/status bar, an empty state, the
-`ConversationView` column, the `AgentActivityPanel` rail (when the execution workspace has entries), the
-`Composer` (Enter sends, ⇧Enter newline), and the `PermissionPrompt` modal. It holds NO session/transport
-logic — it forwards user intent through the reducer's `send` / `answerPermission` / `answerAsk`.
-
-## Type Ownership
-
-| Type / value                                                               | Owner                                                  |
-| -------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `IWsSessionState<TStatus>`                                                 | this package (reducer state)                           |
-| `ISessionClientHandle`, `TMakeSessionClient`                               | this package                                           |
-| `IConversationMessage`, `IActiveTool`                                      | this package                                           |
-| `TConnectionStatus`                                                        | this package (`createWsSessionClient`)                 |
-| `TPendingPrompt`                                                           | this package (`prompt-state`)                          |
-| `TServerMessage`, `TClientMessage`                                         | `@robota-sdk/agent-transport`                          |
-| `IExecutionWorkspaceSnapshot`, `TActionResponse`, `TPermissionResultValue` | `@robota-sdk/agent-interface-transport`                |
-| `TRtcConnectionStatus`, `TSessionStatus`                                   | `@robota-sdk/agent-transport-webrtc-web` (RTC surface) |
-
-## Public API Surface
-
-Exported from the package root (node) and `./client` (browser):
-
-| Export                         | Kind      | Description                                                                          |
-| ------------------------------ | --------- | ------------------------------------------------------------------------------------ |
-| `useSessionClient`             | hook      | Transport-neutral session reducer, generic over the status type                      |
-| `useWsSession`                 | hook      | `useSessionClient` bound to a localhost WS via `createWsSessionClient`               |
-| `createWsSessionClient`        | function  | Browser WebSocket client (reconnecting) implementing `ISessionClientHandle`          |
-| `applyPromptEvent`             | function  | Fold a permission/ask/resolved event into the pending-prompt list                    |
-| `permissionResponse`           | function  | Build the `TClientMessage` answering a permission prompt                             |
-| `askResponse`                  | function  | Build the `TClientMessage` answering an ask prompt                                   |
-| `applyUiIntentEvent`           | function  | Fold a `ui_intent` server message into the explicit notice list (CMD-004 Stage D)    |
-| `removeUiIntentNotice`         | function  | Dismiss one ui-intent notice by id (idempotent)                                      |
-| `describeUiIntentForGui`       | function  | Per-kind explicit "not available on this surface" text for an intent                 |
-| `ConversationView`             | component | Pure conversation renderer (markdown); messages/activeTools/streamingText/isThinking |
-| `AgentActivityPanel`           | component | Background-task rail; `tasks: readonly IExecutionWorkspaceEntry[]`                   |
-| `PermissionPrompt`             | component | Permission/ask modal; prompts + `onAnswerPermission`/`onAnswerAsk`                   |
-| `PersonalUsageDashboard`       | component | Cross-session 7/30-day usage totals, chart, breakdown, and coverage states           |
-| `SessionSurface`               | component | Full terminal-noir desktop layout with Chat/Usage navigation                         |
-| `CenteredChrome`               | component | Pre-session / fatal chrome frame; `tone` + children                                  |
-| `SessionMonitor`               | component | Localhost-WS **web** session shell (composes the reducer + views); prop `wsUrl`      |
-| `IConversationMessage`         | type      | Reconstructed conversation message (id, role, content, author?)                      |
-| `IActiveTool`                  | type      | Active tool-call display state                                                       |
-| `ISessionNotice`               | type      | Visible command-result, session-error, or protocol-error notice                      |
-| `IWsSessionState`              | type      | Reducer return state (generic over the status type)                                  |
-| `ISessionClientHandle`         | type      | The `connect`/`disconnect`/`send` handle a transport client returns                  |
-| `TMakeSessionClient`           | type      | Factory the reducer calls to build its client from the callbacks                     |
-| `TConnectionStatus`            | type      | WS lifecycle status (`disconnected \| connecting \| connected \| error`)             |
-| `TPendingPrompt`               | type      | A pending permission/ask prompt awaiting the owner's answer                          |
-| `TPersonalUsageDashboardState` | type      | Pure loading/error/empty/ready state consumed by `PersonalUsageDashboard`            |
-
-Style: `./styles/theme.css` (source; consumer-compiled). Consumers import these directly — this package is
-NOT re-exported through a sibling product (`agent-transport-webrtc-web` does not re-export it; the repo forbids
-pass-through re-exports).
-
-## Extension Points
-
-- A new transport supplies its own `makeClient` (a `TMakeSessionClient<TStatus>`) and, if it has extra
-  connection states, instantiates `useSessionClient<ItsStatus>` — mirroring `useRtcSession` in `agent-transport-webrtc-web`.
-- A new GUI surface (e.g. a future unified web app) renders `SessionSurface` / the components over its own
-  `makeClient`, and owns its Tailwind entry + theme import.
-
-## Error Taxonomy
-
-- Malformed server frames are surfaced through the client's `onMessage`/callback path (never thrown inside the
-  socket handler) — see the `ws-session-client` regression tests (WEBUI-002 origin).
-
-## Test Strategy
-
-- `ws-session-client.test.ts` — malformed-frame safety + connect/replay behavior of the WS client.
-- `prompt-state.test.ts` — the permission/ask reducer helpers.
-- `ui-intent-state.test.ts` — CMD-004 TC-05: every `ui_intent` kind (including unknown wire-level
-  kinds) folds to an explicit notice — never a silent no-op; dismissal is id-scoped + idempotent.
-- `server-message-handling.test.ts` — ARCH-2164 compile/runtime roster: every server-message
-  discriminator has an explicit GUI disposition.
-- `use-session-client-broadcast.test.tsx` — request correlation, stored/current/personal reports,
-  command/error notices, and error recovery from partial streaming state.
-- Component rendering (`SessionSurface`, prompts) is exercised by the consuming app's jsdom test
-  (`apps/agent-app`) and its headless Electron e2e (real `WsTransport` sidecar).
-
-## Class Contract Registry
-
-### Functions / Hooks
-
-| Name                                 | Kind     | Contract                                                                |
-| ------------------------------------ | -------- | ----------------------------------------------------------------------- |
-| `useSessionClient`                   | hook     | Reduce a `TServerMessage` stream to `IWsSessionState<TStatus>`.         |
-| `useWsSession`                       | hook     | `useSessionClient` bound to a localhost WS via `createWsSessionClient`. |
-| `createWsSessionClient`              | factory  | Browser WS client (reconnecting) implementing `ISessionClientHandle`.   |
-| `applyPromptEvent`                   | function | Fold a permission/ask/resolved event into the pending-prompt list.      |
-| `permissionResponse` / `askResponse` | function | Build the `TClientMessage` answering a prompt.                          |
-| `applyUiIntentEvent`                 | function | Fold a `ui_intent` message into the explicit notice list (CMD-004).     |
-| `removeUiIntentNotice`               | function | Dismiss one ui-intent notice by id (idempotent).                        |
-| `describeUiIntentForGui`             | function | Explicit per-kind unavailable-on-this-surface text.                     |
-
-### Components
-
-| Name                 | Props                                                                                        |
-| -------------------- | -------------------------------------------------------------------------------------------- |
-| `ConversationView`   | `messages`, `activeTools`, `streamingText`, `isThinking`                                     |
-| `AgentActivityPanel` | `tasks: readonly IExecutionWorkspaceEntry[]`                                                 |
-| `PermissionPrompt`   | `prompts`, `onAnswerPermission`, `onAnswerAsk`                                               |
-| `SessionSurface`     | `state: IWsSessionState`, optional `surface` label and desktop `personalUsageEnabled` opt-in |
-| `CenteredChrome`     | `tone: 'muted' \| 'fatal'`, `children`                                                       |
-| `SessionMonitor`     | `wsUrl: string`, optional `className` (web monitor page)                                     |
-
-### Cross-Package Consumers
-
-- `apps/agent-app` — Electron renderer: `useWsSession` + `SessionSurface` + `CenteredChrome` + `theme.css`.
-- `@robota-sdk/agent-transport-webrtc-web` — `useSessionClient` (generic), `ConversationView`, `AgentActivityPanel`,
-  `PermissionPrompt` for its `SessionMonitor` / `RemoteClient`.
+- The reducer is generic over its status type rather than importing a widened status union from
+  the WebRTC package, because importing that union would create a package cycle.
+- The session shell component holds no session/transport logic of its own — it only forwards user
+  intent through the reducer's send/answer handles — so a new GUI surface can reuse it purely by
+  supplying its own client factory.
+- There is deliberately no built-in screen for every UI-intent kind; unhandled kinds get an
+  explicit notice instead of a screen, so a future surface can add a real screen incrementally
+  without ever risking a silent drop in the meantime.

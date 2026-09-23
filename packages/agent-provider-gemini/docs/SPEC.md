@@ -1,112 +1,41 @@
 # SPEC: agent-provider-gemini
 
-## Overview
+## Purpose
 
-Google Gemini provider implementation (`@google/genai`). Also implements `IImageGenerationProvider`. The deprecated `GoogleProvider` compatibility alias is re-exported via the `./google` entry.
+Google Gemini provider implementation (`@google/genai`), also implementing `IImageGenerationProvider`.
+A deprecated `GoogleProvider` compatibility alias is re-exported via the `./google` entry for callers
+migrating off the old name.
 
-Users who need a provider not included here can implement `IAIProvider` from `@robota-sdk/agent-core` and register it directly.
+Users who need a provider not included here can implement `IAIProvider` from `@robota-sdk/agent-core`
+and register it directly.
 
-## Package Identity
+## Contract
 
-- **npm name**: `@robota-sdk/agent-provider-gemini`
-- **Layer**: Layer 1 — see the package manifest for its dependencies
-- **SDK**: `@google/genai`
-- **Platform**: node
+- **Streaming.** `GeminiProvider` preserves every assistant function call and `usageMetadata` value
+  returned by Gemini's streaming API. `chatStream()` emits text deltas as they arrive plus a universal
+  assistant message for a function-call chunk or a usage-only terminal chunk. When `chat()` uses its
+  streaming assembly path (`onTextDelta` set), it returns one complete assistant message assembled from
+  all stream chunks.
+- Requests containing `nativeWebTools` are validated by both `chat()` and `chatStream()`. Gemini does
+  not advertise native web tools, so such a request fails explicitly instead of being silently ignored.
+- **Model effort.** A verified model selection sends Gemini's `thinkingConfig.thinkingLevel` control,
+  preserves unrelated `thinkingConfig` fields, and rejects a conflicting static `thinkingLevel` or
+  `thinkingBudget`. `auto` reports the documented default while omitting a control; unknown models and
+  unverified routes report `not-applied` rather than inventing a numeric `thinkingBudget` mapping.
+- **Tool schema projection.** `GeminiProvider.projectionProfile()` strips foreign JSON-Schema keywords
+  and `additionalProperties` before tool schemas reach Gemini's request builder, because Gemini's
+  `Schema` type is a fixed OpenAPI-3.0 subset, not standard JSON Schema — a member the builder doesn't
+  understand must not fail silently downstream. A tool that projection rejects is omitted from that
+  request alone and reported once per cache identity via agent-core's `ToolSchemaProjection` logger.
 
-## Public API
+## Non-goals
 
-Every runtime export of the package entry (`src/index.ts`). Provider option/config **types** are also exported (see `src/**/types.ts`); consult the source for the full type surface.
+- Does not depend on `agent-framework`, `agent-session`, or any higher-layer package — only
+  `@robota-sdk/agent-core` and its own vendor SDK.
 
-| Symbol                                      |
-| ------------------------------------------- |
-| `GeminiProvider`                            |
-| `createGeminiProviderDefinition`            |
-| `GEMINI_MODEL_LAST_VERIFIED_AT`             |
-| `GEMINI_MODEL_SOURCE_URL`                   |
-| `DEFAULT_GEMINI_PROVIDER_API_KEY_ENV`       |
-| `DEFAULT_GEMINI_PROVIDER_API_KEY_REFERENCE` |
-| `DEFAULT_GEMINI_PROVIDER_MODEL`             |
+## Design decisions
 
-### Sub-path exports
-
-| Sub-path   | Entry           | Description                                                          |
-| ---------- | --------------- | -------------------------------------------------------------------- |
-| `./google` | `src/google.ts` | `GoogleProvider` deprecated compatibility alias for `GeminiProvider` |
-
-## Dependencies
-
-| Package                  | Role                                             |
-| ------------------------ | ------------------------------------------------ |
-| `@robota-sdk/agent-core` | `IAIProvider`, `IProviderDefinition`, hook types |
-| `@google/genai`          | Google GenAI SDK                                 |
-
-## Diagnostic endpoint (OBSERVABILITY-1991)
-
-The definition declares `endpoint: { host: 'generativelanguage.googleapis.com', port: 443 }` — the vendor SDK's embedded
-endpoint, stated on the Robota side for the pre-session doctor's TCP reachability check only. It is
-deliberately **not** `defaults.baseURL`: that field is runtime-effective (it is persisted into created
-profiles and passed to `createProvider`), while `endpoint` is read by no setup, persistence or
-provider-construction path. A profile that sets its own `baseURL` is probed at that host instead.
-
-## Circular Dependency Policy
-
-This package depends on `@robota-sdk/agent-core` only among framework packages (plus its one vendor SDK where applicable). `agent-framework`, `agent-session`, and all higher-layer packages must never be imported.
-
-Within the package, `model-catalog-metadata.ts` owns the source URL and verification date shared by the
-provider definition and capability table. The definition re-exports those public constants, while the
-capability table imports their independent owner. Importing the definition first as native ESM must not
-read an uninitialized value through `provider → capability-table`.
-
-## Build Output Contract
-
-```
-dist/
-└── node/
-    └── index.js / index.cjs / index.d.ts   # root export
-    └── google ...             # sub-path entry
-```
-
-## Streaming Response Contract
-
-`GeminiProvider` preserves every assistant function call and `usageMetadata` value returned by
-Gemini's streaming API. `chatStream()` emits text deltas as they arrive and also emits a universal
-assistant message for a function-call chunk or a usage-only terminal chunk. When `chat()` uses its
-streaming assembly path (`onTextDelta` is set), it returns one complete assistant message whose
-text, `toolCalls`, and `metadata` are assembled from all stream chunks.
-
-Requests containing `nativeWebTools` are validated by both `chat()` and `chatStream()` through the
-provider capability contract. Gemini currently does not advertise native web tools, so such a
-request fails explicitly instead of being silently ignored.
-
-## Model Effort (API-001)
-
-`src/gemini/model-effort.ts` owns source-dated Gemini Generate Content capability entries for exact
-models that document `thinkingConfig.thinkingLevel`. A verified selection sends that one control,
-preserves unrelated `thinkingConfig` fields, and rejects a conflicting static `thinkingLevel` or
-`thinkingBudget`. `auto` reports the documented default while omitting a control; unknown models and
-unverified routes report `not-applied` without inventing a numeric `thinkingBudget` mapping. The
-provider emits one serializable resolution/native-control/dispatch result through the local observer.
-
-## Tool Schema Projection (MCP-005)
-
-`GeminiProvider.projectionProfile()` returns `@robota-sdk/agent-core`'s `PERMISSIVE_TOOL_SCHEMA_PROFILE`
-with `providerName: 'gemini'`, `unknownKeywords: 'strip'`, and `unsupportedMembers:
-['additionalProperties']` — Gemini's `Schema` type is a fixed OpenAPI-3.0 subset, not standard JSON
-Schema, so a foreign keyword is stripped (or, for a node left with no `type`/`anyOf`, replaced by the
-accept-anything node) and `additionalProperties` — the one universal-subset member `Schema` cannot
-carry, `tool-schema-converter.ts`'s own comment names the fragility — is stripped and RECORDED before
-`convertToolsToGeminiFormat`'s field-by-field rebuild ever sees the schema. `AbstractAIProvider.
-projectTools()` runs at the one request-building site (`execution-helpers.ts:134-135`, reached by both
-`chat()` and `chatStream()` through `GeminiProvider`'s `projectChatOptions()` helper) before the rebuild
-runs, so the rebuild's fixed key list no longer drops a member silently: every member it does not copy
-was already stripped-and-changed by the projector, root included.
-
-A tool `projectToolSchema` rejects is omitted from that request alone and reported once per cache
-identity as one `tool_schema_quarantined` line on agent-core's global-sink `ToolSchemaProjection`
-logger — audible even though `GeminiProvider` constructs with no injected logger (`this.logger` is
-`SilentLogger`).
-
-`examples/verify-model-effort.ts` is typechecked with this package and source-runs with
-`GEMINI_API_KEY` loaded from the Git-ignored repository-root `.env.local`; it selects the verified
-`gemini-3-flash-preview` model itself, then prints `high`, `max`, and `auto` outcomes without creating
-settings or cache files.
+- The provider definition's diagnostic `endpoint` (`generativelanguage.googleapis.com:443`) is stated
+  separately from `defaults.baseURL` on purpose: `endpoint` exists only for the pre-session doctor's TCP
+  reachability check, while `baseURL` is the runtime-effective value persisted into profiles and passed
+  to `createProvider`. A profile with its own `baseURL` is probed at that host instead.

@@ -14,11 +14,8 @@ import {
 import { createHistoryPlugin, createStatisticsPlugin } from './plugin-factory';
 import { recordExecutionStats } from './statistics-recorder';
 import type { IAgentConfigurationSnapshot, IToolCard } from './types';
-import type {
-  PlaygroundHistoryPlugin} from '../plugins/playground-history-plugin';
-import {
-  type IVisualizationData,
-} from '../plugins/playground-history-plugin';
+import type { PlaygroundHistoryPlugin } from '../plugins/playground-history-plugin';
+import { type IVisualizationData } from '../plugins/playground-history-plugin';
 import type { PlaygroundStatisticsPlugin } from '../plugins/playground-statistics-plugin';
 import { createSession, sseSessionSubmit, destroySession } from './sse-client';
 import type { IRestoredMessage } from './sse-client';

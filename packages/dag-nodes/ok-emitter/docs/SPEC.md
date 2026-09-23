@@ -1,47 +1,17 @@
 # OK Emitter Node Specification
 
-## Scope
+## Purpose
 
-- Owns the `ok-emitter` DAG node definition.
-- Provides a test/verification node that accepts a binary image input and emits a string `"ok"` status output. Used to verify upstream image pipeline correctness.
+Owns the `ok-emitter` DAG node: a test/verification node that accepts a binary image input and emits
+a string `"ok"` status output, used to verify upstream image pipeline correctness. Category: `Test`.
 
-## Boundaries
+## Contract
 
-- Extends `AbstractNodeDefinition` from `dag-node`. Does not redefine core DAG contracts.
-- Uses `NodeIoAccessor` from `dag-node` for input validation and output construction.
-- Uses `createBinaryPortDefinition` from `dag-node` with `BINARY_PORT_PRESETS.IMAGE_COMMON` from `dag-node` for the input port.
-- No external provider dependencies. Category: `Test`.
+- Input is re-validated on execution (not just at the validation stage) before `status` is set to
+  `"ok"`, so a malformed binary payload fails execution even if it passed initial validation.
+- No external provider dependencies, no constructor options, no environment variable dependencies.
 
-## Architecture Overview
+## Non-goals
 
-- `OkEmitterNodeDefinition` — node that accepts an `image` binary input and produces a `status` string output (`"ok"`).
-- Overrides `validateInputWithConfig` for early binary image shape validation via `isImageBinary` helper.
-- Execution re-validates input via `NodeIoAccessor.requireInput` and `isImageBinary`, then sets `status` to `"ok"`.
-
-## Type Ownership
-
-| Type                      | Location       | Purpose               |
-| ------------------------- | -------------- | --------------------- |
-| `OkEmitterNodeDefinition` | `src/index.ts` | Node definition class |
-
-## Public API Surface
-
-- `OkEmitterNodeDefinition` — class
-
-## Extension Points
-
-- Extends `AbstractNodeDefinition` and overrides `validateInputWithConfig`, `estimateCostWithConfig` (zero cost), and `executeWithConfig`.
-- No constructor options. No environment variable dependencies.
-- Config schema is empty (`z.object({})`).
-
-## Error Taxonomy
-
-| Code                                          | Layer      | Description                                       |
-| --------------------------------------------- | ---------- | ------------------------------------------------- |
-| `DAG_VALIDATION_OK_EMITTER_IMAGE_REQUIRED`    | Validation | Input is not a valid binary image payload         |
-| `DAG_TASK_EXECUTION_OK_EMITTER_IMAGE_INVALID` | Execution  | Image input failed re-validation during execution |
-
-## Test Strategy
-
-- No test files exist yet. Coverage status: none.
-- Recommended: unit tests verifying `"ok"` output for valid image input, validation rejection for non-image input, and execution failure for malformed binary payloads.
+- Not a general-purpose image validator; it exists to prove an upstream pipeline produced _a_ valid
+  image binary, nothing about the image's content.

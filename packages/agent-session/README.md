@@ -205,7 +205,7 @@ For legacy session history, run `node scripts/migrate-session-history.mjs --sess
 <absolute-directory>` from `packages/agent-session` in the repository. This writes the selected
 legacy session files; back them up first. The disposable example
 `node examples/verify-session-history-migration.mjs` checks conversion without using your stored
-sessions. See [Session Data Migration](./docs/SPEC.md#session-data-migration) for the exact policy.
+sessions. See [Session Data Migration](./docs/SPEC.md) for the exact policy.
 
 ## License
 

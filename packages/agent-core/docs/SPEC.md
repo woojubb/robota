@@ -10,2041 +10,237 @@
 
 - Keeps all provider-specific transport behavior in provider packages. Core must not branch on concrete provider names or model names.
 - Keeps package-specific domain contracts owned once and reused through public surfaces.
-- Does not own workflow visualization or session persistence; session persistence belongs to
-  the session layer.
-- **Zero dependency on other agent-\* packages.** `agent-core` must never import any other
-  `@robota-sdk/agent-*` package as a production dependency. This is the foundation of the layered
-  assembly architecture: other agent-\* packages register with agent-core through its abstract
-  contracts; agent-core never depends on them. Plugins were externalized to external plugin packages specifically to preserve this constraint.
-
-## Architecture Overview
-
-### Layer Structure
-
-```
-Robota (Facade)
-  ├── ExecutionService (Orchestrator)
-  │     ├── AI Provider call (via AIProviders manager)
-  │     └── Tool execution (via ToolExecutionService)
-  ├── Manager Layer
-  │     ├── AIProviders        — provider registration and selection
-  │     ├── Tools              — tool registry and schema lookup
-  │     ├── AgentFactory       — agent creation and lifecycle
-  │     ├── ConversationHistory — session and message storage
-  │     └── ModuleRegistry     — dynamic module loading
-  ├── Service Layer
-  │     ├── ExecutionService        — message handling, LLM calls, response assembly
-  │     ├── ToolExecutionService    — schema validation, tool lookup, batch execution
-  │     └── EventService            — unified event emission with ownerPath binding
-  ├── Permission Layer
-  │     ├── permission-gate.ts      — evaluatePermission(): 3-step deterministic policy
-  │     ├── argument-matchers.ts  — the per-kind matchers (url/path/command/text) the gate dispatches to (CORE-049)
-  │     ├── command-segments.ts   — where a shell line stops being ONE command: the separator/substitution rules both directions of the `command` matcher share (issue #2427)
-  │     ├── permission-mode.ts      — RISK_CLASS_POLICY matrix, UNCLASSIFIED_TOOL_FALLBACK
-  │     └── types.ts                — TPermissionMode, TTrustLevel, TPermissionDecision
-  ├── Hook Layer
-  │     ├── hook-runner.ts          — runHooks(): pluggable hook execution engine (strategy pattern)
-  │     ├── executors/
-  │     │     ├── command-executor.ts — CommandExecutor: shell command hook execution
-  │     │     └── http-executor.ts    — HttpExecutor: HTTP request hook execution
-  │     └── types.ts                — THookEvent (16 events; catalog SSOT: docs/HOOK-CATALOG.md), THookDefinition (discriminated union), IHookTypeExecutor
-  └── Plugin Layer (1 built-in + 8 plugin modules in the `@robota-sdk/agent-plugin` package)
-        ├── EventEmitterPlugin           (built-in — event coordination)
-        └── External plugins (per external plugin package):
-              conversation-history, logging, usage, performance,
-              execution-analytics, error-handling, limits, webhook
-```
-
-### Design Patterns
-
-- **Facade**: `Robota` is the single entry point, hiding manager/service/plugin complexity.
-- **Template Method**: `AbstractAgent` defines lifecycle hooks (`beforeRun`, `afterRun`, `onError`). The production plugin dispatcher (`services/plugin-hook-dispatcher.ts`) dispatches `beforeRun`, `afterRun`, `beforeProviderCall`, `afterProviderCall`, `onError` AND — PLG-020 (issue #2460) — `beforeExecution`, `afterExecution`, `afterConversation`, `afterToolExecution` (when a tool ran) and `onMessageAdded` (user and assistant messages), so every official plugin's declared hook is reached on a real turn.
-- **Strategy**: Event services, storage strategies, error handling strategies are interchangeable.
-- **Registry**: `ToolRegistry` and `ModuleRegistry` for central resource management.
-- **Null Object**: `SilentLogger` and `DefaultEventService` provide safe no-op defaults.
-- **Factory**: `AgentFactory` for agent creation with lifecycle hooks.
-- **Observer**: `EventEmitterPlugin` for pub/sub event coordination.
-
-### Dependency Injection
-
-All managers, services, and tools accept dependencies through constructor injection.
-No global singletons exist. Each `Robota` instance is completely independent.
-
-Safe defaults use the Null Object pattern:
-
-- `SilentLogger` for logging (no side effects)
-- `DEFAULT_ABSTRACT_EVENT_SERVICE` for events (no-op)
-
-## Type Ownership
-
-This package is the single source of truth (SSOT) for the following types:
-
-| Type                                | Location                                | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ----------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TUniversalMessage`                 | `interfaces/messages.ts`                | Canonical message union (User, Assistant, System, Tool)                                                                                                                                                                                                                                                                                                                                                                                  |
-| `TUniversalMessageMetadata`         | `interfaces/messages.ts`                | Message metadata record. Values: `string \| number \| boolean \| Date \| string[] \| number[] \| Record<string, number>` (includes token usage objects)                                                                                                                                                                                                                                                                                  |
-| `TUniversalValue`                   | `interfaces/types.ts`                   | Recursive value type without `any`                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `TMetadata`                         | `interfaces/types.ts`                   | Metadata record type                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `IAgentConfig`                      | `interfaces/agent.ts`                   | Agent configuration contract                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `IAIProvider`                       | `interfaces/provider.ts`                | Provider integration contract                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `IProviderCapabilities`             | `interfaces/provider.ts`                | Provider-neutral capability report for function calling and provider-native web search/fetch support.                                                                                                                                                                                                                                                                                                                                    |
-| `IProviderNativeWebToolRequest`     | `interfaces/provider.ts`                | Provider-neutral request shape for native web search/fetch enablement.                                                                                                                                                                                                                                                                                                                                                                   |
-| `IProviderNativeRawPayloadEvent`    | `interfaces/provider.ts`                | Provider-owned native SDK request/response/stream payload envelope emitted through `IChatOptions.onProviderNativeRawPayload` for replay-grade session logs without leaking provider SDK types into core.                                                                                                                                                                                                                                 |
-| `TProviderNativeRawPayloadCallback` | `interfaces/provider.ts`                | Per-call callback type used by provider packages to report exact provider-native SDK payloads.                                                                                                                                                                                                                                                                                                                                           |
-| `TProviderNativeRawPayloadKind`     | `interfaces/provider.ts`                | Native payload phase union: `request`, `response`, or `stream_event`.                                                                                                                                                                                                                                                                                                                                                                    |
-| `IProviderDefinition`               | `interfaces/provider-definition.ts`     | Provider assembly contract. Provider packages expose definitions with display metadata, compatibility aliases, defaults, official setup help links, setup prompts, credential requirements, model catalog fallback metadata, optional provider-owned catalog refresh hooks, probe hooks, and `createProvider()` factories.                                                                                                               |
-| `IProviderEndpoint`                 | `interfaces/provider-definition.ts`     | OBSERVABILITY-1991: a definition's optional **diagnostic-only** `endpoint` (`{ host, port }`) — the passive reachability declaration a pre-session doctor TCP-probes when neither a profile `baseURL` nor `defaults.baseURL` exists. Read by no setup, persistence or provider-construction path (unlike `defaults.baseURL`, which is runtime-effective), and distinct from `probeProfile`, the active HTTP probe `/provider test` runs. |
-| `IProviderSetupHelpLink`            | `interfaces/provider-definition.ts`     | Provider-owned official setup link metadata. Provider packages use it to expose API key, console, or official documentation URLs to generic setup flows without CLI/TUI provider-name branches.                                                                                                                                                                                                                                          |
-| `TProviderSetupHelpLinkKind`        | `interfaces/provider-definition.ts`     | Setup link kind union: `api-key`, `console`, or `official`, matching the preferred fallback order for provider setup guidance.                                                                                                                                                                                                                                                                                                           |
-| `IProviderModelCatalog`             | `interfaces/provider-definition.ts`     | Provider-owned model catalog contract used by command UX. Static entries are staleable fallback metadata with source and verification timestamps; live/generated catalogs come only from provider-owned refresh hooks.                                                                                                                                                                                                                   |
-| `IProviderModelCatalogEntry`        | `interfaces/provider-definition.ts`     | Minimal provider model metadata for display and selection. Provider packages own entries; generic layers must not hardcode provider-specific model lists.                                                                                                                                                                                                                                                                                |
-| `TProviderModelCatalogStatus`       | `interfaces/provider-definition.ts`     | Catalog freshness status union: `live`, `generated`, `fallback`, or `unavailable`.                                                                                                                                                                                                                                                                                                                                                       |
-| `TProviderModelLifecycle`           | `interfaces/provider-definition.ts`     | Provider model lifecycle union used by command UX to avoid presenting unavailable models as selectable subcommands.                                                                                                                                                                                                                                                                                                                      |
-| `TProviderModelCapability`          | `interfaces/provider-definition.ts`     | Minimal provider-owned model capability labels for display and filtering.                                                                                                                                                                                                                                                                                                                                                                |
-| `IProviderDefinitionConfig`         | `interfaces/provider-definition.ts`     | Normalized provider configuration consumed by provider definitions, including `apiKey` and a provider-owned `options` bag that generic layers pass through without interpreting.                                                                                                                                                                                                                                                         |
-| `IProviderProbeResult`              | `interfaces/provider-definition.ts`     | Generic provider profile probe result used by CLI and setup flows without provider-specific branching.                                                                                                                                                                                                                                                                                                                                   |
-| `TMessageFormatConverter`           | `utils/message-converter.ts`            | Optional injected provider message conversion function. Concrete message conversion belongs to provider packages, not core.                                                                                                                                                                                                                                                                                                              |
-| `TMessageConverterRegistry`         | `utils/message-converter.ts`            | Optional converter registry keyed by caller-owned identifiers. Core treats all keys uniformly and never recognizes provider names internally.                                                                                                                                                                                                                                                                                            |
-| `IToolSchema`                       | `interfaces/provider.ts`                | Tool schema contract, including root object `additionalProperties` for tools that intentionally tolerate unknown parameters                                                                                                                                                                                                                                                                                                              |
-| `TToolParameters`                   | `interfaces/types.ts`                   | Tool parameter type (re-exported via `interfaces/tool.ts`)                                                                                                                                                                                                                                                                                                                                                                               |
-| `IEventService`                     | `event-service/interfaces.ts`           | Event emission contract                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `IOwnerPathSegment`                 | `event-service/interfaces.ts`           | Execution path tracking                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `RobotaError`                       | `utils/errors.ts`                       | Base error hierarchy                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `TTextDeltaCallback`                | `interfaces/provider.ts`                | Streaming text delta callback `(delta: string) => void`                                                                                                                                                                                                                                                                                                                                                                                  |
-| `TModelEffort`                      | `interfaces/model-effort-capability.ts` | Provider-neutral native-control vocabulary: `'none' \| 'minimal' \| 'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`. It never implies a vendor default.                                                                                                                                                                                                                                                                                 |
-| `TModelEffortSelection`             | `interfaces/model-effort-capability.ts` | A caller selection: a concrete `TModelEffort` or `'auto'`, which preserves provider-default selection without serializing a native control.                                                                                                                                                                                                                                                                                              |
-| `IModelEffortResolution`            | `interfaces/model-effort-capability.ts` | Immutable Core result of resolving a selection against an adapter-owned, source-dated table.                                                                                                                                                                                                                                                                                                                                             |
-| `IModelEffortOutcome`               | `interfaces/model-effort-capability.ts` | Serializable terminal outcome that separately states resolution, native-control, and provider-dispatch facts.                                                                                                                                                                                                                                                                                                                            |
-| `TModelEffortOutcomeCallback`       | `interfaces/model-effort-capability.ts` | Local observer for one serializable terminal outcome; observation errors never replace provider execution errors.                                                                                                                                                                                                                                                                                                                        |
-| `IExecutorChatResult`               | `interfaces/executor.ts`                | Non-streaming executor envelope: required assistant `message` plus optional terminal effort outcome.                                                                                                                                                                                                                                                                                                                                     |
-| `TExecutorStreamEvent`              | `interfaces/executor.ts`                | Discriminated stream contract: zero or more `{ kind: 'message' }` events followed by one `{ kind: 'terminal' }` event.                                                                                                                                                                                                                                                                                                                   |
-| `TPermissionMode`                   | `permissions/types.ts`                  | Permission modes: plan, default, acceptEdits, bypassPermissions                                                                                                                                                                                                                                                                                                                                                                          |
-| `TTrustLevel`                       | `permissions/types.ts`                  | Friendly trust aliases: safe, moderate, full                                                                                                                                                                                                                                                                                                                                                                                             |
-| `TPermissionDecision`               | `permissions/types.ts`                  | Evaluation outcome: auto, approve, deny                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `TToolArgs`                         | `permissions/permission-gate.ts`        | Tool arguments record for permission matching                                                                                                                                                                                                                                                                                                                                                                                            |
-| `IPermissionLists`                  | `permissions/permission-gate.ts`        | Allow/deny pattern lists for permission config                                                                                                                                                                                                                                                                                                                                                                                           |
-| `TToolRiskClass`                    | `permissions/permission-mode.ts`        | What kind of action a tool performs — `inspect`, `modify` or `execute`. The only distinctions the permission modes make. Replaced a closed union of PRODUCT tool names (CORE-030): the foundation cannot know a product's tool inventory, and the two lists had drifted                                                                                                                                                                  |
-| `THookEvent`                        | `hooks/types.ts`                        | Hook lifecycle events (16 events): PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, SessionEnd, Stop, StopFailure, UserPromptSubmit, SubagentStart, SubagentStop, WorktreeCreate, WorktreeRemove, PreModelCall, PostModelCall, PermissionDecision (informational-only). Catalog SSOT: `docs/HOOK-CATALOG.md`                                                                                                              |
-| `TSessionEndReason`                 | `hooks/types.ts`                        | Claude Code compatible session end reason union: clear, resume, logout, prompt_input_exit, bypass_permissions_disabled, other                                                                                                                                                                                                                                                                                                            |
-| `THooksConfig`                      | `hooks/types.ts`                        | Complete hooks configuration: event to hook groups                                                                                                                                                                                                                                                                                                                                                                                       |
-| `IHookGroup`                        | `hooks/types.ts`                        | Hook group: matcher pattern + hook definitions                                                                                                                                                                                                                                                                                                                                                                                           |
-| `THookDefinition`                   | `hooks/types.ts`                        | Discriminated union hook definition (type: command, http, prompt, agent, guardrail)                                                                                                                                                                                                                                                                                                                                                      |
-| `ICommandHookDefinition`            | `hooks/types.ts`                        | Shell command hook: `type: 'command'`, `command: string`, optional `timeout`                                                                                                                                                                                                                                                                                                                                                             |
-| `IHttpHookDefinition`               | `hooks/types.ts`                        | HTTP request hook: `type: 'http'`, `url: string`, optional `headers`, optional `timeout`                                                                                                                                                                                                                                                                                                                                                 |
-| `IPromptHookDefinition`             | `hooks/types.ts`                        | LLM prompt hook: `type: 'prompt'`, `prompt: string`, optional `model`                                                                                                                                                                                                                                                                                                                                                                    |
-| `IAgentHookDefinition`              | `hooks/types.ts`                        | Sub-agent hook: `type: 'agent'`, `agent: string`, optional `maxTurns`, optional `timeout`                                                                                                                                                                                                                                                                                                                                                |
-| `IGuardrailHookDefinition`          | `hooks/types.ts`                        | SELFHOST-005 guardrail hook: `type: 'guardrail'`, optional `guardrails: string[]` (names to run; omitted = all)                                                                                                                                                                                                                                                                                                                          |
-| `IGuardrailResult`                  | `hooks/types.ts`                        | SELFHOST-005 guardrail verdict: `pass: boolean`, optional `reason` (`pass: false` fails the turn fast)                                                                                                                                                                                                                                                                                                                                   |
-| `TGuardrail`                        | `hooks/types.ts`                        | SELFHOST-005 registerable guardrail mechanism: `(input: IHookInput) => IGuardrailResult \| Promise<IGuardrailResult>`                                                                                                                                                                                                                                                                                                                    |
-| `GuardrailExecutor`                 | `hooks/executors/guardrail-executor.ts` | SELFHOST-005 `IHookTypeExecutor` (`type: 'guardrail'`): parallel fan-out + fail-fast over the registered guardrail set → `deny`/`blocked` (SEC-015; formerly exit code 2)                                                                                                                                                                                                                                                                |
-| `IHookAllowOutcome`                 | `hooks/types.ts`                        | SEC-015 `outcome: 'allow'` — the hook approved; `stdout` carries the Claude Code response protocol                                                                                                                                                                                                                                                                                                                                       |
-| `IHookDenyOutcome`                  | `hooks/types.ts`                        | SEC-015 `outcome: 'deny'` — the hook blocked, carrying its `reason`                                                                                                                                                                                                                                                                                                                                                                      |
-| `IHookErrorOutcome`                 | `hooks/types.ts`                        | SEC-015 `outcome: 'error'` — the hook rendered NO verdict, carrying `kind` + `reason`. Not a third verdict: whether it BLOCKS is the boundary's call, read per event from `HOOK_ENFORCEMENT_POLICY` via `isEnforcing` (SEC-016). `PreToolUse` fails closed; every other event is advisory                                                                                                                                                |
-| `THookErrorKind`                    | `hooks/types.ts`                        | SEC-015 failure classification: `timeout`, `spawn-failure`, `transport-failure`, `http-status`, `malformed-response`, `nonzero-exit`                                                                                                                                                                                                                                                                                                     |
-| `THookEnforcementPosture`           | `hooks/enforcement-policy.ts`           | SEC-016 `'enforcing' \| 'advisory'` — whether a hook that reached NO verdict blocks at an event. Exported from `hooks/index.ts`, not the package root                                                                                                                                                                                                                                                                                    |
-| `IHookEventPolicy`                  | `hooks/enforcement-policy.ts`           | SEC-016 one row of `HOOK_ENFORCEMENT_POLICY`: `posture`, `enforcementReachable`, `rationale`. Exported from `hooks/index.ts`, not the package root                                                                                                                                                                                                                                                                                       |
-| `assertPolicyCoherent`              | `hooks/enforcement-policy.ts`           | SEC-016 rejects a row that is `enforcing` while `enforcementReachable` is false — the table-internal invariant. Exported from `hooks/index.ts`, not the package root                                                                                                                                                                                                                                                                     |
-| `IHookTypeExecutor`                 | `hooks/types.ts`                        | Strategy interface for hook type execution                                                                                                                                                                                                                                                                                                                                                                                               |
-| `IHookInput`                        | `hooks/types.ts`                        | Input passed to hook commands via stdin; model-call events additionally carry the selected `effort` value, including `auto`                                                                                                                                                                                                                                                                                                              |
-| `THookOutcome`                      | `hooks/types.ts`                        | SEC-015 decoded hook execution result: `allow \| deny \| error` discriminated union. Replaces the former `IHookResult` (exitCode/stdout/stderr), whose single numeric channel forced every failure to be coerced into a verdict                                                                                                                                                                                                          |
-| `IContextTokenUsage`                | `context/types.ts`                      | Token usage from a single API call (input, output, cache tokens)                                                                                                                                                                                                                                                                                                                                                                         |
-| `IContextWindowState`               | `context/types.ts`                      | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                                                                                                                                                                                                                                                                                                        |
-| `IContextTokenEstimate`             | `context/estimation.ts`                 | Effective context token estimate used by status display, session compaction policy, and execution safety guards                                                                                                                                                                                                                                                                                                                          |
-| `IContextTokenEstimateOptions`      | `context/estimation.ts`                 | Options for `estimateContextTokensFromMessages()`: optional `providerUsage` floor and `callerFloor`                                                                                                                                                                                                                                                                                                                                      |
-| `IToolResultAdmissionOptions`       | `core/tool-result-admission.ts`         | Provider-neutral warning, hard limit, repository cap, spill port, and payload-free warning callback                                                                                                                                                                                                                                                                                                                                      |
-| `IToolResultSpillStore`             | `core/tool-result-admission.ts`         | Host-owned persistence port that commits oversized model-facing text before returning an opaque reference                                                                                                                                                                                                                                                                                                                                |
-| `TToolResultAdmissionErrorCode`     | `core/tool-result-admission.ts`         | Stable, payload-free admission failure codes                                                                                                                                                                                                                                                                                                                                                                                             |
-| `IMessageTokenUsage`                | `context/token-usage.ts`                | Normalized token usage read from message metadata or provider usage payloads                                                                                                                                                                                                                                                                                                                                                             |
-| `IHistoryEntry`                     | `interfaces/messages.ts`                | Rich history entry that wraps a message with category, type, and structured data fields. Fields: `id` (string), `timestamp` (Date), `category` ('chat' \| 'event'), `type` (string), `data` (varies by category/type)                                                                                                                                                                                                                    |
-| `IActionRequest`                    | `interfaces/interaction.ts`             | UI-agnostic "ask the user" request (CMD-004). One shape covers confirm/single/multi/free-text/secret via `options` × `minSelect`/`maxSelect` × `allowFreeText` × `masked`. No function-valued fields (serialization-safe). SSOT lives in core so both command and tool sources reach it.                                                                                                                                                 |
-| `IActionOption` / `IActionDefault`  | `interfaces/interaction.ts`             | One selectable option, and the pre-selected values / prefilled text for an action request.                                                                                                                                                                                                                                                                                                                                               |
-| `TActionResponse`                   | `interfaces/interaction.ts`             | Answer to an `IActionRequest`: `{ type: 'answer'; values; text? }` or `{ type: 'cancelled' }`.                                                                                                                                                                                                                                                                                                                                           |
-| `IUserInteraction`                  | `interfaces/interaction.ts`             | Injected ask port — `ask(IActionRequest): Promise<TActionResponse>`. The single seam every interaction source uses; concurrency (broadcast, first-answer-wins, idempotent resolve) is owned by the implementation.                                                                                                                                                                                                                       |
-
-Provider packages import these types. They must not re-declare them.
-
-### Model Definitions (SSOT)
-
-`context/models.ts` is the single source of truth for Claude model metadata. Source: https://platform.claude.com/docs/en/about-claude/models/overview
-
-| Export                      | Kind      | Description                                          |
-| --------------------------- | --------- | ---------------------------------------------------- |
-| `IModelDefinition`          | Interface | Model metadata: name, id, contextWindow, maxOutput   |
-| `CLAUDE_MODELS`             | Record    | All known Claude models (4.5+) keyed by API ID       |
-| `DEFAULT_CONTEXT_WINDOW`    | Constant  | 200,000 tokens fallback                              |
-| `DEFAULT_MAX_OUTPUT`        | Constant  | 16,384 tokens fallback for max output                |
-| `getModelContextWindow(id)` | Function  | Get context window size for a model ID               |
-| `getModelMaxOutput(id)`     | Function  | Get max output tokens for a model ID                 |
-| `getModelName(id)`          | Function  | Get human-readable name (e.g., "Claude Sonnet 4.6")  |
-| `formatTokenCount(tokens)`  | Function  | Format tokens as human-readable (e.g., "200K", "1M") |
-
-### Model Pricing (SSOT)
-
-`context/model-pricing.ts` is the single source of truth for per-model token cost. Consumers that
-compute or estimate cost (cost display, budget/rate limiting) read from here rather than embedding
-their own price tables. Prices are USD per 1,000,000 tokens.
-
-| Export                            | Kind      | Description                                                                             |
-| --------------------------------- | --------- | --------------------------------------------------------------------------------------- |
-| `IModelPrice`                     | Interface | `{ inputPerMillion, outputPerMillion }`                                                 |
-| `MODEL_PRICES`                    | Record    | Exact per-model prices keyed by API model ID                                            |
-| `lookupModelPrice(id)`            | Function  | Resolve price by exact ID, then family pattern; `undefined` if unknown                  |
-| `calculateModelCost(id, in, out)` | Function  | Exact USD cost for an input/output token split; `undefined` if the model is unknown     |
-| `estimateBlendedCostPer1000(id)`  | Function  | Blended USD-per-1000 rate for budget estimation when no input/output split is available |
-
-## Public API Surface
-
-### Core
-
-| Export                                  | Kind           | Description                                                                                                                                                                                                                                             |
-| --------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Robota`                                | class          | Main agent facade                                                                                                                                                                                                                                       |
-| `AbstractAgent`                         | abstract class | Base agent lifecycle                                                                                                                                                                                                                                    |
-| `AbstractAIProvider`                    | abstract class | Base for provider implementations                                                                                                                                                                                                                       |
-| `AbstractPlugin`                        | abstract class | Base for plugin extensions                                                                                                                                                                                                                              |
-| `AbstractTool`                          | abstract class | Base for tool implementations                                                                                                                                                                                                                           |
-| `AbstractExecutor`                      | abstract class | Base for execution strategies                                                                                                                                                                                                                           |
-| `LocalExecutor`                         | class          | Local provider execution                                                                                                                                                                                                                                |
-| `IProviderDefinition`                   | interface      | Provider assembly definition, including optional setup display metadata, official setup help links, compatibility aliases, defaults, credential requirements, model catalog fallback metadata, provider-owned refresh hooks, and provider-owned options |
-| `IProviderEndpoint`                     | interface      | Diagnostic-only `{ host, port }` reachability declaration on `IProviderDefinition.endpoint` (OBSERVABILITY-1991); read by no setup, persistence or provider-construction path                                                                           |
-| `IProviderSetupHelpLink`                | interface      | Provider-owned official setup link metadata rendered by generic setup flows                                                                                                                                                                             |
-| `TProviderSetupHelpLinkKind`            | type           | Provider setup link kind union: `api-key`, `console`, or `official`                                                                                                                                                                                     |
-| `IProviderModelCatalog`                 | interface      | Provider-owned model catalog source, freshness status, fallback/live entries, source URL, and `lastVerifiedAt` metadata                                                                                                                                 |
-| `IProviderModelCatalogEntry`            | interface      | Minimal model display metadata for provider-aware command UX                                                                                                                                                                                            |
-| `IProviderCredentialRequirement`        | interface      | Provider-owned credential requirement over the generic API-key credential field                                                                                                                                                                         |
-| `TProviderModelCatalogStatus`           | type           | Catalog freshness status union                                                                                                                                                                                                                          |
-| `TProviderModelLifecycle`               | type           | Model lifecycle union for provider-owned catalog entries                                                                                                                                                                                                |
-| `TProviderModelCapability`              | type           | Provider-owned model capability labels                                                                                                                                                                                                                  |
-| `IProviderCapabilities`                 | interface      | Provider-neutral capability report, including native web search/fetch support and enabled state                                                                                                                                                         |
-| `IProviderNativeWebToolRequest`         | interface      | Provider-neutral requested native web search/fetch flags                                                                                                                                                                                                |
-| `IProviderNativeRawPayloadEvent`        | interface      | Provider-owned native request/response/stream payload envelope routed through core execution events for replay logs                                                                                                                                     |
-| `TProviderNativeRawPayloadCallback`     | type           | Per-call callback providers use to emit native payload events without mutating provider instances                                                                                                                                                       |
-| `TProviderNativeRawPayloadKind`         | type           | `request`, `response`, or `stream_event` payload phase label                                                                                                                                                                                            |
-| `getProviderCapabilities`               | function       | Return provider capabilities with safe defaults when a provider does not implement a capability hook                                                                                                                                                    |
-| `assertProviderNativeWebToolsAvailable` | function       | Fail before provider transport execution when requested native web search/fetch is unsupported or disabled                                                                                                                                              |
-| `MODEL_EFFORT_VALUES`                   | const          | Runtime SSOT list for the `TModelEffort` vocabulary                                                                                                                                                                                                     |
-| `isModelEffort`                         | function       | Type guard that accepts only a core-owned model-effort value at an untrusted boundary                                                                                                                                                                   |
-| `createModelEffortOutcome`              | function       | Construct the serializable record that keeps resolution, native-control, and provider-dispatch facts separate                                                                                                                                           |
-| `findProviderDefinition`                | function       | Resolve an injected provider definition by canonical type or alias                                                                                                                                                                                      |
-| `formatSupportedProviderTypes`          | function       | Format injected provider types and aliases for generic errors                                                                                                                                                                                           |
-| `normalizeProviderConfig`               | function       | Resolve loose provider settings into a full `IProviderDefinitionConfig` (default model from `defaults.model`, `$ENV:` apiKey resolution)                                                                                                                |
-| `matchesAnyPattern`                     | function       | Whether a tool invocation matches ANY pattern in an allow/deny list — the one pattern semantics `evaluatePermission` and the CORE-025 policy resolver share                                                                                             |
-| `IPermissionPatternProblem`             | interface      | A permission pattern and the reason the gate cannot evaluate it (`{ pattern, reason }`)                                                                                                                                                                 |
-| `IResponseFormatConfig`                 | interface      | Provider response-format policy — `type: 'text' \| 'json_object' \| 'json_schema'` plus the schema payload `json_schema` requires (CORE-015)                                                                                                            |
-| `IRegistryOwnedLifecycle`               | interface      | The optional `initialize`/`cleanup` pair a registry-owned component exposes to the registration transaction                                                                                                                                             |
-| `IRegistryTransactionStep`              | interface      | One named `run`/`undo` step of a registry transaction                                                                                                                                                                                                   |
-| `IRegistryTransactionError`             | interface      | The `Error` a failed transaction throws: the `failedStep` and the `rollbackErrors` its undo handlers raised                                                                                                                                             |
-| `isRegistryTransactionError`            | function       | Type guard for `IRegistryTransactionError`                                                                                                                                                                                                              |
-| `createBoundedOutput`                   | function       | ARCH-056: a byte-bounded output buffer that retains the head or tail of what it is fed and marks the truncation                                                                                                                                         |
-| `IBoundedOutput`                        | interface      | The bounded buffer: `append`, bytes retained, and the retained text                                                                                                                                                                                     |
-| `IBoundedOutputOptions`                 | interface      | `createBoundedOutput` options — `maxBytes`, `retain` (`TOutputRetention`) and the truncation marker                                                                                                                                                     |
-| `TOutputRetention`                      | type           | `'head' \| 'tail'` — which end of an over-budget output a bounded buffer keeps                                                                                                                                                                          |
-| `createProviderFromConfig`              | function       | Construct an `IAIProvider` from a resolved config against the injected registry, enforcing the credential requirement                                                                                                                                   |
-
-### Media Provider Definition API (ARCH-054)
-
-Media nodes consume late-bound definitions rather than concrete provider instances. The definition
-contract and factory helpers keep credential resolution and provider construction at composition roots.
-
-| Export                                | Kind      | Description                                                                |
-| ------------------------------------- | --------- | -------------------------------------------------------------------------- |
-| `IMediaProviderConfig`                | interface | Resolved credential, base URL, and image-capable-model options             |
-| `IMediaProviderCredentialRequirement` | interface | Environment names and base-URL requirement used by a definition            |
-| `IMediaProviderDefinition`            | interface | Late-bound media provider definition with image/video factory capabilities |
-| `IMediaProviderOverrides`             | interface | Optional model allowlist and endpoint overrides passed to a media factory  |
-| `findMediaProviderDefinition`         | function  | Resolve a media definition by canonical type or alias                      |
-| `isMediaProviderDefinition`           | function  | Validate the minimum shape of a media provider definition                  |
-| `resolveMediaProviderConfig`          | function  | Resolve credential and endpoint through an injected environment resolver   |
-| `createImageProviderFromDefinition`   | function  | Build an image provider when the definition and credentials are available  |
-| `createVideoProviderFromDefinition`   | function  | Build a video provider when the definition and credentials are available   |
-
-### Fallback & Degradation Declaration
-
-`createImageProviderFromDefinition` and `createVideoProviderFromDefinition` return `undefined` when
-the definition has no matching capability, required credentials are unavailable, or its factory
-cannot construct a valid provider. Node runtimes convert that absence into their typed validation
-error; it is never treated as a successful provider.
-
-### Orchestration Public API (SELFHOST-001)
-
-Neutral multi-agent orchestration runtime exports (the contracts/event-type unions are type-only; see `src/orchestration/`). agent-core OWNS these; the `agent-framework` layer IMPLEMENTS the mechanism.
-
-| Export                           | Kind  | Description                                                                                                  |
-| -------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------ |
-| `ORCHESTRATION_EVENTS`           | const | Neutral orchestration lifecycle event names (`started`/`step_started`/`step_completed`/`completed`/`failed`) |
-| `ORCHESTRATION_EVENT_PREFIX`     | const | Event-name prefix (`orchestration`) for the neutral orchestration lifecycle events                           |
-| `TOrchestrationEvent`            | type  | Union of the orchestration lifecycle event names                                                             |
-| `TOrchestrationPrimitive`        | type  | Named neutral primitives: `sequential`/`parallel`/`hierarchical`/`handoff`/`group-chat`                      |
-| `IOrchestrationStep`             | type  | A neutral unit of work (id, label, agentType, prompt, optional model/tool scoping)                           |
-| `ISequentialOrchestrationSpec`   | type  | Spec for a `sequential` run (ordered steps + `threadOutput`)                                                 |
-| `IParallelOrchestrationSpec`     | type  | Spec for a `parallel` run (concurrent steps + bounded `maxConcurrency`)                                      |
-| `IHandoffOrchestrationSpec`      | type  | Spec for a `handoff` run (control-transfer among steps; `entryStepId` + `maxHandoffs` loop bound)            |
-| `IOrchestrationDelegation`       | type  | A neutral manager→worker delegation (`stepId` + `prompt`)                                                    |
-| `IHierarchicalOrchestrationSpec` | type  | Spec for a `hierarchical` (manager-delegation) run (`managerStepId` + `maxRounds` loop bound)                |
-| `IGroupChatOrchestrationSpec`    | type  | Spec for a `group-chat` (turn-taking) run (`firstStepId` + `maxTurns` loop bound)                            |
-| `IOrchestrationStepResult`       | type  | One executed step's result (id, output, optional usage)                                                      |
-| `IOrchestrationRunResult`        | type  | A run's result (primitive, per-step results, aggregate output)                                               |
-| `IOrchestrationEventData`        | type  | Neutral event payload the primitives emit over `IEventService`                                               |
-
-### Span Timing Public API (SELFHOST-004)
-
-Per-operation timing SOURCE. agent-core measures the operation duration (e.g. `FunctionTool`), mints the span id, and emits a span-completion event whose payload JOINS `spanId + durationMs + op` (raw scalars only — references no transport type, so agent-core depends on neither `agent-interface-transport` nor `agent-plugin`; no cycle). A consuming layer (`agent-framework`) turns the event into a record span entry.
-
-| Export                     | Kind     | Description                                                                                              |
-| -------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
-| `SPAN_EVENTS`              | const    | Span lifecycle event names (`span_completed`); mirrors the `TASK_EVENTS`/`USER_EVENTS` pattern           |
-| `SPAN_EVENT_PREFIX`        | const    | Event-name prefix (`span`) for the span lifecycle events                                                 |
-| `TSpanEvent`               | type     | Union of the span lifecycle event names                                                                  |
-| `ISpanCompletionEventData` | type     | Span-completion payload joining `spanId` + `durationMs` + `op` (raw scalars; no transport dependency)    |
-| `generateSpanId`           | function | Mint a unique `span_…` id for distributed-tracing correlation (also used to seed `IEventContext.spanId`) |
-
-### Path Containment Public API (SEC-006)
-
-The SSOT for "is this path inside that root?" whenever the answer is a SECURITY decision.
-`path.resolve` and `path.normalize` are purely lexical and never consult the filesystem, so they
-cannot see a symlink: a link sitting inside a root but pointing outside it satisfies a
-`startsWith(root + sep)` check while the syscall that follows escapes the boundary. Every
-security-boundary containment check in the monorepo routes through these functions — the file-tool
-sandbox (`agent-tools`) and the CLI monitor asset server (`agent-cli`) — because two containment
-checks that can disagree are their own defect.
-
-Both are exported from **`@robota-sdk/agent-core/node`** (CORE-028), not from the main barrel: they
-read the filesystem, and a barrel carrying them puts `node:fs` in every consumer's static import
-graph. The import path is where the Node dependency becomes legible.
-
-| Export                        | Kind     | Import from                   | Description                                                                                                                      |
-| ----------------------------- | -------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `isPathInside`                | function | `@robota-sdk/agent-core/node` | Whether `candidate` is `root` itself or lies beneath it, decided on the CANONICAL form of both                                   |
-| `canonicalizePath`            | function | `@robota-sdk/agent-core/node` | Realpath-resolve a path, tolerating a not-yet-created tail so `Write`/`Edit` targets still resolve                               |
-| `resolveTrustedExecutionRoot` | function | `@robota-sdk/agent-core/node` | Validate that an execution authority is a non-empty absolute, existing, traversable directory and return its canonical real path |
-
-### Egress Policy (issue #2026)
-
-`utils/egress-policy.ts`, exported from **`@robota-sdk/agent-core/node`** (it needs `node:dns` and
-`node:net`). The ONE outbound boundary for every caller- or model-supplied URL — `WebFetch`, the Gemini
-image-edit input fetch, and any future HTTP client a built-in or node runtime adds. The address
-arithmetic it decides with — IPv4/IPv6 expansion, the IPv4-mapped / IPv4-compatible / NAT64 embedded
-forms, and both spellings of an embedded IPv4 — lives beside it in `utils/ip-address.ts`; the public
-surface is unchanged, `isPrivateAddress` is still exported from `egress-policy.ts`.
-
-| Export                   | Kind      | Description                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fetchWithEgressPolicy`  | function  | `fetch(url, options, policy, deps)`: validates the destination, follows redirects manually re-validating each hop, composes the caller signal with a deadline, caps the body from `Content-Length` and while streaming                                                                                                                                                                                            |
-| `rejectDestination`      | function  | `http(s)` only; refuses loopback / private / link-local / CGNAT / multicast / reserved for IPv4, IPv6, IPv4-mapped, IPv4-compatible (`::/96`) and NAT64 forms — in BOTH spellings of an embedded IPv4, hex (`::ffff:7f00:1`, what `URL` renders) and dotted (`::ffff:127.0.0.1`, what `dns.lookup` renders) — plus `BLOCKED_HOSTNAMES` and `*.localhost`; resolves hostnames and refuses if ANY answer is private |
-| `isPrivateAddress`       | function  | The address classifier above, for one literal                                                                                                                                                                                                                                                                                                                                                                     |
-| `BLOCKED_HOSTNAMES`      | const     | `localhost`, `metadata`, `metadata.google.internal`, `metadata.goog`, `instance-data`, `instance-data.ec2.internal`                                                                                                                                                                                                                                                                                               |
-| `IEgressPolicy`          | interface | Escape hatches a composition root declares: `allowedHosts` (exact hostnames), `allowPrivateAddresses` (explicit opt-out), `maxRedirects` (5)                                                                                                                                                                                                                                                                      |
-| `TEgressLookup`          | type      | `(hostname) => Promise<readonly string[]>` — the DNS resolution the policy consults before it connects                                                                                                                                                                                                                                                                                                            |
-| `IEgressFetchOptions`    | interface | Per-request `headers` and `signal` a guarded fetch forwards                                                                                                                                                                                                                                                                                                                                                       |
-| `TEgressRejectionReason` | type      | Why a destination was refused — `unsupported_scheme`, `private_destination`, and the other closed reasons the policy names                                                                                                                                                                                                                                                                                        |
-| `IEgressRejection`       | interface | A refused request: the `reason` and the `url` it was aimed at                                                                                                                                                                                                                                                                                                                                                     |
-| `TEgressFetchResult`     | type      | Discriminated `ok` result of a guarded fetch — the response on success, the `IEgressRejection` otherwise; policy is returned, never thrown                                                                                                                                                                                                                                                                        |
-| `IEgressDeps`            | interface | Injected `fetch` and DNS `lookup` — how a test stays hermetic                                                                                                                                                                                                                                                                                                                                                     |
-
-Policy outcomes are RETURNED (`{ ok: false, rejection }` with a `reason`); transport errors are thrown as
-`fetch` throws them. On a cross-origin redirect every caller-supplied header except `User-Agent` is
-dropped. Known gap, recorded here: the connection is not pinned to the validated address (Node's global
-`fetch` offers no connect-time hook without `undici`), so resolve-then-validate per hop narrows the
-DNS-rebinding window rather than closing it.
-
-### Owner-Only Store Public API (SEC-020)
-
-The SSOT for "create this directory or file so only its owner can read it", for every host store
-under `~/.robota` and a project's `.robota` — session records and logs, settings, device
-credentials. Measured under umask 022 before this existed: a fresh sessions directory came out 0755
-and its records 0644, and `~/.robota` itself was 0755.
-
-Three facts about the Node API make the naive form wrong, and the module exists because each of them
-had already produced a defect here:
-
-- **`mkdirSync(path, { recursive: true, mode })` does not set the mode of a directory that already
-  exists.** It returns successfully and adopts whatever is there — measured on a log directory
-  pre-created at 0777, which stayed 0777 while its records were 0600. Another account could not read
-  a record, and could unlink and replace one, and could enumerate every session id.
-- **`writeFileSync(path, data, { mode })` applies the mode only when the file is CREATED.** A record
-  an older version left at 0644 keeps 0644 through every later save.
-- **Creating wide and tightening afterwards leaves a window** in which the full record is on disk
-  readable. The atomic write therefore carries the mode from creation with `wx` and never chmods
-  after, so a mutation that removes the mode is caught rather than masked.
-
-Create, set the mode, then VERIFY — and the verification is the load-bearing third step, not a
-belt-and-braces one. The IO seams exist so the condition it alone catches, a filesystem that accepts
-`chmod` and ignores it, is reachable from a test.
-
-Windows cannot express owner-only through `chmod`; inherited NTFS ACLs govern instead.
-`ownerOnlyGuarantee()` reports which guarantee is in force rather than making the POSIX claim
-everywhere, and a project-local `.robota` inside a world-writable directory on Windows is NOT
-protected by this module.
-
-Exported from **`@robota-sdk/agent-core/node`** (CORE-028) for the same reason as path containment:
-these read and write the filesystem.
-
-| Export                      | Kind      | Import from                   | Description                                                                           |
-| --------------------------- | --------- | ----------------------------- | ------------------------------------------------------------------------------------- |
-| `ensureOwnerOnlyDirectory`  | function  | `@robota-sdk/agent-core/node` | Create a directory, set it to 0700 whether or not it existed, and refuse if it is not |
-| `writeOwnerOnlyFile`        | function  | `@robota-sdk/agent-core/node` | Replace a file atomically through a temp file that is 0600 from creation              |
-| `tightenExistingFile`       | function  | `@robota-sdk/agent-core/node` | Narrow a file an older version left readable; a no-op on a path that does not exist   |
-| `ownerOnlyGuarantee`        | function  | `@robota-sdk/agent-core/node` | Which guarantee this platform can make — `posix-mode` or `windows-acl`                |
-| `OwnerOnlyModeError`        | class     | `@robota-sdk/agent-core/node` | Raised when a path cannot be made owner-only; never swallowed into a weaker mode      |
-| `OWNER_ONLY_FILE_MODE`      | constant  | `@robota-sdk/agent-core/node` | `0o600`                                                                               |
-| `OWNER_ONLY_DIRECTORY_MODE` | constant  | `@robota-sdk/agent-core/node` | `0o700`                                                                               |
-| `IOwnerOnlyIo`              | interface | `@robota-sdk/agent-core/node` | Injected create/chmod/stat seams, so the verification's own failure path is testable  |
-
-### Permission Argument Registry Public API (CORE-030)
-
-Which argument a tool's permission patterns are scoped to. The gate resolved this from a hardcoded
-table of PRODUCT tool names in the vendor-neutral foundation, so an argument-scoped deny for a tool
-it had never heard of could never match — and a `false` from a DENY list reads as "not denied", so
-the deny lost to any broader allow beside it and the invocation was auto-approved.
-
-A tool's owner declares its key. A deny that cannot be evaluated now prompts (or denies in `plan`
-mode) instead of continuing to the allow list.
-
-**Argument kind (CORE-049, issue #2350).** The key is declared WITH a kind, as one object —
-`argument: { key, kind }` (`IToolPermissionArgument`; `kind: 'path' | 'url' | 'command' | 'text'`)
-— because one string glob served every kind and a host pattern was a wildcard over the whole URL.
-A bare `*` or `**` argument pattern matches any invocation for every kind and for a tool that
-declared no argument (the preset `Tool(*)` contract) — in BOTH directions: a keyless tool under
-`deniedTools` is denied where it used to prompt, and under `allowedTools` (or a background task's
-`preapproved` allow list) it is auto-approved in every mode, where the pattern used to have no
-effect. Per kind:
-
-| Kind      | Pattern grammar                                                                               | Argument                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Unevaluable when                                                                                                                                                                                                                                                                                                                           |
-| --------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `url`     | `scheme\|*` `://` host (`*`/`**` labels, or `[v6]`; no `@`) [`:port\|*`] [path with `*`/`**`] | parsed with `new URL`; special schemes only; host lower-cased, trailing dot dropped, a literal pattern host canonicalised via `http://host/`; no port in the pattern = the scheme default only; no path = any path; path compared on percent-decoded segments; query and fragment ignored                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | the argument does not parse, has a non-special or host-less scheme, carries userinfo, or a path segment does not decode or decodes to a separator (`%2F`); the pattern does not fit the grammar, its literal host does not parse, a label carries `a**b`, or a segment of its path does not decode (a `%2A` in a pattern is a literal `*`) |
-| `path`    | `*` within a segment; `**` gitignore-style (`a/**` also matches `a`, `a/**/b` also `a/b`)     | `\` → `/`; lexically on both sides (no filesystem): empty and `.` segments dropped, `..` collapsed (discarded at an absolute root, kept on a relative path), a trailing `/` dropped; `/…` and `X:/…` (drive letter lower-cased) are absolute                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | a relative argument under an absolute pattern                                                                                                                                                                                                                                                                                              |
-| `command` | today's glob (`*` any run) over ONE command                                                   | direction-dependent — the only kind whose answer differs between the two lists (`TMatchDirection`). ALLOW: as written; then, when the pattern carries a wildcard, a separator (`;` `&` `\|` `&&` `\|\|` newline) outside quotes or a substitution (`$(` backtick `<(` `>(`) outside single quotes is NO match — `Bash(git *)` matches `git status` and not `git status; rm -rf /` (issue #2427); a pattern without a wildcard is the whole line, verbatim. DENY: the glob is tried against the whole line AND against each command the line runs, cut at those same boundaries — `Bash(rm *)` denies `rm -rf / ; echo done`, `git status; rm -rf /` and `echo $(rm -rf /tmp/x)`, because "cannot judge" on a deny reads as "not denied" and auto-approves. Both directions honour quoting (`echo "rm -rf /"` runs no `rm`), and `2>&1` / `&>` are redirections, not a second command | never                                                                                                                                                                                                                                                                                                                                      |
-| `text`    | today's glob                                                                                  | as written                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | never                                                                                                                                                                                                                                                                                                                                      |
-
-`matchesAnyPattern` answers "some pattern matched"; `hasUnevaluableArgumentPattern` answers "some
-pattern could not be evaluated" — no argument declared, or any condition in the last column — and
-`evaluatePermission` routes an unevaluable DENY to a prompt (`deny` in `plan`), never to the allow
-list.
-
-| Export                          | Kind     | Description                                                                                                                              |
-| ------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `registerToolPermissionProfile` | function | Declare what the permission system should do with a tool: which argument its patterns are scoped to, and what kind of action it performs |
-| `clearRegisteredToolProfiles`   | function | Clears the tool permission-profile registry. For tests and for hosts that rebuild a registry                                             |
-| `getToolPermissionProfile`      | function | What a tool's owner has declared about it, or an empty profile when nobody has said                                                      |
-
-`clearRegisteredToolProfiles` is public as of ARCH-031, and its row is in the table above. It was
-in-package until the permissions block collapsed to `export *`; the rationale for it (tests, and a
-host rebuilding a registry) is unchanged, but it is now on the barrel and therefore part of the
-contract, so a consumer may rely on it.
-
-### Model Metadata Registry Public API (NEUT-010)
-
-Who owns the answer to "how big is this model's context window". This package used to carry a CLAUDE
-table — against its own rule that it must not branch on concrete provider or model names — and
-`agent-provider-anthropic` imported it back out. Worse, `getModelContextWindow` handed every model
-NOT in that table `DEFAULT_CONTEXT_WINDOW`, which is 200 000, which is Claude's window: every
-non-Claude session was planned against another vendor's number with no signal at all.
-
-The table now lives with the package that owns those models, and every provider contributes the same
-way. The registry is the ONLY source, so a model nobody registered is a model nobody owns — and the
-lookup helpers say so once per model rather than passing silently.
-
-`CLAUDE_MODELS` is **no longer exported from this package**. Import it from
-`@robota-sdk/agent-provider-anthropic`, which owns it.
-
-| Export                  | Kind     | Description                                                    |
-| ----------------------- | -------- | -------------------------------------------------------------- |
-| `registerModelMetadata` | function | Contribute model metadata from the package that owns the model |
-
-`findModelDefinition` and `clearRegisteredModelMetadata` are deliberately NOT on the package entry:
-the contribution point is the whole public contract, and lookups go through the existing
-`getModelContextWindow` / `getModelMaxOutput` / `getModelName` helpers.
-
-### Diagnostic Sink Public API (CORE-029)
-
-Where this package's diagnostics go. `createLogger(name, sink?)` fell back to `SilentLogger` when no
-sink was passed; no call site in the repository ever passed one, and nothing could install one
-afterwards — so every `logger.*` call in the package, including "Robota initialization failed" and
-every catch-and-log-only path, had no reachable destination. That is not "logging was not
-configured": it could not be.
-
-The default remains SILENT. A library that starts writing to `console` because it was imported is a
-different defect, so turning diagnostics on is something a host does deliberately. The sink is
-resolved per call rather than frozen at construction, which is what lets a logger created during
-module initialisation honour a sink installed afterwards.
-
-| Export                | Kind     | Description                                                                        |
-| --------------------- | -------- | ---------------------------------------------------------------------------------- |
-| `setGlobalLoggerSink` | function | Install the process-wide sink every logger writes to; `undefined` restores silence |
-| `getGlobalLoggerSink` | function | The installed sink, or `undefined` when diagnostics are going nowhere              |
-
-### Abort Classification Public API (CORE-027)
-
-The SSOT for "was this failure an ABORT?" whenever the answer changes what the caller reports.
-Three call sites decided it by looking at the error's PROSE
-(`message.includes('aborted') || message.includes('abort')`), and the execution service returned
-`success: true, interrupted: true` when it said yes — so a real provider failure whose text happened
-to contain those letters was reported as a successfully interrupted run, with nothing downstream,
-including the print-mode exit code, able to tell. The authoritative signals are the `AbortSignal` the
-caller already holds and the error's own `name`, neither of which is a guess about wording.
-
-Exported because `agent-framework`'s interactive path needs the same decision: a fourth private copy
-is how the third one survived a fix to the first two.
-
-| Export           | Kind     | Description                                                                                     |
-| ---------------- | -------- | ----------------------------------------------------------------------------------------------- |
-| `isAbortFailure` | function | Whether a failure is an abort, decided from the caller's `AbortSignal` and the error's own name |
-
-### Schema (CORE-015)
-
-| Export                                                                                                    | Kind     | Description                                                                                                                                                                                                                                 |
-| --------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `zodToJsonSchema`                                                                                         | function | Zod → universal JSON-schema subset conversion (SSOT; moved from the tools package, which now imports it from core)                                                                                                                          |
-| `extractEnumValues`                                                                                       | function | Safe Zod enum value extraction                                                                                                                                                                                                              |
-| `hasValidationConstraints`                                                                                | function | Whether a Zod schema carries validation checks                                                                                                                                                                                              |
-| `getSchemaTypeName`                                                                                       | function | Safe Zod type-name extraction                                                                                                                                                                                                               |
-| `IZodSchema` / `IZodSchemaDef` / `IZodParseResult` / `ISchemaConversionOptions`                           | types    | Structural Zod compatibility types (no hard Zod version coupling in signatures)                                                                                                                                                             |
-| `IParameterSchema` / `IObjectParameterSchema`                                                             | types    | The universal JSON-schema subset, and its object-root narrowing — see § Universal JSON-Schema Subset (CORE-039)                                                                                                                             |
-| `normalizeStructuredOutput`                                                                               | function | Normalize `IRunOptions.output` (Zod schema or `IJsonSchemaOutput`) into `IStructuredOutputSpec`                                                                                                                                             |
-| `validateAgainstJsonSchema`                                                                               | function | Structural validation of a value against the universal JSON-schema subset                                                                                                                                                                   |
-| `parseStructuredResponseText`                                                                             | function | Parse a model's final text into JSON (tolerates one fenced json code block; value is still strictly validated afterwards)                                                                                                                   |
-| `IJsonSchemaOutput` / `IStructuredOutputSpec` / `TStructuredOutputSchema` / `TStructuredOutputValidation` | types    | Structured output contract types                                                                                                                                                                                                            |
-| `resolveStructuredOutputCapability`                                                                       | function | CORE-048: which transport can carry a schema to a `(provider, model)` pair, and how sure that answer is. Produces the already-public `TStructuredOutputMechanism` / `TStructuredOutputProvenance`; lets a caller ask BEFORE spending a call |
-| `closeObjectSchemas`                                                                                      | function | PROV-007: closes every object node in the universal subset for providers that reject open-world objects, optionally completing `required` for OpenAI strict mode. One recursion, shared                                                     |
-| `ISchemaClosureOptions`                                                                                   | type     | `closeObjectSchemas` options: `requireAllProperties`, `optionalAsNullable`, and the MCP-005 `onChange` callback                                                                                                                             |
-| `ISchemaClosureChange`                                                                                    | type     | MCP-005: the per-path `{ path, kind }` edit `closeObjectSchemas` reports through `onChange` — how the tool-schema projector attributes closure changes without a second recursion                                                           |
-| `projectToolSchema`                                                                                       | function | MCP-005: projects one tool's `parameters` into what a provider's `IToolSchemaProjectionProfile` accepts — pure, deterministic, never throws, never mutates; see § Tool Schema Projection (MCP-005)                                          |
-| `hashToolSchema`                                                                                          | function | MCP-005: a stable sha256 hash of `IParameterSchema` over canonical key-sorted JSON — the per-tool quarantine cache identity                                                                                                                 |
-| `PARAMETER_SCHEMA_KEYWORDS`                                                                               | const    | MCP-005: the `IParameterSchema` member set, derived once at the type level (`Required<IParameterSchema>`) rather than hand-typed a second time — the SSOT `unknownKeywords` judges every key against                                        |
-| `TOOL_SCHEMA_PROJECTION_MAX_DEPTH`                                                                        | const    | MCP-005: the shared nesting-depth ceiling (32) every shipped projection profile declares                                                                                                                                                    |
-| `TOOL_SCHEMA_PROJECTION_MAX_NODES`                                                                        | const    | MCP-005: the shared node-count ceiling (2000) every shipped projection profile declares                                                                                                                                                     |
-| `PERMISSIVE_TOOL_SCHEMA_PROFILE`                                                                          | const    | MCP-005: the permissive profile shape (without `providerName`) — Anthropic, OpenAI Chat/Responses without `strictTools`, and the openai-compatible family spread their own `providerName` onto it                                           |
-| `STRICT_TOOL_SCHEMA_PROFILE`                                                                              | const    | MCP-005: the strict profile shape (without `providerName`) — OpenAI Chat/Responses with `strictTools: true` spreads its own `providerName` onto it; replaces that converter's own `closeObjectSchemas` call                                 |
-| `IToolSchemaProjectionProfile`                                                                            | type     | MCP-005: a provider's tool-schema wire constraints as data — the `projectToolSchema` second argument                                                                                                                                        |
-| `TToolSchemaProjectionProfileBase`                                                                        | type     | MCP-005: `IToolSchemaProjectionProfile` without `providerName` — the shape `PERMISSIVE_TOOL_SCHEMA_PROFILE`/`STRICT_TOOL_SCHEMA_PROFILE` are typed as, before a provider spreads its own name on                                            |
-| `TToolSchemaProjectionOutcome`                                                                            | type     | MCP-005: `'adopted' \| 'adapted' \| 'rejected'` — `projectToolSchema`'s outcome                                                                                                                                                             |
-| `IToolSchemaProjectionChange`                                                                             | type     | MCP-005: one per-path structural edit `projectToolSchema` made (`kind`, `path`, optional `keyword`)                                                                                                                                         |
-| `IToolSchemaProjection`                                                                                   | type     | MCP-005: `projectToolSchema`'s full result — `outcome`, `tool`, `changes`, and `rejection` when rejected                                                                                                                                    |
-| `loadToolSchemaProjectionFixtures`                                                                        | function | MCP-005: the shared tool-schema-projection fixture set, exported from the `@robota-sdk/agent-core/testing` subpath (TEST-003 precedent) so every provider package's conformance test exercises identical shapes                             |
-| `IToolSchemaProjectionFixtures`                                                                           | type     | MCP-005: the named fixture set `loadToolSchemaProjectionFixtures` returns                                                                                                                                                                   |
-
-### Errors
-
-The full class list, with `code` / `category` / `recoverable` for each, is the § Error Taxonomy
-table. Documented here are the ones a caller is expected to branch on by type.
-
-| Export                   | Kind  | Description                                                                                                                                                                                 |
-| ------------------------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SameToolInputLoopError` | class | CORE-035: the identical-tool-input loop guard tripped — the turn FAILED (the agent gave up), it was not aborted. Carries `toolName`, `callCount`, `maxSameToolInputs`. See § Error Taxonomy |
-
-### Tools
-
-| Export         | Kind  | Description                                                                                                                                        |
-| -------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `FunctionTool` | class | Dependency-free JS-function tool primitive (`implements IFunctionTool`); honors `parameters.additionalProperties` validation (DATA-005 canonical). |
-| `ToolRegistry` | class | Dependency-free tool registry primitive (`implements IToolRegistry`); central registration, lookup, and schema retrieval.                          |
-
-### Tool Result Admission (MCP-2525)
-
-| Export                              | Kind      | Description                                                   |
-| ----------------------------------- | --------- | ------------------------------------------------------------- |
-| `DEFAULT_TOOL_RESULT_WARNING_CHARS` | constant  | Default character warning threshold                           |
-| `DEFAULT_TOOL_RESULT_HARD_CHARS`    | constant  | Default maximum admitted result length                        |
-| `MAX_TOOL_RESULT_CHARS`             | constant  | Absolute repository ceiling for raised per-tool requests      |
-| `ToolResultAdmissionError`          | class     | Secret-free admission refusal with a stable code              |
-| `admitToolResult`                   | function  | Validate limits and return admitted text or a spill reference |
-| `wasToolResultAdmitted`             | function  | Recognize an already-admitted result envelope                 |
-| `IToolResultAdmissionOptions`       | interface | Admission thresholds, spill port, and warning callback        |
-| `IToolResultSpillStore`             | interface | Host-owned persistent spill port                              |
-| `TToolResultAdmissionErrorCode`     | type      | Secret-free failure-code union                                |
-
-`admitToolResult` is the provider-neutral owner for result-envelope size policy. It measures the
-model-facing text (string data as-is, other values as JSON) in JavaScript string length units
-(UTF-16 code units) before callbacks, event publication, session logging, or provider conversion.
-The defaults are a 10,000-character warning, a 25,000-character hard limit, and a 500,000-character
-repository ceiling. A host may configure smaller positive safe-integer limits with
-`warningChars < hardChars <= repositoryMaxChars <= 500,000`; a tool's already-validated upward
-request may raise its hard limit only up to the configured repository ceiling. Invalid settings
-fail by named error, never by silently disabling admission. A valid tool request below a stricter
-host-configured hard limit leaves the host limit unchanged.
-
-An admitted result retains its normal envelope. A warned result reports only tool identity, size,
-and limit. An oversized result must be committed to the injected `IToolResultSpillStore` before the
-generic owner returns an opaque `tool-result:` reference; the raw result is never a fallback.
-Missing store or failed write returns a secret-free named refusal. The store owns reference
-resolution, retention, expiry, and cleanup; core has no filesystem dependency. A session and a
-direct SDK caller use this same policy rather than distinct MCP/provider truncation rules.
-
-### Tool Residency (CLI-1990)
-
-The contract these five surface is § Tool Residency and Tool Search below. The residency PROJECTION,
-the threshold POLICY and their constants stay internal to this package on purpose: only the layer
-that assembles a tool set has a reason to reach them, and only the invariant it must enforce is
-published.
-
-| Export                            | Kind     | Description                                                                                                                                                                                                                                                                  |
-| --------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `assertResidentToolRemains`       | function | Throws when a non-empty tool set declares `deferLoading` on every entry — the "at least one tool must stay resident" invariant, at assembly time.                                                                                                                            |
-| `DEFERRED_WITHOUT_LOADER_MESSAGE` | const    | The message `projectOfferedTools` throws when deferral withholds a schema and no `ToolSearch` tool is offered — a withheld tool with no loader is unreachable, refused rather than sent silently. Published so a session assembler can raise the same error at its own seam. |
-| `estimateToolSchemaTokens`        | function | What a set of tool schemas costs on every request, by the same chars-per-token heuristic the message estimate uses. Powers `/context`.                                                                                                                                       |
-| `TOOL_SEARCH_TOOL_NAME`           | const    | The registered name of the model-facing search tool (`'ToolSearch'`). Owned here because the execution layer names it in the unknown-tool remedy.                                                                                                                            |
-| `IDeferredToolCatalog`            | type     | The narrow list/load port a search tool loads through, carried on `IToolExecutionContext.deferredTools`.                                                                                                                                                                     |
-| `TToolSearchSetting`              | type     | `IAgentConfig.toolSearch` — `'auto' \| 'on' \| 'off'`.                                                                                                                                                                                                                       |
-| `TToolSearchMode`                 | type     | The resolved answer — `'on' \| 'off'` — whether deferred schemas are withheld.                                                                                                                                                                                               |
-
-NOTE: agent-core is the **single owner (SSOT)** of the concrete `ToolRegistry` / `FunctionTool` classes (`src/tool-registry/`, exported from the package barrel and constructed directly by the zero-dep `tool-manager`) — they are dependency-free runtime primitives whose contracts (`IToolRegistry` / `IFunctionTool`) already live in core (DATA-005, resolves ARL-01). The `createFunctionTool` / `createZodFunctionTool` tool constructors live in the tools layer and construct core's `FunctionTool`; `MCPTool` and `RelayMcpTool` live in the MCP-tool layer. `FunctionTool` parameter validation honors `schema.parameters.additionalProperties` (`true` / object-form accept extra props; `false`/omitted reject) via `src/tool-registry/parameter-validator.ts`. There is no `OpenAPITool` class in agent-core: OpenAPI tools are described only by the `IOpenAPIToolConfig` type and the `IToolFactory.createOpenAPITool()` factory port (no shipped class).
-
-### Interaction (CMD-004)
-
-UI-agnostic "ask the user" contract. The SSOT lives here so every interaction source reaches it:
-command execution (`ICommandHostContext`, agent-framework) and tool execution
-(`IToolExecutionContext.ask`, this package — model-issued questions, CMD-005). Transports render the
-request per-environment; the contract carries no function-valued fields (serialization-safe).
-
-| Export                                                                | Kind      | Description                                                                               |
-| --------------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------- |
-| `IActionRequest` / `IActionOption` / `IActionDefault`                 | interface | The single action request shape, its options, and pre-selection/prefill                   |
-| `TActionResponse`                                                     | type      | `{ type: 'answer'; values; text? }` or `{ type: 'cancelled' }`                            |
-| `IUserInteraction`                                                    | interface | Injected ask port: `ask(IActionRequest): Promise<TActionResponse>`                        |
-| `confirmAction` / `selectAction` / `multiSelectAction` / `textAction` | function  | Ergonomic constructors for confirm / single / multi / free-text (incl. `masked`) requests |
-| `isConfirmed`                                                         | function  | Read a `confirmAction` answer as a boolean                                                |
-| `CONFIRM_YES` / `CONFIRM_NO`                                          | const     | Option values used by `confirmAction` / `isConfirmed`                                     |
-
-`IToolExecutionContext` gains an optional `ask?: IUserInteraction['ask']` — present when an interactive
-renderer is attached; a tool treats absence as "no human available" (never a silent guess).
-
-### Permissions
-
-| Export                                 | Kind     | Description                                                                                                                                                                                                                                                       |
-| -------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `evaluatePermission`                   | function | 4-step deterministic policy: deny list, UNEVALUABLE deny, allow list, mode                                                                                                                                                                                        |
-| `validatePermissionPattern`            | function | Issue #2428 — the reason one pattern can never be evaluated by the gate (URL grammar, declared tool with no argument key, syntax), or undefined; a tool with no profile yet passes                                                                                |
-| `findInvalidPermissionPatterns`        | function | Issue #2428 — every malformed pattern in a list with its reason; the load-time surface above the gate's unevaluable floor                                                                                                                                         |
-| `resolvePermissionByPolicy`            | function | CORE-025: resolve a background/subagent `TBackgroundPermissionPolicy` (+ task/parent allow-deny) to `allow`/`deny`/`prompt`, pre-empting the session mode                                                                                                         |
-| `applyPresetToolLists`                 | function | ARCH-040 Group C: a preset's tool lists as enforcer rules — allowlist replaces, denylist unions                                                                                                                                                                   |
-| `toolNamesToPatterns`                  | function | Tool names as permission patterns (`Read` → `Read(*)`), shared by the startup and live paths                                                                                                                                                                      |
-| `RISK_CLASS_POLICY`                    | const    | Permission mode → risk class → decision. Names no product tool (CORE-030)                                                                                                                                                                                         |
-| `TRUST_TO_MODE`                        | const    | Maps TTrustLevel to TPermissionMode                                                                                                                                                                                                                               |
-| `UNCLASSIFIED_TOOL_FALLBACK`           | const    | Fallback per mode for a tool whose owner declared no risk class — prompts, and refuses in plan                                                                                                                                                                    |
-| `TPermissionMode`                      | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`                                                                                                                                                                                                     |
-| `TTrustLevel`                          | type     | `'safe' \| 'moderate' \| 'full'`                                                                                                                                                                                                                                  |
-| `TPermissionDecision`                  | type     | `'auto' \| 'approve' \| 'deny'`                                                                                                                                                                                                                                   |
-| `TToolArgs`                            | type     | Tool arguments record for permission matching                                                                                                                                                                                                                     |
-| `IPermissionLists`                     | type     | Allow/deny pattern lists                                                                                                                                                                                                                                          |
-| `TToolRiskClass`                       | type     | `inspect` \| `modify` \| `execute`                                                                                                                                                                                                                                |
-| `IToolPermissionProfile`               | type     | What a tool's owner declares: `argument` (`{ key, kind }`, CORE-049) and `riskClass`                                                                                                                                                                              |
-| `IToolPermissionArgument`              | type     | The argument a tool's patterns are scoped to: `{ key, kind }` — declared together (CORE-049)                                                                                                                                                                      |
-| `TArgumentKind`                        | type     | `'path' \| 'url' \| 'command' \| 'text'` — which matcher a pattern is compared with                                                                                                                                                                               |
-| `TMatchDirection`                      | type     | `'allow' \| 'deny'` — which LIST a pattern came from, the 4th parameter of `matchesAnyPattern`. Only the `command` kind reads it, and it is the difference between "is this the command I blessed?" and "does this line RUN the command I forbade?" (issue #2427) |
-| `DEFAULT_BACKGROUND_PERMISSION_POLICY` | const    | ARCH-031: the one definition of the policy a spawn site states when it has no reason to choose another. Replaced two independent `?? 'inherit-allowlist'` fallbacks in two packages                                                                               |
-
-### Environment Reference Utilities
-
-Zero-dependency utilities for the `$ENV:<name>` environment variable reference format. This is the
-canonical location for env-ref logic; all higher layers import from here.
-
-| Export                     | Kind     | Description                                                                                                                    |
-| -------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `ENV_REFERENCE_PREFIX`     | const    | `'$ENV:'` — the canonical prefix for environment variable references                                                           |
-| `isEnvReference`           | function | Return true when a string starts with `$ENV:`                                                                                  |
-| `formatEnvReference`       | function | Return the `$ENV:<name>` formatted string for the given variable name                                                          |
-| `resolveEnvReference`      | function | Resolve `$ENV:<name>` through the injected `TEnvResolver` (default: host env); value or `undefined`                            |
-| `hasUsableSecretReference` | function | Return true when the value is a non-empty string that resolves to a value (same injected resolver)                             |
-| `TEnvResolver`             | type     | issue #2347: `(name) => string \| undefined` — the injected environment; the ONLY way normalization sees it                    |
-| `processEnvResolver`       | const    | issue #2347: the host `process.env` as a `TEnvResolver`; defined in `utils/env-resolver.ts`, the one module allowed to read it |
-| `createRecordEnvResolver`  | function | issue #2347: a `TEnvResolver` over a fixed record — what tests inject instead of mutating `process.env`                        |
-
-`normalizeProviderConfig(settings, providerDefinitions, resolve = processEnvResolver)` is
-deterministic from its arguments and `resolve`; the `provider-env-resolution` scan refuses
-`process.env` in `utils/env-ref.ts` and `providers/provider-factory.ts` (and the executor's).
-
-### Cross-platform Shell Resolution Public API
-
-Zero-dependency SSOT (TERM-008) for "which shell to spawn, and how". Pure function of one
-`IPlatformShellResolutionRequest`, so every executable/host combination is testable without touching the
-host. Precedence is non-blank request `executable` > non-blank `ROBOTA_SHELL` > `$SHELL`/platform default.
-Basenames are classified case-insensitively across `/` and `\\`, with optional `.exe`, for `sh`, `bash`,
-PowerShell/`pwsh`, and `cmd`; the returned command and `commandArgs()` always belong to the same family,
-while `platform` remains the actual requested host platform. A non-blank request or `ROBOTA_SHELL`
-executable outside those families throws `UnsupportedShellError` instead of guessing an argument family.
-Blank request overrides are absent. A POSIX `$SHELL` remains the host-declared POSIX family, including
-shells outside the explicit override classifier.
-
-Consumed by every shell-running site: the `Shell`/`Bash` tool (agent-tools), hook `command` executor,
-interactive drop-to-shell (agent-command), and both managed-process and scheduled-command runners through
-agent-executor's shared request adapter. The returned `syntaxHint`/`label` names both command family and
-host so an LLM authoring commands avoids cross-family syntax mistakes.
-
-| Export                            | Kind      | Description                                                                            |
-| --------------------------------- | --------- | -------------------------------------------------------------------------------------- |
-| `resolvePlatformShell`            | function  | Resolve one request to an executable and its matching argument family                  |
-| `IPlatformShellResolutionRequest` | interface | Optional `executable`, `env`, and `platform` inputs with explicit precedence semantics |
-| `IPlatformShell`                  | interface | `command`, `kind`, actual host `platform`, args, label, and syntax guidance            |
-| `TShellKind`                      | type      | `'bash' \| 'sh' \| 'powershell' \| 'cmd'`                                              |
-| `UnsupportedShellError`           | class     | Typed fail-closed error for an unclassified explicit executable                        |
-
-### Hooks
-
-| Export                     | Kind      | Description                                                                                                                                                                                                                              |
-| -------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `runHooks`                 | function  | Execute hooks for lifecycle events using pluggable type executors; returns `IRunHooksResult` (which carries `errors: readonly IHookErrorOutcome[]` for hooks that rendered no verdict — SEC-015)                                         |
-| `GuardrailExecutor`        | class     | SELFHOST-005 `IHookTypeExecutor` (`type: 'guardrail'`): runs the registered guardrail set in parallel and fails fast → `deny`/`blocked` (constructed with the consumer's guardrail map)                                                  |
-| `THookEvent`               | type      | 16 events: PreToolUse, PostToolUse, SessionStart, SessionEnd, Stop, StopFailure, PreCompact, PostCompact, UserPromptSubmit, SubagentStart, SubagentStop, WorktreeCreate, WorktreeRemove, PreModelCall, PostModelCall, PermissionDecision |
-| `TSessionEndReason`        | type      | Session end reason union: clear, resume, logout, prompt_input_exit, bypass_permissions_disabled, other                                                                                                                                   |
-| `THooksConfig`             | type      | Event to hook group array mapping                                                                                                                                                                                                        |
-| `IHookGroup`               | type      | Matcher pattern + hook definitions array; optional `env` for child-process environment injection                                                                                                                                         |
-| `THookDefinition`          | type      | Discriminated union of all hook definition types: command, http, prompt, agent, guardrail                                                                                                                                                |
-| `ICommandHookDefinition`   | interface | `type: 'command'` hook — shell command execution via stdin/exit code                                                                                                                                                                     |
-| `IHttpHookDefinition`      | interface | `type: 'http'` hook — HTTP request to external endpoint                                                                                                                                                                                  |
-| `IPromptHookDefinition`    | interface | `type: 'prompt'` hook — LLM prompt injection                                                                                                                                                                                             |
-| `IAgentHookDefinition`     | interface | `type: 'agent'` hook — sub-agent delegation                                                                                                                                                                                              |
-| `IGuardrailHookDefinition` | type      | SELFHOST-005 guardrail hook definition: `type: 'guardrail'`, optional `guardrails: string[]` (names to run; omitted = all)                                                                                                               |
-| `IGuardrailResult`         | type      | SELFHOST-005 guardrail verdict: `pass: boolean`, optional `reason`. `pass: false` fails the turn fast through the existing blocked path                                                                                                  |
-| `TGuardrail`               | type      | SELFHOST-005 registerable guardrail: `(input: IHookInput) => IGuardrailResult \| Promise<IGuardrailResult>`                                                                                                                              |
-| `IHookTypeExecutor`        | interface | Strategy interface for executing a specific hook type                                                                                                                                                                                    |
-| `IHookInput`               | type      | JSON input passed to hooks via stdin                                                                                                                                                                                                     |
-| `THookOutcome`             | type      | SEC-015 decoded hook result: `allow \| deny \| error` union (replaces `IHookResult`)                                                                                                                                                     |
-| `decodeHookVerdict`        | function  | SEC-015 sole decoder for a `{ ok, reason }` hook response; a non-boolean or missing `ok` is `error`, never a coerced verdict                                                                                                             |
-| `isEnforcing`              | function  | SEC-016 — whether a hook that reached NO verdict blocks at this event. Reads `HOOK_ENFORCEMENT_POLICY`; `PreToolUse` is the only enforcing event                                                                                         |
-| `HOOK_ENFORCEMENT_POLICY`  | const     | SEC-016 — the per-event posture table: `posture`, `enforcementReachable`, and the `rationale` for each. The SSOT for which events enforce; a consumer enumerating postures reads it directly                                             |
-
-NOTE (SEC-015): the union's member interfaces — `IHookAllowOutcome`, `IHookDenyOutcome`,
-`IHookErrorOutcome` and `THookErrorKind` — are exported from `hooks/index.ts`, not from the package
-root. A consumer switching on `outcome` narrows `THookOutcome` without naming them; one that needs to
-name a member imports it from the hooks barrel.
-
-NOTE (SEC-016): of the policy members, **only `isEnforcing` is on the package root**.
-`HOOK_ENFORCEMENT_POLICY`, `assertPolicyCoherent`, `THookEnforcementPosture` and `IHookEventPolicy`
-are exported from `hooks/index.ts`. The row above lists the table because it is the SSOT for the
-posture, not because it is root-importable — a consumer wanting the table imports it from the hooks
-barrel, and one that only needs a yes/no answer calls `isEnforcing`.
-
-NOTE (CORE-028): `CommandExecutor` and `HttpExecutor` are exported from **`@robota-sdk/agent-core/node`**, not from `hooks/index.ts` and not from `src/index.ts`. They spawn processes and open sockets, so a barrel carrying them puts `node:child_process` in the static import graph of every consumer — including the `browser` build, which is the defect CORE-028 removed. A consumer that only imports from `@robota-sdk/agent-core` must supply custom executors via the `executors` parameter of `runHooks`. `IRunHooksResult` follows the same export boundary.
-
-### Streaming
-
-| Export               | Kind | Description                                         |
-| -------------------- | ---- | --------------------------------------------------- |
-| `TTextDeltaCallback` | type | `(delta: string) => void` — streaming text callback |
-
-This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextDelta`. Provider implementations use `IChatOptions.onTextDelta` to emit text chunks during streaming responses. The execution engine (`execution-round.ts`, `execution-pipeline.ts`) uses only `IRunOptions.onTextDelta` (the run-scoped callback) — there is no fallback to a provider instance-level callback. Callers must pass the callback explicitly through the run context. Provider instance-level `onTextDelta` properties (if any) are a provider-internal concern and must not be relied upon by agent-core.
-
-### Cancellation Contract (CORE-018)
-
-`IRunOptions.signal` is the single cancellation source for a run. The contract:
-
-1. **Both entry points**: `run()` and `runStream()` are two entries into ONE turn (CORE-042), so
-   the signal gates the run queue (`enqueueRun`), every provider call (`IChatOptions.signal`) and
-   every tool execution identically — there is no second engine for a capability to be missing from.
-   `runStream` additionally aborts the turn when its consumer abandons the generator, since a turn
-   that keeps writing to the conversation store after its reader left is worse than a cancelled one.
-2. **Every provider call, including the abnormal paths**: the forced-summary call issued when the
-   round budget is exhausted goes through the same helper as a round call, so it carries the run's
-   signal and the configured idle timeout. On the remote seam the signal reaches `fetch`, and an
-   abort surfaces as an `AbortError` rather than a generic transport failure.
-3. **Tool executions**: `IToolExecutionContext.signal` carries the run signal into every
-   tool call. The batch executor threads it; long-running built-ins MUST honor it —
-   `shell` kills the child process, `web_fetch`/`web_search` abort the network request,
-   MCP tool calls abort the in-flight HTTP request. A tool observing an abort terminates
-   its work and returns an interrupted/failed result — silently completing after abort is
-   a contract violation.
-4. **Abort classification**: an aborted run resolves as `interrupted`, never as a provider
-   error and never as a successful completion.
-
-### Reasoning Effort
-
-| Export                         | Kind      | Description                                                                                                      |
-| ------------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------- |
-| `TModelEffort`                 | type      | Provider-neutral native-control union: `'none' \| 'minimal' \| 'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`. |
-| `TModelEffortSelection`        | type      | A concrete effort or `'auto'`; `auto` is selection state, not a native provider control.                         |
-| `IModelEffortCapability`       | interface | Verified per-model support, model default, and adapter-owned native-control identity.                            |
-| `IProviderModelEffortTable`    | interface | Source-dated adapter-owned map of exact model identifiers to effort capabilities.                                |
-| `TModelEffortDisposition`      | type      | Resolution result: `exact`, `clamped`, `model-default`, or `not-applied`.                                        |
-| `IModelEffortResolution`       | interface | Immutable selection result, including effective value and audit fingerprint.                                     |
-| `TModelEffortNativeControl`    | type      | Whether a verified native control was sent or was omitted with a reason.                                         |
-| `TModelEffortProviderDispatch` | type      | Whether endpoint dispatch occurred or was prevented with a reason.                                               |
-| `IModelEffortOutcome`          | interface | Serializable terminal record combining resolution, native control, and dispatch facts.                           |
-| `TModelEffortOutcomeCallback`  | type      | Local callback that observes one terminal model-effort outcome.                                                  |
-| `IExecutorChatResult`          | interface | Executor chat envelope containing the assistant message and optional terminal outcome.                           |
-| `IExecutorStreamMessageEvent`  | interface | Discriminated executor stream event carrying one universal message.                                              |
-| `IExecutorStreamTerminalEvent` | interface | Final executor stream event carrying the optional terminal outcome.                                              |
-| `TExecutorStreamEvent`         | type      | Union of executor message and terminal events; a successful stream has exactly one terminal event.               |
-| `resolveModelEffort`           | function  | Resolve a selection only from an adapter-owned verified table; a missing table/model is visible `not-applied`.   |
-
-`TModelEffort` and the separate `TModelEffortSelection` (declared in
-`interfaces/model-effort-capability.ts`) are Core-owned provider-neutral contracts. Adapter packages
-own source-dated per-model tables and native SDK serialization; Core never supplies vendor defaults or
-field names. A selection flows through one channel from configuration to provider:
-
-- `IModelConfig.effort` (`src/core/robota-types.ts`) — the shared model-config shape used by
-  `setModel`/`getModel`.
-- `IAgentConfig.defaultModel.effort` (`src/interfaces/agent.ts`) — the agent-config default-model
-  effort threaded into execution.
-- `IChatOptions.effort` (`src/interfaces/provider.ts`) — the per-invocation selection passed to provider
-  `chat()` and resolved only at the adapter boundary.
-
-`setModel` writes the selection into agent config (`src/core/robota-config-manager.ts`). At the
-framework→provider seam, `execution-round-provider.ts` preserves `auto` rather than pinning a vendor
-default. The resolver yields `exact`, downward `clamped`, `model-default`, or `not-applied` and an
-immutable fingerprint. The terminal outcome separately records whether a native control was sent or
-omitted and whether a provider dispatch occurred; cache and opaque-executor no-dispatch branches cannot
-claim native application.
-
-`IExecutor` carries the terminal record outside normal content: `executeChat()` returns
-`IExecutorChatResult { message, modelEffortOutcome? }`, while `executeChatStream()` yields message
-events and exactly one terminal event after them. `LocalExecutor` captures the provider's local observer
-without forwarding it, returns/transports the one outcome, then calls the original observer once; the
-remote executor does the same from the server-adapter envelope. Generic raw APIs attach the outcome to
-the non-streaming raw result or emit one explicit raw terminal envelope after streamed message records.
-
-**The model-configuration API answers from construction (CORE-047).** `getModel`, `setModel` and
-`swapDefaultProvider` work on a freshly built agent, before any turn and without `ensureReady()`. The
-state they read — the provider registry and the current `(provider, model)` pair — is established by
-the CONSTRUCTOR (`applyConstructedModelConfig`), because both steps are synchronous and derived
-entirely from the config `validateAgentConfig` has just accepted. They previously lived in the async
-initializer, next to work that genuinely is async, and the cost was a readiness guard that made you
-ask the model a question before you could ask which model you were using.
-
-`performAsyncInitialization` must not repeat those two steps: doing so would revert a `setModel()`
-made before the first run back to `config.defaultModel` when the run initializes.
-
-A **destroyed** agent still refuses, and the refusal comes from the provider manager's own disposal
-check — `"AIProviders was disposed"`, not `"must be fully initialized"`. Reporting teardown as
-missing initialization is what sent CORE-045's investigation looking for an await that did not exist.
-
-`Robota.ensureReady()` remains the public, idempotent way to complete the genuinely asynchronous half
-(modules, plugins, the execution service) without running a turn. It is no longer a precondition for
-reading or changing the model.
-
-### Provider-Native Replay Payloads
-
-`IChatOptions.onProviderNativeRawPayload` is the provider-neutral callback bridge for replay-grade raw payload capture. Provider packages own the native SDK request/response/stream objects and call this callback with `IProviderNativeRawPayloadEvent`:
-
-- `provider`: concrete provider identifier as known by the provider package.
-- `apiSurface`: optional provider-owned API surface label such as `responses`, `chat-completions`, `anthropic-messages`, or `gemini-generate-content`.
-- `payloadKind`: `request`, `response`, or `stream_event`.
-- `sequence`: optional provider-owned stream/request order. Core assigns a monotonically increasing fallback when omitted.
-- `payload`: the SDK-native payload object or primitive chosen by the provider package.
-- `metadata`: provider-owned scalar diagnostics only.
-
-`agent-core` must not import concrete provider SDK types, inspect provider names, or choose provider-specific payload fields. During a provider call, core wraps the callback and emits a `provider_native_raw_payload` execution event with the current `executionId`, `conversationId`, and `round`. The existing `provider_response_raw` event remains the provider-normalized Robota message snapshot and is not a substitute for provider-native payload capture.
-
-### Provider Contract — dual surface (intentional)
-
-`IAIProvider` deliberately exposes two request/response surfaces, and every provider implements both:
-
-- **Universal (public):** `chat(messages, options)` / `chatStream(...)` operate on `TUniversalMessage`.
-  This is the provider-neutral surface that generic layers and SDK consumers use.
-- **Raw (internal protocol path):** `generateResponse(payload)` / `generateStreamingResponse(payload)`
-  operate on `IProviderRequest` / `IRawProviderResponse`. These are consumed by the core
-  `conversation-service` to thread provider-native request/response payloads (e.g. for the
-  `provider_native_raw_payload` event). They are **not** the public consumer API.
-
-The two surfaces share one interface because a provider instance is legitimately both a universal and
-a raw provider; the raw methods are an internal-protocol detail, not a parallel public API. Generic
-layers and applications must use `chat`/`chatStream`; only the conversation service drives the raw path.
-
-### Usage-Triple SSOT (`ITokenUsage`, TYPE-003)
-
-`ITokenUsage` (`src/interfaces/provider.ts` — `promptTokens`/`completionTokens`/`totalTokens`) is the
-single source of truth for the prompt/completion/total usage triple across the whole monorepo. No
-package may re-declare this shape — named variants are aliases and inline occurrences reference the
-type directly:
-
-- `ISessionUsageTotals` (`src/services/execution-usage.ts`) — alias of `ITokenUsage`.
-- `IConversationResponse.usage` / `IStreamingChunk.usage` (`src/interfaces/service.ts`),
-  `IRawProviderResponse.usage`, `IOrchestrationStepResult.usage` — typed `ITokenUsage`.
-- `IPluginExecutionResult.usage` — `Partial<ITokenUsage>`; `convertUsage` accepts
-  `Partial<ITokenUsage>` and returns the full triple.
-- Downstream: `agent-interface-execution`'s `IBackgroundTaskUsage` is an alias, and its
-  `ISubagentJobResult.usage` and `agent-remote-client`'s message/response usage fields reference it.
-
-(`IMessageTokenUsage`/`IContextTokenUsage` below are a DIFFERENT granularity — provider-side
-input/output/cache token reads — and are intentionally not part of this triple.)
-
-### Provider Capabilities
-
-`IAIProvider.getCapabilities()` is an optional provider hook. `AbstractAIProvider` supplies a default implementation reporting function-calling support from `supportsTools()` and provider-native web search/fetch as unsupported. Generic layers must call `getProviderCapabilities(provider)` instead of branching on provider names.
-
-Provider-native web tools are not the same as Robota local function tools:
-
-- `nativeWebTools.webSearch.supported` means the provider package has a documented hosted/server-side search path.
-- `nativeWebTools.webSearch.enabled` means that hosted path is active for the current provider instance.
-- `nativeWebTools.webFetch.supported` and `enabled` follow the same semantics for provider-side page extraction/fetch behavior.
-- `IChatOptions.nativeWebTools` requests provider-native hosted web behavior for one call. Providers must call `assertProviderNativeWebToolsAvailable()` before transport execution so unsupported or disabled native web requests fail before streaming starts.
-- `IAIProvider.configureNativeWebTools()` is an optional provider hook for session/runtime assembly. Session layers may call it to enable provider-owned native web tools without importing concrete provider classes or checking provider names.
-
-Robota local `WebSearch` and `WebFetch` tools remain ordinary function tools owned by the tools layer; they are advertised through tool schemas and do not make `nativeWebTools` supported.
-
-| Export                                | Kind     | Description                                                                                                                                                             |
-| ------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resolveModelCapabilities`            | function | PROV-008: the capability set that applies to a model — its verified deviation if it has one, otherwise the vendor default. A miss is never a negative                   |
-| `modelDeclaresCapability`             | function | PROV-006: whether a model declares a capability. `undefined` when the catalog has said nothing, which is NOT `false` — silence is not a denial                          |
-| `resolveModelCapability`              | function | PROV-006: the same question with the caller's assumption for silence stated at the call site, so an unstated assumption cannot hide there                               |
-| `IProviderStructuredOutputCapability` | type     | CORE-043: which transport can carry a schema to a model (`mechanism`) and how sure that answer is (`provenance`) — two axes, because only the first changes the request |
-| `TStructuredOutputMechanism`          | type     | CORE-043: `response_schema` \| `json_object` \| `none` — WHICH transport carries the schema                                                                             |
-| `TStructuredOutputProvenance`         | type     | CORE-043: `catalog` \| `vendor-default` \| `undeclared` \| `unverified-endpoint` — WHERE the mechanism answer came from                                                 |
-
-### Context Window Tracking
-
-| Export                              | Kind      | Description                                                                                        |
-| ----------------------------------- | --------- | -------------------------------------------------------------------------------------------------- |
-| `IContextTokenUsage`                | interface | Token usage from a single API call (inputTokens, outputTokens, cache)                              |
-| `IContextWindowState`               | interface | Context window state snapshot (maxTokens, usedTokens, usedPercentage)                              |
-| `IContextTokenEstimate`             | interface | Effective estimate with serialized, provider, and caller floor token candidates                    |
-| `IMessageTokenUsage`                | interface | Normalized message token usage from metadata or provider usage payloads                            |
-| `estimateContextTokensFromMessages` | function  | Returns the maximum effective token estimate from serialized messages and latest provider metadata |
-| `estimateSerializedContextTokens`   | function  | Deterministic serialized-history fallback estimate                                                 |
-| `readTokenUsageFromMessage`         | function  | Reads normalized token usage from a single message                                                 |
-
-These types and helpers are consumed by the session layer to track effective token usage and context window state across conversation turns. When latest provider usage belongs to the terminal message, it is treated as the exact post-response state. When metadata-free user or tool messages follow the latest provider usage, the estimate becomes `max(serialized history estimate, latest provider usage, optional caller floor)`. Historical full-request provider usage is not summed. This prevents previous provider metadata from hiding a large metadata-free prompt and prevents multi-turn provider input counts from being double-counted.
-
-Provider response usage is normalized before assistant messages are committed:
-
-- Every provider round mints one `usageObservationId` before the call and commits it with the
-  provider/model/execution/round metadata. Stream fragments for that round share the ID; a later
-  provider round receives a new ID, so consumers deduplicate by identity rather than token equality.
-
-- `inputTokens`/`outputTokens` metadata is the canonical history form for context accounting.
-- Provider-normalized `promptTokens`/`completionTokens`/`totalTokens` metadata and assistant `usage` payloads are accepted and converted to the same canonical metadata.
-- Core must not branch on provider names to perform this conversion.
-- If no exact provider usage exists, context accounting falls back to deterministic character-based estimation.
-
-### History Entry Helpers
-
-| Export                  | Kind      | Description                                                                                                 |
-| ----------------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
-| `IHistoryEntry`         | interface | Rich history entry: `id`, `timestamp`, `category` ('chat' \| 'event'), `type`, `data`                       |
-| `isChatEntry`           | function  | Type guard: `(entry: IHistoryEntry) => entry is IChatHistoryEntry` — narrows to chat category entries       |
-| `chatEntryToMessage`    | function  | Converts an `IChatHistoryEntry` to a `TUniversalMessage` for API use                                        |
-| `messageToHistoryEntry` | function  | Converts a `TUniversalMessage` to an `IHistoryEntry` with `category: 'chat'`                                |
-| `getMessagesForAPI`     | function  | Extracts `TUniversalMessage[]` from `IHistoryEntry[]` for provider API calls (filters to chat entries only) |
-
-### Managers
-
-| Export                                    | Kind                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ----------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AgentFactory`                            | class                | Agent creation and lifecycle — ARCH-055 (issue #2159): `createAgent` is ONE transaction. Admission (limit check over active + pending, collision-safe id from `IAgentFactoryOptions.idFactory`, pending slot) happens before the first `await`; then `beforeCreate` → construct → `initialize` → commit (pending → active, stats) → `afterCreate` via `runRegistryTransaction`, with reverse rollback (`cleanup`, unregister, stats reversed) and the primary error preserved. `destroyAgent` uses `lifecycleOf`, not duck typing |
-| `runRegistryTransaction`                  | function             | ARCH-055: ordered steps with reverse `undo` on failure; the failing step's error is rethrown with `failedStep` and `rollbackErrors` attached (`IRegistryTransactionError`). The contract `ModuleRegistry`/`Plugins` adopt next                                                                                                                                                                                                                                                                                                    |
-| `lifecycleOf` / `IRegistryOwnedLifecycle` | function / interface | ARCH-055: the one type guard for a registry-owned instance's declared `initialize`/`cleanup`                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `AgentTemplates`                          | class                | Template-based agent creation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `ConversationHistory`                     | class                | History management                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `ConversationStore`                       | class                | Session management                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-
-### Services
-
-| Export                   | Kind          | Description               |
-| ------------------------ | ------------- | ------------------------- |
-| `EventHistoryModule`     | class         | Event recording           |
-| `AbstractEventService`   | abstract base | `IEventService` base      |
-| `DefaultEventService`    | class         | Null-object event service |
-| `StructuredEventService` | class         | Structured event service  |
-| `ObservableEventService` | class         | Observable event service  |
-
-Note: `AbstractEventService`, `DefaultEventService`, `StructuredEventService`, and `ObservableEventService` are part of the public surface — all four are exported from `src/index.ts` and appear in the Class Contract Registry.
-
-### Plugins (1 built-in)
-
-| Plugin               | Category         | Description        |
-| -------------------- | ---------------- | ------------------ |
-| `EventEmitterPlugin` | event_processing | Event coordination |
-
-8 plugins were extracted to external plugin packages to comply with the agent-core zero-dependency rule. They extend `AbstractPlugin` (defined here) and are wired by the consuming layer.
-
-## Plugin Contract
-
-Plugins extend `AbstractPlugin` and implement lifecycle hooks:
-
-| Hook                  | Timing             | Purpose                          |
-| --------------------- | ------------------ | -------------------------------- |
-| `beforeRun`           | Before LLM call    | Input transformation, validation |
-| `afterRun`            | After LLM response | Output processing, recording     |
-| `onError`             | On execution error | Error handling, recovery         |
-| `onStreamChunk`       | During streaming   | Chunk processing                 |
-| `beforeToolExecution` | Before tool call   | Tool input validation            |
-| `afterToolExecution`  | After tool result  | Tool output processing           |
-
-Plugins declare `category` (PluginCategory) and `priority` (PluginPriority) for execution ordering.
-
-### Disposal Chain Contract (CORE-022)
-
-Component-level disposal has exactly one entry point; agent-level destruction drives it:
-
-1. **`dispose()` is the component contract.** `AbstractPlugin.dispose()` is the single
-   disposal entry point for plugins (matching modules, providers, and executors, which
-   already use `dispose()`). A plugin owning resources — timers, sockets, storage handles —
-   MUST override `dispose()` and release them (calling `super.dispose()` to unsubscribe
-   module events). `destroy()` methods on plugins are not part of the contract and do not
-   exist.
-2. **`Robota.destroy()` is the agent-level terminal operation.** It awaits the run-queue
-   tail (in-flight and already-queued runs settle first), disposes every registered plugin
-   via `dispose()`, disposes modules and the internal event emitter, resets state, and
-   marks the instance destroyed. Best-effort per CORE-013: step failures are collected,
-   never thrown.
-3. **`destroyed` is terminal.** Once `destroy()` is initiated, new `run()` / `runStream()`
-   calls reject with a `[LIFECYCLE]` error and re-initialization is impossible — a
-   destroyed agent never revives. Repeated `destroy()` is idempotent.
-4. **Failed initialization is not cached.** When async initialization rejects, the cached
-   init promise is cleared so a subsequent call can retry (before destruction); the
-   original failure propagates to the awaiting caller.
-
-After the owning runtime's shutdown completes, the agent must hold no live timers or
-listeners — a process kept alive by an undisposed plugin resource is a contract violation
-(live-confirmed: an undisposed flush interval hung the CORE-021 probe indefinitely).
-
-### EventEmitterPlugin Error Containment (CORE-021)
-
-Handler failures must never take down the process:
-
-1. **`catchErrors: true` (default)** — a throwing handler is recorded in metrics and
-   structured-logged, and the error is **swallowed** (never rethrown to the emitter caller).
-   `catchErrors: false` rethrows to the caller after recording metrics.
-2. **No floating flush.** The buffered-mode flush timer must attach a rejection handler to
-   every `flushBuffer()` it schedules — a handler error surfacing through a floating flush
-   promise is an unhandled rejection (process death on Node 20+), which violates item 1.
-
-## Event Architecture
-
-### Event Naming
-
-Full event names follow the pattern `ownerType.localName`:
-
-| Prefix        | Owner                | Examples                                     |
-| ------------- | -------------------- | -------------------------------------------- |
-| `execution.*` | ExecutionService     | `execution.start`, `execution.complete`      |
-| `tool.*`      | ToolExecutionService | `tool.execute_start`, `tool.execute_success` |
-| `agent.*`     | Robota               | `agent.completion`, `agent.created`          |
-| `task.*`      | Task system          | `task.started`, `task.completed`             |
-| `user.*`      | User actions         | `user.input`                                 |
-
-### Owner Path Tracking
-
-Each event carries an `ownerPath` array of `IOwnerPathSegment` objects that traces the execution hierarchy:
-
-```typescript
-interface IOwnerPathSegment {
-  ownerType: string; // 'agent' | 'tool' | 'execution'
-  ownerId: string;
-}
-```
-
-Events are bound to their owner via `bindWithOwnerPath()`.
+- Does not own workflow visualization or session persistence; session persistence belongs to the session layer.
+- **Zero dependency on other agent-\* packages.** `agent-core` must never import any other `@robota-sdk/agent-*` package as a production dependency. This is the foundation of the layered assembly architecture: other agent-\* packages register with agent-core through its abstract contracts; agent-core never depends on them. Plugins were externalized to external plugin packages specifically to preserve this constraint.
+
+## Architecture
+
+Robota is a Facade over a Manager layer (provider registration, tool registry, agent lifecycle, conversation storage, module loading), a Service layer (message handling/LLM calls, tool schema validation and batch execution, unified event emission bound to an owner path), a Permission layer (deterministic policy evaluation for tool calls), a Hook layer (pluggable lifecycle hook execution via a strategy pattern), and a Plugin layer (one built-in event-coordination plugin; all product-facing plugins live in the external `@robota-sdk/agent-plugin` package to preserve the zero-dependency boundary above).
+
+All managers, services, and tools accept dependencies through constructor injection — there are no global singletons, and each `Robota` instance is completely independent. Safe defaults follow the Null Object pattern (a silent logger, a no-op event service), so a caller who wires nothing still gets working, side-effect-free behavior.
+
+## Type and Model Ownership
+
+This package is the SSOT for the core message, provider, permission, hook, context, and interaction contract types that provider and higher-level packages build against; those packages must not re-declare them.
+
+`context/models.ts` is the SSOT for Claude model metadata, and `context/model-pricing.ts` is the SSOT for per-model token pricing (USD per 1,000,000 tokens) so cost-estimating consumers read one table rather than embedding their own.
+
+Model context-window/pricing metadata for OTHER vendors is intentionally not owned here — see "Model Metadata Registry" below.
+
+## Path Containment
+
+The SSOT for "is this path inside that root?" whenever the answer is a security decision. `path.resolve`/`path.normalize` are purely lexical and never consult the filesystem, so they cannot see a symlink: a link sitting inside a root but pointing outside it satisfies a `startsWith(root + sep)` check while the syscall that follows escapes the boundary. Every security-boundary containment check in the monorepo (the file-tool sandbox, the CLI monitor asset server) routes through this module's canonical-path comparison, because two containment checks that can disagree are their own defect.
+
+This is exported from `@robota-sdk/agent-core/node`, not the main barrel: it reads the filesystem, and a barrel carrying it puts `node:fs` in every consumer's static import graph — the import path is where the Node dependency becomes legible.
+
+## Egress Policy
+
+The one outbound boundary for every caller- or model-supplied URL (web fetch, image-edit input fetch, and any future HTTP client a built-in or node runtime adds), exported from `@robota-sdk/agent-core/node` because it needs `node:dns`/`node:net`. It refuses loopback/private/link-local/CGNAT/multicast/reserved destinations for IPv4, IPv6, IPv4-mapped and IPv4-compatible forms — checking BOTH spellings of an embedded IPv4 address (the hex form a URL renders and the dotted form DNS lookups render), because classifying only one spelling leaves the other as a bypass. It also refuses a fixed hostname blocklist (including cloud metadata endpoints) and resolves hostnames, refusing if any answer is private.
+
+Policy outcomes are returned as a discriminated result (`{ ok: false, rejection }`), never thrown; transport errors are thrown as `fetch` throws them. On a cross-origin redirect every caller-supplied header except `User-Agent` is dropped. Known, documented gap: the connection is not pinned to the validated address (Node's global `fetch` offers no connect-time hook without `undici`), so resolve-then-validate per hop narrows the DNS-rebinding window rather than closing it.
+
+## Owner-Only Store
+
+The SSOT for "create this directory or file so only its owner can read it," for every host store under `~/.robota` and a project's `.robota` (session records, logs, settings, device credentials). This module exists because three facts about the Node filesystem API each independently produced a real defect before it did:
+
+- `mkdirSync(path, { recursive: true, mode })` does **not** set the mode of a directory that already exists — it silently adopts whatever is there (measured: a log directory pre-created at 0777 stayed 0777 while its records were 0600, so another account could read, replace, or enumerate records).
+- `writeFileSync(path, data, { mode })` applies the mode only when the file is **created** — a record an older version left at 0644 keeps 0644 through every later save.
+- Creating a file wide and tightening the permissions afterwards leaves a window where the full record is readable on disk. The module therefore creates with the final mode from the start (atomic `wx`) and never chmods after, so a mutation that removes the mode is caught rather than masked.
+
+Create, set the mode, then **verify** — the verification is load-bearing, not a belt-and-braces extra: it is what catches a filesystem that accepts `chmod` and silently ignores it. Windows cannot express owner-only through `chmod`; the module reports which guarantee (`posix-mode` or `windows-acl`) is actually in force rather than claiming POSIX semantics everywhere, and a project-local `.robota` inside a world-writable directory on Windows is **not** protected by this module. Exported from `@robota-sdk/agent-core/node` for the same reason as path containment: it reads and writes the filesystem.
+
+## Permission Argument Registry
+
+Which argument a tool's permission patterns are scoped to is declared by the tool's own package, not resolved from a hardcoded table of product tool names in this vendor-neutral foundation — a hardcoded table could never know a product's full tool inventory, so an argument-scoped deny for an unknown tool could never match, and a `false` read from a deny list reads as "not denied," meaning the deny silently lost to any broader allow beside it and the invocation was auto-approved.
+
+The argument key is declared together with its **kind** (`path | url | command | text`) as one object, because a single glob syntax served every kind and, for example, a URL pattern that looked like a plain wildcard was actually a wildcard over the whole URL including scheme and host. A bare `*`/`**` pattern matches any invocation for any kind and even for a tool with no declared argument (the preset "match everything" case) — in both directions: a keyless tool under a deny list is now denied where it used to prompt, and under an allow list it is now auto-approved in every mode, where the pattern used to have no effect.
+
+The `command` kind is the only one whose answer differs between the allow and the deny direction. On the allow side, a wildcarded pattern refuses to match across shell separators or substitutions outside quotes (`Bash(git *)` matches `git status` but not `git status; rm -rf /`) — allow is permissive by construction, so it must not accidentally bless a compound line. On the deny side, the same glob is tried against the whole line AND against each command the line runs, because "cannot judge" on a deny must read as "not denied," and a lenient deny match would let a forbidden command hide behind an unrelated one earlier in the line. Both directions honor shell quoting.
+
+A pattern or argument that cannot be evaluated in its declared kind is a distinct outcome from "did not match," and `evaluatePermission` routes an unevaluable **deny** to a prompt (or an outright deny in `plan` mode) rather than falling through to the allow list — the same fail-closed principle as the command-kind asymmetry above, generalized to every kind.
+
+## Model Metadata Registry
+
+Who owns the answer to "how big is this model's context window." This package used to carry a Claude-specific table directly, violating its own no-branching-on-concrete-models rule, and `getModelContextWindow` handed every model NOT in that table `DEFAULT_CONTEXT_WINDOW` (200,000) — which is Claude's number, so every non-Claude session was silently planned against another vendor's context size with no signal that anything was wrong. Model metadata now lives with the package that owns those models (each provider package contributes its own table), and this registry is the ONLY aggregation point — a model nobody registered is a model nobody owns, and the lookup helpers say so explicitly rather than defaulting silently.
+
+## Diagnostic Sink
+
+Where this package's diagnostics go. The internal logger used to fall back to a silent no-op when no sink was passed, but no call site in the repository ever passed one and nothing could install one afterwards — so every diagnostic log call, including failure paths, had no reachable destination; that is not "logging was unconfigured," it could not be configured at all. The default remains **silent**: a library that starts writing to the console just because it was imported is its own defect, so turning diagnostics on must be something a host does deliberately, by installing a process-wide sink. The sink is resolved per call rather than frozen at construction, which is what lets a logger created during module initialization honor a sink installed afterwards.
+
+## Abort Classification
+
+The SSOT for "was this failure an abort?" whenever the answer changes what a caller reports. Several call sites used to decide this by testing the error's message text for the substring "abort," and treated a match as a successfully interrupted run — so a real provider failure whose text happened to contain those letters was reported as a clean interruption, with nothing downstream able to tell the difference. The authoritative signals are the caller's own `AbortSignal` and the error's own `name`, neither of which is a guess about wording. This is exported (not kept private) because more than one layer needs the identical decision, and a private copy is exactly how a wording-based bug survives a fix applied elsewhere.
+
+## Structured Output Schema Conversion (Zod / JSON Schema)
+
+`IParameterSchema` is the one shape every tool schema and every structured-output schema in the repo is expressed in — the same shape describes a root object and every nested node; there is no separate nested form, because splitting the two is what previously let a nested object be emitted as a bare `{ type: 'object' }` while only the root actually named its fields.
+
+- Exactly one of `type` / `anyOf` may be present on a node; emitting both is invalid JSON Schema (a provider applies both constraints and rejects whichever branch fails), and a node with neither is refused everywhere rather than passed silently.
+- `additionalProperties` declares closure **relative to a declared `properties` set**: a node that declares `properties` (even an empty one) is closed unless `additionalProperties` says otherwise, while a node that declares no `properties` at all permits any properties, per JSON Schema semantics. The presence of the member, not its emptiness, is what decides — this reflects that the convention was authored for a tool's `parameters` root, where `properties` is always present, so "omitted rejects extras" only ever meant "nothing beyond the declared set" there; carrying that phrasing unchanged onto a nested free-form-object node (which legitimately omits `properties`) would silently give the omitted case a second, unintended meaning.
+- Depth is owned by exactly one traversal (`validateAgainstJsonSchema`); a tool's own input validation keeps only its caller-facing leaf error messages and delegates everything with depth to that one function, so the input and output validation paths cannot disagree about the same schema.
+
+Zod-to-schema conversion supports the common constructs (strings, numbers, objects, arrays, enums, unions, records, optional/default/nullable wrappers, refinements/transforms unwrapped at every level). A few choices are deliberate rather than incidental: `ZodNullable` keeps the null half of the accepted type in the emitted schema, because dropping it is a silent rejection of a payload the author's own Zod schema accepts. `ZodNativeEnum` emits only the enum's _values_, not the reverse-mapped names a numeric TypeScript enum also produces via `Object.values`, to avoid advertising an accepted string that the underlying field does not actually accept. `ZodTuple`, `ZodIntersection`, and `ZodLazy` throw at conversion rather than being mapped lossily — the target schema subset has no positional-items, `allOf`, or `$ref` construct to carry them faithfully, and a lossy mapping (e.g. flattening a tuple to "array of any") would silently tell the model a laxer contract than the author wrote. The error names the construct and why, and suggests an alternative Zod expression, so the boundary is discoverable rather than a silent surprise. Zod's three unknown-key modes (`.passthrough()`/default `strip`/`.strict()`) map distinctly to `additionalProperties`; `strip` still emits `true` because the _extra keys are accepted at the boundary and dropped afterward_ by the tool wrapper, not rejected — emitting `false` for it would tell consumers to reject payloads the author's schema actually accepts. A non-object conversion root throws rather than returning an empty schema, because an empty schema reaches the model as "an object, contents unspecified" — exactly the ambiguity this converter exists to prevent.
+
+## Tool Schema Projection
+
+A third-party tool's input schema still has to cross one more boundary before it reaches a provider: each vendor's wire format accepts a different subset (Anthropic: standard JSON Schema with an object root; OpenAI strict mode: every object closed and every property required, optionality expressed as nullable unions; Gemini: an OpenAPI-3.0-shaped subset that cannot carry `additionalProperties` at all). One shared, pure, deterministic projector is used by every provider instead of each reshaping the schema itself; it never throws and never mutates its input, returning one of three outcomes: adopted unchanged (same reference), adapted (a projected copy, with a list of what changed), or rejected (unusable for this provider, with a reason).
+
+Refusals include a non-object root, a dangerous property name (`__proto__`/`constructor`/`prototype`), a cycle, excessive depth or node count, and (depending on the provider's policy) unrecognized keywords or a node declaring both `type` and `anyOf`. Adaptations strip or replace unsupported keywords/members and, where a provider requires it, close objects and force-require all properties (representing an optional field as nullable-and-required instead, since strict mode has no separate optionality channel). When an adaptation removes a _validation_ constraint (something that actually restricts accepted values, e.g. `pattern` or `additionalProperties`) rather than a mere annotation, the tool's description gains one trailing note naming what was not shown to that provider — so a caller can tell, from the schema alone, that a real constraint was dropped for wire compatibility, as opposed to a harmless annotation.
+
+Crucially, a projection changes only what is put on the wire to the provider: the pre-projection, unmodified schema remains what actual tool-call argument validation checks against, so a wire-compatibility relaxation (like the strict-mode nullable compensation) can never widen what the tool call itself is allowed to contain.
+
+## Structured Output Contract
+
+Requesting a schema-validated result returns a validated typed object instead of a string; a streaming run delivers the validated object as the stream's terminal/return value rather than as another delta.
+
+Before the first model call, the resolved provider's capability table is asked which transport can carry the requested schema for _this_ model, and the request is shaped accordingly: a native schema parameter is used when available; a plain "JSON mode" flag is used when the provider guarantees valid JSON but not a specific shape; and when neither exists, the option is omitted from the transport and the schema is instead stated as a system instruction on the very first attempt — so a provider without a schema parameter does not have to spend its first attempt discovering that the target shape was never communicated. A provider that declares no capability table at all is sent the request unchanged: silence about a capability is not the same as a stated absence of it, and treating it as a denial would be an unjustified negative claim.
+
+Endpoint provenance (is this endpoint actually the vendor's own, or a custom base URL that may not honor the vendor's stated guarantees) is tracked as a fact independent of the capability table itself, because a provider can decline to publish a capability table (nobody has verified one) while still needing to report whether it's pointed at a vendor default — folding the two together would force such a provider to either fabricate a capability claim or misreport a gateway as a model that lost a capability.
+
+The final response text is parsed and validated on every run; a validation failure triggers a bounded number of retry turns whose input carries the validation issues alongside the schema, and every attempt (including retry-feedback turns) is committed to conversation history through the standard append-only path — structured output never rewrites history. Exhausting the retry budget throws a dedicated error carrying the validation issues and attempt count. Tools may run within a structured turn; the schema is validated only against the final assistant text once tool rounds complete.
+
+A forced-tool transport (calling a synthetic tool whose parameters _are_ the schema) was considered and is deliberately not implemented as a real mechanism today: it would require a provider that simultaneously lacks a native schema parameter AND has enforceable strict-tool-argument support, and across this workspace that intersection is empty — introducing a union branch nothing can produce is a case every consumer would have to handle and no test could exercise.
+
+## Tool Residency and Tool Search
+
+Historically every registered tool's full schema was put in front of the model on every request, with no way to load one on demand as the tool count grew. Residency changes that: a tool schema is either **resident** (always offered — the default, so every schema that existed before this contract is unaffected) or **deferred** (withheld from the request until a search tool loads it), and the set actually sent on a given request is what's **offered**.
+
+Deferral here is stronger than the vendor feature of the same name: a vendor's native "defer loading" keeps a definition out of the model's visible context while the request still carries every schema server-side, because the vendor's own search needs them there. This implementation withholds the schema from the outbound request entirely, so both wire bytes and context tokens actually fall, and the same behavior works uniformly across every provider — including ones that document no comparable native feature — because the model-visible search mechanism is just an ordinary function tool over a catalog this package owns.
+
+Two invariants are enforced, both refused rather than silently repaired: at least one tool must remain resident (a configuration that defers everything offers the model nothing to call and nothing to search with, mirroring a vendor's own rejection of the same configuration), and if deferral is engaged and at least one schema is actually withheld, the request must also offer a tool search tool — a deferred tool with no loader is unreachable, and the policy refuses that outcome rather than leaving it silently unreachable.
+
+The offered tool list is read fresh on every round rather than snapshotted once per run, which is what makes "a tool loaded by round N is usable in round N+1" possible at all. Deferral engages automatically only past a threshold (either a deferrable-tool count or an estimated-schema-token share of the model's context window), not unconditionally, so a small tool set is completely unaffected and a growing one switches on with no explicit flag day; an explicit configuration setting always overrides the automatic threshold. Deferral never widens authority: the permission gate decides by tool name only and never consults residency state, so a permission rule has the same effect whether its tool is currently loaded or not.
+
+## Disposal Contract
+
+Every disposal surface in the stack follows one convention: disposal is **best-effort** and never rejects for a cleanup failure, so a fire-and-forget disposal call is always safe (a rejection there would otherwise be an unhandled rejection capable of killing the host process). Every cleanup step runs regardless of an earlier step's failure; each failure is recorded and returned to the caller rather than thrown, and state is always reset. Operation-style closes that a caller directly acts on (as opposed to teardown) are the deliberate exception and keep throwing, because their errors are answers the caller needs, not cleanup noise to be collected.
+
+At the agent level specifically: destruction awaits the run-queue tail so in-flight and already-queued runs settle first, then disposes plugins and modules and resets state. Once destruction is initiated the instance is **terminal** — new runs are rejected and re-initialization is impossible, but repeated destroy calls are idempotent. A failed (not yet successful) initialization is NOT cached as a permanent failure, so a caller can retry construction-time setup before the instance is actually destroyed. After shutdown completes, the agent must hold no live timers or listeners; an undisposed resource that keeps a process alive is a contract violation, not a cosmetic leak.
+
+Plugin resource cleanup follows the same single entry point (`dispose()`, not an ad hoc `destroy()`), and a plugin owning timers, sockets, or storage handles must override it to release them. A plugin's own handler failures must never take down the host process: by default a throwing handler is recorded and swallowed rather than rethrown, and any background flush the plugin schedules must attach its own rejection handler — a bare unhandled promise there is exactly the kind of process-killing failure this contract exists to prevent.
 
 ## Permission System
 
-The permission module (`src/permissions/`) provides a deterministic, four-step policy evaluation for tool calls. It is consumed by the session layer to gate tool execution before delegating to the actual tool.
+Deterministic, four-step policy evaluation, consumed by the session layer to gate tool execution before delegating to the actual tool:
 
-### Evaluation Algorithm (`evaluatePermission`)
+1. **Deny list match** — any matching deny pattern returns `deny` immediately.
+2. **Deny list unevaluable** — if a deny pattern is argument-scoped and either no owner has declared which argument this tool's patterns are about, or the argument/pattern cannot be interpreted in its declared kind, the deny cannot be evaluated and the gate prompts (or denies outright in `plan` mode) rather than continuing to the allow list. This is the fail-closed complement to step 3: an unevaluable deny must never be treated as "no deny applies."
+3. **Allow list match** — any matching allow pattern returns `auto` (proceed without prompting).
+4. **Mode policy lookup** — falls back to the tool's declared risk class (`inspect`/`modify`/`execute`) crossed with the current permission mode. A tool whose owner declared no risk class prompts and is refused outright in `plan` mode, rather than defaulting to permissive — an unclassified tool must be at least as cautious as a hand-classified risky one.
 
-1. **Deny list match** -- If any deny pattern matches the tool invocation, return `'deny'`.
-2. **Deny list unevaluable** (CORE-030, CORE-049) -- If a deny pattern is scoped to an ARGUMENT and either no owner has declared which argument this tool's patterns are about, or the argument or pattern cannot be interpreted in the declared kind (`url`: the argument does not parse, has a non-special or host-less scheme, carries userinfo, or a path segment does not percent-decode; the pattern does not fit the grammar or its literal host does not parse; `path`: a relative argument under an absolute pattern), the deny cannot be evaluated and the gate prompts (`deny` in `plan`) rather than continuing. A bare `Tool(*)` deny matches regardless. The owner declares the argument with `registerToolPermissionProfile(toolName, { argument: { key, kind } })`.
-3. **Allow list match** -- If any allow pattern matches, return `'auto'` (proceed without prompting).
-4. **Mode policy lookup** -- Look up the tool's declared `riskClass` and return `RISK_CLASS_POLICY[mode][riskClass]`. A tool whose owner declared no class returns `UNCLASSIFIED_TOOL_FALLBACK[mode]`, which prompts and refuses in `plan`.
-
-   CORE-030: the classification is declared by the package that DEFINES the tool, not by a name table
-   in this package. A hardcoded matrix could not know a product's tool inventory and had drifted from
-   it — `Agent`, `BackgroundProcess`, `CodebaseRetrieval` and `ExecuteCommand` were all produced in
-   the workspace and unknown to it, so a read-only retrieval tool prompted on every call and was
-   refused in plan mode. New produced tools must declare their capability metadata.
-
-### Permission Modes
-
-| Mode                | Read tools | Write tools      | Bash             | ComputerView (perceive) | Computer (act)   |
-| ------------------- | ---------- | ---------------- | ---------------- | ----------------------- | ---------------- |
-| `plan`              | auto       | deny             | deny             | auto                    | deny             |
-| `default`           | auto       | approve (prompt) | approve (prompt) | auto                    | approve (prompt) |
-| `acceptEdits`       | auto       | auto             | approve (prompt) | auto                    | approve (prompt) |
-| `bypassPermissions` | auto       | auto             | auto             | auto                    | auto             |
-
-SELFHOST-010 computer-use (no new gate): `ComputerView` (read-only perception) is decided EXACTLY like `Read`
-(`auto` in every mode, so read-only inspection of a rendered surface works even in `plan`), and `Computer` (a
-mutating GUI action) is decided EXACTLY like `Shell`/`Bash` (`deny` in `plan`, `approve` in `default` and
-`acceptEdits` — a GUI mutation is not a file edit — and `auto` only under `bypassPermissions`). Both route
-through the existing `evaluatePermission` → `MODE_POLICY` path and `PermissionEnforcer`.
-
-### Pattern Syntax
-
-Patterns follow the format `ToolName(argGlob)`:
-
-- `Bash(pnpm *)` -- Bash tool whose command starts with "pnpm "
-- `Read(/src/**)` -- Read tool whose filePath is under /src/
-- `Write(*)` -- Write tool with any argument
-- `ToolName` -- Match any invocation of that tool (no argument constraint)
+The risk-class-to-decision matrix intentionally names no concrete product tool: read-only tools auto-proceed in every mode including `plan`; write and shell-execution tools are denied in `plan`, prompt in `default`, and only shell/execute-class actions still prompt in `acceptEdits` (write actions become automatic there); everything is automatic only under the most permissive mode. This vendor-neutral foundation cannot know a product's full tool inventory, so classification is declared by the package that defines each tool, not read from a hardcoded name table here — a hardcoded matrix previously drifted from the actual tool set and left newly produced tools prompting (or refused in `plan`) by default until their owner declared a class.
 
 ## Hook System
 
-The hook module (`src/hooks/`) provides a pluggable lifecycle hook mechanism. Hooks support multiple execution types (command, http, prompt, agent, guardrail) via the strategy pattern. Command hooks receive JSON input on stdin.
+A pluggable lifecycle hook mechanism supporting multiple execution strategies (shell command, HTTP, and, in higher layers, LLM-prompt and sub-agent delegation).
 
-**Outcome contract (SEC-015).** An executor returns a decoded `THookOutcome`, not an exit code. `allow` and `deny` are the two verdicts; `error` is the ABSENCE of one, and carries a `THookErrorKind` naming why. The distinction exists because the previous `{ exitCode, stdout, stderr }` shape had no channel for a failure, so every failure was coerced into a verdict by JavaScript truthiness — a non-boolean `ok` read as approval and silently disabled the gate, while a missing one read as denial and blocked a tool call no hook had objected to. `runHooks` reports every `error` on `IRunHooksResult.errors`.
+**Outcome contract.** A hook executor returns a decoded three-way outcome — `allow`, `deny`, or `error` — rather than a raw exit code or HTTP status. `error` is the _absence_ of a verdict, not a third verdict, and carries a reason for why no verdict could be decoded. This distinction exists because the previous shape had no channel for "the hook itself failed," so every failure was coerced into a verdict by ordinary truthiness: a malformed non-boolean field could read as approval and silently disable the gate, while a missing field could read as denial and block a tool call no hook had actually objected to. A decoded body is trusted only when its verdict field is exactly `true` or exactly `false`; an explicit block directive stated elsewhere in the same body is honored even alongside an otherwise-undecodable verdict field, because that directive is a decision the hook stated outright and an undecodable field beside it does not retract it.
 
-**Per-event enforcement posture (SEC-016).** `HOOK_ENFORCEMENT_POLICY` in `hooks/enforcement-policy.ts` records, for every `THookEvent`, whether an `error` blocks there. `PreToolUse` is `enforcing`; the other fifteen events are `advisory`.
+**Per-event enforcement posture.** Whether an `error` outcome actually blocks the operation is a _per-event_ policy, not a blanket rule — recorded event-by-event, together with whether that event's call site is even capable of honoring a block (many fire sites do not await the hook result or do not inspect it). Only the event whose fire site both awaits and inspects the result is allowed to enforce; asserting "enforcing" for an event whose fire site can't act on it would flip a row that changes nothing while reading as though a gate had been switched on. In this codebase, tool-use gating is the sole event that fails closed on an undecodable hook result; every other lifecycle event is advisory. A single published predicate answers "does this event enforce," so no consumer re-derives the rule from the table and risks disagreeing with it.
 
-That asymmetry is not a preference. Measured across the tree, `PreToolUse` is the only event whose fire site awaits `runHooks` and consults `blocked` — seven events fire `void`, five are called without `await`, and three await a result they never inspect. So each row also records `enforcementReachable`: whether its fire site _can_ honour an enforcing posture. Without it the table would assert postures for events that cannot act on them, and flipping such a row would change nothing while reading as though a gate had been switched on.
+**Command hook exit-code mapping.** A command hook's exit code is one _input_ to the outcome decision, not the decision itself: exit 0 is `allow` (with stdout carried through), exit 2 is `deny` (with stderr as the reason), and every other exit code, a signal kill, a timeout, or a process that never started is `error` with a specific named reason (never silently coerced to `allow` or `deny`).
 
-`assertPolicyCoherent` rejects a row claiming `enforcing` with `enforcementReachable: false`.
-Fire-site reachability must be checked against the caller when that policy changes.
+## Cancellation Contract
 
-`isEnforcing` is the only member on the package root. `HOOK_ENFORCEMENT_POLICY`, `assertPolicyCoherent` and the two policy types are exported from `hooks/index.ts`.
+A run's cancellation signal is the single source of cancellation for that run, and gates identically across every entry point into a turn — there is no second, cancellation-blind execution path. It reaches every provider call including abnormal ones (e.g. a forced end-of-round summary call goes through the same signal-carrying path as a normal round call), every tool execution (a long-running built-in tool MUST observe the signal and terminate its own work rather than completing silently after abort — silent completion after abort is a contract violation), and a streaming consumer that abandons its generator early also aborts the underlying turn, since a turn that keeps writing to history after its only reader left is worse than one that was cleanly cancelled. An aborted run always resolves as "interrupted," never as a provider error and never as an ordinary successful completion.
 
-**A consumer asking "does this event enforce?" calls `isEnforcing` — it does not re-derive the
-predicate, and it does not need the table to answer that question.** SEC-016 publishes one root
-predicate so consumers do not re-derive enforcement posture from the table. A second predicate could
-disagree with it.
+## Reasoning Effort
 
-### Hook Events
+A provider-neutral effort vocabulary (`none` through `max`, plus an `auto` selection state that is NOT itself a native provider control) that adapter packages resolve against their own source-dated, per-model capability tables — this package supplies no vendor defaults or field names. Resolution yields one of a small set of dispositions (applied exactly, clamped downward, fell back to the model's own default, or not applied at all) plus an immutable audit record, and the terminal outcome separately records whether a native control was actually sent to the provider and whether a provider dispatch occurred at all — a cached or otherwise no-dispatch response can never claim to have applied a native effort control, which matters for anything auditing what was actually sent on the wire.
 
-Owner-local development examples in `packages/agent-core/examples/` invoke the built Node
-`runHooks` API. From this package, run `node examples/hook-block-demo.mjs`,
-`node examples/hook-json-response-demo.mjs`, `node examples/hook-permission-mode-demo.mjs`, or
-`node examples/hook-timeout-demo.mjs`. They preserve exit-2 blocking/reason, JSON denial and
-system-message handling, permission-mode stdin propagation, and explicit timeout/success
-observations. The block example's formatted tool result is illustrative, not an executed AI or
-permission-enforcer round trip; its tool-input command is data, not executed. The timeout example
-resolves both its built runtime and its source-constant inspection relative to its own location,
-independent of caller cwd. Reading the default-timeout constant is source inspection, not a
-600-second runtime test. These tools are not new public SDK exports.
+The model-configuration read/write API (getting or setting the active model) is answerable immediately after construction, without requiring the agent's async readiness to complete first: the state it reads (provider registry, current provider/model pair) is established synchronously in the constructor from already-validated config, because forcing a caller through the async initializer just to ask "which model is this?" made no sense. A destroyed agent reports its own teardown as teardown (a specific disposal-check message), not as "not yet initialized" — those are different failures and conflating them previously sent an unrelated investigation looking for a missing `await` that did not exist.
 
-| Event              | Timing                    | Purpose                                          |
-| ------------------ | ------------------------- | ------------------------------------------------ |
-| `PreToolUse`       | Before tool execution     | Validation, blocking, transformation             |
-| `PostToolUse`      | After tool execution      | Logging, auditing, notification                  |
-| `SessionStart`     | Session initialization    | Setup, environment checks                        |
-| `SessionEnd`       | Session completion        | Final cleanup, summary logging                   |
-| `Stop`             | Session stop (success)    | Cleanup, reporting                               |
-| `StopFailure`      | Session stop (failure)    | Error reporting, rollback                        |
-| `PreCompact`       | Before context compaction | Validation, logging (trigger: auto/manual)       |
-| `PostCompact`      | After context compaction  | Logging, notification (includes compact_summary) |
-| `UserPromptSubmit` | After user submits prompt | Pre-processing, validation, prompt rewriting     |
-| `SubagentStart`    | Before subagent launch    | Resource allocation, permission checks           |
-| `SubagentStop`     | After subagent completion | Resource cleanup, result aggregation             |
-| `WorktreeCreate`   | After worktree creation   | Workspace setup, environment initialization      |
-| `WorktreeRemove`   | After worktree removal    | Workspace cleanup, resource release              |
+## Provider-Native Replay Payloads
 
-### Hook Definition Types (Discriminated Union)
+Provider packages own their native SDK request/response/stream objects and report them through a provider-neutral callback bridge for replay-grade session capture; this package must not import concrete provider SDK types, inspect provider identity, or choose provider-specific payload fields — a provider names itself and its own API surface as opaque strings, and this package only wraps the callback, assigns a stream-order fallback when a provider omits one, and stamps the current execution/conversation/round identity onto the emitted event.
 
-`IHookDefinition` is a discriminated union on the `type` field:
+## Provider Contract — Dual Surface (Intentional)
 
-| Type      | Fields                               | Description                                         |
-| --------- | ------------------------------------ | --------------------------------------------------- |
-| `command` | `command: string`                    | Shell command execution (stdin JSON, exit codes)    |
-| `http`    | `url: string`, `method?`, `headers?` | HTTP request to an external endpoint                |
-| `prompt`  | `prompt: string`                     | LLM prompt injection into session context           |
-| `agent`   | `agent: string`, `config?`           | Delegate to a nested agent execution for processing |
+Every provider implementation deliberately exposes two request/response surfaces: a universal, public surface (`chat`/`chatStream`, operating on the package's normalized message type) that generic layers and SDK consumers use, and a raw, internal-protocol surface used only by this package's own conversation service to thread provider-native request/response payloads for replay capture. The two live on one interface because a provider instance is legitimately both at once; the raw methods are an internal-protocol detail, not a second public API, and only the conversation service is meant to drive them.
 
-### Hook Type Executors (Strategy Pattern)
+## Usage-Triple SSOT
 
-`IHookTypeExecutor` defines the strategy interface for executing a specific hook type:
+The prompt/completion/total token-usage shape is owned once in this package; no package may re-declare that shape — every occurrence elsewhere in the monorepo is either a direct reference or a named alias of it, never an independently declared lookalike.
 
-```typescript
-interface IHookTypeExecutor {
-  readonly type: string;
-  execute(hook: IHookDefinition, input: IHookInput): Promise<THookOutcome>;
-}
-```
+## Provider Capabilities
 
-`runHooks` accepts an optional `executors` map to register additional hook type executors beyond the built-in ones. This enables higher-level packages to add `prompt` and `agent` executors without modifying agent-core.
+Generic layers must query a provider's capabilities through one function rather than branching on provider identity. Provider-native "web tools" (server-side search/fetch) are a distinct concept from this package's own local function tools of the same name: a provider can _support_ a native web capability without that capability being _enabled_ for a given instance, and requesting a native web tool for one call must be checked and rejected before transport execution when the provider doesn't support or hasn't enabled it — failing before any network activity starts, not partway through a stream.
 
-**Built-in executors (agent-core):**
+For model-level (rather than provider-level) capabilities, a model's capability table is asked before falling back to the vendor's stated default, and a capability the catalog has said nothing about is reported as genuinely unknown rather than coerced into `false` — silence about a capability is not a denial of it, and callers that need to act on silence must state their own assumption explicitly rather than have one assumed for them.
 
-| Executor          | Hook Type | Behavior                                                                                                                                                                                                                                    |
-| ----------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CommandExecutor` | `command` | Spawns shell process, passes JSON via stdin, maps its exit to an outcome. ARCH-056 (issue #2161): stdout/stderr are read into `createBoundedOutput` buffers (1 MB each; stdout head, stderr tail), so memory is bounded while the hook runs |
+## Context Window Tracking
 
-**Bounded output retention (ARCH-056, issue #2161).** `createBoundedOutput({ maxBytes, retain, truncationMarker })`
-(`utils/bounded-output.ts`, main barrel) is the one contract every child-process reader uses: bytes
-past the budget are dropped AS THEY ARRIVE (memory is bounded by the budget, not the child's
-lifetime), `retain: 'head'` keeps the first bytes (a tool result) and `'tail'` the last (a
-diagnostic), `truncated` / `droppedBytes` and a marker in `toString()` make the drop visible, there
-is no disk spill, and termination stays with CORE-023. Adopters: `CommandExecutor`, `agent-tools`
-`shell-tool` (2 MB head per stream), `agent-subagent-runner`'s stderr tail (4 KiB tail).
-`agent-executor`'s `createLimitedOutputCapture` (string head + marker for background-task logs) is
-the same policy on the string side and is the next to converge on it.
-| `HttpExecutor` | `http` | Sends HTTP request, decodes the response body into an outcome |
+Effective context-token usage is estimated as the maximum of a deterministic serialized-history estimate and the latest exact provider-reported usage (plus an optional caller-supplied floor) — never the sum of historical provider usage across turns. This specifically prevents two failure modes: an old provider usage number masking a large metadata-free prompt that arrived afterward, and multi-turn provider input counts being double-counted by summing what each call already reported cumulatively. Provider-reported usage is normalized into one canonical metadata shape before an assistant message is committed, and each provider round is tagged with a fresh observation identity so streamed fragments of the same round can be deduplicated by identity rather than by comparing token counts.
 
-**Extended executors (agent-framework):**
+## Class Registry and Cross-Layer Ports
 
-| Executor         | Hook Type | Behavior                                                   |
-| ---------------- | --------- | ---------------------------------------------------------- |
-| `PromptExecutor` | `prompt`  | Injects prompt text into session context                   |
-| `AgentExecutor`  | `agent`   | Delegates to a nested agent session for complex processing |
+Provider packages implement this package's provider base class; other layers extend its abstract executor, plugin, module, and tool base classes; and `agent-core` in turn owns the neutral multi-agent orchestration contracts (primitives, step/spec shapes, and their lifecycle event names) as pure, runtime-free type contracts — a separate, higher `agent-framework` layer implements the actual orchestration mechanism over them. These contracts carry no application-domain identity by design and are enforced neutral by a standing repository scan; if a second independent implementer of them appears, both the contracts and their event-type unions are meant to move out into their own dedicated package rather than staying bundled here.
 
-### Outcome Protocol (SEC-015)
+## Event Architecture
 
-An executor returns a decoded `THookOutcome`. A command hook's exit code is one INPUT to that
-decision, no longer the contract itself:
-
-| Executor condition                               | Outcome                        |
-| ------------------------------------------------ | ------------------------------ |
-| exit `0`                                         | `allow` (stdout carried)       |
-| exit `2`                                         | `deny` (stderr = reason)       |
-| any other exit code, or a signal kill            | `error` / `nonzero-exit`       |
-| deadline elapsed                                 | `error` / `timeout`            |
-| process or transport never started               | `error` / `spawn-failure`      |
-| well-formed non-2xx response                     | `error` / `http-status`        |
-| started then failed mid-flight                   | `error` / `transport-failure`  |
-| response arrived but no verdict could be decoded | `error` / `malformed-response` |
-
-A `{ ok, reason }` body is decoded by `decodeHookVerdict`: `ok` must be exactly `true` or exactly
-`false`. A body whose `ok` is undecodable is `error` — UNLESS it also carries an explicit block
-directive (`continue: false`, `decision: "block"`, `hookSpecificOutput.permissionDecision: "deny"`),
-which is a decision the hook stated outright and which an undecodable `ok` beside it does not retract.
-The decoder takes the event and scopes those directives exactly as `runHooks` does (issue #2196):
-`continue: false` everywhere, `decision: "block"` on `UserPromptSubmit` only,
-`permissionDecision: "deny"` on `PreToolUse` only — one vocabulary, one set of rules.
-
-`error` is not a third verdict; it is the absence of one. **Whether that blocks is per-event policy,
-and `PreToolUse` fails closed on it (SEC-016)** — see "Per-event enforcement posture" above. Every
-other event is advisory, because no other fire site consults `blocked` at all.
-
-### Hook Configuration
-
-Hooks are configured as a `THooksConfig` object mapping events to arrays of `IHookGroup` entries. Each group has a `matcher` regex pattern (empty = match all) and an array of `IHookDefinition` entries. Hooks have a 10-second timeout.
-
-## Abort Execution Support
-
-The execution loop supports cooperative cancellation via the standard `AbortSignal` API. An `AbortSignal` can be threaded through the entire execution pipeline to allow callers to cancel in-progress runs.
-
-### Interface Changes
-
-| Interface                    | Field                                        | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ---------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `IRunOptions`                | `signal?: AbortSignal`                       | Allows callers to cancel execution of `Robota.run()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback`           | Per-run streaming callback forwarded through execution context                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `IRunOptions`                | `allowToolOnlyCompletion?: boolean`          | CORE-011: a turn ending in tool calls is a valid completion — skips the forced summary call (decision-agent pattern); the forced-summary path also honors an aborted signal                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `IRunOptions`                | `maxTokens?` / `temperature?`                | CORE-016: run-scoped model option overrides — win over `defaultModel.*`. Reaches the provider through the one turn both entry points enter (CORE-042), so it cannot be present on one and absent on the other                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `IRunOptions`                | `toolChoice?: TToolChoice`                   | CORE-017: run-scoped tool-invocation directive (`'auto' \| 'none' \| 'required' \| { tool }`) — wins over `defaultModel.toolChoice`; threaded to both paths; a named tool missing from the run's tool list (or `'required'`/named with no tools) throws instead of degrading silently; forcing applies to the run's FIRST model call only — later rounds revert to `'auto'` so tool results can be consumed                                                                                                                                                                                                                                  |
-| `IRunOptions`                | `ephemeralSystemContext?: string`            | SELFHOST-008 P3: a transient system-role block added to a DERIVED provider-message array for this run only (`executeRound`), sent to the model but NEVER written to the conversation store — no history bloat, no static-system-prompt rebuild. Content-free neutral channel (caller decides the content, e.g. per-turn recalled memory)                                                                                                                                                                                                                                                                                                     |
-| `IRunOptions`                | `output?: TStructuredOutputSchema`           | CORE-015: schema-enforced structured output — `run` resolves to the validated typed object instead of a string (see Structured Output Contract)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `IRunOptions`                | `outputRetries?: number`                     | CORE-015: validation-retry budget after the first attempt (default 2); only meaningful with `output`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `IRunOptions`                | `onExecutionEvent?: TExecutionEventCallback` | Per-run replay event callback for provider/tool boundaries                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `IRunOptions`                | `maxExecutionRounds?: number`                | Maximum model/tool rounds for one run. `0` means unlimited.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `IRunOptions`                | `maxSameToolInputs?: number`                 | The MAXIMUM number of identical calls to one tool allowed in a run; the next one fails the turn (CORE-035).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `IChatOptions`               | `signal?: AbortSignal`                       | Passed to provider `chat()` / `chatStream()` for cancelling calls                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `IChatOptions`               | `responseFormat` `json_schema` variant       | CORE-015: `{ type: 'json_schema', name?, schema }` carries the structured-output schema to provider native surfaces                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `IAgentConfig`               | `timeout?: number`                           | Provider idle timeout in milliseconds for a model call                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `IAgentConfig`               | `retainHistory?: boolean`                    | CORE-014: default `true` (history accumulates; full history sent every call). `false` = run-isolated mode: the conversation store resets after every run settles (success/abort/error), system prompt re-applies next run (CORE-010); pre-run injected context is visible to that run only                                                                                                                                                                                                                                                                                                                                                   |
-| `IAgentConfig`               | `maxExecutionRounds?: number`                | Default maximum model/tool rounds for each run. `0` means unlimited.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `IAgentConfig`               | `maxSameToolInputs?: number`                 | Config-level default for the identical-tool-input loop guard.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `IExecutionContext`          | `signal?: AbortSignal`                       | Threaded through the execution context for round-level checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback`           | Run-scoped callback used before provider-level callback fallback                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `IExecutionContext`          | `onExecutionEvent?: TExecutionEventCallback` | Internal replay event callback forwarded to provider/tool rounds                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `IExecutionContext`          | `maxExecutionRounds?: number`                | Run-scoped override for execution round limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `IExecutionContext`          | `maxSameToolInputs?: number`                 | Run-scoped override for the identical-tool-input loop guard.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `ICoreExecutionResult`       | `interrupted?: boolean`                      | Indicates the execution was aborted before natural completion                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `ICoreExecutionResult`       | `success` / `error` on provider failure      | A round ending in a provider failure records the error as an assistant message with `providerError` metadata; `buildFinalResult` must mark that result `success: false` with `error` set (never a successful response), so `robotaRun`'s failed-result throw surfaces it to transports. CORE-027: `error` is the ORIGINAL thrown value, carried out of the round by identity (`IExecutionRoundState.providerFailure`) — class, `code`, `category`, `recoverable`, stack and `cause` survive; a reconstruction from the `Request failed:` display prose is permitted only for a restored store whose failure round predates the carried value |
-| `ICoreExecutionResult`       | `error` REQUIRED on every failed result      | CORE-020: every `success: false` result carries `error: Error`, and `response` never carries error text (no `"Error: ..."` injection) — a failure must reach `run()` callers as a rejection, never as a normal-looking response string. `robotaRun` throws `result.error` for any non-interrupted failed result                                                                                                                                                                                                                                                                                                                              |
-| `IToolExecutionBatchContext` | `signal?: AbortSignal`                       | Allows skipping queued tool executions when abort is signalled                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `IToolExecutionBatchContext` | `maxConcurrency?: number`                    | Bounds active tool executions when batch mode is `parallel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-
-### Replay Boundary Events
-
-`onExecutionEvent` emits provider-neutral, append-only replay events. `agent-core` must not expose concrete provider SDK objects or branch on provider names. The required event families are:
-
-| Event                          | Emitted When                                    | Required Data                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `provider_request`             | Immediately before a provider call              | executionId, conversationId, round, provider, model, messages, tools                                                                                                                                                                                                                                                                                          |
-| `provider_stream_raw_delta`    | A provider text delta reaches the turn          | executionId, conversationId, round, sequence, delta. Emitted per chunk by a streaming provider; for a provider that returns only an assembled message, the turn emits ONE delta carrying that text, before this round's `provider_response_raw` — so a replay consumer folding deltas until the normalized response always attributes them to the right round |
-| `provider_response_raw`        | Immediately after provider `chat()` returns     | executionId, conversationId, round, response, responseKind                                                                                                                                                                                                                                                                                                    |
-| `provider_response_normalized` | After provider response is accepted by core     | executionId, conversationId, round, response, toolCallsCount                                                                                                                                                                                                                                                                                                  |
-| `assistant_message_committed`  | Assistant message is committed to history       | executionId, conversationId, round, message                                                                                                                                                                                                                                                                                                                   |
-| `tool_batch_started`           | Before a tool batch executes                    | executionId, conversationId, round, batchId, mode, maxConcurrency, requestCount, tools                                                                                                                                                                                                                                                                        |
-| `tool_execution_request`       | For each parsed tool call                       | executionId, conversationId, round, batchId, index, toolName, toolCallId, parameters, ownerPath                                                                                                                                                                                                                                                               |
-| `tool_execution_result`        | For each terminal tool result                   | executionId, conversationId, round, batchId, index, toolName, toolCallId, success/result/error, metadata                                                                                                                                                                                                                                                      |
-| `tool_message_committed`       | Tool result message is committed to history     | executionId, conversationId, round, batchId, index, message                                                                                                                                                                                                                                                                                                   |
-| `history_mutation`             | A chat message is appended to canonical history | executionId, conversationId, mutation, index, message                                                                                                                                                                                                                                                                                                         |
-
-`provider_response_raw.responseKind` is `provider-normalized-message` until provider packages add provider-owned SDK-payload capture hooks. This keeps replay validation deterministic without making core depend on concrete provider SDK response types.
-
-**The families are emitted on the ABNORMAL paths too (CORE-033), and history stays append-only.** The
-invariant a consumer relies on is that replaying every `history_mutation` append, in order,
-reconstructs the conversation the turn produced. Three engine sites appended without announcing it,
-so the reconstruction diverged at exactly the moments a reader goes to the log:
-
-- **The forced-summary call at the round cap** now emits `provider_request` (with
-  `forcedSummary: true`, and the ASSEMBLED messages — see below), then `assistant_message_committed`
-  and `history_mutation` for the summary it commits. Without them, the last thing the user reads was
-  absent from every replay, and the call that produced it was invisible.
-- **The hard-capacity block** emits `history_mutation` for its diagnostic. That message is the only
-  explanation of why the turn stopped.
-- **A provider failure** emits `history_mutation` for the `Request failed: …` record it appends.
-
-The forced-summary call's synthetic round-limit instruction is a per-call prompt artifact and is
-**never written to the conversation store** — it exists only in the outgoing array, the same shape
-`applyStructuredOutputTransport` uses for a schema instruction. It previously was appended, sent, and
-then removed with `clear()` + re-add: a non-append rewrite of an append-only history that no event in
-this vocabulary can describe. `mutation` therefore has no removal member, and needs none.
-
-`history_mutation` announces the message read back OUT of the store, not the one the caller intended
-to append — an event built from the caller's intent could disagree with what the store holds, which
-is the class of divergence this contract exists to prevent.
-
-### Signal Propagation
-
-AbortSignal flows through: Session -> `robota.run()` -> ExecutionService -> `callProviderWithCache` -> `provider.chat()` -> `streamWithAbort`.
-
-- **ExecutionService**: Checks `signal.aborted` at round loop boundaries. If aborted, the loop exits early and the result includes `interrupted: true`.
-- **callProviderWithCache**: Accepts `signal` and passes it to the provider's `chat()` call, enabling mid-request cancellation. When `IAgentConfig.timeout` is set, it also enforces a provider idle timeout that resets on each `onTextDelta` callback and aborts/reports a provider error if no activity arrives before the timeout.
-- **executeAndRecordToolCalls**: Passes `signal` to the tool batch context so queued tools are skipped once abort is triggered.
-- **streamWithAbort**: Races `iterator.next()` against abort, checks `signal.aborted` before and after each yielded event, and calls `iterator.return()` when an abort stops the stream.
-- **AbortError handling**: `AbortError` exceptions thrown by the fetch layer are caught by the execution loop and treated as a clean interruption (not an error).
-
-### Tool Batch Concurrency
-
-When `IToolExecutionBatchContext.mode` is `parallel`, `ToolExecutionService` enforces `maxConcurrency` with bounded worker execution. The batch result preserves one result slot per request in request order, while errors are aggregated after all started or skipped work settles. If `maxConcurrency` is omitted, all requests may run concurrently; if it is less than 1, execution is clamped to one active tool.
-
-### Partial Content Preservation on Abort
-
-When abort occurs during provider streaming, the provider uses `streamWithAbort` which breaks out of the iteration loop on `signal.aborted`. The provider then returns partial content collected so far with `stopReason: 'aborted'`. `executeRound` commits this partial response via `commitAssistant('interrupted')` through the standard single commit path. The execution loop then exits via the `signal.aborted` check in ExecutionService. `robota.run()` always returns normally on abort — it does not throw.
-
-## Universal JSON-Schema Subset (CORE-039)
-
-`IParameterSchema` is the one shape every tool schema and every structured-output schema in the
-repo is expressed in. **The same shape describes a root object and every node inside it** — there is
-no separate nested form. Splitting the two is what let a nested object be emitted as a bare
-`{ type: 'object' }` while the root named its fields.
-
-- **Members**: `type`, `description`, `enum`, `items`, `properties`, `required`, `anyOf`,
-  `additionalProperties`, `minimum`, `maximum`, `pattern`, `format`, `default`. A tool's
-  `parameters` root is `IObjectParameterSchema` — the same interface narrowed to `type: 'object'`
-  with `properties` required.
-- **`type` is optional, and exactly one of `type` / `anyOf` must be present.** A union node carries
-  `anyOf` INSTEAD of a type; emitting both is invalid JSON Schema, because a provider applies the
-  two constraints together and rejects whichever branch does not match the type. A node with
-  neither is refused by every walk rather than passed silently.
-- **`additionalProperties` declares closure RELATIVE TO a declared `properties` set.** A node that
-  declares `properties` — including an empty `properties: {}` — is closed unless
-  `additionalProperties` says otherwise: `true` and the object form accept extras, `false` and
-  omitted reject them. A node that declares **no** `properties` declares no closure and permits any
-  properties, as JSON Schema itself says and as every provider reads the document we forward them.
-  An explicit `additionalProperties: false` closes a node either way.
-
-  The presence of the member, not its emptiness, is what decides. This definition is keyed that way
-  because the convention was authored for a tool's `parameters` root, where `properties` is
-  structurally always present, so "omitted rejects extras" could only ever mean "nothing beyond the
-  declared set". A nested node can omit `properties` entirely — the free-form object field — and
-  carrying the root's phrasing there unchanged would silently give omitted `additionalProperties` a
-  second meaning ("the empty object only") that no producer intends and that contradicts the schema
-  we ship. The Anthropic seam still materialises `additionalProperties: false` on every object node
-  for that provider's structured-output surface, which is a provider requirement, not this rule.
-
-- **One walk owns depth.** `validateAgainstJsonSchema` is the complete traversal.
-  `FunctionTool`'s tool-INPUT validation keeps its caller-facing leaf messages
-  (`Parameter "x" must be a string`) and delegates everything with depth — a nested object's own
-  properties and requirements, a union's branches — to that function, so the input and output paths
-  cannot disagree about the same schema.
-
-### Zod construct coverage
-
-`zodToJsonSchema` supports: `ZodString`, `ZodNumber`, `ZodBoolean`, `ZodArray`, `ZodObject`,
-`ZodEnum`, `ZodNativeEnum`, `ZodDate`, `ZodLiteral`, `ZodUnion`, `ZodDiscriminatedUnion`,
-`ZodRecord`, `ZodOptional`, `ZodNullable`, `ZodDefault`, and `ZodEffects` (`.refine()` /
-`.transform()`, unwrapped at the root and at every nested level).
-
-- `ZodUnion` / `ZodDiscriminatedUnion` → `anyOf`.
-- `ZodLiteral` → a single-value `enum` of the literal's own primitive type; `z.literal(null)` →
-  `{ type: 'null' }`, which already admits exactly one value.
-- `ZodNullable` → `anyOf: [<inner>, { type: 'null' }]`. The null half of what the field accepts is
-  part of the contract: dropping it was invisible while nested nodes were opaque, and once depth is
-  enforced it becomes a rejection of a payload the author's own Zod schema accepts.
-- `ZodOptional` / `ZodDefault` are transparent — optionality is carried by the enclosing object's
-  `required` list, not by the property's own shape.
-- `ZodNativeEnum` → an `enum` of the enum's VALUES (CORE-041). A numeric TypeScript enum compiles
-  with a reverse mapping, so `Object.values` also yields the member NAMES; emitting those would
-  advertise `"Low"` as acceptable for a field that accepts `0`. When any numeric value is present,
-  the numeric half is the value set and the node is `type: 'number'`.
-- `ZodDate` → `{ type: 'string', format: 'date-time' }` (CORE-041). JSON has no date type, so a
-  string is what a provider receives either way — this is the faithful description of the payload,
-  not a lossy stand-in.
-
-A wrapper chain deeper than 64 levels is refused rather than followed. Real Zod never builds one,
-but `IZodSchema` is a structural stand-in at an exported boundary, so a hand-built cycle is
-reachable and hanging is not an acceptable answer to it.
-
-**The remainder, and why it is a boundary rather than a backlog (CORE-041).** `ZodTuple`,
-`ZodIntersection` and `ZodLazy` throw at conversion. They are not "not done yet": a tuple needs
-POSITIONAL `items`, which this subset models as one schema; an intersection needs `allOf`; recursion
-needs `$ref`. None of the three exists in `IParameterSchema`, and none would survive the
-field-enumerated provider mappers if it did.
-
-That is also the answer to whether adopting `zod-to-json-schema` dissolves this, which CORE-039
-deferred and this item was told to re-run. It does not. The library emits exactly the constructs the
-mappers drop, so adopting it relocates the same decision into a normalizing pass and adds a
-dependency; the difficulty was never PARSING Zod, it is that the target language cannot say these
-things.
-
-Mapping them lossily is worse than throwing. A tuple flattened to `array of anyOf[...]` would tell
-the model that any order and any length are acceptable — a contract the author did not write.
-
-The error names the construct, states why the subset cannot carry it, and names a Zod expression to
-write instead, so the boundary is PUBLISHED rather than discovered. The default branch keeps working
-for a construct nobody has named yet.
-
-Zod's three unknown-key modes map distinctly, which they previously did not: `.passthrough()` and
-the default `strip` both emit `additionalProperties: true`, and `.strict()` emits `false`. `strip`
-means "extra keys are accepted at the boundary, then dropped" — the drop happens in
-`createZodFunctionTool`'s wrapper, which re-parses with Zod after the tool-input validation runs —
-so emitting nothing for it would have told every consumer to reject payloads the author's own
-schema accepts.
-
-The root of a conversion must resolve to an object. A non-object root throws rather than returning
-an empty schema, because an empty schema reaches the model as "an object, contents unspecified" —
-the failure this converter exists to prevent.
-
-## Tool Schema Projection (MCP-005)
-
-A third-party MCP tool's `inputSchema` (narrowed to `IParameterSchema` by CORE-040 in `agent-mcp`)
-still has to cross ONE MORE boundary before it reaches a provider: each vendor's wire format accepts
-a different subset (Anthropic: standard JSON Schema with an object root; OpenAI strict mode:
-`additionalProperties: false` on every object, every property `required`, optionality as
-`anyOf` with `null`; Gemini: an OpenAPI-3.0-shaped subset that cannot carry `additionalProperties` at
-all). `projectToolSchema` (`src/schema/project-tool-schema.ts`) is the ONE shared, tested projector
-every provider calls instead of reshaping the schema itself — pure, deterministic (same input → deep-
-equal output), never throws, never mutates its input.
-
-**Contract.** `projectToolSchema(tool: IToolSchema, profile: IToolSchemaProjectionProfile):
-IToolSchemaProjection` returns one of three outcomes:
-
-- `'adopted'` — no changes; `tool` is the SAME reference passed in.
-- `'adapted'` — `tool` is a projected COPY (`changes` lists what moved, one entry per edit).
-- `'rejected'` — `tool` is the input, unusable for this provider; `rejection` names `path`, `keyword`
-  and `reason`.
-
-Refusals (checked before any adaptation): a `parameters` root that is not `type: 'object'`
-(universal — not a profile field, since no documented provider accepts another root); a property
-NAME in `{ '__proto__', 'constructor', 'prototype' }`; a cycle (a visited `Set` of object identities);
-nesting deeper than `maxDepth`; more than `maxNodes` nodes; `unknownKeywords: 'reject'` with any key
-outside the `IParameterSchema` member set (`PARAMETER_SCHEMA_KEYWORDS`, derived once from the
-interface so the two cannot drift); a node declaring both `type` and `anyOf`, or declaring neither
-with no foreign keyword a policy could resolve. A node whose ONLY structural indicator is a foreign
-keyword (`$ref`/`oneOf`/`allOf` — ordinary JSON Schema this repo does not model) is not refused when
-the policy can carry or resolve it: `'adopt'` passes it through untouched, `'strip'` replaces it.
-
-Adaptations (one change per edit, `IToolSchemaProjectionChange.kind`): `unknownKeywords: 'strip'`
-deletes a foreign keyword (`keyword-stripped`); if that leaves the node with neither `type` nor
-`anyOf`, the node is REPLACED with the accept-anything `anyOf` node CORE-040 uses, not deleted
-(`keyword-replaced` — deleting would turn a declared property into an "unexpected additional
-property"); `unsupportedMembers` strips a listed `IParameterSchema` member wherever it appears
-(`member-stripped` — Gemini: `additionalProperties`); the closure family (`closedObjects` /
-`requireAllProperties` / `optionalAsNullable`) delegates to `closeObjectSchemas` ONCE, over the
-keyword-adapted schema, and its `onChange` callback contributes `closed-object` / `required-added` /
-`nullable-added` entries. `unknownKeywords: 'adopt'` passes foreign keywords through unchanged
-(Anthropic and OpenAI non-strict accept standard JSON Schema; stripping would be lossy for nothing).
-
-When a `keyword-stripped`, `keyword-replaced` or `member-stripped` change removed a VALIDATION
-keyword (one that constrains accepted values — `minLength`, `pattern`, `additionalProperties`, a
-replaced `$ref`/`oneOf`/`allOf` node, …), `description` gains exactly one trailing paragraph:
-`\n\nSchema note: <n> constraint(s) not shown to <providerName>: <kind@path>, …`. A stripped
-ANNOTATION (`title`, `$schema`, `$comment`, `examples`, `default`) constrains nothing and produces no
-note; closure changes are visible in the schema itself and never produce one either — under OpenAI
-strict, a tool with no rejection has a description byte-identical to its input.
-
-**Profiles.** `IToolSchemaProjectionProfile` is a provider's wire constraints as data:
-`providerName` (named in the note and the quarantine line), `closedObjects`,
-`requireAllProperties`, `optionalAsNullable`, `unknownKeywords`, `unsupportedMembers`, `maxDepth`,
-`maxNodes`. Two shared shapes (without `providerName`, which a provider spreads on) cover every
-shipped provider: `PERMISSIVE_TOOL_SCHEMA_PROFILE` (`unknownKeywords: 'adopt'`, everything else
-off/empty) for Anthropic, OpenAI Chat/Responses without `strictTools`, and the openai-compatible
-family; `STRICT_TOOL_SCHEMA_PROFILE` (`closedObjects`/`requireAllProperties`/`optionalAsNullable`:
-`true`, `unknownKeywords: 'strip'`) for OpenAI Chat/Responses with `strictTools: true`. Gemini spreads
-`PERMISSIVE_TOOL_SCHEMA_PROFILE` with `unknownKeywords: 'strip'` and
-`unsupportedMembers: ['additionalProperties']`. `TOOL_SCHEMA_PROJECTION_MAX_DEPTH` (32) and
-`TOOL_SCHEMA_PROJECTION_MAX_NODES` (2000) are the shared ceilings every profile above declares.
-
-**`AbstractAIProvider` seam.** `protected projectionProfile(): IToolSchemaProjectionProfile |
-undefined` returns `undefined` by default — adopt every tool unchanged, no diagnostics (kept for
-`agent-provider-replay` and any embedding provider that overrides nothing). `protected
-projectTools(tools: IToolSchema[] | undefined, model: string): IToolSchema[] | undefined` is a
-HELPER a concrete provider calls at its own request-building site(s) after `validateTools` and
-before its converter — `chat`/`chatStream` are abstract, so the base runs nothing on its own. With a
-profile: adopted/adapted tools return in a NEW array (an adapted tool is a projected copy; `tools`
-and every original tool object are never mutated); a rejected tool is omitted from the returned array
-and reported ONCE per cache identity (`provider.name` + `model` + `tool.name` +
-`hashToolSchema(tool.parameters)`, an instance `Map` — never a module singleton, so one provider
-instance's memo cannot silence another's) as one line:
-`tool_schema_quarantined provider=<name> model=<model> tool=<tool.name> path=<path> keyword=<keyword> reason=<reason>`.
-The line goes through `createLogger('ToolSchemaProjection')` — the GLOBAL-SINK logger (the CORE-040
-precedent, `agent-mcp/src/third-party-schema.ts`), not `this.logger`: `AnthropicProvider` and
-`GeminiProvider` construct with no logger, so `this.logger` is `SilentLogger`, which would make the
-quarantine silent on two of four providers ("Silence is not success"). Install a sink with
-`setGlobalLoggerSink` to receive it.
-
-**What does not change.** `agent-mcp` discovery, catalog build and CORE-040 narrowing are untouched;
-`DiscoveredMCPTool` keeps validating every call's arguments against the narrowed ORIGINAL schema, so
-a projection (e.g. the strict profile's `null` compensation for a forced-optional field) can never
-widen what execution accepts. `IParameterSchema` / `IToolSchema` (CORE-039) are unchanged; the seam is
-a `protected` method on the abstract base, not a change to `IAIProvider`.
-
-Shared fixtures for every provider's conformance test live under
-`src/schema/__tests__/fixtures/tool-schema-projection/` and are exported (loaded, not the raw
-`__tests__` path) as `loadToolSchemaProjectionFixtures` from the `@robota-sdk/agent-core/testing`
-subpath (TEST-003 precedent) — a cross-package import cannot reach another package's private
-`__tests__` tree. One fixture (`prototypeKey`) and one (`oversized`) are built programmatically rather
-than stored as JSON: a bundler's JSON loader inlines a parsed value as an object LITERAL, and a
-`"__proto__"` key written that way triggers the ECMAScript `[[SetPrototypeOf]]` special case instead
-of creating an own property — the opposite of `JSON.parse`'s behaviour for the same text over the
-wire (verified empirically); a computed key (`['__proto__']`) is the one literal spelling that is not
-special-cased.
-
-## Structured Output Contract (CORE-015)
-
-`run(input, { output })` returns a schema-validated object instead of a string; `runStream` streams
-text deltas as usual and delivers the validated object as the generator's **return value** (read it
-from the final `{ done: true, value }` iterator result).
-
-- **Accepted schemas**: a Zod schema (validated via `safeParse`, return typed `z.infer<S>` on the
-  `Robota` class surface) or an explicit `IJsonSchemaOutput` wrapper carrying the universal
-  JSON-schema subset (validated structurally by `validateAgainstJsonSchema`). Both normalize to
-  `IStructuredOutputSpec` — one internal representation (SSOT).
-- **Transport selection (CORE-043)**: before the first model call, the turn asks the resolved
-  provider's capability table which transport can carry the schema for THIS model, and shapes the
-  request to match. `response_schema` → forwarded as `IChatOptions.responseFormat =
-{ type: 'json_schema', name, schema }` and mapped natively by the adapter (OpenAI
-  `response_format.json_schema`, Anthropic `output_config.format`, Gemini `responseSchema` + JSON
-  mime type). `json_object` (DeepSeek: JSON is guaranteed, the SHAPE is not) → downgraded to
-  `{ type: 'json_object' }`. `none` → the option is omitted rather than sent to be ignored.
-  In both non-native cases the schema is stated as a system instruction on the FIRST attempt, so a
-  provider without a schema parameter no longer spends attempt one discovering the shape was never
-  communicated. A provider that declares NO capability table is sent the request unchanged —
-  silence is not a denial (PROV-006).
-- **`provider_request` reports the ASSEMBLED request (CORE-043)**: the event is emitted after the
-  capability guards have adjusted the request, not before, so its `messages` are the ones the model
-  actually received — including a schema instruction the transport seam added. Emitting the caller's
-  own conversation array would put a request in the session log that a replay could not reproduce.
-- **Transport report (CORE-043)**: each structured request emits a `structured_output_transport`
-  execution event carrying the OUTCOME — `mechanism`, `provenance`, what was `sent`
-  (`json_schema` / `json_object` / `omitted`), and whether the schema went into the prompt. It
-  reports what the request DID, not what a catalog says; `provenance: 'unverified-endpoint'` marks a
-  provider pointed at a custom `baseURL`, where the vendor's guarantees may not be the ones in force.
-  **The report is scoped to what CORE supplied.** `@robota-sdk/agent-provider-openai` publishes
-  `responseFormat` / `jsonSchema` as CONSTRUCTION-time options and merges them with the per-call ones
-  (`mergeChatResponseFormat`). A per-call value wins, so a request core shaped is reported correctly.
-  The gap is the turn core does not shape at all: a run WITHOUT `output` resolves no transport and
-  emits no `structured_output_transport` event, yet a provider constructed with
-  `responseFormat: 'json_schema'` still puts `response_format` on the wire — shaped by a channel no
-  core seam observes and no core event reports. Read this event as "what the core turn path put on
-  the request", not "everything the request carried". Closing the gap needs the boundary rule
-  PROV-009 owns.
-- **`resolveStructuredOutputCapability` is exported (CORE-048).** It produces the two public types
-  above, which were reachable while the function that yields them was not — a caller could name the
-  answer but not obtain it. Exporting it also lets a consumer ask, before spending a call, what will
-  happen to their schema against a given `(provider, model)` pair.
-- **`tool_strict` is still not a mechanism, and now for a measured reason (CORE-048).** A forced call
-  to a synthetic tool whose parameters ARE the schema is a real transport, but only for a pair that
-  BOTH lacks a schema parameter AND has enforceable strict tool arguments. Across this workspace that
-  intersection is empty: `strictTools` exists only in `@robota-sdk/agent-provider-openai`, which
-  already resolves to `response_schema`; the providers that lack a schema parameter (`deepseek` →
-  `json_object`, `qwen` → `none`) have no strict-tool support to carry it. A union member nothing
-  produces is a branch every consumer must handle and no test can reach.
-  `packages/agent-builtin-providers/src/forced-tool-transport-applicability.test.ts` fails if a
-  provider ever qualifies, and records the questions that must be answered first.
-- **Endpoint provenance is a separate answer from the capability table.** `IAIProvider` carries
-  `endpointIsVendorDefault?()` alongside `capabilityTable?()` rather than a field inside it, because
-  the two are independent facts: `@robota-sdk/agent-provider-openai` declares no table by choice
-  (nobody has verified one) and must still be able to report that it is behind a gateway. Folding the
-  endpoint into the table would force that provider to invent capability claims in order to answer,
-  and would make a gateway look like a model that lost a capability — a different claim, and a wrong
-  one. It matters most on OpenAI, where setting `baseURL` also switches the API surface to
-  `chat-completions`.
-- **Enforcement loop**: the final response text is parsed (`parseStructuredResponseText`, tolerant
-  of one fenced json block) and validated core-side on every run. A violation triggers a retry
-  turn whose input contains the validation issues plus the schema, bounded by `outputRetries`
-  (default 2 retries after the first attempt). Exhaustion throws `StructuredOutputError`
-  (`issues`, `attempts`).
-- **History**: every attempt — including retry feedback turns — is a real conversation turn
-  committed through the standard append-only history path. Structured output never edits history.
-- **Tools**: tools may run within a structured turn; validation applies to the final assistant
-  text after tool rounds complete.
-- **Interface note**: the structured overloads are visible on `Robota` directly; through the
-  generic `IAgent` interface `run` remains `Promise<string>`-typed.
-
-## Tool Residency and Tool Search (CLI-1990)
-
-Every registered tool's full JSON schema used to be put in front of the model on every request, with
-no way for the model or the operator to load one on demand. Residency is the contract that changes
-that.
-
-**Three words, used consistently across every layer that reads `tool-registry/tool-residency.ts`:**
-
-- **resident** — a schema that does not declare `deferLoading`. Always offered. Omission is the
-  declaration, so every schema that existed before this contract is resident and unchanged.
-- **deferred** — declares `deferLoading: true`. Withheld while deferral is engaged, until loaded.
-- **offered** — what the next request actually carries: every registered tool while deferral is off,
-  the resident ones plus the loaded deferred ones once it is on.
-
-**Deferral is CLIENT-SIDE: the schema leaves the request entirely.** This is deliberately stronger
-than the vendor feature it is named after. Anthropic's `defer_loading` (and OpenAI's hosted
-equivalent) keeps a definition out of the model's context window while the request still carries
-every one of them — the API needs them server-side to run its own search. Robota withholds the
-schema from `IChatOptions.tools` itself, so both wire bytes and context tokens fall, and the same
-behaviour runs on every provider — including Gemini, which documents no comparable feature —
-because the model-visible artifact is an ordinary function tool over a catalog we own.
-
-**At least one tool must stay resident.** A configuration in which every tool declares
-`deferLoading` is refused, not repaired: `assertResidentToolRemains` throws
-`at least one tool must stay resident; all tools cannot be deferred`, and `projectOfferedTools`
-throws the same message rather than sending an empty tool array over a non-empty registry. This
-mirrors the vendor's own 400 (`At least one tool must have defer_loading=false`), and for the same
-reason: a request that withholds everything offers the model nothing to call and nothing to search
-with. Session assembly checks the invariant over the DECLARED tool set, before the framework adds
-its own resident search tool — a check that ran afterwards could never fail.
-
-**A withheld schema needs a loader.** The second half of the same invariant: when deferral is engaged
-and the projection withholds at least one schema, `projectOfferedTools` also refuses a request that
-offers no tool named `ToolSearch` (`TOOL_SEARCH_TOOL_NAME`), throwing
-`a tool schema was withheld but no ToolSearch tool is offered; register the loader or turn tool search off`
-(`DEFERRED_WITHOUT_LOADER_MESSAGE`). Session assembly satisfies it by adding the loader whenever a
-declared tool is deferred, and a subagent session carries the parent's loader with any deferred tool
-that survives its allow/deny lists. An SDK-direct configuration that defers tools must register the
-loader itself: a tool the model can neither see nor load is unreachable, and the policy refuses that
-rather than withholding silently (No Fallback Policy).
-
-**The tool list is read PER ROUND.** `IResolvedProviderInfo.readAvailableTools()` replaced the
-per-run `availableTools` snapshot. `resolveProviderAndTools` binds a getter over the registry rather
-than copying it, and `buildRoundChatOptions` calls it as each round assembles. A tool loaded by a
-round-N tool call is therefore on the wire in round N+1 — the one property a search tool needs, and
-the property the snapshot made impossible.
-
-**Deferral engages by THRESHOLD, never unconditionally.** `resolveToolSearchMode(config, model,
-tools)` answers `'on'` only when the deferrable tools number more than
-`TOOL_SEARCH_DEFERRABLE_COUNT_THRESHOLD` (15) or their estimated schema tokens
-(`estimateToolSchemaTokens`) reach `TOOL_SEARCH_CONTEXT_WINDOW_SHARE` (10 %) of the model's context
-window. Only _deferrable_ schemas are measured, because deferral cannot save what is resident.
-`IAgentConfig.toolSearch` is `'auto' | 'on' | 'off'`, defaulting to `'auto'`; an explicit setting
-wins over both bands. At the ten resident built-ins of today's tree the answer is `'off'`, so
-nothing regresses, and a tool set that later crosses the band switches itself on with no flag day.
-The policy is evaluated on every projection and never cached — its inputs are the config, the model
-and the registered set, each of which can change between rounds.
-
-**Loading.** `IDeferredToolCatalog` (`listDeferredTools`, `loadDeferredTools`) is the narrow port
-`IToolExecutionContext.deferredTools` carries into every tool call the loop issues, so a search tool
-can list and load without ever holding the tool manager. A load is session-lived. An unknown name
-throws naming the entry, and every name is resolved before the first is loaded, so a partial load is
-impossible; a query matching nothing is a normal empty result, not an error.
-
-**Two paths besides the search tool reach the same state.** A `toolChoice` that forces a deferred
-tool loads it before `assertToolChoiceValid` runs, so forcing fetches rather than throwing. And a
-model calling a deferred tool it has not loaded gets the unknown-tool error with a remedy naming
-`TOOL_SEARCH_TOOL_NAME` — recoverable within the two rounds before
-`MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS` force-summarises the run.
-
-**Deferral never widens authority.** The permission gate decides by name and never consults the
-registry, so a rule naming a tool has the same effect before and after it is loaded.
-
-**`'tool_search'` on `TProviderModelCapability` is declaration-only in v1.** It records that a vendor
-documents a server-side tool search; no vendor block is emitted regardless of the flag. It exists so
-a later offload can be gated on the capability table rather than on a provider name.
-
-## Disposal Contract (CORE-013)
-
-`Robota.destroy()` is **best-effort**: it never rejects for cleanup failures, so
-`void agent.destroy()` is always safe to fire-and-forget (a rejection would be an unhandled
-rejection that kills the host process on Node 20+). Every cleanup step — module disposal, plugin
-event unsubscription, module-registry clear, event-emitter disposal — runs regardless of earlier
-failures; each failure is logged and collected into the returned `IDestroyResult`
-(`Promise<{ errors: Error[] }>`). State is always reset.
-
-The same convention applies to the other disposal surfaces in the stack (one convention,
-applied everywhere): `Session.shutdown()` (agent-session) resolves with step failures recorded to
-the session log; `TransportRegistry.stopAll()` (agent-transport / `ITransportRegistryView`) stops
-every transport and returns collected errors as `IDestroyResult`. Operation-style closes that a
-caller acts on (e.g. background-task `closeTask`) intentionally keep throwing — their errors are
-answers, not cleanup noise.
-
-## Run Concurrency Contract (CORE-012)
-
-One `Robota` instance owns one conversation history, so concurrent executions on the same instance
-would interleave history writes. The instance therefore serializes runs internally:
-
-- `run()` and `runStream()` share a single FIFO run slot per instance. A call made while another
-  run is in flight waits for the earlier run to complete, then executes — callers may fire
-  concurrent calls without external locking and still get strictly sequential history
-  (`user₁, assistant₁, user₂, assistant₂ …`). The queued run's provider request includes the
-  completed earlier exchange.
-- `runStream()` acquires the slot when iteration starts and holds it until the stream is fully
-  consumed (or the generator is closed early via `return()`/`break`, which releases through the
-  same `finally` path). An abandoned, never-consumed generator does not hold the slot because the
-  generator body has not started.
-- If a queued call's `IRunOptions.signal` is already aborted when its turn arrives, it throws
-  `Run aborted while queued behind another run on this instance` without touching the provider or
-  history. An abort during an in-flight run keeps the existing abort semantics above (returns
-  normally, never throws).
-- The queue is per-instance. Cross-instance coordination is out of scope; separate instances remain
-  fully concurrent.
-
-This ensures:
-
-- The partial response is saved in conversation history for the next turn
-- The model can see what it started saying before interruption
-- Tool results from completed tools in earlier rounds are preserved
-
-If the partial response includes tool_use blocks (abort during tool call streaming), the tool execution step runs but skips queued tools via `signal.aborted` check in `IToolExecutionBatchContext`. Completed tools have normal results; skipped tools have `"Execution interrupted by user"` error results. Both are recorded in history.
+Events are named `ownerType.localName` (e.g. an execution-service event, a tool-execution event, an agent-level event) and each event carries an owner-path trace of the execution hierarchy that produced it, so a consumer can reconstruct which agent/tool/execution nesting emitted a given event without a separate correlation mechanism.
 
 ## Conversation History Principles
 
-- **Append-only**: Messages are only added, never edited or deleted.
-- **Read-only**: Consumers read history but do not mutate existing messages.
-- **Always committed**: `beginAssistant()` + `commitAssistant()` guarantees an assistant message is always appended, even on abort with empty content.
-- **No fallback**: If a message should be in history, it IS in history. No fallback to alternative data sources.
-- **Unbounded**: `DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 0` (`src/managers/conversation-history-manager.ts`) means no message cap, backing the append-only guarantee — history is never trimmed by count.
+- **Append-only**: messages are only added, never edited or deleted.
+- **Read-only for consumers**: readers must not mutate existing messages.
+- **Always committed**: the begin/commit assistant-message protocol guarantees an assistant message is always appended, even on abort with empty content — there is a single commit path, not a branch between normal completion and abort.
+- **No fallback**: if a message should be in history, it IS in history; there is no silent fallback to an alternative data source.
+- **Unbounded by default**: history is never trimmed by message count unless a host explicitly configures a cap.
 
-## System Prompt (single source of truth)
+Only assistant messages may ever carry an "interrupted" state (indicating the response was aborted before natural completion); user/system/tool messages are always complete. When history is read back for a provider API call, an interrupted assistant message's text is annotated so the model itself understands its own previous response was cut short, rather than presenting a truncated response as if it had ended normally.
 
-The system prompt is the agent's **live instruction state** — not conversation content. The append-only/read-only principles above govern user/assistant/tool messages; they do **not** govern the system prompt, which is replaceable.
+## System Prompt
 
-- **Single owner**: the top-level `config.systemMessage` is the sole source of the system prompt. There is no `defaultModel.systemMessage`; the system prompt is an agent-level concern, not a model-config field, so `IModelConfig`/`setModel` do not carry it.
-- **One head message**: each conversation store holds **exactly one** system message, at the head. `ConversationStore.setSystemPrompt(content)` enforces this — it removes any existing system messages and prepends exactly one at the head.
-- **Injected once, then the log is reused**: the system prompt belongs to the session log. `initializeConversationStore` injects it (`setSystemPrompt(config.systemMessage)`) **only when the log has no system message yet** — at session start, or the first turn after resume. On subsequent turns the log is **reused as-is**; the prompt is never re-attached or re-derived per turn. This is the correct model: once a prompt has been sent in a session it is part of that session's record.
-- **Live updates reach the model**: `Robota.updateSystemPrompt(content)` updates `config.systemMessage` **and** the live conversation store head **in place**, so the very next provider request carries the change. This is the path that propagates a session's persona, self-verification toggle, and AGENTS.md/CLAUDE.md staleness refresh to the model — a real, infrequent mutation, not a per-turn rewrite. Updating only a config field (without the store head) is insufficient because providers read the system prompt from the messages array, never from a separate config field.
-- **Resume semantics**: persisted `system` messages are **not** restored into the log; instead the system prompt is injected fresh from the live `config.systemMessage` on the first turn after resume (a staleness refresh — the rebuilt prompt reflects the current cwd/AGENTS.md/CLAUDE.md and tool inventory). The restored conversation's user/assistant/tool messages are always preserved; restore keys off the presence of conversation content, not the system head (so a system prompt applied before the first turn does not block restore).
+The system prompt is the agent's live instruction state, not ordinary conversation content — the append-only/read-only history principles above govern user/assistant/tool messages but deliberately do not govern the system prompt, which is replaceable.
 
-## Model-Facing Prompt Surfaces (declaration)
+- **Single owner, single head message**: the system prompt has exactly one source of truth in the agent config, and a conversation store holds exactly one system message, always at the head; setting it removes any existing system messages first.
+- **Injected once per session, then reused as-is**: the prompt is injected into a session's log only when that log has no system message yet (session start, or the first turn after resume); on every later turn within that session the log is reused unmodified — the prompt is never re-derived or re-attached per turn, because once a prompt has been sent it is part of that session's own record.
+- **Live updates propagate immediately**: updating the system prompt updates both the config and the live conversation-store head in place, so the very next provider request carries the change — this is the path that lets a session's persona or environment-staleness refresh reach the model as an infrequent, deliberate mutation, not a per-turn rewrite. Updating only the config field without the store head is insufficient, because providers read the system prompt out of the message array, never from a side-channel config field.
+- **Resume does not replay a stale prompt**: a persisted system message from a previous session is not restored verbatim; instead the current live prompt is injected fresh on the first turn after resume, so a resumed session reflects the current environment rather than a stale snapshot, while the substantive user/assistant/tool history is always preserved regardless.
 
-This zero-dependency foundation layer injects **no persona or product vocabulary** into the model.
-Every string it can place in front of a model is declared here, with its seam:
+This zero-dependency foundation layer injects no persona or product vocabulary into the model on its own — every string it can place in front of a model (default system message, a context-capacity notice, a tool-result-skip notice, a forced-summary instruction) defaults to empty or strictly neutral mechanism text, with an explicit override seam for a product layer that wants its own wording. Any new model-facing string added to this package must default to neutral text and, where appropriate, expose such a seam — this is a standing design rule, not a one-time inventory.
 
-| Surface                                    | Default                                                                                                  | Seam                                                                                                                                        |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AgentFactory` `defaultSystemMessage`      | **Empty string** — no baked-in persona. `??` semantics, so an explicit `''` is expressible and respected | `IAgentFactoryOptions.defaultSystemMessage`; per-agent `config.systemMessage` always wins                                                   |
-| Context hard-capacity notice (round guard) | Neutral usage statistics + `DEFAULT_CONTEXT_CAPACITY_HINT` (no slash-command or product vocabulary)      | `IAgentConfig.contextCapacityHint` replaces the remediation hint sentence (a surface tier injects its own command wording, e.g. `/compact`) |
-| Tool-result skip notice (context budget)   | `Error: Context window near capacity. Tool execution result skipped. …` — neutral mechanism text         | none (fixed mechanism text)                                                                                                                 |
-| Forced-summary instruction (loop guard)    | Neutral "respond with what you have so far" instruction                                                  | none external (`IExecutionRoundState.forcedSummaryInstruction` is set internally by the unavailable-tool loop guard)                        |
+## Provider Tool-Call ID Ownership
 
-Any new model-facing string added to this package MUST be registered in this table with a
-neutral default and, where a tier above may want product wording, an injection seam.
+Provider adapters own the tool-call identifier value; this package treats it as an opaque transcript token linking an assistant tool call to its corresponding tool result message, never as a value it mints or rewrites. Conversation history must not require these IDs to be unique across a whole conversation, because some providers legitimately reuse the same ID value across separate turns — any internal subsystem that needs a truly unique identifier must mint its own internal ID rather than repurposing the provider's transcript token for uniqueness it was never designed to guarantee.
 
-## Message Model
+## Unavailable Tool-Call Handling
 
-`IBaseMessage` is the foundation for all message types in the conversation history.
+Provider adapters must pass through a provider-native tool call even when its name is not locally registered — the execution decision belongs to this package, not the adapter. An unrecognized tool name is never executed and never silently aliased to a different registered tool; it is recorded as a distinct, explicitly labeled skip (naming the requested tool and what is actually available) rather than a generic failure, is not counted as an executed tool, and is reported with the same detail through replay events so downstream consumers can explain the skip. If unavailable tool calls repeat across consecutive rounds, a loop guard stops normal tool rounds and forces one final call without tools, whose instruction explicitly names which tool calls were never executed. Product layers must not paper over a naming mismatch with an ad hoc alias table — the correction path is making the tool visible and let the model's own error feedback loop correct itself.
 
-| Field   | Type            | Required | Description                                        |
-| ------- | --------------- | -------- | -------------------------------------------------- |
-| `id`    | `string`        | Yes      | UUID identifier, auto-generated via `randomUUID()` |
-| `state` | `TMessageState` | Yes      | `'complete' \| 'interrupted'`                      |
-| `role`  | `string`        | Yes      | Message role (user, assistant, system, tool)       |
+## Run Concurrency Contract
 
-**State rules:**
+A single agent instance owns one conversation history, so concurrent executions on the same instance would otherwise interleave history writes. Runs on one instance are therefore serialized through a single FIFO slot: a call made while another run is in flight waits for the earlier run to finish and then executes with a strictly sequential history, without requiring the caller to do any external locking. A streaming run holds the slot only once its consumer actually begins iterating (an abandoned, never-consumed stream never acquires it) and releases it whether the stream completes naturally or is closed early by its consumer. A queued call whose cancellation signal is already set by the time its turn arrives fails immediately without ever touching the provider or history, which is a different failure mode from cancelling an already-in-flight run (which instead resolves normally as interrupted, per the cancellation contract above). This serialization is strictly per-instance; separate instances remain fully concurrent with each other.
 
-- Non-assistant messages (user, system, tool) always have `state: 'complete'`.
-- Only assistant messages may have `state: 'interrupted'`, indicating the response was aborted by the user before natural completion.
+If a run is aborted mid-stream, partial content already produced is preserved in history through the same single commit path used for a normal completion (marked interrupted rather than complete), any tool calls already in flight when the abort landed still complete and record normal results, and any tools still queued behind them are skipped with an explicit "interrupted by user" result rather than silently vanishing — both outcomes are recorded, so a reader of history can see exactly what ran and what didn't.
 
-## Message Factories
+## Execution Loop and Error Handling
 
-All message factory functions auto-generate `id` via `randomUUID()` and set `state: 'complete'` by default.
+The default round budget for one run is a fixed number of model/tool rounds, overridable per-run or per-config (run-scoped values win); a budget of zero disables the round cap entirely and leaves stopping to abort, the context-window guard, and provider timeouts.
 
-| Factory                  | Role      | Notes                                                    |
-| ------------------------ | --------- | -------------------------------------------------------- |
-| `createUserMessage`      | user      | Always `state: 'complete'`                               |
-| `createAssistantMessage` | assistant | Accepts optional `state` parameter (default: `complete`) |
-| `createSystemMessage`    | system    | Always `state: 'complete'`                               |
-| `createToolMessage`      | tool      | Always `state: 'complete'`                               |
+**Identical-tool-input guard.** A configured limit on repeated byte-identical invocations of one tool within a single run exists as a distinct, _named_ error rather than a generic abort, and this distinction is deliberately behavioral, not cosmetic: this package's own abort-classification logic resolves an `AbortError` as "the caller asked to stop, and got a successful, cleanly interrupted result" — but when a run gives up because it detected a pathological identical-input loop, nobody asked it to stop; the agent failed to make progress. Reporting that as a clean interruption would misreport a stuck agent as a successful outcome, so the guard raises a specifically named, recoverable error that a caller can distinguish from both a real abort and an unrelated system failure.
 
-## ConversationStore Streaming State
+When the round budget is exhausted without a final assistant text response, one forced summary call is made without tools (preventing further tool calls), asking the model to state what it has so far; if even that call produces no text, a fixed fallback message is returned instead of an empty response. The synthetic instruction used to request that summary is a per-call prompt artifact only — it is never written into the persisted conversation history.
 
-`ConversationStore` (renamed from `ConversationSession`) manages pending assistant state during streaming:
+**Pre-send context guard.** Before every provider call, estimated token usage is checked against the model's context window; this is a hard-capacity stop (distinct from — and does not replace — the session layer's own configured automatic-compaction policy) and only trips when usage exceeds a high fixed threshold of the window, at which point it emits a diagnostic message explaining why the prompt was blocked rather than sending a request likely to fail with a provider-side size error.
 
-| Method                              | Description                                                                                              |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `beginAssistant()`                  | Initializes pending state before provider call. Guarantees commitAssistant has data.                     |
-| `appendStreaming(delta)`            | Accumulates streaming text into pending state                                                            |
-| `appendToolCall(toolCall)`          | Adds tool call to pending state (deduplicates by id)                                                     |
-| `commitAssistant(state, metadata?)` | Commits pending to history. Text is ALWAYS preserved. History is append-only.                            |
-| `discardPending()`                  | Clears pending without saving                                                                            |
-| `hasPendingAssistant()`             | Checks if streaming is in progress                                                                       |
-| `getPendingContent()`               | Returns the accumulated pending text content                                                             |
-| `addEntry(entry: IHistoryEntry)`    | Appends a pre-built `IHistoryEntry` to history (used for event entries such as tool summaries).          |
-| `getHistory()`                      | Returns the full history as `IHistoryEntry[]`. Each chat message wraps a `TUniversalMessage` via `data`. |
+**Provider call failures are surfaced, not swallowed.** If a provider call throws, the error is recorded as a readable assistant-visible message rather than the caller seeing an opaque "no response received," and if the whole execution pipeline throws unexpectedly, it is still caught and turned into a graceful error result rather than propagating an unhandled rejection.
 
-**`commitAssistant` behavior:**
+**Tool-result context budget.** Once history's context estimate crosses a high fixed threshold while committing a batch of tool results, remaining results in that batch are replaced with a short, fixed context-error message instead of their real content (mirroring the same pattern used for a permission deny) — the execution loop does not stop; it continues so the model can see the mix of real and skipped results and decide how to proceed with what it has.
 
-- Text content is ALWAYS preserved — no stripping, even when tool calls are present. Context savings is compaction's job.
-- The `state` parameter determines whether the committed message has `state: 'complete'` or `state: 'interrupted'`.
-- Single commit path — no branching between normal completion and abort.
+## Class Extension Points
 
-## getMessagesForAPI
-
-`getMessagesForAPI()` prepares the conversation history for provider API calls. For interrupted assistant messages (`state: 'interrupted'`), the text is annotated with `[This response was interrupted by the user]` suffix. This allows the model to understand that its previous response was cut short.
-
-## executeRound Streaming Flow
-
-The `executeRound` function manages streaming through `ConversationStore`:
-
-1. `beginAssistant()` initializes pending state before the provider call.
-2. The run-scoped `onTextDelta` callback is preferred over provider-level callback state, then wrapped to call `appendStreaming(delta)` on each delta.
-3. After the provider returns: tool calls are added via `appendToolCall(toolCall)` without rewriting provider-supplied IDs.
-4. `commitAssistant(state, metadata?)` is called with state determined by `signal.aborted` — `'interrupted'` if aborted, `'complete'` otherwise.
-5. Single commit path — no branching between normal and abort flows.
-
-### Provider Tool Call ID Ownership
-
-Provider adapters own the `tool_call.id` value. Core treats it as the provider transcript token that links an assistant tool call to the corresponding tool message.
-
-- Core must not branch on provider names, model names, or transport packages.
-- Core must preserve provider-supplied tool call IDs in committed assistant `toolCalls` and recorded tool message `toolCallId`.
-- Conversation history must not require provider tool call IDs to be unique across the whole conversation. Some OpenAI-compatible providers reuse IDs such as `call_0` in later assistant turns.
-- If an internal subsystem needs a globally unique execution/event identifier, it must use an internal ID or owner path and keep the provider `toolCallId` as transcript data.
-
-Regression coverage must include a multi-round execution where the provider returns `call_0` in more than one assistant response and execution preserves both provider IDs without throwing duplicate tool message errors.
-
-### Unavailable Tool Call Handling
-
-Provider adapters must preserve provider-native tool calls and pass them to core, even when the tool name is not registered locally. Core owns the execution decision.
-
-Rules:
-
-- `ToolExecutionService` checks the requested tool name before invoking `IToolManager.executeTool()`.
-- If the tool is not registered, core must not execute anything or alias the request to another tool.
-- The skipped result is recorded as `success: false` with `metadata.errorCode: "unknown_tool"`, `metadata.requestedTool`, and `metadata.availableTools`.
-- The corresponding tool message content must explicitly say that the tool call was not executed because the tool is not registered.
-- Skipped unknown tools must not be counted as executed tools in `ICoreExecutionResult.toolsExecuted`.
-- `tool_execution_result` replay events must include the same metadata so session logs and transports can explain the skipped call.
-- If unavailable tool calls repeat for consecutive model/tool rounds, the loop guard stops normal tool rounds and performs one final provider call without tools. The forced instruction tells the model which tool names were unavailable and that those calls were not executed because they are not registered.
-- Provider packages must not implement ad hoc aliases such as `agent` -> `robota_command_agent`; command and tool selection must be corrected by model-visible descriptors, schemas, and the normal tool-result feedback loop.
-
-## Extension Points
-
-| Extension   | Base Class            | Contract                                         |
-| ----------- | --------------------- | ------------------------------------------------ |
-| AI Provider | `AbstractAIProvider`  | Implement `chat()`, `chatStream()`               |
-| Tool        | `AbstractTool`        | Implement `execute()`, provide schema            |
-| Plugin      | `AbstractPlugin`      | Override lifecycle hooks                         |
-| Module      | `AbstractModule`      | Implement `execute()`                            |
-| Executor    | `AbstractExecutor`    | Implement `execute()`, `executeStream()`         |
-| Storage     | Per-plugin interfaces | Implement storage adapter (memory, file, remote) |
+Provider, tool, plugin, module, executor, and storage integrations each extend a corresponding abstract base class or implement a corresponding port interface; a concrete implementation must fulfill that base class's documented lifecycle contract (e.g. a provider must implement both its chat and streaming-chat methods) to be usable by the rest of the runtime.
 
 ## Error Taxonomy
 
-All errors extend `RobotaError` with `code`, `category`, and `recoverable` properties:
+Most errors this package raises extend one base error class carrying a machine-readable `code`, a `category` (user / provider / system), and a `recoverable` flag, so a caller can branch on failure kind without parsing message text. Some classes extend `Error` directly (tool-result admission refusals, owner-only-store mode errors), and some internal failures are thrown as plain `Error` with no code or category.
 
-| Error Class               | Code                   | Category | Recoverable |
-| ------------------------- | ---------------------- | -------- | ----------- |
-| `ConfigurationError`      | `CONFIGURATION_ERROR`  | user     | no          |
-| `ValidationError`         | `VALIDATION_ERROR`     | user     | no          |
-| `ProviderError`           | `PROVIDER_ERROR`       | provider | yes         |
-| `AuthenticationError`     | `AUTHENTICATION_ERROR` | user     | no          |
-| `RateLimitError`          | `RATE_LIMIT_ERROR`     | provider | yes         |
-| `NetworkError`            | `NETWORK_ERROR`        | system   | yes         |
-| `ToolExecutionError`      | `TOOL_EXECUTION_ERROR` | system   | no          |
-| `ModelNotAvailableError`  | `MODEL_NOT_AVAILABLE`  | user     | no          |
-| `CircuitBreakerOpenError` | `CIRCUIT_BREAKER_OPEN` | system   | yes         |
-| `PluginError`             | `PLUGIN_ERROR`         | system   | no          |
-| `StorageError`            | `STORAGE_ERROR`        | system   | yes         |
-| `UnsupportedShellError`   | `UNSUPPORTED_SHELL`    | user     | no          |
-| `SameToolInputLoopError`  | `SAME_TOOL_INPUT_LOOP` | system   | yes         |
+## Canonical Direct Runtime Tool Invocation
 
-`ErrorUtils` provides `isRecoverable()`, `getErrorCode()`, `fromUnknown()`, and `wrapProviderError()`.
+An agent's registered tool catalog (including currently-deferred tools) can be invoked directly through the same execution path a model-driven tool call uses — the same validation, permission-wrapped execution, and event emission — without fabricating a model turn or requiring the model to have discovered a deferred tool first. Direct invocation does not bypass configured tool allowlists or permission enforcement, and it does not inject an interactive "ask the user" handler the way a live model-driven session might.
 
-### Execution Loop Error Handling
+## Extraction Trigger
 
-The default core execution round limit is 10 model/tool rounds. Callers can override it with `IRunOptions.maxExecutionRounds`, `IExecutionContext.maxExecutionRounds`, or `IAgentConfig.maxExecutionRounds`. Run-scoped values win over config defaults. A value of `0` means the execution loop has no round cap and relies on abort, context-window checks, provider idle timeout, and runtime-level controls to stop runaway execution.
-
-**Identical tool-input guard (`maxSameToolInputs`)**: `N` is the MAXIMUM number of byte-identical serialized invocations of one tool allowed within a single run. The Nth is permitted; the **N+1th** throws `SameToolInputLoopError` (`code: 'SAME_TOOL_INPUT_LOOP'`, `category: 'system'`, `recoverable: true`), carrying `toolName`, `callCount` and `maxSameToolInputs`. The threshold is resolved from (in priority order) `IExecutionContext.maxSameToolInputs`, `IRunOptions.maxSameToolInputs`, `IAgentConfig.maxSameToolInputs`. When undefined, the guard is disabled. Introduced in CORE-001.
-
-The guard trip is a **failed run, not an abort** (CORE-035). This SPEC previously documented an `AbortError` thrown at the Nth call, and the type was behavioral, not cosmetic: `isAbortFailure` resolves an `AbortError` as `success: true, interrupted: true`, so a run that detected a pathological loop and produced no answer would have been reported as a success. `AbortError` means the CALLER asked the turn to stop, and here nobody did — the agent gave up. The error is nevertheless named rather than a bare `Error`, which is what naming a type in this SPEC was reaching for: a caller must be able to tell "the agent looped" from "the network died", and CORE-027 carries `code` / `category` / `recoverable` out to them intact.
-
-When the execution loop ends without a final assistant text message (e.g., due to max round limit or context overflow during tool execution):
-
-1. **Force a final summary call** — inject a synthetic user message requesting the AI to respond with what it has so far, noting what remains incomplete and that the user can follow up. Call `provider.chat()` WITHOUT tools (preventing further tool calls). The system message from config must be included. Use streaming (onTextDelta) if available.
-2. **Preserve conversation history** — strip the synthetic user message from history after the provider call completes so it doesn't pollute future turns.
-3. **Fallback on empty response** — if the forced call produces no text, return: `"Maximum rounds reached. Partial results available in conversation history."`.
-4. **If the forced call throws** — catch the error and return the fallback message without re-throwing.
-
-### Pre-Send Context Check
-
-Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit using `estimateContextTokensFromMessages()` plus the current round's provider usage floor. This is a hard-capacity guard, not the automatic compaction policy. Automatic compaction remains owned by the session layer at its configured threshold. The hard guard stops only when the effective estimate exceeds 95% of the context window and emits a diagnostic assistant message with estimated tokens, max tokens, serialized estimate, provider usage floor, and threshold values so UI layers can explain why the prompt was blocked.
-
-### Provider Error Recovery
-
-If `provider.chat()` throws an error (e.g., API 400 for context too large), `executeRound` catches it and injects an assistant message with the error. This ensures the user always sees a readable error message rather than "No response received." If the entire execution pipeline throws, `ExecutionService.execute()` catches it and returns a graceful error result instead of re-throwing.
-
-### AbstractAIProvider.streamWithAbort
-
-`streamWithAbort()` is a protected async generator on `AbstractAIProvider` that wraps any async iterable with cooperative abort checking. All provider implementations MUST use this method for streaming iteration.
-
-**Mechanism:**
-
-1. Races each source `iterator.next()` against the supplied `AbortSignal`, so a stream waiting for the next provider chunk can settle when aborted.
-2. For each event from the source iterable, yields with a `setTimeout(0)` interleave to allow the event loop to process abort signals.
-3. Checks `signal.aborted` before yielding and calls `iterator.return()` when abort ends iteration.
-4. Providers wrap their SDK stream with `this.streamWithAbort(stream, signal)` in their `chatWithStreaming` implementation.
-
-**Usage pattern (in provider):**
-
-```typescript
-for await (const event of this.streamWithAbort(stream, signal)) {
-  // process event
-}
-// After loop: check signal.aborted to determine stopReason
-```
-
-This ensures all providers have consistent, low-latency abort responsiveness without duplicating the abort-checking logic.
-
-### Tool Result Context Budget
-
-After the assistant message is committed to history, tool results are added to history one by one. After each addition, the estimated token count (`chars/2`) is checked against 80% of the model's context window.
-
-If exceeded, remaining tool results are replaced with a short context-error message (permission-deny pattern):
-
-```
-Error: Context window near capacity. Tool execution result skipped.
-```
-
-**Key behavior:**
-
-- Follows the permission-deny pattern — AI receives a mix of normal results and context-error results
-- The execution loop does NOT break — it continues to the next provider call so the AI can see the mixed results and respond
-- AI autonomously decides how to handle: partial answer from available results, retry with fewer tools, etc.
-- Skipped tool results are short error messages (~80 chars), so the next provider call succeeds
-
-**Example flow:**
-
-```
-[assistant] text + tool_use(Read, Bash, Glob, Write)
-[tool] Read result (normal, context at 75%)
-[tool] Bash result (normal, context at 82% → overflow detected)
-[tool] Glob: "Error: Context window near capacity. Tool execution result skipped."
-[tool] Write: "Error: Context window near capacity. Tool execution result skipped."
-→ next provider call succeeds
-→ AI responds based on Read and Bash results, notes Glob and Write were skipped
-```
-
-**Return value:** `addToolResultsToHistory` returns `IToolResultsOutcome` with `contextOverflowed`, `addedCount`, and `skippedCount`.
-
-### Streaming Round Separator
-
-When the execution loop starts round 2+ (after tool execution), `execution-round.ts` emits `'\n\n'` through the run-scoped `onTextDelta` callback before calling `provider.chat()`, falling back to `provider.onTextDelta` only when no run callback is present. This separates streaming text from different rounds in the CLI, which would otherwise concatenate without line breaks.
-
-## Class Contract Registry
-
-### Interface Implementations
-
-| Interface                         | Implementor                   | Kind                     | Location                                       |
-| --------------------------------- | ----------------------------- | ------------------------ | ---------------------------------------------- |
-| `IAgent`                          | `AbstractAgent`               | abstract base            | `src/abstracts/abstract-agent.ts`              |
-| `IAgent`                          | `Robota`                      | production               | `src/core/robota.ts`                           |
-| `IAIProvider`                     | `AbstractAIProvider`          | abstract base            | `src/abstracts/abstract-ai-provider.ts`        |
-| `IExecutor`                       | `AbstractExecutor`            | abstract base            | `src/abstracts/abstract-executor.ts`           |
-| `IPluginContract`, `IPluginHooks` | `AbstractPlugin`              | abstract base            | `src/abstracts/abstract-plugin.ts`             |
-| `IToolWithEventService`           | `AbstractTool`                | abstract base            | `src/abstracts/abstract-tool.ts`               |
-| `IModule`, `IModuleHooks`         | `AbstractModule`              | abstract base            | `src/abstracts/abstract-module.ts`             |
-| `IEventService`                   | `AbstractEventService`        | abstract base            | `src/event-service/event-service.ts`           |
-| `IEventService`                   | `DefaultEventService`         | production (null object) | `src/event-service/event-service.ts`           |
-| `IEventService`                   | `StructuredEventService`      | production               | `src/event-service/event-service.ts`           |
-| `IEventService`                   | `ObservableEventService`      | production               | `src/event-service/event-service.ts`           |
-| `IConversationHistory`            | `ConversationHistory`         | production               | `src/managers/conversation-history-manager.ts` |
-| `IConversationHistory`            | `ConversationStore`           | production               | `src/managers/conversation-store.ts`           |
-| `IConversationService`            | `ConversationService`         | production               | `src/services/conversation-service/index.ts`   |
-| `IToolManager`                    | `Tools`                       | production               | `src/managers/tool-manager.ts`                 |
-| `IAIProviderManager`              | `AIProviders`                 | production               | `src/managers/ai-provider-manager.ts`          |
-| `IPluginsManager`                 | `Plugins`                     | production               | `src/managers/plugins.ts`                      |
-| `ILogger`                         | `ConsoleLogger`               | production               | `src/utils/logger.ts`                          |
-| `IEventHistoryModule`             | `EventHistoryModule`          | production               | `src/services/history-module.ts`               |
-| `IEventHistoryModule`             | `InMemoryHistoryStore`        | production               | `src/services/in-memory-history-store.ts`      |
-| `IEventEmitterMetrics`            | `InMemoryEventEmitterMetrics` | production               | `src/plugins/event-emitter/metrics.ts`         |
-| `ICacheStorage`                   | `MemoryCacheStorage`          | production               | `src/services/cache/memory-cache-storage.ts`   |
-
-NOTE: `MCPTool`, `RelayMcpTool` moved to the MCP-tool layer. Plugin storage implementations (ILogStorage, IUsageStorage, IPerformanceStorage, IHistoryStorage, etc.) moved to their respective external plugin packages. agent-core is the single owner (SSOT) of the public `ToolRegistry` / `FunctionTool` classes (`src/tool-registry/`, exported from the barrel and consumed by `tool-manager`; DATA-005); there is no `OpenAPITool` class (only the `IOpenAPIToolConfig` type and the `createOpenAPITool` factory port).
-
-### Inheritance Chains (within agent-core)
-
-| Base                   | Derived                  | Location                              | Notes                    |
-| ---------------------- | ------------------------ | ------------------------------------- | ------------------------ |
-| `AbstractAgent`        | `Robota`                 | `src/core/robota.ts`                  | Main facade              |
-| `AbstractEventService` | `DefaultEventService`    | `src/event-service/event-service.ts`  | Null object              |
-| `AbstractEventService` | `StructuredEventService` | `src/event-service/event-service.ts`  | Owner-bound events       |
-| `AbstractEventService` | `ObservableEventService` | `src/event-service/event-service.ts`  | RxJS integration         |
-| `AbstractExecutor`     | `LocalExecutor`          | `src/executors/local-executor.ts`     | Local provider execution |
-| `AbstractPlugin`       | `EventEmitterPlugin`     | `src/plugins/event-emitter-plugin.ts` | Event coordination       |
-
-NOTE: The single `FunctionTool` class (agent-core's `tool-registry`, DATA-005 SSOT) implements `IFunctionTool`/`ITool` directly without extending `AbstractTool`. There is no `OpenAPITool` class; OpenAPI tools are built through the `createOpenAPITool` factory port. Plugin implementations in the external plugin packages extend `AbstractPlugin`.
-
-### Cross-Package Port Consumers
-
-| Port (Owner)                      | Adapter (Consumer Package)                   | Location                                                            |
-| --------------------------------- | -------------------------------------------- | ------------------------------------------------------------------- |
-| `AbstractAIProvider` (agent-core) | `OpenAIProvider` (agent-provider)            | `packages/agent-provider-openai/src/openai/provider.ts`             |
-| `AbstractAIProvider` (agent-core) | `AnthropicProvider` (agent-provider)         | `packages/agent-provider-anthropic/src/anthropic/provider.ts`       |
-| `AbstractAIProvider` (agent-core) | `GeminiProvider` (agent-provider)            | `packages/agent-provider-gemini/src/gemini/provider.ts`             |
-| `AbstractAIProvider` (agent-core) | `GoogleProvider` (agent-provider)            | `packages/agent-provider-gemini/src/google/provider.ts`             |
-| `AbstractAIProvider` (agent-core) | `MockAIProvider` (agent-session)             | `packages/agent-session/examples/verify-offline.ts`                 |
-| `IExecutor` (agent-core)          | `SimpleRemoteExecutor` (agent-remote-client) | `packages/agent-remote-client/src/client/remote-executor-simple.ts` |
-
-## Test Strategy
-
-`src/__tests__/role-model-contract.test.ts` reads this package's `src/interfaces/role-model.ts`
-through an owner-local relative path and verifies that `TRoleModelMap` remains an opaque
-`Record<string, IModelRef[]>`, without an enum, fixed role union, or concrete role literals.
-
-`src/__tests__/owned-hook-examples.test.ts` executes the owner-local hook commands against built Node
-artifacts and checks their reported hook outcomes, including timeout source resolution from a
-different cwd. The commands require a shell with `sleep`; they do not call a live model.
-
-### Test-only fixtures — `@robota-sdk/agent-core/testing` (TEST-003 / TEST-005)
-
-A node-only `./testing` subpath (excluded from the browser build and the runtime bundle) owns the
-deterministic test providers (SSOT). It is the lowest layer that can own these fixtures because they
-implement only agent-core contracts; higher layers (`agent-framework/testing`,
-`agent-transport/testing`) re-export them. Never import from runtime code.
-
-- **Scripted provider** — `createScriptedProvider(turns)` returns an `IAIProvider` that replays
-  declared assistant turns (text or tool calls) through the **real** agent loop and records every
-  request. Tests the machinery; ignores the prompt.
-- **Record-replay (cassette) provider (TEST-005)** — `createRecordingProvider({ provider,
-cassettePath, recordCwd? })` wraps a real provider and writes each interaction to a cassette;
-  `createReplayProvider({ cassettePath, rewriteCwd? })` replays it deterministically with staleness
-  detection (request hash over a workspace-scrubbed projection) and clear exhaustion errors. Lets a
-  real model's prompts + tool-use be captured once and replayed in CI at zero per-run cost.
-
-### Current Coverage
-
-| Layer          | Test Files                                                                              | Coverage                                                                                          |
-| -------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Core (Robota)  | `robota.test.ts`                                                                        | Core flow                                                                                         |
-| Executors      | `local-executor.test.ts`                                                                | Local execution                                                                                   |
-| Managers       | `agent-factory.test.ts`, `tool-manager.test.ts`, `conversation-history-manager.test.ts` | Creation, tools, history                                                                          |
-| Plugins        | `event-emitter-plugin.test.ts`                                                          | Event coordination                                                                                |
-| Providers      | `provider-capabilities.test.ts`                                                         | Default capabilities and native web validation                                                    |
-| Services       | `event-service.test.ts`, `execution-service.test.ts`                                    | Events, execution                                                                                 |
-| Shell resolver | `platform-shell.test.ts`                                                                | Precedence, cross-platform executable families, path/case handling, typed unknown-shell rejection |
-
-### Scenario Verification
-
-- Command: `pnpm scenario:verify` (runs `examples/verify-offline.ts` with MockAIProvider)
-- Record: `examples/scenarios/offline-verify.record.json`
-- Validates: agent creation, tool registration, conversation flow without network
-
-### Coverage Gaps (Improvement Targets)
-
-- Service edge cases: tool-execution-service, task-events, user-events
-- Utility tests: errors, validation, message-converter
-- NOTE: Plugin tests belong to the external plugin packages. Tool tests belong to the tools layer.
-
-## Dependencies
-
-### Production (2)
-
-- `jssha` — SHA hashing for content verification
-- `zod` — Schema validation for tool parameters
-
-### Key Peer Contracts
-
-- Provider packages implement `AbstractAIProvider` and `IAIProvider`
-- The session layer consumes `Robota`, `runHooks`, `evaluatePermission`, `TUniversalMessage`
-- The tools layer consumes `AbstractTool`, `IFunctionTool`, `IToolWithEventService`
-- External plugin packages extend `AbstractPlugin`
-- **agent-core OWNS the neutral multi-agent orchestration contracts + event-type unions**
-  (`src/orchestration/` — `TOrchestrationPrimitive`, `IOrchestrationStep`,
-  `ISequentialOrchestrationSpec`, `IOrchestrationRunResult`, `IOrchestrationEventData`,
-  `ORCHESTRATION_EVENTS`); **the `agent-framework` layer IMPLEMENTS them** as the mechanism
-  over `agent-executor`'s `ISubagentRunner` port (SELFHOST-001). These are pure contracts (no
-  runtime, no class) and carry no app-domain identity (neutrality enforced by the standing
-  `orchestration-neutrality` harness scan). The multi-agent layer still consumes `Robota`,
-  `IAgentConfig`, and the event services for the single-agent runs the primitives compose.
-  Extraction trigger (B3): when a second implementer family lands (a dag-\* adapter), both these
-  contracts and the event unions move to a new `agent-interface-orchestration` package
-  (deps ⊆ {agent-core}).
-
-### Canonical direct runtime tools (MCP-006)
-
-`Robota.listRuntimeTools()` returns the validated registered tool schemas, including deferred tools.
-`Robota.invokeRuntimeTool(name, parameters, context)` invokes the same `ToolExecutionService` and
-registered tools used by model turns, returning `IToolExecutionResult`. Direct catalog invocation
-does not require model-side deferred-tool discovery. It does not bypass configured tool allowlists,
-permission-wrapped execution, tool events, or argument handling. The caller supplies cancellation and
-execution identity. This method does not fabricate a model turn or alter conversation messages.
-
-Registration adapters preserve failed `IToolResult` envelopes as execution errors at initial registration, `registerTool`, and `updateTools`. Direct execution injects the same deferred-tool catalog and owner-bound event service as model-driven execution; it does not inject an interactive `ask` handler.
+The neutral orchestration contracts (see "Class Registry and Cross-Layer Ports" above) are intentionally light — pure types with no runtime and no application identity — because they exist to let exactly one implementer (`agent-framework`) build the actual mechanism without this foundation depending on it. If a second, independent implementer family appears, that is the trigger to extract both the contracts and their event-type unions into their own dedicated package rather than continuing to host them here.

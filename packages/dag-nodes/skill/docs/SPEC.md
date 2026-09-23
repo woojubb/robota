@@ -1,55 +1,39 @@
 # Skill Node Specification
 
-## Scope
+## Purpose
 
-- Owns the `skill` DAG node definition.
-- Resolves a Robota skill (by name) to its expanded **inject-mode prompt string**, emitted on an output port. It does NOT run the skill through an LLM — it produces the prompt a downstream LLM node consumes.
+Owns the `skill` DAG node definition. Resolves a Robota skill (by name) to its expanded
+inject-mode prompt string, emitted on an output port. It does not run the skill through an LLM —
+it produces the prompt a downstream LLM node consumes (`skill -> llm-text -> ...`).
+
+## Non-goals
+
+- **Resolver, not executor.** Inject-mode resolution is pure substitution — no LLM, no provider, no
+  session.
+- **Fork skills are out of scope.** A skill with `context: 'fork'` requires a subagent LLM loop that
+  a pure resolver has no runtime for; the node returns a validation error for such skills instead of
+  attempting to run them.
+- **No shell execution.** Resolution runs with no shell-exec capability, so shell interpolations in
+  a skill body are stripped to empty rather than executed — the resolver never runs arbitrary shell.
+- **Node-only.** Skill discovery reads the local filesystem; this package exposes no browser
+  build target.
+- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node` and does not redefine core DAG
+  contracts.
+
+## Contract
+
+- A "skill" is a `SKILL.md` parsed into a command (SSOT owned by
+  `@robota-sdk/agent-interface-transport`); discovery and inject-mode resolution are delegated to
+  `@robota-sdk/agent-framework`.
+- The `args` input port, when a non-empty string, overrides the static config default — callers can
+  parameterize a skill invocation per-run without editing the node's config.
+- Skill discovery is rooted at the trusted execution root passed in context. A configured working
+  directory may only narrow within that root; absolute paths, parent traversal, and symlink escapes
+  are rejected rather than silently resolved, so a node config cannot read outside the run's
+  sandboxed root.
+- Cost estimation defaults to zero credits, since prompt resolution runs no model.
 
 ## Boundaries
 
-- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
-- A "skill" is a `SKILL.md` parsed into an `ICommand` (SSOT `@robota-sdk/agent-interface-transport`). This node uses `@robota-sdk/agent-framework` `SkillCommandSource` (discover/list skills) and `executeSkill` (inject mode) to resolve the prompt.
-- **Resolver, not executor.** `executeSkill` in inject mode returns a prompt string via pure substitution — no LLM, no provider, no session. Wire this node to an LLM node to actually execute the skill (`skill → llm-text → …`).
-- **Fork skills are out of scope.** A skill with `context: 'fork'` requires a subagent LLM loop (`runInFork`), which a pure resolver has no runtime for — the node returns a validation error for such skills.
-- **No shell execution.** `executeSkill` is called with no `shellExec`, so `` !`cmd` `` interpolations in a skill body are stripped to empty (never executed) — the resolver never runs arbitrary shell.
-- **Node-only filesystem surface.** Skill discovery reads the local filesystem. The package exposes no browser condition; its previous browser condition pointed to the same Node build and was a false capability claim.
-- The DAG subsystem stays private; this package is `private: true`. Registered in the async/optional node-registry list (lazy import of the agent-framework-backed node).
-
-## Architecture Overview
-
-- `SkillNodeDefinition` — node with an optional `args` input port (string) and `prompt` + `mode` output ports. `defaultInputPort='args'`, `defaultOutputPort='prompt'`.
-- `SkillResolverRuntime` — resolves the skill, isolated from the node for testability via **dependency injection**:
-  - `loadCommands(cwd, home): ICommand[]` — defaults to `new SkillCommandSource(cwd, home).getCommands()`.
-  - `executeSkillFn` — defaults to `executeSkill`.
-  - `resolvePrompt({ skillName, args })`: find the command by name (else `DAG_VALIDATION_SKILL_NOT_FOUND` with the available names as `options`); reject `context: 'fork'` skills (`DAG_VALIDATION_SKILL_FORK_UNSUPPORTED`); call `executeSkillFn(skill, args, {}, { sessionId })` and return `{ prompt, mode }`.
-- Args precedence: the `args` input port (if a non-empty string) overrides `config.args`.
-- Root authority: discovery starts from required trusted `context.executionRoot`. `config.cwd` may only narrow within it; absolute, parent-traversal, and escaping-symlink widening fail with `DAG_VALIDATION_SKILL_CWD_OUTSIDE_ROOT`.
-- Cost estimate: `config.baseCredits` (default 0 — resolution runs no model).
-
-## Type Ownership
-
-| Type                          | Location              | Purpose                                                   |
-| ----------------------------- | --------------------- | --------------------------------------------------------- |
-| `SkillNodeDefinition`         | `src/index.ts`        | Node definition class                                     |
-| `SkillNodeConfigSchema`       | `src/index.ts`        | Zod config schema                                         |
-| `SkillResolverRuntime`        | `src/runtime-core.ts` | Skill discovery + inject-prompt resolution                |
-| `ISkillResolverOptions`       | `src/runtime-core.ts` | Injected deps + `cwd`/`home`/`sessionId`                  |
-| `ISkillResolveRequest`        | `src/runtime-core.ts` | Resolve-call request shape                                |
-| `ISkillResolveResult`         | `src/runtime-core.ts` | Resolve-call result shape                                 |
-| `TLoadSkillCommands`          | `src/runtime-core.ts` | Injected skill-command loader signature                   |
-| `ISkillNodeDefinitionOptions` | `src/index.ts`        | Node definition options (extends `ISkillResolverOptions`) |
-
-## Public API Surface
-
-- `SkillNodeDefinition` — class
-- `createSkillNodeDefinition()` — factory function
-- `SkillNodeConfigSchema` — Zod schema
-- `TSkillNodeConfig` — inferred config type
-- `ISkillNodeDefinitionOptions` — node definition options
-- `SkillResolverRuntime`, `ISkillResolverOptions`, `ISkillResolveRequest`, `ISkillResolveResult`, `TLoadSkillCommands` — re-exported from the node module
-
-## Extension Points
-
-- Config `skillName` (required), `args` (static default), `cwd` (narrowing only), `sessionId`, `baseCredits`.
-- Runtime options `loadCommands` / `executeSkillFn` for injection (tests / alternate skill sources).
-- Error codes: `DAG_VALIDATION_SKILL_CWD_OUTSIDE_ROOT`, `DAG_VALIDATION_SKILL_NOT_FOUND`, `DAG_VALIDATION_SKILL_FORK_UNSUPPORTED`, `DAG_TASK_EXECUTION_SKILL_RESOLVE_FAILED`.
+The DAG subsystem this node belongs to stays private (`private: true`); it is registered only via
+the async/optional node-registry path, not eagerly loaded.

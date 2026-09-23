@@ -15,39 +15,11 @@ renderers (which live in `agent-ui-terminal`).
 - Implementation rendering lives in the `agent-ui-terminal` package.
 - `agent-ui-terminal` uses these contracts to describe TUI interaction requirements for command modules.
 
-## Architecture Overview
-
-```
-agent-interface-tui            ← this package (contracts only)
-  ├── ITuiCommandInteraction   ← base: optional onMissingArgs action
-  ├── ITuiPickerInteraction    ← requires picker UI (getItems → ITuiPickerItem[])
-  ├── ITuiConfirmInteraction   ← requires confirm UI (boolean prompt)
-  └── TAnyTuiCommandInteraction ← union of all concrete interaction shapes
-
-agent-ui-terminal
-  └── useSideEffects           ← renders TAnyTuiCommandInteraction via ITuiCliAdapter
-
-agent-command/*
-  └── command descriptors      ← annotate onMissingArgs to trigger interaction
-```
-
-## Public API
-
-| Export                      | Kind      | Description                                              |
-| --------------------------- | --------- | -------------------------------------------------------- |
-| `TOnMissingArgsAction`      | type      | `'picker' \| 'wizard' \| 'confirm'`                      |
-| `ITuiPickerItem`            | interface | Item in a picker list (`label`, `value`, `description?`) |
-| `ITuiCommandInteraction`    | interface | Base interaction: optional `onMissingArgs`               |
-| `ITuiPickerInteraction`     | interface | Picker variant: `getItems()` + `onMissingArgs: 'picker'` |
-| `ITuiConfirmInteraction`    | interface | Confirm variant: `message` + `onMissingArgs: 'confirm'`  |
-| `TAnyTuiCommandInteraction` | type      | Union of all interaction variants                        |
-
-This package exports no runtime functions. `TAnyTuiCommandInteraction` is a discriminated union —
-narrow it directly on the `onMissingArgs` literal (`if (x.onMissingArgs === 'picker')`); no
-dedicated type-guard functions are provided.
+This package exports no runtime functions. The interaction union is a discriminated union — narrow
+it directly on its action-kind literal; no dedicated type-guard functions are provided.
 
 ## Invariants
 
 - This package must never gain runtime dependencies.
 - No framework or provider knowledge may enter this package.
-- `wizard` is defined in the `TOnMissingArgsAction` union but not yet implemented by a transport.
+- A `wizard` action kind is part of the interaction vocabulary but is not yet implemented by any transport.
