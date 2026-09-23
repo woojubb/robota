@@ -16,8 +16,10 @@ describe('TuiChannelLifecycleCoordinator', () => {
     const ops = operations();
     const lifecycle = new TuiChannelLifecycleCoordinator(ops, 100);
     await lifecycle.start();
+    expect(lifecycle.isActiveForPeerStatus).toBe(true);
     await lifecycle.start();
     await lifecycle.stop();
+    expect(lifecycle.isActiveForPeerStatus).toBe(false);
     await lifecycle.stop();
 
     expect(ops.start).toHaveBeenCalledTimes(1);
@@ -47,10 +49,23 @@ describe('TuiChannelLifecycleCoordinator', () => {
     const lifecycle = new TuiChannelLifecycleCoordinator(ops, 100);
 
     await expect(lifecycle.start()).rejects.toThrow('transport start failed');
+    expect(lifecycle.isActiveForPeerStatus).toBe(false);
     await lifecycle.start();
     await lifecycle.start();
 
     expect(ops.start).toHaveBeenCalledTimes(2);
+  });
+
+  it('invalidates peer activity before a failing stop settles', async () => {
+    const ops = operations();
+    ops.stop.mockRejectedValueOnce(new Error('teardown failed'));
+    const lifecycle = new TuiChannelLifecycleCoordinator(ops, 100);
+    await lifecycle.start();
+    expect(lifecycle.isActiveForPeerStatus).toBe(true);
+    const stopping = lifecycle.stop();
+    expect(lifecycle.isActiveForPeerStatus).toBe(false);
+    await expect(stopping).rejects.toThrow('teardown failed');
+    expect(lifecycle.isActiveForPeerStatus).toBe(false);
   });
 
   it('shares one in-flight start across concurrent callers', async () => {

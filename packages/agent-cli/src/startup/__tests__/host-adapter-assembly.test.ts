@@ -11,6 +11,14 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { attachHostAdapters, attachLocalPeerMessaging } from '../host-action-adapters.js';
 
+vi.mock('../../remote-control/local-peer-messaging.js', () => ({
+  startLocalPeerMessaging: vi.fn(async () => ({
+    socketPath: '/tmp/mock-peer.sock',
+    send: async () => ({ id: 'x', sequence: 1, state: 'acknowledged' }),
+    close: async () => {},
+  })),
+}));
+
 import type { RemoteControlController } from '../../remote-control/index.js';
 import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
 
@@ -28,6 +36,43 @@ function reporter() {
 }
 
 describe('assembling the host adapters', () => {
+  it('rebinds activity to the current channel and clears the previous observation', () => {
+    vi.useFakeTimers();
+    try {
+      const published: Array<string | undefined> = [];
+      const presence = {
+        sessionId: 'self',
+        guardedDirectory: '/tmp/rendezvous',
+        list: () => [],
+        publishStatus: (status: string | undefined) => published.push(status),
+        withdraw: () => {},
+      };
+      const start = attachHostAdapters({}, CONTROLLER, reporter(), () => presence);
+      const sessions = [0, 1].map(() => ({
+        status: 'idle' as 'idle' | 'working',
+        submit: async () => ({}),
+        getLocalActivityStatus() {
+          return this.status;
+        },
+      }));
+      const first = { isActiveForPeerStatus: true, getSession: () => sessions[0]! as never };
+      start(first);
+      sessions[0]!.status = 'working';
+      vi.advanceTimersByTime(250);
+      expect(published.at(-1)).toBe('working');
+      first.isActiveForPeerStatus = false;
+      vi.advanceTimersByTime(250);
+      expect(published.at(-1)).toBeUndefined();
+      start({ isActiveForPeerStatus: true, getSession: () => sessions[1]! as never });
+      expect(published.slice(-2)).toEqual([undefined, 'idle']);
+      sessions[0]!.status = 'working';
+      vi.advanceTimersByTime(250);
+      expect(published.at(-1)).toBe('idle');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('wires `/peers` to a presence that announced', () => {
     const adapters: ICommandHostAdapters = {};
     const report = reporter();
@@ -35,6 +80,7 @@ describe('assembling the host adapters', () => {
       sessionId: 'session-one',
       guardedDirectory: '/tmp/rendezvous',
       list: () => [{ sessionId: 'session-one', liveness: 'alive' as const }],
+      publishStatus: () => undefined,
       withdraw: () => undefined,
     };
 
@@ -56,6 +102,7 @@ describe('assembling the host adapters', () => {
         sessionId: options.sessionId,
         guardedDirectory: '/tmp/rendezvous',
         list: () => [],
+        publishStatus: () => undefined,
         withdraw: () => undefined,
       };
     });
@@ -93,6 +140,7 @@ describe('PEER-006 — messaging is attached separately from discovery', () => {
     sessionId: 'me',
     guardedDirectory: '/tmp/does-not-matter',
     list: () => [],
+    publishStatus: () => {},
     withdraw: () => {},
   };
 
@@ -153,6 +201,7 @@ describe('PEER-006 — a session switch does not leak a listener', () => {
     sessionId: 'me',
     guardedDirectory: '/tmp/does-not-matter',
     list: () => [],
+    publishStatus: () => {},
     withdraw: () => {},
   };
 

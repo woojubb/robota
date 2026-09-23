@@ -48,6 +48,32 @@ function exitBus() {
 const ALIVE = () => 'start-time-fixed';
 
 describe('announcing makes this session discoverable', () => {
+  it('publishes only fixed activity metadata, refreshes it, and clears on switch', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(10_000);
+    try {
+      const bus = exitBus();
+      const presence = announceLocalPeerPresence({
+        sessionId: 'session-one',
+        guardedDirectory: guardedDirectory(),
+        registry: { readStartTime: ALIVE, now: () => Date.now() },
+        on: bus.on,
+        off: bus.off,
+      });
+      expect(presence.list()[0]?.status).toBe('unknown');
+      presence.publishStatus('working');
+      expect(presence.list()[0]?.status).toBe('working');
+      vi.advanceTimersByTime(31_000);
+      expect(presence.list()[0]?.status).toBe('working');
+      presence.publishStatus(undefined);
+      expect(presence.list()[0]?.status).toBe('unknown');
+      presence.withdraw();
+      expect(bus.size).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('publishes an entry a second reader sees', () => {
     const dir = guardedDirectory();
     const bus = exitBus();

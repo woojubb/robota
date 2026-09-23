@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto';
 import { PeerMessageIngress } from '@robota-sdk/agent-framework';
 
 import { announceLocalPeerPresence } from '../remote-control/local-peer-presence.js';
+import { bindLocalPeerStatus } from '../remote-control/local-peer-status.js';
 import { startLocalPeerMessaging } from '../remote-control/local-peer-messaging.js';
 
 import type { ILocalPeerPresence } from '../remote-control/local-peer-presence.js';
@@ -27,6 +28,13 @@ interface IPeerIngressSession {
     rawInput: string | undefined,
     options: { turnSource: 'peer'; driverId?: string },
   ): Promise<ITurnHandle>;
+}
+
+function isObservableSession(session: IPeerIngressSession): session is IPeerIngressSession & {
+  getLocalActivityStatus(): 'working' | 'needs-input' | 'idle' | undefined;
+} {
+  const candidate = session as IPeerIngressSession & { getLocalActivityStatus?: () => unknown };
+  return typeof candidate.getLocalActivityStatus === 'function';
 }
 
 /**
@@ -223,7 +231,10 @@ export function attachHostAdapters(
   controller: RemoteControlController,
   report: IAdapterReporter,
   announce?: (options: { sessionId: string }) => ILocalPeerPresence,
-): (channel: { getSession(): IPeerIngressSession }) => void {
+): (channel: {
+  getSession(): IPeerIngressSession;
+  readonly isActiveForPeerStatus?: boolean;
+}) => void {
   adapters.remoteControl = buildRemoteControlHostAdapter(controller);
   const presence = attachLocalPeerDiscovery(adapters, report, announce);
   // Returns the ACTIVATOR rather than the presence, so the composition root names one thing and
@@ -233,7 +244,25 @@ export function attachHostAdapters(
   // Threading it here rather than inside the attach keeps that state owned by the thing whose
   // lifetime it matches — one activator per process — instead of a module-level variable.
   let running: Promise<IPeerMessaging | undefined> | undefined;
+  let stopStatus: (() => void) | undefined;
   return (channel) => {
+    stopStatus?.();
+    stopStatus = undefined;
+    if (presence !== undefined) {
+      const session = channel.getSession();
+      if (isObservableSession(session) && typeof channel.isActiveForPeerStatus === 'boolean') {
+        stopStatus = bindLocalPeerStatus(
+          presence,
+          {
+            getSession: () => session,
+            get isActiveForPeerStatus() {
+              return channel.isActiveForPeerStatus === true;
+            },
+          },
+          (message) => report.writeError(message),
+        );
+      }
+    }
     running = attachLocalPeerMessaging(
       adapters,
       presence,

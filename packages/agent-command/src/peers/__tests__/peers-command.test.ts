@@ -63,6 +63,20 @@ describe('what the operator is told', () => {
     expect(result.message).toContain('liveness unknown');
   });
 
+  it('shows observed activity and marks missing activity unknown', async () => {
+    const result = await executePeersCommand(
+      hostWithPeers([
+        { sessionId: OWN, liveness: 'alive', status: 'idle' },
+        { sessionId: 'busy', liveness: 'alive', status: 'working' },
+        { sessionId: 'waiting', liveness: 'alive', status: 'needs-input' },
+        { sessionId: 'unobserved', liveness: 'unknown', status: 'unknown' },
+      ]),
+    );
+    expect(result.message).toMatch(/busy.*working/);
+    expect(result.message).toMatch(/waiting.*needs input/);
+    expect(result.message).toMatch(/unobserved.*status unknown/);
+  });
+
   it('does not show a dead entry', async () => {
     // A crashed session leaves its file behind. That is debris, not a peer, and offering it as one
     // would make the operator address something that cannot answer.

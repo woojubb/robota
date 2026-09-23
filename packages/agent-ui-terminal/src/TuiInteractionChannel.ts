@@ -191,6 +191,10 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
     return this.lifecycle.isShuttingDown;
   }
 
+  get isActiveForPeerStatus(): boolean {
+    return this.lifecycle.isActiveForPeerStatus;
+  }
+
   private createSession(): InteractiveSession {
     return buildRuntimeSession(buildTuiSessionOptions(this.opts));
   }
@@ -315,12 +319,18 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
   }
 
   async stopWaitingSelfPacedLoop(): Promise<void> {
-    const waiting = this.interactiveSession.listSelfPacedLoops().filter((loop) => loop.phase === 'waiting');
+    const waiting = this.interactiveSession
+      .listSelfPacedLoops()
+      .filter((loop) => loop.phase === 'waiting');
     if (waiting.length === 0) return;
     if (waiting.length > 1) {
-      this.addEntry(messageToHistoryEntry(createSystemMessage(
-        'Several self-paced loops are waiting. Use /loop list and /loop stop <id> to choose one.',
-      )));
+      this.addEntry(
+        messageToHistoryEntry(
+          createSystemMessage(
+            'Several self-paced loops are waiting. Use /loop list and /loop stop <id> to choose one.',
+          ),
+        ),
+      );
       return;
     }
     const loopId = waiting[0]!.loopId;
@@ -328,9 +338,13 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
       await this.interactiveSession.stopSelfPacedLoop(loopId, 'Loop stopped by Esc');
       this.addEntry(messageToHistoryEntry(createSystemMessage(`Loop ${loopId} stopped by Esc.`)));
     } catch (error) {
-      this.addEntry(messageToHistoryEntry(createSystemMessage(
-        `Could not stop loop ${loopId}: ${error instanceof Error ? error.message : String(error)}`,
-      )));
+      this.addEntry(
+        messageToHistoryEntry(
+          createSystemMessage(
+            `Could not stop loop ${loopId}: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        ),
+      );
     }
   }
 

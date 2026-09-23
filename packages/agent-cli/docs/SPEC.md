@@ -50,6 +50,12 @@ plugins stay disabled across command, theme, and interactive discovery.
 The CLI selects the Robota organization-policy file and passes its path to the neutral loader,
 preserving policy enforcement across its command and session surfaces.
 
+**Local peer activity (#2726).** The host may publish only fixed, content-free activity states for
+its current interactive session into the same guarded, same-user rendezvous as peer discovery. The
+observation is separate from PID/start-time liveness: stale observations or unverified processes
+remain `unknown`. A TUI session switch clears the previous observation and detaches its listeners;
+neither conversation content nor stored-session identity is inferred from the peer entry.
+
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.
 
