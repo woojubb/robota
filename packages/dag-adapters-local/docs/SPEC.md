@@ -64,9 +64,14 @@ task success and its snapshot share one collection write. A storage root has one
 owner: independent instances do not coordinate their cached state. This is not a cross-process or
 multi-file transaction guarantee. Queue delivery remains separate from storage admission.
 
-File execution commits are serialized through persistence completion, so a later finalization cannot
-acknowledge success using an earlier outcome whose write is still pending. If an execution commit's
-persistence fails, subsequent execution commits on that instance reject with that failure; recovery
-must reopen durable state. Cached changes after a failed write are not a basis for continued
-execution. This does not make independent collection files a crash-atomic unit, or change raw
-persistence setters into execution transactions.
+All file run/task reads and writes share one operation queue held through persistence completion.
+A reader cannot observe cancellation, settlement, or a raw mutation before its write completes;
+a raw setter cannot flush an unfinished execution commit through a whole-collection write. If a
+run/task persistence fails, all subsequent run/task reads and writes on that instance reject with that
+failure until recovery reopens durable state. Initialization failures before mutation retain the
+hydration gate's retry behavior. Definition-file operations remain independent.
+
+The queue orders storage operations, not multi-operation domain transactions. Raw persistence
+setters still lack execution preconditions; execution owners use the arbitration contract. The
+queue coexists with per-path collection writers and does not make separate collection files a
+crash-atomic unit.
