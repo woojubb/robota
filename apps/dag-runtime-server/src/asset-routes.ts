@@ -55,10 +55,12 @@ function assetData(metadata: IStoredAssetMetadata): object {
   };
 }
 
+function validMediaTypeHeader(value: string): boolean {
+  return !!value.trim() && !/[^\x20-\x7e]/.test(value);
+}
+
 function safeMediaType(value: string): string {
-  return !value.trim() || value.includes('\r') || value.includes('\n')
-    ? 'application/octet-stream'
-    : value;
+  return validMediaTypeHeader(value) ? value : 'application/octet-stream';
 }
 
 function validAssetId(value: string): boolean {
@@ -72,9 +74,7 @@ function validUpload(
     typeof input.fileName === 'string' &&
     !!input.fileName.trim() &&
     typeof input.mediaType === 'string' &&
-    !!input.mediaType.trim() &&
-    !input.mediaType.includes('\r') &&
-    !input.mediaType.includes('\n') &&
+    validMediaTypeHeader(input.mediaType) &&
     typeof input.base64Data === 'string' &&
     /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(input.base64Data)
   );
@@ -181,6 +181,16 @@ async function content(c: Context, assets?: IAssetStore): Promise<Response> {
     return assetError(c, STATUS.badRequest, 'DAG_ASSET_INVALID_INPUT', 'Asset ID is invalid.');
   }
   try {
+    const stored = await assets.getMetadata(assetId);
+    if (!stored) return assetError(c, STATUS.notFound, 'DAG_ASSET_NOT_FOUND', 'Asset not found.');
+    if (stored.sourceUri?.trim()) {
+      return assetError(
+        c,
+        STATUS.unsupported,
+        'DAG_ASSET_REFERENCE_DOWNLOAD_UNSUPPORTED',
+        'Reference asset downloads are not available over HTTP.',
+      );
+    }
     const result = await assets.getContent(assetId);
     if (!result) return assetError(c, STATUS.notFound, 'DAG_ASSET_NOT_FOUND', 'Asset not found.');
     c.header('Content-Type', safeMediaType(result.metadata.mediaType));

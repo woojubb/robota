@@ -49,7 +49,7 @@ paths:
       summary: Stream asset bytes
       responses:
         '200':
-          description: Binary content; Content-Type is the stored media type.
+          description: Binary content; Content-Type is the header-safe stored media type or application/octet-stream.
           headers:
             Content-Disposition:
               description: Attachment filename encoded as UTF-8.
@@ -60,7 +60,12 @@ paths:
         '400': { $ref: '#/components/responses/AssetError' }
         '404': { $ref: '#/components/responses/AssetError' }
         '500': { $ref: '#/components/responses/AssetError' }
-        '501': { $ref: '#/components/responses/AssetError' }
+        '501':
+          description: Asset store is unavailable or reference-asset downloads are not supported over HTTP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   parameters:
     AssetId:

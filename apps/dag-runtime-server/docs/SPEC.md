@@ -29,12 +29,15 @@ capability maps to 501 and never masquerades as a successful operation.
 Asset routes map the separate `IAssetStore` capability to the existing upload/metadata JSON
 envelope. Upload JSON base64 is decoded at the HTTP boundary. The content route streams actual
 bytes with content headers, returns 404 for missing assets, and returns 501 when the asset
-capability is not wired. Invalid uploads return 400; storage failures are redacted as 500.
+capability is not wired or the asset is an external reference. The HTTP route does not dereference
+reference source URIs until the store enforces connect-time address safety. Invalid uploads,
+including media types with non-printable ASCII, return 400; storage failures are redacted as 500.
 If the asset source fails after response headers, the byte stream errors instead of completing
 successfully with truncated content.
 The asset HTTP request, envelope, error, and binary response schemas are specified in
 [`openapi-assets.yaml`](./openapi-assets.yaml).
-The successful content response uses the stored media type, so the OpenAPI binary content key
+The successful content response uses a header-safe stored media type, falling back to
+`application/octet-stream` for legacy invalid metadata. The OpenAPI binary content key
 is a media range rather than a fixed `application/octet-stream` claim.
 `startDagRuntimeServer()` captures the server process working
 directory as the trusted DAG execution root, passes it explicitly to `createDagFramework()`, starts
@@ -106,7 +109,7 @@ results: unsupported → 501, missing → 404, invalid → 400, success → 200/
 Unexpected cost failures map to 500 with a generic detail so internal paths and storage errors
 are not exposed. Problem details remain inside the API's existing `errors` envelope.
 Asset routes reject malformed upload JSON/base64 and invalid asset IDs with 400, return 404 for
-missing assets, 501 when the store is unwired, and redact storage exceptions as 500. Successful
+missing assets, 501 when the store is unwired or the asset is an external reference, and redact storage exceptions as 500. Successful
 content requests return a binary stream rather than a JSON envelope.
 The current in-process composition returns `DAG_COST_META_UNSUPPORTED` for all seven cost routes;
 this is an explicit 501, not a fabricated successful response. The other 4xx cost codes are

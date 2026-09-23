@@ -30,6 +30,8 @@ explicit 400/404/500/501 mapping.
 
 - In-process callers use bytes and metadata directly, without HTTP status or URLs.
 - The content endpoint now returns bytes rather than a JSON descriptor, matching its client.
+- The unauthenticated content endpoint serves stored bytes only. External reference assets return 501
+  until the store can enforce connect-time address safety for source URI dereferencing.
 - Other HTTP-shaped orchestration methods remain for later issue #2163 slices; this does not close issue #2163.
 
 ## References

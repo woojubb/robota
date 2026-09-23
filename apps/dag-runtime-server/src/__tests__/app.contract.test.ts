@@ -201,6 +201,48 @@ describe('dag-runtime-server contract', () => {
     expect(missing.status).toBe(404);
   });
 
+  it('does not dereference reference assets through the unauthenticated content route', async () => {
+    const referenceStore = Object.create(framework.assets) as IAssetStore;
+    let contentCalled = false;
+    referenceStore.getMetadata = async () => ({
+      assetId: 'reference', fileName: 'remote.bin', mediaType: 'application/octet-stream',
+      sizeBytes: 0, createdAt: '2026-01-01T00:00:00.000Z',
+      sourceUri: 'https://public.example.test/remote.bin',
+    });
+    referenceStore.getContent = async () => {
+      contentCalled = true;
+      throw new Error('Reference source must not be fetched.');
+    };
+    const referenceApp = createDagRuntimeServer(
+      framework.client, framework.costMeta, framework.runDrafts, undefined, referenceStore,
+    );
+    const response = await referenceApp.request('/v1/dag/assets/reference/content');
+    expect(response.status).toBe(501);
+    expect(await response.json()).toMatchObject({
+      errors: [{ code: 'DAG_ASSET_REFERENCE_DOWNLOAD_UNSUPPORTED' }],
+    });
+    expect(contentCalled).toBe(false);
+  });
+
+  it('rejects unsafe upload media types and safely serves legacy metadata', async () => {
+    const invalid = await app.request('/v1/dag/assets', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        fileName: 'bad.txt', mediaType: 'text/plain\u0000bad', base64Data: 'YQ==',
+      }),
+    });
+    expect(invalid.status).toBe(400);
+
+    const legacy = await framework.assets.save({
+      fileName: 'legacy.txt', mediaType: 'text/plain\u0000bad', content: Uint8Array.from([97]),
+    });
+    const downloaded = await app.request(`/v1/dag/assets/${legacy.assetId}/content`);
+    expect(downloaded.status).toBe(200);
+    expect(downloaded.headers.get('content-type')).toContain('application/octet-stream');
+    expect(await downloaded.text()).toBe('a');
+  });
+
   it('preserves the upload and metadata HTTP client contract while serving binary content', async () => {
     const client = new DagOrchestrationHttpClient({
       baseUrl: 'http://dag.test',
@@ -268,6 +310,10 @@ describe('dag-runtime-server contract', () => {
 
   it('does not complete a successful download when its source stream fails', async () => {
     const broken = Object.create(framework.assets) as IAssetStore;
+    broken.getMetadata = async () => ({
+      assetId: 'broken', fileName: 'broken.bin', mediaType: 'application/octet-stream',
+      sizeBytes: 2, createdAt: '2026-01-01T00:00:00.000Z',
+    });
     broken.getContent = async () => ({
       metadata: {
         assetId: 'broken', fileName: 'broken.bin', mediaType: 'application/octet-stream',
