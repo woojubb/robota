@@ -1,87 +1,12 @@
 import { join, basename } from 'node:path';
 
 import { BUILT_IN_AGENTS } from './built-in-agents.js';
+import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
+import { FrontmatterDecodeError } from '../frontmatter/frontmatter-error.js';
 
 import type { IAgentDefinition } from './agent-definition-types.js';
 import type { IContributionSource } from '../contributions/index.js';
 import type { IWorkspaceDirectoryEntry } from '../workspace-trust/index.js';
-
-/** Known frontmatter keys that should be parsed as comma-separated or whitespace-separated lists. */
-const LIST_KEYS = new Set(['tools', 'disallowedTools']);
-
-/** Known frontmatter keys that should be parsed as numbers. */
-const NUMBER_KEYS = new Set(['maxTurns']);
-
-interface IRawFrontmatter {
-  name?: string;
-  description?: string;
-  model?: string;
-  maxTurns?: number;
-  tools?: string[];
-  disallowedTools?: string[];
-}
-
-function parseListValue(rawValue: string): string[] {
-  // A plain `','` rather than `/\s*,\s*/`: the padding that regex absorbed is stripped by the `.trim()` below
-  // anyway, and `\s*,` retried its whitespace run from every offset — quadratic on a long run (SEC-003).
-  const separator = rawValue.includes(',') ? ',' : /\s+/;
-  return rawValue
-    .split(separator)
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
-}
-
-/**
- * Parse simple YAML-like frontmatter between `---` markers.
- * Returns null when no frontmatter block is found.
- */
-function parseFrontmatter(content: string): { frontmatter: IRawFrontmatter | null; body: string } {
-  const lines = content.split('\n');
-  if (lines[0]?.trim() !== '---') {
-    return { frontmatter: null, body: content };
-  }
-
-  let endIndex = -1;
-  for (let i = 1; i < lines.length; i++) {
-    if (lines[i]?.trim() === '---') {
-      endIndex = i;
-      break;
-    }
-  }
-
-  if (endIndex === -1) {
-    return { frontmatter: null, body: content };
-  }
-
-  const result: Record<string, unknown> = {};
-
-  for (let i = 1; i < endIndex; i++) {
-    const line = lines[i]!;
-    const match = line.match(/^([a-zA-Z][a-zA-Z0-9]*(?:[A-Z][a-z]*)*):\s*(.+)/);
-    if (!match) continue;
-
-    const key = match[1]!;
-    const rawValue = match[2]!.trim();
-
-    if (LIST_KEYS.has(key)) {
-      result[key] = parseListValue(rawValue);
-    } else if (NUMBER_KEYS.has(key)) {
-      result[key] = parseInt(rawValue, 10);
-    } else {
-      result[key] = rawValue;
-    }
-  }
-
-  const body = lines
-    .slice(endIndex + 1)
-    .join('\n')
-    .trim();
-
-  return {
-    frontmatter: Object.keys(result).length > 0 ? (result as IRawFrontmatter) : null,
-    body,
-  };
-}
 
 /** Scan a directory for .md files and return parsed agent definitions. */
 function scanAgentsDir(dir: string, source: IContributionSource): IAgentDefinition[] {
@@ -103,19 +28,25 @@ function scanAgentsDir(dir: string, source: IContributionSource): IAgentDefiniti
     const filePath = join(dir, entry.name);
     const content = source.readText(filePath, 'load agent definition');
     if (content === undefined) continue;
-    const { frontmatter, body } = parseFrontmatter(content);
+    const decoded = decodeFrontmatter({
+      source: join(source.displayName, filePath),
+      content,
+      profile: 'agent',
+    });
+    if (!decoded.ok) throw new FrontmatterDecodeError(decoded.diagnostics);
+    const { metadata: frontmatter, body } = decoded;
     const fallbackName = basename(entry.name, '.md');
 
     const agent: IAgentDefinition = {
-      name: frontmatter?.name ?? fallbackName,
-      description: frontmatter?.description ?? '',
-      systemPrompt: body,
+      name: frontmatter.name ?? fallbackName,
+      description: frontmatter.description ?? '',
+      systemPrompt: body === content ? body : body.trim(),
     };
 
-    if (frontmatter?.model !== undefined) agent.model = frontmatter.model;
-    if (frontmatter?.maxTurns !== undefined) agent.maxTurns = frontmatter.maxTurns;
-    if (frontmatter?.tools !== undefined) agent.tools = frontmatter.tools;
-    if (frontmatter?.disallowedTools !== undefined)
+    if (frontmatter.model !== undefined) agent.model = frontmatter.model;
+    if (frontmatter.maxTurns !== undefined) agent.maxTurns = frontmatter.maxTurns;
+    if (frontmatter.tools !== undefined) agent.tools = frontmatter.tools;
+    if (frontmatter.disallowedTools !== undefined)
       agent.disallowedTools = frontmatter.disallowedTools;
 
     agents.push(agent);

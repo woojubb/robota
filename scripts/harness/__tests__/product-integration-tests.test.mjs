@@ -175,11 +175,12 @@ describe('product integration test selection', () => {
     const externalUnits = readExternalContributionUnitInventory(REPO_ROOT).flatMap(
       (entry) => entry.tests,
     );
-    expect(tests).toHaveLength(100);
+    expect(new Set(tests).size).toBe(tests.length);
     expect(tests).toEqual(
       expect.arrayContaining([
         'packages/agent-framework/src/goal/__tests__/goal-functional.test.ts',
         'packages/agent-framework/src/testing/__tests__/multi-session-functional.test.ts',
+        'packages/agent-framework/src/testing/__tests__/strict-skill-discovery-functional.test.ts',
         'packages/agent-command/src/editor/__tests__/editor-command-functional.test.ts',
         'packages/agent-transport-http/src/__tests__/admission-loopback-scenario.test.ts',
         ...AUDITED_PRODUCT_INTEGRATION_TESTS,

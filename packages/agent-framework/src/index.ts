@@ -126,7 +126,6 @@ export {
   PluginCommandSource,
   SystemCommandExecutor,
   createSystemCommands,
-  parseFrontmatter,
   executeSkill,
   createSkillExecutionPort,
   selectCommandModules,

@@ -1,22 +1,23 @@
 # Frontmatter Decoder Design
 
 Realizes the internal metadata-loading responsibilities of the
-[`@robota-sdk/agent-framework` SPEC](../SPEC.md). The decoder is private in SECURITY-002;
+[`@robota-sdk/agent-framework` SPEC](../SPEC.md). SECURITY-002 introduced the private decoder;
+SECURITY-003 and SECURITY-004 connect it to the observable skill/plugin and agent-loading paths from
 [issue #2094](https://github.com/woojubb/robota/issues/2094) and
-[issue #2095](https://github.com/woojubb/robota/issues/2095) own connecting it to observable
-skill/plugin and agent-loading paths.
+[issue #2095](https://github.com/woojubb/robota/issues/2095).
 
 ## Context & Goal
 
 Skill, bundle-skill, and agent definition files originate outside the runtime's trust boundary. Three
-loaders currently carry separate YAML-like line parsers that coerce values, ignore malformed or
+loaders formerly carried separate YAML-like line parsers that coerced values, ignored malformed or
 unknown fields, and cast partial records. This component provides one internal boundary that either
 returns a complete typed metadata variant and the untouched body suffix, or a structured non-empty
 diagnostic set with no partial metadata.
 
 The goal is to centralize syntax handling, profile vocabulary, primitive validation, and source
-coordinates before any loader migration. This design deliberately does not change discovery,
-precedence, fallback, public exports, or user-visible error projection.
+coordinates. Loader migration retains discovery precedence and no-frontmatter fallback while refusing
+invalid frontmatter before registration. The old `parseFrontmatter` public export is removed because
+its permissive parser no longer owns this boundary.
 
 ## Constraints
 
@@ -45,6 +46,7 @@ precedence, fallback, public exports, or user-visible error projection.
 | `frontmatter-primitives.ts`             | Validate non-empty strings, exact booleans, lists, effort, context, positive safe integers, and scalar metadata |
 | `frontmatter-profile-fields.ts`         | Map validated YAML fields into the closed skill, bundle-skill, and agent vocabularies                           |
 | `frontmatter-profiles.ts`               | Accumulate schema diagnostics and select caller-provided profile definitions                                    |
+| `frontmatter-error.ts`                  | Preserve structured diagnostics and format paths/codes without echoing untrusted received values                |
 | `__tests__/frontmatter-decoder.test.ts` | Verify behavior through the decoder facade without coupling tests to implementation modules                     |
 
 `yaml` owns syntax parsing and AST locations only. Profile tables and primitive decoders remain the
@@ -107,8 +109,7 @@ semantic owner; a syntactically valid YAML document is not trusted until those c
 
 ## Open Questions
 
-None for SECURITY-002. Loader error projection and discovery behavior are owned by
-[issue #2094](https://github.com/woojubb/robota/issues/2094) and
-[issue #2095](https://github.com/woojubb/robota/issues/2095). If those migrations make diagnostic
-codes or metadata fields consumer-visible, the owning package SPEC must promote and define that
-contract before wiring it.
+Loader error projection and discovery behavior are specified in the governing framework SPEC. Skill,
+bundle-plugin, and agent loaders share `FrontmatterDecodeError`; its structured diagnostics preserve
+the decoder result, while operator-facing messages omit untrusted received values. Bundle-plugin
+inspection additionally publishes only path, location, code, and field.
