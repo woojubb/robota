@@ -4,6 +4,7 @@ import { isDoctorCommandName, runDoctorRoute } from './doctor-route.js';
 import { readVersion } from './version.js';
 import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.js';
 import { runUsageCommand } from '../usage/usage-command.js';
+import { runUsageExportCommand } from '../usage/usage-export-command.js';
 import {
   createInitialCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
@@ -49,10 +50,13 @@ export async function runPreparsedCliCommand(
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'usage') {
-    process.exitCode = runUsageCommand(
-      argv.slice(ACTION_INDEX),
-      composition.projectAccess.status === 'trusted' ? composition.sessionStore : undefined,
-    );
+    const usageArgs = argv.slice(ACTION_INDEX);
+    const projectSessionStore =
+      composition.projectAccess.status === 'trusted' ? composition.sessionStore : undefined;
+    process.exitCode =
+      usageArgs[0] === 'export'
+        ? await runUsageExportCommand(usageArgs.slice(1), projectSessionStore)
+        : runUsageCommand(usageArgs, projectSessionStore);
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'analyze') {

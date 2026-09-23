@@ -21,6 +21,11 @@ lifecycle/persistence (`agent-session`) and from any CLI shell.
   `agent-interface-analytics`** (they cross the sidecar boundary via a server-message carrier);
   this package computes them and re-exports the types for co-located consumers, but does not own
   them.
+- For an explicit OTLP usage export, this package only projects normalized, de-duplicated stored
+  observations into a content-free aggregate snapshot. It emits Gauges rather than additive Sums:
+  repeating an export must not claim new usage. Unknown cost and unknown token splits remain
+  separately visible instead of becoming invented zero-priced usage. Network delivery belongs to
+  the CLI, never to this pure package.
 
 ## Contract
 
