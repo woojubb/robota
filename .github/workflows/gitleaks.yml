@@ -42,7 +42,7 @@ jobs:
     # as same-repository work. The checkout and downloaded scanner receive no write-capable token.
     steps:
       # INFRA-050: full history, and NO depth-limited fetch. A `--depth` fetch GRAFTS the whole
-      # repository, and the scan range below (`origin/<base>..HEAD`) is a history walk: a truncated
+      # repository, and the scan range below (`<resolved base>..HEAD`) is a history walk: a truncated
       # ancestry both re-emits commits already merged into the base AND can drop commits the PR
       # itself authored — a secret introduced by this PR would then never be scanned, silently.
       # INFRA-049 measured that exact divergence (109 commits locally vs 97, a different set, in CI).
@@ -50,6 +50,18 @@ jobs:
         with:
           ref: ${{ inputs.head_ref }}
           fetch-depth: 0
+      - name: Verify resolved scan range
+        shell: bash
+        env:
+          BASE_REF: ${{ inputs.base_ref }}
+          HEAD_REF: ${{ inputs.head_ref }}
+        run: |
+          set -euo pipefail
+          test -n "$BASE_REF"
+          git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null
+          if [[ -n "$HEAD_REF" ]]; then
+            test "$(git rev-parse --verify 'HEAD^{commit}')" = "$HEAD_REF"
+          fi
       - name: Install gitleaks
         run: |
           set -euo pipefail
@@ -63,7 +75,7 @@ jobs:
           "$RUNNER_TEMP/gitleaks" detect \
             --source . \
             --config .gitleaks.toml \
-            --log-opts "origin/${{ inputs.base_ref }}..HEAD" \
+            --log-opts "${{ inputs.base_ref }}..HEAD" \
             --redact \
             --no-banner \
             --verbose
