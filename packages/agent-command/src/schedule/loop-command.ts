@@ -11,6 +11,7 @@ const SECONDS_PER_MINUTE = 60;
 const HOURS_PER_DAY = 24;
 const MAX_LABEL_LENGTH = 48;
 const MAX_ACTIVE_LOOPS = 3;
+const pendingCreates = new WeakMap<object, number>();
 const TRAILING_INTERVAL =
   /^([\s\S]+?)\s+every\s+(\d+)\s*(seconds?|minutes?|hours?|days?|s|m|h|d)$/i;
 const USAGE =
@@ -155,7 +156,8 @@ async function createLoop(
 ): Promise<ICommandResult> {
   const parsed = parseCreate(args);
   if (!parsed) return { success: false, message: USAGE };
-  if (activeLoops(host).length >= MAX_ACTIVE_LOOPS) {
+  const pending = pendingCreates.get(host) ?? 0;
+  if (activeLoops(host).length + pending >= MAX_ACTIVE_LOOPS) {
     return {
       success: false,
       message: `At most ${MAX_ACTIVE_LOOPS} active loops are allowed. Stop one before creating another.`,
@@ -164,13 +166,21 @@ async function createLoop(
   const cadence = chooseCadence(parsed.requestedMs);
   const label = `${LOOP_LABEL}${parsed.instruction.slice(0, MAX_LABEL_LENGTH)}`;
   const loopId = `loop_${randomUUID()}`;
-  const task = await host.spawnScheduledWake({
-    label,
-    cronExpression: cadence.cronExpression,
-    agentInstruction: parsed.instruction,
-    sessionLoop: true,
-    sessionLoopId: loopId,
-  });
+  pendingCreates.set(host, pending + 1);
+  let task: IBackgroundTaskState;
+  try {
+    task = await host.spawnScheduledWake({
+      label,
+      cronExpression: cadence.cronExpression,
+      agentInstruction: parsed.instruction,
+      sessionLoop: true,
+      sessionLoopId: loopId,
+    });
+  } finally {
+    const remaining = (pendingCreates.get(host) ?? 1) - 1;
+    if (remaining === 0) pendingCreates.delete(host);
+    else pendingCreates.set(host, remaining);
+  }
   const rounded = cadence.milliseconds !== parsed.requestedMs ? ' (rounded up)' : '';
   const nextFire = task.nextFireAt ? ` Next fire: ${task.nextFireAt}.` : '';
   return {

@@ -56,6 +56,37 @@ describe('fixed in-session loop', () => {
     expect(spawnScheduledWake).not.toHaveBeenCalled();
   });
 
+  it('reserves the final slot while a loop creation is still pending', async () => {
+    const finishSpawns: Array<(task: { id: string }) => void> = [];
+    const spawnScheduledWake = vi.fn().mockImplementation(
+      () =>
+        new Promise<{ id: string }>((resolve) => {
+          finishSpawns.push(resolve);
+        }),
+    );
+    const listSchedules = vi.fn().mockReturnValue(
+      Array.from({ length: 2 }, (_, index) => ({
+        id: `runtime_${index}`,
+        kind: 'scheduled',
+        status: 'sleeping',
+        metadata: { sessionLoop: true },
+      })),
+    );
+    const host = createTestAgentJobHost({ spawnScheduledWake, listSchedules });
+
+    const first = executeLoopCommand(host, vi.fn(), '5m first');
+    expect(spawnScheduledWake).toHaveBeenCalledTimes(1);
+    const secondPending = executeLoopCommand(host, vi.fn(), '5m second');
+    const spawnCount = spawnScheduledWake.mock.calls.length;
+    finishSpawns.forEach((resolve, index) => resolve({ id: `runtime_${index + 2}` }));
+    const second = await secondPending;
+    expect(second.success).toBe(false);
+    expect(second.message).toContain('3 active loops');
+    expect(spawnCount).toBe(1);
+
+    expect((await first).success).toBe(true);
+  });
+
   it('creates a recurring scheduled wake with the requested prompt', async () => {
     const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'loop_task_1' });
     const host = createTestAgentJobHost({ spawnScheduledWake });
