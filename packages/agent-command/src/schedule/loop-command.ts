@@ -171,7 +171,7 @@ function listLoops(
             ...loops.map((task) => `- ${loopIdOf(task)} [${task.status}] ${task.label}`),
             ...selfPaced.map((loop) =>
               `- ${loop.loopId} [${loop.phase}] Loop: ${loop.instruction}` +
-              (loop.delaySeconds !== undefined && loop.reason
+              (loop.phase === 'waiting' && loop.delaySeconds !== undefined && loop.reason
                 ? ` — next ${loop.delaySeconds}s: ${loop.reason}`
                 : ''),
             ),

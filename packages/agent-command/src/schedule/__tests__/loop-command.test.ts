@@ -52,6 +52,20 @@ describe('fixed in-session loop', () => {
     expect(stopSelfPacedLoop).toHaveBeenCalledExactlyOnceWith('loop_self', 'Loop stopped by user');
   });
 
+  it('does not describe a previous delay as the next check while a loop is running', async () => {
+    const host = createTestAgentJobHost({
+      listSelfPacedLoops: () => [{
+        loopId: 'loop_running', instruction: 'check', phase: 'running',
+        createdAt: '2026-09-24T00:00:00.000Z', expiresAt: '2026-10-01T00:00:00.000Z',
+        revision: 2, generation: 1, fallbackUsed: false,
+        delaySeconds: 60, reason: 'previous check',
+      }],
+    });
+    const listed = await executeLoopCommand(host, vi.fn(), 'list');
+    expect(listed.message).toContain('loop_running [running]');
+    expect(listed.message).not.toContain('next 60s');
+  });
+
   it('assigns every new loop a seven-day expiry', async () => {
     const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'loop_expiring' });
     const host = createTestAgentJobHost({ spawnScheduledWake });
