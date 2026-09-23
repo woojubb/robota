@@ -101,8 +101,8 @@ These are behaviors a caller cannot infer from a type signature alone.
 - **Settings layers merge per key, and the rule is chosen for safety, not uniformity.** Layers are
   read user-first, project-later; the later (lower-trust) layer overrides by default, except:
   `defaultTrustLevel` keeps the most restrictive value; `permissions.deny` is unioned while
-  `permissions.allow` is replaced; `disabledHooks` accumulates; provider/env/plugin objects merge
-  field by field; and `hooks` merge per lifecycle event, appending each layer's groups, so a later
+  `permissions.allow` is replaced; `disabledHooks` accumulates; provider/env/plugin/task-context objects
+  merge field by field; and `hooks` merge per lifecycle event, appending each layer's groups, so a later
   project layer can only _add_ hooks and can never remove a user's guard by declaring an unrelated one.
   A hook group may carry an `id`; a layer may disable only ids declared by later layers, so a user can
   turn off a project hook but not the reverse.
@@ -192,9 +192,10 @@ These are behaviors a caller cannot infer from a type signature alone.
 - **Session-loop first fire**: a persisted first-allowed boundary skips earlier calendar-aligned slots
   without cancelling the loop; a boundary that is invalid or later than the loop's expiry is refused.
 
-- **Memory never stores sensitive content.** Before anything is saved to project or user memory —
-  from any save path — content that looks like a secret, token, password, private key, payment-card
-  number or national ID number is skipped.
+- **Memory capture filters likely-sensitive content, heuristically.** Automatic capture and
+  `/memory add` skip candidates whose text matches secret-like wording (key, secret, token, password,
+  private key) or card/ID number formats; skipped candidates are not written to memory but stay in the
+  pending queue. This is a keyword and format filter, not a secret scanner.
 
 ## Error taxonomy (shape, not enumeration)
 
@@ -203,9 +204,10 @@ unparseable org policy), workspace authority and project read limits, command re
 and turn admission. Errors from lower packages (permission denial, session run failure, background
 task failure) propagate without being re-wrapped.
 
-There are two failure channels, and a caller needs both. Failures during a run are emitted as `error`
-events — `submit()` does not throw them. A turn handle's completion promise rejects with the error the
-turn itself failed on, or with a turn-not-run error that says why a submission never became a turn.
+There are three failure channels. `submit()` rejects when a prompt is refused before it runs
+(initialization failure, shutdown, a stopped wake, or a failed pre-run step). A turn handle's
+completion promise rejects with the error the turn failed on, or with a turn-not-run error that says
+why a submission never became a turn. Failures during a run are emitted as `error` events.
 
 ## Testing philosophy
 

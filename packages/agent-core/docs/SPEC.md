@@ -235,7 +235,7 @@ Provider, tool, plugin, module, executor, and storage integrations each extend a
 
 ## Error Taxonomy
 
-Most errors this package raises extend one base error class carrying a machine-readable `code`, a `category` (user / provider / system), and a `recoverable` flag, so a caller can branch on failure kind without parsing message text. The exceptions extend `Error` directly and are identified by class: tool-result admission refusals and owner-only-store mode errors.
+Most errors this package raises extend one base error class carrying a machine-readable `code`, a `category` (user / provider / system), and a `recoverable` flag, so a caller can branch on failure kind without parsing message text. Some classes extend `Error` directly (tool-result admission refusals, owner-only-store mode errors), and some internal failures are thrown as plain `Error` with no code or category.
 
 ## Canonical Direct Runtime Tool Invocation
 
