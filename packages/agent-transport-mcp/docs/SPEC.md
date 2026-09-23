@@ -2,17 +2,18 @@
 
 ## Transport Admission (SEC-008)
 
-transport-admission: none — the MCP server speaks over stdio to a client process the user launched, so the boundary is process spawn: a peer that can write to this stdin already runs as the user. What this package DOES enforce is what that peer may reach — SEC-008 admits only the canonical runtime catalog, where non-model-invocable commands are absent; all calls use the session permission wrapper without interactive approval prompts.
+Stdio transport-admission is `none`: a peer that can write to this stdin already runs as the user. The loopback HTTP carrier is different: it binds only `127.0.0.1`, mints a fresh 256-bit bearer with the shared `agent-transport/node` admission primitive, and refuses an invalid Host, Origin, or bearer before reading a request body. Both carriers admit only the canonical runtime catalog and use the session permission wrapper without interactive approval prompts.
 
 ## Scope
 
 Model Context Protocol (MCP) server transport for the Robota SDK. Split out of the consolidated
-`agent-transport` package (DQ-AUDIT-005) so the `@modelcontextprotocol/sdk` dependency is an
-isolated unit.
+`agent-transport` package (DQ-AUDIT-005) so MCP SDK dependencies remain isolated. The package
+serves stdio and authenticated loopback Streamable HTTP from the same exact runtime session port.
 
 ## Boundaries
 
-- Owns the MCP server transport adapter, official SDK stdio carrier, and agent MCP server builder.
+- Owns the MCP server transport adapter, official SDK stdio carrier, authenticated loopback HTTP
+  carrier, and agent MCP server builders.
 - Depends on `agent-interface-session` and `agent-interface-transport` contracts, not framework internals.
 - No other transport package depends on this one.
 
@@ -21,12 +22,14 @@ isolated unit.
 ```
 agent-transport-mcp
   ├── createMcpTransport    ← ITransportAdapter over the MCP server
-  └── createAgentMcpServer  ← MCP server exposing an agent session
+  ├── createAgentMcpServer  ← MCP server exposing an agent session over stdio
+  └── createMcpHttpHost     ← admitted loopback listener over the same session port
 ```
 
 ## Type Ownership
 
-Owns `IMcpTransportOptions`, `IAgentMcpOptions`, and `IMcpTransportSession`. MCP consumes only the
+Owns `IMcpTransportOptions`, `IAgentMcpOptions`, `IMcpHttpHostOptions`, `IMcpHttpHost`, and
+`IMcpTransportSession`. MCP consumes only the
 turn-submission and runtime-tool roles. The public transport implements
 `ITransportAdapter<IMcpTransportSession>` directly; `attach` has no broader inherited signature or
 overload. A full session remains assignable structurally because it implements those roles.
@@ -37,8 +40,10 @@ overload. A full session remains assignable structurally because it implements t
 | ---------------------- | --------- | --------------------------------------------- |
 | `createMcpTransport`   | function  | MCP server transport adapter                  |
 | `createAgentMcpServer` | function  | Build an MCP server for an agent              |
+| `createMcpHttpHost`    | function  | Authenticated loopback MCP HTTP host          |
 | `IMcpTransport`        | interface | Adapter bound to the exact MCP session port   |
 | `IMcpTransportSession` | interface | Exact submission + runtime-tool session roles |
+| `IMcpHttpHost`         | interface | Start/stop/wait lifecycle and local endpoint  |
 
 ## Extension Points
 
@@ -58,18 +63,41 @@ Start before attach and repeated active start reject `TransportLifecycleError`; 
 safe and restart requires a new attach. The shared suite owner id is
 `@robota-sdk/agent-transport-mcp#createMcpTransport`.
 
+`createMcpHttpHost` validates the canonical catalog and explicit IPv4 loopback bind before listening.
+It uses the official SDK v2 `createMcpHandler` per-request factory and Node adapter, with the SDK's
+2026-07-28 request protocol and default stateless 2025-era fallback. No `Mcp-Session-Id` table,
+GET stream, expiry sweep, or resumption process is created. One listener maps every admitted request
+to the one attached process-owned `IMcpTransportSession`; the MCP handler does not own that session.
+The carrier limits body size, active requests, accepted TCP connections, and header/body receive
+time before SDK parsing. Request abort and listener
+shutdown cancel in-flight work through the exact session port; stop closes the SDK handler and
+listener, then `waitForClose()` settles. The process shell owns signals and session shutdown.
+
+The HTTP endpoint is `POST /mcp`; `GET /mcp` and `DELETE /mcp` follow the SDK's adopted-era
+responses, with no custom GET event stream. `Host` must match the listener's numeric loopback
+address and actual port; absent `Origin` is permitted for local non-browser clients, while a present
+origin must match that exact loopback origin. Invalid Host/Origin returns 403 and invalid bearer
+returns 401, all before body consumption; other methods and paths cannot invoke runtime tools.
+The bearer is minted at host start and returned only to the trusted process owner, which must keep
+it off command-line arguments, logs, URLs and world-readable files. Non-loopback binding is refused.
+The external wire schema and protocol errors are MCP SDK-owned, rather than a Robota REST envelope.
+
 ## Error Taxonomy
 
-MCP protocol errors surface through the MCP SDK; no new error classes.
+MCP protocol errors surface through the MCP SDK. HTTP admission responses have empty bodies and
+no credential, tool result, or internal runtime detail. Listener/start/close failures reject visibly.
 
 ## Test Strategy
 
-Server + transport unit tests under `src/__tests__`.
+Server + transport unit tests under `src/__tests__`, plus real loopback HTTP requests for both
+protocol eras, Host/Origin/bearer refusal, body and concurrency limits, cancellation, and shutdown.
 
 ## Dependencies
 
-- `@robota-sdk/agent-interface-transport` and `@robota-sdk/agent-interface-session`.
-- External: `@modelcontextprotocol/sdk`.
+- `@robota-sdk/agent-interface-transport`, `@robota-sdk/agent-interface-session`, and the shared
+  `@robota-sdk/agent-transport/node` admission implementation.
+- External: `@modelcontextprotocol/sdk` for existing stdio and `@modelcontextprotocol/server` /
+  `@modelcontextprotocol/node` v2 for current Streamable HTTP.
 
 ### Canonical catalog and invocation (MCP-006)
 

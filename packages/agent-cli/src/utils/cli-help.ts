@@ -51,6 +51,9 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
                              Asks for confirmation; use --yes to skip
   --yes                      Skip confirmation prompts (required for --reset in non-TTY)
   --serve --open             Serve the web monitor over localhost and open it in a browser
+  --http-token-file <path>   With mcp serve, bind authenticated loopback HTTP and write the
+                             bearer to a new owner-only absolute-path file
+  --http-port <port>         With --http-token-file, use this port (default: OS-assigned)
   --check-update             Check for CLI updates
   --version                  Show version number
   -h, --help                 Show this help message
@@ -66,7 +69,7 @@ Commands:
                                   directory with the prompt prefilled and unsent. It takes exactly
                                   one link; your own flags still apply after it.
   robota usage [options]           Show 7/30-day cross-session personal usage (text or JSON)
-  robota mcp serve [options]       Serve one Robota session as a local stdio MCP server
+  robota mcp serve [options]       Serve one Robota session over stdio or authenticated loopback HTTP
   robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 
 Examples:

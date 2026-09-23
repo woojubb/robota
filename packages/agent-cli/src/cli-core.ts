@@ -148,6 +148,12 @@ async function runCliCore(
     throw new Error('Usage: robota mcp serve [options]');
   }
   if (
+    (args.mcpHttpTokenFile !== undefined || args.mcpHttpPort !== undefined) &&
+    (!mcpServe || (args.mcpHttpPort !== undefined && args.mcpHttpTokenFile === undefined))
+  ) {
+    throw new Error('--http-token-file and --http-port are only valid for robota mcp serve HTTP mode');
+  }
+  if (
     mcpServe &&
     (args.serve ||
       args.printMode ||
@@ -590,7 +596,10 @@ async function runCliCore(
       memorySessionOptions,
     });
     try {
-      await runMcpServeMode(sessionOptions, version, mcpProtocolStdout);
+      await runMcpServeMode(sessionOptions, version, mcpProtocolStdout, {
+        ...(args.mcpHttpTokenFile !== undefined ? { tokenFile: args.mcpHttpTokenFile } : {}),
+        ...(args.mcpHttpPort !== undefined ? { port: args.mcpHttpPort } : {}),
+      });
     } finally {
       if (mcp !== undefined) await mcp.shutdown();
     }
