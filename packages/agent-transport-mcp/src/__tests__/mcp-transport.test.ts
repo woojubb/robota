@@ -1,35 +1,30 @@
 import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
-import { describe, it, expect, expectTypeOf, vi } from 'vitest';
+import { describe, it, expect, expectTypeOf } from 'vitest';
 import { createMcpTransport } from '../mcp-transport.js';
 import type { IMcpTransportSession } from '../mcp-session.js';
+import type { IMcpTransport } from '../mcp-transport.js';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
-function createMockSession(): IInteractiveSession {
-  return Object.assign(createTestInteractiveSession(), {
-    submit: vi.fn(),
-    abort: vi.fn(),
-    cancelQueue: vi.fn(),
-    getMessages: vi.fn().mockReturnValue([]),
-    getContextState: vi
-      .fn()
-      .mockReturnValue({ usedPercentage: 0, usedTokens: 0, maxTokens: 200000 }),
-    isExecuting: vi.fn().mockReturnValue(false),
-    getPendingPrompt: vi.fn().mockReturnValue(null),
-    executeCommand: vi.fn().mockResolvedValue({ message: 'ok', success: true }),
-    listCommands: vi.fn().mockReturnValue([]),
-    on: vi.fn(),
-    off: vi.fn(),
-  });
+function createMockSession(): IMcpTransportSession {
+  const full = createTestInteractiveSession();
+  return {
+    submit: full.submit,
+    listRuntimeTools: full.listRuntimeTools,
+    invokeRuntimeTool: full.invokeRuntimeTool,
+  };
 }
 
 describe('createMcpTransport', () => {
-  it('preserves the legacy adapter declaration and accepts the named subset', () => {
+  it('requires exactly the MCP session port without a broad attach overload', () => {
     const transport = createMcpTransport({ name: 'test', version: '1.0.0' });
-    expectTypeOf(transport).toMatchTypeOf<ITransportAdapter<IInteractiveSession>>();
-    expectTypeOf(transport.attach).parameter(0).toMatchTypeOf<IMcpTransportSession>();
+    expectTypeOf(transport).toMatchTypeOf<ITransportAdapter<IMcpTransportSession>>();
+    expectTypeOf<IMcpTransport['attach']>().toEqualTypeOf<
+      (session: IMcpTransportSession) => void
+    >();
+    expectTypeOf<IMcpTransportSession>().not.toHaveProperty('executeCommand');
+    expect(Object.keys(createMockSession())).toHaveLength(3);
   });
 
   it('returns an adapter with name "mcp"', () => {
@@ -52,7 +47,7 @@ describe('createMcpTransport', () => {
 
   it('creates an MCP server after attach + start', async () => {
     const transport = createMcpTransport({ name: 'test', version: '1.0.0' });
-    transport.attach(createMockSession() as never);
+    transport.attach(createMockSession());
     await transport.start();
     const server = transport.getServer();
     expect(server).toBeDefined();

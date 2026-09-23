@@ -16,7 +16,7 @@ import type { ITurnClaims } from './turn-claims.js';
 import type { Context } from 'hono';
 
 /**
- * Callback that resolves an IInteractiveSession from the request context.
+ * Callback that resolves an HTTP session port from the request context.
  *
  * It need NOT return the same object twice for the same logical session. It briefly did: `/submit`
  * keyed its concurrent-turn claim on object identity, so a factory building a fresh wrapper per

@@ -3,6 +3,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAgentMcpServer } from '../mcp-server.js';
+import type { IMcpTransportSession } from '../mcp-session.js';
 
 const schema = {
   name: 'robota_command_help',
@@ -21,7 +22,7 @@ const clients: Client[] = [];
 afterEach(async () => {
   await Promise.all(clients.splice(0).map((client) => client.close()));
 });
-async function connect(session = sessions()) {
+async function connect(session: IMcpTransportSession = sessions()) {
   const server = await createAgentMcpServer({ name: 'test', version: '1', session });
   const [peer, host] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test-client', version: '1' });
@@ -31,6 +32,27 @@ async function connect(session = sessions()) {
 }
 
 describe('canonical MCP runtime tools', () => {
+  it('serves the catalog, invocation, and submit through only the declared port', async () => {
+    const full = createTestInteractiveSession();
+    const port: IMcpTransportSession = {
+      submit: full.submit,
+      listRuntimeTools: async () => [schema],
+      invokeRuntimeTool: async (name) => ({ success: true, toolName: name, result: 'ran' }),
+    };
+    expect(Object.keys(port)).toHaveLength(3);
+    const client = await connect(port);
+    expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual([
+      schema.name,
+      'robota_submit',
+    ]);
+    expect(await client.callTool({ name: schema.name, arguments: {} })).toMatchObject({
+      isError: false,
+    });
+    expect(await client.callTool({ name: 'robota_submit', arguments: { prompt: 'hello' } })).toMatchObject({
+      content: [{ type: 'text', text: '' }],
+    });
+  });
+
   it('publishes canonical schemas and the reserved submission extension only', async () => {
     const client = await connect();
     expect((await client.listTools()).tools).toEqual([
