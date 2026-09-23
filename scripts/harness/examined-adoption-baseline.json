@@ -107,6 +107,7 @@
     "run-advancement-owner",
     "runner-wait",
     "sdk-public-surface",
+    "session-capability-projections",
     "session-artifact-neutrality",
     "shell-portability",
     "skill-registration",
