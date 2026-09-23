@@ -12,6 +12,7 @@ import { createTrustedProjectAccessFixture } from '../../testing/trusted-project
 import {
   WorkspaceAuthorityRequiredError,
   createWorkspaceProjectSettingsWriter,
+  getWorkspaceProjectReader,
 } from '../../workspace-trust/index.js';
 
 const roots: string[] = [];
@@ -36,6 +37,20 @@ describe('settings stores', () => {
     expect(store.read()).toEqual({ user: true });
   });
 
+  it('exposes the host-approved project settings path on its writer', async () => {
+    const access = await createTrustedProjectAccessFixture(tempRoot());
+    if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+    const relativePath = join('.acme', 'settings.local.json');
+    const writer = createWorkspaceProjectSettingsWriter(access.authority, {
+      status: 'approved',
+      target: 'project-local',
+      relativePath,
+      purpose: 'test host-owned settings path',
+    });
+
+    expect(writer.relativePath).toBe(relativePath);
+  });
+
   // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'reads and writes only the project target approved by the same authority',
@@ -46,6 +61,7 @@ describe('settings stores', () => {
       const writer = createWorkspaceProjectSettingsWriter(access.authority, {
         status: 'approved',
         target: 'project-local',
+        relativePath: join('.acme', 'settings.local.json'),
         purpose: 'test settings store',
       });
       const store = createWorkspaceProjectSettingsStore(access.authority, writer);
@@ -54,7 +70,20 @@ describe('settings stores', () => {
 
       expect(store.kind).toBe('project');
       expect(store.scope).toBe('project-local');
+      expect(store.displayName).toBe(join('.acme', 'settings.local.json'));
       expect(store.read()).toEqual({ project: true });
+      expect(
+        getWorkspaceProjectReader(access.authority).readText(
+          join('.acme', 'settings.local.json'),
+          'verify custom settings path',
+        ),
+      ).toContain('"project": true');
+      expect(
+        getWorkspaceProjectReader(access.authority).readText(
+          join('.robota', 'settings.local.json'),
+          'verify no product path was written',
+        ),
+      ).toBeUndefined();
     },
   );
 
@@ -67,6 +96,7 @@ describe('settings stores', () => {
     const writer = createWorkspaceProjectSettingsWriter(left.authority, {
       status: 'approved',
       target: 'project',
+      relativePath: join('.robota', 'settings.json'),
       purpose: 'test cross-workspace denial',
     });
 

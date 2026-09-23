@@ -66,6 +66,8 @@ export interface IPermissionRequestEvent {
   id: string;
   toolName: string;
   toolArgs: TToolArgs;
+  /** Whether this session can durably persist a project-scoped approval. */
+  canPersistProjectPermission?: boolean;
   /** REMOTE-014 E5: the driver whose turn raised this prompt (display-only). */
   requesterDriverId?: TDriverId;
 }
@@ -249,4 +251,3 @@ export interface IPlanApprovalEvent {
   type: 'plan_created' | 'plan_approved' | 'plan_reverted';
   plan: IPlanArtifact;
 }
-

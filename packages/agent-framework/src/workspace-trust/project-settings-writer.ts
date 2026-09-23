@@ -1,6 +1,4 @@
-import { join } from 'node:path';
-
-import { assertProjectReadPurpose } from './project-reader-path.js';
+import { assertProjectReadPurpose, workspacePathSegments } from './project-reader-path.js';
 import { createWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 import {
@@ -19,19 +17,17 @@ import type {
 
 const projectSettingsWriters = new WeakMap<object, IWorkspaceProjectAuthority>();
 
-const SETTINGS_TARGETS: Readonly<Record<TWorkspaceProjectSettingsTarget, string>> = {
-  project: join('.robota', 'settings.json'),
-  'project-local': join('.robota', 'settings.local.json'),
-};
-
 class WorkspaceProjectSettingsWriter {
   readonly target: TWorkspaceProjectSettingsTarget;
+  readonly relativePath: string;
 
   constructor(
-    target: TWorkspaceProjectSettingsTarget,
+    target: IWorkspaceProjectSettingsWriter['target'],
+    relativePath: string,
     private readonly write: (content: string) => void,
   ) {
     this.target = target;
+    this.relativePath = relativePath;
   }
 
   writeText(content: string): void {
@@ -50,13 +46,15 @@ export function createWorkspaceProjectSettingsWriter(
     );
   }
   assertProjectReadPurpose(decision.purpose);
+  const relativePath = decision.relativePath;
+  workspacePathSegments(relativePath);
   const identity = getWorkspaceProjectIdentity(accepted);
   const identityResolver = getWorkspaceProjectIdentityResolver(accepted);
   const mutationBoundary = createWorkspaceProjectMutationBoundary(identity, identityResolver);
   const writer = Object.freeze(
-    new WorkspaceProjectSettingsWriter(decision.target, (content) => {
+    new WorkspaceProjectSettingsWriter(decision.target, relativePath, (content) => {
       assertWorkspaceProjectAuthority(accepted);
-      mutationBoundary.write(SETTINGS_TARGETS[decision.target], content);
+      mutationBoundary.write(relativePath, content);
     }),
   );
   projectSettingsWriters.set(writer, accepted);

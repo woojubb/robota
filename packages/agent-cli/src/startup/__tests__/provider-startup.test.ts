@@ -196,6 +196,7 @@ async function projectSettingsAccess(project: string, home: string) {
   const projectSettingsWriter = createWorkspaceProjectSettingsWriter(projectAccess.authority, {
     status: 'approved',
     target: 'project-local',
+    relativePath: join('.robota', 'settings.local.json'),
     purpose: 'provider startup test',
   });
   const composition = createCliWorkspaceComposition({

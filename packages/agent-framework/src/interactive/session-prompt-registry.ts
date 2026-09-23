@@ -79,7 +79,11 @@ export class SessionPromptRegistry {
   constructor(private readonly deps: ISessionPromptRegistryDeps) {}
 
   /** Request a permission decision. Resolves deny (`false`) when no surface can answer (fail-closed). */
-  requestPermission(toolName: string, toolArgs: TToolArgs): Promise<TPermissionResultValue> {
+  requestPermission(
+    toolName: string,
+    toolArgs: TToolArgs,
+    canPersistProjectPermission = false,
+  ): Promise<TPermissionResultValue> {
     const id = this.mintId('p');
     if (this.deps.countListeners('permission_request') === 0) {
       return Promise.resolve(failClosedValue('permission') as TPermissionResultValue);
@@ -97,6 +101,7 @@ export class SessionPromptRegistry {
           id,
           toolName,
           toolArgs,
+          canPersistProjectPermission,
           ...(requesterDriverId ? { requesterDriverId } : {}),
         }),
       );

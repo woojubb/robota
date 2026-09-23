@@ -43,6 +43,9 @@ print, serve, and terminal sessions, and lists those same project roots in the p
 The CLI owns its ordered Robota and Claude-compatible project settings layers and passes them to
 trusted session construction and the pre-trust preview from one source; restricted sessions cannot
 gain a project settings reader by naming those paths.
+When a trusted interactive user approves a project-wide tool permission on a host with guarded
+project mutation support, the session persists it through the CLI-selected project-local settings
+path and its live workspace authority. An unavailable writer rejects that approval explicitly.
 It also selects the ordered Robota and Claude-compatible user settings layers and passes them
 through print, serve, terminal, and eval sessions, including provider switching after startup. The
 Robota settings path also controls reset, terminal model writes, and plugin enablement; disabled

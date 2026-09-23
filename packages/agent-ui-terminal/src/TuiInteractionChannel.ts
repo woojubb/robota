@@ -104,8 +104,8 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
       manager: this.stateManager,
       ...(this.attention ? { attention: this.attention } : {}),
       onUserMessage: (content) => this.handleAutoNaming(content),
-      requestPermission: (toolName, toolArgs, id) =>
-        this.permissions.enqueue(toolName, toolArgs, id),
+      requestPermission: (toolName, toolArgs, id, canPersistProjectPermission) =>
+        this.permissions.enqueue(toolName, toolArgs, id, canPersistProjectPermission),
       askUser: (request, id) => this.askUser(request, id),
       dismissPrompt: (id) => this.dismissPromptById(id),
       ...(opts.onSessionEventDeliveryError

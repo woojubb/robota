@@ -48,8 +48,12 @@ React/Ink UI.
   They reject roots inside the active repository, including symlink aliases.
 - **Project settings locations belong to the host.** The framework binds ordered host-supplied
   relative settings paths to the current trusted project reader; absent paths read no project
-  settings, and a restricted project cannot read them even when paths are supplied. The framework
-  does not select product directory names or advertise those paths in its own pre-trust inventory.
+  settings, and a restricted project cannot read them even when paths are supplied. A project
+  settings writer also requires a separately approved root-relative target, which it copies into
+  the authority-bound writer; the framework neither selects product directory names nor advertises
+  those paths in its own pre-trust inventory. Project-wide permission persistence is offered only
+  where that guarded mutation is supported; an unavailable writer never downgrades a project-wide
+  approval to a session-only grant.
 - **Interactive user settings are explicit.** A session reads only the host-supplied user settings
   sources, and a provider switch reuses those same sources; an absent list never discovers an ambient
   home-directory settings file. SDK runtime, query, and programmatic-agent creators forward the
