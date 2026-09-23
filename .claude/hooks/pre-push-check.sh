@@ -775,8 +775,20 @@ if [[ "$ANY_BASE_DECLARATION" == "true" ]]; then
   fi
 
   if ! hook_git_in "$PROJECT_DIR" merge-base --is-ancestor "$TRUSTED_BASE_REF" HEAD 2>/dev/null; then
-    echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' is not an ancestor of this branch." >&2
-    exit 2
+    # A child may precede new commits on its integration target. Preserve the historical
+    # integration ancestry and require a clean merge, without forcing a head-sync push.
+    TRUSTED_CHILD_FORK=$(hook_git_in "$PROJECT_DIR" merge-base origin/develop HEAD 2>/dev/null || true)
+    TRUSTED_SHARED_BASE=$(hook_git_in "$PROJECT_DIR" merge-base "$TRUSTED_BASE_REF" HEAD 2>/dev/null || true)
+    if [[ -z "$TRUSTED_CHILD_FORK" || -z "$TRUSTED_SHARED_BASE" ||
+      "$TRUSTED_CHILD_FORK" == "$TRUSTED_SHARED_BASE" ]] \
+      || ! hook_git_in "$PROJECT_DIR" merge-base --is-ancestor "$TRUSTED_CHILD_FORK" "$TRUSTED_SHARED_BASE" 2>/dev/null; then
+      echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' is not an ancestor of this branch." >&2
+      exit 2
+    fi
+    if ! hook_git_in "$PROJECT_DIR" merge-tree --write-tree "$TRUSTED_BASE_REF" HEAD >/dev/null 2>&1; then
+      echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' conflicts with this branch." >&2
+      exit 2
+    fi
   fi
 
   TRUSTED_SYNC_HEAD=""
