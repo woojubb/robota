@@ -16,8 +16,8 @@
  * 2. **The pid alone.** Pid reuse is real, and the failure it produces is the dangerous direction —
  *    an unrelated process inherits a dead session's identity and is treated as a peer.
  * 3. **The pid, checked with a start-time recorded at announce.** Pid reuse changes the start time,
- *    so a recycled pid fails the check. This is what `/proc/<pid>/stat`'s start field is for on
- *    Linux, and where it is unavailable the entry degrades to `unknown` rather than to `alive`.
+ *    so a recycled pid fails the check. Linux reads `/proc/<pid>/stat`; macOS reads `ps` birth time.
+ *    Where neither can answer, the entry degrades to `unknown` rather than to `alive`.
  *
  * `unknown` is a real state and not a synonym for either answer. A caller may show it to an
  * operator; what it must not do is treat it as reachable, which is why `listReachablePeers` filters
@@ -30,6 +30,7 @@
  * directory is atomic on every filesystem this runs on.
  */
 
+import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -65,9 +66,8 @@ const ENTRY_SUFFIX = '.peer.json';
 /**
  * Read a process's start time from `/proc`.
  *
- * Returns undefined rather than throwing when the process is gone or the platform has no `/proc` —
- * "no answer" and "not running" are different, and collapsing them here would make a
- * non-Linux host report every peer as dead.
+ * Returns undefined rather than throwing when the process is gone or `/proc` cannot answer —
+ * "no answer" and "not running" are different, so the caller must not guess `alive`.
  */
 function readProcStartTime(pid: number): string | undefined {
   try {
@@ -84,13 +84,33 @@ function readProcStartTime(pid: number): string | undefined {
   }
 }
 
+/** macOS has no `/proc`; `ps` supplies a stable birth time for the same PID-reuse check. */
+function readDarwinStartTime(pid: number): string | undefined {
+  try {
+    const startedAt = execFileSync('/bin/ps', ['-p', String(pid), '-o', 'lstart='], {
+      encoding: 'utf8',
+      timeout: 1_000,
+      maxBuffer: 128,
+      env: { TZ: 'UTC', LC_ALL: 'C' },
+    }).trim();
+    return startedAt || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function readProcessStartTime(pid: number): string | undefined {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return undefined;
+  return process.platform === 'darwin' ? readDarwinStartTime(pid) : readProcStartTime(pid);
+}
+
 /** Announce this session, atomically. Returns the entry as published. */
 export function announcePeer(
   options: IRegistryOptions,
   input: { sessionId: string; name?: string; pid?: number },
 ): IPeerEntry {
   const pid = input.pid ?? process.pid;
-  const readStartTime = options.readStartTime ?? readProcStartTime;
+  const readStartTime = options.readStartTime ?? readProcessStartTime;
   const entry: IPeerEntry = {
     sessionId: input.sessionId,
     ...(input.name !== undefined ? { name: input.name } : {}),
@@ -127,7 +147,7 @@ function judgeLiveness(
  * anything, and surfacing it would invite a caller to act on a shape nobody wrote.
  */
 export function listPeers(options: IRegistryOptions): readonly IDiscoveredPeer[] {
-  const readStartTime = options.readStartTime ?? readProcStartTime;
+  const readStartTime = options.readStartTime ?? readProcessStartTime;
   const out: IDiscoveredPeer[] = [];
   for (const file of readdirSync(options.guardedDirectory)) {
     if (!file.endsWith(ENTRY_SUFFIX)) continue;

@@ -82,6 +82,19 @@ describe('#1863 — announcing and withdrawing', () => {
 });
 
 describe('#1863 — telling a live session from a crashed one', () => {
+  it.skipIf(process.platform !== 'darwin' && process.platform !== 'linux')(
+    'recognizes this running process with the platform default start-time reader',
+    () => {
+      const guardedDirectory = scratch();
+      announcePeer({ guardedDirectory }, { sessionId: 'self', pid: process.pid });
+
+      expect(listPeers({ guardedDirectory })[0]?.liveness).toBe('alive');
+      expect(listReachablePeers({ guardedDirectory }).map((peer) => peer.sessionId)).toEqual([
+        'self',
+      ]);
+    },
+  );
+
   it('a pid that is gone is dead', () => {
     const guardedDirectory = scratch();
     announcePeer(
