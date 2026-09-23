@@ -19,7 +19,7 @@ import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
  * Build the executor registry, built-ins first.
  *
  * `runHooks` resolves executors as `executors ?? createDefaultExecutors()` — an UNDEFINED-ONLY
- * fallback. An empty array falls back to the built-ins; a non-empty array REPLACES them. So before
+ * fallback. An empty array suppresses the built-ins; a non-empty array REPLACES them. So before
  * this seeding, supplying any one of `providerFactory` / `sessionFactory` / `guardrails` /
  * `additionalHookExecutors` made the array non-empty and silently deregistered `command` and
  * `http` — two executors the caller never named. Under a fail-open PreToolUse that was a silent
@@ -31,11 +31,13 @@ import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
  * can still override one. Seeding last would make the built-ins unoverridable, trading a fail-open
  * for a different loss of caller control.
  *
- * Seeding fixes the default-dropping failure filed as issue #2238. A separate opt-out from these
- * built-ins is not exposed at this internal seam; issue #2423 retains that design concern.
+ * Seeding fixes the default-dropping failure filed as issue #2238. The public InteractiveSession
+ * option can explicitly omit the command and HTTP built-ins without affecting additive executors.
  */
 export function buildHookTypeExecutors(options: ICreateSessionOptions): IHookTypeExecutor[] {
-  const executors: IHookTypeExecutor[] = [new CommandExecutor(), new HttpExecutor()];
+  const executors: IHookTypeExecutor[] = options.disableBuiltInHookExecutors
+    ? []
+    : [new CommandExecutor(), new HttpExecutor()];
 
   if (options.providerFactory) {
     executors.push(

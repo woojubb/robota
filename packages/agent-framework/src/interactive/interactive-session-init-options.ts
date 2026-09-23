@@ -77,6 +77,8 @@ export interface IInitOptions {
   }) => void;
   /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
   bare?: boolean;
+  /** Omit the built-in command and HTTP hook executors. */
+  disableBuiltInHookExecutors?: boolean;
   /** Pre-approved tool names passed to createSession. */
   allowedTools?: readonly string[];
   /** Denied tool names — added to permissions.deny. denied > allowed. */
