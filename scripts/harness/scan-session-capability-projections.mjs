@@ -63,6 +63,12 @@ const EXCLUSIONS = {
   'serve→session': new Set(['args', 'preset', 'transportRegistry', 'getMonitorWsUrl']),
 };
 
+let examinedRelationGroups = 0;
+
+export function readExaminedSessionCapabilityRelationCount() {
+  return examinedRelationGroups;
+}
+
 function member(node) {
   return node?.name?.text;
 }
@@ -156,6 +162,7 @@ function check(
   findings,
   { rename = {}, special = {}, sourceRoot, destinationFields } = {},
 ) {
+  examinedRelationGroups++;
   const exclusions = EXCLUSIONS[label];
   for (const excluded of exclusions) {
     if (!names.includes(excluded)) findings.push(`${label} ${excluded}: obsolete exclusion`);
@@ -305,6 +312,7 @@ function checkPrintSource(
 
 /** Pure evaluator: tests replace one source string at a time without touching the checkout. */
 export function findSessionCapabilityProjectionFindings(sources) {
+  examinedRelationGroups = 0;
   const findings = [];
   const render = fields(sources, SOURCE_FILES.render, 'IRenderOptions', findings);
   const channel = fields(
@@ -567,7 +575,9 @@ export function readSessionCapabilitySources(root = resolveWorkspaceRoot(import.
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const findings = findSessionCapabilityProjectionFindings(readSessionCapabilitySources());
-    console.log(`::examined:: 5 session capability projection relations`);
+    console.log(
+      `::examined:: ${readExaminedSessionCapabilityRelationCount()} direct session capability relation groups`,
+    );
     for (const finding of findings) console.error(`session-capability-projections: ${finding}`);
     process.exitCode = findings.length ? 1 : 0;
   } catch (error) {

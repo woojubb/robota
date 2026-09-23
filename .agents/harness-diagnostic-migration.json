@@ -1301,6 +1301,22 @@
       "owner": "repository-harness",
       "subject": {
         "kind": "scan",
+        "value": "session-capability-projections"
+      },
+      "diagnosticId": "hook.migration.scan.session-capability-projections",
+      "currentExitBehavior": "exit-bearing-scan",
+      "classification": "diagnostic-migration-inventory",
+      "reportId": "hook.migration.inventory",
+      "rationale": "Current scan registration is inventoried for eventual diagnostic reporting; B1 leaves its process behavior unchanged.",
+      "disposition": {
+        "kind": "planned-diagnostic-migration",
+        "slice": "B1"
+      }
+    },
+    {
+      "owner": "repository-harness",
+      "subject": {
+        "kind": "scan",
         "value": "publish-registry"
       },
       "diagnosticId": "hook.migration.scan.publish-registry",

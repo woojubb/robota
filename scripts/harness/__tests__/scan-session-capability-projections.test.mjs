@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   findSessionCapabilityProjectionFindings,
+  readExaminedSessionCapabilityRelationCount,
   readSessionCapabilitySources,
   SOURCE_FILES,
 } from '../scan-session-capability-projections.mjs';
@@ -19,6 +20,14 @@ function findingsWithMutation(file, before, after) {
 }
 
 describe('session capability projections', () => {
+  it('reports the exact number of direct relation checks and resets on a second run', () => {
+    findSessionCapabilityProjectionFindings(source);
+    expect(readExaminedSessionCapabilityRelationCount()).toBe(5);
+
+    findSessionCapabilityProjectionFindings(source);
+    expect(readExaminedSessionCapabilityRelationCount()).toBe(5);
+  });
+
   it('derives new declared fields and requires an explicit disposition', () => {
     const file = SOURCE_FILES.render;
     const mutated = source[file].replace(
