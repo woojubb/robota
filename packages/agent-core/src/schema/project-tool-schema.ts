@@ -19,9 +19,8 @@
  * See `docs/SPEC.md` § "Tool Schema Projection (MCP-005)" for the full contract.
  */
 
-import { createHash } from 'node:crypto';
-
 import { closeObjectSchemas } from './close-object-schemas';
+import { sha256Hex } from './sha256';
 
 import type {
   IObjectParameterSchema,
@@ -428,12 +427,11 @@ function canonicalize(value: unknown): unknown {
  * A stable hash of a tool's `parameters`, over canonical key-sorted JSON. Part of the `projectTools`
  * per-tool cache identity (`provider.name` + `model` + `tool.name` + this hash) — a re-registered
  * tool whose schema changed is judged and reported again, one whose schema did not is not re-reported
- * on every turn. `node:crypto` only: agent-core stays zero-deps.
+ * on every turn. The synchronous digest uses the same implementation in Node and browsers while
+ * keeping agent-core free of runtime dependencies.
  */
 export function hashToolSchema(parameters: IParameterSchema): string {
-  return createHash('sha256')
-    .update(JSON.stringify(canonicalize(parameters)))
-    .digest('hex');
+  return sha256Hex(JSON.stringify(canonicalize(parameters)));
 }
 
 /**
