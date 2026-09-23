@@ -4,6 +4,7 @@ import {
   buildValidationError,
   type ICostEstimate,
   type IDagDefinition,
+  type IDagExecutionLineage,
   type IDagError,
   type IDagNodeDefinition,
   type INodeExecutionContext,
@@ -20,7 +21,7 @@ import {
 } from '@robota-sdk/agent-core';
 import { z } from 'zod';
 
-import { decodePersistedComposite } from './persisted-composite-decoder.js';
+import { decodePersistedComposite, MAX_COMPOSITE_DEPTH } from './persisted-composite-decoder.js';
 
 export interface ICreatePromptNodeInput {
   readonly nodeType: string;
@@ -229,6 +230,7 @@ export interface ICompositeSubRunner {
   run(
     dag: import('@robota-sdk/dag-core').IDagDefinition,
     input: TPortPayload,
+    lineage: IDagExecutionLineage,
   ): Promise<{
     ok: boolean;
     outputs: Record<string, TPortPayload>;
@@ -291,8 +293,6 @@ export interface IPersistableInstantNode {
   toPersisted(): TPersistedInstantNode;
 }
 
-const MAX_COMPOSITE_DEPTH = 3;
-
 export class CompositeInstantNodeDefinition
   extends AbstractNodeDefinition<typeof PromptBackedConfigSchema>
   implements IPersistableInstantNode
@@ -310,10 +310,12 @@ export class CompositeInstantNodeDefinition
 
   public constructor(spec: ICreateCompositeNodeInput) {
     super();
-    const depth = spec.maxDepth ?? 0;
-    if (depth >= MAX_COMPOSITE_DEPTH) {
+    if (
+      spec.maxDepth !== undefined &&
+      (!Number.isInteger(spec.maxDepth) || spec.maxDepth < 0 || spec.maxDepth > MAX_COMPOSITE_DEPTH)
+    ) {
       throw new Error(
-        `Composite node nesting limit (${MAX_COMPOSITE_DEPTH}) exceeded for "${spec.nodeType}"`,
+        `Composite node maxDepth must be an integer from 0 to ${MAX_COMPOSITE_DEPTH} for "${spec.nodeType}"`,
       );
     }
     this.spec = spec;
@@ -372,9 +374,44 @@ export class CompositeInstantNodeDefinition
       },
     };
 
+    const currentDepth = context.lineage?.depth ?? 0;
+    const maxDepth = this.spec.maxDepth ?? MAX_COMPOSITE_DEPTH;
+    if (currentDepth >= maxDepth) {
+      return {
+        ok: false,
+        error: buildTaskExecutionError(
+          'DAG_TASK_EXECUTION_COMPOSITE_DEPTH_EXCEEDED',
+          `Composite child DAG depth limit (${maxDepth}) reached`,
+          false,
+          { nodeType: this.nodeType, depth: currentDepth },
+        ),
+      };
+    }
+
+    const ancestors = context.lineage?.ancestorCompositeNodeTypes ?? [];
+    const forbiddenTypes = new Set([...ancestors, this.nodeType]);
+    if (this.spec.innerDag.nodes.some((node) => forbiddenTypes.has(node.nodeType))) {
+      return {
+        ok: false,
+        error: buildTaskExecutionError(
+          'DAG_TASK_EXECUTION_COMPOSITE_RECURSION',
+          'Composite child DAG repeats an ancestor node type',
+          false,
+          { nodeType: this.nodeType, ancestorNodeTypes: [...forbiddenTypes].join(',') },
+        ),
+      };
+    }
+
+    const childLineage: IDagExecutionLineage = Object.freeze({
+      rootRunId: context.lineage?.rootRunId ?? context.dagRunId,
+      parentRunId: context.dagRunId,
+      depth: currentDepth + 1,
+      ancestorCompositeNodeTypes: Object.freeze([...ancestors, this.nodeType]),
+    });
+
     try {
       // allow-fallback: sub-DAG execution errors are caught and surfaced as structured Result
-      const result = await this.spec.runner.run(this.spec.innerDag, subInput);
+      const result = await this.spec.runner.run(this.spec.innerDag, subInput, childLineage);
       if (!result.ok) {
         return {
           ok: false,

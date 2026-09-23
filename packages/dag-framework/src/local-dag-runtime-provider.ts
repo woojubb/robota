@@ -1,5 +1,6 @@
 import type {
   IDagDefinition,
+  IDagExecutionLineage,
   IDagNodeDefinition,
   IDagRuntimeExecuteOptions,
   IDagRuntimeProgressEvent,
@@ -61,6 +62,8 @@ export interface ILocalDagRuntimeProviderOptions {
   workspace?: IWorkspaceLayout;
   instantNodes?: IDagNodeDefinition[];
   extraNodes?: IDagNodeDefinition[];
+  /** Trusted lineage supplied when this provider executes one nested in-process child DAG. */
+  lineage?: IDagExecutionLineage;
 }
 
 /**
@@ -102,6 +105,7 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         inputs as TPortPayload,
         options?.onProgress,
         options?.signal,
+        this.options.lineage,
       );
 
       const durationMs = Date.now() - startMs;
@@ -174,6 +178,7 @@ async function runDagOnce(
   inputs: TPortPayload,
   onProgress: ((event: IDagRuntimeProgressEvent) => void) | undefined,
   signal: AbortSignal | undefined,
+  lineage: IDagExecutionLineage | undefined,
 ): Promise<IDagRunOutcome> {
   const assemblyResult = buildNodeDefinitionAssembly(nodeDefinitions);
   if (!assemblyResult.ok) {
@@ -187,6 +192,7 @@ async function runDagOnce(
   const executor: ITaskExecutorPort = new LifecycleTaskExecutorPort(
     manifestRegistry,
     lifecycleFactory,
+    lineage,
   );
 
   const storage = new InMemoryStoragePort();

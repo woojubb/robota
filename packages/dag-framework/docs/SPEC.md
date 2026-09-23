@@ -157,6 +157,7 @@ import type {
 | `workspace`     | `IWorkspaceLayout`     | —                                 | **FLOW-007**: injected workspace layout (root dir + workflow ext) for local node discovery. |
 | `instantNodes`  | `IDagNodeDefinition[]` | —                                 | Instant nodes injected by the caller's composition root.                                    |
 | `extraNodes`    | `IDagNodeDefinition[]` | —                                 | Extra nodes appended at the end (test/special-purpose).                                     |
+| `lineage`       | `IDagExecutionLineage` | —                                 | Trusted in-process parent lineage passed to every node in a nested child DAG run.           |
 
 #### `IHttpDagRuntimeProviderOptions`
 

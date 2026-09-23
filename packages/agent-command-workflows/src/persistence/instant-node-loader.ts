@@ -56,11 +56,12 @@ function buildCompositeRunner(
   liveDefs: IDagNodeDefinition[],
 ): ICompositeSubRunner {
   return {
-    async run(dag, input) {
+    async run(dag, input, lineage) {
       const provider = new LocalDagRuntimeProvider({
         executionRoot: project.executionRoot,
         workspace: layout,
         projectDir: project.executionRoot,
+        lineage,
         ...(liveDefs.length > 0 ? { instantNodes: liveDefs } : {}),
       });
       const result = await provider.execute(dag, input);

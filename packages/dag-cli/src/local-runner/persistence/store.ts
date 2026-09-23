@@ -66,10 +66,11 @@ export function buildCompositeRunner(
   executionRoot: string,
 ): ICompositeSubRunner {
   return {
-    async run(dag, input) {
+    async run(dag, input, lineage) {
       const subRunner = new LocalDagRunner(
         [...createCliNodeRegistry(), ...liveDefs],
         executionRoot,
+        lineage,
       );
       try {
         // allow-fallback: inner DAG errors are returned as structured result

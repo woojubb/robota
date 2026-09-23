@@ -121,6 +121,15 @@ describe('DATA-003 F2: symmetric persist → parse → rehydrate round-trip', ()
     expect(() => rehydrateInstantNode(record, {})).toThrow(/composite/i);
   });
 
+  it('rejects persisted composite depths outside the runtime limit', () => {
+    const record = makeComposite().toPersisted();
+    for (const maxDepth of [-1, 1.5, 4, Number.POSITIVE_INFINITY]) {
+      expect(parsePersistedInstantNode({ ...record, maxDepth })).toBeNull();
+    }
+    expect(parsePersistedInstantNode({ ...record, maxDepth: 0 })).toMatchObject({ maxDepth: 0 });
+    expect(parsePersistedInstantNode({ ...record, maxDepth: 3 })).toMatchObject({ maxDepth: 3 });
+  });
+
   it('rejects malformed records (returns null, never throws)', () => {
     expect(parsePersistedInstantNode(null)).toBeNull();
     expect(parsePersistedInstantNode('nope')).toBeNull();

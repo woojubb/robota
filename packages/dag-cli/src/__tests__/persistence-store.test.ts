@@ -6,9 +6,21 @@ import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { IDagDefinition, IDagNodeDefinition, INodeExecutionContext, IWorkspaceLayout } from '@robota-sdk/dag-core';
+import type {
+  IDagDefinition,
+  IDagExecutionLineage,
+  IDagNodeDefinition,
+  INodeExecutionContext,
+  IWorkspaceLayout,
+} from '@robota-sdk/dag-core';
 import { createCompositeInstantNodeDefinition } from '@robota-sdk/dag-node-instant-node';
-import { saveNode, loadNodes, saveWorkflow, loadWorkflows } from '../local-runner/persistence/store.js';
+import {
+  buildCompositeRunner,
+  saveNode,
+  loadNodes,
+  saveWorkflow,
+  loadWorkflows,
+} from '../local-runner/persistence/store.js';
 import { workflowsDir, WORKFLOW_EXT } from '../local-runner/persistence/paths.js';
 
 const WORKFLOW: IDagDefinition = {
@@ -87,7 +99,9 @@ describe('BEHAVIOR-006 composite node reload through the local CLI store', () =>
       dagId: 'inner',
       version: 1,
       status: 'draft',
-      nodes: [{ nodeId: 'echo', nodeType: 'input', dependsOn: [], config: { text: 'from-inner-dag' } }],
+      nodes: [
+        { nodeId: 'echo', nodeType: 'input', dependsOn: [], config: { text: 'from-inner-dag' } },
+      ],
       edges: [],
     } as unknown as IDagDefinition;
     const original = createCompositeInstantNodeDefinition({
@@ -96,7 +110,11 @@ describe('BEHAVIOR-006 composite node reload through the local CLI store', () =>
       innerDag,
       exposedInputPort: { key: 'text', mapsTo: { nodeId: 'echo', portKey: 'text' } },
       exposedOutputPorts: [{ key: 'result', mapsTo: { nodeId: 'echo', portKey: 'text' } }],
-      runner: { run: async () => { throw new Error('creation-time runner must not be reused'); } },
+      runner: {
+        run: async () => {
+          throw new Error('creation-time runner must not be reused');
+        },
+      },
     });
 
     await saveNode(original, projectDir);
@@ -125,5 +143,39 @@ describe('BEHAVIOR-006 composite node reload through the local CLI store', () =>
     const result = await node!.taskHandler.execute({ text: 'trigger' }, context);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value['result']).toBe('from-inner-dag');
+  });
+
+  it('forwards the root and parent lineage into a real nested local run', async () => {
+    const lineage: IDagExecutionLineage = {
+      rootRunId: 'root-run',
+      parentRunId: 'parent-run',
+      depth: 1,
+      ancestorCompositeNodeTypes: ['outer'],
+    };
+    const observed: IDagExecutionLineage[] = [];
+    const probe: IDagNodeDefinition = {
+      nodeType: 'lineage-probe',
+      displayName: 'Lineage Probe',
+      category: 'test',
+      inputs: [],
+      outputs: [],
+      configSchemaDefinition: null,
+      taskHandler: {
+        execute: async (_input, context) => {
+          if (context.lineage) observed.push(context.lineage);
+          return { ok: true, value: {} };
+        },
+      },
+    };
+    const dag: IDagDefinition = {
+      dagId: 'lineage-child',
+      version: 1,
+      status: 'draft',
+      nodes: [{ nodeId: 'probe', nodeType: 'lineage-probe', dependsOn: [], config: {} }],
+      edges: [],
+    };
+    const result = await buildCompositeRunner([probe], projectDir).run(dag, {}, lineage);
+    expect(result.ok).toBe(true);
+    expect(observed).toEqual([lineage]);
   });
 });

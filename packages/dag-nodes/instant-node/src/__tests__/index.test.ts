@@ -223,3 +223,104 @@ describe('persistence view (BEHAVIOR-006)', () => {
     });
   });
 });
+
+describe('composite nested-run lineage', () => {
+  function composite(
+    nodeType: string,
+    innerTypes: string[],
+    runner: ReturnType<typeof vi.fn>,
+    maxDepth?: number,
+  ) {
+    const innerDag = {
+      dagId: `inner-${nodeType}`,
+      version: 1,
+      status: 'draft',
+      nodes: innerTypes.map((type, index) => ({
+        nodeId: `inner-${index}`,
+        nodeType: type,
+        dependsOn: [],
+        config: {},
+      })),
+      edges: [],
+    } as unknown as IDagDefinition;
+    return createCompositeInstantNodeDefinition({
+      nodeType,
+      displayName: nodeType,
+      innerDag,
+      exposedInputPort: { key: 'text', mapsTo: { nodeId: 'inner-0', portKey: 'text' } },
+      exposedOutputPorts: [{ key: 'result', mapsTo: { nodeId: 'inner-0', portKey: 'text' } }],
+      runner: { run: runner },
+      ...(maxDepth === undefined ? {} : { maxDepth }),
+    });
+  }
+
+  function context(nodeType: string, lineage?: object): INodeExecutionContext {
+    return {
+      ...MOCK_CONTEXT,
+      nodeDefinition: { ...MOCK_CONTEXT.nodeDefinition, nodeType },
+      ...(lineage ? { lineage } : {}),
+    } as INodeExecutionContext;
+  }
+
+  it('rejects direct recursion before launching a child', async () => {
+    const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
+    const node = composite('recursive', ['recursive'], runner);
+    const result = await node.taskHandler.execute({ text: 'x' }, context('recursive'));
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_COMPOSITE_RECURSION' },
+    });
+    expect(runner).not.toHaveBeenCalled();
+  });
+
+  it('rejects indirect recursion through an ancestor type before launching a child', async () => {
+    const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
+    const node = composite('second', ['first'], runner);
+    const result = await node.taskHandler.execute(
+      { text: 'x' },
+      context('second', {
+        rootRunId: 'root',
+        parentRunId: 'root',
+        depth: 1,
+        ancestorCompositeNodeTypes: ['first'],
+      }),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_COMPOSITE_RECURSION' },
+    });
+    expect(runner).not.toHaveBeenCalled();
+  });
+
+  it('rejects a child launch beyond the declared depth', async () => {
+    const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
+    const node = composite('bounded', ['input'], runner, 2);
+    const result = await node.taskHandler.execute(
+      { text: 'x' },
+      context('bounded', {
+        rootRunId: 'root',
+        parentRunId: 'parent',
+        depth: 2,
+        ancestorCompositeNodeTypes: ['first', 'second'],
+      }),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_COMPOSITE_DEPTH_EXCEEDED' },
+    });
+    expect(runner).not.toHaveBeenCalled();
+  });
+
+  it('passes immutable root/parent lineage to a child runner', async () => {
+    const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
+    const node = composite('bounded', ['input'], runner);
+    const result = await node.taskHandler.execute({ text: 'x' }, context('bounded'));
+    expect(result.ok).toBe(true);
+    expect(runner).toHaveBeenCalledWith(expect.any(Object), expect.any(Object), {
+      rootRunId: 'test-run',
+      parentRunId: 'test-run',
+      depth: 1,
+      ancestorCompositeNodeTypes: ['bounded'],
+    });
+  });
+});
