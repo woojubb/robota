@@ -29,7 +29,6 @@ import {
   createTrustedProjectStateFixture,
 } from '../testing/trusted-project-state-fixture.js';
 import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
-import { checkForCliUpdate } from '../update-check/update-check.js';
 import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 /** Pump length. Every pre-fix measurement in the SEC-003 table used this size. */
@@ -54,12 +53,6 @@ function tempDir(prefix: string): string {
 function elapsedMs(run: () => void): number {
   const started = performance.now();
   run();
-  return performance.now() - started;
-}
-
-async function elapsedMsAsync(run: () => Promise<void>): Promise<number> {
-  const started = performance.now();
-  await run();
   return performance.now() - started;
 }
 
@@ -121,43 +114,6 @@ describe('SEC-003 alert 42 — provider-safe model command tool name', () => {
     expect(createProviderSafeModelCommandToolName('remote-control')).toBe(
       'robota_command_remote-control',
     );
-  });
-});
-
-describe('SEC-003 alert 43 — npm registry metadata URL', () => {
-  it(
-    'builds the URL from a pumped slash run in linear time',
-    async () => {
-      const registryUrl = `https://x${'/'.repeat(PUMP)}y`;
-      const options = {
-        currentVersion: '1.0.0',
-        force: true,
-        registryUrl,
-        cachePath: join(tempDir('robota-redos-update-'), 'cache.json'),
-        fetchImpl: (async () => ({
-          ok: true,
-          json: async () => ({ 'dist-tags': { latest: '9.9.9' } }),
-        })) as unknown as typeof fetch,
-      };
-      const ms = await elapsedMsAsync(async () => void (await checkForCliUpdate(options)));
-      expect(ms).toBeLessThan(BUDGET_MS);
-    },
-    RED_TIMEOUT_MS,
-  );
-
-  it('strips exactly the trailing slashes for ordinary input', async () => {
-    const seen: string[] = [];
-    await checkForCliUpdate({
-      currentVersion: '1.0.0',
-      force: true,
-      registryUrl: 'https://registry.npmjs.org///',
-      cachePath: join(tempDir('robota-redos-update-'), 'cache.json'),
-      fetchImpl: (async (url: string) => {
-        seen.push(url);
-        return { ok: true, json: async () => ({ 'dist-tags': { latest: '9.9.9' } }) };
-      }) as unknown as typeof fetch,
-    });
-    expect(seen).toEqual(['https://registry.npmjs.org/%40robota-sdk%2Fagent-cli']);
   });
 });
 

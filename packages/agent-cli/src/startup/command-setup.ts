@@ -8,18 +8,15 @@ import type {
 } from '@robota-sdk/agent-mcp';
 import {
   deleteSettings,
-  getStartupCliUpdateNotice,
   getUserSettingsPath,
   loadOrgPolicy,
   OrgPolicyParseError,
   readMergedProviderSettings,
   readSettings,
   resolveProviderSettingsWriteTarget,
-  shouldRunStartupCliUpdateCheck,
   writeSettings,
 } from '@robota-sdk/agent-framework';
 import type {
-  ICliUpdateNotice,
   IOrgPolicy,
   ICommandHostAdapters,
   ICommandModule,
@@ -29,6 +26,11 @@ import type {
   TWorkspaceProjectAccess,
   ICommandMCPActivationAdapter,
 } from '@robota-sdk/agent-framework';
+import {
+  getStartupCliUpdateNotice,
+  shouldRunStartupCliUpdateCheck,
+} from '../update-check/update-check.js';
+import type { ICliUpdateNotice } from '../update-check/update-check.js';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import { createDefaultCommandModules } from '@robota-sdk/agent-command';

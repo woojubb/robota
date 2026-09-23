@@ -160,6 +160,27 @@ describe('CLI update check command', () => {
     expect(existsSync(join(home, '.robota', 'update-check.json'))).toBe(true);
   });
 
+  it('keeps update caches separate for two Robota homes', async () => {
+    const firstHome = join(TMP_BASE, 'first-home');
+    const secondHome = join(TMP_BASE, 'second-home');
+    process.argv = ['node', 'robota', '--check-update'];
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ 'dist-tags': { latest: '999.0.0-test.0' } }),
+    );
+    vi.stubGlobal('fetch', fetchImpl);
+
+    process.env.HOME = firstHome;
+    await startCli();
+    process.env.HOME = secondHome;
+    await startCli();
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(existsSync(join(firstHome, '.robota', 'update-check.json'))).toBe(true);
+    expect(existsSync(join(secondHome, '.robota', 'update-check.json'))).toBe(true);
+  });
+
   it.each<TPrintModeOutputCase>(['text', 'json', 'stream-json'])(
     'does not perform automatic startup update checks in print mode with %s output',
     async (outputFormat) => {

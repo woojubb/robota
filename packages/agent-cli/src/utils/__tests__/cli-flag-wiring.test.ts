@@ -22,7 +22,7 @@ const PARSE_INTERNAL_FIELDS = new Map<string, string>([
   ['dryRun', 'normalized to permissionMode: plan inside parseCliArgs (CLI-054 alias)'],
   [
     'disableUpdateCheck',
-    'consumed cross-package via shouldRunStartupCliUpdateCheck(args) in agent-framework update-check.ts:166 (whole-args pass-through from command-setup.ts)',
+    'consumed via shouldRunStartupCliUpdateCheck(args) in agent-cli update-check.ts (whole-args pass-through from command-setup.ts)',
   ],
 ]);
 

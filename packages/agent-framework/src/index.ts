@@ -800,35 +800,10 @@ export { resolveGitBranchFromNodeHost } from './git/git-branch.js';
 
 // ── Semver comparison ─────────────────────────────────────────
 export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';
+export { trimTrailingChars } from './utils/trim-char.js';
 
 // ── Package version ───────────────────────────────────────────
 export { readPackageVersion } from './utils/read-package-version.js';
-
-// ── CLI update check ──────────────────────────────────────────
-export {
-  checkForCliUpdate,
-  formatCliUpdateCheckMessage,
-  formatCliUpdateNotice,
-  getStartupCliUpdateNotice,
-  shouldRunStartupCliUpdateCheck,
-  CLI_UPDATE_CACHE_TTL_MS,
-  CLI_UPDATE_PACKAGE_NAME,
-  CLI_UPDATE_REGISTRY_URL,
-  CLI_UPDATE_TIMEOUT_MS,
-} from './update-check/update-check.js';
-export {
-  getUserUpdateCheckCachePath,
-  readUpdateCheckCache,
-  writeUpdateCheckCache,
-} from './update-check/update-check-cache.js';
-export { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
-export type {
-  ICheckForCliUpdateOptions,
-  ICliUpdateNotice,
-  IStartupCliUpdatePolicyInput,
-  TCliUpdateCheckResult,
-} from './update-check/update-check.js';
-export type { IUpdateCheckCache } from './update-check/update-check-cache.js';
 
 // ── Agent runtime ─────────────────────────────────────────────
 export { createAgentRuntime, createStatelessRuntime } from './runtime/index.js';

@@ -6,14 +6,13 @@ import {
   resolveSessionIdByIdOrName,
   readProviderSettings,
   readMergedProviderSettings,
-  checkForCliUpdate,
-  formatCliUpdateCheckMessage,
-  resolveCliUpdateNotice,
   type IBackgroundTaskRunner,
 } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
+import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
+import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
 import { loadRobotaExternalPresets, resolveShellPreset } from './startup/preset-selection.js';
 import type { IShellPresetResolution } from './startup/preset-selection.js';
