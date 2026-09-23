@@ -11,6 +11,7 @@ import type {
   IAssetStore,
   IDagValidationPort,
   IDagNodeCatalogPort,
+  IDagDefinitionReadPort,
 } from '@robota-sdk/dag-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { IRunAdvancementCoordinator, IWorkerLoopPolicyOptions } from '@robota-sdk/dag-worker';
@@ -47,6 +48,9 @@ export interface IDagFramework {
 
   /** Registered node manifests without an HTTP envelope. */
   readonly catalog: IDagNodeCatalogPort;
+
+  /** Definition summaries and lookup without an HTTP envelope. */
+  readonly definitionReads: IDagDefinitionReadPort;
 
   /** Cost metadata management is an independent domain capability. */
   readonly costMeta: ICostMetaOperationsPort;

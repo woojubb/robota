@@ -188,10 +188,6 @@ export interface IDagOrchestrationPublishedWorkflowRunSuccessPayload extends IDa
 
 /** Orchestration compatibility contract. Cost and run-draft editing are separate capabilities. */
 export interface IDagOrchestrationPort {
-  listDefinitions(
-    input?: IDagOrchestrationListDefinitionsInput,
-  ): Promise<IDagOrchestrationHttpResponse>;
-  getDefinition(dagId: string, version?: number): Promise<IDagOrchestrationHttpResponse>;
   createDefinition(definition: IDagDefinition): Promise<IDagOrchestrationHttpResponse>;
   updateDraft(input: IDagOrchestrationUpdateDraftInput): Promise<IDagOrchestrationHttpResponse>;
   validateDefinition(dagId: string, version: number): Promise<IDagOrchestrationHttpResponse>;

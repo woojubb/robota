@@ -48,6 +48,7 @@ import { DagPromptBackend } from './adapters/prompt-backend.js';
 import { DagFrameworkOrchestrationAdapter } from './adapters/orchestration-adapter.js';
 import { DagFrameworkBuildOperations } from './adapters/dag-build-operations.js';
 import { DagFrameworkValidationOperations } from './adapters/dag-validation-operations.js';
+import { DagFrameworkDefinitionReads } from './adapters/dag-definition-reads.js';
 import { UnsupportedCostMetaOperations } from './adapters/unsupported-cost-meta.js';
 import { DagFrameworkRunDraftOperations } from './adapters/run-draft-operations.js';
 import { loadDefaultNodeRegistry } from './load-default-node-registry.js';
@@ -188,6 +189,7 @@ export async function createDagFramework(
     build: new DagFrameworkBuildOperations(assembly.manifests),
     validation: new DagFrameworkValidationOperations(assembly.manifests),
     catalog: { listNodes: async () => structuredClone(assembly.manifests) },
+    definitionReads: new DagFrameworkDefinitionReads(new DagDefinitionService(storage)),
     costMeta: new UnsupportedCostMetaOperations(),
     runDrafts: new DagFrameworkRunDraftOperations(runDraftStore, clock),
     assets: assetStore,

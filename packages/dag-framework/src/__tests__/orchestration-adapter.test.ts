@@ -35,16 +35,21 @@ const MINIMAL_DEFINITION: IDagDefinition = {
 };
 
 describe('listDefinitions', () => {
+  it('exposes definition reads as domain data outside the HTTP port', async () => {
+    expect('listDefinitions' in framework.client).toBe(false);
+    expect('getDefinition' in framework.client).toBe(false);
+    expect(await framework.definitionReads.listDefinitions()).toEqual([]);
+    expect(await framework.definitionReads.getDefinition('missing')).toBeUndefined();
+  });
+
   it('returns empty list initially', async () => {
-    const res = await framework.client.listDefinitions();
-    expect(res.ok).toBe(true);
-    expect(res.status).toBe(200);
+    expect(await framework.definitionReads.listDefinitions()).toEqual([]);
   });
 
   it('returns created definition', async () => {
     await framework.client.createDefinition(MINIMAL_DEFINITION);
-    const res = await framework.client.listDefinitions({ dagId: 'test-dag' });
-    expect(res.ok).toBe(true);
+    const items = await framework.definitionReads.listDefinitions('test-dag');
+    expect(items).toEqual([{ dagId: 'test-dag', latestVersion: 1, statuses: ['draft'] }]);
   });
 });
 
@@ -54,16 +59,22 @@ describe('createDefinition + getDefinition', () => {
     expect(created.ok).toBe(true);
     expect(created.status).toBe(201);
 
-    const got = await framework.client.getDefinition('test-dag', 1);
-    expect(got.ok).toBe(true);
-    const payload = got.payload as { ok: boolean; data: { definition: { dagId: string } } };
-    expect(payload.data.definition.dagId).toBe('test-dag');
+    const got = await framework.definitionReads.getDefinition('test-dag', 1);
+    expect(got?.dagId).toBe('test-dag');
   });
 
-  it('returns 404 for missing definition', async () => {
-    const got = await framework.client.getDefinition('no-such-dag');
-    expect(got.ok).toBe(false);
-    expect(got.status).toBe(404);
+  it('returns undefined for a missing definition', async () => {
+    expect(await framework.definitionReads.getDefinition('no-such-dag')).toBeUndefined();
+  });
+
+  it('does not let callers mutate the stored definition through a read result', async () => {
+    await framework.client.createDefinition(MINIMAL_DEFINITION);
+    const first = await framework.definitionReads.getDefinition('test-dag', 1);
+    if (!first) throw new Error('Expected definition.');
+    first.nodes[0]!.nodeType = 'changed-by-caller';
+    expect((await framework.definitionReads.getDefinition('test-dag', 1))?.nodes[0]?.nodeType).toBe(
+      'input',
+    );
   });
 });
 
