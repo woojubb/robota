@@ -77,14 +77,14 @@ export class NodeLifecycleRunner {
     }
 
     const initialized = await lifecycle.value.initialize(input.context);
-    if (!initialized.ok) {
-      return initialized;
-    }
-
     if (input.context.signal?.aborted) {
       await lifecycle.value.dispose(input.context);
       return cancellation();
     }
+    if (!initialized.ok) {
+      return initialized;
+    }
+
     const validatedInput = await lifecycle.value.validateInput(input.input, input.context);
     if (input.context.signal?.aborted) {
       await lifecycle.value.dispose(input.context);
