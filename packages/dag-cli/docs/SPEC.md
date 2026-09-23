@@ -21,7 +21,7 @@ The private internal CLI requires Node.js 22.14 or later for its `node:sqlite` l
 - `runner.ts` parses argv, applies environment/default config, dispatches the local-first top-level commands, and writes JSON output.
 - `src/commands/` holds one handler module per top-level command (see Command Surface).
 - `src/local-runner/` executes DAGs in-process by composing a runtime via `createExecutionComposition` from `@robota-sdk/dag-framework` over `dag-adapters-local` adapters; `createCliNodeRegistry()` supplies the built-in node definitions.
-- `@robota-sdk/dag-builder` supplies pipeline/spec build and workflow-file conversion helpers (`buildDagFromPipeline`, `fromDagWorkflowFile`, `isWorkflowFileFormat`) used by the build/convert/explain/view/migrate/cost commands.
+- `@robota-sdk/dag-builder` owns the total `decodeDagFile` import boundary for both supported JSON disk formats. All twelve CLI JSON DAG read sites (run stdin/URL/file, view, cost, explain, benchmark, fix, studio, diff, validate, and lint) call it before using an `IDagDefinition`; command-specific IO, optional companions, and error presentation stay in the CLI. Structurally valid definitions still reach command-owned semantic validation, lint findings, and diff rendering. Other builder helpers serve authoring and conversion.
 - `@robota-sdk/dag-orchestration-client` owns the shared `DagOrchestrationHttpClient` used for HTTP server-mode calls.
 - `json.ts` owns JSON parsing, file input decoding, and JSON output formatting.
 - `src/utils/temp-workspace.ts` owns `withTempWorkspace(prefix, fn)` — the single sanctioned way for
@@ -160,7 +160,7 @@ Imported from other packages:
 - `IDagExecutionComposition`, `IRuntimeRunProgressEventBusPort` from `@robota-sdk/dag-api`
 - `createExecutionComposition` (in-process run composition), `scanWorkspaceCatalog`, `HttpDagRuntimeProvider`, `LocalDagRuntimeProvider` from `@robota-sdk/dag-framework`
 - `createDefaultNodeRegistrySync` (default node catalog) from `@robota-sdk/dag-nodes-default`
-- `buildDagFromPipeline`, `fromDagWorkflowFile`, `isWorkflowFileFormat`, `IDagBuildInput`, `IPipelineNodeSpec` from `@robota-sdk/dag-builder`
+- `buildDagFromPipeline`, `decodeDagFile`, `formatDagFileDecodeFailure`, `IDagBuildInput`, `IPipelineNodeSpec` from `@robota-sdk/dag-builder`
 - `InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort` from `@robota-sdk/dag-adapters-local`
 - `buildNodeDefinitionAssembly`, `StaticNodeLifecycleFactory`, `StaticNodeManifestRegistry`, `StaticNodeTaskHandlerRegistry` from `@robota-sdk/dag-node`
 - Node definition classes from `@robota-sdk/dag-node-*` packages
@@ -240,6 +240,7 @@ None.
   credentials or rebinding HOME. A built regression runs the actual physical binary after the
   owning build and compares its reported version with the owner manifest; Node filesystem
   permissions allow only repository reads and disposable-workspace reads/writes.
+- DAG-004 regressions feed invalid status and unknown JSON shapes through all twelve JSON DAG read sites; file-command tests also assert malformed nested field paths. The decoder and diff tests cover both supported disk formats. Command-specific tests assert existing exit and output contracts (including JSON parse-error envelopes for validate/lint); studio returns HTTP 400. Structurally valid DAGs still produce semantic validation and lint findings, and diff retains its normal rendering. Companion-bearing commands retain their companion behavior.
 - Unit tests cover command parsing, server URL resolution, file JSON payloads, run creation payloads, run draft routing, published workflow version/override routing, asset upload/metadata/content download routing, cost metadata CRUD/formula routing, cost metadata argument validation, and JSON output.
 - IO-isolated command tests inject a fake fetch and fake file reader; the doctor regressions
   above instead exercise real disposable filesystem state without network requests.

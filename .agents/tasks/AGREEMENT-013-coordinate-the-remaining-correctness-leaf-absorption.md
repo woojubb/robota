@@ -18,12 +18,13 @@ Coordinate session event decoding and configured-hook reachability as one exact 
 
 ## Children
 
-- [ ] TRANS-016 — todo — `.agents/tasks/TRANS-016-decode-jsonl-events-by-event-name-before-replay.md`
+- [x] TRANS-016 — implemented by PR #2841, with checked-in v1 replay fixtures repaired alongside this status update — `.agents/tasks/TRANS-016-decode-jsonl-events-by-event-name-before-replay.md`
 - [x] SEC-021 — implemented — `.agents/tasks/SEC-021-reject-configured-hook-types-without-reachable-executors.md`; source-aware startup refusal is verified through the framework and real CLI. Its PR and issue #2664 completion record own remote landing evidence.
 
-SEC-021 does not complete this parent: TRANS-016 remains open. The historical administrative plan
-below records the earlier Issue-to-Task migration; current product delivery follows the entry and
-completion boundaries adopted in PR #2827.
+Both product children have implementations. This parent remains `in-progress` because its own
+administrative acceptance and the broader issue #2079 contract map still need reconciliation. The
+historical administrative plan below records the earlier Issue-to-Task migration; current product
+delivery follows the entry and completion boundaries adopted in PR #2827.
 
 ## Plan
 

@@ -7,7 +7,8 @@ import { createCliFailure } from '../json.js';
 import { LocalDagRunner, createCliNodeRegistry } from '../local-runner/index.js';
 import type { ILocalRunResult } from '../local-runner/index.js';
 import { parseDagMd, DAG_MD_SUFFIX } from '../dag-md-parser/parse-dag-md.js';
-import { isWorkflowFileFormat, fromDagWorkflowFile } from '@robota-sdk/dag-builder';
+import { isWorkflowFileFormat } from '@robota-sdk/dag-builder';
+import { decodeDagInput } from './decode-dag-input.js';
 
 const JSON_INDENT_SPACES = 2;
 const OUTPUT_FORMAT_JSON = 'json';
@@ -370,12 +371,11 @@ async function readDagFile(
     };
   }
 
-  if (isWorkflowFileFormat(parsed)) {
-    const companion = await tryReadCompanion(filePath, io);
-    return { ok: true, value: fromDagWorkflowFile(parsed, companion ?? undefined) };
-  }
-
-  return { ok: true, value: parsed as IDagDefinition };
+  const companion = isWorkflowFileFormat(parsed) ? await tryReadCompanion(filePath, io) : null;
+  const decoded = decodeDagInput(parsed, companion ?? undefined);
+  return decoded.ok
+    ? decoded
+    : { ok: false, exitCode: USAGE_ERROR_EXIT_CODE, message: `${filePath}: ${decoded.message}` };
 }
 
 // ---------------------------------------------------------------------------

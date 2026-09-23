@@ -14,7 +14,7 @@ import { resolveWorkspaceRoot } from './shared.mjs';
 
 export const SOURCE_FILES = Object.freeze({
   render: 'packages/agent-ui-terminal/src/render.tsx',
-  cli: 'packages/agent-cli/src/cli.ts',
+  cli: 'packages/agent-cli/src/cli-core.ts',
   tuiChannel: 'packages/agent-ui-terminal/src/tui-channel-options.ts',
   tuiSession: 'packages/agent-ui-terminal/src/tui-session-options.ts',
   print: 'packages/agent-cli/src/modes/print-mode.ts',
@@ -386,7 +386,8 @@ export function findSessionCapabilityProjectionFindings(sources) {
   const cliRenderProjection = objectFor(
     sources[SOURCE_FILES.cli],
     SOURCE_FILES.cli,
-    (node, ast) => ts.isCallExpression(node) && node.expression.getText(ast) === 'renderApp',
+    (node, ast) =>
+      ts.isCallExpression(node) && node.expression.getText(ast) === 'presentation.renderApp',
   );
   const cliServeProjection = objectFor(
     sources[SOURCE_FILES.cli],

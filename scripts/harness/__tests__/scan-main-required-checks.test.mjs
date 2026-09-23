@@ -898,6 +898,7 @@ describe('the live reconciler actually consults the strict policy (INFRA-162 wir
         branches: {
           develop: {
             required_status_checks: [{ context: 'build' }],
+            ruleset_id: 18715844,
             [STRICT_POLICY_KEY]: strict,
             strict_policy_why: 'declared for this fixture',
           },
@@ -918,14 +919,101 @@ describe('the live reconciler actually consults the strict policy (INFRA-162 wir
   ];
 
   it('reports nothing when the live flag matches what the declaration records', () => {
-    const findings = reconcileLiveBranch(declarationRoot(false), 'develop', liveRules(false));
+    const findings = reconcileLiveBranch(
+      declarationRoot(false),
+      'develop',
+      liveRules(false),
+      () => ({ conditions: { ref_name: { include: ['refs/heads/develop'] } } }),
+    );
     expect(findings).toEqual([]);
   });
 
   it('reports the disagreement when the live flag has moved away from the declaration', () => {
-    const findings = reconcileLiveBranch(declarationRoot(false), 'develop', liveRules(true));
+    const findings = reconcileLiveBranch(
+      declarationRoot(false),
+      'develop',
+      liveRules(true),
+      () => ({ conditions: { ref_name: { include: ['refs/heads/develop'] } } }),
+    );
     expect(findings).toHaveLength(1);
     expect(findings[0].context).toContain('strict policy');
     expect(findings[0].detail).toMatch(/true/);
+  });
+});
+
+// INFRA-2798: contexts alone cannot reveal that the declared ruleset targets no branch.
+describe('the live reconciler reads the declared ruleset scope (INFRA-2798)', () => {
+  function fixture() {
+    const root = makeTemp('ruleset-scope-');
+    mkdirSync(path.dirname(path.join(root, DECLARATION_FILE)), { recursive: true });
+    writeFileSync(
+      path.join(root, DECLARATION_FILE),
+      JSON.stringify({
+        branches: {
+          develop: {
+            ruleset_id: 18715844,
+            required_status_checks: [{ context: 'build' }],
+            strict_required_status_checks_policy: false,
+            strict_policy_why: 'fixture',
+          },
+        },
+      }),
+    );
+    return root;
+  }
+  const rules = () => [
+    {
+      type: 'required_status_checks',
+      parameters: {
+        required_status_checks: [{ context: 'build' }],
+        strict_required_status_checks_policy: false,
+      },
+    },
+  ];
+  const scoped = (include) => () => ({ conditions: { ref_name: { include, exclude: [] } } });
+
+  it('reports empty scope even when all contexts and strict policy match', () => {
+    const findings = reconcileLiveBranch(fixture(), 'develop', rules, scoped([]));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].context).toBe('(ruleset scope: develop)');
+    expect(findings[0].detail).toContain('18715844');
+    expect(findings[0].detail).toContain('refs/heads/develop');
+  });
+
+  it('reads the declared id and passes an explicitly included branch', () => {
+    const calls = [];
+    const findings = reconcileLiveBranch(fixture(), 'develop', rules, (id) => {
+      calls.push(id);
+      return scoped(['refs/heads/develop'])();
+    });
+    expect(calls).toEqual([18715844]);
+    expect(findings).toEqual([]);
+  });
+
+  it.each([[['refs/heads/main']], [undefined], ['refs/heads/develop']])(
+    'refuses absent or malformed branch scope %j',
+    (include) => {
+      expect(reconcileLiveBranch(fixture(), 'develop', rules, scoped(include))).toEqual([
+        expect.objectContaining({ context: '(ruleset scope: develop)' }),
+      ]);
+    },
+  );
+
+  it('preserves the scope cause beside missing-context findings on an empty projection', () => {
+    const findings = reconcileLiveBranch(fixture(), 'develop', () => [], scoped([]));
+    expect(findings.some((finding) => finding.context === '(ruleset scope: develop)')).toBe(true);
+    expect(findings.some((finding) => finding.context === 'build')).toBe(true);
+  });
+
+  it('reports a failed ruleset read instead of treating it as an empty or successful scope', () => {
+    const findings = reconcileLiveBranch(fixture(), 'develop', rules, () => {
+      throw new Error('ruleset read denied');
+    });
+    expect(findings).toEqual([
+      expect.objectContaining({
+        context: '(live)',
+        detail: expect.stringMatching(/18715844.*develop.*ruleset read denied/),
+      }),
+    ]);
   });
 });

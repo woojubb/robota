@@ -1,5 +1,6 @@
 import type { IDagDefinition } from '@robota-sdk/dag-core';
-import { isWorkflowFileFormat, fromDagWorkflowFile } from '@robota-sdk/dag-builder';
+import { isWorkflowFileFormat } from '@robota-sdk/dag-builder';
+import { decodeDagInput } from './decode-dag-input.js';
 import type { IDagCliIo } from '../types.js';
 import { USAGE_ERROR_EXIT_CODE, SUCCESS_EXIT_CODE } from '../types.js';
 import { parseDagMd, DAG_MD_SUFFIX } from '../dag-md-parser/parse-dag-md.js';
@@ -75,22 +76,23 @@ async function readDagFile(filePath: string, io: IDagCliIo): Promise<TReadDagFil
     };
   }
 
+  let companion: import('@robota-sdk/dag-core').IDagRobotaCompanion | undefined;
   if (isWorkflowFileFormat(parsed)) {
     const companionPath = filePath.replace(/\.dag\.json$/, '.dag.robota.json');
-    let companion: import('@robota-sdk/dag-core').IDagRobotaCompanion | undefined;
     if (companionPath !== filePath) {
       try {
         const companionText = await io.readTextFile(companionPath);
         companion = JSON.parse(companionText) as import('@robota-sdk/dag-core').IDagRobotaCompanion;
       } catch (_err) {
         // allow-fallback: companion file is optional
-        companion = undefined;
       }
     }
-    return { ok: true, value: fromDagWorkflowFile(parsed, companion) };
   }
 
-  return { ok: true, value: parsed as IDagDefinition };
+  const decoded = decodeDagInput(parsed, companion);
+  return decoded.ok
+    ? decoded
+    : { ok: false, exitCode: USAGE_ERROR_EXIT_CODE, message: `${filePath}: ${decoded.message}` };
 }
 
 function buildMermaidFromEdges(dag: IDagDefinition): string {

@@ -6,7 +6,7 @@ const define = { __ROBOTA_VERSION__: JSON.stringify(manifest.version) };
 
 export default defineConfig([
   {
-    entry: { bin: 'src/bin.ts' },
+    entry: { bin: 'src/bin.ts', headless: 'src/headless-bin.ts' },
     define,
     format: ['esm'],
     outDir: 'dist/node',

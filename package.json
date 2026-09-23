@@ -189,6 +189,7 @@
       "fast-xml-parser": ">=4.5.5",
       "fast-xml-builder": "1.2.0",
       "@xmldom/xmldom": ">=0.9.12 <1.0.0",
+      "plist": "3.1.1",
       "browserslist": ">=4.28.7 <5.0.0",
       "fast-uri": ">=3.1.6 <4.0.0",
       "node-forge": ">=1.4.0",

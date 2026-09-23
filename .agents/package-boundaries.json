@@ -295,6 +295,18 @@
       "reason": "Binary verification pins the repository-owned artifact generation under test."
     },
     {
+      "source": "packages/agent-cli/scripts/e2e-headless-binary.mjs",
+      "target": "scripts/artifacts/generation.mjs",
+      "kind": "module",
+      "reason": "Headless binary verification pins the repository-owned artifact generation under test."
+    },
+    {
+      "source": "apps/agent-app/scripts/bundle-runtime.mjs",
+      "target": "scripts/artifacts/generation.mjs",
+      "kind": "module",
+      "reason": "Desktop packaging copies a manifest-verified generation through repository-owned artifact tooling."
+    },
+    {
       "source": "scripts/artifacts/__tests__/dag-entry-config.test.mjs",
       "target": "packages/dag-cli/tsdown.config.ts",
       "kind": "module",

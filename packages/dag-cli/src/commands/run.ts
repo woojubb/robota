@@ -31,7 +31,8 @@ import { PlainLogRenderer } from '../progress/plain-log-renderer.js';
 import { StreamLogRenderer } from '../progress/stream-log-renderer.js';
 import { TuiRenderer } from '../progress/tui-renderer.js';
 import { parseDagMd, DAG_MD_SUFFIX } from '../dag-md-parser/parse-dag-md.js';
-import { isWorkflowFileFormat, fromDagWorkflowFile } from '@robota-sdk/dag-builder';
+import { isWorkflowFileFormat } from '@robota-sdk/dag-builder';
+import { decodeDagInput } from './decode-dag-input.js';
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
 import { validateFrozenRun } from './lock.js';
 import { parsePipelineSpec } from '../pipeline-parser.js';
@@ -985,11 +986,10 @@ function parseDagJsonText(text: string, source: string): TDagLoadResult {
     };
   }
 
-  if (isWorkflowFileFormat(parsed)) {
-    return { ok: true, value: fromDagWorkflowFile(parsed, undefined) };
-  }
-
-  return { ok: true, value: parsed as IDagDefinition };
+  const decoded = decodeDagInput(parsed);
+  return decoded.ok
+    ? decoded
+    : { ok: false, exitCode: USAGE_ERROR_EXIT_CODE, message: `${source}: ${decoded.message}` };
 }
 
 /**
@@ -1049,13 +1049,10 @@ async function fetchDagFromUrl(url: string): Promise<TDagLoadResult> {
     };
   }
 
-  // New workflow file format: auto-detect and convert (no companion for remote URLs).
-  if (isWorkflowFileFormat(parsed)) {
-    return { ok: true, value: fromDagWorkflowFile(parsed, undefined) };
-  }
-
-  // Legacy IDagDefinition format -- use as-is.
-  return { ok: true, value: parsed as IDagDefinition };
+  const decoded = decodeDagInput(parsed);
+  return decoded.ok
+    ? decoded
+    : { ok: false, exitCode: USAGE_ERROR_EXIT_CODE, message: `${url}: ${decoded.message}` };
 }
 
 /**
@@ -1112,14 +1109,12 @@ async function readDagFile(
     };
   }
 
-  // New workflow file format: auto-detect and convert, reading companion if present.
-  if (isWorkflowFileFormat(parsed)) {
-    const companion = await tryReadCompanion(filePath, io);
-    return { ok: true, value: fromDagWorkflowFile(parsed, companion ?? undefined) };
-  }
-
-  // Legacy IDagDefinition format -- use as-is.
-  return { ok: true, value: parsed as IDagDefinition };
+  // Only workflow-format files use a companion; the decoder remains the acceptance boundary.
+  const companion = isWorkflowFileFormat(parsed) ? await tryReadCompanion(filePath, io) : null;
+  const decoded = decodeDagInput(parsed, companion ?? undefined);
+  return decoded.ok
+    ? decoded
+    : { ok: false, exitCode: USAGE_ERROR_EXIT_CODE, message: `${filePath}: ${decoded.message}` };
 }
 
 /** Derive the companion path for a .dag.json file and try to read it. Returns null on any error. */

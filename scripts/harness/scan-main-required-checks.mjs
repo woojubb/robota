@@ -58,9 +58,10 @@
  *
  * Hermetic by default — it reads only checked-in files, so it always reaches a verdict and never
  * prints SKIP, and no GitHub API outage can redden the release gate that runs it. `--live`
- * additionally reconciles the declaration against the live ruleset via `gh`; the scheduled
- * `.github/workflows/ruleset-drift.yml` runs that half, where a failure costs a red cron and not a
- * blocked promotion.
+ * additionally reconciles the declaration against the live ruleset via `gh`.
+ * `.github/workflows/ruleset-drift.yml` is dispatch-only under the 2026-08-04 no-cron directive;
+ * its last run observed on 2026-09-23 was 2026-08-11. Live detection happens only when invoked,
+ * and a failure reddens that invocation rather than the offline promotion gate.
  *
  * Exit code 0 = every required context can fail on a `main` PR, 1 = at least one cannot.
  */
