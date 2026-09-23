@@ -60,7 +60,9 @@ React/Ink UI.
   same optional sources to their sessions. A runtime without host command adapters does not attach
   an ambient settings-file reader or writer; settings actions require a host-supplied adapter.
   User-settings reset takes an explicit file path. Plugin discovery likewise requires a host-selected
-  enablement source; without one, an interactive session admits no bundle plugins.
+  enablement source and host-selected user/project plugin directories; without either, an interactive
+  session admits no bundle plugins. Project plugin directories are admitted only under trusted
+  project access. The framework chooses no product plugin location.
 - **Organization policy is host-located and fail-closed.** The policy loader reads only the path
   selected by its host. An absent or empty path is an error; a missing file at a valid path means no
   deployed policy. A present but unreadable or malformed file raises a typed error rather than

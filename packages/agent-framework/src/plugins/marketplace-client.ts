@@ -2,7 +2,7 @@
  * MarketplaceClient — manages marketplace registries via shallow git clones.
  *
  * Marketplaces are git repositories containing `.claude-plugin/marketplace.json`.
- * They are cloned to `~/.robota/plugins/marketplaces/<name>/` and tracked
+ * They are cloned beneath the host-selected plugins directory and tracked
  * in `known_marketplaces.json`.
  */
 

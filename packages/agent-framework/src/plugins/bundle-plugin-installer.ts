@@ -34,7 +34,7 @@ export type {
 
 /** Options for constructing a BundlePluginInstaller. */
 export interface IBundlePluginInstallerOptions {
-  /** Base plugins directory (e.g., `~/.robota/plugins`). */
+  /** Host-selected base plugins directory. */
   pluginsDir: string;
   /** Shared settings store for enable/disable persistence. */
   settingsStore: NodeHostPluginSettingsStore;

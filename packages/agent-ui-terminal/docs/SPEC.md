@@ -82,6 +82,9 @@ contract is authoritative for how the TUI releases resources on session switch a
 
 ### The renderer executes no command semantics
 
+The TUI forwards host-selected plugin directories to session creation without choosing product
+paths.
+
 The TUI applies no command's side effects itself. The session layer applies every command's host
 action (language change, settings reset, exit/restart, rename, statusline patch, remote control)
 before the command result ever reaches the renderer; the renderer only reflects outcomes it is

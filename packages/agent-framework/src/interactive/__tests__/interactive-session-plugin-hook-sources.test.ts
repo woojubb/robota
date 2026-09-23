@@ -45,6 +45,10 @@ async function start(): Promise<Error | undefined> {
       userSettingsSources: [
         createNodeHostSettingsSource('user', join(home, '.robota', 'settings.json')),
       ],
+      pluginDirectories: {
+        project: join(cwd, '.robota', 'plugins'),
+        user: join(home, '.robota', 'plugins'),
+      },
       provider: createScriptedProvider([]).provider,
       onTextDelta: () => {},
       onToolExecution: () => {},
@@ -76,6 +80,35 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
     const error = await start();
     expect(error?.message).toContain('"prompt"');
     expect(error?.message).toContain(hooksPath);
+  });
+
+  it('loads only host-selected plugin directories', async () => {
+    const ambientHooks = addPlugin('ambient', 'agent');
+    const selectedPlugin = join(cwd, 'custom-plugins', 'cache', 'market', 'selected', '1.0.0');
+    writeJson(join(selectedPlugin, '.claude-plugin', 'plugin.json'), {
+      name: 'selected',
+      version: '1.0.0',
+      description: 'Selected plugin',
+      features: { hooks: true },
+    });
+    const selectedHooks = join(selectedPlugin, 'hooks', 'hooks.json');
+    writeJson(selectedHooks, {
+      PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt', prompt: 'selected' }] }],
+    });
+
+    const error = await createInteractiveSession({
+      cwd,
+      projectAccess: await createTrustedProjectAccessFixture(cwd),
+      userSettingsSources: [
+        createNodeHostSettingsSource('user', join(home, '.robota', 'settings.json')),
+      ],
+      pluginDirectories: { project: join(cwd, 'custom-plugins'), user: join(home, 'custom-plugins') },
+      provider: createScriptedProvider([]).provider,
+      onTextDelta: () => {},
+      onToolExecution: () => {},
+    }).then(() => undefined, (failure: unknown) => failure as Error);
+    expect(error?.message).toContain(selectedHooks);
+    expect(error?.message).not.toContain(ambientHooks);
   });
 
   it('does not load project plugin hooks before workspace trust is granted', async () => {

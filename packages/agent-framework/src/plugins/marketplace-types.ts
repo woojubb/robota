@@ -59,7 +59,7 @@ export type TExecFn = (
 
 /** Options for constructing a MarketplaceClient. */
 export interface IMarketplaceClientOptions {
-  /** Base plugins directory (e.g., `~/.robota/plugins`). */
+  /** Host-selected base plugins directory. */
   pluginsDir: string;
   /** Argv process adapter — must be provided at composition root (e.g., execFileSync). */
   exec: TExecFn;

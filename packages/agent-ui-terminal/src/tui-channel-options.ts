@@ -96,6 +96,7 @@ export interface ITuiInteractionChannelOptions {
   /** ARCH-005: composition-root-contributed subagent definitions (merged capability packs). */
   agentDefinitions?: readonly IAgentDefinition[];
   agentDefinitionRoots?: readonly string[];
+  pluginDirectories?: { readonly user?: string; readonly project?: string };
   /**
    * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
    * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier

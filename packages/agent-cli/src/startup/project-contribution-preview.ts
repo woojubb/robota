@@ -1,5 +1,5 @@
 import { realpathSync } from 'node:fs';
-import { isAbsolute, relative, sep } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 
 import {
   inspectPreTrustProjectPaths,
@@ -10,6 +10,7 @@ import { COST_BUDGET_FILE } from './cost-budget-adapter.js';
 import { projectOutputStyleDirectories } from './output-style-sources.js';
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from '../product/robota-agent-roots.js';
 import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
+import { ROBOTA_PLUGIN_DIRECTORY } from '../product/robota-plugin-paths.js';
 
 import type { IProjectContributionPath, IWorkspaceIdentity } from '@robota-sdk/agent-framework';
 
@@ -41,6 +42,12 @@ export function listProjectContributionPaths(cwdRelative: string): readonly IPro
       relativePath,
       expectedKind: 'directory' as const,
     })),
+    {
+      id: 'plugins',
+      label: 'Project plugins and plugin hooks',
+      relativePath: join(cwdRelative, ROBOTA_PLUGIN_DIRECTORY),
+      expectedKind: 'directory',
+    },
     ...projectOutputStyleDirectories(cwdRelative).map((relativePath) => ({
       id: `output-style:${relativePath}`,
       label: 'Project output styles',

@@ -58,6 +58,8 @@ export interface IInteractiveSessionStandardOptions {
   projectSettingsPaths?: readonly IProjectSettingsPath[];
   /** Explicit user settings layers; absent means no ambient user file is read. */
   userSettingsSources?: readonly INodeHostSettingsSource[];
+  /** Host-selected bundle plugin directories; project plugins require trusted project access. */
+  pluginDirectories?: { readonly user?: string; readonly project?: string };
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;

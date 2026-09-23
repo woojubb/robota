@@ -4,7 +4,6 @@ import { SKILL_ROOTS } from '../commands/skill-source.js';
 import { AGENTS_FILENAME, CLAUDE_FILENAME } from '../context/context-loader.js';
 import { PROJECT_DETECTOR_PATHS } from '../context/project-detector.js';
 import { TASKS_DIR } from '../context/task-context.js';
-import { PROJECT_PLUGIN_RELATIVE_DIRECTORY } from '../plugins/plugin-scope-paths.js';
 import { NAMESPACE_DIRECTORIES } from '../workspace-trust/project-state-storage.js';
 
 /** Metadata-only project paths that may become available after workspace trust is granted. */
@@ -72,11 +71,5 @@ export function listFrameworkProjectContributionPaths(
       relativePath,
       expectedKind: 'directory' as const,
     })),
-    {
-      id: 'plugins',
-      label: 'Project plugins and plugin hooks',
-      relativePath: join(cwdRelative, PROJECT_PLUGIN_RELATIVE_DIRECTORY),
-      expectedKind: 'directory',
-    },
   ];
 }

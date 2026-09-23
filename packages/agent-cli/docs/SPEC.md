@@ -50,6 +50,9 @@ It also selects the ordered Robota and Claude-compatible user settings layers an
 through print, serve, terminal, and eval sessions, including provider switching after startup. The
 Robota settings path also controls reset, terminal model writes, and plugin enablement; disabled
 plugins stay disabled across command, theme, and interactive discovery.
+The CLI owns the Robota bundle plugin directory for install, command reload, interactive hooks,
+and the pre-trust project-source preview. It passes the selected user and project directories to
+print, serve, and terminal sessions; project hooks still require live workspace trust.
 The CLI selects the Robota organization-policy file and passes its path to the neutral loader,
 preserving policy enforcement across its command and session surfaces.
 

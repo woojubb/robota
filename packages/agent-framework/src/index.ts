@@ -671,7 +671,6 @@ export type { TProviderFactory, IPromptProvider, IPromptExecutorOptions } from '
 export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './hooks/index.js';
 
 // ── Plugin scope path ──────────────────────────────────────
-export { PROJECT_PLUGIN_RELATIVE_DIRECTORY } from './plugins/plugin-scope-paths.js';
 
 // ── Explicit project/host contribution sources ─────────────
 export {
