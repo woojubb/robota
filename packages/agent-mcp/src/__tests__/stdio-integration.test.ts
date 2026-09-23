@@ -11,6 +11,8 @@ import { MCPConnectionSupervisor } from '../supervisor/connection.js';
 import { MCPActivationAdmissionService } from '../mcp-activation.js';
 import { MCPDefinitionRegistry } from '../definition/registry.js';
 
+import { FakeSupervisorClock, fixtureTimeouts } from './supervisor-test-helpers.js';
+
 const fixturePath = fileURLToPath(
   new URL('../../examples/stdio-fixture-server.mjs', import.meta.url),
 );
@@ -92,6 +94,41 @@ describe('official SDK stdio lifecycle', () => {
       await expect(fixture.transport.start()).rejects.toThrow('authority');
       expect(fixture.transport.pid).toBeNull();
     } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it('requires manual retry when activation is revoked before a supervised stdio open', async () => {
+    const fixture = await setup('normal');
+    const clock = new FakeSupervisorClock();
+    const supervisor = new MCPConnectionSupervisor({
+      serverId: 'fixture',
+      awaitOpenCleanupOnTimeout: true,
+      openSession: (signal) =>
+        openMcpSession({
+          serverId: 'fixture',
+          transport: fixture.transport,
+          timeouts: { startupMs: 2_000, perCallMs: 2_000 },
+          signal,
+        }),
+      timeouts: fixtureTimeouts(),
+      backoff: { maxAttempts: 2 },
+      clock,
+    });
+    try {
+      fixture.service.revoke(fixture.request);
+      await expect(supervisor.ensureConnected()).rejects.toThrow('Stdio transport authority');
+      expect(supervisor.getState()).toMatchObject({
+        kind: 'failed',
+        classification: 'config',
+        retry: 'manual-retry',
+        attempt: 1,
+      });
+      expect(clock.pendingCount).toBe(0);
+      expect(fixture.transport.pid).toBeNull();
+    } finally {
+      await supervisor.shutdown();
+      await fixture.transport.close();
       await rm(fixture.root, { recursive: true, force: true });
     }
   });

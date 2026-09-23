@@ -172,7 +172,7 @@ function buildDeclaredCapabilities(
   return record;
 }
 
-/** Runs `initialize` within `startupMs`, mapping a failure to the two named `MCPSessionError` kinds. */
+/** Runs `initialize` within `startupMs`, retaining a typed stdio authority refusal after cleanup. */
 async function connectClient(client: Client, options: IMCPOpenSessionOptions): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let abort: (() => void) | undefined;
@@ -207,6 +207,7 @@ async function connectClient(client: Client, options: IMCPOpenSessionOptions): P
       } catch {
         throw new MCPStdioError('cleanup');
       }
+      if (error instanceof MCPStdioError && error.reason === 'authority') throw error;
       throw new MCPSessionError(
         isStartupTimeout(error) ? 'startup-timeout' : 'initialize-failed',
         isStartupTimeout(error)
