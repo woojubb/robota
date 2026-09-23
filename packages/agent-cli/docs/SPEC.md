@@ -292,6 +292,9 @@ A provider API failure during a model call must never exit 0.
 
 ### CLI update check
 
+The CLI owns its package identity, install guidance, and user-local update-check cache. The
+framework provides only reusable version comparison and string utilities.
+
 Enabled by default only for interactive TUI startup, rate-limited by a 24-hour TTL; a registry lookup
 failure must never prevent startup. Print/headless execution never schedules or emits update checks,
 keeping automation and structured stdout/stderr contracts deterministic. The CLI may print the install

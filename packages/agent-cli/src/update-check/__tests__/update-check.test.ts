@@ -64,6 +64,35 @@ describe('CLI update check version comparison', () => {
 });
 
 describe('checkForCliUpdate', () => {
+  it('builds a registry URL from a long slash run in linear time', async () => {
+    cleanup();
+    const started = performance.now();
+    await checkForCliUpdate({
+      currentVersion: '1.0.0',
+      force: true,
+      registryUrl: `https://x${'/'.repeat(200_000)}y`,
+      cachePath: join(TEST_DIR, 'redos-cache.json'),
+      fetchImpl: (async () => jsonResponse({ 'dist-tags': { latest: '9.9.9' } })) as typeof fetch,
+    });
+    expect(performance.now() - started).toBeLessThan(250);
+  }, 120_000);
+
+  it('strips exactly the trailing slashes from a registry URL', async () => {
+    cleanup();
+    const seen: string[] = [];
+    await checkForCliUpdate({
+      currentVersion: '1.0.0',
+      force: true,
+      registryUrl: 'https://registry.npmjs.org///',
+      cachePath: join(TEST_DIR, 'redos-cache.json'),
+      fetchImpl: (async (url: string) => {
+        seen.push(url);
+        return jsonResponse({ 'dist-tags': { latest: '9.9.9' } });
+      }) as typeof fetch,
+    });
+    expect(seen).toEqual(['https://registry.npmjs.org/%40robota-sdk%2Fagent-cli']);
+  });
+
   it('returns cached update notice when cache is fresh', async () => {
     cleanup();
     const cachePath = join(TEST_DIR, 'update-check.json');

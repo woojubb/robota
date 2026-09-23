@@ -3,8 +3,11 @@ import {
   readUpdateCheckCache,
   writeUpdateCheckCache,
 } from './update-check-cache.js';
-import { compareSemverVersions, isNewerSemverVersion } from '../utils/semver-compare.js';
-import { trimTrailingChars } from '../utils/trim-char.js';
+import {
+  compareSemverVersions,
+  isNewerSemverVersion,
+  trimTrailingChars,
+} from '@robota-sdk/agent-framework';
 
 import type { IUpdateCheckCache, TJsonValue } from './update-check-cache.js';
 
