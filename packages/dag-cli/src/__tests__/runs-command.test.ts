@@ -7,18 +7,19 @@ import type { LocalDagRunner } from '../local-runner/index.js';
 import { runCommand } from '../commands/run.js';
 import { runsCommand } from '../commands/runs.js';
 
-const originalCwd = process.cwd();
 let testDir: string | undefined;
 
 afterEach(async () => {
-  process.chdir(originalCwd);
+  vi.restoreAllMocks();
   if (testDir !== undefined) await rm(testDir, { recursive: true, force: true });
   testDir = undefined;
 });
 
-async function enterTempProject(): Promise<void> {
+async function enterTempProject(): Promise<string> {
   testDir = await mkdtemp(join(tmpdir(), 'dag-runs-command-'));
-  process.chdir(testDir);
+  // Worker threads cannot chdir; keep real SQLite I/O under a per-test project root.
+  vi.spyOn(process, 'cwd').mockReturnValue(testDir);
+  return testDir;
 }
 
 const definition: IDagDefinition = {
@@ -111,8 +112,8 @@ describe('local run history', () => {
   });
 
   it('reports SQLite write and read failures with nonzero exit codes', async () => {
-    await enterTempProject();
-    await mkdir('.dag/runs.db', { recursive: true });
+    const projectDir = await enterTempProject();
+    await mkdir(join(projectDir, '.dag/runs.db'), { recursive: true });
     const runIo = captureIo();
     const runner = {
       events: { subscribe: vi.fn() },
