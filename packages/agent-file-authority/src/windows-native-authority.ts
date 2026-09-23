@@ -159,6 +159,11 @@ export class WindowsNativeAuthority {
       };
       const output: TNativeHandle[] = [null];
       const ioStatus: IWindowsIoStatus = { Status: 0, Information: 0 };
+      // A final read cannot verify same-size in-place rewrites from identity and size alone.
+      // Deny write sharing for that handle so existing and new writers cannot race the read.
+      const shareAccess = final
+        ? FILE_SHARE_READ | FILE_SHARE_DELETE
+        : FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
       const status = this.api.ntCreateFile(
         output,
         (final ? FILE_READ_DATA : FILE_LIST_DIRECTORY) | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
@@ -166,7 +171,7 @@ export class WindowsNativeAuthority {
         ioStatus,
         null,
         0,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        shareAccess,
         FILE_OPEN,
         (final ? FILE_NON_DIRECTORY_FILE : FILE_DIRECTORY_FILE) |
           FILE_SYNCHRONOUS_IO_NONALERT |

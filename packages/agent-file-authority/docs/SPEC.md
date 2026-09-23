@@ -37,6 +37,9 @@ The POSIX adapter calls real `openat` with `O_NOFOLLOW` for every component. The
 calls `NtCreateFile` with `OBJECT_ATTRIBUTES.RootDirectory` and `FILE_OPEN_REPARSE_POINT`, verifies
 attributes on each resulting native handle, and uses native handle read/metadata/close operations.
 A Windows `HANDLE` is never passed to Node as a numeric file descriptor.
+The final file handle denies write sharing for the bounded read, so an existing writer prevents the
+open and a new writer cannot change file bytes between chunks. Parent directory handles retain
+write sharing so unrelated namespace updates are not blocked.
 
 The authority remains rooted at the opened identity if its original pathname is renamed or replaced.
 It also compares root and file identity snapshots around operations. A detected mutation fails rather
@@ -96,7 +99,8 @@ not contain an absolute root, payload bytes, or caller secrets.
 
 Native-host tests run on Linux x64/arm64, macOS x64/arm64, and Windows x64. They cover successful and
 missing reads, lexical rejection, parent and final link/reparse refusal, held-root and held-parent
-replacement, non-regular entries, exact/zero/exceeded budgets, deterministic concurrent growth,
+replacement, non-regular entries, exact/zero/exceeded budgets, deterministic concurrent growth and
+same-size rewrite attempts,
 root/file identity checks, safe diagnostics, idempotent close, and use after close. A standalone
 qualification script runs the built public surface on Node 20.19 and Node 22 and is also embedded and
 executed through each native Bun artifact without external `node_modules`.

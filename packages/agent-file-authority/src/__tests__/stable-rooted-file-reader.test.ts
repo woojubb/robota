@@ -153,17 +153,60 @@ describe('stable rooted file reader', () => {
     const payload = join(root, 'payload.bin');
     writeFileSync(payload, 'a');
     let changed = false;
+    let writeBlocked = false;
     const reader = track(
       createStableRootedFileReaderForTest(root, {
         afterReadChunk: () => {
           if (changed) return;
           changed = true;
-          appendFileSync(payload, 'b');
+          try {
+            appendFileSync(payload, 'b');
+          } catch (error) {
+            if (process.platform !== 'win32') throw error;
+            writeBlocked = true;
+          }
         },
       }),
     );
 
-    expectCode(() => reader.readBytes(['payload.bin'], 8), 'FILE_CHANGED');
+    if (process.platform === 'win32') {
+      expect(Buffer.from(reader.readBytes(['payload.bin'], 8) ?? []).toString()).toBe('a');
+      expect(writeBlocked).toBe(true);
+    } else {
+      expectCode(() => reader.readBytes(['payload.bin'], 8), 'FILE_CHANGED');
+    }
+  });
+
+  it('cannot return mixed bytes from a same-size rewrite during a multi-chunk read', () => {
+    const { root } = fixture();
+    const payload = join(root, 'payload.bin');
+    const bytes = Buffer.alloc(1_048_584, 'a');
+    writeFileSync(payload, bytes);
+    let rewriteAttempted = false;
+    let writeBlocked = false;
+    const reader = track(
+      createStableRootedFileReaderForTest(root, {
+        afterReadChunk: () => {
+          if (rewriteAttempted) return;
+          rewriteAttempted = true;
+          try {
+            writeFileSync(payload, Buffer.alloc(bytes.length, 'b'));
+          } catch (error) {
+            if (process.platform !== 'win32') throw error;
+            writeBlocked = true;
+          }
+        },
+      }),
+    );
+
+    if (process.platform === 'win32') {
+      expect(reader.readBytes(['payload.bin'], bytes.length)).toEqual(bytes);
+      expect(rewriteAttempted).toBe(true);
+      expect(writeBlocked).toBe(true);
+    } else {
+      expectCode(() => reader.readBytes(['payload.bin'], bytes.length), 'FILE_CHANGED');
+      expect(rewriteAttempted).toBe(true);
+    }
   });
 
   it('closes idempotently and rejects every later operation', () => {

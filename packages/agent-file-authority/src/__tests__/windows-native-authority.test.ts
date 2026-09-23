@@ -1,3 +1,4 @@
+import * as koffi from 'koffi';
 import { describe, expect, it, vi } from 'vitest';
 
 import { WindowsNativeAuthority } from '../windows-native-authority.js';
@@ -58,5 +59,55 @@ describe('WindowsNativeAuthority cleanup', () => {
 
     expect(ntClose).toHaveBeenCalledOnce();
     expect(closeHandle).not.toHaveBeenCalled();
+  });
+});
+
+describe('WindowsNativeAuthority read sharing', () => {
+  it('excludes concurrent writers only while a final file is held for reading', () => {
+    const authority = uninitializedAuthority();
+    const handleType = koffi.pointer('TestStableReadHandle', koffi.opaque());
+    const unicodeStringType = koffi.struct('TestStableReadUnicodeString', {
+      Length: 'uint16_t',
+      MaximumLength: 'uint16_t',
+      Buffer: koffi.pointer('char16_t'),
+    });
+    const objectAttributesType = koffi.struct('TestStableReadObjectAttributes', {
+      Length: 'uint32_t',
+      RootDirectory: handleType,
+      ObjectName: koffi.pointer(unicodeStringType),
+      Attributes: 'uint32_t',
+      SecurityDescriptor: 'void *',
+      SecurityQualityOfService: 'void *',
+    });
+    const shares: number[] = [];
+    Reflect.set(authority, 'api', {
+      unicodeStringType,
+      objectAttributesType,
+      ntCreateFile: (
+        output: TNativeHandle[],
+        _desiredAccess: number,
+        _attributes: object,
+        _ioStatus: object,
+        _allocationSize: null,
+        _fileAttributes: number,
+        shareAccess: number,
+      ) => {
+        shares.push(shareAccess);
+        output[0] = BigInt(42);
+        return 0;
+      },
+    });
+    const issueRelativeOpen = Reflect.get(authority, 'issueRelativeOpen') as (
+      parent: TNativeHandle,
+      segment: string,
+      final: boolean,
+    ) => unknown;
+
+    issueRelativeOpen.call(authority, BigInt(1), 'nested', false);
+    issueRelativeOpen.call(authority, BigInt(1), 'payload.bin', true);
+
+    expect(shares).toHaveLength(2);
+    expect(shares[0] & 0x2).toBe(0x2);
+    expect(shares[1] & 0x2).toBe(0);
   });
 });
