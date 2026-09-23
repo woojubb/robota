@@ -2825,7 +2825,7 @@ runs to a completed turn:
 Distinct scheduled wake sources sharing the agent driver never coalesce with each other. Cancelling
 one queued source settles only that source's accepted turn; a turn already executing is not aborted.
 `IAgentJobSchedules.spawnScheduledWake` accepts an optional `sessionLoop` marker, `sessionLoopId`,
-and `sessionLoopExpiresAt`
+`sessionLoopFirstAllowedAt`, and `sessionLoopExpiresAt`
 that the session stores in task metadata. Restored scheduled tasks forward this metadata when
 re-armed, so an editable label cannot erase a loop's identity and the stable loop ID survives a
 successful resume even though the runtime task ID can change.
@@ -2837,7 +2837,9 @@ Ordinary turn snapshots remain best-effort.
 Stopping a loop durably records its terminal state before cancelling the runtime timer or
 acknowledging `/loop stop`. A failed record write leaves the timer running and reports failure.
 The session normalizes missing expiry to at most seven days and refuses an invalid, elapsed, or
-overlong expiry. A live loop is durably stopped at expiry even while paused, without waiting for
+overlong expiry. A persisted first-fire boundary skips earlier calendar-aligned slots without
+cancelling the loop; an invalid boundary or one beyond expiry is refused. A live loop is durably
+stopped at expiry even while paused, without waiting for
 another wake; a wake racing expiry is refused. An expired restored loop is retained as terminal
 rather than re-armed. `disableSessionLoops` blocks creation,
 firing, and restore re-arm without blocking unrelated schedules. Disabled restored loops remain in

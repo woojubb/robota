@@ -4,6 +4,7 @@ export {
   createDefaultBackgroundTaskRunners,
   createManagedShellProcessRunner,
   createScheduledTaskRunner,
+  nextScheduledFireOnOrAfter,
   createToolInvocationBackgroundTaskRunner,
   resolveBackgroundTaskShellCommand,
   getBackgroundTaskTransitions,

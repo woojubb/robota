@@ -203,7 +203,9 @@ async function createLoop(
   const cadence = chooseCadence(parsed.requestedMs);
   const label = `${LOOP_LABEL}${parsed.instruction.slice(0, MAX_LABEL_LENGTH)}`;
   const loopId = `loop_${randomUUID()}`;
-  const expiresAt = new Date(Date.now() + LOOP_LIFETIME_MS).toISOString();
+  const nowMs = Date.now();
+  const firstAllowedAt = new Date(nowMs + parsed.requestedMs).toISOString();
+  const expiresAt = new Date(nowMs + LOOP_LIFETIME_MS).toISOString();
   pendingCreates.set(host, pending + 1);
   let task: IBackgroundTaskState;
   try {
@@ -213,6 +215,7 @@ async function createLoop(
       agentInstruction: parsed.instruction,
       sessionLoop: true,
       sessionLoopId: loopId,
+      sessionLoopFirstAllowedAt: firstAllowedAt,
       sessionLoopExpiresAt: expiresAt,
     });
   } finally {
@@ -221,16 +224,18 @@ async function createLoop(
     else pendingCreates.set(host, remaining);
   }
   const rounded = cadence.milliseconds !== parsed.requestedMs ? ' (rounded up)' : '';
-  const nextFire = task.nextFireAt ? ` Next fire: ${task.nextFireAt}.` : '';
+  const nextFire =
+    task.nextFireAt && task.nextFireAt >= firstAllowedAt ? ` Next fire: ${task.nextFireAt}.` : '';
   return {
     success: true,
-    message: `Loop ${loopId} uses a ${cadence.description}${rounded} local-clock step; elapsed gaps can change with daylight saving.${nextFire} Expires: ${expiresAt}. Stop with /loop stop ${loopId}.`,
+    message: `Loop ${loopId} uses a ${cadence.description}${rounded} local-clock step; elapsed gaps can change with daylight saving. First eligible at or after ${firstAllowedAt}.${nextFire} Expires: ${expiresAt}. Stop with /loop stop ${loopId}.`,
     data: {
       loopId,
       taskId: task.id,
       requestedMs: parsed.requestedMs,
       cadenceLabel: cadence.description,
       cronExpression: cadence.cronExpression,
+      firstAllowedAt,
       expiresAt,
     },
   };

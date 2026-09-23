@@ -4,7 +4,7 @@
  * missed-wake note is surfaced when its fire time elapsed while the session was closed.
  */
 
-import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
+import { BackgroundTaskManager, createScheduledTaskRunner } from '@robota-sdk/agent-executor';
 import { describe, expect, it, vi } from 'vitest';
 
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
@@ -94,6 +94,7 @@ function pausedScheduledRecord(): Record<string, unknown> {
 function setupWithRecord(
   record: Record<string, unknown>,
   disableSessionLoops = false,
+  scheduledRunner?: IBackgroundTaskRunner,
 ): {
   started: string[];
   manager: BackgroundTaskManager;
@@ -101,7 +102,7 @@ function setupWithRecord(
   store: ReturnType<typeof createStore>;
 } {
   const { runner, started } = createFakeScheduledRunner();
-  const manager = new BackgroundTaskManager({ runners: [runner] });
+  const manager = new BackgroundTaskManager({ runners: [scheduledRunner ?? runner] });
   const sessionStub = createSessionStub();
   storeAgentToolDeps(sessionStub, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
   const store = createStore(record);
@@ -196,19 +197,105 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
     expect(notes).toHaveLength(0);
   });
 
-  it('retains a loop identity marker when a restored schedule receives a new runtime id', () => {
-    const record = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+  it('does not report a skipped pre-eligibility slot as a missed loop wake on resume', () => {
+    const nowMs = Date.now();
+    const record = sleepingScheduledRecord(new Date(nowMs - 60_000).toISOString());
     const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
     tasks[0]!['metadata'] = {
       sessionLoop: true,
+      sessionLoopId: 'loop_first_window',
+      sessionLoopFirstAllowedAt: new Date(nowMs + 5 * 60_000).toISOString(),
+      sessionLoopExpiresAt: new Date(nowMs + 5 * 24 * 60 * 60_000).toISOString(),
+    };
+
+    const { session } = setupWithRecord(record);
+    const notes = history(session).filter((entry) =>
+      JSON.stringify(entry).includes('Missed scheduled wake'),
+    );
+    expect(notes).toHaveLength(0);
+  });
+
+  it.each([
+    ['before', '2026-09-24T00:17:00.000Z', 0],
+    ['after', '2026-09-24T00:21:00.000Z', 1],
+  ])(
+    'reports a missed loop wake only %s the first eligible cron slot',
+    (_position, resumedAt, expectedNotes) => {
+      const now = vi.spyOn(Date, 'now').mockReturnValue(Date.parse(resumedAt));
+      try {
+        const record = sleepingScheduledRecord('2026-09-24T00:10:00.000Z');
+        const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
+        tasks[0]!['schedule'] = {
+          cronExpression: '0 */10 * * * *',
+          agentInstruction: 'check',
+        };
+        tasks[0]!['metadata'] = {
+          sessionLoop: true,
+          sessionLoopId: 'loop_missed_first_eligible_slot',
+          sessionLoopFirstAllowedAt: '2026-09-24T00:16:00.000Z',
+          sessionLoopExpiresAt: '2026-09-30T00:00:00.000Z',
+        };
+
+        const { session } = setupWithRecord(record);
+        const notes = history(session).filter((entry) =>
+          JSON.stringify(entry).includes('Missed scheduled wake'),
+        );
+        expect(notes).toHaveLength(expectedNotes);
+        if (expectedNotes) expect(JSON.stringify(notes[0])).toContain('2026-09-24T00:20:00.000Z');
+      } finally {
+        now.mockRestore();
+      }
+    },
+  );
+
+  it('uses the scheduled runner timezone when reporting a missed eligible loop wake', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-25T08:00:00.000Z'));
+    try {
+      const record = sleepingScheduledRecord('2026-09-24T07:00:00.000Z');
+      const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
+      tasks[0]!['metadata'] = {
+        sessionLoop: true,
+        sessionLoopId: 'loop_timezone',
+        sessionLoopFirstAllowedAt: '2026-09-25T01:00:00.000Z',
+        sessionLoopExpiresAt: '2026-09-30T00:00:00.000Z',
+      };
+
+      const { session, manager } = setupWithRecord(
+        record,
+        false,
+        createScheduledTaskRunner({ timezone: 'America/Los_Angeles' }),
+      );
+      try {
+        const notes = history(session).filter((entry) =>
+          JSON.stringify(entry).includes('Missed scheduled wake'),
+        );
+        expect(notes).toHaveLength(1);
+        expect(JSON.stringify(notes[0])).toContain('2026-09-25T07:00:00.000Z');
+      } finally {
+        for (const task of manager.list()) await manager.cancel(task.id);
+      }
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  it('retains a loop identity marker when a restored schedule receives a new runtime id', () => {
+    const record = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
+    const firstAllowedAt = new Date(Date.now() + 60_000).toISOString();
+    tasks[0]!['metadata'] = {
+      sessionLoop: true,
       sessionLoopId: 'loop_stable',
+      sessionLoopFirstAllowedAt: firstAllowedAt,
       sessionLoopExpiresAt: new Date(Date.now() + 5 * 24 * 60 * 60_000).toISOString(),
     };
-    const { manager } = setupWithRecord(record);
+    const { manager, session } = setupWithRecord(record);
     const rearmed = manager.list().find((task) => task.kind === 'scheduled');
     expect(rearmed?.id).not.toBe('sched_old');
     expect(rearmed?.metadata?.['sessionLoop']).toBe(true);
     expect(rearmed?.metadata?.['sessionLoopId']).toBe('loop_stable');
+    expect(rearmed?.metadata?.['sessionLoopFirstAllowedAt']).toBe(firstAllowedAt);
+    expect(session.requestWakeup('check', rearmed!.id)).toBe(false);
   });
 
   it('expires a restored paused loop without a scheduled wake', async () => {
