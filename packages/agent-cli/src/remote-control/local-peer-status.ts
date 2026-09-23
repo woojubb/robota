@@ -15,13 +15,16 @@ export function bindLocalPeerStatus(
 ): () => void {
   let lastStatus: TActivityStatus;
   let reportedFailure = false;
+  let needsRetry = false;
   const publish = (status: TActivityStatus): void => {
-    if (status === lastStatus) return;
+    if (status === lastStatus && !needsRetry) return;
     try {
       presence.publishStatus(status);
       lastStatus = status;
+      needsRetry = false;
       reportedFailure = false;
     } catch (error) {
+      needsRetry = true;
       if (reportedFailure) return;
       reportedFailure = true;
       report(`Local peer activity publication failed: ${String(error)}`);
