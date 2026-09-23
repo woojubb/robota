@@ -64,6 +64,20 @@ describe('globToRegExp / pathMatchesAny', () => {
   });
 });
 describe('selectAffectedScans (fixture registry, nothing spawned)', () => {
+  it('binds package-name resolution to every live reference corpus', () => {
+    const owner = SCAN_COMMANDS.find((scan) => scan.name === 'workspace-refs');
+    const inputs = scanInputGlobs(owner);
+    for (const file of [
+      'docs/guide.md',
+      'diagrams/current.mmd',
+      '.changeset/pre.json',
+      '.changeset/pending.md',
+      'vitest.config.ts',
+    ]) {
+      expect(pathMatchesAny(file, inputs), file).toBe(true);
+    }
+  });
+
   it('selects the scans whose globs a changed path reaches, plus every `always` scan', () => {
     const selection = selectAffectedScans(FIXTURE, ['scripts/harness/x.mjs']);
     expect(selection.full).toBe(false);

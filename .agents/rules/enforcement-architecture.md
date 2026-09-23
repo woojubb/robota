@@ -121,6 +121,15 @@ fingerprinted provenance records; deleting the definition alone is not completio
 
 ## Three questions a guard must answer
 
+Package-name resolution has one owner: `workspace-refs`. Its live corpus includes workspace
+manifest scripts, helper scripts, document prose and executable commands (including code spans),
+Mermaid diagrams, pending changeset package headers, and prerelease-state package keys. Historical
+release prose and archived records are not live references. The owning script declares the exact
+syntax and exclusions; `ghost-package-refs` checks directory paths only, and `filter-script-resolves`
+checks whether an existing package declares the selected script. Neither supplies a second answer
+to package-name existence. Corpus changes must also update the affected-scan registration and its
+reachability test.
+
 In this order. The first two were already asked here; the third is what four independent audits added.
 
 1. **Can it fail?** — a check with no failing input is a check that has never been run.

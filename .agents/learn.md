@@ -30,6 +30,14 @@ near-duplicates happens in batch, at lesson time.
 
 <!-- Append new `### LRN-<id>` entries below this line. Nothing above it is a record. -->
 
+### LRN-closeout-readback-buffer-overflow
+
+- observed-at: 2026-09-23T11:21:00+09:00
+- observation: The closeout audit reads a full merged-commit API response into a 256 KiB buffer, so a large deletion PR can fail its metadata-only readback with ENOBUFS.
+- evidence: `scripts/harness/post-findings-authorization.mjs:478`; PR #2831 closeout audit returned `GitHub closeout readback failed: spawnSync gh ENOBUFS` after its verified merge and issue closure.
+- source: PR #2831 post-merge closeout
+- related: issue #2423
+
 ### LRN-pre-push-base-ref-synthetic-command-loss
 
 - observed-at: 2026-09-21T13:37:13+09:00

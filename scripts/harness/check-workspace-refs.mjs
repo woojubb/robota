@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * Check that @robota-sdk/* tokens in package.json scripts and helper .mjs
- * scripts resolve to existing workspace packages.
+ * Sole owner of unresolved @robota-sdk/* package names in live repository inputs.
+ * Reads workspace manifests, helper scripts, live Markdown prose and pnpm commands,
+ * diagrams, and source comments. Historical records, tests, and fixtures describe
+ * past or deliberately invalid names rather than commands to run today.
  *
  * Lesson source: the agent-web → agent-web-ui package rename left a stale
  * filter token (old web package name) in agent-cli's build script — develop
@@ -14,23 +16,36 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { listManifestPackageDirs } from './workspace-packages.mjs';
+import { ABSENCE_VOCABULARY } from './cited-paths.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
+import { filterScriptOccurrences, isSelector } from './lib/pnpm-invocation.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
+import { listAppDirs, listManifestPackageDirs } from './workspace-packages.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
-// SSOT for the `@robota-sdk/*` npm-token shape. Exported so sibling doc/package
-// guards (e.g. check-ghost-package-refs) validate against the same pattern rather
-// than forking the regex.
+// One npm-name grammar. A match is still checked for pnpm selector punctuation below.
 export const TOKEN_PATTERN = /@robota-sdk\/[a-z0-9]+(?:-[a-z0-9]+)*(?![\w-])/g;
 
 // Example/fixture tokens used inside harness scripts' own rule tables and allowlists.
+const GROUP_CONTAINER_NAME = '@robota-sdk/dag-nodes';
 const EXAMPLE_TOKEN_ALLOWLIST = new Set([
   '@robota-sdk/agent-provider', // removed monolith; remains only as a forbidden-PREFIX literal in check-agent-server-boundary (matches all agent-provider-* leaves)
   '@robota-sdk/other',
-  // Defunct-name literals seeded in check-ghost-package-refs' GHOST_PACKAGE_ALLOWLIST.
-  '@robota-sdk/dag-nodes',
+  GROUP_CONTAINER_NAME,
+]);
+
+const PLACEHOLDER_NAMES = new Set(['foo', 'bar', 'baz', 'name', 'your-package']);
+const FRONT_DOOR_DOCS = new Set(['README.md', 'CONTRIBUTING.md', 'AGENTS.md', 'CLAUDE.md']);
+const SKIP_TREES = new Set([
+  '.git',
+  '.claude',
+  'node_modules',
+  'dist',
+  'coverage',
+  '__tests__',
+  '__fixtures__',
+  'fixtures',
 ]);
 
 function readJson(filePath) {
@@ -41,16 +56,67 @@ function listPackageJsonFiles(root) {
   const files = [];
   const rootPkg = path.join(root, 'package.json');
   if (existsSync(rootPkg)) files.push(rootPkg);
-  for (const family of ['packages', 'apps']) {
-    const familyDir = path.join(root, family);
-    if (!existsSync(familyDir)) continue;
-    for (const entry of readdirSync(familyDir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const pkgPath = path.join(familyDir, entry.name, 'package.json');
-      if (existsSync(pkgPath)) files.push(pkgPath);
+  for (const dir of [...listManifestPackageDirs(root), ...listAppDirs(root)])
+    files.push(path.join(dir, 'package.json'));
+  return files;
+}
+
+/** Historical paths are excluded by kind; a pending changeset header and pre.json are live. */
+export function isImmutableHistoricalRecord(rel) {
+  const p = `/${rel.split(path.sep).join('/')}`;
+  if (path.basename(p) === 'CHANGELOG.md') return true;
+  if (/\/\.changeset\/[^/]+\.md$/.test(p)) return true;
+  if (/\/\.agents\/spec-docs\/(done|rejected)\//.test(p)) return true;
+  if (/\/\.agents\/tasks\/completed\//.test(p)) return true;
+  if (/\/\.agents\/archive\//.test(p)) return true;
+  if (/\/\.agents\/release-runs\//.test(p)) return true;
+  if (/\/content\/v\d/.test(p)) return true;
+  if (/\/docs\/superpowers\//.test(p)) return true;
+  if (/\/docs\/plans\/\d{4}-\d{2}-\d{2}-[^/]+\.md$/.test(p)) return true; // dated design and implementation plans
+  if (/\/\.design\//.test(p)) return true;
+  return false;
+}
+
+/** Authored docs, diagrams and source, without following symlinks into dependencies or worktrees. */
+function listReferenceFiles(root) {
+  const files = [];
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (SKIP_TREES.has(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile() && ['.md', '.mmd', '.ts', '.mjs'].includes(path.extname(entry.name)))
+        files.push(full);
     }
   }
+  walk(root);
   return files;
+}
+
+function isConcreteName(text, match) {
+  const before = text[match.index - 1] ?? '';
+  if (before === '!' || before === '/') return false;
+  const suffix = text.slice(match.index + match[0].length).split(/[\s`'"<>),;]/, 1)[0];
+  return !isSelector(match[0] + suffix);
+}
+
+function changesetHeader(text) {
+  const match = /^---\s*\n([\s\S]*?)\n---(?:\s*\n|$)/.exec(text);
+  return match?.[1] ?? '';
+}
+
+function commentLines(text) {
+  let inBlock = false;
+  const comments = [];
+  for (const line of text.split('\n')) {
+    const blockStart = line.indexOf('/*');
+    if (blockStart >= 0) inBlock = true;
+    const slash = line.indexOf('//');
+    if (inBlock || slash >= 0) comments.push(slash >= 0 && !inBlock ? line.slice(slash) : line);
+    if (inBlock && line.includes('*/')) inBlock = false;
+  }
+  return comments;
 }
 
 function listHelperScripts(root) {
@@ -61,7 +127,7 @@ function listHelperScripts(root) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (entry.name === 'node_modules' || entry.name === '__tests__') continue;
+        if (SKIP_TREES.has(entry.name)) continue;
         walk(full);
       } else if (entry.isFile() && entry.name.endsWith('.mjs')) {
         results.push(full);
@@ -70,27 +136,17 @@ function listHelperScripts(root) {
   }
 
   walk(path.join(root, 'scripts'));
-  for (const family of ['packages', 'apps']) {
-    const familyDir = path.join(root, family);
-    if (!existsSync(familyDir)) continue;
-    for (const entry of readdirSync(familyDir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      walk(path.join(familyDir, entry.name, 'scripts'));
-    }
-  }
+  for (const dir of [...listManifestPackageDirs(root), ...listAppDirs(root)])
+    walk(path.join(dir, 'scripts'));
   return results;
 }
 
 /**
- * SSOT for "the set of every workspace package `name`". Exported so sibling
- * doc/package guards (e.g. check-ghost-package-refs) reuse the exact same name
- * set rather than re-deriving their own list.
+ * SSOT for "the set of every workspace package `name`".
  *
  * The walk itself is `readWorkspaceManifests` below; this is its name projection. It is
  * nesting-aware for `packages/` (via workspace-packages.mjs) so nested-group members like
- * `packages/dag-nodes/<name>` are included — the depth-1 `listPackageJsonFiles` script corpus alone
- * would miss them. This can only grow the resolved-name set, so it never adds
- * check-workspace-refs findings.
+ * `packages/dag-nodes/<name>` are included in both the resolved-name set and scan corpus.
  */
 export function listWorkspacePackageNames(root = WORKSPACE_ROOT) {
   return new Set(readWorkspaceManifests(root).keys());
@@ -113,12 +169,7 @@ export function readWorkspaceManifests(root = WORKSPACE_ROOT) {
   };
   addManifest(path.join(root, 'package.json'));
   for (const dir of listManifestPackageDirs(root)) addManifest(path.join(dir, 'package.json'));
-  const appsDir = path.join(root, 'apps');
-  if (existsSync(appsDir)) {
-    for (const entry of readdirSync(appsDir, { withFileTypes: true })) {
-      if (entry.isDirectory()) addManifest(path.join(appsDir, entry.name, 'package.json'));
-    }
-  }
+  for (const dir of listAppDirs(root)) addManifest(path.join(dir, 'package.json'));
   return manifests;
 }
 
@@ -132,10 +183,13 @@ export async function findWorkspaceRefFindings(root = WORKSPACE_ROOT) {
 
   const workspaceNames = listWorkspacePackageNames(root);
 
-  function checkText(text, relativeFile) {
+  function checkText(text, relativeFile, { allowExamples = false, prose = false } = {}) {
     for (const match of text.matchAll(TOKEN_PATTERN)) {
       const token = match[0];
-      if (EXAMPLE_TOKEN_ALLOWLIST.has(token)) continue;
+      if (allowExamples && EXAMPLE_TOKEN_ALLOWLIST.has(token)) continue;
+      if (prose && token === GROUP_CONTAINER_NAME) continue; // group-container heading
+      if (prose && PLACEHOLDER_NAMES.has(token.slice(token.lastIndexOf('/') + 1))) continue;
+      if (!isConcreteName(text, match)) continue;
       if (!workspaceNames.has(token)) {
         findings.push({
           file: relativeFile,
@@ -144,6 +198,25 @@ export async function findWorkspaceRefFindings(root = WORKSPACE_ROOT) {
         });
       }
     }
+  }
+
+  function checkDocumentLine(line, rel, { prose = false } = {}) {
+    const commandAt = line.search(/\bpnpm\b.*(?:--filter|-F)\b/);
+    if (commandAt < 0) {
+      checkText(line, rel, { prose });
+      return;
+    }
+    checkText(line.slice(0, commandAt), rel, { prose });
+    const command = line.slice(commandAt);
+    const occurrences = filterScriptOccurrences(command);
+    if (occurrences.length > 0) {
+      for (const occurrence of occurrences)
+        for (const name of occurrence.packages) checkText(name, rel);
+      return;
+    }
+    // A bare filter still names a package even if no script follows it yet.
+    for (const match of command.matchAll(/(?:--filter|-F)(?:=|[ \t]+)(['"]?)([^\s`'";]+)\1/g))
+      checkText(match[2], rel);
   }
 
   // ANTI-ROT (HARNESS-052): an allowlist entry naming a package that DOES resolve is stale by
@@ -163,27 +236,93 @@ export async function findWorkspaceRefFindings(root = WORKSPACE_ROOT) {
   examinedManifests = 0;
   for (const pkgPath of packageJsonFiles) {
     examinedManifests++;
-    const scripts = readJson(pkgPath).scripts ?? {};
-    checkText(Object.values(scripts).join('\n'), path.relative(root, pkgPath));
+    checkText(readFileSync(pkgPath, 'utf8'), path.relative(root, pkgPath));
   }
 
+  const helperScripts = new Set(listHelperScripts(root));
   examinedHelperScripts = 0;
-  for (const scriptPath of listHelperScripts(root)) {
+  for (const scriptPath of helperScripts) {
     examinedHelperScripts++;
-    checkText(readFileSync(scriptPath, 'utf8'), path.relative(root, scriptPath));
+    checkText(readFileSync(scriptPath, 'utf8'), path.relative(root, scriptPath), {
+      allowExamples: true,
+    });
+  }
+
+  const referenceFiles = listReferenceFiles(root);
+  examinedReferenceFiles = 0;
+  examinedReleaseFiles = 0;
+  for (const filePath of referenceFiles) {
+    if (!['.md', '.mmd'].includes(path.extname(filePath))) continue;
+    const rel = path.relative(root, filePath);
+    const normalized = rel.split(path.sep).join('/');
+    const text = readFileSync(filePath, 'utf8');
+    if (normalized.startsWith('.changeset/') && normalized.endsWith('.md')) {
+      examinedReleaseFiles += 1;
+      checkText(changesetHeader(text), rel); // only the package keys are live
+      continue;
+    }
+    if (isImmutableHistoricalRecord(rel)) continue;
+    examinedReferenceFiles += 1;
+    if (normalized.endsWith('.mmd')) {
+      for (const line of text.split('\n')) if (!ABSENCE_VOCABULARY.test(line)) checkText(line, rel);
+      continue;
+    }
+    let inFence = false;
+    for (const line of text.split('\n')) {
+      if (/^\s*(```|~~~)/.test(line)) {
+        inFence = !inFence;
+        continue;
+      }
+      if (ABSENCE_VOCABULARY.test(line)) continue;
+      if (inFence) {
+        if (/\bpnpm\b.*(?:--filter|-F)\b/.test(line)) checkDocumentLine(line, rel);
+        continue;
+      }
+      const visible = line.replace(/`[^`]*`/g, (span) => {
+        if (/\bpnpm\b.*(?:--filter|-F)\b/.test(span)) {
+          checkDocumentLine(span, rel);
+          return ' ';
+        }
+        return FRONT_DOOR_DOCS.has(rel) ? span : ' ';
+      });
+      checkDocumentLine(visible, rel, { prose: true });
+    }
+  }
+
+  examinedSourceFiles = 0;
+  for (const filePath of referenceFiles) {
+    if (!['.ts', '.mjs'].includes(path.extname(filePath))) continue;
+    if (/\.(?:test|spec)\./.test(path.basename(filePath))) continue;
+    if (helperScripts.has(filePath)) continue;
+    const rel = path.relative(root, filePath);
+    if (isImmutableHistoricalRecord(rel)) continue;
+    examinedSourceFiles += 1;
+    for (const line of commentLines(readFileSync(filePath, 'utf8')))
+      if (!ABSENCE_VOCABULARY.test(line) && /\bpnpm\b.*(?:--filter|-F)\b/.test(line))
+        checkDocumentLine(line, rel);
+  }
+
+  const preJson = path.join(root, '.changeset', 'pre.json');
+  if (existsSync(preJson)) {
+    examinedReleaseFiles += 1;
+    checkText(
+      Object.keys(readJson(preJson).initialVersions ?? {}).join('\n'),
+      '.changeset/pre.json',
+    );
   }
 
   return findings;
 }
 
 /**
- * How much the last run read — HARNESS-057. TWO holders for TWO subjects: this scan reads package
- * manifests (their `scripts` blocks) and the helper scripts under `scripts/`, and one number would
- * have to misreport one of them. Set where each walk happens and read where the lines are printed,
- * so the finder's return shape and its tests stay untouched.
+ * How much the last run read — HARNESS-057. Each holder measures its own subject:
+ * manifests, helper scripts, live Markdown/diagrams, source comments, and release inputs.
  */
 let examinedManifests = 0;
 let examinedHelperScripts = 0;
+let examinedReferenceFiles = 0;
+let examinedSourceFiles = 0;
+let examinedReleaseFiles = 0;
 
 /** What the last run actually read — exported so both counts can be asserted. */
 export function examinedManifestCount() {
@@ -192,15 +331,29 @@ export function examinedManifestCount() {
 export function examinedHelperScriptCount() {
   return examinedHelperScripts;
 }
+export function examinedReferenceFileCount() {
+  return examinedReferenceFiles;
+}
+export function examinedSourceFileCount() {
+  return examinedSourceFiles;
+}
+export function examinedReleaseFileCount() {
+  return examinedReleaseFiles;
+}
 
 export async function main() {
   const findings = await findWorkspaceRefFindings(WORKSPACE_ROOT);
+  process.stdout.write(`::examined:: ${examinedManifests} package manifests\n`);
+  process.stdout.write(`::examined:: ${examinedHelperScripts} helper scripts\n`);
+  if (examinedReferenceFiles > 0)
+    process.stdout.write(
+      `::examined:: ${examinedReferenceFiles} live Markdown and diagram files\n`,
+    );
+  if (examinedSourceFiles > 0)
+    process.stdout.write(`::examined:: ${examinedSourceFiles} source files for command comments\n`);
+  if (examinedReleaseFiles > 0)
+    process.stdout.write(`::examined:: ${examinedReleaseFiles} release inputs\n`);
   if (findings.length === 0) {
-    // The size of each subject, on the channel the runner reads. A zero in either means that walk
-    // found nothing — a pass over nothing rather than a tree with no stale refs — so neither
-    // carries an expected-empty excuse.
-    process.stdout.write(`::examined:: ${examinedManifests} package manifests\n`);
-    process.stdout.write(`::examined:: ${examinedHelperScripts} helper scripts\n`);
     process.stdout.write('workspace ref scan passed.\n');
     return;
   }

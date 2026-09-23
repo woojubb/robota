@@ -459,7 +459,7 @@ Rules:
 pnpm --filter @robota-sdk/agent-framework test
 pnpm --filter @robota-sdk/agent-cli test
 pnpm --filter @robota-sdk/agent-executor test
-pnpm --filter @robota-sdk/agent-transport-headless test
+pnpm --filter @robota-sdk/agent-transport test
 pnpm --filter @robota-sdk/agent-transport-ws test
 pnpm harness:scan
 pnpm harness:verify -- --scope packages/agent-framework --base-ref origin/develop

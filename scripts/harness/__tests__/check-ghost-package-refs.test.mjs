@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { makeTemp } from './make-temp.mjs';
 
 import { findGhostPackageRefFindings } from '../check-ghost-package-refs.mjs';
+import { findWorkspaceRefFindings } from '../check-workspace-refs.mjs';
 
 async function createFixture(files) {
   const root = makeTemp('robota-ghost-refs-');
@@ -22,15 +23,16 @@ function pkg(name) {
 }
 
 describe('check-ghost-package-refs', () => {
-  it('flags a doc referencing an unknown @robota-sdk/<name> npm token', async () => {
+  it('leaves npm-name resolution in documents to the workspace owner', async () => {
     const root = await createFixture({
       'packages/foo/package.json': pkg('@robota-sdk/foo'),
       'docs/overview.md': 'The `@robota-sdk/foo` package builds on @robota-sdk/ghost internals.\n',
     });
-    const findings = await findGhostPackageRefFindings(root);
+    const findings = await findWorkspaceRefFindings(root);
     expect(findings).toHaveLength(1);
-    expect(findings[0].type).toBe('ghost-package-ref');
+    expect(findings[0].type).toBe('unresolved-workspace-ref');
     expect(findings[0].detail).toContain('@robota-sdk/ghost');
+    expect(await findGhostPackageRefFindings(root)).toHaveLength(0);
   });
 
   it('flags a non-SPEC doc referencing an unknown packages/<name> directory', async () => {
@@ -118,14 +120,12 @@ describe('check-ghost-package-refs', () => {
     expect(await findGhostPackageRefFindings(root)).toHaveLength(0);
   });
 
-  it('reuses check-workspace-refs SSOT (TOKEN_PATTERN + listWorkspacePackageNames), not a fork', async () => {
+  it('does not retain a second npm-name resolution implementation', async () => {
     const source = readFileSync(
       new URL('../check-ghost-package-refs.mjs', import.meta.url),
       'utf8',
     );
-    expect(source).toMatch(
-      /import\s*\{[^}]*\bTOKEN_PATTERN\b[^}]*\blistWorkspacePackageNames\b[^}]*\}\s*from\s*'\.\/check-workspace-refs\.mjs'/s,
-    );
+    expect(source).not.toMatch(/\b(?:TOKEN_PATTERN|listWorkspacePackageNames)\b/);
     // No forked @robota-sdk regex literal of its own.
     expect(source).not.toMatch(/@robota-sdk\\\//);
   });
@@ -146,7 +146,7 @@ describe('check-ghost-package-refs', () => {
       'package.json': pkg('root'),
       'packages/dag-nodes/leaf/package.json': pkg('@robota-sdk/dag-nodes'),
     });
-    const findings = await findGhostPackageRefFindings(root);
+    const findings = await findWorkspaceRefFindings(root);
     expect(findings.map((f) => f.type)).toContain('stale-allowlist-entry');
   });
 

@@ -977,9 +977,10 @@ export async function runRegressionRedProof(io = {}) {
       if (exercised) {
         let deciders = [];
         const fixedText = readText(path.resolve(WORKSPACE_ROOT, source));
+        let appliedMutant = null;
         if (mutants) {
-          const applied = applyDeclaredMutants(fixedText, mutants);
-          if (!applied.ok) {
+          appliedMutant = applyDeclaredMutants(fixedText, mutants);
+          if (!appliedMutant.ok) {
             // Not a guess: a needle that names nothing, or two places, mutates nothing.
             decisions.push({
               pkg: pair.pkg,
@@ -991,17 +992,50 @@ export async function runRegressionRedProof(io = {}) {
               relation: 'executed',
               runtimeMutation: true,
               mutation: 'declared',
-              reason: applied.reason,
+              reason: appliedMutant.reason,
             });
             log(
-              `⚠︎  ${source}: declared mutant \`${applied.needle}\` — ${applied.reason}. INCONCLUSIVE.`,
+              `⚠︎  ${source}: declared mutant \`${appliedMutant.needle}\` — ${appliedMutant.reason}. INCONCLUSIVE.`,
             );
             if (rank[VERDICT.INCONCLUSIVE] > rank[worst]) worst = VERDICT.INCONCLUSIVE;
             continue;
           }
-          writeMutant(source, applied.text);
-        } else {
-          reverseApply([source], from);
+        }
+        try {
+          if (appliedMutant) writeMutant(source, appliedMutant.text);
+          else reverseApply([source], from);
+        } catch (error) {
+          const operation = appliedMutant ? 'declared-mutant-write' : 'reverse-apply';
+          const message = error instanceof Error ? error.message : String(error);
+          const failureReason = `${operation}-failed: ${message}`;
+          // A failed operation may have partially changed the source. Failure to restore is an
+          // orchestration crash: do not let another pair run against a contaminated working tree.
+          try {
+            restore([source]);
+          } catch (restoreError) {
+            const restoreMessage =
+              restoreError instanceof Error ? restoreError.message : String(restoreError);
+            throw new Error(
+              `Failed to restore ${source} after ${failureReason}: ${restoreMessage}`,
+              { cause: restoreError },
+            );
+          }
+
+          decisions.push({
+            pkg: pair.pkg,
+            source,
+            verdict: VERDICT.INCONCLUSIVE,
+            outcome: null,
+            witness,
+            importsReversedFile: true,
+            relation: 'executed',
+            runtimeMutation: true,
+            mutation: appliedMutant ? 'declared' : 'reversal',
+            reason: failureReason,
+          });
+          log(`⚠︎  ${source}: ${failureReason}. INCONCLUSIVE.`);
+          if (rank[VERDICT.INCONCLUSIVE] > rank[worst]) worst = VERDICT.INCONCLUSIVE;
+          continue;
         }
         try {
           const sourceAbs = path.resolve(WORKSPACE_ROOT, source);

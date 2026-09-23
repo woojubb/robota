@@ -545,11 +545,18 @@ export const SCAN_COMMANDS = [
   {
     name: 'workspace-refs',
     command: ['node', 'scripts/harness/check-workspace-refs.mjs'],
-    examines: [...WORKSPACE, SCRIPTS],
+    examines: [
+      ...WORKSPACE,
+      SCRIPTS,
+      MARKDOWN,
+      '**/*.mmd',
+      '**/*.ts',
+      '**/*.mjs',
+      '.changeset/pre.json',
+    ],
   },
-  // Issue #2660. Both filter guards ask only whether the package NAME resolves, so a `--filter`
-  // naming a real package that does not declare the script after it passed them both while running
-  // nothing. The class is a package split moving a file away from the filter its comment names.
+  // Package-name resolution belongs to workspace-refs. This guard owns the separate relation:
+  // whether a resolved package declares the script selected by the command (issues #2660, #2796).
   {
     name: 'filter-script-resolves',
     command: ['node', 'scripts/harness/scan-filter-script-resolves.mjs'],
