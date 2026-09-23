@@ -19,6 +19,7 @@ export { ProgrammaticInteractionChannel } from './transport-host/programmatic/Pr
 export { createProgrammaticAgent } from './transport-host/programmatic/createProgrammaticAgent.js';
 export type { ICreateProgrammaticAgentOptions } from './transport-host/programmatic/createProgrammaticAgent.js';
 export { TransportRegistry } from './transport-host/transport-registry.js';
+export { bindTransportAdapter } from './transport-host/bind-transport-adapter.js';
 export {
   createFileTransportSettingsRepository,
   createMemoryTransportSettingsRepository,

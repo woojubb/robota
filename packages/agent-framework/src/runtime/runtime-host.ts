@@ -37,7 +37,9 @@ export interface IRuntimeHostOptions {
   /** The resolved session-build options — the consumer resolves settings/preset/args and passes them in. */
   session: TInteractiveSessionOptions;
   /** The transport registry (e.g. the loopback WS sidecar); the host owns its start/stop lifecycle. */
-  transportRegistry?: ITransportLifecycleRegistryView<IInteractiveSession>;
+  transportRegistry?: ITransportLifecycleRegistryView;
+  /** Bind each raw adapter to this newly constructed session before registration/start. */
+  bindTransports?: (session: IInteractiveSession) => void;
 }
 
 export interface IRuntimeHostHandle {
@@ -58,7 +60,8 @@ export interface IRuntimeHostHandle {
 export async function startRuntimeHost(opts: IRuntimeHostOptions): Promise<IRuntimeHostHandle> {
   const session = buildRuntimeSession(opts.session);
   if (opts.transportRegistry) {
-    await opts.transportRegistry.startAll(session);
+    opts.bindTransports?.(session);
+    await opts.transportRegistry.startAll();
   }
 
   let stopped = false;

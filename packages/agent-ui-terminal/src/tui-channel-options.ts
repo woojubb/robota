@@ -91,7 +91,9 @@ export interface ITuiInteractionChannelOptions {
   shellExec?: TShellExecFn;
   /** REMOTE-006: optional remote-command policy (allow-by-default; a transport-origin command runs as a local one). */
   remoteCommandPolicy?: IRemoteCommandPolicy;
-  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
+  transportRegistry?: ITransportRegistryView;
+  /** Bind concrete transports to each newly constructed session before registry startup. */
+  bindTransports?: (session: IInteractiveSession) => void;
   language?: string;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;

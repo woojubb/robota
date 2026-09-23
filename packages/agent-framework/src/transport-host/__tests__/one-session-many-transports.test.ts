@@ -7,13 +7,14 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { TransportRegistry } from '../transport-registry';
+import { bindTransportAdapter } from '../bind-transport-adapter.js';
 
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
  * SELFHOST-013 TC-01 — the load-bearing "one agent definition → many channels" DIP claim: the registry fans a
- * SINGLE `IInteractiveSession` instance out to every enabled transport. Each recording transport captures the
+ * SINGLE `IInteractiveSession` instance into every enabled bound transport. Each recording transport captures the
  * exact `attach()` argument; the test then asserts strict reference identity (the same instance reached both),
  * which would fail if the registry ever copied/cloned/rebuilt the session per transport.
  */
@@ -47,17 +48,16 @@ function newRegistry(): TransportRegistry {
 }
 
 describe('one definition → many transports (reference identity)', () => {
-  it('startAll fans the SAME session instance to every enabled transport', async () => {
+  it('bound adapters start with the SAME session instance', async () => {
     const registry = newRegistry();
     const t1 = new RecordingTransport('alpha');
     const t2 = new RecordingTransport('beta');
-    registry.register(t1);
-    registry.register(t2);
-
     // One session (as built once by buildRuntimeSession) — a distinct sentinel instance.
     const session = Object.assign(createTestInteractiveSession(), { id: 'the-one-session' });
+    registry.register(bindTransportAdapter(t1, session));
+    registry.register(bindTransportAdapter(t2, session));
 
-    await registry.startAll(session);
+    await registry.startAll();
 
     // The precise falsifiable claim: one instance reached BOTH transports (not a copy/clone/per-transport rebuild).
     expect(t1.attached).toBe(session);
@@ -71,11 +71,10 @@ describe('one definition → many transports (reference identity)', () => {
     const enabled = new RecordingTransport('enabled');
     const outOfBand = new RecordingTransport('outofband');
     (outOfBand as { defaultEnabled: boolean }).defaultEnabled = false;
-    registry.register(enabled);
-    registry.register(outOfBand);
-
     const session = Object.assign(createTestInteractiveSession(), { id: 's' });
-    await registry.startAll(session);
+    registry.register(bindTransportAdapter(enabled, session));
+    registry.register(bindTransportAdapter(outOfBand, session));
+    await registry.startAll();
 
     expect(enabled.attached).toBe(session);
     expect(outOfBand.attached).toBeUndefined(); // startAll skips it; REMOTE-001 attaches it out-of-band on the same session

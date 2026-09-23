@@ -10,6 +10,7 @@ import { WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
 import { defaultCreateResumeBridge, defaultCreateTransport } from './default-transport-factory.js';
 import type { TUsageReporters } from './default-transport-factory.js';
 import { SessionResumeBridge } from '@robota-sdk/agent-transport';
+import { bindTransportAdapter } from '@robota-sdk/agent-framework';
 
 import { hasTurnServer } from './ice-config.js';
 
@@ -208,7 +209,7 @@ export class RemoteControlController {
       this.deps.usageReporters,
     );
 
-    this.deps.registry.register(transport);
+    this.deps.registry.register(bindTransportAdapter(transport, session));
     transport.attach(session);
     // Start out-of-band: the registry's startAll won't pick up a defaultEnabled:false transport, and there is
     // no start-one method. A werift-absent / start failure fails closed: reset to off + report to the operator.
@@ -328,7 +329,7 @@ export class RemoteControlController {
       signaling,
       dummySecret,
       {
-        onPaired: () => this.onReconnected(counter, peer, signaling),
+        onPaired: () => this.onReconnected(counter, peer, signaling, session),
         onPairingFailed: () => undefined, // a wrong/absent device at this room is not fatal; the ceiling governs
         onDropped: () => {
           if (this.transport === peer) this.onDropped();
@@ -351,6 +352,7 @@ export class RemoteControlController {
     usedCounter: number,
     winner: IConfigurableTransport<IInteractiveSession>,
     winnerSignaling: ISignalingClient,
+    session: IInteractiveSession,
   ): void {
     if (this.transport) return; // already promoted a winner (first wins)
     this.cancelReconnectCeiling?.();
@@ -368,7 +370,7 @@ export class RemoteControlController {
     }
     this.reconnectPeers = [];
     this.reconnectSignalings = [];
-    this.deps.registry.replace(winner); // #2043: the entry must name the live instance
+    this.deps.registry.replace(bindTransportAdapter(winner, session)); // #2043: the entry must name the live instance
     this.transport = winner;
     this.signaling = winnerSignaling;
     this.status = { state: 'paired' };

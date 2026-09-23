@@ -1,11 +1,10 @@
 import { isTransportRunOutcome } from '@robota-sdk/agent-interface-transport';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
+  IBoundTransportRunnerAdapter,
   ITransportCompletionRecord,
   ITransportFailureRecord,
   ITransportLifecycleError,
-  ITransportRunnerAdapter,
   TTransportAbandonmentReason,
 } from '@robota-sdk/agent-interface-transport';
 
@@ -62,7 +61,7 @@ export class TransportRunGeneration {
     return this.failure.promise;
   }
 
-  track(runner: ITransportRunnerAdapter<IInteractiveSession>): void {
+  track(runner: IBoundTransportRunnerAdapter): void {
     void runner.waitForCompletion().then(
       (outcome) => this.acceptOutcome(runner.name, outcome),
       (cause: unknown) => this.rejectRunner(runner.name, cause),
@@ -92,7 +91,7 @@ export class TransportRunGeneration {
 
   private acceptOutcome(
     name: string,
-    outcome: Awaited<ReturnType<ITransportRunnerAdapter['waitForCompletion']>>,
+    outcome: Awaited<ReturnType<IBoundTransportRunnerAdapter['waitForCompletion']>>,
   ): void {
     if (!this.active) return;
     if (!isTransportRunOutcome(outcome)) {

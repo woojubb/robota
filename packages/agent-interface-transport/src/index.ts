@@ -23,6 +23,9 @@ export type { TActionResponse } from '@robota-sdk/agent-core';
 
 // ── Transport adapter contracts ──────────────────────────────
 export type {
+  IBoundTransportAdapter,
+  IBoundTransportRunnerAdapter,
+  IBoundTransportServiceAdapter,
   ITransportAdapter,
   ITransportCompletionRecord,
   ITransportFailureRecord,
@@ -35,6 +38,7 @@ export type {
   TNonZeroExitCode,
   TTransportAbandonmentReason,
   TTransportAdapter,
+  TBoundTransportAdapter,
   TTransportCompletionOutcome,
   TTransportLifecycleKind,
   TTransportLifecycleErrorCode,
@@ -53,6 +57,7 @@ export type {
   ITransportRegistryView,
   ITransportSettingsRegistryView,
   TConfigurableTransport,
+  TBoundConfigurableTransport,
   TTransportConfigurationErrorCode,
 } from './transport-config.js';
 
