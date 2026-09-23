@@ -70,6 +70,20 @@ This is implemented in `services/dag-run-finalizer.ts`: `PENDING_TASK_STATUSES =
 
 When `WorkerLoopService` fails to acquire a lease (another worker already holds it), this is a normal contention scenario, not an error. The method should return a non-error result indicating no work was processed (`processed: false`), allowing the message to remain in the queue for the lease holder to process.
 
+### Cancelled-run worker admission
+
+After dequeuing a task and acquiring its lease, the worker reads the parent run status before
+claiming the task. A cancelled run's pending task transitions to `cancelled`, its persisted lease is
+cleared, and the message is acknowledged without publishing `task.started` or invoking the executor.
+Already-terminal task records are left unchanged. The worker checks again after loading the execution
+context and immediately before invoking the executor, so a cancellation during task claim or input
+assembly also prevents execution. A claim that raced with cancellation may already have published
+`task.started`; the task then ends `cancelled` without invoking the executor.
+
+These reads close worker admission at the checked points. They do not interrupt an executor already
+running or make the status read and executor invocation atomic; in-flight signal delivery and the
+remaining orchestration contracts belong to the wider RUNTIME-004 work.
+
 ### Crash Recovery (DAG-001)
 
 A worker that dies mid-node used to leave its task and its run in `running` **forever**, silently. Two
