@@ -16,6 +16,7 @@ import { Session } from '@robota-sdk/agent-session';
 
 import { formatDeferredToolRoster } from './deferred-tool-roster.js';
 import { assembleSubagentPrompt } from './subagent-prompts.js';
+import { unwrapToolCallHandoff } from './tool-call-handoff.js';
 import { resolveRoleFallbackChain } from '../routing/role-model-routing.js';
 import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
 
@@ -160,6 +161,10 @@ function resolveModelId(shortName: string, _parentModel: string): string {
  * Filter parent tools according to the agent definition's tool constraints.
  *
  * Filtering order:
+ * 0. MCP-004 §S3: unwrap any tool-call handoff wrapper — this is the ONE derivation point every
+ *    derived session's tool list passes through (in-process subagents via this function, forks via
+ *    `interactive-session-fork.ts`), so subagents and forks never hold a wrapper even though the
+ *    parent's session-local list does. A no-op for a tool that was never wrapped.
  * 1. Remove disallowed tools (denylist)
  * 2. Keep only allowed tools (allowlist), if specified
  * 3. Always remove agent-spawning tools (subagents cannot spawn subagents)
@@ -169,7 +174,7 @@ function filterTools(
   agentDefinition: IAgentDefinition,
   subagentSpawnCommandName: string | undefined,
 ): IToolWithEventService[] {
-  let tools = [...parentTools];
+  let tools = parentTools.map(unwrapToolCallHandoff);
 
   // Step 1: Remove disallowed tools
   if (agentDefinition.disallowedTools) {
@@ -212,7 +217,9 @@ function carryResidencyContract(
   if (!hasDeferred || tools.some((tool) => tool.getName() === TOOL_SEARCH_TOOL_NAME)) return;
   const loader = parentTools.find((tool) => tool.getName() === TOOL_SEARCH_TOOL_NAME);
   if (loader === undefined) throw new Error(DEFERRED_WITHOUT_LOADER_MESSAGE);
-  tools.push(loader);
+  // MCP-004 §S3: this loader comes from the RAW `parentTools`, not the already-unwrapped `tools`
+  // array — unwrap it too, so a (hypothetical) wrapped loader never reaches the child.
+  tools.push(unwrapToolCallHandoff(loader));
 }
 
 /**

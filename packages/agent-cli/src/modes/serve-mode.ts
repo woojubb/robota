@@ -28,6 +28,7 @@ import type {
   ICommandHostAdapters,
   ICommandModule,
   IRemoteCommandPolicy,
+  IToolCallHandoffPolicy,
   TInteractiveSessionOptions,
   TWorkspaceProjectAccess,
   createProjectSessionStore,
@@ -70,9 +71,16 @@ export interface IServeModeOptions {
    * its capability packs are the SOLE source of the session's tools.
    */
   defaultTools?: readonly IToolWithEventService[];
+  /**
+   * MCP-004 S3: the wrapper policy for MCP tool calls that outlive the threshold. Serve is one of
+   * the two runtimes that adopts it (spec § Modes); absent ⇒ no MCP tool is wrapped, today's
+   * behavior. Built by `mcp.buildToolCallHandoff(permissionMode)` AFTER `mcp.connect()`.
+   */
+  toolCallHandoff?: IToolCallHandoffPolicy;
   commandModules: readonly ICommandModule[];
   commandHostAdapters: ICommandHostAdapters;
-  transportRegistry: ITransportLifecycleRegistryView<IInteractiveSession>;
+  transportRegistry: ITransportLifecycleRegistryView;
+  bindTransports?: (session: IInteractiveSession) => void;
   remoteCommandPolicy?: IRemoteCommandPolicy;
   resumeSessionId?: string;
   /**
@@ -126,6 +134,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
+    ...(opts.toolCallHandoff !== undefined ? { toolCallHandoff: opts.toolCallHandoff } : {}),
     commandModules: opts.commandModules,
     commandHostAdapters: opts.commandHostAdapters,
     ...(opts.remoteCommandPolicy ? { remoteCommandPolicy: opts.remoteCommandPolicy } : {}),
@@ -158,6 +167,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   const host = await startRuntimeHost({
     session: sessionOptions,
     transportRegistry: opts.transportRegistry,
+    ...(opts.bindTransports ? { bindTransports: opts.bindTransports } : {}),
   });
 
   // GUI-007: with `--serve --open`, the CLI serves its OWN monitor SPA over localhost HTTP (a localhost-origin

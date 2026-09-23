@@ -58,7 +58,12 @@ import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { runPrintMode } from './modes/print-mode.js';
-import { runServeMode } from './modes/serve-mode.js';
+import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
+import { runMcpServeMode } from './modes/mcp-serve-mode.js';
+import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
+import { composeMcpClientForStartup } from './startup/mcp-startup.js';
+import type { TMcpStartupMode } from './startup/mcp-startup.js';
+import type { Writable } from 'node:stream';
 import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
 import { resolveFocusReportingOverride } from './startup/focus-reporting-enablement.js';
 import { resolvePromptHistoryRenderFields } from './startup/prompt-history-enablement.js';
@@ -92,6 +97,38 @@ export async function startCliCore(
   const launch = await applyLaunchInvocation();
   if (launch.kind === 'refused') return;
   const initialInput = launch.kind === 'launched' ? launch.initialInput : undefined;
+  let parsedMcpArgs: IParsedCliArgs | undefined;
+  if (process.argv.includes('mcp')) {
+    try {
+      const parsed = parseCliArgs();
+      if (parsed.positional[0] === 'mcp' && parsed.positional[1] === 'serve') parsedMcpArgs = parsed;
+    } catch {
+      // The normal parser reports an invalid invocation below.
+    }
+  }
+  const mcpOutput = parsedMcpArgs === undefined ? undefined : reserveMcpStdout();
+  try {
+    await runCliCore(
+      options,
+      createBackgroundTaskRunners,
+      presentation,
+      initialInput,
+      mcpOutput?.protocol,
+      parsedMcpArgs,
+    );
+  } finally {
+    mcpOutput?.restore();
+  }
+}
+
+async function runCliCore(
+  options: IStartCliOptions,
+  createBackgroundTaskRunners: () => IBackgroundTaskRunner[],
+  presentation?: ICliPresentation,
+  initialInput?: string,
+  mcpProtocolStdout?: Writable,
+  preParsedArgs?: IParsedCliArgs,
+): Promise<void> {
   const cwd = process.cwd();
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
   const startupOptions: IStartCliOptions = { ...options, projectAccess };
@@ -99,13 +136,29 @@ export async function startCliCore(
 
   let args: IParsedCliArgs;
   try {
-    args = parseCliArgs();
+    args = preParsedArgs ?? parseCliArgs();
   } catch (error) {
     // allow-fallback: argument validation errors are terminal — exit is the correct response
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
   const version = readVersion();
+  const mcpServe = args.positional[0] === 'mcp' && args.positional[1] === 'serve';
+  if (args.positional[0] === 'mcp' && (!mcpServe || args.positional.length !== 2)) {
+    throw new Error('Usage: robota mcp serve [options]');
+  }
+  if (
+    mcpServe &&
+    (args.serve ||
+      args.printMode ||
+      args.goal !== undefined ||
+      args.open ||
+      args.configure ||
+      args.configureProvider !== undefined ||
+      args.reset)
+  ) {
+    throw new Error('robota mcp serve cannot be combined with another process mode or setup command');
+  }
 
   if (args.help) {
     process.stdout.write(printHelp());
@@ -145,7 +198,7 @@ export async function startCliCore(
   }
 
   if (
-    (args.printMode || args.goal !== undefined || args.serve) &&
+    (args.printMode || args.goal !== undefined || args.serve || mcpServe) &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
     process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
@@ -205,7 +258,7 @@ export async function startCliCore(
 
   const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd);
   const keybindingsSource =
-    args.printMode || args.goal !== undefined || args.serve || !presentation
+    args.printMode || args.goal !== undefined || args.serve || mcpServe || !presentation
       ? undefined
       : presentation.createNodeKeybindingsSource({
           onDiagnostic: (diagnostic) =>
@@ -222,6 +275,33 @@ export async function startCliCore(
     reducedMotionFlag: args.reducedMotion,
     env: process.env,
   });
+  const mcpStartupMode: TMcpStartupMode =
+    args.printMode || args.goal ? 'print' : args.serve || mcpServe ? 'serve' : 'interactive';
+  const mcp =
+    options.mcpActivationAdapter === undefined
+      ? await composeMcpClientForStartup({
+          settingsSources: createInitialCliWorkspaceComposition(cwd, startupOptions)
+            .settingsSources,
+          projectAccess,
+          cwd,
+          env: process.env,
+          mode: mcpStartupMode,
+          ...(options.mcpStdioAuthorities === undefined
+            ? {}
+            : { stdioAuthorities: options.mcpStdioAuthorities }),
+          ...(options.mcpApprovalStore === undefined
+            ? {}
+            : { approvalStore: options.mcpApprovalStore }),
+          ...(options.mcpHttpTransportDeps === undefined
+            ? {}
+            : { httpTransportDeps: options.mcpHttpTransportDeps }),
+          ...(options.mcpResultAdmissionLimits === undefined
+            ? {}
+            : { resultAdmissionLimits: options.mcpResultAdmissionLimits }),
+          reportDiagnostic: (message) => terminal.writeError(message),
+        })
+      : undefined;
+  if (mcp !== undefined) startupOptions.mcpActivationAdapter = mcp.activationAdapter;
   const {
     commandHostAdapters,
     outputStyleRegistry,
@@ -273,6 +353,7 @@ export async function startCliCore(
   const {
     registry: transportRegistry,
     wsTransport,
+    bindTransports,
     usageReporters,
   } = createCliUsageTransportRegistry(
     workspaceComposition.sessionStore,
@@ -405,6 +486,8 @@ export async function startCliCore(
       ...(args.permissionMode !== undefined ? { permissionMode: args.permissionMode } : {}),
       projectAccess: workspaceComposition.projectAccess,
     });
+  if (mcp !== undefined) toolOptions.additionalTools.push(...(await mcp.connect()));
+  const toolCallHandoff = mcp?.buildToolCallHandoff(permissionMode);
   // A capability the merge refused (a colliding id) is reported, never silently dropped.
   for (const { kind, id, reason } of product.rejectedCapabilities) {
     terminal.writeError(`Capability ${kind} "${id}" was not composed: ${reason}.`);
@@ -455,7 +538,7 @@ export async function startCliCore(
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
   if (args.printMode || args.goal) {
-    await runPrintMode(
+    const printRun = runPrintMode(
       cwd,
       args,
       provider,
@@ -470,17 +553,22 @@ export async function startCliCore(
       { model: modelId, ...presetSurface },
       memorySessionOptions,
       workspaceComposition.projectAccess,
+      async () => {
+        if (mcp !== undefined) await mcp.shutdown();
+      },
       orgPolicy,
     );
+    try {
+      await printRun;
+    } finally {
+      if (mcp !== undefined) await mcp.shutdown();
+    }
     return;
   }
 
-  // RUNTIME-001: the headless runtime host. `apps/agent-app` (GUI) spawns `robota --serve` instead of the ink
-  // TUI — both the TUI and this entry drive the SAME runtime; the GUI does not control the CLI. No ink is
-  // rendered; the WS sidecar is served by the shared `startRuntimeHost`. Placed after the runtime block so it
-  // reuses the exact provider/session/transport assembly.
-  if (args.serve) {
-    await runServeMode({
+  if (mcpServe) {
+    if (mcpProtocolStdout === undefined) throw new Error('MCP protocol stdout was not reserved');
+    const sessionOptions = buildServeSessionOptions({
       cwd,
       args,
       provider,
@@ -491,9 +579,45 @@ export async function startCliCore(
       subagentRunnerFactory,
       agentDefinitions,
       ...toolOptions,
+      ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
       commandHostAdapters,
       transportRegistry,
+      ...(remoteCommandPolicy ? { remoteCommandPolicy } : {}),
+      resumeSessionId,
+      model: modelId,
+      preset: presetSurface,
+      memorySessionOptions,
+    });
+    try {
+      await runMcpServeMode(sessionOptions, version, mcpProtocolStdout);
+    } finally {
+      if (mcp !== undefined) await mcp.shutdown();
+    }
+    return;
+  }
+
+  // RUNTIME-001: the headless runtime host. `apps/agent-app` (GUI) spawns `robota --serve` instead of the ink
+  // TUI — both the TUI and this entry drive the SAME runtime; the GUI does not control the CLI. No ink is
+  // rendered; the WS sidecar is served by the shared `startRuntimeHost`. Placed after the runtime block so it
+  // reuses the exact provider/session/transport assembly.
+  if (args.serve) {
+    const serveRun = runServeMode({
+      cwd,
+      args,
+      provider,
+      sessionStore,
+      projectAccess: workspaceComposition.projectAccess,
+      orgPolicy,
+      backgroundTaskRunners,
+      subagentRunnerFactory,
+      agentDefinitions,
+      ...toolOptions,
+      ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
+      commandModules,
+      commandHostAdapters,
+      transportRegistry,
+      bindTransports,
       // GUI-007 + SEC-001: point the served monitor at the live WS port AND carry the resolved auth token in
       // the `ws-url` (`?token=`) — zero-config authentication for the CLI's own localhost-origin monitor.
       getMonitorWsUrl: () => {
@@ -509,6 +633,11 @@ export async function startCliCore(
       preset: presetSurface,
       memorySessionOptions,
     });
+    try {
+      await serveRun;
+    } finally {
+      if (mcp !== undefined) await mcp.shutdown();
+    }
     return;
   }
 
@@ -524,8 +653,9 @@ export async function startCliCore(
     markOnboarded();
   }
 
-  await presentation.renderApp({
+  const tuiRun = presentation.renderApp({
     providerDefinitions,
+    ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
     ...(initialInput !== undefined
       ? { initialInput, initialInputOrigin: 'external-link' as const }
       : {}),
@@ -560,6 +690,7 @@ export async function startCliCore(
     shellExec: runShellCommand,
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
+    bindTransports,
     // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
     // host adapter (wired above) — no TUI-prop wiring remains.
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
@@ -588,5 +719,10 @@ export async function startCliCore(
     reducedMotionOverride: theme.reducedMotionOverride,
     ...toSessionOptions(presetSurface),
   });
+  try {
+    await tuiRun;
+  } finally {
+    if (mcp !== undefined) await mcp.shutdown();
+  }
   process.exit(0);
 }

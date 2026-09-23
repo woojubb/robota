@@ -90,6 +90,8 @@ export interface IInteractiveSessionStandardOptions {
   language?: string;
   /** Runtime-composed background task runners. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** MCP-004 §S3: hand a main-turn tool call exceeding its threshold to a background task. */
+  toolCallHandoff?: ICreateSessionOptions['toolCallHandoff'];
   /** Runtime shell override for subagent execution. */
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /**

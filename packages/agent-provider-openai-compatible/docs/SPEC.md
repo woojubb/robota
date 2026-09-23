@@ -108,3 +108,20 @@ neither, so its structured requests omit the option entirely rather than sending
 
 agent-core's bounded validate-and-retry loop remains the guarantee: the returned object matches the
 schema or it throws.
+
+## Tool Schema Projection (MCP-005)
+
+`gemma`, `qwen` and `deepseek` each override `projectionProfile()` with `@robota-sdk/agent-core`'s
+`PERMISSIVE_TOOL_SCHEMA_PROFILE`, differing only in `providerName` (`'gemma'`, `'qwen'`, `'deepseek'`)
+— every sibling in this family accepts standard JSON Schema, so no keyword stripping or object closure
+runs. Each provider's private `buildRequestParams`/`buildStreamingRequestParams` helper calls
+`this.projectTools(options.tools, model)` before handing `options` to the SHARED
+`buildOpenAICompatibleRequestParams` (`shared/openai-compatible/request-builder.ts`) — the one place
+that decides what a compat Chat-Completions request carries — so `options.tools` reaching that builder
+is always already projected. `qwen`'s Responses surface (live when `builtInWebTools` is on) projects
+the same way before `chatWithQwenResponsesApi`/`chatStreamWithQwenResponsesApi`
+(`qwen/responses-chat.ts`) build that request.
+
+A tool `projectToolSchema` rejects is omitted from that request alone and reported once per cache
+identity as one `tool_schema_quarantined` line on agent-core's global-sink `ToolSchemaProjection`
+logger — audible even though these providers construct with `SilentLogger` by default.

@@ -20,7 +20,7 @@ interface IOptions {
   readonly sessionStore: IInteractiveSessionStore | undefined;
   readonly onSessionSwitch: (sessionId: string) => Promise<void>;
   readonly pluginAdapter: ICommandPluginAdapter | undefined;
-  readonly transportRegistry: ITransportRegistryView<IInteractiveSession> | undefined;
+  readonly transportRegistry: ITransportRegistryView | undefined;
   readonly recoveryError: string | undefined;
   readonly recoveryPending: boolean;
   readonly coordinationBlocked: boolean;

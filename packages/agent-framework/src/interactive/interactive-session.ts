@@ -18,6 +18,7 @@ import { createPromptHistoryRecorder } from './interactive-session-prompt-histor
 import { resolveUserSettingsProviderSwitch } from './interactive-session-provider-switch.js';
 import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
+import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-tools.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { SessionTerminalHandoffGate } from './interactive-session-terminal-handoff.js';
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
@@ -74,6 +75,9 @@ import type {
   IProviderDefinition,
   IUserInteraction,
   TActionResponse,
+  IToolSchema,
+  IToolExecutionResult,
+  TToolParameters,
 } from '@robota-sdk/agent-core';
 import type { ISession } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
@@ -123,6 +127,11 @@ export class InteractiveSession
    */
   private startedAsFork: boolean;
   private autoCompactThresholdSource: TAutoCompactThresholdSource = 'default';
+  private readonly runtimeTools = new InteractiveSessionRuntimeTools({
+    controller: () => this.execCtrl,
+    ensureInitialized: () => this.ensureInitialized(),
+    session: () => this.getSessionOrThrow(),
+  });
   private shutdownPromise: Promise<void> | null = null;
   private readonly sandboxClient?: ISandboxClient;
   // SELFHOST-008 P1R: the durable-memory port for this session — the surface-injected store or the neutral
@@ -492,6 +501,18 @@ export class InteractiveSession
     if (handlers) for (const handler of handlers) handler(...args);
   }
 
+  listRuntimeTools(): Promise<IToolSchema[]> {
+    return this.runtimeTools.listRuntimeTools();
+  }
+
+  invokeRuntimeTool(
+    name: string,
+    parameters: TToolParameters,
+    options?: { signal?: AbortSignal },
+  ): Promise<IToolExecutionResult> {
+    return this.runtimeTools.invokeRuntimeTool(name, parameters, options);
+  }
+
   async submit(
     input: string,
     displayInput?: string,
@@ -630,6 +651,7 @@ export class InteractiveSession
       this.execCtrl.clearPendingQueue();
       const session = this.session;
       session?.abort();
+      await this.runtimeTools.drain();
       await this.getBackgroundTaskManager()?.shutdown(options.message ?? 'Session shutdown');
       this.bgTracker.dispose();
       await this.captureSandboxSnapshot();

@@ -1,35 +1,55 @@
 import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-transport/testing';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
-import { describe, it, expect, expectTypeOf, vi } from 'vitest';
+import { describe, it, expect, expectTypeOf } from 'vitest';
 import { createHttpTransport } from '../http-transport.js';
 import type { IHttpTransportSession } from '../http-session.js';
+import type { IHttpTransport } from '../http-transport.js';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
-function createMockSession(): IInteractiveSession {
-  return Object.assign(createTestInteractiveSession(), {
-    submit: vi.fn(),
-    abort: vi.fn(),
-    cancelQueue: vi.fn(),
-    getMessages: vi.fn().mockReturnValue([]),
-    getContextState: vi
-      .fn()
-      .mockReturnValue({ usedPercentage: 0, usedTokens: 0, maxTokens: 200000 }),
-    isExecuting: vi.fn().mockReturnValue(false),
-    getPendingPrompt: vi.fn().mockReturnValue(null),
-    executeCommand: vi.fn().mockResolvedValue({ message: 'ok', success: true }),
-    listCommands: vi.fn().mockReturnValue([]),
-    on: vi.fn(),
-    off: vi.fn(),
-  });
+function createMockSession(): IHttpTransportSession {
+  const full = createTestInteractiveSession();
+  const {
+    submit,
+    on,
+    off,
+    abort,
+    cancelQueue,
+    getSession,
+    executeCommand,
+    listCommands,
+    getMessages,
+    getContextState,
+    isExecuting,
+    getPendingPrompt,
+    getPendingCount,
+  } = full;
+  return {
+    submit,
+    on,
+    off,
+    abort,
+    cancelQueue,
+    getSession,
+    executeCommand,
+    listCommands,
+    getMessages,
+    getContextState,
+    isExecuting,
+    getPendingPrompt,
+    getPendingCount,
+  };
 }
 
 describe('createHttpTransport', () => {
-  it('preserves the legacy adapter declaration and accepts the named subset', () => {
+  it('requires exactly the HTTP session port without a broad attach overload', () => {
     const transport = createHttpTransport();
-    expectTypeOf(transport).toMatchTypeOf<ITransportAdapter<IInteractiveSession>>();
-    expectTypeOf(transport.attach).parameter(0).toMatchTypeOf<IHttpTransportSession>();
+    expectTypeOf(transport).toMatchTypeOf<ITransportAdapter<IHttpTransportSession>>();
+    expectTypeOf<IHttpTransport['attach']>().toEqualTypeOf<
+      (session: IHttpTransportSession) => void
+    >();
+    expectTypeOf<IHttpTransportSession>().not.toHaveProperty('listRuntimeTools');
+    expect(Object.keys(createMockSession())).toHaveLength(13);
   });
 
   it('returns an adapter with name "http"', () => {

@@ -1,14 +1,10 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, isAbsolute, resolve, win32 } from 'node:path';
+
 import {
-  closeSync,
-  constants,
-  existsSync,
-  fstatSync,
-  openSync,
-  readFileSync,
-  readSync,
-  realpathSync,
-} from 'node:fs';
-import { dirname, isAbsolute, join, resolve, win32 } from 'node:path';
+  createStableRootedFileReader,
+  StableFileAuthorityError,
+} from '@robota-sdk/agent-file-authority';
 
 import { SessionLogPayloadResolutionError } from './external-payload-resolution-contracts.js';
 
@@ -21,20 +17,6 @@ export interface IExternalPayloadSource {
 export interface ISessionLogSource {
   readText(): string | undefined;
   readonly externalPayloadSource?: IExternalPayloadSource;
-}
-
-function descriptorPath(descriptor: number, segment?: string): string {
-  const root = `/proc/self/fd/${descriptor}`;
-  return segment === undefined ? root : `${root}/${segment}`;
-}
-
-function openFlags(directory: boolean): number {
-  return (
-    constants.O_RDONLY |
-    (constants.O_NOFOLLOW ?? 0) |
-    (constants.O_NONBLOCK ?? 0) |
-    (directory ? (constants.O_DIRECTORY ?? 0) : 0)
-  );
 }
 
 function payloadPathSegments(relativePath: string): readonly string[] {
@@ -63,98 +45,44 @@ function validateMaxBytes(maxBytes: number): void {
   }
 }
 
-function openRelativePayload(
-  rootDescriptor: number,
-  segments: readonly string[],
-  relativePath: string,
-): number | undefined {
-  let parentDescriptor = rootDescriptor;
-  let ownsParent = false;
-  try {
-    for (let index = 0; index < segments.length; index += 1) {
-      const final = index === segments.length - 1;
-      let descriptor: number;
-      try {
-        descriptor = openSync(descriptorPath(parentDescriptor, segments[index]), openFlags(!final));
-      } catch (error) {
-        const code =
-          typeof error === 'object' && error !== null ? getNodeErrorCode(error) : undefined;
-        if (code === 'ENOENT') return undefined;
-        if (code === 'ELOOP' || code === 'ENOTDIR') {
-          throw outsideRootError(relativePath);
-        }
-        throw error;
-      }
-      if (ownsParent) closeSync(parentDescriptor);
-      parentDescriptor = descriptor;
-      ownsParent = true;
-    }
-    const result = parentDescriptor;
-    ownsParent = false;
-    return result;
-  } finally {
-    if (ownsParent) closeSync(parentDescriptor);
-  }
-}
-
-function readBoundedPayload(
-  descriptor: number,
-  relativePath: string,
-  resolvedPath: string,
-  maxBytes: number,
-): Uint8Array {
-  const metadata = fstatSync(descriptor, { bigint: true });
-  if (!metadata.isFile()) {
-    throw new SessionLogPayloadResolutionError(
-      'PAYLOAD_UNREADABLE',
-      `External payload is not a regular file: ${relativePath}.`,
-      { relativePath, resolvedPath },
-    );
-  }
-  if (metadata.size > BigInt(maxBytes)) {
-    throw new SessionLogPayloadResolutionError(
-      'MAX_TOTAL_BYTES_EXCEEDED',
-      `External payload exceeds the remaining byte budget of ${maxBytes}.`,
-      {
-        relativePath,
-        resolvedPath,
-        expected: maxBytes,
-        actual: metadata.size.toString(),
-      },
-    );
-  }
-
-  const expectedSize = Number(metadata.size);
-  const bytes = Buffer.alloc(expectedSize);
-  let offset = 0;
-  while (offset < expectedSize) {
-    const count = readSync(descriptor, bytes, offset, expectedSize - offset, offset);
-    if (count === 0) break;
-    offset += count;
-  }
-  const probe = Buffer.alloc(1);
-  const grew = readSync(descriptor, probe, 0, 1, expectedSize) !== 0;
-  const finalSize = fstatSync(descriptor, { bigint: true }).size;
-  if (offset !== expectedSize || grew || finalSize !== metadata.size) {
-    throw new SessionLogPayloadResolutionError(
-      grew && expectedSize >= maxBytes ? 'MAX_TOTAL_BYTES_EXCEEDED' : 'PAYLOAD_UNREADABLE',
-      `External payload changed while it was being read: ${relativePath}.`,
-      { relativePath, resolvedPath, expected: expectedSize, actual: offset + (grew ? 1 : 0) },
-    );
-  }
-  return bytes;
-}
-
-function getNodeErrorCode(error: object): string | undefined {
-  if (!('code' in error)) return undefined;
-  return typeof error.code === 'string' ? error.code : undefined;
-}
-
-function outsideRootError(relativePath: string): SessionLogPayloadResolutionError {
+function outsideRootError(relativePath: string, cause?: Error): SessionLogPayloadResolutionError {
   return new SessionLogPayloadResolutionError(
     'OUTSIDE_ROOT',
     `External payload path escapes its base directory or contains a link: ${relativePath}.`,
     { relativePath },
+    cause,
+  );
+}
+
+function mapStableFileAuthorityError(
+  error: StableFileAuthorityError,
+  relativePath: string,
+  maxBytes: number,
+): SessionLogPayloadResolutionError {
+  if (error.code === 'INVALID_PATH' || error.code === 'UNSAFE_ENTRY') {
+    return outsideRootError(relativePath, error);
+  }
+  if (error.code === 'UNSUPPORTED_BACKEND') {
+    return new SessionLogPayloadResolutionError(
+      'STABLE_PAYLOAD_READ_UNAVAILABLE',
+      'Stable root-relative external-payload reads are unavailable on this host.',
+      { relativePath },
+      error,
+    );
+  }
+  if (error.code === 'OVER_BUDGET') {
+    return new SessionLogPayloadResolutionError(
+      'MAX_TOTAL_BYTES_EXCEEDED',
+      `External payload exceeds the remaining byte budget of ${maxBytes}.`,
+      { relativePath, expected: maxBytes },
+      error,
+    );
+  }
+  return new SessionLogPayloadResolutionError(
+    'PAYLOAD_UNREADABLE',
+    `External payload could not be read: ${relativePath}.`,
+    { relativePath },
+    error,
   );
 }
 
@@ -172,42 +100,24 @@ export class NodeExternalPayloadSource implements IExternalPayloadSource {
   readBytes(relativePath: string, maxBytes: number): Uint8Array | undefined {
     validateMaxBytes(maxBytes);
     const segments = payloadPathSegments(relativePath);
-    const resolvedPath = join(this.baseDirectory, ...segments);
-    if (process.platform !== 'linux') {
-      // Contained — ARCH-049. Supported-host stable handles must replace this refusal as one design.
-      throw new SessionLogPayloadResolutionError(
-        'PAYLOAD_UNREADABLE',
-        'Stable no-follow external-payload reads are unavailable on this host.',
-        { relativePath, resolvedPath },
-      );
-    }
-
-    let rootDescriptor: number | undefined;
-    let payloadDescriptor: number | undefined;
     try {
-      const canonicalBaseDirectory = realpathSync(this.baseDirectory);
-      rootDescriptor = openSync(canonicalBaseDirectory, openFlags(true));
-      if (realpathSync(descriptorPath(rootDescriptor)) !== canonicalBaseDirectory) {
-        throw new SessionLogPayloadResolutionError(
-          'PAYLOAD_UNREADABLE',
-          'The opened external-payload root no longer matches its canonical directory.',
-          { relativePath, resolvedPath: canonicalBaseDirectory },
-        );
+      const reader = createStableRootedFileReader(this.baseDirectory);
+      try {
+        return reader.readBytes(segments, maxBytes);
+      } finally {
+        reader.close();
       }
-      payloadDescriptor = openRelativePayload(rootDescriptor, segments, relativePath);
-      if (payloadDescriptor === undefined) return undefined;
-      return readBoundedPayload(payloadDescriptor, relativePath, resolvedPath, maxBytes);
     } catch (error) {
       if (error instanceof SessionLogPayloadResolutionError) throw error;
+      if (error instanceof StableFileAuthorityError) {
+        throw mapStableFileAuthorityError(error, relativePath, maxBytes);
+      }
       throw new SessionLogPayloadResolutionError(
         'PAYLOAD_UNREADABLE',
         `External payload could not be read: ${relativePath}.`,
-        { relativePath, resolvedPath },
+        { relativePath },
         error,
       );
-    } finally {
-      if (payloadDescriptor !== undefined) closeSync(payloadDescriptor);
-      if (rootDescriptor !== undefined) closeSync(rootDescriptor);
     }
   }
 }

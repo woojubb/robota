@@ -22,7 +22,7 @@ interface IOptions {
   readonly pluginAdapter: ICommandPluginAdapter | undefined;
   readonly pluginVisible: boolean;
   readonly setPluginVisible: (visible: boolean) => void;
-  readonly transportRegistry: ITransportRegistryView<IInteractiveSession> | undefined;
+  readonly transportRegistry: ITransportRegistryView | undefined;
   readonly transportVisible: boolean;
   readonly setTransportVisible: (visible: boolean) => void;
   readonly sessionStore: IInteractiveSessionStore | undefined;

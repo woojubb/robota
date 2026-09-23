@@ -1,6 +1,11 @@
 import { homedir } from 'node:os';
 
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IProviderDefinition, IToolResultAdmissionOptions } from '@robota-sdk/agent-core';
+import type {
+  IMCPActivationApprovalStore,
+  IMCPHttpTransportDeps,
+  IMCPStdioAuthority,
+} from '@robota-sdk/agent-mcp';
 import {
   deleteSettings,
   getStartupCliUpdateNotice,
@@ -84,6 +89,17 @@ export interface IStartCliOptions {
   projectMutation?: IWorkspaceProjectMutation;
   /** Host-composed MCP definition registry and trust-admission controller. */
   mcpActivationAdapter?: ICommandMCPActivationAdapter;
+  /** Host-owned per-server subprocess capabilities; never inferred from settings. */
+  mcpStdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
+  /** Host-owned approval state, shared with the canonical MCP activation controller. */
+  mcpApprovalStore?: IMCPActivationApprovalStore;
+  /** Host-owned HTTP transport policy; never supplied by MCP settings or a remote caller. */
+  mcpHttpTransportDeps?: IMCPHttpTransportDeps;
+  /** Host-configured character limits; generic admission validates the ordering and ceiling. */
+  mcpResultAdmissionLimits?: Pick<
+    IToolResultAdmissionOptions,
+    'warningChars' | 'hardChars' | 'repositoryMaxChars'
+  >;
   /** Host-composed managed output styles, applied above user/project style sources. */
   managedOutputStyleSources?: readonly IOutputStyleSource[];
 }

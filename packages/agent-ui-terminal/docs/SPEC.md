@@ -48,6 +48,9 @@ agent-ui-terminal
 and subscribes to `IInteractiveSessionEvents` directly, because the narrower `InteractionEvent` stream
 cannot carry the full TUI state. `IInteractionChannel` remains the port for
 `createInteractiveRuntime`-wired in-process channels such as `ProgrammaticInteractionChannel`.
+When a transport registry is supplied, `renderApp` forwards `bindTransports` to the channel. Each
+new channel binds adapters to its own session before calling the registry's argument-free
+`startAll()`; session switching stops the previous channel before the replacement starts.
 Both `IRenderOptions` and `ITuiInteractionChannelOptions` carry the composition root's optional
 `TWorkspaceProjectAccess` decision unchanged. A bare `cwd` is provenance only; omission produces the
 framework's explicit Restricted decision and cannot enable project contribution discovery.

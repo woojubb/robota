@@ -19,6 +19,7 @@ export type {
   ISessionBackgroundTasks,
   ISessionCapabilityMap,
   ISessionCommands,
+  ISessionRuntimeTools,
   ISessionConversationRead,
   ISessionDriverAttribution,
   ISessionEvents,

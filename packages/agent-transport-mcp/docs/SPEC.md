@@ -2,7 +2,7 @@
 
 ## Transport Admission (SEC-008)
 
-transport-admission: none — the MCP server speaks over stdio to a client process the user launched, so the boundary is process spawn: a peer that can write to this stdin already runs as the user. What this package DOES enforce is what that peer may reach — SEC-008 stops it being offered commands marked `modelInvocable: false`, and attributes its calls as `'remote'` rather than as the local operator.
+transport-admission: none — the MCP server speaks over stdio to a client process the user launched, so the boundary is process spawn: a peer that can write to this stdin already runs as the user. What this package DOES enforce is what that peer may reach — SEC-008 admits only the canonical runtime catalog, where non-model-invocable commands are absent; all calls use the session permission wrapper without interactive approval prompts.
 
 ## Scope
 
@@ -12,8 +12,8 @@ isolated unit.
 
 ## Boundaries
 
-- Owns the MCP server transport adapter and agent MCP server builder.
-- Depends only on `agent-interface-transport` (transport contracts).
+- Owns the MCP server transport adapter, official SDK stdio carrier, and agent MCP server builder.
+- Depends on `agent-interface-session` and `agent-interface-transport` contracts, not framework internals.
 - No other transport package depends on this one.
 
 ## Architecture Overview
@@ -27,29 +27,36 @@ agent-transport-mcp
 ## Type Ownership
 
 Owns `IMcpTransportOptions`, `IAgentMcpOptions`, and `IMcpTransportSession`. MCP consumes only the
-turn-submission and command roles. The public transport preserves its legacy
-`ITransportAdapter<IInteractiveSession>` declaration and adds a narrow
-`attach(IMcpTransportSession)` overload.
+turn-submission and runtime-tool roles. The public transport implements
+`ITransportAdapter<IMcpTransportSession>` directly; `attach` has no broader inherited signature or
+overload. A full session remains assignable structurally because it implements those roles.
 
 ## Public API Surface
 
-| Export                 | Kind      | Description                                            |
-| ---------------------- | --------- | ------------------------------------------------------ |
-| `createMcpTransport`   | function  | MCP server transport adapter                           |
-| `createAgentMcpServer` | function  | Build an MCP server for an agent                       |
-| `IMcpTransport`        | interface | Legacy adapter declaration plus narrow attach overload |
-| `IMcpTransportSession` | interface | Exact submission + command session roles               |
+| Export                 | Kind      | Description                                   |
+| ---------------------- | --------- | --------------------------------------------- |
+| `createMcpTransport`   | function  | MCP server transport adapter                  |
+| `createAgentMcpServer` | function  | Build an MCP server for an agent              |
+| `IMcpTransport`        | interface | Adapter bound to the exact MCP session port   |
+| `IMcpTransportSession` | interface | Exact submission + runtime-tool session roles |
 
 ## Extension Points
 
-New tools/resources extend `createAgentMcpServer`; new options extend the option interfaces.
+New executable tools belong to the canonical session runtime catalog. Prompts and resources are explicitly unsupported in the minimum slice.
 
 ## Lifecycle Conformance (ARCH-011)
 
-`createMcpTransport` is a frozen `service` lifecycle. Readiness means the MCP `Server` exists through
-`getServer()`; carrier connection remains the host's responsibility. Start before attach and repeated
-active start reject `TransportLifecycleError`; repeated stop is safe and restart requires a new
-attach. The shared suite owner id is `@robota-sdk/agent-transport-mcp#createMcpTransport`.
+`createMcpTransport` is a frozen `service` lifecycle. `start()` validates the canonical catalog,
+connects the official SDK `StdioServerTransport`, and resolves only when the carrier can serve
+requests. This package owns carrier creation, stdin/stdout close/error observation, and idempotent
+carrier/server teardown. Early input is bridged with backpressure during catalog validation, so
+stdin EOF is observable before carrier connection. A pending start is cancellable by stop/EOF and
+bounded to 15 seconds. `waitForClose()` resolves on peer/stdin close and rejects on carrier
+failure, allowing the process owner to select an exit code and shut down its session. The optional
+stdio streams are injected only to isolate the carrier in tests and reserve the product's stdout.
+Start before attach and repeated active start reject `TransportLifecycleError`; repeated stop is
+safe and restart requires a new attach. The shared suite owner id is
+`@robota-sdk/agent-transport-mcp#createMcpTransport`.
 
 ## Error Taxonomy
 
@@ -61,5 +68,23 @@ Server + transport unit tests under `src/__tests__`.
 
 ## Dependencies
 
-- `@robota-sdk/agent-interface-transport`.
+- `@robota-sdk/agent-interface-transport` and `@robota-sdk/agent-interface-session`.
 - External: `@modelcontextprotocol/sdk`.
+
+### Canonical catalog and invocation (MCP-006)
+
+`createAgentMcpServer` is asynchronous: it checks the canonical catalog before accepting calls.
+`exposeCommands` is removed. Tools use their canonical runtime names, descriptions and input schemas;
+`command_*` and direct `executeCommand` have no compatibility route.
+
+The reserved `robota_submit` tool is a Robota extension for submitting a prompt. A runtime-tool collision
+with this name fails startup; later catalog collisions fail listing/calling visibly. Resources and
+prompts are not advertised and receive the SDK's unsupported-method response.
+
+MCP tool calls delegate to `invokeRuntimeTool` with the request cancellation signal. The session
+execution envelope is serialized as text and failures set `isError: true`. Unknown names, permission
+denial, interactive permission requirements, busy state and cancellation are visible tool errors.
+Submission cancellation forwards `ISubmitOptions.signal` for the accepted turn; it never aborts another caller's active turn.
+
+Tests use in-memory MCP peers and actual session execution to verify canonical names, policy, hooks,
+truncation, cancellation, busy/shutdown behavior, reserved-name collisions and failure isolation.

@@ -151,6 +151,9 @@ This package is the single source of truth (SSOT) for the following types:
 | `IContextWindowState`               | `context/types.ts`                      | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                                                                                                                                                                                                                                                                                                        |
 | `IContextTokenEstimate`             | `context/estimation.ts`                 | Effective context token estimate used by status display, session compaction policy, and execution safety guards                                                                                                                                                                                                                                                                                                                          |
 | `IContextTokenEstimateOptions`      | `context/estimation.ts`                 | Options for `estimateContextTokensFromMessages()`: optional `providerUsage` floor and `callerFloor`                                                                                                                                                                                                                                                                                                                                      |
+| `IToolResultAdmissionOptions`       | `core/tool-result-admission.ts`         | Provider-neutral warning, hard limit, repository cap, spill port, and payload-free warning callback                                                                                                                                                                                                                                                                                                                                      |
+| `IToolResultSpillStore`             | `core/tool-result-admission.ts`         | Host-owned persistence port that commits oversized model-facing text before returning an opaque reference                                                                                                                                                                                                                                                                                                                                |
+| `TToolResultAdmissionErrorCode`     | `core/tool-result-admission.ts`         | Stable, payload-free admission failure codes                                                                                                                                                                                                                                                                                                                                                                                             |
 | `IMessageTokenUsage`                | `context/token-usage.ts`                | Normalized token usage read from message metadata or provider usage payloads                                                                                                                                                                                                                                                                                                                                                             |
 | `IHistoryEntry`                     | `interfaces/messages.ts`                | Rich history entry that wraps a message with category, type, and structured data fields. Fields: `id` (string), `timestamp` (Date), `category` ('chat' \| 'event'), `type` (string), `data` (varies by category/type)                                                                                                                                                                                                                    |
 | `IActionRequest`                    | `interfaces/interaction.ts`             | UI-agnostic "ask the user" request (CMD-004). One shape covers confirm/single/multi/free-text/secret via `options` × `minSelect`/`maxSelect` × `allowFreeText` × `masked`. No function-valued fields (serialization-safe). SSOT lives in core so both command and tool sources reach it.                                                                                                                                                 |
@@ -503,6 +506,22 @@ is how the third one survived a fix to the first two.
 | `IJsonSchemaOutput` / `IStructuredOutputSpec` / `TStructuredOutputSchema` / `TStructuredOutputValidation` | types    | Structured output contract types                                                                                                                                                                                                            |
 | `resolveStructuredOutputCapability`                                                                       | function | CORE-048: which transport can carry a schema to a `(provider, model)` pair, and how sure that answer is. Produces the already-public `TStructuredOutputMechanism` / `TStructuredOutputProvenance`; lets a caller ask BEFORE spending a call |
 | `closeObjectSchemas`                                                                                      | function | PROV-007: closes every object node in the universal subset for providers that reject open-world objects, optionally completing `required` for OpenAI strict mode. One recursion, shared                                                     |
+| `ISchemaClosureOptions`                                                                                   | type     | `closeObjectSchemas` options: `requireAllProperties`, `optionalAsNullable`, and the MCP-005 `onChange` callback                                                                                                                             |
+| `ISchemaClosureChange`                                                                                    | type     | MCP-005: the per-path `{ path, kind }` edit `closeObjectSchemas` reports through `onChange` — how the tool-schema projector attributes closure changes without a second recursion                                                           |
+| `projectToolSchema`                                                                                       | function | MCP-005: projects one tool's `parameters` into what a provider's `IToolSchemaProjectionProfile` accepts — pure, deterministic, never throws, never mutates; see § Tool Schema Projection (MCP-005)                                          |
+| `hashToolSchema`                                                                                          | function | MCP-005: a stable sha256 hash of `IParameterSchema` over canonical key-sorted JSON — the per-tool quarantine cache identity                                                                                                                 |
+| `PARAMETER_SCHEMA_KEYWORDS`                                                                               | const    | MCP-005: the `IParameterSchema` member set, derived once at the type level (`Required<IParameterSchema>`) rather than hand-typed a second time — the SSOT `unknownKeywords` judges every key against                                        |
+| `TOOL_SCHEMA_PROJECTION_MAX_DEPTH`                                                                        | const    | MCP-005: the shared nesting-depth ceiling (32) every shipped projection profile declares                                                                                                                                                    |
+| `TOOL_SCHEMA_PROJECTION_MAX_NODES`                                                                        | const    | MCP-005: the shared node-count ceiling (2000) every shipped projection profile declares                                                                                                                                                     |
+| `PERMISSIVE_TOOL_SCHEMA_PROFILE`                                                                          | const    | MCP-005: the permissive profile shape (without `providerName`) — Anthropic, OpenAI Chat/Responses without `strictTools`, and the openai-compatible family spread their own `providerName` onto it                                           |
+| `STRICT_TOOL_SCHEMA_PROFILE`                                                                              | const    | MCP-005: the strict profile shape (without `providerName`) — OpenAI Chat/Responses with `strictTools: true` spreads its own `providerName` onto it; replaces that converter's own `closeObjectSchemas` call                                 |
+| `IToolSchemaProjectionProfile`                                                                            | type     | MCP-005: a provider's tool-schema wire constraints as data — the `projectToolSchema` second argument                                                                                                                                        |
+| `TToolSchemaProjectionProfileBase`                                                                        | type     | MCP-005: `IToolSchemaProjectionProfile` without `providerName` — the shape `PERMISSIVE_TOOL_SCHEMA_PROFILE`/`STRICT_TOOL_SCHEMA_PROFILE` are typed as, before a provider spreads its own name on                                            |
+| `TToolSchemaProjectionOutcome`                                                                            | type     | MCP-005: `'adopted' \| 'adapted' \| 'rejected'` — `projectToolSchema`'s outcome                                                                                                                                                             |
+| `IToolSchemaProjectionChange`                                                                             | type     | MCP-005: one per-path structural edit `projectToolSchema` made (`kind`, `path`, optional `keyword`)                                                                                                                                         |
+| `IToolSchemaProjection`                                                                                   | type     | MCP-005: `projectToolSchema`'s full result — `outcome`, `tool`, `changes`, and `rejection` when rejected                                                                                                                                    |
+| `loadToolSchemaProjectionFixtures`                                                                        | function | MCP-005: the shared tool-schema-projection fixture set, exported from the `@robota-sdk/agent-core/testing` subpath (TEST-003 precedent) so every provider package's conformance test exercises identical shapes                             |
+| `IToolSchemaProjectionFixtures`                                                                           | type     | MCP-005: the named fixture set `loadToolSchemaProjectionFixtures` returns                                                                                                                                                                   |
 
 ### Errors
 
@@ -519,6 +538,37 @@ table. Documented here are the ones a caller is expected to branch on by type.
 | -------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `FunctionTool` | class | Dependency-free JS-function tool primitive (`implements IFunctionTool`); honors `parameters.additionalProperties` validation (DATA-005 canonical). |
 | `ToolRegistry` | class | Dependency-free tool registry primitive (`implements IToolRegistry`); central registration, lookup, and schema retrieval.                          |
+
+### Tool Result Admission (MCP-2525)
+
+| Export                              | Kind      | Description                                                   |
+| ----------------------------------- | --------- | ------------------------------------------------------------- |
+| `DEFAULT_TOOL_RESULT_WARNING_CHARS` | constant  | Default character warning threshold                           |
+| `DEFAULT_TOOL_RESULT_HARD_CHARS`    | constant  | Default maximum admitted result length                        |
+| `MAX_TOOL_RESULT_CHARS`             | constant  | Absolute repository ceiling for raised per-tool requests      |
+| `ToolResultAdmissionError`          | class     | Secret-free admission refusal with a stable code              |
+| `admitToolResult`                   | function  | Validate limits and return admitted text or a spill reference |
+| `wasToolResultAdmitted`             | function  | Recognize an already-admitted result envelope                 |
+| `IToolResultAdmissionOptions`       | interface | Admission thresholds, spill port, and warning callback        |
+| `IToolResultSpillStore`             | interface | Host-owned persistent spill port                              |
+| `TToolResultAdmissionErrorCode`     | type      | Secret-free failure-code union                                |
+
+`admitToolResult` is the provider-neutral owner for result-envelope size policy. It measures the
+model-facing text (string data as-is, other values as JSON) in JavaScript string length units
+(UTF-16 code units) before callbacks, event publication, session logging, or provider conversion.
+The defaults are a 10,000-character warning, a 25,000-character hard limit, and a 500,000-character
+repository ceiling. A host may configure smaller positive safe-integer limits with
+`warningChars < hardChars <= repositoryMaxChars <= 500,000`; a tool's already-validated upward
+request may raise its hard limit only up to the configured repository ceiling. Invalid settings
+fail by named error, never by silently disabling admission. A valid tool request below a stricter
+host-configured hard limit leaves the host limit unchanged.
+
+An admitted result retains its normal envelope. A warned result reports only tool identity, size,
+and limit. An oversized result must be committed to the injected `IToolResultSpillStore` before the
+generic owner returns an opaque `tool-result:` reference; the raw result is never a fallback.
+Missing store or failed write returns a secret-free named refusal. The store owns reference
+resolution, retention, expiry, and cleanup; core has no filesystem dependency. A session and a
+direct SDK caller use this same policy rather than distinct MCP/provider truncation rules.
 
 ### Tool Residency (CLI-1990)
 
@@ -1335,6 +1385,101 @@ The root of a conversion must resolve to an object. A non-object root throws rat
 an empty schema, because an empty schema reaches the model as "an object, contents unspecified" —
 the failure this converter exists to prevent.
 
+## Tool Schema Projection (MCP-005)
+
+A third-party MCP tool's `inputSchema` (narrowed to `IParameterSchema` by CORE-040 in `agent-mcp`)
+still has to cross ONE MORE boundary before it reaches a provider: each vendor's wire format accepts
+a different subset (Anthropic: standard JSON Schema with an object root; OpenAI strict mode:
+`additionalProperties: false` on every object, every property `required`, optionality as
+`anyOf` with `null`; Gemini: an OpenAPI-3.0-shaped subset that cannot carry `additionalProperties` at
+all). `projectToolSchema` (`src/schema/project-tool-schema.ts`) is the ONE shared, tested projector
+every provider calls instead of reshaping the schema itself — pure, deterministic (same input → deep-
+equal output), never throws, never mutates its input.
+
+**Contract.** `projectToolSchema(tool: IToolSchema, profile: IToolSchemaProjectionProfile):
+IToolSchemaProjection` returns one of three outcomes:
+
+- `'adopted'` — no changes; `tool` is the SAME reference passed in.
+- `'adapted'` — `tool` is a projected COPY (`changes` lists what moved, one entry per edit).
+- `'rejected'` — `tool` is the input, unusable for this provider; `rejection` names `path`, `keyword`
+  and `reason`.
+
+Refusals (checked before any adaptation): a `parameters` root that is not `type: 'object'`
+(universal — not a profile field, since no documented provider accepts another root); a property
+NAME in `{ '__proto__', 'constructor', 'prototype' }`; a cycle (a visited `Set` of object identities);
+nesting deeper than `maxDepth`; more than `maxNodes` nodes; `unknownKeywords: 'reject'` with any key
+outside the `IParameterSchema` member set (`PARAMETER_SCHEMA_KEYWORDS`, derived once from the
+interface so the two cannot drift); a node declaring both `type` and `anyOf`, or declaring neither
+with no foreign keyword a policy could resolve. A node whose ONLY structural indicator is a foreign
+keyword (`$ref`/`oneOf`/`allOf` — ordinary JSON Schema this repo does not model) is not refused when
+the policy can carry or resolve it: `'adopt'` passes it through untouched, `'strip'` replaces it.
+
+Adaptations (one change per edit, `IToolSchemaProjectionChange.kind`): `unknownKeywords: 'strip'`
+deletes a foreign keyword (`keyword-stripped`); if that leaves the node with neither `type` nor
+`anyOf`, the node is REPLACED with the accept-anything `anyOf` node CORE-040 uses, not deleted
+(`keyword-replaced` — deleting would turn a declared property into an "unexpected additional
+property"); `unsupportedMembers` strips a listed `IParameterSchema` member wherever it appears
+(`member-stripped` — Gemini: `additionalProperties`); the closure family (`closedObjects` /
+`requireAllProperties` / `optionalAsNullable`) delegates to `closeObjectSchemas` ONCE, over the
+keyword-adapted schema, and its `onChange` callback contributes `closed-object` / `required-added` /
+`nullable-added` entries. `unknownKeywords: 'adopt'` passes foreign keywords through unchanged
+(Anthropic and OpenAI non-strict accept standard JSON Schema; stripping would be lossy for nothing).
+
+When a `keyword-stripped`, `keyword-replaced` or `member-stripped` change removed a VALIDATION
+keyword (one that constrains accepted values — `minLength`, `pattern`, `additionalProperties`, a
+replaced `$ref`/`oneOf`/`allOf` node, …), `description` gains exactly one trailing paragraph:
+`\n\nSchema note: <n> constraint(s) not shown to <providerName>: <kind@path>, …`. A stripped
+ANNOTATION (`title`, `$schema`, `$comment`, `examples`, `default`) constrains nothing and produces no
+note; closure changes are visible in the schema itself and never produce one either — under OpenAI
+strict, a tool with no rejection has a description byte-identical to its input.
+
+**Profiles.** `IToolSchemaProjectionProfile` is a provider's wire constraints as data:
+`providerName` (named in the note and the quarantine line), `closedObjects`,
+`requireAllProperties`, `optionalAsNullable`, `unknownKeywords`, `unsupportedMembers`, `maxDepth`,
+`maxNodes`. Two shared shapes (without `providerName`, which a provider spreads on) cover every
+shipped provider: `PERMISSIVE_TOOL_SCHEMA_PROFILE` (`unknownKeywords: 'adopt'`, everything else
+off/empty) for Anthropic, OpenAI Chat/Responses without `strictTools`, and the openai-compatible
+family; `STRICT_TOOL_SCHEMA_PROFILE` (`closedObjects`/`requireAllProperties`/`optionalAsNullable`:
+`true`, `unknownKeywords: 'strip'`) for OpenAI Chat/Responses with `strictTools: true`. Gemini spreads
+`PERMISSIVE_TOOL_SCHEMA_PROFILE` with `unknownKeywords: 'strip'` and
+`unsupportedMembers: ['additionalProperties']`. `TOOL_SCHEMA_PROJECTION_MAX_DEPTH` (32) and
+`TOOL_SCHEMA_PROJECTION_MAX_NODES` (2000) are the shared ceilings every profile above declares.
+
+**`AbstractAIProvider` seam.** `protected projectionProfile(): IToolSchemaProjectionProfile |
+undefined` returns `undefined` by default — adopt every tool unchanged, no diagnostics (kept for
+`agent-provider-replay` and any embedding provider that overrides nothing). `protected
+projectTools(tools: IToolSchema[] | undefined, model: string): IToolSchema[] | undefined` is a
+HELPER a concrete provider calls at its own request-building site(s) after `validateTools` and
+before its converter — `chat`/`chatStream` are abstract, so the base runs nothing on its own. With a
+profile: adopted/adapted tools return in a NEW array (an adapted tool is a projected copy; `tools`
+and every original tool object are never mutated); a rejected tool is omitted from the returned array
+and reported ONCE per cache identity (`provider.name` + `model` + `tool.name` +
+`hashToolSchema(tool.parameters)`, an instance `Map` — never a module singleton, so one provider
+instance's memo cannot silence another's) as one line:
+`tool_schema_quarantined provider=<name> model=<model> tool=<tool.name> path=<path> keyword=<keyword> reason=<reason>`.
+The line goes through `createLogger('ToolSchemaProjection')` — the GLOBAL-SINK logger (the CORE-040
+precedent, `agent-mcp/src/third-party-schema.ts`), not `this.logger`: `AnthropicProvider` and
+`GeminiProvider` construct with no logger, so `this.logger` is `SilentLogger`, which would make the
+quarantine silent on two of four providers ("Silence is not success"). Install a sink with
+`setGlobalLoggerSink` to receive it.
+
+**What does not change.** `agent-mcp` discovery, catalog build and CORE-040 narrowing are untouched;
+`DiscoveredMCPTool` keeps validating every call's arguments against the narrowed ORIGINAL schema, so
+a projection (e.g. the strict profile's `null` compensation for a forced-optional field) can never
+widen what execution accepts. `IParameterSchema` / `IToolSchema` (CORE-039) are unchanged; the seam is
+a `protected` method on the abstract base, not a change to `IAIProvider`.
+
+Shared fixtures for every provider's conformance test live under
+`src/schema/__tests__/fixtures/tool-schema-projection/` and are exported (loaded, not the raw
+`__tests__` path) as `loadToolSchemaProjectionFixtures` from the `@robota-sdk/agent-core/testing`
+subpath (TEST-003 precedent) — a cross-package import cannot reach another package's private
+`__tests__` tree. One fixture (`prototypeKey`) and one (`oversized`) are built programmatically rather
+than stored as JSON: a bundler's JSON loader inlines a parsed value as an object LITERAL, and a
+`"__proto__"` key written that way triggers the ECMAScript `[[SetPrototypeOf]]` special case instead
+of creating an own property — the opposite of `JSON.parse`'s behaviour for the same text over the
+wire (verified empirically); a computed key (`['__proto__']`) is the one literal spelling that is not
+special-cased.
+
 ## Structured Output Contract (CORE-015)
 
 `run(input, { output })` returns a schema-validated object instead of a string; `runStream` streams
@@ -1894,3 +2039,14 @@ cassettePath, recordCwd? })` wraps a real provider and writes each interaction t
   Extraction trigger (B3): when a second implementer family lands (a dag-\* adapter), both these
   contracts and the event unions move to a new `agent-interface-orchestration` package
   (deps ⊆ {agent-core}).
+
+### Canonical direct runtime tools (MCP-006)
+
+`Robota.listRuntimeTools()` returns the validated registered tool schemas, including deferred tools.
+`Robota.invokeRuntimeTool(name, parameters, context)` invokes the same `ToolExecutionService` and
+registered tools used by model turns, returning `IToolExecutionResult`. Direct catalog invocation
+does not require model-side deferred-tool discovery. It does not bypass configured tool allowlists,
+permission-wrapped execution, tool events, or argument handling. The caller supplies cancellation and
+execution identity. This method does not fabricate a model turn or alter conversation messages.
+
+Registration adapters preserve failed `IToolResult` envelopes as execution errors at initial registration, `registerTool`, and `updateTools`. Direct execution injects the same deferred-tool catalog and owner-bound event service as model-driven execution; it does not inject an interactive `ask` handler.

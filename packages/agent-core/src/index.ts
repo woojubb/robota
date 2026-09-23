@@ -93,6 +93,7 @@ export { normalizeProviderConfig, createProviderFromConfig } from './providers/p
 // Message types
 export type { IToolCall, IUserMessage, ISystemMessage, IToolMessage } from './interfaces/agent';
 export type { TToolParameters, IToolResult, IToolExecutionContext } from './interfaces/tool';
+export type { IToolExecutionResult } from './interfaces/tool';
 export type {
   TUniversalMessage,
   IAssistantMessage,
@@ -184,6 +185,17 @@ export {
 
 // Core agent
 export { Robota } from './core/robota';
+export {
+  DEFAULT_TOOL_RESULT_WARNING_CHARS,
+  DEFAULT_TOOL_RESULT_HARD_CHARS,
+  MAX_TOOL_RESULT_CHARS,
+  ToolResultAdmissionError,
+  admitToolResult,
+  wasToolResultAdmitted,
+  type IToolResultAdmissionOptions,
+  type IToolResultSpillStore,
+  type TToolResultAdmissionErrorCode,
+} from './core/tool-result-admission';
 export type { IDestroyResult } from './core/robota-lifecycle';
 
 // Managers

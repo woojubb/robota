@@ -3,7 +3,7 @@
  * and output truncation used by PermissionEnforcer.
  */
 
-import { runHooks, createLogger, isEnforcing } from '@robota-sdk/agent-core';
+import { runHooks, createLogger, isEnforcing, wasToolResultAdmitted } from '@robota-sdk/agent-core';
 
 import { MAX_TOOL_OUTPUT_CHARS, toolFailure } from './permission-types.js';
 
@@ -22,6 +22,7 @@ const logger = createLogger('ToolHookHelpers');
  * Uses middle-truncation: keeps first and last portions, removes middle.
  */
 export function truncateToolResult(result: IToolResult): IToolResult {
+  if (wasToolResultAdmitted(result)) return result;
   if (typeof result.data !== 'string') return result;
   if (result.data.length <= MAX_TOOL_OUTPUT_CHARS) return result;
 

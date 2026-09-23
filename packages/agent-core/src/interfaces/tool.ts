@@ -72,6 +72,8 @@ export interface IToolExecutionContext {
    * interrupted/failed result. Completing silently after an abort is a contract violation.
    */
   signal?: AbortSignal;
+  /** Direct remote calls deny decisions that would require human interaction. */
+  permissionInteraction?: 'interactive' | 'deny';
   executionId?: string; // Tool execution ID (typically tool call ID)
   userId?: string;
   sessionId?: string;

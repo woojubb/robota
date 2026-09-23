@@ -33,6 +33,19 @@ the CLI. The composition root assigns trusted WS driver identities (`app`, `brow
 turn's persisted usage surface reflects the launch path rather than a client-provided claim. The same host-owned
 usage reporters are passed to paired and reconnecting WebRTC surfaces. `agent-framework` owns the neutral
 build-session + transport-lifecycle seam.
+The shell creates the WS adapter before session construction, then binds and registers it only after
+the serve or TUI host creates the session. A TUI session switch replaces the registry entry with a
+binding to the new session. The registry starts bound adapters without receiving a session argument.
+
+`robota mcp serve` (MCP-007) selects a separate headless process mode with one normally assembled
+Robota session and one `agent-transport-mcp` stdio service. The CLI uses the caller's working
+directory and the same headless project-access/trust decision as `--serve`; it never prompts for
+trust over the protocol stream. The MCP package alone creates/connects/closes the official SDK
+carrier. From command entry until shutdown, all product notices and diagnostics use stderr while
+stdout is reserved for MCP frames. SIGINT, SIGTERM, stdin/client close, startup failure, and
+carrier failure all enter one idempotent cleanup path; a normal close exits 0 and a failure exits
+nonzero. Signals and peer close interrupt pending catalog validation. No WebSocket or TUI transport starts in this mode. The self-contained CLI bundle includes
+the MCP package code and declares the external SDK runtime dependency.
 
 The product shell resolves organization policy once and forwards the same policy into each mode's
 `InteractiveSession`: TUI through render/channel options, print and goal through the headless
@@ -94,8 +107,11 @@ brings its own and reuses the same kernel.
 - OWNS: CLI argument parsing, process lifecycle and assembly, `TransportRegistry`, `ITuiCliAdapter` wiring, provider composition
 - OWNS: CLI package-version update checks and user-level update-check cache
 - OWNS: Concrete local host adapters (background runner, child-process subagent, Git worktree, settings I/O incl. the CMD-004 `delete()` reset capability)
-- OWNS: Generic host wiring for an injected MCP activation adapter; approval policy and MCP client
-  lifecycle remain in lower reusable packages, while CLI rendering only consumes secret-free status/results.
+- OWNS: Sourcing `mcpServers` from the product's own settings layers and composing the MCP
+  activation adapter from them (MCP-002; see "MCP Client Composition" below) — or hosting a
+  caller-supplied adapter, which always wins. Decoding, precedence, admission policy, and MCP
+  client lifecycle remain in `@robota-sdk/agent-mcp`; CLI rendering only consumes secret-free
+  status/results.
 - OWNS: CMD-004 Phase 2 host-action adapter wiring (`src/startup/host-action-adapters.ts`): the `/remote-control` host adapter (status/devices + host-executed `enable()`/`stop()`) and the late-bound per-mode `process` adapter — TUI (deferred SIGTERM → the App's existing graceful signal flow), serve (deferred shared-host shutdown; local == remote, REMOTE-006), print (exit satisfied by the end-of-run exit-code contract; restart surfaced explicitly)
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-framework`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-framework`
@@ -224,6 +240,70 @@ The CLI is a pure TUI layer. All business logic (session lifecycle, slash comman
    SDK-owned facade types.
 6. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
 
+### MCP Client Composition (MCP-002)
+
+`@robota-sdk/agent-mcp` (MCP-001/MCP-002) owns definition decoding, precedence, admission policy and
+the connection/catalog manager; this package's ONE job is making that manager reachable from the
+product's own startup rather than only from tests. Three modules in `src/startup/`, run in this
+order from `cli.ts`:
+
+1. **Source** — `mcp-definition-sources.ts`'s `resolveMcpDefinitions()` reads every layer of the
+   product's own settings sources (`@robota-sdk/agent-framework`'s `readSettingsSourceText`; a layer
+   that is not valid JSON is a reported problem), decodes
+   each layer's `mcpServers` object (`agent-mcp`'s `decodeSource`), and resolves precedence across
+   layers (`agent-mcp`'s `resolveByPrecedence`) into `IMCPResolvedEntry[]`. Every unreadable/corrupt
+   layer and every decode refusal is returned as a problem, never silently dropped.
+2. **Workspace** — `mcp-workspace.ts`'s `toMcpActivationWorkspace()` projects the CLI's own
+   `TWorkspaceProjectAccess` decision (`ARCH-042`) plus a separately-resolved workspace-trust
+   `{ state, generation }` snapshot into `agent-mcp`'s secret-free `IMCPActivationWorkspace`.
+3. **Compose** — `mcp-startup.ts`'s `composeMcpClientForStartup()` calls the two modules above,
+   reports every problem through the caller's diagnostic sink, and hands the result to
+   `mcp-client-composition.ts`'s `createMcpClientComposition()` (the MCP-002 manager wiring: admission,
+   connection, catalog, and the generic `IToolWithEventService[]` tool surface).
+
+`cli.ts` wires the result into `IStartCliOptions.mcpActivationAdapter` (the `/mcp` command port) and
+appends `connect()`'s tools to `toolOptions.additionalTools` — unless a caller already supplied its
+own `mcpActivationAdapter` (tests do this), which always wins and skips composition entirely. Zero
+resolved definitions is a normal, silent-diagnostic outcome: the `/mcp` adapter simply lists nothing.
+
+**Bounded MCP results (MCP-2525):** composition passes the core result-admission policy to every
+discovered tool before it reaches the session's permission, callback, log, or provider path. Its
+default warning/hard/repository ceiling is 10,000/25,000/500,000 UTF-16 code units; embedding
+hosts may configure `resultAdmissionLimits` within the repository ceiling, while validated per-tool requests can raise
+only to the configured ceiling. The ordinary CLI lazily creates a
+`NodeToolResultSpillStore` on first overflow, reports only counts and fixed metadata-error reasons,
+and closes the store during MCP shutdown. A failed spill produces a secret-free refusal; raw
+server output is never substituted back into context. When connected tools exist, the composition
+also exposes `robota_read_mcp_result`: given an opaque reference and a character offset, it returns
+at most 4,000 characters with the total size and next offset, shrinking the chunk further when a
+host-configured hard limit requires it. Reads stay within the same live store; missing or expired
+references fail with a fixed, payload-free error. Print, serve, and TUI modes close that store on
+both success and failure; print mode closes it before its explicit process exit.
+
+**Stdio client authority (MCP-2522):** embedding hosts may pass
+`IStartCliOptions.mcpStdioAuthorities`, keyed by resolved server ID. Startup forwards this capability
+unchanged to the shared `agent-mcp` stdio adapter. Definitions and settings cannot grant execution
+authority: an approved stdio definition without a separately supplied host authority is diagnosed
+and never spawned. The adapter owns executable/argv, environment, cwd and activation validation;
+the CLI only selects HTTP or stdio and exposes discovered tools through the same catalog path.
+Stdio supervisor timeout and shutdown wait for the shared adapter's bounded pending-open cleanup;
+this prevents a retry from overlapping a still-terminating child. Stdio discovery diagnostics never
+include raw child or SDK errors. The ordinary executable does
+not provision stdio authority automatically, and does not auto-approve package-runner commands.
+
+**Current limit:** approval is in-memory in this unit (`createMcpClientComposition`'s default
+approval store is session-scoped, per-process), so a server approved via `/mcp approve` mid-session
+is not connected by that already-started session. An embedding host can supply its existing
+`IMCPActivationApprovalStore` through `IStartCliOptions.mcpApprovalStore` before `robota mcp serve`
+starts; the same startup composition then admits and connects approved client definitions before
+building the one served runtime session. It can also supply `mcpHttpTransportDeps` for an explicitly
+approved egress policy. These host-owned capabilities never come from MCP settings or the remote
+MCP caller. The ordinary executable supplies neither capability automatically: pending definitions
+remain disconnected and private/loopback HTTP destinations remain refused. A session serving MCP
+can therefore consume admitted MCP tools without a second settings resolver, catalog, approval
+policy, client, or runtime assembly; the served and consumed tool identities stay separate and both
+client and carrier connections close on process shutdown.
+
 Whitebox internals are not specified here. See:
 
 | Design document                                                         | Owns                                                |
@@ -235,6 +315,59 @@ Whitebox internals are not specified here. See:
 | [`docs/design/message-architecture.md`](design/message-architecture.md) | the internal message type and its guards            |
 | [`docs/design/subagent-wiring.md`](design/subagent-wiring.md)           | the Node process adapters injected into the session |
 
+### MCP Background Handoff (MCP-004)
+
+A long-running MCP tool call blocks the turn unless the host opts a session into handing it to a
+background task. This unit owns settings plumbing and per-mode wiring only — the wrapper itself
+(`buildToolCallHandoff`, `ToolCallHandoffTool`) is `@robota-sdk/agent-framework`'s.
+
+**Settings** — `src/startup/mcp-settings.ts`'s `resolveMcpSettings()` reads `mcp.autoBackgroundMs`
+and `mcp.callTimeoutMs` from the SAME layered settings documents `mcpServers` is read from (never
+through `@robota-sdk/agent-framework`'s schema-typed `SettingsSchema`, which does not declare `mcp`):
+
+```json
+{
+  "mcp": {
+    "autoBackgroundMs": 120000,
+    "callTimeoutMs": 600000
+  }
+}
+```
+
+- Defaults: `autoBackgroundMs` = 120000, `callTimeoutMs` = 600000.
+- Layering is PER KEY (not whole-object like `mcpServers`): each key folds independently across
+  layers by the same precedence order (`managed > local > project > user > plugin`), so a managed
+  policy can fix one key while leaving the other to the user layer.
+- `autoBackgroundMs: 0` disables the handoff silently — no diagnostic.
+- `autoBackgroundMs >= callTimeoutMs` disables the handoff with exactly one diagnostic.
+- A negative or non-integer value for either key is a REPORTED settings problem; that document's
+  WHOLE `mcp` object is refused (both keys, not only the invalid one) and folding continues as if it
+  had declared no `mcp` object — the default is never silently substituted for an invalid value.
+
+**Composition** — `mcp-client-composition.ts`'s `buildMcpClientTimeouts(callTimeoutMs)` sets the
+`agent-mcp` supervisor's `toolCallMs` (the tool-call budget, S2) from the resolved `callTimeoutMs`;
+`startupMs`, `perCallMs`, `globalDefaultMs` and `idleMs` keep their MCP-002 defaults. Every connected
+tool's provenance (`serverId`, `sourceName`, `securityIdentity`) is recorded on
+`connectedToolProvenance`, keyed by the tool's exposed canonical name, once `connect()` resolves.
+
+**Per-mode policy** — `mcp-startup.ts`'s `composeMcpClientForStartup()` takes a `mode:
+'interactive' | 'serve' | 'print'` input and returns `buildToolCallHandoff(permissionMode)`, called
+AFTER `connect()`:
+
+- `interactive` (TUI) and `serve` adopt the policy: `{ thresholdMs, budgetMs, toolNames, provenance
+}`, with one `provenance` entry per connected tool stamping `permissionMode`.
+- `print` never adopts it — a one-shot run with no drain — and reports exactly one diagnostic when
+  `autoBackgroundMs > 0` naming that the setting is ignored in print mode.
+- `autoBackgroundMs: 0`, or `autoBackgroundMs >= callTimeoutMs`, carries no policy in any mode.
+
+The interactive TUI receives the policy through `@robota-sdk/agent-ui-terminal`'s `IRenderOptions.toolCallHandoff`
+(forwarded by `toChannelOptions` into the session options); `robota --serve` passes it directly.
+
+The spawned background task's `kind` is `'tool-invocation'` (`IToolInvocationBackgroundTaskRequest`,
+`@robota-sdk/agent-interface-execution`) — see `examples/verify-mcp-background.ts`
+(`pnpm scenario:verify:mcp-background`) for an end-to-end proof against a mock MCP server under an
+isolated `HOME`.
+
 ## Type Ownership
 
 | Type                      | Location                         | Purpose                                                                                                                   |
@@ -245,7 +378,7 @@ Whitebox internals are not specified here. See:
 | ICommand                  | `@robota-sdk/agent-framework`    | SDK-owned command palette and slash command entry                                                                         |
 | ICommandSource            | `@robota-sdk/agent-framework`    | SDK-owned command source contract                                                                                         |
 | IParsedCliArgs            | `src/utils/cli-args.ts`          | Parsed CLI argument structure returned by `parseCliArgs()`                                                                |
-| IStartCliOptions          | `src/startup/command-setup.ts`   | Options for the `startCli()` public entry point, including optional MCP activation and managed output-style sources       |
+| IStartCliOptions          | `src/startup/command-setup.ts`   | Options for `startCli()`, including MCP activation, bounded result admission limits, and managed output-style sources     |
 | ICliSetup                 | `src/startup/command-setup.ts`   | Assembled command modules, adapters, provider definitions, and org policy                                                 |
 | IDoctorRouteArgs          | `src/startup/doctor-route.ts`    | The doctor route's own flags (`--repair <check-id>`, `--yes`) parsed before the strict global parser                      |
 | IDoctorRouteContext       | `src/startup/doctor-route.ts`    | What the shell hands the doctor route (`version`, `terminal`, `cwd`, options, TTY state, env)                             |
@@ -840,6 +973,16 @@ The remaining third-party entries in `package.json` `dependencies` (`openai`, `@
 `@google/genai`, `werift`, `ws`, `zod`, `croner`, `fast-glob`, `jssha`, `open`, `p-limit`,
 `@marcbachmann/cel-js`, `zod-to-json-schema`, …) are not imported by CLI source; they are the hoisted
 runtime dependencies of the bundled workspace packages (see § Self-contained bundle, INFRA-028).
+`koffi@3.3.1` is the deliberate exception: the CLI declares that exact direct runtime dependency so
+the self-contained bundle and its Bun compiler plugin resolve the same qualified native bridge used by
+the transitively bundled stable file-authority capability.
+
+### Session analysis store identity
+
+An exact safe session ID is loaded from the same injected user and project stores used for prefix
+and aggregate analysis. Exact lookup does not enumerate either store; project records retain
+precedence on an ID collision. The helper must not construct a second ambient user store after
+composition supplied one.
 
 ### Headless desktop binary (RUNTIME-002)
 
@@ -861,19 +1004,29 @@ existing Node entry path (`bin/robota.cjs` → `dist/node/bin.js`) is retained. 
 validated input generation and publishes the separately declared `bun` output variant; it never writes
 into the sealed npm/Node generation.
 
-- **Build:** `scripts/build-bun.mjs` (run under Bun) `Bun.build({ compile, define, plugins })`s the built
-  `dist/node/bin.js` per target. Additive scripts: `build:bun` (host), `build:bun:all`, and per-target
-  `build:bun:<os>-<arch>` (darwin-arm64/x64, linux-x64/arm64, windows-x64). Prereq: `pnpm build` (produces
-  `dist/node/bin.js`); output → `dist-bun/robota-<os>-<arch>[.exe]`. All requested targets are staged and
-  verified against Bun emission records before the variant pointer changes. A failed target retains
-  the previous complete binary generation.
+- **Build:** `scripts/build-bun.mjs` (run under Bun) accepts exactly one literal target and
+  `Bun.build({ compile, define, plugins })`s the built `dist/node/bin.js`. `build:bun` selects the host;
+  the five per-target `build:bun:<os>-<arch>` scripts select darwin-arm64/x64, linux-x64/arm64, or
+  windows-x64. There is no multi-target or `all` interface. A literal target must exactly match the
+  current host tuple and every unsupported host is refused before compilation or generation assembly,
+  leaving the previously selected binary generation unchanged. Prereq: `pnpm build` (produces
+  `dist/node/bin.js`); output → one `dist-bun/robota-<os>-<arch>[.exe]`. The compiler embeds only the
+  qualified host Koffi addon through `scripts/artifacts/koffi-bun-plugin.mjs`.
 - **Two build-time fixes** (do not affect Node): a plugin stubs ink 7.x's DEV-only static
   `react-devtools-core` import (Bun's compiler resolves it eagerly; the code path never runs in production);
   and `src/startup/version.ts` reads a `--define`d `__ROBOTA_VERSION__` through a `typeof` guard (the single
   binary can't fs-walk for `package.json` → would show `0.0.0`; in Node the identifier is undeclared so the
   guard falls through to the existing fs-walk).
-- **Smoke:** `test:bun` (`scripts/e2e-bun-binary.mjs`) builds the host binary and asserts `--version` (real
-  version, not `0.0.0`) + `--help` (exit 0); it **skips gracefully when `bun` is not on PATH**.
+- **Smoke:** `test:bun` (`scripts/e2e-bun-binary.mjs`) builds the host binary, copies the verified
+  generation to a fresh tree without `node_modules`, and asserts `--version`, `--help`, and the shared
+  provider-free native replay fixture (`robota trust --yes` followed by `robota session analyze` success
+  and replaced-parent refusal). It **skips gracefully when `bun` is not on PATH**.
+- **Release:** five read-only native build jobs each compile and execute exactly one matching target and
+  upload one uniquely named artifact. One publisher depends on all five, alone receives
+  `contents: write`, rejects missing/duplicate/unexpected inputs, creates a five-entry
+  `SHA256SUMS.txt`, uploads the established five binary names plus that manifest once, then downloads
+  all six release assets and verifies their names, sizes, and SHA-256 digests. It retains the shared-tag
+  serialization contract with the desktop release workflow.
 - **Constraint (user-facing) — removed by DIST-006:** a subagent turn used to spawn a child `node`
   process against a worker file, which required **`node` on `PATH`** and, in a compiled binary, did
   not work at all (the worker file is not there). The binary now re-executes **itself**

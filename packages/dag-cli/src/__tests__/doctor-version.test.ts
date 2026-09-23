@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { withTempWorkspace } from '../utils/temp-workspace.js';
 
@@ -36,19 +36,11 @@ if (code !== 1) throw new Error('expected missing-configuration diagnostic exit 
 describe('doctor owner-local version', () => {
   it('reports the embedded version from the actual physical built binary', async () => {
     const bin = realpathSync(new URL('../../dist/node/bin.js', import.meta.url));
-    const repository = realpathSync(fileURLToPath(new URL('../../../../', import.meta.url)));
     await withTempWorkspace('dag-doctor-built-version', async (temporary) => {
       const cwd = realpathSync(temporary);
       const result = spawnSync(
         process.execPath,
-        [
-          '--experimental-permission',
-          `--allow-fs-read=${repository}`,
-          `--allow-fs-read=${cwd}`,
-          `--allow-fs-write=${cwd}`,
-          bin,
-          'doctor',
-        ],
+        [bin, 'doctor'],
         {
           cwd,
           env: { PATH: process.env.PATH ?? '', ROBOTA_DAG_TELEMETRY: '0' },

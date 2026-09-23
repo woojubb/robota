@@ -1,0 +1,5 @@
+# actionlint 1.7.7 predates these GitHub-hosted macOS 26 runner labels.
+self-hosted-runner:
+  labels:
+    - macos-26
+    - macos-26-intel

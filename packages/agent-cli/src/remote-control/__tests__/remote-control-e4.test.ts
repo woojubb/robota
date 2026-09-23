@@ -260,8 +260,13 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     // Without the swap the entry keeps naming a peer the controller abandoned, so `stopAll` at
     // shutdown stops that one and never reaches the peer actually serving the session.
     const entry = registry.getAll().find((e) => e.transport.name === 'webrtc');
-    expect(entry?.transport).toBe(winner.transport);
+    expect(entry?.transport.binding).toBe('bound');
     expect(entry?.transport).not.toBe(original);
+    const originalStops = vi.mocked(original.stop).mock.calls.length;
+    const winnerStops = vi.mocked(winner.transport.stop).mock.calls.length;
+    await registry.stopAll();
+    expect(winner.transport.stop).toHaveBeenCalledTimes(winnerStops + 1);
+    expect(original.stop).toHaveBeenCalledTimes(originalStops);
     expect(controller.getStatus()).toEqual({ state: 'paired' });
   });
 

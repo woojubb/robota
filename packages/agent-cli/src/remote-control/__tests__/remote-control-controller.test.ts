@@ -8,7 +8,10 @@ import { RemoteControlController } from '../remote-control-controller.js';
 import type { IRemoteControlControllerDeps } from '../remote-control-controller.js';
 import type { ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
 import type { TransportRegistry } from '@robota-sdk/agent-framework';
-import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type {
+  IConfigurableTransport,
+  TBoundConfigurableTransport,
+} from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
@@ -35,7 +38,7 @@ function pairingLinkOf(message: string): URL {
 
 function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
   deps: IRemoteControlControllerDeps;
-  registered: IConfigurableTransport<IInteractiveSession>[];
+  registered: TBoundConfigurableTransport[];
   transport: {
     attach: ReturnType<typeof vi.fn>;
     start: ReturnType<typeof vi.fn>;
@@ -45,12 +48,13 @@ function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
   hooks: { onPaired?: () => void; onPairingFailed?: () => void };
   captured: { ice?: { iceServers?: unknown; forceTurn?: boolean } };
 } {
-  const registered: IConfigurableTransport<IInteractiveSession>[] = [];
+  const registered: TBoundConfigurableTransport[] = [];
   const registry = {
-    register: (t: IConfigurableTransport<IInteractiveSession>) => registered.push(t),
+    register: (t: TBoundConfigurableTransport) => registered.push(t),
   } as unknown as TransportRegistry;
   const transport = {
     name: 'webrtc',
+    lifecycle: { kind: 'service' as const },
     defaultEnabled: false,
     attach: vi.fn(),
     start: vi.fn().mockResolvedValue(undefined),

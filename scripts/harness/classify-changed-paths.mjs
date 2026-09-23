@@ -47,6 +47,7 @@ function failClosedCapabilities(reason) {
     examples: true,
     windows: true,
     cli: true,
+    payloadNative: true,
     harness: true,
     hermetic: true,
     buildMachinery: true,
@@ -258,6 +259,68 @@ export function isBuildMachineryPath(
   );
 }
 
+/** Inputs whose behavior or packaging can change stable external-payload reads. */
+export function isPayloadNativePath(file) {
+  const normalized = String(file ?? '').replaceAll('\\', '/');
+  if (isDocsOnlyPath(normalized)) return false;
+  return (
+    normalized.startsWith('packages/agent-file-authority/') ||
+    /^packages\/agent-session\/src\/(?:external-payload-[^/]+|session-log-[^/]+|session-logger|session-store|session-id|index)\.ts$/u.test(
+      normalized,
+    ) ||
+    /^packages\/agent-session\/src\/session-record-codec\//u.test(normalized) ||
+    /^packages\/agent-session\/src\/__tests__\/(?:external-payload|session-log|session-store|session-record|session-id)[^/]*\.test\.ts$/u.test(
+      normalized,
+    ) ||
+    normalized === 'packages/agent-session/examples/verify-external-payload-replay.ts' ||
+    /^packages\/agent-framework\/src\/workspace-trust\//u.test(normalized) ||
+    /^packages\/agent-framework\/src\/interactive\/(?:session-persistence|workspace-session-io|workspace-session-store|interactive-session-persistence|index)\.ts$/u.test(
+      normalized,
+    ) ||
+    /^packages\/agent-framework\/src\/interactive\/__tests__\/(?:session-persistence|session-load-routing)[^/]*\.test\.ts$/u.test(
+      normalized,
+    ) ||
+    [
+      'packages/agent-framework/src/index.ts',
+      'packages/agent-framework/src/paths.ts',
+      'packages/agent-framework/src/contributions/node-host-contribution-source.ts',
+    ].includes(normalized) ||
+    /^packages\/agent-cli\/src\/session-analyzer\//u.test(normalized) ||
+    /^packages\/agent-cli\/src\/startup\/(?:preparsed-command-routing|workspace-[^/]+|command-setup|project-setup-routing|version)\.ts$/u.test(
+      normalized,
+    ) ||
+    [
+      'packages/agent-cli/src/bin.ts',
+      'packages/agent-cli/src/cli.ts',
+      'packages/agent-cli/src/index.ts',
+      'packages/agent-cli/src/utils/cli-args.ts',
+    ].includes(normalized) ||
+    /^packages\/agent-cli\/scripts\/(?:build-bun|e2e-native-file-authority)\.mjs$/u.test(
+      normalized,
+    ) ||
+    /^scripts\/artifacts\/[^/]+\.mjs$/u.test(normalized) ||
+    [
+      'packages/agent-session/package.json',
+      'packages/agent-session/tsdown.config.ts',
+      'packages/agent-session/tsconfig.json',
+      'packages/agent-session/vitest.config.ts',
+      'packages/agent-framework/package.json',
+      'packages/agent-framework/tsdown.config.ts',
+      'packages/agent-framework/tsconfig.json',
+      'packages/agent-framework/vitest.config.ts',
+      'packages/agent-cli/package.json',
+      'packages/agent-cli/tsdown.config.ts',
+      'packages/agent-cli/tsconfig.json',
+      'packages/agent-cli/vitest.config.ts',
+      '.github/workflows/ci.yml',
+      '.github/workflows/release-bun-binaries.yml',
+      '.github/required-status-checks.json',
+      'scripts/harness/classify-changed-paths.mjs',
+      'scripts/harness/payload-native-evidence.mjs',
+    ].includes(normalized)
+  );
+}
+
 /** Inputs that can change product ownership, graph traversal, or root product configuration. */
 export function isFullVerificationPath(
   file,
@@ -304,6 +367,7 @@ export function classifyFiles(
       examples: false,
       windows: false,
       cli: false,
+      payloadNative: false,
       harness,
       hermetic: false,
       buildMachinery: false,
@@ -327,7 +391,9 @@ export function classifyFiles(
     if (INFRASTRUCTURE_ONLY_PATTERN.test(file) || INFRASTRUCTURE_ONLY_FILES.has(file)) return false;
     return true;
   });
-  const workflow = codeFiles.some((file) => /^\.github\/workflows\/.*\.ya?ml$/u.test(file));
+  const workflow = codeFiles.some(
+    (file) => file === '.github/actionlint.yaml' || /^\.github\/workflows\/.*\.ya?ml$/u.test(file),
+  );
   const dependencies =
     dependencyChanges ??
     codeFiles.some(
@@ -340,6 +406,7 @@ export function classifyFiles(
     codeFiles.some((file) =>
       isBuildMachineryPath(file, { rootManifestChange, packageManifestChanges }),
     );
+  const payloadNative = full || codeFiles.some(isPayloadNativePath);
   return {
     code: true,
     product,
@@ -347,6 +414,7 @@ export function classifyFiles(
     examples: full || capabilities?.examples === true,
     windows: full || capabilities?.windows === true,
     cli: full || capabilities?.cli === true,
+    payloadNative,
     harness,
     hermetic,
     buildMachinery,
@@ -510,6 +578,7 @@ export function main(argv = process.argv.slice(2), write = (text) => process.std
   write(`examples=${result.examples}\n`);
   write(`windows=${result.windows}\n`);
   write(`cli=${result.cli}\n`);
+  write(`payload_native=${result.payloadNative}\n`);
   write(`harness=${result.harness}\n`);
   write(`hermetic=${result.hermetic}\n`);
   write(`build_machinery=${result.buildMachinery}\n`);
@@ -520,7 +589,7 @@ export function main(argv = process.argv.slice(2), write = (text) => process.std
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `code=${result.code}\nproduct=${result.product}\ntui=${result.tui}\nexamples=${result.examples}\nwindows=${result.windows}\ncli=${result.cli}\nharness=${result.harness}\nhermetic=${result.hermetic}\nbuild_machinery=${result.buildMachinery}\nworkflow=${result.workflow}\ndependencies=${result.dependencies}\nfull=${result.full}\n`,
+      `code=${result.code}\nproduct=${result.product}\ntui=${result.tui}\nexamples=${result.examples}\nwindows=${result.windows}\ncli=${result.cli}\npayload_native=${result.payloadNative}\nharness=${result.harness}\nhermetic=${result.hermetic}\nbuild_machinery=${result.buildMachinery}\nworkflow=${result.workflow}\ndependencies=${result.dependencies}\nfull=${result.full}\n`,
     );
   }
   return result;

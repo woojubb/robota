@@ -1,0 +1,21 @@
+{
+  "name": "search_records",
+  "description": "Search records by query and return matching entries.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": { "type": "string", "description": "The search query." },
+      "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
+      "tags": { "type": "array", "items": { "type": "string" } },
+      "address": {
+        "type": "object",
+        "properties": {
+          "city": { "type": "string" },
+          "zip": { "type": "string", "pattern": "^[0-9]{5}$" }
+        },
+        "required": ["city"]
+      }
+    },
+    "required": ["query"]
+  }
+}

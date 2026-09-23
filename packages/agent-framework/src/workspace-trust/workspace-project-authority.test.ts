@@ -225,13 +225,13 @@ describe('WorkspaceTrustService project authority', () => {
     );
   });
 
-  it('enforces a per-call byte budget through the portable stable-handle reader', async () => {
-    const { root, service } = fixture();
-    writeFileSync(join(root, 'portable.txt'), 'larger than one byte', 'utf8');
-    const granted = await service.grant(root);
-    if (granted.status !== 'trusted') throw new Error('expected trusted access');
-    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
-    try {
+  it.runIf(process.platform === 'darwin')(
+    'enforces a per-call byte budget through the portable stable-handle reader',
+    async () => {
+      const { root, service } = fixture();
+      writeFileSync(join(root, 'portable.txt'), 'larger than one byte', 'utf8');
+      const granted = await service.grant(root);
+      if (granted.status !== 'trusted') throw new Error('expected trusted access');
       expect(() =>
         getWorkspaceProjectReader(granted.authority).readBytes(
           'portable.txt',
@@ -239,10 +239,8 @@ describe('WorkspaceTrustService project authority', () => {
           1,
         ),
       ).toThrow(/read limit/i);
-    } finally {
-      platform.mockRestore();
-    }
-  });
+    },
+  );
 
   // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(

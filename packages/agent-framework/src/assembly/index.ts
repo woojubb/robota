@@ -6,6 +6,8 @@ export { createSession } from './create-session.js';
 export type { ICreateSessionOptions, ICreateSessionResult } from './create-session.js';
 // Issue #2056: the session-level structured-output shape, named where it is declared.
 export type { TSessionResponseFormat } from './create-session-types.js';
+// MCP-004 §S3: the `toolCallHandoff` policy shape, named where it is declared.
+export type { IToolCallHandoffPolicy, IToolCallHandoffProvenance } from './create-session-types.js';
 export { deriveContextCapacityHint } from './context-capacity-hint.js';
 // ARCH-037: `createDefaultTools` is published, so the type its caller must construct has to be
 // nameable too — the `IScheduleEditPatch` / `ISubagentExecutionEnvelope` shape, found by the new

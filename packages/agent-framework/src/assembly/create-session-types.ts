@@ -60,6 +60,33 @@ export type TSessionConstructorWithAutoCompact = new (
   options: TSessionOptionsWithAutoCompact,
 ) => Session;
 
+/**
+ * MCP-004 §S3: provenance the wrapper attaches to a spawned `tool-invocation` background task —
+ * flattened onto `IToolInvocationBackgroundTaskRequest`'s own fields, which `agent-executor`'s
+ * helpers project into the task state's `metadata` (`serverId`, `sourceName`, `securityIdentity`,
+ * `permissionMode`, `provenanceOwner`) for `/tasks` and the notification to read.
+ */
+export interface IToolCallHandoffProvenance {
+  readonly serverId: string;
+  readonly sourceName: string;
+  readonly securityIdentity: string;
+  readonly permissionMode: string;
+}
+
+/**
+ * MCP-004 §S3: the host's policy for handing a main-turn tool call to a background task once it
+ * outruns `thresholdMs`. `budgetMs` is informational only — it sizes the spawned task's
+ * `maxRuntimeMs` (`budgetMs - elapsed`) for `/tasks`; the supervisor's own `toolCallMs` (S2,
+ * `agent-mcp`) is the one enforcer of the call's actual budget.
+ */
+export interface IToolCallHandoffPolicy {
+  readonly thresholdMs: number;
+  readonly budgetMs: number;
+  readonly toolNames: readonly string[];
+  /** Keyed by tool name — every name in `toolNames` must have an entry (refuse at build time otherwise). */
+  readonly provenance: Readonly<Record<string, IToolCallHandoffProvenance>>;
+}
+
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
   /** Additive response style; it never replaces framework, project, permission, or capability sections. */
@@ -123,6 +150,13 @@ export interface ICreateSessionOptions {
   includeGoalTool?: boolean;
   /** Additional background task runners composed by the runtime shell. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /**
+   * MCP-004 §S3: when set AND a `tool-invocation` runner is present in `backgroundTaskRunners`,
+   * `buildToolCallHandoff` (`create-session-runtime.ts`) replaces each named tool in the
+   * session-local tool list with a wrapper that hands a call exceeding `thresholdMs` to a
+   * `tool-invocation` background task. Absent ⇒ no wrapping (unchanged behavior).
+   */
+  toolCallHandoff?: IToolCallHandoffPolicy;
   /** Runtime shell override for subagent execution. Defaults to the SDK in-process runner. */
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** Enable agent tool, agent definitions, and subagent runtime wiring for this session. */

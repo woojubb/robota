@@ -43,6 +43,7 @@ export function buildTuiSessionOptions(
     forkSession: opts.forkSession,
     sessionName: opts.sessionName,
     backgroundTaskRunners: opts.backgroundTaskRunners,
+    ...(opts.toolCallHandoff !== undefined ? { toolCallHandoff: opts.toolCallHandoff } : {}),
     subagentRunnerFactory: opts.subagentRunnerFactory,
     ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),

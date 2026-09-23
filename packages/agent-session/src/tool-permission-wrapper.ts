@@ -29,7 +29,12 @@ export interface IToolWrapperDeps {
   readonly hookTypeExecutors?: IPermissionEnforcerOptions['hookTypeExecutors'];
   getPermissionMode: IPermissionEnforcerOptions['getPermissionMode'];
   log(event: string, detail: TSessionLogData): void;
-  checkPermission(toolName: string, toolArgs: TToolArgs, signal?: AbortSignal): Promise<boolean>;
+  checkPermission(
+    toolName: string,
+    toolArgs: TToolArgs,
+    signal?: AbortSignal,
+    interaction?: IToolExecutionContext['permissionInteraction'],
+  ): Promise<boolean>;
 }
 
 /**
@@ -98,6 +103,7 @@ export function wrapToolWithPermission(
         toolName,
         parameters as TToolArgs,
         context?.signal,
+        context?.permissionInteraction,
       );
       if (!allowed) {
         enforcer.log('tool_denied', { tool: toolName, reason: 'permission' });
@@ -112,6 +118,7 @@ export function wrapToolWithPermission(
         return PERMISSION_DENIED_RESULT;
       }
 
+      context?.signal?.throwIfAborted();
       enforcer.onToolExecution?.({
         type: 'start',
         toolName,
@@ -145,7 +152,7 @@ export function wrapToolWithPermission(
       const dataSize =
         typeof truncatedResult.data === 'string'
           ? truncatedResult.data.length
-          : JSON.stringify(truncatedResult.data).length;
+          : (JSON.stringify(truncatedResult.data)?.length ?? 0);
       enforcer.log('tool_result', {
         tool: toolName,
         success: truncatedResult.success,

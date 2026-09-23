@@ -40,25 +40,6 @@ export interface IOpenAPIToolConfig {
 }
 
 /**
- * MCP (Model Context Protocol) configuration
- */
-export interface IMCPToolConfig {
-  /** MCP server endpoint */
-  endpoint: string;
-  /** Protocol version */
-  version?: string;
-  /** Authentication configuration */
-  auth?: {
-    type: 'bearer' | 'apiKey';
-    token: string;
-  };
-  /** Tool-specific configuration */
-  toolConfig?: Record<string, string | number | boolean>;
-  /** Timeout in milliseconds */
-  timeout?: number;
-}
-
-/**
  * Tool factory interface
  */
 export interface IToolFactory {
@@ -71,9 +52,4 @@ export interface IToolFactory {
    * Create tool from OpenAPI specification
    */
   createOpenAPITool(config: IOpenAPIToolConfig): ITool;
-
-  /**
-   * Create MCP tool
-   */
-  createMCPTool(config: IMCPToolConfig): ITool;
 }

@@ -59,7 +59,6 @@ export const AUDITED_PRODUCT_INTEGRATION_TESTS = Object.freeze([
   'packages/agent-subagent-runner/src/__tests__/worker-composition.test.ts',
   'packages/agent-transport-ws/src/__tests__/ws-transport-auth.test.ts',
   'packages/agent-transport-ws/src/__tests__/ws-transport-lifecycle.test.ts',
-  'packages/agent-tool-mcp/src/__tests__/mcp-tool.test.ts',
   'packages/agent-ui-terminal/src/__tests__/TuiInteractionChannel.lifecycle.test.ts',
   'packages/dag-cli/src/__tests__/persistence-store.test.ts',
   'packages/dag-cli/src/__tests__/runs-command.test.ts',

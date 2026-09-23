@@ -11,7 +11,7 @@ therefore attached to the published graph rather than to one hard-coded entry fi
 | Class                 | Meaning                                                                    | Examples                                                                                                                                                                                 |
 | --------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | SDK-owned API         | Implemented or semantically owned by `agent-framework`                     | `InteractiveSession`, `createQuery`, command contracts, skill activation events/tools, model command catalog common APIs, prompt/context file references, project memory, checkpoints    |
-| SDK facade            | SDK narrows or assembles lower-level behavior behind an SDK contract       | project session store helpers, command host/common APIs, subagent assembly helpers, execution workspace projection                                                                       |
+| SDK facade            | SDK narrows or assembles lower-level behavior behind an SDK contract       | project session store helpers, the `isSafeSessionId` exact-selector predicate, command host/common APIs, subagent assembly helpers, execution workspace projection                       |
 | Unreachable elsewhere | A symbol a permitted consumer has no other legal import path to            | the background-task lifecycle types. ARCH-037 retired the older "runtime facade" wording: whether a re-export is type-only or runtime says nothing about whether a consumer can reach it |
 | Owner-direct API      | General-purpose lower package surface that consumers import from the owner | history helpers from `agent-core`, tool exports from `agent-tools`, generic session APIs from `agent-session`                                                                            |
 
@@ -44,13 +44,13 @@ Use owner packages for general-purpose APIs:
 ```typescript
 import { getMessagesForAPI, type IHistoryEntry } from '@robota-sdk/agent-core';
 import { createReadTool, webSearchTool } from '@robota-sdk/agent-tools';
-import { Session, assertSafeSessionId, isSafeSessionId } from '@robota-sdk/agent-session';
+import { Session, assertSafeSessionId } from '@robota-sdk/agent-session';
 ```
 
 Use `@robota-sdk/agent-framework` for interactive assembly and SDK-owned facades:
 
 ```typescript
-import { InteractiveSession, createQuery } from '@robota-sdk/agent-framework';
+import { InteractiveSession, createQuery, isSafeSessionId } from '@robota-sdk/agent-framework';
 import {
   createExecutionWorkspaceSnapshot,
   createInProcessSubagentRunner,
@@ -69,6 +69,11 @@ import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
 // Concrete runtime classes remain owner-direct values.
 import { BackgroundTaskManager, SubagentManager } from '@robota-sdk/agent-executor';
 ```
+
+`isSafeSessionId` is a narrow dependency-reach facade for CLI/UI exact-selector handling. Its
+validation semantics remain owned by `agent-session`; the framework wrapper delegates to that canonical
+predicate and does not duplicate or broaden it. Consumers already permitted to depend on
+`agent-session` continue to import generation and assertion APIs from the owner directly.
 
 Command packages may also consume framework-owned command common APIs from
 `@robota-sdk/agent-framework`; those APIs do not make the command package depend on CLI internals.

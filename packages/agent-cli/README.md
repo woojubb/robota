@@ -122,7 +122,11 @@ from the repository root with:
 node scripts/artifacts/pack.mjs --package packages/agent-cli --destination /tmp/robota-cli-pack
 ```
 
-Standalone Bun builds use the separate `dist-bun` variant (`pnpm --filter @robota-sdk/agent-cli build:bun`).
+Standalone Bun builds use the separate `dist-bun` variant
+(`pnpm --filter @robota-sdk/agent-cli build:bun`). Native dependencies make these builds exact-host:
+each supported Linux x64/arm64, macOS x64/arm64, or Windows x64 artifact must be compiled on its
+matching host. A mismatched target is refused before the selected generation changes; there is no
+cross-host `all` build mode.
 If a build reports an interrupted transaction, first ensure its writer has exited, then run
 `node scripts/artifacts/recovery.mjs packages/agent-cli` from the repository root. Recovery preserves
 previous output; it refuses to take over an active writer. The first transition from physical `dist`
@@ -171,6 +175,7 @@ robota --screen-reader              # Screen-reader mode: no chrome, no motion, 
 robota --no-screen-reader           # Force it off for this run, whatever the env or settings say
 # Pacing (ms): ROBOTA_SCREEN_READER_STARTUP_QUIET_MS=900  ROBOTA_SCREEN_READER_PREPARK_MS=50  (0 disables either)
 robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
+robota mcp serve                   # Serve one session to a local MCP client over stdio
 robota trust status                 # Inspect canonical workspace trust
 robota trust --yes                  # Grant trust for the current Git workspace
 robota trust revoke --yes           # Revoke the current workspace grant
@@ -216,6 +221,92 @@ robota doctor --repair storage.user --yes       # no prompt (required in a non-i
 Repairs are limited to an empty user settings file (rewritten as `{}`) and a missing or too-open
 user storage directory; everything else is reported with the path to fix. `/doctor` runs the same
 report inside a session, and `/doctor repair <check-id>` asks before writing.
+
+### MCP Servers
+
+#### Serve Robota to an MCP host
+
+Install `@robota-sdk/agent-cli`, configure a provider with `robota --configure`, and grant the
+intended project with `robota trust --yes` before starting a headless server. Resolve the actual
+executable (`command -v robota`) and use its **absolute path** in the host configuration. For an
+MCP client that supports a child-process working directory, configure:
+
+```json
+{
+  "mcpServers": {
+    "robota": {
+      "command": "/absolute/path/to/robota",
+      "args": ["mcp", "serve"],
+      "cwd": "/absolute/path/to/trusted/project"
+    }
+  }
+}
+```
+
+The host must launch the process in the intended project directory. Robota uses that inherited
+directory for its normal project-root, access and trust decision; an MCP `roots/list` value or an
+environment variable does not silently change it. For Claude Code, whose stdio server environment
+includes `CLAUDE_PROJECT_DIR`, a project-scoped launch command can select that directory explicitly:
+
+```sh
+claude mcp add --scope project --transport stdio robota -- \
+  /bin/sh -c 'cd "$CLAUDE_PROJECT_DIR" && exec /absolute/path/to/robota mcp serve'
+```
+
+The host receives the canonical runtime tool catalog plus `robota_submit`. Model-invocable commands
+appear only through their canonical `robota_command_*` names. Tools run through the session's normal
+permission and hook policy; denied or approval-requiring calls return MCP tool errors, never an
+interactive prompt on the protocol stream. The peer is a local process started by the user and can
+request actions within that session's admitted workspace and permissions. This mode starts no web
+server, WebSocket sidecar or TUI. Stdout carries only MCP messages; startup notices and failures go
+to stderr. Closing the host's stdin or sending SIGINT/SIGTERM shuts down the carrier and session.
+If the host reports a connection failure, run `robota trust status` and `robota doctor` separately in
+the same project directory, then inspect the host's captured stderr for configuration errors.
+
+The same session can also use an admitted external MCP tool while it serves the host. Its connected
+client tools appear in the served catalog under canonical names such as `probe__echo`; they still
+run through the session's normal permission policy. The server carrier and outbound client close
+independently. An embedding host can supply its own `IMCPActivationApprovalStore` through
+`startCli({ mcpApprovalStore })` before startup, along with an explicitly approved
+`mcpHttpTransportDeps` egress policy when needed. Neither capability comes from MCP settings or the
+remote caller. The ordinary `robota` executable supplies neither automatically.
+
+The settings described below configure Robota as an MCP **client**.
+
+Declare remote MCP servers under an `mcpServers` key in any layered settings file (managed, user, or
+project `.robota`/`.claude` settings) — the same precedence order every other setting uses. Each
+entry names a `"type": "http"` transport and a `url`; `${VAR}`/`${VAR:-default}` references in `url`,
+`headers`, and `env` are resolved from the process environment. Every declared server is
+**deny-by-default**: a server must be explicitly approved with `/mcp approve <serverId>` before its
+tools are connected. Use `/mcp` (or `/mcp list`) to see every declared server's admission status,
+and `/mcp reject`/`/mcp revoke` to withdraw approval. Only approved servers already known at startup
+are connected. Approval is in-memory for the ordinary executable, so `/mcp approve` mid-session
+records a decision for that session but does not connect the server in the running session or
+persist it across a restart. An embedding host can preserve approval state across starts by
+supplying the same store; it remains responsible for when to reconnect approved definitions.
+
+### MCP Background Handoff
+
+A slow MCP tool call can be handed to a background task instead of blocking the turn. Configure it
+under an `mcp` key (beside `mcpServers`, in the same layered settings files):
+
+```json
+{
+  "mcp": {
+    "autoBackgroundMs": 120000,
+    "callTimeoutMs": 600000
+  }
+}
+```
+
+- `autoBackgroundMs` (default 120000 ms): a tool call still running at this point is handed to a
+  `tool-invocation` background task; `/tasks` shows it like any other background task. `0` disables
+  the handoff.
+- `callTimeoutMs` (default 600000 ms): the tool call's own budget, enforced by the MCP client in
+  every mode — including print. `autoBackgroundMs` must be less than `callTimeoutMs`, or the handoff
+  is disabled with a warning.
+- The handoff applies to the interactive TUI and `robota --serve`. In print mode (`-p`) a slow MCP call always runs to completion in the
+  foreground, bounded by `callTimeoutMs`; a positive `autoBackgroundMs` is reported as ignored there.
 
 ### CLI Updates
 

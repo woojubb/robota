@@ -183,6 +183,7 @@ async function serve(binary) {
     providers: {
       anthropic: { type: 'anthropic', model: 'claude-test-model', apiKey: 'dummy-no-request' },
     },
+    mcpServers: { probe: { type: 'http', url: 'http://127.0.0.1:9/mcp' } },
   });
   writeFileSync(join(home, '.robota', 'settings.json'), settings);
   const token = 'runtime002-test-token';
@@ -202,6 +203,10 @@ async function serve(binary) {
     } catch (error) {
       throw new Error(`${error.message}; ${stderr}`);
     }
+    assert(
+      stderr.includes('MCP server "probe" was not admitted (pending)'),
+      `MCP startup did not enforce approval: ${stderr}`,
+    );
     const good = await framesAt(`ws://127.0.0.1:${port}?token=${token}`, 8000);
     const bad = await framesAt(`ws://127.0.0.1:${port}?token=wrong`, 3000);
     assert(

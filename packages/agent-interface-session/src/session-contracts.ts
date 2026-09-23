@@ -20,6 +20,7 @@ import type {
   ISessionBackgroundGroups,
   ISessionBackgroundTasks,
   ISessionCommands,
+  ISessionRuntimeTools,
   ISessionConversationRead,
   ISessionDriverAttribution,
   ISessionEvents,
@@ -58,6 +59,7 @@ export type {
   ISessionBackgroundTasks,
   ISessionCapabilityMap,
   ISessionCommands,
+  ISessionRuntimeTools,
   ISessionConversationRead,
   ISessionDriverAttribution,
   ISessionEvents,
@@ -223,7 +225,7 @@ export interface IInteractiveSessionEvents {
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;
 
-/** Compatibility aggregate: declaration kind and all 39 required members remain source-compatible. */
+/** Aggregate session interface composed from its named capability ports. */
 export interface IInteractiveSession
   extends
     ISessionLifecycle,
@@ -236,6 +238,7 @@ export interface IInteractiveSession
     ISessionIdentity,
     ISessionWorkspaceLocation,
     ISessionCommands,
+    ISessionRuntimeTools,
     ISessionEvents,
     ISessionPromptResolution,
     ISessionBackgroundTasks,
