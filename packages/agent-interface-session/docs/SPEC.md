@@ -73,6 +73,10 @@ function-valued ports and are never serialized over a transport protocol.
 
 ### Turn identity
 
+Turn source distinguishes operator, autonomous wake, peer, and admitted external-event turns.
+It is attribution, not proof of admission; the owning runtime must perform source-specific
+authentication before an external turn is submitted.
+
 `submit()` returns a turn handle (an id plus a completion promise) rather than nothing, because a
 session runs one turn at a time and queues the rest — without a per-submission handle, two
 concurrent callers could not tell which of them a session-global completion event was about.
@@ -85,6 +89,9 @@ named reason (coalesced / dropped / cancelled) rather than leaving the caller wa
 There is deliberately no separate "shutdown" reason — a shutdown clears the queue through the same
 path as a cancel, so it reports as cancelled; a reason no code path can produce is a reason a
 consumer would write a dead branch for.
+
+An aborted turn may resolve with a partial result marked interrupted. That partial response is
+for local history, not a completed answer to an external sender.
 
 A consumer narrows a rejection with the exported predicate rather than `instanceof`, because the
 error is declared here as a shape but constructed in a package this one does not depend on. The

@@ -24,6 +24,7 @@ import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-to
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { SessionTerminalHandoffGate } from './interactive-session-terminal-handoff.js';
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
+import { ExternalEventIngress } from './external-event-ingress.js';
 import { DurableSessionLoopStore } from './session-loop-durable-store.js';
 import { extractSelfPacedLoopDecision } from './session-loop-decision-tool.js';
 import {
@@ -60,6 +61,7 @@ import {
 } from '../workspace-trust/index.js';
 
 import type { IInteractiveSession } from './i-interactive-session.js';
+import type { IExternalEventSource, IExternalEventSourceOptions } from './external-event-ingress.js';
 import type { IQueuedInput, ITurnOptions } from './interactive-session-execution-controller.js';
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
 import type {
@@ -167,6 +169,7 @@ export class InteractiveSession
     session: () => this.getSessionOrThrow(),
   });
   private shutdownPromise: Promise<void> | null = null;
+  private externalEventIngress?: ExternalEventIngress;
   private readonly sandboxClient?: ISandboxClient;
   // SELFHOST-008 P1R: the durable-memory port for this session — the surface-injected store or the neutral
   // fs default (lazily created + cached so it is ONE shared instance). Exposed to the `/memory` command
@@ -583,7 +586,24 @@ export class InteractiveSession
     rawInput?: string,
     options: ISubmitOptions = {},
   ): Promise<ITurnHandle> {
+    // This public attribution surface is not source admission. Reserve the namespace so an SDK
+    // caller cannot replace an authenticated external sender's pending queue entry by id collision.
+    if (options.turnSource === 'external' || options.driverId?.startsWith('external:')) {
+      throw new Error('external event turns must use an explicitly opened external source');
+    }
     return this.submitNewTurn(input, displayInput, rawInput, publicTurnOptions(options));
+  }
+
+  /** Explicit host opt-in for one authenticated external source; MCP configuration alone cannot enable it. */
+  async openExternalEventSource(options: IExternalEventSourceOptions): Promise<IExternalEventSource> {
+    await this.ensureInitialized();
+    if (this.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
+    this.externalEventIngress ??= new ExternalEventIngress({
+      getPermissionMode: () => this.getSessionOrThrow().getPermissionMode(),
+      addPermissionModeGuard: (guard) => this.getSessionOrThrow().addPermissionModeGuard(guard),
+      submit: (input, turnOptions) => this.submitNewTurn(input, undefined, undefined, turnOptions),
+    });
+    return this.externalEventIngress.open(options);
   }
   private async submitNewTurn(
     input: string,
@@ -1145,6 +1165,7 @@ export class InteractiveSession
   shutdown(options: IInteractiveSessionShutdownOptions = {}): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
     this.execCtrl.shuttingDown = true;
+    this.externalEventIngress?.closeAll();
     for (const timer of this.sessionLoopExpiryTimers.values()) clearTimeout(timer);
     this.sessionLoopExpiryTimers.clear();
     this.shutdownPromise = (async () => {

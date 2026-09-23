@@ -278,6 +278,7 @@ export class SessionExecutionController {
       }
       await executePromptTurn(input, displayInput, rawInput, {
         providerErrorGuidance: this.callbacks.providerErrorGuidance,
+        turnSource: turnOptions.turnSource,
         ...promptTurnAttribution(ephemeralSystemContext, turnOptions.driverId),
         ...(turnOptions.signal ? { signal: turnOptions.signal } : {}),
         getSession: () => this.callbacks.getSessionOrThrow(),
