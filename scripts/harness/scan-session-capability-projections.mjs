@@ -183,8 +183,9 @@ function check(
       continue;
     }
     const requiredRef = expected?.ref ?? (sourceRoot ? `${sourceRoot}.${name}` : undefined);
-    if (expected?.exact && !projection.expressions.get(target)?.includes(expected.exact)) {
-      findings.push(`${label} ${suffix}: expected exact value ${expected.exact}`);
+    const exactValue = expected?.exact ?? requiredRef;
+    if (exactValue && !projection.expressions.get(target)?.includes(exactValue)) {
+      findings.push(`${label} ${suffix}: expected exact value ${exactValue}`);
     } else if (requiredRef && !refs.has(requiredRef)) {
       findings.push(
         `${label} ${suffix}: expected ${requiredRef}, found ${[...refs].join(', ') || 'no source reference'}`,
@@ -219,6 +220,22 @@ function printParameterNames(source) {
     (node) => ts.isFunctionDeclaration(node) && node.name?.text === 'runPrintMode',
   );
   return fn?.parameters.map((parameter) => parameter.name?.text).filter(Boolean) ?? [];
+}
+
+function callArguments(source, file, name) {
+  const ast = ts.createSourceFile(file, source);
+  let result;
+  const visit = (node) => {
+    if (result) return;
+    if (ts.isCallExpression(node) && node.expression.getText(ast) === name) {
+      result = node.arguments.map((argument) => argument.getText(ast));
+      return;
+    }
+    node.forEachChild(visit);
+  };
+  visit(ast);
+  if (!result) throw new Error(`${file}: ${name} call is missing`);
+  return result;
 }
 
 function presetFieldsRemovedFromRest(source) {
@@ -363,6 +380,28 @@ export function findSessionCapabilityProjectionFindings(sources) {
     SOURCE_FILES.cli,
     (node, ast) => ts.isCallExpression(node) && node.expression.getText(ast) === 'renderApp',
   );
+  const cliServeProjection = objectFor(
+    sources[SOURCE_FILES.cli],
+    SOURCE_FILES.cli,
+    (node, ast) => ts.isCallExpression(node) && node.expression.getText(ast) === 'runServeMode',
+  );
+  const printPolicyIndex = printParameterNames(sources[SOURCE_FILES.print]).indexOf('orgPolicy');
+  const cliPrintArguments = callArguments(
+    sources[SOURCE_FILES.cli],
+    SOURCE_FILES.cli,
+    'runPrintMode',
+  );
+  if (printPolicyIndex < 0 || cliPrintArguments[printPolicyIndex] !== 'orgPolicy') {
+    findings.push('CLI→print/goal orgPolicy: resolved policy argument is missing');
+  }
+  for (const [label, projection] of [
+    ['CLI→serve', cliServeProjection],
+    ['CLI→TUI', cliRenderProjection],
+  ]) {
+    if (!projection.expressions.get('orgPolicy')?.includes('orgPolicy')) {
+      findings.push(`${label} orgPolicy: resolved policy value is missing`);
+    }
+  }
   const toSessionProjection = objectFor(
     sources[SOURCE_FILES.presetSurface],
     SOURCE_FILES.presetSurface,
@@ -477,12 +516,19 @@ export function findSessionCapabilityProjectionFindings(sources) {
   check('headless→session', headless, headlessProjection, findings, {
     sourceRoot: 'this.opts',
     destinationFields: session,
-    special: { shellExec: { ref: 'shellExec', exact: 'shellExec' } },
+    special: {
+      shellExec: { ref: 'shellExec', exact: 'shellExec' },
+      permissionMode: { exact: "this.opts.permissionMode ?? 'bypassPermissions'" },
+      bare: { exact: 'this.opts.bare || undefined' },
+    },
   });
   check('serve→session', serve, serveProjection, findings, {
     sourceRoot: 'opts',
     destinationFields: session,
-    special: { memorySessionOptions: { spread: /^opts\.memorySessionOptions$/ } },
+    special: {
+      memorySessionOptions: { spread: /^opts\.memorySessionOptions$/ },
+      sessionStore: { exact: 'args.noSessionPersistence ? undefined : opts.sessionStore' },
+    },
   });
   // `preset` is an intermediate carrier, not a session option of its own. Its declared session
   // group crosses this edge through one helper call; removing that call must be visible here.

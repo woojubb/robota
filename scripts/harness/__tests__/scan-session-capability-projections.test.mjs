@@ -269,6 +269,26 @@ describe('session capability projections', () => {
     );
   });
 
+  it.each([
+    ['print/goal', '      orgPolicy,\n    );', '    );'],
+    ['serve', '      orgPolicy,\n      backgroundTaskRunners,', '      backgroundTaskRunners,'],
+    ['TUI', '    orgPolicy,\n    providerOverride:', '    providerOverride:'],
+  ])('rejects loss of the CLI orgPolicy entry edge for %s', (_mode, before, after) => {
+    const findings = findingsWithMutation(SOURCE_FILES.cli, before, after);
+    expect(findings).toEqual(expect.arrayContaining([expect.stringContaining('orgPolicy')]));
+  });
+
+  it('rejects a mapping that only conditionally forwards the declared source value', () => {
+    const findings = findingsWithMutation(
+      SOURCE_FILES.headless,
+      '{ orgPolicy: this.opts.orgPolicy }',
+      '{ orgPolicy: this.opts.projectAccess ? this.opts.orgPolicy : undefined }',
+    );
+    expect(findings).toEqual(
+      expect.arrayContaining([expect.stringContaining('headless→session orgPolicy')]),
+    );
+  });
+
   it('rejects a preset field removed from the same-name render spread', () => {
     const file = SOURCE_FILES.presetSurface;
     const mutated = source[file].replace(
