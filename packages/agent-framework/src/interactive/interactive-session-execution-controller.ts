@@ -41,7 +41,8 @@ import type { ICommand, ICommandResult, ISkillExecutionResult } from '../command
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
-import type { TToolArgs } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, TToolArgs } from '@robota-sdk/agent-core';
+import type { IProviderCallTraceEntry } from '@robota-sdk/agent-interface-analytics';
 import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-session';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 
@@ -258,6 +259,7 @@ export class SessionExecutionController {
           spanId: string;
         }
       | undefined;
+    const providerCallEntries: IHistoryEntry<IProviderCallTraceEntry>[] = [];
     const closePromptRoot = (outcome: 'success' | 'failure' | 'interrupted'): void => {
       if (!promptRoot || promptRoot.endedAt) return;
       promptRoot.endedAt = new Date(Math.max(Date.now(), promptRoot.startedAtMs)).toISOString();
@@ -332,6 +334,24 @@ export class SessionExecutionController {
           terminalResult = result;
           turnOutcome = 'success';
         },
+        onProviderCallCompleted: (observation) => {
+          if (!promptRoot) return;
+          providerCallEntries.push({
+            id: `provider_call_trace_${randomOtelId(8)}`,
+            timestamp: new Date(),
+            category: 'event',
+            type: 'provider-call-trace',
+            data: {
+              traceId: promptRoot.traceId,
+              parentSpanId: promptRoot.spanId,
+              spanId: randomOtelId(8),
+              startedAt: observation.startedAt,
+              endedAt: observation.endedAt,
+              outcome: observation.outcome,
+              round: observation.round,
+            },
+          });
+        },
         onInterrupted: (result: IExecutionResult) => {
           closePromptRoot('interrupted');
           // RUNTIME-003: an interrupted turn RAN — resolve, do not reject.
@@ -369,6 +389,7 @@ export class SessionExecutionController {
         record: (event) => this.histTracker.recordMemoryEvent(event),
         onError: (error) => this.callbacks.emit('error', error),
       });
+      for (const entry of providerCallEntries) this.histTracker.getHistory().push(entry);
       recordUsageObservation(this.histTracker.getHistory(), this.callbacks.getSessionOrThrow(), {
         turnId,
         outcome: turnOutcome,

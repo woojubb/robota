@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { EventHistoryModule, PROVIDER_CALL_EVENTS } from '@robota-sdk/agent-core';
 import type { IAIProvider, IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
 import { Session } from '../session.js';
 
@@ -55,6 +56,41 @@ function createSession(provider: IAIProvider, onTextDelta: (delta: string) => vo
 }
 
 describe('Session provider callback isolation', () => {
+  it('publishes one content-free provider lifecycle through the real session event bus', async () => {
+    const provider = createSharedProvider();
+    const session = createSession(provider, () => {});
+    const observations: Record<string, unknown>[] = [];
+    const append = vi.fn();
+    const history = new EventHistoryModule(
+      { append, read: () => [] } as never,
+      session.getEventService(),
+    );
+    session.getEventService().subscribe((event, data) => {
+      if (event === PROVIDER_CALL_EVENTS.COMPLETED) observations.push(data);
+    });
+
+    try {
+      await expect(session.run('private prompt')).resolves.toEqual(expect.any(String));
+    } finally {
+      history.detach(session.getEventService());
+    }
+
+    expect(observations).toHaveLength(1);
+    expect(observations[0]).toMatchObject({ round: 1, outcome: 'success' });
+    expect(new Date(observations[0]!['startedAt'] as string).getTime()).toBeLessThanOrEqual(
+      new Date(observations[0]!['endedAt'] as string).getTime(),
+    );
+    expect(JSON.stringify(observations)).not.toMatch(/private prompt|final text|streamed text/);
+    expect(append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventName: PROVIDER_CALL_EVENTS.COMPLETED,
+        context: expect.objectContaining({
+          ownerPath: [expect.objectContaining({ type: 'session' })],
+        }),
+      }),
+    );
+  });
+
   it('keeps onTextDelta isolated when sessions share a provider instance', async () => {
     const provider = createSharedProvider();
     const parentDeltas: string[] = [];

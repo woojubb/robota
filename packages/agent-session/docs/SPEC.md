@@ -115,6 +115,9 @@ round trip — a local round trip must be lossless.
   new one.
 - A provided idle-timeout value is enforced per provider call and its timer refreshes on
   streaming text deltas.
+- The provider-round completion observation is forwarded to the session's existing event bus with
+  only time, round, and outcome, under an explicit session owner path. It is scoped to the active run; content-bearing execution events
+  do not cross this observability path, and the public `run()` call shape is unchanged.
 - An omitted turn/round cap means the session run has no core round cap and is instead bounded by
   abort, context-window checks, provider idle timeout, and runtime-level controls.
 - The context-update callback fires twice per turn: once before the provider call (estimated,

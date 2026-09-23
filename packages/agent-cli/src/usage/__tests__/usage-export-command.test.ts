@@ -96,6 +96,50 @@ describe('explicit OTLP usage snapshot export', () => {
     expect(result.stdout).toMatch(/1 prompt root trace/);
   });
 
+  it('sends a recorded provider child with its verified parent and reports child coverage', async () => {
+    const session = record();
+    session.history!.push({
+      id: 'provider-child',
+      timestamp: new Date('2026-09-24T00:00:59.900Z'),
+      category: 'event',
+      type: 'provider-call-trace',
+      data: {
+        traceId: '1234567890abcdef1234567890abcdef',
+        parentSpanId: '1234567890abcdef',
+        spanId: 'abcdef1234567890',
+        startedAt: '2026-09-24T00:00:59.100Z',
+        endedAt: '2026-09-24T00:00:59.900Z',
+        outcome: 'success',
+        round: 1,
+        content: 'secret result',
+      },
+    });
+    const fetcher = vi.fn(
+      async (_input: Parameters<typeof fetch>[0], _init?: RequestInit) =>
+        new Response('{}', {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    );
+
+    const result = await executeUsageExportCommand(
+      ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
+      {
+        userSessionStore: {
+          ...store(),
+          list: () => [{ id: session.id, outcome: { status: 'valid', record: session } }],
+        },
+        fetcher,
+      },
+    );
+
+    expect(result.exitCode).toBe(0);
+    const body = JSON.stringify(JSON.parse(fetcher.mock.calls[0]![1]?.body as string));
+    expect(body).toContain('"parentSpanId":"1234567890abcdef"');
+    expect(body).not.toContain('secret result');
+    expect(result.stdout).toMatch(/1 provider child span/);
+  });
+
   it('refuses trace export without any valid root before contacting the collector', async () => {
     const old = record();
     const data = old.history![0]!.data as Record<string, unknown>;

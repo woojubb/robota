@@ -30,7 +30,7 @@ import type { IPromptFileReferenceRecord } from '../context/prompt-file-referenc
 import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { Session } from '@robota-sdk/agent-session';
+import type { IProviderCallTraceObservation, Session } from '@robota-sdk/agent-session';
 import type { TTurnSource } from '@robota-sdk/agent-interface-session';
 
 /**
@@ -80,6 +80,7 @@ export interface IPromptTurnContext {
   /** Accumulated streamed text of the in-flight turn (ERR-001: preserved on error). */
   getStreamingText: () => string;
   onComplete: (result: IExecutionResult) => void;
+  onProviderCallCompleted?: (observation: IProviderCallTraceObservation) => void;
   onInterrupted: (result: IExecutionResult) => void;
   onError: (err: Error) => void;
   onContextUpdate: () => void;
@@ -205,6 +206,9 @@ export async function executePromptTurn(
       ctx.onError(errObj);
     }
   } finally {
+    for (const observation of spanCollector.providerCalls) {
+      ctx.onProviderCallCompleted?.(observation);
+    }
     // SELFHOST-004: always unsubscribe the span collector so a completed turn leaves no listener.
     spanCollector.dispose();
   }

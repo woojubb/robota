@@ -264,7 +264,7 @@ export {
 } from './event-service/event-service';
 export { TASK_EVENTS, TASK_EVENT_PREFIX } from './event-service/task-events';
 export { USER_EVENTS, USER_EVENT_PREFIX, type TUserEvent } from './event-service/user-events';
-export { SPAN_EVENTS, SPAN_EVENT_PREFIX } from './event-service/span-events';
+export { PROVIDER_CALL_EVENTS, SPAN_EVENTS, SPAN_EVENT_PREFIX } from './event-service/span-events';
 export type { TSpanEvent, ISpanCompletionEventData } from './event-service/span-events';
 export { generateSpanId } from './event-service/event-service';
 

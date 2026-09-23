@@ -12,21 +12,24 @@ const ROOT_FIELDS = [
 ] as const;
 
 interface ICandidate {
+  readonly record: IInteractiveSessionRecord;
   readonly data: unknown;
   readonly observationKey?: string;
   readonly traceId?: string;
 }
 
-interface IRootSpan {
+interface IOtlpSpan {
   readonly traceId: string;
   readonly spanId: string;
-  readonly name: 'robota.prompt_execution';
+  readonly parentSpanId?: string;
+  readonly name: 'robota.prompt_execution' | 'robota.provider_call';
   readonly kind: 1;
   readonly startTimeUnixNano: string;
   readonly endTimeUnixNano: string;
-  readonly attributes: readonly [
-    { readonly key: 'robota.prompt.outcome'; readonly value: { readonly stringValue: string } },
-  ];
+  readonly attributes: readonly {
+    readonly key: string;
+    readonly value: { readonly stringValue: string };
+  }[];
   readonly status: { readonly code: number };
 }
 
@@ -40,7 +43,7 @@ export interface IOtlpPromptRootTraces {
     };
     readonly scopeSpans: readonly {
       readonly scope: { readonly name: string };
-      readonly spans: readonly IRootSpan[];
+      readonly spans: readonly IOtlpSpan[];
     }[];
   }[];
 }
@@ -50,6 +53,12 @@ export interface IPromptRootTraceCoverage {
   readonly missing: number;
   readonly invalid: number;
   readonly duplicate: number;
+  readonly providerChildren: {
+    readonly exported: number;
+    readonly invalid: number;
+    readonly orphaned: number;
+    readonly duplicate: number;
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -68,7 +77,7 @@ function otlpUnixNano(value: unknown): bigint | undefined {
   return nanos >= 0n && nanos <= MAX_UINT64 ? nanos : undefined;
 }
 
-function rootSpan(data: Record<string, unknown>): IRootSpan | undefined {
+function rootSpan(data: Record<string, unknown>): IOtlpSpan | undefined {
   const started = otlpUnixNano(data['promptExecutionStartedAt']);
   const ended = otlpUnixNano(data['promptExecutionEndedAt']);
   const outcome = data['promptExecutionOutcome'];
@@ -104,6 +113,55 @@ function rootSpan(data: Record<string, unknown>): IRootSpan | undefined {
   };
 }
 
+function providerSpan(data: unknown): IOtlpSpan | undefined {
+  if (!isRecord(data)) return undefined;
+  const traceId = data['traceId'];
+  const parentSpanId = data['parentSpanId'];
+  const spanId = data['spanId'];
+  const started = otlpUnixNano(data['startedAt']);
+  const ended = otlpUnixNano(data['endedAt']);
+  const outcome = data['outcome'];
+  if (
+    typeof traceId !== 'string' ||
+    !TRACE_ID.test(traceId) ||
+    typeof parentSpanId !== 'string' ||
+    !SPAN_ID.test(parentSpanId) ||
+    typeof spanId !== 'string' ||
+    !SPAN_ID.test(spanId) ||
+    started === undefined ||
+    ended === undefined ||
+    started > ended ||
+    (outcome !== 'success' && outcome !== 'failure' && outcome !== 'interrupted') ||
+    !Number.isSafeInteger(data['round']) ||
+    (data['round'] as number) < 1
+  ) {
+    return undefined;
+  }
+  return {
+    traceId,
+    parentSpanId,
+    spanId,
+    name: 'robota.provider_call',
+    kind: 1,
+    startTimeUnixNano: String(started),
+    endTimeUnixNano: String(ended),
+    attributes: [{ key: 'robota.provider.outcome', value: { stringValue: outcome } }],
+    status: { code: outcome === 'success' ? 1 : outcome === 'failure' ? 2 : 0 },
+  };
+}
+
+function providerIdentity(data: unknown): string | undefined {
+  if (!isRecord(data)) return undefined;
+  const traceId = data['traceId'];
+  const spanId = data['spanId'];
+  return typeof traceId === 'string' &&
+    TRACE_ID.test(traceId) &&
+    typeof spanId === 'string' &&
+    SPAN_ID.test(spanId)
+    ? `${traceId}:${spanId}`
+    : undefined;
+}
+
 /** Project only proven canonical prompt roots; never infer spans from legacy usage or tool events. */
 export function createOtlpPromptRootTraces(
   records: readonly IInteractiveSessionRecord[],
@@ -126,11 +184,12 @@ export function createOtlpPromptRootTraces(
         typeof traceId === 'string' && TRACE_ID.test(traceId) ? traceId : undefined;
       if (observationKey) count(observationCounts, observationKey);
       if (validTraceId) count(traceCounts, validTraceId);
-      candidates.push({ data, observationKey, traceId: validTraceId });
+      candidates.push({ record, data, observationKey, traceId: validTraceId });
     }
   }
 
-  const spans: IRootSpan[] = [];
+  const spans: IOtlpSpan[] = [];
+  const rootsByRecord = new Map<IInteractiveSessionRecord, Map<string, IOtlpSpan>>();
   let missing = 0;
   let invalid = 0;
   let duplicate = 0;
@@ -157,6 +216,54 @@ export function createOtlpPromptRootTraces(
       continue;
     }
     spans.push(span);
+    const recordRoots = rootsByRecord.get(candidate.record) ?? new Map<string, IOtlpSpan>();
+    recordRoots.set(span.traceId, span);
+    rootsByRecord.set(candidate.record, recordRoots);
+  }
+
+  const children: {
+    readonly record: IInteractiveSessionRecord;
+    readonly span: IOtlpSpan | undefined;
+    readonly identity: string | undefined;
+  }[] = [];
+  const childCounts = new Map<string, number>();
+  for (const record of records) {
+    for (const entry of record.history ?? []) {
+      if (entry.type !== 'provider-call-trace') continue;
+      const identity = providerIdentity(entry.data);
+      const span = providerSpan(entry.data);
+      if (identity) count(childCounts, identity);
+      children.push({ record, span, identity });
+    }
+  }
+  let childExported = 0;
+  let childInvalid = 0;
+  let childOrphaned = 0;
+  let childDuplicate = 0;
+  for (const child of children) {
+    const { span } = child;
+    if (child.identity && (childCounts.get(child.identity) ?? 0) > 1) {
+      childDuplicate += 1;
+      continue;
+    }
+    if (!span) {
+      childInvalid += 1;
+      continue;
+    }
+    const root = rootsByRecord.get(child.record)?.get(span.traceId);
+    if (!root || span.parentSpanId !== root.spanId || span.spanId === root.spanId) {
+      childOrphaned += 1;
+      continue;
+    }
+    if (
+      BigInt(span.startTimeUnixNano) < BigInt(root.startTimeUnixNano) ||
+      BigInt(span.endTimeUnixNano) > BigInt(root.endTimeUnixNano)
+    ) {
+      childInvalid += 1;
+      continue;
+    }
+    spans.push(span);
+    childExported += 1;
   }
 
   return {
@@ -175,6 +282,17 @@ export function createOtlpPromptRootTraces(
           ]
         : [],
     },
-    coverage: { exported: spans.length, missing, invalid, duplicate },
+    coverage: {
+      exported: spans.length - childExported,
+      missing,
+      invalid,
+      duplicate,
+      providerChildren: {
+        exported: childExported,
+        invalid: childInvalid,
+        orphaned: childOrphaned,
+        duplicate: childDuplicate,
+      },
+    },
   };
 }

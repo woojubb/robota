@@ -97,6 +97,38 @@ function createContext(
 }
 
 describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
+  it('forwards only content-free provider completion fields to the session event owner', async () => {
+    const { agent, run } = createFakeRobota(0);
+    run.mockImplementation(
+      async (
+        _message: string,
+        options?: { onExecutionEvent?: (event: string, data: Record<string, unknown>) => void },
+      ) => {
+        options?.onExecutionEvent?.('provider_call_completed', {
+          round: 2,
+          startedAt: '2026-09-24T00:00:59.100Z',
+          endedAt: '2026-09-24T00:00:59.900Z',
+          outcome: 'failure',
+          messages: ['private prompt'],
+          response: 'private response',
+        });
+        return 'done';
+      },
+    );
+    const ctx = createContext(agent, () => {});
+    const emit = vi.fn();
+    ctx.emitProviderCallCompleted = emit;
+
+    await executeRun('hello', undefined, ctx, new AbortController().signal);
+
+    expect(emit).toHaveBeenCalledExactlyOnceWith({
+      round: 2,
+      startedAt: '2026-09-24T00:00:59.100Z',
+      endedAt: '2026-09-24T00:00:59.900Z',
+      outcome: 'failure',
+    });
+  });
+
   it('TC-01: emits a context update per round, not only at start and end', async () => {
     const updates: IContextWindowState[] = [];
     const { agent } = createFakeRobota(2);

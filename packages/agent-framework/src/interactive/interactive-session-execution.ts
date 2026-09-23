@@ -11,6 +11,7 @@ import {
   calculateModelCost,
   isAbortFailure,
   SPAN_EVENTS,
+  PROVIDER_CALL_EVENTS,
 } from '@robota-sdk/agent-core';
 
 import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
@@ -23,6 +24,7 @@ import type {
   TEventListener,
 } from '@robota-sdk/agent-core';
 import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface-analytics';
+import type { IProviderCallTraceObservation } from '@robota-sdk/agent-session';
 
 export { createUsageObservationEntry } from './interactive-session-usage-observation.js';
 
@@ -168,6 +170,7 @@ export function createSpanEntry(event: ISpanCompletionEventData): IHistoryEntry<
 export interface ISpanCollector {
   /** The span entries observed since subscription, in emit order. */
   readonly entries: IHistoryEntry<ISpanEntry>[];
+  readonly providerCalls: IProviderCallTraceObservation[];
   /** Unsubscribe from the bus (idempotent). */
   dispose(): void;
 }
@@ -181,13 +184,35 @@ export interface ISpanCollector {
  */
 export function collectSpanEntries(eventService: IEventService): ISpanCollector {
   const entries: IHistoryEntry<ISpanEntry>[] = [];
+  const providerCalls: IProviderCallTraceObservation[] = [];
   const listener: TEventListener = (eventType, data) => {
+    if (eventType === PROVIDER_CALL_EVENTS.COMPLETED) {
+      if (
+        typeof data['round'] === 'number' &&
+        Number.isSafeInteger(data['round']) &&
+        data['round'] > 0 &&
+        typeof data['startedAt'] === 'string' &&
+        typeof data['endedAt'] === 'string' &&
+        (data['outcome'] === 'success' ||
+          data['outcome'] === 'failure' ||
+          data['outcome'] === 'interrupted')
+      ) {
+        providerCalls.push({
+          round: data['round'],
+          startedAt: data['startedAt'],
+          endedAt: data['endedAt'],
+          outcome: data['outcome'],
+        });
+      }
+      return;
+    }
     if (eventType !== SPAN_EVENTS.COMPLETED) return;
     entries.push(createSpanEntry(data as ISpanCompletionEventData));
   };
   eventService.subscribe(listener);
   return {
     entries,
+    providerCalls,
     dispose: () => eventService.unsubscribe(listener),
   };
 }

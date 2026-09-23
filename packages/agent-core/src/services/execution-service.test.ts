@@ -4,6 +4,7 @@ import { ConversationHistory, ConversationStore } from '../managers/conversation
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
+import { PROVIDER_CALL_EVENTS } from '../event-service/span-events';
 import type { IAssistantMessage, IToolMessage, TUniversalMessage } from '../interfaces/messages';
 import type { IAgentConfig } from '../interfaces/agent';
 import type { IChatOptions } from '../interfaces/provider';
@@ -768,13 +769,22 @@ describe('ExecutionService', () => {
       });
       mockProvider.chat = chatSpy;
 
+      const providerCompletions: Record<string, unknown>[] = [];
       const result = await executionService.execute('Record the decision', [], config, {
         conversationId: 'test-agent',
         maxExecutionRounds: 1,
+        onExecutionEvent: (event, data) => {
+          if (event === PROVIDER_CALL_EVENTS.COMPLETED) providerCompletions.push(data);
+        },
       });
 
       expect(result.success).toBe(true);
       expect(chatSpy).toHaveBeenCalledTimes(2);
+      expect(providerCompletions).toHaveLength(2);
+      expect(providerCompletions.map((completion) => completion['outcome'])).toEqual([
+        'success',
+        'success',
+      ]);
     });
 
     it('carries the run cancellation and the effort dial into the forced summary call (CORE-042)', async () => {
