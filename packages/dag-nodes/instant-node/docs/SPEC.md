@@ -93,7 +93,7 @@ Consumers no longer hand-roll deserialization; they parse + rehydrate through th
 
 Every composite invocation passes an `IDagExecutionLineage` to its injected
 `ICompositeSubRunner.run(dag, input, lineage)`. The lineage names the root run, the immediate
-parent run, the child DAG depth, and the ordered ancestor composite node types. The in-process
+parent run, the child DAG depth, the tightest inherited depth ceiling, and the ordered ancestor composite node types. The in-process
 CLI and workflow runners must forward it into every child node's execution context; a new child
 run cannot reset the depth by constructing a fresh runner.
 
@@ -103,6 +103,8 @@ type or any ancestor composite node type. It also rejects a child launch beyond 
 This is a runtime guard, not a constructor-time guess. Direct and indirect recursion fail
 before launching the next child run. Budget and cancellation propagation remain separate
 unfinished parts of issue #2163.
+If a child fails, its terminal error code is preserved and is not converted to a retryable
+generic composite failure.
 
 ## Provider Registry (DATA-003)
 

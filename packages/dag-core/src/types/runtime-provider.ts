@@ -67,6 +67,8 @@ export interface IDagRuntimeResult {
   outputs: Record<string, unknown>;
   durationMs: number;
   error?: string;
+  /** Code of a terminal failed task, when the in-process provider retains it. */
+  errorCode?: string;
 }
 
 /** Lifecycle phase of an asynchronously tracked run. */

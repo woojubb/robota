@@ -235,6 +235,7 @@ export interface ICompositeSubRunner {
     ok: boolean;
     outputs: Record<string, TPortPayload>;
     error?: string;
+    errorCode?: string;
   }>;
 }
 
@@ -375,7 +376,10 @@ export class CompositeInstantNodeDefinition
     };
 
     const currentDepth = context.lineage?.depth ?? 0;
-    const maxDepth = this.spec.maxDepth ?? MAX_COMPOSITE_DEPTH;
+    const maxDepth = Math.min(
+      this.spec.maxDepth ?? MAX_COMPOSITE_DEPTH,
+      context.lineage?.maxDepth ?? MAX_COMPOSITE_DEPTH,
+    );
     if (currentDepth >= maxDepth) {
       return {
         ok: false,
@@ -406,6 +410,7 @@ export class CompositeInstantNodeDefinition
       rootRunId: context.lineage?.rootRunId ?? context.dagRunId,
       parentRunId: context.dagRunId,
       depth: currentDepth + 1,
+      maxDepth,
       ancestorCompositeNodeTypes: Object.freeze([...ancestors, this.nodeType]),
     });
 
@@ -416,9 +421,9 @@ export class CompositeInstantNodeDefinition
         return {
           ok: false,
           error: buildTaskExecutionError(
-            'DAG_TASK_EXECUTION_COMPOSITE_FAILED',
+            result.errorCode ?? 'DAG_TASK_EXECUTION_COMPOSITE_FAILED',
             result.error ?? 'Composite sub-DAG execution failed',
-            true,
+            result.errorCode === undefined,
             { nodeType: this.nodeType },
           ),
         };

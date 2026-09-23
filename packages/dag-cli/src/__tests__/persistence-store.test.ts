@@ -178,4 +178,81 @@ describe('BEHAVIOR-006 composite node reload through the local CLI store', () =>
     expect(result.ok).toBe(true);
     expect(observed).toEqual([lineage]);
   });
+
+  it('preserves an ancestor depth failure and its non-retryable code across a real child run', async () => {
+    const inputDag: IDagDefinition = {
+      dagId: 'inner-input',
+      version: 1,
+      status: 'draft',
+      nodes: [{ nodeId: 'input', nodeType: 'input', dependsOn: [], config: { text: 'x' } }],
+      edges: [],
+    };
+    const child = createCompositeInstantNodeDefinition({
+      nodeType: 'child',
+      displayName: 'Child',
+      innerDag: inputDag,
+      exposedInputPort: { key: 'text', mapsTo: { nodeId: 'input', portKey: 'text' } },
+      exposedOutputPorts: [{ key: 'result', mapsTo: { nodeId: 'input', portKey: 'text' } }],
+      runner: {
+        run: async () => {
+          throw new Error('creation-time runner');
+        },
+      },
+    });
+    const childDag: IDagDefinition = {
+      dagId: 'inner-child',
+      version: 1,
+      status: 'draft',
+      nodes: [
+        { nodeId: 'source', nodeType: 'input', dependsOn: [], config: { text: 'x' } },
+        { nodeId: 'child-node', nodeType: 'child', dependsOn: ['source'], config: {} },
+      ],
+      edges: [
+        { from: 'source', to: 'child-node', bindings: [{ outputKey: 'text', inputKey: 'text' }] },
+      ],
+    };
+    const outer = createCompositeInstantNodeDefinition({
+      nodeType: 'outer',
+      displayName: 'Outer',
+      innerDag: childDag,
+      maxDepth: 1,
+      exposedInputPort: { key: 'text', mapsTo: { nodeId: 'source', portKey: 'text' } },
+      exposedOutputPorts: [{ key: 'result', mapsTo: { nodeId: 'child-node', portKey: 'result' } }],
+      runner: {
+        run: async () => {
+          throw new Error('creation-time runner');
+        },
+      },
+    });
+    await saveNode(child, projectDir);
+    await saveNode(outer, projectDir);
+    const reloaded: IDagNodeDefinition[] = [];
+    await loadNodes(projectDir, reloaded);
+    const node = reloaded.find((definition) => definition.nodeType === 'outer');
+    expect(node).toBeDefined();
+    const result = await node!.taskHandler.execute(
+      { text: 'x' },
+      {
+        executionRoot: projectDir,
+        dagId: 'root',
+        dagRunId: 'root-run',
+        taskRunId: 'root-task',
+        nodeDefinition: { nodeId: 'outer-node', nodeType: 'outer', dependsOn: [], config: {} },
+        nodeManifest: {
+          nodeType: node!.nodeType,
+          displayName: node!.displayName,
+          category: node!.category,
+          inputs: node!.inputs,
+          outputs: node!.outputs,
+        },
+        attempt: 0,
+        executionPath: [],
+        currentTotalCredits: 0,
+      },
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_COMPOSITE_DEPTH_EXCEEDED', retryable: false },
+    });
+  });
 });

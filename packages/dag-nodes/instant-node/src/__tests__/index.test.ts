@@ -320,7 +320,28 @@ describe('composite nested-run lineage', () => {
       rootRunId: 'test-run',
       parentRunId: 'test-run',
       depth: 1,
+      maxDepth: 3,
       ancestorCompositeNodeTypes: ['bounded'],
     });
+  });
+
+  it('keeps the tightest ancestor depth ceiling', async () => {
+    const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
+    const node = composite('child', ['input'], runner);
+    const result = await node.taskHandler.execute(
+      { text: 'x' },
+      context('child', {
+        rootRunId: 'root',
+        parentRunId: 'parent',
+        depth: 1,
+        maxDepth: 1,
+        ancestorCompositeNodeTypes: ['outer'],
+      }),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_COMPOSITE_DEPTH_EXCEEDED', retryable: false },
+    });
+    expect(runner).not.toHaveBeenCalled();
   });
 });

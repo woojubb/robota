@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
+import { DEFAULT_WORKSPACE_LAYOUT, buildTaskExecutionError } from '@robota-sdk/dag-core';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { LocalDagRuntimeProvider } from '../local-dag-runtime-provider.js';
@@ -96,6 +96,42 @@ function definitionWithStringIds(): IDagDefinition {
 }
 
 describe('the execution contract carries the domain model (DAG-002)', () => {
+  it('retains a terminal child task error code for composite callers', async () => {
+    const root = projectDir();
+    const failureNode: IDagNodeDefinition = {
+      nodeType: 'test/failure',
+      displayName: 'Failure',
+      category: 'test',
+      inputs: [],
+      outputs: [],
+      configSchemaDefinition: null,
+      taskHandler: {
+        execute: async () => ({
+          ok: false,
+          error: buildTaskExecutionError('DAG_TASK_EXECUTION_COMPOSITE_RECURSION', 'cycle', false),
+        }),
+      },
+    };
+    const provider = new LocalDagRuntimeProvider({
+      executionRoot: root,
+      instantNodes: [failureNode],
+    });
+    const result = await provider.execute(
+      {
+        dagId: 'failed-child',
+        version: 1,
+        status: 'draft',
+        nodes: [{ nodeId: 'failure', nodeType: 'test/failure', dependsOn: [], config: {} }],
+        edges: [],
+      },
+      {},
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      errorCode: 'DAG_TASK_EXECUTION_COMPOSITE_RECURSION',
+    });
+  });
+
   it('forwards inherited nested-run lineage to every node in the child DAG', async () => {
     const root = projectDir();
     const lineage: IDagExecutionLineage = {

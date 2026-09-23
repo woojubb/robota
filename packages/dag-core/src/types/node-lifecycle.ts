@@ -15,6 +15,8 @@ export interface IDagExecutionLineage {
   readonly parentRunId?: string;
   /** Number of child-DAG boundaries crossed since the root run. */
   readonly depth: number;
+  /** Effective root-to-child depth ceiling inherited from all enclosing composites. */
+  readonly maxDepth?: number;
   readonly ancestorCompositeNodeTypes: readonly string[];
 }
 

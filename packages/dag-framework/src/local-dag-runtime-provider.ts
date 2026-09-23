@@ -112,6 +112,9 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
       const outputs = collectOutputsFromTaskRuns(result.taskRuns);
       const ok = result.dagRun.status === 'success';
       const errorMessage = ok ? undefined : extractRunError(result.taskRuns);
+      const failedTask = ok
+        ? undefined
+        : result.taskRuns.findLast((task) => task.status === 'failed');
 
       options?.onProgress?.({
         type: 'dag_complete',
@@ -126,6 +129,7 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         outputs,
         durationMs,
         ...(ok ? {} : { error: errorMessage ?? 'DAG run did not succeed' }),
+        ...(failedTask?.errorCode ? { errorCode: failedTask.errorCode } : {}),
       };
     } catch (err) {
       // allow-fallback: provider contract returns a structured IDagRuntimeResult — surfacing errors as ok=false is the documented behaviour

@@ -84,7 +84,13 @@ export function buildCompositeRunner(
             }
           }
         }
-        return { ok: subResult.dagRun.status === 'success', outputs };
+        const failedTask = subResult.taskRuns.findLast((task) => task.status === 'failed');
+        return {
+          ok: subResult.dagRun.status === 'success',
+          outputs,
+          ...(failedTask?.errorMessage ? { error: failedTask.errorMessage } : {}),
+          ...(failedTask?.errorCode ? { errorCode: failedTask.errorCode } : {}),
+        };
       } catch (err) {
         // allow-fallback: inner DAG errors are returned as structured result
         return {
