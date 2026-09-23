@@ -2,7 +2,6 @@ import { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { resolveAdmission } from '@robota-sdk/agent-transport/node';
 import { extractDtlsFingerprint } from '@robota-sdk/agent-remote-pairing';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { RTCDataChannel, RTCPeerConnection } from 'werift';
 
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
@@ -21,7 +20,7 @@ import type { IWebRtcTransportOptions } from './webrtc-transport-options.js';
  * data-channel open wires the handler. **Stage A: `defaultEnabled: false`, no pairing/auth** — the signaling
  * client is injected and can be an in-memory loopback for tests.
  */
-export class WebRtcTransport implements IConfigurableTransport<IInteractiveSession> {
+export class WebRtcTransport implements IConfigurableTransport<IProtocolSession> {
   public readonly name = 'webrtc';
   public readonly lifecycle = Object.freeze({ kind: 'service' as const });
   public readonly defaultEnabled = false;
@@ -74,8 +73,6 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     return true;
   }
 
-  public attach(session: IInteractiveSession): void;
-  public attach(session: IProtocolSession): void;
   public attach(session: IProtocolSession): void {
     this.session = session;
   }

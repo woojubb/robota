@@ -8,6 +8,9 @@ content through any server. Reuses the transport-neutral session bridge + wire p
 `@robota-sdk/agent-transport` (the same handler the WebSocket transport uses) so the protocol is shared, not
 duplicated.
 
+The public attach contract accepts that protocol role set directly; a full interactive session is a
+valid host input, while unrelated session capabilities are outside the carrier's dependency.
+
 ## Boundaries
 
 - Does NOT own the session bridge or wire protocol — that is `@robota-sdk/agent-transport`. This package only

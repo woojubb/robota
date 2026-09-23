@@ -62,14 +62,14 @@ function connectRemote(signaling: ISignalingClient): Promise<Record<string, unkn
 }
 
 describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
-  it('preserves the legacy adapter declaration and accepts the named subset', () => {
+  it('accepts only the protocol session roles required by the carrier', () => {
     const transport = new WebRtcTransport({
       signaling: createInMemorySignalingPair()[0],
       open: true,
       openReason: 'type compatibility test',
     });
-    expectTypeOf(transport).toMatchTypeOf<IConfigurableTransport<IInteractiveSession>>();
-    expectTypeOf(transport.attach).parameter(0).toMatchTypeOf<IProtocolSession>();
+    expectTypeOf(transport).toMatchTypeOf<IConfigurableTransport<IProtocolSession>>();
+    expectTypeOf(transport.attach).toEqualTypeOf<(session: IProtocolSession) => void>();
   });
 
   it('has the collapsed webrtc metadata and is disabled by default', () => {

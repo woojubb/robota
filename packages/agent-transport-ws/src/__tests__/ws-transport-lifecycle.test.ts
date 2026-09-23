@@ -38,13 +38,13 @@ afterEach(async () => {
 });
 
 describe('WsTransport lifecycle (ARCH-004 RUNTIME-13)', () => {
-  it('preserves the legacy adapter declaration and accepts the named subset', () => {
+  it('accepts only the protocol session roles required by the carrier', () => {
     const transport = new WsTransport({
       open: true,
       openReason: 'type compatibility test',
     });
-    expectTypeOf(transport).toMatchTypeOf<IConfigurableTransport<IInteractiveSession>>();
-    expectTypeOf(transport.attach).parameter(0).toMatchTypeOf<IProtocolSession>();
+    expectTypeOf(transport).toMatchTypeOf<IConfigurableTransport<IProtocolSession>>();
+    expectTypeOf(transport.attach).toEqualTypeOf<(session: IProtocolSession) => void>();
   });
 
   it('stop() resolves promptly with a client still connected (previously hung forever)', async () => {
