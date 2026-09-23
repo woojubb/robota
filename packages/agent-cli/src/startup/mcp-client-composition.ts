@@ -32,6 +32,7 @@ import {
   createStreamableHttpAdapter,
   openMcpSession,
 } from '@robota-sdk/agent-mcp';
+import { DEFAULT_TOOL_RESULT_HARD_CHARS, FunctionTool } from '@robota-sdk/agent-core';
 import type {
   IMCPActivationApprovalStore,
   IMCPActivationRequest,
@@ -55,7 +56,12 @@ import type {
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
 } from '@robota-sdk/agent-framework';
-import type { IToolWithEventService, TToolParameters } from '@robota-sdk/agent-core';
+import type {
+  IToolResultAdmissionOptions,
+  IToolResultSpillStore,
+  IToolWithEventService,
+  TToolParameters,
+} from '@robota-sdk/agent-core';
 
 /**
  * Operational defaults for the five supervisor timeouts (`agent-mcp`'s SPEC leaves the numbers to
@@ -98,6 +104,15 @@ export interface IMcpClientCompositionDeps {
   /** Host capabilities, never populated from project or user MCP definitions. */
   readonly stdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
   readonly clientInfo?: { readonly name: string; readonly version: string };
+  /** Created only for the first overflow and owned through this composition's shutdown. */
+  readonly createResultSpillStore?: () => IToolResultSpillStore & {
+    read(reference: string): Promise<string>;
+    shutdown(): Promise<void>;
+  };
+  readonly resultAdmissionLimits?: Pick<
+    IToolResultAdmissionOptions,
+    'warningChars' | 'hardChars' | 'repositoryMaxChars'
+  >;
   /**
    * Constructs the per-server connection. Defaults to a real `MCPConnectionSupervisor`; a test
    * injects a fake that never opens a transport. Never used to change WHEN or HOW a connection
@@ -326,13 +341,14 @@ function collectToolsFromCatalog(
   connectionByServerId: ReadonlyMap<string, IMcpServerConnection>,
   securityIdentityByServerId: ReadonlyMap<string, string>,
   provenanceByCanonicalName: Map<string, IMcpConnectedToolProvenance>,
+  admission: IToolResultAdmissionOptions,
 ): IToolWithEventService[] {
   const tools: IToolWithEventService[] = [];
   for (const entry of [...catalog.adopted, ...catalog.adapted]) {
     if (entry.kind !== 'tool') continue;
     const connection = connectionByServerId.get(entry.provenance.serverId);
     if (connection === undefined) continue;
-    const tool = createDiscoveredTool(entry, connection);
+    const tool = createDiscoveredTool(entry, connection, { admission });
     tools.push(tool);
     const securityIdentity = securityIdentityByServerId.get(entry.provenance.serverId);
     if (securityIdentity !== undefined) {
@@ -360,6 +376,29 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     deps.createSupervisor ??
     ((options: IMCPConnectionSupervisorOptions) => new MCPConnectionSupervisor(options));
   const connectedToolProvenance = new Map<string, IMcpConnectedToolProvenance>();
+  let resultSpillStore:
+    | (IToolResultSpillStore & {
+        read(reference: string): Promise<string>;
+        shutdown(): Promise<void>;
+      })
+    | undefined;
+  const resultAdmission: IToolResultAdmissionOptions = {
+    ...deps.resultAdmissionLimits,
+    ...(deps.createResultSpillStore
+      ? {
+          spillStore: {
+            write: (content: string) => {
+              resultSpillStore ??= deps.createResultSpillStore!();
+              return resultSpillStore.write(content);
+            },
+          },
+        }
+      : {}),
+    onWarning: ({ resultChars, warningChars }) =>
+      deps.reportDiagnostic(
+        `MCP tool result warning: ${resultChars} characters exceeds ${warningChars}`,
+      ),
+  };
 
   async function connect(signal?: AbortSignal): Promise<readonly IToolWithEventService[]> {
     const catalogInputs: IMCPCatalogInput[] = [];
@@ -389,6 +428,8 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
         deps.reportDiagnostic(
           `MCP tool "${toolName}" has an unenforceable schema subtree: ${unenforceablePaths.join(', ')}`,
         ),
+      reportResultSizeProblem: (reason) =>
+        deps.reportDiagnostic(`MCP result-size metadata ignored (${reason})`),
     });
 
     for (const rejection of catalog.rejected) {
@@ -398,16 +439,82 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     }
 
     connectedToolProvenance.clear();
-    return collectToolsFromCatalog(
+    const tools = collectToolsFromCatalog(
       catalog,
       connectionByServerId,
       securityIdentityByServerId,
       connectedToolProvenance,
+      resultAdmission,
     );
+    if (tools.length > 0 && deps.createResultSpillStore) {
+      tools.push(
+        new FunctionTool(
+          {
+            name: 'robota_read_mcp_result',
+            description:
+              'Read up to 4,000 characters of a saved MCP tool result using its opaque tool-result reference and a zero-based character offset.',
+            parameters: {
+              type: 'object',
+              properties: {
+                reference: { type: 'string', description: 'The exact tool-result reference' },
+                offset: { type: 'number', description: 'Zero-based character offset, default 0' },
+              },
+              required: ['reference'],
+            },
+          },
+          async (parameters) => {
+            const reference = parameters.reference;
+            const offset = parameters.offset ?? 0;
+            if (
+              typeof reference !== 'string' ||
+              typeof offset !== 'number' ||
+              !Number.isSafeInteger(offset) ||
+              offset < 0
+            ) {
+              throw new Error('Tool result read arguments invalid');
+            }
+            if (!resultSpillStore) throw new Error('Tool result reference unavailable');
+            let content: string;
+            try {
+              content = await resultSpillStore.read(reference);
+            } catch {
+              throw new Error('Tool result reference unavailable');
+            }
+            const start = Math.min(offset, content.length);
+            const hardChars =
+              deps.resultAdmissionLimits?.hardChars ?? DEFAULT_TOOL_RESULT_HARD_CHARS;
+            let lower = -1;
+            let upper = Math.min(4_000, content.length - start) + 1;
+            while (upper - lower > 1) {
+              const length = Math.floor((lower + upper) / 2);
+              const candidate = {
+                content: content.slice(start, start + length),
+                totalChars: content.length,
+                nextOffset: start + length,
+              };
+              if (JSON.stringify(candidate).length <= hardChars) lower = length;
+              else upper = length;
+            }
+            if (lower < 0 || (lower === 0 && start < content.length)) {
+              throw new Error('Tool result read limit too small');
+            }
+            return {
+              content: content.slice(start, start + lower),
+              totalChars: content.length,
+              nextOffset: start + lower,
+            };
+          },
+        ),
+      );
+    }
+    return tools;
   }
 
   async function shutdown(): Promise<void> {
-    await Promise.all(openConnections.map((connection) => connection.shutdown()));
+    await Promise.all([
+      ...openConnections.map((connection) => connection.shutdown()),
+      ...(resultSpillStore ? [resultSpillStore.shutdown()] : []),
+    ]);
   }
 
   return { activationAdapter, connect, shutdown, connectedToolProvenance };

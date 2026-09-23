@@ -47,6 +47,8 @@ export interface IMCPCatalogInput {
 
 export interface IBuildCatalogOptions {
   readonly report?: TUnenforceableSchemaReporter;
+  /** Fixed reason only: raw metadata, source values and credentials never enter diagnostics. */
+  readonly reportResultSizeProblem?: (reason: 'invalid-type' | 'out-of-range') => void;
 }
 
 /**
@@ -74,6 +76,7 @@ interface IPendingBase {
 interface IPendingTool extends IPendingBase {
   readonly kind: 'tool';
   readonly inputSchema: IParameterSchema;
+  readonly resultSizeMetadata?: IMCPDiscovery['tools']['items'][number]['resultSizeMetadata'];
 }
 
 interface IPendingPrompt extends IPendingBase {
@@ -169,6 +172,7 @@ function collectPendingTools(
         namingResult: canonicalName(serverId, tool.name),
         provenance,
         inputSchema: tool.inputSchema,
+        resultSizeMetadata: tool.resultSizeMetadata,
       });
     }
   }
@@ -253,12 +257,18 @@ function buildToolEntry(
     options?.report?.(canonical, narrowed.unenforceable);
   }
   const reason = combineReasons(item.namingResult.reason, narrowed.unenforceable.length > 0);
+  if (item.resultSizeMetadata?.kind === 'invalid') {
+    options?.reportResultSizeProblem?.(item.resultSizeMetadata.reason);
+  }
   return {
     kind: 'tool',
     canonicalName: canonical,
     sourceName: item.sourceName,
     description: item.description,
     schema: narrowed.schema,
+    ...(item.resultSizeMetadata?.kind === 'accepted'
+      ? { maxResultChars: item.resultSizeMetadata.maxResultChars }
+      : {}),
     unenforceablePaths: narrowed.unenforceable,
     provenance: item.provenance,
     disposition: reason ? 'adapted' : 'adopted',

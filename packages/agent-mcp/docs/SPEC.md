@@ -118,9 +118,11 @@ inspection never connects.
   cwd containment, absolute executable and exact argv, environment keys and host-selected values,
   and bounds. It returns an opaque admitted capability. Construct is inert; every start rechecks
   activation, authority generation, executable, environment and canonical cwd/root.
-- `stdio-transport.ts` — wraps the official `StdioClientTransport` through its public API. It shadows
-  all SDK default inherited environment keys, pipes and drains stderr into a bounded count, captures
-  the actual negotiated protocol version, and waits for direct-child close after SDK shutdown.
+- `stdio-transport.ts` — implements the SDK Client's public `Transport` contract with bounded
+  newline-delimited framing (8 MiB per JSON-RPC message) before SDK deserialization. The official
+  SDK's stdio `ReadBuffer` has no receive cap, so its client transport cannot enforce this boundary.
+  This adapter shadows inherited environment keys, counts stderr without retaining it, captures
+  the negotiated protocol version, and waits for direct-child close during shutdown.
 - `session.ts` — one initialized protocol session: `openMcpSession` connects the SDK `Client` within
   `startupMs`, verifies the negotiated `protocolVersion` against `SUPPORTED_MCP_PROTOCOL_VERSIONS`
   (else closes and throws `unsupported-protocol-version`), and exposes the negotiated facts —
@@ -141,6 +143,20 @@ inspection never connects.
   `nextCursor` is absent, bounded by `maxPages` and a per-request timeout. An invalid cursor
   (`-32602`), an exceeded bound or a timeout is a named `MCPDiscoveryError`; a partial catalog is never
   reported as complete.
+- MCP-2525 result-size metadata — only the tool-list key
+  `_meta["anthropic/maxResultSizeChars"]` is interpreted as an optional upward request. Its value
+  must be a finite safe integer strictly above the generic 25,000-character default and at most
+  500,000 characters. The adapter projects only the validated number into the catalog; other
+  metadata is never copied. A present malformed or out-of-range value is ignored with one
+  secret-free diagnostic, not treated as permission to widen a result. These are JavaScript string
+  length units (UTF-16 code units); the generic result-admission owner applies the effective limit
+  before result callbacks, logs, or provider conversion. Robota adapts the Claude Code reference's
+  token-based defaults to explicit character limits; the vendor key and 500,000-character ceiling
+  are adopted as bounded compatibility input, not as a server-controlled policy override.
+  Streamable HTTP response bodies and individual stdio JSON-RPC frames have an independent 8 MiB
+  receive cap before SDK JSON/SSE parsing. An oversized stream fails with a fixed, payload-free
+  error and closes its underlying response or child. The receive cap limits local materialization;
+  the character-based admission cap separately limits model context.
 
 **`catalog/`** turns discoveries into the one exposure decision:
 
@@ -197,6 +213,7 @@ This package is SSOT for the following types. Types marked **public** are export
 - `IMCPDiscovery`, `IMCPDiscoveryDomainResult`, `TMCPCapabilityState`, `TMCPCapabilityDomain`, `IMCPServerIdentity`, `MCPDiscoveryError`, `IMCPDiscoveryFailure` — what a server disclosed (**public**).
 - `IMCPCatalog`, `TMCPCatalogEntry`, `IMCPCatalogToolEntry`, `IMCPCatalogPromptEntry`, `IMCPCatalogResourceEntry`, `IMCPCatalogRejection`, `IMCPCatalogServerEntry`, `IMCPCatalogProvenance`, `TMCPCatalogDisposition`, `IMCPCatalogIdentity`, `MCP_CANONICAL_NAME_BUDGET` — the canonical catalog and its dispositions (**public**).
 - `TMCPConnectionState` — THE connection-state union; the only one under `src/**` (**public**); `TMCPFailureClass`, `IMCPTimeouts`, `IMCPBackoffPolicy`, `IMCPSupervisorClock`, `IMCPLastKnownGood`, `IMCPConnectionSupervisorOptions` (**public**).
+- `TMCPResultSizeMetadata` — internal projection of one vendor metadata key into absent, accepted, or fixed-reason invalid states; raw `_meta` does not enter the catalog.
 
 All `ITool`-related types (`ITool`, `IToolResult`, `IToolExecutionContext`, `TToolParameters`, `IParameterValidationResult`, `IToolSchema`) are owned by `@robota-sdk/agent-core`.
 
@@ -279,6 +296,7 @@ All `ITool`-related types (`ITool`, `IToolResult`, `IToolExecutionContext`, `TTo
 | `admitHttpEndpoint`                | function  | Admit a Streamable HTTP endpoint through the shared egress policy BEFORE any connection; refusal names the policy's reason                                                                  |
 | `constructStreamableHttpTransport` | function  | Build the SDK `StreamableHTTPClientTransport` from an ADMITTED endpoint only; inert until a `Client` connects it                                                                            |
 | `MCPTransportRedirectRefusedError` | class     | Thrown by the transport's fetch wrapper on any 3xx; carries `status` and `location`                                                                                                         |
+| `MCPTransportResponseLimitError`   | class     | Payload-free refusal when a Streamable HTTP response exceeds the 8 MiB receive cap before parsing                                                                                           |
 | `createStreamableHttpAdapter`      | function  | HTTP `IMCPTransportAdapter` (`admit` → `construct`)                                                                                                                                         |
 | `createStdioAdapter`               | function  | Stdio `IMCPTransportAdapter`; consumes activation and host authority, returns an opaque admitted capability                                                                                 |
 | `IMCPStdioAdapterOptions`          | interface | Host admission service and explicit stdio authority used to create the adapter                                                                                                              |

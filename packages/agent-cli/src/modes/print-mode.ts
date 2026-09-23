@@ -60,6 +60,7 @@ export async function runPrintMode(
   presetOptions: IPrintModePresetOptions = {},
   memorySessionOptions: IMemorySessionOptions = {},
   projectAccess?: TWorkspaceProjectAccess,
+  beforeExit?: () => Promise<void>,
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -74,6 +75,7 @@ export async function runPrintMode(
 
   if (!goalObjective && !prompt) {
     process.stderr.write('Print mode (-p) requires a prompt argument (or --goal <objective>).\n');
+    await beforeExit?.();
     process.exit(1);
   }
 
@@ -163,7 +165,9 @@ export async function runPrintMode(
     }
   } catch (error) {
     process.stderr.write((error instanceof Error ? error.message : String(error)) + '\n');
+    await beforeExit?.();
     process.exit(1);
   }
+  await beforeExit?.();
   process.exit(channel.getExitCode());
 }

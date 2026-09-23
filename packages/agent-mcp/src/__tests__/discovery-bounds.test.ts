@@ -82,4 +82,24 @@ describe('MCP discovery bounds (TC-19)', () => {
       failure: { kind: 'timeout', domain: 'tools' },
     });
   });
+
+  it('projects only a validated result-size request from untrusted tool metadata', async () => {
+    server = await startMockMcpServer({
+      tools: [
+        {
+          name: 'large-result',
+          inputSchema: { type: 'object', properties: {} },
+          _meta: { 'anthropic/maxResultSizeChars': 40_000, credential: 'must-not-travel' },
+        },
+      ],
+    });
+    session = await openSessionAgainst(server);
+
+    const discovery = await session.discover({ maxPages: 2, perRequestTimeoutMs: 2_000 });
+    expect(discovery.tools.items[0]).toMatchObject({
+      name: 'large-result',
+      resultSizeMetadata: { kind: 'accepted', maxResultChars: 40_000 },
+    });
+    expect(JSON.stringify(discovery.tools.items)).not.toContain('must-not-travel');
+  });
 });

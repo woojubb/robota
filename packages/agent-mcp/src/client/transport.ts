@@ -57,6 +57,37 @@ const POLICY_REFUSAL = 'egress-policy';
 /** Inclusive HTTP redirect status range (300–399). */
 const HTTP_REDIRECT_STATUS_MIN = 300;
 const HTTP_REDIRECT_STATUS_MAX_EXCLUSIVE = 400;
+/** Includes JSON framing and metadata around the 500,000-character admitted result ceiling. */
+const MAX_HTTP_RESPONSE_BYTES = 8 * 1024 * 1024;
+
+export class MCPTransportResponseLimitError extends Error {
+  constructor() {
+    super('MCP response exceeded the receive byte limit');
+    this.name = 'MCPTransportResponseLimitError';
+  }
+}
+
+/** Count bytes before the SDK parses JSON or SSE; cancellation propagates to the fetch body. */
+function boundResponseBody(response: Response): Response {
+  if (!response.body) return response;
+  let received = 0;
+  const body = response.body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        received += chunk.byteLength;
+        if (received > MAX_HTTP_RESPONSE_BYTES) {
+          throw new MCPTransportResponseLimitError();
+        }
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
 
 /**
  * The admitted URL is the only URL spoken to — a redirect is REFUSED, never followed. Thrown by the
@@ -128,7 +159,7 @@ export function constructStreamableHttpTransport(
         admittedUrl,
       );
     }
-    return response;
+    return boundResponseBody(response);
   };
 
   return new StreamableHTTPClientTransport(admitted.url, {

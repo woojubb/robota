@@ -95,6 +95,7 @@ export { PlanController, type TPlanDecision, type IPlanControllerDeps } from './
 export {
   createProjectSessionStore,
   createNodeHostSessionStore,
+  createNodeToolResultSpillStore,
   createUserSessionStore,
   createUserPromptHistoryFile,
   isSafeSessionId,
@@ -107,7 +108,10 @@ export {
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,
 } from './interactive/index.js';
-export type { ISessionRecordRestoreResult } from './interactive/index.js';
+export type {
+  IHostToolResultSpillStore,
+  ISessionRecordRestoreResult,
+} from './interactive/index.js';
 export type {
   TInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,

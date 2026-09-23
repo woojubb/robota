@@ -235,6 +235,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
           ...(options.mcpStdioAuthorities === undefined
             ? {}
             : { stdioAuthorities: options.mcpStdioAuthorities }),
+          ...(options.mcpResultAdmissionLimits === undefined
+            ? {}
+            : { resultAdmissionLimits: options.mcpResultAdmissionLimits }),
           reportDiagnostic: (message) => terminal.writeError(message),
         })
       : undefined;
@@ -479,7 +482,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
   if (args.printMode || args.goal) {
-    await runPrintMode(
+    const printRun = runPrintMode(
       cwd,
       args,
       provider,
@@ -494,8 +497,15 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       { model: modelId, ...presetSurface },
       memorySessionOptions,
       workspaceComposition.projectAccess,
+      async () => {
+        if (mcp !== undefined) await mcp.shutdown();
+      },
     );
-    if (mcp !== undefined) await mcp.shutdown();
+    try {
+      await printRun;
+    } finally {
+      if (mcp !== undefined) await mcp.shutdown();
+    }
     return;
   }
 
@@ -504,7 +514,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // rendered; the WS sidecar is served by the shared `startRuntimeHost`. Placed after the runtime block so it
   // reuses the exact provider/session/transport assembly.
   if (args.serve) {
-    await runServeMode({
+    const serveRun = runServeMode({
       cwd,
       args,
       provider,
@@ -535,7 +545,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       preset: presetSurface,
       memorySessionOptions,
     });
-    if (mcp !== undefined) await mcp.shutdown();
+    try {
+      await serveRun;
+    } finally {
+      if (mcp !== undefined) await mcp.shutdown();
+    }
     return;
   }
 
@@ -550,7 +564,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   // MCP-004 § Modes: the interactive TUI adopts the handoff policy exactly as serve mode does.
-  await renderApp({
+  const tuiRun = renderApp({
     providerDefinitions,
     ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
     ...(initialInput !== undefined
@@ -611,6 +625,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     reducedMotionOverride: theme.reducedMotionOverride,
     ...toSessionOptions(presetSurface),
   });
-  if (mcp !== undefined) await mcp.shutdown();
+  try {
+    await tuiRun;
+  } finally {
+    if (mcp !== undefined) await mcp.shutdown();
+  }
   process.exit(0);
 }

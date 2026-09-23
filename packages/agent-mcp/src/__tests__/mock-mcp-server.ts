@@ -36,6 +36,7 @@ export interface IMockTool {
   name: string;
   description?: string;
   inputSchema: Record<string, unknown>;
+  _meta?: Record<string, unknown>;
 }
 
 export interface IMockPromptArgument {

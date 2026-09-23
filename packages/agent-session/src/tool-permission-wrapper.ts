@@ -152,7 +152,7 @@ export function wrapToolWithPermission(
       const dataSize =
         typeof truncatedResult.data === 'string'
           ? truncatedResult.data.length
-          : JSON.stringify(truncatedResult.data).length;
+          : (JSON.stringify(truncatedResult.data)?.length ?? 0);
       enforcer.log('tool_result', {
         tool: toolName,
         success: truncatedResult.success,

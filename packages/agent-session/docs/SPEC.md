@@ -133,6 +133,8 @@ Types owned by this package (SSOT):
 | `ISessionLogSink`                           | Interface | `session-log-sinks.ts`                     | Neutral append sink used by live logging                                                                      |
 | `IExternalPayloadSource`                    | Interface | `session-log-sources.ts`                   | Neutral relative sidecar-byte source that enforces the caller-supplied per-read budget                        |
 | `IExternalPayloadSink`                      | Interface | `session-log-sinks.ts`                     | Neutral content-addressed sidecar-byte sink                                                                   |
+| `INodeToolResultSpillStoreOptions`          | Interface | `tool-result-spill-store.ts`               | Host-owned root, retention clock, and payload-free cleanup diagnostic options for MCP result spills           |
+| `TToolResultSpillErrorCode`                 | Type      | `tool-result-spill-store.ts`               | Stable, secret-free failure codes for result spill creation, reads, expiry, and cleanup                       |
 
 Types consumed from other packages (not owned here):
 
@@ -191,6 +193,10 @@ Types consumed from other packages (not owned here):
 | `DEFAULT_PROMPT_HISTORY_BLOCK_BYTES`        | Constant             | SCREEN-1993: the 64 KiB read block the tail reader yields between                                                                                                                                                                                                       |
 | `INodePromptHistoryFileOptions`             | Interface            | SCREEN-1993: `NodePromptHistoryFile` options — the owned root tightened with the directory (`ownedRoot`) and the test-seam read block size (`blockBytes`)                                                                                                               |
 | `NodeExternalPayloadSource`                 | Class                | Explicit host filesystem adapter for bounded relative external-payload reads                                                                                                                                                                                            |
+| `NodeToolResultSpillStore`                  | Class                | Owner-only, expiring opaque result storage implementing the core `IToolResultSpillStore` port                                                                                                                                                                           |
+| `ToolResultSpillError`                      | Class                | Secret-free typed failure for result spill I/O and lifecycle operations                                                                                                                                                                                                 |
+| `INodeToolResultSpillStoreOptions`          | Interface            | Host-owned spill directory, retention clock, and cleanup diagnostic options                                                                                                                                                                                             |
+| `TToolResultSpillErrorCode`                 | Type                 | Result spill failure-code union                                                                                                                                                                                                                                         |
 | `createSessionLogExternalPayloadReference`  | Function             | SSOT that validates a safe session id and exact lowercase content digest before constructing a sidecar reference                                                                                                                                                        |
 | `SilentSessionLogger`                       | Class                | No-op session logger                                                                                                                                                                                                                                                    |
 | `ISessionOptions`                           | Interface            | Constructor options for Session                                                                                                                                                                                                                                         |
@@ -448,6 +454,16 @@ contract violation. The event-name coverage test mechanically scans all three so
 - **`onServerToolUse` callback wiring** -- When session logging is enabled, the `onServerToolUse` callback from the provider is automatically wired to emit `server_tool` log events.
 
 `FileSessionLogger` applies recursive secret redaction before persistence. Keys such as `apiKey`, `authorization`, `accessToken`, `refreshToken`, `secret`, `password`, and `xApiKey` are replaced with `[REDACTED]`. Log fields larger than the inline threshold are stored as content-addressed JSON payload files in `{sessionId}.payloads/{sha256}.json`, and the JSONL line stores an `IExternalPayloadReference`.
+
+MCP-2525 result spill is a separate live-session data lifecycle. `NodeToolResultSpillStore`
+creates an unpredictable owner-only directory under an explicit host parent, writes UTF-8 payloads
+to exclusive owner-only temporary files, and publishes random opaque `tool-result:` references only
+after the complete file is linked into place. Neither the reference nor any diagnostic includes the
+path, content digest, payload, or source metadata. Reads accept only the opaque reference and use
+the stable root-relative file authority with a byte budget. Missing, expired, unsafe, and unreadable
+entries have distinct secret-free failures. Expiry and session shutdown remove both the index entry
+and file; a failed write or cleanup is reported and never converted into a valid reference. The
+session owner must call `shutdown` when it finishes using the store.
 
 The `external-payload-*` module family is the single sidecar read owner: the public recursive resolver
 orchestrates internal file-reader primitives against the public error/options contract. It treats input as untrusted JSON and

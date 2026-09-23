@@ -21,7 +21,11 @@ if (mode === 'stall') {
       setInterval(() => {}, 1000);
       await new Promise(() => {});
     }
-    return { content: [{ type: 'text', text: 'pong' }] };
+    return {
+      content: [
+        { type: 'text', text: mode === 'oversized-stdio' ? 'x'.repeat(9 * 1024 * 1024) : 'pong' },
+      ],
+    };
   });
   if (mode === 'stderr') {
     process.stderr.write('secret-');

@@ -15,7 +15,10 @@ import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 import { catalogIdentityOf, sameCatalogIdentity } from '../catalog/types.js';
 import { MCPSessionError } from '../client/session.js';
 import { MCPStdioError } from '../client/stdio-transport.js';
-import { MCPTransportRedirectRefusedError } from '../client/transport.js';
+import {
+  MCPTransportRedirectRefusedError,
+  MCPTransportResponseLimitError,
+} from '../client/transport.js';
 
 import type {
   IMCPCatalogIdentity,
@@ -253,12 +256,18 @@ function isTransientFailure(
 export function classifyMcpFailure(error: unknown): TMCPFailureClass {
   // Typed refusals first: a redirect refusal embeds the `Location` text in its message, so it must
   // never reach the message heuristics below (a target path containing "unauthorized" is not auth).
-  if (error instanceof MCPTransportRedirectRefusedError) {
+  if (
+    error instanceof MCPTransportRedirectRefusedError ||
+    error instanceof MCPTransportResponseLimitError
+  ) {
     return 'config';
   }
   if (
     error instanceof MCPStdioError &&
-    (error.reason === 'authority' || error.reason === 'cleanup')
+    (error.reason === 'authority' ||
+      error.reason === 'cleanup' ||
+      error.reason === 'receive-limit' ||
+      error.reason === 'receive-invalid')
   ) {
     return 'config';
   }
@@ -733,7 +742,9 @@ export class MCPConnectionSupervisor {
       !(error instanceof MCPStdioError) ||
       (error.reason !== 'cancelled' &&
         error.reason !== 'cleanup' &&
-        error.reason !== 'early-exit') ||
+        error.reason !== 'early-exit' &&
+        error.reason !== 'receive-limit' &&
+        error.reason !== 'receive-invalid') ||
       this.liveSession !== session ||
       this.state.kind === 'closed'
     )

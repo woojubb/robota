@@ -123,6 +123,7 @@ async function runPrint(
   prompt: string,
   provider: IAIProvider,
   sessionResolution: IPrintModeSessionResolution = {},
+  beforeExit?: () => Promise<void>,
 ): Promise<number> {
   const sessionStore = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
   try {
@@ -140,6 +141,10 @@ async function runPrint(
       [],
       {} as never,
       sessionResolution,
+      {},
+      {},
+      undefined,
+      beforeExit,
     );
   } catch (error) {
     if (error instanceof ExitSentinel) {
@@ -169,6 +174,19 @@ describe('print mode session resume integration (CLI-063)', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('runs spill cleanup before print mode exits after a provider failure', async () => {
+    const { provider } = createRecordingProvider('unused');
+    const cleanup = vi.fn().mockResolvedValue(undefined);
+    const failingProvider: IAIProvider = {
+      ...provider,
+      chat: async () => {
+        throw new Error('controlled provider failure');
+      },
+    };
+    expect(await runPrint(cwd, 'hello', failingProvider, {}, cleanup)).toBe(1);
+    expect(cleanup).toHaveBeenCalledTimes(1);
   });
 
   it('TC-06: starts exactly one new session when no resume id is given (continue-or-start)', async () => {

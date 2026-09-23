@@ -152,6 +152,91 @@ describe('createMcpClientComposition', () => {
     await composition.shutdown();
   });
 
+  it('spills an oversized MCP result before product observers receive it and cleans up on shutdown', async () => {
+    const entries = [resolvedEntry()];
+    const diagnostics = diagnosticsSink();
+    const raw = `private-output=${'x'.repeat(6_000)}`;
+    const write = vi.fn().mockResolvedValue({ reference: 'tool-result:abcdefghijklmnopqrstuv' });
+    const read = vi.fn().mockResolvedValue(raw);
+    const shutdown = vi.fn().mockResolvedValue(undefined);
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore: approvedApprovalStore(entries),
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => ({
+        discover: async () => discoveryWithOneTool(),
+        callTool: async () => ({ content: [{ type: 'text', text: raw }], isError: false }),
+        shutdown: async () => undefined,
+      }),
+      createResultSpillStore: () => ({ write, read, shutdown }),
+      resultAdmissionLimits: {
+        warningChars: 100,
+        hardChars: 120,
+        repositoryMaxChars: 200,
+      },
+      reportDiagnostic: diagnostics.reportDiagnostic,
+    });
+    const tools = await composition.connect();
+    const result = await tools[0]!.execute({}, { toolName: 'weather__forecast', parameters: {} });
+    expect(result).toEqual({ success: true, data: 'tool-result:abcdefghijklmnopqrstuv' });
+    expect(write).toHaveBeenCalledExactlyOnceWith(raw);
+    const reader = tools.find((tool) => tool.getName() === 'robota_read_mcp_result');
+    expect(reader).toBeDefined();
+    const retrieved = await reader!.execute(
+      {
+        reference: 'tool-result:abcdefghijklmnopqrstuv',
+        offset: 14,
+      },
+      { toolName: 'robota_read_mcp_result', parameters: {} },
+    );
+    expect(retrieved.success).toBe(true);
+    const chunk = retrieved.data as { content: string; totalChars: number; nextOffset: number };
+    expect(chunk.totalChars).toBe(raw.length);
+    expect(chunk.content).toBe(raw.slice(14, chunk.nextOffset));
+    expect(chunk.nextOffset).toBeGreaterThan(14);
+    expect(JSON.stringify(chunk).length).toBeLessThanOrEqual(120);
+    expect(read).toHaveBeenCalledExactlyOnceWith('tool-result:abcdefghijklmnopqrstuv');
+    expect(diagnostics.messages.join('\n')).not.toContain(raw);
+    await composition.shutdown();
+    expect(shutdown).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a reference read when the configured limit cannot advance its offset', async () => {
+    const entries = [resolvedEntry()];
+    const reference = 'tool-result:abcdefghijklmnopqrstuv';
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore: approvedApprovalStore(entries),
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => ({
+        discover: async () => discoveryWithOneTool(),
+        callTool: async () => ({ content: [{ type: 'text', text: 'x'.repeat(6_000) }], isError: false }),
+        shutdown: async () => undefined,
+      }),
+      createResultSpillStore: () => ({
+        write: async () => ({ reference }),
+        read: async () => 'x'.repeat(6_000),
+        shutdown: async () => undefined,
+      }),
+      resultAdmissionLimits: { warningChars: 10, hardChars: 47, repositoryMaxChars: 200 },
+      reportDiagnostic: vi.fn(),
+    });
+    const tools = await composition.connect();
+    try {
+      await tools[0]!.execute({}, { toolName: 'weather__forecast', parameters: {} });
+      const reader = tools.find((tool) => tool.getName() === 'robota_read_mcp_result');
+      expect(reader).toBeDefined();
+      await expect(
+        reader!.execute(
+          { reference, offset: 0 },
+          { toolName: 'robota_read_mcp_result', parameters: {} },
+        ),
+      ).rejects.toThrow('Tool result read limit too small');
+    } finally {
+      await composition.shutdown();
+    }
+  });
+
   it('records connected-tool provenance (serverId, sourceName, securityIdentity) for MCP-004', async () => {
     const entries = [resolvedEntry()];
     const approvalStore = approvedApprovalStore(entries);

@@ -6,8 +6,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createStdioAdapter } from '../client/stdio.js';
 import { MCPStdioTransport } from '../client/stdio-transport.js';
+import { MCPStdioError } from '../client/stdio-transport.js';
 import { openMcpSession } from '../client/session.js';
 import { MCPConnectionSupervisor } from '../supervisor/connection.js';
+import { classifyMcpFailure } from '../supervisor/connection.js';
 import { MCPActivationAdmissionService } from '../mcp-activation.js';
 import { MCPDefinitionRegistry } from '../definition/registry.js';
 
@@ -60,7 +62,7 @@ async function setup(mode: string) {
   return { root, service, request, transport, adapter, admitted: admission.admitted };
 }
 
-describe('official SDK stdio lifecycle', () => {
+describe('bounded stdio lifecycle with the SDK client', () => {
   it('discovers, calls, captures negotiation, drains stderr, and observes child close', async () => {
     const fixture = await setup('stderr');
     try {
@@ -86,6 +88,26 @@ describe('official SDK stdio lifecycle', () => {
       await rm(fixture.root, { recursive: true, force: true });
     }
   });
+
+  it('closes the child when one stdout frame exceeds the receive bound', async () => {
+    expect(classifyMcpFailure(new MCPStdioError('receive-limit'))).toBe('config');
+    const fixture = await setup('oversized-stdio');
+    try {
+      const session = await openMcpSession({
+        serverId: 'fixture',
+        transport: fixture.transport,
+        timeouts: { startupMs: 3_000, perCallMs: 5_000 },
+      });
+      try {
+        await expect(session.callTool('ping', {})).rejects.toThrow();
+      } finally {
+        await session.close();
+      }
+      expect(fixture.transport.closedDirectChild).toBe(true);
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  }, 10_000);
 
   it('does not spawn an admitted snapshot after activation is revoked', async () => {
     const fixture = await setup('normal');
@@ -157,6 +179,20 @@ describe('official SDK stdio lifecycle', () => {
       expect(fixture.transport.closedDirectChild).toBe(true);
     } finally {
       await fixture.transport.close();
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it('notifies close once even when shutdown is repeated after the child exits', async () => {
+    const fixture = await setup('normal');
+    const onclose = vi.fn();
+    fixture.transport.onclose = onclose;
+    try {
+      await fixture.transport.start();
+      await fixture.transport.close();
+      await fixture.transport.close();
+      expect(onclose).toHaveBeenCalledTimes(1);
+    } finally {
       await rm(fixture.root, { recursive: true, force: true });
     }
   });
