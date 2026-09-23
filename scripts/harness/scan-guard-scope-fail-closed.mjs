@@ -85,6 +85,12 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  * when handed a root without that tree.
  */
 export const MANDATORY_TREE_GUARDS = [
+  {
+    file: 'scan-dag-node-registration-owner.mjs',
+    finder: 'findDagNodeRegistrationOwnerFindings',
+    tree: 'packages/dag-nodes/docs/SPEC.md',
+    why: 'the owner map and node-family sources are the entire subject; a missing family cannot certify registration ownership',
+  },
   // The five scans the issue sweep registered after this ledger was last reconciled. Each was
   // measured 2026-09-04 by executing the finder against a bare temporary root: every one throws
   // before reading anything (a missing module, `.agents/tasks missing`, a failed tracked-file

@@ -342,30 +342,30 @@ re-export `agent-framework`.
 ## Family Decomposition Rule
 
 When a group of related capabilities forms a "family" (providers, DAG nodes, plugins, commands),
-decide package granularity by ONE driver: **is the member independently installed or registered by a
-consumer / third party?**
+decide package granularity by **independent installation, dependency and lifecycle ownership**.
+Registration identity alone does not imply a separate npm package (ADR-007).
 
-- **Split into per-member packages** when a member is a unit a consumer (or a third party) adds à la
-  carte — installed from npm and/or registered at an extension point. A heavy **independent third-party
-  SDK** is the _strongest signal_ of this (each vendor SDK is a distinct dependency the consumer opts
-  into), but it is **not** the definition: a light, co-released member is still its own package when it is
-  an independently registrable extension-point member.
+- **Split into per-member packages** when a member is independently installed, carries distinct
+  dependencies or has an independently governed release lifecycle. A heavy independent third-party
+  SDK is a strong signal. For registry families, each identity still needs exactly one declared and
+  checked package owner, even when a cohesive package owns several identities.
 - **Consolidate into a single package** when members are **internal runtime behaviors selected by config**,
   not npm-installed or registered à la carte by consumers.
 
 Reconcile any new family against the four existing shapes (this rule is the SSOT that must keep matching
 them):
 
-| Family                                               | Shape            | Why                                                                                                                                                                                                                                                                                                                                                                        |
-| ---------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Providers (`agent-provider-*`)                       | per-member split | each vendor is consumer-selectable AND carries a distinct heavy SDK (ARCH-PROVIDER-002)                                                                                                                                                                                                                                                                                    |
-| DAG nodes (`dag-node-*`)                             | per-member split | each node is a registry-registered extension-point member a consumer/3rd party adds à la carte — split **even when light + co-released** (e.g. `dag-node-text-output` depends only on `dag-core`/`dag-node`/`zod` at the family version, yet is its own package). Provider definitions are injected by composition roots; leaves own no provider SDK or credential lookup. |
-| Plugins / Commands                                   | single package   | config-selected internal behaviors with shared deps, not consumer-installed                                                                                                                                                                                                                                                                                                |
-| Defaults aggregator (`-defaults` / `-nodes-default`) | composition leaf | assembles the family's default set for a zero-config entry point; imported only at composition roots (entry-point-only)                                                                                                                                                                                                                                                    |
+| Family                                               | Shape                | Why                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Providers (`agent-provider-*`)                       | per-member split     | each vendor is consumer-selectable AND carries a distinct heavy SDK (ARCH-PROVIDER-002)                                                                                                                                                                                                                        |
+| DAG nodes (`dag-node-*`)                             | installation bundles | Consumers may install leaves à la carte; cohesive `utility-text` and `gemini-image-edit` bundles own several registration identities. The exhaustive identity-to-package map lives in `packages/dag-nodes/docs/SPEC.md` and is checked against source. Provider definitions are injected by composition roots. |
+| Plugins / Commands                                   | single package       | config-selected internal behaviors with shared deps, not consumer-installed                                                                                                                                                                                                                                    |
+| Defaults aggregator (`-defaults` / `-nodes-default`) | composition leaf     | assembles the family's default set for a zero-config entry point; imported only at composition roots (entry-point-only)                                                                                                                                                                                        |
 
-Consequence: adding a family member = one more package (split families) or one more internal module
-(consolidated families) — never collapse a split extension-point family into one package on a naive
-"no heavy dep" reading, and never split an internal config-selected behavior into its own package.
+Consequence: adding a registration identity requires an explicit owner assignment; adding an
+installation unit requires a package. Neither implies the other. Do not merge independently
+installed integrations merely because they are light or split a cohesive bundle merely because it
+registers several identities.
 
 ## Composition-Root Exemption (Import-Layering Scans)
 

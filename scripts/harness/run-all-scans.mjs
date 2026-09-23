@@ -649,6 +649,12 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-node-version-single-valued.mjs'],
     examines: ['package.json', 'pnpm-workspace.yaml', PACKAGES, APPS],
   },
+  // #2163/#2155: every static DAG node registration identity has one declared package owner.
+  {
+    name: 'dag-node-registration-owner',
+    command: ['node', 'scripts/harness/scan-dag-node-registration-owner.mjs'],
+    examines: [under('packages/dag-nodes'), 'packages/dag-nodes/docs/SPEC.md'],
+  },
   // RULE-018. GitHub applies a missing Issue Form label silently, while PR gates consume three
   // exact-name labels from the same repository namespace. The registry and fixed consumer baseline
   // make both relations fail closed without claiming to discover arbitrary label-shaped strings.
