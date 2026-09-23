@@ -1,7 +1,7 @@
 ---
 title: 'SECRET-2664: Secret scanning must distinguish deterministic harness identifiers from credentials'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: in-progress
 created: 2026-09-21
 priority: medium
 urgency: soon
@@ -11,11 +11,19 @@ depends_on: []
 
 # SECRET-2664: Secret scanning must distinguish deterministic harness identifiers from credentials
 
+## Current disposition — 2026-09-23
+
+PR #2827 (`2a4a84631d24243d8dfb8ef75e04d790e8d60d37`) deliberately retired the legacy gate, checkpoint, and recommendation machinery. Its deterministic endorsement producer is absent, but the immutable migration history still reaches secret scanning. The historical population, rather than a future producer format, is the current scope.
+
+Gitleaks 8.30.1 reported 15 findings at five unique fingerprints. Each matched span was independently recomputed from its historical owner algorithm and public input metadata. The proposed policy adds only those five exact commit/path/rule/line fingerprints; it does not exempt `endorsementKey`, 64-hex assignments, files, or directories. Same-carrier synthetic controls detect all eight planted findings, including credentials beside a valid identifier and an unverified identifier in a new context. A positive historical-range scan with those exceptions exits zero.
+
+The redacted identifier receipt owns recomputation and control details. Final fresh-D-to-reviewed-head scanning and hosted security success remain pending; this Task stays in-progress until that boundary passes and the exact policy lands.
+
 ## Objective
 
 Make the repository's secret-scan policy distinguish deterministic harness identifiers from credentials without weakening detection of real credentials in harness metadata or adjacent paths.
 
-The default `generic-api-key` rule currently classifies a generated 64-hex `endorsementKey` as a credential. This is foundational rather than local to one ledger row: the same metadata shape has been introduced by 17 commits, and suppressing one occurrence leaves every later recommendation-review record exposed to the same CI failure.
+Historically, the default `generic-api-key` rule classified a generated 64-hex `endorsementKey` as a credential. This is foundational rather than local to one ledger row: the same metadata shape has been introduced by 17 commits, and suppressing one occurrence leaves every later recommendation-review record exposed to the same CI failure.
 
 ## Evidence
 
@@ -39,25 +47,8 @@ The default `generic-api-key` rule currently classifies a generated 64-hex `endo
 
 ## User Execution Test Scenarios
 
-<!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of
-     not-applicable | automatable | manual; the count is the number of scenarios drafted. Keep the
-     not-applicable form ONLY with a product-surface reason (≥ 50 characters, not build/typecheck
-     evidence); otherwise write the scenario a user can run and raise the count. -->
-
 **Author verdict:** `SCENARIO DRAFTED: automatable | 1`
 
-### Scenario 1 — A normal recommendation-review record does not block its PR as a secret
+### Scenario 1 — Historical identifiers remain reviewable while same-carrier credentials are detected
 
-**Prerequisites:** A branch based on current `develop`, GitHub Actions enabled, and a harness workflow that records a recommendation endorsement.
-
-**Steps:**
-
-1. Run the normal recommendation-review workflow so it appends a deterministic `endorsementKey` record.
-2. Commit that generated evidence and open a draft pull request to `develop`.
-3. Wait for `Secret scan (gitleaks)` to complete.
-
-**Expected observable result:** The secret-scan check passes for the generated deterministic identifier. Scanner-policy regression tests still demonstrate that credential-shaped values in the same surface are rejected.
-
-**Cleanup:** Close the draft PR and delete its temporary branch after capturing the check URL.
-
-**Evidence:** Pending implementation.
+Using pinned gitleaks 8.30.1 and the unchanged current rule configuration, scan the frozen historical range with the five recomputed exact fingerprints and require zero findings. Scan isolated copies of the same carrier shapes containing synthetic generic credentials, synthetic PATs, and an unverified identifier in new contexts; require all eight expected findings. Finally scan the fresh D-to-reviewed-head range and require the hosted security check to succeed. A failure remains explicit and prevents terminal acceptance.

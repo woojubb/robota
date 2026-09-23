@@ -30,3 +30,6 @@ coverage/
 # with `\s*`, never column geometry: verified by re-running it across the squeeze — 88 entries,
 # 39 mechanisms, 49 accepted, before and after.
 .agents/rules/common-mistakes.md
+
+# Preserve the historical RULE-2380 record from replacement ancestry byte-for-byte.
+.agents/spec-docs/done/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md

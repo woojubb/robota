@@ -1,0 +1,328 @@
+---
+status: in-progress
+type: AGREEMENT
+tags: [harness]
+lane: L2
+---
+
+# AGREEMENT-2664: Coordinate gate correctness, approval ordering, and fail-closed enforcement
+
+## Current disposition — 2026-09-23
+
+The 2026-09-22 P2 Closeout Amendment and [the subsequent issue #2664 correction](https://github.com/woojubb/robota/issues/2664#issuecomment-5787034571) govern current execution. PR #2827 (`2a4a84631d24243d8dfb8ef75e04d790e8d60d37`) deliberately retired the legacy gate, checkpoint, and recommendation machinery.
+
+The historical eight-child set and its original records are retained exactly as a historical ownership projection. All historical approval/gate/checkpoint instructions below describe that superseded execution model. Current acceptance is the following owner table plus the P2 closeout criteria. `depends_on` preserves the historical external-owner graph; current dependency scope is explicitly narrowed in this table, so AGREEMENT-013 does not require closing unrelated issue #2079 work.
+
+| Owner                                      | Current outcome and evidence                                                                                                                                                                                                                                       | Remaining acceptance                                                                                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Eight historical children                  | The unchanged L/R manifest contains all eight ordered segments. Six executable scopes were retired by PR #2827; PUSH-2664 retains the stricter develop implementation; RULE-2582 retains the live frontmatter tags contract.                                       | Preserve historical records and R ancestry without restoring retired source.                                                                                |
+| AGREEMENT-012 / issue #2066                | SECURITY-003 and SECURITY-004 delivered by PR #2832 (`4a01a8717cc5d5f7f95e524b8620934f47058b98`); fork-model semantics delivered by PR #2838 (`fe48835ca6c53ada790ec61ee1fd00c437441ba1`). The current owner Task is done.                                         | Preserve the owner result; reconcile its stale spec projection.                                                                                             |
+| AGREEMENT-013 / retained issue #2075 slice | SEC-021 is done; PR #2838 completes source-aware configured-hook refusal. TRANS-016 was separately implemented in PR #2841 and its v1 fixtures repaired in PR #2843.                                                                                               | issue #2664 consumes the issue #2075 slice only. The broader issue #2079 administrative map remains owned by AGREEMENT-013, whose status stays in-progress. |
+| AGREEMENT-2698 / retained issue #2391      | Parent migration is superseded. PR #2827 removed the obsolete stack; PR #2835 (`7f8fcb3409222ac38085c35c56dda1ee2165ce6d`) repairs unavailable review-inspection diagnostics on the surviving path.                                                                | Preserve explicit unavailable-versus-valid-absence behavior; do not revive the retired diagnostic pipeline.                                                 |
+| INFRA-2664                                 | PR #2840 (`c014b9966842550b84dd7474862b619a9bcdfdc9`) supplies canonical dispatch resolution. Branch run 35816450450 attempt 2 and OID run 35816452676 attempt 1 resolve the same pair and finish with identical 20 job outcomes (13 success, 7 intentional skip). | Delivered independently; not a ninth historical child.                                                                                                      |
+| PERF-2664                                  | Superseded with the removed 128-second/11-context CI contract.                                                                                                                                                                                                     | Preserve old measurements as historical; do not claim a current benchmark success.                                                                          |
+| MERGE-2664                                 | Shared helper delivered in PR #2823, then retired by PR #2827. Independent bounded evidence verifies all 16 historical merges are clean and have no own-content delta.                                                                                             | Preserve the historical proof; inspect the deliberate S resolution separately.                                                                              |
+| SECRET-2664                                | Fifteen historical findings reduce to five exact recomputed fingerprints; synthetic same-carrier controls detect all eight planted findings.                                                                                                                       | Exact exceptions must land; final D-to-head scan and hosted security must pass before done.                                                                 |
+| MAP-2664                                   | This table classifies retained external owners and independent issue-owned rows without changing the eight-child set.                                                                                                                                              | Read back matching parent Task/spec and issue #2664 map before done.                                                                                        |
+| BRANCH-2664-P2 / AGREEMENT-2664            | Exact replacement publication and current-develop reconciliation remain the active migration work.                                                                                                                                                                 | Reviewed S with parents [R,D], merge-preserving landing, independent content/ancestry verification, final owner reconciliation, and CLOSED issue #2664.     |
+
+Keep this parent in-progress until P2 final acceptance. D is `fde558ea1b9d09d94b261eb980c96dfb4703201b`; S must preserve R `720eb5e841ba7a5361ac667b9658e034212bb58e` as its first parent and D as its second. The fixed historical manifest is unchanged. This document does not assert future hosted check, final merge, or issue-closure success.
+
+## Test Plan
+
+Verify the unchanged canonical L/R manifest and all 16 historical clean-merge witnesses. Compare the final [R,D] sync tree against the complete 80-path disposition, 14 owner-record exceptions, and three additional edits, then prove every undeclared path equals current D. Run current focused tests, the repository scans, and the pinned historical and final-range secret scans. After publication, require the applicable hosted checks, independent ancestry and tree read-back, matching Task/spec/issue map, and a strict audited completion record before closing issue #2664.
+
+Paired with `.agents/tasks/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md`.
+Arising from [issue #2664](https://github.com/woojubb/robota/issues/2664).
+
+## Problem
+
+Issue #2664 contains several independently verifiable causes under one external gate-correctness
+outcome. BEHAVIOR-2664 has corrected the approval-ordering omission in `runApprove`, PUSH-2664 has
+preserved trusted integration-base declarations through the pre-push bridge, and DATA-2664 has made
+checkpoint worktree inventory use the same churn policy as its consumer. RULE-2582, BEHAVIOR-2663,
+RULE-2665, RULE-2326, and RULE-2380 are also terminal, so all eight children are delivered. The
+inherited register still depends on three scopes owned by AGREEMENT-012, AGREEMENT-013, and
+AGREEMENT-2698.
+
+Implementing directly from the umbrella would either combine unrelated causes into one unreviewable
+change or duplicate AGREEMENT-012, AGREEMENT-013, and AGREEMENT-2698. Staging several new Tasks without
+one relationship owner would also violate the repository's multi-Task planning-order contract.
+
+## Prior Art Research
+
+Waived: the approved Issue-to-Task rules already define cause-aligned Tasks, exact source identity,
+AGREEMENT ownership, and atomic conversion manifests. This document applies that repository-local
+contract and makes no new product, protocol, package, API, or user-interface design decision.
+
+## Architecture Review
+
+### Affected Scope
+
+- This exact AGREEMENT Task/spec and eight new child Tasks.
+- Existing dependency owners AGREEMENT-012, AGREEMENT-013, and AGREEMENT-2698, referenced but not edited
+  as part of the conversion manifest.
+- Later child work in `scripts/harness/gate*.mjs`, checkpoint evidence, spec-frontmatter validation,
+  approval provenance, and gate-catalogue policy; no implementation path changes in this conversion.
+- GitHub issue #2664 and exact source Issues #2326, #2380, #2582, #2663, and #2665.
+
+### Alternatives Considered
+
+1. **Implement the umbrella as one Task.**
+   - Pro: one planning record.
+   - Con: combines distinct causes, verification boundaries, and policy decisions, while duplicating active owners.
+2. **Create unrelated Tasks with no shared owner.**
+   - Pro: each implementation remains independently reviewable.
+   - Con: loses the exact umbrella closure map and makes cross-Task ordering and final reconciliation ownerless.
+3. **Create one AGREEMENT with eight new cause-aligned children and explicit external dependencies (chosen).**
+   - Pro: preserves independent implementation/review while giving the umbrella one complete reconciliation owner.
+   - Con: requires a sequenced initiative and cannot close until both children and named external owners terminate.
+
+### Decision
+
+Choose alternative 3. The child set contains only independently completable causes that were unowned
+at conversion time. Existing AGREEMENT owners remain dependencies rather than nested or duplicate
+children. BEHAVIOR-2664, PUSH-2664, and DATA-2664 provide the corrected approval-ordering, publication,
+and checkpoint-inventory foundations. RULE-2326's recommendation-endorsement contract is also delivered;
+RULE-2380 now preserves the frozen legacy approval corpus through the approved immutable disposition
+manifest. All eight declared children are terminal.
+
+The initiative uses a shared integration base with one child Task at a time. Each child receives its
+own paired spec and gate lifecycle before implementation; no child expands another child's approved
+scope. The final umbrella reconciliation compares every register row with exactly one delivered or
+explicitly terminal owner before issue closure.
+
+**Delivery mode:** `single`
+
+### Architecture Review Checklist
+
+- [x] 영향 패키지/레이어 목록 작성 완료 — conversion records, future harness surfaces, and external Task owners are named.
+- [x] Sibling scan 완료 — all source Issues, active Task/spec owners, linked PR signals, and current code reproductions were inspected.
+- [x] 대안 최소 2개 검토 완료 — three ownership shapes and their costs are recorded.
+- [x] 결정 근거 문서화 완료 — cause isolation, non-duplication, and gate-dependency order select the AGREEMENT shape.
+
+## Fallback & Degradation Declaration
+
+None
+
+## Historical solution
+
+1. Retain the exact parent/child manifest as the ownership source of truth for issue #2664.
+2. Preserve all eight completed children and their exact terminal Task/spec and landing evidence.
+3. Use the delivered BEHAVIOR-2664, PUSH-2664, and DATA-2664 outcomes as the approval-ordering, publication, and checkpoint-inventory foundations.
+4. Preserve delivered RULE-2326 and RULE-2380 outcomes without absorbing findings from another owner.
+5. Reconcile all eight child outcomes and the three external dependencies against the umbrella register, and close only on a complete map.
+
+## Affected Files
+
+- `.agents/tasks/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md`
+- `.agents/spec-docs/active/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md`
+- The eight exact child Task paths listed under `## Tasks`.
+- `.agents/loop-runs/user-request-gate.jsonl`
+
+## Historical completion Criteria
+
+- [ ] TC-01: Observable: the parent Task/spec and all eight child Tasks resolve exactly once with matching Children/Tasks projections; all eight children are terminal in declared order.
+- [ ] TC-02: Observable: BEHAVIOR-2664, PUSH-2664, and DATA-2664 precede governance children in that order, while every declared dependency names an existing non-duplicated Task owner.
+- [ ] TC-03: Command: `node scripts/harness/scan-user-execution-plan-order.mjs --staged` exits 0 for the atomic conversion prelude.
+- [ ] TC-04: Command: `node scripts/harness/scan-task-frontmatter-fields.mjs`, `node scripts/harness/scan-work-item-id-collision.mjs`, `node scripts/harness/scan-spec-research.mjs`, and `node scripts/harness/run-all-scans.mjs --affected --context pr` each exit 0 for the committed manifest.
+- [ ] TC-05: Observable: issue #2664 contains one readable parent Task marker and a complete child/external-owner map before its priority label is removed.
+- [ ] TC-06: Observable: every child Task/spec reaches its terminal gate with a merged landing witness, and no child absorbs a finding owned by another child or dependency without a new approval record.
+- [ ] TC-07: Observable: final issue #2664 reconciliation maps all eight children and AGREEMENT-012, AGREEMENT-013, and AGREEMENT-2698 to delivered or explicit terminal evidence before the umbrella receives its closure record.
+
+## Historical test Plan
+
+| TC-ID | Test Type   | Tool / Approach                                                            | Notes                                                           |
+| ----- | ----------- | -------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| TC-01 | contract    | AGREEMENT projection and exact source-URL scans                            | Parent and child sets must match byte-for-byte paths.           |
+| TC-02 | contract    | dependency graph and duplicate-owner inspection                            | Existing AGREEMENT owners remain external dependencies.         |
+| TC-03 | integration | `node scripts/harness/scan-user-execution-plan-order.mjs --staged`         | Runs before the conversion commit.                              |
+| TC-04 | integration | exact four commands named in TC-04                                         | Every command must exit 0; partial success is not accepted.     |
+| TC-05 | integration | `github-issue-triage.mjs convert` dry-run/apply/read-back                  | Remote mutation occurs only after local manifest verification.  |
+| TC-06 | contract    | child terminal gate, PR landing, and affected-path read-back               | Compare approved scope with each terminal diff and finding log. |
+| TC-07 | integration | GitHub register, Task/spec lifecycle, PR, and merge-witness reconciliation | Every declared owner needs exact terminal evidence.             |
+
+## User Execution Test Scenarios
+
+Not applicable.
+
+**Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
+
+**Reason:** This conversion changes repository planning records and GitHub ownership only; every child
+owns later private harness verification, and no Robota product surface changes in this work unit.
+
+## Tasks
+
+Paired execution record:
+`.agents/tasks/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md`.
+
+- [x] BEHAVIOR-2664 — done — `.agents/tasks/completed/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md`
+- [x] PUSH-2664 — done — `.agents/tasks/completed/PUSH-2664-preserve-trusted-integration-base-declarations-through-the-git-pre-push-wrapper.md`
+- [x] DATA-2664 — done — `.agents/tasks/completed/DATA-2664-normalize-checkpoint-worktree-inventory-through-the-shared-churn-owner.md`
+- [x] RULE-2582 — done — `.agents/tasks/completed/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md`
+- [x] BEHAVIOR-2663 — done — `.agents/tasks/completed/BEHAVIOR-2663-bind-mechanical-gate-verify-checks-without-prose-drift.md`
+- [x] RULE-2665 — done — `.agents/tasks/completed/RULE-2665-define-the-terminal-disposition-for-orchestration-skipped-gates.md`
+- [x] RULE-2326 — done — `.agents/tasks/completed/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md`
+- [x] RULE-2380 — done — `.agents/tasks/completed/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`
+
+## Evidence Log
+
+### [GATE-WRITE] — ❌ FAIL | 2026-09-20
+
+**Status remains:** draft
+**Failed criteria:**
+
+- Completion Criteria — At least 1 criterion per distinct feature or sub-item: Solution items 3–5 require child lifecycle completion, cross-owner scope isolation, and terminal umbrella reconciliation, but no TC explicitly covers those three outcomes; TC-02 covers ordering and owner existence, and TC-05 covers the issue map before label removal.
+  **Required action:** Add TC-N criteria that explicitly cover each child's completed gate lifecycle, isolation of findings and scope across owners, and final reconciliation of every child and external owner to a delivered or explicitly terminal outcome before umbrella closure.
+- Completion Criteria — Each criterion uses Command form or Observable behavior form: TC-04 is labelled `Command` but names scan categories rather than exact executable commands and bounded expected outputs; its Test Plan row likewise leaves the focused scans unnamed and provides no bounded result beyond a broad exit-0 claim.
+  **Required action:** Name the exact command or commands for every scan TC-04 requires and state the bounded success output or exit condition for each.
+
+**Judged at:** HEAD `7ac8509cf2133332c73e41fb2e8b27a492ca873e` · base `origin/develop@c81dd4ff75695e3f6a72566d4b3256f42e6479e7` · document `.agents/spec-docs/draft/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md` blob `6005786383503c8ffed81bf586ce94e52fd3ddc1` (tracked)
+
+### [GATE-WRITE] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** draft → review-ready
+
+- GATE-WRITE — Frontmatter: mechanical evaluation reports all required frontmatter criteria PASS (`status: draft`, `type: AGREEMENT`, `tags: [harness]`, and the opening YAML block).
+- GATE-WRITE — Problem — concrete symptom: PASS — the document identifies `runApprove` omitting `orderingResult` and `checkpointWorktreePaths` recording lesson churn that `worktreeError` rejects.
+- GATE-WRITE — Problem — reproduction condition: PASS — the failure locations and triggering evaluator/checkpoint-consumer paths are named, including approval judgement without the ordering result and checkpoint evidence containing churn rejected by its consumer.
+- GATE-WRITE — Problem — mechanical wording check: PASS — the mechanical evaluator reports no banned placeholder or vague-description failure.
+- GATE-WRITE — Prior Art Research — research feeds Alternatives Considered / Decision: PASS — the waiver names the approved Issue-to-Task ownership and atomic-conversion contract, and the alternatives and decision apply those constraints to select cause-aligned children, preserve existing owners as dependencies, and retain one reconciliation owner.
+- GATE-WRITE — Prior Art Research — mechanical checks: PASS — the section is present and carries an explicit substantiated waiver.
+- GATE-WRITE — Architecture Review — Decision references the driving trade-off: PASS — it chooses independent reviewability and non-duplication with one umbrella reconciliation owner despite the sequencing cost.
+- GATE-WRITE — Architecture Review — new-surface placement: N/A — this planning conversion introduces no package, app, presentation/interface surface, or layer/product-family reclassification; it creates planning records and delegates later harness changes to child work.
+- GATE-WRITE — Architecture Review — mechanical checks: PASS — all four checklist items are checked, the sibling scan carries completion evidence, and three alternatives each state a pro and con.
+- GATE-WRITE — Completion Criteria — coverage per distinct feature/sub-item: PASS — TC-01 covers the exact manifest, TC-02 dependency order and owner uniqueness, TC-03/TC-04 structural and lifecycle scans, TC-05 the issue marker/map, TC-06 terminal child lifecycles and cross-owner isolation, and TC-07 final umbrella reconciliation and closure ordering.
+- GATE-WRITE — Completion Criteria — command or observable form: PASS — TC-01, TC-02, and TC-05–TC-07 state bounded observable outcomes; TC-03 and TC-04 name exact executable commands and require exit 0.
+- GATE-WRITE — Completion Criteria — mechanical checks: PASS — all seven items have TC-N prefixes and use none of the prohibited phrases.
+- GATE-WRITE — Test Plan: PASS — seven non-empty rows map one-to-one to TC-01 through TC-07, with Test Type and Tool / Approach populated and no manual-tool row; Completion Criteria count 7 equals Test Plan count 7.
+- GATE-WRITE — Structure: PASS — the Tasks and Evidence Log sections are present, prior evidence is preserved for this recheck, and no body-level Status or Classification section exists.
+- GATE-WRITE — Mechanical evaluator: 20 PASS, 0 FAIL, and 7 PENDING-GUARDIAN; all seven semantic criteria above PASS or are explicitly N/A with reason.
+
+**Judged at:** HEAD `7ac8509cf2133332c73e41fb2e8b27a492ca873e` · base `origin/develop@c81dd4ff75695e3f6a72566d4b3256f42e6479e7` · document `.agents/spec-docs/draft/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md` blob `e88e1a01f8830cbb352d82c24b2dde1f4556171a` (modified)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** review-ready → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "승인함."
+**Given:** 2026-09-20, this conversation
+**Review fingerprint:** 7dec86b05ed1 (review 2363bc66, type/tags 61c4ebe4)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-20, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (7dec86b05ed1) equals the document's current fingerprint
+- GATE-APPROVAL — ordering (guardian): PASS — the prior-gate map declares `recorded-pass` for GATE-APPROVAL. This Evidence Log contains a GATE-WRITE PASS with `**Status upgrade:** draft → review-ready`, the current frontmatter is `status: review-ready`, and the document is in `.agents/spec-docs/backlog/`, which `spec-workflow.md` maps to that status.
+- GATE-APPROVAL — Approval is a direct, unambiguous statement directed at this spec document: PASS — the DIRECT-route instruction `승인함.` is the catalogue's canonical explicit-approval form, and `gate.mjs approve` recorded it against this exact AGREEMENT-2664 document in this conversation; it is not a clarification answer, silence, or an instruction relayed from another record.
+- GATE-APPROVAL — The item is inside the class as the registry defines it: PASS (N/A) — the mutually exclusive approval route is `DIRECT`, so no delegated class or class boundary is asserted.
+- GATE-APPROVAL — Independent architecture validation (conditional): PASS (N/A) — the spec creates and coordinates planning/ownership records and delegates later harness work to separately gated child items; it introduces no package, app, product/interface/presentation surface, or layer/product-family reclassification. The GATE-WRITE architecture-placement judgement independently reached the same N/A conclusion.
+- GATE-APPROVAL — NON-COMPLIANCE trigger (implementation started before this gate ran): not triggered — `origin/develop...HEAD` contains only this planning spec and eight Task records, while the current worktree contains only the parent Task/spec transition and the subject-bound user-request ledger; no package, app, script, or other implementation path was committed, staged, or modified.
+- GATE-APPROVAL — semantic set judged by `backlog-gate-guard` at HEAD `7ac8509cf2133332c73e41fb2e8b27a492ca873e`, document blob `182344b26b09db81cf21409e4222e7e81d238be2` (modified, hashed before these lines were appended); the earlier five criterion lines written by `gate.mjs` are the mechanical set and were not re-judged here.
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `7ac8509cf213` · base `origin/develop@c81dd4ff7569` · document `.agents/spec-docs/backlog/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md` blob `e4c98ca308c7` (modified)
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-09-21
+
+**Status upgrade:** approved → approved
+**Approval route:** `DIRECT`
+**Instruction (verbatim):** "승인합니다. 그리고 앞으로 타당한 근거와 함께 추천안을 제시하면 근거가 타당할 경우 자동으로 승인합니다."
+**Given:** 2026-09-20, this conversation
+**Review fingerprint:** 9180a93eebe0 (review f6b0b5e6, type/tags 61c4ebe4)
+
+- GATE-APPROVAL — User has provided explicit approval in the current conversation: route DIRECT; `**Instruction (verbatim):**` recorded, given 2026-09-20, this conversation
+- GATE-APPROVAL — The named class exists in the delegated-class registry, and its registry entry predates this approval. `backlo: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The authorising instruction is recorded verbatim, with its date and the session it was given in: standing GATE-APPROVAL entry parses; route DIRECT, so the Route CLASS condition does not apply
+- GATE-APPROVAL — The class's stated evidence condition is shown to be met by measurement, not by assertion: route DIRECT, so the Route CLASS criterion does not apply
+- GATE-APPROVAL — No Architecture Review or frontmatter type/tags modified after approval: the `**Review fingerprint:**` recorded at approval (9180a93eebe0) equals the document's current fingerprint
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `8b1dcac3472f` · base `origin/develop@58f24c1b73e2` · document `.agents/spec-docs/todo/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md` blob `acacb33f3725` (modified)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-20
+
+**Status upgrade:** approved → in-progress
+
+- GATE-IMPLEMENT — ordering: prior gate GATE-APPROVAL PASS and status `approved`: [GATE-APPROVAL] — ✅ PASS | 2026-09-20; status `approved`
+- GATE-IMPLEMENT — `.agents/tasks/<ID>.md` has been created: `## Tasks` names `.agents/tasks/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md`, which exists
+- GATE-IMPLEMENT — Tasks file path is recorded in the `## Tasks` section of the spec document: `## Tasks` names `.agents/tasks/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md`, whose basename is the spec's
+- GATE-IMPLEMENT — Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N): Task names every TC id (7)
+- GATE-IMPLEMENT — The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the `test-plans`: Task `## Test Plan` is 302 chars
+- GATE-IMPLEMENT — The exact Task records a subject-bound user-execution PLAN terminal outcome: `not-applicable` includes the aut: Task `## User Execution Test Scenarios` records `SCENARIO DRAFTED: not-applicable | 0`
+- GATE-IMPLEMENT — The whole worktree contains no staged, unstaged, untracked, renamed, or deleted path outside the exact paired : worktree inventory: 2 path(s), all within the paired spec/Task and .agents/loop-runs/
+
+<!-- checkpoint-evidence:v2:start -->
+
+```json
+{
+  "version": 2,
+  "form": "gateImplementFirst",
+  "deliveryMode": "single",
+  "sequencedArtifacts": [],
+  "taskPath": ".agents/tasks/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md",
+  "specPath": ".agents/spec-docs/todo/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md",
+  "taskItems": [
+    {
+      "kind": "tc-id",
+      "value": "TC-01"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-02"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-03"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-04"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-05"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-06"
+    },
+    {
+      "kind": "tc-id",
+      "value": "TC-07"
+    }
+  ],
+  "plan": {
+    "outcome": "not-applicable",
+    "count": 0
+  },
+  "worktreePaths": [
+    ".agents/spec-docs/todo/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md",
+    ".agents/tasks/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md"
+  ]
+}
+```
+
+<!-- checkpoint-evidence:v2:end -->
+
+**Judged by:** `gate.mjs` mechanical evaluator
+**Judged at:** HEAD `89dc4a558823` · base `origin/develop@f8dc5a0458c4` · document `.agents/spec-docs/todo/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md` blob `03f00a942834` (tracked)
+
+### [RECOMMENDATION] — ✅ ENDORSE | 2026-09-20
+
+- `proposal-reviewer` round 1 returned `REVISE` with 1 unresolved finding because the recommendation
+  still described two delivered foundations as future work.
+- After the Problem, Decision, Solution, and active-spec path were corrected, round 2 returned
+  `ENDORSE` with 0 unresolved findings.
+- Canonical run `r20260920120928` binds projection digest
+  `2827277d7176c33d1b87c7f352e6a3c06d98cef693fd9f5a85428ff5b3b91f8b` to endorsement key
+  `1a25ba71f6fadd018529363887b2f50c58606092b45a5eabb7a688085172e530`.
+
+### [RECOMMENDATION-REVIEW] — ✅ ENDORSE | 2026-09-21
+
+- Canonical loop run: `r20260920172525`
+- Projection digest: `f8c28276d85d769753fbe4a02ab1d995c6b4580ce5683d04fdc1f60026a53aae`
+- Round 1 returned `REVISE` with 1 unresolved finding because prior checkpoint evidence was not
+  explicitly qualified as historical; round 2 returned `ENDORSE` with 0 unresolved findings after
+  that wording was corrected.

@@ -1,11 +1,15 @@
 ---
-status: in-progress
+status: done
 type: AGREEMENT
 tags: [github, migration, batching]
 lane: L2
 ---
 
 # AGREEMENT-012: coordinate strict metadata decoder adoption
+
+## Current disposition — 2026-09-23
+
+This fixed-path spec now matches the done AGREEMENT-012 Task. The original administrative Issue-to-Task procedure below is historical and was retired by PR #2827; its unchecked administrative criteria do not reopen the retained product outcome. SECURITY-003 and SECURITY-004 are done through PR #2832 (`4a01a8717cc5d5f7f95e524b8620934f47058b98`); PR #2838 (`fe48835ca6c53ada790ec61ee1fd00c437441ba1`) completes fork-model selection and strict non-fork model rejection with scripted-session evidence. This corrects the stale spec projection; it does not claim the old administrative batch or old gates were executed.
 
 ## Problem
 
@@ -57,7 +61,7 @@ Use one atomic AGREEMENT for this group. The larger rollback unit is accepted be
 4. Update the canonical parent map and replay idempotently without duplicate markers or extra mutations.
 5. Perform one post-write group reconciliation and one affected repository verification.
 
-## Completion Criteria
+## Historical completion criteria
 
 - [ ] TC-01: Observable: every declared Task exists on `develop` and cites its exact source Issue.
 - [ ] TC-02: Observable: native dependency order and named external prerequisites remain intact.
@@ -90,8 +94,8 @@ Not applicable.
 Paired execution record:
 `.agents/tasks/AGREEMENT-012-coordinate-strict-metadata-decoder-adoption.md`.
 
-- [ ] SECURITY-003 — todo — `.agents/tasks/SECURITY-003-migrate-skill-and-plugin-discovery-to-the-strict-decoder.md`
-- [ ] SECURITY-004 — todo — `.agents/tasks/SECURITY-004-migrate-agent-definition-loading-to-the-strict-decoder.md`
+- [x] SECURITY-003 — done — `.agents/tasks/SECURITY-003-migrate-skill-and-plugin-discovery-to-the-strict-decoder.md`
+- [x] SECURITY-004 — done — `.agents/tasks/SECURITY-004-migrate-agent-definition-loading-to-the-strict-decoder.md`
 
 ## Evidence Log
 

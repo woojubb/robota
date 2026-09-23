@@ -121,9 +121,15 @@ describe('findSpecDocFrontmatterFindings', () => {
     expect(blocking[0].detail).toContain('type "FEATURE" not one of the 11 SDLC prefixes');
   });
 
-  it('flags missing/empty tags (RED)', async () => {
+  it.each([
+    ['missing', ''],
+    ['empty', 'tags: []'],
+  ])('flags %s tags (RED)', async (_case, replacement) => {
     const root = await createFixture({
-      'draft/RULE-005-notags.md': GREEN_SPEC.replace('tags: [harness, gate]', 'tags: []'),
+      'draft/RULE-005-notags.md': GREEN_SPEC.replace(
+        'tags: [harness, gate]\n',
+        replacement ? `${replacement}\n` : '',
+      ),
     });
 
     const { blocking } = findSpecDocFrontmatterFindings(root);

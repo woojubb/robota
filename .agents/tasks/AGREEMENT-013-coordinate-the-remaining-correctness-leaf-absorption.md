@@ -12,6 +12,12 @@ children: [TRANS-016, SEC-021]
 
 # AGREEMENT-013: coordinate the remaining correctness-leaf absorption
 
+## Current disposition — 2026-09-23
+
+The issue #2664 dependency is the retained issue #2075 configured-hook slice, delivered by SEC-021 and its PR #2838 source-provenance follow-up (`fe48835ca6c53ada790ec61ee1fd00c437441ba1`). TRANS-016 was separately delivered by PR #2841 (`242a6444bb7489c9edf169f1b53f7fb4e1a90507`) with v1 replay fixtures repaired in PR #2843 (`8e1e77df4f3183d10adc594e96e3a63d21840d25`).
+
+Both product children are implemented. This parent remains in-progress because its broader issue #2079 administrative acceptance and map remain owned here. issue #2664 consumes the completed issue #2075 slice without claiming this entire parent or issue #2423 complete. The old administrative gate procedure below is historical under PR #2827.
+
 ## Objective
 
 Coordinate session event decoding and configured-hook reachability as one exact Issue-to-Task migration graph rooted in [issue #2079](https://github.com/woojubb/robota/issues/2079). Preserve external security decisions and historical Issue evidence while removing only redundant executable queue entries.

@@ -1,7 +1,7 @@
 ---
 title: 'MERGE-2664: Preserve clean versus conflicted status in shared merge-tree analysis'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: superseded
 created: 2026-09-20
 priority: medium
 urgency: soon
@@ -10,6 +10,12 @@ depends_on: []
 ---
 
 # MERGE-2664: Preserve clean versus conflicted status in shared merge-tree analysis
+
+## Current disposition — 2026-09-23
+
+The shared clean/conflicted-status correction was delivered by PR #2823 (`bb8fd38f7aaae9fcf0f59828e3f18e7d87d9c912`). PR #2827 (`2a4a84631d24243d8dfb8ef75e04d790e8d60d37`) deliberately retired the legacy gate, checkpoint, and recommendation machinery. The helper and its callers are no longer current implementation surfaces.
+
+The surviving migration requirement is met by bounded independent inspection of the unchanged historical graph: all 16 merge commits have exit-zero automatic merges and actual trees equal to their automatic trees. The resolution evidence records that witness and treats S as an explicit reviewed resolution, not a historical clean merge. The plan and diagnostic below describe the historical defect; they do not assert a currently executable helper.
 
 ## Objective
 
@@ -22,7 +28,7 @@ BRANCH-2664 containment rejects conflicted integration merges at its call site; 
 shared correction across existing committed-merge and staged-merge callers without changing their
 established attribution semantics accidentally.
 
-## Plan
+## Historical plan
 
 - [ ] Characterize every caller of `automaticMergeTree` and `mergeOwnPaths`, including staged merges.
 - [ ] Return both the merge tree identity and clean/conflicted status from the shared abstraction.

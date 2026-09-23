@@ -7,6 +7,16 @@ lane: L2
 
 # BRANCH-2664-P2: Make reviewed legacy-base divergence auditable
 
+## Current disposition — 2026-09-23
+
+The 2026-09-22 P2 Closeout Amendment and [the subsequent issue #2664 correction](https://github.com/woojubb/robota/issues/2664#issuecomment-5787034571) govern current execution. PR #2827 (`2a4a84631d24243d8dfb8ef75e04d790e8d60d37`) deliberately retired the legacy gate, checkpoint, and recommendation machinery.
+
+Publish exact R `720eb5e841ba7a5361ac667b9658e034212bb58e` from expected L `4214cb540a54037410388a3a8107e474c224c86f` after immutable archive/review-ref read-back. Construct the reviewed sync with parents `[R,D]`, where D is `fde558ea1b9d09d94b261eb980c96dfb4703201b`. The final-D ledger authorizes 80 path dispositions, 14 owner-record exceptions, and three additional edits; other paths retain exact D. Its preview contains 30 conflicts. The former rebuild-from-verifier-base premise and reusable App/ruleset/journal/broker/Darwin design are historical alternatives, not current prerequisites.
+
+The frozen L/R manifest remains SHA-256 `1dfc77165cfdb602c12a34a1b61e15e7ea22c03163695ce420efb5a32656f2c8`, with 78 records and eight segments. New D/S resolution evidence belongs in `.agents/evidence/migrations/BRANCH-2664-P2-agreement-2664-resolution.json`; do not rewrite the historical manifest or claim this document knows its own future commit OID.
+
+This record remains in-progress while the final sync, hosted checks, merge verification, issue map, and issue closure are pending. The final immutable PR/issue completion receipt records those later observations; preparing this document is not their completion.
+
 ## Issue #2826 coordination
 
 This design remains open for its migration authority and remote-state scope. Prospective work uses
@@ -1057,39 +1067,18 @@ shared closeout owners, the runtime seam, the static scan, `project-structure.md
 
 ## Completion Criteria
 
-- [ ] TC-01: Observable: shared merge analysis returns the synthesized tree and clean/conflicted status
-      together; clean, manual-resolution, staged, and persisted-conflict-marker regressions preserve
-      their distinct attribution outcomes.
-- [ ] TC-02: Command: focused migration-verifier tests and affected harness contracts exit 0 for
-      the final replacement/sync history.
-- [ ] TC-03: Observable: the MANIFEST-2664 reference-kind baseline key moves from `active/` to `done/`
-      with value `9` and unchanged baseline cardinality; the qualified-reference scan exits 0.
-- [ ] TC-04: Observable: a canonical migration manifest under `.agents/evidence/migrations/` binds the
-      immutable legacy OID, replacement OID, segment dispositions, and merge parents; the landed
-      verifier exits 0 against the exact committed bytes.
-- [ ] TC-05: Observable: the legacy integration tip remains archived and immutable, while the replacement
-      publication and subsequent sync use exact expected OIDs and no unverified force update.
-- [ ] TC-06: Observable: the final integration history contains the eight declared children in order,
-      resolves the three measured current-develop conflicts without conflict markers, and preserves
-      current `develop` behavior on overlapping files.
-- [ ] TC-07: Observable: AGREEMENT-2664, MAP-2664, MERGE-2664, and this BRANCH-2664-P2 record have one
-      truthful terminal disposition, with every retained issue row mapped to delivered or terminal
-      evidence.
-- [ ] TC-08: Observable: the final PR lands on `develop` with required checks green, independent merge
-      verification passes, one completion record is audited, and GitHub issue #2664 reads `CLOSED`.
+- [ ] TC-01: Preserve PR #2823's historical shared-helper delivery and PR #2827's retirement; bind the independent 16/16 clean, equal-automatic-tree historical merge witness and inspect S's explicit resolution separately.
+- [ ] TC-02: Run the current migration-verifier tests and affected surviving contracts against the exact reviewed inputs; deleted plan-order checks are not active commands.
+- [ ] TC-03: Preserve the `scripts/harness/reference-kind-baseline.json` key `.agents/spec-docs/done/MANIFEST-2664-verify-legacy-base-divergence-with-a-closed-manifest-and-bound-receipts.md` at value 9. The earlier active-to-done reindex and unrelated baseline additions are distinct facts; no whole-baseline cardinality claim is made.
+- [ ] TC-04: Verify the unchanged canonical historical manifest at its frozen digest, 78 records, eight segments, and exact L/R identities.
+- [ ] TC-05: Read back archive=L and review=R, publish target L-to-R using the exact expected-old-OID lease, read back target=R, and later publish reviewed S from expected R without altering the archive.
+- [ ] TC-06: Construct S with parents [R,D], resolve the measured 30 conflicts through all 80 path dispositions, retain all eight ordered child ancestors, and preserve current D behavior plus the declared owner-record/additional edits. No other D path may change.
+- [ ] TC-07: Reconcile the complete current owner table across Task/spec/issue. Historical delivery, explicit supersession, retained external delivery, and still-pending final verification remain distinct outcomes.
+- [ ] TC-08: Land the exact reviewed final PR with required checks green and history preserved; independently verify content and ancestry, complete the owner-map/completion audit, and read issue #2664 as CLOSED. This criterion is pending before those events.
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                             | Notes                                      |
-| ----- | ----------- | ----------------------------------------------------------- | ------------------------------------------ |
-| TC-01 | regression  | `scan-user-execution-plan-order.test.mjs`                   | Four merge-result classes                  |
-| TC-02 | integration | focused Vitest plus plan-order CLI                          | Exact replacement/sync history             |
-| TC-03 | contract    | `scan-reference-kind-qualified.mjs`                         | Key-only reindex, value/cardinality stable |
-| TC-04 | adversarial | `integration-migration-manifest.mjs verify`                 | Canonical bytes and exact OIDs             |
-| TC-05 | integration | `git ls-remote`, archive read-back, exact lease publication | No legacy mutation                         |
-| TC-06 | integration | merge-tree, conflict-marker scan, plan-order scan           | Current develop wins where required        |
-| TC-07 | contract    | Task/spec/issue projection scans                            | One terminal owner per row                 |
-| TC-08 | remote      | GitHub checks, merge-verifier, closeout audit               | Issue state must be CLOSED                 |
+Verify the canonical L/R manifest and focused current verifier suite; compare all final-D ledger paths and exclusions; independently recompute historical merge cleanliness and S own-content; run the final-range pinned scanner and current affected contracts; read back exact remote leases, archive and review refs; verify required hosted checks, final ancestry/content and complete Task/spec/issue reconciliation. No deleted scanner is a current prerequisite. TC-08 remains pending until issue #2664 reads CLOSED.
 
 ## Superseded Completion Criteria (historical)
 
