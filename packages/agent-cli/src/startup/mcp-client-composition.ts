@@ -7,7 +7,7 @@
  * 1. the `/mcp` command port (`ICommandMCPActivationAdapter`, wired via
  *    `IStartCliOptions.mcpActivationAdapter` in `./command-setup.ts`) — a thin projection over
  *    `MCPActivationController`, the definition-registry adapter `agent-mcp` already ships;
- * 2. the runtime tool set for every resolved, admitted, Streamable HTTP definition — admit the
+ * 2. the runtime tool set for resolved, admitted HTTP and host-authorized stdio definitions — admit the
  *    endpoint, open a supervised session, discover, build the catalog and wrap each adopted/adapted
  *    tool with `createDiscoveredTool`, all `agent-mcp` functions called in the sequence its own SPEC
  *    documents (`docs/SPEC.md` § Architecture Overview). The result is `IToolWithEventService[]`,
@@ -16,12 +16,9 @@
  *
  * What this module deliberately does NOT do: decode raw `mcpServers` config, resolve precedence, or
  * decide trust — `agent-mcp` (MCP-001) already owns all of that, `MCPActivationAdmissionService`
- * already decides admission, and none of it is duplicated here. It also does not yet SOURCE
- * `IMCPResolvedEntry[]` from disk: nothing in `agent-cli`/`agent-command` reads a project's/user's
- * `mcpServers` settings into that shape today (only `bundle-plugin-inspection.ts`'s informational,
- * connection-free listing exists), so `resolvedEntries` is accepted as an explicit input rather than
- * invented here — the composition root that eventually reads those settings sources feeds this
- * module, exactly as it feeds `MCPDefinitionRegistry`'s constructor.
+ * already decides admission, and none of it is duplicated here. `mcp-startup.ts` supplies the
+ * resolved definitions from the product's settings sources and separately forwards host-owned
+ * stdio authority. This module never derives execution authority from those definitions.
  */
 
 import {
@@ -31,6 +28,7 @@ import {
   MCPDefinitionRegistry,
   buildCatalog,
   createDiscoveredTool,
+  createStdioAdapter,
   createStreamableHttpAdapter,
   openMcpSession,
 } from '@robota-sdk/agent-mcp';
@@ -39,16 +37,15 @@ import type {
   IMCPActivationRequest,
   IMCPActivationSummary,
   IMCPActivationWorkspace,
-  IMCPAdmittedHttpEndpoint,
   IMCPBackoffPolicy,
   IMCPCatalog,
   IMCPCatalogInput,
   IMCPConnectionSupervisorOptions,
   IMCPDiscovery,
-  IMCPHttpEndpoint,
   IMCPHttpTransportDeps,
   IMCPResolvedEntry,
   IMCPServerDefinitionResolved,
+  IMCPStdioAuthority,
   IMCPSupervisorClock,
   IMCPTimeouts,
   IMCPToolCallResult,
@@ -98,6 +95,8 @@ export interface IMcpClientCompositionDeps {
   readonly clock?: IMCPSupervisorClock;
   readonly discovery?: { readonly maxPages: number };
   readonly transport?: IMCPHttpTransportDeps;
+  /** Host capabilities, never populated from project or user MCP definitions. */
+  readonly stdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
   readonly clientInfo?: { readonly name: string; readonly version: string };
   /**
    * Constructs the per-server connection. Defaults to a real `MCPConnectionSupervisor`; a test
@@ -201,15 +200,16 @@ interface IConnectServerContext {
  * excludes that server and moves on, never aborting the others (per-server isolation).
  */
 /** The per-server options a real `MCPConnectionSupervisor` (or the test fake standing in for it) needs. */
-function buildSupervisorOptions(
+function buildSupervisorOptions<TInput, TAdmitted>(
   request: IMCPActivationRequest,
-  transportAdapter: IMCPTransportAdapter<IMCPHttpEndpoint, IMCPAdmittedHttpEndpoint>,
-  admittedEndpoint: IMCPAdmittedHttpEndpoint,
+  transportAdapter: IMCPTransportAdapter<TInput, TAdmitted>,
+  admittedEndpoint: TAdmitted,
   timeouts: IMCPTimeouts,
   deps: IMcpClientCompositionDeps,
 ): IMCPConnectionSupervisorOptions {
   return {
     serverId: request.serverId,
+    awaitOpenCleanupOnTimeout: transportAdapter.kind === 'stdio',
     openSession: (openSignal) =>
       openMcpSession({
         serverId: request.serverId,
@@ -241,22 +241,43 @@ async function connectOneServer(
     return undefined;
   }
 
-  const transportAdapter = createStreamableHttpAdapter(deps.transport);
-  const endpointAdmission = await transportAdapter.admit({
-    url: definition.url ?? '',
-    ...(definition.headers === undefined ? {} : { headers: definition.headers }),
-  });
-  if (!endpointAdmission.ok) {
-    deps.reportDiagnostic(
-      `MCP server "${request.serverId}" endpoint was refused (${endpointAdmission.reason}): ${endpointAdmission.message}`,
-    );
-    return undefined;
+  let supervisorOptions: IMCPConnectionSupervisorOptions;
+  const transport = definition.transport === 'stdio' ? 'stdio' : 'streamable-http';
+  if (definition.transport === 'stdio') {
+    const authority =
+      deps.stdioAuthorities !== undefined && Object.hasOwn(deps.stdioAuthorities, request.serverId)
+        ? deps.stdioAuthorities[request.serverId]
+        : undefined;
+    if (authority === undefined) {
+      deps.reportDiagnostic(
+        `MCP server "${request.serverId}" stdio was refused: missing host authority.`,
+      );
+      return undefined;
+    }
+    const adapter = createStdioAdapter({ admission, authority });
+    const result = await adapter.admit({ definition, activation: request });
+    if (!result.ok) {
+      deps.reportDiagnostic(
+        `MCP server "${request.serverId}" stdio was refused (${result.reason}).`,
+      );
+      return undefined;
+    }
+    supervisorOptions = buildSupervisorOptions(request, adapter, result.admitted, timeouts, deps);
+  } else {
+    const adapter = createStreamableHttpAdapter(deps.transport);
+    const result = await adapter.admit({
+      url: definition.url ?? '',
+      ...(definition.headers === undefined ? {} : { headers: definition.headers }),
+    });
+    if (!result.ok) {
+      deps.reportDiagnostic(
+        `MCP server "${request.serverId}" endpoint was refused (${result.reason}): ${result.message}`,
+      );
+      return undefined;
+    }
+    supervisorOptions = buildSupervisorOptions(request, adapter, result.admitted, timeouts, deps);
   }
-  const admittedEndpoint = endpointAdmission.admitted;
-
-  const connection = createSupervisor(
-    buildSupervisorOptions(request, transportAdapter, admittedEndpoint, timeouts, deps),
-  );
+  const connection = createSupervisor(supervisorOptions);
 
   // allow-fallback: one server's discovery failure is reported via `reportDiagnostic` (never
   // swallowed) and that server is recorded with no `discovery` — a catalog server entry with every
@@ -267,15 +288,15 @@ async function connectOneServer(
   try {
     const discovery = await connection.discover(signal);
     return {
-      catalogInput: { serverId: request.serverId, origin, transport: 'streamable-http', discovery },
+      catalogInput: { serverId: request.serverId, origin, transport, discovery },
       connection,
     };
   } catch (error) {
     deps.reportDiagnostic(
-      `MCP server "${request.serverId}" discovery failed: ${describeError(error)}`,
+      `MCP server "${request.serverId}" discovery failed: ${transport === 'stdio' ? 'stdio connection failed' : describeError(error)}`,
     );
     return {
-      catalogInput: { serverId: request.serverId, origin, transport: 'streamable-http' },
+      catalogInput: { serverId: request.serverId, origin, transport },
       connection,
     };
   }
@@ -350,10 +371,8 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       const entry = deps.resolvedEntries.find((candidate) => candidate.name === request.serverId);
       if (entry === undefined || entry.definition === undefined) continue;
       const definition = entry.definition;
-      // TC-06: this unit's transport set is exactly Streamable HTTP. stdio is MCP-2522's scope;
-      // sse/ws have no adapter and are refused by `buildCatalog` itself when a caller reaches it —
-      // neither belongs in THIS composition's connect loop.
-      if (definition.transport !== 'http') continue;
+      // HTTP and stdio use shared adapters; SSE/WebSocket have no adapter in this composition.
+      if (definition.transport !== 'http' && definition.transport !== 'stdio') continue;
 
       const connected = await connectOneServer(request, definition, entry.origin, context);
       if (connected === undefined) continue;

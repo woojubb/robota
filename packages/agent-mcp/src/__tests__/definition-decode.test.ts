@@ -21,12 +21,15 @@ const raw = (entry: Record<string, unknown>, name = 'alpha'): IMCPServerDefiniti
 
 describe('decodeEntry', () => {
   it('decodes a stdio definition', () => {
-    const decoded = decodeEntry(raw({ type: 'stdio', command: 'server', args: ['--port', '1'] }));
+    const decoded = decodeEntry(
+      raw({ type: 'stdio', command: 'server', args: ['--port', '1'], cwd: 'work' }),
+    );
     expect(decoded).toMatchObject({
       name: 'alpha',
       transport: 'stdio',
       command: 'server',
       args: ['--port', '1'],
+      cwd: 'work',
     });
   });
 
@@ -55,6 +58,25 @@ describe('decodeEntry', () => {
     ).toMatch(/needs a non-empty `command`/);
   });
 
+  it('refuses malformed stdio cwd before resolution', () => {
+    expect(
+      (decodeEntry(raw({ type: 'stdio', command: 'x', cwd: '' })) as { reason: string }).reason,
+    ).toMatch(/cwd/);
+    expect(
+      (decodeEntry(raw({ type: 'stdio', command: 'x', cwd: 1 })) as { reason: string }).reason,
+    ).toMatch(/cwd/);
+    expect(
+      (decodeEntry(raw({ type: 'stdio', command: 'x', cwd: 'a\0b' })) as { reason: string }).reason,
+    ).toMatch(/cwd/);
+    expect(
+      (
+        decodeEntry(raw({ type: 'stdio', command: 'x', cwd: 'a'.repeat(16_385) })) as {
+          reason: string;
+        }
+      ).reason,
+    ).toMatch(/cwd/);
+  });
+
   it('refuses a remote entry with no url', () => {
     for (const type of ['http', 'sse', 'ws']) {
       const decoded = decodeEntry(raw({ type })) as { reason: string };
@@ -70,6 +92,10 @@ describe('decodeEntry', () => {
   });
 
   it('refuses mixed transport fields', () => {
+    expect(
+      (decodeEntry(raw({ type: 'http', url: 'https://a', cwd: 'work' })) as { reason: string })
+        .reason,
+    ).toMatch(/cwd/);
     expect(
       (decodeEntry(raw({ type: 'stdio', command: 'x', url: 'https://a' })) as { reason: string })
         .reason,

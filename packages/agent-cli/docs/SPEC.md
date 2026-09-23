@@ -245,6 +245,17 @@ appends `connect()`'s tools to `toolOptions.additionalTools` — unless a caller
 own `mcpActivationAdapter` (tests do this), which always wins and skips composition entirely. Zero
 resolved definitions is a normal, silent-diagnostic outcome: the `/mcp` adapter simply lists nothing.
 
+**Stdio client authority (MCP-2522):** embedding hosts may pass
+`IStartCliOptions.mcpStdioAuthorities`, keyed by resolved server ID. Startup forwards this capability
+unchanged to the shared `agent-mcp` stdio adapter. Definitions and settings cannot grant execution
+authority: an approved stdio definition without a separately supplied host authority is diagnosed
+and never spawned. The adapter owns executable/argv, environment, cwd and activation validation;
+the CLI only selects HTTP or stdio and exposes discovered tools through the same catalog path.
+Stdio supervisor timeout and shutdown wait for the shared adapter's bounded pending-open cleanup;
+this prevents a retry from overlapping a still-terminating child. Stdio discovery diagnostics never
+include raw child or SDK errors. The ordinary executable does
+not provision stdio authority automatically, and does not auto-approve package-runner commands.
+
 **Current limit:** approval is in-memory in this unit (`createMcpClientComposition`'s default
 approval store is session-scoped, per-process), so a server approved via `/mcp approve` mid-session
 is connected on the NEXT `robota` start, not this one.

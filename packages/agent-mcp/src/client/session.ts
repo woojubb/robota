@@ -21,6 +21,8 @@ import {
 import { TypeUtils } from '@robota-sdk/agent-core';
 
 import { discoverAll } from './discovery.js';
+import { MCPStdioError } from './stdio-transport.js';
+import { MCPDiscoveryError } from '../catalog/types.js';
 import { toUniversalObject } from '../catalog/universal-value.js';
 
 import type { IMCPDiscovery, IMCPServerIdentity, TMCPCapabilityDomain } from '../catalog/types.js';
@@ -111,8 +113,27 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function sensitiveTransport(transport: Transport): boolean {
+  return 'sensitiveDiagnostics' in transport && transport.sensitiveDiagnostics === true;
+}
+
+function startupBudget(options: IMCPOpenSessionOptions): number {
+  const transport = options.transport;
+  if ('stdioStartupMs' in transport && typeof transport.stdioStartupMs === 'number') {
+    return Math.min(options.timeouts.startupMs, transport.stdioStartupMs);
+  }
+  return options.timeouts.startupMs;
+}
+
 function isRequestTimeout(error: unknown): boolean {
   return error instanceof McpError && error.code === ErrorCode.RequestTimeout;
+}
+
+function isStartupTimeout(error: unknown): boolean {
+  return (
+    isRequestTimeout(error) ||
+    (error instanceof MCPSessionError && error.kind === 'startup-timeout')
+  );
 }
 
 /**
@@ -151,14 +172,49 @@ function buildDeclaredCapabilities(
   return record;
 }
 
-/** Runs `initialize` within `startupMs`, mapping a failure to the two named `MCPSessionError` kinds. */
+/** Runs `initialize` within `startupMs`, retaining a typed stdio authority refusal after cleanup. */
 async function connectClient(client: Client, options: IMCPOpenSessionOptions): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let abort: (() => void) | undefined;
   try {
-    await client.connect(options.transport, {
-      timeout: options.timeouts.startupMs,
+    if (sensitiveTransport(options.transport) && options.signal?.aborted) {
+      throw new MCPSessionError('initialize-failed', 'Stdio session startup cancelled');
+    }
+    const effectiveStartupMs = startupBudget(options);
+    const connection = client.connect(options.transport, {
+      timeout: effectiveStartupMs,
       signal: options.signal,
     });
+    if (sensitiveTransport(options.transport)) {
+      const deadline = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new MCPSessionError('startup-timeout', 'Stdio session startup timed out')),
+          effectiveStartupMs,
+        );
+        abort = () =>
+          reject(new MCPSessionError('initialize-failed', 'Stdio session startup cancelled'));
+        if (options.signal?.aborted) abort();
+        else options.signal?.addEventListener('abort', abort, { once: true });
+      });
+      await Promise.race([connection, deadline]);
+    } else {
+      await connection;
+    }
   } catch (error) {
+    if (sensitiveTransport(options.transport)) {
+      try {
+        await options.transport.close();
+      } catch {
+        throw new MCPStdioError('cleanup');
+      }
+      if (error instanceof MCPStdioError && error.reason === 'authority') throw error;
+      throw new MCPSessionError(
+        isStartupTimeout(error) ? 'startup-timeout' : 'initialize-failed',
+        isStartupTimeout(error)
+          ? 'Stdio session startup timed out'
+          : 'Stdio session startup failed',
+      );
+    }
     if (isRequestTimeout(error)) {
       throw new MCPSessionError(
         'startup-timeout',
@@ -169,6 +225,9 @@ async function connectClient(client: Client, options: IMCPOpenSessionOptions): P
     throw new MCPSessionError('initialize-failed', describeError(error), {
       cause: describeError(error),
     });
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+    if (abort !== undefined) options.signal?.removeEventListener('abort', abort);
   }
 }
 
@@ -179,8 +238,10 @@ async function requireNegotiatedVersion(client: Client, transport: Transport): P
     await client.close();
     throw new MCPSessionError(
       'unsupported-protocol-version',
-      `Server negotiated unsupported MCP protocol version "${negotiatedVersion ?? 'unknown'}"`,
-      { protocolVersion: negotiatedVersion },
+      sensitiveTransport(transport)
+        ? 'Stdio server negotiated an unsupported MCP protocol version'
+        : `Server negotiated unsupported MCP protocol version "${negotiatedVersion ?? 'unknown'}"`,
+      sensitiveTransport(transport) ? undefined : { protocolVersion: negotiatedVersion },
     );
   }
   return negotiatedVersion;
@@ -239,25 +300,72 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
   const listeners = new Set<TMCPListChangedListener>();
   registerListChangedHandlers(client, listeners);
 
-  let closed = false;
+  let closePromise: Promise<void> | undefined;
+  const closeSession = (): Promise<void> => {
+    closePromise ??= client.close();
+    return closePromise;
+  };
+  const throwIfStdioChildExited = async (): Promise<void> => {
+    if (!('closedDirectChild' in options.transport) || options.transport.closedDirectChild !== true)
+      return;
+    try {
+      await closeSession();
+    } catch {
+      throw new MCPStdioError('cleanup');
+    }
+    throw new MCPStdioError('early-exit');
+  };
 
   return {
     identity,
     instructions,
     declaredCapabilities,
     async discover(discoverOptions: IMCPDiscoverOptions): Promise<IMCPDiscovery> {
-      return discoverAll(client, declaredCapabilities, identity, instructions, discoverOptions);
+      try {
+        return await discoverAll(
+          client,
+          declaredCapabilities,
+          identity,
+          instructions,
+          discoverOptions,
+        );
+      } catch (error) {
+        if (sensitiveTransport(options.transport)) {
+          if (
+            discoverOptions.signal?.aborted ||
+            (error instanceof MCPDiscoveryError && error.failure.kind === 'timeout')
+          ) {
+            await closeSession();
+            throw new MCPStdioError('cancelled');
+          }
+          await throwIfStdioChildExited();
+          throw new MCPStdioError('send');
+        }
+        throw error;
+      }
     },
     async callTool(
       name: string,
       args: TToolParameters,
       callOptions?: { readonly signal?: AbortSignal; readonly timeoutMs?: number },
     ): Promise<IMCPToolCallResult> {
-      const raw = await client.callTool({ name, arguments: args }, undefined, {
-        timeout: callOptions?.timeoutMs,
-        signal: callOptions?.signal,
-      });
-      return toToolCallResult(raw);
+      try {
+        const raw = await client.callTool({ name, arguments: args }, undefined, {
+          timeout: callOptions?.timeoutMs,
+          signal: callOptions?.signal,
+        });
+        return toToolCallResult(raw);
+      } catch (error) {
+        if (sensitiveTransport(options.transport)) {
+          if (callOptions?.signal?.aborted || isRequestTimeout(error)) {
+            await closeSession();
+            throw new MCPStdioError('cancelled');
+          }
+          await throwIfStdioChildExited();
+          throw new MCPStdioError('send');
+        }
+        throw error;
+      }
     },
     onListChanged(listener: TMCPListChangedListener): () => void {
       listeners.add(listener);
@@ -266,9 +374,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
       };
     },
     async close(): Promise<void> {
-      if (closed) return;
-      closed = true;
-      await client.close();
+      await closeSession();
     },
   };
 }

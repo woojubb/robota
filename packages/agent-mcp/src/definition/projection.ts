@@ -19,12 +19,8 @@ export const REDACTED = '[REDACTED]';
 /**
  * A definition as it may be shown, with `env` and `headers` VALUES redacted.
  *
- * Contained — SECURITY-2793. This type said "secret-free by construction, not by the caller
- * remembering", and that is not true today: `command` and `args` are materialized from the same
- * environment map and are copied through verbatim, so `args: ['--header', 'Authorization: Bearer
- * ${TOKEN}']` carries the expanded token into every projection. The claim is narrowed to what the
- * code actually does rather than left standing; the fix needs value provenance out of
- * materialization, which SECURITY-2793 owns (issue #2793).
+ * Stdio command, args and cwd are redacted wholesale because templates can expand credentials
+ * into any of them. A projection never needs those values to report activation status.
  */
 export interface IMCPDefinitionProjection {
   readonly name: string;
@@ -34,6 +30,7 @@ export interface IMCPDefinitionProjection {
   readonly transport?: TMCPTransport;
   readonly command?: string;
   readonly args?: readonly string[];
+  readonly cwd?: string;
   /** Every value is `[REDACTED]`; the keys are the information. */
   readonly env?: Readonly<Record<string, string>>;
   readonly url?: string;
@@ -82,8 +79,18 @@ export function projectEntry(entry: IMCPResolvedEntry): IMCPDefinitionProjection
 
   if (definition !== undefined) {
     projection.transport = definition.transport;
-    if (definition.command !== undefined) projection.command = definition.command;
-    if (definition.args !== undefined) projection.args = [...definition.args];
+    if (definition.command !== undefined) {
+      projection.command = definition.transport === 'stdio' ? REDACTED : definition.command;
+    }
+    if (definition.args !== undefined) {
+      projection.args =
+        definition.transport === 'stdio'
+          ? definition.args.map(() => REDACTED)
+          : [...definition.args];
+    }
+    if (definition.cwd !== undefined) {
+      projection.cwd = definition.transport === 'stdio' ? REDACTED : definition.cwd;
+    }
     if (definition.env !== undefined) projection.env = redactValues(definition.env);
     if (definition.url !== undefined) projection.url = definition.url;
     if (definition.headers !== undefined) projection.headers = redactValues(definition.headers);

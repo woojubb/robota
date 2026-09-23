@@ -3,12 +3,12 @@
  *
  * Every transport contributes a typed admission step whose result is the only thing the
  * constructor accepts. HTTP admits a URL through the shared egress policy (SSRF boundary owned by
- * `@robota-sdk/agent-core/node`); a stdio adapter (MCP-2522) admits an executable, an environment
- * allowlist and a cwd authority in the same slot. Nothing here opens a connection: constructing an
+ * `@robota-sdk/agent-core/node`); the stdio adapter admits an executable, exact argv, environment
+ * values and a cwd authority in the same slot. Nothing here opens a connection: constructing an
  * SDK transport is inert until a `Client` connects it.
  *
- * The transport set of THIS unit is exactly Streamable HTTP (TC-06). The deprecated HTTP+SSE binding
- * and custom socket bindings are refusals surfaced in the catalog, not adapters.
+ * The supported set is Streamable HTTP and stdio. Deprecated HTTP+SSE and custom socket bindings
+ * are refusals surfaced in the catalog, not adapters.
  */
 
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -140,7 +140,7 @@ export function constructStreamableHttpTransport(
   });
 }
 
-/** The one adapter this unit ships. A stdio adapter is a second value of the same type. */
+/** The HTTP adapter; `createStdioAdapter` is a second value of the same type. */
 export function createStreamableHttpAdapter(
   deps: IMCPHttpTransportDeps = {},
 ): IMCPTransportAdapter<IMCPHttpEndpoint, IMCPAdmittedHttpEndpoint> {

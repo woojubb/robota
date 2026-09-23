@@ -46,6 +46,7 @@ export interface IMCPServerDefinition {
   readonly transport: TMCPTransport;
   readonly command?: string;
   readonly args?: readonly string[];
+  readonly cwd?: string;
   readonly env?: Readonly<Record<string, string>>;
   readonly url?: string;
   readonly headers?: Readonly<Record<string, string>>;

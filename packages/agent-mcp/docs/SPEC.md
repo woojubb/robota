@@ -34,9 +34,12 @@ client stacks cannot both be authoritative.
 - Does not own a tool registry or factory. The consumer (composition root or CLI) selects and wires
   tools at construction time; `agent-cli` composes the manager and owns no protocol, catalog, retry or
   policy logic.
-- Transport set is exactly **Streamable HTTP** in this unit, behind `IMCPTransportAdapter`
-  (admit → construct). A stdio adapter is MCP-2522's, with its own subprocess-security admission in the
-  same slot. Deprecated HTTP+SSE and custom WebSocket are **refusals** surfaced in the catalog's
+- Transport set is **Streamable HTTP and stdio**, behind `IMCPTransportAdapter`
+  (admit → construct). Stdio requires an explicit host-owned `IMCPStdioAuthority` and activation
+  admission before reading environment values, constructing the SDK transport, or spawning. The
+  authority fixes the canonical allowed root, absolute executable and exact argv vectors, environment
+  keys and values, a generation, and lifecycle budgets. Definitions cannot grant authority.
+  Deprecated HTTP+SSE and custom WebSocket are **refusals** surfaced in the catalog's
   `rejected` bucket with a reason, never adapters and never silent.
 - URL admission is the shared egress policy (`rejectDestination` from `@robota-sdk/agent-core/node`):
   `http:` outside loopback, private ranges and cloud-metadata addresses are refused BEFORE any
@@ -44,6 +47,15 @@ client stacks cannot both be authoritative.
   A redirect is refused rather than followed (`MCPTransportRedirectRefusedError`), so the admitted
   URL is the only URL the transport speaks to and definition headers never travel to a host the
   policy did not admit.
+- Stdio requests may specify `cwd`; absent cwd means the authority's allowed root, never the ambient
+  process cwd. Decoding, template materialization, projection and definition fingerprint all preserve
+  requested cwd. Admission rejects lexical `..`, NUL, non-directory paths, and canonical paths outside
+  the canonical root (including symlink escapes). Start rechecks activation and cwd before spawn.
+  The check limits but cannot eliminate concurrent filesystem replacement. The official SDK spawns
+  with `shell: false`; its default environment merge is countered by explicitly shadowing each
+  `DEFAULT_INHERITED_ENV_VARS` key with a host-selected value or an empty string. Empty baseline keys
+  remain present in the child. Stderr is piped and drained without publishing raw bytes. Cleanup
+  observes direct-child close within a bound; it makes no process-tree termination guarantee.
 - MCP activation policy is transport-neutral and host-injected. This package owns the admission port,
   exact identity matching, and a replaceable approval/audit store, but it does not decide workspace
   trust or read project/plugin files. `requiresTrustedWorkspace` is deny-by-default: only `managed`
@@ -65,7 +77,7 @@ behaviourally over a full pipeline run.
 - `decode.ts` — strict decoding of a foreign `mcpServers` object. A bad entry is refused and named,
   never partially built; `streamable-http` normalises to `http`; a `url` with no `type` is refused
   rather than read as stdio.
-- `env-template.ts` — `${VAR}` and `${VAR:-default}` in `command`, `args`, `env`, `url`, `headers`.
+- `env-template.ts` — `${VAR}` and `${VAR:-default}` in `command`, `args`, `cwd`, `env`, `url`, `headers`.
   An unset reference with no default is a reported warning whose literal text survives, because an
   empty substitution would produce a working-looking address that authenticates as nobody.
 - `precedence.ts` — whole-entry resolution over `managed > local > project > user > plugin`. Entries
@@ -74,14 +86,14 @@ behaviourally over a full pipeline run.
 - `overlay.ts` — reversible disable. A disabled entry stays listed with its provenance and reason;
   an overlay naming an unknown server is refused.
 - `projection.ts` — redacted management projections. `env` and `headers` VALUES never leave; their
-  keys do, because "header configured but redacted" and "no header" are different answers.
-  **Contained — SECURITY-2793 (issue #2793):** redaction is by field name, so a credential expanded
-  into `command` or `args` is NOT redacted. The projection is secret-free for `env`/`headers` only,
-  not "by construction".
+  keys do, because "header configured but redacted" and "no header" are different answers. Stdio
+  command, argv and cwd are redacted wholesale, including materialized template values.
 - `identity.ts` — `definitionFingerprint` over what will run, `securityIdentity` over where it came
   from. Secret values are never hashed, so rotating a token does not invalidate an approval.
   **Contained — SECURITY-2793 (issue #2793):** only env/header KEYS are covered, so changing an
-  execution-controlling VALUE such as `NODE_OPTIONS` leaves an approval valid.
+  execution-controlling VALUE such as `NODE_OPTIONS` leaves an approval valid for other transports.
+  Stdio rejects execution-controlling environment keys and requires requested values to match the
+  host authority; command and argv projections are redacted.
 - `registry.ts` — `MCPDefinitionRegistry`, the producer `MCPActivationController` was written
   against and never had. It offers only resolved, enabled entries as activation requests.
 
@@ -96,17 +108,34 @@ generation all match. It refuses project/plugin self-approval and exposes `appro
 definition registry into the command-layer's structural list/approve/reject/revoke port; status
 inspection never connects.
 
-**`client/`** (MCP-002) is the official-SDK seam, three modules with one reason to change each:
+**`client/`** (MCP-002/MCP-2522) is the official-SDK seam:
 
 - `transport.ts` — **admit, then construct.** `IMCPTransportAdapter<TInput, TAdmitted>` pairs a typed
   admission step with a constructor that accepts only what admission produced. `admitHttpEndpoint`
   runs the shared egress policy with an injectable hostname lookup; `constructStreamableHttpTransport`
   builds the SDK `StreamableHTTPClientTransport`, which is inert until a `Client` connects it.
+- `stdio.ts` — consumes activation first, checks request identity, then validates host-owned root,
+  cwd containment, absolute executable and exact argv, environment keys and host-selected values,
+  and bounds. It returns an opaque admitted capability. Construct is inert; every start rechecks
+  activation, authority generation, executable, environment and canonical cwd/root.
+- `stdio-transport.ts` — wraps the official `StdioClientTransport` through its public API. It shadows
+  all SDK default inherited environment keys, pipes and drains stderr into a bounded count, captures
+  the actual negotiated protocol version, and waits for direct-child close after SDK shutdown.
 - `session.ts` — one initialized protocol session: `openMcpSession` connects the SDK `Client` within
   `startupMs`, verifies the negotiated `protocolVersion` against `SUPPORTED_MCP_PROTOCOL_VERSIONS`
   (else closes and throws `unsupported-protocol-version`), and exposes the negotiated facts —
   identity, `instructions`, declared capabilities — plus `discover`, `callTool`, `onListChanged` and
   an idempotent `close`. A session is **stateless about liveness** by contract.
+  Stdio startup includes spawn and initialize within the smaller of caller and host budgets. Abort,
+  timeout and failed initialization await bounded cleanup; raw SDK errors are not surfaced. The SDK
+  has no cancellation acknowledgment, so abort or timeout of an active stdio request closes the
+  direct child after its cancellation notification. Tool calls are never replayed by the supervisor.
+  A stdio supervisor opts into `awaitOpenCleanupOnTimeout`: startup failure and shutdown await the
+  open session's bounded cleanup before returning or retrying. HTTP keeps its existing timeout
+  behavior. A failed stdio cleanup is a secret-free `config` failure requiring manual retry, and
+  shutdown surfaces that failure. Once an active stdio request closes its session, the supervisor
+  drops that session and
+  returns to idle; a later request may open a new session, but the failed tool call is never replayed.
 - `discovery.ts` — the caller-owned cursor loop. A capability the server did not declare is
   `unsupported` and its list method is never called; a declared one is drained page by page until
   `nextCursor` is absent, bounded by `maxPages` and a per-request timeout. An invalid cursor
@@ -163,6 +192,7 @@ This package is SSOT for the following types. Types marked **public** are export
 - `MCPActivationPolicyError` / `createFailClosedMCPActivationAdmission` — typed policy failure and deny-by-default fallback (**public**).
 
 - `IMCPTransportAdapter`, `TMCPTransportAdmission`, `IMCPHttpEndpoint`, `IMCPAdmittedHttpEndpoint`, `IMCPHttpTransportDeps` — the admit-then-construct transport seam (**public**).
+- `IMCPStdioInput`, `IMCPAdmittedStdioEndpoint`, `IMCPStdioAuthority`, `IMCPStdioExecutable`, `IMCPStdioAdapterOptions`, `MCPStdioError` — host-owned stdio authority and secret-free failure surface (**public**).
 - `IMCPSession`, `IMCPOpenSessionOptions`, `IMCPSessionTimeouts`, `IMCPDiscoverOptions`, `IMCPToolCallResult`, `MCPSessionError`, `SUPPORTED_MCP_PROTOCOL_VERSIONS` — one initialized protocol session and its negotiated facts (**public**).
 - `IMCPDiscovery`, `IMCPDiscoveryDomainResult`, `TMCPCapabilityState`, `TMCPCapabilityDomain`, `IMCPServerIdentity`, `MCPDiscoveryError`, `IMCPDiscoveryFailure` — what a server disclosed (**public**).
 - `IMCPCatalog`, `TMCPCatalogEntry`, `IMCPCatalogToolEntry`, `IMCPCatalogPromptEntry`, `IMCPCatalogResourceEntry`, `IMCPCatalogRejection`, `IMCPCatalogServerEntry`, `IMCPCatalogProvenance`, `TMCPCatalogDisposition`, `IMCPCatalogIdentity`, `MCP_CANONICAL_NAME_BUDGET` — the canonical catalog and its dispositions (**public**).
@@ -200,47 +230,47 @@ All `ITool`-related types (`ITool`, `IToolResult`, `IToolExecutionContext`, `TTo
 
 ### Definition control plane (MCP-001)
 
-| Export                          | Kind      | Description                                                                                                |
-| ------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------- |
-| `decodeSource`                  | function  | Decode one foreign `mcpServers` container into definitions and named refusals                              |
-| `decodeEntry`                   | function  | Decode one raw entry; returns the definition or the problem that stopped it, never a partial               |
-| `readRawEntries`                | function  | Split a container into named raw entries, reporting container-level problems once                          |
-| `IMCPDecodeResult`              | interface | `{ definitions, problems }` returned by `decodeSource`                                                     |
-| `materializeDefinition`         | function  | Expand `${VAR}` / `${VAR:-default}` in `command`, `args`, `env`, `url`, `headers`                          |
-| `IMCPEnvironment`               | interface | The environment map materialization reads; never `process.env` directly                                    |
-| `MCP_SOURCE_PRECEDENCE`         | const     | `managed > local > project > user > plugin`, highest first                                                 |
-| `resolveByPrecedence`           | function  | Whole-entry resolution; records shadows and keeps a malformed winner `unresolved`                          |
-| `IMCPSourceCandidates`          | interface | One source's decode output, tagged with its source and origin                                              |
-| `applyDisableOverlay`           | function  | Apply a reversible disable overlay; refuses an unknown server name                                         |
-| `clearDisable`                  | function  | Remove the overlay from one entry, restoring what precedence produced                                      |
-| `isDisabled`                    | function  | Whether an entry currently carries a disable overlay                                                       |
-| `IMCPDisableOverlay`            | interface | `{ disabled? }` — server names to disable with the reason shown beside each                                |
-| `MCPOverlayError`               | class     | Typed refusal for an overlay naming a server that does not exist                                           |
-| `projectEntry`                  | function  | Redacted projection of one entry; `env`/`headers` values become `[REDACTED]`, keys survive                 |
-| `projectEntries`                | function  | The same projection over a whole resolved set, in order                                                    |
-| `REDACTED`                      | const     | The redaction marker a projection substitutes for a secret value                                           |
-| `IMCPDefinitionProjection`      | interface | A definition as it may be shown, `env`/`headers` values redacted — see the SECURITY-2793 containment above |
-| `definitionFingerprint`         | function  | Hash over what will run or be contacted; secret VALUES are never hashed                                    |
-| `securityIdentity`              | function  | Hash over name, source and origin — which configured subject this is                                       |
-| `activationIdentity`            | function  | Both ids for one entry, or `null` when it is unresolved                                                    |
-| `IMCPActivationIdentity`        | interface | `{ serverId, definitionFingerprint, securityIdentity }`                                                    |
-| `MCPDefinitionRegistry`         | class     | `IMCPActivationDefinitionRegistry` over a resolved set; offers only resolved, enabled entries              |
-| `IMCPDefinitionRegistryOptions` | interface | Workspace trust snapshot passed through to admission unchanged                                             |
-| `listServers`                   | function  | Every configured server, projected                                                                         |
-| `getServer`                     | function  | One server by name, or a typed not-found carrying the names that exist                                     |
-| `statusOf`                      | function  | Counts (total, resolved, unresolved, disabled, unset-variable) plus the projected set                      |
-| `IMCPListResult`                | interface | `{ servers }` returned by `listServers`                                                                    |
-| `IMCPStatusResult`              | interface | Counts plus the projected set returned by `statusOf`                                                       |
-| `TMCPGetResult`                 | type      | `{ found: true, server }` or `{ found: false, name, knownNames }`                                          |
-| `IMCPServerDefinitionRaw`       | interface | An entry exactly as read, before validation                                                                |
-| `IMCPServerDefinition`          | interface | A decoded entry; environment templates not yet materialized                                                |
-| `IMCPServerDefinitionResolved`  | interface | A materialized definition plus the references that had no value                                            |
-| `IMCPResolvedEntry`             | interface | One server name's outcome: winner, status, shadows, and any disable reason                                 |
-| `IMCPDefinitionProblem`         | interface | Why a name could not produce a usable definition                                                           |
-| `IMCPDefinitionShadow`          | interface | An entry a winner hid, with its own source and origin                                                      |
-| `IMCPUnsetVariable`             | interface | An unset `${VAR}`: the variable, the exact field, and the literal left in place                            |
-| `TMCPDefinitionSource`          | type      | An alias of `TMCPActivationSource`, NOT a second union — one declaration cannot diverge from itself        |
-| `TMCPTransport`                 | type      | `stdio \| http \| sse \| ws`; `streamable-http` normalises to `http`                                       |
+| Export                          | Kind      | Description                                                                                         |
+| ------------------------------- | --------- | --------------------------------------------------------------------------------------------------- |
+| `decodeSource`                  | function  | Decode one foreign `mcpServers` container into definitions and named refusals                       |
+| `decodeEntry`                   | function  | Decode one raw entry; returns the definition or the problem that stopped it, never a partial        |
+| `readRawEntries`                | function  | Split a container into named raw entries, reporting container-level problems once                   |
+| `IMCPDecodeResult`              | interface | `{ definitions, problems }` returned by `decodeSource`                                              |
+| `materializeDefinition`         | function  | Expand `${VAR}` / `${VAR:-default}` in `command`, `args`, `env`, `url`, `headers`                   |
+| `IMCPEnvironment`               | interface | The environment map materialization reads; never `process.env` directly                             |
+| `MCP_SOURCE_PRECEDENCE`         | const     | `managed > local > project > user > plugin`, highest first                                          |
+| `resolveByPrecedence`           | function  | Whole-entry resolution; records shadows and keeps a malformed winner `unresolved`                   |
+| `IMCPSourceCandidates`          | interface | One source's decode output, tagged with its source and origin                                       |
+| `applyDisableOverlay`           | function  | Apply a reversible disable overlay; refuses an unknown server name                                  |
+| `clearDisable`                  | function  | Remove the overlay from one entry, restoring what precedence produced                               |
+| `isDisabled`                    | function  | Whether an entry currently carries a disable overlay                                                |
+| `IMCPDisableOverlay`            | interface | `{ disabled? }` — server names to disable with the reason shown beside each                         |
+| `MCPOverlayError`               | class     | Typed refusal for an overlay naming a server that does not exist                                    |
+| `projectEntry`                  | function  | Redacted projection of one entry; `env`/`headers` values become `[REDACTED]`, keys survive          |
+| `projectEntries`                | function  | The same projection over a whole resolved set, in order                                             |
+| `REDACTED`                      | const     | The redaction marker a projection substitutes for a secret value                                    |
+| `IMCPDefinitionProjection`      | interface | A definition as it may be shown; env/header values and stdio command/argv/cwd redacted              |
+| `definitionFingerprint`         | function  | Hash over what will run or be contacted; secret VALUES are never hashed                             |
+| `securityIdentity`              | function  | Hash over name, source and origin — which configured subject this is                                |
+| `activationIdentity`            | function  | Both ids for one entry, or `null` when it is unresolved                                             |
+| `IMCPActivationIdentity`        | interface | `{ serverId, definitionFingerprint, securityIdentity }`                                             |
+| `MCPDefinitionRegistry`         | class     | `IMCPActivationDefinitionRegistry` over a resolved set; offers only resolved, enabled entries       |
+| `IMCPDefinitionRegistryOptions` | interface | Workspace trust snapshot passed through to admission unchanged                                      |
+| `listServers`                   | function  | Every configured server, projected                                                                  |
+| `getServer`                     | function  | One server by name, or a typed not-found carrying the names that exist                              |
+| `statusOf`                      | function  | Counts (total, resolved, unresolved, disabled, unset-variable) plus the projected set               |
+| `IMCPListResult`                | interface | `{ servers }` returned by `listServers`                                                             |
+| `IMCPStatusResult`              | interface | Counts plus the projected set returned by `statusOf`                                                |
+| `TMCPGetResult`                 | type      | `{ found: true, server }` or `{ found: false, name, knownNames }`                                   |
+| `IMCPServerDefinitionRaw`       | interface | An entry exactly as read, before validation                                                         |
+| `IMCPServerDefinition`          | interface | A decoded entry; environment templates not yet materialized                                         |
+| `IMCPServerDefinitionResolved`  | interface | A materialized definition plus the references that had no value                                     |
+| `IMCPResolvedEntry`             | interface | One server name's outcome: winner, status, shadows, and any disable reason                          |
+| `IMCPDefinitionProblem`         | interface | Why a name could not produce a usable definition                                                    |
+| `IMCPDefinitionShadow`          | interface | An entry a winner hid, with its own source and origin                                               |
+| `IMCPUnsetVariable`             | interface | An unset `${VAR}`: the variable, the exact field, and the literal left in place                     |
+| `TMCPDefinitionSource`          | type      | An alias of `TMCPActivationSource`, NOT a second union — one declaration cannot diverge from itself |
+| `TMCPTransport`                 | type      | `stdio \| http \| sse \| ws`; `streamable-http` normalises to `http`                                |
 
 ### Client, catalog and supervision (MCP-002)
 
@@ -249,7 +279,14 @@ All `ITool`-related types (`ITool`, `IToolResult`, `IToolExecutionContext`, `TTo
 | `admitHttpEndpoint`                | function  | Admit a Streamable HTTP endpoint through the shared egress policy BEFORE any connection; refusal names the policy's reason                                                                  |
 | `constructStreamableHttpTransport` | function  | Build the SDK `StreamableHTTPClientTransport` from an ADMITTED endpoint only; inert until a `Client` connects it                                                                            |
 | `MCPTransportRedirectRefusedError` | class     | Thrown by the transport's fetch wrapper on any 3xx; carries `status` and `location`                                                                                                         |
-| `createStreamableHttpAdapter`      | function  | The one `IMCPTransportAdapter` this unit ships (`admit` → `construct`); a stdio adapter is MCP-2522's                                                                                       |
+| `createStreamableHttpAdapter`      | function  | HTTP `IMCPTransportAdapter` (`admit` → `construct`)                                                                                                                                         |
+| `createStdioAdapter`               | function  | Stdio `IMCPTransportAdapter`; consumes activation and host authority, returns an opaque admitted capability                                                                                 |
+| `IMCPStdioAdapterOptions`          | interface | Host admission service and explicit stdio authority used to create the adapter                                                                                                              |
+| `IMCPStdioAuthority`               | interface | Allowed root, generation, absolute executable/exact argv vectors, environment values and keys, startup/cleanup bounds                                                                       |
+| `IMCPStdioExecutable`              | interface | One allowed absolute executable with exact argument vectors                                                                                                                                 |
+| `IMCPStdioInput`                   | interface | Resolved definition plus matching activation request                                                                                                                                        |
+| `IMCPAdmittedStdioEndpoint`        | interface | Opaque adapter-bound admission; cannot be constructed by a different adapter                                                                                                                |
+| `MCPStdioError`                    | class     | Secret-free authority, start, early-exit, send, cancelled or cleanup failure                                                                                                                |
 | `IMCPTransportAdapter`             | interface | Admit-then-construct seam: `kind`, `admit(input)`, `construct(admitted)`                                                                                                                    |
 | `TMCPTransportAdmission`           | type      | `{ ok: true, admitted }` or `{ ok: false, reason, message }` — a typed refusal, never a guess                                                                                               |
 | `TMCPTransportKind`                | type      | `'streamable-http'                                                                                                                                                                          | 'stdio'`   |
@@ -301,7 +338,7 @@ All `ITool`-related types (`ITool`, `IToolResult`, `IToolExecutionContext`, `TTo
 | `IBuildCatalogOptions`             | interface | Optional `report` for `buildCatalog`'s once-per-tool narrowing report                                                                                                                       |
 | `INameCollisionCandidate`          | interface | `{ key, name }` handed to `resolveNameCollisions`                                                                                                                                           |
 | `MCPConnectionSupervisor`          | class     | Open / reuse / close, bounded retry, `list_changed` refresh without reconnecting, last-known-good with identity, five typed timeouts, `shutdown`                                            |
-| `IMCPConnectionSupervisorOptions`  | interface | `serverId`, `openSession(signal)`, `timeouts`, optional `backoff`, `clock`, `discovery.maxPages`, `onStateChange`                                                                           |
+| `IMCPConnectionSupervisorOptions`  | interface | `serverId`, `openSession(signal)`, `timeouts`, optional `backoff`, `clock`, `discovery.maxPages`, `onStateChange`, `awaitOpenCleanupOnTimeout` for stdio                                    |
 | `TMCPConnectionState`              | type      | THE connection-state union: `idle                                                                                                                                                           | connecting | connected    | failed                                   | closed`; `failed`carries`classification`, `attempt`, `retry` |
 | `TMCPFailureClass`                 | type      | `'transient'                                                                                                                                                                                | 'auth'     | 'config'     | 'not-found'`— only`transient` is retried |
 | `IMCPTimeouts`                     | interface | `startupMs`, `perCallMs`, `globalDefaultMs`, `idleMs`, `toolCallMs` — five independent settings; `toolCallMs` bounds one `callTool` request, distinct from `perCallMs` (discovery/protocol) |
@@ -318,7 +355,7 @@ All `ITool`-related types (`ITool`, `IToolResult`, `IToolExecutionContext`, `TTo
   (tests inject one so no DNS is touched) and the fetch the SDK transport uses. Admission runs before
   construction; nothing in this seam opens a connection.
 - `IMCPTransportAdapter` — a second transport is a second value of this type with its own admission
-  (MCP-2522's stdio adapter admits an executable, an environment allowlist and a cwd authority).
+  (the stdio adapter admits an executable, exact argv, host environment values and a cwd authority).
 - `IMCPOpenSessionOptions.clientInfo` / `.timeouts` — the client identity sent at `initialize` and the
   startup / per-call budgets; `SUPPORTED_MCP_PROTOCOL_VERSIONS` is the accepted set.
 - `IMCPDiscoverOptions.maxPages` / `.perRequestTimeoutMs` — the page bound and per-request budget of the
@@ -368,6 +405,8 @@ breaking a working tool over a limitation that is this repo's rather than the se
 | `admitHttpEndpoint`                | `{ ok: false, reason: 'invalid-url' }`                                                          | The endpoint is not a URL                                                                                                                                    |
 | `admitHttpEndpoint`                | `{ ok: false, reason: 'egress-policy:<reason>' }`                                               | `http:` outside loopback, private range, cloud metadata or a policy-blocked host — BEFORE any connection                                                     |
 | `constructStreamableHttpTransport` | `MCPTransportRedirectRefusedError`                                                              | Any 3xx from the admitted URL; classified `config` by `classifyMcpFailure`                                                                                   |
+| `createStdioAdapter.admit`         | `{ ok: false, reason }`                                                                         | Identity, activation, authority, cwd, executable, argv or environment refusal before spawn; no raw values in reason/message                                  |
+| `MCPStdioTransport`                | `MCPStdioError`                                                                                 | Start, send, cancellation or cleanup failure; direct-child close observed and raw SDK/stderr text withheld                                                   |
 | `openMcpSession`                   | `MCPSessionError('unsupported-protocol-version')`                                               | Negotiated version outside `SUPPORTED_MCP_PROTOCOL_VERSIONS`; the client is closed first                                                                     |
 | `openMcpSession`                   | `MCPSessionError('startup-timeout')`                                                            | `initialize` + `notifications/initialized` exceed `startupMs`                                                                                                |
 | `openMcpSession`                   | `MCPSessionError('initialize-failed')`                                                          | Any other connect failure, or a server that reports no `serverInfo`                                                                                          |
@@ -388,18 +427,20 @@ with opaque cursors, declared-vs-absent capabilities, an invalid-cursor and an e
 server-pushed `list_changed` over a Streamable HTTP SSE response, and 401 / 404 / 5xx knobs. Every
 spec criterion (TC-NN) names the file that proves it and the change that turns it red.
 
-| Area                     | Test file(s)                                                                                                                                                                                                                                                    | Coverage                                                                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Definition control plane | `definition-*.test.ts`, `management-results.test.ts`                                                                                                                                                                                                            | MCP-001: decode, templates, precedence, overlay, projection, identity, no side effects                                                                                                                                                                                                                                                                                                         |
-| Activation admission     | `mcp-activation.test.ts`, `host-admission-trust-binding.test.ts`                                                                                                                                                                                                | Exact identity, staleness, self-approval; untrusted workspace refused, rotated generation invalidates, deny-by-default for an unknown source (TC-29)                                                                                                                                                                                                                                           |
-| Session                  | `client-initialize.test.ts`                                                                                                                                                                                                                                     | Negotiated facts stored; unsupported version closed, not used (TC-01)                                                                                                                                                                                                                                                                                                                          |
-| Discovery                | `client-pagination.test.ts`, `discovery-bounds.test.ts`                                                                                                                                                                                                         | Three pages drained, absent cursor ends, `-32602` named (TC-02); page bound and per-request timeout (TC-19)                                                                                                                                                                                                                                                                                    |
-| URL admission            | `client-url-admission.test.ts`                                                                                                                                                                                                                                  | Private / metadata / non-loopback `http:` refused before any fetch (TC-05)                                                                                                                                                                                                                                                                                                                     |
-| Catalog                  | `catalog-naming.test.ts`, `catalog-capability.test.ts`, `catalog-dispositions.test.ts`, `catalog-provenance.test.ts`, `catalog-schema-narrowing.test.ts`                                                                                                        | Naming and collisions (TC-03); three-valued capabilities (TC-04); rejected transports (TC-07); provenance and buckets (TC-18); CORE-040 narrowing keeps a caller (TC-30)                                                                                                                                                                                                                       |
-| Runtime tool slot        | `dynamic-tool-registration.test.ts`, `tool-006-registrable.test.ts`, `third-party-schema-enforcement.test.ts`                                                                                                                                                   | Generic registration with no MCP-only branch (TC-08); event service retained; CORE-040 enforcement through the discovered tool                                                                                                                                                                                                                                                                 |
-| Supervisor               | `connection-supervisor.test.ts`, `canonical-failed-state.test.ts`, `failure-classification.test.ts`, `reconnect-backoff.test.ts`, `last-known-good.test.ts`, `timeout-semantics.test.ts`, `shutdown-no-live-requests.test.ts`, `catalog-cache-identity.test.ts` | Lifecycle and `list_changed` (TC-09); failed value carries its class (TC-10); four classes, transient-only retry (TC-13); bounded backoff under a fake clock (TC-14); last-known-good kept on failed refresh (TC-15); five independent timeouts, including `toolCallMs` bounding only `callTool` (TC-16); no live request or armed timer after shutdown (TC-17); identity invalidation (TC-22) |
-| Connection-state SSOT    | `connection-state-type.test.ts` (via `tsgo --noEmit`), `single-connection-state-union.test.ts` (TypeScript compiler API over `src/**`)                                                                                                                          | The `failed` member is required by the type (TC-23); exactly one connection-state union in the package (TC-24)                                                                                                                                                                                                                                                                                 |
-| Scenario                 | `examples/verify-mcp-client.ts` via `pnpm scenario:verify:mcp-client`                                                                                                                                                                                           | End-to-end product path over the mock server, isolated `HOME`; prints one `result=` line (TC-20)                                                                                                                                                                                                                                                                                               |
+| Area                      | Test file(s)                                                                                                                                                                                                                                                    | Coverage                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Definition control plane  | `definition-*.test.ts`, `management-results.test.ts`                                                                                                                                                                                                            | MCP-001: decode, templates, precedence, overlay, projection, identity, no side effects                                                                                                                                                                                                                                                                                                         |
+| Activation admission      | `mcp-activation.test.ts`, `host-admission-trust-binding.test.ts`                                                                                                                                                                                                | Exact identity, staleness, self-approval; untrusted workspace refused, rotated generation invalidates, deny-by-default for an unknown source (TC-29)                                                                                                                                                                                                                                           |
+| Session                   | `client-initialize.test.ts`                                                                                                                                                                                                                                     | Negotiated facts stored; unsupported version closed, not used (TC-01)                                                                                                                                                                                                                                                                                                                          |
+| Discovery                 | `client-pagination.test.ts`, `discovery-bounds.test.ts`                                                                                                                                                                                                         | Three pages drained, absent cursor ends, `-32602` named (TC-02); page bound and per-request timeout (TC-19)                                                                                                                                                                                                                                                                                    |
+| URL admission             | `client-url-admission.test.ts`                                                                                                                                                                                                                                  | Private / metadata / non-loopback `http:` refused before any fetch (TC-05)                                                                                                                                                                                                                                                                                                                     |
+| Stdio authority/lifecycle | `stdio-admission.test.ts`, `stdio-integration.test.ts`, `stdio-supervisor-cleanup.test.ts`                                                                                                                                                                      | Identity/activation, cwd traversal/symlink refusal, real SDK discovery/call, stderr drain, early exit, cancellation, direct-child close observation, and late cleanup failure propagation                                                                                                                                                                                                      |
+| Catalog                   | `catalog-naming.test.ts`, `catalog-capability.test.ts`, `catalog-dispositions.test.ts`, `catalog-provenance.test.ts`, `catalog-schema-narrowing.test.ts`                                                                                                        | Naming and collisions (TC-03); three-valued capabilities (TC-04); rejected transports (TC-07); provenance and buckets (TC-18); CORE-040 narrowing keeps a caller (TC-30)                                                                                                                                                                                                                       |
+| Runtime tool slot         | `dynamic-tool-registration.test.ts`, `tool-006-registrable.test.ts`, `third-party-schema-enforcement.test.ts`                                                                                                                                                   | Generic registration with no MCP-only branch (TC-08); event service retained; CORE-040 enforcement through the discovered tool                                                                                                                                                                                                                                                                 |
+| Supervisor                | `connection-supervisor.test.ts`, `canonical-failed-state.test.ts`, `failure-classification.test.ts`, `reconnect-backoff.test.ts`, `last-known-good.test.ts`, `timeout-semantics.test.ts`, `shutdown-no-live-requests.test.ts`, `catalog-cache-identity.test.ts` | Lifecycle and `list_changed` (TC-09); failed value carries its class (TC-10); four classes, transient-only retry (TC-13); bounded backoff under a fake clock (TC-14); last-known-good kept on failed refresh (TC-15); five independent timeouts, including `toolCallMs` bounding only `callTool` (TC-16); no live request or armed timer after shutdown (TC-17); identity invalidation (TC-22) |
+| Connection-state SSOT     | `connection-state-type.test.ts` (via `tsgo --noEmit`), `single-connection-state-union.test.ts` (TypeScript compiler API over `src/**`)                                                                                                                          | The `failed` member is required by the type (TC-23); exactly one connection-state union in the package (TC-24)                                                                                                                                                                                                                                                                                 |
+| Scenario                  | `examples/verify-mcp-client.ts` via `pnpm scenario:verify:mcp-client`                                                                                                                                                                                           | End-to-end product path over the mock server, isolated `HOME`; prints one `result=` line (TC-20)                                                                                                                                                                                                                                                                                               |
+| Stdio scenario            | `examples/verify-stdio-transport.ts` via `pnpm scenario:verify:stdio-transport --allowed/--denied`                                                                                                                                                              | Real child discovery/call and zero-spawn denied mode with isolated `HOME`                                                                                                                                                                                                                                                                                                                      |
 
 ## Class Contract Registry
 
@@ -408,7 +449,7 @@ spec criterion (TC-NN) names the file that proves it and the change that turns i
 | Interface                                         | Implementor                                                                 | Location                                                                                                                                    |
 | ------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `IToolWithEventService` (core)                    | `DiscoveredMCPTool` (via `createDiscoveredTool`)                            | `src/catalog/discovered-tool.ts` (declared `implements IToolWithEventService`; no `AbstractTool`, to avoid the circular runtime dependency) |
-| `IMCPTransportAdapter` (this package)             | the Streamable HTTP adapter value (`createStreamableHttpAdapter`)           | `src/client/transport.ts`                                                                                                                   |
+| `IMCPTransportAdapter` (this package)             | Streamable HTTP and stdio adapter values                                    | `src/client/transport.ts`, `src/client/stdio.ts`                                                                                            |
 | `IMCPSession` (this package)                      | the session object `openMcpSession` returns                                 | `src/client/session.ts`                                                                                                                     |
 | `IMCPActivationAdmission` (this package)          | `MCPActivationAdmissionService`, `createFailClosedMCPActivationAdmission()` | `src/mcp-activation.ts`                                                                                                                     |
 | `IMCPActivationDefinitionRegistry` (this package) | `MCPDefinitionRegistry`                                                     | `src/definition/registry.ts`                                                                                                                |

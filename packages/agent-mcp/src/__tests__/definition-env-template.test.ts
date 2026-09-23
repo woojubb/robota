@@ -28,13 +28,15 @@ describe('materializeDefinition', () => {
         command: '${BIN}/server',
         args: ['--port', '${PORT}'],
         env: { TOKEN: 'tok-${SUFFIX}' },
+        cwd: '${ROOT}/work',
       }),
-      { BIN: '/usr/local/bin', PORT: '8080', SUFFIX: 'abc' },
+      { BIN: '/usr/local/bin', PORT: '8080', SUFFIX: 'abc', ROOT: '/project' },
     );
 
     expect(resolved.command).toBe('/usr/local/bin/server');
     expect(resolved.args).toEqual(['--port', '8080']);
     expect(resolved.env).toEqual({ TOKEN: 'tok-abc' });
+    expect(resolved.cwd).toBe('/project/work');
     expect(resolved.unsetVariables).toEqual([]);
   });
 

@@ -232,6 +232,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
           cwd,
           env: process.env,
           mode: mcpStartupMode,
+          ...(options.mcpStdioAuthorities === undefined
+            ? {}
+            : { stdioAuthorities: options.mcpStdioAuthorities }),
           reportDiagnostic: (message) => terminal.writeError(message),
         })
       : undefined;

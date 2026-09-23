@@ -5,6 +5,7 @@
  */
 import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 import { describe, expect, it } from 'vitest';
+import { MCPStdioError } from '../client/stdio-transport.js';
 
 import { FakeSupervisorClock, fixtureTimeouts } from './supervisor-test-helpers.js';
 import { MCPSessionError } from '../client/session.js';
@@ -35,6 +36,7 @@ describe('classifyMcpFailure — pure classification (TC-13)', () => {
       'config',
     );
     expect(classifyMcpFailure(new TypeError('Invalid URL'))).toBe('config');
+    expect(classifyMcpFailure(new MCPStdioError('cleanup'))).toBe('config');
   });
 
   it('classifies a 404 / method-not-found shape as not-found', () => {
@@ -69,6 +71,7 @@ describe('MCPConnectionSupervisor — only transient schedules a retry (TC-13)',
   it.each([
     ['auth', () => new UnauthorizedError()],
     ['config', () => new MCPSessionError('unsupported-protocol-version', 'nope')],
+    ['config', () => new MCPStdioError('cleanup')],
     ['not-found', () => Object.assign(new Error('Not Found'), { status: 404 })],
   ] as const)(
     'refuses a %s failure on first response with no retry timer armed',

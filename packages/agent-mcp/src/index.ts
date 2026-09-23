@@ -84,8 +84,7 @@ export {
   type IMCPActivationSummary,
 } from './mcp-activation-controller.js';
 
-// MCP-002: the official-SDK client behind an admit-then-construct transport seam. The transport set
-// of this unit is exactly Streamable HTTP; a stdio adapter is MCP-2522's, in the same slot.
+// MCP-002/MCP-2522: the official-SDK client behind one admit-then-construct transport seam.
 export {
   admitHttpEndpoint,
   constructStreamableHttpTransport,
@@ -98,6 +97,15 @@ export {
   type TMCPTransportAdmission,
   type TMCPTransportKind,
 } from './client/transport.js';
+export {
+  createStdioAdapter,
+  type IMCPAdmittedStdioEndpoint,
+  type IMCPStdioAdapterOptions,
+  type IMCPStdioAuthority,
+  type IMCPStdioExecutable,
+  type IMCPStdioInput,
+} from './client/stdio.js';
+export { MCPStdioError } from './client/stdio-transport.js';
 export {
   MCPSessionError,
   SUPPORTED_MCP_PROTOCOL_VERSIONS,

@@ -12,7 +12,7 @@ deliberately separate:
   tools/prompts/resources catalog, and the connection/catalog lifecycle supervisor.
 
 Published as `@robota-sdk/agent-mcp`. Renamed from `@robota-sdk/agent-tool-mcp` by MCP-001. The
-transport set of this unit is Streamable HTTP only (TC-06); a stdio adapter ships in MCP-2522.
+transport set is Streamable HTTP and host-authorized stdio.
 
 See [`docs/SPEC.md`](docs/SPEC.md) for the package contract.
 
@@ -68,3 +68,12 @@ const tools = catalog.adopted
 ```
 
 See [docs/README.md](docs/README.md) and [docs/SPEC.md](docs/SPEC.md) for the full package contract.
+
+Stdio requires a host-owned `IMCPStdioAuthority` with an allowed root, absolute executable, exact
+argument vectors, explicitly selected child environment, and a generation. Pass a resolved definition
+and its activation request to `createStdioAdapter({ admission, authority }).admit(...)` before opening
+a session. The adapter rechecks activation and authority before every spawn. See the runnable
+[`--allowed` / `--denied` example](examples/verify-stdio-transport.ts). The SDK's default environment
+keys are present with host-selected values or empty strings; no ambient values are inherited. A
+cancelled or timed-out active stdio request closes the direct child because the SDK provides no
+cancellation acknowledgment. Termination of grandchildren is outside this transport's guarantee.

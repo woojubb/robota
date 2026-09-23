@@ -12,11 +12,12 @@
  *    SDK directly. The product depends on the manager's PUBLIC surface only.
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { InMemoryMCPActivationApprovalStore, MCPDefinitionRegistry } from '@robota-sdk/agent-mcp';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildMcpClientTimeouts, createMcpClientComposition } from '../mcp-client-composition.js';
 
@@ -287,6 +288,120 @@ describe('buildMcpClientTimeouts (TC-18)', () => {
       toolCallMs: 900_000,
     });
 
+    await composition.shutdown();
+  });
+});
+
+describe('stdio client host authority (MCP-2522)', () => {
+  const roots: string[] = [];
+  afterEach(() => {
+    for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  });
+
+  function fixture(name = 'weather') {
+    const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'mcp-cli-stdio-')));
+    roots.push(root);
+    const entries = [
+      resolvedEntry({
+        name,
+        definition: {
+          name,
+          source: 'user',
+          origin: '~/.robota/settings.json',
+          unsetVariables: [],
+          transport: 'stdio',
+          command: process.execPath,
+          args: [],
+          cwd: root,
+        },
+      }),
+    ];
+    return {
+      entries,
+      authority: {
+        allowedRoot: root,
+        generation: 'host-1',
+        executables: [{ command: process.execPath, args: [[]] }],
+      },
+    };
+  }
+
+  it.each(['weather', 'constructor'])(
+    'reports missing host authority for %s without constructing a connection',
+    async (name) => {
+      const { entries } = fixture(name);
+      const reportDiagnostic = vi.fn();
+      const createSupervisor = vi.fn();
+      const composition = createMcpClientComposition({
+        resolvedEntries: entries,
+        approvalStore: approvedApprovalStore(entries),
+        stdioAuthorities: {},
+        reportDiagnostic,
+        createSupervisor,
+      });
+      expect(await composition.connect()).toEqual([]);
+      expect(createSupervisor).not.toHaveBeenCalled();
+      expect(reportDiagnostic).toHaveBeenCalledWith(expect.stringContaining('host authority'));
+    },
+  );
+
+  it('uses the shared catalog and shuts down the admitted stdio connection', async () => {
+    const { entries, authority } = fixture();
+    const { connection } = fakeConnection(discoveryWithOneTool());
+    const shutdown = vi.spyOn(connection, 'shutdown');
+    const reportDiagnostic = vi.fn();
+    const createSupervisor = vi.fn(() => connection);
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore: approvedApprovalStore(entries),
+      stdioAuthorities: { weather: authority },
+      createSupervisor,
+      reportDiagnostic,
+    });
+    expect((await composition.connect()).map((tool) => tool.getName())).toEqual([
+      'weather__forecast',
+    ]);
+    expect(composition.connectedToolProvenance.get('weather__forecast')?.serverId).toBe('weather');
+    expect(reportDiagnostic).not.toHaveBeenCalled();
+    expect(createSupervisor).toHaveBeenCalledWith(
+      expect.objectContaining({ awaitOpenCleanupOnTimeout: true }),
+    );
+    await composition.shutdown();
+    expect(shutdown).toHaveBeenCalledOnce();
+  });
+
+  it('does not let host authority replace activation approval', async () => {
+    const { entries, authority } = fixture();
+    const createSupervisor = vi.fn();
+    const reportDiagnostic = vi.fn();
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      stdioAuthorities: { weather: authority },
+      createSupervisor,
+      reportDiagnostic,
+    });
+    expect(await composition.connect()).toEqual([]);
+    expect(createSupervisor).not.toHaveBeenCalled();
+    expect(reportDiagnostic).toHaveBeenCalledWith(expect.stringContaining('not admitted'));
+  });
+
+  it('reports stdio discovery failure without exposing child error text', async () => {
+    const { entries, authority } = fixture();
+    const { connection } = fakeConnection(discoveryWithOneTool());
+    connection.discover = async () => {
+      throw new Error('SECRET_FROM_CHILD');
+    };
+    const reportDiagnostic = vi.fn();
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore: approvedApprovalStore(entries),
+      stdioAuthorities: { weather: authority },
+      createSupervisor: () => connection,
+      reportDiagnostic,
+    });
+    expect(await composition.connect()).toEqual([]);
+    expect(reportDiagnostic).toHaveBeenCalledWith(expect.stringContaining('discovery failed'));
+    expect(JSON.stringify(reportDiagnostic.mock.calls)).not.toContain('SECRET_FROM_CHILD');
     await composition.shutdown();
   });
 });

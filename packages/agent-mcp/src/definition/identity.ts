@@ -9,7 +9,7 @@
  * Two values, because they answer two questions:
  *
  * - `definitionFingerprint` covers the transport, command, arguments, url, header and environment
- *   KEYS, and the timeout. Change any of it and a prior approval no longer describes what would now
+ *   KEYS, requested cwd, and the timeout. Change any of it and a prior approval no longer describes what would now
  *   run.
  *   Contained — SECURITY-2793 (issue #2793): it does NOT cover env/header VALUES, so an approved
  *   server whose `NODE_OPTIONS` value changes keeps its fingerprint while what it loads changes.
@@ -61,6 +61,8 @@ export function definitionFingerprint(definition: IMCPServerDefinitionResolved):
     'command',
     definition.command ?? '',
     ...listParts('args', definition.args ?? []),
+    'cwd',
+    definition.cwd ?? '',
     'url',
     definition.url ?? '',
     ...listParts('headerKeys', Object.keys(definition.headers ?? {}).sort()),
