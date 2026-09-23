@@ -99,9 +99,21 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     const id = this.idFactory(request);
     const deferred = createDeferred();
     void deferred.promise.catch(() => undefined);
-    const state = createQueuedBackgroundTaskState(id, request, this.now(), PREVIEW_LENGTH);
+    // MCP-004 §S1: a runner may declare `admission: 'already-running'` — its work already runs
+    // outside any manager-provisioned resource (an adopted, in-flight call), so it is admitted
+    // directly rather than queued. `validateBackgroundTaskRequest` above already required the
+    // runner to exist, so the lookup here cannot miss.
+    const runner = this.runners.get(request.kind);
+    const admittingRunner = runner?.admission === 'already-running' ? runner : undefined;
+    const state = createQueuedBackgroundTaskState(
+      id,
+      request,
+      this.now(),
+      PREVIEW_LENGTH,
+      admittingRunner ? 'running' : 'queued',
+    );
 
-    this.tasks.set(id, {
+    const tracked: ITrackedBackgroundTask = {
       state,
       request,
       completion: deferred.promise,
@@ -111,10 +123,19 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       outputBytes: 0,
       textDeltas: 0,
       repeatedDeltaCount: 0,
-    });
-    this.queue.push(id);
-    this.emit({ type: 'background_task_created', task: cloneBackgroundTaskState(state) });
-    this.drainQueue();
+    };
+    this.tasks.set(id, tracked);
+
+    if (admittingRunner) {
+      // Constructed as `running` above, before `background_task_created` is emitted — bypasses the
+      // queue and the concurrency slot entirely so `cancel()` always reaches the bound handle.
+      this.emit({ type: 'background_task_created', task: cloneBackgroundTaskState(state) });
+      this.startAdmittedTask(tracked, admittingRunner);
+    } else {
+      this.queue.push(id);
+      this.emit({ type: 'background_task_created', task: cloneBackgroundTaskState(state) });
+      this.drainQueue();
+    }
     return cloneBackgroundTaskState(state);
   }
 
@@ -289,6 +310,32 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     const started = markBackgroundTaskStarted(task, this.now());
     this.acquireSlot(task.state.id);
     this.emit({ type: 'background_task_started', task: started });
+
+    startBackgroundTaskRunner({
+      task,
+      runner,
+      now: this.now,
+      onEvent: (event) => this.handleRunnerEvent(task, event),
+      onStarted: () => this.watchdogs.start(task),
+      onUpdated: (updated) => this.emit({ type: 'background_task_updated', task: updated }),
+      onCompleted: (result) => this.completeTask(task, result),
+      onFailed: (error) => this.failTask(task, error),
+    });
+  }
+
+  /**
+   * MCP-004 §S1: the `admission: 'already-running'` counterpart to `startTask` — no `queued`→
+   * `running` transition (the state was already constructed `running`), no concurrency slot
+   * (`acquireSlot` is never called, so `releaseSlot` on completion is the pre-existing idempotent
+   * no-op for a task that never held one). The handle is bound before this returns, so `cancel()`
+   * reaches it immediately even if it races the caller's next statement.
+   */
+  private startAdmittedTask(task: ITrackedBackgroundTask, runner: IBackgroundTaskRunner): void {
+    const startedAt = this.now();
+    task.state.startedAt = startedAt;
+    task.state.updatedAt = startedAt;
+    task.state.lastActivityAt = startedAt;
+    this.emit({ type: 'background_task_started', task: cloneBackgroundTaskState(task.state) });
 
     startBackgroundTaskRunner({
       task,

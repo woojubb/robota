@@ -18,6 +18,7 @@ import { createPromptHistoryRecorder } from './interactive-session-prompt-histor
 import { resolveUserSettingsProviderSwitch } from './interactive-session-provider-switch.js';
 import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
+import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-tools.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { SessionTerminalHandoffGate } from './interactive-session-terminal-handoff.js';
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
@@ -26,6 +27,11 @@ import {
   publicTurnOptions,
   submitNewTurn,
 } from './interactive-session-turn-submission.js';
+import {
+  sessionLoopBlockReason,
+  sessionLoopExpiry,
+  validatedSessionLoopExpiry,
+} from './session-loop-lifecycle.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
@@ -74,10 +80,16 @@ import type {
   IProviderDefinition,
   IUserInteraction,
   TActionResponse,
+  IToolSchema,
+  IToolExecutionResult,
+  TToolParameters,
 } from '@robota-sdk/agent-core';
 import type { ISession } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
-import type { IExecutionPendingRequest } from '@robota-sdk/agent-interface-execution';
+import type {
+  IBackgroundTaskState,
+  IExecutionPendingRequest,
+} from '@robota-sdk/agent-interface-execution';
 import type {
   IGoalState,
   ITurnHandle,
@@ -109,6 +121,11 @@ export class InteractiveSession
   private initialized = false;
   private initPromise: Promise<void> | null = null;
   private sessionStore?: IInteractiveSessionStore;
+  private readonly sessionLoopsDisabled: boolean;
+  /** Do not let best-effort event snapshots publish a loop before its strict creation write. */
+  private readonly pendingLoopCreations = new Set<string>();
+  /** Persist a loop stop before cancelling its timer so resume cannot re-arm a stale snapshot. */
+  private readonly pendingLoopStops = new Set<string>();
   private sessionName?: string;
   private cwd?: string;
   private pendingRestoreMessages: TUniversalMessage[] | null = null;
@@ -123,6 +140,11 @@ export class InteractiveSession
    */
   private startedAsFork: boolean;
   private autoCompactThresholdSource: TAutoCompactThresholdSource = 'default';
+  private readonly runtimeTools = new InteractiveSessionRuntimeTools({
+    controller: () => this.execCtrl,
+    ensureInitialized: () => this.ensureInitialized(),
+    session: () => this.getSessionOrThrow(),
+  });
   private shutdownPromise: Promise<void> | null = null;
   private readonly sandboxClient?: ISandboxClient;
   // SELFHOST-008 P1R: the durable-memory port for this session — the surface-injected store or the neutral
@@ -148,6 +170,7 @@ export class InteractiveSession
   protected readonly skillRouter: SessionSkillRouter;
   protected readonly execCtrl: SessionExecutionController;
   private readonly stoppedWakeTaskIds = new Set<string>();
+  private readonly sessionLoopExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
   /** GOAL-001: autonomous objective-pursuit controller (inert until a goal is set). */
   private readonly goalController = new GoalController();
   /** SELFHOST-002: plan-mode phase controller (inert until a plan is started). */
@@ -166,10 +189,13 @@ export class InteractiveSession
   /** REMOTE-007: transport-neutral pending permission/ask registry (parking + fail-closed + drain). */
   private readonly promptRegistry: SessionPromptRegistry;
   private readonly projectAccess: TWorkspaceProjectAccess;
+  private readonly providerErrorGuidance?: import('../utils/error-humanizer.js').IProviderErrorGuidance;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
     this.sessionStore = options.sessionStore;
+    this.providerErrorGuidance = options.providerErrorGuidance;
+    this.sessionLoopsDisabled = options.disableSessionLoops ?? false;
     this.projectAccess =
       options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable');
     this.sessionName = options.sessionName;
@@ -231,6 +257,8 @@ export class InteractiveSession
       (instruction, taskId) => this.requestWakeup(instruction, taskId),
       (message) => this.histTracker.append(messageToHistoryEntry(createSystemMessage(message))),
       (entry) => this.histTracker.append(entry),
+      this.sessionLoopsDisabled,
+      (task) => this.armSessionLoopExpiry(task),
     );
 
     this.histTracker = new SessionHistoryTracker(
@@ -279,6 +307,7 @@ export class InteractiveSession
     );
 
     this.execCtrl = new SessionExecutionController(this.histTracker, this.skillRouter, {
+      providerErrorGuidance: this.providerErrorGuidance,
       getSession: () => this.session!,
       getSessionOrThrow: () => this.getSessionOrThrow(),
       getCwd: () => this.getCwd(),
@@ -492,6 +521,18 @@ export class InteractiveSession
     if (handlers) for (const handler of handlers) handler(...args);
   }
 
+  listRuntimeTools(): Promise<IToolSchema[]> {
+    return this.runtimeTools.listRuntimeTools();
+  }
+
+  invokeRuntimeTool(
+    name: string,
+    parameters: TToolParameters,
+    options?: { signal?: AbortSignal },
+  ): Promise<IToolExecutionResult> {
+    return this.runtimeTools.invokeRuntimeTool(name, parameters, options);
+  }
+
   async submit(
     input: string,
     displayInput?: string,
@@ -514,7 +555,7 @@ export class InteractiveSession
         this.emit(
           'user_message',
           `[remote-control] input from ${driverId} was dropped — the co-drive queue is full ` +
-          `(max ${maxDepth}). Try again after the current work settles.`,
+            `(max ${maxDepth}). Try again after the current work settles.`,
         ),
       isWakeStopped: (wakeTaskId) => this.stoppedWakeTaskIds.has(wakeTaskId),
     });
@@ -563,6 +604,21 @@ export class InteractiveSession
    */
   requestWakeup(instruction: string, sourceTaskId: string): boolean {
     if (this.execCtrl.shuttingDown) return false;
+    const blocked = sessionLoopBlockReason(
+      this.getBackgroundTaskManager()?.get(sourceTaskId),
+      Date.now(),
+      this.sessionLoopsDisabled,
+    );
+    if (blocked) {
+      this.stoppedWakeTaskIds.add(sourceTaskId);
+      void this.cancelBackgroundTask(sourceTaskId, `Session loop ${blocked}`).catch((error) =>
+        this.reportBackgroundError(
+          error instanceof Error ? error : new Error(String(error)),
+          'session-loop',
+        ),
+      );
+      return false;
+    }
     if (this.stoppedWakeTaskIds.has(sourceTaskId)) return false;
     if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return false;
     this.execCtrl.wakeTaskIds.add(sourceTaskId);
@@ -582,17 +638,116 @@ export class InteractiveSession
     return true;
   }
 
+  private armSessionLoopExpiry(task: IBackgroundTaskState, retryDelayMs?: number): void {
+    const expiry = sessionLoopExpiry(task);
+    if (expiry === undefined) return;
+    const previous = this.sessionLoopExpiryTimers.get(task.id);
+    if (previous) clearTimeout(previous);
+    const delay = retryDelayMs ?? Math.max(0, Number.isFinite(expiry) ? expiry - Date.now() : 0);
+    const timer = setTimeout(() => {
+      this.sessionLoopExpiryTimers.delete(task.id);
+      const live = this.getBackgroundTaskManager()?.get(task.id);
+      if (
+        !live ||
+        live.status === 'cancelled' ||
+        live.status === 'completed' ||
+        live.status === 'failed'
+      ) {
+        return;
+      }
+      void this.cancelBackgroundTask(task.id, 'Session loop expired').catch((error) => {
+        this.reportBackgroundError(
+          error instanceof Error ? error : new Error(String(error)),
+          'session-loop',
+        );
+        if (!this.execCtrl.shuttingDown) this.armSessionLoopExpiry(live, 60_000);
+      });
+    }, delay);
+    if (typeof timer === 'object' && 'unref' in timer) timer.unref();
+    this.sessionLoopExpiryTimers.set(task.id, timer);
+  }
+
+  override listSchedules(): IBackgroundTaskState[] {
+    return [
+      ...super.listSchedules(),
+      ...this.bgTracker.listHeldSessionLoops().filter((task) => task.kind === 'scheduled'),
+    ];
+  }
+
   override async cancelBackgroundTask(taskId: string, reason?: string): Promise<void> {
     // Admission must stop before any await: an already-fired wake may still be awaiting initialization.
     this.stoppedWakeTaskIds.add(taskId);
-    this.execCtrl.removePendingWake(taskId);
-    this.execCtrl.wakeTaskIds.delete(taskId);
+    let durableStop = false;
     try {
-      await this.ensureInitialized();
-      await this.bgTracker.cancelTask(taskId, reason);
+      // An accepted loop already initialized this session. Do not yield before its synchronous
+      // stop write and queue removal: an active turn could drain the queued wake in that gap.
+      if (!this.initialized) await this.ensureInitialized();
+      const heldTask = this.bgTracker.getHeldSessionLoop(taskId);
+      const task = this.bgTracker.getTask(taskId) ?? heldTask;
+      const loopId = task?.metadata?.['sessionLoopId'];
+      if (
+        task?.metadata?.['sessionLoop'] === true &&
+        (typeof loopId !== 'string' || !this.pendingLoopCreations.has(loopId))
+      ) {
+        this.pendingLoopStops.add(taskId);
+        this.persistCurrentSession(true);
+        durableStop = true;
+      }
+      this.execCtrl.removePendingWake(taskId);
+      this.execCtrl.wakeTaskIds.delete(taskId);
+      if (heldTask) this.bgTracker.markHeldSessionLoopCancelled(taskId);
+      else await this.bgTracker.cancelTask(taskId, reason);
+      const expiryTimer = this.sessionLoopExpiryTimers.get(taskId);
+      if (expiryTimer) clearTimeout(expiryTimer);
+      this.sessionLoopExpiryTimers.delete(taskId);
     } catch (error) {
-      this.stoppedWakeTaskIds.delete(taskId);
+      if (!durableStop) this.stoppedWakeTaskIds.delete(taskId);
       throw error;
+    } finally {
+      // If cancellation failed after the durable tombstone, keep both guards so a later snapshot
+      // cannot revive the loop and a stray timer cannot submit another turn.
+      if (
+        !durableStop ||
+        this.bgTracker.getTask(taskId)?.status === 'cancelled' ||
+        this.bgTracker.getHeldSessionLoop(taskId)?.status === 'cancelled'
+      ) {
+        this.pendingLoopStops.delete(taskId);
+      }
+    }
+  }
+
+  override async spawnScheduledWake(input: {
+    label: string;
+    cronExpression: string;
+    agentInstruction: string;
+    sessionLoop?: boolean;
+    sessionLoopId?: string;
+    sessionLoopExpiresAt?: string;
+  }): Promise<IBackgroundTaskState> {
+    await this.ensureInitialized();
+    if (!input.sessionLoop) return super.spawnScheduledWake(input);
+    if (this.sessionLoopsDisabled) throw new Error('Session loops are disabled by the host.');
+    if (!this.sessionStore) throw new Error('A session store is required for a resumable loop.');
+    if (!input.sessionLoopId) throw new Error('A stable loop ID is required for a resumable loop.');
+    const sessionLoopExpiresAt = validatedSessionLoopExpiry(input.sessionLoopExpiresAt, Date.now());
+    this.pendingLoopCreations.add(input.sessionLoopId);
+    let task: IBackgroundTaskState | undefined;
+    try {
+      task = await super.spawnScheduledWake({ ...input, sessionLoopExpiresAt });
+      if (task.status !== 'sleeping' && task.status !== 'paused') {
+        throw new Error(
+          'Loop could not start a resumable timer; retry after capacity is available.',
+        );
+      }
+      this.persistCurrentSession(true, input.sessionLoopId);
+      this.armSessionLoopExpiry(task);
+      return task;
+    } catch (error) {
+      // A loop whose creation was not durably acknowledged must not keep firing in this process.
+      if (task) await this.cancelBackgroundTask(task.id, 'Loop creation was not acknowledged');
+      throw error;
+    } finally {
+      this.pendingLoopCreations.delete(input.sessionLoopId);
     }
   }
 
@@ -625,11 +780,14 @@ export class InteractiveSession
   shutdown(options: IInteractiveSessionShutdownOptions = {}): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
     this.execCtrl.shuttingDown = true;
+    for (const timer of this.sessionLoopExpiryTimers.values()) clearTimeout(timer);
+    this.sessionLoopExpiryTimers.clear();
     this.shutdownPromise = (async () => {
       await this.ensureInitialized();
       this.execCtrl.clearPendingQueue();
       const session = this.session;
       session?.abort();
+      await this.runtimeTools.drain();
       await this.getBackgroundTaskManager()?.shutdown(options.message ?? 'Session shutdown');
       this.bgTracker.dispose();
       await this.captureSandboxSnapshot();
@@ -837,7 +995,7 @@ export class InteractiveSession
    * 'error' event drives transport error state. The session stays fully usable.
    */
   reportBackgroundError(error: Error, source = 'background'): void {
-    const message = humanizeApiError(error);
+    const message = humanizeApiError(error, this.providerErrorGuidance);
     this.histTracker.append(
       messageToHistoryEntry(
         createSystemMessage(`Error: ${message}`, { metadata: { kind: 'error', source } }),
@@ -859,8 +1017,11 @@ export class InteractiveSession
     }
   }
 
-  private persistCurrentSession(): void {
-    if (!this.sessionStore || !this.session) return;
+  private persistCurrentSession(strict = false, acceptedLoopId?: string): void {
+    if (!this.sessionStore || !this.session) {
+      if (strict) throw new Error('A session store is required for a resumable loop.');
+      return;
+    }
     const bgState = this.bgTracker.getState();
     const histState = this.histTracker.getState();
     persistSession(
@@ -870,7 +1031,18 @@ export class InteractiveSession
       this.cwd ?? '',
       histState.history,
       {
-        tasks: bgState.tasks,
+        tasks: bgState.tasks
+          .filter((task) => {
+            const loopId = task.metadata?.['sessionLoopId'];
+            return (
+              typeof loopId !== 'string' ||
+              !this.pendingLoopCreations.has(loopId) ||
+              (strict && loopId === acceptedLoopId)
+            );
+          })
+          .map((task) =>
+            this.pendingLoopStops.has(task.id) ? { ...task, status: 'cancelled' as const } : task,
+          ),
         events: bgState.taskEvents,
         groups: bgState.groups,
         groupEvents: bgState.groupEvents,
@@ -883,6 +1055,7 @@ export class InteractiveSession
       this.planController.getState() ?? undefined,
       // SELFHOST-007: persist the active branch pointer so a branch survives --resume.
       this.histTracker.getActiveBranchPointer(),
+      strict,
     );
   }
 

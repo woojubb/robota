@@ -4,8 +4,7 @@
  * by `@robota-sdk/dag-node-instant-node` (DATA-003) — this module walks the directory and, for
  * composite (DAG-wrapping) nodes, supplies the behavioral sub-runner that is never serialized
  * (WORKFLOW-005 P2). The sub-runner executes the inner DAG on the in-process local runtime
- * (`dag-framework`), so composites round-trip on the agent `/workflows` path without depending on the
- * `dag-cli` product.
+ * (`dag-framework`), so composites round-trip on the agent `/workflows` path.
  */
 import { join } from 'node:path';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';

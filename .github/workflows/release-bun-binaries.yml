@@ -1,8 +1,8 @@
 name: Release — Bun binaries
 
-# DIST-002 — build the five Bun single-file `robota` binaries (DIST-001) and publish them to the tag's
-# GitHub Release. Sibling to release.yml (manual npm publish); this workflow NEVER touches npm publishing.
-# Binaries are UNSIGNED (Bun --compile cross-compilation) — macOS Gatekeeper / Windows SmartScreen will warn.
+# PAYLOAD-2153 / DIST-002 — compile every native Bun executable on its matching host, execute the
+# packaged replay/refusal proof there, then give one separate publisher the only write credential.
+# Sibling to release.yml (manual npm publish); this workflow never publishes npm packages.
 
 on:
   push:
@@ -16,32 +16,43 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
-# Shares the Release with release-desktop-app.yml (both fire on v*) — same group so they serialize on release
-# creation and never race on `gh release create`.
+# Shares the Release with release-desktop-app.yml — serialize both publishers on the same tag.
 concurrency:
   group: release-assets-${{ github.event.inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
-  bun-binaries:
-    name: Build + publish Bun binaries
-    runs-on: ubuntu-latest
+  build-bun:
+    name: Build Bun / ${{ matrix.target }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            runner: ubuntu-24.04
+            binary: robota-linux-x64
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+            binary: robota-linux-arm64
+          - target: darwin-x64
+            runner: macos-26-intel
+            binary: robota-darwin-x64
+          - target: darwin-arm64
+            runner: macos-26
+            binary: robota-darwin-arm64
+          - target: windows-x64
+            runner: windows-2025
+            binary: robota-windows-x64.exe
+    runs-on: ${{ matrix.runner }}
     steps:
-      - name: Resolve release tag
-        id: tag
-        # The tag is read from `env`, never interpolated into the script body: `${{ }}` inside a `run:`
-        # is textual substitution, so a tag containing shell metacharacters would execute here.
-        env:
-          INPUT_TAG: ${{ github.event.inputs.tag }}
-          REF_NAME: ${{ github.ref_name }}
-        run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
-
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ steps.tag.outputs.tag }}
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -52,15 +63,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 22.14.0
           cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # agent-cli is bundled by tsdown, which resolves @robota-sdk/* to each dep's built dist/node/*.
-      # The full workspace build must run before the Bun compile — a bare --filter agent-cli build would
-      # fail on a clean checkout (this mirrors why release.yml runs `pnpm build` before publishing).
       - name: Build workspace
         run: pnpm build
 
@@ -69,77 +77,143 @@ jobs:
         with:
           bun-version: 1.3.14
 
-      - name: Compile Bun binaries (all 5 targets)
-        run: pnpm --filter @robota-sdk/agent-cli build:bun:all
-
-      - name: Materialize verified binary generation for release metadata
-        run: node scripts/artifacts/generation-image.mjs packages/agent-cli dist-bun "${{ runner.temp }}/robota-binaries"
-
-      - name: Sanity — host binary prints the real version (no Node)
-        run: '"${{ runner.temp }}/robota-binaries/robota-linux-x64" --version'
-
-      # Only the host (linux-x64) binary above can actually be EXECUTED on this runner, so the other four
-      # were previously published without a single assertion of any kind. `file` is the cheapest check that
-      # still answers the question that matters for a cross-compile: is each artifact the architecture its
-      # NAME promises. A target silently emitting the host arch — or emitting nothing — reaches users as a
-      # download that cannot run, which is exactly the failure class DIST-002 exists over.
-      - name: Assert all five targets exist, are non-trivial, and match their advertised architecture
-        working-directory: ${{ runner.temp }}/robota-binaries
+      - name: Compile and execute the exact native target
+        shell: bash
         run: |
           set -euo pipefail
-          check() { # check <filename> <expected substring of `file` output>
-            local f="$1" want="$2" size desc
-            if [ ! -f "$f" ]; then
-              echo "::error::$f was not produced by build:bun:all"
-              exit 1
-            fi
-            size=$(wc -c <"$f")
-            # Every one of these binaries is ~70-105 MB; 10 MB only a truncated build falls below.
-            if [ "$size" -lt 10485760 ]; then
-              echo "::error::$f is $size bytes — truncated, refusing to publish."
-              exit 1
-            fi
-            desc=$(file -b "$f")
-            echo "$f  ($size bytes)  $desc"
-            case "$desc" in
-              *"$want"*) ;;
-              *) echo "::error::$f is not a $want build — file(1) says: $desc"; exit 1 ;;
-            esac
-          }
-          check robota-darwin-arm64     'Mach-O 64-bit arm64'
-          check robota-darwin-x64       'Mach-O 64-bit x86_64'
-          check robota-linux-x64        'ELF 64-bit LSB'
-          check robota-linux-arm64      'ELF 64-bit LSB'
-          check robota-windows-x64.exe  'PE32+'
-          # linux-arm64 and linux-x64 share a `file` prefix, so pin their machine type explicitly.
-          file -b robota-linux-x64   | grep -q 'x86-64'  || { echo "::error::robota-linux-x64 is not x86-64"; exit 1; }
-          file -b robota-linux-arm64 | grep -q 'ARM aarch64' || { echo "::error::robota-linux-arm64 is not aarch64"; exit 1; }
+          bun packages/agent-cli/scripts/build-bun.mjs "${{ matrix.target }}"
+          node scripts/artifacts/generation-image.mjs \
+            packages/agent-cli \
+            dist-bun \
+            ".release-output/${{ matrix.target }}"
+          standalone_root="$(mktemp -d "${RUNNER_TEMP}/robota-release-bun-${{ matrix.target }}-XXXXXX")"
+          binary="$standalone_root/${{ matrix.binary }}"
+          cp ".release-output/${{ matrix.target }}/${{ matrix.binary }}" "$binary"
+          chmod +x "$binary"
+          (cd "$standalone_root" && "$binary" --version)
+          node packages/agent-cli/scripts/e2e-native-file-authority.mjs "$binary"
 
-      - name: Generate SHA-256 checksums
-        working-directory: ${{ runner.temp }}/robota-binaries
+      - name: Upload exactly one native binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: bun-binary-${{ matrix.target }}-${{ github.run_id }}
+          path: .release-output/${{ matrix.target }}/${{ matrix.binary }}
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-bun:
+    name: Publish verified Bun binaries
+    needs: build-bun
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Resolve release tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          sha256sum robota-* > SHA256SUMS.txt
-          # `sha256sum robota-*` silently produces a SHORT manifest if a target is missing, which then
-          # reads as a complete one. The five binaries are asserted above; assert the manifest describes
-          # all five so the file cannot drift from what is uploaded.
-          lines=$(wc -l <SHA256SUMS.txt)
-          if [ "$lines" -ne 5 ]; then
-            echo "::error::SHA256SUMS.txt has $lines entries, expected 5."
+          tag="${INPUT_TAG:-$REF_NAME}"
+          if [[ ! "$tag" =~ ^v[0-9A-Za-z._+-]+$ ]]; then
+            echo "::error::Refusing invalid release tag."
             exit 1
           fi
-          cat SHA256SUMS.txt
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-      # REL-022 — managed release notes: categorized conventional-commit notes instead of the raw
-      # `--generate-notes` PR-title dump. The script auto-detects the previous v* tag (checkout above
-      # uses fetch-depth: 0, so full tag history is available). No network — git history only.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Download the five native build artifacts separately
+        uses: actions/download-artifact@v7
+        with:
+          pattern: bun-binary-*-${{ github.run_id }}
+          path: .release-inputs
+
+      - name: Validate the exact input set and generate checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          expected=(
+            robota-darwin-arm64
+            robota-darwin-x64
+            robota-linux-x64
+            robota-linux-arm64
+            robota-windows-x64.exe
+          )
+          artifact_dirs=(.release-inputs/bun-binary-*-${{ github.run_id }})
+          if [[ "${#artifact_dirs[@]}" -ne 5 ]]; then
+            echo "::error::Received ${#artifact_dirs[@]} build artifacts; expected exactly 5."
+            exit 1
+          fi
+          mkdir -p .release-assets
+          for artifact_dir in "${artifact_dirs[@]}"; do
+            files=("$artifact_dir"/*)
+            if [[ "${#files[@]}" -ne 1 || ! -f "${files[0]}" ]]; then
+              echo "::error::$artifact_dir must contain exactly one regular file."
+              exit 1
+            fi
+            name=$(basename "${files[0]}")
+            case " ${expected[*]} " in
+              *" $name "*) ;;
+              *) echo "::error::Unexpected binary input: $name"; exit 1 ;;
+            esac
+            if [[ -e ".release-assets/$name" ]]; then
+              echo "::error::Duplicate binary input: $name"
+              exit 1
+            fi
+            cp "${files[0]}" ".release-assets/$name"
+            description=$(file -b ".release-assets/$name")
+            case "$name" in
+              robota-darwin-arm64) expected_format='Mach-O 64-bit arm64' ;;
+              robota-darwin-x64) expected_format='Mach-O 64-bit x86_64' ;;
+              robota-linux-x64) expected_format='ELF 64-bit LSB.*x86-64' ;;
+              robota-linux-arm64) expected_format='ELF 64-bit LSB.*ARM aarch64' ;;
+              robota-windows-x64.exe) expected_format='PE32+.*x86-64' ;;
+            esac
+            if [[ ! "$description" =~ $expected_format ]]; then
+              echo "::error::$name has an unexpected binary format: $description"
+              exit 1
+            fi
+          done
+          for name in "${expected[@]}"; do
+            if [[ ! -f ".release-assets/$name" ]]; then
+              echo "::error::Missing binary input: $name"
+              exit 1
+            fi
+          done
+          (
+            cd .release-assets
+            sha256sum \
+              robota-darwin-arm64 \
+              robota-darwin-x64 \
+              robota-linux-x64 \
+              robota-linux-arm64 \
+              robota-windows-x64.exe \
+              > SHA256SUMS.txt
+            lines=$(wc -l < SHA256SUMS.txt)
+            if [[ "$lines" -ne 5 ]]; then
+              echo "::error::SHA256SUMS.txt has $lines entries, expected 5."
+              exit 1
+            fi
+          )
+          : > .release-expected.tsv
+          for name in "${expected[@]}" SHA256SUMS.txt; do
+            size=$(wc -c < ".release-assets/$name")
+            digest=$(sha256sum ".release-assets/$name" | awk '{print $1}')
+            printf '%s\t%s\t%s\n' "$name" "$size" "$digest" >> .release-expected.tsv
+          done
+
       - name: Generate release notes
         env:
           TAG: ${{ steps.tag.outputs.tag }}
         run: node scripts/release/generate-release-notes.mjs --tag "$TAG" --notes-file "${{ runner.temp }}/release-notes.md"
 
-      - name: Publish binaries to the GitHub Release
-        working-directory: ${{ runner.temp }}/robota-binaries
+      - name: Publish all six assets once
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.tag.outputs.tag }}
@@ -148,39 +222,51 @@ jobs:
           set -euo pipefail
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes-file "$NOTES"
           gh release upload "$TAG" \
-            robota-darwin-arm64 \
-            robota-darwin-x64 \
-            robota-linux-x64 \
-            robota-linux-arm64 \
-            robota-windows-x64.exe \
-            SHA256SUMS.txt \
+            .release-assets/robota-darwin-arm64 \
+            .release-assets/robota-darwin-x64 \
+            .release-assets/robota-linux-x64 \
+            .release-assets/robota-linux-arm64 \
+            .release-assets/robota-windows-x64.exe \
+            .release-assets/SHA256SUMS.txt \
             --clobber
 
-      # An upload step exits 0 for "I sent the bytes", not "the release now serves them". Read the release
-      # back and compare each asset's PUBLISHED size against the local file, so a partial or dropped upload
-      # cannot leave a green run behind a release users cannot install from.
-      - name: Verify the assets actually landed on the Release
-        working-directory: ${{ runner.temp }}/robota-binaries
+      - name: Download and verify published names, sizes, and digests
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.tag.outputs.tag }}
-          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) \(.size)"' > published.txt
-          cat published.txt
-          rc=0
-          for f in robota-darwin-arm64 robota-darwin-x64 robota-linux-x64 robota-linux-arm64 robota-windows-x64.exe SHA256SUMS.txt; do
-            local_size=$(wc -c <"$f")
-            published_size=$(awk -v n="$f" '$1 == n { print $2 }' published.txt)
-            if [ -z "$published_size" ]; then
-              echo "::error::$f is missing from the published release."
-              rc=1
-            elif [ "$published_size" != "$local_size" ]; then
-              echo "::error::$f published as $published_size bytes, built as $local_size — truncated upload."
-              rc=1
-            else
-              echo "ok: $f ($local_size bytes)"
+          mkdir .published-assets
+          gh release download "$TAG" \
+            --dir .published-assets \
+            --clobber \
+            --pattern robota-darwin-arm64 \
+            --pattern robota-darwin-x64 \
+            --pattern robota-linux-x64 \
+            --pattern robota-linux-arm64 \
+            --pattern robota-windows-x64.exe \
+            --pattern SHA256SUMS.txt
+          shopt -s nullglob
+          published=(.published-assets/*)
+          if [[ "${#published[@]}" -ne 6 ]]; then
+            echo "::error::Downloaded ${#published[@]} published assets; expected exactly 6."
+            exit 1
+          fi
+          while IFS=$'\t' read -r name expected_size expected_digest; do
+            file=".published-assets/$name"
+            if [[ ! -f "$file" ]]; then
+              echo "::error::Published asset is missing: $name"
+              exit 1
             fi
-          done
-          exit "$rc"
+            actual_size=$(wc -c < "$file")
+            actual_digest=$(sha256sum "$file" | awk '{print $1}')
+            if [[ "$actual_size" != "$expected_size" ]]; then
+              echo "::error::$name published size $actual_size differs from $expected_size."
+              exit 1
+            fi
+            if [[ "$actual_digest" != "$expected_digest" ]]; then
+              echo "::error::$name published digest differs from the verified build."
+              exit 1
+            fi
+          done < .release-expected.tsv
+          (cd .published-assets && sha256sum --check SHA256SUMS.txt)

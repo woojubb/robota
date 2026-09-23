@@ -3,8 +3,10 @@
  * and process monitoring to users (and the model as tools).
  */
 
+import { executeLoopCommand } from './loop-command.js';
 import { executeMonitorCommand, executeScheduleCommand } from './schedule-command.js';
 
+import type { ILoopCommandOptions } from './loop-command.js';
 import type {
   IAgentJobHostContext,
   ICommandHostAgentJobs,
@@ -49,6 +51,17 @@ export function createMonitorCommandEntry(): ICommand {
   };
 }
 
+export function createLoopCommandEntry(): ICommand {
+  return {
+    name: 'loop',
+    displayName: 'Repeat Prompt',
+    description: 'Repeat a prompt on a fixed, local-clock cadence; list or stop active loops.',
+    source: 'schedule',
+    argumentHint: '<N><s|m|h|d> <prompt> | <prompt> every <N> <unit> | list | stop <id>',
+    modelInvocable: true,
+  };
+}
+
 function createScheduleSystemCommand(): ISystemCommand {
   const entry = createScheduleCommandEntry();
   return {
@@ -81,19 +94,46 @@ function createMonitorSystemCommand(): ISystemCommand {
   };
 }
 
+function createLoopSystemCommand(options: ILoopCommandOptions): ISystemCommand {
+  const entry = createLoopCommandEntry();
+  return {
+    name: entry.name,
+    displayName: entry.displayName,
+    description: entry.description,
+    // A static conservative classification keeps remote read-only policies from admitting
+    // create/stop through this mixed read/write command; list is gated too.
+    requiresPermission: true,
+    userInvocable: true,
+    modelInvocable: true,
+    argumentHint: entry.argumentHint,
+    lifecycle: 'inline',
+    execute: (context, args): Promise<ICommandResult> =>
+      executeLoopCommand(
+        getAgentHostContext(context),
+        (taskId, reason) => context.cancelBackgroundTask(taskId, reason),
+        args,
+        options,
+      ),
+  };
+}
+
 export class ScheduleCommandSource implements ICommandSource {
   readonly name = 'schedule';
 
   getCommands(): ICommand[] {
-    return [createScheduleCommandEntry(), createMonitorCommandEntry()];
+    return [createScheduleCommandEntry(), createMonitorCommandEntry(), createLoopCommandEntry()];
   }
 }
 
-export function createScheduleCommandModule(): ICommandModule {
+export function createScheduleCommandModule(options: ILoopCommandOptions = {}): ICommandModule {
   return {
     name: 'agent-command-schedule',
     commandSources: [new ScheduleCommandSource()],
-    systemCommands: [createScheduleSystemCommand(), createMonitorSystemCommand()],
+    systemCommands: [
+      createScheduleSystemCommand(),
+      createMonitorSystemCommand(),
+      createLoopSystemCommand(options),
+    ],
     sessionRequirements: ['agent-runtime'],
   };
 }

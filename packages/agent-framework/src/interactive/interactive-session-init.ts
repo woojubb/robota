@@ -244,6 +244,7 @@ export async function initializeInteractiveSessionAsync(
     onCompactEvent: deps.onCompactEvent,
     onToolExecution: deps.onToolExecution,
     bare: options.bare,
+    disableBuiltInHookExecutors: options.disableBuiltInHookExecutors,
     allowedTools: options.allowedTools,
     deniedTools: options.deniedTools,
     model: options.model,
@@ -254,6 +255,7 @@ export async function initializeInteractiveSessionAsync(
     ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
     language: options.language,
     backgroundTaskRunners: options.backgroundTaskRunners,
+    ...(options.toolCallHandoff !== undefined ? { toolCallHandoff: options.toolCallHandoff } : {}),
     subagentRunnerFactory: options.subagentRunnerFactory,
     // ARCH-005: composition-root-contributed subagent definitions (capability packs).
     ...(options.agentDefinitions ? { agentDefinitions: options.agentDefinitions } : {}),

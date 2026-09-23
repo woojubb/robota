@@ -20,6 +20,7 @@ import {
   announcePeer,
   listPeers,
   withdrawPeer,
+  type IPeerEntry,
   type IRegistryOptions,
 } from './local-peer-registry.js';
 import { ensureRendezvousDirectory } from './local-peer-rendezvous.js';
@@ -35,6 +36,8 @@ import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
  * import would be: the type cannot drift from the adapter it feeds, because it IS the adapter's.
  */
 type TPeerSummary = ReturnType<NonNullable<ICommandHostAdapters['localPeers']>['list']>[number];
+const SECOND_MS = 1_000;
+const CERTIFICATION_RETRY_MS = 5_000;
 
 export interface ILocalPeerPresence {
   readonly sessionId: string;
@@ -58,7 +61,10 @@ export interface IPresenceOptions {
   /** Injected so a case can drive the exit path without ending the test runner. */
   readonly on?: (event: 'exit', handler: () => void) => void;
   readonly off?: (event: 'exit', handler: () => void) => void;
-  readonly registry?: Pick<IRegistryOptions, 'readStartTime' | 'now'>;
+  readonly registry?: Pick<
+    IRegistryOptions,
+    'readStartTime' | 'startTimePrecision' | 'probePid' | 'now'
+  >;
   /** Injected so a case can point at a scratch directory instead of the real rendezvous. */
   readonly guardedDirectory?: string;
 }
@@ -81,6 +87,53 @@ function resolveGuardedDirectory(): string {
   return admission.binding.guardedDirectory;
 }
 
+/** A second-granularity birth time becomes trustworthy only after its owner republishes later. */
+function scheduleBirthSecondCertification(
+  registry: IRegistryOptions,
+  announcement: { sessionId: string; name?: string },
+  initial: IPeerEntry,
+  isWithdrawn: () => boolean,
+): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let warned = false;
+  const warnOnce = (reason: string): void => {
+    if (warned) return;
+    warned = true;
+    process.emitWarning(`Local peer liveness certification delayed: ${reason}`);
+  };
+  const schedule = (delay: number): void => {
+    timer = setTimeout(() => {
+      if (isWithdrawn()) return;
+      try {
+        certify(announcePeer(registry, { ...announcement, requireStartTime: true }));
+      } catch (error) {
+        warnOnce(error instanceof Error ? error.message : String(error));
+        schedule(CERTIFICATION_RETRY_MS);
+      }
+    }, delay);
+    timer.unref?.();
+  };
+  const certify = (entry: IPeerEntry): void => {
+    if (entry.startTimePrecision !== 'seconds') return;
+    const birth = entry.startSecondMs;
+    if (typeof birth !== 'number') {
+      warnOnce('The process birth second is unavailable.');
+      schedule(CERTIFICATION_RETRY_MS);
+      return;
+    }
+    if (entry.announcedAt >= birth + SECOND_MS) return;
+    const delay = Math.max(
+      1,
+      Math.min(SECOND_MS, birth + SECOND_MS + 1 - (registry.now ?? Date.now)()),
+    );
+    schedule(delay);
+  };
+  certify(initial);
+  return () => {
+    if (timer) clearTimeout(timer);
+  };
+}
+
 /**
  * Announce this session and return the reader for the rest.
  *
@@ -92,16 +145,22 @@ function resolveGuardedDirectory(): string {
 export function announceLocalPeerPresence(options: IPresenceOptions): ILocalPeerPresence {
   const guardedDirectory = options.guardedDirectory ?? resolveGuardedDirectory();
   const registry: IRegistryOptions = { guardedDirectory, ...options.registry };
-
-  announcePeer(registry, {
+  const announcement = {
     sessionId: options.sessionId,
     ...(options.name !== undefined ? { name: options.name } : {}),
-  });
+  };
 
   let withdrawn = false;
+  const stopCertification = scheduleBirthSecondCertification(
+    registry,
+    announcement,
+    announcePeer(registry, announcement),
+    () => withdrawn,
+  );
   const handler = (): void => {
     if (withdrawn) return;
     withdrawn = true;
+    stopCertification();
     withdrawPeer(registry, options.sessionId);
   };
   const on = options.on ?? ((event, listener) => process.on(event, listener));

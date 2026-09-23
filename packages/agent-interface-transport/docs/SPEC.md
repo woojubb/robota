@@ -11,11 +11,10 @@ MCP, TUI, etc.) and their configurable lifecycle.
 
 - **Contains type contracts and interfaces plus a small set of pure, dependency-free derivation
   accessors over its own owned union types — no classes, no I/O, no side effects.**
-- **Dependencies: `@robota-sdk/agent-core` only (INFRA-025).** Mechanized: the `deps` scan fails any
-  `agent-interface-*` package whose internal dependencies exceed `{agent-core}`, and
-  `interface-family-owner` checks the same boundary one altitude down, at module edges.
-- **Layer 0** in [`.agents/specs/contract-family-owner-map.md`](../../../.agents/specs/contract-family-owner-map.md):
-  this package depends on no other `agent-interface-*` package, across every published surface
+- **Dependencies: `@robota-sdk/agent-core` only (INFRA-025).** The package manifest declares no
+  dependency on another `agent-interface-*` package.
+- **Layer 0**: this package depends on no other `agent-interface-*` package, across every published
+  surface
   including `./testing`. It reached layer 0 in ARCH-108 (issue #2113); before that its testing
   subpath imported a session type, which is why the row read 2 while the root barrel already looked
   clean.
@@ -27,7 +26,7 @@ MCP, TUI, etc.) and their configurable lifecycle.
 ## Architecture Overview
 
 ```
-agent-interface-transport          ← this package (contracts only, zero deps)
+agent-interface-transport          ← this package (contracts, plus agent-core types)
   ├── ITransportAdapter            ← required frozen lifecycle kind + attach / start / stop
   ├── ITransportRunnerAdapter      ← runner launch + typed terminal outcome
   ├── IConfigurableTransport       ← legacy service adapter + settings capability
@@ -59,11 +58,15 @@ Types owned by this package (SSOT):
 | --------------------------------- | --------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
 | `ITransportAdapter`               | Interface | `transport-adapter.ts` | Core transport lifecycle: `name`, frozen `lifecycle`, `attach(session)`, `start()`, `stop()`    |
 | `ITransportRunnerAdapter`         | Interface | `transport-adapter.ts` | Runner lifecycle plus `waitForCompletion()` and exact typed outcome                             |
+| `IBoundTransportAdapter`          | Interface | `transport-adapter.ts` | Bound lifecycle base with no session attachment operation                                        |
+| `IBoundTransportServiceAdapter`   | Interface | `transport-adapter.ts` | Bound service lifecycle                                                                          |
+| `IBoundTransportRunnerAdapter`    | Interface | `transport-adapter.ts` | Bound runner lifecycle with completion wait                                                     |
+| `TBoundTransportAdapter`           | Type      | `transport-adapter.ts` | Session-bound service/runner lifecycle without an `attach` operation                            |
 | `ITransportConfig`                | Interface | `transport-config.ts`  | Persisted config shape: `{ enabled: boolean; options?: Record<string, unknown> }`               |
 | `ITransportSettingsCapability`    | Interface | `transport-config.ts`  | Orthogonal `defaultEnabled`, `optionsSchema`, and optional `validateOptions()` settings shape   |
 | `IConfigurableTransport`          | Interface | `transport-config.ts`  | Source-compatible service adapter plus `ITransportSettingsCapability`                           |
 | `TConfigurableTransport`          | Type      | `transport-config.ts`  | Any service or runner adapter intersected with the settings capability                          |
-| `ITransportEntry`                 | Interface | `transport-config.ts`  | `{ transport: TConfigurableTransport<T>; config: ITransportConfig }` — settings-only projection |
+| `ITransportEntry`                 | Interface | `transport-config.ts`  | `{ transport: TBoundConfigurableTransport; config: ITransportConfig }` — settings-only projection |
 | `ITransportLifecycleRegistryView` | Interface | `transport-config.ts`  | Base registration, start/stop, ordered completion and prompt failure waits                      |
 | `ITransportSettingsRegistryView`  | Interface | `transport-config.ts`  | Configurable-only `getAll`, `setEnabled`, and `setOptions` projection                           |
 | `ITransportRegistryView`          | Interface | `transport-config.ts`  | Composition of lifecycle and settings views                                                     |
@@ -79,7 +82,7 @@ Two further contract groups are declared here, each in its own file and re-expor
 Seven groups were listed here before ARCH-108 (issue #2113) — capability descriptors, command
 system, background-task, subagent-job, background job-group, execution-workspace, and peer messaging.
 Each was declared in this package because this package was the omnibus, not because transport owned
-it. They now live with their owners; the owner map is the one place that says which.
+it. They now live with their owners, whose package SPECs and exports describe the current surfaces.
 
 These contract interfaces use generic type parameters where applicable. The package imports a
 small number of foundation types from `@robota-sdk/agent-core` only (INFRA-025); all such imports
@@ -105,8 +108,7 @@ This package is inert by rule (no runtime dependency edges), and they need `node
 them here would give every consumer of these types a runtime edge on a Node builtin.
 
 `transport-admission: none — <reason>` in a transport's own SPEC.md is how a package with no remote
-peer declares it. `scan-transport-admission` requires every `packages/agent-transport-*` to do one or
-the other.
+peer declares it. Other transport packages document their admission decision in their own SPECs.
 
 ## Public API Surface
 
@@ -116,11 +118,16 @@ the other.
 | `isTransportRunOutcome`            | Function  | narrows an unknown value to a `TTransportRunOutcome` — the contract's discriminator                                                                     |
 | `ITransportAdapter`                | Interface | Core attach/start/stop lifecycle contract (generic TSession)                                                                                            |
 | `ITransportRunnerAdapter`          | Interface | Runner adapter with a separate typed terminal-outcome wait                                                                                              |
+| `IBoundTransportAdapter`           | Interface | Bound lifecycle base with no session attachment operation                                                                                              |
+| `IBoundTransportServiceAdapter`    | Interface | Bound service lifecycle                                                                                                                                 |
+| `IBoundTransportRunnerAdapter`     | Interface | Bound runner lifecycle with completion wait                                                                                                             |
+| `TBoundTransportAdapter`           | Type      | Bound service/runner lifecycle carrying `binding: 'bound'`; registry consumers cannot attach a session                                                  |
+| `TBoundConfigurableTransport`      | Type      | Bound lifecycle plus the orthogonal settings capability                                                                                                |
 | `ITransportLifecycleRegistryView`  | Interface | Base-adapter registration, lifecycle, completion, and prompt failure projection                                                                         |
 | `ITransportSettingsRegistryView`   | Interface | Configurable-adapter settings projection                                                                                                                |
 | `ITransportConfig`                 | Interface | Persisted enabled + options shape                                                                                                                       |
 | `IConfigurableTransport`           | Interface | Configurable transport with defaultEnabled + options schema                                                                                             |
-| `ITransportEntry`                  | Interface | Configurable-only `(transport, config)` settings projection                                                                                             |
+| `ITransportEntry`                  | Interface | Configurable-only bound `(transport, config)` settings projection                                                                                       |
 | `ITransportRegistryView`           | Interface | Registry management: getAll, setEnabled, startAll, stopAll                                                                                              |
 | `runTransportLifecycleConformance` | Function  | Testing-subpath fixture runner for the shared adapter lifecycle contract                                                                                |
 | `ITransportAdmission`              | Interface | SEC-008: the resolved decision — a credential, or `null` with a written `openReason`                                                                    |
@@ -134,11 +141,9 @@ background-task, subagent, compaction, workspace, peer-messaging, analytics. Tha
 omnibus, written down. Waves 1–3 moved each family to the package named for it, and this leaf removed
 the table rather than maintaining a directory of other packages' exports.
 
-Where they went is recorded once, in
-[`.agents/specs/contract-family-owner-map.md`](../../../.agents/specs/contract-family-owner-map.md),
-which is also what the `interface-family-owner` guard parses. A reader who wants a contract looks it
-up in the owner map; a reader who wants a re-export list from here is asking this package to be the
-omnibus again.
+The moved families are declared and exported by `agent-interface-command`,
+`agent-interface-execution`, `agent-interface-session`, `agent-interface-session-mobility`, and
+`agent-interface-analytics`. Consult each package's SPEC and `src/index.ts` for its current surface.
 
 The one group that stayed is declared, not re-exported: payload-agnostic channels
 (`channel-contracts`, TRANS-001) — `IBinaryFrame`, `IChannelEventFrame`, `TChannelFrame`,
@@ -165,6 +170,12 @@ export interface ITransportAdapter<TSession = unknown> {
 - `start()` — resolves at the concrete package's documented readiness boundary. Starting before
   attach or starting an active adapter rejects `TransportLifecycleError`
 - `stop()` — safe and bounded when repeated. A stopped adapter may be attached and started again
+
+`TBoundTransportAdapter` is the registry input after a composition root binds a raw adapter to
+its exact session capability. It carries `binding: 'bound'`, `name`, the service/runner lifecycle,
+`start()` and `stop()` (plus runner completion), but no `attach`. The binding owner invokes the raw
+adapter's `attach` immediately before each start; settings are configured first. The registry never
+accepts a session or stores a raw adapter.
 
 #### What `start()` means, and why it had to be said (ARCH-011)
 
@@ -215,22 +226,22 @@ export type TConfigurableTransport<TSession = unknown> = TTransportAdapter<TSess
 ### Registry views
 
 ```typescript
-export interface ITransportLifecycleRegistryView<TSession = unknown> {
-  register(transport: TTransportAdapter<TSession>): void;
-  startAll(session: TSession): Promise<void>;
+export interface ITransportLifecycleRegistryView {
+  register(transport: TBoundTransportAdapter): void;
+  startAll(): Promise<void>;
   waitForCompletion(): Promise<ITransportCompletionRecord[]>;
   waitForFailure(): Promise<ITransportFailureRecord | undefined>;
   stopAll(): Promise<IDestroyResult>;
 }
 
-export interface ITransportSettingsRegistryView<TSession = unknown> {
-  getAll(): ITransportEntry<TSession>[];
+export interface ITransportSettingsRegistryView {
+  getAll(): ITransportEntry[];
   setEnabled(name: string, enabled: boolean): Promise<void>;
   setOptions(name: string, options: Record<string, unknown>): Promise<void>;
 }
 
-export interface ITransportRegistryView<TSession = unknown>
-  extends ITransportLifecycleRegistryView<TSession>, ITransportSettingsRegistryView<TSession> {}
+export interface ITransportRegistryView
+  extends ITransportLifecycleRegistryView, ITransportSettingsRegistryView {}
 ```
 
 `IDestroyResult` is imported (type-only) from `@robota-sdk/agent-core`. `stopAll()` is best-effort:
@@ -276,7 +287,7 @@ This package defines contracts that consumers implement or extend:
 | `ITransportAdapter`      | Interface | `createHttpTransport` (http), `createMcpTransport` (mcp), `createHeadlessTransport` (agent-framework), `createWsTransport` factory (ws) — all return a bare adapter | Implement to create a transport with attach/start/stop lifecycle |
 | `IConfigurableTransport` | Interface | `WsTransport` (`agent-transport-ws`), `WebRtcTransport` (`agent-transport-webrtc`)                                                                                  | Legacy service adapter with settings capability                  |
 | `TConfigurableTransport` | Type      | Registry settings projection, including configurable runners                                                                                                        | Compose any adapter kind with settings capability                |
-| Registry views           | Interface | `agent-framework` (`TransportRegistry`, structurally compatible)                                                                                                    | Segregate lifecycle from configurable settings projection        |
+| Registry views           | Interface | `agent-framework` (`TransportRegistry`, structurally compatible)                                                                                                    | Store only bound lifecycles, segregated from settings projection |
 | `IPayloadChannelHost`    | Interface | `WsTransport` (`agent-transport-ws`, via its `PayloadChannelRegistry`)                                                                                              | Carry consumer-declared binary/event channels on the connection  |
 
 No abstract classes or base classes are exported — all extension is through interface implementation.

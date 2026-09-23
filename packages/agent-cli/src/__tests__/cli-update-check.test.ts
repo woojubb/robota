@@ -74,6 +74,10 @@ function writeProjectSettings(projectDir: string): void {
           name: 'fake',
           model: 'fake-model',
         },
+        // MCP-004 S3: these print-mode assertions expect an empty stderr; the default
+        // `mcp.autoBackgroundMs` (120000, i.e. positive) would otherwise add one "ignored in print
+        // mode" diagnostic line, which is unrelated to what this suite exercises.
+        mcp: { autoBackgroundMs: 0 },
       },
       null,
       2,

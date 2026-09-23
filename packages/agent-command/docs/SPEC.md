@@ -2,7 +2,7 @@
 
 ## Scope
 
-Consolidated command module for the Robota SDK CLI. Provides all slash-command implementations as a single importable package, replacing 20 individual `agent-command-*` packages. Also provides the `default/` assembly helper (`createDefaultCommandModules`) and the `plugins/` adapter layer (`createDefaultPluginCommandAdapter`, `reloadPluginCommandSource`) for binding provider setup and plugin management to the command system.
+Consolidated command module for the Robota SDK CLI. Provides all slash-command implementations as a single importable package, replacing 20 individual `agent-command-*` packages. Also provides the `default/` assembly helper (`createDefaultCommandModules`). Plugin commands consume an injected `ICommandPluginAdapter`; the CLI owns the concrete adapter and plugin source loader.
 
 ## Boundaries
 
@@ -12,7 +12,7 @@ Consolidated command module for the Robota SDK CLI. Provides all slash-command i
 - CLI entry point and argument parsing — owned by `agent-cli`
 - Agent runtime and session management — owned by `agent-core` / `agent-framework`
 - Command registration contracts (`ICommandModule`, `ICommandSource`, `ISystemCommand`) — defined in `agent-framework`
-- Plugin infrastructure (`BundlePluginInstaller`, `BundlePluginLoader`, `MarketplaceClient`) — defined in `agent-framework`
+- Plugin infrastructure (`BundlePluginInstaller`, `BundlePluginLoader`, `MarketplaceClient`) — defined in `agent-framework` and composed by `agent-cli`
 
 ## Architecture Overview
 
@@ -29,7 +29,7 @@ Two cross-cutting subdirectories:
   the probes over `agent-framework`'s read-only inspection APIs, the single redaction boundary, the
   closed repair allowlist, `runDoctor(inputs, deps)`, the plain-text renderer, and the `/doctor` command
   module. The host (`agent-cli`) composes `IDoctorInputs` — the workspace composition it would have
-  built, the plugin scope layout from `pluginScopeDirs`, and host-only checks — and either renders the
+  built, the CLI-owned plugin scope layout, and host-only checks — and either renders the
   report on its shell route or registers `/doctor` by passing `doctorInputs` to
   `createDefaultCommandModules`. See § Doctor below for the contract.
 - `src/keybindings/` — owns `/keybindings` and only its consumer-side
@@ -37,17 +37,18 @@ Two cross-cutting subdirectories:
   ensure the user document and opens the exact returned path through the existing terminal-handoff
   contract. It does not know the schema, defaults, contexts, watcher, or TUI implementation. Without
   the capability the default assembly does not register the command.
-- `src/plugins/` — provides `createDefaultPluginCommandAdapter` (wires `BundlePluginInstaller`, `BundlePluginLoader`, `MarketplaceClient` into an `ICommandPluginAdapter`) and `reloadPluginCommandSource` (synchronously reloads plugin commands into a `CommandRegistry`).
 
 The `agent` and `schedule` command modules set `sessionRequirements: ['agent-runtime']`, a demand switch (CMD-008): composing either module makes the session layer enable the agent runtime; it is not a gate on the runtime being available beforehand. The `output-style` module is operator-only and uses the injected provider-neutral style registry; it never reads style files itself.
 
 ## Dependencies
 
 ```
-@robota-sdk/agent-core                workspace:*   (IProviderDefinition, ITerminalOutput, IProviderSetupStepDefinition, etc.)
-@robota-sdk/agent-framework           workspace:*   (ICommandModule, ICommandSource, ISystemCommand, IOrgPolicy, ICommandPluginAdapter, BundlePluginInstaller, etc.)
-@robota-sdk/agent-interface-transport workspace:*   (transport-side command/list contracts)
-@robota-sdk/agent-preset              workspace:*   (listPresets, getPreset, resolvePreset — used by the `/preset` command)
+@robota-sdk/agent-core                workspace:*   (foundation types and provider definitions)
+@robota-sdk/agent-framework           workspace:*   (command-facing host APIs and plugin composition)
+@robota-sdk/agent-interface-command   workspace:*   (command contracts)
+@robota-sdk/agent-interface-execution workspace:*   (task and workspace contracts)
+@robota-sdk/agent-interface-session   workspace:*   (session and turn contracts)
+@robota-sdk/agent-preset              workspace:*   (preset resolution for the `/preset` command)
 ```
 
 No circular dependencies. This package does not depend on any other `agent-command-*` package.
@@ -73,6 +74,7 @@ Types defined (SSOT) in this package:
 | `TDoctorCheckStatus`             | `src/doctor/doctor-types.ts`                    | `ok \| warn \| fail \| not-configured \| not-probed`; `not-probed` is the closed list `TDoctorNotProbed`                                              |
 | `IDoctorRepairPlan`              | `src/doctor/doctor-repair.ts`                   | An allowlisted repair the current state admits: id, description, target path                                                                          |
 | `IKeybindingsFilePort`           | `src/keybindings/keybindings-command-module.ts` | Minimal consumer-owned capability that ensures and returns the user keybindings path                                                                  |
+| `ILoopCommandOptions`            | `src/schedule/loop-command.ts`                  | Host-supplied maintenance prompt and loop kill-switch input                                                                                           |
 | `IProviderStartupContext`        | `src/provider/provider-startup.ts`              | Context passed to `runProviderStartupSetup`                                                                                                           |
 | `IEnsureProviderConfigOptions`   | `src/provider/provider-startup.ts`              | Options for `ensureProviderConfig`                                                                                                                    |
 | `IUserLocalDirectCommandOptions` | `src/user-local/user-local-command.ts`          | Options for `executeUserLocalDirectCommand`                                                                                                           |
@@ -90,73 +92,70 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 
 ### Assembly helpers
 
-| Export                              | Kind     | Description                                                                                                                                                                         |
-| ----------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createDefaultCommandModules`       | function | Assembles all 32 standard command modules; returns `{ modules, unknownModuleNames }`                                                                                                |
-| `IDefaultCommandModulesOptions`     | type     | Options interface for `createDefaultCommandModules`                                                                                                                                 |
-| `IDefaultCommandModulesResult`      | type     | Return shape of `createDefaultCommandModules` (`modules` + INFRA-032 `unknownModuleNames`)                                                                                          |
-| `createHandoffCommandModule`        | function | HANDOFF-001 (issue #1864) — the `/handoff` module: move this session to another machine                                                                                             |
-| `createHandoffCommandEntry`         | function | The `/handoff` command entry; `modelInvocable: false` — giving a session away is the operator's decision                                                                            |
-| `HandoffCommandSource`              | class    | Command source exposing `/handoff`                                                                                                                                                  |
-| `executeHandoffCommand`             | function | Runs `/handoff`: names what stays behind, asks, and always states where the session is now                                                                                          |
-| `createOutputStyleCommandModule`    | function | CLI-1988 `/output-style` module for listing and selecting provider-neutral response styles                                                                                          |
-| `createOutputStyleCommandEntry`     | function | Operator-only `/output-style` command entry                                                                                                                                         |
-| `OutputStyleCommandSource`          | class    | Command source exposing `/output-style`                                                                                                                                             |
-| `executeOutputStyleCommand`         | function | Lists styles or emits a validated `output-style-change` host action                                                                                                                 |
-| `createEffortCommandModule`         | function | Creates the `/effort` command module for showing or changing the active model effort                                                                                                |
-| `createEffortCommandEntry`          | function | The `/effort` command entry with `auto` and the core-owned effort levels                                                                                                            |
-| `EffortCommandSource`               | class    | Command source exposing `/effort`                                                                                                                                                   |
-| `executeEffortCommand`              | function | Applies or reports effort through the injected live-session and settings adapters; `auto` remains the session selection instead of being replaced by a resolved concrete level      |
-| `createMCPActivationCommandModule`  | function | MCP-2520 `/mcp` module for status and explicit trust decisions through the injected host adapter                                                                                    |
-| `createMCPActivationCommandEntry`   | function | The operator-only `/mcp` command entry                                                                                                                                              |
-| `MCPActivationCommandSource`        | class    | Command source exposing `/mcp`                                                                                                                                                      |
-| `executeMCPActivationCommand`       | function | Lists secret-free MCP status or requests approve/reject/revoke via the host adapter; never connects a server                                                                        |
-| `runDoctor`                         | function | Runs every doctor probe over `IDoctorInputs` and returns the redacted `IDoctorReport` (OBSERVABILITY-1991)                                                                          |
-| `renderDoctorReport`                | function | Renders a report as the plain-text lines both `robota doctor` and `/doctor` print                                                                                                   |
-| `applyDoctorRepair`                 | function | Plan → confirm → re-plan → write for one allowlisted repair id; refuses everything else with no write                                                                               |
-| `planDoctorRepair`                  | function | Re-reads the state and says whether a repair id is admissible now; never writes                                                                                                     |
-| `createNodeDoctorDeps`              | function | Node defaults for `IDoctorDeps` (TCP connect probe, path facts, PATH resolution)                                                                                                    |
-| `redactDiagnosticText`              | function | The rendering boundary: masks known secret values, URL userinfo, bearer tokens and vendor-key shapes                                                                                |
-| `collectSettingsSecrets`            | function | Gathers literal credentials and env-referenced values from parsed settings layers to feed the redactor                                                                              |
-| `createDoctorCommandModule`         | function | Creates the `/doctor` command module over host-composed `IDoctorInputs`                                                                                                             |
-| `createDoctorCommandEntry`          | function | The operator-only `/doctor` command entry                                                                                                                                           |
-| `DoctorCommandSource`               | class    | Command source exposing `/doctor`                                                                                                                                                   |
-| `doctorRepairAllowlist`             | function | The closed allowlist for one composition: the host's user settings layer id (`settings.user.<family>`) and `storage.user`                                                           |
-| `STORAGE_REPAIR_ID`                 | const    | `'storage.user'` — the storage repair id                                                                                                                                            |
-| `isDoctorRepairId`                  | function | Whether an id is in the composition's allowlist                                                                                                                                     |
-| `buildDoctorReport`                 | function | Aggregates checks into `IDoctorReport` (`fail` alone raises the exit code)                                                                                                          |
-| `resolveCommandOnPath`              | function | `PATH` resolution used by the hook and MCP probes (bare name via `PATH`; path form must exist)                                                                                      |
-| `IDoctorCheck`                      | type     | One doctor finding                                                                                                                                                                  |
-| `IDoctorReport`                     | type     | The aggregated report                                                                                                                                                               |
-| `IDoctorInputs`                     | type     | Host-composed inputs (sources, access, definitions, env, plugin dirs, product layout, host checks)                                                                                  |
-| `IDoctorDeps`                       | type     | Injected side effects                                                                                                                                                               |
-| `IDoctorEndpointProbeResult`        | type     | Result of one TCP reachability probe                                                                                                                                                |
-| `IDoctorPathFacts`                  | type     | Read-only facts about one path                                                                                                                                                      |
-| `IDoctorRepairPlan`                 | type     | An admissible repair: id, description, target path                                                                                                                                  |
-| `TDoctorCheckStatus`                | type     | `ok \| warn \| fail \| not-configured \| not-probed`                                                                                                                                |
-| `TDoctorNotProbed`                  | type     | The closed `not-probed` list                                                                                                                                                        |
-| `TDoctorRepairOutcome`              | type     | `applied` with its plan, or refused with the reason                                                                                                                                 |
-| `TDoctorRepairPlanResult`           | type     | `ok` with a plan, or refused with the reason                                                                                                                                        |
-| `pluginScopeDirs`                   | function | The plugin scope directories (project first, then user) the plugin loader reads; consumed by the doctor so the layout has one owner                                                 |
-| `createGitCommandModule`            | function | BEHAVIOR-2437 — the `/git` module (`status` \| `diff` \| `commit`); `{ port }` injects the process seam, `createGitProcess()` by default                                            |
-| `createGitCommandEntry`             | function | The operator-only `/git` command entry with the three verbs as descriptive `subcommands`                                                                                            |
-| `GitCommandSource`                  | class    | Command source exposing `/git`                                                                                                                                                      |
-| `executeGitCommand`                 | function | Parses the verb and runs `status`, `diff` or `commit` over `getCwd()` and the ask port; `commit` confirms before writing                                                            |
-| `createGitProcess`                  | function | The production `IGitProcessPort`: argv-only `execFile` (`shell: false`), stdin closed, 16 MiB output cap, timeout, typed outcomes                                                   |
-| `gitEnvironment`                    | function | The child environment: the source minus the repository-redirecting `GIT_*` variables git exports into hooks                                                                         |
-| `IGitProcessPort`                   | type     | `run(args, { cwd, timeoutMs?, signal? })` → `TGitProcessOutcome`; injected for tests                                                                                                |
-| `IGitProcessRunOptions`             | type     | Per-run options: `cwd`, optional `timeoutMs` (120 s default) and `signal`                                                                                                           |
-| `ICreateGitProcessOptions`          | type     | `executable` (default `git`) and `env` (default the process environment) for `createGitProcess`                                                                                     |
-| `TGitProcessOutcome`                | type     | `exited` with `stdout`/`stderr`/`exitCode` as data, or `failed` with a `TGitProcessFailureReason`                                                                                   |
-| `TGitProcessFailureReason`          | type     | `not-found \| timeout \| aborted \| output-too-large`                                                                                                                               |
-| `IGitCommandModuleOptions`          | type     | `{ port?: IGitProcessPort }` for `createGitCommandModule`                                                                                                                           |
-| `TGitCommandContext`                | type     | What `executeGitCommand` needs from the host: `getCwd()` and `getUserInteraction()`                                                                                                 |
-| `createKeybindingsCommandModule`    | function | Creates the `/keybindings` command module for opening or initializing the user keybindings document                                                                                 |
-| `createKeybindingsCommandEntry`     | function | The operator-only `/keybindings` command entry                                                                                                                                      |
-| `KeybindingsCommandSource`          | class    | Command source exposing `/keybindings`                                                                                                                                              |
-| `IKeybindingsFilePort`              | type     | Consumer-injected capability interface for resolving and initializing the user keybindings file path                                                                                |
-| `createDefaultPluginCommandAdapter` | function | Creates a production `ICommandPluginAdapter` wired to filesystem plugin infrastructure                                                                                              |
-| `reloadPluginCommandSource`         | function | Synchronously reloads plugin commands into a `CommandRegistry` from `~/.robota/plugins` and, when `cwd` is given, `<cwd>/.robota/plugins` (project scope wins by name; issue #2487) |
+| Export                             | Kind     | Description                                                                                                                                                                    |
+| ---------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createDefaultCommandModules`      | function | Assembles all 32 standard command modules; returns `{ modules, unknownModuleNames }`                                                                                           |
+| `IDefaultCommandModulesOptions`    | type     | Options interface for `createDefaultCommandModules`                                                                                                                            |
+| `IDefaultCommandModulesResult`     | type     | Return shape of `createDefaultCommandModules` (`modules` + INFRA-032 `unknownModuleNames`)                                                                                     |
+| `createHandoffCommandModule`       | function | HANDOFF-001 (issue #1864) — the `/handoff` module: move this session to another machine                                                                                        |
+| `createHandoffCommandEntry`        | function | The `/handoff` command entry; `modelInvocable: false` — giving a session away is the operator's decision                                                                       |
+| `HandoffCommandSource`             | class    | Command source exposing `/handoff`                                                                                                                                             |
+| `executeHandoffCommand`            | function | Runs `/handoff`: names what stays behind, asks, and always states where the session is now                                                                                     |
+| `createOutputStyleCommandModule`   | function | CLI-1988 `/output-style` module for listing and selecting provider-neutral response styles                                                                                     |
+| `createOutputStyleCommandEntry`    | function | Operator-only `/output-style` command entry                                                                                                                                    |
+| `OutputStyleCommandSource`         | class    | Command source exposing `/output-style`                                                                                                                                        |
+| `executeOutputStyleCommand`        | function | Lists styles or emits a validated `output-style-change` host action                                                                                                            |
+| `createEffortCommandModule`        | function | Creates the `/effort` command module for showing or changing the active model effort                                                                                           |
+| `createEffortCommandEntry`         | function | The `/effort` command entry with `auto` and the core-owned effort levels                                                                                                       |
+| `EffortCommandSource`              | class    | Command source exposing `/effort`                                                                                                                                              |
+| `executeEffortCommand`             | function | Applies or reports effort through the injected live-session and settings adapters; `auto` remains the session selection instead of being replaced by a resolved concrete level |
+| `createMCPActivationCommandModule` | function | MCP-2520 `/mcp` module for status and explicit trust decisions through the injected host adapter                                                                               |
+| `createMCPActivationCommandEntry`  | function | The operator-only `/mcp` command entry                                                                                                                                         |
+| `MCPActivationCommandSource`       | class    | Command source exposing `/mcp`                                                                                                                                                 |
+| `executeMCPActivationCommand`      | function | Lists secret-free MCP status or requests approve/reject/revoke via the host adapter; never connects a server                                                                   |
+| `runDoctor`                        | function | Runs every doctor probe over `IDoctorInputs` and returns the redacted `IDoctorReport` (OBSERVABILITY-1991)                                                                     |
+| `renderDoctorReport`               | function | Renders a report as the plain-text lines both `robota doctor` and `/doctor` print                                                                                              |
+| `applyDoctorRepair`                | function | Plan → confirm → re-plan → write for one allowlisted repair id; refuses everything else with no write                                                                          |
+| `planDoctorRepair`                 | function | Re-reads the state and says whether a repair id is admissible now; never writes                                                                                                |
+| `createNodeDoctorDeps`             | function | Node defaults for `IDoctorDeps` (TCP connect probe, path facts, PATH resolution)                                                                                               |
+| `redactDiagnosticText`             | function | The rendering boundary: masks known secret values, URL userinfo, bearer tokens and vendor-key shapes                                                                           |
+| `collectSettingsSecrets`           | function | Gathers literal credentials and env-referenced values from parsed settings layers to feed the redactor                                                                         |
+| `createDoctorCommandModule`        | function | Creates the `/doctor` command module over host-composed `IDoctorInputs`                                                                                                        |
+| `createDoctorCommandEntry`         | function | The operator-only `/doctor` command entry                                                                                                                                      |
+| `DoctorCommandSource`              | class    | Command source exposing `/doctor`                                                                                                                                              |
+| `doctorRepairAllowlist`            | function | The closed allowlist for one composition: the host's user settings layer id (`settings.user.<family>`) and `storage.user`                                                      |
+| `STORAGE_REPAIR_ID`                | const    | `'storage.user'` — the storage repair id                                                                                                                                       |
+| `isDoctorRepairId`                 | function | Whether an id is in the composition's allowlist                                                                                                                                |
+| `buildDoctorReport`                | function | Aggregates checks into `IDoctorReport` (`fail` alone raises the exit code)                                                                                                     |
+| `resolveCommandOnPath`             | function | `PATH` resolution used by the hook and MCP probes (bare name via `PATH`; path form must exist)                                                                                 |
+| `IDoctorCheck`                     | type     | One doctor finding                                                                                                                                                             |
+| `IDoctorReport`                    | type     | The aggregated report                                                                                                                                                          |
+| `IDoctorInputs`                    | type     | Host-composed inputs (sources, access, definitions, env, plugin dirs, product layout, host checks)                                                                             |
+| `IDoctorDeps`                      | type     | Injected side effects                                                                                                                                                          |
+| `IDoctorEndpointProbeResult`       | type     | Result of one TCP reachability probe                                                                                                                                           |
+| `IDoctorPathFacts`                 | type     | Read-only facts about one path                                                                                                                                                 |
+| `IDoctorRepairPlan`                | type     | An admissible repair: id, description, target path                                                                                                                             |
+| `TDoctorCheckStatus`               | type     | `ok \| warn \| fail \| not-configured \| not-probed`                                                                                                                           |
+| `TDoctorNotProbed`                 | type     | The closed `not-probed` list                                                                                                                                                   |
+| `TDoctorRepairOutcome`             | type     | `applied` with its plan, or refused with the reason                                                                                                                            |
+| `TDoctorRepairPlanResult`          | type     | `ok` with a plan, or refused with the reason                                                                                                                                   |
+| `createGitCommandModule`           | function | BEHAVIOR-2437 — the `/git` module (`status` \| `diff` \| `commit`); `{ port }` injects the process seam, `createGitProcess()` by default                                       |
+| `createGitCommandEntry`            | function | The operator-only `/git` command entry with the three verbs as descriptive `subcommands`                                                                                       |
+| `GitCommandSource`                 | class    | Command source exposing `/git`                                                                                                                                                 |
+| `executeGitCommand`                | function | Parses the verb and runs `status`, `diff` or `commit` over `getCwd()` and the ask port; `commit` confirms before writing                                                       |
+| `createGitProcess`                 | function | The production `IGitProcessPort`: argv-only `execFile` (`shell: false`), stdin closed, 16 MiB output cap, timeout, typed outcomes                                              |
+| `gitEnvironment`                   | function | The child environment: the source minus the repository-redirecting `GIT_*` variables git exports into hooks                                                                    |
+| `IGitProcessPort`                  | type     | `run(args, { cwd, timeoutMs?, signal? })` → `TGitProcessOutcome`; injected for tests                                                                                           |
+| `IGitProcessRunOptions`            | type     | Per-run options: `cwd`, optional `timeoutMs` (120 s default) and `signal`                                                                                                      |
+| `ICreateGitProcessOptions`         | type     | `executable` (default `git`) and `env` (default the process environment) for `createGitProcess`                                                                                |
+| `TGitProcessOutcome`               | type     | `exited` with `stdout`/`stderr`/`exitCode` as data, or `failed` with a `TGitProcessFailureReason`                                                                              |
+| `TGitProcessFailureReason`         | type     | `not-found \| timeout \| aborted \| output-too-large`                                                                                                                          |
+| `IGitCommandModuleOptions`         | type     | `{ port?: IGitProcessPort }` for `createGitCommandModule`                                                                                                                      |
+| `TGitCommandContext`               | type     | What `executeGitCommand` needs from the host: `getCwd()` and `getUserInteraction()`                                                                                            |
+| `createKeybindingsCommandModule`   | function | Creates the `/keybindings` command module for opening or initializing the user keybindings document                                                                            |
+| `createKeybindingsCommandEntry`    | function | The operator-only `/keybindings` command entry                                                                                                                                 |
+| `KeybindingsCommandSource`         | class    | Command source exposing `/keybindings`                                                                                                                                         |
+| `IKeybindingsFilePort`             | type     | Consumer-injected capability interface for resolving and initializing the user keybindings file path                                                                           |
 
 ### Command module factories and sources
 
@@ -198,6 +197,42 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 | statusline     | `createStatusLineCommandModule`    | `StatusLineCommandSource`    | `executeStatusLineCommand`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | theme          | `createThemeCommandModule`         | `ThemeCommandSource`         | `executeThemeCommand` (SCREEN-2002: `/theme` opens the picker, `list` reports the catalogue and the live appearance, `<id> [syntax on                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | off] [motion on | off]`switches. Behind an injected`IThemeCataloguePort`— no port, no command. Emits at most ONE`appearance-settings-patch`, and an unknown id writes nothing, not even the toggles submitted beside it) |
 | user-local     | `createUserLocalCommandModule`     | `UserLocalCommandSource`     | `executeUserLocalCommand`, `executeUserLocalDirectCommand`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+
+### Fixed in-session repeat (`/loop`, #2726 / historical #2005)
+
+The schedule module also registers a provider-neutral `/loop` command over the existing
+`spawnScheduledWake` and session turn queue. Fixed repeat accepts
+`/loop <N><s|m|h|d> <prompt>` or `/loop <prompt> every <N> <unit>` (unit names may be written out).
+With a host-supplied bounded maintenance prompt, bare `/loop` uses a reported ten-minute step and
+`/loop <N><s|m|h|d>` uses that prompt at the requested step. The product CLI owns the fallback
+text; the generic command and scheduler do not invent it. A host kill switch refuses creation
+while preserving `list` and `stop` so existing loops remain manageable.
+The prompt is submitted as an ordinary `agent-wakeup` turn under the session's existing permission
+policy. The command is conservatively classified as permission-requiring for remote command policy,
+including its read-only `list` form. `/loop list` shows active loop schedules;
+`/loop stop <loop-id>` cancels only the selected
+loop's timer and queued wake through the session's targeted cancellation path. A turn already running
+may finish. Non-loop schedules cannot be stopped through `/loop`.
+
+Supported requested intervals are positive and at most one day. Calendar-aligned cron steps divide
+60 seconds, 60 minutes, or 24 hours; a request between steps rounds **up** to the next supported
+nominal calendar step, which is reported in the creation receipt together with the next fire time
+when available. Daylight-saving changes can make actual elapsed gaps shorter or longer than that step;
+the command does not claim an exact elapsed-time `cadenceMs`.
+The first clock-aligned fire may occur sooner than one full requested interval after creation.
+Distinct loop wake sources do not replace one another in the bounded session queue; repeated
+in-flight wakes from the same scheduled task coalesce, so missed fires do not form a catch-up burst.
+The loop marker and a UUID-backed stable loop ID live in persisted task metadata, not the editable
+display label. Editing a loop through `/schedule edit` cannot hide it from `/loop list` or
+`/loop stop`. The session has at most three active loops (including paused loops); a fourth creation
+is refused. `/loop list` and `/loop stop` use the stable ID, and stop resolves it to the current
+runtime task ID. A successful schedule restore may remap that runtime ID but retains the loop ID;
+older loops without a stable ID keep their runtime ID as a compatibility stop handle. New loops
+persist an absolute seven-day expiry. Creation and stop are strictly persisted before success;
+ordinary turn snapshots remain best-effort. Expired loops refuse firing and are terminal on restore.
+The host kill switch blocks firing/re-arming but retains paused records for a later restart with
+the switch off. Jitter, Esc handling, self-paced/prompt-only mode, and project/user prompt overrides
+are **not yet delivered**. This slice does not complete the historical #2005 checklist or #2726.
 
 ### Provider setup flow (interactive UI helpers)
 
@@ -256,7 +291,7 @@ that command value, while the framework projection follows the declaration.
 
 - **`ICommandModule`** (from `agent-framework`): every command domain creates one via its factory function. Consumers can create additional `ICommandModule` values and register them alongside the defaults.
 - **`ICommandSource`** (from `agent-framework`): each `*CommandSource` class implements `ICommandSource`. The skills module pushes a second source (`SkillCommandSource` from `agent-framework`) to expose file-based skills from explicit host or authority-backed contribution sources.
-- **`ICommandPluginAdapter`** (from `agent-framework`): `createDefaultPluginCommandAdapter` returns a production implementation. Consumers may supply a different adapter (e.g., in tests) that satisfies the same interface.
+- **`ICommandPluginAdapter`** (from `agent-interface-command`): the command receives this host-provided port. The CLI constructs the production adapter; tests and other hosts can inject their own implementation.
 - **`IProviderCommandSettingsAdapter`** (from `agent-framework`): consumers implement this interface to connect provider command operations to their settings backend. Startup helpers additionally accept discriminated `settingsSources` and `settingsStores`; project writes require an authority-backed store, while an unavailable requested project-local target fails with `WorkspaceAuthorityRequiredError` rather than deriving a path from `cwd`.
 - **`IOrgPolicy`** (from `agent-framework`): passed to `createProviderCommandModule` and `createDefaultCommandModules`; gates provider switching and API key configuration per org policy.
 - **CMD-004 ask seam** (`context.getUserInteraction()?.ask(IActionRequest)`, contract owned by `agent-core`): a command that needs input (mode/preset/language selection, the provider setup/edit/duplicate/delete wizard, exit/clear confirmation) asks for it inline at the top of `execute`. The host renders the `IActionRequest` per-environment; with no interactive renderer attached (headless/automation), `getUserInteraction()` returns `undefined` and the command takes its explicit no-human path. The CLI does not hard-code command-specific dialog logic.
@@ -373,12 +408,11 @@ Contract test: `src/context/__tests__/context-command-module.test.ts` § CLI-199
 
 This package does not define custom error classes. All execution errors surface as `ICommandResult` values with `success: false` and a human-readable `message`. Thrown errors are limited to:
 
-| Condition                                  | Throw site                                             | Recoverable               |
-| ------------------------------------------ | ------------------------------------------------------ | ------------------------- |
-| `agent-runtime` capability not available   | `getAgentHostContext` in `agent-command-module.ts`     | no (session config error) |
-| Plugin ID not in `name@marketplace` format | `installPlugin` in `default-plugin-command-adapter.ts` | yes (user input error)    |
+| Condition                                | Throw site                                         | Recoverable               |
+| ---------------------------------------- | -------------------------------------------------- | ------------------------- |
+| `agent-runtime` capability not available | `getAgentHostContext` in `agent-command-module.ts` | no (session config error) |
 
-The `plugins/default-plugin-command-adapter.ts` allows fallback on marketplace manifest fetch failure (non-fatal, returns empty list). This is marked `// allow-fallback` inline.
+The CLI-owned plugin adapter treats marketplace manifest fetch failure as non-fatal and returns an empty list.
 
 ## Test Strategy
 
@@ -434,7 +468,7 @@ Run:
 pnpm --filter @robota-sdk/agent-command test
 ```
 
-Coverage gaps: `src/default/` and `src/plugins/` subdirectories have no dedicated test files. Integration coverage comes from `agent-cli` and `agent-framework` tests.
+Coverage gaps: `src/default/` has no dedicated test file. The concrete plugin adapter and loader are covered in `agent-cli`; command plugin behavior is covered in `src/plugin/__tests__/`.
 
 ## Class Contract Registry
 

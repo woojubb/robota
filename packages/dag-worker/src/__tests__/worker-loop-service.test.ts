@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import type { IDagDefinition, IDagRun, IQueueMessage, ITaskRun } from '@robota-sdk/dag-core';
+import { describe, expect, it, vi } from 'vitest';
+import type {
+  IDagDefinition,
+  IDagRun,
+  IQueueMessage,
+  IRunProgressEventReporter,
+  ITaskRun,
+} from '@robota-sdk/dag-core';
 import {
   InMemoryLeasePort,
   InMemoryQueuePort,
@@ -78,16 +84,97 @@ describe('WorkerLoopService', () => {
     lease: InMemoryLeasePort,
     clock: ManualClockPort,
     retryEnabled = false,
+    reporter?: IRunProgressEventReporter,
   ): WorkerLoopService {
-    return new WorkerLoopService(storage, queue, lease, executor, clock, process.cwd(), {
-      workerId: 'worker-1',
-      leaseDurationMs: 30_000,
-      visibilityTimeoutMs: 30_000,
-      retryEnabled,
-      maxAttempts: 3,
-      defaultTimeoutMs: 50,
-    });
+    return new WorkerLoopService(
+      storage,
+      queue,
+      lease,
+      executor,
+      clock,
+      process.cwd(),
+      {
+        workerId: 'worker-1',
+        leaseDurationMs: 30_000,
+        visibilityTimeoutMs: 30_000,
+        retryEnabled,
+        maxAttempts: 3,
+        defaultTimeoutMs: 50,
+      },
+      reporter,
+    );
   }
+
+  it('acknowledges a queued task of a cancelled run without starting or executing it', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const lease = new InMemoryLeasePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const { dagRun, taskRun, message } = createQueuedTaskFixture();
+    const definition = createDefinitionForRun(dagRun);
+    await storage.saveDefinition(definition);
+    await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
+    await storage.createTaskRun(taskRun);
+    await queue.enqueue(message);
+    await storage.updateDagRunStatus(dagRun.dagRunId, 'cancelled', clock.nowIso());
+
+    const execute = vi.fn(async () => ({ ok: true as const, output: { done: true } }));
+    const publish = vi.fn();
+    const service = createService(
+      new ScriptedTaskExecutorPort(execute),
+      storage,
+      queue,
+      lease,
+      clock,
+      false,
+      { publish },
+    );
+    const result = await service.processOnce();
+
+    expect(result).toEqual({
+      ok: true,
+      value: { processed: true, taskRunId: taskRun.taskRunId, retried: false },
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(publish).not.toHaveBeenCalled();
+    expect((await storage.getTaskRun(taskRun.taskRunId))?.status).toBe('cancelled');
+    expect((await storage.getDagRun(dagRun.dagRunId))?.status).toBe('cancelled');
+    expect(await queue.dequeue('worker-2', 1_000)).toBeUndefined();
+  });
+
+  it('does not execute a task when its run is cancelled after the task is claimed', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const lease = new InMemoryLeasePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const { dagRun, taskRun, message } = createQueuedTaskFixture();
+    const definition = createDefinitionForRun(dagRun);
+    await storage.saveDefinition(definition);
+    await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
+    await storage.createTaskRun(taskRun);
+    await queue.enqueue(message);
+
+    const originalListTaskRuns = storage.listTaskRunsByDagRunId.bind(storage);
+    vi.spyOn(storage, 'listTaskRunsByDagRunId').mockImplementation(async (dagRunId) => {
+      await storage.updateDagRunStatus(dagRunId, 'cancelled', clock.nowIso());
+      return originalListTaskRuns(dagRunId);
+    });
+    const execute = vi.fn(async () => ({ ok: true as const, output: { done: true } }));
+    const service = createService(
+      new ScriptedTaskExecutorPort(execute),
+      storage,
+      queue,
+      lease,
+      clock,
+    );
+    const result = await service.processOnce();
+
+    expect(result.ok).toBe(true);
+    expect(execute).not.toHaveBeenCalled();
+    expect((await storage.getTaskRun(taskRun.taskRunId))?.status).toBe('cancelled');
+    expect((await storage.getDagRun(dagRun.dagRunId))?.status).toBe('cancelled');
+    expect(await queue.dequeue('worker-2', 1_000)).toBeUndefined();
+  });
 
   it('marks task success and acknowledges message', async () => {
     const storage = new InMemoryStoragePort();

@@ -1,5 +1,5 @@
 /**
- * HTTP transport adapter — exposes IInteractiveSession over REST API.
+ * HTTP transport adapter — exposes the declared session capabilities over REST API.
  *
  * Built on Hono for Cloudflare Workers + Node.js + AWS Lambda compatibility.
  * Exposes the core session methods (a subset; background-task, job-group, and
@@ -28,7 +28,7 @@ import type {
 export type { TSessionFactory } from './submit-route.js';
 
 export interface IAgentRoutesOptions {
-  /** Resolve an IInteractiveSession per request (e.g., by auth token, session ID). */
+  /** Resolve an HTTP session port per request (e.g., by auth token, session ID). */
   sessionFactory: TSessionFactory;
   /**
    * Where the DETAIL of a post-headers stream failure goes (the client gets only a generic line —

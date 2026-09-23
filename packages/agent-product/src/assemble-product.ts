@@ -26,6 +26,7 @@ export const PRODUCT_PROFILE_FIELD_POLICIES = {
   providerDefinitions: 'consumed-and-surfaced',
   providerSettings: 'consumed',
   provider: 'consumed-and-surfaced',
+  providerErrorGuidance: 'consumed',
   presets: 'consumed',
   presetRegistry: 'consumed-and-surfaced',
   defaultPresetId: 'consumed-and-surfaced',
@@ -40,6 +41,7 @@ export const PRODUCT_PROFILE_FIELD_POLICIES = {
 /** The product-owned materials the assembler overlays onto the shell-supplied session options. */
 interface IOverlayMaterials {
   provider: IAIProvider | undefined;
+  providerErrorGuidance: IProductProfile['providerErrorGuidance'];
   commandModules: readonly ICommandModule[];
   tools: readonly FunctionTool[];
   subagents: readonly IAgentDefinition[];
@@ -63,6 +65,7 @@ function overlaySessionOptions(
   materials: IOverlayMaterials,
 ): TInteractiveSessionOptions {
   const provider = base.provider ?? materials.provider;
+  const providerErrorGuidance = base.providerErrorGuidance ?? materials.providerErrorGuidance;
   const permissionModeOverlay =
     base.permissionMode === undefined && materials.defaultPermissionMode !== undefined
       ? { permissionMode: materials.defaultPermissionMode }
@@ -86,6 +89,7 @@ function overlaySessionOptions(
     return {
       ...base,
       provider,
+      ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
       commandModules,
       commandHostAdapters,
       ...permissionModeOverlay,
@@ -101,6 +105,7 @@ function overlaySessionOptions(
   return {
     ...base,
     provider,
+    ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
     commandModules,
     commandHostAdapters,
     additionalTools: [
@@ -175,6 +180,7 @@ export function assembleProduct(profile: IProductProfile): IAssembledProduct {
   const buildRuntimeOptions = (input: IBuildRuntimeInput): TInteractiveSessionOptions =>
     overlaySessionOptions(input.session, {
       provider,
+      providerErrorGuidance: profile.providerErrorGuidance,
       commandModules: merged.commandModules,
       tools: merged.tools,
       subagents: merged.subagents,

@@ -79,14 +79,13 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     rmSync(project, { recursive: true, force: true });
   });
 
-  async function run(argv: string[]): Promise<void> {
+  async function run(
+    argv: string[],
+    store = createNodeHostSessionStore(join(project, '.robota', 'sessions')),
+    userStore = createNodeHostSessionStore(join(home, '.robota', 'sessions')),
+  ): Promise<void> {
     try {
-      await runSessionAnalyze(
-        argv,
-        project,
-        createNodeHostSessionStore(join(project, '.robota', 'sessions')),
-        createNodeHostSessionStore(join(home, '.robota', 'sessions')),
-      );
+      await runSessionAnalyze(argv, project, store, userStore);
     } catch (error) {
       if (!(error instanceof Error) || !error.message.startsWith('process.exit:')) throw error;
     }
@@ -128,12 +127,55 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     const dir = join(project, '.robota', 'sessions');
     writeSession(dir, 'session_1781000001000_aaa', project);
     writeSession(dir, 'session_1781000002000_bbb', project);
+    const store = createNodeHostSessionStore(dir);
+    const list = vi.spyOn(store, 'list');
 
-    await run(['--session', '1781000002000']);
+    await run(['--session', '1781000002000'], store);
 
     const out = stdout.join('');
+    expect(list).toHaveBeenCalledOnce();
     expect(out).toContain('session_1781000002000_bbb');
     expect(out).not.toContain('session_1781000001000_aaa');
+  });
+
+  it('loads an exact session id without enumerating the project store', async () => {
+    const id = 'session_1781000002000_bbb';
+    const dir = join(project, '.robota', 'sessions');
+    writeSession(join(home, '.robota', 'sessions'), id, home);
+    writeSession(dir, id, project);
+    const store = createNodeHostSessionStore(dir);
+    const list = vi.spyOn(store, 'list').mockImplementation(() => {
+      throw new Error('exact session lookup enumerated the store');
+    });
+
+    await run(['--session', id], store);
+
+    expect(list).not.toHaveBeenCalled();
+    expect(stdout.join('')).toContain(id);
+    expect(stdout.join('')).toContain(`cwd: ${project}`);
+    expect(stdout.join('')).not.toContain(`cwd: ${home}`);
+  });
+
+  it('loads an exact session from the injected user store without enumerating either store', async () => {
+    const id = 'session_1781000002000_user';
+    const userDirectory = join(home, '.robota', 'sessions');
+    writeSession(userDirectory, id, home);
+    const userStore = createNodeHostSessionStore(userDirectory);
+    const projectStore = createNodeHostSessionStore(join(project, '.robota', 'sessions'));
+    const userList = vi.spyOn(userStore, 'list').mockImplementation(() => {
+      throw new Error('exact lookup enumerated the injected user store');
+    });
+    const projectList = vi.spyOn(projectStore, 'list').mockImplementation(() => {
+      throw new Error('exact lookup enumerated the project store');
+    });
+
+    await run(['--session', id], projectStore, userStore);
+
+    expect(exitCode).toBeUndefined();
+    expect(userList).not.toHaveBeenCalled();
+    expect(projectList).not.toHaveBeenCalled();
+    expect(stdout.join('')).toContain(id);
+    expect(stdout.join('')).toContain(`cwd: ${home}`);
   });
 
   it('TC-07b: --session with an unknown id → error + exit 1', async () => {
@@ -143,6 +185,28 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
 
     expect(exitCode).toBe(1);
     expect(stderr.join('')).toContain('Session not found');
+  });
+
+  it('does not send an unsafe session selector to an exact store lookup', async () => {
+    const dir = join(project, '.robota', 'sessions');
+    writeSession(dir, 'session_1781000001000_aaa', project);
+    const store = createNodeHostSessionStore(dir);
+    const load = vi.spyOn(store, 'load');
+
+    await run(['--session', '../outside'], store);
+
+    expect(load).not.toHaveBeenCalledWith('../outside');
+    expect(exitCode).toBe(1);
+    expect(stderr.join('')).toContain('Session not found');
+  });
+
+  it('retains the configured-store error when exact and prefix lookup both have no records', async () => {
+    await run(['--session', 'session_missing']);
+
+    expect(exitCode).toBe(1);
+    expect(stderr.join('')).toContain(
+      'No session files found in configured user or authorized project session stores.',
+    );
   });
 
   it('merges user-level and project-level sessions (project wins on id collision)', async () => {
@@ -196,10 +260,15 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     const dir = join(project, '.robota', 'sessions');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, `${id}.json`), JSON.stringify({ schemaVersion: 1, record }), 'utf8');
+    const store = createNodeHostSessionStore(dir);
+    const list = vi.spyOn(store, 'list').mockImplementation(() => {
+      throw new Error('exact usage lookup enumerated the store');
+    });
 
-    await run(['--usage']);
+    await run(['--usage', '--session', id], store);
 
     const out = stdout.join('');
+    expect(list).not.toHaveBeenCalled();
     expect(out).toContain('Token usage');
     expect(out).toContain('HARNESS-AND-CI');
     expect(out).toContain('main thread');

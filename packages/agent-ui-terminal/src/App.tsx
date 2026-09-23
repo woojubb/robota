@@ -32,7 +32,7 @@ interface IProps {
   initialInput?: string;
   initialInputOrigin?: 'external-link';
   startupUpdateNotice?: Promise<string | undefined>;
-  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
+  transportRegistry?: ITransportRegistryView;
   pluginAdapter?: ICommandPluginAdapter;
   cliAdapter: ITuiCliAdapter;
   /** SCREEN-1993: the stored-prompt source and project key for the input area's search. */

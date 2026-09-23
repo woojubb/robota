@@ -296,7 +296,7 @@ export function fromDagWorkflowFile(
 /**
  * Returns true if the parsed value IS a well-formed IDagWorkflowFile. Issue #2077: total, not a
  * top-level discriminator check — a true answer means every nested field decoded, so the narrowed
- * type is honest at the eight dag-cli sites that still branch on it (DAG-004).
+ * type is honest for every caller that branches on it (DAG-004).
  */
 export function isWorkflowFileFormat(parsed: unknown): parsed is IDagWorkflowFile {
   return decodeDagWorkflowFile(parsed).ok;

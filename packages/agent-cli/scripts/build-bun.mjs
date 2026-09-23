@@ -4,9 +4,8 @@
  * (bin/robota.cjs → dist/node/bin.js) is untouched. Run under Bun:
  *
  *   bun scripts/build-bun.mjs            # host target
- *   bun scripts/build-bun.mjs all        # every target
- *   bun scripts/build-bun.mjs linux-x64  # a specific full CLI target
- *   bun scripts/build-bun.mjs headless all  # headless desktop targets
+ *   bun scripts/build-bun.mjs linux-x64  # matching native full CLI target
+ *   bun scripts/build-bun.mjs headless    # matching native desktop target
  *
  * Prereq: run the normal build first to produce a verified generation containing dist/node/bin.js.
  * Two build-time fixes (see the DIST-001 spec): stub ink's dev-only `react-devtools-core` static import, and
@@ -17,6 +16,7 @@ import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assembleGeneration, pinGeneration } from '../../../scripts/artifacts/generation.mjs';
+import { createKoffiBunPlugin } from '../../../scripts/artifacts/koffi-bun-plugin.mjs';
 import { createManifest, validateArtifactPath } from '../../../scripts/artifacts/manifest.mjs';
 
 /** os-arch → Bun `--compile` target triple. */
@@ -43,10 +43,13 @@ const stubReactDevtools = {
   },
 };
 
-function hostKey() {
-  const os = process.platform === 'win32' ? 'windows' : process.platform; // darwin | linux | windows
-  const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
-  return `${os}-${arch}`;
+export function bunTargetForHost(platform = process.platform, arch = process.arch) {
+  const os = platform === 'win32' ? 'windows' : platform;
+  const key = `${os}-${arch}`;
+  if (!Object.hasOwn(TARGETS, key)) {
+    throw new Error(`Bun standalone packaging is unsupported on host ${platform}-${arch}.`);
+  }
+  return key;
 }
 
 async function compileTarget(entry, outputRoot, version, key, kind) {
@@ -61,7 +64,13 @@ async function compileTarget(entry, outputRoot, version, key, kind) {
     target: 'bun',
     compile: { target: TARGETS[key], outfile },
     define: { __ROBOTA_VERSION__: JSON.stringify(version) },
-    plugins: kind === 'full' ? [stubReactDevtools] : [],
+    plugins: [
+      ...(kind === 'full' ? [stubReactDevtools] : []),
+      createKoffiBunPlugin(
+        `${process.platform}-${process.arch}`,
+        new URL('../package.json', import.meta.url),
+      ),
+    ],
   });
   if (!result.success) throw new Error(`Bun compile failed: ${result.logs.map(String).join('\n')}`);
   if (result.outputs.length !== 1 || resolve(result.outputs[0].path) !== outfile) {
@@ -82,6 +91,9 @@ export async function buildBunBinaryGeneration(packageRoot, keys, kind = 'full')
     keys.some((key) => !Object.hasOwn(TARGETS, key))
   ) {
     throw new Error(`Bun target must be unique and one of: ${Object.keys(TARGETS).join(', ')}`);
+  }
+  if (keys.length !== 1 || keys[0] !== bunTargetForHost()) {
+    throw new Error(`Bun packaging requires the matching native host ${bunTargetForHost()}.`);
   }
   const manifest = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8'));
   const outputName =
@@ -108,7 +120,7 @@ export async function buildBunBinaryGeneration(packageRoot, keys, kind = 'full')
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const kind = process.argv[2] === 'headless' ? 'headless' : 'full';
   const argument = process.argv[kind === 'headless' ? 3 : 2];
-  const keys = argument === 'all' ? Object.keys(TARGETS) : [argument ?? hostKey()];
+  const keys = argument === 'all' ? Object.keys(TARGETS) : [argument ?? bunTargetForHost()];
   try {
     const result = await buildBunBinaryGeneration(
       join(dirname(fileURLToPath(import.meta.url)), '..'),

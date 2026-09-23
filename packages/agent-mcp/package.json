@@ -1,0 +1,67 @@
+{
+  "name": "@robota-sdk/agent-mcp",
+  "version": "3.0.0-beta.79",
+  "description": "MCP protocol tool implementations for Robota SDK",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "source": "./src/index.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "robota": {
+    "artifact": {
+      "builder": "tsdown"
+    }
+  },
+  "scripts": {
+    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
+    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "typecheck": "tsgo --noEmit",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
+    "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --status && pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --lifecycle && pnpm exec tsx --conditions=source examples/verify-mcp-definition-control-plane.ts",
+    "scenario:verify:mcp-client": "pnpm exec tsx --conditions=source examples/verify-mcp-client.ts",
+    "scenario:verify:stdio-transport": "pnpm exec tsx --conditions=source examples/verify-stdio-transport.ts",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "peerDependencies": {
+    "@robota-sdk/agent-core": "workspace:*"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
+    "@types/node": "^20.10.0",
+    "rimraf": "^5.0.10",
+    "tsdown": "^0.22.14",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.6"
+  },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "publishConfig": {
+    "access": "public"
+  },
+  "volta": {
+    "extends": "../../package.json"
+  }
+}

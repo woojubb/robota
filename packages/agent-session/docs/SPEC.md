@@ -4,9 +4,9 @@
 
 Owns the CLI session lifecycle for the Robota SDK. This package provides the `Session` class that wraps a `Robota` agent instance with permission-gated tool execution, hook-based lifecycle events, context window tracking, conversation compaction, and optional persistence through `IInteractiveSessionStore`. `NodeSessionStore` is the explicitly named host-filesystem adapter. The package is the primary runtime used by the CLI application (`agent-cli`) via the assembly layer (`agent-framework`). It also owns the **runtime codec for the
 persisted session record** (TRANS-005): the record's TYPE is owned by
-`@robota-sdk/agent-interface-transport`, but a decoder is a mechanism, and an `agent-interface-*`
-package publishes contracts, vocabulary and discriminators rather than mechanisms
-(`scan-interface-runtime`). The codec therefore lives beside the persistence paths that consume it.
+`@robota-sdk/agent-interface-session`, but a decoder is a mechanism, and an `agent-interface-*`
+package publishes contracts, vocabulary and discriminators rather than mechanisms. The codec
+therefore lives beside the persistence paths that consume it.
 
 ## Boundaries
 
@@ -21,7 +21,7 @@ package publishes contracts, vocabulary and discriminators rather than mechanism
 - Does not own the permission evaluation algorithm or hook execution engine. Those belong to `@robota-sdk/agent-core` (`evaluatePermission`, `runHooks`).
 - **Owns the file-persistence primitive, not the record or port shape.** `NodeSessionStore` owns atomic
   JSON file persistence and directly implements `IInteractiveSessionStore`; both that port and
-  `IInteractiveSessionRecord` are owned by `@robota-sdk/agent-interface-transport` (DATA-001 SSOT). It also owns the record's runtime DECODER (TRANS-005) — the shape is
+  `IInteractiveSessionRecord` are owned by `@robota-sdk/agent-interface-session` (DATA-001 SSOT). It also owns the record's runtime DECODER (TRANS-005) — the shape is
   declared there, and the mechanism that validates a value against it lives here.
   The former local `ISessionRecord` and `ISessionStore` declarations were removed because they drifted
   from the canonical contract. Public compatibility names are renamed re-exports only. The store remains
@@ -70,6 +70,7 @@ The package follows a modular structure with Session delegating to focused sub-c
 
 ```
 session-base.ts           -- SessionBase: abstract base holding shared session state and methods, incl. preset/model/parallel-subagent live state (getActivePresetId/setActivePresetId, getParallelSubagentsEnabled/setParallelSubagentsEnabled, applyModelOptions, getModelEffort, withScopedModelEffort)
+session-runtime-tools.ts  -- SessionRuntimeTools: direct tool execution sharing TurnClaim, cancellation linkage and graceful drain
 session.ts                -- Session class (extends SessionBase): orchestrates run loop, delegates to sub-components
 session-run.ts            -- Per-turn Session.run execution helper and replay-event forwarding
 session-tool-execution-bridge.ts -- Bridges unknown-tool replay events to onToolExecution display callbacks
@@ -98,7 +99,9 @@ session-store.ts          -- NodeSessionStore: explicit host JSON persistence ad
 
 **Dependency direction:**
 
-- `@robota-sdk/agent-session` depends on `@robota-sdk/agent-core` and `@robota-sdk/agent-interface-transport` (SSOT for `ICompactEvent`/`TCompactTrigger`).
+- `@robota-sdk/agent-session` depends on `@robota-sdk/agent-core`, `@robota-sdk/agent-interface-session`
+  (SSOT for `ICompactEvent`/`TCompactTrigger`), and `@robota-sdk/agent-interface-execution`
+  (background-task and group record shapes).
 - No dependency on `@robota-sdk/agent-tools` or `@robota-sdk/agent-provider-anthropic`.
 - Tool and provider assembly is the responsibility of the consuming layer (`agent-framework`).
 - Workspace trust and project-path interpretation are also framework responsibilities. This package owns only
@@ -136,6 +139,8 @@ Types owned by this package (SSOT):
 | `ISessionLogSink`                           | Interface | `session-log-sinks.ts`                     | Neutral append sink used by live logging                                                                      |
 | `IExternalPayloadSource`                    | Interface | `session-log-sources.ts`                   | Neutral relative sidecar-byte source that enforces the caller-supplied per-read budget                        |
 | `IExternalPayloadSink`                      | Interface | `session-log-sinks.ts`                     | Neutral content-addressed sidecar-byte sink                                                                   |
+| `INodeToolResultSpillStoreOptions`          | Interface | `tool-result-spill-store.ts`               | Host-owned root, retention clock, and payload-free cleanup diagnostic options for MCP result spills           |
+| `TToolResultSpillErrorCode`                 | Type      | `tool-result-spill-store.ts`               | Stable, secret-free failure codes for result spill creation, reads, expiry, and cleanup                       |
 
 Types consumed from other packages (not owned here):
 
@@ -154,8 +159,8 @@ Types consumed from other packages (not owned here):
 | `TRUST_TO_MODE`                          | `@robota-sdk/agent-core`                                         |
 | `TUniversalMessage`                      | `@robota-sdk/agent-core`                                         |
 | `IHistoryEntry`                          | `@robota-sdk/agent-core`                                         |
-| `IInteractiveSessionRecord`              | `@robota-sdk/agent-interface-transport`                          |
-| `IInteractiveSessionStore`               | `@robota-sdk/agent-interface-transport`                          |
+| `IInteractiveSessionRecord`              | `@robota-sdk/agent-interface-session`                            |
+| `IInteractiveSessionStore`               | `@robota-sdk/agent-interface-session`                            |
 | `TModelEffort` / `TModelEffortSelection` | `@robota-sdk/agent-core`                                         |
 | `ITerminalOutput`                        | `@robota-sdk/agent-core` (re-exported via `permission-types.ts`) |
 | `ISpinner`                               | `@robota-sdk/agent-core` (re-exported via `permission-types.ts`) |
@@ -171,6 +176,7 @@ Types consumed from other packages (not owned here):
 | `scrubSensitiveKeys`                        | Function             | SELFHOST-014: pure recursive redaction of values under sensitive keys (opt-in for a share `redact`; SSOT, also used by the logger)                                                                                                                                      |
 | `isSensitiveKey`                            | Function             | SELFHOST-014: the single predicate for a secret-bearing key                                                                                                                                                                                                             |
 | `SENSITIVE_KEY_PATTERN`                     | Constant             | SELFHOST-014: the sensitive-key regex SSOT                                                                                                                                                                                                                              |
+| `SessionRuntimeTools`                       | Class                | Owns direct invocation completion, shares the session TurnClaim, links caller cancellation, and drains before disposal                                                                                                                                                  |
 | `TurnClaim`                                 | Class                | RUNTIME-003: owns the identity of the turn a session is running — claim/release/abort/isRunning (see Turn Identity)                                                                                                                                                     |
 | `SessionBusyError`                          | Class                | RUNTIME-003: `run()` rejects with this when the session already has a turn in flight; `recoverable: true`                                                                                                                                                               |
 | `PermissionEnforcer`                        | Class                | Tool permission checking, hook execution, output truncation                                                                                                                                                                                                             |
@@ -193,6 +199,10 @@ Types consumed from other packages (not owned here):
 | `DEFAULT_PROMPT_HISTORY_BLOCK_BYTES`        | Constant             | SCREEN-1993: the 64 KiB read block the tail reader yields between                                                                                                                                                                                                       |
 | `INodePromptHistoryFileOptions`             | Interface            | SCREEN-1993: `NodePromptHistoryFile` options — the owned root tightened with the directory (`ownedRoot`) and the test-seam read block size (`blockBytes`)                                                                                                               |
 | `NodeExternalPayloadSource`                 | Class                | Explicit host filesystem adapter for bounded relative external-payload reads                                                                                                                                                                                            |
+| `NodeToolResultSpillStore`                  | Class                | Owner-only, expiring opaque result storage implementing the core `IToolResultSpillStore` port                                                                                                                                                                           |
+| `ToolResultSpillError`                      | Class                | Secret-free typed failure for result spill I/O and lifecycle operations                                                                                                                                                                                                 |
+| `INodeToolResultSpillStoreOptions`          | Interface            | Host-owned spill directory, retention clock, and cleanup diagnostic options                                                                                                                                                                                             |
+| `TToolResultSpillErrorCode`                 | Type                 | Result spill failure-code union                                                                                                                                                                                                                                         |
 | `createSessionLogExternalPayloadReference`  | Function             | SSOT that validates a safe session id and exact lowercase content digest before constructing a sidecar reference                                                                                                                                                        |
 | `SilentSessionLogger`                       | Class                | No-op session logger                                                                                                                                                                                                                                                    |
 | `ISessionOptions`                           | Interface            | Constructor options for Session                                                                                                                                                                                                                                         |
@@ -205,8 +215,8 @@ Types consumed from other packages (not owned here):
 | ~~`IPermissionEnforcerOptions`~~            | Interface (internal) | Options for constructing `PermissionEnforcer` — **not exported** from `src/index.ts`. Internal to the package.                                                                                                                                                          |
 | `ISessionLogger`                            | Interface            | Pluggable session event logger interface                                                                                                                                                                                                                                |
 | `TSessionLogData`                           | Type                 | Structured log event data                                                                                                                                                                                                                                               |
-| `IInteractiveSessionRecord`                 | Interface            | Canonical resumable-session record, re-exported from `agent-interface-transport`                                                                                                                                                                                        |
-| `IInteractiveSessionStore`                  | Interface            | Canonical persistence port, re-exported from `agent-interface-transport`                                                                                                                                                                                                |
+| `IInteractiveSessionRecord`                 | Interface            | Canonical resumable-session record, re-exported from `agent-interface-session`                                                                                                                                                                                          |
+| `IInteractiveSessionStore`                  | Interface            | Canonical persistence port, re-exported from `agent-interface-session`                                                                                                                                                                                                  |
 | `ISessionRecord`                            | Compatibility export | Renamed re-export of canonical `IInteractiveSessionRecord`; not used internally                                                                                                                                                                                         |
 | `ISessionStore`                             | Compatibility export | Renamed re-export of canonical `IInteractiveSessionStore`; not used internally                                                                                                                                                                                          |
 | `AUTO_COMPACT_THRESHOLD`                    | Constant             | Default auto-compact threshold fraction of the context window (exported from `context-window-tracker.ts`)                                                                                                                                                               |
@@ -231,7 +241,7 @@ Types consumed from other packages (not owned here):
 | `TSessionLogDecodeErrorCode`                | Type                 | Stable invalid-JSON, invalid-event, and unsupported-version decode codes                                                                                                                                                                                                |
 
 `ICompactEvent` and `TCompactTrigger` are **not** part of the public API surface. Their SSOT is
-`@robota-sdk/agent-interface-transport` (INFRA-025); `src/session-types.ts` re-exports them
+`@robota-sdk/agent-interface-session` (INFRA-025); `src/session-types.ts` re-exports them
 intra-package for internal use, but they are not surfaced on the public `src/index.ts`.
 
 ### Session Constructor — sessionId Parameter
@@ -310,9 +320,9 @@ The callback payload is provider-neutral `IContextWindowState`; provider-specifi
 
 ### Interactive Session Record Fields
 
-`IInteractiveSessionRecord` owns the field inventory in `agent-interface-transport`; this package
+`IInteractiveSessionRecord` owns the field inventory in `agent-interface-session`; this package
 consumes it directly. The compatibility `ISessionRecord` export is only a renamed re-export. The inventory is
-owned and documented by `@robota-sdk/agent-interface-transport` (`session-contracts.ts`, DATA-001)
+owned and documented by `@robota-sdk/agent-interface-session` (`session-contracts.ts`, DATA-001)
 and is intentionally NOT duplicated here. Store-relevant invariants:
 
 - The store decodes on load (TRANS-007). It persists `{ schemaVersion, record }` and returns a
@@ -323,16 +333,12 @@ and is intentionally NOT duplicated here. Store-relevant invariants:
   indistinguishable from an absent one, and a consumer that read the existing record to preserve
   fields it does not own then OVERWROTE the damaged file with a fresh one. A non-`valid` outcome is
   never treated as "no prior record" on a write path.
-- `load`/`list` return `JSON.parse(...) as IInteractiveSessionRecord` — an honest trust boundary with no
-  runtime validation (a hand-edited file is the caller's responsibility, unchanged from before).
 - `IHistoryEntry.timestamp` is `Date`-typed at compile time but round-trips through JSON as an ISO
   string; consumers of loaded records must not assume a live `Date` instance (pre-existing
   behavior, now visible in the type).
 
 Memory event and used-reference fields are audit/debug data, not baseline user-local preferences.
-Inspectable user-local memory is governed by
-[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). Session
-records must not become a command source or hidden preference store.
+Session records must not become a command source or hidden preference store.
 
 ### Session Data Migration
 
@@ -369,9 +375,9 @@ only its disposable fixture. Local verification never invokes the production def
 ## The Persisted Session Record Is Decoded, Never Cast (TRANS-005)
 
 `IInteractiveSessionRecord` is persisted and transferred, so it needs a RUNTIME owner and not only a
-compile-time one. The TYPE is owned by `@robota-sdk/agent-interface-transport`; the DECODER is owned
+compile-time one. The TYPE is owned by `@robota-sdk/agent-interface-session`; the DECODER is owned
 here, because an `agent-interface-*` package publishes contracts, vocabulary and discriminators and
-not mechanisms (`scan-interface-runtime`), and because every consumer that will route through it —
+not mechanisms, and because every consumer that will route through it —
 the store, the artifact envelope, the handoff commit and the replay path — is in this package or in
 `agent-framework`, which depends on it. `decodeInteractiveSessionRecord(value: unknown)` is that owner: it returns a record
 every member of which was checked, or the list of every place the value failed — not the first place.
@@ -475,6 +481,16 @@ discarded because its role or auxiliary payload cannot be interpreted.
 
 `FileSessionLogger` applies recursive secret redaction before persistence. Keys such as `apiKey`, `authorization`, `accessToken`, `refreshToken`, `secret`, `password`, and `xApiKey` are replaced with `[REDACTED]`. Log fields larger than the inline threshold are stored as content-addressed JSON payload files in `{sessionId}.payloads/{sha256}.json`, and the JSONL line stores an `IExternalPayloadReference`.
 
+MCP-2525 result spill is a separate live-session data lifecycle. `NodeToolResultSpillStore`
+creates an unpredictable owner-only directory under an explicit host parent, writes UTF-8 payloads
+to exclusive owner-only temporary files, and publishes random opaque `tool-result:` references only
+after the complete file is linked into place. Neither the reference nor any diagnostic includes the
+path, content digest, payload, or source metadata. Reads accept only the opaque reference and use
+the stable root-relative file authority with a byte budget. Missing, expired, unsafe, and unreadable
+entries have distinct secret-free failures. Expiry and session shutdown remove both the index entry
+and file; a failed write or cleanup is reported and never converted into a valid reference. The
+session owner must call `shutdown` when it finishes using the store.
+
 The `external-payload-*` module family is the single sidecar read owner: the public recursive resolver
 orchestrates internal file-reader primitives against the public error/options contract. It treats input as untrusted JSON and
 recognizes only the exact `IExternalPayloadReference` shape: `kind: "external-payload"`,
@@ -487,21 +503,21 @@ arrays, records, and sidecar contents. A canonical-path active stack rejects cyc
 32 nested references and 64 MiB total sidecar bytes per resolution operation; limits must be finite,
 non-negative safe integers.
 
-`NodeExternalPayloadSource` rejects an empty explicit base directory. Its current Linux implementation opens
-the canonical base once per read and traverses every relative component with no-follow descriptors, verifies
-the opened target is a regular file, and performs a budget-bounded read from that same descriptor. A link in
-any component fails closed; replacing a pathname after its component is open cannot redirect the held
-descriptor. Growth during the read, or a host without the implemented stable no-follow facility, fails closed
-without returning bytes.
+`NodeExternalPayloadSource` rejects an empty explicit base directory. Each read opens one
+`@robota-sdk/agent-file-authority` authority for that base, delegates the bounded component-wise read,
+and closes it before returning. The leaf retains the root identity and uses no-follow relative native
+handles on supported Linux, macOS, and Windows hosts; replacing a pathname after a component is open
+cannot redirect the held authority. There is no pathname fallback.
 
-> **Contained — [ARCH-049](../../../.agents/tasks/completed/ARCH-049-cross-platform-stable-external-payload-replay.md).**
-> The current stable external-payload reader is Linux-only, so public Node replay rejects externalized
-> payloads on macOS and Windows. ARCH-049 owns an equally strong stable-handle implementation for every
-> supported host; this containment must not be replaced with pathname validation followed by pathname I/O.
+Leaf absence maps to `PAYLOAD_NOT_FOUND`; `INVALID_PATH` and `UNSAFE_ENTRY` map to `OUTSIDE_ROOT`;
+`UNSUPPORTED_BACKEND` maps to `STABLE_PAYLOAD_READ_UNAVAILABLE`; `OVER_BUDGET` maps to
+`MAX_TOTAL_BYTES_EXCEEDED`; and root/file mutation, closed-authority, and host-I/O failures map to
+`PAYLOAD_UNREADABLE`. Resolver-owned raw byte-length and sha256 validation still decides content
+integrity after a successful read.
 
 Resolution fails closed with `SessionLogPayloadResolutionError`. Its stable `code` is one of
 `INVALID_LIMIT`, `INVALID_REFERENCE`, `UNRESOLVED_REFERENCE`, `OUTSIDE_ROOT`, `PAYLOAD_NOT_FOUND`,
-`PAYLOAD_UNREADABLE`, `BYTE_LENGTH_MISMATCH`, `SHA256_MISMATCH`, `INVALID_JSON`,
+`STABLE_PAYLOAD_READ_UNAVAILABLE`, `PAYLOAD_UNREADABLE`, `BYTE_LENGTH_MISMATCH`, `SHA256_MISMATCH`, `INVALID_JSON`,
 `MAX_DEPTH_EXCEEDED`, `MAX_TOTAL_BYTES_EXCEEDED`, or `CIRCULAR_REFERENCE`; structured metadata may
 include the relative/canonical path, depth, and expected/actual values, and filesystem/parse failures
 retain their cause.
@@ -829,7 +845,7 @@ When `run()` encounters an error (e.g., from the execution loop or provider), th
 
 ### Interface Implementations
 
-`NodeSessionStore` implements the `IInteractiveSessionStore` port owned by `agent-interface-transport`.
+`NodeSessionStore` implements the `IInteractiveSessionStore` port owned by `agent-interface-session`.
 `FileSessionLogger` implements `ISessionLogger`; `NodeSessionLogSource`, `NodeExternalPayloadSource`,
 and `NodeSessionLogSink` implement this package's neutral source/sink ports. Other runtime classes are
 standalone.
@@ -884,7 +900,23 @@ standalone.
 
 ## Dependencies
 
-### Production (2)
+### Production (3)
 
 - `@robota-sdk/agent-core` -- Robota agent, permission system, hook system, core types
-- `@robota-sdk/agent-interface-transport` -- SSOT for `ICompactEvent`/`TCompactTrigger` (imported/re-exported by `src/session-types.ts`)
+- `@robota-sdk/agent-interface-session` -- session record, store, and compaction contracts
+- `@robota-sdk/agent-interface-execution` -- background task and group record contracts
+
+### Canonical direct runtime-tool execution (MCP-006)
+
+`Session.listRuntimeTools()` and `invokeRuntimeTool()` use the agent's live registered catalog and
+existing permission-wrapped tool execution. A direct call claims the same exclusive execution slot as
+`run`: overlapping direct calls or turns are refused with a visible busy outcome; direct calls are not
+queued. Cancellation keeps the claim until the underlying execution settles, and shutdown aborts and
+drains direct execution before destroying the agent. Calls after shutdown are refused.
+
+Direct remote tool calls cannot open an interactive permission prompt: an explicitly allowed policy
+may execute, while a decision requiring interaction fails closed. Hooks, truncation, tool events and
+session audit callbacks use the normal tool path. The returned execution envelope preserves success
+or failure; one failed call releases its claim and does not disable later calls.
+
+`Session.run` accepts an optional per-submission `signal`; it is linked to that turn’s owned controller before execution and detached on settlement, so cancellation cannot abort a later turn.

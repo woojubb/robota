@@ -17,6 +17,9 @@ export function buildTuiSessionOptions(
   return {
     cwd: opts.cwd,
     provider: opts.provider,
+    ...(opts.providerErrorGuidance !== undefined
+      ? { providerErrorGuidance: opts.providerErrorGuidance }
+      : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
     ...(opts.editCheckpointStore !== undefined
@@ -39,10 +42,12 @@ export function buildTuiSessionOptions(
     // transport-neutral `permission_request`/`ask_request` events (wireSessionEvents) and answers via
     // `resolvePermission`/`resolveAsk`. The local Ink queues + rendering are unchanged.
     sessionStore: opts.sessionStore,
+    disableSessionLoops: opts.disableSessionLoops,
     resumeSessionId: opts.resumeSessionId,
     forkSession: opts.forkSession,
     sessionName: opts.sessionName,
     backgroundTaskRunners: opts.backgroundTaskRunners,
+    ...(opts.toolCallHandoff !== undefined ? { toolCallHandoff: opts.toolCallHandoff } : {}),
     subagentRunnerFactory: opts.subagentRunnerFactory,
     ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),

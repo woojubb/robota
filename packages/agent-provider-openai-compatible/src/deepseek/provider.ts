@@ -1,4 +1,8 @@
-import { AbstractAIProvider, SilentLogger } from '@robota-sdk/agent-core';
+import {
+  AbstractAIProvider,
+  PERMISSIVE_TOOL_SCHEMA_PROFILE,
+  SilentLogger,
+} from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
 
 import { DEEPSEEK_PROVIDER_CAPABILITIES } from './capabilities';
@@ -21,6 +25,7 @@ import type {
   IChatOptions,
   IProviderCapabilities,
   IProviderCapabilityTable,
+  IToolSchemaProjectionProfile,
   TTextDeltaCallback,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -220,6 +225,26 @@ export class DeepSeekProvider extends AbstractAIProvider {
     // OpenAI-compatible DeepSeek clients do not need explicit cleanup.
   }
 
+  /**
+   * MCP-005: deepseek accepts standard JSON Schema — the permissive profile.
+   */
+  protected override projectionProfile(): IToolSchemaProjectionProfile | undefined {
+    return { ...PERMISSIVE_TOOL_SCHEMA_PROFILE, providerName: 'deepseek' };
+  }
+
+  /**
+   * Project `options.tools` before the shared `buildOpenAICompatibleRequestParams`
+   * (`request-builder.ts:78-79`) reaches them — `options.tools` itself is never mutated.
+   */
+  private projectChatOptions(options: IChatOptions | undefined): IChatOptions | undefined {
+    if (!options?.tools) {
+      return options;
+    }
+    const model = options.model ?? this.options.defaultModel ?? '';
+    const projected = this.projectTools(options.tools, model);
+    return { ...options, tools: projected && projected.length > 0 ? projected : undefined };
+  }
+
   private buildRequestParams(
     messages: TUniversalMessage[],
     options: IChatOptions | undefined,
@@ -229,7 +254,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
     return {
       ...buildOpenAICompatibleRequestParams({
         messages,
-        options,
+        options: this.projectChatOptions(options),
         defaultModel: this.options.defaultModel,
         capabilityTable: this.capabilityTable(),
       }),

@@ -27,9 +27,10 @@ agent-transport-http
 
 Owns `IHttpTransportOptions`, `IAgentRoutesOptions`, `TSessionFactory`, and
 `IHttpTransportSession`. The session role is exactly submission, events, turn control, identity,
-commands, conversation reads, and execution state. The public transport preserves its legacy
-`ITransportAdapter<IInteractiveSession>` declaration and adds a narrow `attach(IHttpTransportSession)`
-overload; full sessions remain assignable because they implement every role.
+commands, conversation reads, and execution state. The public transport implements
+`ITransportAdapter<IHttpTransportSession>` directly; `attach` accepts that exact port with no
+broader inherited signature or overload. A full session remains assignable structurally because
+it implements those roles, while a minimal port fixture can run the same routes.
 
 ## Public API Surface
 
@@ -37,7 +38,7 @@ overload; full sessions remain assignable because they implement every role.
 | ----------------------- | --------- | ------------------------------------------------------ |
 | `createHttpTransport`   | function  | Hono-based HTTP transport adapter                      |
 | `createAgentRoutes`     | function  | Build agent routes onto a Hono app                     |
-| `IHttpTransport`        | interface | Legacy adapter declaration plus narrow attach overload |
+| `IHttpTransport`        | interface | Adapter bound to the exact HTTP session port            |
 | `IHttpTransportSession` | interface | Exact seven-role session capability required by HTTP   |
 
 ## Extension Points

@@ -1,0 +1,41 @@
+{
+  "name": "third_party_search",
+  "description": "A third-party MCP tool's schema carrying keywords outside the IParameterSchema member set.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "refOnly": { "$ref": "#/$defs/Query" },
+      "oneOfOnly": {
+        "oneOf": [{ "type": "string" }, { "type": "number" }]
+      },
+      "allOfOnly": {
+        "allOf": [
+          { "type": "object", "properties": { "x": { "type": "string" } } },
+          { "type": "object", "properties": { "y": { "type": "string" } } }
+        ]
+      },
+      "annotated": {
+        "type": "string",
+        "title": "Annotated field",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$comment": "internal note",
+        "examples": ["abc"]
+      },
+      "patternMap": {
+        "type": "object",
+        "properties": { "known": { "type": "string" } },
+        "patternProperties": { "^x-": { "type": "string" } }
+      },
+      "withDefs": {
+        "type": "object",
+        "properties": { "known": { "type": "string" } },
+        "$defs": { "Query": { "type": "string" } }
+      },
+      "shortText": {
+        "type": "string",
+        "minLength": 3
+      }
+    },
+    "required": ["refOnly"]
+  }
+}

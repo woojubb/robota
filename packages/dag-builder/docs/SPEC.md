@@ -51,9 +51,8 @@
 | `TDagFileFormat`                     | `type`                                                                                    | `'workflow-file' \| 'definition'` — which on-disk format a parsed value was recognised as                                      |
 
 `dagDefinitionFromParsedFile` is where the workflow-file format SHOULD be read, and where the
-surfaces converted so far do read it — `/workflows run`, `/workflows validate` and `dag runs submit`.
-Eight `dag-cli` commands still open-code the same branch and pass a definition through unchecked;
-that sweep is DAG-004. Do not read this as coverage it does not yet have. Since DAG-002 the
+surfaces converted so far do read it — `/workflows run` and `/workflows validate`.
+Since DAG-002 the
 execution contract is the domain model (`IDagRuntimeProvider.execute` takes an `IDagDefinition`), so
 import at the edge is the only job the file format has. It is pure and synchronous: a caller that
 also reads a `.dag.robota.json` companion off disk does that IO itself and passes the result in — the

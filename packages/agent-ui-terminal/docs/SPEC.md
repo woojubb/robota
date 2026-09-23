@@ -13,6 +13,8 @@ to this package and never enter the dependency graph of non-TUI consumers.
 ## Boundaries
 
 - Owns the Ink/React rendering pipeline, the TUI interaction channel, and the default TUI CLI adapter.
+- Carries optional product-owned provider error guidance from `renderApp` through channel creation into
+  each framework session, including a channel recreated during session switching.
 - Owns its PTY test support under `src/__tests__/pty/`; all consumers are internal relative
   imports, not a public test-support barrel. The owner-approved BOUNDARY-2655 disposition
   relocates and removes the private, recorded-never-published `agent-testing` package,
@@ -48,9 +50,14 @@ agent-ui-terminal
 and subscribes to `IInteractiveSessionEvents` directly, because the narrower `InteractionEvent` stream
 cannot carry the full TUI state. `IInteractionChannel` remains the port for
 `createInteractiveRuntime`-wired in-process channels such as `ProgrammaticInteractionChannel`.
+When a transport registry is supplied, `renderApp` forwards `bindTransports` to the channel. Each
+new channel binds adapters to its own session before calling the registry's argument-free
+`startAll()`; session switching stops the previous channel before the replacement starts.
 Both `IRenderOptions` and `ITuiInteractionChannelOptions` carry the composition root's optional
 `TWorkspaceProjectAccess` decision unchanged. A bare `cwd` is provenance only; omission produces the
 framework's explicit Restricted decision and cannot enable project contribution discovery.
+They also forward `disableSessionLoops` unchanged to the session; the terminal UI does not decide
+whether a persisted loop may re-arm or fire.
 The same render-to-channel-to-session path forwards the resolved organization policy unchanged, so
 the session enforces `blockedCommands` in the default TUI. Session-capability projections declare
 every field's forwarding, rename (for example `modelId` to `model`), or presentation-only disposition;
@@ -200,11 +207,8 @@ styles it, so the SGR in its output (the theme's diff pairs) is the renderer's, 
 routing it through `SafeText` would strip exactly that styling. `MessageList` uses it for the
 assistant markdown branch only; every other string still goes through `SafeText`.
 
-The load-bearing half is the required scan `tui-safe-text-boundary`
-(`scripts/harness/scan-tui-safe-text-boundary.mjs`): it refuses a `Text` import from `ink` in any
-production module — plain, aliased (`Text as T`) and namespace (`* as ink`) forms — and reports
-`::examined::`. Tests and fixtures are exempt so the boundary's own suite can render raw Ink `Text`
-to prove a leak. That suite (`src/__tests__/safe-text-boundary.test.tsx`) asserts against the bytes
+Production text uses `SafeText` except for the sanitized assistant-markdown branch. The suite
+(`src/__tests__/safe-text-boundary.test.tsx`) asserts against the bytes
 Ink writes to a stream that claims to be a tty, never against `lastFrame()`, which drops most
 markers on its own.
 

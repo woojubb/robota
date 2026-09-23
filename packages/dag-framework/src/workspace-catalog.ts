@@ -2,8 +2,7 @@
  * Shared workspace-catalog reader (FLOW-007 C3).
  *
  * The single owner of "list the workflow definitions in a workspace directory" — unifying the three
- * previously-separate scanners (the persistence store's `loadWorkflows`, the dag-cli `catalog-scanner`,
- * and the `/workflows catalog` inline scan). Workflow definitions live **flat** under the workspace
+ * previously-separate scanners. Workflow definitions live **flat** under the workspace
  * root as `<name><workflowExt>`; node manifests (`.node.json`, which also end in `.json`) and non-DAG
  * JSON that share the root are skipped. The workspace layout is injected (default `.workflows/`).
  */

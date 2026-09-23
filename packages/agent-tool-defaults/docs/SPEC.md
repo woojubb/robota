@@ -35,7 +35,7 @@ independently.
 ## Package Identity
 
 - **npm name**: `@robota-sdk/agent-tool-defaults`
-- **Layer**: composition leaf — the dependency set that places it there is declared in this package\'s manifest and enforced by `check-dependency-direction.mjs`; not restated here
+- **Layer**: composition leaf — see the package manifest for its dependencies
 - **SDK**: (none directly — composes the tool factories)
 - **Platform**: node
 
@@ -68,8 +68,7 @@ way, and reversing it is the defect this package exists to prevent.
 
 Import it at a composition root. `@robota-sdk/agent-framework` reaches it through a dynamic `import()`
 so it takes no static edge; `@robota-sdk/pack-coding` consumes the always-present subset as the
-product's tool tier. `scripts/harness/check-dependency-direction.mjs` (Rule 8, `GUARDED_AGGREGATORS`)
-holds the entry-point-only property, and a new sanctioned importer is a deliberate decision.
+product's tool tier. Keep this import at the composition entry point; a new importer changes the dependency boundary.
 
 ## Build Output Contract
 

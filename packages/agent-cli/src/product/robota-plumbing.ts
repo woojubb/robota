@@ -2,7 +2,7 @@
  * ARCH-005 S2 — the concrete plumbing `robota`'s shell injects into its product profile.
  *
  * These are the product-owned I/O adapters `assembleProduct` must never construct itself: the transport
- * registry with a real `WsTransport` registered, and the dev-only session-log replay provider. They live
+ * registry with a WS adapter bound after session construction, and the dev-only session-log replay provider. They live
  * beside the profile (not in `cli.ts`) so the entry point stays arg parsing + mode dispatch, and so the
  * "concrete transports stay in the shell, injected as data" boundary is visible in one place.
  */
@@ -15,19 +15,21 @@ import {
   getUserSettingsPath,
   selectCommandModules,
 } from '@robota-sdk/agent-framework';
-import { TransportRegistry } from '@robota-sdk/agent-framework';
+import { TransportRegistry, bindTransportAdapter } from '@robota-sdk/agent-framework';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
   ICommandModule,
+  IProviderErrorGuidance,
   IUnknownCommandModuleName,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import { ROBOTA_PACKS_OWN_TOOL_SURFACE } from './robota-profile.js';
 
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
 import type {
   IPersonalUsageReport,
@@ -59,10 +61,9 @@ export function loadReplayProvider(logFile: string): IAIProvider {
 }
 
 /**
- * Shell-owned wiring of the default transport registry. The generic registry lives in
- * `@robota-sdk/agent-transport`; choosing which concrete transports to pre-register is a
- * product-assembly decision, so the shell wires `WsTransport` here and injects the registry into the
- * profile as a read-only view — the neutral assembler never imports a concrete transport.
+ * Shell-owned wiring of the default transport registry. Choosing the concrete transport is a
+ * product-assembly decision, so the shell creates `WsTransport` here and binds it after the runtime
+ * constructs a session. The neutral assembler never imports a concrete transport.
  */
 export function createDefaultTransportRegistry(
   personalUsageReporter?: (request: IPersonalUsageRequest) => IPersonalUsageReport,
@@ -72,6 +73,7 @@ export function createDefaultTransportRegistry(
 ): {
   registry: TransportRegistry;
   wsTransport: WsTransport;
+  bindTransports: (session: IInteractiveSession) => void;
   usageReporters: Pick<
     ISessionMessageHandlerOptions,
     'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
@@ -96,12 +98,21 @@ export function createDefaultTransportRegistry(
     ...(surface ? { surface } : {}),
     usageReporter,
   });
-  registry.register(wsTransport);
+  let registered = false;
+  const bindTransports = (session: IInteractiveSession): void => {
+    const bound = bindTransportAdapter(wsTransport, session);
+    if (registered) registry.replace(bound);
+    else {
+      registry.register(bound);
+      registered = true;
+    }
+  };
   // GUI-007: return the WS transport so `--serve --open` can read its `boundPort` to point the served
   // monitor's `ws-url` at the actual port.
   return {
     registry,
     wsTransport,
+    bindTransports,
     usageReporters: {
       ...(personalUsageReporter ? { personalUsageReporter } : {}),
       usageReporter,
@@ -216,6 +227,7 @@ export interface IRobotaRuntimeSeamInput {
  */
 export interface IRobotaRuntimeOptions {
   provider: IAIProvider;
+  providerErrorGuidance?: IProviderErrorGuidance;
   commandModules: readonly ICommandModule[];
   agentDefinitions: readonly IAgentDefinition[];
   /** The tool surface, grouped so every presentation channel is handed the SAME pair. */

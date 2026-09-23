@@ -20,7 +20,8 @@ import type { Session } from '@robota-sdk/agent-session';
 
 /**
  * Persist the current session state to the session store.
- * Silently ignores errors because persistence failure must not break execution.
+ * Ordinary turn snapshots are best-effort. Callers that acknowledge durable work can request
+ * strict writes so a failed or unreadable store never appears to have accepted that work.
  */
 export function persistSession(
   sessionStore: IInteractiveSessionStore,
@@ -50,6 +51,7 @@ export function persistSession(
   goalState?: IGoalState,
   planState?: IPlanArtifact,
   activeBranchState?: IActiveBranchPointer,
+  strict = false,
 ): void {
   try {
     const sessionId = session.getSessionId();
@@ -59,6 +61,7 @@ export function persistSession(
     // only copy.
     const outcome = sessionStore.load(sessionId);
     if (outcome.status !== 'valid' && outcome.status !== 'missing') {
+      if (strict) throw new Error(`Session record cannot be updated: ${outcome.status}`);
       return;
     }
     const existing = outcome.status === 'valid' ? outcome.record : undefined;
@@ -81,7 +84,8 @@ export function persistSession(
         ...(activeBranchState !== undefined ? { activeBranchState } : {}),
       }),
     );
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     // allow-fallback: persistence is best-effort for interactive execution and must not break a turn
   }
 }

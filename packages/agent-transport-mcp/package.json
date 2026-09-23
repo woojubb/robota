@@ -51,11 +51,15 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
+    "@modelcontextprotocol/node": "^2.0.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@robota-sdk/agent-interface-session": "workspace:*",
-    "@robota-sdk/agent-interface-transport": "workspace:*"
+    "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-transport": "workspace:*"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",

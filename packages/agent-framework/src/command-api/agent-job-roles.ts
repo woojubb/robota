@@ -55,6 +55,12 @@ export interface IAgentJobSchedules {
     label: string;
     cronExpression: string;
     agentInstruction: string;
+    /** Session-loop identity marker; kept apart from the editable display label. */
+    sessionLoop?: boolean;
+    /** Stable loop id carried in persisted task metadata across runtime task-id remapping. */
+    sessionLoopId?: string;
+    /** Absolute expiry for a session loop; persisted with its stable identity. */
+    sessionLoopExpiresAt?: string;
   }): Promise<IBackgroundTaskState>;
   /** SELFHOST-012: list the caller's scheduled tasks (each carries cadence, `nextFireAt`, and status). */
   listSchedules(): IBackgroundTaskState[];

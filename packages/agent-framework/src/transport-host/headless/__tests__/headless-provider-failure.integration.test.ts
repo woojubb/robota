@@ -105,7 +105,7 @@ describe('headless provider failure exit codes (CLI-064)', () => {
       await transport.waitForCompletion();
 
       expect(transport.getExitCode()).toBe(1);
-      expect(stderr.writes.join('')).toContain('authentication_error');
+      expect(stderr.writes.join('')).toContain('Invalid API key.');
     } finally {
       stdout.restore();
       stderr.restore();

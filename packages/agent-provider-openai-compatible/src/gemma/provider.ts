@@ -1,4 +1,8 @@
-import { AbstractAIProvider, SilentLogger } from '@robota-sdk/agent-core';
+import {
+  AbstractAIProvider,
+  PERMISSIVE_TOOL_SCHEMA_PROFILE,
+  SilentLogger,
+} from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
 
 import { parseGemmaChatCompletion, withGemmaProjectionMetadata } from './provider-projection';
@@ -21,6 +25,7 @@ import type {
   IAssistantMessage,
   IChatOptions,
   IProviderCapabilities,
+  IToolSchemaProjectionProfile,
   TTextDeltaCallback,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -231,13 +236,34 @@ export class GemmaProvider extends AbstractAIProvider {
     }
   }
 
+  /**
+   * MCP-005: gemma accepts standard JSON Schema — the permissive profile.
+   */
+  protected override projectionProfile(): IToolSchemaProjectionProfile | undefined {
+    return { ...PERMISSIVE_TOOL_SCHEMA_PROFILE, providerName: 'gemma' };
+  }
+
+  /**
+   * Project `options.tools` before either request-building path (`chat()` / `chatStream()`, both of
+   * which route through `buildRequestParams`) reaches the shared `buildOpenAICompatibleRequestParams`
+   * (`request-builder.ts:78-79`) — `options.tools` itself is never mutated.
+   */
+  private projectChatOptions(options: IChatOptions | undefined): IChatOptions | undefined {
+    if (!options?.tools) {
+      return options;
+    }
+    const model = options.model ?? this.options.defaultModel ?? '';
+    const projected = this.projectTools(options.tools, model);
+    return { ...options, tools: projected && projected.length > 0 ? projected : undefined };
+  }
+
   private buildRequestParams(
     messages: TUniversalMessage[],
     options: IChatOptions | undefined,
   ): OpenAI.Chat.ChatCompletionCreateParamsNonStreaming {
     return buildOpenAICompatibleRequestParams({
       messages,
-      options,
+      options: this.projectChatOptions(options),
       defaultModel: this.options.defaultModel,
       // PROV-004: no `capabilityTable` — gemma publishes none, so no model of its declares
       // `json_schema`, and the builder must not emit `response_format` for it. Silence is not

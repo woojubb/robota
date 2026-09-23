@@ -1,11 +1,11 @@
 // @robota-sdk/agent-interface-execution
 //
 // The execution-bounded contract families, moved out of `agent-interface-transport` by ARCH-103
-// (issue #2109) under the owner map in `.agents/specs/contract-family-owner-map.md`.
+// (issue #2109).
 //
 // LAYER 0: this package depends on `@robota-sdk/agent-core` and on no peer `agent-interface-*`
 // package. Consumers compose it downward — `agent-interface-session` names these types, never the
-// reverse. See ARCH-101 for the rule and `scripts/harness/interface-layers.mjs` for the guard.
+// reverse.
 
 // ── Background-task data contracts (INFRA-025 SSOT) ─────────
 export type {
@@ -22,6 +22,7 @@ export type {
   IAgentBackgroundTaskRequest,
   IProcessBackgroundTaskRequest,
   IScheduledBackgroundTaskRequest,
+  IToolInvocationBackgroundTaskRequest,
   TBackgroundTaskRequest,
   IBackgroundTaskUsage,
   IBackgroundTaskResult,

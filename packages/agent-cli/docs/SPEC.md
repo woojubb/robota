@@ -33,6 +33,19 @@ the CLI. The composition root assigns trusted WS driver identities (`app`, `brow
 turn's persisted usage surface reflects the launch path rather than a client-provided claim. The same host-owned
 usage reporters are passed to paired and reconnecting WebRTC surfaces. `agent-framework` owns the neutral
 build-session + transport-lifecycle seam.
+The shell creates the WS adapter before session construction, then binds and registers it only after
+the serve or TUI host creates the session. A TUI session switch replaces the registry entry with a
+binding to the new session. The registry starts bound adapters without receiving a session argument.
+
+`robota mcp serve` (MCP-007) selects a separate headless process mode with one normally assembled
+Robota session and one `agent-transport-mcp` stdio service. The CLI uses the caller's working
+directory and the same headless project-access/trust decision as `--serve`; it never prompts for
+trust over the protocol stream. The MCP package alone creates/connects/closes the official SDK
+carrier. From command entry until shutdown, all product notices and diagnostics use stderr while
+stdout is reserved for MCP frames. SIGINT, SIGTERM, stdin/client close, startup failure, and
+carrier failure all enter one idempotent cleanup path; a normal close exits 0 and a failure exits
+nonzero. Signals and peer close interrupt pending catalog validation. No WebSocket or TUI transport starts in this mode. The self-contained CLI bundle includes
+the MCP package code and declares the external SDK runtime dependency.
 
 The product shell resolves organization policy once and forwards the same policy into each mode's
 `InteractiveSession`: TUI through render/channel options, print and goal through the headless
@@ -44,6 +57,15 @@ generation and prompt fields (`temperature`, `maxOutputTokens`, `language`, pres
 `responseFormat`) through the headless channel rather than accepting them only at the CLI surface.
 The TUI preserves the same generation, prompt-seed, and response-format fields through its render
 and channel options; serve projects `responseFormat` with the other preset fields.
+
+`robota mcp serve --http-token-file <absolute-path> [--http-port <port>]` selects the same
+session assembly with the MCP package's loopback Streamable HTTP carrier instead of stdio. The
+CLI creates the token file exclusively with owner-only permissions, writes the per-launch bearer
+there, and reports only the loopback endpoint and token-file path on stderr. It removes its own
+token file during shutdown. The default port is assigned by the OS; a requested port is validated
+as an integer in the TCP port range. The mode refuses a relative token path or an existing file,
+never puts the bearer in command arguments or stdout, and shares the existing signal/session
+cleanup path. HTTP requests do not cause the process to exit when one client disconnects.
 
 ARCH-011 runner propagation is explicit in serve mode. The host's `waitForFailure()` returns the
 first named nonzero runner outcome without waiting for unrelated runners; serve mode assigns that
@@ -94,8 +116,11 @@ brings its own and reuses the same kernel.
 - OWNS: CLI argument parsing, process lifecycle and assembly, `TransportRegistry`, `ITuiCliAdapter` wiring, provider composition
 - OWNS: CLI package-version update checks and user-level update-check cache
 - OWNS: Concrete local host adapters (background runner, child-process subagent, Git worktree, settings I/O incl. the CMD-004 `delete()` reset capability)
-- OWNS: Generic host wiring for an injected MCP activation adapter; approval policy and MCP client
-  lifecycle remain in lower reusable packages, while CLI rendering only consumes secret-free status/results.
+- OWNS: Sourcing `mcpServers` from the product's own settings layers and composing the MCP
+  activation adapter from them (MCP-002; see "MCP Client Composition" below) — or hosting a
+  caller-supplied adapter, which always wins. Decoding, precedence, admission policy, and MCP
+  client lifecycle remain in `@robota-sdk/agent-mcp`; CLI rendering only consumes secret-free
+  status/results.
 - OWNS: CMD-004 Phase 2 host-action adapter wiring (`src/startup/host-action-adapters.ts`): the `/remote-control` host adapter (status/devices + host-executed `enable()`/`stop()`) and the late-bound per-mode `process` adapter — TUI (deferred SIGTERM → the App's existing graceful signal flow), serve (deferred shared-host shutdown; local == remote, REMOTE-006), print (exit satisfied by the end-of-run exit-code contract; restart surfaced explicitly)
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-framework`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-framework`
@@ -168,8 +193,7 @@ and a `Read` probe print the same final text.
 
 Future AI workflow dashboards, task intake wizards, review/evidence screens, and workflow command
 menus are TUI-only surfaces. The CLI may render repository workflow state only through SDK/runtime
-or harness-owner projections defined by
-[../../../.agents/specs/ai-workflow-control-plane.md](../../../.agents/specs/ai-workflow-control-plane.md).
+or harness-owner projections. This package defines the CLI boundary for those future surfaces.
 
 The CLI must not parse workflow manifests, choose canonical harness commands, execute workflow hooks,
 write evidence artifacts, decide review gates, retain workflow runs, or infer workflow lifecycle from
@@ -188,7 +212,7 @@ rendering. React components may render this SDK state only; they must not own ta
 retention, grouping, unread semantics, or cancellation logic.
 
 The shared contract for switchable main-thread, process, agent, group, and skill-spawned work state
-is [../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
+is the SDK execution workspace surface in [agent-framework SPEC](../../agent-framework/docs/SPEC.md).
 
 The CLI owns only the Node runtime process adapters it injects into `InteractiveSession`. Subagent
 lifecycle, the `SubagentRunner` port, and the agent definition format are specified by
@@ -198,10 +222,8 @@ described in [`docs/design/subagent-wiring.md`](design/subagent-wiring.md).
 
 ## Architecture Overview
 
-For an LLM-scannable source-verified composition map, dependency graph, execution-mode diagrams,
-and layer audit findings, see [ARCHITECTURE-MAP.md](ARCHITECTURE-MAP.md). This `SPEC.md` remains
-the owner contract; the architecture map is the scan-friendly companion that must be updated when
-CLI composition changes.
+This `SPEC.md` is the package contract. [ARCHITECTURE-MAP.md](ARCHITECTURE-MAP.md) routes
+readers to the relevant source areas for CLI composition changes.
 
 The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-framework`'s `InteractiveSession`. The CLI:
 
@@ -227,6 +249,70 @@ The CLI is a pure TUI layer. All business logic (session lifecycle, slash comman
    SDK-owned facade types.
 6. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
 
+### MCP Client Composition (MCP-002)
+
+`@robota-sdk/agent-mcp` (MCP-001/MCP-002) owns definition decoding, precedence, admission policy and
+the connection/catalog manager; this package's ONE job is making that manager reachable from the
+product's own startup rather than only from tests. Three modules in `src/startup/`, run in this
+order from `cli.ts`:
+
+1. **Source** — `mcp-definition-sources.ts`'s `resolveMcpDefinitions()` reads every layer of the
+   product's own settings sources (`@robota-sdk/agent-framework`'s `readSettingsSourceText`; a layer
+   that is not valid JSON is a reported problem), decodes
+   each layer's `mcpServers` object (`agent-mcp`'s `decodeSource`), and resolves precedence across
+   layers (`agent-mcp`'s `resolveByPrecedence`) into `IMCPResolvedEntry[]`. Every unreadable/corrupt
+   layer and every decode refusal is returned as a problem, never silently dropped.
+2. **Workspace** — `mcp-workspace.ts`'s `toMcpActivationWorkspace()` projects the CLI's own
+   `TWorkspaceProjectAccess` decision (`ARCH-042`) plus a separately-resolved workspace-trust
+   `{ state, generation }` snapshot into `agent-mcp`'s secret-free `IMCPActivationWorkspace`.
+3. **Compose** — `mcp-startup.ts`'s `composeMcpClientForStartup()` calls the two modules above,
+   reports every problem through the caller's diagnostic sink, and hands the result to
+   `mcp-client-composition.ts`'s `createMcpClientComposition()` (the MCP-002 manager wiring: admission,
+   connection, catalog, and the generic `IToolWithEventService[]` tool surface).
+
+`cli.ts` wires the result into `IStartCliOptions.mcpActivationAdapter` (the `/mcp` command port) and
+appends `connect()`'s tools to `toolOptions.additionalTools` — unless a caller already supplied its
+own `mcpActivationAdapter` (tests do this), which always wins and skips composition entirely. Zero
+resolved definitions is a normal, silent-diagnostic outcome: the `/mcp` adapter simply lists nothing.
+
+**Bounded MCP results (MCP-2525):** composition passes the core result-admission policy to every
+discovered tool before it reaches the session's permission, callback, log, or provider path. Its
+default warning/hard/repository ceiling is 10,000/25,000/500,000 UTF-16 code units; embedding
+hosts may configure `resultAdmissionLimits` within the repository ceiling, while validated per-tool requests can raise
+only to the configured ceiling. The ordinary CLI lazily creates a
+`NodeToolResultSpillStore` on first overflow, reports only counts and fixed metadata-error reasons,
+and closes the store during MCP shutdown. A failed spill produces a secret-free refusal; raw
+server output is never substituted back into context. When connected tools exist, the composition
+also exposes `robota_read_mcp_result`: given an opaque reference and a character offset, it returns
+at most 4,000 characters with the total size and next offset, shrinking the chunk further when a
+host-configured hard limit requires it. Reads stay within the same live store; missing or expired
+references fail with a fixed, payload-free error. Print, serve, and TUI modes close that store on
+both success and failure; print mode closes it before its explicit process exit.
+
+**Stdio client authority (MCP-2522):** embedding hosts may pass
+`IStartCliOptions.mcpStdioAuthorities`, keyed by resolved server ID. Startup forwards this capability
+unchanged to the shared `agent-mcp` stdio adapter. Definitions and settings cannot grant execution
+authority: an approved stdio definition without a separately supplied host authority is diagnosed
+and never spawned. The adapter owns executable/argv, environment, cwd and activation validation;
+the CLI only selects HTTP or stdio and exposes discovered tools through the same catalog path.
+Stdio supervisor timeout and shutdown wait for the shared adapter's bounded pending-open cleanup;
+this prevents a retry from overlapping a still-terminating child. Stdio discovery diagnostics never
+include raw child or SDK errors. The ordinary executable does
+not provision stdio authority automatically, and does not auto-approve package-runner commands.
+
+**Current limit:** approval is in-memory in this unit (`createMcpClientComposition`'s default
+approval store is session-scoped, per-process), so a server approved via `/mcp approve` mid-session
+is not connected by that already-started session. An embedding host can supply its existing
+`IMCPActivationApprovalStore` through `IStartCliOptions.mcpApprovalStore` before `robota mcp serve`
+starts; the same startup composition then admits and connects approved client definitions before
+building the one served runtime session. It can also supply `mcpHttpTransportDeps` for an explicitly
+approved egress policy. These host-owned capabilities never come from MCP settings or the remote
+MCP caller. The ordinary executable supplies neither capability automatically: pending definitions
+remain disconnected and private/loopback HTTP destinations remain refused. A session serving MCP
+can therefore consume admitted MCP tools without a second settings resolver, catalog, approval
+policy, client, or runtime assembly; the served and consumed tool identities stay separate and both
+client and carrier connections close on process shutdown.
+
 Whitebox internals are not specified here. See:
 
 | Design document                                                         | Owns                                                |
@@ -238,6 +324,59 @@ Whitebox internals are not specified here. See:
 | [`docs/design/message-architecture.md`](design/message-architecture.md) | the internal message type and its guards            |
 | [`docs/design/subagent-wiring.md`](design/subagent-wiring.md)           | the Node process adapters injected into the session |
 
+### MCP Background Handoff (MCP-004)
+
+A long-running MCP tool call blocks the turn unless the host opts a session into handing it to a
+background task. This unit owns settings plumbing and per-mode wiring only — the wrapper itself
+(`buildToolCallHandoff`, `ToolCallHandoffTool`) is `@robota-sdk/agent-framework`'s.
+
+**Settings** — `src/startup/mcp-settings.ts`'s `resolveMcpSettings()` reads `mcp.autoBackgroundMs`
+and `mcp.callTimeoutMs` from the SAME layered settings documents `mcpServers` is read from (never
+through `@robota-sdk/agent-framework`'s schema-typed `SettingsSchema`, which does not declare `mcp`):
+
+```json
+{
+  "mcp": {
+    "autoBackgroundMs": 120000,
+    "callTimeoutMs": 600000
+  }
+}
+```
+
+- Defaults: `autoBackgroundMs` = 120000, `callTimeoutMs` = 600000.
+- Layering is PER KEY (not whole-object like `mcpServers`): each key folds independently across
+  layers by the same precedence order (`managed > local > project > user > plugin`), so a managed
+  policy can fix one key while leaving the other to the user layer.
+- `autoBackgroundMs: 0` disables the handoff silently — no diagnostic.
+- `autoBackgroundMs >= callTimeoutMs` disables the handoff with exactly one diagnostic.
+- A negative or non-integer value for either key is a REPORTED settings problem; that document's
+  WHOLE `mcp` object is refused (both keys, not only the invalid one) and folding continues as if it
+  had declared no `mcp` object — the default is never silently substituted for an invalid value.
+
+**Composition** — `mcp-client-composition.ts`'s `buildMcpClientTimeouts(callTimeoutMs)` sets the
+`agent-mcp` supervisor's `toolCallMs` (the tool-call budget, S2) from the resolved `callTimeoutMs`;
+`startupMs`, `perCallMs`, `globalDefaultMs` and `idleMs` keep their MCP-002 defaults. Every connected
+tool's provenance (`serverId`, `sourceName`, `securityIdentity`) is recorded on
+`connectedToolProvenance`, keyed by the tool's exposed canonical name, once `connect()` resolves.
+
+**Per-mode policy** — `mcp-startup.ts`'s `composeMcpClientForStartup()` takes a `mode:
+'interactive' | 'serve' | 'print'` input and returns `buildToolCallHandoff(permissionMode)`, called
+AFTER `connect()`:
+
+- `interactive` (TUI) and `serve` adopt the policy: `{ thresholdMs, budgetMs, toolNames, provenance
+}`, with one `provenance` entry per connected tool stamping `permissionMode`.
+- `print` never adopts it — a one-shot run with no drain — and reports exactly one diagnostic when
+  `autoBackgroundMs > 0` naming that the setting is ignored in print mode.
+- `autoBackgroundMs: 0`, or `autoBackgroundMs >= callTimeoutMs`, carries no policy in any mode.
+
+The interactive TUI receives the policy through `@robota-sdk/agent-ui-terminal`'s `IRenderOptions.toolCallHandoff`
+(forwarded by `toChannelOptions` into the session options); `robota --serve` passes it directly.
+
+The spawned background task's `kind` is `'tool-invocation'` (`IToolInvocationBackgroundTaskRequest`,
+`@robota-sdk/agent-interface-execution`) — see `examples/verify-mcp-background.ts`
+(`pnpm scenario:verify:mcp-background`) for an end-to-end proof against a mock MCP server under an
+isolated `HOME`.
+
 ## Type Ownership
 
 | Type                      | Location                         | Purpose                                                                                                                   |
@@ -248,7 +387,7 @@ Whitebox internals are not specified here. See:
 | ICommand                  | `@robota-sdk/agent-framework`    | SDK-owned command palette and slash command entry                                                                         |
 | ICommandSource            | `@robota-sdk/agent-framework`    | SDK-owned command source contract                                                                                         |
 | IParsedCliArgs            | `src/utils/cli-args.ts`          | Parsed CLI argument structure returned by `parseCliArgs()`                                                                |
-| IStartCliOptions          | `src/startup/command-setup.ts`   | Options for the `startCli()` public entry point, including optional MCP activation and managed output-style sources       |
+| IStartCliOptions          | `src/startup/command-setup.ts`   | Options for `startCli()`, including MCP activation, bounded result admission limits, and managed output-style sources     |
 | ICliSetup                 | `src/startup/command-setup.ts`   | Assembled command modules, adapters, provider definitions, and org policy                                                 |
 | IDoctorRouteArgs          | `src/startup/doctor-route.ts`    | The doctor route's own flags (`--repair <check-id>`, `--yes`) parsed before the strict global parser                      |
 | IDoctorRouteContext       | `src/startup/doctor-route.ts`    | What the shell hands the doctor route (`version`, `terminal`, `cwd`, options, TTY state, env)                             |
@@ -388,7 +527,7 @@ diagnostics expose only state and canonical display path; credentials and projec
 never printed. `robota doctor` additionally reports a redacted provider-endpoint quarantine when a
 lower settings layer changes an endpoint without supplying its own credential.
 
-> **Contained — [ARCH-048](../../../.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
+> **Contained — [ARCH-048 historical record](https://github.com/woojubb/robota/blob/harness-archive-2026-09/.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
 > This boundary check keeps the current independent `cwd` and `projectAccess` inputs fail-closed.
 > ARCH-048 owns replacing those independent root carriers with one canonical binding contract.
 
@@ -467,6 +606,12 @@ The default CLI binary assembles definitions from provider packages. Alternate e
 ### Provider Configuration UX
 
 The CLI owns provider setup and provider profile writes. Default first-run writes go to `~/.robota/settings.json`; `.claude/settings.json` compatibility is read-only for Robota-specific provider profile creation. Runtime provider/model command writes must target the settings document that wins for the effective active provider scope, so a lower-priority user write cannot be masked by project-local `.robota` settings on the next startup.
+
+Robota's product profile supplies provider-error recovery hints for `/provider`, `/model`, and
+`~/.robota/settings.json`. The neutral framework provides the error classification and base message;
+the CLI's profile owns these product-specific directions, including in background errors.
+Print, serve/MCP, and TUI session projections all carry the assembled guidance. Print-mode text errors
+include the recovery hint on stderr; structured error envelopes retain their existing code contract.
 
 Supported setup flags:
 
@@ -695,7 +840,8 @@ already uses, for the same reason.
 `~/.robota/themes`, read through the same root-bounded host contribution source
 `~/.robota/output-styles` is read through — home-only, because a theme is a preference of the person
 at the terminal rather than of the checkout. Plugin themes come from `<pluginDir>/themes` for each
-installed plugin, via `pluginScopeDirs`, which INCLUDES the project scope; that asymmetry is
+installed plugin, via the CLI-owned `src/plugins/default-plugin-command-source-loader.ts` scope helper,
+which INCLUDES the project scope; that asymmetry is
 deliberate. Ids are minted here from where the file was found (`custom:<slug>`,
 `custom:<plugin>:<slug>`), so no file can claim a built-in's id whatever it is called, and the first
 file to claim an id keeps it while a later claimant is skipped rather than silently replacing it.
@@ -816,7 +962,8 @@ Session logging is an SDK-internal concern. The CLI does not configure or manage
 | `@robota-sdk/agent-framework`           | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts                                                                                            |
 | `@robota-sdk/agent-core`                | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                                                                                                                        |
 | `@robota-sdk/agent-builtin-providers`   | `createDefaultProviderDefinitions()` — the default provider definition set composed by the Robota binary (the concrete provider packages `agent-provider-{anthropic,openai,gemini,openai-compatible}` are bundled transitively) |
-| `@robota-sdk/agent-interface-transport` | Transport/interaction contracts (`IInteractionChannel`, session/command contract types)                                                                                                                                         |
+| `@robota-sdk/agent-interface-session`   | Session, interaction, turn, driver, and event contracts                                                                                                                                                                         |
+| `@robota-sdk/agent-interface-transport` | Transport adapters, lifecycle, channels, and admission contracts                                                                                                                                                                |
 | `@robota-sdk/agent-framework`           | `TransportRegistry` (root barrel) for the TUI transport registry                                                                                                                                                                |
 | `@robota-sdk/agent-framework`           | Headless runner for print mode (`-p`) execution                                                                                                                                                                                 |
 | `@robota-sdk/agent-ui-terminal`         | `renderApp()` + `createDefaultTuiCliAdapter()` — the Ink TUI shell                                                                                                                                                              |
@@ -835,10 +982,23 @@ Session logging is an SDK-internal concern. The CLI does not configure or manage
 | `string-width`                          | Unicode-aware string width calculation                                                                                                                                                                                          |
 | `qrcode`                                | Terminal QR rendering for remote-control pairing                                                                                                                                                                                |
 
+Command contract types belong to `@robota-sdk/agent-interface-command`; the CLI composes
+`@robota-sdk/agent-command` modules rather than importing that contract package directly.
+
 The remaining third-party entries in `package.json` `dependencies` (`openai`, `@anthropic-ai/sdk`,
 `@google/genai`, `werift`, `ws`, `zod`, `croner`, `fast-glob`, `jssha`, `open`, `p-limit`,
 `@marcbachmann/cel-js`, `zod-to-json-schema`, …) are not imported by CLI source; they are the hoisted
 runtime dependencies of the bundled workspace packages (see § Self-contained bundle, INFRA-028).
+`koffi@3.3.1` is the deliberate exception: the CLI declares that exact direct runtime dependency so
+the self-contained bundle and its Bun compiler plugin resolve the same qualified native bridge used by
+the transitively bundled stable file-authority capability.
+
+### Session analysis store identity
+
+An exact safe session ID is loaded from the same injected user and project stores used for prefix
+and aggregate analysis. Exact lookup does not enumerate either store; project records retain
+precedence on an ID collision. The helper must not construct a second ambient user store after
+composition supplied one.
 
 ### Headless desktop binary (RUNTIME-002)
 
@@ -860,19 +1020,29 @@ existing Node entry path (`bin/robota.cjs` → `dist/node/bin.js`) is retained. 
 validated input generation and publishes the separately declared `bun` output variant; it never writes
 into the sealed npm/Node generation.
 
-- **Build:** `scripts/build-bun.mjs` (run under Bun) `Bun.build({ compile, define, plugins })`s the built
-  `dist/node/bin.js` per target. Additive scripts: `build:bun` (host), `build:bun:all`, and per-target
-  `build:bun:<os>-<arch>` (darwin-arm64/x64, linux-x64/arm64, windows-x64). Prereq: `pnpm build` (produces
-  `dist/node/bin.js`); output → `dist-bun/robota-<os>-<arch>[.exe]`. All requested targets are staged and
-  verified against Bun emission records before the variant pointer changes. A failed target retains
-  the previous complete binary generation.
+- **Build:** `scripts/build-bun.mjs` (run under Bun) accepts exactly one literal target and
+  `Bun.build({ compile, define, plugins })`s the built `dist/node/bin.js`. `build:bun` selects the host;
+  the five per-target `build:bun:<os>-<arch>` scripts select darwin-arm64/x64, linux-x64/arm64, or
+  windows-x64. There is no multi-target or `all` interface. A literal target must exactly match the
+  current host tuple and every unsupported host is refused before compilation or generation assembly,
+  leaving the previously selected binary generation unchanged. Prereq: `pnpm build` (produces
+  `dist/node/bin.js`); output → one `dist-bun/robota-<os>-<arch>[.exe]`. The compiler embeds only the
+  qualified host Koffi addon through `scripts/artifacts/koffi-bun-plugin.mjs`.
 - **Two build-time fixes** (do not affect Node): a plugin stubs ink 7.x's DEV-only static
   `react-devtools-core` import (Bun's compiler resolves it eagerly; the code path never runs in production);
   and `src/startup/version.ts` reads a `--define`d `__ROBOTA_VERSION__` through a `typeof` guard (the single
   binary can't fs-walk for `package.json` → would show `0.0.0`; in Node the identifier is undeclared so the
   guard falls through to the existing fs-walk).
-- **Smoke:** `test:bun` (`scripts/e2e-bun-binary.mjs`) builds the host binary and asserts `--version` (real
-  version, not `0.0.0`) + `--help` (exit 0); it **skips gracefully when `bun` is not on PATH**.
+- **Smoke:** `test:bun` (`scripts/e2e-bun-binary.mjs`) builds the host binary, copies the verified
+  generation to a fresh tree without `node_modules`, and asserts `--version`, `--help`, and the shared
+  provider-free native replay fixture (`robota trust --yes` followed by `robota session analyze` success
+  and replaced-parent refusal). It **skips gracefully when `bun` is not on PATH**.
+- **Release:** five read-only native build jobs each compile and execute exactly one matching target and
+  upload one uniquely named artifact. One publisher depends on all five, alone receives
+  `contents: write`, rejects missing/duplicate/unexpected inputs, creates a five-entry
+  `SHA256SUMS.txt`, uploads the established five binary names plus that manifest once, then downloads
+  all six release assets and verifies their names, sizes, and SHA-256 digests. It retains the shared-tag
+  serialization contract with the desktop release workflow.
 - **Constraint (user-facing) — removed by DIST-006:** a subagent turn used to spawn a child `node`
   process against a worker file, which required **`node` on `PATH`** and, in a compiled binary, did
   not work at all (the worker file is not there). The binary now re-executes **itself**
@@ -1237,25 +1407,32 @@ report is re-run after a repair.
 
 ### Slash Commands
 
-| Command                        | Description                                                                     |
-| ------------------------------ | ------------------------------------------------------------------------------- |
-| `/help`                        | Show available commands                                                         |
-| `/clear`                       | Clear conversation history through the session module                           |
-| `/language [lang]`             | Set response language (ko, en, ja, zh), saves and restarts                      |
-| `/compact [instructions]`      | Compress context window                                                         |
-| `/cost`                        | Show session info through the session command module                            |
-| `/context`                     | Context window info, reference inventory, and `/context auto ...` controls      |
-| `/agent`                       | Run and manage background subagent jobs                                         |
-| `/permissions [mode]`          | Permission rules and permission mode changes                                    |
-| `/memory`                      | Route project memory commands to the memory command module                      |
-| `/rewind`                      | Route edit checkpoint list/restore commands to SDK                              |
-| `/background`                  | Route background task controls to the background command module                 |
-| `/schedule <when> <…>`         | Schedule an agent wake (relative delay or cron) via the schedule command module |
-| `/monitor "<cmd>" "<pat>" <…>` | Watch a process's output and wake the agent on a matching line                  |
-| `/plugin [subcommand]`         | Plugin management through the injected plugin command module                    |
-| `/resume`                      | Show session picker to resume a saved session                                   |
-| `/rename <name>`               | Rename the current session (name displayed in StatusBar)                        |
-| `/exit`                        | Exit through the injected exit command module                                   |
+| Command                         | Description                                                                                                                                                                         |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/help`                         | Show available commands                                                                                                                                                             |
+| `/clear`                        | Clear conversation history through the session module                                                                                                                               |
+| `/language [lang]`              | Set response language (ko, en, ja, zh), saves and restarts                                                                                                                          |
+| `/compact [instructions]`       | Compress context window                                                                                                                                                             |
+| `/cost`                         | Show session info through the session command module                                                                                                                                |
+| `/context`                      | Context window info, reference inventory, and `/context auto ...` controls                                                                                                          |
+| `/agent`                        | Run and manage background subagent jobs                                                                                                                                             |
+| `/permissions [mode]`           | Permission rules and permission mode changes                                                                                                                                        |
+| `/memory`                       | Route project memory commands to the memory command module                                                                                                                          |
+| `/rewind`                       | Route edit checkpoint list/restore commands to SDK                                                                                                                                  |
+| `/background`                   | Route background task controls to the background command module                                                                                                                     |
+| `/schedule <when> <…>`          | Schedule an agent wake (relative delay or cron) via the schedule command module                                                                                                     |
+| `/loop [<interval>] [<prompt>]` | Fixed repeat on a reported local-clock cadence; bare/interval-only forms use the host maintenance prompt, and `list`/`stop <id>` manage loops. Self-paced mode remains unsupported. |
+| `/monitor "<cmd>" "<pat>" <…>`  | Watch a process's output and wake the agent on a matching line                                                                                                                      |
+| `/plugin [subcommand]`          | Plugin management through the injected plugin command module                                                                                                                        |
+| `/resume`                       | Show session picker to resume a saved session                                                                                                                                       |
+| `/rename <name>`                | Rename the current session (name displayed in StatusBar)                                                                                                                            |
+| `/exit`                         | Exit through the injected exit command module                                                                                                                                       |
+
+The product-owned `ROBOTA_DISABLE_SESSION_LOOPS=1` switch is resolved once at startup and forwarded
+to the command module and session in TUI, print, and serve modes. It blocks loop creation and
+firing/re-arm, but leaves listing and targeted stop available. The default maintenance prompt is
+scope-bound and grants no permission beyond the existing session policy. Newly created loops
+expire after seven days; prompt-only self-paced loops and project/user prompt overrides remain open.
 
 #### Slash Command Autocomplete
 
@@ -1293,7 +1470,7 @@ The `/provider switch <profile>` command is provided by the `@robota-sdk/agent-c
 
 From the TUI's `/provider list` menu, selecting a profile and choosing the **switch** action triggers the same hot-swap path.
 
-The `/permissions` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not inspect or mutate permission state directly; it routes `/permissions [mode]` into the generic command execution path, and the command module uses SDK permission common APIs. The default Robota CLI composes `/mode` (the `agent-command-mode` module of `@robota-sdk/agent-command`) alongside `/permissions` (CLI-079, issue #2444): `/mode` is the inline permission-mode switch and `/permissions [mode]` the fuller surface, both routed through the same generic command execution path and the same SDK permission APIs. `robota-assembly-equivalence.test.ts` pins `agent-command-mode` present in the default composition; removing it from the default set is a product decision that changes that baseline, this paragraph, and `.agents/specs/command-inventory.md` together.
+The `/permissions` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not inspect or mutate permission state directly; it routes `/permissions [mode]` into the generic command execution path, and the command module uses SDK permission common APIs. The default Robota CLI composes `/mode` (the `agent-command-mode` module of `@robota-sdk/agent-command`) alongside `/permissions` (CLI-079, issue #2444): `/mode` is the inline permission-mode switch and `/permissions [mode]` the fuller surface, both routed through the same generic command execution path and the same SDK permission APIs. `robota-assembly-equivalence.test.ts` pins `agent-command-mode` present in the default composition; removing it from the default set is a product decision that changes that baseline, this paragraph, and the command composition tests together.
 
 The `/language` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module returns the `language-change` host action; the SESSION applies settings persistence and requests the restart through `ICommandHostAdapters` (CMD-004) — the CLI only renders the result.
 
@@ -1311,7 +1488,7 @@ The `/reset` command is provided by `@robota-sdk/agent-command`. The command mod
 
 The `/exit` command is provided by `@robota-sdk/agent-command`. The command module returns the `session-exit` host action; the SESSION requests exit via the per-mode process adapter (TUI: deferred SIGTERM through the App's graceful signal flow).
 
-The `/plugin` command is provided by `@robota-sdk/agent-command`. The command module returns the `show-plugin-manager` UI intent for `/plugin` and `/plugin manage`, and uses the CLI-provided `ICommandPluginAdapter` for install/uninstall/enable/disable/marketplace subcommands; `/reload-plugins` reloads host-side and carries the requester-local `data.pluginRegistryReloaded` hint for the autocomplete refresh.
+The `/plugin` command is provided by `@robota-sdk/agent-command`. The command module returns the `show-plugin-manager` UI intent for `/plugin` and `/plugin manage`, and uses the CLI-provided `ICommandPluginAdapter` for install/uninstall/enable/disable/marketplace subcommands. The CLI composes that adapter in `src/plugins/default-plugin-command-adapter.ts` and reloads the command source through `src/plugins/default-plugin-command-source-loader.ts`; `/reload-plugins` carries the requester-local `data.pluginRegistryReloaded` hint for the autocomplete refresh.
 
 The `/rewind` command is provided by `@robota-sdk/agent-command`. The CLI slash router only routes it into `session.executeCommand()` and renders the returned command result; checkpoint storage, restore, rollback ordering, and command output formatting live outside the CLI.
 
@@ -1346,7 +1523,7 @@ A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). U
 
 #### `/plugin` — Plugin Management
 
-The `/plugin` command is owned by `@robota-sdk/agent-command`. The CLI supplies a local `ICommandPluginAdapter` that connects the command package and `PluginTUI` to `NodeHostPluginSettingsStore`, `BundlePluginLoader`, `BundlePluginInstaller`, and `MarketplaceClient`.
+The `/plugin` command is owned by `@robota-sdk/agent-command`. The CLI supplies a local `ICommandPluginAdapter` that connects the command package and `PluginTUI` to `NodeHostPluginSettingsStore`, `BundlePluginLoader`, `BundlePluginInstaller`, and `MarketplaceClient`. Project plugin directories precede user directories, and each adapter reload takes a fresh enablement snapshot.
 
 Subcommands:
 
@@ -1974,31 +2151,25 @@ ESC navigates back in the stack. When the stack is empty, the TUI closes and ret
 
 ### Transparent Workflow Boundary
 
-Transparent workflow rules are defined in
-[../../../.agents/specs/transparent-workflow.md](../../../.agents/specs/transparent-workflow.md).
-The CLI may render provenance, lifecycle state, memory/preference inspection, and disclosure fields
-only from SDK/runtime projections. It may keep ephemeral terminal view state such as the selected
+For transparent workflow features, the CLI may render provenance, lifecycle state,
+memory/preference inspection, and disclosure fields only from SDK/runtime projections. It may keep ephemeral terminal view state such as the selected
 workspace entry, but it must not infer command origin, replay remembered commands, define state
 transitions, choose retention policy, or inspect/delete memory outside SDK/command APIs.
 
 ### User-Local Storage Boundary
 
-Baseline workflow storage rules are defined in
-[../../../.agents/specs/user-local-storage.md](../../../.agents/specs/user-local-storage.md). The CLI
-may render the effective storage root, category summaries, and delete/disable actions only from SDK
-or command-module projections. It must not resolve baseline storage paths, write workflow
+For baseline workflow storage, the CLI may render the effective storage root, category summaries,
+and delete/disable actions only from SDK or command-module projections. It must not resolve baseline storage paths, write workflow
 preferences into project `.robota/`, or remember commands as executable preferences.
 
-Inspectable user-local memory and preference behavior is defined in
-[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). The CLI
-may display remembered values, storage location, source, last-used time, and delete/disable actions
-only through SDK/command projections. It must not infer remembered items from repeated behavior or
+For inspectable user-local memory and preferences, the CLI may display remembered values, storage
+location, source, last-used time, and delete/disable actions only through SDK/command projections. It must not infer remembered items from repeated behavior or
 execute commands from remembered values.
 
 Existing CLI-owned operational cache such as `~/.robota/update-check.json` remains distribution UX,
 not baseline workflow state. Existing project-local sessions, logs, checkpoints, and memory are
-classified by the storage spec and must not be reused for new baseline workflow features without a
-separate migration PR.
+separate from baseline workflow storage and must not be reused for new baseline workflow features
+without a separate migration PR.
 
 The direct product command `robota user-local storage list --format json` is provider-free. The CLI
 detects the `user-local` positional command before provider setup, delegates parsing and output
@@ -2007,19 +2178,15 @@ or opening the TUI.
 
 ### Transparent Process Execution Boundary
 
-Transparent process execution rules are defined in
-[../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md). The CLI
-may provide terminal-local process runner adapters and render command rows, output panes, and
-controls from SDK/runtime projections. It must not infer canonical repo commands, score command
+For transparent process execution, the CLI may provide terminal-local process runner adapters and
+render command rows, output panes, and controls from SDK/runtime projections. It must not infer canonical repo commands, score command
 readiness, persist commands as executable preferences, interpret output as correctness evidence, or
 own process lifecycle state.
 
 ### Repository Situational Awareness Boundary
 
-Passive repository context display is defined in
-[../../../.agents/specs/repository-situational-awareness.md](../../../.agents/specs/repository-situational-awareness.md).
-The CLI may render cwd, repository root, branch, dirty summary, explicit references, and active
-background workspace context only from SDK/command projections. It must not walk the workspace,
+For passive repository context display, the CLI may render cwd, repository root, branch, dirty
+summary, explicit references, and active background workspace context only from SDK/command projections. It must not walk the workspace,
 guess package managers, infer commands, score readiness, create setup profiles, or write repository
 files for context display.
 

@@ -12,6 +12,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
+  IProviderErrorGuidance,
   IBackgroundTaskRunner,
   ICommandModule,
   InteractiveSession,
@@ -69,6 +70,8 @@ export interface IProductProfile {
    * provider answers from a recorded log instead of a vendor definition.
    */
   provider?: IAIProvider;
+  /** Product-specific, plain-data remediation text for recognized provider errors. */
+  providerErrorGuidance?: IProviderErrorGuidance;
   // (3) behavior axis — external presets to register + the default id
   /**
    * External presets to register into a PER-CALL instance-scoped registry (R8). Ignored when

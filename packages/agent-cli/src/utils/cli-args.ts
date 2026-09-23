@@ -28,6 +28,9 @@ export interface IParsedCliArgs {
   printMode: boolean;
   /** RUNTIME-001: run the headless runtime host (serve the WS, no ink) — the backend apps/agent-app spawns. */
   serve: boolean;
+  /** MCP-2533: selecting HTTP also requires an exclusive owner-only token file. */
+  mcpHttpTokenFile?: string;
+  mcpHttpPort?: number;
   /** GUI-007: with `--serve --open`, also serve the CLI's web monitor SPA over localhost and open it. */
   open: boolean;
   continueMode: boolean;
@@ -152,6 +155,8 @@ const PARSE_ARGS_CONFIG = {
     'goal-max-iterations': { type: 'string' },
     'fork-session': { type: 'boolean', default: false },
     serve: { type: 'boolean', default: false },
+    'http-token-file': { type: 'string' },
+    'http-port': { type: 'string' },
     open: { type: 'boolean', default: false },
     name: { type: 'string', short: 'n' },
     'output-format': { type: 'string' },
@@ -253,6 +258,8 @@ function mapParsedValues(
     help: values['help'] ?? false,
     printMode: values['p'] ?? false,
     serve: values['serve'] ?? false,
+    mcpHttpTokenFile: values['http-token-file'],
+    mcpHttpPort: values['http-port'] === undefined ? undefined : Number(values['http-port']),
     open: values['open'] ?? false,
     continueMode: values['continue'] ?? false,
     resumeId: values['resume'],
@@ -306,6 +313,12 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     ...resolveScreenReaderArgs(values),
     ...resolveReducedMotionArgs(values),
   };
+  if (
+    args.mcpHttpPort !== undefined &&
+    (!Number.isInteger(args.mcpHttpPort) || args.mcpHttpPort < 1 || args.mcpHttpPort > 65535)
+  ) {
+    throw new Error('--http-port must be an integer in 1..65535');
+  }
   if (args.printMode) {
     if (args.resumeId === '') {
       throw new Error(

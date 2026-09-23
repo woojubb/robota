@@ -27,6 +27,7 @@ import { humanizeApiError } from '../utils/error-humanizer.js';
 import type { IToolState, IExecutionResult } from './types.js';
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
@@ -51,6 +52,8 @@ export function promptTurnAttribution(
 }
 
 export interface IPromptTurnContext {
+  signal?: AbortSignal;
+  providerErrorGuidance?: IProviderErrorGuidance;
   /**
    * SELFHOST-008 P3: an EPHEMERAL per-turn system block (rendered recalled memory) to include in THIS
    * turn's model call only — passed through to `session.run` and never persisted. Absent ⇒ no injection.
@@ -97,6 +100,7 @@ export async function executePromptTurn(
   const spanCollector = collectSpanEntries(ctx.getSession().getEventService());
 
   try {
+    ctx.signal?.throwIfAborted();
     const preparedPrompt = await preparePromptInput(
       input,
       ctx.getProjectAccess(),
@@ -114,6 +118,7 @@ export async function executePromptTurn(
     // SELFHOST-008 P3 / PEER-007: pass per-turn options only when present, preserving the 2-arg call
     // shape for the (dominant) plain path so existing run() call contracts are unchanged.
     const runOptions = {
+      ...(ctx.signal ? { signal: ctx.signal } : {}),
       ...(ctx.ephemeralSystemContext !== undefined
         ? { ephemeralSystemContext: ctx.ephemeralSystemContext }
         : {}),
@@ -182,7 +187,7 @@ export async function executePromptTurn(
         history.push(messageToHistoryEntry(partialMessage));
       }
       const errObj = err instanceof Error ? err : new Error(String(err));
-      const errMsg = humanizeApiError(errObj);
+      const errMsg = humanizeApiError(errObj, ctx.providerErrorGuidance);
       // metadata.kind lets transports render a styled error block instead of a plain system note.
       history.push(
         messageToHistoryEntry(

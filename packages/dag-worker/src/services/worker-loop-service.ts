@@ -142,6 +142,9 @@ export class WorkerLoopService {
       return failAfterAck(this.queue, message.messageId, notFound);
     }
 
+    const cancellationBeforeClaim = await this.cancelIfRunCancelled(message);
+    if (cancellationBeforeClaim) return cancellationBeforeClaim;
+
     // Built once and passed to both: claiming and handling a failed claim need the same context.
     const claimDeps = this.claimDepsFor(message, taskRun);
     const startResult = await claimTaskForExecution(claimDeps);
@@ -156,8 +159,14 @@ export class WorkerLoopService {
       return failAfterAck(this.queue, message.messageId, contextResult.error);
     }
     const { dagRun, definition, nodeDefinition } = contextResult.value;
+    if (dagRun.status === 'cancelled') {
+      return this.settleCancelledRunMessage(message);
+    }
 
     const input = await this.buildExecutionInput(claimed, dagRun, definition, nodeDefinition);
+    // Input assembly awaits storage. A cancellation during that await must close admission too.
+    const cancellationBeforeExecution = await this.cancelIfRunCancelled(message);
+    if (cancellationBeforeExecution) return cancellationBeforeExecution;
     const executionResult = await executeWithTimeout(
       this.executor,
       input,
@@ -178,6 +187,27 @@ export class WorkerLoopService {
     }
 
     return this.outcomes.handleFailurePath(claimed, taskRun.taskRunId, executionResult.error);
+  }
+
+  private async cancelIfRunCancelled(
+    message: IQueueMessage,
+  ): Promise<TResult<IWorkerLoopResult, IDagError> | undefined> {
+    const run = await this.storage.getDagRun(message.dagRunId);
+    return run?.status === 'cancelled' ? this.settleCancelledRunMessage(message) : undefined;
+  }
+
+  private async settleCancelledRunMessage(
+    message: IQueueMessage,
+  ): Promise<TResult<IWorkerLoopResult, IDagError>> {
+    const taskRun = await this.storage.getTaskRun(message.taskRunId);
+    if (taskRun) {
+      const cancelled = TaskRunStateMachine.transition(taskRun.status, 'CANCEL');
+      if (cancelled.ok) {
+        await this.storage.updateTaskRunStatus(taskRun.taskRunId, cancelled.value.nextStatus);
+      }
+      await this.storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
+    }
+    return successAfterAck(this.queue, message.messageId, message.taskRunId, false);
   }
 
   private async buildExecutionInput(

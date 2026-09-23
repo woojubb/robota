@@ -14,20 +14,19 @@ external repo brings its own. (ARCH-005, Mode A/B/C gateway.)
 
 `assembleProduct` is carved out of project-structure L129 ("no shared product factory") **not** on
 "profile-driven" alone (a profile-driven function could still accrete `if (profile.id === 'robota')`
-branches and become a de-facto shared factory) but on a stronger, mechanically-enforced property:
+branches and become a de-facto shared factory) but on a stronger property:
 
 > `assembleProduct` is a PURE, deterministic, IO-free fold over `IProductProfile` DATA, with ZERO
 > product-specific branching. It reads only its argument, calls only pure sub-folds (`createPresetRegistry`
 > / `mergeCapabilityPacks`) and the framework's runtime-construction seam, and returns assembled materials.
 
-Enforced at all times by the three composition-neutrality guards
-(`scripts/harness/scan-composition-neutrality.mjs`, registered in `run-all-scans`):
+The composition boundary has three parts:
 
 1. **Dependency-graph neutrality** — `agent-product` declares no concrete transport/UI/CLI dependency
    (`agent-transport*`, `agent-ui-*`, `agent-cli`).
 2. **Purity / no-IO** — no `node:fs`/`fs`, `process.env`, or settings-reader read in `agent-product/src`;
-   all resolved data (settings, env, args) is fed IN from the shell. `globalThis.process` is banned too, so
-   the qualified form cannot evade the check. Constructing a provider from already-resolved settings data is
+   all resolved data (settings, env, args) is fed IN from the shell, including through qualified
+   global access. Constructing a provider from already-resolved settings data is
    pure and therefore allowed.
 3. **No product-name conditionals** — no product-identity BRANCH on `.id`/`.agentName` in any of its four
    forms: equality against a literal (`===`/`!==`, incl. backticks), `switch (profile.id)`,
@@ -79,6 +78,10 @@ constructs the runtime. Each concern has exactly one owner.
 subagents (`agentDefinitions`), the constructed provider, and the default preset's `permissionMode` laid on
 top. `buildRuntime` is `buildRuntimeSession(buildRuntimeOptions(input))` — it returns the framework
 `InteractiveSession` the shell binds its own transport/presentation over.
+
+The profile may also supply plain-data `providerErrorGuidance`. The overlay passes it to the
+framework session when the shell has not supplied its own value. The fold does not interpret the text or
+branch on the product id; two assembled products in one process retain separate guidance.
 
 Merged pack **subagents** reach the runtime through `agent-framework`'s `agentDefinitions` injection seam
 (ARCH-005 S2, owner Decision 2 — a scoped ADDITIVE framework change). Precedence in the framework, highest →

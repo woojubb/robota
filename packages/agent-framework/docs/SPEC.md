@@ -6,7 +6,7 @@ The runtime-host implementations live under `src/transport-host/` and are export
 package's root: headless execution, programmatic driving, registry lifecycle and settings repositories.
 Their authority, output and error contracts are unchanged. Terminal I/O belongs to the CLI.
 
-`@robota-sdk/agent-framework` is the assembly layer of the Robota SDK. It composes `agent-core`, `agent-session`, `agent-tools`, `agent-executor`, and the session, execution, and transport interface contracts into a single, provider-neutral SDK surface. Initial project-aware construction consumes a `TWorkspaceProjectAccess` decision; a bare `cwd` is provenance, not filesystem authority. A `createQuery({ provider })` factory is also provided for single-shot prompt use.
+`@robota-sdk/agent-framework` is the assembly layer of the Robota SDK. It composes `agent-core`, `agent-session`, `agent-tools`, `agent-executor`, and the `agent-interface-transport` type contracts into a single, provider-neutral SDK surface. Initial project-aware construction consumes a `TWorkspaceProjectAccess` decision; a bare `cwd` is provenance, not filesystem authority. A `createQuery({ provider })` factory is also provided for single-shot prompt use.
 
 This package owns: config loading (6-layer merge), context loading (AGENTS.md/CLAUDE.md walk-up), command infrastructure (command contracts, registry, sources), permission prompt, edit checkpointing, reversible execution policy, project memory store, self-hosting verification planner, skill discovery, background job orchestration, subagent assembly, bundle plugin management, and all SDK-specific type definitions.
 
@@ -47,12 +47,12 @@ This package does NOT own: provider implementations, generic session run loop, t
 - Testing utilities: exported from the `@robota-sdk/agent-framework/testing` subpath (not the
   runtime entry) — `scriptedSession()` / `ScriptedSessionHarness` (functional harness). The lightweight
   `createTestInteractiveSession()` stub is owned and exported only by
-  `@robota-sdk/agent-interface-session/testing`. See Test Strategy → Functional test harness.
+  `@robota-sdk/agent-interface-transport/testing`. See Test Strategy → Functional test harness.
 - Update check: `checkForCliUpdate()`, related helpers
 - Explicit host Git utility: `resolveGitBranchFromNodeHost()`
 - Semver utilities: `compareSemverVersions()`, `isNewerSemverVersion()`
 - Runtime contract facades (INFRA-025): background-task/subagent data contracts live in
-  `@robota-sdk/agent-interface-execution` and are not duplicated here. The two explicit
+  `@robota-sdk/agent-interface-transport` and are not duplicated here. The two explicit
   `background-tasks/` and `subagents/` facades intentionally narrow and re-export executor runtime SPI;
   the top-level framework entry may surface those framework-documented facades and no other
   `agent-executor` path.
@@ -92,8 +92,11 @@ Key design rules:
 - **React-free**: no React or Ink dependency; those belong in `agent-cli`.
 - **No pass-through re-exports** (INFRA-025, ARCH-022): every public source root declared by the package
   `exports` map, and every local re-export reachable from those roots, exposes framework-owned symbols
-  only. General-purpose env helpers, session-id guards, and tool APIs are imported directly from
-  `@robota-sdk/agent-core`, `@robota-sdk/agent-session`, and `@robota-sdk/agent-tools`. The only lower
+  only. General-purpose env helpers, session-id generation/assertion APIs, and tool APIs are imported
+  directly from `@robota-sdk/agent-core`, `@robota-sdk/agent-session`, and
+  `@robota-sdk/agent-tools`. The narrow `isSafeSessionId` selector facade is framework-owned only so
+  CLI/UI consumers can validate an untrusted exact selector without gaining a forbidden lower-package
+  dependency; `agent-session` remains the canonical owner of the rule. The only lower
   contract types re-exported through the framework are the documented `agent-executor` facades in
   `background-tasks/index.ts` and `subagents/index.ts`; concrete runtime values remain owner-direct
   imports from `@robota-sdk/agent-executor`. The public-surface guard follows the complete cycle-safe
@@ -126,10 +129,15 @@ generation, grantedAt }` in the user's owner-only `~/.robota/workspace-trust.jso
   contracts and never satisfy project-authority parameters.
 
   Byte reads accept an optional per-call `maxBytes` budget. The reader applies the smaller of that budget
-  and the package-wide project-read cap before allocation, detects growth while reading the held descriptor,
-  and fails closed if either limit is exceeded. Named project-state storage forwards the per-call budget
-  unchanged, so authority-backed external-payload sources enforce the resolver's remaining aggregate budget
-  at the filesystem boundary rather than after a complete read.
+  and the package-wide project-read cap before allocation. Each byte/text read creates one
+  `@robota-sdk/agent-file-authority` reader for the accepted project root, delegates the bounded relative
+  read, and closes it before returning. Missing remains `undefined`; leaf `OVER_BUDGET` becomes
+  `ProjectReadLimitExceededError`; every other leaf refusal becomes a secret-free
+  `WorkspaceAuthorityRequiredError`. Framework-owned purpose, authority liveness, trust generation,
+  and project identity checks run around the delegated read. Named project-state storage forwards the
+  per-call budget unchanged, so authority-backed external-payload sources enforce the resolver's remaining
+  aggregate budget at the filesystem boundary rather than after a complete read. No pathname fallback is
+  permitted on a host where the leaf cannot retain a stable root authority.
 
   **Stable project mutation boundary (ARCH-2151)**: `createWorkspaceProjectMutationBoundary()` is the
   single internal owner for project write/replace, append, and delete operations. On Linux, each
@@ -142,6 +150,10 @@ generation, grantedAt }` in the user's owner-only `~/.robota/workspace-trust.jso
   to pathname rechecks. See [issue #2151](https://github.com/woojubb/robota/issues/2151).
 
 ## Type Ownership
+
+`IHostToolResultSpillStore` is the framework facade's structural read/write/shutdown contract
+for a live host result store. The filesystem implementation and its options remain owned by
+`@robota-sdk/agent-session`; the CLI accesses it only through the SDK factory below.
 
 | Type                                                                                                                                                 | Location                                                                                             | Purpose                                                                                                                                                                                                                                                                    |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -156,7 +168,7 @@ generation, grantedAt }` in the user's owner-only `~/.robota/workspace-trust.jso
 | `IDiffLine`                                                                                                                                          | `src/interactive/types.ts`                                                                           | One diff line for Edit tool display metadata                                                                                                                                                                                                                               |
 | `IExecutionResult`                                                                                                                                   | `src/interactive/types.ts`                                                                           | Result of a completed prompt execution                                                                                                                                                                                                                                     |
 | `IToolSummary`                                                                                                                                       | `src/interactive/types.ts`                                                                           | Summary of a tool call extracted from history                                                                                                                                                                                                                              |
-| `IUsageSnapshot`                                                                                                                                     | `@robota-sdk/agent-interface-analytics` (re-exported via `src/interactive/types.ts`)                 | Provider-neutral execution usage record                                                                                                                                                                                                                                    |
+| `IUsageSnapshot`                                                                                                                                     | `src/interactive/types.ts`                                                                           | Provider-neutral execution usage record                                                                                                                                                                                                                                    |
 | `TPermissionResultValue`                                                                                                                             | `src/interactive/types.ts`                                                                           | Permission handler result: `true`, `false`, `'allow-session'`, `'allow-project'`                                                                                                                                                                                           |
 | `TInteractivePermissionHandler`                                                                                                                      | `src/interactive/types.ts`                                                                           | Client-provided permission approval callback                                                                                                                                                                                                                               |
 | `TInteractiveEventName`                                                                                                                              | `src/interactive/types.ts`                                                                           | Union of all event names                                                                                                                                                                                                                                                   |
@@ -285,7 +297,7 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `createNodeWorkspaceTrustStore`              | function  | Node-host owner-only persistent grant store at the user path; generation-checked inspect/grant/revoke                                                                                                                                                                                                                                                                                                                                         |
 | `createNodeWorkspaceTrustService`            | function  | Compose the default Node identity resolver and user-owned trust store for a CLI host                                                                                                                                                                                                                                                                                                                                                          |
 | `getWorkspaceTrustStorePath`                 | function  | Resolve the default user-owned workspace trust-store path                                                                                                                                                                                                                                                                                                                                                                                     |
-| `WorkspaceAuthorityRequiredError`            | class     | Typed refusal raised by a low-level project API that receives no valid runtime-minted authority/facet                                                                                                                                                                                                                                                                                                                                         |
+| `WorkspaceAuthorityRequiredError`            | class     | Typed refusal raised by a low-level project API that receives no valid runtime-minted authority/facet; its optional `cause` is safe to expose and carries lower-layer refusal context without project paths or file bytes                                                                                                                                                                                                                     |
 | `assertWorkspaceProjectAuthority`            | function  | Runtime identity assertion; rejects reflection/property/prototype copies and serialized/structural lookalikes                                                                                                                                                                                                                                                                                                                                 |
 | `createWorkspaceProjectSettingsWriter`       | function  | Derive a settings-only write capability from authority plus an explicit approved write decision                                                                                                                                                                                                                                                                                                                                               |
 | `createWorkspaceProjectMutation`             | function  | Derive a bounded project mutation capability from authority plus an explicit approved permission decision                                                                                                                                                                                                                                                                                                                                     |
@@ -293,6 +305,8 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `getWorkspaceProjectReader`                  | function  | Obtain the root-relative read facet from a runtime-accepted authority                                                                                                                                                                                                                                                                                                                                                                         |
 | `getWorkspaceProjectStateStorage`            | function  | Obtain a named project application-state facet (`sessions`, `session-logs`, `memory`, or `checkpoints`)                                                                                                                                                                                                                                                                                                                                       |
 | `createNodeHostSessionStore`                 | function  | Explicit host-filesystem session-store adapter; does not establish project trust                                                                                                                                                                                                                                                                                                                                                              |
+| `createNodeToolResultSpillStore`             | function  | Explicit host-owned result spill store factory; returns an opaque-reference read/write/shutdown port                                                                                                                                                                                                                                                                                                                                          |
+| `IHostToolResultSpillStore`                  | interface | SDK-facing structural read/write/shutdown contract for live result references                                                                                                                                                                                                                                                                                                                                                                 |
 | `WorkspaceSessionLogSource`                  | class     | Authority-backed project session-log/payload source that enforces the session boundary and caller-supplied read budget                                                                                                                                                                                                                                                                                                                        |
 | `WorkspaceSessionLogSink`                    | class     | Authority-backed best-effort project session-log/payload sink; uses the agent-session content-address reference SSOT before I/O                                                                                                                                                                                                                                                                                                               |
 | `WorkspaceProjectSessionStore`               | class     | Authority-backed implementation of the neutral interactive session-store port. TRANS-007: decodes on load and reports one of four outcomes; the replay log is reached only by `missing`, never by a snapshot it failed to decode                                                                                                                                                                                                              |
@@ -310,6 +324,7 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `createNodeHostSettingsStore`                | function  | Explicit host settings document store; cannot satisfy a project settings capability                                                                                                                                                                                                                                                                                                                                                           |
 | `readSettingsSourceText`                     | function  | Read through a discriminated settings source without deriving project access from a path                                                                                                                                                                                                                                                                                                                                                      |
 | `createUserSessionStore`                     | function  | User-level session store facade (`~/.robota/sessions`)                                                                                                                                                                                                                                                                                                                                                                                        |
+| `isSafeSessionId`                            | function  | Framework facade over the canonical agent-session path-component guard, so CLI and UI consumers validate untrusted exact selectors without bypassing the SDK package boundary or duplicating the rule                                                                                                                                                                                                                                         |
 | `IPromptHistoryOptions`                      | type      | SCREEN-1993: `{ writer, project }` — what a surface supplies to `InteractiveSession` to turn the owner-prompt append on; absent ⇒ nothing is written                                                                                                                                                                                                                                                                                          |
 | `createUserPromptHistoryFile`                | function  | SCREEN-1993: the user-level prompt-history file facade (`~/.robota/history.jsonl`) — one object serving the session-side `IPromptHistoryWriter` and the surface's `IPromptHistorySource`; the user root is owned, so it is tightened with the file                                                                                                                                                                                            |
 | `listResumableSessionSummaries`              | function  | List saved sessions for session picker UI — TRANS-007: only `valid` ones, which is what "resumable" means                                                                                                                                                                                                                                                                                                                                     |
@@ -326,6 +341,7 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `createSystemCommands`                       | function  | SDK core command factory (returns empty list; built-ins are in command modules)                                                                                                                                                                                                                                                                                                                                                               |
 | `createBuiltinCommandModule`                 | function  | SDK core compatibility module factory                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `applyPresetToSession`                       | function  | Live preset-switching engine: re-applies a resolved preset's option groups to a running session, records the active preset id, returns `{ applied, skipped }` (PRESET-011~017)                                                                                                                                                                                                                                                                |
+| `parseFrontmatter`                           | function  | YAML frontmatter parser for skill/agent definition files                                                                                                                                                                                                                                                                                                                                                                                      |
 | `executeSkill`                               | function  | Internal skill execution helper                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `createSkillExecutionPort`                   | function  | Build the concrete `ISkillExecutionPort` (skill discovery + resolution) for injection at a composition root (ARCH-PROVIDER-005)                                                                                                                                                                                                                                                                                                               |
 | `createDefaultRemoteCommandPolicy`           | function  | Build the **allow-by-default** `IRemoteCommandPolicy` for remote-origin commands (local == remote; an optional custom policy may restrict; REMOTE-006)                                                                                                                                                                                                                                                                                        |
@@ -480,6 +496,8 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `ICommandCostBudgetAdapter`                  | type      | CMD-007: the narrow storage port `/cost budget` reads and writes through, so the command owns no file location                                                                                                                                                                                                                                                                                                                                |
 | `ISubagentParentContext`                     | type      | Issue #2317: the context members a subagent assembly reads (`agentsMd`, `projectNotesMd`, …) — a projection of the parent's `ILoadedContext`, not the whole                                                                                                                                                                                                                                                                                   |
 | `ICreateSessionOptions`                      | type      | Option SSOT for the internal `createSession()` factory, kept exported although the factory is not (issue #2270): `agent-preset`, `agent-cli`, `agent-transport`, `agent-ui-terminal` read indexed-access types off it; it is this package's OWN type (ownership, not pass-through), and re-exporting `agent-core`'s `TPermissionMode`/`TModelEffort` instead is a banned pass-through (STRUCT-07). The factory is intentionally not public    |
+| `IToolCallHandoffPolicy`                     | type      | MCP-004 §S3: `ICreateSessionOptions.toolCallHandoff` shape — `thresholdMs`, `budgetMs`, `toolNames`, `provenance` (keyed by tool name). Reachable from the exported `ICreateSessionOptions` signature, so this type must itself be exported (`scan-barrel-parameter-types`)                                                                                                                                                                   |
+| `IToolCallHandoffProvenance`                 | type      | MCP-004 §S3: one `IToolCallHandoffPolicy.provenance` entry — `serverId`, `sourceName`, `securityIdentity`, `permissionMode` (all required)                                                                                                                                                                                                                                                                                                    |
 | `ISessionRecordRestoreResult`                | type      | CLI-1994: what `restoreSessionRecordIntoSession` did — whether the resumed record carried a system prompt the session now runs under                                                                                                                                                                                                                                                                                                          |
 | `IResolveExecutionAttachInput`               | type      | CLI-1994: what `resolveExecutionAttach` needs from the surface — a presence predicate over the session store, never the store itself, because the caller is a renderer                                                                                                                                                                                                                                                                        |
 | `TExecutionAttachOutcome`                    | type      | CLI-1994: switch the surface's view onto the forked session, or refuse with the reason. A view switch, never a merge                                                                                                                                                                                                                                                                                                                          |
@@ -530,9 +548,12 @@ The registry is built by `buildHookTypeExecutors()` in `src/assembly/build-hook-
 which owns it. `createSession()` calls it and passes the result through. Executors are keyed by hook
 type string and receive hook configuration plus a JSON payload.
 
-**The built-ins are always registered (SEC-016).** `CommandExecutor` and `HttpExecutor` are seeded
-first, then `PromptExecutor` (with `providerFactory`), `AgentExecutor` (with `sessionFactory`),
-`GuardrailExecutor` (with `guardrails`), then `additionalHookExecutors`.
+**The built-ins are registered by default (SEC-016).** `CommandExecutor` and `HttpExecutor` are
+seeded first, then `PromptExecutor` (with `providerFactory`), `AgentExecutor` (with
+`sessionFactory`), `GuardrailExecutor` (with `guardrails`), then `additionalHookExecutors`.
+`InteractiveSession` callers can explicitly set `disableBuiltInHookExecutors: true` to omit the
+command and HTTP seeds. The default remains unchanged. Other executor types still compose normally;
+the option does not disable tools or arbitrary custom executors.
 
 This was previously not the case, and the difference is a behaviour change rather than a
 clarification. `runHooks` resolves executors as `executors ?? createDefaultExecutors()` — an
@@ -551,12 +572,6 @@ guardrails, so the schema is not the place to refuse). `createSession()` therefo
 `assertConfiguredHookTypesExecutable` (`src/assembly/hook-type-reachability.ts`) over the resolved
 hooks and the executors it built, and throws before any turn, naming every unrunnable type and the
 option it needs — instead of validating the config and then denying every tool call under SEC-016.
-For file-loaded settings and enabled bundle plugins, the same refusal reports the source path(s)
-that contributed each unrunnable type, including the plugin's `hooks/hooks.json`. Source facts follow
-the effective hook merge, including settings per-event accumulation and `disabledHooks` filtering;
-disabled plugins contribute neither hooks nor sources. When settings and plugins contribute the
-same unrunnable type, the diagnostic includes both sources. A programmatically supplied config with no file provenance still
-fails closed and reports its type and required option without inventing a path.
 
 **Seeding order is load-bearing.** `runHooks` builds its lookup with `Map.set` in array order, so
 the LAST executor of a given type wins. Built-ins are therefore seeded **first**, so a
@@ -585,14 +600,12 @@ status has nothing mechanical holding it — which is precisely how the first ve
 failed, silently, at a refactor five months downstream. Treating "unexported" as a security boundary
 is the mistake, not the specific export.
 
-**Restriction remains inexpressible at this seam, for every caller, internal and external.** The
-seeding fixed the original default-dropping failure described by issue #2238, which was closed as
-already done, but it did not provide a way to request a restricted executor set. That separate
-no-opt-out concern remains recorded under issue #2423. This is an explicit deferred capability, not
-a labelled containment: the current `.agents/rules/finding-depth.md` makes an existing GitHub issue
-the root record for a general foundational finding and does not require a repository Task or a
-`Contained — <ID>` label. The unchanged seeding behavior, rather than its description, determines
-the disposition. Issue #2270's export half is closed; its no-opt-out observation remains true.
+**Restriction is explicit at the public session seam.** The option reaches the internal assembler
+through `initializeInteractiveSessionAsync` and `buildCreateSessionOptions`. When both seeds are
+omitted and there are no other executors, the empty array is passed unchanged to the session,
+subagent runner, and background hook path. Converting it to `undefined` would reactivate the core's
+default executors. A configured command or HTTP hook with no replacement executor is rejected at
+assembly before a turn, with the hook type and known configuration source in the diagnostic.
 
 `ICreateSessionOptions` remains exported although the factory does not. Four packages read
 indexed-access types off it as the option SSOT — `agent-preset`, `agent-cli`, `agent-transport` and
@@ -607,12 +620,10 @@ The type is inert without the factory — no exported function accepts it, so no
 (it remains on `src/assembly/index.ts`): it is the return type of a factory that is no longer public,
 so it describes nothing a consumer can obtain.
 
-**The opt-out** remains a separate design concern for a reason worth recording: it would be a new public
-capability, and this repository's `option-reachability` scan refuses a declared option that no
-production code assigns — _"a capability nothing can turn on is not delivered"_. An option only an
-external consumer can set is, from inside this repository, unverifiable; delivering it means also
-deciding which internal surface exercises it. That is a design decision with consumer impact, not a
-correction to this change.
+The public `InteractiveSession` construction surface is the owner of the opt-out; adding a field
+only to the internal `ICreateSessionOptions` would leave callers unable to request it. The option
+controls only the two built-in seeds, so a caller that supplies a custom executor of either type at
+an internal assembly seam can still execute that type deliberately.
 
 That asymmetry is the principle the false premise was standing in for: **restriction must be asked
 for, and extension may be assumed.** Inferring restriction from the shape of an array — a non-empty
@@ -621,9 +632,7 @@ issue #2238, and it is what produced the original deny-all.
 
 **Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. A custom executor reaches THIS seam through `createSession`, which is INTERNAL — reachable from `src/assembly/index.ts` but not from the package root — so `additionalHookExecutors` has no public entry point. **Executor injection in general does still have public entry points, and this section does not enumerate them.** Four attempts to describe that surface here were each wrong in a new way: first claiming no public entry point existed, then naming a subset the next round showed was larger, then offering a re-derivation recipe that both over-filtered (dropping routes whose option interface is not itself root-exported) and under-collected (blind to an inherited declaration, missing a route through `IAgentToolDeps`). A fifth description is not what this section needs.
 
-What it asserts instead is the one property that survived all four rounds: **`buildHookTypeExecutors` has exactly one CALL SITE, in `createSession`**, so nothing else performs the seeding described above. (Every public session path still reaches that seeding through it — `InteractiveSession` constructs its session that way.) That is checkable in one command and does not decay into a list. It is deliberately NOT the claim that built-ins are absent elsewhere — `runHooks` resolves `executors ?? createDefaultExecutors()`, so a caller passing nothing still gets `command` and `http`, and `buildAgentRuntime` hands an already-seeded array to the in-process runner. The distinction is which code decides, not whether the built-ins can appear.
-
-**And the hold this section says was missing now exists.** The undocumented-runtime-export ratchet in `scripts/harness/spec-surface-baseline.json` was re-frozen from 150 to 149 when the factory was un-exported, so re-adding it to the package root fails `spec-public-surface`. That is what the 2026-07-24 premise never had: something mechanical that goes red rather than a sentence that quietly rots.
+What it asserts instead is the one property that survived all four rounds: **`buildHookTypeExecutors` has exactly one CALL SITE, in `createSession`**, so nothing else performs the seeding described above. (Every public session path still reaches it — `InteractiveSession` constructs its session that way.) That is checkable in one command and does not decay into a list. It is deliberately NOT the claim that built-ins are absent elsewhere — `runHooks` resolves `executors ?? createDefaultExecutors()`, so a caller passing `undefined` still gets `command` and `http`. The assembler passes its chosen array, including an empty restricted set, to the session and child paths.
 
 Anyone needing the actual set of public injection routes should derive it against the built declaration files of every package root, not from this document and not from a grep of option declarations — the latter is what failed here. Whether that surface is itself a defect is triage for the seam's own root item, not a claim to resolve here. Both statements are about reachability, not safety; see the seeding paragraph above for why this section refuses to treat "unexported" as a boundary.
 
@@ -859,6 +868,14 @@ Layered contract: classification lives in the provider (typed errors), humanizat
 package (`humanizeApiError`, SSOT), turn recovery in the interactive controller, rendering in each
 transport, and process survival in the product assembly.
 
+`TInteractiveSessionOptions.providerErrorGuidance` is optional product-owned data for recognized
+authentication, forbidden, rate-limit, and network failures. Without it, the framework gives neutral
+recovery messages; it does not name a product command or settings path. The session uses the same
+instance-scoped guidance for prompt, fork-skill, and background error history entries. Nested provider
+errors retain this guidance when the original cause is humanized.
+The headless text runner applies the same guidance when it writes a provider error to stderr;
+structured error output keeps its existing error code and envelope contract.
+
 - A failed turn commits any partially streamed answer to history as an **interrupted assistant
   entry** before the stream state clears — a mid-stream failure never evaporates the partial text.
 - The error history entry is humanized and machine-marked with `metadata.kind: 'error'` so
@@ -882,20 +899,21 @@ mode) and `SettingsParseError` (existing settings file with invalid JSON — see
 Resolution Order; generic exit 1 at the CLI). All other errors propagate from underlying
 packages and from SDK assembly validation:
 
-| Error Source                  | Category                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ----------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Provider resolution           | `ProviderConfigError`       | No settings profile and no env-default synthesis candidate (see §Provider Resolution Order)                                                                                                                                                                                                                                                                                                                                 |
-| Settings file parsing         | `SettingsParseError`        | Existing settings file with invalid JSON — fail-fast with file path + parse message (CLI-069); never treated as missing                                                                                                                                                                                                                                                                                                     |
-| `agent-session`               | `SessionRunError`           | Unrecoverable error during `session.run()`                                                                                                                                                                                                                                                                                                                                                                                  |
-| `agent-core`                  | `PermissionDeniedError`     | Tool call denied by permission policy                                                                                                                                                                                                                                                                                                                                                                                       |
-| Config loading                | `TypeError` / thrown string | Missing `type` field in provider profile; unknown `currentProvider` key                                                                                                                                                                                                                                                                                                                                                     |
-| Configure-provider validation | thrown `Error`              | CLI-068 causal-order diagnosis: unknown provider type → `Unknown provider "<type>". Supported providers: <list from definitions SSOT>`; `--api-key-env` referencing an unset variable → `Environment variable <VAR> is not set — set it before configuring (the profile will reference $ENV:<VAR>)` — the variable MUST be set at configure time; genuinely missing fields keep the original `is missing <field>` diagnosis |
-| Prompt file references        | blocking diagnostic         | Missing file, outside-root, circular, max-depth, or size-limit violations; prompt is rejected before being sent                                                                                                                                                                                                                                                                                                             |
-| Org policy                    | thrown string               | `allowedProviders` or `requireApiKeyFromEnv` violation detected at command dispatch                                                                                                                                                                                                                                                                                                                                         |
-| Reversible execution          | thrown `Error`              | Local-first mode blocks a tool that lacks required isolation                                                                                                                                                                                                                                                                                                                                                                |
-| Checkpoint restore            | thrown `Error`              | Restore attempted while a prompt is running                                                                                                                                                                                                                                                                                                                                                                                 |
-| User-local storage            | thrown `Error`              | Empty root, relative root, root equal to the active repository, or root inside the active repository                                                                                                                                                                                                                                                                                                                        |
-| `BackgroundTaskManager`       | `BackgroundTaskError`       | Typed error with category and recoverability (owner-direct value from `agent-executor`)                                                                                                                                                                                                                                                                                                                                     |
+| Error Source                  | Category                                                            | Description                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provider resolution           | `ProviderConfigError`                                               | No settings profile and no env-default synthesis candidate (see §Provider Resolution Order)                                                                                                                                                                                                                                                                                                                                 |
+| Settings file parsing         | `SettingsParseError`                                                | Existing settings file with invalid JSON — fail-fast with file path + parse message (CLI-069); never treated as missing                                                                                                                                                                                                                                                                                                     |
+| `agent-session`               | `SessionRunError`                                                   | Unrecoverable error during `session.run()`                                                                                                                                                                                                                                                                                                                                                                                  |
+| `agent-core`                  | `PermissionDeniedError`                                             | Tool call denied by permission policy                                                                                                                                                                                                                                                                                                                                                                                       |
+| Config loading                | `TypeError` / thrown string                                         | Missing `type` field in provider profile; unknown `currentProvider` key                                                                                                                                                                                                                                                                                                                                                     |
+| Configure-provider validation | thrown `Error`                                                      | CLI-068 causal-order diagnosis: unknown provider type → `Unknown provider "<type>". Supported providers: <list from definitions SSOT>`; `--api-key-env` referencing an unset variable → `Environment variable <VAR> is not set — set it before configuring (the profile will reference $ENV:<VAR>)` — the variable MUST be set at configure time; genuinely missing fields keep the original `is missing <field>` diagnosis |
+| Prompt file references        | blocking diagnostic                                                 | Missing file, outside-root, circular, max-depth, or size-limit violations; prompt is rejected before being sent                                                                                                                                                                                                                                                                                                             |
+| Project byte/text reads       | `ProjectReadLimitExceededError` / `WorkspaceAuthorityRequiredError` | A leaf budget refusal preserves the typed project-read limit; unsupported native authority, unsafe entries, mutation, closed authority, and host I/O fail closed with a secret-free workspace-authority refusal                                                                                                                                                                                                             |
+| Org policy                    | thrown string                                                       | `allowedProviders` or `requireApiKeyFromEnv` violation detected at command dispatch                                                                                                                                                                                                                                                                                                                                         |
+| Reversible execution          | thrown `Error`                                                      | Local-first mode blocks a tool that lacks required isolation                                                                                                                                                                                                                                                                                                                                                                |
+| Checkpoint restore            | thrown `Error`                                                      | Restore attempted while a prompt is running                                                                                                                                                                                                                                                                                                                                                                                 |
+| User-local storage            | thrown `Error`                                                      | Empty root, relative root, root equal to the active repository, or root inside the active repository                                                                                                                                                                                                                                                                                                                        |
+| `BackgroundTaskManager`       | `BackgroundTaskError`                                               | Typed error with category and recoverability (owner-direct value from `agent-executor`)                                                                                                                                                                                                                                                                                                                                     |
 
 All errors from `session.run()` are caught by `InteractiveSession` and emitted as an `error` event rather than thrown from `submit()`.
 
@@ -931,11 +949,9 @@ verify a feature at the framework level** — the CLI is a thin wrapper and must
 behaviour is verified.
 
 - `scriptedSession({ turns | cassette | record, files?, persistence?, cwd?, projectAccess?,
-resumeSessionId?, forkSession?, model?, commandModules?, ... })` / `ScriptedSessionHarness` builds a **real**
+resumeSessionId?, forkSession?, model?, commandModules?, backgroundTasks?, ... })` / `ScriptedSessionHarness` builds a **real**
   `InteractiveSession` (real agent loop, builtin tools, persistence, events) in an isolated temp
-  workspace. `projectAccess` is an optional test-only trusted workspace authority forwarded to
-  that real session; it lets functional fixtures exercise project skill discovery without changing
-  the production API. Provider modes (exactly one): **scripted** (`turns`, hand-written, SSOT
+  workspace. Provider modes (exactly one): **scripted** (`turns`, hand-written, SSOT
   `createScriptedProvider`), **cassette** (`cassette: path`, a recorded real-model run replayed
   deterministically — TEST-005; a committed real Qwen goal run is at
   `__fixtures__/goal-satisfied.cassette.json`, recorded by
@@ -944,6 +960,8 @@ resumeSessionId?, forkSession?, model?, commandModules?, ... })` / `ScriptedSess
   `resumeSessionId` (+ `forkSession`) open a second harness over the same workspace store to
   resume/fork a persisted session; the harness only deletes a workspace it created. No CLI, no
   network, no live LLM (replay/scripted).
+  `backgroundTasks: true` opts into the real default background-task runners for timer/monitor
+  functional tests; the default fixture remains runner-free.
 - Drivers: `submit(prompt)` → awaits the completed turn; `runGoal(objective, opts)` → awaits the
   stopped goal; `awaitEvent(name, predicate?)`.
 - Inspectors — in-memory: `history()`, `toolCalls()`, `emittedEvents(name)`, `requests`. Durable
@@ -953,7 +971,7 @@ resumeSessionId?, forkSession?, model?, commandModules?, ... })` / `ScriptedSess
   `readFile()`/`exists()`/`files()` (workspace side effects). Lifecycle: `dispose()` tears down the
   workspace. Scripted tool-call args may use the `{{cwd}}` placeholder for absolute workspace paths.
 - `createTestInteractiveSession()` is a lightweight **stub** for wiring/type tests that do not need the
-  real loop, owned and exported only by `@robota-sdk/agent-interface-session/testing`; this framework
+  real loop, owned and exported only by `@robota-sdk/agent-interface-transport/testing`; this framework
   testing subpath does not re-export it.
 
 ### Approach
@@ -1059,12 +1077,6 @@ the SHARED host serving all surfaces — local == remote, REMOTE-006).
 `createHeadlessRunner`, and exposes `getExitCode()`. Output format (`text` / `json` / `stream-json`)
 is selected by the runner options. When supplied, the startup `IModelEffortResolution` is projected
 into ordinary text and structured result output; slash-command results retain their own command data.
-The headless channel accepts the resolved organization policy from print or goal mode and forwards
-it unchanged into the session, where blocked commands are enforced. Its declared session-capability
-options have an explicit projection disposition so optional fields cannot silently disappear between
-the channel and session constructor. The same projection preserves preset `temperature`,
-`maxOutputTokens`, `language`, `presetSystemPrompt` (a seed, not a replacement), and structured
-`responseFormat` including JSON-schema requests.
 
 ### Type Ownership
 
@@ -1116,17 +1128,22 @@ Scripted provider fixtures are owned by `@robota-sdk/agent-core/testing`.
 | Export                                    | Kind     | Description                                                                                                                                                              |
 | ----------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `TransportRegistry`                       | class    | Base adapter lifecycle registry with configurable-only settings projection                                                                                               |
+| `bindTransportAdapter`                    | function | Bind one raw service/runner adapter to its exact session capability before registry registration; attach occurs after settings delivery on each start                    |
 | `createFileTransportSettingsRepository`   | function | TRANS-010 (issue #2480): an `ITransportSettingsRepository` over the `transports` section of one settings file — the shell composes it, the registry never touches a path |
 | `createMemoryTransportSettingsRepository` | function | TRANS-010: an `ITransportSettingsRepository` held in memory — tests, and hosts with no settings file                                                                     |
 
 ### Extension Points
 
-Register any `ITransportAdapter` into a `TransportRegistry`. A service or runner that also satisfies
-the orthogonal `ITransportSettingsCapability` appears as `TConfigurableTransport` in `getAll()` and
+Bind a raw `ITransportAdapter<TSession>` with `bindTransportAdapter(adapter, sessionCapability)` at the
+composition root, then register the resulting `TBoundTransportAdapter` into a `TransportRegistry`.
+The registry receives no session at `startAll()` and retains no raw adapter or `IInteractiveSession`.
+A service or runner that also satisfies
+the orthogonal `ITransportSettingsCapability` appears as `TBoundConfigurableTransport` in `getAll()` and
 persists enablement/options under `transports` in settings.json; a base-only adapter is
 lifecycle-enabled and absent from settings. The legacy `IConfigurableTransport` name remains the
-source-compatible configurable-service shape. Duplicate names reject. Unknown or non-configurable
-settings mutations reject `TransportConfigurationError`.
+configurable-service shape. A newly constructed session rebinds and replaces the registered adapter
+before restart. Duplicate names reject. Unknown or non-configurable settings mutations reject
+`TransportConfigurationError`.
 
 ### Error Taxonomy
 
@@ -1323,7 +1340,7 @@ agent-core
 ├── src/hooks/                ← hook-runner, hook types
 └── (existing) Robota, execution, providers, plugins
 
-agent-executor (reusable runtime primitives — depends on agent-core, agent-interface-execution, agent-interface-transport, agent-process)
+agent-executor (reusable runtime primitives — depends on agent-core, agent-interface-execution, agent-process)
 ├── src/background-tasks/     ← SDK-owned orchestration + type-only executor manager/runner ports
 └── src/subagents/            ← in-process runner factory + type-only executor subagent/worktree ports
 
@@ -1333,7 +1350,7 @@ agent-tools
 ├── packages/agent-tools/src/types/tool-result.ts  ← IToolInvocationResult
 └── (existing) FunctionTool, createZodFunctionTool, schema conversion
 
-agent-session (generic — depends on agent-core, agent-interface-execution, and agent-interface-session)
+agent-session (generic — depends on agent-core, agent-interface-session and agent-interface-execution)
 ├── packages/agent-session/src/session.ts                ← Session: orchestrates run loop, delegates to sub-components
 ├── packages/agent-session/src/permission-enforcer.ts    ← PermissionEnforcer: tool wrapping, permission checks, hooks, truncation
 ├── packages/agent-session/src/context-window-tracker.ts ← ContextWindowTracker: token usage, auto-compact threshold
@@ -1395,7 +1412,7 @@ agent-cli (Ink TUI — CLI-specific)
 
 ### Session Management
 
-- **Package**: `agent-session` (generic, depends on agent-core, agent-interface-execution, and agent-interface-session)
+- **Package**: `agent-session` (generic, depends on agent-core, agent-interface-session and agent-interface-execution)
 - **Implementation**: Session accepts pre-constructed tools, provider, and system message. Internal concerns are delegated to PermissionEnforcer, ContextWindowTracker, and CompactionOrchestrator.
 - **Assembly**: `agent-framework/assembly/` provides `createSession()` (internal — not exported) which wires tools, provider, and system prompt from explicit config/context inputs. Consumers use `InteractiveSession({ cwd, provider, projectAccess? })`; omission is Restricted.
 - **Persistence**: `agent-session` exposes an explicit `NodeSessionStore` host adapter. SDK project composition calls `createProjectSessionStore(sessions, logs)` with two same-authority named state facets; a bare `cwd` cannot create project persistence. Restricted construction uses no project store.
@@ -1469,7 +1486,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **State machine**: `transitionSelfHostingLoop()` enforces deterministic lifecycle transitions from `idle` through checkpoint/edit/verify success or failure recovery.
 - **Handoff model**: The current process remains the old runtime and keeps already-loaded modules. Verification commands run in child processes against the new on-disk tree.
 - **Boundaries**: The SDK planner does not implement file writing, checkpoint storage, CLI rendering, or provider behavior. Atomic write behavior belongs to `agent-tools`; checkpoint storage belongs to `agent-framework/checkpoints`; CLI/TUI only invokes SDK APIs and renders results.
-- **No repo-process defaults (NEUT-001)**: `baseRef` and `commandTemplates` (`ISelfHostingCommandTemplates`) are REQUIRED injected config. The library names no package manager, verification command, base ref, or CI gate; per-scope steps come from `commandTemplates.packageVerify` (`{scope}` placeholder) and the optional repo-wide gate from `commandTemplates.repoVerify` (`{baseRef}` placeholder). Robota's own templates live in the unpublished `scripts/harness/self-hosting-verification-commands.mjs`, and the in-package test `src/__tests__/repo-process-neutrality.test.ts` keeps repo-process literals out of the framework source.
+- **No repo-process defaults (NEUT-001)**: `baseRef` and `commandTemplates` (`ISelfHostingCommandTemplates`) are REQUIRED injected config. The library names no package manager, verification command, base ref, or CI gate; per-scope steps come from `commandTemplates.packageVerify` (`{scope}` placeholder) and the optional repo-wide gate from `commandTemplates.repoVerify` (`{baseRef}` placeholder). The in-package test `src/__tests__/repo-process-neutrality.test.ts` keeps repo-process literals out of the framework source.
 
 ### Web Search
 
@@ -1492,7 +1509,7 @@ agent-cli (Ink TUI — CLI-specific)
   only when the real working directory is the trusted root or one of its descendants. `createQuery()`
   applies the same initial cross-root refusal.
 
-  > **Contained — [ARCH-048](../../../.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
+  > **Contained — [ARCH-048 historical record](https://github.com/woojubb/robota/blob/harness-archive-2026-09/.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
   > This boundary check keeps the current independent `cwd` and `projectAccess` inputs fail-closed.
   > ARCH-048 owns replacing those independent root carriers with one canonical binding contract.
 
@@ -1538,11 +1555,8 @@ agent-cli (Ink TUI — CLI-specific)
 - **listCommands()**: `listCommands()` — returns `Array<{ name, description }>` of all registered system commands. Used by transport adapters (e.g., MCP) to expose commands as tools.
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued and auto-executes after
   the current one completes. The co-drive queue is bounded at 32 entries: a same-driver submission
-  replaces that driver's tail entry only when both submissions have the same wake source (or neither
-  has one); different wake sources append in submission order even when they share the agent driver.
-  A new entry is refused when the queue is full. A queued wake can be removed by its source task ID
-  without cancelling unrelated queued input; removal settles its turn as cancelled and frees its
-  duplicate-wake gate. Execution ownership remains claimed through awaited
+  replaces that driver's tail entry, a different driver appends in submission order, and a new
+  entry is refused when the queue is full. Execution ownership remains claimed through awaited
   post-turn capture and persistence; releasing `executing` and draining the queued head are one
   synchronous handoff with no intervening `await`, so a public submission cannot start in between.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
@@ -1555,14 +1569,6 @@ agent-cli (Ink TUI — CLI-specific)
 - **getName()/setName(name)**: Get or set the session's user-facing name. Persists to the session record when a store is configured.
 - **attachTransport(transport)**: `attachTransport(transport: ITransportAdapter)` — attaches a transport adapter to this session. Calls `transport.attach(this)`. Used by consumers to compose transports consistently: `session.attachTransport(transport); await transport.start();`
 - **Testing**: Accepts an optional pre-built `Session` via `options.session` to enable unit testing without I/O setup
-
-Replay-only recovery consumes the session-owned versioned event codec before reconstruction.
-`WorkspaceProjectSessionStore.load()` and `list()` expose malformed JSONL as `corrupt` with located
-issues, and unsupported log versions as `unsupported`; they never turn discarded malformed messages
-into `missing` or omit a damaged replay-only session from a listing. Existing snapshot reads and writes
-remain unchanged. Sidecar integrity/containment failures retain their typed error identity rather than
-being misreported as schema corruption. The replay-validation command surfaces typed decode failures
-with their safe field/line location before attempting correlation validation.
 
 ### Command API Layer (SDK-Specific)
 
@@ -1592,9 +1598,7 @@ with their safe field/line location before attempting correlation validation.
 
 ### Transparent Workflow Contract (SDK-Specific)
 
-The cross-cutting contract lives in
-[../../../.agents/specs/transparent-workflow.md](../../../.agents/specs/transparent-workflow.md). The SDK
-is the designated owner for reusable transparent workflow contracts and projections:
+The SDK is the designated owner for reusable transparent workflow contracts and projections:
 
 - any new action provenance types and execution eligibility helpers;
 - mapping runtime task states into the shared user-facing state vocabulary;
@@ -1614,9 +1618,7 @@ user-selected permission policy.
 
 ### User-Local Storage Foundation (SDK-Specific)
 
-The cross-cutting storage policy lives in
-[../../../.agents/specs/user-local-storage.md](../../../.agents/specs/user-local-storage.md). The SDK
-is the designated owner for baseline workflow storage root resolution, repo-outside validation,
+The SDK is the designated owner for baseline workflow storage root resolution, repo-outside validation,
 category contracts, and item inspection/removal projections.
 
 The former public `projectPaths(cwd)` helper is removed. Project settings, session logs/records,
@@ -1630,9 +1632,7 @@ category paths themselves.
 
 ### User-Local Memory Transparency (SDK-Specific)
 
-The baseline user-local memory contract lives in
-[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). The SDK
-is the designated owner for memory item projection shapes, display/navigation disclosure rules,
+The SDK is the designated owner for memory item projection shapes, display/navigation disclosure rules,
 inspection APIs, delete/disable APIs, and disabled-item non-use.
 
 User-local memory may influence display and navigation only. It must not execute shell/process
@@ -1645,9 +1645,7 @@ storage contract instead of project memory paths.
 
 ### Transparent Process Execution (SDK-Specific)
 
-The process execution contract lives in
-[../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md). The SDK
-is the designated owner for process execution request/status projections that sit above runtime
+The SDK is the designated owner for process execution request/status projections that sit above runtime
 process tasks:
 
 - action provenance attached to user-directed process execution;
@@ -1663,9 +1661,7 @@ assemble process semantics from raw child-process state.
 
 ### Repository Situational Awareness (SDK-Specific)
 
-Passive repository context display is specified in
-[../../../.agents/specs/repository-situational-awareness.md](../../../.agents/specs/repository-situational-awareness.md).
-The SDK is the designated owner for context item projections, provenance fields, and bounded read
+For passive repository context display, the SDK is the designated owner for context item projections, provenance fields, and bounded read
 contracts for cwd, repository root, branch, dirty summary, explicit context references, and active
 background workspace context.
 
@@ -1828,8 +1824,7 @@ Resolved provider fields:
 - **Ownership**: SDK owns memory stores, memory policy primitives, and command-facing memory APIs. `@robota-sdk/agent-command` owns command behavior. CLI only composes the module and renders command results/autocomplete metadata.
 - **Prompt composition boundary**: The system prompt may include the neutral `Project Memory` startup index and the `/memory` descriptor under `Built-in Commands`; it must not include extra hardcoded memory behavior instructions outside descriptor data.
 - **User-local memory boundary**: This project memory feature is not baseline user-local memory.
-  User-local display/navigation preferences are governed by
-  [../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md) and
+  User-local display/navigation preferences belong to the SDK user-local memory surface and
   must not be stored in `.robota/memory/`.
 
 ### User-Local Storage
@@ -1959,8 +1954,7 @@ import {
 } from '@robota-sdk/agent-framework';
 
 // NEUT-001: baseRef and commandTemplates are REQUIRED injected config — the library
-// ships no repo-specific defaults. Robota's own values live in the unpublished
-// `scripts/harness/self-hosting-verification-commands.mjs`.
+// ships no repo-specific defaults. A composition root supplies its own values.
 const plan = planSelfHostingVerification({
   changedFiles: ['packages/agent-framework/src/index.ts'],
   packageScopes: ['@robota-sdk/agent-framework'],
@@ -2028,7 +2022,7 @@ interface IExecutionResult {
 }
 ```
 
-`IUsageSnapshot` is the provider-neutral execution usage record owned by `agent-interface-analytics` and locally re-exported in `src/interactive/types.ts`:
+`IUsageSnapshot` is the SDK-owned provider-neutral execution usage record:
 
 ```typescript
 interface IUsageSnapshot {
@@ -2075,7 +2069,7 @@ re-read; it does not disclose or grant access to an absolute host path.
 
 **ITransportAdapter:**
 
-`ITransportAdapter` is owned by `@robota-sdk/agent-interface-transport` and imported directly from that package; the framework does not re-export it. Each `agent-transport-*` package provides a factory that returns an `ITransportAdapter` implementation.
+`ITransportAdapter` is owned by `@robota-sdk/agent-interface-transport` and re-exported from `@robota-sdk/agent-framework`. Each `agent-transport-*` package provides a factory that returns an `ITransportAdapter` implementation.
 
 ```typescript
 interface ITransportAdapter<TSession = unknown> {
@@ -2401,28 +2395,6 @@ registry.getSubcommands('mode'); // ICommand[] — subcommands
 3. `.claude/commands/*.md` (Claude Code compatible)
 4. `.agents/skills/*/SKILL.md`
 
-Skill and command files at every root use the same private strict `skill` frontmatter decoder. Plugin
-`skills/*/SKILL.md` and `commands/*.md` use its `bundle-skill` profile, which additionally accepts
-`tags`. Accepted metadata retains typed invocation, tool, model, effort, and `context: fork` fields
-through command projection. A malformed disabling flag, unsupported context, unknown field,
-duplicate key, invalid YAML shape, or unterminated block is a refusal, never a partially registered
-command. A file with no frontmatter retains its filename fallback and original content bytes; plugin
-files with frontmatter retain the previous body-leading-whitespace trim. The read-only skill inspection
-uses the same decoder and cannot count a refused file as discovered; plugin inspection records a
-malformed plugin as `load-failed` while continuing to inspect other plugins. Loader failures carry a
-private `FrontmatterDecodeError` with the decoder's nonempty structured diagnostics. Its message
-reports source path, location, code, field, and expected shape without repeating untrusted received
-values. The decoder and error class are not public exports. The
-[decoder design](design/frontmatter-decoder.md) owns the schema.
-
-Custom agent definitions from project and user contribution sources (`.robota/agents`,
-`.agents/agents`, and `.claude/agents`) use the same private decoder's `agent` profile. The loader
-accepts positive safe integer `maxTurns` and typed tool lists, and rejects numeric prefixes,
-`NaN`, zero/negative values, wrong types, unknown fields, and invalid or unterminated frontmatter
-with source-file diagnostics. All roots apply the same rules. A file without frontmatter retains its
-filename fallback and existing built-in precedence. No legacy parser or partial-value fallback is
-part of either loader contract.
-
 ### createQuery() — Convenience Factory
 
 `createQuery({ provider })` is a factory that returns a prompt-only function. The caller creates the provider; the factory captures it and returns a simple async function that accepts a prompt string.
@@ -2664,8 +2636,6 @@ The `.claude/settings.json` layers provide Claude Code compatibility — setting
 
 **Deliberate disable (issue #2320).** A hook group may carry an optional `id`, and a layer may list ids in `disabledHooks`. A disable removes only groups declared by LATER layers — lower in trust, since layers are read user-then-project — so a user layer can turn off a named project hook while a project layer naming a user's guard changes nothing (the guard was merged before the disable was read). Groups without an `id` cannot be named and therefore cannot be disabled; disabled ids accumulate across layers and are never un-disabled by a later layer. `id` is optional so existing settings files need no migration.
 
-**Effective hook provenance (issue #2321).** `inspectSettingsLayers` reads the same classified layers and merge owner as `loadConfig`. Its public `ISettingsInspection.hookSources` reports each effective settings-layer hook definition as `{ event, type, source }` in merge order, omitting groups removed by an earlier layer's `disabledHooks`. A broken present layer sets `partial`; the hook list then describes only healthy layers and must not be presented as the complete session configuration. Source labels are the layer display names. The provenance records carry no hook command or prompt payload, and `THooksConfig` remains unchanged. Plugin-contributed hook provenance is outside this settings inspection.
-
 Provider resolution order:
 
 1. `currentProvider` plus `providers[currentProvider]`
@@ -2777,17 +2747,10 @@ user-sourced calls submit the rendered prompt or fork execution into the active 
 | `context: fork`            | Run rendered skill content in an isolated subagent session using `skill.agent` or `general-purpose`   |
 | `allowed-tools`            | Restrict fork-session tools to the listed names, after the selected agent definition denylist applies |
 | `effort`                   | Set the fork effort using the core `TModelEffort` vocabulary; absent values inherit the parent        |
-| `model`                    | Select the fork child model; requires `context: fork`                                                 |
 | `disable-model-invocation` | Hide from model-visible skill metadata; user slash invocation still works                             |
 | `user-invocable: false`    | Hide from user slash menus; model metadata remains available unless model invocation is disabled      |
 
 Fork skill execution must not rely on prompting the parent model to call the `Agent` tool. It must call `createSubagentSession()` directly through the per-session agent tool dependencies so the behavior is deterministic and unit-testable.
-
-The fork model applies to that child invocation only. It overrides the selected agent definition's
-model; if absent, the fork uses the agent model, then the parent's configured model. This path does
-not supply a role-model map. The parent session and provider identity do not change.
-Skill metadata that declares `model` without `context: fork` fails decoding at the `model` field;
-programmatic inject commands with a model are refused by the skill executor as well.
 
 Every activation records an `ISkillActivationEvent`:
 
@@ -2853,12 +2816,31 @@ runs to a completed turn:
 
 - The id is removed when its wake turn completes (the normal path).
 - It is **also** removed when the wake is evicted before completing — session `abort()`,
-  `shutdown()`, a pending-queue drop, or targeted cancellation. Otherwise the `sourceTaskId` lingers in the set and every
+  `shutdown()`, or a pending-queue drop. Otherwise the `sourceTaskId` lingers in the set and every
   future wake for that task is silently rejected forever (RUNTIME-19). Clearing the pending queue
   clears the corresponding wake-tracking ids.
 
 Distinct scheduled wake sources sharing the agent driver never coalesce with each other. Cancelling
 one queued source settles only that source's accepted turn; a turn already executing is not aborted.
+`IAgentJobSchedules.spawnScheduledWake` accepts an optional `sessionLoop` marker, `sessionLoopId`,
+and `sessionLoopExpiresAt`
+that the session stores in task metadata. Restored scheduled tasks forward this metadata when
+re-armed, so an editable label cannot erase a loop's identity and the stable loop ID survives a
+successful resume even though the runtime task ID can change.
+Creating a session loop requires a session store. The host acknowledges creation only after a
+strict record write containing its stable loop ID succeeds; on a failed or unreadable write it
+cancels the newly spawned timer and reports the failure. Best-effort event snapshots exclude a
+not-yet-acknowledged loop, and a queued timer is refused rather than promised as resumable.
+Ordinary turn snapshots remain best-effort.
+Stopping a loop durably records its terminal state before cancelling the runtime timer or
+acknowledging `/loop stop`. A failed record write leaves the timer running and reports failure.
+The session normalizes missing expiry to at most seven days and refuses an invalid, elapsed, or
+overlong expiry. A live loop is durably stopped at expiry even while paused, without waiting for
+another wake; a wake racing expiry is refused. An expired restored loop is retained as terminal
+rather than re-armed. `disableSessionLoops` blocks creation,
+firing, and restore re-arm without blocking unrelated schedules. Disabled restored loops remain in
+the session record and can still be listed and stopped; a later restart with the switch off can
+re-arm them. Headless, TUI, and served hosts forward this option into the same session boundary.
 
 `InteractiveSession` exposes background task controls:
 
@@ -2890,9 +2872,7 @@ may render entries, keep ephemeral selection state, and invoke explicit controls
 infer lifecycle, retention, origin, unread/attention semantics, or control availability from raw
 events when this projection is available.
 
-The cross-client background work state contract is defined in
-[../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
-The current `IExecutionWorkspaceEntry` shape covers stable ids, entry kind, origin, status, labels,
+For cross-client background work state, the current `IExecutionWorkspaceEntry` shape covers stable ids, entry kind, origin, status, labels,
 preview, current action, attention, visibility, updated time, and advisory controls. Future fields
 such as started time, elapsed time, input-needed reason, terminal result, retention state, archive,
 and clear controls must be added to the SDK projection before CLI or transport surfaces render them.
@@ -3037,6 +3017,8 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 
 **Tool filtering order:**
 
+0. MCP-004 §S3: unwrap any tool-call handoff wrapper (`unwrapToolCallHandoff`) — a no-op for a tool
+   that was never wrapped; see § Tool-call handoff below
 1. Remove disallowed tools (denylist from agent definition)
 2. Keep only allowed tools (allowlist from agent definition, if specified)
 3. Always remove agent-spawning tools such as `Agent` and `robota_command_agent` (subagents cannot spawn subagents)
@@ -3181,6 +3163,63 @@ With no contributed `Write`/`Edit` this is byte-identical to the previous behavi
 Absent `defaultTools` **and** absent a duplicate name, the whole assembly is byte-identical to
 before ARCH-006.
 
+### Tool-call handoff (`toolCallHandoff`, MCP-004 §S3)
+
+`ICreateSessionOptions.toolCallHandoff?: IToolCallHandoffPolicy` hands a main-turn tool call that
+outruns a threshold to a `tool-invocation` background task instead of blocking the turn. The two
+exported types are `IToolCallHandoffPolicy` (`thresholdMs`, `budgetMs`, `toolNames`, `provenance`
+keyed by tool name) and `IToolCallHandoffProvenance` (`serverId`, `sourceName`, `securityIdentity`,
+`permissionMode` — all required). Every name in `toolNames` MUST have a `provenance` entry;
+`buildToolCallHandoff` refuses at build time (throws) otherwise rather than spawning a task with
+missing provenance later.
+
+`buildToolCallHandoff(options, backgroundTaskManager, sessionId, cwd, tools)` runs in
+`create-session-runtime.ts` beside `buildBackgroundProcessTool`, called from the same site in
+`create-session.ts`. When the policy is set AND a runner with `kind: 'tool-invocation'` is present in
+`options.backgroundTaskRunners` (the `hasProcessRunner` pattern, narrowed by `'adopt' in runner` to
+the `IToolInvocationAdopter` port `agent-executor`'s runner also implements), it REPLACES — by
+index — each entry in the session-local `tools` array whose `getName()` is named in `toolNames` with
+a wrapper. It never mutates `options.additionalTools`, a different array `cli.ts` shares across every
+session the process creates. Absent policy or absent runner: no-op.
+
+The wrapper (`ToolCallHandoffTool`, `assembly/tool-call-handoff.ts`, off the package barrel)
+implements `IToolWithEventService` by delegating every member except `execute` to the inner tool
+(same name, schema, description, validation). Per call:
+
+- Starts the inner `execute` exactly once with a controller LINKED to `context.signal` (the turn
+  claim) and races it against the threshold timer.
+- Settles before the threshold: the inner result (or rejection) is returned unchanged; the timer is
+  cleared; `manager.spawn` is never called.
+- Threshold first: commits to the background path even if the call settles while `spawn` is still
+  pending. It calls `runner.adopt(token, { settled, abort })`, then `manager.spawn` with
+  `kind: 'tool-invocation'`, the flat provenance fields, `adoptionToken`, and
+  `maxRuntimeMs = budgetMs - elapsed` (informational only — the supervisor's own `toolCallMs`, S2 in
+  `agent-mcp`, is the one enforcer of the call's actual budget). Only AFTER a successful `spawn` does
+  it unlink the turn signal, so a later turn-claim abort cannot reach (and misreport as failed) a call
+  the manager now owns. It returns
+  `{ success: true, data: { backgroundTaskId, status: 'running', serverId, toolName, message } }`.
+- **The one declared fallback** (§ Fallback & Degradation, `admission refused after the threshold
+fired`): if `spawn` throws, the wrapper releases the adoption token, leaves the turn-signal link in
+  place, and keeps awaiting the SAME in-flight call in the foreground — nothing is retried or
+  re-sent. The eventual result's `data.message` gains `handoff refused: <reason>` (a non-object
+  `data`, or none, is wrapped rather than discarded), and the same reason is reported once through
+  `ICreateSessionOptions.sessionLogger` (`sessionLogger.log(sessionId, 'tool_call_handoff_refused',
+{ toolName, reason })`) — the same seam `build-agent-runtime.ts` already uses to report
+  `background_task_event` to an embedding host.
+
+`unwrapToolCallHandoff(tool)` and `isToolCallHandoff(tool)` (same module) return the inner tool for a
+wrapper (the tool itself otherwise) and identify a wrapper. `createSubagentSession`'s `filterTools`
+maps every parent tool through `unwrapToolCallHandoff` as filtering step 0, before the deny/allow
+steps — the ONE derivation point both the in-process subagent runner and `interactive-session-fork.ts`
+reach, so subagents and forks never hold a wrapper even though the parent session's own tool list
+does.
+
+The tracker (`interactive-session-background-tracker.ts`) and `/tasks`
+(`background-command-api.ts`) render a `tool-invocation` task through their EXISTING generic views —
+`task.kind`, `task.commandPreview` (`"<toolName> (<serverId>)"`, projected by `agent-executor`'s
+helpers from the request's flat provenance fields into the state's `metadata`/preview) — no
+kind-specific branch was added for this unit.
+
 ### Tool residency through session assembly (CLI-1990)
 
 A tool schema may declare `deferLoading`, withholding it from the request until the model loads it —
@@ -3282,7 +3321,7 @@ A user-assigned high-level objective that the agent pursues autonomously across 
 
 ### Contract types (SSOT)
 
-`IGoalState`, `IGoalEvent`, `IGoalProgressEntry`, `TGoalStatus`, and `TGoalStopReason` are defined in `@robota-sdk/agent-interface-session` (the session-state SSOT). `IGoalState` is persisted in `IInteractiveSessionRecord.goal` so an in-flight goal survives `--resume`.
+`IGoalState`, `IGoalEvent`, `IGoalProgressEntry`, `TGoalStatus`, and `TGoalStopReason` are defined in `@robota-sdk/agent-interface-session` (the session SSOT) and re-exported through the session contracts. `IGoalState` is persisted in `IInteractiveSessionRecord.goal` so an in-flight goal survives `--resume`.
 
 ### Completion signal (deterministic, not heuristic)
 
@@ -3309,3 +3348,17 @@ Headless runs are fully autonomous until a stop condition fires; interactive (TU
 | ------------------ | -------------------------------------------------------- | ------------------------------------------------------------------- |
 | **agent-tool-mcp** | Unconnected (no in-repo dependents; forward-provisioned) | Connect when MCP server is configured in InteractiveSession options |
 | **agent-plugin**   | Unconnected (no in-repo dependents; forward-provisioned) | Inject plugins during Session/Robota creation                       |
+
+### Canonical session tools for remote callers (MCP-006)
+
+`InteractiveSession` implements `ISessionRuntimeTools` over its initialized `Session`. The catalog
+contains ordinary runtime tools and model-invocable commands under their existing `robota_command_*`
+names. Direct calls and submitted turns do not overlap; a direct call while a turn is executing and
+a submission while a direct call is executing are visibly refused rather than silently queued. Normal
+submit-to-submit queue behavior remains unchanged. Admission reserves ownership before asynchronous
+initialization, so arriving submissions cannot be overtaken by direct calls. `ISubmitOptions.signal`
+cancels only its own turn: a queued entry is removed and its handle rejects with `TurnNotRunError`
+(`cancelled`); active execution receives the signal through preparation and Session.run, while other
+drivers remain queued. The listener is removed when that submission settles. Shutdown rejects new
+calls and drains the active direct execution through Session. MCP-specific identities and protocol
+errors belong to the transport.

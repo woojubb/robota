@@ -49,6 +49,8 @@ import type {
   TWorkspaceProjectAccess,
   EditCheckpointStore,
   IOrgPolicy,
+  IProviderErrorGuidance,
+  IToolCallHandoffPolicy,
 } from '@robota-sdk/agent-framework';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type {
@@ -61,6 +63,7 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
 export interface IRenderOptions {
   cwd: string;
   provider: IAIProvider;
+  providerErrorGuidance?: IProviderErrorGuidance;
   projectAccess?: TWorkspaceProjectAccess;
   /**
    * CLI-083 (issue #2287) — the org policy, forwarded to the session so `blockedCommands` is
@@ -104,6 +107,7 @@ export interface IRenderOptions {
   deniedTools?: readonly string[];
   version?: string;
   sessionStore?: IInteractiveSessionStore;
+  disableSessionLoops?: boolean;
   resumeSessionId?: string;
   showSessionPickerOnStart?: boolean;
   /** FLOW-2006: text a deep link prefilled into the composer. Never submitted on its own. */
@@ -113,6 +117,8 @@ export interface IRenderOptions {
   forkSession?: boolean;
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** MCP-004: the tool-call handoff policy the composition root computed for this runtime. */
+  toolCallHandoff?: IToolCallHandoffPolicy;
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /**
    * ARCH-005: subagent definitions contributed by the composition root (the capability packs
@@ -132,7 +138,8 @@ export interface IRenderOptions {
   /** REMOTE-006: optional remote-command policy (allow-by-default; local == remote). */
   remoteCommandPolicy?: IRemoteCommandPolicy;
   startupUpdateNotice?: Promise<string | undefined>;
-  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
+  transportRegistry?: ITransportRegistryView;
+  bindTransports?: ITuiInteractionChannelOptions['bindTransports'];
   cliAdapter: ITuiCliAdapter;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
@@ -204,6 +211,9 @@ export function toChannelOptions(
   return {
     cwd: options.cwd,
     provider: options.provider,
+    ...(options.providerErrorGuidance !== undefined
+      ? { providerErrorGuidance: options.providerErrorGuidance }
+      : {}),
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     ...(options.orgPolicy !== undefined ? { orgPolicy: options.orgPolicy } : {}),
     ...(options.editCheckpointStore !== undefined
@@ -229,10 +239,12 @@ export function toChannelOptions(
     allowedTools: options.allowedTools,
     deniedTools: options.deniedTools,
     sessionStore: options.sessionStore,
+    disableSessionLoops: options.disableSessionLoops,
     resumeSessionId,
     forkSession: options.forkSession,
     sessionName: options.sessionName,
     backgroundTaskRunners: options.backgroundTaskRunners,
+    ...(options.toolCallHandoff !== undefined ? { toolCallHandoff: options.toolCallHandoff } : {}),
     subagentRunnerFactory: options.subagentRunnerFactory,
     ...(options.agentDefinitions !== undefined
       ? { agentDefinitions: options.agentDefinitions }
@@ -244,6 +256,7 @@ export function toChannelOptions(
     shellExec: options.shellExec,
     remoteCommandPolicy: options.remoteCommandPolicy,
     transportRegistry: options.transportRegistry,
+    bindTransports: options.bindTransports,
     language: options.language,
     reloadPluginCommandSource: options.reloadPluginCommandSource,
     agentName: options.agentName,

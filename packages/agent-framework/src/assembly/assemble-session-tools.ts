@@ -77,9 +77,8 @@ export async function assembleSessionTools(
   //
   // The tier is reached by DYNAMIC import, never a static one. `@robota-sdk/agent-tool-defaults` is a
   // composition leaf, and a static `from '…'` edge here is exactly what ARCH-035 removed: it would put
-  // the aggregator back within reach of every package that legitimately depends on this one. Rule 8 in
-  // `check-dependency-direction.mjs` enforces that by matching the `from` token — which a dynamic
-  // import does not have — so this line is the sanctioned seam rather than an exemption from the rule.
+  // the aggregator back within reach of every package that legitimately depends on this one.
+  // This dynamic import keeps that composition boundary explicit.
   // The manifest edge stays a hard `dependencies` one: the guarantee comes from the import syntax, and
   // an optional edge would instead make the README's "built-in tools are assembled" promise throw
   // under `--omit=optional`, and would keep the leaf out of the external-proof closure entirely.

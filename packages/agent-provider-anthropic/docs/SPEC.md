@@ -9,7 +9,7 @@ Users who need a provider not included here can implement `IAIProvider` from `@r
 ## Package Identity
 
 - **npm name**: `@robota-sdk/agent-provider-anthropic`
-- **Layer**: Layer 1 — the dependency set that places it there is declared in this package\'s manifest and enforced by `check-dependency-direction.mjs`; not restated here
+- **Layer**: Layer 1 — see the package manifest for its dependencies
 - **SDK**: `@anthropic-ai/sdk`
 - **Platform**: node
 
@@ -47,6 +47,11 @@ provider-construction path. A profile that sets its own `baseURL` is probed at t
 
 This package depends on `@robota-sdk/agent-core` only among framework packages (plus its one vendor SDK where applicable). `agent-framework`, `agent-session`, and all higher-layer packages must never be imported.
 
+Within the package, `model-catalog-metadata.ts` owns the source URL and verification date shared by the
+provider definition and capability table. The definition re-exports those public constants, while the
+capability table imports their independent owner. Importing the definition first as native ESM must not
+read an uninitialized value through `provider → capability-table`.
+
 ## Build Output Contract
 
 ```
@@ -68,3 +73,15 @@ observer receives exactly one serializable resolution/native-control/dispatch ou
 `ANTHROPIC_API_KEY` loaded from the Git-ignored repository-root `.env.local`; it selects the active
 `claude-sonnet-4-6` model itself, then prints results for `high`, `max`, and `auto` without writing
 settings or cache files.
+
+## Tool Schema Projection (MCP-005)
+
+`AnthropicProvider.projectionProfile()` returns `@robota-sdk/agent-core`'s
+`PERMISSIVE_TOOL_SCHEMA_PROFILE` with `providerName: 'anthropic'` — Anthropic accepts standard JSON
+Schema with an `object` root, so no keyword stripping or object closure runs. `AbstractAIProvider.
+projectTools()` calls `projectToolSchema()` at both request-building sites (`provider.ts:138` for
+`chat()`, `:235` for `chatStream()`) before `convertToolsToAnthropicFormat` ever sees a tool's
+`parameters`. A tool `projectToolSchema` rejects (a non-`object` root, a prototype-key property name,
+a cycle, or a schema over the shared depth/node ceiling) is omitted from that request alone — every
+other tool on the turn is unaffected — and reported once per cache identity as one
+`tool_schema_quarantined` line on `agent-core`'s global-sink `ToolSchemaProjection` logger.

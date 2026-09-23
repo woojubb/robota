@@ -188,6 +188,8 @@ export interface ISessionOptions {
  * as a group rather than tested one at a time at each call site.
  */
 export interface ISessionRunOptions {
+  /** Cancellation belongs to this submission and remains linked until execution settles. */
+  signal?: AbortSignal;
   /**
    * SELFHOST-008 P3: a transient system-role block for THIS turn's provider request only. Never
    * written to the conversation store.

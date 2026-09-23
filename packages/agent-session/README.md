@@ -144,9 +144,10 @@ Session-log parsing is source-driven. `loadSessionLogEntries(source)` consumes a
 `ISessionLogSource`; it never converts a filename into filesystem authority. Use
 `NodeSessionLogSource` only when the application deliberately owns the host path, or provide a
 framework authority-backed source for project logs. Empty or whitespace-only Node log paths are
-rejected before sidecar authority is derived. Stable no-follow sidecar reads are currently available
-only on Linux; macOS and Windows fail closed pending
-[ARCH-049](../../.agents/tasks/completed/ARCH-049-cross-platform-stable-external-payload-replay.md).
+rejected before sidecar authority is derived. Externalized sidecars use a bounded, stable
+root-relative reader on qualified Linux x64/arm64, macOS x64/arm64, and Windows x64 hosts. Parent or
+final symlink/reparse replacement is refused rather than retried through an ambient pathname, and an
+unsupported native capability is reported as `STABLE_PAYLOAD_READ_UNAVAILABLE`.
 
 Streaming text deltas are written to append-only JSONL session logs as `text_delta` events. Consumers should store high-frequency streaming chunks in JSONL logs/transcripts and keep session JSON focused on resumable snapshots and references.
 

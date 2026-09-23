@@ -9,7 +9,10 @@
  * The claim and the date are the ones this repository already made.
  */
 
-import { GEMINI_MODEL_LAST_VERIFIED_AT, GEMINI_MODEL_SOURCE_URL } from './provider-definition';
+import {
+  GEMINI_MODEL_LAST_VERIFIED_AT,
+  GEMINI_MODEL_SOURCE_URL,
+} from './model-catalog-metadata.js';
 
 import type { IProviderCapabilityTable } from '@robota-sdk/agent-core';
 

@@ -1,11 +1,10 @@
 // @robota-sdk/agent-interface-command
 //
-// The command contract family, moved out of `agent-interface-transport` by ARCH-104 (issue #2108)
-// under the owner map in `.agents/specs/contract-family-owner-map.md`.
+// The command contract family, moved out of `agent-interface-transport` by ARCH-104 (issue #2108).
 //
 // LAYER 0: this package depends on `@robota-sdk/agent-core` and on no peer `agent-interface-*`
 // package. Consumers compose it downward — `agent-interface-session` names these types, never the
-// reverse. See ARCH-101 for the rule and `scripts/harness/interface-layers.mjs` for the guard.
+// reverse.
 //
 // `capability-contracts` moves WITH its export. It has no consumer outside this package —
 // `command-contracts` is its only importer — and the owner ruled on issue #2177 that it stays public.

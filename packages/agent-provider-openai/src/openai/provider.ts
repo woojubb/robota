@@ -1,5 +1,6 @@
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import { createModelEffortOutcome } from '@robota-sdk/agent-core';
+import { PERMISSIVE_TOOL_SCHEMA_PROFILE, STRICT_TOOL_SCHEMA_PROFILE } from '@robota-sdk/agent-core';
 import { resolveModelEffort } from '@robota-sdk/agent-core';
 import { SilentLogger } from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
@@ -20,6 +21,7 @@ import type {
   IAssistantMessage,
   IProviderCapabilities,
   IProviderModelEffortTable,
+  IToolSchemaProjectionProfile,
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
 
@@ -106,7 +108,7 @@ export class OpenAIProvider extends AbstractAIProvider {
       const response = await chatWithOpenAIResponsesApi({
         client: this.client,
         messages,
-        chatOptions: resolvedOptions,
+        chatOptions: this.projectChatOptions(resolvedOptions),
         providerOptions: this.options,
         onTextDelta: this.onTextDelta,
       });
@@ -117,7 +119,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     const response = await chatWithOpenAIChatCompletions({
       client: this.client,
       messages,
-      chatOptions: resolvedOptions,
+      chatOptions: this.projectChatOptions(resolvedOptions),
       providerOptions: this.options,
       payloadLogger: this.payloadLogger,
       responseParser: this.responseParser,
@@ -171,7 +173,7 @@ export class OpenAIProvider extends AbstractAIProvider {
       yield* chatStreamWithOpenAIResponsesApi({
         client: this.client,
         messages,
-        chatOptions: resolvedOptions,
+        chatOptions: this.projectChatOptions(resolvedOptions),
         providerOptions: this.options,
         onTextDelta: this.onTextDelta,
       });
@@ -182,7 +184,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     yield* chatStreamWithOpenAIChatCompletions({
       client: this.client,
       messages,
-      chatOptions: resolvedOptions,
+      chatOptions: this.projectChatOptions(resolvedOptions),
       providerOptions: this.options,
       payloadLogger: this.payloadLogger,
       responseParser: this.responseParser,
@@ -217,6 +219,35 @@ export class OpenAIProvider extends AbstractAIProvider {
     return {
       ...options,
       effortResolution: resolveModelEffort(this.effortTable(), model, options.effort),
+    };
+  }
+
+  /**
+   * MCP-005: strict mode's supported subset is documented; non-strict accepts standard JSON Schema.
+   * Both the Responses and Chat Completions surfaces honor `strictTools` identically (§ Profiles).
+   */
+  protected override projectionProfile(): IToolSchemaProjectionProfile | undefined {
+    return this.options.strictTools
+      ? { ...STRICT_TOOL_SCHEMA_PROFILE, providerName: 'openai' }
+      : { ...PERMISSIVE_TOOL_SCHEMA_PROFILE, providerName: 'openai' };
+  }
+
+  /**
+   * Project `chatOptions.tools` through `projectionProfile()` before either request-building module
+   * (`responses-chat.ts`, `chat-completions-chat.ts`) sees them — the module helpers receive the
+   * projected array as a parameter; `options.tools` itself is never mutated. An empty projected array
+   * (every tool quarantined) becomes `undefined` so the downstream `tools &&` truthiness checks treat
+   * it the same as "no tools", not as a zero-length `tools: []` request field.
+   */
+  private projectChatOptions(chatOptions: IChatOptions | undefined): IChatOptions | undefined {
+    if (!chatOptions?.tools) {
+      return chatOptions;
+    }
+    const model = chatOptions.model ?? this.options.defaultModel ?? '';
+    const projected = this.projectTools(chatOptions.tools, model);
+    return {
+      ...chatOptions,
+      tools: projected && projected.length > 0 ? projected : undefined,
     };
   }
 

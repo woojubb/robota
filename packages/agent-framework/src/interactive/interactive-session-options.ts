@@ -26,6 +26,7 @@ import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
+import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
@@ -47,11 +48,15 @@ export interface IInteractiveSessionStandardOptions {
   outputStyle?: IOutputStylePrompt;
   cwd: string;
   provider: IAIProvider;
+  /** Optional product-owned remediation for recognized provider errors; scoped to this session. */
+  providerErrorGuidance?: IProviderErrorGuidance;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
+  /** Host kill switch: existing loops remain stored but cannot create, re-arm, or fire. */
+  disableSessionLoops?: boolean;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
   /** Trusted host-only path projection for hook compatibility. */
@@ -63,6 +68,8 @@ export interface IInteractiveSessionStandardOptions {
   forkSession?: boolean;
   /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
   bare?: boolean;
+  /** Explicitly omit the built-in command and HTTP hook executors for this session and its children. */
+  disableBuiltInHookExecutors?: boolean;
   /** Pre-approved tool names passed to createSession. */
   allowedTools?: readonly string[];
   /** Denied tool names — added to permissions.deny. denied > allowed. */
@@ -88,6 +95,8 @@ export interface IInteractiveSessionStandardOptions {
   language?: string;
   /** Runtime-composed background task runners. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** MCP-004 §S3: hand a main-turn tool call exceeding its threshold to a background task. */
+  toolCallHandoff?: ICreateSessionOptions['toolCallHandoff'];
   /** Runtime shell override for subagent execution. */
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /**
@@ -187,6 +196,8 @@ export interface IInteractiveSessionStandardOptions {
 /** Test/advanced construction: inject pre-built session directly. */
 export interface IInteractiveSessionInjectedOptions {
   session: Session;
+  /** Optional product-owned remediation for recognized provider errors; scoped to this session. */
+  providerErrorGuidance?: IProviderErrorGuidance;
   cwd?: string;
   provider?: IAIProvider;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
@@ -194,6 +205,8 @@ export interface IInteractiveSessionInjectedOptions {
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
+  /** Host kill switch: existing loops remain stored but cannot create, re-arm, or fire. */
+  disableSessionLoops?: boolean;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
   /** Trusted host-only path projection for hook compatibility. */

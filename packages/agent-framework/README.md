@@ -127,6 +127,7 @@ const host: IRuntimeHostHandle = await startRuntimeHost(options);
 - **Streaming** — Real-time text delta callbacks via `onTextDelta`
 - **Context Loading** — AGENTS.md / CLAUDE.md walk-up discovery and system prompt assembly
 - **Prompt File References** — Path-like `@file` prompt references are resolved by the SDK under the session `cwd`, bounded by size/recursion limits, recorded as structured history events, and registered as observed context references
+- **Stable Project Reads** — Project byte and text reads use a bounded retained-root authority on qualified Linux, macOS, and Windows hosts; unsafe link/reparse replacement fails closed while project purpose, liveness, generation, and identity checks remain framework-owned
 - **Context Reference Inventory** — Manual `/context add` references are stored by `InteractiveSession`, included in future prompt model input, and exposed through SDK command common APIs
 - **Config Loading** — 6-file settings merge with provider profiles, legacy provider compatibility, and `$ENV:VAR` substitution for provider credentials
 - **Context Window Management** — Token tracking, configurable auto-compaction (default ~83.5%), manual `session.compact()`
@@ -152,6 +153,7 @@ agent-framework (assembly layer)
   ├── createSession()     ← internal assembly factory
   └── deps:
         agent-session   (Session, neutral session ports, explicit Node host adapters)
+        agent-file-authority (stable bounded project byte reads over retained native handles)
         agent-tools     (tool infrastructure + 9 built-in tools)
         agent-provider  (consolidated AI providers: /anthropic, /openai, /gemini, …)
         agent-core      (Robota engine, providers, permissions, hooks)

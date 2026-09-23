@@ -17,6 +17,12 @@
  * transformation, applied on the way out.
  */
 
+/** One structural edit `closeObjectSchemas` made, at the JSON-pointer-like path it made it. */
+export interface ISchemaClosureChange {
+  readonly path: string;
+  readonly kind: 'closed-object' | 'required-added' | 'nullable-added';
+}
+
 /** How far to close, which is where the two vendors differ. */
 export interface ISchemaClosureOptions {
   /**
@@ -37,6 +43,12 @@ export interface ISchemaClosureOptions {
    * the point. Anything else would invent a second nullability spelling for one vendor.
    */
   optionalAsNullable?: boolean;
+  /**
+   * MCP-005: told once per actual structural edit, so a caller (the tool-schema projector) can build
+   * a diagnostic without re-deriving this recursion — one walk, not a second copy that could disagree
+   * with this one about which route a nested object arrives by.
+   */
+  onChange?: (change: ISchemaClosureChange) => void;
 }
 
 const NULL_BRANCH = { type: 'null' } as const;
@@ -76,8 +88,16 @@ function withNullBranch(value: unknown): unknown {
  * open, which is the failure this function exists to prevent.
  */
 export function closeObjectSchemas(node: unknown, options: ISchemaClosureOptions = {}): unknown {
+  return closeObjectSchemasAt(node, options, '');
+}
+
+function closeObjectSchemasAt(
+  node: unknown,
+  options: ISchemaClosureOptions,
+  path: string,
+): unknown {
   if (Array.isArray(node)) {
-    return node.map((entry) => closeObjectSchemas(entry, options));
+    return node.map((entry, index) => closeObjectSchemasAt(entry, options, `${path}/${index}`));
   }
   if (typeof node !== 'object' || node === null) {
     return node;
@@ -97,14 +117,30 @@ export function closeObjectSchemas(node: unknown, options: ISchemaClosureOptions
     );
     closed.properties = Object.fromEntries(
       Object.entries(properties).map(([key, value]) => {
-        const child = closeObjectSchemas(value, options);
+        const propertyPath = `${path}/properties/${key}`;
+        const child = closeObjectSchemasAt(value, options, propertyPath);
+        const wasRequired = required.has(key);
+        if (options.requireAllProperties === true && !wasRequired) {
+          options.onChange?.({ path: propertyPath, kind: 'required-added' });
+        }
         // Only a property that was NOT already required is compensated. A genuinely required field
         // gaining a null branch would widen the contract rather than preserve it.
         const forcedIntoRequired =
           options.requireAllProperties === true &&
           options.optionalAsNullable === true &&
-          !required.has(key);
-        return [key, forcedIntoRequired ? withNullBranch(child) : child];
+          !wasRequired;
+        if (!forcedIntoRequired) {
+          return [key, child];
+        }
+        const childAlreadyNullable =
+          typeof child === 'object' && child !== null && !Array.isArray(child)
+            ? admitsNull(child as Record<string, unknown>)
+            : false;
+        const wrapped = withNullBranch(child);
+        if (!childAlreadyNullable) {
+          options.onChange?.({ path: propertyPath, kind: 'nullable-added' });
+        }
+        return [key, wrapped];
       }),
     );
     if (options.requireAllProperties === true) {
@@ -113,25 +149,34 @@ export function closeObjectSchemas(node: unknown, options: ISchemaClosureOptions
   }
 
   if (record.items && typeof record.items === 'object') {
-    closed.items = closeObjectSchemas(record.items, options);
+    closed.items = closeObjectSchemasAt(record.items, options, `${path}/items`);
   }
 
   // CORE-039: a union node's branches are objects too. Without this the spread carries `anyOf`
   // through unrecursed, leaving every object inside a branch open — the exact thing this seam
   // exists to prevent, reached by the one route it did not walk.
   if (Array.isArray(record.anyOf)) {
-    closed.anyOf = record.anyOf.map((branch) => closeObjectSchemas(branch, options));
+    closed.anyOf = record.anyOf.map((branch, index) =>
+      closeObjectSchemasAt(branch, options, `${path}/anyOf/${index}`),
+    );
   }
 
   if (record.additionalProperties && typeof record.additionalProperties === 'object') {
     // Schema-valued `additionalProperties` (record types) passes through recursed; a vendor may
     // reject it, which surfaces as a provider error rather than being masked here.
-    closed.additionalProperties = closeObjectSchemas(record.additionalProperties, options);
+    closed.additionalProperties = closeObjectSchemasAt(
+      record.additionalProperties,
+      options,
+      `${path}/additionalProperties`,
+    );
   } else if (isObjectNode) {
     // Deliberate overwrite, including of an explicit `true`. The converter emits
     // `additionalProperties: true` routinely — Zod's default `strip` means "accept then drop" — and
     // these vendors still require every object node closed. The consumer's original schema keeps
     // governing core-side validation, where the `true` is honoured.
+    if (record.additionalProperties !== false) {
+      options.onChange?.({ path, kind: 'closed-object' });
+    }
     closed.additionalProperties = false;
   }
 

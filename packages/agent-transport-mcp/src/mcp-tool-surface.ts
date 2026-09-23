@@ -1,0 +1,94 @@
+/** One canonical tool catalog and invocation path shared by stdio and HTTP MCP carriers. */
+import { ToolSchema } from '@modelcontextprotocol/sdk/types.js';
+import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
+
+import type { IMcpTransportSession } from './mcp-session.js';
+import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+
+export const SUBMIT_TOOL = {
+  name: 'robota_submit',
+  description: 'Robota extension: submit a prompt to the agent and await its own turn',
+  inputSchema: {
+    type: 'object' as const,
+    properties: { prompt: { type: 'string', minLength: 1 } },
+    required: ['prompt'],
+    additionalProperties: false,
+  },
+};
+
+export async function readCatalog(session: IMcpTransportSession): Promise<Tool[]> {
+  const names = new Set([SUBMIT_TOOL.name]);
+  return (await session.listRuntimeTools()).map((schema) => {
+    if (names.has(schema.name)) {
+      throw new Error(`Duplicate or reserved MCP tool name: ${schema.name}`);
+    }
+    names.add(schema.name);
+    return ToolSchema.parse({
+      name: schema.name,
+      description: schema.description,
+      inputSchema: schema.parameters,
+    });
+  });
+}
+
+function toolError(message: string): CallToolResult {
+  return { content: [{ type: 'text' as const, text: message }], isError: true };
+}
+
+function isJsonValue(value: unknown): boolean {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  return typeof value === 'object' && value !== null && Object.values(value).every(isJsonValue);
+}
+
+function isRuntimeParameters(
+  value: Record<string, unknown>,
+): value is Parameters<IMcpTransportSession['invokeRuntimeTool']>[1] {
+  return Object.values(value).every(isJsonValue);
+}
+
+export async function invokeMcpTool(
+  session: IMcpTransportSession,
+  toolName: string,
+  parameters: Record<string, unknown>,
+  signal: AbortSignal,
+): Promise<CallToolResult> {
+  let catalog: Tool[];
+  try {
+    signal.throwIfAborted();
+    catalog = await readCatalog(session);
+  } catch (error) {
+    return toolError(error instanceof Error ? error.message : String(error));
+  }
+  if (toolName === SUBMIT_TOOL.name) {
+    if (
+      typeof parameters.prompt !== 'string' ||
+      parameters.prompt.length === 0 ||
+      Object.keys(parameters).some((key) => key !== 'prompt')
+    ) {
+      return toolError('robota_submit requires a non-empty string prompt and no other arguments');
+    }
+    try {
+      const handle = await session.submit(parameters.prompt, undefined, undefined, { signal });
+      const result = await handle.completed;
+      return { content: [{ type: 'text', text: result.response }] };
+    } catch (error) {
+      if (!isTurnNotRunError(error) && !signal.aborted) throw error;
+      return toolError(error instanceof Error ? error.message : String(error));
+    }
+  }
+  if (!catalog.some((tool) => tool.name === toolName))
+    return toolError(`Unknown tool: ${toolName}`);
+  if (!isRuntimeParameters(parameters))
+    return toolError('Tool arguments must contain JSON values');
+  try {
+    const result = await session.invokeRuntimeTool(toolName, parameters, { signal });
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result) }],
+      isError: !result.success,
+    };
+  } catch (error) {
+    return toolError(error instanceof Error ? error.message : String(error));
+  }
+}

@@ -7,6 +7,7 @@ import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
 
 import { TransportRegistry } from '../transport-registry.js';
+import { bindTransportAdapter } from '../bind-transport-adapter.js';
 
 import type {
   IConfigurableTransport,
@@ -14,6 +15,7 @@ import type {
   ITransportRunnerAdapter,
   ITransportServiceAdapter,
   ITransportSettingsCapability,
+  TBoundTransportAdapter,
   TTransportAdapter,
   TTransportRunOutcome,
 } from '@robota-sdk/agent-interface-transport';
@@ -31,6 +33,14 @@ function createRegistry(): TransportRegistry {
   writeFileSync(settingsPath, '{}');
   tempDirs.push(dir);
   return new TransportRegistry(settingsPath);
+}
+
+function register(
+  registry: TransportRegistry,
+  adapter: TTransportAdapter<IInteractiveSession>,
+  session: IInteractiveSession = createTestInteractiveSession(),
+): void {
+  registry.register(bindTransportAdapter(adapter, session));
 }
 
 function createService(name: string): ITransportServiceAdapter<IInteractiveSession> {
@@ -86,9 +96,46 @@ describe('TransportRegistry lifecycle/settings segregation (ARCH-011)', () => {
     const registry = createRegistry();
     const service = createService('custom');
 
-    registry.register(service);
+    register(registry, service);
 
-    expect(() => registry.register(createService('custom'))).toThrow(/duplicate.*custom/i);
+    expect(() => register(registry, createService('custom'))).toThrow(/duplicate.*custom/i);
+  });
+
+  it('rejects an unbound adapter at the runtime boundary', () => {
+    const registry = createRegistry();
+    const raw = createService('raw');
+    expectTypeOf(raw).not.toMatchTypeOf<TBoundTransportAdapter>();
+    expect(() => registry.register(raw as unknown as TBoundTransportAdapter)).toThrow(
+      /must be bound before registration/,
+    );
+  });
+
+  it('hosts adapters bound to different session capabilities', async () => {
+    const registry = createRegistry();
+    const calls: string[] = [];
+    const emitPort = { emit: (value: string) => calls.push(`emit:${value}`) };
+    const lookupPort = { lookup: () => 'answer' };
+    const emitter: ITransportServiceAdapter<typeof emitPort> = {
+      name: 'emitter',
+      lifecycle: { kind: 'service' },
+      attach: (session) => session.emit('ready'),
+      start: async () => {},
+      stop: async () => {},
+    };
+    const lookup: ITransportServiceAdapter<typeof lookupPort> = {
+      name: 'lookup',
+      lifecycle: { kind: 'service' },
+      attach: (session) => calls.push(`lookup:${session.lookup()}`),
+      start: async () => {},
+      stop: async () => {},
+    };
+
+    expectTypeOf(emitter).not.toMatchTypeOf<TBoundTransportAdapter>();
+    registry.register(bindTransportAdapter(emitter, emitPort));
+    registry.register(bindTransportAdapter(lookup, lookupPort));
+    await registry.startAll();
+
+    expect(calls).toEqual(['emit:ready', 'lookup:answer']);
   });
 
   it('rejects runner/service discriminants whose runtime capabilities do not match', () => {
@@ -99,7 +146,10 @@ describe('TransportRegistry lifecycle/settings segregation (ARCH-011)', () => {
     };
     expectTypeOf(missingCompletion).not.toMatchTypeOf<TTransportAdapter<IInteractiveSession>>();
     expect(() =>
-      registry.register(missingCompletion as unknown as TTransportAdapter<IInteractiveSession>),
+      registry.register({
+        ...missingCompletion,
+        binding: 'bound',
+      } as unknown as TBoundTransportAdapter),
     ).toThrow(/invalid runner shape/i);
 
     const serviceWithCompletion = {
@@ -107,14 +157,14 @@ describe('TransportRegistry lifecycle/settings segregation (ARCH-011)', () => {
       waitForCompletion: async () => ({ status: 'succeeded' as const, exitCode: 0 as const }),
     };
     expect(() =>
-      registry.register(serviceWithCompletion as unknown as TTransportAdapter<IInteractiveSession>),
+      registry.register({ ...serviceWithCompletion, binding: 'bound' } as TBoundTransportAdapter),
     ).toThrow(/invalid service shape/i);
   });
 
   it('projects only configurable transports into settings and rejects invalid mutations', async () => {
     const registry = createRegistry();
-    registry.register(createService('base'));
-    registry.register(createConfigurable('configurable'));
+    register(registry, createService('base'));
+    register(registry, createConfigurable('configurable'));
 
     expect(registry.getAll().map(({ transport }) => transport.name)).toEqual(['configurable']);
     await expect(registry.setEnabled('base', false)).rejects.toMatchObject({
@@ -132,12 +182,12 @@ describe('TransportRegistry lifecycle/settings segregation (ARCH-011)', () => {
   it('keeps configuration orthogonal to the runner/service lifecycle discriminant', () => {
     const registry = createRegistry();
     const runner = createConfigurableRunner('configurable-runner');
-    registry.register(runner);
+    register(registry, runner);
 
     expect(registry.getAll().map(({ transport }) => transport.name)).toEqual([
       'configurable-runner',
     ]);
-    expect(registry.getEnabled()).toEqual([runner]);
+    expect(registry.getEnabled().map(({ name }) => name)).toEqual([runner.name]);
   });
 });
 
@@ -147,11 +197,11 @@ describe('TransportRegistry runner outcomes (ARCH-011)', () => {
     const first = createControlledRunner('first');
     const service = createService('service');
     const second = createControlledRunner('second');
-    registry.register(first);
-    registry.register(service);
-    registry.register(second);
+    register(registry, first);
+    register(registry, service);
+    register(registry, second);
 
-    await registry.startAll(createTestInteractiveSession());
+    await registry.startAll();
     expect(service.start).toHaveBeenCalledTimes(1);
 
     second.complete({ status: 'succeeded', exitCode: 0 });
@@ -167,9 +217,9 @@ describe('TransportRegistry runner outcomes (ARCH-011)', () => {
     const registry = createRegistry();
     const failed = createControlledRunner('failed');
     const pending = createControlledRunner('pending');
-    registry.register(failed);
-    registry.register(pending);
-    await registry.startAll(createTestInteractiveSession());
+    register(registry, failed);
+    register(registry, pending);
+    await registry.startAll();
 
     failed.complete(createTransportFailedOutcome(7));
 
@@ -190,10 +240,10 @@ describe('TransportRegistry runner outcomes (ARCH-011)', () => {
       waitForCompletion: async () => ({ status: 'succeeded', exitCode: 0 }),
     };
     const later = createControlledRunner('later');
-    registry.register(immediate);
-    registry.register(later);
+    register(registry, immediate);
+    register(registry, later);
 
-    await registry.startAll(createTestInteractiveSession());
+    await registry.startAll();
     const failure = registry.waitForFailure();
     later.complete(createTransportFailedOutcome(9));
 
@@ -206,15 +256,15 @@ describe('TransportRegistry runner outcomes (ARCH-011)', () => {
   it('resolves failure waiting as undefined when every runner succeeds or stop abandons the run', async () => {
     const registry = createRegistry();
     const success = createControlledRunner('success');
-    registry.register(success);
-    await registry.startAll(createTestInteractiveSession());
+    register(registry, success);
+    await registry.startAll();
     success.complete({ status: 'succeeded', exitCode: 0 });
     await expect(registry.waitForFailure()).resolves.toBeUndefined();
 
     const next = createControlledRunner('next');
     const secondRegistry = createRegistry();
-    secondRegistry.register(next);
-    await secondRegistry.startAll(createTestInteractiveSession());
+    register(secondRegistry, next);
+    await secondRegistry.startAll();
     const failureWait = secondRegistry.waitForFailure();
     const completionWait = secondRegistry.waitForCompletion();
     await secondRegistry.stopAll();
@@ -227,8 +277,8 @@ describe('TransportRegistry runner outcomes (ARCH-011)', () => {
   it('rejects malformed runner outcomes at the runtime trust boundary', async () => {
     const registry = createRegistry();
     const runner = createControlledRunner('invalid');
-    registry.register(runner);
-    await registry.startAll(createTestInteractiveSession());
+    register(registry, runner);
+    await registry.startAll();
 
     runner.complete({ status: 'failed', exitCode: 0 } as unknown as TTransportRunOutcome);
 
@@ -242,8 +292,8 @@ describe('TransportRegistry runner outcomes (ARCH-011)', () => {
   it('converts runner promise rejection to a stable lifecycle error', async () => {
     const registry = createRegistry();
     const first = createControlledRunner('runner');
-    registry.register(first);
-    await registry.startAll(createTestInteractiveSession());
+    register(registry, first);
+    await registry.startAll();
     first.reject(new Error('private failure'));
 
     await expect(registry.waitForFailure()).rejects.toMatchObject({

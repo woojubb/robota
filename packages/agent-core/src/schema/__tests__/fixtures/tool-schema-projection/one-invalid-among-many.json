@@ -1,0 +1,30 @@
+[
+  {
+    "name": "good_tool_one",
+    "description": "A well-formed tool.",
+    "parameters": {
+      "type": "object",
+      "properties": { "query": { "type": "string" } },
+      "required": ["query"]
+    }
+  },
+  {
+    "name": "bad_tool",
+    "description": "A tool whose root is a union rather than a single object.",
+    "parameters": {
+      "anyOf": [
+        { "type": "object", "properties": { "a": { "type": "string" } }, "required": ["a"] },
+        { "type": "object", "properties": { "b": { "type": "number" } }, "required": ["b"] }
+      ]
+    }
+  },
+  {
+    "name": "good_tool_two",
+    "description": "Another well-formed tool.",
+    "parameters": {
+      "type": "object",
+      "properties": { "id": { "type": "string" } },
+      "required": ["id"]
+    }
+  }
+]

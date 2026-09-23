@@ -9,6 +9,8 @@ import { join } from 'node:path';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+import { runHooks } from '@robota-sdk/agent-core';
+
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import { BUILT_IN_AGENTS, getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
@@ -51,7 +53,12 @@ const mockProvider = {
   generateResponse: vi.fn(),
 } as unknown as IAIProvider;
 
-import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IHookTypeExecutor,
+  IToolWithEventService,
+  THooksConfig,
+} from '@robota-sdk/agent-core';
 import type { ITerminalOutput } from '@robota-sdk/agent-session';
 
 function makeTool(name: string): IToolWithEventService {
@@ -111,6 +118,42 @@ function makeParentContext(overrides?: Partial<ILoadedContext>): ILoadedContext 
 describe('Subagent integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('keeps a restricted parent executor set empty when the child evaluates a hook', async () => {
+    const hooks: THooksConfig = {
+      PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'echo unexpected' }] }],
+    };
+    createSubagentSession({
+      agentDefinition: getBuiltInAgent('general-purpose')!,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Bash')],
+      provider: mockProvider,
+      terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
+      hooks,
+      hookTypeExecutors: [],
+    });
+
+    const childOptions = mockSessionConstructor.mock.calls[0]![0] as {
+      hookTypeExecutors?: IHookTypeExecutor[];
+    };
+    expect(childOptions.hookTypeExecutors).toEqual([]);
+    const result = await runHooks(
+      hooks,
+      'PreToolUse',
+      {
+        session_id: 'restricted-child',
+        cwd: SUBAGENT_ROOT,
+        hook_event_name: 'PreToolUse',
+        tool_name: 'Bash',
+        tool_input: {},
+      },
+      childOptions.hookTypeExecutors,
+    );
+    expect(result.unknownHookTypes).toEqual(['command']);
+    expect(result.stdout).toBe('');
   });
 
   it('Agent tool resolves built-in agent and creates session', () => {

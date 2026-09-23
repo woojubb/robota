@@ -1,5 +1,4 @@
 ---
-'@robota-sdk/dag-cli': minor
 '@robota-sdk/dag-builder': patch
 ---
 

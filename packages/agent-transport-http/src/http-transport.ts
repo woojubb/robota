@@ -12,7 +12,6 @@ import { createAgentRoutes } from './routes.js';
 
 import type { IHttpTransportSession } from './http-session.js';
 import type { TStreamFailureListener } from './submit-stream.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
   ITransportAdapter,
   ITransportAdmissionConfig,
@@ -39,8 +38,7 @@ export interface IHttpTransportOptions {
   onStreamFailure?: TStreamFailureListener;
 }
 
-export interface IHttpTransport extends ITransportAdapter<IInteractiveSession> {
-  attach(session: IHttpTransportSession): void;
+export interface IHttpTransport extends ITransportAdapter<IHttpTransportSession> {
   getApp(): Hono;
   getAdmissionToken(): string | null;
 }

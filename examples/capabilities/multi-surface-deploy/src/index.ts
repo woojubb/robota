@@ -7,7 +7,7 @@
  * "deploy target is an abstraction" pattern (Hermes/ADK) realized as the transport DIP.
  *
  * Two mounting styles, both over the one session:
- *   - an `IConfigurableTransport` (has `defaultEnabled`) is registered and started by `registry.startAll(session)`;
+ *   - an `IConfigurableTransport` (has `defaultEnabled`) is bound to the session, then registered and started by `registry.startAll()`;
  *   - a plain `ITransportAdapter` factory (e.g. HTTP) is mounted out-of-band: `t.attach(session); await t.start()`.
  *
  * Run: ANTHROPIC_API_KEY=... pnpm dev   (the demo serves channels; it makes no model call)
@@ -15,7 +15,7 @@
 import os from 'node:os';
 import path from 'node:path';
 
-import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import { bindTransportAdapter, createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { TransportRegistry } from '@robota-sdk/agent-framework';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
@@ -34,11 +34,11 @@ const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
 // 2. Bind that ONE session to MANY channels — no gateway, just the registry.
 const settingsPath = path.join(os.tmpdir(), `robota-multi-surface-${process.pid}.json`);
 const registry = new TransportRegistry(settingsPath);
-registry.register(new WsTransport({ port: 45678 })); // network channel (IConfigurableTransport → startAll)
+registry.register(bindTransportAdapter(new WsTransport({ port: 45678 }), session)); // network channel
 const http = createHttpTransport(); // plain ITransportAdapter → mounted out-of-band on the same session
 
 try {
-  await registry.startAll(session); // attaches + starts every enabled transport on THIS session (WS binds a port)
+  await registry.startAll(); // starts every bound, enabled transport on THIS session (WS binds a port)
   http.attach(session); // the same session instance
   await http.start(); // builds the HTTP route app (Hono) — a route builder, not a bound listener here
 
