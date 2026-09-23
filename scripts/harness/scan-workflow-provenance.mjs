@@ -122,9 +122,12 @@ export function triggersFromPullRequest(workflowText) {
 }
 
 /**
- * The files a change touches, as NAMES only. Rename detection is deliberately disabled so both
- * sides of a rename are returned. Otherwise Git reports only the destination for `--name-only`,
- * and renaming a guarded workflow would hide the guarded source path from this scan.
+ * The files the proposed merge would change on the target, as NAMES only. A three-dot history diff
+ * can report a guarded edit already squash-landed on the target, even though merging this head
+ * changes only unrelated files. Compute the merge tree without checking out or executing PR code,
+ * then compare that tree to the target. A real conflict cannot produce a clean verdict.
+ * Rename detection is disabled so both sides of a rename are returned. Otherwise Git reports only
+ * the destination for `--name-only`, hiding a guarded source path.
  *
  * `headRef` is explicit so this can judge a pull request from a checkout that is NOT the pull
  * request — the trusted-plane guard (INFRA-097) checks out the BASE, fetches the PR head without
@@ -132,18 +135,29 @@ export function triggersFromPullRequest(workflowText) {
  * which is the whole property that lets a guard be trusted while its subject is not.
  */
 function changedFiles(root, baseRef, headRef = 'HEAD') {
-  const result = spawnSync(
-    'git',
-    ['diff', '--name-only', '--no-renames', `${baseRef}...${headRef}`],
-    {
-      cwd: root,
-      encoding: 'utf8',
-    },
-  );
+  const run = (args) => spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  const resolveCommit = (ref) => {
+    const result = run(['rev-parse', '--verify', '--end-of-options', `${ref}^{commit}`]);
+    const oid = result.stdout?.trim();
+    if (result.status !== 0 || !/^[0-9a-f]{40,64}$/u.test(oid ?? '')) {
+      throw new Error(`workflow-provenance: could not resolve \`${ref}\` — measurement FAILED.`);
+    }
+    return oid;
+  };
+  const base = resolveCommit(baseRef);
+  const head = resolveCommit(headRef);
+  const merge = run(['merge-tree', '--write-tree', base, head]);
+  const mergeTree = merge.stdout?.trim();
+  if (merge.status !== 0 || !/^[0-9a-f]{40,64}$/u.test(mergeTree ?? '')) {
+    throw new Error(
+      'workflow-provenance: could not compute a conflict-free proposed merge — measurement ' +
+        'FAILED, so no provenance verdict can be reported.',
+    );
+  }
+  const result = run(['diff', '--name-only', '--no-renames', base, mergeTree]);
   if (result.status !== 0) {
     throw new Error(
-      `workflow-provenance: could not read the diff against \`${baseRef}\` — the measurement ` +
-        `FAILED, so no verdict can be reported from it.\n${result.stderr ?? ''}`,
+      'workflow-provenance: could not read the proposed merge diff — measurement FAILED.',
     );
   }
   return result.stdout.split('\n').filter(Boolean);

@@ -414,3 +414,48 @@ describe('judging a change from a checkout that is NOT that change (INFRA-097, i
     expect(defaulted).toEqual(named);
   });
 });
+
+describe('workflow-provenance — judge the proposed merge result (issue #2804)', () => {
+  it('ignores a guarded edit already squash-landed on the target', () => {
+    const dir = repoWithGuardedWorkflow();
+    const initial = git(dir, 'rev-parse', 'HEAD').stdout.trim();
+    git(dir, 'switch', '-c', 'child');
+    const workflow = path.join(dir, '.github/workflows/ci.yml');
+    const adoptedWorkflow = `${readFileSync(workflow, 'utf8')}# adopted fix\n`;
+    writeFileSync(workflow, adoptedWorkflow);
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '--quiet', '-m', 'ci: fix required workflow');
+    writeFileSync(path.join(dir, 'README.md'), 'child feature\n');
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '--quiet', '-m', 'docs: child feature');
+    const child = git(dir, 'rev-parse', 'HEAD').stdout.trim();
+
+    git(dir, 'switch', 'main');
+    writeFileSync(workflow, adoptedWorkflow);
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '--quiet', '-m', 'ci: squash adopted fix');
+    const target = git(dir, 'rev-parse', 'HEAD').stdout.trim();
+
+    expect(git(dir, 'merge-base', target, child).stdout.trim()).toBe(initial);
+    expect(git(dir, 'diff', '--name-only', `${target}...${child}`).stdout).toContain(
+      '.github/workflows/ci.yml',
+    );
+    expect(findWorkflowProvenanceFindings(dir, target, child).findings).toEqual([]);
+  });
+
+  it('fails closed when the proposed merge has a real conflict', () => {
+    const dir = repoWithGuardedWorkflow();
+    git(dir, 'switch', '-c', 'child');
+    writeFileSync(path.join(dir, '.github/workflows/ci.yml'), 'child workflow\n');
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '--quiet', '-m', 'ci: child workflow');
+    const child = git(dir, 'rev-parse', 'HEAD').stdout.trim();
+
+    git(dir, 'switch', 'main');
+    writeFileSync(path.join(dir, '.github/workflows/ci.yml'), 'target workflow\n');
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '--quiet', '-m', 'ci: target workflow');
+
+    expect(() => findWorkflowProvenanceFindings(dir, 'HEAD', child)).toThrow(/measurement/i);
+  });
+});
