@@ -1,12 +1,11 @@
-import { deleteSettings, getUserSettingsPath } from './settings-io.js';
+import { deleteSettings } from './settings-io.js';
 
 export interface IResetUserConfigResult {
   deleted: boolean;
   path: string;
 }
 
-export function resetUserConfig(): IResetUserConfigResult {
-  const path = getUserSettingsPath();
+export function resetUserConfig(path: string): IResetUserConfigResult {
   const deleted = deleteSettings(path);
   return { deleted, path };
 }

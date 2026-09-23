@@ -103,9 +103,14 @@ export async function createInteractiveSession(
   // load. The bare constructor defaults the enablement map to `{}`, which reads as "nothing
   // disabled" — indistinguishable from a user who disabled nothing. `pluginsDirs` stays a local
   // because the failure log below names it.
-  if (!options.bare) {
+  const pluginSettingsPath = options.userSettingsSources?.find(
+    (source) => source.scope === 'user',
+  )?.path;
+  if (!options.bare && pluginSettingsPath !== undefined) {
     try {
-      const plugins = loadHostBundlePluginsFromScopes(pluginsDirs);
+      const plugins = loadHostBundlePluginsFromScopes(pluginsDirs, {
+        settingsPath: pluginSettingsPath,
+      });
       if (plugins.length > 0) {
         const pluginHooks = mergePluginHooksWithSources(plugins);
         mergedConfig = {

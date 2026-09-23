@@ -12,7 +12,6 @@ import { fileURLToPath } from 'node:url';
 
 import {
   WorkspaceTrustService,
-  createDefaultUserSettingsSources,
   createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectSettingsSources,
   getWorkspaceProjectReader,
@@ -21,6 +20,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { composeMcpClientForStartup } from '../mcp-startup.js';
 import { ROBOTA_PROJECT_SETTINGS } from '../../product/robota-project-settings.js';
+import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
 
 import type {
   IWorkspaceIdentity,
@@ -90,7 +90,7 @@ describe('composeMcpClientForStartup', () => {
     );
     const { messages, reportDiagnostic } = diagnosticsSink();
     const mcp = await composeMcpClientForStartup({
-      settingsSources: createDefaultUserSettingsSources(userHome),
+      settingsSources: createRobotaUserSettingsSources(userHome),
       projectAccess: await trustedAccessFor(cwd),
       cwd,
       env: {},
@@ -144,7 +144,7 @@ describe('composeMcpClientForStartup', () => {
     );
     const { messages, reportDiagnostic } = diagnosticsSink();
     const mcp = await composeMcpClientForStartup({
-      settingsSources: createDefaultUserSettingsSources(userHome),
+      settingsSources: createRobotaUserSettingsSources(userHome),
       projectAccess: await trustedAccessFor(cwd),
       cwd,
       env: {},
@@ -181,7 +181,7 @@ describe('composeMcpClientForStartup', () => {
     const { messages, reportDiagnostic } = diagnosticsSink();
 
     const mcp = await composeMcpClientForStartup({
-      settingsSources: createDefaultUserSettingsSources(userHome),
+      settingsSources: createRobotaUserSettingsSources(userHome),
       projectAccess: await trustedAccessFor(cwd),
       cwd,
       env: process.env,
@@ -230,7 +230,7 @@ describe('composeMcpClientForStartup', () => {
     const { messages, reportDiagnostic } = diagnosticsSink();
 
     const mcp = await composeMcpClientForStartup({
-      settingsSources: createDefaultUserSettingsSources(userHome),
+      settingsSources: createRobotaUserSettingsSources(userHome),
       projectAccess: createRestrictedWorkspaceProjectAccess('identity-unavailable', userHome),
       cwd: userHome,
       env: process.env,
@@ -262,7 +262,7 @@ describe('composeMcpClientForStartup → buildToolCallHandoff (TC-25)', () => {
     for (const mode of ['interactive', 'serve'] as const) {
       const { messages, reportDiagnostic } = diagnosticsSink();
       const mcp = await composeMcpClientForStartup({
-        settingsSources: createDefaultUserSettingsSources(userHome),
+        settingsSources: createRobotaUserSettingsSources(userHome),
         projectAccess: createRestrictedWorkspaceProjectAccess('identity-unavailable', userHome),
         cwd: userHome,
         env: process.env,
@@ -283,7 +283,7 @@ describe('composeMcpClientForStartup → buildToolCallHandoff (TC-25)', () => {
 
     const { messages: printMessages, reportDiagnostic: reportPrintDiagnostic } = diagnosticsSink();
     const printMcp = await composeMcpClientForStartup({
-      settingsSources: createDefaultUserSettingsSources(userHome),
+      settingsSources: createRobotaUserSettingsSources(userHome),
       projectAccess: createRestrictedWorkspaceProjectAccess('identity-unavailable', userHome),
       cwd: userHome,
       env: process.env,
@@ -308,7 +308,7 @@ describe('composeMcpClientForStartup → buildToolCallHandoff (TC-25)', () => {
     for (const mode of ['interactive', 'serve', 'print'] as const) {
       const { messages, reportDiagnostic } = diagnosticsSink();
       const mcp = await composeMcpClientForStartup({
-        settingsSources: createDefaultUserSettingsSources(userHome),
+        settingsSources: createRobotaUserSettingsSources(userHome),
         projectAccess: createRestrictedWorkspaceProjectAccess('identity-unavailable', userHome),
         cwd: userHome,
         env: process.env,
@@ -332,7 +332,7 @@ describe('composeMcpClientForStartup → buildToolCallHandoff (TC-25)', () => {
 
     const { messages, reportDiagnostic } = diagnosticsSink();
     const mcp = await composeMcpClientForStartup({
-      settingsSources: createDefaultUserSettingsSources(userHome),
+      settingsSources: createRobotaUserSettingsSources(userHome),
       projectAccess: createRestrictedWorkspaceProjectAccess('identity-unavailable', userHome),
       cwd: userHome,
       env: process.env,

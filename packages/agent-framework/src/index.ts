@@ -754,7 +754,6 @@ export { consentScopeFor, promptForApproval } from './permissions/permission-pro
 
 // ── Settings I/O ─────────────────────────────────────────────
 export {
-  createDefaultUserSettingsSources,
   createNodeHostSettingsSource,
   createWorkspaceProjectSettingsSources,
   readSettingsSourceText,
@@ -773,7 +772,6 @@ export {
 } from './config/settings-store.js';
 export type { ISettingsDocumentStore } from './config/settings-store.js';
 export {
-  getUserSettingsPath,
   readSettings,
   writeSettings,
   updateModelInSettings,

@@ -22,7 +22,6 @@
 
 import { BundlePluginLoader } from './bundle-plugin-loader.js';
 import { NodeHostPluginSettingsStore } from './plugin-settings-store.js';
-import { getUserSettingsPath } from '../config/settings-io.js';
 
 import type {
   IBundlePluginInspection,
@@ -42,7 +41,7 @@ import type { IFileSystem } from '@robota-sdk/agent-core';
 export interface IHostBundlePluginLoaderOptions {
   /** The host's bundle cache directory. No default — the host owns this path. */
   pluginsDir: string;
-  /** Defaults to `getUserSettingsPath()`, which is this repository's one owner of that path. */
+  /** Host-owned settings file used when enabledPlugins is not supplied. */
   settingsPath?: string;
   /** Injectable for tests; both the store and the loader read through it. */
   fs?: IFileSystem;
@@ -59,11 +58,13 @@ export interface IHostBundlePluginLoaderOptions {
 export function createHostBundlePluginLoader(
   options: IHostBundlePluginLoaderOptions,
 ): BundlePluginLoader {
-  const settingsPath = options.settingsPath ?? getUserSettingsPath();
+  if (options.settingsPath === undefined && options.enabledPlugins === undefined) {
+    throw new Error('Plugin enablement requires settingsPath or enabledPlugins');
+  }
 
   const enabledPlugins =
     options.enabledPlugins ??
-    new NodeHostPluginSettingsStore(settingsPath, options.fs).getEnabledPlugins();
+    new NodeHostPluginSettingsStore(options.settingsPath!, options.fs).getEnabledPlugins();
 
   return new BundlePluginLoader(options.pluginsDir, enabledPlugins, options.fs);
 }

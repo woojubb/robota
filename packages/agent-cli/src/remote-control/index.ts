@@ -1,5 +1,6 @@
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import { getUserSettingsPath, readSettings } from '@robota-sdk/agent-framework';
+import { readSettings } from '@robota-sdk/agent-framework';
+import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
 
 import { loadOrCreateHostIdentity } from './host-identity.js';
 import { parseIceServers } from './ice-config.js';
@@ -28,7 +29,7 @@ export type { IRemoteControlControllerDeps } from './remote-control-controller.j
 
 /** Read a nested string under `transports.webrtc.options.<key>` from user settings (undefined when absent). */
 function readWebrtcOption(key: string): string | undefined {
-  const settings = readSettings(getUserSettingsPath());
+  const settings = readSettings(robotaUserSettingsPath());
   const transports = settings.transports;
   if (typeof transports !== 'object' || transports === null) return undefined;
   const webrtc = (transports as Record<string, unknown>).webrtc;
@@ -41,7 +42,7 @@ function readWebrtcOption(key: string): string | undefined {
 
 /** Read a raw (untyped) value under `transports.webrtc.options.<key>` — for structured values (REMOTE-010). */
 function readWebrtcRawOption(key: string): unknown {
-  const settings = readSettings(getUserSettingsPath());
+  const settings = readSettings(robotaUserSettingsPath());
   const transports = settings.transports;
   if (typeof transports !== 'object' || transports === null) return undefined;
   const webrtc = (transports as Record<string, unknown>).webrtc;

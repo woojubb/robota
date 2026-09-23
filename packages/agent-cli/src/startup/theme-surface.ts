@@ -8,7 +8,8 @@
  * Assembled here rather than inline in `cli.ts` because that file sits at its `file-size` floor and
  * because a composition belongs beside its siblings in `startup/`, not in the shell that calls it.
  */
-import { getUserSettingsPath, readSettings } from '@robota-sdk/agent-framework';
+import { readSettings } from '@robota-sdk/agent-framework';
+import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
 import {
   createThemeCataloguePort,
   createThemeRegistry,
@@ -93,7 +94,7 @@ export function createThemeSurface(options: IThemeSurfaceOptions): IThemeSurface
     // applies an `appearance-settings-patch`, so a captured value would make `/theme list` report
     // the change the user just made as not having happened.
     readAppearance: () =>
-      resolveAppearanceRenderFields(readSettings(getUserSettingsPath()), undefined, {}).appearance,
+      resolveAppearanceRenderFields(readSettings(robotaUserSettingsPath()), undefined, {}).appearance,
     ...(resolved.reducedMotionOverride === undefined
       ? {}
       : {

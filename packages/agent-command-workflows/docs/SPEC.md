@@ -43,7 +43,8 @@ before assembly (no provider, invalid or unassemblable spec) leaves nothing on d
 
 **Provider seam.** Both authoring subcommands resolve their AI provider lazily per invocation from
 injected settings/definitions; the module depends only on `agent-core`'s provider interfaces and
-imports no concrete provider package.
+imports no concrete provider package. When no provider is injected, settings sources are required;
+authoring does not search the process home for a provider profile.
 
 ## Invariants
 

@@ -4,7 +4,6 @@ import {
   applyProviderConfiguration,
   applyProviderSwitch,
   createNodeHostSettingsStore,
-  getUserSettingsPath,
   readMergedProviderSettings,
   resolveProviderSettingsWriteTarget,
   WorkspaceAuthorityRequiredError,
@@ -22,7 +21,10 @@ import {
   type TPromptInput,
 } from '@robota-sdk/agent-command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
-import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
+import {
+  createRobotaUserSettingsSources,
+  robotaUserSettingsPath,
+} from '../product/robota-user-settings.js';
 
 export interface IProviderStartupSettingsAccess {
   readonly settingsSources?: readonly TSettingsSource[];
@@ -35,7 +37,7 @@ function resolveStartupSettingsAccess(
   return {
     settingsSources: access.settingsSources ?? createRobotaUserSettingsSources(),
     settingsStores: access.settingsStores ?? [
-      createNodeHostSettingsStore('user', getUserSettingsPath()),
+      createNodeHostSettingsStore('user', robotaUserSettingsPath()),
     ],
   };
 }
