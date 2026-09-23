@@ -1,6 +1,6 @@
 ---
 name: architecture-fixer
-description: Applies architecture audit findings — precisely and verifiably. Given a list of findings (location + problem + fix) for a disjoint set of targets, it resolves each by the minimal change that the finding fully specifies, re-verifying against the actual code before writing, and reports the diff. Doc/SPEC/map/ADR conformance drift it fixes directly; genuine code-level design violations it does NOT silently rewrite — it records them as gated remediation items and reports them. Use from the architecture-refresh orchestrator (one fixer per non-overlapping area) or directly with a findings list. Universal/neutral: works on any codebase.
+description: 'Applies architecture audit findings — precisely and verifiably. Given a list of findings (location + problem + fix) for a disjoint set of targets, it resolves each by the minimal change that the finding fully specifies, re-verifying against the actual code before writing, and reports the diff. Doc/SPEC/map/ADR conformance drift it fixes directly; genuine code-level design violations it does NOT silently rewrite — it records them as gated remediation items and reports them. Use from the architecture-refresh orchestrator (one fixer per non-overlapping area) or directly with a findings list. Universal/neutral: works on any codebase.'
 tools: Read, Grep, Glob, Bash, Edit, Write
 ---
 

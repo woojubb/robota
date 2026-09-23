@@ -30,11 +30,11 @@ Preserve and deliver the independently verifiable outcome of [issue #2094](https
 
 ## Implementation result
 
-SkillCommandSource and BundlePluginLoader use the private shared decoder, and PluginCommandSource preserves typed invocation controls. The permissive public parser and plugin parser are removed. Skill model/effort execution semantics remain the separate #1987-owned concern; this leaf does not claim the full #2066 tracker is complete.
+SkillCommandSource and BundlePluginLoader use the private shared decoder, and PluginCommandSource preserves typed invocation controls. The permissive public parser and plugin parser are removed. Skill model/effort execution semantics remain the separate concern owned by issue #1987; this leaf does not claim the full issue #2066 tracker is complete.
 
 ## Test Plan
 
-The containing implementation change passes the framework package suite: 1,791 passed, 77 existing skipped, no failures. Focused negative cases were observed failing before their fixes. Package typecheck, lint (zero errors), formatting, and the functional-coverage check pass. PR CI owns the clean affected build under the current verification policy; local tests import source and require no local build.
+The containing implementation change passes the framework package suite: 1,791 passed, 77 existing skipped, no failures. Focused negative cases were observed failing before their fixes. The added repository corpus suite passes 88 checks across 87 checked-in skill/agent definitions; it reproduced 11 first-party metadata failures before repair. The real discovery loaders now load this checkout successfully, and all nine repaired agent descriptions retain their exact text. Package typecheck, lint (zero errors), formatting, and the functional-coverage check pass. PR CI owns the clean affected build under the current verification policy; local tests import source and require no local build.
 
 ## User Execution Test Scenarios
 

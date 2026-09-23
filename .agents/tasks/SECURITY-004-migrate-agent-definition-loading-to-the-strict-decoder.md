@@ -34,7 +34,7 @@ AgentDefinitionLoader uses the private shared decoder for project and user .robo
 
 ## Test Plan
 
-The containing implementation change passes the framework package suite: 1,791 passed, 77 existing skipped, no failures. Focused negative cases were observed failing before their fixes. Package typecheck, lint (zero errors), formatting, and the functional-coverage check pass. PR CI owns the clean affected build under the current verification policy; local tests import source and require no local build.
+The containing implementation change passes the framework package suite: 1,791 passed, 77 existing skipped, no failures. Focused negative cases were observed failing before their fixes. The added repository corpus suite passes 88 checks across 87 checked-in skill/agent definitions; it reproduced 11 first-party metadata failures before repair. The real discovery loaders now load this checkout successfully, and all nine repaired agent descriptions retain their exact text. Package typecheck, lint (zero errors), formatting, and the functional-coverage check pass. PR CI owns the clean affected build under the current verification policy; local tests import source and require no local build.
 
 ## User Execution Test Scenarios
 

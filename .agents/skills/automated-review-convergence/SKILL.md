@@ -2,7 +2,8 @@
 name: automated-review-convergence
 description: Resolve findings from an already-open PR's automated reviewer until no actionable findings remain.
 loop: over=finding-set; escape=no-progress
-remote-record: PR_MERGE_DECISION
+metadata:
+  remote-record: PR_MERGE_DECISION
 ---
 
 # Automated Review Convergence
