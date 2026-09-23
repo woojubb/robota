@@ -76,11 +76,41 @@ describe('publishDefinition', () => {
 });
 
 describe('listNodes', () => {
+  it('exposes registered manifests through a domain catalog instead of the HTTP port', async () => {
+    expect('listNodes' in framework.client).toBe(false);
+    const manifests = await framework.catalog.listNodes();
+    expect(manifests.find((manifest) => manifest.nodeType === 'input')?.displayName).toBeDefined();
+  });
+
+  it('does not let catalog callers change registered node metadata', async () => {
+    const manifests = await framework.catalog.listNodes();
+    const input = manifests.find((manifest) => manifest.nodeType === 'input');
+    if (!input) throw new Error('Missing input manifest.');
+    const withInputPort = manifests.find((manifest) => manifest.inputs.length > 0);
+    if (!withInputPort) throw new Error('Missing manifest with an input port.');
+    const portNodeType = withInputPort.nodeType;
+    const originalPortKey = withInputPort.inputs[0]!.key;
+    const withSchema = manifests.find((manifest) => manifest.configSchema);
+    if (!withSchema?.configSchema) throw new Error('Missing manifest configuration schema.');
+    const schemaNodeType = withSchema.nodeType;
+    input.nodeType = 'changed-by-caller';
+    withInputPort.inputs[0]!.key = 'changed-by-caller';
+    withSchema.configSchema['changedByCaller'] = true;
+
+    const secondRead = await framework.catalog.listNodes();
+    expect(secondRead.some((manifest) => manifest.nodeType === 'input')).toBe(true);
+    expect(secondRead.find((manifest) => manifest.nodeType === portNodeType)?.inputs[0]?.key).toBe(
+      originalPortKey,
+    );
+    expect(
+      secondRead.find((manifest) => manifest.nodeType === schemaNodeType)?.configSchema,
+    ).not.toHaveProperty('changedByCaller');
+    expect((await framework.validation.validateDag(MINIMAL_DEFINITION)).valid).toBe(true);
+  });
+
   it('returns the registered node manifests', async () => {
-    const res = await framework.client.listNodes();
-    expect(res.ok).toBe(true);
-    const payload = res.payload as { data: { items: Array<{ nodeType: string }> } };
-    const types = payload.data.items.map((n) => n.nodeType);
+    const manifests = await framework.catalog.listNodes();
+    const types = manifests.map((manifest) => manifest.nodeType);
     expect(types).toContain('input');
     expect(types).toContain('text-output');
     expect(types).toContain('transform');

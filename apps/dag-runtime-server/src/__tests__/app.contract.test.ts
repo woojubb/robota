@@ -24,6 +24,7 @@ describe('dag-runtime-server contract', () => {
       framework.runDrafts,
       framework.build,
       framework.validation,
+      framework.catalog,
       undefined,
       framework.assets,
     );
@@ -36,8 +37,21 @@ describe('dag-runtime-server contract', () => {
   it('GET /v1/dag/nodes returns the node catalog over the native route', async () => {
     const res = await app.request('/v1/dag/nodes');
     expect(res.status).toBe(200);
-    const payload: unknown = await res.json();
-    expect(payload).toBeDefined();
+    const payload = (await res.json()) as {
+      ok: boolean;
+      status: number;
+      data: { items: Array<Record<string, unknown>> };
+    };
+    expect(payload.ok).toBe(true);
+    expect(payload.status).toBe(200);
+    const input = payload.data.items.find((item) => item['nodeType'] === 'input');
+    expect(input).toMatchObject({
+      nodeType: 'input',
+      category: expect.any(String),
+      inputs: expect.any(Array),
+      outputs: expect.any(Array),
+    });
+    expect(input).not.toHaveProperty('defaultInputPort');
   });
 
   it('GET /v1/dag/definitions returns a successful response', async () => {
@@ -147,6 +161,7 @@ describe('dag-runtime-server contract', () => {
       framework.runDrafts,
       framework.build,
       framework.validation,
+      framework.catalog,
     );
 
     const res = await supportedApp.request('/v1/dag/cost-meta');
@@ -171,6 +186,7 @@ describe('dag-runtime-server contract', () => {
       framework.runDrafts,
       framework.build,
       framework.validation,
+      framework.catalog,
     );
 
     const res = await failingApp.request('/v1/dag/cost-meta');
@@ -237,6 +253,7 @@ describe('dag-runtime-server contract', () => {
       drafts,
       framework.build,
       framework.validation,
+      framework.catalog,
     );
     const res = await failingApp.request('/v1/dag/run-drafts/draft-1');
     expect(res.status).toBe(500);
@@ -313,6 +330,7 @@ describe('dag-runtime-server contract', () => {
       framework.runDrafts,
       framework.build,
       framework.validation,
+      framework.catalog,
       undefined,
       referenceStore,
     );
@@ -394,6 +412,7 @@ describe('dag-runtime-server contract', () => {
       framework.runDrafts,
       framework.build,
       framework.validation,
+      framework.catalog,
     );
     const unwired = await unwiredApp.request('/v1/dag/assets/missing');
     expect(unwired.status).toBe(501);
@@ -408,6 +427,7 @@ describe('dag-runtime-server contract', () => {
       framework.runDrafts,
       framework.build,
       framework.validation,
+      framework.catalog,
       undefined,
       broken,
     );
@@ -444,6 +464,7 @@ describe('dag-runtime-server contract', () => {
       framework.runDrafts,
       framework.build,
       framework.validation,
+      framework.catalog,
       undefined,
       broken,
     );
@@ -493,6 +514,7 @@ describe('dag-runtime-server SSE progress stream', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       source,
     );
 
@@ -526,6 +548,7 @@ describe('dag-runtime-server SSE progress stream', () => {
       },
     };
     const app = createDagRuntimeServer(
+      {} as never,
       {} as never,
       {} as never,
       {} as never,

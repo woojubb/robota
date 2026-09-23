@@ -180,7 +180,6 @@ export async function createDagFramework(
     storage,
     controllers,
     execution,
-    manifests: assembly.manifests,
   });
 
   // 11. Framework instance
@@ -188,6 +187,7 @@ export async function createDagFramework(
     client,
     build: new DagFrameworkBuildOperations(assembly.manifests),
     validation: new DagFrameworkValidationOperations(assembly.manifests),
+    catalog: { listNodes: async () => structuredClone(assembly.manifests) },
     costMeta: new UnsupportedCostMetaOperations(),
     runDrafts: new DagFrameworkRunDraftOperations(runDraftStore, clock),
     assets: assetStore,

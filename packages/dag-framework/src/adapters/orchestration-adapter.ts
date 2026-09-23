@@ -1,9 +1,4 @@
-import {
-  DagDefinitionService,
-  type IDagDefinition,
-  type INodeManifest,
-  type IStoragePort,
-} from '@robota-sdk/dag-core';
+import { DagDefinitionService, type IDagDefinition, type IStoragePort } from '@robota-sdk/dag-core';
 import type { IDagControllerComposition, IProblemDetails } from '@robota-sdk/dag-api';
 import type { IDagExecutionComposition } from '../types.js';
 import type {
@@ -22,7 +17,6 @@ export interface IDagFrameworkOrchestrationAdapterDependencies {
   readonly storage: IStoragePort;
   readonly controllers: IDagControllerComposition;
   readonly execution: IDagExecutionComposition;
-  readonly manifests: readonly INodeManifest[];
 }
 
 function problemDetailsToOrchestration(p: IProblemDetails): IOrchestrationProblemDetails {
@@ -51,14 +45,12 @@ export class DagFrameworkOrchestrationAdapter implements IDagOrchestrationPort {
   private readonly storage: IStoragePort;
   private readonly controllers: IDagControllerComposition;
   private readonly execution: IDagExecutionComposition;
-  private readonly manifests: readonly INodeManifest[];
   private readonly definitionService: DagDefinitionService;
 
   public constructor(deps: IDagFrameworkOrchestrationAdapterDependencies) {
     this.storage = deps.storage;
     this.controllers = deps.controllers;
     this.execution = deps.execution;
-    this.manifests = deps.manifests;
     this.definitionService = new DagDefinitionService(deps.storage);
   }
 
@@ -121,24 +113,6 @@ export class DagFrameworkOrchestrationAdapter implements IDagOrchestrationPort {
       version: resolvedVersion,
     });
     return this.toHttpResponse(response);
-  }
-
-  public async listNodes(): Promise<IDagOrchestrationHttpResponse> {
-    const payload: IDagOrchestrationHttpPayload = {
-      ok: true,
-      status: 200,
-      data: {
-        items: this.manifests.map((m) => ({
-          nodeType: m.nodeType,
-          displayName: m.displayName,
-          category: m.category,
-          inputs: m.inputs as unknown as object[],
-          outputs: m.outputs as unknown as object[],
-          ...(m.configSchema ? { configSchema: m.configSchema as unknown as object } : {}),
-        })),
-      },
-    };
-    return { ok: true, status: 200, payload };
   }
 
   public async createRun(

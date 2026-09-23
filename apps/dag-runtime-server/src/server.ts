@@ -32,6 +32,7 @@ export async function startDagRuntimeServer(
     framework.runDrafts,
     framework.build,
     framework.validation,
+    framework.catalog,
     framework.internals.execution.runProgressEventBus,
     framework.assets,
   );

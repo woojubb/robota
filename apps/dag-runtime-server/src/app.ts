@@ -12,6 +12,7 @@ import {
   type IAssetStore,
   type IRunDraftOperationsPort,
   type IDagValidationPort,
+  type IDagNodeCatalogPort,
   type TRunProgressEvent,
 } from '@robota-sdk/dag-core';
 import type { IDagError, TResult } from '@robota-sdk/dag-core';
@@ -211,13 +212,33 @@ export function createDagRuntimeServer(
   runDrafts: IRunDraftOperationsPort,
   build: IDagBuildPort,
   validation: IDagValidationPort,
+  catalog: IDagNodeCatalogPort,
   progressSource?: IRunProgressSource,
   assets?: IAssetStore,
 ): Hono {
   const app = new Hono();
 
   // --- Node catalog ---
-  app.get('/v1/dag/nodes', async (c) => reply(c, await port.listNodes()));
+  app.get('/v1/dag/nodes', async (c) => {
+    const manifests = await catalog.listNodes();
+    return c.json(
+      {
+        ok: true,
+        status: 200,
+        data: {
+          items: manifests.map((manifest) => ({
+            nodeType: manifest.nodeType,
+            displayName: manifest.displayName,
+            category: manifest.category,
+            inputs: manifest.inputs,
+            outputs: manifest.outputs,
+            ...(manifest.configSchema ? { configSchema: manifest.configSchema } : {}),
+          })),
+        },
+      },
+      200,
+    );
+  });
 
   // --- Definitions ---
   app.get('/v1/dag/definitions', async (c) => {
