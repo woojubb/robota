@@ -5,7 +5,7 @@
  *
  *   bun scripts/build-bun.mjs            # host target
  *   bun scripts/build-bun.mjs linux-x64  # matching native full CLI target
- *   bun scripts/build-bun.mjs headless all  # headless desktop targets
+ *   bun scripts/build-bun.mjs headless    # matching native desktop target
  *
  * Prereq: run the normal build first to produce a verified generation containing dist/node/bin.js.
  * Two build-time fixes (see the DIST-001 spec): stub ink's dev-only `react-devtools-core` static import, and
@@ -64,10 +64,13 @@ async function compileTarget(entry, outputRoot, version, key, kind) {
     target: 'bun',
     compile: { target: TARGETS[key], outfile },
     define: { __ROBOTA_VERSION__: JSON.stringify(version) },
-    plugins:
-      kind === 'full'
-        ? [stubReactDevtools, createKoffiBunPlugin(`${process.platform}-${process.arch}`, new URL('../package.json', import.meta.url))]
-        : [],
+    plugins: [
+      ...(kind === 'full' ? [stubReactDevtools] : []),
+      createKoffiBunPlugin(
+        `${process.platform}-${process.arch}`,
+        new URL('../package.json', import.meta.url),
+      ),
+    ],
   });
   if (!result.success) throw new Error(`Bun compile failed: ${result.logs.map(String).join('\n')}`);
   if (result.outputs.length !== 1 || resolve(result.outputs[0].path) !== outfile) {
@@ -89,8 +92,8 @@ export async function buildBunBinaryGeneration(packageRoot, keys, kind = 'full')
   ) {
     throw new Error(`Bun target must be unique and one of: ${Object.keys(TARGETS).join(', ')}`);
   }
-  if (kind === 'full' && (keys.length !== 1 || keys[0] !== bunTargetForHost())) {
-    throw new Error(`Full CLI packaging requires the matching native host ${bunTargetForHost()}.`);
+  if (keys.length !== 1 || keys[0] !== bunTargetForHost()) {
+    throw new Error(`Bun packaging requires the matching native host ${bunTargetForHost()}.`);
   }
   const manifest = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8'));
   const outputName =

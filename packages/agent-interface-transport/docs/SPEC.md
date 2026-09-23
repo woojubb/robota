@@ -11,11 +11,10 @@ MCP, TUI, etc.) and their configurable lifecycle.
 
 - **Contains type contracts and interfaces plus a small set of pure, dependency-free derivation
   accessors over its own owned union types — no classes, no I/O, no side effects.**
-- **Dependencies: `@robota-sdk/agent-core` only (INFRA-025).** Mechanized: the `deps` scan fails any
-  `agent-interface-*` package whose internal dependencies exceed `{agent-core}`, and
-  `interface-family-owner` checks the same boundary one altitude down, at module edges.
-- **Layer 0** in [`.agents/specs/contract-family-owner-map.md`](../../../.agents/specs/contract-family-owner-map.md):
-  this package depends on no other `agent-interface-*` package, across every published surface
+- **Dependencies: `@robota-sdk/agent-core` only (INFRA-025).** The package manifest declares no
+  dependency on another `agent-interface-*` package.
+- **Layer 0**: this package depends on no other `agent-interface-*` package, across every published
+  surface
   including `./testing`. It reached layer 0 in ARCH-108 (issue #2113); before that its testing
   subpath imported a session type, which is why the row read 2 while the root barrel already looked
   clean.
@@ -27,7 +26,7 @@ MCP, TUI, etc.) and their configurable lifecycle.
 ## Architecture Overview
 
 ```
-agent-interface-transport          ← this package (contracts only, zero deps)
+agent-interface-transport          ← this package (contracts, plus agent-core types)
   ├── ITransportAdapter            ← required frozen lifecycle kind + attach / start / stop
   ├── ITransportRunnerAdapter      ← runner launch + typed terminal outcome
   ├── IConfigurableTransport       ← legacy service adapter + settings capability
@@ -83,7 +82,7 @@ Two further contract groups are declared here, each in its own file and re-expor
 Seven groups were listed here before ARCH-108 (issue #2113) — capability descriptors, command
 system, background-task, subagent-job, background job-group, execution-workspace, and peer messaging.
 Each was declared in this package because this package was the omnibus, not because transport owned
-it. They now live with their owners; the owner map is the one place that says which.
+it. They now live with their owners, whose package SPECs and exports describe the current surfaces.
 
 These contract interfaces use generic type parameters where applicable. The package imports a
 small number of foundation types from `@robota-sdk/agent-core` only (INFRA-025); all such imports
@@ -109,8 +108,7 @@ This package is inert by rule (no runtime dependency edges), and they need `node
 them here would give every consumer of these types a runtime edge on a Node builtin.
 
 `transport-admission: none — <reason>` in a transport's own SPEC.md is how a package with no remote
-peer declares it. `scan-transport-admission` requires every `packages/agent-transport-*` to do one or
-the other.
+peer declares it. Other transport packages document their admission decision in their own SPECs.
 
 ## Public API Surface
 
@@ -143,11 +141,9 @@ background-task, subagent, compaction, workspace, peer-messaging, analytics. Tha
 omnibus, written down. Waves 1–3 moved each family to the package named for it, and this leaf removed
 the table rather than maintaining a directory of other packages' exports.
 
-Where they went is recorded once, in
-[`.agents/specs/contract-family-owner-map.md`](../../../.agents/specs/contract-family-owner-map.md),
-which is also what the `interface-family-owner` guard parses. A reader who wants a contract looks it
-up in the owner map; a reader who wants a re-export list from here is asking this package to be the
-omnibus again.
+The moved families are declared and exported by `agent-interface-command`,
+`agent-interface-execution`, `agent-interface-session`, `agent-interface-session-mobility`, and
+`agent-interface-analytics`. Consult each package's SPEC and `src/index.ts` for its current surface.
 
 The one group that stayed is declared, not re-exported: payload-agnostic channels
 (`channel-contracts`, TRANS-001) — `IBinaryFrame`, `IChannelEventFrame`, `TChannelFrame`,

@@ -2,9 +2,7 @@
  * SEC-016 — the per-event enforcement posture table.
  *
  * TC-06 (exhaustiveness) and TC-12 (the table-internal invariant) live here. TC-12 exists as a unit
- * test AND as an arm of `scan-hook-enforcement-reachable.mjs` on purpose: two independent checks,
- * because whichever one is skipped would otherwise be the only thing standing between `posture` and
- * `enforcementReachable`.
+ * test so a posture/reachability contradiction cannot pass silently.
  */
 
 import { describe, it, expect } from 'vitest';

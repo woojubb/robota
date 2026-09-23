@@ -2,18 +2,11 @@
  * HARNESS-103: the session-capability host MECHANISM, moved out of the interface package's
  * contract surface.
  *
- * `.agents/project-structure.md` states that an `agent-interface-*` package "must not contain
- * classes or runtime logic", and this file is 100 lines of prototype walking, accessor caching,
- * reserved/duplicate-member rejection and freezing. It passed `scan-interface-runtime` only because
- * that scan detected `class`/`enum` declarations and bare value imports — a narrower thing than the
- * rule it enforces — so a factory function full of runtime behaviour sat outside the rule and
- * inside the green.
+ * This testing-only factory walks prototypes, caches accessors, rejects reserved or duplicate
+ * members, and freezes the resulting host. It is a test double rather than a contract declaration.
  *
- * It lives under `testing/` rather than in an implementation package because that is what the
- * repository's own placement rule prescribes for what it actually is: its only consumers are this
- * package's own unit test and the `testing` subpath's `createTestSessionCapabilityHost`. There is
- * no production consumer — verified by grepping every package and app source tree — so it is a
- * double factory, and the rule reads `doubles→owner /testing`.
+ * It lives under `testing/` because its consumers are this package's unit test and the testing
+ * subpath's `createTestSessionCapabilityHost`; it is not part of the production contract surface.
  *
  * The CONTRACTS it satisfies (`ISessionCapabilityHost`, `TSessionCapabilityHost`,
  * `TSessionCapabilityReadResult`) stayed in `session-capability-contracts.ts`, where contracts go.

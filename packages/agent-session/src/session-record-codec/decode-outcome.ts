@@ -28,7 +28,7 @@ export type TSessionRecordDecodeOutcome =
 /**
  * Re-stated for readers of this module: `ISessionRecordDecodeIssue` is declared with the record it
  * describes, in the contract package (TRANS-007). The TYPE is a contract; this module owns the
- * MECHANISM that produces it. `scan-interface-runtime` draws exactly that line.
+ * MECHANISM that produces it.
  */
 
 /**

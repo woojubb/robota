@@ -190,7 +190,7 @@ for a live host result store. The filesystem implementation and its options rema
 | `ICommandOutputStyleRegistryAdapter`                                                                                                                 | `src/command-api/host-adapters.ts`                                                                     | Host-provided list/get adapter for the resolved provider-neutral output-style catalog                                                                                                                                                                                      |
 | `ICommandOutputStyleSummary`                                                                                                                         | `src/command-api/host-adapters.ts`                                                                     | Secret-free output-style discovery projection for command listings and pickers                                                                                                                                                                                             |
 | `ICommandResult`                                                                                                                                     | `src/command-api/contracts.ts`                                                                         | Command output and typed host effects                                                                                                                                                                                                                                      |
-| `TCommandHostAction` / `TCommandUiIntent`                                                                                                            | `@robota-sdk/agent-interface-transport` (re-exported via `src/command-api/effects.ts`)                 | CMD-004 Phase 2 split contract: host-executed actions vs surface-rendered UI intents                                                                                                                                                                                       |
+| `TCommandHostAction` / `TCommandUiIntent`                                                                                                            | `@robota-sdk/agent-interface-command` (re-exported via `src/command-api/effects.ts`)                 | CMD-004 Phase 2 split contract: host-executed actions vs surface-rendered UI intents                                                                                                                                                                                       |
 | `IPresetApplicationOptions`                                                                                                                          | `src/command-api/preset/preset-application.ts`                                                         | Framework-owned resolved-preset option subset re-applied to a live session (PRESET-011~017)                                                                                                                                                                                |
 | `IPresetApplicationResult`                                                                                                                           | `src/command-api/preset/preset-application.ts`                                                         | `{ applied, skipped }` report from `applyPresetToSession`                                                                                                                                                                                                                  |
 | `IModelReapplyOptions`                                                                                                                               | `src/command-api/host-context.ts`                                                                      | Live model group (`model`/`effort`/`temperature`/`maxOutputTokens`) re-applied via `applyModelOptions`; `effort` retains `auto` selection (PRESET-013)                                                                                                                     |
@@ -619,9 +619,8 @@ The type is inert without the factory — no exported function accepts it, so no
 (it remains on `src/assembly/index.ts`): it is the return type of a factory that is no longer public,
 so it describes nothing a consumer can obtain.
 
-**The opt-out** is filed rather than fixed here for a reason worth recording: it would be a new public
-capability, and this repository's `option-reachability` scan refuses a declared option that no
-production code assigns — _"a capability nothing can turn on is not delivered"_. An option only an
+**The opt-out** remains a separate design concern for a reason worth recording: it would be a new public
+capability, and a declared option that no production code assigns would not deliver it. An option only an
 external consumer can set is, from inside this repository, unverifiable; delivering it means also
 deciding which internal surface exercises it. That is a design decision with consumer impact, not a
 correction to this change.
@@ -634,8 +633,6 @@ issue #2238, and it is what produced the original deny-all.
 **Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. A custom executor reaches THIS seam through `createSession`, which is INTERNAL — reachable from `src/assembly/index.ts` but not from the package root — so `additionalHookExecutors` has no public entry point. **Executor injection in general does still have public entry points, and this section does not enumerate them.** Four attempts to describe that surface here were each wrong in a new way: first claiming no public entry point existed, then naming a subset the next round showed was larger, then offering a re-derivation recipe that both over-filtered (dropping routes whose option interface is not itself root-exported) and under-collected (blind to an inherited declaration, missing a route through `IAgentToolDeps`). A fifth description is not what this section needs.
 
 What it asserts instead is the one property that survived all four rounds: **`buildHookTypeExecutors` has exactly one CALL SITE, in `createSession`**, so nothing else performs the seeding described above. (Every public session path still reaches that seeding through it — `InteractiveSession` constructs its session that way.) That is checkable in one command and does not decay into a list. It is deliberately NOT the claim that built-ins are absent elsewhere — `runHooks` resolves `executors ?? createDefaultExecutors()`, so a caller passing nothing still gets `command` and `http`, and `buildAgentRuntime` hands an already-seeded array to the in-process runner. The distinction is which code decides, not whether the built-ins can appear.
-
-**And the hold this section says was missing now exists.** The undocumented-runtime-export ratchet in `scripts/harness/spec-surface-baseline.json` was re-frozen from 150 to 149 when the factory was un-exported, so re-adding it to the package root fails `spec-public-surface`. That is what the 2026-07-24 premise never had: something mechanical that goes red rather than a sentence that quietly rots.
 
 Anyone needing the actual set of public injection routes should derive it against the built declaration files of every package root, not from this document and not from a grep of option declarations — the latter is what failed here. Whether that surface is itself a defect is triage for the seam's own root item, not a claim to resolve here. Both statements are about reachability, not safety; see the seeding paragraph above for why this section refuses to treat "unexported" as a boundary.
 
@@ -698,7 +695,7 @@ When `sandboxClient` is provided to `InteractiveSession`, Bash, Read, Write, and
 
 ### Interaction Channel Contract (`IInteractionChannel`)
 
-`agent-interface-transport` defines `IInteractionChannel`, and `agent-framework` consumes it only through
+`agent-interface-session` defines `IInteractionChannel`, and `agent-framework` consumes it only through
 `createInteractiveRuntime`. The port describes that in-process runtime wiring; it is not a universal
 transport abstraction. `ProgrammaticInteractionChannel` is the current production implementation. The
 session-owning TUI and headless/remote transports use the full `IInteractiveSession` event/capability
@@ -1333,7 +1330,7 @@ agent-core
 ├── src/hooks/                ← hook-runner, hook types
 └── (existing) Robota, execution, providers, plugins
 
-agent-executor (reusable runtime primitives — depends on agent-core, agent-interface-transport, agent-process)
+agent-executor (reusable runtime primitives — depends on agent-core, agent-interface-execution, agent-process)
 ├── src/background-tasks/     ← SDK-owned orchestration + type-only executor manager/runner ports
 └── src/subagents/            ← in-process runner factory + type-only executor subagent/worktree ports
 
@@ -1343,7 +1340,7 @@ agent-tools
 ├── packages/agent-tools/src/types/tool-result.ts  ← IToolInvocationResult
 └── (existing) FunctionTool, createZodFunctionTool, schema conversion
 
-agent-session (generic — depends on agent-core and agent-interface-transport)
+agent-session (generic — depends on agent-core, agent-interface-session and agent-interface-execution)
 ├── packages/agent-session/src/session.ts                ← Session: orchestrates run loop, delegates to sub-components
 ├── packages/agent-session/src/permission-enforcer.ts    ← PermissionEnforcer: tool wrapping, permission checks, hooks, truncation
 ├── packages/agent-session/src/context-window-tracker.ts ← ContextWindowTracker: token usage, auto-compact threshold
@@ -1405,7 +1402,7 @@ agent-cli (Ink TUI — CLI-specific)
 
 ### Session Management
 
-- **Package**: `agent-session` (generic, depends on agent-core and agent-interface-transport)
+- **Package**: `agent-session` (generic, depends on agent-core, agent-interface-session and agent-interface-execution)
 - **Implementation**: Session accepts pre-constructed tools, provider, and system message. Internal concerns are delegated to PermissionEnforcer, ContextWindowTracker, and CompactionOrchestrator.
 - **Assembly**: `agent-framework/assembly/` provides `createSession()` (internal — not exported) which wires tools, provider, and system prompt from explicit config/context inputs. Consumers use `InteractiveSession({ cwd, provider, projectAccess? })`; omission is Restricted.
 - **Persistence**: `agent-session` exposes an explicit `NodeSessionStore` host adapter. SDK project composition calls `createProjectSessionStore(sessions, logs)` with two same-authority named state facets; a bare `cwd` cannot create project persistence. Restricted construction uses no project store.
@@ -1479,7 +1476,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **State machine**: `transitionSelfHostingLoop()` enforces deterministic lifecycle transitions from `idle` through checkpoint/edit/verify success or failure recovery.
 - **Handoff model**: The current process remains the old runtime and keeps already-loaded modules. Verification commands run in child processes against the new on-disk tree.
 - **Boundaries**: The SDK planner does not implement file writing, checkpoint storage, CLI rendering, or provider behavior. Atomic write behavior belongs to `agent-tools`; checkpoint storage belongs to `agent-framework/checkpoints`; CLI/TUI only invokes SDK APIs and renders results.
-- **No repo-process defaults (NEUT-001)**: `baseRef` and `commandTemplates` (`ISelfHostingCommandTemplates`) are REQUIRED injected config. The library names no package manager, verification command, base ref, or CI gate; per-scope steps come from `commandTemplates.packageVerify` (`{scope}` placeholder) and the optional repo-wide gate from `commandTemplates.repoVerify` (`{baseRef}` placeholder). Robota's own templates live in the unpublished `scripts/harness/self-hosting-verification-commands.mjs`, and the in-package test `src/__tests__/repo-process-neutrality.test.ts` keeps repo-process literals out of the framework source.
+- **No repo-process defaults (NEUT-001)**: `baseRef` and `commandTemplates` (`ISelfHostingCommandTemplates`) are REQUIRED injected config. The library names no package manager, verification command, base ref, or CI gate; per-scope steps come from `commandTemplates.packageVerify` (`{scope}` placeholder) and the optional repo-wide gate from `commandTemplates.repoVerify` (`{baseRef}` placeholder). The in-package test `src/__tests__/repo-process-neutrality.test.ts` keeps repo-process literals out of the framework source.
 
 ### Web Search
 
@@ -1502,7 +1499,7 @@ agent-cli (Ink TUI — CLI-specific)
   only when the real working directory is the trusted root or one of its descendants. `createQuery()`
   applies the same initial cross-root refusal.
 
-  > **Contained — [ARCH-048](../../../.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
+  > **Contained — [ARCH-048 historical record](https://github.com/woojubb/robota/blob/harness-archive-2026-09/.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
   > This boundary check keeps the current independent `cwd` and `projectAccess` inputs fail-closed.
   > ARCH-048 owns replacing those independent root carriers with one canonical binding contract.
 
@@ -1591,9 +1588,7 @@ agent-cli (Ink TUI — CLI-specific)
 
 ### Transparent Workflow Contract (SDK-Specific)
 
-The cross-cutting contract lives in
-[../../../.agents/specs/transparent-workflow.md](../../../.agents/specs/transparent-workflow.md). The SDK
-is the designated owner for reusable transparent workflow contracts and projections:
+The SDK is the designated owner for reusable transparent workflow contracts and projections:
 
 - any new action provenance types and execution eligibility helpers;
 - mapping runtime task states into the shared user-facing state vocabulary;
@@ -1613,9 +1608,7 @@ user-selected permission policy.
 
 ### User-Local Storage Foundation (SDK-Specific)
 
-The cross-cutting storage policy lives in
-[../../../.agents/specs/user-local-storage.md](../../../.agents/specs/user-local-storage.md). The SDK
-is the designated owner for baseline workflow storage root resolution, repo-outside validation,
+The SDK is the designated owner for baseline workflow storage root resolution, repo-outside validation,
 category contracts, and item inspection/removal projections.
 
 The former public `projectPaths(cwd)` helper is removed. Project settings, session logs/records,
@@ -1629,9 +1622,7 @@ category paths themselves.
 
 ### User-Local Memory Transparency (SDK-Specific)
 
-The baseline user-local memory contract lives in
-[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). The SDK
-is the designated owner for memory item projection shapes, display/navigation disclosure rules,
+The SDK is the designated owner for memory item projection shapes, display/navigation disclosure rules,
 inspection APIs, delete/disable APIs, and disabled-item non-use.
 
 User-local memory may influence display and navigation only. It must not execute shell/process
@@ -1644,9 +1635,7 @@ storage contract instead of project memory paths.
 
 ### Transparent Process Execution (SDK-Specific)
 
-The process execution contract lives in
-[../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md). The SDK
-is the designated owner for process execution request/status projections that sit above runtime
+The SDK is the designated owner for process execution request/status projections that sit above runtime
 process tasks:
 
 - action provenance attached to user-directed process execution;
@@ -1662,9 +1651,7 @@ assemble process semantics from raw child-process state.
 
 ### Repository Situational Awareness (SDK-Specific)
 
-Passive repository context display is specified in
-[../../../.agents/specs/repository-situational-awareness.md](../../../.agents/specs/repository-situational-awareness.md).
-The SDK is the designated owner for context item projections, provenance fields, and bounded read
+For passive repository context display, the SDK is the designated owner for context item projections, provenance fields, and bounded read
 contracts for cwd, repository root, branch, dirty summary, explicit context references, and active
 background workspace context.
 
@@ -1827,8 +1814,7 @@ Resolved provider fields:
 - **Ownership**: SDK owns memory stores, memory policy primitives, and command-facing memory APIs. `@robota-sdk/agent-command` owns command behavior. CLI only composes the module and renders command results/autocomplete metadata.
 - **Prompt composition boundary**: The system prompt may include the neutral `Project Memory` startup index and the `/memory` descriptor under `Built-in Commands`; it must not include extra hardcoded memory behavior instructions outside descriptor data.
 - **User-local memory boundary**: This project memory feature is not baseline user-local memory.
-  User-local display/navigation preferences are governed by
-  [../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md) and
+  User-local display/navigation preferences belong to the SDK user-local memory surface and
   must not be stored in `.robota/memory/`.
 
 ### User-Local Storage
@@ -1958,8 +1944,7 @@ import {
 } from '@robota-sdk/agent-framework';
 
 // NEUT-001: baseRef and commandTemplates are REQUIRED injected config — the library
-// ships no repo-specific defaults. Robota's own values live in the unpublished
-// `scripts/harness/self-hosting-verification-commands.mjs`.
+// ships no repo-specific defaults. A composition root supplies its own values.
 const plan = planSelfHostingVerification({
   changedFiles: ['packages/agent-framework/src/index.ts'],
   packageScopes: ['@robota-sdk/agent-framework'],
@@ -2154,13 +2139,13 @@ Background agent watchdog configuration is provider-neutral. Agent requests may 
 
 `InteractiveSession` emits `background_job_group_event` with `TBackgroundJobGroupEvent`. When session persistence is enabled, group snapshots and group events are stored alongside background task snapshots/events so resume/debugging can reconstruct group provenance.
 
-`SubagentManager` and `WorktreeSubagentRunner` are owned by `agent-executor` and are NOT exported as values from `@robota-sdk/agent-framework`. Consumers needing these classes must import from `@robota-sdk/agent-executor`. The framework exports only the SDK-owned `createInProcessSubagentRunner` factory. ARCH-031 removed the type-only re-exports of the subagent contracts: they carried zero runtime values, so they bought none of the assembly convenience ARCH-031 then took a facade to be for, while making one field family look like it had three owners. (ARCH-037 later retired "runtime facade" as the criterion — runtime-ness never decided whether a re-export was earned; dependency reach does. The removal stands under the replacement: no permitted consumer was left unable to reach these names.) Import the SPI from `@robota-sdk/agent-executor` and the data contracts from `@robota-sdk/agent-interface-transport`.
+`SubagentManager` and `WorktreeSubagentRunner` are owned by `agent-executor` and are NOT exported as values from `@robota-sdk/agent-framework`. Consumers needing these classes must import from `@robota-sdk/agent-executor`. The framework exports only the SDK-owned `createInProcessSubagentRunner` factory. ARCH-031 removed the type-only re-exports of the subagent contracts: they carried zero runtime values, so they bought none of the assembly convenience ARCH-031 then took a facade to be for, while making one field family look like it had three owners. (ARCH-037 later retired "runtime facade" as the criterion — runtime-ness never decided whether a re-export was earned; dependency reach does. The removal stands under the replacement: no permitted consumer was left unable to reach these names.) Import the SPI from `@robota-sdk/agent-executor` and the data contracts from `@robota-sdk/agent-interface-execution`.
 
 ```typescript
 import { createInProcessSubagentRunner } from '@robota-sdk/agent-framework';
-// The SPI is agent-executor's; the data contracts are agent-interface-transport's (ARCH-031).
+// The SPI is agent-executor's; the data contracts are agent-interface-execution's (ARCH-031).
 import { SubagentManager, type ISubagentRunner } from '@robota-sdk/agent-executor';
-import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-transport';
+import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-execution';
 ```
 
 Agent subagent requests may set `isolation: 'worktree'`. The SDK treats this as a contract flag and propagates it through `agent` command arguments, `ISubagentSpawnRequest`, and background task metadata. Worktree isolation is explicit unless a host assembly provides and documents a capability-aware default policy; SDK core must not silently infer or fallback between isolated and non-isolated execution. `agent-executor` owns `WorktreeSubagentRunner`, which decorates any `ISubagentRunner` with worktree lifecycle, metadata, cleanup, and hook behavior. Runtime shells provide an `ISubagentWorktreeAdapter` implementation for concrete local Git/filesystem operations. If a preserved worktree is returned by a runner, `IBackgroundTaskResult.metadata.worktreePath`, `branchName`, `worktreeStatus`, `worktreeNextAction`, `worktreeBaseRevision`, and `parentWorktreeStatus` are projected onto matching `IBackgroundTaskState` fields.
@@ -2855,9 +2840,7 @@ may render entries, keep ephemeral selection state, and invoke explicit controls
 infer lifecycle, retention, origin, unread/attention semantics, or control availability from raw
 events when this projection is available.
 
-The cross-client background work state contract is defined in
-[../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
-The current `IExecutionWorkspaceEntry` shape covers stable ids, entry kind, origin, status, labels,
+For cross-client background work state, the current `IExecutionWorkspaceEntry` shape covers stable ids, entry kind, origin, status, labels,
 preview, current action, attention, visibility, updated time, and advisory controls. Future fields
 such as started time, elapsed time, input-needed reason, terminal result, retention state, archive,
 and clear controls must be added to the SDK projection before CLI or transport surfaces render them.
@@ -2919,7 +2902,7 @@ The product-composed `/background` command module maps to these APIs:
 `SubagentManager` is owned and exported as a value only by `agent-executor`. The framework re-exports
 NEITHER the class nor its contract types: ARCH-031 removed the subagent block from
 `src/subagents/index.ts`, and `check-sdk-public-surface.mjs` rejects re-adding it. Import the contract
-types from `@robota-sdk/agent-executor` (the SPI) and `@robota-sdk/agent-interface-transport` (the
+types from `@robota-sdk/agent-executor` (the SPI) and `@robota-sdk/agent-interface-execution` (the
 data contracts). This paragraph said "the framework's explicit runtime facade re-exports its contract
 types" until round-3 review caught it — a retired criterion applied in the present tense to a barrel
 that had already been emptied. It is the managed subagent facade. It depends
@@ -3306,7 +3289,7 @@ A user-assigned high-level objective that the agent pursues autonomously across 
 
 ### Contract types (SSOT)
 
-`IGoalState`, `IGoalEvent`, `IGoalProgressEntry`, `TGoalStatus`, and `TGoalStopReason` are defined in `@robota-sdk/agent-interface-transport` (the persistence/transport SSOT) and re-exported through the session contracts. `IGoalState` is persisted in `IInteractiveSessionRecord.goal` so an in-flight goal survives `--resume`.
+`IGoalState`, `IGoalEvent`, `IGoalProgressEntry`, `TGoalStatus`, and `TGoalStopReason` are defined in `@robota-sdk/agent-interface-session` (the session SSOT) and re-exported through the session contracts. `IGoalState` is persisted in `IInteractiveSessionRecord.goal` so an in-flight goal survives `--resume`.
 
 ### Completion signal (deterministic, not heuristic)
 
@@ -3316,7 +3299,7 @@ While a goal is active the agent reports its assessment by calling the built-in 
 
 `GoalController` (`src/goal/`) is pure decision logic (no IO), unit-tested in isolation. `onTurnComplete(result)` advances the goal and returns either `{ action: 'continue', prompt }` or `{ action: 'stop', reason }`. `InteractiveSession` drives the loop: `setGoal(objective, options)` seeds the goal and schedules the first agent-driven turn through the FLOW-002 `requestWakeup` primitive (tagged `agent-wakeup`); each completed agent-driven turn advances the controller and either schedules the next wakeup or stops. `getGoalState()` and `cancelGoal()` expose state and cancellation.
 
-`PlanController` (`src/plan/`, SELFHOST-002) mirrors this design for explicit plan-mode: pure decision logic (no IO), unit-tested in isolation. It owns the plan phase machine (`planning`→`awaiting-approval`→`executing`→`completed`) over the plan/todo artifact (`IPlanArtifact`, owned by `agent-interface-transport` beside `IGoalState`). `approve()` returns `{ action: 'approve', nextMode: 'acceptEdits' }`, `revert()`/`complete()` return `{ action: 'revert', nextMode: 'plan' }` — the controller NEVER calls `setPermissionMode` itself; `InteractiveSession` applies each `nextMode`, exactly as it applies `GoalController` decisions. The mutation block stays the existing `plan` permission mode (single enforcement point via `PermissionEnforcer`/`evaluatePermission`) — no second gate. Per `MODE_POLICY.acceptEdits`, an approved plan auto-applies `Write`/`Edit` while `Bash`/`Shell` stay per-call confirmed.
+`PlanController` (`src/plan/`, SELFHOST-002) mirrors this design for explicit plan-mode: pure decision logic (no IO), unit-tested in isolation. It owns the plan phase machine (`planning`→`awaiting-approval`→`executing`→`completed`) over the plan/todo artifact (`IPlanArtifact`, owned by `agent-interface-session` beside `IGoalState`). `approve()` returns `{ action: 'approve', nextMode: 'acceptEdits' }`, `revert()`/`complete()` return `{ action: 'revert', nextMode: 'plan' }` — the controller NEVER calls `setPermissionMode` itself; `InteractiveSession` applies each `nextMode`, exactly as it applies `GoalController` decisions. The mutation block stays the existing `plan` permission mode (single enforcement point via `PermissionEnforcer`/`evaluatePermission`) — no second gate. Per `MODE_POLICY.acceptEdits`, an approved plan auto-applies `Write`/`Edit` while `Bash`/`Shell` stay per-call confirmed.
 
 ### Stop conditions (all mandatory)
 

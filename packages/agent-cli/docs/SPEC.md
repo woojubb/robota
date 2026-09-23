@@ -184,8 +184,7 @@ and a `Read` probe print the same final text.
 
 Future AI workflow dashboards, task intake wizards, review/evidence screens, and workflow command
 menus are TUI-only surfaces. The CLI may render repository workflow state only through SDK/runtime
-or harness-owner projections defined by
-[../../../.agents/specs/ai-workflow-control-plane.md](../../../.agents/specs/ai-workflow-control-plane.md).
+or harness-owner projections. This package defines the CLI boundary for those future surfaces.
 
 The CLI must not parse workflow manifests, choose canonical harness commands, execute workflow hooks,
 write evidence artifacts, decide review gates, retain workflow runs, or infer workflow lifecycle from
@@ -204,7 +203,7 @@ rendering. React components may render this SDK state only; they must not own ta
 retention, grouping, unread semantics, or cancellation logic.
 
 The shared contract for switchable main-thread, process, agent, group, and skill-spawned work state
-is [../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
+is the SDK execution workspace surface in [agent-framework SPEC](../../agent-framework/docs/SPEC.md).
 
 The CLI owns only the Node runtime process adapters it injects into `InteractiveSession`. Subagent
 lifecycle, the `SubagentRunner` port, and the agent definition format are specified by
@@ -214,10 +213,8 @@ described in [`docs/design/subagent-wiring.md`](design/subagent-wiring.md).
 
 ## Architecture Overview
 
-For an LLM-scannable source-verified composition map, dependency graph, execution-mode diagrams,
-and layer audit findings, see [ARCHITECTURE-MAP.md](ARCHITECTURE-MAP.md). This `SPEC.md` remains
-the owner contract; the architecture map is the scan-friendly companion that must be updated when
-CLI composition changes.
+This `SPEC.md` is the package contract. [ARCHITECTURE-MAP.md](ARCHITECTURE-MAP.md) routes
+readers to the relevant source areas for CLI composition changes.
 
 The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-framework`'s `InteractiveSession`. The CLI:
 
@@ -521,7 +518,7 @@ diagnostics expose only state and canonical display path; credentials and projec
 never printed. `robota doctor` additionally reports a redacted provider-endpoint quarantine when a
 lower settings layer changes an endpoint without supplying its own credential.
 
-> **Contained — [ARCH-048](../../../.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
+> **Contained — [ARCH-048 historical record](https://github.com/woojubb/robota/blob/harness-archive-2026-09/.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
 > This boundary check keeps the current independent `cwd` and `projectAccess` inputs fail-closed.
 > ARCH-048 owns replacing those independent root carriers with one canonical binding contract.
 
@@ -949,7 +946,8 @@ Session logging is an SDK-internal concern. The CLI does not configure or manage
 | `@robota-sdk/agent-framework`           | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts                                                                                            |
 | `@robota-sdk/agent-core`                | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                                                                                                                        |
 | `@robota-sdk/agent-builtin-providers`   | `createDefaultProviderDefinitions()` — the default provider definition set composed by the Robota binary (the concrete provider packages `agent-provider-{anthropic,openai,gemini,openai-compatible}` are bundled transitively) |
-| `@robota-sdk/agent-interface-transport` | Transport/interaction contracts (`IInteractionChannel`, session/command contract types)                                                                                                                                         |
+| `@robota-sdk/agent-interface-session`   | Session, interaction, turn, driver, and event contracts                                                                                                                                                                         |
+| `@robota-sdk/agent-interface-transport` | Transport adapters, lifecycle, channels, and admission contracts                                                                                                                                                                |
 | `@robota-sdk/agent-framework`           | `TransportRegistry` (root barrel) for the TUI transport registry                                                                                                                                                                |
 | `@robota-sdk/agent-framework`           | Headless runner for print mode (`-p`) execution                                                                                                                                                                                 |
 | `@robota-sdk/agent-ui-terminal`         | `renderApp()` + `createDefaultTuiCliAdapter()` — the Ink TUI shell                                                                                                                                                              |
@@ -967,6 +965,9 @@ Session logging is an SDK-internal concern. The CLI does not configure or manage
 | `marked`, `marked-terminal`             | Markdown parsing and terminal rendering                                                                                                                                                                                         |
 | `string-width`                          | Unicode-aware string width calculation                                                                                                                                                                                          |
 | `qrcode`                                | Terminal QR rendering for remote-control pairing                                                                                                                                                                                |
+
+Command contract types belong to `@robota-sdk/agent-interface-command`; the CLI composes
+`@robota-sdk/agent-command` modules rather than importing that contract package directly.
 
 The remaining third-party entries in `package.json` `dependencies` (`openai`, `@anthropic-ai/sdk`,
 `@google/genai`, `werift`, `ws`, `zod`, `croner`, `fast-glob`, `jssha`, `open`, `p-limit`,
@@ -1446,7 +1447,7 @@ The `/provider switch <profile>` command is provided by the `@robota-sdk/agent-c
 
 From the TUI's `/provider list` menu, selecting a profile and choosing the **switch** action triggers the same hot-swap path.
 
-The `/permissions` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not inspect or mutate permission state directly; it routes `/permissions [mode]` into the generic command execution path, and the command module uses SDK permission common APIs. The default Robota CLI composes `/mode` (the `agent-command-mode` module of `@robota-sdk/agent-command`) alongside `/permissions` (CLI-079, issue #2444): `/mode` is the inline permission-mode switch and `/permissions [mode]` the fuller surface, both routed through the same generic command execution path and the same SDK permission APIs. `robota-assembly-equivalence.test.ts` pins `agent-command-mode` present in the default composition; removing it from the default set is a product decision that changes that baseline, this paragraph, and `.agents/specs/command-inventory.md` together.
+The `/permissions` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not inspect or mutate permission state directly; it routes `/permissions [mode]` into the generic command execution path, and the command module uses SDK permission common APIs. The default Robota CLI composes `/mode` (the `agent-command-mode` module of `@robota-sdk/agent-command`) alongside `/permissions` (CLI-079, issue #2444): `/mode` is the inline permission-mode switch and `/permissions [mode]` the fuller surface, both routed through the same generic command execution path and the same SDK permission APIs. `robota-assembly-equivalence.test.ts` pins `agent-command-mode` present in the default composition; removing it from the default set is a product decision that changes that baseline, this paragraph, and the command composition tests together.
 
 The `/language` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module returns the `language-change` host action; the SESSION applies settings persistence and requests the restart through `ICommandHostAdapters` (CMD-004) — the CLI only renders the result.
 
@@ -2127,31 +2128,25 @@ ESC navigates back in the stack. When the stack is empty, the TUI closes and ret
 
 ### Transparent Workflow Boundary
 
-Transparent workflow rules are defined in
-[../../../.agents/specs/transparent-workflow.md](../../../.agents/specs/transparent-workflow.md).
-The CLI may render provenance, lifecycle state, memory/preference inspection, and disclosure fields
-only from SDK/runtime projections. It may keep ephemeral terminal view state such as the selected
+For transparent workflow features, the CLI may render provenance, lifecycle state,
+memory/preference inspection, and disclosure fields only from SDK/runtime projections. It may keep ephemeral terminal view state such as the selected
 workspace entry, but it must not infer command origin, replay remembered commands, define state
 transitions, choose retention policy, or inspect/delete memory outside SDK/command APIs.
 
 ### User-Local Storage Boundary
 
-Baseline workflow storage rules are defined in
-[../../../.agents/specs/user-local-storage.md](../../../.agents/specs/user-local-storage.md). The CLI
-may render the effective storage root, category summaries, and delete/disable actions only from SDK
-or command-module projections. It must not resolve baseline storage paths, write workflow
+For baseline workflow storage, the CLI may render the effective storage root, category summaries,
+and delete/disable actions only from SDK or command-module projections. It must not resolve baseline storage paths, write workflow
 preferences into project `.robota/`, or remember commands as executable preferences.
 
-Inspectable user-local memory and preference behavior is defined in
-[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). The CLI
-may display remembered values, storage location, source, last-used time, and delete/disable actions
-only through SDK/command projections. It must not infer remembered items from repeated behavior or
+For inspectable user-local memory and preferences, the CLI may display remembered values, storage
+location, source, last-used time, and delete/disable actions only through SDK/command projections. It must not infer remembered items from repeated behavior or
 execute commands from remembered values.
 
 Existing CLI-owned operational cache such as `~/.robota/update-check.json` remains distribution UX,
 not baseline workflow state. Existing project-local sessions, logs, checkpoints, and memory are
-classified by the storage spec and must not be reused for new baseline workflow features without a
-separate migration PR.
+separate from baseline workflow storage and must not be reused for new baseline workflow features
+without a separate migration PR.
 
 The direct product command `robota user-local storage list --format json` is provider-free. The CLI
 detects the `user-local` positional command before provider setup, delegates parsing and output
@@ -2160,19 +2155,15 @@ or opening the TUI.
 
 ### Transparent Process Execution Boundary
 
-Transparent process execution rules are defined in
-[../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md). The CLI
-may provide terminal-local process runner adapters and render command rows, output panes, and
-controls from SDK/runtime projections. It must not infer canonical repo commands, score command
+For transparent process execution, the CLI may provide terminal-local process runner adapters and
+render command rows, output panes, and controls from SDK/runtime projections. It must not infer canonical repo commands, score command
 readiness, persist commands as executable preferences, interpret output as correctness evidence, or
 own process lifecycle state.
 
 ### Repository Situational Awareness Boundary
 
-Passive repository context display is defined in
-[../../../.agents/specs/repository-situational-awareness.md](../../../.agents/specs/repository-situational-awareness.md).
-The CLI may render cwd, repository root, branch, dirty summary, explicit references, and active
-background workspace context only from SDK/command projections. It must not walk the workspace,
+For passive repository context display, the CLI may render cwd, repository root, branch, dirty
+summary, explicit references, and active background workspace context only from SDK/command projections. It must not walk the workspace,
 guess package managers, infer commands, score readiness, create setup profiles, or write repository
 files for context display.
 

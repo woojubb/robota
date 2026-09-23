@@ -84,7 +84,6 @@
     "scenario:verify:mcp-background": "pnpm exec tsx --conditions=source examples/verify-mcp-background.ts",
     "scenario:verify:mcp-result-admission": "pnpm exec tsx --conditions=source examples/verify-mcp-result-admission.ts",
     "build:bun:headless": "bun scripts/build-bun.mjs headless",
-    "build:bun:headless:all": "bun scripts/build-bun.mjs headless all",
     "build:bun:headless:darwin-arm64": "bun scripts/build-bun.mjs headless darwin-arm64",
     "build:bun:headless:darwin-x64": "bun scripts/build-bun.mjs headless darwin-x64",
     "build:bun:headless:linux-x64": "bun scripts/build-bun.mjs headless linux-x64",

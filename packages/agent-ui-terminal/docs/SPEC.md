@@ -203,11 +203,8 @@ styles it, so the SGR in its output (the theme's diff pairs) is the renderer's, 
 routing it through `SafeText` would strip exactly that styling. `MessageList` uses it for the
 assistant markdown branch only; every other string still goes through `SafeText`.
 
-The load-bearing half is the required scan `tui-safe-text-boundary`
-(`scripts/harness/scan-tui-safe-text-boundary.mjs`): it refuses a `Text` import from `ink` in any
-production module — plain, aliased (`Text as T`) and namespace (`* as ink`) forms — and reports
-`::examined::`. Tests and fixtures are exempt so the boundary's own suite can render raw Ink `Text`
-to prove a leak. That suite (`src/__tests__/safe-text-boundary.test.tsx`) asserts against the bytes
+Production text uses `SafeText` except for the sanitized assistant-markdown branch. The suite
+(`src/__tests__/safe-text-boundary.test.tsx`) asserts against the bytes
 Ink writes to a stream that claims to be a tty, never against `lastFrame()`, which drops most
 markers on its own.
 

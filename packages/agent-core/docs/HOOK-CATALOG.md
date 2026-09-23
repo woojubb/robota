@@ -1,9 +1,9 @@
 # Hook Event Catalog (SSOT)
 
-This is the **single source of truth** for every named lifecycle hook event in the Robota hooks
-engine. It is mechanically kept true to the code by `scripts/harness/scan-hook-catalog.mjs`, which
-FAILs on any drift between this table, the `THookEvent` union
-(`packages/agent-core/src/hooks/types.ts`), and the resolved `runHooks` firing call-sites.
+This catalog documents the lifecycle hook events declared in `THookEvent`
+(`packages/agent-core/src/hooks/types.ts`) and their `runHooks` firing sites. The `THookEvent` union
+is the single source of truth for event names; the source call sites define where they fire. Update
+this table when either changes.
 
 Every event is a member of the `THookEvent` union and is dispatched through the **one** `runHooks`
 engine (`packages/agent-core/src/hooks/hook-runner.ts`). There is no second hook tier or parallel
@@ -55,8 +55,7 @@ tool call, with the failure `kind` and the `source` executor named in the reason
 which events enforce. Every other event is `advisory`, and each records WHY: measured across the
 tree, `PreToolUse` is the only event whose fire site awaits `runHooks` and consults `blocked`, so the
 other fifteen could not honour an enforcing posture even if one were declared. That is what each
-row's `enforcementReachable` field records, and what
-`scripts/harness/scan-hook-enforcement-reachable.mjs` refuses to let drift. A body
+row's `enforcementReachable` field records. Review the fire sites when that field changes. A body
 whose `{ ok }` verdict is undecodable but which carries an explicit block directive is a `deny`, not an
 `error` — the hook said so outright. Which directives count is scoped by event, and the decoder
 (`decodeHookVerdict`) and the runner apply the SAME scoping (issue #2196): `continue: false` on every
@@ -106,28 +105,9 @@ dispatched through a **variable**, so the name never appears as a literal first 
   `fireModelCallHook` parameter passed the string literal at each call-site
   (`agent-session/src/session-run.ts`).
 
-`scan-hook-catalog.mjs` resolves a firing event name from any of **four** rules: (a) a string
-literal passed as the second argument to `runHooks(`; (b) a `hook_event_name:` field literal;
-(c) a string literal returned from within the `getSubagentHookEvent` mapping function body, scoped
-to that function so a stray `return '<Event>'` elsewhere cannot satisfy the check; (d) a string
-literal passed as the second argument to a `fire*Hook` helper — **both** `fireWorktreeHook` and
-`fireModelCallHook`.
-
-Those four rules cover all 16 events, including the **six** dispatched through a variable rather
-than a literal: `SubagentStart`, `SubagentStop`, `WorktreeCreate`, `WorktreeRemove`, `PreModelCall`,
-`PostModelCall`.
-
-**Three** facts here were stale, all dating from before the two model-call events existed: this
-sentence said "the variable-dispatched four"; it folded `fireWorktreeHook` into rule (c) while
-omitting `fireModelCallHook` entirely; and the _heading above_ said "Four are dispatched through a
-variable" over a four-item list. The scan has enumerated four rules and six variable-dispatched
-events throughout, so the document and the scan it describes disagreed on every count.
-
-An earlier revision of this paragraph said "two facts … corrected together, because they are one
-drift" — and it was written in a change whose commit message claimed to have run that finding's axis
-over the rest of the file. It had not: the heading seventeen lines above was the third instance, and
-it survived a sweep declared clean. **Running an axis means enumerating its instances, not fixing the
-one that was reported and asserting the rest.**
+Six events are dispatched through a variable rather than a literal: `SubagentStart`,
+`SubagentStop`, `WorktreeCreate`, `WorktreeRemove`, `PreModelCall`, and `PostModelCall`. Their
+helper mappings and call sites must be checked when this catalog changes.
 
 ## Naming note
 
