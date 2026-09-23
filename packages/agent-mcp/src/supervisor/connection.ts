@@ -731,7 +731,9 @@ export class MCPConnectionSupervisor {
   private retireSelfClosedStdioSession(session: IMCPSession, error: unknown): void {
     if (
       !(error instanceof MCPStdioError) ||
-      (error.reason !== 'cancelled' && error.reason !== 'cleanup') ||
+      (error.reason !== 'cancelled' &&
+        error.reason !== 'cleanup' &&
+        error.reason !== 'early-exit') ||
       this.liveSession !== session ||
       this.state.kind === 'closed'
     )

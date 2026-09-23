@@ -304,6 +304,16 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
     closePromise ??= client.close();
     return closePromise;
   };
+  const throwIfStdioChildExited = async (): Promise<void> => {
+    if (!('closedDirectChild' in options.transport) || options.transport.closedDirectChild !== true)
+      return;
+    try {
+      await closeSession();
+    } catch {
+      throw new MCPStdioError('cleanup');
+    }
+    throw new MCPStdioError('early-exit');
+  };
 
   return {
     identity,
@@ -327,6 +337,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
             await closeSession();
             throw new MCPStdioError('cancelled');
           }
+          await throwIfStdioChildExited();
           throw new MCPStdioError('send');
         }
         throw error;
@@ -349,6 +360,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
             await closeSession();
             throw new MCPStdioError('cancelled');
           }
+          await throwIfStdioChildExited();
           throw new MCPStdioError('send');
         }
         throw error;

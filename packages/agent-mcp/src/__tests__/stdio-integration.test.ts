@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createStdioAdapter } from '../client/stdio.js';
 import { MCPStdioTransport } from '../client/stdio-transport.js';
@@ -291,4 +291,56 @@ describe('official SDK stdio lifecycle', () => {
       await rm(fixture.root, { recursive: true, force: true });
     }
   }, 12_000);
+
+  it.each(['discover', 'call'] as const)(
+    'retires a child that exits after initialization during %s',
+    async (operation) => {
+      const fixture = await setup('normal');
+      const transports = [fixture.transport];
+      let opens = 0;
+      const supervisor = new MCPConnectionSupervisor({
+        serverId: 'fixture',
+        awaitOpenCleanupOnTimeout: true,
+        openSession: (signal) => {
+          opens += 1;
+          const transport =
+            opens === 1 ? fixture.transport : fixture.adapter.construct(fixture.admitted);
+          if (transport instanceof MCPStdioTransport && transport !== fixture.transport)
+            transports.push(transport);
+          return openMcpSession({
+            serverId: 'fixture',
+            transport,
+            timeouts: { startupMs: 2_000, perCallMs: 2_000 },
+            signal,
+          });
+        },
+        timeouts: {
+          startupMs: 2_000,
+          perCallMs: 2_000,
+          globalDefaultMs: 10_000,
+          idleMs: 10_000,
+          toolCallMs: 2_000,
+        },
+        backoff: { maxAttempts: 1 },
+      });
+      try {
+        await supervisor.ensureConnected();
+        const pid = fixture.transport.pid;
+        if (pid === null) throw Error('missing fixture child');
+        process.kill(pid, 'SIGTERM');
+        await vi.waitFor(() => expect(fixture.transport.closedDirectChild).toBe(true));
+        const request = () =>
+          operation === 'discover' ? supervisor.discover() : supervisor.callTool('ping', {});
+        await expect(request()).rejects.toThrow();
+        expect(supervisor.getState().kind).toBe('idle');
+        await request();
+        expect(opens).toBe(2);
+      } finally {
+        await supervisor.shutdown();
+        for (const transport of transports) await transport.close();
+        await rm(fixture.root, { recursive: true, force: true });
+      }
+    },
+    10_000,
+  );
 });
