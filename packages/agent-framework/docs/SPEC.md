@@ -109,6 +109,8 @@ Key design rules:
   invalidates authority and facets issued under the prior generation.
   Stateless project APIs and initial session/query construction accept the trusted/restricted decision or a
   facet derived from its authority. Restricted construction instantiates no project reader/store/writer.
+  Interactive session plugin hooks read the project plugin scope only when this decision is trusted;
+  restricted sessions may still read user-installed plugins.
   Immutable propagation through later session commands is owned by ARCH-043.
 - **Node-host workspace trust (SECURITY-2465)**: `createNodeWorkspaceIdentityResolver()` resolves the
   canonical Git worktree root plus a stable filesystem identity for the repository's common Git

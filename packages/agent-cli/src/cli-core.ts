@@ -193,11 +193,10 @@ async function runCliCore(
     return;
   }
 
-  // Issue #2487: plugin reloads read the project scope too, so an `install --scope project` made in
-  // this session shows up in the same session.
+  // Plugin reloads include the project scope only after the host's trust decision admits it.
   const reloadPluginCommandSourceInCwd = (
     registry: Parameters<typeof reloadPluginCommandSource>[0],
-  ): number => reloadPluginCommandSource(registry, cwd);
+  ): number => reloadPluginCommandSource(registry, cwd, projectAccess);
   const terminal = new PrintTerminal();
 
   if (args.reset) {
@@ -281,6 +280,7 @@ async function runCliCore(
   // SCREEN-2002: one registry, reaching both `/theme` (through its port) and `renderApp`.
   const theme = presentation?.createThemeSurface({
     cwd,
+    projectAccess,
     userHome: homedir(),
     enabled: keybindingsSource !== undefined,
     settings: userSettings,

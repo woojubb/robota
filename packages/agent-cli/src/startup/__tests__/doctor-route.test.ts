@@ -173,4 +173,20 @@ describe('robota doctor route (OBSERVABILITY-1991 TC-01)', () => {
     expect(inputs.compositionFailure?.cause).toContain('WorkspaceAuthorityRequiredError');
     expect(inputs.settingsSources.length).toBe(2);
   });
+
+  it('reports only user plugin scope for a restricted workspace', () => {
+    const home = isolatedHome();
+    const project = isolatedHome();
+    const inputs = buildDoctorInputs({
+      cwd: project,
+      version: '0.0.0-test',
+      options: {},
+      projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', project),
+      providerDefinitions: definitions,
+      env: {},
+      userHome: home,
+    });
+
+    expect(inputs.pluginsDirs).toEqual([join(home, '.robota', 'plugins')]);
+  });
 });
