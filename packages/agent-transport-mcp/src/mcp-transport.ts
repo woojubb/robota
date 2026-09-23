@@ -9,7 +9,6 @@ import { createAgentMcpServer } from './mcp-server.js';
 
 import type { IMcpTransportSession } from './mcp-session.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
   ITransportAdapter,
   ITransportLifecycleError,
@@ -22,8 +21,7 @@ export interface IMcpTransportOptions {
   version: string;
 }
 
-export interface IMcpTransport extends ITransportAdapter<IInteractiveSession> {
-  attach(session: IMcpTransportSession): void;
+export interface IMcpTransport extends ITransportAdapter<IMcpTransportSession> {
   getServer(): Server;
 }
 

@@ -27,9 +27,9 @@ agent-transport-mcp
 ## Type Ownership
 
 Owns `IMcpTransportOptions`, `IAgentMcpOptions`, and `IMcpTransportSession`. MCP consumes only the
-turn-submission and runtime-tool roles. The public transport preserves its legacy
-`ITransportAdapter<IInteractiveSession>` declaration and adds a narrow
-`attach(IMcpTransportSession)` overload.
+turn-submission and runtime-tool roles. The public transport implements
+`ITransportAdapter<IMcpTransportSession>` directly; `attach` has no broader inherited signature or
+overload. A full session remains assignable structurally because it implements those roles.
 
 ## Public API Surface
 
@@ -37,7 +37,7 @@ turn-submission and runtime-tool roles. The public transport preserves its legac
 | ---------------------- | --------- | ------------------------------------------------------ |
 | `createMcpTransport`   | function  | MCP server transport adapter                           |
 | `createAgentMcpServer` | function  | Build an MCP server for an agent                       |
-| `IMcpTransport`        | interface | Legacy adapter declaration plus narrow attach overload |
+| `IMcpTransport`        | interface | Adapter bound to the exact MCP session port             |
 | `IMcpTransportSession` | interface | Exact submission + runtime-tool session roles          |
 
 ## Extension Points
