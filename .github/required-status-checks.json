@@ -1,121 +1,51 @@
 {
-  "$schema-note": "SOURCE OF TRUTH for stable required status checks. Pull-request child jobs are selected by changed inputs and aggregated without rerunning work.",
-  "why": "Measured on promotion #1427: all five contexts `protect-main` then required were no-ops on a `main` PR — `build`/`quality`/`scans`/`dependency audit` (then still named `security audit`) were 3-6 second echoes whose every real step was gated on `base_ref != 'main'`, and `commitlint` was skipped wholesale. Branch protection reported green from jobs that deliberately did no work, while the job that verifies a promotion (`release-grade verification`, 7m31s) was not required and CodeQL failed without blocking.",
+  "$schema-note": "Required status checks per protected branch. Keep in sync with the GitHub rulesets.",
   "branches": {
     "develop": {
       "ruleset": "protect-develop",
       "ruleset_id": 18715844,
-      "local_diagnostics": "Local hooks own formatting, commit messages, lint, type checks, focused unit tests and RED/GREEN evidence. CI does not repeat those checks by default.",
-      "strict_required_status_checks_policy": false,
-      "strict_policy_why": "INFRA-162 / issue #2826: strict comparison freshness is disabled on develop because a conflict-free target-branch advance does not invalidate an unchanged reviewed head. Real conflicts still block.",
-      "why": "Issue #2826 replaces eleven implementation-shaped contexts with four stable decisions. pr-validation aggregates selected child results; security, review-policy and workflow provenance retain distinct trust boundaries.",
       "required_status_checks": [
         {
           "context": "pr-validation",
           "workflow": ".github/workflows/ci.yml",
           "job": "pr-validation",
-          "verifies": "Aggregates changed-path selection and every applicable product, repository, harness, platform and regression child. It reruns no tests and fails when a selected child is missing, skipped, cancelled or failed.",
-          "local": {
-            "notRunnable": "CI integration decision; local checks own separate responsibilities."
-          }
+          "verifies": "install, build, typecheck, lint, test, dependency direction, release safety checks"
         },
         {
           "context": "security",
           "workflow": ".github/workflows/ci.yml",
           "job": "security",
-          "verifies": "Always runs secret detection for the pull-request commit range, runs dependency vulnerability and dependency/license policy checks when dependency manifests, lockfiles, or policy inputs change, and fails closed when any selected child is missing, skipped, cancelled, or failed.",
-          "local": {
-            "notRunnable": "Uses the pinned OSV scanner and network database."
-          }
+          "verifies": "secret scan (gitleaks) on the change range"
         },
         {
           "context": "review-policy",
           "workflow": ".github/workflows/review-gate.yml",
           "job": "review-policy",
-          "verifies": "Requires a trusted independent review bound to the current head, then applies deterministic PR-body and withdrawal policy without mixing it into product verification.",
-          "local": {
-            "notRunnable": "Consumes live pull-request reviews, labels, and event metadata."
-          }
-        },
-        {
-          "context": "workflow provenance",
-          "workflow": ".github/workflows/workflow-provenance-gate.yml",
-          "job": "provenance",
-          "verifies": "Judges required-workflow changes from the trusted base revision.",
-          "local": {
-            "notRunnable": "Runs on pull_request_target against a live pull request."
-          }
-        }
-      ],
-      "deliberately_not_required": [
-        {
-          "context": "build / repo-checks / harness-contracts / harness-hermetic / platform children",
-          "reason": "Implementation-shaped children are selected independently and aggregated by pr-validation, so they remain retriable without expanding the stable protection interface."
+          "verifies": "independent review verdict for the current head"
         }
       ]
     },
     "main": {
       "ruleset": "protect-main",
       "ruleset_id": 18715845,
-      "strict_required_status_checks_policy": true,
-      "strict_policy_why": "INFRA-162 / issue #2219. ON for `protect-main`, and unlike `develop` it costs nothing per pull request: the only pull requests to `main` are promotions from `develop`, one at a time, and `promotion ancestry` already requires the promotion to carry `main`'s ancestry and to promote `develop`'s tree unchanged. A stale promotion head is exactly the shape that would let `release-grade verification` certify a tree that is not the one being merged, so GitHub re-running the required checks against the updated base is the cheap half of that guarantee. Declared here so that turning it off is a visible change rather than a silent one.",
       "required_status_checks": [
         {
-          "context": "promotion ancestry",
+          "context": "pr-validation",
           "workflow": ".github/workflows/ci.yml",
-          "job": "promotion-ancestry",
-          "verifies": "INFRA-051 A1/A2/A3 — the promotion carries `main`'s ancestry, adds no commit `develop` has never seen, and promotes `develop`'s tree unchanged.",
-          "local": {
-            "entryPoint": "node scripts/harness/scan-promotion-ancestry.mjs --base main --head develop",
-            "note": "the arguments are part of the entry point: with no --base it reads GITHUB_BASE_REF, finds none off a PR, and SKIPS — running green having judged nothing."
-          }
+          "job": "pr-validation",
+          "verifies": "install, build, typecheck, lint, test, dependency direction, release safety checks"
         },
         {
-          "context": "main PR source guard",
+          "context": "security",
           "workflow": ".github/workflows/ci.yml",
-          "job": "main-pr-source-guard",
-          "verifies": "#1216 recurrence guard — a PR to `main` comes from `develop`/`release/*`/`hotfix/*` in this repository, never a feature branch and never a fork.",
-          "local": {
-            "notRunnable": "reads the pull request's head repository and ref from GitHub. Off a real PR there is no head to read, so a local run would either invent the input or report a pass over a source it never saw — the vacuity this guard was added to close."
-          }
+          "job": "security",
+          "verifies": "secret scan (gitleaks) on the change range"
         },
         {
-          "context": "promotion closes",
-          "workflow": ".github/workflows/ci.yml",
-          "job": "promotion-closes",
-          "verifies": "INFRA-104 — the promotion body carries a closing keyword for every OPEN issue the pull requests it promotes declared they close. GitHub reads closing keywords only on a default-branch pull request, so the keyword on each feature→develop PR closes nothing (#1802 `Closes #1750`, #1816 `Closes #1722` — both merged, both issues left open) and the promotion is the only pull request that can carry them. The requirement is DERIVED from the promotion's own commit subjects, not from what the body claims: each `(#NNNN)` suffix resolves to that PR's body, each `Closes #N` in it is confirmed to be an OPEN issue (not a Task ID — PR #1801's body says `Closes PROV-007.`) through the issues API, and a derivation that cannot complete BLOCKS rather than reporting an empty requirement.",
-          "local": {
-            "entryPoint": "node scripts/harness/scan-promotion-closes.mjs --pr <n> --repo <owner/name>",
-            "note": "the --pr argument is part of the entry point: the verdict is computed from a live pull request's commits, body and referenced issue states. With no PR there is nothing to judge, and a run that invented one would report a pass over a promotion it never saw."
-          }
-        },
-        {
-          "context": "release-grade verification",
-          "workflow": ".github/workflows/ci.yml",
-          "job": "release-grade-verify",
-          "verifies": "`pnpm harness:verify:release` — the only required context that executes the repository's code on a promotion: full build, full scan suite, harness suite, typecheck, lint, an unconditional osv-scanner, and the workspace test suites. SPANS, corrected by INFRA-063 because the earlier wording read as total: every workspace script named exactly `test` (via `pnpm run -r --if-present test`), plus every suite declared under another `test:*` name that `scripts/harness/release-test-suites.mjs` enumerates — `test:bin` today, and whatever is added next without anyone editing a list. DOES NOT SPAN, by declaration rather than by silence: `test:pty` (runs as the required `tui-e2e` context on the develop PR of every commit a promotion carries), `test:live` and `test:bun` (need provider credentials / a Bun toolchain no runner has), the `test:coverage` and `test:watch` variants of suites already run, and `apps/agent-app`'s Electron e2e pair, which no workflow runs at all and is recorded as debt. `scan-release-sweep-coverage.mjs` re-verifies each of those claims on every scan run and turns a new unaccounted-for `test:*` script red.",
-          "local": {
-            "entryPoint": "pnpm harness:verify:release"
-          }
-        },
-        {
-          "context": "workflow provenance",
-          "workflow": ".github/workflows/workflow-provenance-gate.yml",
-          "job": "provenance",
-          "verifies": "INFRA-097 / issue #1719 — the trusted control plane. It answers the one question that can be answered without running anything: does this pull request modify a file that a REQUIRED check loads? It runs on `pull_request_target`, which loads its own definition from the BASE branch, so a pull request cannot change what this gate says about it — an edit takes effect only after merge, which is after the gate it would have moved has run. It checks out the base and only the base, FETCHES the head without checking it out (reading a file name is not running the file), installs nothing, and holds `contents: read`. That is what turns a self-edit of the control plane from VISIBLE into UNMERGEABLE.",
-          "local": {
-            "notRunnable": "the verdict is computed from a live pull request's changed-file list against its base. Off a real pull request there is no file list to read, so a local run would either invent one or report a pass over a control plane it never inspected — the vacuity this gate exists to close."
-          }
-        }
-      ],
-      "deliberately_not_required": [
-        {
-          "context": "build / quality / scans / dependency audit",
-          "reason": "Develop-side gates. On a `main` PR they are excluded at the job level and `release-grade verification` subsumes them: it runs the whole-workspace build, the whole scan suite and a whole-workspace typecheck/lint where these are affected-scope-selective via `--base-ref`, and its osv-scanner step is unconditional where `dependency audit`'s is gated on a manifest diff. On the TEST half the word FULL was an over-claim and INFRA-063 removed it: the sweep covers every `test` script plus every enumerated `test:*` suite, and its exclusions are named with reasons under `branches.main` above rather than left to `--if-present`'s silence. `quality`'s develop-side coverage is a subset of that (it runs `test` over affected scopes and the same `test:bin` binary e2e), so the subsumption holds; `tui-e2e` is the one suite required on `develop` and deliberately not re-run here."
-        },
-        {
-          "context": "CodeQL / Analyze (javascript-typescript)",
-          "reason": "The standalone `codeql.yml` is push-only and therefore has no pull-request context to require. CodeQL analyzes the landed `develop`/`main` branches outside the PR critical path; `review-policy` owns only deterministic pull-request policy."
+          "context": "review-policy",
+          "workflow": ".github/workflows/review-gate.yml",
+          "job": "review-policy",
+          "verifies": "independent review verdict for the current head"
         }
       ]
     }

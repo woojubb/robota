@@ -3,11 +3,10 @@
 import { appendFileSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
-import { loadHarnessConfig } from './harness-config.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
 export const DUAL_LICENSE = 'AGPL-3.0-only OR LicenseRef-Commercial';
-const NPM_SCOPE_PREFIX = loadHarnessConfig().npmScopePrefix;
+const NPM_SCOPE_PREFIX = '@robota-sdk/';
 const SCOPED_PACKAGE_NAME = new RegExp(
   `^${NPM_SCOPE_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[a-z0-9]+(?:[._-][a-z0-9]+)*$`,
 );

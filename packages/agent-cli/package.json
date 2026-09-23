@@ -81,7 +81,6 @@
     "test:bun": "node scripts/e2e-bun-binary.mjs",
     "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-session-event-delivery.ts",
     "scenario:usage:verify": "pnpm exec tsx --conditions=source examples/verify-personal-usage.ts",
-    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-cli --output examples/scenarios/session-event-delivery.record.json -- pnpm scenario:verify",
     "build:bun:headless": "bun scripts/build-bun.mjs headless",
     "build:bun:headless:all": "bun scripts/build-bun.mjs headless all",
     "build:bun:headless:darwin-arm64": "bun scripts/build-bun.mjs headless darwin-arm64",
