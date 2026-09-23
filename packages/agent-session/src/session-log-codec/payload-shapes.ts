@@ -72,6 +72,7 @@ export const PAYLOADS = {
     provider: required(decodeString),
     model: required(decodeString),
     effort: optional(decodeString),
+    forcedSummary: optional(decodeBoolean),
     messages: required(messages),
     tools: optional(schemas),
   },

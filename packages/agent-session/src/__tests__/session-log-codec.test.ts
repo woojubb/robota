@@ -170,6 +170,19 @@ const malformedField = {
 } satisfies Record<keyof typeof fixtures, string>;
 
 describe('session-log codec', () => {
+  it('decodes the forced-summary provider request without discarding its marker', () => {
+    const entry = {
+      ...envelope,
+      event: 'provider_request',
+      ...fixtures.provider_request,
+      forcedSummary: true,
+    };
+    expect(decodeSessionLogEntries([entry])[0]).toMatchObject({ forcedSummary: true });
+    expect(() => decodeSessionLogEntries([{ ...entry, forcedSummary: 'true' }])).toThrow(
+      SessionLogDecodeError,
+    );
+  });
+
   it('decodes every declared event and revives nested message dates', () => {
     expect(Object.values(SESSION_LOG_EVENT).sort()).toEqual(Object.keys(fixtures).sort());
     const decoded = decodeSessionLogEntries(
