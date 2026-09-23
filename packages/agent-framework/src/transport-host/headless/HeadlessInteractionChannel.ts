@@ -12,6 +12,7 @@ import { buildRuntimeSession } from '../../runtime/runtime-host.js';
 
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../../assembly/create-session-types.js';
+import type { IProjectSettingsPath } from '../../config/settings-source.js';
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandHostAdapters } from '../../command-api/host-adapters.js';
 import type { IOrgPolicy } from '../../command-api/org-policy/org-policy-types.js';
@@ -35,6 +36,7 @@ export interface IHeadlessInteractionChannelOptions {
   /** Resolved organization policy enforced by the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
+  projectSettingsPaths?: readonly IProjectSettingsPath[];
   outputFormat: TOutputFormat;
   /**
    * CLI-076: the resolved model id (the same value the CLI header displays). Forwarded verbatim to the
@@ -60,6 +62,7 @@ export interface IHeadlessInteractionChannelOptions {
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
   disableSessionLoops?: boolean;
+  resolveDefaultLoopPrompt?: () => string;
   /** Continue/resume an existing session by id (print-mode parity with TUI). */
   resumeSessionId?: string;
   /** Fork the resumed session into a new independent session instead of appending. */
@@ -87,6 +90,8 @@ export interface IHeadlessInteractionChannelOptions {
    * `assembleProduct` merged). Forwarded to the session's `agentDefinitions` seam; absent ⇒ unchanged.
    */
   agentDefinitions?: readonly IAgentDefinition[];
+  /** Ordered host-owned relative directories for discovered agent definitions. */
+  agentDefinitionRoots?: readonly string[];
   /**
    * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
    * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
@@ -160,6 +165,9 @@ export class HeadlessInteractionChannel {
         : {}),
       ...(this.opts.orgPolicy !== undefined ? { orgPolicy: this.opts.orgPolicy } : {}),
       ...(this.opts.projectAccess !== undefined ? { projectAccess: this.opts.projectAccess } : {}),
+      ...(this.opts.projectSettingsPaths !== undefined
+        ? { projectSettingsPaths: this.opts.projectSettingsPaths }
+        : {}),
       permissionMode: this.opts.permissionMode ?? 'bypassPermissions',
       // CMD-004 / REMOTE-007 D4a: headless subscribes to none of the session's `ask_request` surface,
       // so getUserInteraction() is gated to undefined (the framework's event-emitting ask default is
@@ -185,6 +193,7 @@ export class HeadlessInteractionChannel {
         : {}),
       sessionStore: this.opts.sessionStore,
       disableSessionLoops: this.opts.disableSessionLoops,
+      resolveDefaultLoopPrompt: this.opts.resolveDefaultLoopPrompt,
       resumeSessionId: this.opts.resumeSessionId,
       forkSession: this.opts.forkSession,
       sessionName: this.opts.sessionName,
@@ -198,6 +207,9 @@ export class HeadlessInteractionChannel {
       subagentRunnerFactory: this.opts.subagentRunnerFactory,
       ...(this.opts.agentDefinitions !== undefined
         ? { agentDefinitions: this.opts.agentDefinitions }
+        : {}),
+      ...(this.opts.agentDefinitionRoots !== undefined
+        ? { agentDefinitionRoots: this.opts.agentDefinitionRoots }
         : {}),
       ...(this.opts.additionalTools !== undefined
         ? { additionalTools: this.opts.additionalTools }

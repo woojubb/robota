@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-import { resolveShellPreset, selectPresetId } from '../preset-selection.js';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import {
+  loadRobotaExternalPresets,
+  resolveShellPreset,
+  selectPresetId,
+} from '../preset-selection.js';
 
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
@@ -64,6 +72,29 @@ function makeArgs(overrides: Partial<IParsedCliArgs> = {}): IParsedCliArgs {
     ...overrides,
   };
 }
+
+const temporaryHomes: string[] = [];
+
+afterEach(() => {
+  for (const home of temporaryHomes.splice(0)) rmSync(home, { recursive: true, force: true });
+});
+
+describe('Robota external preset source', () => {
+  it('loads from the supplied home without leaking another home’s presets', () => {
+    const firstHome = mkdtempSync(join(tmpdir(), 'robota-preset-home-'));
+    const secondHome = mkdtempSync(join(tmpdir(), 'robota-preset-home-'));
+    temporaryHomes.push(firstHome, secondHome);
+    const firstPresets = join(firstHome, '.robota', 'presets');
+    mkdirSync(firstPresets, { recursive: true });
+    writeFileSync(
+      join(firstPresets, 'first.json'),
+      JSON.stringify({ id: 'first', title: 'First', description: 'First home preset' }),
+    );
+
+    expect(loadRobotaExternalPresets(firstHome).loaded).toEqual(['first']);
+    expect(loadRobotaExternalPresets(secondHome).loaded).toEqual([]);
+  });
+});
 
 describe('selectPresetId', () => {
   it('TC-03: honors settings.preset when no --preset flag is given', () => {

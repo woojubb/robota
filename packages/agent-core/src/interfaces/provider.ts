@@ -7,10 +7,11 @@ import type {
   TModelEffortOutcomeCallback,
   TModelEffortSelection,
 } from './model-effort-capability';
+import { createDefaultProviderCapabilities } from './provider-capabilities';
 import type { IProviderCapabilities, IProviderNativeWebToolRequest } from './provider-capabilities';
 import type { IProviderSpecificOptions } from './provider-specific-options';
 import type { IToolSchema } from './tool-schema';
-import type { TUniversalValue } from './types';
+import type { TUniversalValue } from './universal-value';
 
 export type {
   IProviderCapabilities,
@@ -22,7 +23,6 @@ export type {
 export {
   assertProviderNativeWebToolsAvailable,
   createDefaultProviderCapabilities,
-  getProviderCapabilities,
 } from './provider-capabilities';
 
 /**
@@ -272,6 +272,18 @@ export interface IAIProvider {
    * Close provider connections and cleanup resources
    */
   close?(): Promise<void>;
+}
+
+/**
+ * Resolve provider-neutral capability state for a provider instance.
+ *
+ * Defined here (not in `./provider-capabilities`) because it takes an `IAIProvider`, which is
+ * declared in this module; `./provider-capabilities` has no dependency back on `./provider`.
+ */
+export function getProviderCapabilities(provider: IAIProvider): IProviderCapabilities {
+  const supportsTools =
+    typeof provider.supportsTools === 'function' ? provider.supportsTools() : false;
+  return provider.getCapabilities?.() ?? createDefaultProviderCapabilities(supportsTools);
 }
 
 /**

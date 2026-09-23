@@ -29,28 +29,15 @@ import type {
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { IContextReferenceItem } from '@robota-sdk/agent-interface-session';
 
+import { formatAutoCompactLine, formatThreshold } from './auto-compact-format.js';
+
+export { formatAutoCompactLine } from './auto-compact-format.js';
+
 const PERCENT = 100;
 const USAGE = [
   'Usage: /context [list] | add <path> | remove <path> | clear | auto on | off | <percent> | reset',
   'Examples: /context list, /context add AGENTS.md, /context remove AGENTS.md, /context auto 85%',
 ].join('\n');
-
-function formatThreshold(threshold: TAutoCompactThreshold): string {
-  if (threshold === false) {
-    return 'disabled';
-  }
-  return `${Math.round(threshold * PERCENT)}%`;
-}
-
-export function formatAutoCompactLine(
-  threshold: TAutoCompactThreshold,
-  source: TAutoCompactThresholdSource,
-): string {
-  if (threshold === false) {
-    return `Auto compact: disabled (${source})`;
-  }
-  return `Auto compact: ${formatThreshold(threshold)} (${source})`;
-}
 
 function formatPersistenceSuffix(persisted: boolean): string {
   return persisted ? 'settings' : 'current session only';

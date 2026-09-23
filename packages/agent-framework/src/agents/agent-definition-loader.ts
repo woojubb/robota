@@ -8,13 +8,6 @@ import type { IAgentDefinition } from './agent-definition-types.js';
 import type { IContributionSource } from '../contributions/contribution-source.js';
 import type { IWorkspaceDirectoryEntry } from '../workspace-trust/index.js';
 
-/** Agent definition roots shared by discovery and the pre-trust path inventory. */
-export const AGENT_ROOTS: readonly string[] = [
-  join('.robota', 'agents'),
-  join('.agents', 'agents'),
-  join('.claude', 'agents'),
-];
-
 /** Scan a directory for .md files and return parsed agent definitions. */
 function scanAgentsDir(dir: string, source: IContributionSource): IAgentDefinition[] {
   if (source.inspectKind(dir, 'discover agent directory') !== 'directory') return [];
@@ -66,12 +59,8 @@ function scanAgentsDir(dir: string, source: IContributionSource): IAgentDefiniti
  * Loads agent definitions from project and user directories, merging
  * them with built-in agents.
  *
- * Scan directories (highest priority first):
- * 1. `<cwd>/.robota/agents/` — project-level Robota native
- * 2. `<cwd>/.agents/agents/` — project-level supported convention
- * 3. `<cwd>/.claude/agents/` — project-level Claude Code compatible
- * 4. `<home>/.robota/agents/` — user-level Robota native
- * 5. `<home>/.claude/agents/` — user-level Claude Code compatible
+ * The host supplies ordered relative roots; no product directory is selected here.
+ * Sources are searched in order, then roots in order, with the first definition winning.
  *
  * Custom agents override built-in agents on name collision.
  */
@@ -83,6 +72,7 @@ export class AgentDefinitionLoader {
     // NEUT-003: injectable built-in set — replaces the default three when supplied
     // (empty array = no built-ins merged).
     builtInAgents: readonly IAgentDefinition[] = BUILT_IN_AGENTS,
+    private readonly roots: readonly string[] = [],
   ) {
     this.builtInAgents = builtInAgents;
   }
@@ -90,7 +80,7 @@ export class AgentDefinitionLoader {
   /** Load all agent definitions, merged with built-in agents. Custom overrides built-in on name collision. */
   loadAll(): IAgentDefinition[] {
     const discovered = this.sources.flatMap((source) =>
-      AGENT_ROOTS.map((root) => scanAgentsDir(root, source)),
+      this.roots.map((root) => scanAgentsDir(root, source)),
     );
 
     // Deduplicate custom agents: higher-priority source wins

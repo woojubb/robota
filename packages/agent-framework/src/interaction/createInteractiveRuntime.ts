@@ -8,6 +8,7 @@ import type { ICommandModule } from '../command-api/command-module.js';
 import type { IInteractiveSession } from '../interactive/i-interactive-session.js';
 import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
 import type { IInteractiveSessionEvents } from '../interactive/types.js';
+import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
 
@@ -20,6 +21,8 @@ export interface IInteractiveRuntimeOptions {
   cwd?: string;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
+  /** Explicit user settings layers for this runtime's session. */
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   /** Session store for persistence. */
   sessionStore?: IInteractiveSessionStore;
   /** Permission mode for tool execution (parity with the TUI/headless channels). */
@@ -146,6 +149,9 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
           provider,
           cwd,
           projectAccess,
+          ...(options.userSettingsSources !== undefined
+            ? { userSettingsSources: options.userSettingsSources }
+            : {}),
           sessionStore,
           commandModules,
           permissionMode,

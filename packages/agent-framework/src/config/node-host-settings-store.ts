@@ -8,7 +8,7 @@ import { createNodeHostSettingsSource } from './settings-source.js';
 
 import type { TSettingsData } from './settings-io.js';
 import type { THostSettingsScope } from './settings-source.js';
-import type { ISettingsDocumentStore } from './settings-store.js';
+import type { ISettingsDocumentStore } from './settings-store-types.js';
 
 export function createNodeHostSettingsStore(
   scope: THostSettingsScope,

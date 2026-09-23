@@ -12,8 +12,8 @@ import type {
   ICommandHostContextReferences,
   ICommandHostContextWindow,
   ICommandHostSessionAccess,
-  TAutoCompactThresholdSource,
-} from '../host-context.js';
+} from '../host-roles.js';
+import type { TAutoCompactThresholdSource } from '../host-context-types.js';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
 // Issue #2052: owned by agent-session (`ContextWindowTracker`), not redeclared here.
 import type { TAutoCompactThreshold } from '@robota-sdk/agent-session';

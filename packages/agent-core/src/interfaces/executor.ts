@@ -1,4 +1,5 @@
-import type { IChatOptions, IToolSchema } from './index';
+import type { IChatOptions } from './provider';
+import type { IToolSchema } from './tool-schema';
 import type { TUniversalMessage, IAssistantMessage } from './messages';
 import type { IModelEffortOutcome } from './model-effort-capability';
 

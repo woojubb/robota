@@ -4,56 +4,25 @@ import { MCPStdioTransport } from './stdio-transport.js';
 import { definitionFingerprint, securityIdentity } from '../definition/identity.js';
 
 import type { IMCPTransportAdapter, TMCPTransportAdmission } from './transport.js';
-import type { IMCPServerDefinitionResolved } from '../definition/types.js';
-import type { IMCPActivationAdmission, IMCPActivationRequest } from '../mcp-activation.js';
+import type { IMCPActivationRequest } from '../mcp-activation.js';
+import type {
+  IMCPAdmittedStdioEndpoint,
+  IMCPStdioAdapterOptions,
+  IMCPStdioInput,
+  IMCPStdioSnapshot,
+} from './stdio-types.js';
 
-export interface IMCPStdioExecutable {
-  readonly command: string;
-  /** Every vector is one exact command line the host permits. */
-  readonly args: readonly (readonly string[])[];
-}
-
-export interface IMCPStdioAuthority {
-  readonly allowedRoot: string;
-  /** Changing this value invalidates every existing admitted snapshot. */
-  readonly generation: string;
-  readonly executables: readonly IMCPStdioExecutable[];
-  /** Only host-selected values are passed to the child. */
-  readonly environment?: Readonly<Record<string, string>>;
-  /** Definition env keys must be explicitly allowed and their values match host-selected values. */
-  readonly allowedEnvironmentKeys?: readonly string[];
-  readonly startupMs?: number;
-  readonly cleanupMs?: number;
-}
-
-export interface IMCPStdioInput {
-  readonly definition: IMCPServerDefinitionResolved;
-  readonly activation: IMCPActivationRequest;
-}
-
-/** An opaque capability; only the creating adapter can construct from it. */
-export interface IMCPAdmittedStdioEndpoint {
-  readonly kind: 'stdio';
-}
-
-export interface IMCPStdioAdapterOptions {
-  readonly admission: IMCPActivationAdmission;
-  readonly authority: IMCPStdioAuthority;
-}
-
-export interface IMCPStdioSnapshot {
-  readonly command: string;
-  readonly canonicalCommand: string;
-  readonly args: readonly string[];
-  readonly cwd: string;
-  readonly canonicalRoot: string;
-  readonly env: Readonly<Record<string, string>>;
-  readonly requestedEnvKeys: readonly string[];
-  readonly generation: string;
-  readonly startupMs: number;
-  readonly cleanupMs: number;
-  readonly activation: IMCPActivationRequest;
-}
+// Re-exported so every existing import of these names keeps working: the split moved where they
+// are DECLARED (`stdio-types.ts`), and moving where they are imported from would be a migration
+// this change is not.
+export type {
+  IMCPAdmittedStdioEndpoint,
+  IMCPStdioAdapterOptions,
+  IMCPStdioAuthority,
+  IMCPStdioExecutable,
+  IMCPStdioInput,
+  IMCPStdioSnapshot,
+} from './stdio-types.js';
 
 function identityMatches({ definition, activation }: IMCPStdioInput): boolean {
   const fingerprint = definitionFingerprint(definition);

@@ -41,7 +41,20 @@ React/Ink UI.
 - **No concrete settings-file I/O for hosts.** Host adapters (`NodeHost*`) exist for callers that
   deliberately own a host path, but never satisfy an authority parameter, and command modules must
   not assemble settings/project paths themselves — they go through host adapters or command-facing
-  common APIs.
+  common APIs. User persistence and trust-store adapters require explicit host paths; these
+  adapters do not select a product's user-local storage root.
+- **Project settings locations belong to the host.** The framework binds ordered host-supplied
+  relative settings paths to the current trusted project reader; absent paths read no project
+  settings, and a restricted project cannot read them even when paths are supplied. The framework
+  does not select product directory names or advertise those paths in its own pre-trust inventory.
+- **Interactive user settings are explicit.** A session reads only the host-supplied user settings
+  sources, and a provider switch reuses those same sources; an absent list never discovers an ambient
+  home-directory settings file. SDK runtime, query, and programmatic-agent creators forward the
+  same optional sources to their sessions. A runtime without host command adapters does not attach
+  an ambient settings-file reader or writer; settings actions require a host-supplied adapter.
+- **Agent definition discovery is host-directed.** The framework searches only the ordered relative
+  directories supplied by the host; absent roots mean no file discovery. Discovered definitions keep
+  precedence over injected and built-in definitions, without selecting a product's directory names.
 - **Command modules own product behavior.** SDK core ships no user-visible built-in commands; command
   packages (`agent-command-*`) contribute behavior through `ICommandModule`, consuming SDK command
   contracts and common APIs. The SDK does not know command ids in advance.
@@ -88,6 +101,17 @@ These are behaviors a caller cannot infer from a type signature alone.
   events, and any attached surface settles them through one shared registry. The first settlement
   wins and emits exactly one resolution event — there is no second settlement path. A callback that
   rejects must resolve to deny/cancel, never leave the request open.
+- **External events require separate source and sender admission.** A host must explicitly open a
+  source; merely configuring a transport does not authorize turns. A trusted adapter authenticates
+  the sender, and the session checks that sender against its source-specific allowlist before using
+  the ordinary bounded turn queue. The host assigns source/sender/conversation attribution, so one
+  conversation may coalesce only its own pending input; an untrusted public submission cannot claim
+  that reserved identity. The model receives an escaped, bounded source envelope; file-reference
+  shorthand in external text remains literal and never reads operator-selected local context.
+  Each accepted event settles from its own turn handle, and an interrupted result never becomes a
+  successful reply. External admission and `bypassPermissions` are
+  mutually exclusive throughout active and already-admitted work, not only at startup. This SDK
+  ingress is not yet an MCP adapter or a remote permission-approval channel.
 - **Hook executor registration is replace-vs-extend, and the built-ins are seeded first.** The core
   hook runner resolves `executors ?? createDefaultExecutors()` — an _undefined-only_ fallback, so
   supplying any executor array at all replaces the built-in `command`/`http` executors rather than
@@ -121,6 +145,18 @@ These are behaviors a caller cannot infer from a type signature alone.
   turn commits any partially streamed answer to history as an interrupted entry before stream state
   clears. Errors from outside the turn boundary (background tasks, catalog refresh, uncaught promises)
   surface through the same humanize path via `reportBackgroundError`, and the session stays usable.
+- **Self-paced loop intent is durable before admission.** Creation, wake claim, running entry,
+  rescheduling, and stop are strict session-record writes; a failed or uncertain write cannot
+  authorize another iteration. The scheduler's one-shot task is replaceable, while the session-owned
+  loop identity survives resume. Missed wakes do not catch up; an uncertain running iteration is
+  not replayed. Only a successfully executed, structured, provider-neutral decision can select a
+  one-minute to one-hour delay or stop; an omitted or denied decision permits one 20-minute fallback
+  and then terminates. A stop removes only
+  that loop's queued wake, and a running iteration may finish without arming a successor.
+- **Default loop prompts are live host content, not stored authority.** A loop created without an
+  explicit prompt retains that intent across resume. The host resolves the current default before
+  each admitted iteration; a missing or invalid resolver fails visibly and cannot run a stale
+  self-paced iteration. Explicit prompts never invoke this resolver.
 - **Tool composition is asymmetric on purpose: replace and append are not interchangeable.**
   `defaultTools` replaces the framework's default tool tier outright; `additionalTools` only appends
   and, on a name collision with an already-assembled tool, the earlier entry silently wins and the

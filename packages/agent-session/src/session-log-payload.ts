@@ -16,7 +16,7 @@ import type {
   IFileSessionLoggerOptions,
   TSessionLogData,
   TSessionLogValue,
-} from './session-logger.js';
+} from './session-log-reference-types.js';
 
 export function normalizeLogData(
   sessionId: string,

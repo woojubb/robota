@@ -50,6 +50,8 @@ import type {
   EditCheckpointStore,
   IOrgPolicy,
   IProviderErrorGuidance,
+  IProjectSettingsPath,
+  INodeHostSettingsSource,
   IToolCallHandoffPolicy,
 } from '@robota-sdk/agent-framework';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
@@ -64,6 +66,8 @@ export interface IRenderOptions {
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
   projectAccess?: TWorkspaceProjectAccess;
+  projectSettingsPaths?: readonly IProjectSettingsPath[];
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   /**
    * CLI-083 (issue #2287) — the org policy, forwarded to the session so `blockedCommands` is
    * enforced on the plain `robota` path as well as under `--serve`.
@@ -107,6 +111,7 @@ export interface IRenderOptions {
   version?: string;
   sessionStore?: IInteractiveSessionStore;
   disableSessionLoops?: boolean;
+  resolveDefaultLoopPrompt?: () => string;
   resumeSessionId?: string;
   showSessionPickerOnStart?: boolean;
   /** FLOW-2006: text a deep link prefilled into the composer. Never submitted on its own. */
@@ -124,6 +129,7 @@ export interface IRenderOptions {
    * `assembleProduct` merged). Forwarded to the session's `agentDefinitions` seam; absent ⇒ unchanged.
    */
   agentDefinitions?: readonly IAgentDefinition[];
+  agentDefinitionRoots?: readonly string[];
   /**
    * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
    * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
@@ -214,6 +220,12 @@ export function toChannelOptions(
       ? { providerErrorGuidance: options.providerErrorGuidance }
       : {}),
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
+    ...(options.projectSettingsPaths !== undefined
+      ? { projectSettingsPaths: options.projectSettingsPaths }
+      : {}),
+    ...(options.userSettingsSources !== undefined
+      ? { userSettingsSources: options.userSettingsSources }
+      : {}),
     ...(options.orgPolicy !== undefined ? { orgPolicy: options.orgPolicy } : {}),
     ...(options.editCheckpointStore !== undefined
       ? { editCheckpointStore: options.editCheckpointStore }
@@ -239,6 +251,7 @@ export function toChannelOptions(
     deniedTools: options.deniedTools,
     sessionStore: options.sessionStore,
     disableSessionLoops: options.disableSessionLoops,
+    resolveDefaultLoopPrompt: options.resolveDefaultLoopPrompt,
     resumeSessionId,
     forkSession: options.forkSession,
     sessionName: options.sessionName,
@@ -247,6 +260,9 @@ export function toChannelOptions(
     subagentRunnerFactory: options.subagentRunnerFactory,
     ...(options.agentDefinitions !== undefined
       ? { agentDefinitions: options.agentDefinitions }
+      : {}),
+    ...(options.agentDefinitionRoots !== undefined
+      ? { agentDefinitionRoots: options.agentDefinitionRoots }
       : {}),
     ...(options.additionalTools !== undefined ? { additionalTools: options.additionalTools } : {}),
     ...(options.defaultTools !== undefined ? { defaultTools: options.defaultTools } : {}),

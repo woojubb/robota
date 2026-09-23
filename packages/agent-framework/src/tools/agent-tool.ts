@@ -31,12 +31,10 @@ import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-
 
 import type { IAgentToolBatchJobArgs } from './agent-tool-batch.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
-import type { IInProcessSubagentRunnerDeps } from '../subagents/index.js';
 import type { IToolExecutionContext } from '@robota-sdk/agent-core';
-import type { TModelEffort } from '@robota-sdk/agent-core';
-import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type { ISubagentManager } from '@robota-sdk/agent-executor';
 import type { ISubagentSpawnRequest } from '@robota-sdk/agent-interface-execution';
+import type { IAgentToolDeps } from './agent-tool-deps-types.js';
 
 export const AGENT_TOOL_DESCRIPTION = [
   'Creates delegated subagent jobs in isolated contexts.',
@@ -135,22 +133,7 @@ type TAgentArgs = z.infer<ReturnType<typeof createAgentSchema>>;
 type TAgentJobArgs = IAgentToolBatchJobArgs;
 type TSingleAgentArgs = TAgentArgs & { prompt: string };
 
-/** Dependencies injected at creation time via createAgentTool factory */
-export interface IAgentToolDeps extends IInProcessSubagentRunnerDeps {
-  cwd?: string;
-  parentSessionId?: string;
-  subagentDepth?: number;
-  subagentManager?: ISubagentManager;
-  backgroundTaskManager?: IBackgroundTaskManager;
-  /** Optional custom agent registry for resolving non-built-in agent types. */
-  customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
-  /** Model-visible and command-visible agent definitions available to this session. */
-  agentDefinitions?: IAgentDefinition[];
-  /** The parent Session's concrete effort, if it overrides provider-default selection. */
-  getParentModelEffort?: () => TModelEffort | undefined;
-  /** PRESET-016 — runtime gate; when present and returns false, subagent dispatch is refused. */
-  isParallelSubagentsEnabled?: () => boolean;
-}
+export type { IAgentToolDeps } from './agent-tool-deps-types.js';
 
 /**
  * Per-session deps store — maps an opaque key (typically a Session instance) to

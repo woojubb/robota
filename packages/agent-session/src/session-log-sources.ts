@@ -8,16 +8,15 @@ import {
 
 import { SessionLogPayloadResolutionError } from './external-payload-resolution-contracts.js';
 
-/** Workspace-neutral byte source for relative external-payload references. */
-export interface IExternalPayloadSource {
-  readBytes(relativePath: string, maxBytes: number): Uint8Array | undefined;
-}
+import type {
+  IExternalPayloadSource,
+  ISessionLogSource,
+} from './external-payload-source-types.js';
 
-/** Workspace-neutral source for one session-log document and its optional payload source. */
-export interface ISessionLogSource {
-  readText(): string | undefined;
-  readonly externalPayloadSource?: IExternalPayloadSource;
-}
+export type {
+  IExternalPayloadSource,
+  ISessionLogSource,
+} from './external-payload-source-types.js';
 
 function payloadPathSegments(relativePath: string): readonly string[] {
   if (

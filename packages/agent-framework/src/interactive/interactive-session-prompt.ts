@@ -31,6 +31,7 @@ import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
+import type { TTurnSource } from '@robota-sdk/agent-interface-session';
 
 /**
  * The per-turn optional inputs to a prompt turn: the ephemeral recall block (SELFHOST-008 P3) and
@@ -53,6 +54,7 @@ export function promptTurnAttribution(
 
 export interface IPromptTurnContext {
   signal?: AbortSignal;
+  turnSource?: TTurnSource;
   providerErrorGuidance?: IProviderErrorGuidance;
   /**
    * SELFHOST-008 P3: an EPHEMERAL per-turn system block (rendered recalled memory) to include in THIS
@@ -91,7 +93,12 @@ export async function executePromptTurn(
   ctx: IPromptTurnContext,
 ): Promise<void> {
   const history = ctx.getHistory();
-  history.push(messageToHistoryEntry(createUserMessage(displayInput ?? input)));
+  // Keep the accepted driver's identity in the persisted display history as well as the live
+  // turn. A TUI history refresh must not relabel an external (or peer) message as the operator.
+  history.push(messageToHistoryEntry(createUserMessage(
+    displayInput ?? input,
+    ctx.driverId ? { metadata: { driverId: ctx.driverId } } : {},
+  )));
   ctx.onWorkspaceUpdated();
   const historyBefore = ctx.getSession().getHistory().length;
 
@@ -107,6 +114,7 @@ export async function executePromptTurn(
       ctx.getCwd(),
       rawInput,
       ctx.getContextReferences(),
+      ctx.turnSource !== 'external',
     );
     if (preparedPrompt.promptFileReferenceEntry) {
       history.push(preparedPrompt.promptFileReferenceEntry);

@@ -20,6 +20,7 @@ import { ProgrammaticInteractionChannel } from './ProgrammaticInteractionChannel
 import { createInteractiveRuntime } from '../../interaction/createInteractiveRuntime.js';
 
 import type { ICommandModule } from '../../command-api/command-module.js';
+import type { INodeHostSettingsSource } from '../../config/node-host-settings-source.js';
 import type { IInteractiveRuntime } from '../../interaction/InteractiveRuntime.js';
 import type { TWorkspaceProjectAccess } from '../../workspace-trust/types.js';
 import type { IAIProvider, TActionResponse, TPermissionMode } from '@robota-sdk/agent-core';
@@ -32,6 +33,8 @@ export interface ICreateProgrammaticAgentOptions {
   cwd: string;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
+  /** Explicit user settings layers for the underlying interactive session. */
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   /** Slash-command modules to register (defaults to none). */
   commandModules?: readonly ICommandModule[];
   /** Optional session store for persistence. */
@@ -52,6 +55,9 @@ export function createProgrammaticAgent(options: ICreateProgrammaticAgentOptions
     provider: options.provider,
     cwd: options.cwd,
     projectAccess: options.projectAccess,
+    ...(options.userSettingsSources !== undefined
+      ? { userSettingsSources: options.userSettingsSources }
+      : {}),
     sessionStore: options.sessionStore,
     permissionMode: options.permissionMode,
   });

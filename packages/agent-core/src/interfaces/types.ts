@@ -3,29 +3,18 @@
  * Local types for agent functionality - not forced to use base types unless needed for cross-connections
  */
 
-import type { TUniversalMessage } from './messages';
-import type { IPluginExecutionResult } from '../abstracts/abstract-plugin-types';
-
-/**
- * Primitive value types - foundation for all other types
- * Extended to include null/undefined for agent contexts
- */
-export type TPrimitiveValue = string | number | boolean | null | undefined;
-
-/**
- * Universal value type axis (recursive, JSON-like + Date).
- *
- * IMPORTANT:
- * - This axis is the single source of truth for payload/context/result values.
- * - It must support nested objects/arrays without `any`/`unknown`.
- */
-export type TUniversalValue = TPrimitiveValue | Date | TUniversalArrayValue | IUniversalObjectValue;
-
-export type TUniversalArrayValue = TUniversalValue[];
-
-export interface IUniversalObjectValue {
-  [key: string]: TUniversalValue;
-}
+export type {
+  TPrimitiveValue,
+  TUniversalValue,
+  TUniversalArrayValue,
+  IUniversalObjectValue,
+} from './universal-value';
+import type {
+  TPrimitiveValue,
+  TUniversalValue,
+  TUniversalArrayValue,
+  IUniversalObjectValue,
+} from './universal-value';
 
 /**
  * Metadata type - consistent across agent components
@@ -76,22 +65,11 @@ export type TToolParameters = Record<string, TUniversalValue>;
 // Avoid defining provider config interfaces in this value axis module.
 // Do not introduce duplicate provider config value types here.
 
-/**
- * Plugin context type - for plugin execution contexts
- */
-export interface IPluginContext {
-  input?: string;
-  response?: string;
-  messages?: TUniversalMessage[];
-  responseMessage?: TUniversalMessage;
-  metadata?: TMetadata;
-  error?: Error;
-  executionContext?: TContextData;
-  /** PLG-020 (issue #2460): the run's result, for `afterExecution` / `afterConversation` / `afterToolExecution`. */
-  executionResult?: IPluginExecutionResult;
-  /** PLG-020 (issue #2460): the message just appended to the conversation, for `onMessageAdded`. */
-  message?: TUniversalMessage;
-}
+// NOTE:
+// `IPluginContext` moved to `../abstracts/abstract-plugin-types` (PLG-020 follow-up): it depends
+// on `IPluginExecutionResult`, which lives at the abstracts layer, and living here made this leaf
+// value-types module reach upward into abstracts — a module-level import cycle. Its only consumer
+// outside this file (`services/plugin-hook-dispatcher.ts`) now imports it from there directly.
 
 /**
  * Type utility functions for safe type checking and validation

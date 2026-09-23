@@ -7,7 +7,7 @@
  * `--serve`.
  */
 
-import type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
+import type { ITuiInteractionChannelOptions } from './tui-channel-options.js';
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 
 /** Map the channel's resolved options onto the framework session-construction options. */
@@ -22,6 +22,12 @@ export function buildTuiSessionOptions(
       : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
+    ...(opts.projectSettingsPaths !== undefined
+      ? { projectSettingsPaths: opts.projectSettingsPaths }
+      : {}),
+    ...(opts.userSettingsSources !== undefined
+      ? { userSettingsSources: opts.userSettingsSources }
+      : {}),
     ...(opts.editCheckpointStore !== undefined
       ? { editCheckpointStore: opts.editCheckpointStore }
       : {}),
@@ -43,6 +49,7 @@ export function buildTuiSessionOptions(
     // `resolvePermission`/`resolveAsk`. The local Ink queues + rendering are unchanged.
     sessionStore: opts.sessionStore,
     disableSessionLoops: opts.disableSessionLoops,
+    resolveDefaultLoopPrompt: opts.resolveDefaultLoopPrompt,
     resumeSessionId: opts.resumeSessionId,
     forkSession: opts.forkSession,
     sessionName: opts.sessionName,
@@ -50,6 +57,9 @@ export function buildTuiSessionOptions(
     ...(opts.toolCallHandoff !== undefined ? { toolCallHandoff: opts.toolCallHandoff } : {}),
     subagentRunnerFactory: opts.subagentRunnerFactory,
     ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
+    ...(opts.agentDefinitionRoots !== undefined
+      ? { agentDefinitionRoots: opts.agentDefinitionRoots }
+      : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
     commandModules: opts.commandModules,

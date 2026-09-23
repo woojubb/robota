@@ -31,7 +31,6 @@ export {
   createNodeWorkspaceIdentityResolver,
   createNodeWorkspaceTrustService,
   createNodeWorkspaceTrustStore,
-  getWorkspaceTrustStorePath,
 } from './node-host-workspace-trust.js';
 
 export type {

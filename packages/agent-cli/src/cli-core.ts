@@ -6,18 +6,20 @@ import {
   resolveSessionIdByIdOrName,
   readProviderSettings,
   readMergedProviderSettings,
-  checkForCliUpdate,
-  formatCliUpdateCheckMessage,
-  resolveCliUpdateNotice,
   type IBackgroundTaskRunner,
 } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
+import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
+import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
-import { resolveShellPreset } from './startup/preset-selection.js';
+import { loadRobotaExternalPresets, resolveShellPreset } from './startup/preset-selection.js';
 import type { IShellPresetResolution } from './startup/preset-selection.js';
-import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
+import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
+import { ROBOTA_AGENT_DEFINITION_ROOTS } from './product/robota-agent-roots.js';
+import { ROBOTA_PROJECT_SETTINGS } from './product/robota-project-settings.js';
+import { createRobotaUserSettingsSources } from './product/robota-user-settings.js';
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
 import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
@@ -49,7 +51,7 @@ import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetupOrExit } from './startup/command-setup.js';
-import { areSessionLoopsDisabled } from './startup/loop-options.js';
+import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from './startup/loop-options.js';
 import {
   createInitialCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
@@ -251,7 +253,7 @@ async function runCliCore(
   // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.
   const userSettings = readUserSettingsOrExit();
   const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
-  const externalPresetLoad = loadExternalPresets();
+  const externalPresetLoad = loadRobotaExternalPresets();
   for (const { file, error } of externalPresetLoad.errors) {
     terminal.writeError(`Skipped external preset "${file}": ${error}`);
   }
@@ -453,7 +455,7 @@ async function runCliCore(
   const product = assembleProduct(
     createRobotaProfile({
       version,
-      agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
+      agentName: resolvedPreset.agentName ?? ROBOTA_DEFAULT_AGENT_NAME,
       providerDefinitions,
       providerSettings: { ...providerSettings, model: modelId },
       ...(args.sessionLog ? { provider: loadReplayProvider(args.sessionLog) } : {}),
@@ -570,6 +572,9 @@ async function runCliCore(
       },
       orgPolicy,
       providerErrorGuidance,
+      ROBOTA_AGENT_DEFINITION_ROOTS,
+      ROBOTA_PROJECT_SETTINGS,
+      createRobotaUserSettingsSources(homedir()),
     );
     try {
       await printRun;
@@ -592,6 +597,9 @@ async function runCliCore(
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
+      agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+      projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
+      userSettingsSources: createRobotaUserSettingsSources(homedir()),
       ...toolOptions,
       ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
@@ -630,6 +638,9 @@ async function runCliCore(
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
+      agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+      projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
+      userSettingsSources: createRobotaUserSettingsSources(homedir()),
       ...toolOptions,
       ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
@@ -696,6 +707,7 @@ async function runCliCore(
     version,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     disableSessionLoops: areSessionLoopsDisabled(process.env),
+    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({ projectAccess: workspaceComposition.projectAccess, userHome: homedir() }),
     resumeSessionId,
     showSessionPickerOnStart,
     forkSession: args.forkSession,
@@ -703,6 +715,9 @@ async function runCliCore(
     backgroundTaskRunners,
     subagentRunnerFactory,
     agentDefinitions,
+    agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+    projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
+    userSettingsSources: createRobotaUserSettingsSources(homedir()),
     ...toolOptions,
     commandModules,
     commandHostAdapters,

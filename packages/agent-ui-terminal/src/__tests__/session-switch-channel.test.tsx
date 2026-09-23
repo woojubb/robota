@@ -120,6 +120,7 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel & ITuiA
     handleInput: vi.fn(async () => {}),
     abort: vi.fn(),
     cancelQueue: vi.fn(),
+    stopWaitingSelfPacedLoop: vi.fn(async () => {}),
     shutdown: vi.fn(async () => {}),
     selectExecutionWorkspaceEntry: vi.fn(),
     readExecutionWorkspaceDetail: vi.fn(async (entryId: string) => ({ entryId, records: [] })),

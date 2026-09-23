@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 
-import type { THostSettingsScope } from './settings-source.js';
+import type { THostSettingsScope } from './settings-scope-types.js';
 
 export interface INodeHostSettingsSource {
   readonly kind: 'host';

@@ -4,6 +4,7 @@ import {
   createDefaultUserSettingsSources,
   createWorkspaceProjectSettingsSources,
 } from '../config/settings-source.js';
+import { TEST_PROJECT_SETTINGS_PATHS } from './project-settings-path-fixture.js';
 import { createProjectSessionStore } from '../interactive/session-persistence.js';
 import {
   WorkspaceTrustService,
@@ -84,6 +85,9 @@ export async function createTrustedSettingsSourcesFixture(
   if (access.status !== 'trusted') throw new Error('Fixture trust service did not return trusted.');
   return [
     ...createDefaultUserSettingsSources(),
-    ...createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(access.authority)),
+    ...createWorkspaceProjectSettingsSources(
+      getWorkspaceProjectReader(access.authority),
+      TEST_PROJECT_SETTINGS_PATHS,
+    ),
   ];
 }

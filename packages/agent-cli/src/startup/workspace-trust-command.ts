@@ -5,6 +5,7 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
+import { userPaths } from '../product/user-paths.js';
 
 type TWorkspaceTrustAction = 'status' | 'grant' | 'revoke';
 
@@ -34,7 +35,7 @@ function printAccess(access: TWorkspaceProjectAccess): void {
 export async function runWorkspaceTrustCommand(
   argv: readonly string[],
   cwd: string,
-  service: WorkspaceTrustService = createNodeWorkspaceTrustService(),
+  service: WorkspaceTrustService = createNodeWorkspaceTrustService(userPaths().workspaceTrust),
 ): Promise<number> {
   const action = (argv.find((argument) => !argument.startsWith('-')) ??
     (argv.includes('--yes') ? 'grant' : 'status')) as TWorkspaceTrustAction;

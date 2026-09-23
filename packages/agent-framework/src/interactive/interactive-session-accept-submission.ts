@@ -58,6 +58,9 @@ export function acceptSubmission(
         "session's message to the operator.",
     );
   }
+  if (options.turnSource === 'external' && options.driverId === undefined) {
+    throw new Error('an external turn must carry its host-assigned driver id');
+  }
   const driverId =
     options.driverId ?? (options.turnSource === 'agent-wakeup' ? AGENT_DRIVER_ID : OWNER_DRIVER_ID);
   const { turnId, completed } = execCtrl.turns.begin();

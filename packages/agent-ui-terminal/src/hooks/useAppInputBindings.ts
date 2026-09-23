@@ -23,9 +23,11 @@ interface IOptions {
   /** SCREEN-1993: the history-search overlay owns Esc and the switcher key while open. */
   readonly historySearchOpen: boolean;
   readonly selectedEntry: IExecutionWorkspaceEntry | undefined;
+  readonly backgroundListFocused: boolean;
   readonly mainThreadEntryId: string | undefined;
   readonly activeTools: readonly IToolState[];
   readonly abort: () => void;
+  readonly stopWaitingLoop: () => Promise<void>;
   readonly toggleWorkspaceSwitcher: () => void;
   readonly selectWorkspaceEntry: (entryId: string) => void;
   readonly shutdown: (reason?: TSessionEndReason) => Promise<void>;
@@ -67,6 +69,10 @@ function useEscapeBindings(options: IOptions): void {
       options.mainThreadEntryId
     ) {
       options.selectWorkspaceEntry(options.mainThreadEntryId);
+      return;
+    }
+    if (actions.includes('return-to-main') && !options.backgroundListFocused) {
+      void options.stopWaitingLoop();
     }
   });
 }

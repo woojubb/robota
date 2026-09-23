@@ -6,8 +6,8 @@
  * is inert by rule, so the error is declared as a shape and constructed in `@robota-sdk/agent-framework`.
  */
 
-import type { IPromptFileReferenceRecord } from './event-contracts.js';
-import type { IToolSummary } from './session-contracts.js';
+import type { IPromptFileReferenceRecord } from './prompt-file-reference-types.js';
+import type { IToolSummary } from './tool-summary-types.js';
 import type { IContextWindowState, IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IUsageSnapshot } from '@robota-sdk/agent-interface-analytics';
 
@@ -83,6 +83,8 @@ export function isTurnNotRunError(error: unknown): error is ITurnNotRunError {
 /** Result of a completed prompt execution. */
 export interface IExecutionResult {
   response: string;
+  /** Present only when an aborted turn resolved with a partial result; never a successful reply. */
+  interrupted?: true;
   history: IHistoryEntry[];
   toolSummaries: IToolSummary[];
   contextState: IContextWindowState;
@@ -91,8 +93,8 @@ export interface IExecutionResult {
 }
 
 /**
- * Origin of a turn — a human prompt, an agent-wakeup re-entry (FLOW-002), or another session's
- * message (PEER-002, #1809).
+ * Origin of a turn — a human prompt, an agent-wakeup re-entry (FLOW-002), another session's
+ * message (PEER-002, #1809), or a host-admitted external event (#1997).
  *
  * `'peer'` is a MEMBER rather than something a caller encodes into the prompt text, because #1809
  * requires a peer message to reach the runtime with EXPLICIT origin: an agent answering a peer must
@@ -104,4 +106,4 @@ export interface IExecutionResult {
  * size ratchet and the rule is to split rather than extend, and turn origin belongs to turn identity
  * — the same reasoning that created this file.
  */
-export type TTurnSource = 'user' | 'agent-wakeup' | 'peer';
+export type TTurnSource = 'user' | 'agent-wakeup' | 'peer' | 'external';

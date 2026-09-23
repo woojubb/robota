@@ -16,6 +16,7 @@ import type {
   ISubagentJobState,
   TBackgroundTaskIsolation,
 } from '@robota-sdk/agent-interface-execution';
+import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
 
 /** Starting, steering and ending subagent jobs. */
 export interface IAgentJobDispatch {
@@ -46,6 +47,10 @@ export interface IAgentJobGroups {
 
 /** Cron-driven wakes and their lifecycle. */
 export interface IAgentJobSchedules {
+  /** Optional for hosts without a persisted interactive session. */
+  createSelfPacedLoop?(instruction: string, options?: { useDefaultPrompt?: boolean }): Promise<ISessionLoopState>;
+  listSelfPacedLoops?(): readonly ISessionLoopState[];
+  stopSelfPacedLoop?(loopId: string, reason?: string): Promise<void>;
   /**
    * FLOW-005: schedule a recurring/one-shot agent wake. On each cron fire the agent loop
    * re-enters with `agentInstruction` (FLOW-001/002). `cronExpression` may be a standard cron
@@ -59,6 +64,8 @@ export interface IAgentJobSchedules {
     sessionLoop?: boolean;
     /** Stable loop id carried in persisted task metadata across runtime task-id remapping. */
     sessionLoopId?: string;
+    /** Re-resolve the product-owned default prompt before each fixed-loop iteration. */
+    sessionLoopDefaultPrompt?: boolean;
     /** Earliest instant at which the first scheduled loop wake may enter the session. */
     sessionLoopFirstAllowedAt?: string;
     /** Absolute expiry for a session loop; persisted with its stable identity. */

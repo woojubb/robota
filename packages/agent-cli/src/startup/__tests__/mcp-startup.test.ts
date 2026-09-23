@@ -20,6 +20,7 @@ import {
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { composeMcpClientForStartup } from '../mcp-startup.js';
+import { ROBOTA_PROJECT_SETTINGS } from '../../product/robota-project-settings.js';
 
 import type {
   IWorkspaceIdentity,
@@ -66,7 +67,10 @@ async function trustedAccessFor(root: string): Promise<TWorkspaceProjectAccess> 
 async function trustedProjectSettingsSources(root: string): Promise<readonly TSettingsSource[]> {
   const access = await trustedAccessFor(root);
   if (access.status !== 'trusted') throw new Error('Fixture trust service did not return trusted.');
-  return createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(access.authority));
+  return createWorkspaceProjectSettingsSources(
+    getWorkspaceProjectReader(access.authority),
+    ROBOTA_PROJECT_SETTINGS,
+  );
 }
 
 describe('composeMcpClientForStartup', () => {

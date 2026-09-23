@@ -29,6 +29,7 @@ import type { IMCPDiscovery, IMCPServerIdentity, TMCPCapabilityDomain } from '..
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { Implementation, ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
 import type { IUniversalObjectValue, TToolParameters } from '@robota-sdk/agent-core';
+import type { IMCPDiscoverOptions } from './session-types.js';
 
 /** Protocol versions this legacy-era client accepts. A server answering outside the set is closed, not used. */
 export const SUPPORTED_MCP_PROTOCOL_VERSIONS: ReadonlySet<string> = new Set([
@@ -74,12 +75,7 @@ export interface IMCPSession {
   close(): Promise<void>;
 }
 
-export interface IMCPDiscoverOptions {
-  /** Hard bound on list pages per domain; exceeding it is a named `page-bound-exceeded` failure. */
-  readonly maxPages: number;
-  readonly perRequestTimeoutMs: number;
-  readonly signal?: AbortSignal;
-}
+export type { IMCPDiscoverOptions } from './session-types.js';
 
 export interface IMCPOpenSessionOptions {
   readonly serverId: string;

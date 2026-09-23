@@ -25,6 +25,7 @@ import {
 
 import type { TSessionAnalysisInput } from '@robota-sdk/agent-session-analytics';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import { userPaths } from '../product/user-paths.js';
 
 interface ISessionAnalyzeArgs {
   last: number | undefined;
@@ -91,7 +92,7 @@ export async function runSessionAnalyze(
   argv: string[],
   _cwd: string = process.cwd(),
   projectSessionStore?: IInteractiveSessionStore,
-  userSessionStore: IInteractiveSessionStore = createUserSessionStore(),
+  userSessionStore: IInteractiveSessionStore = createUserSessionStore(userPaths().sessions),
 ): Promise<void> {
   const args = parseSessionAnalyzeArgs(argv);
   let records: TSessionAnalysisInput[] | undefined;

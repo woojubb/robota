@@ -1,5 +1,5 @@
-import type { ICommandPluginAdapter } from './plugin/plugin-command-api.js';
-import type { IPresetApplicationOptions } from './preset/preset-application.js';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
+import type { IPresetApplicationOptions } from './preset/preset-application-types.js';
 import type { ICommandSessionModel } from './session-roles.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IModelEffortResolution, TEffortSelection } from '../effort/effort-resolution.js';

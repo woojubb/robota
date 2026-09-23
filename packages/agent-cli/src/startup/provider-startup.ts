@@ -3,7 +3,6 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
 import {
   applyProviderConfiguration,
   applyProviderSwitch,
-  createDefaultUserSettingsSources,
   createNodeHostSettingsStore,
   getUserSettingsPath,
   readMergedProviderSettings,
@@ -23,6 +22,7 @@ import {
   type TPromptInput,
 } from '@robota-sdk/agent-command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
+import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
 
 export interface IProviderStartupSettingsAccess {
   readonly settingsSources?: readonly TSettingsSource[];
@@ -33,7 +33,7 @@ function resolveStartupSettingsAccess(
   access: IProviderStartupSettingsAccess,
 ): Required<IProviderStartupSettingsAccess> {
   return {
-    settingsSources: access.settingsSources ?? createDefaultUserSettingsSources(),
+    settingsSources: access.settingsSources ?? createRobotaUserSettingsSources(),
     settingsStores: access.settingsStores ?? [
       createNodeHostSettingsStore('user', getUserSettingsPath()),
     ],

@@ -14,6 +14,8 @@ import type {
   IOutputStylePrompt,
   IOrgPolicy,
   IProviderErrorGuidance,
+  IProjectSettingsPath,
+  INodeHostSettingsSource,
   ICommandModule,
   ICreateSessionOptions,
   EditCheckpointStore,
@@ -59,6 +61,8 @@ export interface ITuiInteractionChannelOptions {
   /** Resolved organization policy forwarded to the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
+  projectSettingsPaths?: readonly IProjectSettingsPath[];
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;
   /**
@@ -80,6 +84,7 @@ export interface ITuiInteractionChannelOptions {
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
   disableSessionLoops?: boolean;
+  resolveDefaultLoopPrompt?: () => string;
   resumeSessionId?: string;
   forkSession?: boolean;
   sessionName?: string;
@@ -90,6 +95,7 @@ export interface ITuiInteractionChannelOptions {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** ARCH-005: composition-root-contributed subagent definitions (merged capability packs). */
   agentDefinitions?: readonly IAgentDefinition[];
+  agentDefinitionRoots?: readonly string[];
   /**
    * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
    * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier

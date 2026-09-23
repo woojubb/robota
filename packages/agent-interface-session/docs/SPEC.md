@@ -55,6 +55,13 @@ unreadable" into one answer a caller could not act on differently. The store dec
 envelope and validates its shape (which is inspection), but never reads a field for its meaning —
 no branch on any field's value — so it holds no domain policy of its own.
 
+Self-paced repeats keep their stable identity and lifecycle in the session record, not in a
+disposable scheduled-task id. A waiting loop records its next allowed instant and the reason for
+that choice; a pending or running iteration records enough identity to reject stale wakes after
+resume. Stopped and expired loops remain terminal records rather than silently disappearing.
+An omitted-prompt marker survives alongside the loop so the host can re-read its default before
+future iterations, without changing loops created with explicit instructions.
+
 ### Session capability presence
 
 A session either provides a capability or does not claim it — capabilities such as initialization
@@ -65,6 +72,10 @@ legitimately returns `null`, `undefined`, or an empty result. Capability objects
 function-valued ports and are never serialized over a transport protocol.
 
 ### Turn identity
+
+Turn source distinguishes operator, autonomous wake, peer, and admitted external-event turns.
+It is attribution, not proof of admission; the owning runtime must perform source-specific
+authentication before an external turn is submitted.
 
 `submit()` returns a turn handle (an id plus a completion promise) rather than nothing, because a
 session runs one turn at a time and queues the rest — without a per-submission handle, two
@@ -78,6 +89,9 @@ named reason (coalesced / dropped / cancelled) rather than leaving the caller wa
 There is deliberately no separate "shutdown" reason — a shutdown clears the queue through the same
 path as a cancel, so it reports as cancelled; a reason no code path can produce is a reason a
 consumer would write a dead branch for.
+
+An aborted turn may resolve with a partial result marked interrupted. That partial response is
+for local history, not a completed answer to an external sender.
 
 A consumer narrows a rejection with the exported predicate rather than `instanceof`, because the
 error is declared here as a shape but constructed in a package this one does not depend on. The

@@ -2,7 +2,7 @@ import {
   createProviderFromSettings,
   readProviderSettings,
 } from '../command-api/provider/provider-factory.js';
-import { createDefaultUserSettingsSources } from '../config/settings-source.js';
+import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
@@ -10,11 +10,11 @@ import type { IProviderDefinition } from '@robota-sdk/agent-core';
 export function resolveUserSettingsProviderSwitch(
   profileName: string,
   providerDefinitions: readonly IProviderDefinition[],
+  sources: readonly INodeHostSettingsSource[],
 ): {
   settings: ReturnType<typeof readProviderSettings>;
   provider: ReturnType<typeof createProviderFromSettings>;
 } {
-  const sources = createDefaultUserSettingsSources();
   const options = { providerOverride: profileName, providerDefinitions };
   return {
     settings: readProviderSettings(sources, options),

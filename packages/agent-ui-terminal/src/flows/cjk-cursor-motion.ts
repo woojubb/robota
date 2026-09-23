@@ -10,7 +10,7 @@
 
 import stringWidth from 'string-width';
 
-import type { ICjkTextInputFlowState, TCjkTextInputEffect } from './cjk-text-input-flow.js';
+import type { ICjkTextInputFlowState, TCjkTextInputEffect } from './cjk-text-input-types.js';
 
 interface ICjkMotionResult {
   state: ICjkTextInputFlowState;

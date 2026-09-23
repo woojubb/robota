@@ -10,7 +10,6 @@ import { join } from 'node:path';
 import { pluginScopeDirs } from '../plugins/default-plugin-command-source-loader.js';
 import {
   createContributionSourcesForProjectAccess,
-  createDefaultUserSettingsSources,
   createRestrictedWorkspaceProjectAccess,
   getWorkspaceProjectIdentity,
 } from '@robota-sdk/agent-framework';
@@ -19,8 +18,9 @@ import {
   createCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
+import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
 
-import type { IStartCliOptions } from './command-setup.js';
+import type { IStartCliOptions } from './cli-options-types.js';
 import type { IDoctorCheck, IDoctorInputs } from '@robota-sdk/agent-command';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
@@ -112,7 +112,7 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
   const userHome = opts.userHome ?? homedir();
   const projectAccess = opts.projectAccess;
   let failure: IDoctorCheck | undefined = opts.accessFailure;
-  let settingsSources: readonly TSettingsSource[] = createDefaultUserSettingsSources(userHome);
+  let settingsSources: readonly TSettingsSource[] = createRobotaUserSettingsSources(userHome);
   let contributionSources: readonly IContributionSource[] =
     createContributionSourcesForProjectAccess(projectAccess, userHome);
   if (failure === undefined) {

@@ -5,29 +5,14 @@
  * for secure server-side execution without exposing actual API keys.
  */
 
-import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { IPlaygroundConfig } from './config-validation';
 import { addPlaygroundSetup } from './remote-injection-setup';
 
 // Re-export sandbox for external consumers
 export { createPlaygroundSandbox } from './remote-injection-sandbox';
 
-export interface IRemoteExecutor {
-  readonly name: string;
-  readonly version: string;
-  executeChat(request: Record<string, TUniversalValue>): Promise<TUniversalValue>;
-  executeChatStream?(request: Record<string, TUniversalValue>): AsyncIterable<TUniversalValue>;
-  supportsTools(): boolean;
-  validateConfig(): boolean;
-  dispose?(): Promise<void>;
-}
-
-declare global {
-  interface Window {
-    __ROBOTA_PLAYGROUND_EXECUTOR__?: IRemoteExecutor;
-    __ROBOTA_PLAYGROUND_CONFIG__?: IPlaygroundConfig;
-  }
-}
+export type { IRemoteExecutor } from './remote-executor-types';
+import './remote-executor-types';
 
 /**
  * Transform user code to inject RemoteExecutor into all AI providers

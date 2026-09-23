@@ -4,7 +4,7 @@
 
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { IPlaygroundConfig } from './config-validation';
-import type { IRemoteExecutor } from './remote-injection';
+import type { IRemoteExecutor } from './remote-executor-types';
 
 type TSandboxLogArg = TUniversalValue | Error;
 

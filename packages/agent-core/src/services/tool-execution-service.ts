@@ -15,31 +15,15 @@ import type {
 } from '../interfaces/tool';
 import type { IDeferredToolCatalog } from '../interfaces/tool-search';
 
-/**
- * ToolExecutionService owned events
- * Local event names only (no dots). Full names are composed at emit time.
- */
-export const TOOL_EVENTS = {
-  CALL_START: 'call_start',
-  CALL_COMPLETE: 'call_complete',
-  CALL_ERROR: 'call_error',
-  CALL_RESPONSE_READY: 'call_response_ready',
-} as const;
+export type { IToolExecutionBatchContext } from './tool-execution-batch-types';
+import type { IToolExecutionBatchContext } from './tool-execution-batch-types';
 
-export const TOOL_EVENT_PREFIX = 'tool' as const;
-
-export const UNKNOWN_TOOL_ERROR_CODE = 'unknown_tool' as const;
-
-export interface IToolExecutionBatchContext {
-  requests: IToolExecutionRequest[];
-  mode: 'parallel' | 'sequential';
-  timeout?: number;
-  continueOnError?: boolean;
-  maxConcurrency?: number;
-  parentContext?: IToolExecutionContext;
-  /** AbortSignal — queued tools are skipped when aborted */
-  signal?: AbortSignal;
-}
+export {
+  TOOL_EVENTS,
+  TOOL_EVENT_PREFIX,
+  UNKNOWN_TOOL_ERROR_CODE,
+} from './tool-execution-constants';
+import { TOOL_EVENTS, UNKNOWN_TOOL_ERROR_CODE } from './tool-execution-constants';
 
 /**
  * Simplified ToolExecutionService

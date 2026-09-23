@@ -9,7 +9,7 @@ import { ModuleCategory, ModuleLayer } from '../abstracts/abstract-module';
 import type {
   IModuleDescriptorValidationResult,
   IModuleDependencyResolution,
-} from './module-type-registry';
+} from './module-type-registry-types';
 import type { IModuleDescriptor } from '../abstracts/abstract-module';
 
 /** @internal */

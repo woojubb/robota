@@ -24,6 +24,8 @@ import type {
 } from '../commands/index.js';
 import type { IHookDefinitionSource } from '../config/config-merge.js';
 import type { IResolvedConfig } from '../config/config-types.js';
+import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import type { IProjectSettingsPath } from '../config/settings-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IMemoryStore } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
@@ -51,6 +53,8 @@ export interface IInitOptions {
   cwd: string;
   provider: IAIProvider;
   projectAccess?: TWorkspaceProjectAccess;
+  projectSettingsPaths?: readonly IProjectSettingsPath[];
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   permissionMode?: ICreateSessionOptions['permissionMode'];
   /** CMD-005: unified ask renderer, forwarded into the session as the model-question tool seam. */
   askHandler?: IUserInteraction['ask'];
@@ -110,6 +114,7 @@ export interface IInitOptions {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** ARCH-005: composition-root-contributed subagent definitions (see the standard options). */
   agentDefinitions?: readonly IAgentDefinition[];
+  agentDefinitionRoots?: readonly string[];
   /** Optional command modules composed into this session. */
   commandModules?: readonly ICommandModule[];
   /** Model-visible command descriptors derived from the composed command executor. */

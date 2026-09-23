@@ -74,6 +74,7 @@ export interface ITuiAppChannelPort {
   handleInput(input: string): Promise<void>;
   abort(): void;
   cancelQueue(): void;
+  stopWaitingSelfPacedLoop(): Promise<void>;
   shutdown(options?: { reason?: TSessionEndReason; timeoutMs?: number }): Promise<void>;
   selectExecutionWorkspaceEntry(entryId: string): void;
   readExecutionWorkspaceDetail(entryId: string): Promise<IExecutionDetailPage>;

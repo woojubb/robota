@@ -3,7 +3,7 @@
  *
  * Extracted from abstract-plugin.ts to keep each file under 300 lines.
  */
-import type { IRunOptions } from '../interfaces/agent';
+import type { IRunOptions } from '../interfaces/run-options';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { ITokenUsage } from '../interfaces/provider';
 import type {
@@ -11,6 +11,7 @@ import type {
   IToolExecutionResult,
   IToolExecutionContext,
 } from '../interfaces/tool';
+import type { TContextData, TMetadata } from '../interfaces/types';
 import type {
   IEventEmitterEventData,
   IEventEmitterPlugin,
@@ -91,6 +92,26 @@ export interface IPluginExecutionResult {
   }>;
   error?: Error;
   metadata?: Record<string, string | number | boolean | Date>;
+}
+
+/**
+ * Plugin context type - for plugin execution contexts
+ *
+ * Moved from `interfaces/types.ts` (PLG-020 follow-up): it depends on `IPluginExecutionResult`
+ * above, which lives at this abstracts layer.
+ */
+export interface IPluginContext {
+  input?: string;
+  response?: string;
+  messages?: TUniversalMessage[];
+  responseMessage?: TUniversalMessage;
+  metadata?: TMetadata;
+  error?: Error;
+  executionContext?: TContextData;
+  /** PLG-020 (issue #2460): the run's result, for `afterExecution` / `afterConversation` / `afterToolExecution`. */
+  executionResult?: IPluginExecutionResult;
+  /** PLG-020 (issue #2460): the message just appended to the conversation, for `onMessageAdded`. */
+  message?: TUniversalMessage;
 }
 
 /** Error context for plugin error handling */

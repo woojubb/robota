@@ -25,6 +25,7 @@ import type {
   IGoalState,
   IPlanArtifact,
   IActiveBranchPointer,
+  ISessionLoopState,
 } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 
@@ -59,6 +60,7 @@ export function loadSessionRecord(
   backgroundTaskEvents: TBackgroundTaskEvent[];
   backgroundJobGroups: IBackgroundJobGroupState[];
   backgroundJobGroupEvents: TBackgroundJobGroupEvent[];
+  sessionLoops: ISessionLoopState[];
   skillActivationEvents: ISkillActivationEvent[];
   memoryEvents: IMemoryEvent[];
   usedMemoryReferences: IMemoryReference[];
@@ -86,6 +88,7 @@ export function loadSessionRecord(
       backgroundTaskEvents: [],
       backgroundJobGroups: [],
       backgroundJobGroupEvents: [],
+      sessionLoops: [],
       skillActivationEvents: [],
       memoryEvents: [],
       usedMemoryReferences: [],
@@ -104,6 +107,7 @@ export function loadSessionRecord(
   const restoredBackgroundTaskEvents = record.backgroundTaskEvents ?? [];
   const backgroundJobGroups = record.backgroundJobGroups ?? [];
   const backgroundJobGroupEvents = record.backgroundJobGroupEvents ?? [];
+  const sessionLoops = record.sessionLoops ?? [];
   const skillActivationEvents = record.skillActivationEvents ?? [];
   const memoryEvents = record.memoryEvents ?? [];
   const usedMemoryReferences = record.usedMemoryReferences ?? [];
@@ -137,6 +141,7 @@ export function loadSessionRecord(
     backgroundTaskEvents,
     backgroundJobGroups,
     backgroundJobGroupEvents,
+    sessionLoops,
     skillActivationEvents,
     memoryEvents,
     usedMemoryReferences,

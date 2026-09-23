@@ -2,7 +2,7 @@
  * Built-in templates for ProjectManager
  */
 
-import type { IPlaygroundProject } from './project-manager';
+import type { IPlaygroundProject } from './project-manager/types';
 
 const CURRENT_VERSION = '1.0.0';
 

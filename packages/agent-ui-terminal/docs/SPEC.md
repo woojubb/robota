@@ -39,6 +39,12 @@ terminal never decides on its own whether a persisted loop may re-arm, whether p
 is enabled from a bare `cwd`, or which commands an org policy blocks. Session-capability
 projections declare every field's forwarding, rename, or presentation-only disposition explicitly;
 a missing mapping is rejected rather than silently dropped.
+Host-selected user settings sources pass through the same render-to-channel-to-session projection;
+the terminal does not choose a settings file for session startup or provider switching.
+
+When a self-paced loop is waiting, Esc stops that loop through the session's durable stop path.
+If several are waiting, Esc names the explicit stop command instead of choosing one silently.
+Esc retains its existing overlay and active-turn behavior.
 
 ### Channel lifecycle and teardown
 

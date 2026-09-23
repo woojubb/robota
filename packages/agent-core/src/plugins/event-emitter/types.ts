@@ -1,6 +1,6 @@
 import { AGENT_EVENTS, AGENT_EVENT_PREFIX } from '../../agents/constants';
-import { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from '../../services/execution-service';
-import { TOOL_EVENTS, TOOL_EVENT_PREFIX } from '../../services/tool-execution-service';
+import { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from '../../services/execution-constants';
+import { TOOL_EVENTS, TOOL_EVENT_PREFIX } from '../../services/tool-execution-constants';
 
 const buildEventName = <TPrefix extends string, TLocal extends string>(
   prefix: TPrefix,

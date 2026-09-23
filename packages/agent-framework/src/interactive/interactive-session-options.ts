@@ -21,6 +21,8 @@ import type {
   IRemoteCommandPolicy,
 } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
+import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import type { IProjectSettingsPath } from '../config/settings-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
@@ -52,11 +54,17 @@ export interface IInteractiveSessionStandardOptions {
   providerErrorGuidance?: IProviderErrorGuidance;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
+  /** Host-selected project settings layers, admitted only through the current project authority. */
+  projectSettingsPaths?: readonly IProjectSettingsPath[];
+  /** Explicit user settings layers; absent means no ambient user file is read. */
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
   /** Host kill switch: existing loops remain stored but cannot create, re-arm, or fire. */
   disableSessionLoops?: boolean;
+  /** Host-owned live resolver for omitted `/loop` prompts; never needed for explicit prompts. */
+  resolveDefaultLoopPrompt?: () => string;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
   /** Trusted host-only path projection for hook compatibility. */
@@ -105,6 +113,8 @@ export interface IInteractiveSessionStandardOptions {
    * discovered project/user definitions > these > `BUILT_IN_AGENTS`. Absent ⇒ unchanged behavior.
    */
   agentDefinitions?: readonly IAgentDefinition[];
+  /** Ordered host-owned relative directories for discovered agent definitions. */
+  agentDefinitionRoots?: readonly string[];
   /** Optional command modules composed into this session. */
   commandModules?: readonly ICommandModule[];
   /** Host adapters available to composed command modules. */
@@ -202,11 +212,13 @@ export interface IInteractiveSessionInjectedOptions {
   provider?: IAIProvider;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
   /** Host kill switch: existing loops remain stored but cannot create, re-arm, or fire. */
   disableSessionLoops?: boolean;
+  resolveDefaultLoopPrompt?: () => string;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
   /** Trusted host-only path projection for hook compatibility. */

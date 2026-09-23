@@ -1,11 +1,10 @@
 import { realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { isAbsolute, join, relative, sep } from 'node:path';
+import { isAbsolute, relative, sep } from 'node:path';
 
 import {
   WorkspaceAuthorityRequiredError,
   createContributionSourcesForProjectAccess,
-  createDefaultUserSettingsSources,
   createNodeHostSettingsStore,
   createNodeWorkspaceTrustService,
   createProjectSessionStore,
@@ -29,6 +28,9 @@ import type {
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import { userPaths } from '../product/user-paths.js';
+import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
+import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
 
 export interface ICreateCliWorkspaceCompositionOptions {
   readonly cwd: string;
@@ -57,7 +59,7 @@ export async function resolveInitialCliWorkspaceProjectAccess(
   options: TCliWorkspaceCompositionOverrides = {},
 ): Promise<TWorkspaceProjectAccess> {
   if (options.projectAccess !== undefined) return options.projectAccess;
-  return createNodeWorkspaceTrustService().inspect(cwd);
+  return createNodeWorkspaceTrustService(userPaths().workspaceTrust).inspect(cwd);
 }
 
 function createTrustedCliWorkspaceComposition(
@@ -77,8 +79,11 @@ function createTrustedCliWorkspaceComposition(
     projectAccess,
     contributionSources: createContributionSourcesForProjectAccess(projectAccess, options.userHome),
     settingsSources: [
-      ...createDefaultUserSettingsSources(options.userHome),
-      ...createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(authority)),
+      ...createRobotaUserSettingsSources(options.userHome),
+      ...createWorkspaceProjectSettingsSources(
+        getWorkspaceProjectReader(authority),
+        ROBOTA_PROJECT_SETTINGS,
+      ),
     ],
     settingsStores,
     sessionStore: createProjectSessionStore(
@@ -122,7 +127,7 @@ export function createCliWorkspaceComposition(
   }
   const userSettingsStore = createNodeHostSettingsStore(
     'user',
-    join(options.userHome, '.robota', 'settings.json'),
+    userPaths(options.userHome).settings,
   );
 
   if (projectAccess.status === 'restricted') {
@@ -137,9 +142,9 @@ export function createCliWorkspaceComposition(
         projectAccess,
         options.userHome,
       ),
-      settingsSources: createDefaultUserSettingsSources(options.userHome),
+      settingsSources: createRobotaUserSettingsSources(options.userHome),
       settingsStores: [userSettingsStore],
-      sessionStore: createUserSessionStore(),
+      sessionStore: createUserSessionStore(userPaths(options.userHome).sessions),
     };
   }
 

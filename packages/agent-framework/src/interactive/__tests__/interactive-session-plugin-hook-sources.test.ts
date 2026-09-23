@@ -6,6 +6,8 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createInteractiveSession } from '../interactive-session-init.js';
+import { createNodeHostSettingsSource } from '../../config/settings-source.js';
+import { TEST_PROJECT_SETTINGS_PATHS } from '../../testing/project-settings-path-fixture.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
 
@@ -39,6 +41,10 @@ async function start(): Promise<Error | undefined> {
     await createInteractiveSession({
       cwd,
       projectAccess: await createTrustedProjectAccessFixture(cwd),
+      projectSettingsPaths: TEST_PROJECT_SETTINGS_PATHS,
+      userSettingsSources: [
+        createNodeHostSettingsSource('user', join(home, '.robota', 'settings.json')),
+      ],
       provider: createScriptedProvider([]).provider,
       onTextDelta: () => {},
       onToolExecution: () => {},

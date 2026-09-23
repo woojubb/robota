@@ -21,7 +21,8 @@ import type { IOrgPolicy } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
-import { areSessionLoopsDisabled } from '../startup/loop-options.js';
+import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../startup/loop-options.js';
+import { homedir } from 'node:os';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
@@ -30,6 +31,8 @@ import type {
   ICommandModule,
   IRemoteCommandPolicy,
   IProviderErrorGuidance,
+  IProjectSettingsPath,
+  INodeHostSettingsSource,
   IToolCallHandoffPolicy,
   TInteractiveSessionOptions,
   TWorkspaceProjectAccess,
@@ -52,6 +55,8 @@ export interface IServeModeOptions {
   providerErrorGuidance?: IProviderErrorGuidance;
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   projectAccess?: TWorkspaceProjectAccess;
+  projectSettingsPaths?: readonly IProjectSettingsPath[];
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   /**
    * CLI-083 (issue #2287) — the org policy, forwarded so the session's `blockedCommands` and
    * `allowedProviders` enforcement is reachable in a served session. Declared on this projection
@@ -63,6 +68,7 @@ export interface IServeModeOptions {
   subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>;
   /** ARCH-005: composition-root-contributed subagent definitions (the profile's merged pack subagents). */
   agentDefinitions?: readonly IAgentDefinition[];
+  agentDefinitionRoots?: readonly string[];
   /**
    * ARCH-006/007: the profile's merged pack TOOLS, laid on by the kernel overlay. Forwarded to the
    * session's `additionalTools` seam, where the framework dedupes them by name against its own default
@@ -123,6 +129,12 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
       ? { providerErrorGuidance: opts.providerErrorGuidance }
       : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
+    ...(opts.projectSettingsPaths !== undefined
+      ? { projectSettingsPaths: opts.projectSettingsPaths }
+      : {}),
+    ...(opts.userSettingsSources !== undefined
+      ? { userSettingsSources: opts.userSettingsSources }
+      : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     // CLI-076: forward the resolved model so `--model` takes effect in the served runtime session.
     ...(opts.model !== undefined ? { model: opts.model } : {}),
@@ -133,12 +145,16 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : opts.sessionStore,
     disableSessionLoops: areSessionLoopsDisabled(process.env),
+    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({ projectAccess: opts.projectAccess, userHome: homedir() }),
     resumeSessionId: opts.resumeSessionId,
     forkSession: args.forkSession,
     sessionName: args.sessionName,
     backgroundTaskRunners: opts.backgroundTaskRunners,
     subagentRunnerFactory: opts.subagentRunnerFactory,
     ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
+    ...(opts.agentDefinitionRoots !== undefined
+      ? { agentDefinitionRoots: opts.agentDefinitionRoots }
+      : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
     ...(opts.toolCallHandoff !== undefined ? { toolCallHandoff: opts.toolCallHandoff } : {}),

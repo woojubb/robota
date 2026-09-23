@@ -12,6 +12,7 @@ import {
   createWorkspaceProjectSettingsSources,
 } from '../settings-source.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import { TEST_PROJECT_SETTINGS_PATHS } from '../../testing/project-settings-path-fixture.js';
 import { getWorkspaceProjectReader } from '../../workspace-trust/index.js';
 
 const roots: string[] = [];
@@ -135,6 +136,7 @@ describe('inspectSettingsLayers (OBSERVABILITY-1991 TC-02)', () => {
     if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
     const project = createWorkspaceProjectSettingsSources(
       getWorkspaceProjectReader(access.authority),
+      TEST_PROJECT_SETTINGS_PATHS,
     )[0]!;
     const broken = source(root, 'broken.json', '{');
 

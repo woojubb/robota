@@ -18,7 +18,7 @@ import {
 
 import { createChannelDelivery } from './channel-delivery.js';
 
-import type { IPairingChannel } from './pairing-gate.js';
+import type { IPairingChannel } from './pairing-gate-options.js';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 export interface IAttachSessionOptions {

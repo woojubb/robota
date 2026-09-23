@@ -13,7 +13,7 @@
  */
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { DEFAULT_AGENT_NAME, createPresetRegistry } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { describe, expect, it } from 'vitest';
 
@@ -26,6 +26,7 @@ import {
   createRobotaProfile,
   packCommandModuleNames,
 } from '../product/robota-profile.js';
+import { ROBOTA_DEFAULT_AGENT_NAME } from '../product/robota-preset-defaults.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 import { resolveShellPreset } from '../startup/preset-selection.js';
 
@@ -71,7 +72,7 @@ function robotaProduct(overrides: IProbeOverrides = {}) {
 
   const profile = createRobotaProfile({
     version: '0.0.0-test',
-    agentName: DEFAULT_AGENT_NAME,
+    agentName: ROBOTA_DEFAULT_AGENT_NAME,
     providerDefinitions,
     provider: createScriptedProvider([{ text: 'ok' }]).provider,
     // ARCH-008: the SHIPPED shell resolution (registry + id + override context as one value), exactly as

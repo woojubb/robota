@@ -16,7 +16,7 @@ import {
   isChatEntry,
 } from '../interfaces/messages';
 
-import type { IConversationHistory } from './conversation-history-manager';
+import type { IConversationHistory } from './conversation-history-types';
 import type {
   TUniversalMessageMetadata,
   TUniversalMessageRole,

@@ -8,6 +8,8 @@ import {
 
 import { COST_BUDGET_FILE } from './cost-budget-adapter.js';
 import { projectOutputStyleDirectories } from './output-style-sources.js';
+import { ROBOTA_AGENT_DEFINITION_ROOTS } from '../product/robota-agent-roots.js';
+import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
 
 import type { IProjectContributionPath, IWorkspaceIdentity } from '@robota-sdk/agent-framework';
 
@@ -27,6 +29,18 @@ function currentWorkspaceDirectory(identity: IWorkspaceIdentity, cwd: string): s
 export function listProjectContributionPaths(cwdRelative: string): readonly IProjectContributionPath[] {
   return [
     ...listFrameworkProjectContributionPaths(cwdRelative),
+    ...ROBOTA_PROJECT_SETTINGS.map(({ relativePath }) => ({
+      id: `settings:${relativePath}`,
+      label: 'Project settings and hooks',
+      relativePath,
+      expectedKind: 'file' as const,
+    })),
+    ...ROBOTA_AGENT_DEFINITION_ROOTS.map((relativePath) => ({
+      id: `agent:${relativePath}`,
+      label: 'Project agent definitions',
+      relativePath,
+      expectedKind: 'directory' as const,
+    })),
     ...projectOutputStyleDirectories(cwdRelative).map((relativePath) => ({
       id: `output-style:${relativePath}`,
       label: 'Project output styles',

@@ -21,6 +21,7 @@ import {
   DEFAULT_MCP_CALL_TIMEOUT_MS,
   resolveMcpSettings,
 } from '../mcp-settings.js';
+import { ROBOTA_PROJECT_SETTINGS } from '../../product/robota-project-settings.js';
 
 import type { IWorkspaceIdentity, TSettingsSource } from '@robota-sdk/agent-framework';
 
@@ -53,7 +54,10 @@ async function trustedProjectSettingsSources(root: string): Promise<readonly TSe
   });
   const access = await service.inspect(root);
   if (access.status !== 'trusted') throw new Error('Fixture trust service did not return trusted.');
-  return createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(access.authority));
+  return createWorkspaceProjectSettingsSources(
+    getWorkspaceProjectReader(access.authority),
+    ROBOTA_PROJECT_SETTINGS,
+  );
 }
 
 describe('resolveMcpSettings', () => {

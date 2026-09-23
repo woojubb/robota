@@ -5,7 +5,6 @@ import {
   type IBackgroundTaskRunner,
 } from '@robota-sdk/agent-executor';
 
-import { getUserSettingsPath, readSettings, writeSettings } from '../config/settings-io.js';
 import { InteractiveSession } from '../interactive/interactive-session.js';
 import {
   WorkspaceAuthorityRequiredError,
@@ -15,6 +14,7 @@ import {
 import { isWorkspacePathContained } from '../workspace-trust/project-reader-path.js';
 
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
+import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
 import type { CommandRegistry, IRemoteCommandPolicy } from '../commands/index.js';
@@ -30,6 +30,8 @@ export interface IAgentRuntimeConfig {
   provider: IAIProvider;
   /** Host-owned initial project decision. Absence produces an observable Restricted runtime. */
   projectAccess?: TWorkspaceProjectAccess;
+  /** Explicit user settings layers for sessions created by this runtime. */
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
@@ -83,22 +85,11 @@ export interface IAgentRuntime {
   createSession(opts: IHeadlessSessionOptions): InteractiveSession;
 }
 
-function createDefaultRuntimeCommandHostAdapters(): ICommandHostAdapters {
-  const settingsPath = getUserSettingsPath();
-  return {
-    settings: {
-      read: () => readSettings(settingsPath),
-      write: (settings) => writeSettings(settingsPath, settings),
-    },
-  };
-}
-
 export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
   const backgroundTaskRunners =
     config.backgroundTaskRunners ?? createDefaultBackgroundTaskRunners();
   const commandModules = config.commandModules ?? [];
-  const commandHostAdapters =
-    config.commandHostAdapters ?? createDefaultRuntimeCommandHostAdapters();
+  const commandHostAdapters = config.commandHostAdapters ?? {};
   const sessionStore = 'sessionStore' in config ? config.sessionStore : undefined;
   const projectAccess =
     config.projectAccess ??
@@ -139,6 +130,9 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
         cwd: config.cwd,
         provider: config.provider,
         projectAccess,
+        ...(config.userSettingsSources !== undefined
+          ? { userSettingsSources: config.userSettingsSources }
+          : {}),
         backgroundTaskRunners,
         subagentRunnerFactory: config.subagentRunnerFactory,
         commandModules,

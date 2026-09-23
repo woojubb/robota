@@ -99,6 +99,7 @@ export function buildInterruptedResult(
   const usage = extractTurnUsage(sessionHistory, historyBefore, contextState, modelId);
   return {
     response: parts.join('\n\n'),
+    interrupted: true,
     history: interactiveHistory,
     toolSummaries,
     contextState,

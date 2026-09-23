@@ -3,7 +3,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { formatCommandHelpMessage } from '../../command-api/help/help-command-api.js';
 import { DuplicateSystemCommandSemanticRoleError } from '../../command-api/contracts.js';
 import { BuiltinCommandSource, createBuiltinCommandModule } from '../builtin-source.js';
-import { SystemCommandExecutor, createSystemCommands } from '../system-command.js';
+import { createSystemCommands } from '../system-command.js';
+import { SystemCommandExecutor } from '../system-command-executor.js';
 
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandHostContext, ISystemCommand } from '../../command-api/index.js';

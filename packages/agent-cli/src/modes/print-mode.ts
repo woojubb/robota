@@ -1,4 +1,5 @@
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import { homedir } from 'node:os';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type {
   IAgentDefinition,
@@ -6,6 +7,8 @@ import type {
   ICommandModule,
   IOrgPolicy,
   IProviderErrorGuidance,
+  IProjectSettingsPath,
+  INodeHostSettingsSource,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
@@ -15,7 +18,7 @@ import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
-import { areSessionLoopsDisabled } from '../startup/loop-options.js';
+import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../startup/loop-options.js';
 
 /**
  * ARCH-006: the tool surface the kernel overlay resolved. `additionalTools` carries the capability packs'
@@ -65,6 +68,9 @@ export async function runPrintMode(
   beforeExit?: () => Promise<void>,
   orgPolicy?: IOrgPolicy,
   providerErrorGuidance?: IProviderErrorGuidance,
+  agentDefinitionRoots?: readonly string[],
+  projectSettingsPaths?: readonly IProjectSettingsPath[],
+  userSettingsSources?: readonly INodeHostSettingsSource[],
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -104,6 +110,8 @@ export async function runPrintMode(
     ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
     ...(orgPolicy !== undefined ? { orgPolicy } : {}),
     ...(projectAccess !== undefined ? { projectAccess } : {}),
+    ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),
+    ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
     outputFormat: args.outputFormat ?? 'text',
     // CLI-076: forward the resolved model so `--model` takes effect (an invalid model then surfaces the
     // provider's error and a non-zero exit, instead of a silent substitution succeeding with exit 0).
@@ -113,6 +121,7 @@ export async function runPrintMode(
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     disableSessionLoops: areSessionLoopsDisabled(process.env),
+    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({ projectAccess, userHome: homedir() }),
     resumeSessionId: sessionResolution.resumeSessionId,
     forkSession: sessionResolution.forkSession,
     sessionName: args.sessionName,
@@ -149,6 +158,7 @@ export async function runPrintMode(
     backgroundTaskRunners,
     subagentRunnerFactory,
     ...(agentDefinitions.length > 0 ? { agentDefinitions } : {}),
+    ...(agentDefinitionRoots !== undefined ? { agentDefinitionRoots } : {}),
     ...(toolOptions.additionalTools !== undefined
       ? { additionalTools: toolOptions.additionalTools }
       : {}),

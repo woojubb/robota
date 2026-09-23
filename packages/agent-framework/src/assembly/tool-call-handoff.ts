@@ -17,7 +17,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import type { IToolCallHandoffProvenance } from './create-session-types.js';
+import type { IToolCallHandoffProvenance } from './tool-call-handoff-types.js';
 import type {
   IEventService,
   IParameterValidationResult,

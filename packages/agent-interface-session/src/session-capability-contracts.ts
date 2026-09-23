@@ -4,7 +4,7 @@ import type {
   IInteractiveSessionEvents,
   TInteractiveEventName,
   TPermissionResultValue,
-} from './session-contracts.js';
+} from './session-event-map.js';
 import type { ITurnHandle } from './turn-contracts.js';
 import type {
   IContextWindowState,

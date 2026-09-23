@@ -38,6 +38,7 @@ import type {
   TAutoCompactThreshold as TSessionAutoCompactThreshold,
 } from '@robota-sdk/agent-session';
 import type { ISandboxClient, IRetrievalAdapter } from '@robota-sdk/agent-tools';
+import type { IToolCallHandoffPolicy } from './tool-call-handoff-types.js';
 
 /**
  * Issue #2056 (CLI-081): the session-level structured-output option is the provider contract's own
@@ -60,32 +61,10 @@ export type TSessionConstructorWithAutoCompact = new (
   options: TSessionOptionsWithAutoCompact,
 ) => Session;
 
-/**
- * MCP-004 §S3: provenance the wrapper attaches to a spawned `tool-invocation` background task —
- * flattened onto `IToolInvocationBackgroundTaskRequest`'s own fields, which `agent-executor`'s
- * helpers project into the task state's `metadata` (`serverId`, `sourceName`, `securityIdentity`,
- * `permissionMode`, `provenanceOwner`) for `/tasks` and the notification to read.
- */
-export interface IToolCallHandoffProvenance {
-  readonly serverId: string;
-  readonly sourceName: string;
-  readonly securityIdentity: string;
-  readonly permissionMode: string;
-}
-
-/**
- * MCP-004 §S3: the host's policy for handing a main-turn tool call to a background task once it
- * outruns `thresholdMs`. `budgetMs` is informational only — it sizes the spawned task's
- * `maxRuntimeMs` (`budgetMs - elapsed`) for `/tasks`; the supervisor's own `toolCallMs` (S2,
- * `agent-mcp`) is the one enforcer of the call's actual budget.
- */
-export interface IToolCallHandoffPolicy {
-  readonly thresholdMs: number;
-  readonly budgetMs: number;
-  readonly toolNames: readonly string[];
-  /** Keyed by tool name — every name in `toolNames` must have an entry (refuse at build time otherwise). */
-  readonly provenance: Readonly<Record<string, IToolCallHandoffProvenance>>;
-}
+export type {
+  IToolCallHandoffProvenance,
+  IToolCallHandoffPolicy,
+} from './tool-call-handoff-types.js';
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
@@ -148,6 +127,8 @@ export interface ICreateSessionOptions {
   defaultTools?: readonly IToolWithEventService[];
   /** GOAL-001: include the `report_goal_status` completion-signal tool (interactive sessions). */
   includeGoalTool?: boolean;
+  /** Include the structured self-paced loop decision signal for an interactive session. */
+  includeSessionLoopDecisionTool?: boolean;
   /** Additional background task runners composed by the runtime shell. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /**
@@ -168,6 +149,8 @@ export interface ICreateSessionOptions {
    * (unchanged behavior). Only consulted when the agent runtime is active.
    */
   agentDefinitions?: readonly IAgentDefinition[];
+  /** Ordered host-owned relative directories for discovered agent definitions. Absence disables discovery. */
+  agentDefinitionRoots?: readonly string[];
   /**
    * Preset execution capability: when true the assembly turns on `enableAgentRuntime`
    * so subagent/background dispatch is active for this session. Threaded from the

@@ -19,6 +19,7 @@ import {
   resolveEnvDefaultProvider,
 } from '../provider-factory.js';
 import { createTrustedProjectAccessFixture } from '../../../testing/trusted-project-state-fixture.js';
+import { TEST_PROJECT_SETTINGS_PATHS } from '../../../testing/project-settings-path-fixture.js';
 import { createWorkspaceProjectSettingsSources } from '../../../config/settings-source.js';
 import { getWorkspaceProjectReader } from '../../../workspace-trust/index.js';
 
@@ -70,7 +71,10 @@ const DEFINITIONS = [ANTHROPIC, OPENAI_NO_MODEL, GEMINI, GEMMA_LITERAL_KEY, DEEP
 async function projectSettingsSources(root: string) {
   const access = await createTrustedProjectAccessFixture(root);
   if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
-  return createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(access.authority));
+  return createWorkspaceProjectSettingsSources(
+    getWorkspaceProjectReader(access.authority),
+    TEST_PROJECT_SETTINGS_PATHS,
+  );
 }
 
 describe('resolveEnvDefaultProvider (CLI-066)', () => {

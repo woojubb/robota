@@ -17,6 +17,7 @@ import {
 import { isWorkspacePathContained } from './workspace-trust/project-reader-path.js';
 
 import type { IExecutionResult, TInteractivePermissionHandler } from './interactive/types.js';
+import type { INodeHostSettingsSource } from './config/node-host-settings-source.js';
 import type { TWorkspaceProjectAccess } from './workspace-trust/index.js';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 
@@ -27,6 +28,8 @@ export interface ICreateQueryOptions {
   cwd?: string;
   /** Host-owned initial project decision. Absence produces an observable Restricted query. */
   projectAccess?: TWorkspaceProjectAccess;
+  /** Explicit user settings layers for this query's session. */
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   /** Permission mode. Defaults to 'bypassPermissions' for programmatic use. */
   permissionMode?: TPermissionMode;
   /** Maximum agentic turns per query. */
@@ -113,6 +116,9 @@ export function createQuery(options: ICreateQueryOptions): TQueryFunction {
     cwd,
     provider: options.provider,
     projectAccess,
+    ...(options.userSettingsSources !== undefined
+      ? { userSettingsSources: options.userSettingsSources }
+      : {}),
     permissionMode: options.permissionMode ?? 'bypassPermissions',
     maxTurns: options.maxTurns,
     additionalTools: options.additionalTools,

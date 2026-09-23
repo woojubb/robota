@@ -32,6 +32,17 @@ The CLI owns: argument parsing and process lifecycle assembly, `TransportRegistr
 composition (selecting an injected `IProviderDefinition`, not implementing providers), concrete local
 host adapters (background runner, child-process subagent, Git worktree, settings I/O), package-version
 update checks, and the per-mode host-action adapters (`/remote-control`, process exit) CMD-004 wires.
+It chooses its user-local storage root and passes explicit paths to SDK persistence and trust adapters.
+It also chooses the Robota display-name fallback and user-local external-preset directory before
+passing explicit values to the neutral preset resolver and loader. A second product chooses its own
+identity and preset root without inheriting Robota's defaults.
+The CLI also owns the ordered Robota/Agents/Claude-compatible agent-definition roots, passes them to
+print, serve, and terminal sessions, and lists those same project roots in the pre-trust preview.
+The CLI owns its ordered Robota and Claude-compatible project settings layers and passes them to
+trusted session construction and the pre-trust preview from one source; restricted sessions cannot
+gain a project settings reader by naming those paths.
+It also selects the ordered Robota and Claude-compatible user settings layers and passes them
+through print, serve, terminal, and eval sessions, including provider switching after startup.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.
@@ -287,7 +298,18 @@ overwrites existing files even with `--yes`.
 
 A provider API failure during a model call must never exit 0.
 
+### Default loop prompt
+
+The default `/loop` prompt comes from a trusted project's `.robota/loop.md`, then the user's
+`~/.robota/loop.md`, then the built-in maintenance prompt. The chosen file is re-read for each
+iteration, so edits take effect without restarting the session. A present but invalid file fails
+visibly instead of falling through; project content is considered only with explicit workspace
+trust. File prompts are bounded to 4096 UTF-8 bytes and convey no new permissions.
+
 ### CLI update check
+
+The CLI owns its package identity, install guidance, and user-local update-check cache. The
+framework provides only reusable version comparison and string utilities.
 
 Enabled by default only for interactive TUI startup, rate-limited by a 24-hour TTL; a registry lookup
 failure must never prevent startup. Print/headless execution never schedules or emits update checks,

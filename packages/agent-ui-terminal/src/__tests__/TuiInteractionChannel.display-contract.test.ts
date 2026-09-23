@@ -42,6 +42,8 @@ vi.mock('@robota-sdk/agent-framework', async () => {
         getPendingPrompt: vi.fn().mockReturnValue(null),
         abort: vi.fn(),
         cancelQueue: vi.fn(),
+        listSelfPacedLoops: vi.fn().mockReturnValue([]),
+        stopSelfPacedLoop: vi.fn().mockResolvedValue(undefined),
         getContextState: vi.fn().mockReturnValue({
           usedPercentage: 0,
           usedTokens: 0,
@@ -79,6 +81,8 @@ import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
 
 type MockSession = {
   getFullHistory: ReturnType<typeof vi.fn>;
+  listSelfPacedLoops: ReturnType<typeof vi.fn>;
+  stopSelfPacedLoop: ReturnType<typeof vi.fn>;
   on: ReturnType<typeof vi.fn>;
   emit: (event: string, ...args: unknown[]) => void;
 };
@@ -135,6 +139,29 @@ afterEach(() => {
 // ── Group D: display contract (what the user sees) ────────────────────────────
 
 describe('Group D — display contract: history entries and active tools', () => {
+  it('Esc stops the only waiting self-paced loop without aborting the session', async () => {
+    const channel = makeChannel();
+    const session = getMockSession(channel);
+    session.listSelfPacedLoops.mockReturnValue([{ loopId: 'loop_one', phase: 'waiting' }]);
+    await channel.stopWaitingSelfPacedLoop();
+    expect(session.stopSelfPacedLoop).toHaveBeenCalledWith('loop_one', 'Loop stopped by Esc');
+    expect(channel.stateManager.history.some((entry) =>
+      JSON.stringify(entry).includes('loop_one'))).toBe(true);
+  });
+
+  it('Esc does not guess which loop to stop when several are waiting', async () => {
+    const channel = makeChannel();
+    const session = getMockSession(channel);
+    session.listSelfPacedLoops.mockReturnValue([
+      { loopId: 'loop_one', phase: 'waiting' },
+      { loopId: 'loop_two', phase: 'waiting' },
+    ]);
+    await channel.stopWaitingSelfPacedLoop();
+    expect(session.stopSelfPacedLoop).not.toHaveBeenCalled();
+    expect(channel.stateManager.history.some((entry) =>
+      JSON.stringify(entry).includes('/loop stop'))).toBe(true);
+  });
+
   it('D1 (CLI-B05): user_message event immediately adds role=user entry before complete', async () => {
     const channel = makeChannel();
     await channel.start();

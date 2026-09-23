@@ -29,26 +29,9 @@ import { executeWithTimeout } from './task-timeout-executor.js';
 import { resolveCurrentTotalCredits } from './worker-cost-progress.js';
 import { loadWorkerExecutionContext } from './worker-execution-context.js';
 import { failAfterAck, successAfterAck } from './worker-failure-handler.js';
+import type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-types.js';
 
-/** Configuration options for the worker loop, including retry and dead-letter policies. */
-export interface IWorkerLoopOptions {
-  workerId: string;
-  leaseDurationMs: number;
-  visibilityTimeoutMs: number;
-  retryEnabled: boolean;
-  deadLetterEnabled?: boolean;
-  deadLetterQueue?: IQueuePort;
-  maxAttempts: number;
-  defaultTimeoutMs: number;
-  idleWaitMs?: number;
-}
-
-/** Result of a single worker loop iteration. */
-export interface IWorkerLoopResult {
-  processed: boolean;
-  taskRunId?: string;
-  retried?: boolean;
-}
+export type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-types.js';
 
 /**
  * Processes task messages from the queue one at a time: dequeue, acquire lease,

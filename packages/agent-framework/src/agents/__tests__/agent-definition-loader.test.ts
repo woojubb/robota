@@ -4,10 +4,25 @@ import { join } from 'node:path';
 
 import { describe, it, expect, afterEach } from 'vitest';
 
-import { AgentDefinitionLoader } from '../agent-definition-loader.js';
+import { AgentDefinitionLoader as FrameworkAgentDefinitionLoader } from '../agent-definition-loader.js';
 import { BUILT_IN_AGENTS } from '../built-in-agents.js';
 import { FrontmatterDecodeError } from '../../frontmatter/frontmatter-error.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
+
+const FIXTURE_AGENT_ROOTS = [
+  join('.robota', 'agents'),
+  join('.agents', 'agents'),
+  join('.claude', 'agents'),
+];
+
+class AgentDefinitionLoader extends FrameworkAgentDefinitionLoader {
+  constructor(
+    sources: ConstructorParameters<typeof FrameworkAgentDefinitionLoader>[0],
+    builtInAgents?: ConstructorParameters<typeof FrameworkAgentDefinitionLoader>[1],
+  ) {
+    super(sources, builtInAgents, FIXTURE_AGENT_ROOTS);
+  }
+}
 
 function createTempDir(): string {
   return realpathSync(mkdtempSync(join(tmpdir(), 'agent-loader-test-')));
@@ -42,6 +57,19 @@ describe('AgentDefinitionLoader', () => {
       rmSync(dir, { recursive: true, force: true });
     }
     tempDirs.length = 0;
+  });
+
+  it('discovers only the agent roots supplied by the host', () => {
+    const cwd = makeTempDir();
+    writeAgentFile(join(cwd, '.custom', 'agents'), 'selected.md', 'Selected agent');
+    writeAgentFile(join(cwd, '.claude', 'agents'), 'ignored.md', 'Ignored agent');
+
+    const sources = createNodeHostContributionSourcesFixture(cwd);
+    const neutralLoader = new FrameworkAgentDefinitionLoader(sources, [], []);
+    expect(neutralLoader.loadAll()).toEqual([]);
+
+    const hostLoader = new FrameworkAgentDefinitionLoader(sources, [], [join('.custom', 'agents')]);
+    expect(hostLoader.loadAll().map((agent) => agent.name)).toEqual(['selected']);
   });
 
   it('should parse agent markdown with frontmatter', () => {
