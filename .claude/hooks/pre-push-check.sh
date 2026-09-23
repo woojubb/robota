@@ -986,7 +986,8 @@ esac
 # override's own message never claimed to excuse this one.
 frozen_diff_refusal() {
   local branch="$1" open_pr latest_count projection verdict_kind verdict_author
-  local remote_head pr_author approved_ground conflict_state
+  local remote_head pr_author pr_base approved_ground decision_authority evidence conflict_state
+  local authorization_details red_check_result
   [[ -n "$branch" ]] || return 1
   # `gh pr list --head`, not `pr view`: `pr view` takes a number, a URL or a branch and decides by
   # shape, so a branch named `42` would be answered with pull request #42's state.
@@ -997,13 +998,13 @@ frozen_diff_refusal() {
   fi
   [[ "$open_pr" =~ ^[1-9][0-9]*$ ]] || return 1
   if ! projection=$(cd "$PROJECT_DIR" &&
-    bounded_gh pr view "$open_pr" --json headRefOid,author \
-      --jq '[.headRefOid // "", .author.login // ""] | @tsv'); then
+    bounded_gh pr view "$open_pr" --json headRefOid,author,baseRefName \
+      --jq '[.headRefOid // "", .author.login // "", .baseRefName // ""] | @tsv'); then
     echo "[pre-push-check] Frozen-diff check unavailable: could not read the PR identity; no freeze verdict was established." >&2
     return 1
   fi
-  IFS=$'\t' read -r remote_head pr_author <<< "$projection"
-  if ! [[ "$remote_head" =~ ^[0-9a-fA-F]{40}$ ]] || [[ -z "$pr_author" ]]; then
+  IFS=$'\t' read -r remote_head pr_author pr_base <<< "$projection"
+  if ! [[ "$remote_head" =~ ^[0-9a-fA-F]{40}$ ]] || [[ -z "$pr_author" ]] || [[ -z "$pr_base" ]]; then
     echo "[pre-push-check] Frozen-diff check unavailable: PR identity was malformed; no freeze verdict was established." >&2
     return 1
   fi
@@ -1022,17 +1023,35 @@ frozen_diff_refusal() {
     echo "[pre-push-check] Frozen-diff check unavailable: canonical review projection was malformed; no freeze verdict was established." >&2
     return 1
   fi
-  # The latest canonical review verdict governs the next action. A push is permitted only when a
-  # maintainer approved a request bound to that exact verdict count and current PR head.
+  # The latest canonical review verdict governs the next action. A push needs a trusted
+  # maintainer approval or an owner-delegated agent decision bound to that verdict and head.
   # `gh pr view --json comments` exposes `id` as a GraphQL node id (`IC_...`), while the
   # authorization envelope deliberately binds the numeric REST issue-comment id. Derive that
   # number from the same canonical URL the parser independently validates.
-  if ! approved_ground=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json comments \
+  if ! authorization_details=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json comments \
     --jq '[.comments[]? | select((.author.login // "") == "woojubb") | {id: ((.url // "") | capture("#issuecomment-(?<id>[0-9]+)$").id | tonumber), url, author: {login: (.author.login // ""), association: (.authorAssociation // "")}, body: (.body // "")}]' \
     | node "$AUTH_PARSER" --pr "$open_pr" --head "$remote_head" \
-      --verdict "$latest_count" --actions push 2>/dev/null); then
+      --verdict "$latest_count" --base "$pr_base" --actions push --details 2>/dev/null); then
     echo "[pre-push-check] Frozen-diff check unavailable: could not read post-verdict authorization; no authorization was established." >&2
-    approved_ground=""
+    authorization_details=""
+  fi
+  IFS=$'\t' read -r approved_ground decision_authority evidence <<< "$authorization_details"
+  if [[ "$decision_authority" == "owner-delegated" ]]; then
+    if [[ "$approved_ground" == "finding" && "$latest_count" == "0" ]]; then
+      echo "[pre-push-check] Blocked: delegated finding ground has no current actionable finding." >&2
+      return 0
+    fi
+    if [[ "$approved_ground" == "red-check" ]]; then
+      if ! red_check_result=$(cd "$PROJECT_DIR" && bounded_gh pr checks "$open_pr" --json name,workflow,event,link,bucket,startedAt \
+        | node "$AUTH_PARSER" --verify-red-check --evidence "$evidence" 2>/dev/null); then
+        echo "[pre-push-check] Blocked: delegated red-check ground could not be verified." >&2
+        return 0
+      fi
+      if [[ "$red_check_result" != "yes" ]]; then
+        echo "[pre-push-check] Blocked: cited CI failure is absent or superseded." >&2
+        return 0
+      fi
+    fi
   fi
   if [[ "$approved_ground" == "conflict" ]]; then
     if ! conflict_state=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json mergeStateStatus --jq '.mergeStateStatus' 2>/dev/null); then
@@ -1045,13 +1064,13 @@ frozen_diff_refusal() {
     fi
   fi
   if [[ "$approved_ground" == "finding" || "$approved_ground" == "red-check" || "$approved_ground" == "conflict" ]]; then
-    echo "[pre-push-check] Approved post-verdict change request found for PR #$open_pr at head $remote_head." >&2
+    echo "[pre-push-check] Authorized post-verdict change request found for PR #$open_pr at head $remote_head." >&2
     return 1
   fi
   echo "[pre-push-check] Blocked: PR #$open_pr has a canonical $verdict_kind review by $verdict_author (ACTIONABLE FINDINGS verdict $latest_count)." >&2
-  echo "[pre-push-check] Stop and publish an approved POST_FINDINGS_ACTION_REQUEST for the latest verdict first." >&2
+  echo "[pre-push-check] Stop and publish an authorized POST_FINDINGS_ACTION_REQUEST for the latest verdict first." >&2
   echo "[pre-push-check] It must name HEAD $remote_head, VERDICT $latest_count, ACTION push, GROUND finding|red-check|conflict, EVIDENCE, SCOPE," >&2
-  echo "[pre-push-check] APPROVED: yes, and APPROVED-BY: @<maintainer> in a PR comment." >&2
+  echo "[pre-push-check] APPROVED: yes, with APPROVED-BY: @<maintainer> or a scoped owner-delegated agent decision on develop/integration/**." >&2
   echo "[pre-push-check] Local review records and override tokens do not satisfy this requirement." >&2
   return 0
 }
