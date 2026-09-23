@@ -84,6 +84,7 @@ import type {
   TCommandInvocationSource,
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
+import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
@@ -210,6 +211,7 @@ export class InteractiveSession
   private readonly projectAccess: TWorkspaceProjectAccess;
   private readonly providerErrorGuidance?: IProviderErrorGuidance;
   private readonly resolveDefaultLoopPrompt?: () => string;
+  private readonly userSettingsSources: readonly INodeHostSettingsSource[];
 
   constructor(options: TInteractiveSessionOptions) {
     super();
@@ -229,6 +231,7 @@ export class InteractiveSession
     });
     this.providerErrorGuidance = options.providerErrorGuidance;
     this.resolveDefaultLoopPrompt = options.resolveDefaultLoopPrompt;
+    this.userSettingsSources = options.userSettingsSources ?? [];
     this.sessionLoopsDisabled = options.disableSessionLoops ?? false;
     this.projectAccess =
       options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable');
@@ -1551,6 +1554,7 @@ export class InteractiveSession
     const { settings, provider } = resolveUserSettingsProviderSwitch(
       profileName,
       this.providerDefinitions,
+      this.userSettingsSources,
     );
     session.swapProvider(provider, settings.model);
   }

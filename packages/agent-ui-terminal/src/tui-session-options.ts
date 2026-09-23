@@ -25,6 +25,9 @@ export function buildTuiSessionOptions(
     ...(opts.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: opts.projectSettingsPaths }
       : {}),
+    ...(opts.userSettingsSources !== undefined
+      ? { userSettingsSources: opts.userSettingsSources }
+      : {}),
     ...(opts.editCheckpointStore !== undefined
       ? { editCheckpointStore: opts.editCheckpointStore }
       : {}),

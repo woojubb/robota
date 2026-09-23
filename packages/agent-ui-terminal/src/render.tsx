@@ -51,6 +51,7 @@ import type {
   IOrgPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
+  INodeHostSettingsSource,
   IToolCallHandoffPolicy,
 } from '@robota-sdk/agent-framework';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
@@ -66,6 +67,7 @@ export interface IRenderOptions {
   providerErrorGuidance?: IProviderErrorGuidance;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   /**
    * CLI-083 (issue #2287) — the org policy, forwarded to the session so `blockedCommands` is
    * enforced on the plain `robota` path as well as under `--serve`.
@@ -220,6 +222,9 @@ export function toChannelOptions(
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     ...(options.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: options.projectSettingsPaths }
+      : {}),
+    ...(options.userSettingsSources !== undefined
+      ? { userSettingsSources: options.userSettingsSources }
       : {}),
     ...(options.orgPolicy !== undefined ? { orgPolicy: options.orgPolicy } : {}),
     ...(options.editCheckpointStore !== undefined

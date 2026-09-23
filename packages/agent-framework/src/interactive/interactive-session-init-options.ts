@@ -24,6 +24,7 @@ import type {
 } from '../commands/index.js';
 import type { IHookDefinitionSource } from '../config/config-merge.js';
 import type { IResolvedConfig } from '../config/config-types.js';
+import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import type { IProjectSettingsPath } from '../config/settings-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IMemoryStore } from '../memory/types.js';
@@ -53,6 +54,7 @@ export interface IInitOptions {
   provider: IAIProvider;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   permissionMode?: ICreateSessionOptions['permissionMode'];
   /** CMD-005: unified ask renderer, forwarded into the session as the model-question tool seam. */
   askHandler?: IUserInteraction['ask'];

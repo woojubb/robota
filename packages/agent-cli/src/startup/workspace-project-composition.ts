@@ -5,7 +5,6 @@ import { isAbsolute, relative, sep } from 'node:path';
 import {
   WorkspaceAuthorityRequiredError,
   createContributionSourcesForProjectAccess,
-  createDefaultUserSettingsSources,
   createNodeHostSettingsStore,
   createNodeWorkspaceTrustService,
   createProjectSessionStore,
@@ -31,6 +30,7 @@ import type {
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 import { userPaths } from '../product/user-paths.js';
 import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
+import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
 
 export interface ICreateCliWorkspaceCompositionOptions {
   readonly cwd: string;
@@ -79,7 +79,7 @@ function createTrustedCliWorkspaceComposition(
     projectAccess,
     contributionSources: createContributionSourcesForProjectAccess(projectAccess, options.userHome),
     settingsSources: [
-      ...createDefaultUserSettingsSources(options.userHome),
+      ...createRobotaUserSettingsSources(options.userHome),
       ...createWorkspaceProjectSettingsSources(
         getWorkspaceProjectReader(authority),
         ROBOTA_PROJECT_SETTINGS,
@@ -142,7 +142,7 @@ export function createCliWorkspaceComposition(
         projectAccess,
         options.userHome,
       ),
-      settingsSources: createDefaultUserSettingsSources(options.userHome),
+      settingsSources: createRobotaUserSettingsSources(options.userHome),
       settingsStores: [userSettingsStore],
       sessionStore: createUserSessionStore(userPaths(options.userHome).sessions),
     };

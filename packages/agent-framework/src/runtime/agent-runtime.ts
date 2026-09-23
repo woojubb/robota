@@ -15,6 +15,7 @@ import {
 import { isWorkspacePathContained } from '../workspace-trust/project-reader-path.js';
 
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
+import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
 import type { CommandRegistry, IRemoteCommandPolicy } from '../commands/index.js';
@@ -30,6 +31,8 @@ export interface IAgentRuntimeConfig {
   provider: IAIProvider;
   /** Host-owned initial project decision. Absence produces an observable Restricted runtime. */
   projectAccess?: TWorkspaceProjectAccess;
+  /** Explicit user settings layers for sessions created by this runtime. */
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
@@ -139,6 +142,9 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
         cwd: config.cwd,
         provider: config.provider,
         projectAccess,
+        ...(config.userSettingsSources !== undefined
+          ? { userSettingsSources: config.userSettingsSources }
+          : {}),
         backgroundTaskRunners,
         subagentRunnerFactory: config.subagentRunnerFactory,
         commandModules,

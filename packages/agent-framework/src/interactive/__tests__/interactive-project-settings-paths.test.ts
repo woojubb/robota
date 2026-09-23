@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { loadInteractiveProjectConfig } from '../interactive-session-project-context.js';
+import { createNodeHostSettingsSource } from '../../config/settings-source.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
 
@@ -22,6 +23,30 @@ afterEach(() => {
 });
 
 describe('interactive project settings paths', () => {
+  it('does not read ambient user settings without host-provided sources', async () => {
+    const home = tempDirectory();
+    mkdirSync(join(home, '.robota'), { recursive: true });
+    writeFileSync(join(home, '.robota', 'settings.json'), '{"language":"ko"}');
+    vi.stubEnv('HOME', home);
+
+    const result = await loadInteractiveProjectConfig(undefined, undefined);
+    expect(result.config.language).not.toBe('ko');
+  });
+
+  it('reads exactly the user settings source supplied by the host', async () => {
+    const home = tempDirectory();
+    mkdirSync(join(home, '.robota'), { recursive: true });
+    writeFileSync(join(home, '.robota', 'settings.json'), '{"language":"ko"}');
+    const customPath = join(home, 'custom-settings.json');
+    writeFileSync(customPath, '{"language":"ja"}');
+    vi.stubEnv('HOME', home);
+
+    const result = await loadInteractiveProjectConfig(undefined, undefined, [], [
+      createNodeHostSettingsSource('user', customPath),
+    ]);
+    expect(result.config.language).toBe('ja');
+  });
+
   it('reads only host-selected paths after trust and no project path while restricted', async () => {
     const root = tempDirectory();
     vi.stubEnv('HOME', tempDirectory());

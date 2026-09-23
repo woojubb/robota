@@ -753,6 +753,7 @@ export {
   readSettingsSourceText,
 } from './config/settings-source.js';
 export type {
+  INodeHostSettingsSource,
   IProjectSettingsPath,
   IWorkspaceProjectSettingsSource,
   THostSettingsScope,

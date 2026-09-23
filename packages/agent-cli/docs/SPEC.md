@@ -41,6 +41,8 @@ print, serve, and terminal sessions, and lists those same project roots in the p
 The CLI owns its ordered Robota and Claude-compatible project settings layers and passes them to
 trusted session construction and the pre-trust preview from one source; restricted sessions cannot
 gain a project settings reader by naming those paths.
+It also selects the ordered Robota and Claude-compatible user settings layers and passes them
+through print, serve, terminal, and eval sessions, including provider switching after startup.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.
