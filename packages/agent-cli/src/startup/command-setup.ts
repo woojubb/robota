@@ -31,10 +31,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
-import {
-  createDefaultCommandModules,
-  createDefaultPluginCommandAdapter,
-} from '@robota-sdk/agent-command';
+import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import type { IKeybindingsFilePort, IThemeCataloguePort } from '@robota-sdk/agent-command';
 import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-preset';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
@@ -44,6 +41,7 @@ import {
 } from '@robota-sdk/agent-command-workflows';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { buildDoctorInputs } from './doctor-inputs.js';
+import { createDefaultPluginCommandAdapter } from '../plugins/default-plugin-command-adapter.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
 import type { IOutputStyleRegistry, IOutputStyleSource } from '@robota-sdk/agent-preset';
 import {

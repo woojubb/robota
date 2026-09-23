@@ -39,7 +39,7 @@ import {
   createRobotaPackSet,
   createRobotaSubagentRunnerFactory,
 } from './product/robota-subagent-composition.js';
-import { reloadPluginCommandSource } from '@robota-sdk/agent-command';
+import { reloadPluginCommandSource } from './plugins/default-plugin-command-source-loader.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
 import { runEvalCommand } from './eval/eval-command.js';
@@ -101,7 +101,8 @@ export async function startCliCore(
   if (process.argv.includes('mcp')) {
     try {
       const parsed = parseCliArgs();
-      if (parsed.positional[0] === 'mcp' && parsed.positional[1] === 'serve') parsedMcpArgs = parsed;
+      if (parsed.positional[0] === 'mcp' && parsed.positional[1] === 'serve')
+        parsedMcpArgs = parsed;
     } catch {
       // The normal parser reports an invalid invocation below.
     }
@@ -163,7 +164,9 @@ async function runCliCore(
       args.configureProvider !== undefined ||
       args.reset)
   ) {
-    throw new Error('robota mcp serve cannot be combined with another process mode or setup command');
+    throw new Error(
+      'robota mcp serve cannot be combined with another process mode or setup command',
+    );
   }
 
   if (args.help) {

@@ -7,7 +7,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import { pluginScopeDirs } from '@robota-sdk/agent-command';
+import { pluginScopeDirs } from '../plugins/default-plugin-command-source-loader.js';
 import {
   createContributionSourcesForProjectAccess,
   createDefaultUserSettingsSources,
