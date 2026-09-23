@@ -548,9 +548,12 @@ The registry is built by `buildHookTypeExecutors()` in `src/assembly/build-hook-
 which owns it. `createSession()` calls it and passes the result through. Executors are keyed by hook
 type string and receive hook configuration plus a JSON payload.
 
-**The built-ins are always registered (SEC-016).** `CommandExecutor` and `HttpExecutor` are seeded
-first, then `PromptExecutor` (with `providerFactory`), `AgentExecutor` (with `sessionFactory`),
-`GuardrailExecutor` (with `guardrails`), then `additionalHookExecutors`.
+**The built-ins are registered by default (SEC-016).** `CommandExecutor` and `HttpExecutor` are
+seeded first, then `PromptExecutor` (with `providerFactory`), `AgentExecutor` (with
+`sessionFactory`), `GuardrailExecutor` (with `guardrails`), then `additionalHookExecutors`.
+`InteractiveSession` callers can explicitly set `disableBuiltInHookExecutors: true` to omit the
+command and HTTP seeds. The default remains unchanged. Other executor types still compose normally;
+the option does not disable tools or arbitrary custom executors.
 
 This was previously not the case, and the difference is a behaviour change rather than a
 clarification. `runHooks` resolves executors as `executors ?? createDefaultExecutors()` — an
@@ -597,14 +600,12 @@ status has nothing mechanical holding it — which is precisely how the first ve
 failed, silently, at a refactor five months downstream. Treating "unexported" as a security boundary
 is the mistake, not the specific export.
 
-**Restriction remains inexpressible at this seam, for every caller, internal and external.** The
-seeding stands against issue #2238 — the option contract that infers "replace" from a non-empty array
-and "extend" from an empty one — which is the defect that produced the original deny-all and the only
-thing whose fix would make an opt-out coherent. It is recorded here as a LIVE GAP, deliberately not as
-a labelled containment: `.agents/rules/finding-depth.md` permits containment only with a root item
-whose ID resolves under `.agents/tasks/`, and that issue has no such item, so calling this contained
-would assert a status nothing backs. Issue #2270's export half is
-closed here; its no-opt-out half stays open against issue #2238.
+**Restriction is explicit at the public session seam.** The option reaches the internal assembler
+through `initializeInteractiveSessionAsync` and `buildCreateSessionOptions`. When both seeds are
+omitted and there are no other executors, the empty array is passed unchanged to the session,
+subagent runner, and background hook path. Converting it to `undefined` would reactivate the core's
+default executors. A configured command or HTTP hook with no replacement executor is rejected at
+assembly before a turn, with the hook type and known configuration source in the diagnostic.
 
 `ICreateSessionOptions` remains exported although the factory does not. Four packages read
 indexed-access types off it as the option SSOT — `agent-preset`, `agent-cli`, `agent-transport` and
@@ -619,11 +620,10 @@ The type is inert without the factory — no exported function accepts it, so no
 (it remains on `src/assembly/index.ts`): it is the return type of a factory that is no longer public,
 so it describes nothing a consumer can obtain.
 
-**The opt-out** remains a separate design concern for a reason worth recording: it would be a new public
-capability, and a declared option that no production code assigns would not deliver it. An option only an
-external consumer can set is, from inside this repository, unverifiable; delivering it means also
-deciding which internal surface exercises it. That is a design decision with consumer impact, not a
-correction to this change.
+The public `InteractiveSession` construction surface is the owner of the opt-out; adding a field
+only to the internal `ICreateSessionOptions` would leave callers unable to request it. The option
+controls only the two built-in seeds, so a caller that supplies a custom executor of either type at
+an internal assembly seam can still execute that type deliberately.
 
 That asymmetry is the principle the false premise was standing in for: **restriction must be asked
 for, and extension may be assumed.** Inferring restriction from the shape of an array — a non-empty
@@ -632,7 +632,7 @@ issue #2238, and it is what produced the original deny-all.
 
 **Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. A custom executor reaches THIS seam through `createSession`, which is INTERNAL — reachable from `src/assembly/index.ts` but not from the package root — so `additionalHookExecutors` has no public entry point. **Executor injection in general does still have public entry points, and this section does not enumerate them.** Four attempts to describe that surface here were each wrong in a new way: first claiming no public entry point existed, then naming a subset the next round showed was larger, then offering a re-derivation recipe that both over-filtered (dropping routes whose option interface is not itself root-exported) and under-collected (blind to an inherited declaration, missing a route through `IAgentToolDeps`). A fifth description is not what this section needs.
 
-What it asserts instead is the one property that survived all four rounds: **`buildHookTypeExecutors` has exactly one CALL SITE, in `createSession`**, so nothing else performs the seeding described above. (Every public session path still reaches that seeding through it — `InteractiveSession` constructs its session that way.) That is checkable in one command and does not decay into a list. It is deliberately NOT the claim that built-ins are absent elsewhere — `runHooks` resolves `executors ?? createDefaultExecutors()`, so a caller passing nothing still gets `command` and `http`, and `buildAgentRuntime` hands an already-seeded array to the in-process runner. The distinction is which code decides, not whether the built-ins can appear.
+What it asserts instead is the one property that survived all four rounds: **`buildHookTypeExecutors` has exactly one CALL SITE, in `createSession`**, so nothing else performs the seeding described above. (Every public session path still reaches it — `InteractiveSession` constructs its session that way.) That is checkable in one command and does not decay into a list. It is deliberately NOT the claim that built-ins are absent elsewhere — `runHooks` resolves `executors ?? createDefaultExecutors()`, so a caller passing `undefined` still gets `command` and `http`. The assembler passes its chosen array, including an empty restricted set, to the session and child paths.
 
 Anyone needing the actual set of public injection routes should derive it against the built declaration files of every package root, not from this document and not from a grep of option declarations — the latter is what failed here. Whether that surface is itself a defect is triage for the seam's own root item, not a claim to resolve here. Both statements are about reachability, not safety; see the seeding paragraph above for why this section refuses to treat "unexported" as a boundary.
 

@@ -64,6 +64,7 @@ export function buildCreateSessionOptions(
     sessionId,
     allowedTools: options.allowedTools,
     deniedTools: options.deniedTools,
+    disableBuiltInHookExecutors: options.disableBuiltInHookExecutors,
     model: options.model,
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
     ...(options.presetSystemPrompt !== undefined

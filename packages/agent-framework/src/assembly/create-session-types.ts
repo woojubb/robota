@@ -218,6 +218,8 @@ export interface ICreateSessionOptions {
   sessionFactory?: TSessionFactory;
   /** Additional hook type executors beyond the defaults (prompt, agent). */
   additionalHookExecutors?: IHookTypeExecutor[];
+  /** Explicitly omit the built-in command and HTTP hook executors. */
+  disableBuiltInHookExecutors?: boolean;
   /**
    * SELFHOST-005: registered guardrails (name → guardrail function). When present, a
    * `GuardrailExecutor` is added to the hook executors so a `{ type: 'guardrail' }` hook definition

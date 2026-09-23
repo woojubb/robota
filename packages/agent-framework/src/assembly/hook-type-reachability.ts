@@ -19,6 +19,8 @@ import type { IHookTypeExecutor, THooksConfig } from '@robota-sdk/agent-core';
 
 /** Why each embedder-constructed type cannot run without its `createSession` option. */
 const EMBEDDER_ONLY_TYPES: Readonly<Record<string, string>> = {
+  command: 'built-in command executor is disabled for this session',
+  http: 'built-in HTTP executor is disabled for this session',
   prompt: 'requires the `providerFactory` createSession option',
   agent: 'requires the `sessionFactory` createSession option',
   guardrail: 'requires registered `guardrails` (createSession option)',
@@ -68,7 +70,6 @@ export function assertConfiguredHookTypesExecutable(
     .join(', ');
   throw new Error(
     `Hook configuration declares hook type(s) this session cannot execute: ${listed}. ` +
-      'These types require an embedder-provided executor; remove them from the ' +
-      'hooks configuration or supply the option their executor needs (issue #2245).',
+      'Remove these hooks from the configuration or register an appropriate executor.',
   );
 }

@@ -244,6 +244,7 @@ export async function initializeInteractiveSessionAsync(
     onCompactEvent: deps.onCompactEvent,
     onToolExecution: deps.onToolExecution,
     bare: options.bare,
+    disableBuiltInHookExecutors: options.disableBuiltInHookExecutors,
     allowedTools: options.allowedTools,
     deniedTools: options.deniedTools,
     model: options.model,
