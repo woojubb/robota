@@ -59,6 +59,8 @@ export interface IAgentJobSchedules {
     sessionLoop?: boolean;
     /** Stable loop id carried in persisted task metadata across runtime task-id remapping. */
     sessionLoopId?: string;
+    /** Earliest instant at which the first scheduled loop wake may enter the session. */
+    sessionLoopFirstAllowedAt?: string;
     /** Absolute expiry for a session loop; persisted with its stable identity. */
     sessionLoopExpiresAt?: string;
   }): Promise<IBackgroundTaskState>;

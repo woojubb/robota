@@ -37,6 +37,26 @@ describe('fixed in-session loop', () => {
     expect(result.message).toContain(expiresAt);
   });
 
+  it('does not promise a first fire before the requested interval elapses', async () => {
+    const spawnScheduledWake = vi.fn().mockResolvedValue({
+      id: 'loop_first',
+      nextFireAt: '2026-09-24T00:10:00.000Z',
+    });
+    const host = createTestAgentJobHost({ spawnScheduledWake });
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-24T00:09:00.000Z'));
+    try {
+      const result = await executeLoopCommand(host, vi.fn(), '7m check');
+      const input = spawnScheduledWake.mock.calls[0]?.[0] as {
+        sessionLoopFirstAllowedAt?: string;
+      };
+      expect(input.sessionLoopFirstAllowedAt).toBe('2026-09-24T00:16:00.000Z');
+      expect(result.message).toContain('First eligible at or after 2026-09-24T00:16:00.000Z');
+      expect(result.message).not.toContain('Next fire: 2026-09-24T00:10:00.000Z');
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it('refuses loop creation when the host kill switch is on, but still permits list', async () => {
     const spawnScheduledWake = vi.fn();
     const host = createTestAgentJobHost({

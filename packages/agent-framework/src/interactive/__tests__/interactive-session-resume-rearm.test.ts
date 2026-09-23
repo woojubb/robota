@@ -199,16 +199,20 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
   it('retains a loop identity marker when a restored schedule receives a new runtime id', () => {
     const record = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
     const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
+    const firstAllowedAt = new Date(Date.now() + 60_000).toISOString();
     tasks[0]!['metadata'] = {
       sessionLoop: true,
       sessionLoopId: 'loop_stable',
+      sessionLoopFirstAllowedAt: firstAllowedAt,
       sessionLoopExpiresAt: new Date(Date.now() + 5 * 24 * 60 * 60_000).toISOString(),
     };
-    const { manager } = setupWithRecord(record);
+    const { manager, session } = setupWithRecord(record);
     const rearmed = manager.list().find((task) => task.kind === 'scheduled');
     expect(rearmed?.id).not.toBe('sched_old');
     expect(rearmed?.metadata?.['sessionLoop']).toBe(true);
     expect(rearmed?.metadata?.['sessionLoopId']).toBe('loop_stable');
+    expect(rearmed?.metadata?.['sessionLoopFirstAllowedAt']).toBe(firstAllowedAt);
+    expect(session.requestWakeup('check', rearmed!.id)).toBe(false);
   });
 
   it('expires a restored paused loop without a scheduled wake', async () => {

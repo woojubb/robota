@@ -604,11 +604,8 @@ export class InteractiveSession
    */
   requestWakeup(instruction: string, sourceTaskId: string): boolean {
     if (this.execCtrl.shuttingDown) return false;
-    const blocked = sessionLoopBlockReason(
-      this.getBackgroundTaskManager()?.get(sourceTaskId),
-      Date.now(),
-      this.sessionLoopsDisabled,
-    );
+    const task = this.getBackgroundTaskManager()?.get(sourceTaskId);
+    const blocked = sessionLoopBlockReason(task, Date.now(), this.sessionLoopsDisabled);
     if (blocked) {
       this.stoppedWakeTaskIds.add(sourceTaskId);
       void this.cancelBackgroundTask(sourceTaskId, `Session loop ${blocked}`).catch((error) =>
@@ -618,6 +615,27 @@ export class InteractiveSession
         ),
       );
       return false;
+    }
+    if (task?.metadata?.['sessionLoop'] === true) {
+      const firstAllowedAt = task.metadata['sessionLoopFirstAllowedAt'];
+      if (firstAllowedAt !== undefined) {
+        const firstAllowedMs =
+          typeof firstAllowedAt === 'string' ? Date.parse(firstAllowedAt) : NaN;
+        if (!Number.isFinite(firstAllowedMs)) {
+          this.stoppedWakeTaskIds.add(sourceTaskId);
+          void this.cancelBackgroundTask(
+            sourceTaskId,
+            'Invalid session loop first-fire boundary',
+          ).catch((error) =>
+            this.reportBackgroundError(
+              error instanceof Error ? error : new Error(String(error)),
+              'session-loop',
+            ),
+          );
+          return false;
+        }
+        if (Date.now() < firstAllowedMs) return false;
+      }
     }
     if (this.stoppedWakeTaskIds.has(sourceTaskId)) return false;
     if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return false;
@@ -722,6 +740,7 @@ export class InteractiveSession
     agentInstruction: string;
     sessionLoop?: boolean;
     sessionLoopId?: string;
+    sessionLoopFirstAllowedAt?: string;
     sessionLoopExpiresAt?: string;
   }): Promise<IBackgroundTaskState> {
     await this.ensureInitialized();
@@ -730,6 +749,12 @@ export class InteractiveSession
     if (!this.sessionStore) throw new Error('A session store is required for a resumable loop.');
     if (!input.sessionLoopId) throw new Error('A stable loop ID is required for a resumable loop.');
     const sessionLoopExpiresAt = validatedSessionLoopExpiry(input.sessionLoopExpiresAt, Date.now());
+    if (input.sessionLoopFirstAllowedAt !== undefined) {
+      const firstAllowedMs = Date.parse(input.sessionLoopFirstAllowedAt);
+      if (!Number.isFinite(firstAllowedMs) || firstAllowedMs >= Date.parse(sessionLoopExpiresAt)) {
+        throw new Error('Session loop first-fire boundary is invalid or beyond its expiry.');
+      }
+    }
     this.pendingLoopCreations.add(input.sessionLoopId);
     let task: IBackgroundTaskState | undefined;
     try {

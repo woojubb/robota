@@ -216,10 +216,11 @@ may finish. Non-loop schedules cannot be stopped through `/loop`.
 
 Supported requested intervals are positive and at most one day. Calendar-aligned cron steps divide
 60 seconds, 60 minutes, or 24 hours; a request between steps rounds **up** to the next supported
-nominal calendar step, which is reported in the creation receipt together with the next fire time
-when available. Daylight-saving changes can make actual elapsed gaps shorter or longer than that step;
-the command does not claim an exact elapsed-time `cadenceMs`.
-The first clock-aligned fire may occur sooner than one full requested interval after creation.
+nominal calendar step, which is reported in the creation receipt. A persisted first-fire boundary
+prevents clock-aligned slots from waking the agent before the requested interval elapses; the
+receipt names that earliest eligible instant and shows a next-fire timestamp only when its current
+slot is eligible. Daylight-saving changes can make later elapsed gaps shorter or longer than that
+step; the command does not claim an exact elapsed-time `cadenceMs`.
 Distinct loop wake sources do not replace one another in the bounded session queue; repeated
 in-flight wakes from the same scheduled task coalesce, so missed fires do not form a catch-up burst.
 The loop marker and a UUID-backed stable loop ID live in persisted task metadata, not the editable
@@ -232,7 +233,9 @@ persist an absolute seven-day expiry. Creation and stop are strictly persisted b
 ordinary turn snapshots remain best-effort. Expired loops refuse firing and are terminal on restore.
 The host kill switch blocks firing/re-arming but retains paused records for a later restart with
 the switch off. Jitter, Esc handling, self-paced/prompt-only mode, and project/user prompt overrides
-are **not yet delivered**. This slice does not complete the historical #2005 checklist or #2726.
+are **not yet delivered**. For event-driven changes, prefer an external event source once available;
+for continuous progress toward an objective, use `/goal` rather than polling with `/loop`.
+This slice does not complete the historical #2005 checklist or #2726.
 
 ### Provider setup flow (interactive UI helpers)
 

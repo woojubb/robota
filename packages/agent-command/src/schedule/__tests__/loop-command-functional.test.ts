@@ -22,10 +22,23 @@ describe('/loop command in a real interactive session', () => {
 
     const created = await harness.command('loop', '');
     expect(created?.success).toBe(true);
-    const { taskId, expiresAt } = created?.data as { taskId: string; expiresAt: string };
+    const { taskId, expiresAt, firstAllowedAt } = created?.data as {
+      taskId: string;
+      expiresAt: string;
+      firstAllowedAt: string;
+    };
     const scheduled = harness.session.listSchedules().find((task) => task.id === taskId);
     expect(scheduled?.schedule?.agentInstruction).toBe(maintenancePrompt);
     expect(scheduled?.metadata?.['sessionLoopExpiresAt']).toBe(expiresAt);
+    expect(scheduled?.metadata?.['sessionLoopFirstAllowedAt']).toBe(firstAllowedAt);
+
+    const earlyClock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse(firstAllowedAt) - 1);
+    try {
+      expect(await harness.wake(maintenancePrompt, taskId)).toBeNull();
+      expect(harness.requests).toHaveLength(0);
+    } finally {
+      earlyClock.mockRestore();
+    }
 
     const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse(expiresAt) + 1);
     try {
@@ -54,7 +67,11 @@ describe('/loop command in a real interactive session', () => {
 
     const created = await harness.command('loop', '1h check the build');
     expect(created?.success).toBe(true);
-    const { loopId, taskId } = created?.data as { loopId: string; taskId: string };
+    const { loopId, taskId, firstAllowedAt } = created?.data as {
+      loopId: string;
+      taskId: string;
+      firstAllowedAt: string;
+    };
     expect(loopId).not.toBe(taskId);
     expect(created?.message).toContain(`Stop with /loop stop ${loopId}`);
 
@@ -62,7 +79,10 @@ describe('/loop command in a real interactive session', () => {
     expect(listed?.message).toContain(loopId);
     expect(listed?.message).not.toContain('unrelated check');
 
-    const fired = await harness.wake('check the build', taskId);
+    const eligibleClock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse(firstAllowedAt) + 1);
+    const fired = await harness
+      .wake('check the build', taskId)
+      .finally(() => eligibleClock.mockRestore());
     expect(fired).not.toBeNull();
     expect(harness.requests.length).toBe(1);
     await new Promise<void>((resolve) => setImmediate(resolve));
