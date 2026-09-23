@@ -114,6 +114,10 @@ function robotaRuntimeOptions(overrides: IProbeOverrides = {}) {
 }
 
 describe('ARCH-007 — the kernel overlay is robota’s single assembly path', () => {
+  it('carries the product provider recovery guidance into the CLI runtime options', () => {
+    expect(robotaRuntimeOptions().providerErrorGuidance?.authentication).toContain('/provider');
+  });
+
   it('carries the pack SUBAGENTS through the kernel overlay, not a hand-threaded field', () => {
     expect(robotaRuntimeOptions().agentDefinitions.map((a) => a.name)).toEqual([
       'general-purpose',

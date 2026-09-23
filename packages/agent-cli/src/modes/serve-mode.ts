@@ -28,6 +28,7 @@ import type {
   ICommandHostAdapters,
   ICommandModule,
   IRemoteCommandPolicy,
+  IProviderErrorGuidance,
   IToolCallHandoffPolicy,
   TInteractiveSessionOptions,
   TWorkspaceProjectAccess,
@@ -47,6 +48,7 @@ export interface IServeModeOptions {
   cwd: string;
   args: IParsedCliArgs;
   provider: IAIProvider;
+  providerErrorGuidance?: IProviderErrorGuidance;
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   projectAccess?: TWorkspaceProjectAccess;
   /**
@@ -116,6 +118,9 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
   return {
     cwd: opts.cwd,
     provider: opts.provider,
+    ...(opts.providerErrorGuidance !== undefined
+      ? { providerErrorGuidance: opts.providerErrorGuidance }
+      : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     // CLI-076: forward the resolved model so `--model` takes effect in the served runtime session.

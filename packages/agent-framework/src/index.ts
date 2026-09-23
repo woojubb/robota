@@ -118,6 +118,7 @@ export type {
   IInteractiveSessionShutdownOptions,
   IGenerateSessionNameOptions,
 } from './interactive/index.js';
+export type { IProviderErrorGuidance } from './utils/error-humanizer.js';
 
 // ── createQuery() factory (convenience API) ─────────────────
 export { createQuery } from './query.js';

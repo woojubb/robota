@@ -6,6 +6,7 @@ import type {
   ICommandModule,
   ICreateSessionOptions,
   IOrgPolicy,
+  IProviderErrorGuidance,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
@@ -63,6 +64,7 @@ export async function runPrintMode(
   projectAccess?: TWorkspaceProjectAccess,
   beforeExit?: () => Promise<void>,
   orgPolicy?: IOrgPolicy,
+  providerErrorGuidance?: IProviderErrorGuidance,
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -99,6 +101,7 @@ export async function runPrintMode(
   const channel = new HeadlessInteractionChannel({
     cwd,
     provider,
+    ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
     ...(orgPolicy !== undefined ? { orgPolicy } : {}),
     ...(projectAccess !== undefined ? { projectAccess } : {}),
     outputFormat: args.outputFormat ?? 'text',

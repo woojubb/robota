@@ -152,7 +152,9 @@ async function runCliCore(
     (args.mcpHttpTokenFile !== undefined || args.mcpHttpPort !== undefined) &&
     (!mcpServe || (args.mcpHttpPort !== undefined && args.mcpHttpTokenFile === undefined))
   ) {
-    throw new Error('--http-token-file and --http-port are only valid for robota mcp serve HTTP mode');
+    throw new Error(
+      '--http-token-file and --http-port are only valid for robota mcp serve HTTP mode',
+    );
   }
   if (
     mcpServe &&
@@ -482,7 +484,7 @@ async function runCliCore(
   // `permissionMode` bind here; the runner collaborators bind to `product` just above (CLI-078). The one
   // surface that does NOT pass through this assembly is `robota eval`, a documented shell exception —
   // see `eval/eval-command.ts` § CLI-078 for its equivalence boundary.
-  const { commandModules, agentDefinitions, toolOptions, permissionMode } =
+  const { commandModules, agentDefinitions, toolOptions, permissionMode, providerErrorGuidance } =
     buildRobotaRuntimeOptions({
       product,
       cwd,
@@ -566,6 +568,7 @@ async function runCliCore(
         if (mcp !== undefined) await mcp.shutdown();
       },
       orgPolicy,
+      providerErrorGuidance,
     );
     try {
       await printRun;
@@ -581,6 +584,7 @@ async function runCliCore(
       cwd,
       args,
       provider,
+      providerErrorGuidance,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
       orgPolicy,
@@ -618,6 +622,7 @@ async function runCliCore(
       cwd,
       args,
       provider,
+      providerErrorGuidance,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
       orgPolicy,
@@ -678,6 +683,7 @@ async function runCliCore(
     ),
     cwd,
     provider,
+    providerErrorGuidance,
     projectAccess: workspaceComposition.projectAccess,
     orgPolicy,
     providerOverride: args.provider,

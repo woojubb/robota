@@ -13,6 +13,8 @@ to this package and never enter the dependency graph of non-TUI consumers.
 ## Boundaries
 
 - Owns the Ink/React rendering pipeline, the TUI interaction channel, and the default TUI CLI adapter.
+- Carries optional product-owned provider error guidance from `renderApp` through channel creation into
+  each framework session, including a channel recreated during session switching.
 - Owns its PTY test support under `src/__tests__/pty/`; all consumers are internal relative
   imports, not a public test-support barrel. The owner-approved BOUNDARY-2655 disposition
   relocates and removes the private, recorded-never-published `agent-testing` package,

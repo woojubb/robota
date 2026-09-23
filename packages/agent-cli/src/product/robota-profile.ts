@@ -102,6 +102,13 @@ export function createRobotaProfile(input: IRobotaProfileInput): IProductProfile
     agentName: input.agentName,
     version: input.version,
     providerDefinitions: input.providerDefinitions,
+    providerErrorGuidance: {
+      authentication:
+        'Run `/provider` to reconfigure, or check your settings file (~/.robota/settings.json).',
+      forbidden: 'Run `/provider` to switch accounts.',
+      rateLimit: 'Consider switching to a different model with `/model`.',
+      network: 'Verify your provider URL in ~/.robota/settings.json.',
+    },
     ...(input.providerSettings !== undefined ? { providerSettings: input.providerSettings } : {}),
     ...(input.provider !== undefined ? { provider: input.provider } : {}),
     presetRegistry: input.preset.registry,

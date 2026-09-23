@@ -393,6 +393,50 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(session.getMessages().some((m) => m.content === 'mock response')).toBe(true);
   });
 
+  it('keeps provider error guidance scoped to each session', () => {
+    const first = new InteractiveSession({
+      session: createMockSession() as never,
+      cwd: '/tmp',
+      providerErrorGuidance: { authentication: 'Configure product A.' },
+    });
+    const second = new InteractiveSession({
+      session: createMockSession() as never,
+      cwd: '/tmp',
+      providerErrorGuidance: { authentication: 'Configure product B.' },
+    });
+    const neutral = new InteractiveSession({ session: createMockSession() as never, cwd: '/tmp' });
+
+    for (const session of [first, second, neutral]) {
+      session.reportBackgroundError(new Error('401 Unauthorized'));
+    }
+
+    const message = (session: InteractiveSession): string =>
+      String(session.getMessages().find((entry) => entry.role === 'system')?.content ?? '');
+    expect(message(first)).toContain('Configure product A.');
+    expect(message(first)).not.toContain('Configure product B.');
+    expect(message(second)).toContain('Configure product B.');
+    expect(message(second)).not.toContain('Configure product A.');
+    expect(message(neutral)).toContain('Invalid API key.');
+    expect(message(neutral)).not.toContain('/provider');
+    expect(message(neutral)).not.toContain('~/.robota');
+  });
+
+  it('uses this session’s provider guidance for a failed prompt turn', async () => {
+    const session = new InteractiveSession({
+      session: createMockSession({ runError: new Error('429 rate limit') }) as never,
+      cwd: '/tmp',
+      providerErrorGuidance: { rateLimit: 'Choose another model in product A.' },
+    });
+
+    await session.submit('hello');
+
+    const errors = session.getMessages().filter((entry) => entry.role === 'system');
+    expect(
+      errors.some((entry) => String(entry.content).includes('Choose another model in product A.')),
+    ).toBe(true);
+    expect(errors.every((entry) => !String(entry.content).includes('/model'))).toBe(true);
+  });
+
   // ── Scenario: Tool execution tracking ─────────────────────────
 
   it('getActiveTools returns empty array after execution completes', async () => {

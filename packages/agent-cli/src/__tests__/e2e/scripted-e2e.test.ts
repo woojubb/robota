@@ -124,6 +124,19 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     rmSync(TMP_BASE, { recursive: true, force: true });
   });
 
+  it('shows Robota recovery guidance for a provider authentication failure', async () => {
+    const scripted = createScriptedProvider([{ text: 'unused' }]);
+    scripted.provider.chat = async () => {
+      throw new Error('401 unauthorized');
+    };
+
+    const result = await runScripted(project, ['-p', 'hello'], scripted);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('/provider');
+    expect(result.stderr).toContain('~/.robota/settings.json');
+  });
+
   function editScript(target: string): TScriptedTurn[] {
     return [
       { toolCalls: [{ name: 'Read', args: { filePath: target } }] },

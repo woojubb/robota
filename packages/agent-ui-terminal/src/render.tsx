@@ -49,6 +49,7 @@ import type {
   TWorkspaceProjectAccess,
   EditCheckpointStore,
   IOrgPolicy,
+  IProviderErrorGuidance,
   IToolCallHandoffPolicy,
 } from '@robota-sdk/agent-framework';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
@@ -62,6 +63,7 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
 export interface IRenderOptions {
   cwd: string;
   provider: IAIProvider;
+  providerErrorGuidance?: IProviderErrorGuidance;
   projectAccess?: TWorkspaceProjectAccess;
   /**
    * CLI-083 (issue #2287) — the org policy, forwarded to the session so `blockedCommands` is
@@ -208,6 +210,9 @@ export function toChannelOptions(
   return {
     cwd: options.cwd,
     provider: options.provider,
+    ...(options.providerErrorGuidance !== undefined
+      ? { providerErrorGuidance: options.providerErrorGuidance }
+      : {}),
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     ...(options.orgPolicy !== undefined ? { orgPolicy: options.orgPolicy } : {}),
     ...(options.editCheckpointStore !== undefined
