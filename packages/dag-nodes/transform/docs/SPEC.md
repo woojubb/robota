@@ -1,47 +1,21 @@
 # Transform Node Specification
 
-## Scope
+## Purpose
 
-- Owns the `transform` DAG node definition.
-- Provides a general-purpose data transformation node that can prefix text input or pass through arbitrary data within DAG execution flows.
+Defines the `transform` DAG node: a general-purpose data transformation node that can prefix text
+input or pass through arbitrary data unchanged within DAG execution flows.
 
-## Boundaries
+## Contract
 
-- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
-- Uses `NodeIoAccessor` for input access and output construction.
-- Overrides `validateInputWithConfig` for early empty-input detection.
+- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`; does not redefine core DAG contracts.
 - No external provider dependencies. Category: `Core`.
 
-## Architecture Overview
+## Guarantees
 
-- `TransformNodeDefinition` — node with two optional inputs (`text` string, `data` object) and two optional outputs (`text` string, `data` object).
-- If `text` input is a string, applies configured `prefix` and emits as `text` output.
-- If `text` input is not a string, copies all input entries to output unchanged (pass-through mode).
-- Overrides `validateInputWithConfig` to reject empty input payloads.
+- An empty input payload is rejected at validation rather than executed against.
+- When no `text` input is present, all input entries pass through unchanged rather than being
+  dropped.
 
-## Type Ownership
+## Non-goals
 
-| Type                      | Location       | Purpose               |
-| ------------------------- | -------------- | --------------------- |
-| `TransformNodeDefinition` | `src/index.ts` | Node definition class |
-
-## Public API Surface
-
-- `TransformNodeDefinition` — class
-
-## Extension Points
-
-- Extends `AbstractNodeDefinition` and overrides `validateInputWithConfig`, `estimateCostWithConfig` (0.0001 USD), and `executeWithConfig`.
-- Config schema: `{ prefix: z.string().default('') }`.
-- No constructor options. No environment variable dependencies.
-
-## Error Taxonomy
-
-| Code                                      | Layer      | Description                      |
-| ----------------------------------------- | ---------- | -------------------------------- |
-| `DAG_VALIDATION_TRANSFORM_INPUT_REQUIRED` | Validation | Input payload is empty (no keys) |
-
-## Test Strategy
-
-- No test files exist yet. Coverage status: none.
-- Recommended: unit tests verifying text prefix application, pass-through mode for non-text input, empty-input validation rejection, and output structure for mixed input types.
+- Not a provider-backed node; carries no external service dependency.

@@ -11,28 +11,8 @@
 - **No distributed semantics.** Lease and queue implementations are single-process only.
 - **No domain logic.** This package implements port interfaces; it does not define or extend domain contracts.
 
-## Dependencies
-
-| Dependency             | Purpose                                                                                                                      |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `@robota-sdk/dag-core` | Port interface definitions (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`, `IRunDraftStore`) |
-| `@robota-sdk/dag-cost` | Cost meta port interface (`ICostMetaStoragePort`, `ICostMeta`)                                                               |
-
-## Public API Surface
-
-| Export                  | Kind  | Implements             | Description                                                                                             |
-| ----------------------- | ----- | ---------------------- | ------------------------------------------------------------------------------------------------------- |
-| `InMemoryStoragePort`   | Class | `IStoragePort`         | In-memory storage for DAG definitions, runs, and tasks                                                  |
-| `InMemoryQueuePort`     | Class | `IQueuePort`           | In-memory message queue (enqueue, long-poll dequeue, ack, nack)                                         |
-| `InMemoryLeasePort`     | Class | `ILeasePort`           | In-memory lease management (acquire, release, get) — `renew` was removed by DAG-001                     |
-| `SystemClockPort`       | Class | `IClockPort`           | Real system clock (`Date.now()`)                                                                        |
-| `FileStoragePort`       | Class | `IStoragePort`         | File-based JSON storage for DAG definitions, runs and task runs — all three survive a restart (DAG-003) |
-| `InMemoryRunDraftStore` | Class | `IRunDraftStore`       | In-memory execution draft storage for tests                                                             |
-| `FileRunDraftStore`     | Class | `IRunDraftStore`       | File-based JSON storage for execution drafts                                                            |
-| `FileCostMetaStorage`   | Class | `ICostMetaStoragePort` | File-based JSON storage for cost metadata                                                               |
-
-`FileCostMetaStorage` writes `cost-meta.json` into a caller-supplied `dataDir` that may be shared, so
-the file is created with mode `0600` rather than inheriting the process umask (SEC-003 / CWE-377).
+`FileCostMetaStorage` writes its cost-metadata file into a caller-supplied, potentially shared data
+directory, so the file is created with an owner-only mode rather than inheriting the process umask.
 
 ### File collection persistence semantics
 
@@ -45,18 +25,12 @@ owner's promise. Different file paths do not share writer ownership. If the fina
 coalescing cohort fails, the cohort promise rejects; an earlier failure superseded by a later
 successful latest-state write does not make a current durable state fail.
 
-### `./testing` entry — test-support ports (Public API)
+### `./testing` entry — test-support ports
 
-Exported from the dedicated `@robota-sdk/dag-adapters-local/testing` subpath (kept out of the package's
-production surface per the no-fake-in-src floor, HARNESS-032/033). Named for what they are — not `Fake*`/
-`Mock*`/`Stub*` test-double names.
-
-| Export                      | Kind     | Implements          | Description                                                    |
-| --------------------------- | -------- | ------------------- | -------------------------------------------------------------- |
-| `ManualClockPort`           | Class    | `IClockPort`        | Manually-advanced clock for deterministic tests                |
-| `ScriptedTaskExecutorPort`  | Class    | `ITaskExecutorPort` | Runs a caller-supplied handler (defaults to echoing the input) |
-| `TTaskExecutorHandler`      | Type     | --                  | Handler function type for `ScriptedTaskExecutorPort`           |
-| `createCannedPromptBackend` | Function | --                  | Factory for an in-memory prompt backend returning canned data  |
+Test-support ports (a manually-advanced clock, a scripted task executor, a canned prompt backend) are
+exported from a dedicated `@robota-sdk/dag-adapters-local/testing` subpath, kept out of the package's
+production surface, and named for what they are rather than with `Fake*`/`Mock*`/`Stub*` test-double
+names.
 
 ## Use Cases
 
@@ -66,27 +40,18 @@ production surface per the no-fake-in-src floor, HARNESS-032/033). Named for wha
 
 ## Queue Notification Semantics
 
-`InMemoryQueuePort.dequeue(workerId, visibilityTimeoutMs, waitTimeoutMs?)` supports the optional wait timeout from `IQueuePort`.
+The in-memory queue's dequeue operation supports an optional wait timeout:
 
 - If a message is already pending, dequeue returns it immediately.
-- If the queue is empty and `waitTimeoutMs` is positive, dequeue waits until `enqueue` or `nack` makes a message available, then returns it without requiring an external sleep/poll loop.
+- If the queue is empty and the wait timeout is positive, dequeue waits until an enqueue or nack makes a message available, then returns it without requiring an external sleep/poll loop.
 - If no message arrives before the timeout, dequeue returns `undefined`.
 - This notification is single-process only and does not provide distributed queue wake-up semantics.
 
 ## Run Draft Storage Semantics
 
-`IRunDraftStore` adapters store execution drafts separately from DAG definitions. A draft may contain `nodeStateMap` and `runResult`; adapters must not write those fields into `IDagDefinition`.
+Run draft adapters store execution drafts separately from DAG definitions. A draft may contain
+node-state and run-result data that adapters must not write back into a DAG definition.
 
-- `InMemoryRunDraftStore` is test-only/local state and loses drafts on restart.
-- `FileRunDraftStore` writes one JSON file per `draftId` under its configured root and uses atomic temp-file rename for writes.
-- Draft listing order is deterministic by `updatedAt` descending, then `draftId` ascending.
-
-## Future Direction
-
-Production-grade adapters for external infrastructure will follow the same port-adapter pattern in separate packages:
-
-- `dag-adapters-mongodb` -- MongoDB persistence adapter
-- `dag-adapters-redis` -- Redis queue and lease adapters
-- `dag-adapters-postgresql` -- PostgreSQL persistence adapter
-
-Each adapter package will depend on `dag-core` for port interfaces and its respective driver library.
+- The in-memory draft store is test-only/local state and loses drafts on restart.
+- The file-based draft store writes one JSON file per draft under its configured root and uses atomic temp-file rename for writes.
+- Draft listing order is deterministic by last-updated time descending, then draft ID ascending.

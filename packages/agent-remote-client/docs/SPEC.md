@@ -1,142 +1,50 @@
 # agent-remote-client Specification
 
-## Scope
+## Purpose
 
-Owns the client-side remote execution layer for Robota SDK. Provides `RemoteExecutor` (implements `IExecutor`) to proxy AI provider calls to a remote server over HTTP (`POST /chat`, and `POST /chat/stream` for SSE streaming — CORE-046), plus the low-level `HttpClient` used by the executor. The server it calls is an external provider-gateway (out-of-repo), not part of this monorepo. It is NOT `agent-transport-http`/`agent-transport-ws`: those packages serve a different, session-oriented protocol (`/submit`, `/command`, `/messages`) and are not this client's server counterpart.
+Owns the client-side remote execution layer for Robota SDK: a `RemoteExecutor` that implements
+`IExecutor` and proxies AI provider calls to a remote server over HTTP (non-streaming and SSE
+streaming), plus the low-level HTTP client it's built on. The server it calls is an external
+provider-gateway, out of this monorepo — this package is not the client counterpart to
+`agent-transport-http` or `agent-transport-ws`, which serve a different, session-oriented protocol.
 
-## Boundaries
+## Non-goals / Boundaries
 
-- Does not own core agent/provider contracts (`IExecutor`, `IAIProvider`, `IAssistantMessage`); imports from `@robota-sdk/agent-core`.
-- Does not own server-side hosting logic; the server it calls is an external provider-gateway (out-of-repo), not part of this monorepo and not `agent-transport-http` (which serves a different `/submit`,`/command`,`/messages` protocol).
-- Does not own WebSocket transport; the in-repo WebSocket transport contract belongs to `agent-transport-ws`.
-- Has a single production dependency: `@robota-sdk/agent-core`.
-- Package is `private: true`; it is not published to npm.
+- Does not own core agent/provider contracts (`IExecutor`, `IAIProvider`, `IAssistantMessage`) —
+  imported from `agent-core`.
+- Does not own server-side hosting logic, and does not own the in-repo WebSocket transport
+  contract (`agent-transport-ws`'s job).
+- Single production dependency: `@robota-sdk/agent-core`. Private package, not published to npm.
 
-## Architecture Overview
+## Contract
 
-Single entry point `./` backed by `src/index.ts`.
+For a selected model-effort tier, the wire carries only the effort _selection_; the server-side
+adapter resolves its own capability table and returns one serializable outcome. The client
+validates and preserves that value and invokes the caller's outcome callback exactly once,
+catching observer failures — it never invents an opaque or native outcome itself, and neither the
+adapter-bound resolution logic nor the callback function is ever serialized onto the wire.
 
-`RemoteExecutor` (`SimpleRemoteExecutor`, `src/client/remote-executor-simple.ts`) is the main facade. It composes `HttpClient` for HTTP communication, validates requests, and maps responses to an `IExecutorChatResult` or `TExecutorStreamEvent` sequence. It implements `executeChat` (non-streaming), `executeChatStream` (SSE streaming), `supportsTools()`, `validateConfig()`, and `dispose()`.
+**The client does not assemble streamed chunks.** The server already drives the provider's own
+text-delta callback, so the wire carries per-delta text plus one terminal assembled message (and,
+when applicable, one terminal effort-outcome frame). The client hands deltas to the caller's
+callback and yields exactly one message event followed by one terminal event — never a partial
+message treated as a completed result. A stream that ends without a terminal message is a failure,
+not a short answer: re-implementing an accumulator here would create a second assembler with its
+own fragmentation behavior that no test in this repo could observe against the real one.
 
-`HttpClient` (`src/client/http-client.ts`) provides typed `post`, `get`, `chat`, and `chatStream` methods. It uses the Fetch API and delegates the actual chat/stream HTTP logic to `chat-http-methods.ts`. It accepts an injected `ILogger` via `IHttpClientConfig`.
+## Design decision: assert the stream path, don't just describe it
 
-`chat-http-methods.ts` (`src/client/chat-http-methods.ts`) contains the non-streaming HTTP chat logic: `executeChatRequest` (POST to `/chat`). Also exports `validateToolCallArray` (internal guard) and defines `IChatRequestMessage` / `IChatResponsePayload` payload shapes. Extracted from `http-client.ts` to keep files under 300 lines.
+This document previously stated the wrong streaming path twice in a row, and the client's own
+tests stayed green throughout because they mocked `fetch` — a mocked transport agrees with
+whatever the client asserts, so a wrong path and a wrong doc were mutually invisible. The path
+constant is now exported from the package entry specifically so the server's own tests can compare
+it against their route table, making the two sides' agreement a mechanical fact rather than a
+documented claim.
 
-For API-001, the wire carries only the effort **selection** (`auto` or a concrete Core tier). The
-server-side adapter resolves its own capability table and sends one serializable `modelEffortOutcome`
-in the HTTP response or one `model-effort-outcome` SSE frame. `HttpClient` validates and preserves that
-value; `SimpleRemoteExecutor` invokes the caller's local `onModelEffortOutcome` callback exactly once
-from it, catches observer failures, and never invents an opaque or native outcome on the client.
-`effortResolution` is adapter-bound and `onModelEffortOutcome` is a function, so neither is serialized.
+## Error semantics
 
-`chat-stream-http.ts` (`src/client/chat-stream-http.ts`) owns the streaming request: `executeChatStreamRequest` (SSE POST to `/chat/stream`), the `readSseFrames` parser, and `REMOTE_CHAT_STREAM_SUFFIX` — the path constant, exported from the package entry so the SERVER's test can compare it to its own route table.
-
-**This document was wrong about streaming twice, which is why the path is now asserted rather than described.** It claimed `POST /stream` while `request-handler-simple.ts` named `/chat/stream` and no server served either, so every call was a 404; the client's tests were green because they mocked `fetch`, and a mocked transport agrees with whatever the client says. CORE-044 then removed the capability and this file went on describing it as present. One spelling, compared against the server's, is the mechanical answer to both.
-
-**The client does NOT assemble chunks (CORE-046).** The server calls `provider.chat(messages, { onTextDelta })` — already every provider's contract — so the wire carries text deltas plus ONE terminal assembled message and, for a selected effort, one final outcome frame. `executeChatStreamRequest` hands each delta to the caller's `onTextDelta` and returns the terminal message plus the validated terminal outcome; `RemoteExecutor.executeChatStream` yields one `{ kind: 'message' }` event followed by one `{ kind: 'terminal' }` event, because a partial message is not a completed executor result. Re-implementing an accumulator here would put a second assembler in the world, against a fragmentation behaviour no in-repo test can observe — the failure class CORE-042 existed to end. A stream that ends without a terminal message throws: a truncated turn is a failed one, not a short answer.
-
-`request-handler-simple.ts` (`src/client/request-handler-simple.ts`) provides pure helper functions for request/response transformation: `createChatTransportRequest`, `createStreamTransportRequest`, `transformToAssistantMessage`, `validateChatRequest`, `validateStreamRequest`. These are not exported from the package entry point.
-
-Utility functions in `src/utils/transformers.ts` are pure functions with no side effects. They handle message conversion, request/response construction, and JSON safety.
-
-`src/server.ts` is a stub retained as a placeholder; it contains only a JSDoc header and exports nothing.
-
-## Type Ownership
-
-This package is SSOT for the following types. All types marked **public** are exported from the `.` entry point; others are internal.
-
-- `IBasicMessage`, `IRequestMessage`, `IResponseMessage` — message types (**public**).
-- `IEnhancedResponseMessage` — `IResponseMessage` extended with `usage` and `tools` fields (internal, `src/types/message-types.ts`).
-- `IHttpRequest`, `IHttpResponse`, `IHttpError`, `THttpMethod` — HTTP contract types (**public**).
-- `IHttpHeaders` — typed header map with optional string values (internal, `src/types/http-types.ts`).
-- `TDefaultRequestData` — flexible JSON-serializable request data alias (internal, `src/types/http-types.ts`).
-- `ISimpleRemoteConfig` — `RemoteExecutor` constructor configuration (internal, `src/client/remote-executor-simple.ts`).
-- `IHttpClientConfig` — `HttpClient` constructor configuration (internal, `src/client/http-client.ts`).
-- `ISimpleExecutionRequest` — simplified execution request used by `HttpClient.chat` / `chatStream` (internal).
-- `IExtendedAssistantMessage` — assistant message extended with provider/model/usage fields (internal, `src/shared/types.ts`).
-- `IChatRequestMessage` — message shape for chat request body, including optional `toolCalls`/`toolCallId` (internal, `src/client/chat-http-methods.ts`).
-- `IChatResponsePayload` — shape of the response payload from the chat endpoint (internal, `src/client/chat-http-methods.ts`).
-- `CommunicationProtocol` — protocol enum; currently unused externally but kept as future extension point (internal).
-- `IChatRequestBody`, `IChatResponseData`, `ITransportRequest`, `ITransportResponse` — transport payload shapes (internal).
-- `IExtendedChatExecutionRequest`, `IExtendedStreamExecutionRequest` — request extensions with temperature/maxTokens (internal).
-- `IRemoteConfig`, `IHealthStatus`, `IUserContext`, `IProviderStatus` — shared configuration/status types (internal).
-
-`ITokenUsage` is owned by `@robota-sdk/agent-core`; this package re-exports it for consumer convenience
-only. TYPE-003: every usage field in this package (`IExtendedAssistantMessage.usage`,
-`IChatResponseData.usage`, `IResponseMessage.usage`) references that SSOT — no inline copy of the
-prompt/completion/total triple is declared here.
-
-Re-exports from `@robota-sdk/agent-core` via `src/shared/types.ts` (`IExecutor`, `IChatExecutionRequest`, `IStreamExecutionRequest`, `IRemoteExecutorConfig`, `TUniversalMessage`, `IAssistantMessage`) are compatibility shims and do not represent SSOT ownership.
-
-## Public API Surface
-
-| Export                                                                                                                             | Kind     | Description                                                                      |
-| ---------------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------- |
-| `RemoteExecutor` (`SimpleRemoteExecutor`)                                                                                          | class    | `IExecutor` implementation for remote HTTP calls                                 |
-| `HttpClient`                                                                                                                       | class    | Low-level HTTP client (chat + streaming)                                         |
-| `toRequestMessage`                                                                                                                 | function | Transform `IBasicMessage` → `IRequestMessage`                                    |
-| `toResponseMessage`                                                                                                                | function | Transform `IBasicMessage` → `IResponseMessage`                                   |
-| `createHttpRequest`                                                                                                                | function | Build a typed `IHttpRequest<TData>`                                              |
-| `createHttpResponse`                                                                                                               | function | Build a typed `IHttpResponse<TData>`                                             |
-| `extractContent`                                                                                                                   | function | Extract content string from a nested `IHttpResponse` envelope                    |
-| `generateId`                                                                                                                       | function | Generate a prefixed unique ID string                                             |
-| `normalizeHeaders`                                                                                                                 | function | Coerce `Record<string, string \| number \| boolean>` to `Record<string, string>` |
-| `safeJsonParse`                                                                                                                    | function | JSON.parse with null on parse failure (caller must validate shape)               |
-| `IBasicMessage`, `IRequestMessage`, `IResponseMessage`, `ITokenUsage`                                                              | types    | Message contract types (`ITokenUsage` re-exported from agent-core)               |
-| `IHttpRequest`, `IHttpResponse`, `IHttpError`, `THttpMethod`                                                                       | types    | HTTP contract types                                                              |
-| `IExecutor`, `IChatExecutionRequest`, `IStreamExecutionRequest`, `TUniversalMessage`, `IAssistantMessage`, `IRemoteExecutorConfig` | types    | Re-exported from `@robota-sdk/agent-core` for consumer convenience               |
-
-## Extension Points
-
-- `ISimpleRemoteConfig.logger` — inject a custom `ILogger` into `RemoteExecutor`.
-- `IHttpClientConfig.logger` — inject a custom `ILogger` into `HttpClient`.
-- `ISimpleRemoteConfig.headers` — pass additional HTTP headers to every request.
-- `ISimpleRemoteConfig.timeout` — configure request timeout (default: 30 000 ms).
-
-## Error Taxonomy
-
-| Source              | Error / Condition                                           | Trigger                                              |
-| ------------------- | ----------------------------------------------------------- | ---------------------------------------------------- |
-| `RemoteExecutor`    | `Error('Messages array is required and cannot be empty')`   | `messages` is empty or missing                       |
-| `RemoteExecutor`    | `Error('Provider is required')`                             | `request.provider` is empty                          |
-| `RemoteExecutor`    | `Error('Model is required')`                                | `request.model` is empty                             |
-| `RemoteExecutor`    | `Error('Invalid message at index N: role and content ...')` | Message at index N has non-string role or content    |
-| `RemoteExecutor`    | `Error('BaseURL is required but not provided')`             | `serverUrl` missing in config                        |
-| `RemoteExecutor`    | `Error('User API key is required but not provided')`        | `userApiKey` missing in config                       |
-| `chat-http-methods` | `Error('HTTP <status>: <statusText>')`                      | Non-2xx HTTP response from `/chat` or `/stream`      |
-| `chat-http-methods` | `Error('No response body for streaming')`                   | Streaming response has no body                       |
-| `chat-http-methods` | `Error('Streaming request failed: ...')`                    | Unhandled error during SSE read loop                 |
-| `chat-http-methods` | `Error('Request failed: ...')`                              | Unhandled error in `executeChatRequest`              |
-| `HttpClient`        | `Error('HTTP <status>: <statusText>')`                      | Non-2xx HTTP response in `executeRequest` (post/get) |
-| `HttpClient`        | `Error('Request failed: ...')`                              | Unhandled error in `executeRequest`                  |
-
-## Class Contract Registry
-
-### Interface Implementations
-
-| Interface          | Implementor            | Location                               |
-| ------------------ | ---------------------- | -------------------------------------- |
-| `IExecutor` (core) | `SimpleRemoteExecutor` | `src/client/remote-executor-simple.ts` |
-
-### Cross-Package Port Consumers
-
-| Port (Owner)     | Consumer                   | Location                               |
-| ---------------- | -------------------------- | -------------------------------------- |
-| `ILogger` (core) | `SimpleRemoteExecutor`     | `src/client/remote-executor-simple.ts` |
-| `ILogger` (core) | `HttpClient`               | `src/client/http-client.ts`            |
-| `ILogger` (core) | `executeChatRequest`       | `src/client/chat-http-methods.ts`      |
-| `ILogger` (core) | `executeChatStreamRequest` | `src/client/chat-http-methods.ts`      |
-
-## Test Strategy
-
-- **Unit tests**: 7 test files covering client and utilities:
-  - `src/client/__tests__/http-client.test.ts` — `HttpClient` request/response handling
-  - `src/client/__tests__/http-client-chat.test.ts` — `HttpClient.chat` payload mapping
-  - `src/client/__tests__/remote-executor-simple.test.ts` — `RemoteExecutor` validation and execution
-  - `src/client/__tests__/request-handler-simple.test.ts` — request handler helpers
-  - `src/shared/__tests__/types.test.ts` — shared type validation
-  - `src/utils/__tests__/transformers.test.ts` — pure transformer functions
-  - `src/__tests__/exports.test.ts` — public entry point export surface
-- **SSE contract**: `src/client/__tests__/chat-stream-http.test.ts` verifies that a server outcome frame
-  follows the terminal message and survives to the executor; server route tests assert one outcome
-  frame before `done`.
+Validation failures (empty/missing messages, missing provider or model, malformed message shape,
+missing base URL or API key) surface as thrown errors with a specific, named condition rather than
+a generic failure. Non-2xx HTTP responses and unhandled errors during the request or the SSE read
+loop are likewise surfaced as distinct, named error conditions rather than silently swallowed or
+folded into a generic result.
