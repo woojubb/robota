@@ -206,7 +206,7 @@ export class ConversationService implements IConversationService {
     provider: string,
     contextOptions: IContextOptions,
     serviceOptions: IConversationServiceOptions,
-    logger: ILogger,
+    _logger: ILogger,
   ): IConversationContext {
     const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
     let processed = messages;

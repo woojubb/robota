@@ -3,6 +3,8 @@ export {
   createDefaultBackgroundTaskRunners,
   createManagedShellProcessRunner,
   createScheduledTaskRunner,
+  nextScheduledFireOnOrAfter,
+  createToolInvocationBackgroundTaskRunner,
   resolveBackgroundTaskShellCommand,
 } from './runners/index.js';
 export type {
@@ -52,6 +54,8 @@ export {
   type IScheduleEditPatch,
   type IScheduledBackgroundTaskRequest,
   type ISerializableProviderProfile,
+  type IToolInvocationAdopter,
+  type IToolInvocationBackgroundTaskRequest,
   type TBackgroundPermissionPolicy,
   type TBackgroundPrimitive,
   type TBackgroundTaskErrorCategory,

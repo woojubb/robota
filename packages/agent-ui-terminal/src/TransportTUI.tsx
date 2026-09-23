@@ -22,7 +22,6 @@ import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindi
 import { Text } from './SafeText.js';
 import { usePalette } from './theme/index.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
   ITransportEntry,
   ITransportSettingsRegistryView,
@@ -31,7 +30,7 @@ import type {
 const TRANSPORT_NAME_WIDTH = 18;
 
 interface IEntryRowProps {
-  entry: ITransportEntry<IInteractiveSession>;
+  entry: ITransportEntry;
   selected: boolean;
 }
 
@@ -53,10 +52,10 @@ function TransportEntryRow({ entry, selected }: IEntryRowProps): React.ReactElem
 }
 
 function useTransportInput(
-  entries: ITransportEntry<IInteractiveSession>[],
+  entries: ITransportEntry[],
   cursor: number,
   saving: boolean,
-  registry: ITransportSettingsRegistryView<IInteractiveSession>,
+  registry: ITransportSettingsRegistryView,
   setCursor: (fn: (c: number) => number) => void,
   setSaving: (v: boolean) => void,
   setError: (v: string | undefined) => void,
@@ -105,7 +104,7 @@ function useTransportInput(
 }
 
 interface IProps {
-  registry: ITransportSettingsRegistryView<IInteractiveSession>;
+  registry: ITransportSettingsRegistryView;
   onClose: () => void;
 }
 

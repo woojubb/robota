@@ -1,9 +1,8 @@
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
+import { z } from 'zod';
 
 // CORE-030: defining a tool and telling the permission system what it does arrive together.
 import './tool-permission-profiles.js';
-import { z } from 'zod';
-
 import {
   normalizeModelCommandName,
   stringifyModelCommandResult,

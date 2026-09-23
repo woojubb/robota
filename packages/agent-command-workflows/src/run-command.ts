@@ -33,7 +33,7 @@ function readDagFile(project: IWorkflowProject, relativePath: string): IDagDefin
  * catalog is resolved through the shared workspace runtime (built-ins + the instant nodes saved
  * under `<root>/nodes/`), the same one `validate` and `list` see (WORKFLOW-005 P3), and the argument
  * shares the `/workflows` grammar (`parseFileArg`). Composes `dag-framework`'s local provider; no
- * dependency on the `dag-cli` product.
+ * dependency on an external runtime server.
  */
 export async function executeWorkflowsRun(
   argStr: string,

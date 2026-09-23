@@ -1,68 +1,39 @@
 # Default DAG Node Catalog Specification
 
-## Scope
+## Purpose
 
-- Owns the **default node catalog composition** for the Robota DAG framework (ARCH-PROVIDER-004 / Stage C).
-- Exports `createDefaultNodeRegistrySync()` (the SDK-free base node set) and `createDefaultNodeRegistry()`
-  (the full async catalog: base set + the collapsed `llm-text` node bound to an injected/lazy provider
-  registry + lazily-loaded optional media/skill nodes).
-- Is a **composition aggregator, entry-point-only** — imported only at composition roots (apps, CLI,
-  command/MCP entry packages), never by a library-internal `src` of a mid-layer package.
+Owns the default node catalog composition for the Robota DAG framework. Exports
+`createDefaultNodeRegistrySync()` (the base node set used by CLI `/workflows`) and
+`createDefaultNodeRegistry()` (a private workspace async catalog: base set + the collapsed
+`llm-text` node bound to an injected/lazy provider registry + dynamically loaded media/skill
+nodes). The async catalog is not a supported entry point in a clean CLI installation.
 
-## Boundaries
+Is a **composition aggregator** — imported statically only at composition roots (apps, CLI,
+command/MCP entry packages). `dag-framework` may lazy-load it from library-internal source when a
+caller does not inject a node registry.
 
-- Depends on the concrete node packages (`@robota-sdk/dag-node-*`) + `@robota-sdk/dag-node` (assembly base) +
-  `@robota-sdk/dag-core`/`agent-core` contracts. It does NOT depend on `@robota-sdk/dag-framework` (one-way:
-  the framework lazy-loads this package, not the reverse).
-- The default provider set for the `llm-text` node is loaded lazily from `@robota-sdk/agent-builtin-providers`
-  (optional dependency); a load failure surfaces a **typed diagnostic naming the missing package**, never a
-  silent empty registry. Optional media/skill nodes (gemini-image-edit, text-to-image, seedance-video, skill)
-  are dynamically imported and silently skipped when their optional SDK peer is absent (`// allow-fallback`).
-- This is an aggregator ABOVE the `@robota-sdk/dag-node-*` leaf layer; the plural `dag-nodes-` prefix
-  intentionally diverges from the singular `dag-node-` leaf prefix, so the leaf-invariant scan
-  (`checkDagNodesLeaf`) does not police its sibling node dependencies.
+## Contract
 
-## Architecture Overview
+- `createDefaultNodeRegistrySync()` constructs only nodes with no optional provider-SDK peer
+  dependency, so it always succeeds to construct.
+- `createDefaultNodeRegistry(providers?, loadDefaults?)` adds the LLM node plus dynamically-loaded
+  optional media/skill nodes on top of the sync base set.
+- The default provider set for the `llm-text` node is loaded lazily from
+  `@robota-sdk/agent-builtin-providers` (an optional dependency); a load failure surfaces a
+  diagnostic naming that package rather than falling back to a silent empty registry.
+- The async media/skill loaders skip a node after any import or construction failure, not only a
+  missing optional package. Callers that require a particular node must inject it explicitly
+  instead of relying on that fallback.
 
-- `createDefaultNodeRegistrySync()` — constructs the base nodes that have no optional provider-SDK peer
-  dependency (input, multi-input, transform, text-template, text-output, image-loader, image-source,
-  ok-emitter, tool, and the utility-text family).
-- `createDefaultNodeRegistry(providers?, loadDefaults?)` — the base set + `LlmTextNodeDefinition(providers ??
-await loadDefaults())` + the dynamically-loaded optional media/skill nodes.
-- `loadDefaultProviderDefinitions` — the lazy provider-set loader with the typed diagnostic.
+## Non-goals
 
-## Type Ownership
+- Does NOT depend on `@robota-sdk/dag-framework` — the dependency is one-way; the framework
+  lazy-loads this package, not the reverse.
+- Not the place to build a custom catalog: consumers that want one inject
+  `createDagFramework({ nodes })` and skip this package entirely.
 
-| Type/Symbol                      | Location       | Purpose                                                     |
-| -------------------------------- | -------------- | ----------------------------------------------------------- |
-| `createDefaultNodeRegistrySync`  | `src/index.ts` | SDK-free base node set                                      |
-| `createDefaultNodeRegistry`      | `src/index.ts` | Full async default catalog                                  |
-| `TProviderDefinitionLoader`      | `src/index.ts` | Lazy provider-set loader signature (test seam)              |
-| `TMediaProviderDefinitionLoader` | `src/index.ts` | Lazy media-provider definition loader signature (test seam) |
+## Design decisions
 
-## Public API Surface
-
-| Export                           | Kind     |
-| -------------------------------- | -------- |
-| `createDefaultNodeRegistrySync`  | function |
-| `createDefaultNodeRegistry`      | function |
-| `TProviderDefinitionLoader`      | type     |
-| `TMediaProviderDefinitionLoader` | type     |
-
-## Extension Points
-
-- Adding/removing a default node = editing this package's `createDefaultNodeRegistry(Sync)`, not the framework.
-- Consumers that want a custom catalog inject `createDagFramework({ nodes })` and do not load this package.
-
-## Error Taxonomy
-
-| Condition                                   | Behavior                                                          |
-| ------------------------------------------- | ----------------------------------------------------------------- |
-| default provider set cannot load (SDK gone) | throws a typed Error naming `@robota-sdk/agent-builtin-providers` |
-| optional media/skill SDK peer absent        | node silently skipped (`// allow-fallback`), catalog still builds |
-
-## Test Strategy
-
-`src/index.test.ts` (moved from `dag-framework`) covers the sync base set, the async catalog incl. the
-collapsed `llm-text` node, provider injection vs lazy default, the partial-install typed diagnostic, and the
-optional-loader skip paths — with stubbed providers/mocked dynamic imports (no real provider call).
+- The plural `dag-nodes-` prefix (vs. singular `dag-node-` leaves) marks this package as an
+  aggregator sitting above the leaf node packages; its dependencies on sibling node packages are
+  intentional, not a layering violation.

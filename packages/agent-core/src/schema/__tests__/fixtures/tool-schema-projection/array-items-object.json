@@ -1,0 +1,21 @@
+{
+  "name": "bulk_upsert",
+  "description": "An array property whose items are an object schema.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "records": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "value": { "type": "number" }
+          },
+          "required": ["id"]
+        }
+      }
+    },
+    "required": ["records"]
+  }
+}

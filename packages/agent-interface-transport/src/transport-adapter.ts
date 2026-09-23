@@ -87,6 +87,28 @@ export interface ITransportServiceAdapter<TSession = unknown> extends ITransport
 export type TTransportAdapter<TSession = unknown> =
   ITransportServiceAdapter<TSession> | ITransportRunnerAdapter<TSession>;
 
+/** A composition root has selected the exact session capability; the registry cannot reattach it. */
+export interface IBoundTransportAdapter {
+  readonly binding: 'bound';
+  readonly name: string;
+  readonly lifecycle: Readonly<ITransportLifecycle>;
+  start(): Promise<void>;
+  stop(): Promise<void>;
+}
+
+export interface IBoundTransportServiceAdapter extends IBoundTransportAdapter {
+  readonly lifecycle: Readonly<{ readonly kind: 'service' }>;
+}
+
+export interface IBoundTransportRunnerAdapter extends IBoundTransportAdapter {
+  readonly lifecycle: Readonly<{ readonly kind: 'runner' }>;
+  waitForCompletion(): Promise<TTransportRunOutcome>;
+}
+
+export type TBoundTransportAdapter =
+  | IBoundTransportServiceAdapter
+  | IBoundTransportRunnerAdapter;
+
 export function createTransportFailedOutcome(
   exitCode: number,
 ): Extract<TTransportRunOutcome, { readonly status: 'failed' }> {

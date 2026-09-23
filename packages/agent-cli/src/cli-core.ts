@@ -39,7 +39,7 @@ import {
   createRobotaPackSet,
   createRobotaSubagentRunnerFactory,
 } from './product/robota-subagent-composition.js';
-import { reloadPluginCommandSource } from '@robota-sdk/agent-command';
+import { reloadPluginCommandSource } from './plugins/default-plugin-command-source-loader.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
 import { runEvalCommand } from './eval/eval-command.js';
@@ -49,6 +49,7 @@ import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetupOrExit } from './startup/command-setup.js';
+import { areSessionLoopsDisabled } from './startup/loop-options.js';
 import {
   createInitialCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
@@ -58,7 +59,12 @@ import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { runPrintMode } from './modes/print-mode.js';
-import { runServeMode } from './modes/serve-mode.js';
+import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
+import { runMcpServeMode } from './modes/mcp-serve-mode.js';
+import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
+import { composeMcpClientForStartup } from './startup/mcp-startup.js';
+import type { TMcpStartupMode } from './startup/mcp-startup.js';
+import type { Writable } from 'node:stream';
 import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
 import { resolveFocusReportingOverride } from './startup/focus-reporting-enablement.js';
 import { resolvePromptHistoryRenderFields } from './startup/prompt-history-enablement.js';
@@ -92,6 +98,39 @@ export async function startCliCore(
   const launch = await applyLaunchInvocation();
   if (launch.kind === 'refused') return;
   const initialInput = launch.kind === 'launched' ? launch.initialInput : undefined;
+  let parsedMcpArgs: IParsedCliArgs | undefined;
+  if (process.argv.includes('mcp')) {
+    try {
+      const parsed = parseCliArgs();
+      if (parsed.positional[0] === 'mcp' && parsed.positional[1] === 'serve')
+        parsedMcpArgs = parsed;
+    } catch {
+      // The normal parser reports an invalid invocation below.
+    }
+  }
+  const mcpOutput = parsedMcpArgs === undefined ? undefined : reserveMcpStdout();
+  try {
+    await runCliCore(
+      options,
+      createBackgroundTaskRunners,
+      presentation,
+      initialInput,
+      mcpOutput?.protocol,
+      parsedMcpArgs,
+    );
+  } finally {
+    mcpOutput?.restore();
+  }
+}
+
+async function runCliCore(
+  options: IStartCliOptions,
+  createBackgroundTaskRunners: () => IBackgroundTaskRunner[],
+  presentation?: ICliPresentation,
+  initialInput?: string,
+  mcpProtocolStdout?: Writable,
+  preParsedArgs?: IParsedCliArgs,
+): Promise<void> {
   const cwd = process.cwd();
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
   const startupOptions: IStartCliOptions = { ...options, projectAccess };
@@ -99,13 +138,39 @@ export async function startCliCore(
 
   let args: IParsedCliArgs;
   try {
-    args = parseCliArgs();
+    args = preParsedArgs ?? parseCliArgs();
   } catch (error) {
     // allow-fallback: argument validation errors are terminal — exit is the correct response
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
   const version = readVersion();
+  const mcpServe = args.positional[0] === 'mcp' && args.positional[1] === 'serve';
+  if (args.positional[0] === 'mcp' && (!mcpServe || args.positional.length !== 2)) {
+    throw new Error('Usage: robota mcp serve [options]');
+  }
+  if (
+    (args.mcpHttpTokenFile !== undefined || args.mcpHttpPort !== undefined) &&
+    (!mcpServe || (args.mcpHttpPort !== undefined && args.mcpHttpTokenFile === undefined))
+  ) {
+    throw new Error(
+      '--http-token-file and --http-port are only valid for robota mcp serve HTTP mode',
+    );
+  }
+  if (
+    mcpServe &&
+    (args.serve ||
+      args.printMode ||
+      args.goal !== undefined ||
+      args.open ||
+      args.configure ||
+      args.configureProvider !== undefined ||
+      args.reset)
+  ) {
+    throw new Error(
+      'robota mcp serve cannot be combined with another process mode or setup command',
+    );
+  }
 
   if (args.help) {
     process.stdout.write(printHelp());
@@ -128,11 +193,10 @@ export async function startCliCore(
     return;
   }
 
-  // Issue #2487: plugin reloads read the project scope too, so an `install --scope project` made in
-  // this session shows up in the same session.
+  // Plugin reloads include the project scope only after the host's trust decision admits it.
   const reloadPluginCommandSourceInCwd = (
     registry: Parameters<typeof reloadPluginCommandSource>[0],
-  ): number => reloadPluginCommandSource(registry, cwd);
+  ): number => reloadPluginCommandSource(registry, cwd, projectAccess);
   const terminal = new PrintTerminal();
 
   if (args.reset) {
@@ -145,7 +209,7 @@ export async function startCliCore(
   }
 
   if (
-    (args.printMode || args.goal !== undefined || args.serve) &&
+    (args.printMode || args.goal !== undefined || args.serve || mcpServe) &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
     process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
@@ -205,7 +269,7 @@ export async function startCliCore(
 
   const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd);
   const keybindingsSource =
-    args.printMode || args.goal !== undefined || args.serve || !presentation
+    args.printMode || args.goal !== undefined || args.serve || mcpServe || !presentation
       ? undefined
       : presentation.createNodeKeybindingsSource({
           onDiagnostic: (diagnostic) =>
@@ -216,12 +280,40 @@ export async function startCliCore(
   // SCREEN-2002: one registry, reaching both `/theme` (through its port) and `renderApp`.
   const theme = presentation?.createThemeSurface({
     cwd,
+    projectAccess,
     userHome: homedir(),
     enabled: keybindingsSource !== undefined,
     settings: userSettings,
     reducedMotionFlag: args.reducedMotion,
     env: process.env,
   });
+  const mcpStartupMode: TMcpStartupMode =
+    args.printMode || args.goal ? 'print' : args.serve || mcpServe ? 'serve' : 'interactive';
+  const mcp =
+    options.mcpActivationAdapter === undefined
+      ? await composeMcpClientForStartup({
+          settingsSources: createInitialCliWorkspaceComposition(cwd, startupOptions)
+            .settingsSources,
+          projectAccess,
+          cwd,
+          env: process.env,
+          mode: mcpStartupMode,
+          ...(options.mcpStdioAuthorities === undefined
+            ? {}
+            : { stdioAuthorities: options.mcpStdioAuthorities }),
+          ...(options.mcpApprovalStore === undefined
+            ? {}
+            : { approvalStore: options.mcpApprovalStore }),
+          ...(options.mcpHttpTransportDeps === undefined
+            ? {}
+            : { httpTransportDeps: options.mcpHttpTransportDeps }),
+          ...(options.mcpResultAdmissionLimits === undefined
+            ? {}
+            : { resultAdmissionLimits: options.mcpResultAdmissionLimits }),
+          reportDiagnostic: (message) => terminal.writeError(message),
+        })
+      : undefined;
+  if (mcp !== undefined) startupOptions.mcpActivationAdapter = mcp.activationAdapter;
   const {
     commandHostAdapters,
     outputStyleRegistry,
@@ -273,6 +365,7 @@ export async function startCliCore(
   const {
     registry: transportRegistry,
     wsTransport,
+    bindTransports,
     usageReporters,
   } = createCliUsageTransportRegistry(
     workspaceComposition.sessionStore,
@@ -392,7 +485,7 @@ export async function startCliCore(
   // `permissionMode` bind here; the runner collaborators bind to `product` just above (CLI-078). The one
   // surface that does NOT pass through this assembly is `robota eval`, a documented shell exception —
   // see `eval/eval-command.ts` § CLI-078 for its equivalence boundary.
-  const { commandModules, agentDefinitions, toolOptions, permissionMode } =
+  const { commandModules, agentDefinitions, toolOptions, permissionMode, providerErrorGuidance } =
     buildRobotaRuntimeOptions({
       product,
       cwd,
@@ -405,6 +498,8 @@ export async function startCliCore(
       ...(args.permissionMode !== undefined ? { permissionMode: args.permissionMode } : {}),
       projectAccess: workspaceComposition.projectAccess,
     });
+  if (mcp !== undefined) toolOptions.additionalTools.push(...(await mcp.connect()));
+  const toolCallHandoff = mcp?.buildToolCallHandoff(permissionMode);
   // A capability the merge refused (a colliding id) is reported, never silently dropped.
   for (const { kind, id, reason } of product.rejectedCapabilities) {
     terminal.writeError(`Capability ${kind} "${id}" was not composed: ${reason}.`);
@@ -455,7 +550,7 @@ export async function startCliCore(
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
   if (args.printMode || args.goal) {
-    await runPrintMode(
+    const printRun = runPrintMode(
       cwd,
       args,
       provider,
@@ -470,8 +565,52 @@ export async function startCliCore(
       { model: modelId, ...presetSurface },
       memorySessionOptions,
       workspaceComposition.projectAccess,
+      async () => {
+        if (mcp !== undefined) await mcp.shutdown();
+      },
       orgPolicy,
+      providerErrorGuidance,
     );
+    try {
+      await printRun;
+    } finally {
+      if (mcp !== undefined) await mcp.shutdown();
+    }
+    return;
+  }
+
+  if (mcpServe) {
+    if (mcpProtocolStdout === undefined) throw new Error('MCP protocol stdout was not reserved');
+    const sessionOptions = buildServeSessionOptions({
+      cwd,
+      args,
+      provider,
+      providerErrorGuidance,
+      sessionStore,
+      projectAccess: workspaceComposition.projectAccess,
+      orgPolicy,
+      backgroundTaskRunners,
+      subagentRunnerFactory,
+      agentDefinitions,
+      ...toolOptions,
+      ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
+      commandModules,
+      commandHostAdapters,
+      transportRegistry,
+      ...(remoteCommandPolicy ? { remoteCommandPolicy } : {}),
+      resumeSessionId,
+      model: modelId,
+      preset: presetSurface,
+      memorySessionOptions,
+    });
+    try {
+      await runMcpServeMode(sessionOptions, version, mcpProtocolStdout, {
+        ...(args.mcpHttpTokenFile !== undefined ? { tokenFile: args.mcpHttpTokenFile } : {}),
+        ...(args.mcpHttpPort !== undefined ? { port: args.mcpHttpPort } : {}),
+      });
+    } finally {
+      if (mcp !== undefined) await mcp.shutdown();
+    }
     return;
   }
 
@@ -480,10 +619,11 @@ export async function startCliCore(
   // rendered; the WS sidecar is served by the shared `startRuntimeHost`. Placed after the runtime block so it
   // reuses the exact provider/session/transport assembly.
   if (args.serve) {
-    await runServeMode({
+    const serveRun = runServeMode({
       cwd,
       args,
       provider,
+      providerErrorGuidance,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
       orgPolicy,
@@ -491,9 +631,11 @@ export async function startCliCore(
       subagentRunnerFactory,
       agentDefinitions,
       ...toolOptions,
+      ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
       commandHostAdapters,
       transportRegistry,
+      bindTransports,
       // GUI-007 + SEC-001: point the served monitor at the live WS port AND carry the resolved auth token in
       // the `ws-url` (`?token=`) — zero-config authentication for the CLI's own localhost-origin monitor.
       getMonitorWsUrl: () => {
@@ -509,6 +651,11 @@ export async function startCliCore(
       preset: presetSurface,
       memorySessionOptions,
     });
+    try {
+      await serveRun;
+    } finally {
+      if (mcp !== undefined) await mcp.shutdown();
+    }
     return;
   }
 
@@ -524,8 +671,9 @@ export async function startCliCore(
     markOnboarded();
   }
 
-  await presentation.renderApp({
+  const tuiRun = presentation.renderApp({
     providerDefinitions,
+    ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
     ...(initialInput !== undefined
       ? { initialInput, initialInputOrigin: 'external-link' as const }
       : {}),
@@ -536,6 +684,7 @@ export async function startCliCore(
     ),
     cwd,
     provider,
+    providerErrorGuidance,
     projectAccess: workspaceComposition.projectAccess,
     orgPolicy,
     providerOverride: args.provider,
@@ -546,6 +695,7 @@ export async function startCliCore(
     maxTurns: args.maxTurns,
     version,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
+    disableSessionLoops: areSessionLoopsDisabled(process.env),
     resumeSessionId,
     showSessionPickerOnStart,
     forkSession: args.forkSession,
@@ -560,6 +710,7 @@ export async function startCliCore(
     shellExec: runShellCommand,
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
+    bindTransports,
     // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
     // host adapter (wired above) — no TUI-prop wiring remains.
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
@@ -588,5 +739,10 @@ export async function startCliCore(
     reducedMotionOverride: theme.reducedMotionOverride,
     ...toSessionOptions(presetSurface),
   });
+  try {
+    await tuiRun;
+  } finally {
+    if (mcp !== undefined) await mcp.shutdown();
+  }
   process.exit(0);
 }

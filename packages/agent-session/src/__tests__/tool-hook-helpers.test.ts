@@ -14,7 +14,7 @@ import {
   buildHookInput,
   truncateToolResult,
 } from '../tool-hook-helpers.js';
-import { runHooks, isEnforcing } from '@robota-sdk/agent-core';
+import { admitToolResult, runHooks, isEnforcing } from '@robota-sdk/agent-core';
 
 import type { IHookInput, IHookTypeExecutor, THookEvent } from '@robota-sdk/agent-core';
 import type { THooksConfig } from '@robota-sdk/agent-core';
@@ -165,6 +165,16 @@ describe('buildHookInput', () => {
 // ---------------------------------------------------------------------------
 
 describe('truncateToolResult', () => {
+  it('preserves an already-admitted result under its validated higher limit', async () => {
+    const raw = 'x'.repeat(40_000);
+    const admitted = await admitToolResult(
+      'mcp-tool',
+      { success: true, data: raw },
+      { warningChars: 10_000, hardChars: 25_000, repositoryMaxChars: 50_000 },
+      45_000,
+    );
+    expect((truncateToolResult(admitted).data as string).length).toBe(raw.length);
+  });
   it('returns the result unchanged when data is within limit', () => {
     const result = { success: true, data: 'short data', metadata: {} };
     const out = truncateToolResult(result);

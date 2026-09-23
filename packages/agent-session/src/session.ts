@@ -14,6 +14,7 @@ import {
   fireSessionStartHook,
 } from './session-lifecycle.js';
 import { executeRun } from './session-run.js';
+import { SessionRuntimeTools, linkCancellation } from './session-runtime-tools.js';
 
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { ContextWindowTracker } from './context-window-tracker.js';
@@ -30,6 +31,7 @@ import type {
   ICompactEvent,
   ISessionOptions,
   ISessionShutdownOptions,
+  ISessionRunOptions,
   TCompactTrigger,
 } from './session-types.js';
 import type {
@@ -37,6 +39,8 @@ import type {
   IContextWindowState,
   IEventService,
   IToolSchema,
+  IToolExecutionResult,
+  TToolParameters,
   TPermissionMode,
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
@@ -87,6 +91,8 @@ export class Session extends SessionBase {
   private readonly sessionLogger?: ISessionLogger;
   private readonly maxTurns?: number;
   private readonly compactionOrchestrator: CompactionOrchestrator;
+  private readonly runtimeTools: SessionRuntimeTools;
+  private shuttingDown = false;
   private shutdownPromise: Promise<void> | null = null;
   /** Stdout collected from SessionStart hooks, injected on first run(). */
   private sessionStartStdout = '';
@@ -155,6 +161,7 @@ export class Session extends SessionBase {
       systemMessage,
       this.eventService,
     );
+    this.runtimeTools = new SessionRuntimeTools(this.agent, this.turnClaim, this.sessionId);
     fireSessionStartHook(
       this.sessionId,
       this.cwd,
@@ -171,20 +178,34 @@ export class Session extends SessionBase {
    *   turn's model call only, never persisted to history (thin pass-through to agent-core `IRunOptions`).
    * REJECTS with `SessionBusyError` if a turn is in flight — RUNTIME-003; see `turn-claim.ts`.
    */
-  async run(
-    message: string,
-    rawInput?: string,
-    options?: { ephemeralSystemContext?: string; driverId?: string }, // PEER-007 (issue #1915)
-  ): Promise<string> {
+  async run(message: string, rawInput?: string, options?: ISessionRunOptions): Promise<string> {
+    if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
     const controller = this.turnClaim.claim(); // Synchronously, before any await.
+    const unlink = linkCancellation(controller, options?.signal);
     const { signal } = controller;
     try {
+      signal.throwIfAborted();
       const response = await executeRun(message, rawInput, this.buildRunContext(), signal, options);
       this.messageCount += 1;
       return response;
     } finally {
+      unlink();
       this.turnClaim.release(controller);
     }
+  }
+
+  async listRuntimeTools(): Promise<IToolSchema[]> {
+    if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    return this.agent.listRuntimeTools();
+  }
+
+  async invokeRuntimeTool(
+    name: string,
+    parameters: TToolParameters,
+    options?: { signal?: AbortSignal },
+  ): Promise<IToolExecutionResult> {
+    if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    return this.runtimeTools.invoke(name, parameters, options?.signal);
   }
 
   /**
@@ -220,6 +241,7 @@ export class Session extends SessionBase {
    */
   shutdown(options: ISessionShutdownOptions = {}): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
+    this.shuttingDown = true;
     const reason = options.reason ?? 'other';
     const step = async (label: string, run: () => Promise<void> | void): Promise<void> => {
       try {
@@ -234,6 +256,7 @@ export class Session extends SessionBase {
     };
     this.shutdownPromise = (async () => {
       await step('abort', () => this.abort());
+      await step('drain-direct-tool', () => this.runtimeTools.drain());
       this.log('session_shutdown', { reason });
       await step('persist', () => this.persistSessionInternal());
       await step('session-end-hook', () =>

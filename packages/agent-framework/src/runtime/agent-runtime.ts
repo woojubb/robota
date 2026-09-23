@@ -18,7 +18,7 @@ import type { TSessionResponseFormat } from '../assembly/create-session-types.js
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
 import type { CommandRegistry, IRemoteCommandPolicy } from '../commands/index.js';
-import type { IInteractiveSession, IInteractiveSessionStore } from '../interactive/index.js';
+import type { IInteractiveSessionStore } from '../interactive/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
@@ -36,7 +36,7 @@ export interface IAgentRuntimeConfig {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** Runtime default; explicit undefined disables persistence for sessions that omit an override. */
   sessionStore?: IInteractiveSessionStore | undefined;
-  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
+  transportRegistry?: ITransportRegistryView;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   orgPolicy?: IOrgPolicy;
   /** REMOTE-006: optional remote-command policy. Absent → allow (local == remote); provide one only to restrict. */
@@ -78,7 +78,7 @@ export interface IAgentRuntime {
   readonly backgroundTaskRunners: IBackgroundTaskRunner[];
   readonly subagentRunnerFactory: TSubagentRunnerFactory | undefined;
   readonly sessionStore: IInteractiveSessionStore | undefined;
-  readonly transportRegistry: ITransportRegistryView<IInteractiveSession> | undefined;
+  readonly transportRegistry: ITransportRegistryView | undefined;
   readonly reloadPluginCommandSource: (registry: CommandRegistry) => void;
   createSession(opts: IHeadlessSessionOptions): InteractiveSession;
 }

@@ -191,10 +191,7 @@ describe('ReplayProvider (INFRA-017)', () => {
     );
   });
 
-  // ARCH-049 containment: external-payload reads refuse off Linux (agent-session external-payload-resolver).
-  it.skipIf(process.platform !== 'linux')(
-    'ARCH-014: direct construction hydrates nested response references with an explicit base',
-    async () => {
+  it('ARCH-014: direct construction hydrates nested response references with an explicit base', async () => {
       const baseDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'robota-replay-provider-')));
       try {
         const serialized = JSON.stringify('hydrated content');
@@ -233,8 +230,7 @@ describe('ReplayProvider (INFRA-017)', () => {
       } finally {
         rmSync(baseDirectory, { recursive: true, force: true });
       }
-    },
-  );
+  });
 
   it('ARCH-014: rejects unresolved references outside normalized response events', () => {
     const entries = [

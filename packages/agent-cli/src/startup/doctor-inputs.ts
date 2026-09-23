@@ -7,7 +7,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import { pluginScopeDirs } from '@robota-sdk/agent-command';
+import { pluginScopeDirs } from '../plugins/default-plugin-command-source-loader.js';
 import {
   createContributionSourcesForProjectAccess,
   createDefaultUserSettingsSources,
@@ -149,7 +149,7 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
     providerDefinitions: opts.providerDefinitions,
     env: opts.env,
     contributionSources,
-    pluginsDirs: pluginScopeDirs(opts.cwd, userHome),
+    pluginsDirs: pluginScopeDirs(opts.cwd, userHome, projectAccess),
     ...(opts.options.mcpActivationAdapter === undefined
       ? {}
       : { mcpActivation: opts.options.mcpActivationAdapter }),

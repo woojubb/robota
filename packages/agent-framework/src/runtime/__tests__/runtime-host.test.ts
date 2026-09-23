@@ -18,7 +18,6 @@ import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transp
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 function stubProvider(): IAIProvider {
   return {
@@ -45,7 +44,7 @@ function stubProvider(): IAIProvider {
   } as unknown as IAIProvider;
 }
 
-function stubRegistry(): ITransportLifecycleRegistryView<IInteractiveSession> & {
+function stubRegistry(): ITransportLifecycleRegistryView & {
   startAll: ReturnType<typeof vi.fn>;
   stopAll: ReturnType<typeof vi.fn>;
 } {
@@ -55,7 +54,7 @@ function stubRegistry(): ITransportLifecycleRegistryView<IInteractiveSession> & 
     waitForCompletion: vi.fn(async () => []),
     waitForFailure: vi.fn(async () => undefined),
     stopAll: vi.fn(async () => ({ errors: [] })),
-  } as ITransportLifecycleRegistryView<IInteractiveSession> & {
+  } as ITransportLifecycleRegistryView & {
     startAll: ReturnType<typeof vi.fn>;
     stopAll: ReturnType<typeof vi.fn>;
   };
@@ -97,16 +96,22 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  it('builds the InteractiveSession and calls transportRegistry.startAll with it', async () => {
+  it('binds transports to the built session before starting the argument-free registry', async () => {
     const registry = stubRegistry();
+    const bindTransports = vi.fn();
     const host = await startRuntimeHost({
       session: { cwd, provider: stubProvider() },
       transportRegistry: registry,
+      bindTransports,
     });
 
     expect(host.session).toBeInstanceOf(InteractiveSession);
+    expect(bindTransports).toHaveBeenCalledWith(host.session);
     expect(registry.startAll).toHaveBeenCalledTimes(1);
-    expect(registry.startAll).toHaveBeenCalledWith(host.session);
+    expect(registry.startAll).toHaveBeenCalledWith();
+    expect(bindTransports.mock.invocationCallOrder[0]).toBeLessThan(
+      registry.startAll.mock.invocationCallOrder[0]!,
+    );
 
     await host.shutdown();
   });

@@ -4,7 +4,7 @@ import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
 import { FrontmatterDecodeError } from '../frontmatter/frontmatter-error.js';
 
 import type { ICommandSource, ICommand } from '../command-api/types.js';
-import type { IContributionSource } from '../contributions/index.js';
+import type { IContributionSource } from '../contributions/contribution-source.js';
 import type { ISkillFrontmatter } from '../frontmatter/frontmatter-types.js';
 
 function decodeSkill(
@@ -89,7 +89,7 @@ function scanCommandsDir(commandsDir: string, source: IContributionSource): ICom
 }
 
 /** The four discovery roots, in precedence order — shared by discovery and by `inspectSkillSources`. */
-const SKILL_ROOTS: ReadonlyArray<{ readonly root: string; readonly kind: 'skills' | 'commands' }> =
+export const SKILL_ROOTS: ReadonlyArray<{ readonly root: string; readonly kind: 'skills' | 'commands' }> =
   [
     { root: join('.robota', 'skills'), kind: 'skills' },
     { root: join('.claude', 'skills'), kind: 'skills' },

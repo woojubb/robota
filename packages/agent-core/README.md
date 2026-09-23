@@ -228,7 +228,7 @@ Repository contributors can run the owner-local hook examples after building thi
 `node examples/hook-block-demo.mjs`, `node examples/hook-json-response-demo.mjs`,
 `node examples/hook-permission-mode-demo.mjs`, and `node examples/hook-timeout-demo.mjs`,
 from `packages/agent-core`. They exercise hooks without a live model; see the
-[hook contract](./docs/SPEC.md#hook-events) for each example's verification limits.
+[hook contract](./docs/SPEC.md) for each example's verification limits.
 
 ## License
 

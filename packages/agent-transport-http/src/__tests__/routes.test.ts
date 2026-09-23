@@ -7,6 +7,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { createAgentRoutes } from '../routes.js';
+import { createHttpTransport } from '../http-transport.js';
+import type { IHttpTransportSession } from '../http-session.js';
 import type { IInteractiveSession, ITurnHandle } from '@robota-sdk/agent-interface-session';
 
 /**
@@ -115,6 +117,39 @@ function createHonestSession() {
 }
 
 describe('HTTP Transport Routes', () => {
+  it('serves requests, a turn stream, and cancellation through only the declared port', async () => {
+    const { session: full, startedTurns } = createHonestSession();
+    const {
+      submit, on, off, abort, cancelQueue, getSession, executeCommand, listCommands,
+      getMessages, getContextState, isExecuting, getPendingPrompt, getPendingCount,
+    } = full;
+    const port: IHttpTransportSession = {
+      submit, on, off, abort, cancelQueue, getSession, executeCommand, listCommands,
+      getMessages, getContextState, isExecuting, getPendingPrompt, getPendingCount,
+    };
+    expect(Object.keys(port)).toHaveLength(13);
+    const transport = createHttpTransport({
+      admission: { open: true, openReason: 'least-authority HTTP port scenario' },
+    });
+    transport.attach(port);
+    await transport.start();
+    try {
+      const app = transport.getApp();
+      const streamed = await app.request('/submit', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt: 'hello' }),
+      });
+      expect(streamed.status).toBe(200);
+      expect(await streamed.text()).toContain('event: complete');
+      expect(startedTurns()).toBe(1);
+      expect((await app.request('/abort', { method: 'POST' })).status).toBe(200);
+      expect((await app.request('/cancel-queue', { method: 'POST' })).status).toBe(200);
+    } finally {
+      await transport.stop();
+    }
+  });
+
   function createApp(session?: IInteractiveSession) {
     const mockSession = session ?? createMockSession();
     const app = createAgentRoutes({

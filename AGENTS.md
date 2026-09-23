@@ -1,8 +1,10 @@
 # AGENTS.md
 
 Robota — a TypeScript pnpm monorepo for building multi-provider AI agents. North star: [VISION.md](VISION.md).
-Architecture: [ARCHITECTURE.md](ARCHITECTURE.md). Package contracts: `packages/*/docs/SPEC.md` — update the SPEC in
-the same change when a package's public contract changes.
+Architecture: [ARCHITECTURE.md](ARCHITECTURE.md). `packages/*/docs/SPEC.md` holds the contract, not the code: anything
+readable from the code (type and function listings, file inventories, test tables, implementation steps) does not belong
+in it. Keep only what the code cannot tell — purpose, the public contract's intent and guarantees, invariants,
+non-goals, and design decisions with their reasons — and update it in the same change when the contract changes.
 
 ## Workflow
 
@@ -19,7 +21,7 @@ the same change when a package's public contract changes.
 
 ## Non-obvious facts
 
-- The product DAG path is composed in `agent-command-workflows`; `dag-cli` is a private shell nothing consumes.
+- The product DAG path is composed in `agent-command-workflows`; there is no standalone DAG CLI.
 - Running the CLI writes to `~/.robota/`. When exercising the product from a script or test, point `HOME` at a
   temporary directory.
 - The owner works on both macOS and Linux; shell commands must be portable or check `uname -s`.

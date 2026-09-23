@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createInteractiveSession } from '../interactive-session-init.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
 
 let root: string;
 let cwd: string;
@@ -69,6 +70,20 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
     const error = await start();
     expect(error?.message).toContain('"prompt"');
     expect(error?.message).toContain(hooksPath);
+  });
+
+  it('does not load project plugin hooks before workspace trust is granted', async () => {
+    addPlugin('untrusted-project', 'prompt');
+
+    await expect(
+      createInteractiveSession({
+        cwd,
+        projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+        provider: createScriptedProvider([]).provider,
+        onTextDelta: () => {},
+        onToolExecution: () => {},
+      }),
+    ).resolves.toBeDefined();
   });
 
   it('names both settings and plugin sources for the same type, excluding disabled settings groups', async () => {

@@ -60,7 +60,7 @@ packages/
 ├── agent-remote-client/        ← HTTP client for remote agents
 ├── agent-ui-web/        ← Shared GUI core (SessionMonitor + session reducer)
 ├── agent-transport-webrtc-web/ ← Browser WebRTC peer over the GUI core
-├── agent-tool-mcp/             ← MCP tool client adapter
+├── agent-mcp/                  ← MCP definitions, control plane, client adapter
 └── agent-playground/           ← Playground executor, hooks, and components
 
 apps/

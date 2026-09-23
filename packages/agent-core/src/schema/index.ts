@@ -8,7 +8,27 @@
  */
 
 export { zodToJsonSchema } from './zod-to-json-schema';
-export { closeObjectSchemas, type ISchemaClosureOptions } from './close-object-schemas';
+export {
+  closeObjectSchemas,
+  type ISchemaClosureOptions,
+  type ISchemaClosureChange,
+} from './close-object-schemas';
+export {
+  projectToolSchema,
+  hashToolSchema,
+  PARAMETER_SCHEMA_KEYWORDS,
+  TOOL_SCHEMA_PROJECTION_MAX_DEPTH,
+  TOOL_SCHEMA_PROJECTION_MAX_NODES,
+  PERMISSIVE_TOOL_SCHEMA_PROFILE,
+  STRICT_TOOL_SCHEMA_PROFILE,
+} from './project-tool-schema';
+export type {
+  IToolSchemaProjectionProfile,
+  TToolSchemaProjectionProfileBase,
+  TToolSchemaProjectionOutcome,
+  IToolSchemaProjectionChange,
+  IToolSchemaProjection,
+} from './project-tool-schema';
 export {
   extractEnumValues,
   getSchemaTypeName,

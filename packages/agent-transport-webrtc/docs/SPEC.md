@@ -2,203 +2,105 @@
 
 ## Scope
 
-WebRTC P2P transport (REMOTE-001 / REMOTE-002 Stage A). Carries the protocol-owned
-`IProtocolSession` capability over an
-`RTCDataChannel` so an external remote client can co-drive a live `agent-cli` session directly, peer-to-peer,
-without routing session content through any server. Reuses the transport-neutral session bridge + wire protocol
-from `@robota-sdk/agent-transport` (the same `createSessionMessageHandler` the WebSocket transport uses) so the
-protocol is shared, not duplicated.
+WebRTC P2P transport. Carries the protocol-owned `IProtocolSession` capability over an `RTCDataChannel` so an
+external remote client can co-drive a live `agent-cli` session directly, peer-to-peer, without routing session
+content through any server. Reuses the transport-neutral session bridge + wire protocol from
+`@robota-sdk/agent-transport` (the same handler the WebSocket transport uses) so the protocol is shared, not
+duplicated.
 
 ## Boundaries
 
-- Does NOT own the session bridge or wire protocol — that is `@robota-sdk/agent-transport`
-  (`createSessionMessageHandler`, `TClientMessage`/`TServerMessage`). This package only carries those frames over a data
-  channel; it has **no** `webrtc → ws` package edge.
-- Owns the **pairing GATE** (REMOTE-008), not the pairing crypto — the directional-HMAC handshake +
-  DTLS-fingerprint channel binding is `@robota-sdk/agent-remote-pairing` (a zero-dep isomorphic leaf). The gate must
-  live here because only the transport can see the offer/answer DTLS fingerprints and the pre-session channel frames;
-  this is the sole reason for the `webrtc → agent-remote-pairing` edge (recorded in project-structure.md).
-- Does NOT own signaling — SDP/ICE rendezvous is an injected `ISignalingClient` port (a real server lives in
-  `apps/remote-signaling`; tests use the in-memory pair). The transport never inspects signaling internals.
+- Does NOT own the session bridge or wire protocol — that is `@robota-sdk/agent-transport`. This package only
+  carries those frames over a data channel; it has **no** `webrtc → ws` package edge.
+- Owns the pairing GATE, not the pairing crypto — the directional-HMAC handshake + DTLS-fingerprint channel
+  binding is `@robota-sdk/agent-remote-pairing` (a zero-dep isomorphic leaf). The gate must live here because only
+  the transport can see the offer/answer DTLS fingerprints and the pre-session channel frames; this is the sole
+  reason for the `webrtc → agent-remote-pairing` edge.
+- Does NOT own signaling — SDP/ICE rendezvous is an injected signaling port. The transport never inspects
+  signaling internals.
 - Does NOT bundle the WebRTC implementation. `werift` (pure-TS) is an **optional peer dependency** loaded lazily;
   its absence surfaces an explicit "WebRTC transport unavailable" throw at point-of-use — never a silent no-op or
   degraded path (no-fallback rule).
-- **No enable path here.** `defaultEnabled` is `false`, the transport is NOT registered in `agent-cli`, and there is
-  no `/remote-control` command; the enable path (command + composition-root wiring + QR) is REMOTE-008 Steps 2-4.
-- **Admission is decided at construction, and there is no unstated default (SEC-008).** With a `secret`, the data
-  channel is phase-separated: pre-accept it carries only pairing frames (routed to the handshake; non-pairing frames
-  DROPPED), and only after the handshake accepts (channel-bound to the DTLS fingerprints) is the session bridge built
-  — fail closed on mismatch/timeout (channel closed, session never exposed).
+- **No enable path here.** The transport defaults to disabled, is not registered in `agent-cli`, and exposes no
+  command to turn it on; wiring an enable path is out of scope for this package.
+- **Admission is decided at construction, and there is no unstated default.** With a pairing secret, the data
+  channel is phase-separated: pre-accept it carries only pairing frames (non-pairing frames dropped), and only
+  after the handshake accepts (channel-bound to the DTLS fingerprints) is the session bridge built — fail closed on
+  mismatch/timeout (channel closed, session never exposed).
 
-  Without a `secret` the constructor THROWS unless the caller passes `{ open: true, openReason: '…' }`. Running
+  Without a secret the constructor throws unless the caller explicitly opts in with a written reason. Running
   ungated is a decision someone has to make and write down; it used to be what happened when nobody said anything,
-  which is the shape SEC-008 removed. `secret` together with `open: true` is contradictory and also throws. The
-  written-reason requirement lives in `resolveAdmission` in `@robota-sdk/agent-transport/node`, so the sibling
-  transports cannot drift apart on what counts as an answer.
+  which this construction-time check removes. A secret together with the ungated opt-in is contradictory and also
+  throws. The written-reason requirement is centralized in `@robota-sdk/agent-transport/node` so sibling transports
+  cannot drift apart on what counts as an answer.
 
-- **Owns the local-peer channel GATE, not the local-peer policy (SEC-010, #1810).** When `localPeer` is
-  configured, an accepted handshake is not enough: the peer must also present the nonce it was issued at the
-  guarded rendezvous, and only then is the session exposed. This package holds the state machine and the
-  frame; single-use, expiry and revocation belong to the grant ledger in
-  `@robota-sdk/agent-remote-pairing/local`, which is injected as a `redeem` port. That keeps the
-  cryptographic/OS policy out of the transport (the issue is explicit about this) and keeps `node:fs` out of
-  this package.
+- **Owns the local-peer channel GATE, not the local-peer policy.** When local-peer admission is configured, an
+  accepted handshake is not enough: the peer must also present the nonce it was issued at the guarded rendezvous,
+  and only then is the session exposed. This package holds the state machine and the frame; single-use, expiry and
+  revocation belong to the grant ledger in `@robota-sdk/agent-remote-pairing/local`, which is injected as a port.
+  That keeps the cryptographic/OS policy out of the transport and keeps `node:fs` out of this package.
 
   **Why both edges of the step are load-bearing.** The handshake binds the CHANNEL — after it, the channel
-  provably terminates at the peer that knew the secret — and says nothing about where that peer runs. The
-  guarded rendezvous binds the ENVIRONMENT and says nothing about which channel that peer later opens.
-  Presenting the nonce OVER the already-bound channel joins them. Earlier than that and the nonce would be
-  handed to an unproven counterpart; later than that and a peer would already be talking to the session, where
-  refusing it is not refusing it.
+  provably terminates at the peer that knew the secret — and says nothing about where that peer runs. The guarded
+  rendezvous binds the ENVIRONMENT and says nothing about which channel that peer later opens. Presenting the
+  nonce OVER the already-bound channel joins them. Earlier than that and the nonce would be handed to an unproven
+  counterpart; later than that and a peer would already be talking to the session, where refusing it is not
+  refusing it.
 
   Every non-admitted path closes the channel: a refused nonce, a frame that is not a proof frame, and a ledger
   that throws. "Not reached" is not "allowed", and a gate that merely ignored a bad frame would park with the
   channel open — a hang, which is fail-open wearing a stall's clothes. The consumer is notified on refusals as
-  well as admissions, because "no local peer connected" and "a local peer was refused" call for different
-  operator responses. The result carries an explicit trust level rather than a boolean.
+  well as admissions, because "no local peer connected" and "a local peer was refused" call for different operator
+  responses. The result carries an explicit trust level rather than a boolean.
 
-  Absent `localPeer`, behaviour is exactly as before — a remote peer has no rendezvous to have reached, and
-  demanding one unconditionally would refuse every legitimate remote session.
+  Absent local-peer configuration, behaviour is exactly as before — a remote peer has no rendezvous to have
+  reached, and demanding one unconditionally would refuse every legitimate remote session.
 
-## Architecture Overview
+## Design decisions
 
-`WebRtcTransport` preserves `IConfigurableTransport<IInteractiveSession>` for declaration compatibility
-and adds `attach(IProtocolSession)` for the exact role subset (`name='webrtc'`,
-`defaultEnabled:false`). The host is the **offerer**: `start()` lazily loads `werift`, opens an
-`RTCPeerConnection`, subscribes ICE candidates to the injected signaling client, serializes inbound
-answer/ICE signals (so `setRemoteDescription` always precedes any `addIceCandidate` — werift does not buffer
-trickle candidates that precede the remote description), creates the `robota-session` data channel, and sends the
-SDP offer. The data channel is wired **eagerly at creation** (not on `open`): `createSessionMessageHandler({ session, deliver })`
-is built immediately and `onMessage` subscribed at once, because werift does not buffer inbound frames that
-arrive before a subscription and the remote can send its first `TClientMessage` before the host's channel opens.
-Outbound delivery is owned by the carrier — ARCH-030: the transport and the pairing gate each BUILD the
-connection's `TOutboundDeliver` boundary from their own channel sink and their own failure policy and pass
-it into `createSessionMessageHandler`, so replies and session events share one guard. A data-channel send failure
-routes through one idempotent channel/handler cleanup path and an optional owner observer; it never
-escapes back into the committed session operation, and the boundary reports it once. A reconnect
-attachment detaches its failed sink while retaining the frame in the resume buffer. `stop()` tears down the handler, signal subscription, and peer.
-
-ARCH-011 classifies this as a frozen `service` lifecycle. Its readiness boundary is publication of
-the local offer/signaling state; it deliberately does not wait for an external answer, data-channel
-open, or pairing decision. Start before attach and repeated active start reject
-`TransportLifecycleError`; repeated stop is safe and restart requires reattach. The shared suite
-owner id is `@robota-sdk/agent-transport-webrtc#WebRtcTransport`.
-
-**Pairing gate (REMOTE-008, when `options.secret` is set).** The eager `onMessage` subscription becomes a ROUTING
-SWITCH into `PairingGate` (`src/pairing-gate.ts`) — never a deferred subscription. The local DTLS fingerprint is
-captured from the offer SDP; the remote fingerprint from the answer SDP in the signal branch, where the gate is then
-constructed (the channel cannot open until DTLS, i.e. post-answer, so no frame precedes the gate). Pre-accept the
-gate routes pairing frames to `startPairingHandshake` and DROPS everything else; on `result` accept it builds
-`createSessionMessageHandler` and switches routing to the session; on reject/timeout it closes the channel and exposes nothing.
-The transport's optional `onPaired`/`onPairingFailed` callbacks fire on gate accept/reject so the host can drive its
-lifecycle (REMOTE-008: status `paired`, and teardown of the peer/signaling on failure so nothing leaks). **REMOTE-012
-E3:** when `IWebRtcTransportOptions.reconnect` (an `IHostReconnectConfig`) is set, the gate becomes reactive — the
-client's first frame selects **first-pair** (B3 handshake, then a mutual identity-key enrollment exchange that pins
-the device key before the session is exposed) or **reconnect** (the mutual `startHostReconnect` against the pinned
-device + host identity keys, no re-pair). `onPaired` carries the first-pair `IPairingResult` (its `sessionKey` is
-reserved for E4). Without `reconnect`, the gate is exactly the B4 first-pair-only gate.
-
-## Type Ownership
-
-| Type                                        | Location                          | Purpose                                                                                                                     |
-| ------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `IWebRtcTransportOptions`, `IIceServer`     | `src/webrtc-transport-options.ts` | Construction options (injected signaling, optional ICE servers, pairing `secret` OR `open`+`openReason` — one is required). |
-| `ISignalingClient`, `ISignalMessage`        | `src/signaling.ts`                | Signaling port + opaque SDP/ICE message envelope.                                                                           |
-| `IWeriftModule`, `TModuleResolver`          | `src/werift-loader.ts`            | Lazy-loaded werift surface + injectable resolver seam.                                                                      |
-| `PairingGate`, `IPairingGateOptions`        | `src/pairing-gate.ts`             | REMOTE-008 fail-closed routing switch (pairing frames → handshake; session only post-accept).                               |
-| `ILocalPeerProof`, `ILocalProofFrame`       | `src/local-peer-proof.ts`         | SEC-010 local-peer proof port + the frame that carries the rendezvous nonce. The judge and predicate stay internal.         |
-| `IAttachSessionOptions`, `IAttachedSession` | `src/session-attachment.ts`       | How an admitted channel is wired to the session (bridge or handler).                                                        |
-| `IControllerContext`                        | `src/pairing-controllers.ts`      | What the first-pair and reconnect controllers need to talk on the channel.                                                  |
-
-`TClientMessage`/`TServerMessage`/`ISessionMessageHandlerOptions` are re-consumed from `@robota-sdk/agent-transport`
-(their SSOT) — this package does not re-declare them.
-
-The host-owned `personalUsageReporter`, current-session `usageReporter`, and
-`storedSessionUsageReporter` capabilities are forwarded only after admission on both direct and paired
-handlers. A reconnecting session's `SessionResumeBridge` retains the same reporters for its full lifetime,
-so resumption changes delivery state but not admitted-owner query authority.
-
-## Public API Surface
-
-| Export                        | Kind     | Description                                                                                                                                 |
-| ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WebRtcTransport`             | class    | `IConfigurableTransport` carrying a session over an `RTCDataChannel`.                                                                       |
-| `IWebRtcTransportOptions`     | type     | Construction options.                                                                                                                       |
-| `IIceServer`                  | type     | A STUN/TURN server (`urls` + optional `username`/`credential`; REMOTE-010).                                                                 |
-| `IHostReconnectConfig`        | type     | E3 host reconnect/enrollment config for the gate (host identity + device resolver + enroll; REMOTE-012).                                    |
-| `createInMemorySignalingPair` | function | In-process signaling pair for loopback/tests (no server).                                                                                   |
-| `WsSignalingClient`           | class    | Production `ISignalingClient` over a `ws` socket to the relay (REMOTE-004).                                                                 |
-| `IWsSignalingClientOptions`   | type     | `WsSignalingClient` options (url, rendezvous, onError, onReady, socket factory).                                                            |
-| `IWebSocketLike`              | type     | Minimal socket surface `WsSignalingClient` needs (injectable in tests).                                                                     |
-| `ISignalingClient`            | type     | Signaling port (send/onSignal/close by rendezvous).                                                                                         |
-| `ILocalPeerProof`             | type     | SEC-010 local-peer proof port the gate consumes: `redeem` plus an admission observer.                                                       |
-| `ILocalProofFrame`            | type     | The frame a local peer presents to show it reached the guarded rendezvous.                                                                  |
-| `localProofFrame`             | function | Build that frame. Beside the judge that reads it, so a sender cannot drift from the shape checked.                                          |
-| `handoffGrantFrame`           | function | SEC-011 (issue #1865): build the frame a source presents to show it holds a grant for this transfer. Beside its judge, for the same reason. |
-| `ISignalMessage`              | type     | Opaque SDP/ICE envelope.                                                                                                                    |
-| `TSignalKind`                 | type     | `'offer' \| 'answer' \| 'ice'`.                                                                                                             |
-| `loadWerift`                  | function | Lazy-load the optional `werift` peer dep (throws on absence).                                                                               |
-| `IWeriftModule`               | type     | The subset of the werift surface this transport constructs.                                                                                 |
-
-## Extension Points
-
-- **Signaling** is swappable via `ISignalingClient` — the in-memory pair, a WebSocket client to
-  `apps/remote-signaling`, or any other rendezvous can be injected without touching the transport.
-- **REMOTE-010 TURN:** `IWebRtcTransportOptions.iceServers` is `readonly IIceServer[]` — TURN servers carry
-  `username`/`credential` (+ `urls` may be a string or array). The host reads + validates them from
-  `transports.webrtc.options.iceServers` at the `agent-cli` composition root; `forceTurn` requires a TURN server.
-- **ICE servers** (STUN/TURN) are supplied via `IWebRtcTransportOptions.iceServers`; omitted → host-candidate /
-  loopback only.
-- **WebRTC implementation** is isolated behind `loadWerift`/`IWeriftModule`; switching to a native impl
-  (`node-datachannel`) is a recorded design decision, not a runtime fallback.
+- **Host is the offerer.** Inbound answer/ICE signals are serialized so `setRemoteDescription` always precedes any
+  `addIceCandidate`, because the WebRTC implementation in use does not buffer trickle candidates that precede the
+  remote description.
+- **The data channel is wired eagerly at creation, not on open.** The session message handler is built and its
+  message subscription attached immediately, because the underlying implementation does not buffer inbound frames
+  that arrive before a subscription, and the remote can send its first client message before the host's channel
+  reports open.
+- **Outbound delivery is owned by the carrier.** The transport and the pairing gate each build the connection's
+  outbound-delivery boundary from their own channel sink and their own failure policy before handing it to the
+  shared session handler, so replies and session events share one guard. A data-channel send failure routes
+  through one idempotent channel/handler cleanup path and an optional owner observer; it never escapes back into
+  the committed session operation, and the boundary reports it once. A reconnect attachment detaches its failed
+  sink while retaining the frame in the resume buffer.
+- **Lifecycle classification.** This transport is a frozen "service" lifecycle. Its readiness boundary is
+  publication of the local offer/signaling state; it deliberately does not wait for an external answer,
+  data-channel open, or pairing decision. Starting before attaching, and a repeated active start, are rejected;
+  repeated stop is safe and restart requires reattaching.
+- **Pairing gate as a routing switch.** When a pairing secret is configured, the eager message subscription
+  becomes a routing switch into the pairing gate — never a deferred subscription — so no frame can reach the
+  session before the gate has a chance to see it. The local DTLS fingerprint is captured from the offer, the
+  remote fingerprint from the answer, and the gate is constructed only once both are known (the channel cannot
+  open before that point, so no frame can precede the gate). Pre-accept, the gate routes pairing frames to the
+  handshake and drops everything else; on accept it builds the session handler and switches routing to the
+  session; on reject or timeout it closes the channel and exposes nothing. Optional callbacks fire on gate
+  accept/reject so the host can drive its own lifecycle, including tearing down the peer/signaling on failure so
+  nothing leaks.
+- **Reconnect vs. first-pair.** When host-reconnect is configured, the gate becomes reactive: the client's first
+  frame selects either first-pair (handshake, then a mutual identity-key enrollment exchange that pins the device
+  key before the session is exposed) or reconnect (a mutual challenge against the pinned device + host identity
+  keys, with no re-pairing). Without reconnect configuration, the gate is first-pair-only.
+- **Reporter forwarding.** Usage reporters are forwarded only after admission, on both direct and paired handlers.
+  A reconnecting session retains the same reporters for its full lifetime, so resumption changes delivery state
+  but not admitted-owner query authority.
+- **WebRTC implementation swap is a design decision, not a fallback.** The implementation is isolated behind a
+  lazy loader so that moving to a different WebRTC implementation is a recorded choice, never a silent runtime
+  degrade.
 
 ## Error Taxonomy
 
-- `werift` absent → `loadWerift` throws `WebRTC transport unavailable — install the optional peer dependency
-"werift" …` at point-of-use (never a silent degrade).
-- `start()` before `attach()` → throws `WebRtcTransport: attach() must be called before start()`.
-- An outbound `send` failure on a closing/closed channel — a session event OR a reply that resolved after
-  the drop (ARCH-030) — closes and detaches that carrier, reports `onDeliveryError` exactly once, and
-  leaves the committed session operation successful. It is never silently dropped or partially retried,
-  and it never surfaces as an unhandled rejection.
-
-## Test Strategy
-
-`src/__tests__/webrtc-transport.test.ts`: metadata (`name='webrtc'`, `defaultEnabled:false`), the
-`attach()`-before-`start()` guard, and TC-03 — a Node↔Node loopback that opens an `RTCPeerConnection` +
-`RTCDataChannel` between two in-process peers (in-memory signaling, stubbed session — no real provider) and
-round-trips a `TClientMessage` (`get-messages`) → session → `TServerMessage` (`messages`) through the reused
-handler. `src/__tests__/werift-loader.test.ts`: TC-05 — `loadWerift` resolves the real module when installed and
-throws the explicit "unavailable" error (via an injected throwing resolver) when it cannot be resolved.
-`src/__tests__/pairing-gate.test.ts` (REMOTE-008 Step 1): the fail-closed routing switch with a stub channel +
-injected handshake/handler — session exposed ONLY post-accept, non-pairing frames dropped pre-accept, channel closed
-on reject, frames ignored post-close.
-The transport and pairing-gate suites also force post-accept send failures and assert channel cleanup,
-owner callback delivery, and non-propagation into the session emitter.
-
-## Dependencies
-
-`@robota-sdk/agent-interface-transport` (contracts) + `@robota-sdk/agent-transport` (shared handler +
-protocol) + `@robota-sdk/agent-remote-pairing` (REMOTE-008 pairing gate; zero-dep isomorphic leaf — no cycle).
-`werift` is an **optional peer dependency** (lazy-loaded); it is a dev dependency here only to run the loopback tests.
-
-## Class Contract Registry
-
-### Interface Implementations
-
-| Class             | Implements                                                                    | Location                  |
-| ----------------- | ----------------------------------------------------------------------------- | ------------------------- |
-| `WebRtcTransport` | `IConfigurableTransport<IInteractiveSession>` plus `attach(IProtocolSession)` | `src/webrtc-transport.ts` |
-
-### Inheritance Chains
-
-None.
-
-### Cross-Package Port Consumers
-
-| Owner                                                               | Consumer                           | Location                                               |
-| ------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------ |
-| `agent-interface-transport` `IConfigurableTransport`                | `WebRtcTransport`                  | `src/webrtc-transport.ts`                              |
-| `agent-transport` `createSessionMessageHandler`                     | `WebRtcTransport`, `attachSession` | `src/webrtc-transport.ts`, `src/session-attachment.ts` |
-| `agent-remote-pairing` `startPairingHandshake`/`startHostReconnect` | the pairing controllers            | `src/pairing-controllers.ts`                           |
-| `agent-remote-pairing` `extractDtlsFingerprint`                     | `WebRtcTransport`                  | `src/webrtc-transport.ts`                              |
+- The optional WebRTC peer dependency absent → the lazy loader throws an explicit "WebRTC transport unavailable"
+  error at point-of-use (never a silent degrade).
+- Starting before attaching → throws a lifecycle error naming the required order.
+- An outbound send failure on a closing/closed channel — whether a session event or a reply that resolved after
+  the drop — closes and detaches that carrier, reports the delivery-error observer exactly once, and leaves the
+  committed session operation successful. It is never silently dropped or partially retried, and it never surfaces
+  as an unhandled rejection.

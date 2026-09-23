@@ -1,5 +1,4 @@
 import {
-  TASK_PROGRESS_EVENTS,
   TaskRunStateMachine,
   buildValidationError,
   type IClockPort,
@@ -14,12 +13,9 @@ import {
   type ITaskExecutionInput,
   type ITaskExecutorPort,
   type IRunProgressEventReporter,
-  type TPortPayload,
   type TResult,
 } from '@robota-sdk/dag-core';
 import { resolveTrustedExecutionRoot } from '@robota-sdk/agent-core/node';
-import { dispatchDownstreamReadyTasks } from './downstream-task-dispatcher.js';
-import { finalizeDagRunIfTerminal } from './dag-run-finalizer.js';
 import { StaleTaskSweepThrottle } from './stale-task-sweep-throttle.js';
 import {
   claimTaskForExecution,
@@ -32,12 +28,7 @@ import { TaskOutcomeHandler } from './task-outcome-handler.js';
 import { executeWithTimeout } from './task-timeout-executor.js';
 import { resolveCurrentTotalCredits } from './worker-cost-progress.js';
 import { loadWorkerExecutionContext } from './worker-execution-context.js';
-import {
-  handleTerminalFailure,
-  handleRetry,
-  failAfterAck,
-  successAfterAck,
-} from './worker-failure-handler.js';
+import { failAfterAck, successAfterAck } from './worker-failure-handler.js';
 
 /** Configuration options for the worker loop, including retry and dead-letter policies. */
 export interface IWorkerLoopOptions {
@@ -142,6 +133,9 @@ export class WorkerLoopService {
       return failAfterAck(this.queue, message.messageId, notFound);
     }
 
+    const cancellationBeforeClaim = await this.cancelIfRunCancelled(message);
+    if (cancellationBeforeClaim) return cancellationBeforeClaim;
+
     // Built once and passed to both: claiming and handling a failed claim need the same context.
     const claimDeps = this.claimDepsFor(message, taskRun);
     const startResult = await claimTaskForExecution(claimDeps);
@@ -156,8 +150,14 @@ export class WorkerLoopService {
       return failAfterAck(this.queue, message.messageId, contextResult.error);
     }
     const { dagRun, definition, nodeDefinition } = contextResult.value;
+    if (dagRun.status === 'cancelled') {
+      return this.settleCancelledRunMessage(message);
+    }
 
     const input = await this.buildExecutionInput(claimed, dagRun, definition, nodeDefinition);
+    // Input assembly awaits storage. A cancellation during that await must close admission too.
+    const cancellationBeforeExecution = await this.cancelIfRunCancelled(message);
+    if (cancellationBeforeExecution) return cancellationBeforeExecution;
     const executionResult = await executeWithTimeout(
       this.executor,
       input,
@@ -178,6 +178,27 @@ export class WorkerLoopService {
     }
 
     return this.outcomes.handleFailurePath(claimed, taskRun.taskRunId, executionResult.error);
+  }
+
+  private async cancelIfRunCancelled(
+    message: IQueueMessage,
+  ): Promise<TResult<IWorkerLoopResult, IDagError> | undefined> {
+    const run = await this.storage.getDagRun(message.dagRunId);
+    return run?.status === 'cancelled' ? this.settleCancelledRunMessage(message) : undefined;
+  }
+
+  private async settleCancelledRunMessage(
+    message: IQueueMessage,
+  ): Promise<TResult<IWorkerLoopResult, IDagError>> {
+    const taskRun = await this.storage.getTaskRun(message.taskRunId);
+    if (taskRun) {
+      const cancelled = TaskRunStateMachine.transition(taskRun.status, 'CANCEL');
+      if (cancelled.ok) {
+        await this.storage.updateTaskRunStatus(taskRun.taskRunId, cancelled.value.nextStatus);
+      }
+      await this.storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
+    }
+    return successAfterAck(this.queue, message.messageId, message.taskRunId, false);
   }
 
   private async buildExecutionInput(

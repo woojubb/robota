@@ -52,7 +52,8 @@
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsgo -p tsconfig.json --noEmit && tsgo -p tsconfig.examples.json --noEmit",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
-    "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-offline.ts && pnpm exec tsx --conditions=source examples/verify-session-record-field-preservation.ts && pnpm exec tsx --conditions=source examples/verify-compaction-contract.ts && pnpm exec tsx --conditions=source examples/verify-hook-outcome-contract.ts",
+    "scenario:verify": "pnpm run scenario:verify:external-payload-replay && pnpm exec tsx --conditions=source examples/verify-offline.ts && pnpm exec tsx --conditions=source examples/verify-session-record-field-preservation.ts && pnpm exec tsx --conditions=source examples/verify-compaction-contract.ts && pnpm exec tsx --conditions=source examples/verify-hook-outcome-contract.ts",
+    "scenario:verify:external-payload-replay": "pnpm exec tsx --conditions=source examples/verify-external-payload-replay.ts",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "keywords": [
@@ -83,6 +84,7 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-file-authority": "workspace:*",
     "@robota-sdk/agent-interface-execution": "workspace:*",
     "@robota-sdk/agent-interface-session": "workspace:*"
   },

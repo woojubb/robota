@@ -1,3 +1,11 @@
+import {
+  decodeAgentDefinitionDto,
+  decodeParentContextDto,
+  type ISubagentWorkerAgentDefinitionDto,
+  type ISubagentWorkerParentContextDto,
+} from './subagent-worker-start-dto.js';
+
+import type { ISandboxProjection } from './worker-composition.js';
 import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type { IResolvedConfig } from '@robota-sdk/agent-framework';
 import type {
@@ -8,15 +16,6 @@ import type {
 export type TSubagentWorkerWireValue = string | number | boolean | null | undefined | object;
 
 type TSubagentWorkerWireRecord = Record<string, TSubagentWorkerWireValue>;
-
-import {
-  decodeAgentDefinitionDto,
-  decodeParentContextDto,
-  type ISubagentWorkerAgentDefinitionDto,
-  type ISubagentWorkerParentContextDto,
-} from './subagent-worker-start-dto.js';
-
-import type { ISandboxProjection } from './worker-composition.js';
 
 /** ARCH-044: the four config members the child reads. See `projectParentConfig`. */
 export interface ISubagentWorkerParentConfig {

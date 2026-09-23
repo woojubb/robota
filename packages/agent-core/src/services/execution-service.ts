@@ -30,6 +30,11 @@ import type {
 import type { IEventService } from '../interfaces/event-service';
 import type { IAIProviderManager, IToolManager } from '../interfaces/manager';
 import type { TUniversalMessage } from '../interfaces/messages';
+import type {
+  IToolExecutionContext,
+  IToolExecutionResult,
+  TToolParameters,
+} from '../interfaces/tool';
 import type { TMetadata } from '../interfaces/types';
 import type { ConversationHistory } from '../managers/conversation-history-manager';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
@@ -75,6 +80,15 @@ export class ExecutionService {
    */
   setAskHandler(ask: Parameters<ToolExecutionService['setAskHandler']>[0]): void {
     this.toolExecutionService.setAskHandler(ask);
+  }
+
+  /** A direct catalog call uses the existing executor, without a provider/history round. */
+  invokeRuntimeTool(
+    name: string,
+    parameters: TToolParameters,
+    context: IToolExecutionContext,
+  ): Promise<IToolExecutionResult> {
+    return this.toolExecutionService.executeTool(name, parameters, context, 'registered');
   }
 
   /** Register a plugin */

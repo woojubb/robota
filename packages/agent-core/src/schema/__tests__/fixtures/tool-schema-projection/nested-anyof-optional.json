@@ -1,0 +1,14 @@
+{
+  "name": "update_profile",
+  "description": "Update a user profile; nickname is optional and already nullable on the wire.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "userId": { "type": "string" },
+      "nickname": {
+        "anyOf": [{ "type": "string" }, { "type": "null" }]
+      }
+    },
+    "required": ["userId"]
+  }
+}

@@ -21,6 +21,7 @@ import type { InteractiveSession } from '../../interactive/interactive-session.j
 import type { IAutomaticMemoryConfig } from '../../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../../memory/types.js';
 import type { TSubagentRunnerFactory } from '../../subagents/in-process-subagent-runner.js';
+import type { IProviderErrorGuidance } from '../../utils/error-humanizer.js';
 import type { TShellExecFn } from '../../utils/skill-prompt.js';
 import type { TWorkspaceProjectAccess } from '../../workspace-trust/types.js';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
@@ -30,6 +31,7 @@ import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-sessi
 export interface IHeadlessInteractionChannelOptions {
   cwd: string;
   provider: IAIProvider;
+  providerErrorGuidance?: IProviderErrorGuidance;
   /** Resolved organization policy enforced by the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
@@ -57,6 +59,7 @@ export interface IHeadlessInteractionChannelOptions {
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
+  disableSessionLoops?: boolean;
   /** Continue/resume an existing session by id (print-mode parity with TUI). */
   resumeSessionId?: string;
   /** Fork the resumed session into a new independent session instead of appending. */
@@ -118,6 +121,7 @@ export class HeadlessInteractionChannel {
     const runner = createHeadlessRunner({
       session,
       outputFormat: this.opts.outputFormat,
+      providerErrorGuidance: this.opts.providerErrorGuidance,
       effortResolution: this.opts.effortResolution,
     });
     this.exitCode = await runner.run(prompt);
@@ -133,6 +137,7 @@ export class HeadlessInteractionChannel {
     const runner = createHeadlessRunner({
       session,
       outputFormat: this.opts.outputFormat,
+      providerErrorGuidance: this.opts.providerErrorGuidance,
       effortResolution: this.opts.effortResolution,
     });
     this.exitCode = await runner.runGoal(objective, options);
@@ -150,6 +155,9 @@ export class HeadlessInteractionChannel {
     return buildRuntimeSession({
       cwd: this.opts.cwd,
       provider: this.opts.provider,
+      ...(this.opts.providerErrorGuidance !== undefined
+        ? { providerErrorGuidance: this.opts.providerErrorGuidance }
+        : {}),
       ...(this.opts.orgPolicy !== undefined ? { orgPolicy: this.opts.orgPolicy } : {}),
       ...(this.opts.projectAccess !== undefined ? { projectAccess: this.opts.projectAccess } : {}),
       permissionMode: this.opts.permissionMode ?? 'bypassPermissions',
@@ -176,6 +184,7 @@ export class HeadlessInteractionChannel {
         ? { responseFormat: this.opts.responseFormat }
         : {}),
       sessionStore: this.opts.sessionStore,
+      disableSessionLoops: this.opts.disableSessionLoops,
       resumeSessionId: this.opts.resumeSessionId,
       forkSession: this.opts.forkSession,
       sessionName: this.opts.sessionName,

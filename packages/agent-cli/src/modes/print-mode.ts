@@ -1,11 +1,11 @@
-import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
+import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type {
   IAgentDefinition,
   ICommandHostAdapters,
   ICommandModule,
-  ICreateSessionOptions,
   IOrgPolicy,
+  IProviderErrorGuidance,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
@@ -15,6 +15,7 @@ import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
+import { areSessionLoopsDisabled } from '../startup/loop-options.js';
 
 /**
  * ARCH-006: the tool surface the kernel overlay resolved. `additionalTools` carries the capability packs'
@@ -61,7 +62,9 @@ export async function runPrintMode(
   presetOptions: IPrintModePresetOptions = {},
   memorySessionOptions: IMemorySessionOptions = {},
   projectAccess?: TWorkspaceProjectAccess,
+  beforeExit?: () => Promise<void>,
   orgPolicy?: IOrgPolicy,
+  providerErrorGuidance?: IProviderErrorGuidance,
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -76,6 +79,7 @@ export async function runPrintMode(
 
   if (!goalObjective && !prompt) {
     process.stderr.write('Print mode (-p) requires a prompt argument (or --goal <objective>).\n');
+    await beforeExit?.();
     process.exit(1);
   }
 
@@ -97,6 +101,7 @@ export async function runPrintMode(
   const channel = new HeadlessInteractionChannel({
     cwd,
     provider,
+    ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
     ...(orgPolicy !== undefined ? { orgPolicy } : {}),
     ...(projectAccess !== undefined ? { projectAccess } : {}),
     outputFormat: args.outputFormat ?? 'text',
@@ -107,6 +112,7 @@ export async function runPrintMode(
     permissionMode: args.permissionMode ?? presetOptions.permissionMode ?? 'bypassPermissions',
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
+    disableSessionLoops: areSessionLoopsDisabled(process.env),
     resumeSessionId: sessionResolution.resumeSessionId,
     forkSession: sessionResolution.forkSession,
     sessionName: args.sessionName,
@@ -167,7 +173,9 @@ export async function runPrintMode(
     }
   } catch (error) {
     process.stderr.write((error instanceof Error ? error.message : String(error)) + '\n');
+    await beforeExit?.();
     process.exit(1);
   }
+  await beforeExit?.();
   process.exit(channel.getExitCode());
 }

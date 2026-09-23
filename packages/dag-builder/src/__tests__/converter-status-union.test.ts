@@ -78,7 +78,7 @@ describe('dagDefinitionFromParsedFile is the one import adapter (DAG-002)', () =
 describe('the import boundary rejects a status the domain type cannot hold (DAG-002)', () => {
   it('names the offending value and the legal set', () => {
     // The scan cannot see this one: `status: 'active'` written into an UNTYPED object literal, then
-    // serialized. `dag-cli node`'s example generator did exactly that and printed the result for the
+    // serialized. A former standalone generator emitted exactly that and printed the result for the
     // user to save — found by review, on a file this PR never touched. A static check over casts was
     // never going to reach data that arrives at runtime, and files written by older versions are
     // already out there, so the boundary that now owns every import owns this too.
@@ -113,10 +113,10 @@ describe('BOTH import branches are validated, not just one (DAG-002)', () => {
   it('a COMPANION carrying an out-of-union status is rejected too', () => {
     // Review round 3. `assertStatusInUnion` guarded only the legacy-definition branch; the
     // workflow-file branch returned `companion?.status ?? 'draft'` unchecked. `tryReadCompanion` in
-    // dag-cli parses a companion with a bare `as IDagRobotaCompanion`, so a pre-DAG-002 companion
-    // carrying 'active' would have walked straight through — the same defect, reachable through the
-    // branch nobody red-proved. No caller passes a companion TODAY, which is exactly why it had to be
-    // closed before DAG-004 routes the eight CLI sites through here with theirs.
+    // A former standalone reader parsed a companion with a bare `as IDagRobotaCompanion`, so a
+    // pre-DAG-002 companion carrying 'active' would have walked straight through — the same defect,
+    // reachable through the branch nobody red-proved. The decoder must retain this boundary even
+    // when a current caller does not pass a companion.
     expect(() =>
       dagDefinitionFromParsedFile(emptyWorkflowFile(), {
         dagId: 'd',

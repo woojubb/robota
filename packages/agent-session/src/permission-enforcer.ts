@@ -28,7 +28,12 @@ import type {
 } from './permission-types.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
 import type { IToolWrapperDeps } from './tool-permission-wrapper.js';
-import type { IToolWithEventService, TToolArgs, THooksConfig } from '@robota-sdk/agent-core';
+import type {
+  IToolExecutionContext,
+  IToolWithEventService,
+  TToolArgs,
+  THooksConfig,
+} from '@robota-sdk/agent-core';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 export type { IPermissionEnforcerOptions };
@@ -113,8 +118,8 @@ export class PermissionEnforcer {
       hookTypeExecutors: this.hookTypeExecutors,
       getPermissionMode: this.getPermissionMode,
       log: (event, detail) => this.log(event, detail),
-      checkPermission: (toolName, toolArgs, signal) =>
-        this.checkPermission(toolName, toolArgs, signal),
+      checkPermission: (toolName, toolArgs, signal, interaction) =>
+        this.checkPermission(toolName, toolArgs, signal, interaction),
     };
 
     return tools.map((tool) => wrapToolWithPermission(tool, deps));
@@ -182,6 +187,7 @@ export class PermissionEnforcer {
     toolName: string,
     toolArgs: TToolArgs,
     signal?: AbortSignal,
+    interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
   ): Promise<boolean> {
     // CORE-025: a background/subagent task permission policy is resolved BEFORE the session-mode gate, so
     // `deny`/`preapproved`/`inherit-allowlist` override even a permissive mode (e.g. bypassPermissions).
@@ -197,7 +203,7 @@ export class PermissionEnforcer {
       if (policyDecision === 'allow') return true;
       if (policyDecision === 'deny') return false;
       // 'prompt' → route to the human-approval path (fail-closed to deny with no approver).
-      return this.promptForApproval(toolName, toolArgs, signal);
+      return this.promptForApproval(toolName, toolArgs, signal, interaction);
     }
 
     const decision = evaluatePermission(toolName, toolArgs, this.getPermissionMode(), {
@@ -213,7 +219,7 @@ export class PermissionEnforcer {
     if (decision === 'deny') return false;
 
     // 'approve' — route to the human-approval path.
-    return this.promptForApproval(toolName, toolArgs, signal);
+    return this.promptForApproval(toolName, toolArgs, signal, interaction);
   }
 
   /**
@@ -225,13 +231,16 @@ export class PermissionEnforcer {
     toolName: string,
     toolArgs: TToolArgs,
     signal?: AbortSignal,
+    interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
   ): Promise<boolean> {
     const scope = consentScopeFor(toolName, toolArgs);
     const outcome = await decideApproval({
       toolName,
       alreadyAllowed: matchesAnyPattern(toolName, toolArgs, [...this.sessionAllowedTools]),
-      ...(this.permissionHandler ? { handler: this.permissionHandler } : {}),
-      ...(this.promptForApprovalFn
+      ...(interaction === 'interactive' && this.permissionHandler
+        ? { handler: this.permissionHandler }
+        : {}),
+      ...(interaction === 'interactive' && this.promptForApprovalFn
         ? { injectedPrompt: this.promptForApprovalFn, terminal: this.terminal }
         : {}),
       toolArgs,

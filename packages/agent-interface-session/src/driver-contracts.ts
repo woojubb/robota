@@ -24,6 +24,8 @@ export const AGENT_DRIVER_ID: TDriverId = 'agent';
 
 /** REMOTE-014 E5: options for `submit` — carries the SERVER-ASSIGNED driver id for co-drive attribution. */
 export interface ISubmitOptions {
+  /** Cancels only this submission, including while queued or preparing its turn. */
+  readonly signal?: AbortSignal;
   readonly driverId?: TDriverId;
   /** Trusted product surface that accepted this turn; independent from the driver's identity. */
   readonly surface?: TUsageSurface;

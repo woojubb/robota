@@ -1,41 +1,17 @@
 # File Write Node Specification
 
-## Scope
+## Purpose
 
-- Owns the `file-write` DAG node definition.
-- Writes or appends string content to a file on the local filesystem, emitting the resolved path, byte size, and append mode indicator.
+DAG node that writes or appends string content to a file on the local filesystem, for consumers
+composing file-output steps into a DAG. Server-side only.
 
-## Boundaries
+## Contract
 
-- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
-- Uses Node.js `fs/promises` (`writeFile`, `appendFile`, `mkdir`) — server-side only.
-- Input validation uses `NodeIoAccessor` and `buildValidationError` from `@robota-sdk/dag-core`.
+- The resolved path is validated against the trusted `context.executionRoot`; a path that would
+  resolve outside that root is rejected before any directory or file is touched.
+- Filesystem errors are always returned as structured failures — the node never throws.
 
-## Architecture Overview
+## Non-goals
 
-- `FileWriteNodeDefinition` — node that accepts optional `text` and `path` input ports and produces `path`, `sizeBytes`, and `appended` output ports.
-- Path resolution: input port value overrides `config.path`; it is resolved against the required trusted `context.executionRoot` and its canonical path must remain inside that root before any directory or file is created.
-- `config.createDirs` (default `true`): automatically creates parent directories with `mkdir -p`.
-- `config.append` (default `false`): appends to existing file instead of overwriting.
-- Encoding: `utf8` (default) or `base64`, controlled by `config.encoding`.
-- File system errors are converted to structured `TResult` failures — no unhandled exceptions.
-- Zero cost estimate (`estimatedCredits: 0`).
-
-## Type Ownership
-
-| Type                      | Location       | Purpose                   |
-| ------------------------- | -------------- | ------------------------- |
-| `FileWriteNodeDefinition` | `src/index.ts` | Node definition class     |
-| `FileWriteConfigSchema`   | `src/index.ts` | Zod config schema (local) |
-
-## Public API Surface
-
-- `FileWriteNodeDefinition` — class (default export via package index)
-
-## Extension Points
-
-- Config `path`: static file path (overridable at runtime via the `path` input port).
-- Config `encoding`: `'utf8'` | `'base64'`.
-- Config `append`: boolean toggle for append vs. overwrite mode.
-- Config `createDirs`: boolean toggle for automatic parent directory creation.
-- Error codes: `DAG_VALIDATION_FILE_WRITE_PATH_REQUIRED`, `DAG_VALIDATION_FILE_WRITE_PATH_OUTSIDE_ROOT`, `DAG_TASK_EXECUTION_FILE_WRITE_FAILED`.
+- Does not redefine core DAG node contracts — extends `AbstractNodeDefinition` from
+  `@robota-sdk/dag-node` rather than reimplementing node semantics.

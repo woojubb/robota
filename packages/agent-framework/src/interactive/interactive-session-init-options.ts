@@ -77,6 +77,8 @@ export interface IInitOptions {
   }) => void;
   /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
   bare?: boolean;
+  /** Omit the built-in command and HTTP hook executors. */
+  disableBuiltInHookExecutors?: boolean;
   /** Pre-approved tool names passed to createSession. */
   allowedTools?: readonly string[];
   /** Denied tool names — added to permissions.deny. denied > allowed. */
@@ -102,6 +104,8 @@ export interface IInitOptions {
   language?: string;
   /** Runtime-composed background task runners. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** MCP-004 §S3: hand a main-turn tool call exceeding its threshold to a background task. */
+  toolCallHandoff?: ICreateSessionOptions['toolCallHandoff'];
   /** Runtime shell override for subagent execution. */
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** ARCH-005: composition-root-contributed subagent definitions (see the standard options). */

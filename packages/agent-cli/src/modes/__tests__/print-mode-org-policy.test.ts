@@ -69,6 +69,7 @@ describe('print and goal session-capability projection', () => {
           preset,
           {},
           undefined,
+          undefined,
           orgPolicy,
         ),
       ).rejects.toBeInstanceOf(ExitSentinel);

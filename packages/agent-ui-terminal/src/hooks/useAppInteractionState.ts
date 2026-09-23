@@ -7,10 +7,7 @@ import type { IAppScreenState } from './useAppScreenState.js';
 import type { IAppSubmissionState } from './useAppSubmissionState.js';
 import type { ITuiChannelState } from './useTuiChannel.js';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
-import type {
-  IInteractiveSession,
-  IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 interface IOptions {
@@ -20,7 +17,7 @@ interface IOptions {
   readonly sessionStore: IInteractiveSessionStore | undefined;
   readonly onSessionSwitch: (sessionId: string) => Promise<void>;
   readonly pluginAdapter: ICommandPluginAdapter | undefined;
-  readonly transportRegistry: ITransportRegistryView<IInteractiveSession> | undefined;
+  readonly transportRegistry: ITransportRegistryView | undefined;
   readonly recoveryError: string | undefined;
   readonly recoveryPending: boolean;
   readonly coordinationBlocked: boolean;

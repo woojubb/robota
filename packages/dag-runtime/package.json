@@ -2,7 +2,7 @@
   "name": "@robota-sdk/dag-runtime",
   "version": "3.0.0-beta.60",
   "private": true,
-  "description": "DAG execution engine for robota-dag AI workflow orchestration",
+  "description": "DAG execution engine for Robota AI workflows",
   "type": "module",
   "main": "dist/node/index.js",
   "module": "dist/node/index.js",

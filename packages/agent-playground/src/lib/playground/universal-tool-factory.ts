@@ -34,7 +34,7 @@ export class UniversalToolFactory {
   createFunctionTool(
     schema: IToolSchema,
     executor: TToolExecutor,
-    options: {
+    _options: {
       parentBlockId?: string;
       level?: number;
       logger?: ILogger;
@@ -51,7 +51,7 @@ export class UniversalToolFactory {
    */
   createOpenAPITool(
     _config: Record<string, TUniversalValue>,
-    options: {
+    _options: {
       parentBlockId?: string;
       level?: number;
       logger?: ILogger;
@@ -63,31 +63,13 @@ export class UniversalToolFactory {
   }
 
   /**
-   * Create MCPTool with block tracking
-   * Note: MCPTool not available in current SDK version
-   */
-  createMCPTool(
-    _config: Record<string, TUniversalValue>,
-    _schema: Record<string, TUniversalValue>,
-    options: {
-      parentBlockId?: string;
-      level?: number;
-      logger?: ILogger;
-    } = {},
-  ): null {
-    const logger = this.logger ?? WebLogger;
-    logger.warn('MCPTool not available in current SDK version');
-    return null;
-  }
-
-  /**
    * Create AgentDelegationTool with delegation tracking
    * Note: AgentDelegationTool not available in current SDK version
    */
   createDelegationTool(
     _teamContainer: Record<string, TUniversalValue>,
     _availableTemplates: Array<Record<string, TUniversalValue>>,
-    options: {
+    _options: {
       parentBlockId?: string;
       level?: number;
       logger?: ILogger;

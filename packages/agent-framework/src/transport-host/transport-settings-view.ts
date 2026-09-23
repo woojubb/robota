@@ -10,12 +10,11 @@
  */
 
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
   ITransportConfig,
   ITransportSavedConfig,
   ITransportSettingsRepository,
-  TConfigurableTransport,
+  TBoundConfigurableTransport,
 } from '@robota-sdk/agent-interface-transport';
 
 export class TransportSettingsView {
@@ -33,7 +32,7 @@ export class TransportSettingsView {
    * answers with its declared default rather than with `false`.
    */
   resolve(
-    transport: TConfigurableTransport<IInteractiveSession>,
+    transport: TBoundConfigurableTransport,
     saved?: ITransportSavedConfig,
   ): ITransportConfig {
     return { enabled: saved?.enabled ?? transport.defaultEnabled, options: saved?.options ?? {} };

@@ -22,7 +22,7 @@ export interface IWorkspaceProjectSettingsSource {
 
 export type TSettingsSource = INodeHostSettingsSource | IWorkspaceProjectSettingsSource;
 
-const PROJECT_SETTINGS: ReadonlyArray<
+export const PROJECT_SETTINGS: ReadonlyArray<
   Readonly<{ scope: TProjectSettingsScope; relativePath: string }>
 > = [
   { scope: 'project', relativePath: join('.robota', 'settings.json') },

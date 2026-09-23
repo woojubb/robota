@@ -16,7 +16,7 @@ import type { ITurnClaims } from './turn-claims.js';
 import type { Context } from 'hono';
 
 /**
- * Callback that resolves an IInteractiveSession from the request context.
+ * Callback that resolves an HTTP session port from the request context.
  *
  * It need NOT return the same object twice for the same logical session. It briefly did: `/submit`
  * keyed its concurrent-turn claim on object identity, so a factory building a fresh wrapper per
@@ -46,7 +46,11 @@ export type TSessionFactory = (
  * Response. A named unit, and review is why: the admission decision (nameable? busy? claim) is what
  * this route decides, independently testable from the stream wiring it hands the turn to.
  */
-function admitTurn(c: Context, session: IHttpTransportSession, claims: ITurnClaims) {
+function admitTurn(
+  c: Context,
+  session: IHttpTransportSession,
+  claims: ITurnClaims,
+): Response | { claim: string } {
   // RUNTIME-38: the session is single-threaded (one turn at a time) and shared across requests, so a
   // concurrent /submit would cross-subscribe to the same emitter and interleave two clients' events.
   //

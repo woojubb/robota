@@ -20,7 +20,8 @@ import {
   assertProviderNativeWebToolsAvailable,
   createDefaultProviderCapabilities,
 } from '../interfaces/provider-capabilities';
-import { SilentLogger } from '../utils/logger';
+import { hashToolSchema, projectToolSchema } from '../schema/project-tool-schema';
+import { createLogger, SilentLogger } from '../utils/logger';
 
 import type { IExecutor, IExecutorChatResult, TExecutorStreamEvent } from '../interfaces/executor';
 import type { TUniversalMessage } from '../interfaces/messages';
@@ -36,7 +37,20 @@ import type {
   IProviderCapabilities,
   IProviderNativeWebToolRequest,
 } from '../interfaces/provider-capabilities';
+import type { IToolSchemaProjectionProfile } from '../schema/project-tool-schema';
 import type { ILogger } from '../utils/logger';
+
+/**
+ * MCP-005: the global-sink logger every `projectTools` quarantine line goes through.
+ *
+ * `AnthropicProvider` and `GeminiProvider` construct with no logger, so `this.logger` is
+ * `SilentLogger` (`:89` below) — a quarantine reported only there would be silent on two of four
+ * providers. `createLogger('ToolSchemaProjection')` is the CORE-040 precedent
+ * (`agent-mcp/src/third-party-schema.ts`, `createLogger('ThirdPartySchema')`): audible without an
+ * injected logger, because it writes to the process-wide sink a host installs with
+ * `setGlobalLoggerSink`.
+ */
+const toolSchemaProjectionLogger: ILogger = createLogger('ToolSchemaProjection');
 
 /**
  * Provider logging data type
@@ -85,6 +99,14 @@ export abstract class AbstractAIProvider<TConfig = IProviderRuntimeConfig> imple
   protected config?: TConfig;
   protected executor?: IExecutor;
   protected readonly logger: ILogger;
+
+  /**
+   * MCP-005 per-tool quarantine memo — instance-scoped (never a module singleton), so one provider
+   * instance's cache cannot silence another's, and a re-registered tool with a CHANGED schema is
+   * judged and reported again while an unchanged one is not re-reported on every turn. Keyed by
+   * `provider.name` + `model` + `tool.name` + `hashToolSchema(tool.parameters)`.
+   */
+  private readonly quarantinedToolSchemas = new Map<string, true>();
 
   constructor(logger: ILogger = SilentLogger) {
     this.logger = logger;
@@ -206,6 +228,61 @@ export abstract class AbstractAIProvider<TConfig = IProviderRuntimeConfig> imple
   /** Validate tool schemas. No-ops if tools is undefined. */
   protected validateTools(tools?: IToolSchema[]): void {
     validateProviderTools(tools);
+  }
+
+  /**
+   * MCP-005: this provider's tool-schema wire constraints, as data. `undefined` (the default) means
+   * "adopt every tool unchanged, no diagnostics" — today's behaviour, kept for `agent-provider-replay`
+   * and any embedding provider that overrides nothing.
+   */
+  protected projectionProfile(): IToolSchemaProjectionProfile | undefined {
+    return undefined;
+  }
+
+  /**
+   * Project `tools` through `projectionProfile()` before handing them to a converter. A helper, not
+   * an automatic seam: `chat`/`chatStream` are abstract, so the base runs nothing itself — each
+   * concrete provider calls this at its own request-building site(s), after `validateTools` and
+   * before its converter.
+   *
+   * No profile: returns `tools` unchanged (same array, no diagnostics). With a profile: adopted and
+   * adapted tools are returned in a NEW array (an adapted tool is a projected COPY; `tools` itself and
+   * every original tool object are never mutated); a rejected tool is omitted from the returned array
+   * and reported ONCE per cache identity via the global-sink `ToolSchemaProjection` logger.
+   */
+  protected projectTools(
+    tools: IToolSchema[] | undefined,
+    model: string,
+  ): IToolSchema[] | undefined {
+    const profile = this.projectionProfile();
+    if (!profile || !tools) {
+      return tools;
+    }
+
+    const kept: IToolSchema[] = [];
+    for (const tool of tools) {
+      const projection = projectToolSchema(tool, profile);
+      if (projection.outcome !== 'rejected') {
+        kept.push(projection.tool);
+        continue;
+      }
+
+      const identity = `${this.name} ${model} ${tool.name} ${hashToolSchema(tool.parameters)}`;
+      if (this.quarantinedToolSchemas.has(identity)) {
+        continue;
+      }
+      this.quarantinedToolSchemas.set(identity, true);
+
+      const { path, keyword, reason } = projection.rejection ?? {
+        path: '',
+        keyword: '',
+        reason: 'rejected',
+      };
+      toolSchemaProjectionLogger.warn(
+        `tool_schema_quarantined provider=${this.name} model=${model} tool=${tool.name} path=${path} keyword=${keyword} reason=${reason}`,
+      );
+    }
+    return kept;
   }
 
   protected validateNativeWebTools(request?: IProviderNativeWebToolRequest): void {

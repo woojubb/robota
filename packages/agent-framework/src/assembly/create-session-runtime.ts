@@ -2,6 +2,7 @@ import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
 
 import { buildAgentRuntime } from './build-agent-runtime.js';
 import { formatDeferredToolRoster } from './deferred-tool-roster.js';
+import { ToolCallHandoffTool } from './tool-call-handoff.js';
 import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { storeSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
@@ -10,6 +11,7 @@ import { createBackgroundProcessTool } from '../tools/background-process-tool.js
 import { formatProjectedModelCommandToolPromptDescription } from '../tools/model-command-tool-projection.js';
 
 import type { ICreateSessionOptions } from './create-session-types.js';
+import type { IToolCallHandoffDeps } from './tool-call-handoff.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
@@ -18,7 +20,11 @@ import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
 import type { createModelCommandToolProjection } from '../tools/model-command-tool-projection.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
-import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
+import type {
+  IBackgroundTaskManager,
+  IBackgroundTaskRunner,
+  IToolInvocationAdopter,
+} from '@robota-sdk/agent-executor';
 import type { Session } from '@robota-sdk/agent-session';
 
 /**
@@ -94,6 +100,56 @@ export function buildBackgroundProcessTool(
   };
   tools.push(createBackgroundProcessTool(backgroundProcessToolDeps));
   return { backgroundProcessToolDeps };
+}
+
+/**
+ * MCP-004 §S3: when `options.toolCallHandoff` is set AND a `tool-invocation` runner is present in
+ * `options.backgroundTaskRunners` (the `hasProcessRunner` pattern above, narrowed by `'adopt' in
+ * runner` to the adopter port `agent-executor`'s runner also implements), REPLACES each entry in the
+ * session-local `tools` array whose `getName()` is named in `toolCallHandoff.toolNames` with its
+ * wrapper — splice by index, in place. `tools` is the fresh, deduped array `assembleSessionTools`
+ * built, never `options.additionalTools` itself (`cli.ts` shares that array across every session the
+ * process creates). Absent policy or absent runner ⇒ no-op, unchanged behavior.
+ */
+export function buildToolCallHandoff(
+  options: ICreateSessionOptions,
+  backgroundTaskManager: IBackgroundTaskManager,
+  sessionId: string,
+  cwd: string,
+  tools: IToolWithEventService[],
+): void {
+  const policy = options.toolCallHandoff;
+  if (!policy) return;
+  const runner = options.backgroundTaskRunners?.find((r) => r.kind === 'tool-invocation');
+  if (!runner || !('adopt' in runner)) return;
+  const adopter = runner as IBackgroundTaskRunner & IToolInvocationAdopter;
+
+  // Refuse at build time: every name in `toolNames` must have a provenance entry.
+  for (const toolName of policy.toolNames) {
+    if (!policy.provenance[toolName]) {
+      throw new Error(
+        `toolCallHandoff.provenance is missing an entry for tool "${toolName}" named in toolNames`,
+      );
+    }
+  }
+
+  for (const toolName of policy.toolNames) {
+    const index = tools.findIndex((tool) => tool.getName() === toolName);
+    if (index === -1) continue;
+    const provenance = policy.provenance[toolName];
+    if (!provenance) continue; // unreachable — validated above; narrows for TS
+    const deps: IToolCallHandoffDeps = {
+      manager: backgroundTaskManager,
+      runner: adopter,
+      sessionId,
+      cwd,
+      thresholdMs: policy.thresholdMs,
+      budgetMs: policy.budgetMs,
+      provenance,
+      ...(options.sessionLogger !== undefined ? { sessionLogger: options.sessionLogger } : {}),
+    };
+    tools[index] = new ToolCallHandoffTool(tools[index], deps);
+  }
 }
 
 export interface ISystemPromptResult {

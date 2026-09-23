@@ -17,28 +17,27 @@ import { describe, expect, it, vi } from 'vitest';
 
 import TransportTUI from '../TransportTUI.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
   ITransportEntry,
   ITransportSettingsRegistryView,
 } from '@robota-sdk/agent-interface-transport';
 
-function entry(name: string, enabled: boolean): ITransportEntry<IInteractiveSession> {
+function entry(name: string, enabled: boolean): ITransportEntry {
   return {
     transport: { name },
     config: { enabled, options: {} },
-  } as unknown as ITransportEntry<IInteractiveSession>;
+  } as unknown as ITransportEntry;
 }
 
 function registryWith(
-  setEnabled: ITransportSettingsRegistryView<IInteractiveSession>['setEnabled'],
+  setEnabled: ITransportSettingsRegistryView['setEnabled'],
   entries = [entry('ws', false)],
-): ITransportSettingsRegistryView<IInteractiveSession> {
+): ITransportSettingsRegistryView {
   return {
     getAll: () => entries,
     setEnabled,
     setOptions: vi.fn().mockResolvedValue(undefined),
-  } as unknown as ITransportSettingsRegistryView<IInteractiveSession>;
+  } as unknown as ITransportSettingsRegistryView;
 }
 
 const flush = async (): Promise<void> => {

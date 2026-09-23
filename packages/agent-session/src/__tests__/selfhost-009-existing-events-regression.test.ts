@@ -5,8 +5,7 @@
  * Covers the events fired directly by the turn owner: `UserPromptSubmit` and `Stop` (executeRun
  * happy path), `StopFailure` (executeRun error path), and `PreToolUse` + `PostToolUse` (the wrapped
  * tool). The remaining events (`SessionStart`/`SessionEnd`/`PreCompact`/`PostCompact`) and the
- * variable-dispatched Subagent/Worktree events are covered by their own package tests and by the
- * mechanical `scan-hook-catalog` firing-site floor.
+ * variable-dispatched Subagent/Worktree events are covered by their own package tests.
  */
 
 import { createUserMessage } from '@robota-sdk/agent-core';

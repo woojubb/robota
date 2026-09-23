@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import { GoogleGenAI } from '@google/genai';
-import { AbstractAIProvider, createModelEffortOutcome } from '@robota-sdk/agent-core';
+import {
+  AbstractAIProvider,
+  createModelEffortOutcome,
+  PERMISSIVE_TOOL_SCHEMA_PROFILE,
+} from '@robota-sdk/agent-core';
 
 import { GEMINI_CAPABILITY_TABLE } from './capability-table';
 import { executeDirect, executeDirectStream } from './execution-helpers';
@@ -26,6 +30,7 @@ import type {
   IImageEditRequest,
   IImageComposeRequest,
   IImageGenerationResult,
+  IToolSchemaProjectionProfile,
   TProviderMediaResult,
 } from '@robota-sdk/agent-core';
 
@@ -97,7 +102,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
         this.client,
         this.options,
         messages,
-        withGeminiTextDeltaCallback(resolvedOptions, this.onTextDelta),
+        withGeminiTextDeltaCallback(this.projectChatOptions(resolvedOptions), this.onTextDelta),
         this.name,
       );
       this.publishModelEffortOutcome(resolvedOptions);
@@ -151,7 +156,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
         this.client,
         this.options,
         messages,
-        withGeminiTextDeltaCallback(resolvedOptions, this.onTextDelta),
+        withGeminiTextDeltaCallback(this.projectChatOptions(resolvedOptions), this.onTextDelta),
         this.name,
       );
       this.publishModelEffortOutcome(resolvedOptions);
@@ -159,6 +164,24 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
       const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
       throw new Error(`Google stream failed: ${errorMessage}`);
     }
+  }
+
+  /** MCP-005: Gemini's fixed `Schema` subset can't carry `additionalProperties` — strip + record it. */
+  protected override projectionProfile(): IToolSchemaProjectionProfile | undefined {
+    return {
+      ...PERMISSIVE_TOOL_SCHEMA_PROFILE,
+      providerName: 'gemini',
+      unknownKeywords: 'strip',
+      unsupportedMembers: ['additionalProperties'],
+    };
+  }
+
+  /** Project `options.tools` before `executeDirect`/`executeDirectStream` build the request (`execution-helpers.ts:134-135`). */
+  private projectChatOptions(options: IChatOptions | undefined): IChatOptions | undefined {
+    if (!options?.tools) return options;
+    const model = options.model ?? this.options.defaultModel ?? '';
+    const projected = this.projectTools(options.tools, model);
+    return { ...options, tools: projected && projected.length > 0 ? projected : undefined };
   }
 
   /** Generate an image from a text prompt using the Gemini API. */

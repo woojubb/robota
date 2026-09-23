@@ -17,7 +17,7 @@ import type { IWorkflowProject } from './workflow-project.js';
  * `<root>/nodes/` (WORKFLOW-005 P3) — so a workflow `build` just authored with a new prompt node
  * validates instead of failing on its own node. Argument parsing shares the `/workflows` grammar
  * (`parseFileArg`). Composes `dag-builder` (format detection + conversion) + `dag-framework` (node
- * catalog); no dependency on the `dag-cli` product.
+ * catalog).
  */
 export async function executeWorkflowsValidate(
   argStr: string,

@@ -6,31 +6,30 @@ import { createFileTransportSettingsRepository } from './transport-settings-repo
 import { TransportSettingsView } from './transport-settings-view.js';
 
 import type { IDestroyResult, TUniversalValue } from '@robota-sdk/agent-core';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
+  IBoundTransportRunnerAdapter,
   ITransportCompletionRecord,
   ITransportEntry,
   ITransportFailureRecord,
-  ITransportRunnerAdapter,
   ITransportSettingsRepository,
-  TConfigurableTransport,
-  TTransportAdapter,
+  TBoundConfigurableTransport,
+  TBoundTransportAdapter,
 } from '@robota-sdk/agent-interface-transport';
 
 interface IRegistryEntry {
-  readonly transport: TTransportAdapter<IInteractiveSession>;
-  readonly configurable?: TConfigurableTransport<IInteractiveSession>;
+  readonly transport: TBoundTransportAdapter;
+  readonly configurable?: TBoundConfigurableTransport;
 }
 
 function isConfigurableTransport(
-  transport: TTransportAdapter<IInteractiveSession>,
-): transport is TConfigurableTransport<IInteractiveSession> {
+  transport: TBoundTransportAdapter,
+): transport is TBoundConfigurableTransport {
   return 'defaultEnabled' in transport && typeof transport.defaultEnabled === 'boolean';
 }
 
 function isRunnerTransport(
-  transport: TTransportAdapter<IInteractiveSession>,
-): transport is ITransportRunnerAdapter<IInteractiveSession> {
+  transport: TBoundTransportAdapter,
+): transport is IBoundTransportRunnerAdapter {
   return transport.lifecycle.kind === 'runner';
 }
 
@@ -44,7 +43,7 @@ export class TransportRegistry {
   private startOperation: Promise<void> | undefined;
   private stopOperation: Promise<IDestroyResult> | undefined;
   private preemptionStopOperation: Promise<void> | undefined;
-  private startingTransport: TTransportAdapter<IInteractiveSession> | undefined;
+  private startingTransport: TBoundTransportAdapter | undefined;
   private preemptionStopFailure:
     { readonly transportName: string; readonly cause: unknown } | undefined;
 
@@ -60,7 +59,10 @@ export class TransportRegistry {
   }
 
   /** The lifecycle/shape agreement every entry must satisfy, on the way in and on a replace. */
-  private assertRegisterableShape(transport: TTransportAdapter<IInteractiveSession>): void {
+  private assertRegisterableShape(transport: TBoundTransportAdapter): void {
+    if (transport.binding !== 'bound') {
+      throw new TypeError(`Transport ${transport.name} must be bound before registration.`);
+    }
     const hasCompletion =
       'waitForCompletion' in transport && typeof transport.waitForCompletion === 'function';
     if (
@@ -73,7 +75,7 @@ export class TransportRegistry {
     }
   }
 
-  register(transport: TTransportAdapter<IInteractiveSession>): void {
+  register(transport: TBoundTransportAdapter): void {
     if (this.entries.has(transport.name)) {
       throw new Error(`Duplicate transport name: ${transport.name}`);
     }
@@ -95,7 +97,7 @@ export class TransportRegistry {
    * path that abandoned it, and a registry that stopped it here would do so at a moment the caller
    * did not choose.
    */
-  replace(transport: TTransportAdapter<IInteractiveSession>): void {
+  replace(transport: TBoundTransportAdapter): void {
     if (!this.entries.has(transport.name)) {
       throw new Error(
         `Cannot replace transport ${transport.name}: no transport is registered under that name.`,
@@ -108,7 +110,7 @@ export class TransportRegistry {
     });
   }
 
-  getAll(): ITransportEntry<IInteractiveSession>[] {
+  getAll(): ITransportEntry[] {
     const saved = this.settings.readAll();
     return [...this.entries.values()].flatMap(({ configurable }) =>
       configurable
@@ -122,7 +124,7 @@ export class TransportRegistry {
     );
   }
 
-  getEnabled(): TTransportAdapter<IInteractiveSession>[] {
+  getEnabled(): TBoundTransportAdapter[] {
     const saved = this.settings.readAll();
     return [...this.entries.values()].flatMap(({ transport, configurable }) => {
       if (!configurable) return [transport];
@@ -150,7 +152,7 @@ export class TransportRegistry {
    * a typed configuration error rather than a silent ignore — the former "read, displayed, never
    * applied" state.
    */
-  private deliverOptions(transport: TTransportAdapter<IInteractiveSession>): void {
+  private deliverOptions(transport: TBoundTransportAdapter): void {
     const entry = this.entries.get(transport.name);
     if (!entry?.configurable) return;
     const saved = this.settings.readAll()[transport.name];
@@ -165,7 +167,7 @@ export class TransportRegistry {
     entry.configurable.configure(options);
   }
 
-  async startAll(session: IInteractiveSession): Promise<void> {
+  async startAll(): Promise<void> {
     if (this.state !== 'idle') {
       throw Object.assign(new Error('Transport registry is already started.'), {
         name: 'TransportLifecycleError' as const,
@@ -179,7 +181,7 @@ export class TransportRegistry {
       enabled.filter(isRunnerTransport).map(({ name }) => name),
     );
     this.generation = generation;
-    const operation = this.performStart(generation, enabled, session);
+    const operation = this.performStart(generation, enabled);
     this.startOperation = operation;
     try {
       await operation;
@@ -246,10 +248,9 @@ export class TransportRegistry {
 
   private async performStart(
     generation: TransportRunGeneration,
-    enabled: TTransportAdapter<IInteractiveSession>[],
-    session: IInteractiveSession,
+    enabled: TBoundTransportAdapter[],
   ): Promise<void> {
-    const attempted: TTransportAdapter<IInteractiveSession>[] = [];
+    const attempted: TBoundTransportAdapter[] = [];
     let currentName = 'transport-registry';
     try {
       for (const transport of enabled) {
@@ -257,7 +258,6 @@ export class TransportRegistry {
         attempted.push(transport);
         this.startingTransport = transport;
         this.deliverOptions(transport);
-        transport.attach(session);
         await transport.start();
         if (generation.stopRequested) throw new Error('Transport startup was stopped.');
         if (isRunnerTransport(transport)) generation.track(transport);
@@ -296,7 +296,7 @@ export class TransportRegistry {
     }
   }
 
-  private requireConfigurable(name: string): TConfigurableTransport<IInteractiveSession> {
+  private requireConfigurable(name: string): TBoundConfigurableTransport {
     const entry = this.entries.get(name);
     if (!entry) throw configurationError(name, 'unknown-transport');
     if (!entry.configurable) throw configurationError(name, 'not-configurable');

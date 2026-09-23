@@ -1,43 +1,21 @@
 # Input Node Specification
 
-## Scope
+## Purpose
 
-- Owns the `input` DAG node definition.
-- Provides a source node that emits a configured text value as output. Serves as the canonical DAG entry point for text-based workflows.
+Defines the `input` DAG node: a source node that emits a configured text value as output, serving as
+the canonical DAG entry point for text-based workflows.
 
-## Boundaries
+## Contract
 
-- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
-- Uses `NodeIoAccessor` for output construction.
-- No external provider dependencies. No inputs (source node).
+- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`; does not redefine core DAG contracts.
+- No external provider dependencies; no inputs (source node).
 
-## Architecture Overview
+## Guarantees
 
-- `InputNodeDefinition` — source node with zero inputs and one `text` string output.
-- Config includes a `text` field (defaults to empty string).
-- Execution sets the configured text value as the `text` output port.
+- The `text` output uses the runtime input's `text` value when present, falling back to the
+  configured `text` otherwise — this lets a DAG run's `inputs` override this entry node's build-time
+  config.
 
-## Type Ownership
+## Non-goals
 
-| Type                  | Location       | Purpose               |
-| --------------------- | -------------- | --------------------- |
-| `InputNodeDefinition` | `src/index.ts` | Node definition class |
-
-## Public API Surface
-
-- `InputNodeDefinition` — class
-
-## Extension Points
-
-- Extends `AbstractNodeDefinition` and overrides `estimateCostWithConfig` (zero cost) and `executeWithConfig`.
-- Config schema: `{ text: z.string().default('') }`.
-- No constructor options. No environment variable dependencies.
-
-## Error Taxonomy
-
-No node-specific error codes are defined. This node has no validation failure paths beyond base-class config schema parsing.
-
-## Test Strategy
-
-- No test files exist yet. Coverage status: none.
-- Recommended: unit tests verifying text output matches config value, empty string default behavior, and `NodeIoAccessor` output structure.
+- Not a provider-backed node; carries no external service dependency.

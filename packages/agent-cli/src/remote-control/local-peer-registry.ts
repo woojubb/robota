@@ -16,8 +16,8 @@
  * 2. **The pid alone.** Pid reuse is real, and the failure it produces is the dangerous direction —
  *    an unrelated process inherits a dead session's identity and is treated as a peer.
  * 3. **The pid, checked with a start-time recorded at announce.** Pid reuse changes the start time,
- *    so a recycled pid fails the check. This is what `/proc/<pid>/stat`'s start field is for on
- *    Linux, and where it is unavailable the entry degrades to `unknown` rather than to `alive`.
+ *    so a recycled pid fails the check. Linux reads `/proc/<pid>/stat`; macOS reads `ps` birth time.
+ *    Where neither can answer, the entry degrades to `unknown` rather than to `alive`.
  *
  * `unknown` is a real state and not a synonym for either answer. A caller may show it to an
  * operator; what it must not do is treat it as reachable, which is why `listReachablePeers` filters
@@ -30,6 +30,7 @@
  * directory is atomic on every filesystem this runs on.
  */
 
+import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -42,6 +43,9 @@ export interface IPeerEntry {
   /** Process start time, so a recycled pid does not inherit this entry. */
   readonly startedAt: string;
   readonly announcedAt: number;
+  /** macOS `ps` reports whole seconds; only a later reannouncement certifies this birth second. */
+  readonly startTimePrecision?: 'seconds';
+  readonly startSecondMs?: number;
 }
 
 /** Whether the process behind an entry is still running. */
@@ -57,17 +61,21 @@ export interface IRegistryOptions {
   readonly guardedDirectory: string;
   /** Reads a process's start time, or undefined when the platform cannot answer. Injected. */
   readonly readStartTime?: (pid: number) => string | undefined;
+  /** For a test reader that, like macOS `ps`, reports only whole seconds. */
+  readonly startTimePrecision?: 'seconds';
+  /** Distinguish a missing PID from an inspection failure. */
+  readonly probePid?: (pid: number) => 'present' | 'absent' | 'unknown';
   readonly now?: () => number;
 }
 
 const ENTRY_SUFFIX = '.peer.json';
+const SECOND_MS = 1_000;
 
 /**
  * Read a process's start time from `/proc`.
  *
- * Returns undefined rather than throwing when the process is gone or the platform has no `/proc` —
- * "no answer" and "not running" are different, and collapsing them here would make a
- * non-Linux host report every peer as dead.
+ * Returns undefined rather than throwing when the process is gone or `/proc` cannot answer —
+ * "no answer" and "not running" are different, so the caller must not guess `alive`.
  */
 function readProcStartTime(pid: number): string | undefined {
   try {
@@ -84,18 +92,79 @@ function readProcStartTime(pid: number): string | undefined {
   }
 }
 
+/** macOS has no `/proc`; `ps` supplies a whole-second birth time. */
+export function readDarwinStartTime(
+  pid: number,
+  runPs: (pid: number) => string = (targetPid) =>
+    execFileSync('/bin/ps', ['-p', String(targetPid), '-o', 'lstart='], {
+      encoding: 'utf8',
+      timeout: 1_000,
+      maxBuffer: 128,
+      env: { TZ: 'UTC', LC_ALL: 'C' },
+    }),
+): string | undefined {
+  try {
+    const startedAt = runPs(pid).trim();
+    return startedAt || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function probePid(pid: number): 'present' | 'absent' | 'unknown' {
+  try {
+    process.kill(pid, 0);
+    return 'present';
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'ESRCH' ? 'absent' : 'unknown';
+  }
+}
+
+export function readProcessStartTime(
+  pid: number,
+  platform: string = process.platform,
+  readDarwin: (pid: number) => string | undefined = readDarwinStartTime,
+): string | undefined {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return undefined;
+  return platform === 'darwin' ? readDarwin(pid) : readProcStartTime(pid);
+}
+
+function readAnnouncedStartMetadata(
+  options: IRegistryOptions,
+  pid: number,
+  requireStartTime: boolean,
+): Pick<IPeerEntry, 'startedAt' | 'startTimePrecision' | 'startSecondMs'> {
+  const startedAt = (options.readStartTime ?? readProcessStartTime)(pid) ?? '';
+  // A certification retry must never replace a previously valid birth time with an empty one.
+  if (requireStartTime && startedAt === '') {
+    throw new Error('The process start time could not be read for peer certification.');
+  }
+  const secondPrecision =
+    options.startTimePrecision === 'seconds' ||
+    (options.readStartTime === undefined && process.platform === 'darwin');
+  const startSecondMs = secondPrecision ? Date.parse(`${startedAt} UTC`) : NaN;
+  if (requireStartTime && secondPrecision && !Number.isFinite(startSecondMs)) {
+    throw new Error('The process birth second could not be decoded for peer certification.');
+  }
+  return {
+    startedAt,
+    ...(secondPrecision ? { startTimePrecision: 'seconds' as const } : {}),
+    ...(Number.isFinite(startSecondMs) ? { startSecondMs } : {}),
+  };
+}
+
 /** Announce this session, atomically. Returns the entry as published. */
 export function announcePeer(
   options: IRegistryOptions,
-  input: { sessionId: string; name?: string; pid?: number },
+  input: { sessionId: string; name?: string; pid?: number; requireStartTime?: boolean },
 ): IPeerEntry {
   const pid = input.pid ?? process.pid;
-  const readStartTime = options.readStartTime ?? readProcStartTime;
+  const start = readAnnouncedStartMetadata(options, pid, input.requireStartTime === true);
   const entry: IPeerEntry = {
     sessionId: input.sessionId,
     ...(input.name !== undefined ? { name: input.name } : {}),
     pid,
-    startedAt: readStartTime(pid) ?? '',
+    ...start,
     announcedAt: (options.now ?? Date.now)(),
   };
   const target = join(options.guardedDirectory, `${input.sessionId}${ENTRY_SUFFIX}`);
@@ -113,11 +182,20 @@ export function withdrawPeer(options: IRegistryOptions, sessionId: string): void
 function judgeLiveness(
   entry: IPeerEntry,
   readStartTime: (pid: number) => string | undefined,
+  probe: (pid: number) => 'present' | 'absent' | 'unknown',
 ): TPeerLiveness {
-  const current = readStartTime(entry.pid);
-  if (current === undefined) return entry.startedAt === '' ? 'unknown' : 'dead';
   if (entry.startedAt === '') return 'unknown';
-  return current === entry.startedAt ? 'alive' : 'dead';
+  const current = readStartTime(entry.pid);
+  if (current === undefined) return probe(entry.pid) === 'absent' ? 'dead' : 'unknown';
+  if (current !== entry.startedAt) return 'dead';
+  // A second-granularity birth time cannot rule out PID reuse in that same second. The original
+  // process reannounces after the second ends; a dead process cannot make that later claim.
+  if (entry.startTimePrecision === 'seconds') {
+    const birth = entry.startSecondMs;
+    if (typeof birth !== 'number' || !Number.isFinite(birth)) return 'unknown';
+    if (entry.announcedAt < birth + SECOND_MS) return 'unknown';
+  }
+  return 'alive';
 }
 
 /**
@@ -127,7 +205,8 @@ function judgeLiveness(
  * anything, and surfacing it would invite a caller to act on a shape nobody wrote.
  */
 export function listPeers(options: IRegistryOptions): readonly IDiscoveredPeer[] {
-  const readStartTime = options.readStartTime ?? readProcStartTime;
+  const readStartTime = options.readStartTime ?? readProcessStartTime;
+  const probe = options.probePid ?? probePid;
   const out: IDiscoveredPeer[] = [];
   for (const file of readdirSync(options.guardedDirectory)) {
     if (!file.endsWith(ENTRY_SUFFIX)) continue;
@@ -139,7 +218,7 @@ export function listPeers(options: IRegistryOptions): readonly IDiscoveredPeer[]
       continue;
     }
     if (typeof entry?.sessionId !== 'string' || typeof entry?.pid !== 'number') continue;
-    out.push({ entry, liveness: judgeLiveness(entry, readStartTime) });
+    out.push({ entry, liveness: judgeLiveness(entry, readStartTime, probe) });
   }
   return out.sort((a, b) => a.entry.sessionId.localeCompare(b.entry.sessionId));
 }

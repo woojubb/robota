@@ -64,3 +64,12 @@ describe('#1844 — provider definitions reach the session', () => {
     expect('providerDefinitions' in session).toBe(false);
   });
 });
+
+it('preserves product provider recovery guidance from render options through the TUI session', () => {
+  const providerErrorGuidance = { authentication: 'Configure product A.' };
+  const session = buildTuiSessionOptions(
+    toChannelOptions(renderOptions({ providerErrorGuidance })),
+  );
+
+  expect(session.providerErrorGuidance).toBe(providerErrorGuidance);
+});

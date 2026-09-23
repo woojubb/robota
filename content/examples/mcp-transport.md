@@ -27,20 +27,14 @@ await transport.getServer().connect(new StdioServerTransport());
 
 ## MCP Tools
 
-The server exposes `submit` plus one `command_<name>` MCP tool for each command returned by `session.listCommands()`:
+The server lists the session's canonical runtime tools with their existing names and input schemas.
+Model-invocable commands appear as `robota_command_<name>` when available. The separate
+`command_<name>` catalog is gone. `robota_submit` is a Robota extension that submits a prompt and
+waits for the session's response. Direct tool calls use the session's permissions and hooks; a call
+that needs interactive permission fails visibly unless the host supplies an approved policy.
 
-| Tool            | Input                | Description                        |
-| --------------- | -------------------- | ---------------------------------- |
-| submit          | `{ prompt: string }` | Submit a prompt, wait for response |
-| command_help    | `{ args?: string }`  | Show available commands            |
-| command_clear   | `{ args?: string }`  | Clear conversation history         |
-| command_compact | `{ args?: string }`  | Compress context window            |
-| command_mode    | `{ args?: string }`  | Show/change permission mode        |
-| command_context | `{ args?: string }`  | Context window info                |
-| command_resume  | `{ args?: string }`  | Resume a previous session          |
-| command_rename  | `{ args?: string }`  | Rename the current session         |
-
-Other auto-discovered commands, such as `memory`, `rewind`, `provider`, `background`, `plugin`, `reload-plugins`, and command-module entries like `agent`, are exposed the same way when they are available on the session.
+This minimum server exposes tools only. Prompts and resources require their own canonical session
+registries before they can be offered through MCP.
 
 ## Advanced: Direct MCP Server
 
@@ -49,15 +43,14 @@ For more control, use `createAgentMcpServer` directly:
 ```typescript
 import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IMcpTransportSession } from '@robota-sdk/agent-transport-mcp';
 
-declare const interactiveSession: IInteractiveSession;
+declare const interactiveSession: IMcpTransportSession;
 
-const server = createAgentMcpServer({
+const server = await createAgentMcpServer({
   name: 'robota-agent',
   version: '1.0.0',
   session: interactiveSession,
-  exposeCommands: true, // register system commands as MCP tools
 });
 
 await server.connect(new StdioServerTransport());

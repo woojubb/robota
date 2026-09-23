@@ -38,6 +38,16 @@ afterEach(() => {
 });
 
 describe('Node host workspace trust', () => {
+  it('resolves the same repository identity from a nested working directory', () => {
+    const root = tempRoot('robota-workspace-nested-cwd-');
+    gitInit(root);
+    const nested = join(root, 'packages', 'example');
+    mkdirSync(nested, { recursive: true });
+    const resolver = createNodeWorkspaceIdentityResolver();
+
+    expect(resolver.resolve(nested)).toEqual(resolver.resolve(root));
+  });
+
   it('uses the canonical Git identity for aliases and grants only the current generation', async () => {
     const root = tempRoot('robota-workspace-trust-');
     gitInit(root);

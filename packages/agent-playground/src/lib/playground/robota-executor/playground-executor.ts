@@ -14,11 +14,9 @@ import {
 import { createHistoryPlugin, createStatisticsPlugin } from './plugin-factory';
 import { recordExecutionStats } from './statistics-recorder';
 import type { IAgentConfigurationSnapshot, IToolCard } from './types';
-import {
-  PlaygroundHistoryPlugin,
-  type IVisualizationData,
-} from '../plugins/playground-history-plugin';
-import { PlaygroundStatisticsPlugin } from '../plugins/playground-statistics-plugin';
+import type { PlaygroundHistoryPlugin } from '../plugins/playground-history-plugin';
+import { type IVisualizationData } from '../plugins/playground-history-plugin';
+import type { PlaygroundStatisticsPlugin } from '../plugins/playground-statistics-plugin';
 import { createSession, sseSessionSubmit, destroySession } from './sse-client';
 import type { IRestoredMessage } from './sse-client';
 import { mapSseEventToConversationEvent } from './event-mapper';
@@ -26,7 +24,6 @@ import type {
   IPlaygroundAgentConfig,
   IPlaygroundExecutorResult,
   IPlaygroundTool,
-  TPlaygroundMode,
 } from '../robota-executor-types';
 import type { IPlaygroundAction, IPlaygroundMetrics } from '../../../types/playground-statistics';
 

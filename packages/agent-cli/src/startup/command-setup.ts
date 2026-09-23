@@ -1,6 +1,11 @@
 import { homedir } from 'node:os';
 
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IProviderDefinition, IToolResultAdmissionOptions } from '@robota-sdk/agent-core';
+import type {
+  IMCPActivationApprovalStore,
+  IMCPHttpTransportDeps,
+  IMCPStdioAuthority,
+} from '@robota-sdk/agent-mcp';
 import {
   deleteSettings,
   getStartupCliUpdateNotice,
@@ -26,10 +31,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
-import {
-  createDefaultCommandModules,
-  createDefaultPluginCommandAdapter,
-} from '@robota-sdk/agent-command';
+import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import type { IKeybindingsFilePort, IThemeCataloguePort } from '@robota-sdk/agent-command';
 import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-preset';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
@@ -39,6 +41,8 @@ import {
 } from '@robota-sdk/agent-command-workflows';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { buildDoctorInputs } from './doctor-inputs.js';
+import { areSessionLoopsDisabled, DEFAULT_LOOP_MAINTENANCE_PROMPT } from './loop-options.js';
+import { createDefaultPluginCommandAdapter } from '../plugins/default-plugin-command-adapter.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
 import type { IOutputStyleRegistry, IOutputStyleSource } from '@robota-sdk/agent-preset';
 import {
@@ -84,6 +88,17 @@ export interface IStartCliOptions {
   projectMutation?: IWorkspaceProjectMutation;
   /** Host-composed MCP definition registry and trust-admission controller. */
   mcpActivationAdapter?: ICommandMCPActivationAdapter;
+  /** Host-owned per-server subprocess capabilities; never inferred from settings. */
+  mcpStdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
+  /** Host-owned approval state, shared with the canonical MCP activation controller. */
+  mcpApprovalStore?: IMCPActivationApprovalStore;
+  /** Host-owned HTTP transport policy; never supplied by MCP settings or a remote caller. */
+  mcpHttpTransportDeps?: IMCPHttpTransportDeps;
+  /** Host-configured character limits; generic admission validates the ordering and ceiling. */
+  mcpResultAdmissionLimits?: Pick<
+    IToolResultAdmissionOptions,
+    'warningChars' | 'hardChars' | 'repositoryMaxChars'
+  >;
   /** Host-composed managed output styles, applied above user/project style sources. */
   managedOutputStyleSources?: readonly IOutputStyleSource[];
 }
@@ -236,6 +251,10 @@ export function buildCommandSetup(
     ...(keybindingsFilePort === undefined ? {} : { keybindingsFilePort }),
     ...(themeCataloguePort === undefined ? {} : { themeCataloguePort }),
     doctorInputs,
+    loopOptions: {
+      defaultPrompt: DEFAULT_LOOP_MAINTENANCE_PROMPT,
+      disabled: areSessionLoopsDisabled(process.env),
+    },
     ...(orgPolicy === null ? {} : { orgPolicy }),
     ...(packCommandModuleNames.length > 0
       ? { disabledCommandModules: packCommandModuleNames }

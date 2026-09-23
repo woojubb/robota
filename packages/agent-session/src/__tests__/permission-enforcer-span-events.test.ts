@@ -80,4 +80,24 @@ describe('SELFHOST-004 P6 — permission wrapper forwards setEventService', () =
       success: true,
     });
   });
+
+  it('preserves a failed admitted result with no data instead of crashing during size logging', async () => {
+    const enforcer = makeEnforcer();
+    const schema = makeTool().schema;
+    const tool: IToolWithEventService = {
+      schema,
+      getName: () => schema.name,
+      getDescription: () => schema.description,
+      validate: () => true,
+      validateParameters: () => ({ isValid: true, errors: [] }),
+      execute: async () => ({
+        success: false,
+        error: 'Tool failure details: tool-result:abcdefghijklmnopqrstuv',
+      }),
+      setEventService: () => undefined,
+    };
+    const [wrapped] = enforcer.wrapTools([tool]);
+    const result = await wrapped!.execute({}, { toolName: schema.name, parameters: {} });
+    expect(result.error).toContain('tool-result:abcdefghijklmnopqrstuv');
+  });
 });

@@ -56,7 +56,7 @@ export async function routeProjectSetup(options: IProjectSetupRoutingOptions): P
       promptInput,
       terminal,
       providerDefinitions,
-      undefined,
+      args.positional[0] === 'mcp' && args.positional[1] === 'serve' ? false : undefined,
       settingsAccess,
     );
   } catch (error) {

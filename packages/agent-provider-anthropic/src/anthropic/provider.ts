@@ -1,10 +1,9 @@
-import { randomUUID } from 'node:crypto';
-
 import Anthropic from '@anthropic-ai/sdk';
 import {
   AbstractAIProvider,
   ConfigurationError,
   createModelEffortOutcome,
+  PERMISSIVE_TOOL_SCHEMA_PROFILE,
   resolveModelEffort,
   ValidationError,
 } from '@robota-sdk/agent-core';
@@ -28,6 +27,7 @@ import type {
   IProviderCapabilities,
   IProviderNativeWebToolRequest,
   IProviderModelEffortTable,
+  IToolSchemaProjectionProfile,
   TUniversalMessage,
   IChatOptions,
   TTextDeltaCallback,
@@ -135,9 +135,8 @@ export class AnthropicProvider extends AbstractAIProvider {
       );
     }
 
-    const functionTools = resolvedOptions?.tools
-      ? convertToolsToAnthropicFormat(resolvedOptions.tools)
-      : [];
+    const projectedTools = this.projectTools(resolvedOptions?.tools, resolvedOptions.model);
+    const functionTools = projectedTools ? convertToolsToAnthropicFormat(projectedTools) : [];
     const serverTools: Anthropic.Messages.ToolUnion[] = this.enableWebTools
       ? [{ type: 'web_search_20250305' as const, name: 'web_search' }]
       : [];
@@ -232,9 +231,8 @@ export class AnthropicProvider extends AbstractAIProvider {
       requestParams.temperature = resolvedOptions.temperature;
     }
 
-    const functionTools = resolvedOptions.tools
-      ? convertToolsToAnthropicFormat(resolvedOptions.tools)
-      : [];
+    const projectedTools = this.projectTools(resolvedOptions.tools, resolvedOptions.model);
+    const functionTools = projectedTools ? convertToolsToAnthropicFormat(projectedTools) : [];
     const serverTools: Anthropic.Messages.ToolUnion[] = this.enableWebTools
       ? [{ type: 'web_search_20250305' as const, name: 'web_search' }]
       : [];
@@ -349,6 +347,13 @@ export class AnthropicProvider extends AbstractAIProvider {
 
   override validateConfig(): boolean {
     return !!this.client && !!this.options && !!this.options.apiKey;
+  }
+
+  /**
+   * MCP-005: Anthropic accepts standard JSON Schema with an `object` root — the permissive profile.
+   */
+  protected override projectionProfile(): IToolSchemaProjectionProfile | undefined {
+    return { ...PERMISSIVE_TOOL_SCHEMA_PROFILE, providerName: 'anthropic' };
   }
 
   override async dispose(): Promise<void> {

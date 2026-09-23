@@ -9,8 +9,7 @@ import type { ISelfHostingCommandTemplates } from '../self-hosting-verification'
 
 /**
  * NEUT-001: the library ships no repo-specific commands — tests inject a neutral
- * template set the way a composition root would (Robota's real templates live in
- * `scripts/harness/self-hosting-verification-commands.mjs`).
+ * template set the way a composition root would.
  */
 const COMMAND_TEMPLATES: ISelfHostingCommandTemplates = {
   packageVerify: [

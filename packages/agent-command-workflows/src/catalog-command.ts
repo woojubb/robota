@@ -53,8 +53,8 @@ function readWorkflowCatalog(
 
 /**
  * `/workflows catalog` — list the workflow definitions flat under the injected workspace root (default
- * `.workflows/`, `<name>.json`) via the shared `scanWorkspaceCatalog` reader (FLOW-007 C3 — one reader
- * across dag-cli's `catalog` and this command). Node manifests + non-DAG JSON are skipped.
+ * `.workflows/`, `<name>.json`) via the shared `scanWorkspaceCatalog` reader (FLOW-007 C3).
+ * Node manifests + non-DAG JSON are skipped.
  */
 export async function executeWorkflowsCatalog(
   project: IWorkflowProject,
@@ -67,13 +67,13 @@ export async function executeWorkflowsCatalog(
     return { success: true, message: `No workflow files (*${ext}) in ${dir}.` };
   }
   const lines = entries.map((e) => {
-    const raw = e.definition as unknown as {
-      nodes?: unknown[];
-      edges?: unknown[];
-      links?: unknown[];
-    };
-    const nodeCount = raw.nodes?.length ?? 0;
-    const linkCount = raw.edges?.length ?? raw.links?.length ?? 0;
+    const raw = e.definition;
+    const nodeCount = Array.isArray(raw.nodes) ? raw.nodes.length : 0;
+    const linkCount = Array.isArray(raw.edges)
+      ? raw.edges.length
+      : 'links' in raw && Array.isArray(raw.links)
+        ? raw.links.length
+        : 0;
     return `  ${e.id}${ext} — ${nodeCount} node(s), ${linkCount} link(s)`;
   });
   return {

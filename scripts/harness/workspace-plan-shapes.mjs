@@ -11,7 +11,7 @@ export const WORKSPACE_OPERATIONS = Object.freeze([
 
 const GLOBAL_FILES = new Set([
   '.eslintignore',
-  '.eslintrc.json',
+  '.eslintrc.cjs',
   '.npmrc',
   'package.json',
   'pnpm-lock.yaml',

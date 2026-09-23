@@ -1,22 +1,13 @@
 # SPEC.md — @robota-sdk/agent-interface-analytics
 
-## Package Identity
-
-- **npm name**: `@robota-sdk/agent-interface-analytics`
-- **Layer**: Layer 0 — the dependency set that places it there is declared in this package's manifest
-  and enforced by `check-dependency-direction.mjs`; not restated here. The layer itself is declared in
-  [`.agents/specs/contract-family-owner-map.md`](../../../.agents/specs/contract-family-owner-map.md)
-  and enforced by `scripts/harness/interface-layers.mjs` (ARCH-101).
-- **SDK**: (none — contract declarations only)
-- **Platform**: node
-
 ## Scope
 
 This package owns the **usage and run-trace contracts**: how many tokens a turn consumed, what it
 cost, which execution unit, model, provider, and product surface it is attributed to, the per-turn
 timeline a trace view renders, and the provider-neutral cross-session personal-usage report shape.
 
-It contains type declarations only. No class, no runtime logic, no mechanism.
+It contains type declarations only. No class, no runtime logic, no mechanism, no runtime value
+export — there is no vocabulary or discriminators at runtime.
 
 ## Boundaries
 
@@ -32,60 +23,13 @@ It contains type declarations only. No class, no runtime logic, no mechanism.
 **This package declares the SHAPE of a measurement. It measures nothing and decides no policy** — not
 what counts as a turn, not how cost is derived, not what a report should contain.
 
-## Architecture Overview
+**Zero dependencies by design.** Every field of every declaration here is a primitive or another
+declaration in this package, so it depends on nothing at all — not even `agent-core`. It is the only
+contract package in this family with no dependencies, and that is a property worth keeping: the
+moment one of these types needs a foreign type, the boundary has moved.
 
-**Layer 0 with an empty dependency set.** Every field of every declaration here is a primitive or
-another declaration in this package, so it depends on nothing at all — not even `agent-core`. It is
-the only contract package in the family with no dependencies, and that is a property worth keeping:
-the moment one of these types needs a foreign type, the boundary has moved.
-
-Composition runs downward into it. `agent-interface-session`'s `turn-contracts` names
-`IUsageSnapshot` for `ITurnHandle.usage`; this package names no session, turn or transport type.
-
-**This family was not a file.** Its seven declarations lived inside `session-contracts.ts` in the
-transport package, which is why the owner map records it as `symbols@session-contracts` and why
-ARCH-105 was a split rather than a move.
-
-## Type Ownership
-
-| Type                             | Location                 | Purpose                                                                                             |
-| -------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
-| `IUsageSnapshot`                 | `src/usage-contracts.ts` | one turn's token counts, context window and cost status                                             |
-| `IUsageSource`                   | `src/usage-contracts.ts` | which execution unit consumed it — main thread, subagent, background task, tool, command, skill     |
-| `IUsageSourceTotals`             | `src/usage-contracts.ts` | one source's rolled-up totals and share                                                             |
-| `IUsageBySourceReport`           | `src/usage-contracts.ts` | the whole-session read model, including the timeline                                                |
-| `ISpanEntry`                     | `src/usage-contracts.ts` | one operation's duration, as recorded on the session timeline                                       |
-| `IRunTraceSpan`, `IRunTraceTurn` | `src/usage-contracts.ts` | the trace projection — spans grouped under their owning turn                                        |
-| `IPersonalUsageRequest`          | `src/usage-contracts.ts` | versioned 7/30-day calendar request with an explicit IANA timezone                                  |
-| `IPersonalUsageReport`           | `src/usage-contracts.ts` | content-free cross-session totals, daily buckets, dimensions, contributor session IDs, and coverage |
-| `IPersonalUsageCoverage`         | `src/usage-contracts.ts` | legacy, corrupt, unsupported, duplicate, and attribution confidence counters                        |
-| `IPersonalUsageActivity`         | `src/usage-contracts.ts` | privacy-safe tool, skill, and plugin activation counts                                              |
-
-`src/index.ts` is the single entry point; there is no subpath export.
-
-## Public API Surface
-
-| Export                    | Kind | Description                                        |
-| ------------------------- | ---- | -------------------------------------------------- |
-| `IUsageSource`            | type | execution-source attribution contract              |
-| `IUsageSnapshot`          | type | per-turn token, context, and cost snapshot         |
-| `ISpanEntry`              | type | one recorded trace operation                       |
-| `IUsageSourceTotals`      | type | aggregate for one execution source                 |
-| `IRunTraceSpan`           | type | span projected into a run trace                    |
-| `IRunTraceTurn`           | type | trace spans grouped under one turn                 |
-| `IUsageBySourceReport`    | type | current or stored-session usage report             |
-| `IUsageObservation`       | type | canonical, deduplicable provider-usage observation |
-| `TUsageSurface`           | type | trusted product-surface attribution vocabulary     |
-| `IPersonalUsageRequest`   | type | period and timezone request                        |
-| `IPersonalUsageTotals`    | type | cross-session totals and cost confidence           |
-| `IPersonalUsageDimension` | type | one grouped attribution row                        |
-| `IPersonalUsageActivity`  | type | privacy-safe tool/skill/plugin count               |
-| `IPersonalUsageDay`       | type | one complete local-calendar bucket                 |
-| `IPersonalUsageCoverage`  | type | incomplete/legacy/duplicate coverage diagnostics   |
-| `IPersonalUsageReport`    | type | versioned provider-neutral personal usage report   |
-
-**No runtime value is exported.** `scan-interface-runtime` refuses anything beyond a contract's
-vocabulary and its discriminators, and this package needs neither.
+Composition runs downward into it: consumers name this package's types, this package names no
+session, turn, or transport type.
 
 ## Extension Points
 
@@ -94,24 +38,6 @@ how it relates to the types here.
 
 ## Error Taxonomy
 
-| Error | Code | Category | Recoverable |
-| ----- | ---- | -------- | ----------- |
-| —     | —    | —        | —           |
-
 This package declares no error type and throws nothing. `IUsageSnapshot.costStatus` distinguishes
 `unknown` / `estimated` / `exact`, which is a statement about **confidence in a measurement**, not a
 failure — an unpriced model yields `unknown` and no `costUsd`, and that is a normal outcome.
-
-## Test Strategy
-
-`src/__tests__/contracts.test.ts` asserts the exported shapes, including the provider-round observation
-identity and the contributor session IDs carried by day/dimension aggregates for privacy-safe drill-down.
-
-Beyond that the package declares types and exports no behavior, so the remaining assertion available
-is that it compiles, which `pnpm typecheck` makes on every run. The contracts are exercised by
-`agent-session-analytics` (which assembles the report) and `agent-transport` (which carries
-it).
-
-## Class Contract Registry
-
-None. This package declares no class, and `scan-interface-runtime` refuses one.

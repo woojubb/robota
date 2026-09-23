@@ -64,6 +64,7 @@ export function buildCreateSessionOptions(
     sessionId,
     allowedTools: options.allowedTools,
     deniedTools: options.deniedTools,
+    disableBuiltInHookExecutors: options.disableBuiltInHookExecutors,
     model: options.model,
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
     ...(options.presetSystemPrompt !== undefined
@@ -103,6 +104,7 @@ export function buildCreateSessionOptions(
       ? { retrievalAdapter: options.retrievalAdapter }
       : {}),
     backgroundTaskRunners: options.backgroundTaskRunners,
+    ...(options.toolCallHandoff !== undefined ? { toolCallHandoff: options.toolCallHandoff } : {}),
     subagentRunnerFactory: options.subagentRunnerFactory,
     // CLI-1994: the fork job's record store reaches the runner through the agent runtime.
     ...(options.resumeSessionStore !== undefined

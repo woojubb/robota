@@ -1,111 +1,50 @@
 # agent-transport-http Specification
 
-## Scope
+## Purpose
 
-HTTP transport (Hono) for the Robota SDK. Split out of the consolidated `agent-transport` package
-(DQ-AUDIT-005) so the `hono` dependency is an isolated unit.
+HTTP transport (Hono) for the Robota SDK, split out of the consolidated `agent-transport` package
+so the `hono` dependency is an isolated unit.
 
-## Boundaries
+## Contract
 
-- Owns the Hono-based HTTP transport adapter and agent route builder.
-- Depends on `agent-interface-transport` (transport contracts) and `agent-transport/node`
-  (SEC-008: the one Node-only seam that decides admission — `resolveAdmission`, `bearerCredential`,
-  `credentialMatches`; the decision is deliberately NOT re-made here). Contract-pure otherwise, per
-  `project-structure.md`: the one side concern (where a stream-failure detail goes) is INJECTED
-  (`IAgentRoutesOptions.onStreamFailure`), not imported; see § Error Taxonomy.
-- No other transport package depends on this one.
+- Depends on `agent-interface-transport` for transport contracts and on `agent-transport/node` only
+  for the SEC-008 admission seam (`resolveAdmission`, `bearerCredential`, `credentialMatches`); that
+  admission decision is deliberately not re-made here.
+- Contract-pure otherwise: the one side concern of where a stream-failure detail goes is injected via
+  `IAgentRoutesOptions.onStreamFailure`, never imported.
+- No other transport package may depend on this one.
 
-## Architecture Overview
+## Invariants
 
-```
-agent-transport-http
-  ├── createHttpTransport   ← ITransportAdapter over Hono
-  └── createAgentRoutes     ← Hono route builder for an agent session factory
-```
+- `createHttpTransport` is a frozen `service` lifecycle (ARCH-011): readiness is construction of the
+  Hono app (`getApp()`), not binding a network listener. A repeated active start rejects
+  `TransportLifecycleError`; repeated stop is safe and supports a new attach/start generation.
+- `/submit` refuses a second concurrent turn on a session, keyed by `getSession().getSessionId()`
+  rather than object identity — a factory that returns a fresh wrapper per call (proxy, adapter,
+  spread copy) is therefore safe, since only the reported session id determines the claim. Two
+  sessions that report the same id are treated as one and will 409 each other; that is a contract
+  violation upstream, since `getSessionId()` is supposed to name a session.
+- A session that cannot name itself cannot be claimed: `/submit` refuses it (HTTP 500) rather than
+  falling back to `isExecuting()`, because that fallback would start a turn this route cannot
+  guarantee belongs to the caller. `/executing` is the one place an unnameable session still answers,
+  from `isExecuting()` alone — reporting what a session is doing is not the same act as admitting a
+  new turn to it.
 
-## Type Ownership
+## Error taxonomy (design intent)
 
-Owns `IHttpTransportOptions`, `IAgentRoutesOptions`, `TSessionFactory`, and
-`IHttpTransportSession`. The session role is exactly submission, events, turn control, identity,
-commands, conversation reads, and execution state. The public transport preserves its legacy
-`ITransportAdapter<IInteractiveSession>` declaration and adds a narrow `attach(IHttpTransportSession)`
-overload; full sessions remain assignable because they implement every role.
+HTTP errors surface as Hono responses; no new error classes are introduced.
 
-## Public API Surface
+- The session's `error` event is relayed verbatim on the SSE `error` channel (its own client-facing
+  wording); the WS transport relays it identically.
+- An exception escaping the stream callback after headers were sent is not a message composed for the
+  client: the client gets a generic line, and the detail goes only to the host's injected
+  `onStreamFailure` (absent means the host chose to drop it) — the same withholding the `/submit` 500
+  branch practices.
+- The callback swallows its own failures rather than passing an `onError` to `streamSSE`, because
+  Hono's runner writes an escaped exception's raw message verbatim to the stream on any `onError`,
+  which would leak the withheld detail regardless of what the handler intended.
 
-| Export                  | Kind      | Description                                            |
-| ----------------------- | --------- | ------------------------------------------------------ |
-| `createHttpTransport`   | function  | Hono-based HTTP transport adapter                      |
-| `createAgentRoutes`     | function  | Build agent routes onto a Hono app                     |
-| `IHttpTransport`        | interface | Legacy adapter declaration plus narrow attach overload |
-| `IHttpTransportSession` | interface | Exact seven-role session capability required by HTTP   |
+## Non-goals
 
-## Extension Points
-
-New routes extend `createAgentRoutes`; new options extend the option interfaces.
-
-## Lifecycle Conformance (ARCH-011)
-
-`createHttpTransport` is a frozen `service` lifecycle. Its readiness boundary is construction of the
-Hono app returned by `getApp()`; it does not bind a network listener. Start before attach and repeated
-active start reject `TransportLifecycleError`; repeated stop is safe, clears the app/session, and a
-new attach/start generation is supported. The package invokes the shared lifecycle suite under the
-stable subject id `@robota-sdk/agent-transport-http#createHttpTransport`.
-
-### `TSessionFactory` need not be identity-stable
-
-`/submit` refuses a second concurrent turn on one session. That claim is keyed by
-`getSession().getSessionId()`, so a factory returning a fresh wrapper per call — a proxy, an
-adapter, a spread copy — is handled: the wrappers differ, the id does not.
-
-It was keyed on object IDENTITY first, which made identity-stability a requirement callers were
-never told about and nothing could check. This section said so, and review pointed out that the
-contract already supplies the id. A requirement the type system cannot express and no test can
-catch is not a contract; using what the session already promises removes it instead of documenting
-it.
-
-The guard is only as good as the id. Two sessions that report the SAME `getSessionId()` are one
-session to this route, and they will 409 each other until whichever holds the claim finishes or
-disconnects. That is a contract violation upstream — `getSessionId()` names a session — but the
-consequence is worth stating for anyone mounting this route across a trust boundary where the ids
-come from somewhere they do not control.
-
-A session that cannot name itself cannot be claimed, so `/submit` REFUSES it — HTTP 500, with no
-turn started. There is no `isExecuting()` fallback on that path: a fallback would start a turn this
-route cannot guarantee belongs to the caller, which is the concurrency guarantee above stated
-backwards.
-
-`/executing` is the one place the unnameable session still answers, and it answers from
-`isExecuting()` alone — reporting what a session is doing is not the same act as admitting a new
-turn to it.
-
-This paragraph described the fallback design for one round after the code stopped implementing it,
-and review caught the drift against `routes.ts`. A contract document that is one revision behind the
-code is worse than no document, because it is believed.
-
-## Error Taxonomy
-
-HTTP errors surface as Hono responses; no new error classes.
-
-What crosses the boundary is split by who wrote the message. The session's `error` EVENT is relayed
-verbatim on the SSE `error` channel — it is the session's client-facing wording (`humanizeApiError`)
-and the WS transport relays it identically. An exception ESCAPING the stream callback after the
-headers went out is not a message anything composed for a client: the client gets a generic line and
-the detail goes to the host's injected `onStreamFailure` listener (absent = the host chose to drop
-it), the same withholding the `/submit` 500 branch practices.
-
-The callback swallows its own failures rather than passing an `onError` to `streamSSE`, and that is
-load-bearing: Hono's runner follows any `onError` by writing the raw `e.message` to the stream, so
-an escaped exception reaches the client verbatim regardless of what the handler withheld. Measured —
-the body carried two error events, the generic line and the leak — and pinned by a test asserting
-the raw message is absent from the body.
-
-## Test Strategy
-
-Route + transport unit tests under `src/__tests__`.
-
-## Dependencies
-
-- `@robota-sdk/agent-interface-transport`.
-- `@robota-sdk/agent-transport` (SEC-008 admission seam).
-- External: `hono`.
+- Does not bind or manage a network listener.
+- Does not re-decide admission; that decision belongs to `agent-transport/node`.

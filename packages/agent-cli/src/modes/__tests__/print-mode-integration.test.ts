@@ -133,6 +133,7 @@ async function runPrint(
   prompt: string,
   provider: IAIProvider,
   sessionResolution: IPrintModeSessionResolution = {},
+  beforeExit?: () => Promise<void>,
   orgPolicy?: IOrgPolicy,
 ): Promise<number> {
   const sessionStore = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
@@ -154,6 +155,7 @@ async function runPrint(
       {},
       {},
       undefined,
+      beforeExit,
       orgPolicy,
     );
   } catch (error) {
@@ -187,6 +189,19 @@ describe('print mode session resume integration (CLI-063)', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('runs spill cleanup before print mode exits after a provider failure', async () => {
+    const { provider } = createRecordingProvider('unused');
+    const cleanup = vi.fn().mockResolvedValue(undefined);
+    const failingProvider: IAIProvider = {
+      ...provider,
+      chat: async () => {
+        throw new Error('controlled provider failure');
+      },
+    };
+    expect(await runPrint(cwd, 'hello', failingProvider, {}, cleanup)).toBe(1);
+    expect(cleanup).toHaveBeenCalledTimes(1);
   });
 
   it('TC-06: starts exactly one new session when no resume id is given (continue-or-start)', async () => {
@@ -286,7 +301,7 @@ describe('print mode session resume integration (CLI-063)', () => {
       expect(orgPolicy).not.toBeNull();
 
       const { provider, lastMessages } = createRecordingProvider('unexpected provider reply');
-      const exitCode = await runPrint(cwd, '/clear', provider, {}, orgPolicy ?? undefined);
+      const exitCode = await runPrint(cwd, '/clear', provider, {}, undefined, orgPolicy ?? undefined);
 
       expect(exitCode).toBe(1);
       expect(stdoutChunks.join('')).toContain('Command /clear is blocked');

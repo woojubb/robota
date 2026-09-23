@@ -4,8 +4,8 @@
  * Two sources, one policy. The user directory is `~/.robota/themes`, read through the same
  * root-bounded host contribution source `~/.robota/output-styles` is read through — home-only,
  * because a theme is a preference of the person at the terminal rather than of the checkout. Plugin
- * themes come from `<pluginDir>/themes` for each INSTALLED plugin, which is project-reachable,
- * because `pluginScopeDirs` includes the project scope; that asymmetry is deliberate and stated.
+ * themes come from `<pluginDir>/themes` for each installed plugin. The project plugin scope is
+ * visible only after workspace trust is granted.
  *
  * Ids are minted HERE, from where the file was found — `custom:<slug>` and
  * `custom:<plugin>:<slug>` — so a file can never claim a built-in's id whatever it is called, and
@@ -16,7 +16,7 @@
  */
 import { join } from 'node:path';
 
-import { pluginScopeDirs } from '@robota-sdk/agent-command';
+import { pluginScopeDirs } from '../plugins/default-plugin-command-source-loader.js';
 import {
   createNodeHostContributionSource,
   loadHostBundlePluginsFromScopes,
@@ -28,7 +28,7 @@ import {
   sanitizeThemeProse,
 } from '@robota-sdk/agent-ui-terminal';
 
-import type { IContributionSource } from '@robota-sdk/agent-framework';
+import type { IContributionSource, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import type { IThemeSkip, ITuiTheme, TThemeSource } from '@robota-sdk/agent-ui-terminal';
 
 const USER_THEME_DIRECTORY = join('.robota', 'themes');
@@ -58,9 +58,10 @@ export interface IThemePluginDirectory {
 export interface IThemeSourcesOptions {
   readonly cwd: string | undefined;
   readonly userHome: string;
+  readonly projectAccess?: TWorkspaceProjectAccess;
   /**
    * The installed plugins. Injected so a test can hand over two directories without installing a
-   * marketplace; the default asks the same loader the command layer asks.
+   * marketplace; the default asks the same host loader used for CLI plugin commands.
    */
   readonly plugins?: readonly IThemePluginDirectory[];
 }
@@ -164,8 +165,9 @@ function installedPlugins(
   cwd: string | undefined,
   userHome: string,
   collector: ICollector,
+  projectAccess?: TWorkspaceProjectAccess,
 ): IThemePluginDirectory[] {
-  const scopes = pluginScopeDirs(cwd, userHome);
+  const scopes = pluginScopeDirs(cwd, userHome, projectAccess);
   try {
     return loadHostBundlePluginsFromScopes(scopes).map((plugin) => ({
       name: plugin.manifest.name,
@@ -195,7 +197,9 @@ export function loadThemeSources(options: IThemeSourcesOptions): IThemeSources {
     source: 'user',
     idPrefix: 'custom:',
   });
-  const plugins = options.plugins ?? installedPlugins(options.cwd, options.userHome, collector);
+  const plugins =
+    options.plugins ??
+    installedPlugins(options.cwd, options.userHome, collector, options.projectAccess);
   for (const plugin of plugins) {
     if (!SAFE_SLUG.test(plugin.name)) {
       const quoted = quoteThemeText(plugin.name);

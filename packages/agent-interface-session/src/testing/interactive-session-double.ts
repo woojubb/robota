@@ -130,6 +130,12 @@ export function createTestInteractiveSession(
     getCwd: () => '/workspace',
     executeCommand: () => Promise.resolve(null),
     listCommands: () => [],
+    listRuntimeTools: async () => [],
+    invokeRuntimeTool: async (name) => ({
+      success: false,
+      toolName: name,
+      error: `Unknown tool: ${name}`,
+    }),
     on: () => {},
     off: () => {},
     resolvePermission: () => {},

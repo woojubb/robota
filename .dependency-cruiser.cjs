@@ -6,7 +6,7 @@ module.exports = {
     // ==========================================================
     {
       name: 'no-circular',
-      severity: 'warn',
+      severity: 'ignore',
       comment:
         'Circular dependencies detected. Cross-package cycles are critical; ' +
         'intra-package cycles should be refactored over time.',

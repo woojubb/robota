@@ -1,45 +1,16 @@
 # Text Output Node Specification
 
-## Scope
+## Purpose
 
-- Owns the `text-output` DAG node definition.
-- Provides a sink node that receives text input and passes it through as output. Serves as the canonical DAG terminal node for text-based workflows.
+Terminal (sink) DAG node for text-based workflows: receives a `text` input and passes it through unchanged as the `text` output. Serves as the canonical DAG terminal node for text pipelines.
 
-## Boundaries
+## Contract
 
-- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
-- Uses `NodeIoAccessor.requireInputString` for input validation.
-- No external provider dependencies. Category: `Core`.
+- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`; does not redefine core DAG contracts.
+- Requires the `text` input to be a string. Validation failure surfaces the error produced by `NodeIoAccessor.requireInputString` rather than a node-specific error.
+- Cost estimate is always zero — this node makes no external calls.
 
-## Architecture Overview
+## Non-goals
 
-- `TextOutputNodeDefinition` — node that accepts a `text` string input and produces a `text` string output (pass-through).
-- Validates that the `text` input is a string via `NodeIoAccessor.requireInputString`.
-- Copies the validated input value directly to the output port.
-
-## Type Ownership
-
-| Type                       | Location       | Purpose               |
-| -------------------------- | -------------- | --------------------- |
-| `TextOutputNodeDefinition` | `src/index.ts` | Node definition class |
-
-## Public API Surface
-
-- `TextOutputNodeDefinition` — class
-
-## Extension Points
-
-- Extends `AbstractNodeDefinition` and overrides `estimateCostWithConfig` (zero cost) and `executeWithConfig`.
-- No constructor options. No environment variable dependencies.
-- Config schema is empty (`z.object({})`).
-
-## Error Taxonomy
-
-| Code                     | Layer      | Description                                                                                   |
-| ------------------------ | ---------- | --------------------------------------------------------------------------------------------- |
-| `DAG_VALIDATION_INPUT_*` | Validation | Inherited from `NodeIoAccessor.requireInputString` when text input is missing or not a string |
-
-## Test Strategy
-
-- No test files exist yet. Coverage status: none.
-- Recommended: unit tests verifying text pass-through behavior, validation rejection for missing or non-string input, and output structure via `NodeIoAccessor`.
+- No external provider dependencies (category: `Core`).
+- Does not transform, format, or otherwise process the text — pass-through only.

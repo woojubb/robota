@@ -1,5 +1,4 @@
 import {
-  EXECUTION_PROGRESS_EVENTS,
   TASK_PROGRESS_EVENTS,
   TaskRunStateMachine,
   type IClockPort,

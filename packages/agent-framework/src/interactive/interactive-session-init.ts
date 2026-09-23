@@ -7,7 +7,6 @@
  */
 
 import { homedir } from 'node:os';
-import { join } from 'node:path';
 
 import { createLogger } from '@robota-sdk/agent-core';
 
@@ -31,6 +30,7 @@ import {
   mergePluginHooksWithSources,
   mergeHooksIntoConfig,
 } from '../plugins/plugin-hooks-merger.js';
+import { pluginsDirUnder } from '../plugins/plugin-scope-paths.js';
 
 import type {
   IInteractiveSessionStandardOptions,
@@ -93,10 +93,12 @@ export async function createInteractiveSession(
     : config;
   const effectiveHookSources = [...hookSources];
 
-  // Issue #2487: a project-scope install lives under the project's own plugin directory; both
-  // scopes load, the project copy winning by manifest name when a plugin is present in both.
-  const pluginsDirUnder = (base: string): string => join(base, '.robota', 'plugins');
-  const pluginsDirs = [pluginsDirUnder(cwd), pluginsDirUnder(homedir())];
+  // Project plugins may contain executable hooks. Include that scope only after the host has
+  // granted workspace trust; a restricted session still sees user-installed plugins.
+  const pluginsDirs = [
+    ...(options.projectAccess?.status === 'trusted' ? [pluginsDirUnder(cwd)] : []),
+    pluginsDirUnder(homedir()),
+  ];
   // PLG-021 / issue #2025: built through the composition root so a disabled plugin's hooks do not
   // load. The bare constructor defaults the enablement map to `{}`, which reads as "nothing
   // disabled" — indistinguishable from a user who disabled nothing. `pluginsDirs` stays a local
@@ -244,6 +246,7 @@ export async function initializeInteractiveSessionAsync(
     onCompactEvent: deps.onCompactEvent,
     onToolExecution: deps.onToolExecution,
     bare: options.bare,
+    disableBuiltInHookExecutors: options.disableBuiltInHookExecutors,
     allowedTools: options.allowedTools,
     deniedTools: options.deniedTools,
     model: options.model,
@@ -254,6 +257,7 @@ export async function initializeInteractiveSessionAsync(
     ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
     language: options.language,
     backgroundTaskRunners: options.backgroundTaskRunners,
+    ...(options.toolCallHandoff !== undefined ? { toolCallHandoff: options.toolCallHandoff } : {}),
     subagentRunnerFactory: options.subagentRunnerFactory,
     // ARCH-005: composition-root-contributed subagent definitions (capability packs).
     ...(options.agentDefinitions ? { agentDefinitions: options.agentDefinitions } : {}),

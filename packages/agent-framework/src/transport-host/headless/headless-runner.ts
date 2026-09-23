@@ -7,6 +7,7 @@ import {
   writeJsonResult,
 } from './headless-output.js';
 import { executeSlashCommandIfPresent, subscribeStreamJsonEvents } from './headless-stream-json.js';
+import { humanizeApiError } from '../../utils/error-humanizer.js';
 export {
   getSessionId,
   GOAL_NOT_SATISFIED_EXIT_CODE,
@@ -16,6 +17,7 @@ export {
 
 import type { IHeadlessSession } from './headless-session.js';
 import type { IModelEffortResolution } from '../../effort/effort-resolution.js';
+import type { IProviderErrorGuidance } from '../../utils/error-humanizer.js';
 import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface-session';
 
 /** Issue #2052: the ONE owner of the output-format vocabulary — type and runtime constant together. */
@@ -37,21 +39,30 @@ export interface IHeadlessRunnerOptions {
   outputFormat: TOutputFormat;
   /** Optional startup resolution projected into ordinary print results. */
   effortResolution?: IModelEffortResolution;
+  providerErrorGuidance?: IProviderErrorGuidance;
 }
 
 export function createHeadlessRunner(options: IHeadlessRunnerOptions): {
   run: (prompt: string) => Promise<number>;
   runGoal: (objective: string, goalOptions?: IHeadlessGoalOptions) => Promise<number>;
 } {
-  const { session, outputFormat, effortResolution } = options;
+  const { session, outputFormat, effortResolution, providerErrorGuidance } = options;
   return {
     run: (prompt: string): Promise<number> => {
-      if (outputFormat === 'text') return runTextFormat(session, prompt, effortResolution);
+      if (outputFormat === 'text')
+        return runTextFormat(session, prompt, effortResolution, providerErrorGuidance);
       if (outputFormat === 'json') return runJsonFormat(session, prompt, effortResolution);
       return runStreamJsonFormat(session, prompt, effortResolution);
     },
     runGoal: (objective: string, goalOptions: IHeadlessGoalOptions = {}): Promise<number> =>
-      runGoalFormat(session, objective, goalOptions, outputFormat, effortResolution),
+      runGoalFormat(
+        session,
+        objective,
+        goalOptions,
+        outputFormat,
+        effortResolution,
+        providerErrorGuidance,
+      ),
   };
 }
 
@@ -66,6 +77,7 @@ function runGoalFormat(
   goalOptions: IHeadlessGoalOptions,
   outputFormat: TOutputFormat,
   effortResolution?: IModelEffortResolution,
+  providerErrorGuidance?: IProviderErrorGuidance,
 ): Promise<number> {
   return new Promise<number>((resolve) => {
     const cleanup = (): void => {
@@ -78,7 +90,8 @@ function runGoalFormat(
     };
     const onError = (error: Error): void => {
       cleanup();
-      if (outputFormat === 'text') process.stderr.write(error.message + '\n');
+      if (outputFormat === 'text')
+        process.stderr.write(humanizeApiError(error, providerErrorGuidance) + '\n');
       else writeJsonResult(getSessionId(session), '', 'error', error);
       resolve(1);
     };
@@ -131,6 +144,7 @@ async function runTextFormat(
   session: IHeadlessSession,
   prompt: string,
   effortResolution?: IModelEffortResolution,
+  providerErrorGuidance?: IProviderErrorGuidance,
 ): Promise<number> {
   const latch = createExitCodeLatch();
   const cleanup = (): void => {
@@ -157,7 +171,7 @@ async function runTextFormat(
   const onError = (error: Error): void =>
     latch.finalize(1, () => {
       cleanup();
-      process.stderr.write(error.message + '\n');
+      process.stderr.write(humanizeApiError(error, providerErrorGuidance) + '\n');
     });
 
   session.on('complete', onComplete);

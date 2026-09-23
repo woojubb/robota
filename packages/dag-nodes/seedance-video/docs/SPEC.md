@@ -1,57 +1,32 @@
 # Seedance Video Node Specification
 
-## Scope
+## Purpose
 
-- Owns the `seedance-video` DAG node definition.
-- Generates a video from a text prompt via the ByteDance/ModelArk (Seedance) video API, emitting a binary video output.
+The `seedance-video` DAG node generates a video from a text prompt via the ByteDance/ModelArk
+(Seedance) video API, emitting a binary video output.
+
+## Contract
+
+- Video generation is asynchronous and this node owns the poll loop: it submits a job then polls
+  until the job reaches a terminal status (`succeeded`/`failed`/`cancelled`) or a max-wait timeout
+  elapses — unlike the image nodes, which make a single synchronous provider call.
+- On timeout, the node makes a best-effort attempt to cancel the outstanding job before returning
+  a task-execution error; cancellation failure does not change the reported outcome.
+- Model resolution: an explicit `config.model` wins; otherwise the injected provider definition's
+  default model is used, and its absence is a validation error. When an allowed-model list is
+  injected and non-empty, the resolved model must be a member of it.
+- `seed` is intentionally not exposed as a config option — the ModelArk Seedance provider rejects
+  it.
+- Cost estimate defaults to `config.baseCredits` (default 0.5) rather than a computed value.
 
 ## Boundaries
 
-- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
-- Delegates to an injected `IMediaProviderDefinition` whose video capability implements
-  `IVideoGenerationProvider` (`createVideo` → `getVideoJob` → `cancelVideoJob`). Concrete ByteDance
-  SDK composition belongs to `@robota-sdk/agent-builtin-providers`.
-- Distinct from the image nodes: image generation is a single synchronous provider call; this node runs a **poll loop** inside `executeWithConfig` until the job reaches `succeeded`/`failed`/`cancelled` or a max-wait timeout.
-- The DAG subsystem stays private; this package is `private: true`. Registered in the **async/optional** node-registry list (the ByteDance provider is optional; the node self-skips if it cannot construct).
-- Matches the existing `nodeType: "seedance-video"` used by pre-authored `.dag-storage` fixtures and the planned node in `packages/dag-nodes/docs/SPEC.md`.
-
-## Architecture Overview
-
-- `SeedanceVideoNodeDefinition` — node with a single `text` input port (string, required) and a single binary `video` output port (`VIDEO_MP4` preset). `defaultInputPort='text'`, `defaultOutputPort='video'`.
-- `SeedanceVideoRuntime.generateVideo(request)` — isolates provider/credential/model resolution and the submit→poll job loop:
-  - default model: `config.model` if non-empty, else the injected definition's default model (required, else validation error).
-  - allowed models: injected at construction; when non-empty the resolved model must be a member.
-  - provider: constructed through the injected definition factory; unresolved credential/endpoint returns a typed validation error.
-  - `createVideo({ prompt, model, durationSeconds?, aspectRatio? })` → `jobId`; then poll `getVideoJob(jobId)` every `pollIntervalMs` until terminal or `maxWaitMs` elapsed.
-  - `succeeded` + `output` → `normalizeVideoOutput` → `IPortBinaryValue` (`kind:'video'`). `failed`/`cancelled` → task-execution error. Timeout → best-effort `cancelVideoJob` + task-execution error.
-  - `seed` is intentionally NOT exposed (the ModelArk Seedance provider rejects it).
-- A `sleep` function is injectable via runtime options for deterministic tests (defaults to a `setTimeout`-based delay).
-- Cost estimate: `config.baseCredits` (default 0.5).
-
-## Type Ownership
-
-| Type                                  | Location                         | Purpose                                                                        |
-| ------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------ |
-| `SeedanceVideoNodeDefinition`         | `src/index.ts`                   | Node definition class                                                          |
-| `SeedanceVideoConfigSchema`           | `src/index.ts`                   | Zod config schema                                                              |
-| `SeedanceVideoRuntime`                | `src/runtime-core.ts`            | Provider/model resolution + poll loop                                          |
-| `ISeedanceVideoRequest`               | `src/runtime-core.ts`            | `{ prompt, model, durationSeconds?, aspectRatio?, pollIntervalMs, maxWaitMs }` |
-| `ISeedanceVideoRuntimeOptions`        | `src/runtime-core.ts`            | `{ videoProviderDefinition?, defaultModel?, allowedModels?, sleep? }`          |
-| `ISeedanceVideoNodeDefinitionOptions` | `src/index.ts`                   | Node definition options (extends `ISeedanceVideoRuntimeOptions`)               |
-| `normalizeVideoOutput`                | `src/video-output-normalizer.ts` | `IMediaOutputRef` → `IPortBinaryValue` (video)                                 |
-
-## Public API Surface
-
-- `SeedanceVideoNodeDefinition` — class
-- `createSeedanceVideoNodeDefinition()` — factory function
-- `SeedanceVideoConfigSchema` — Zod schema
-- `TSeedanceVideoConfig` — inferred config type
-- `ISeedanceVideoNodeDefinitionOptions` — node definition options
-- `SeedanceVideoRuntime`, `ISeedanceVideoRequest`, `ISeedanceVideoRuntimeOptions` — re-exported from the node module
-
-## Extension Points
-
-- Config `model`, `baseCredits`, `durationSeconds`, `aspectRatio`, `pollIntervalMs` (default 5000), `maxWaitMs` (default 300000).
-- Credential and endpoint environment names are declared by the injected provider definition; this
-  package does not read ambient environment variables.
-- Error codes: `DAG_VALIDATION_SEEDANCE_VIDEO_PROMPT_REQUIRED`, `DAG_VALIDATION_SEEDANCE_VIDEO_MODEL_REQUIRED`, `DAG_VALIDATION_SEEDANCE_VIDEO_MODEL_NOT_ALLOWED`, `DAG_VALIDATION_SEEDANCE_VIDEO_CREDENTIALS_REQUIRED`, `DAG_TASK_EXECUTION_SEEDANCE_VIDEO_CREATE_FAILED`, `DAG_TASK_EXECUTION_SEEDANCE_VIDEO_POLL_FAILED`, `DAG_TASK_EXECUTION_SEEDANCE_VIDEO_JOB_FAILED`, `DAG_TASK_EXECUTION_SEEDANCE_VIDEO_TIMEOUT`, `DAG_TASK_EXECUTION_SEEDANCE_VIDEO_OUTPUT_*`.
+- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`; does not redefine core DAG
+  contracts.
+- Delegates all provider/credential/model resolution to an injected `IMediaProviderDefinition`;
+  concrete ByteDance SDK composition belongs to `@robota-sdk/agent-builtin-providers`, not here.
+- This package is `private: true` — the DAG subsystem stays private. It is registered in the
+  async/optional node-registry list: the ByteDance provider is optional, and the node self-skips
+  if it cannot construct one.
+- Does not read ambient environment variables itself — credential and endpoint environment names
+  are declared by the injected provider definition.

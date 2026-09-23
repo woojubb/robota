@@ -43,7 +43,7 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 │  Preset/Options  agent-preset                               │
 │  Commands/CLI    agent-command / agent-cli                  │
 │  Subagents       agent-subagent-runner                      │
-│  Tools           agent-tools / agent-tool-mcp               │
+│  Tools/MCP       agent-tools / agent-mcp                    │
 │  Transports      agent-framework (headless/registry hosts);   │
 │                  standalone: agent-transport-{http,ws,mcp};  │
 │                  presentation: agent-ui-terminal             │
@@ -67,9 +67,11 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 > (the leaves from issue #2108 through issue #2113) land.
 
 > **DAG / workflow subsystem.** The `dag-*` and `agent-command-workflows` packages are private and
-> not published on their own. They are bundled into `@robota-sdk/agent-cli` (INFRA-028) and surfaced
-> to users through the `/workflows` command (e.g. `/workflows create "<natural language>"`). The
-> diagram above stays agent-SDK-focused; the workflow engine ships as part of the CLI bundle.
+> not published on their own. The code used by the CLI's `/workflows` path is bundled into
+> `@robota-sdk/agent-cli` (INFRA-028): its local runtime exposes the 23-node synchronous base
+> catalog plus saved instant nodes. The private async workspace catalog can reach 29 nodes when
+> all optional loaders succeed; it is not a CLI capability. The diagram above stays
+> agent-SDK-focused; the workflow engine ships in the CLI.
 > DAG-specific MCP servers and the external-MCP workflow node are removed by issue #2817;
 > the default `/workflows` node catalog is unchanged.
 
@@ -79,19 +81,20 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 - **Runtime/Orchestrator separation** — Runtime API mirrors ComfyUI (immutable). Only Orchestrator API is Robota-owned and modifiable.
 - **Ports and adapters** — Core packages define port interfaces. Adapters implement them. No direct infrastructure coupling.
 - **Spec-first development** — Every contract boundary change requires a SPEC.md update before implementation.
-- **No fallback policy** — Terminal failures stay terminal. No silent recovery or degraded modes.
+- **No fallback for required capabilities** — Terminal failures stay terminal. Optional discovery may
+  omit absent nodes; the private async DAG catalog currently skips any media/skill import or
+  construction failure, so callers requiring those nodes inject them explicitly.
 
 ## Dependency and interface rule identifiers
 
-Each identifier below is the tag a harness scan prints in its finding (`[FORBIDDEN-DEP] …`). A rule
-that is enforced and stated nowhere can only be tripped over — never complied with deliberately,
-cited, or amended — so every emitted identifier has exactly one normative sentence here. This list
-states the rules only; package placement and the layer diagram these rules police are shown in the
-System Overview diagram above.
+The identifiers below name architecture boundaries. The former broad dependency scans were removed
+by the minimal-harness reset; no bundle-source graph gate currently exists. This list is not a claim
+that each boundary has an automated gate. Package placement and dependency direction are shown in
+the System Overview diagram above. Current checks are defined in `AGENTS.md` and CI.
 
 - `FORBIDDEN-DEP` — a production dependency edge listed as forbidden (each entry carries its reason)
-  may not appear in the depending package's `dependencies`; the list is empty today, and the rule
-  exists so that a future entry is refused by the scan rather than by review.
+  may not appear in the depending package's `dependencies`; the list is empty today. A future
+  restriction needs an explicit owner and a check justified under the minimal-harness policy.
 - `CORE-ZERO-DEPS` — the foundation package (`agent-core`) has no production dependency on any other
   `@robota-sdk/agent-*` package; a dependency from the bottom of the layer diagram to a package above
   it is a cycle through the foundation.
@@ -121,12 +124,13 @@ System Overview diagram above.
   `agent-provider-*` SDK or read ambient credentials; persisted provider names are validated against
   the injected registry, and media definitions resolve credentials only at execution time.
 - `DEV-CYCLE` — the full workspace graph over `dependencies` + `devDependencies` +
-  `peerDependencies` is acyclic; a dev-only edge that closes a cycle is refused because the build
-  order it implies has no valid topological sort.
+  `peerDependencies` should be acyclic; a dev-only edge that closes a cycle leaves no valid
+  topological build order. No current check proves this full manifest graph acyclic;
+  `pnpm deps:check` reports source-import cycles as warnings instead.
 - `ENTRY-POINT-ONLY` — a guarded composition aggregator (a package whose entry statically pulls a
-  whole catalog, e.g. the default DAG node set or the default tool set) may be imported STATICALLY only
-  by an application entry point (`apps/*`) or a package sanctioned by name in the scan's
-  `GUARDED_AGGREGATORS` table; a mid-layer library reaches it only through a dynamic `import()`.
+  whole catalog, e.g. the default DAG node set or the default tool set) belongs at an application
+  entry point or explicit composition root; mid-layer libraries use an injected port or a safe lazy
+  import. The former `GUARDED_AGGREGATORS` scan table no longer exists.
 - `PACKAGE-NAME` — the canonical architecture documents (plus every `packages/*/docs/SPEC.md`)
   reference only real workspace package names; a scoped name that resolves to no package is drift
   unless its line is marked "planned".

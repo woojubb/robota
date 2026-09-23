@@ -1,12 +1,19 @@
+import {
+  GEMINI_MODEL_LAST_VERIFIED_AT,
+  GEMINI_MODEL_SOURCE_URL,
+} from './model-catalog-metadata.js';
 import { GeminiProvider } from './provider';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
+export {
+  GEMINI_MODEL_LAST_VERIFIED_AT,
+  GEMINI_MODEL_SOURCE_URL,
+} from './model-catalog-metadata.js';
+
 export const DEFAULT_GEMINI_PROVIDER_API_KEY_ENV = 'GEMINI_API_KEY';
 export const DEFAULT_GEMINI_PROVIDER_API_KEY_REFERENCE = `$ENV:${DEFAULT_GEMINI_PROVIDER_API_KEY_ENV}`;
 export const DEFAULT_GEMINI_PROVIDER_MODEL = 'gemini-3-flash-preview';
-export const GEMINI_MODEL_SOURCE_URL = 'https://ai.google.dev/api/models';
-export const GEMINI_MODEL_LAST_VERIFIED_AT = '2026-05-04';
 const GEMINI_API_KEY_URL = 'https://aistudio.google.com/apikey';
 const GEMINI_SETUP_SOURCE_URL = 'https://ai.google.dev/gemini-api/docs/api-key';
 const GEMINI_SETUP_LAST_VERIFIED_AT = '2026-05-08';

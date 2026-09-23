@@ -11,10 +11,7 @@ import type {
 } from '../app-view-model.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
-import type {
-  IInteractiveSession,
-  IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 interface IOptions {
@@ -22,7 +19,7 @@ interface IOptions {
   readonly pluginAdapter: ICommandPluginAdapter | undefined;
   readonly pluginVisible: boolean;
   readonly setPluginVisible: (visible: boolean) => void;
-  readonly transportRegistry: ITransportRegistryView<IInteractiveSession> | undefined;
+  readonly transportRegistry: ITransportRegistryView | undefined;
   readonly transportVisible: boolean;
   readonly setTransportVisible: (visible: boolean) => void;
   readonly sessionStore: IInteractiveSessionStore | undefined;

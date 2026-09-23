@@ -1,53 +1,24 @@
 # Text to Image Node Specification
 
-## Scope
+## Purpose
 
-- Owns the `text-to-image` DAG node definition.
-- Generates a **new** image from a text prompt only (no input image) via the Gemini image API, emitting a binary image output.
+DAG node that generates a **new** image from a text prompt only (no input image), via an injected
+image-generation provider.
 
 ## Boundaries
 
-- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
-- Distinct from `gemini-image-edit`/`gemini-image-compose`: those take one or more **input images** and edit/compose them. This node is pure generation — prompt in, image out, no binary input port.
-- Delegates to an injected `IMediaProviderDefinition` and calls its `IImageGenerationProvider` capability.
-  Gemini SDK composition belongs to `@robota-sdk/agent-builtin-providers`, not this node package.
-- The DAG subsystem stays private; this package is `private: true`. Registered in the **async/optional** node-registry list (the Gemini SDK is an optional peer — the node self-skips if the provider cannot construct).
+- Pure generation only — prompt in, image out, no binary input port. Distinct from image
+  edit/compose nodes, which take one or more input images; those are separate node packages.
+- Delegates to an injected `IMediaProviderDefinition`/`IImageGenerationProvider` rather than
+  embedding any specific provider SDK. Provider SDK composition belongs to the providers package,
+  not this node package.
+- Registered as an **async/optional** node: the provider is an optional peer dependency, and the
+  node self-skips if the provider cannot be constructed (e.g. missing credentials), rather than
+  failing DAG registration.
 
-## Architecture Overview
+## Contract
 
-- `TextToImageNodeDefinition` — node with a single `text` input port (string, required) and a single binary `image` output port (`IMAGE_COMMON` preset). `defaultInputPort='text'`, `defaultOutputPort='image'`.
-- `TextToImageRuntime` — isolates provider/credential/model resolution and the API call from the node definition (mirrors `GeminiImageRuntime`, minus all input-image handling):
-  - default model: `config.model` if non-empty, else the injected definition's default model (required, else validation error).
-  - allowed models: injected at construction; when non-empty the resolved model must be a member.
-  - provider: constructed through the injected definition factory; unresolved credentials return a typed validation error.
-  - calls `provider.generateImage({ prompt, model })`, takes the first output, and normalizes it to an `IPortBinaryValue` (`asset://` or `data:`/http image reference).
-- Cost estimate: `config.baseCredits` (default 0.02).
-
-## Type Ownership
-
-| Type                                | Location                         | Purpose                                                        |
-| ----------------------------------- | -------------------------------- | -------------------------------------------------------------- |
-| `TextToImageNodeDefinition`         | `src/index.ts`                   | Node definition class                                          |
-| `TextToImageConfigSchema`           | `src/index.ts`                   | Zod config schema                                              |
-| `TextToImageRuntime`                | `src/runtime-core.ts`            | Provider/model resolution + API call                           |
-| `ITextToImageRequest`               | `src/runtime-core.ts`            | `{ prompt, model }` runtime request                            |
-| `ITextToImageRuntimeOptions`        | `src/runtime-core.ts`            | `{ imageProviderDefinition?, defaultModel?, allowedModels? }`  |
-| `ITextToImageNodeDefinitionOptions` | `src/index.ts`                   | Node definition options (extends `ITextToImageRuntimeOptions`) |
-| `normalizeImageOutput`              | `src/image-output-normalizer.ts` | `IMediaOutputRef` → `IPortBinaryValue`                         |
-
-## Public API Surface
-
-- `TextToImageNodeDefinition` — class
-- `createTextToImageNodeDefinition()` — factory function
-- `TextToImageConfigSchema` — Zod schema
-- `TTextToImageConfig` — inferred config type
-- `ITextToImageNodeDefinitionOptions` — node definition options
-- `TextToImageRuntime`, `ITextToImageRequest`, `ITextToImageRuntimeOptions` — re-exported from the node module
-
-## Extension Points
-
-- Config `model`: overrides the default model for this node instance.
-- Config `baseCredits`: base cost per successful generation.
-- Credential environment names and default model are declared by the injected provider definition;
-  this package does not read ambient environment variables.
-- Error codes: `DAG_VALIDATION_TEXT_TO_IMAGE_PROMPT_REQUIRED`, `DAG_VALIDATION_TEXT_TO_IMAGE_MODEL_REQUIRED`, `DAG_VALIDATION_TEXT_TO_IMAGE_MODEL_NOT_ALLOWED`, `DAG_VALIDATION_TEXT_TO_IMAGE_API_KEY_REQUIRED`, `DAG_TASK_EXECUTION_TEXT_TO_IMAGE_FAILED`, `DAG_TASK_EXECUTION_TEXT_TO_IMAGE_RESPONSE_MISSING_IMAGE`, `DAG_TASK_EXECUTION_TEXT_TO_IMAGE_OUTPUT_*`.
+- Model resolution: an explicit `config.model` wins; otherwise falls back to the injected
+  provider definition's default model. No default model anywhere is a validation error.
+- When an allowed-model list is injected, the resolved model must be a member of it.
+- Unresolved provider credentials surface as a typed validation error, not a thrown exception.

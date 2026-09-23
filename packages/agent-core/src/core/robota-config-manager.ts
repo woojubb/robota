@@ -1,3 +1,4 @@
+import { toolResultValue } from './tool-result-value';
 /**
  * Configuration and tool management delegate for the Robota agent.
  *
@@ -8,7 +9,7 @@ import { ConfigurationError } from '../utils/errors';
 
 import type { IToolWithEventService } from '../abstracts/abstract-tool';
 import type { AbstractTool } from '../abstracts/abstract-tool';
-import type { IAgentConfig, IExecutionContextInjection } from '../interfaces/agent';
+import type { IAgentConfig } from '../interfaces/agent';
 import type { IEventService } from '../interfaces/event-service';
 import type { TModelEffortSelection } from '../interfaces/provider';
 import type { IToolExecutionContext, TToolParameters } from '../interfaces/tool';
@@ -111,7 +112,7 @@ export class RobotaConfigManager {
           throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
         }
         const result = await tool.execute(parameters, context);
-        return result.data;
+        return toolResultValue(tool.schema.name, result);
       };
       this.getTools().addTool(tool.schema, toolExecutor);
       const nm = tool.schema.name;
@@ -292,7 +293,7 @@ export class RobotaConfigManager {
         throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
       }
       const result = await tool.execute(parameters, context);
-      return result.data;
+      return toolResultValue(tool.schema.name, result);
     };
     tools.addTool(tool.schema, toolExecutor);
     this.logger.debug('Tool registered', { toolName: tool.schema.name });

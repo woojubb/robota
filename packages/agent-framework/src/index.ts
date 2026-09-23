@@ -19,6 +19,7 @@ export { ProgrammaticInteractionChannel } from './transport-host/programmatic/Pr
 export { createProgrammaticAgent } from './transport-host/programmatic/createProgrammaticAgent.js';
 export type { ICreateProgrammaticAgentOptions } from './transport-host/programmatic/createProgrammaticAgent.js';
 export { TransportRegistry } from './transport-host/transport-registry.js';
+export { bindTransportAdapter } from './transport-host/bind-transport-adapter.js';
 export {
   createFileTransportSettingsRepository,
   createMemoryTransportSettingsRepository,
@@ -32,6 +33,7 @@ export {
   createNodeWorkspaceIdentityResolver,
   createNodeWorkspaceTrustService,
   createNodeWorkspaceTrustStore,
+  inspectPreTrustProjectPaths,
   getWorkspaceTrustStorePath,
   assertWorkspaceProjectAuthority,
   assertWorkspaceProjectReader,
@@ -48,6 +50,7 @@ export {
 export type {
   IRestrictedWorkspaceProjectAccess,
   IWorkspaceTrustCause,
+  IPreTrustProjectPathInspection,
   ITrustedWorkspaceProjectAccess,
   IWorkspaceAncestorTextEntry,
   IWorkspaceDirectoryEntry,
@@ -95,8 +98,10 @@ export { PlanController, type TPlanDecision, type IPlanControllerDeps } from './
 export {
   createProjectSessionStore,
   createNodeHostSessionStore,
+  createNodeToolResultSpillStore,
   createUserSessionStore,
   createUserPromptHistoryFile,
+  isSafeSessionId,
   listResumableSessionSummaries,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
@@ -106,12 +111,16 @@ export {
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,
 } from './interactive/index.js';
-export type { ISessionRecordRestoreResult } from './interactive/index.js';
+export type {
+  IHostToolResultSpillStore,
+  ISessionRecordRestoreResult,
+} from './interactive/index.js';
 export type {
   TInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
   IGenerateSessionNameOptions,
 } from './interactive/index.js';
+export type { IProviderErrorGuidance } from './utils/error-humanizer.js';
 
 // ── createQuery() factory (convenience API) ─────────────────
 export { createQuery } from './query.js';
@@ -562,6 +571,10 @@ export type {
 // about a public surface at any count. It is the return type of a factory that is no longer public,
 // so it describes nothing a consumer can obtain.
 export type { ICreateSessionOptions, TSessionResponseFormat } from './assembly/index.js';
+// MCP-004 §S3: the `toolCallHandoff` policy shape reachable from `ICreateSessionOptions` — the ONLY
+// barrel addition this unit makes; `buildToolCallHandoff`, the wrapper class and
+// `unwrapToolCallHandoff` stay off the barrel (`tool-call-handoff.ts`'s own module doc).
+export type { IToolCallHandoffPolicy, IToolCallHandoffProvenance } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
 export { createCommandExecutionTool } from './tools/command-execution-tool.js';
@@ -653,6 +666,7 @@ export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './ho
 
 // ── User-owned host paths ───────────────────────────────────
 export { userPaths } from './paths.js';
+export { PROJECT_PLUGIN_RELATIVE_DIRECTORY } from './plugins/plugin-scope-paths.js';
 
 // ── Explicit project/host contribution sources ─────────────
 export {
@@ -660,8 +674,9 @@ export {
   createDefaultUserContributionSources,
   createNodeHostContributionSource,
   createWorkspaceProjectContributionSource,
+  listFrameworkProjectContributionPaths,
 } from './contributions/index.js';
-export type { IContributionSource } from './contributions/index.js';
+export type { IContributionSource, IProjectContributionPath } from './contributions/index.js';
 
 // ── Task context ───────────────────────────────────────────
 export {

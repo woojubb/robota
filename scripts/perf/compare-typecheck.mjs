@@ -24,7 +24,7 @@
  *
  * Usage:
  *   pnpm typecheck:compare                    # every workspace project
- *   pnpm typecheck:compare agent-core dag-cli # only projects whose path contains one of these
+ *   pnpm typecheck:compare agent-core dag-framework # only projects whose path contains one of these
  *
  * Exit code 0 = every project matched, 1 = at least one differed.
  */

@@ -13,6 +13,7 @@ import type {
   ICommandHostAdapters,
   IOutputStylePrompt,
   IOrgPolicy,
+  IProviderErrorGuidance,
   ICommandModule,
   ICreateSessionOptions,
   EditCheckpointStore,
@@ -20,6 +21,7 @@ import type {
   IPromptHistoryOptions,
   IPerTurnRecallConfig,
   IRemoteCommandPolicy,
+  IToolCallHandoffPolicy,
   TShellExecFn,
   TSubagentRunnerFactory,
   TWorkspaceProjectAccess,
@@ -53,6 +55,7 @@ export interface ITuiInteractionChannelOptions {
   providerDefinitions?: readonly IProviderDefinition[];
   cwd: string;
   provider: IAIProvider;
+  providerErrorGuidance?: IProviderErrorGuidance;
   /** Resolved organization policy forwarded to the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
@@ -76,11 +79,14 @@ export interface ITuiInteractionChannelOptions {
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
+  disableSessionLoops?: boolean;
   resumeSessionId?: string;
   forkSession?: boolean;
   sessionName?: string;
   onAutoNamed?: (name: string) => void;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** MCP-004: forwarded to `ICreateSessionOptions.toolCallHandoff`. */
+  toolCallHandoff?: IToolCallHandoffPolicy;
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** ARCH-005: composition-root-contributed subagent definitions (merged capability packs). */
   agentDefinitions?: readonly IAgentDefinition[];
@@ -96,7 +102,9 @@ export interface ITuiInteractionChannelOptions {
   shellExec?: TShellExecFn;
   /** REMOTE-006: optional remote-command policy (allow-by-default; a transport-origin command runs as a local one). */
   remoteCommandPolicy?: IRemoteCommandPolicy;
-  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
+  transportRegistry?: ITransportRegistryView;
+  /** Bind concrete transports to each newly constructed session before registry startup. */
+  bindTransports?: (session: IInteractiveSession) => void;
   language?: string;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;

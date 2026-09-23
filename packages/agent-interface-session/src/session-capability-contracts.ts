@@ -8,6 +8,9 @@ import type {
 import type { ITurnHandle } from './turn-contracts.js';
 import type {
   IContextWindowState,
+  IToolSchema,
+  IToolExecutionResult,
+  TToolParameters,
   TActionResponse,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -86,6 +89,16 @@ export interface ISessionWorkspaceLocation {
   getCwd(): string;
 }
 
+/** Direct execution uses the same permission-wrapped runtime as model tool calls. */
+export interface ISessionRuntimeTools {
+  listRuntimeTools(): Promise<IToolSchema[]>;
+  invokeRuntimeTool(
+    name: string,
+    parameters: TToolParameters,
+    options?: { signal?: AbortSignal },
+  ): Promise<IToolExecutionResult>;
+}
+
 export interface ISessionCommands {
   executeCommand(
     name: string,
@@ -160,6 +173,7 @@ export interface ISessionCapabilityMap {
   identity: ISessionIdentity;
   workspaceLocation: ISessionWorkspaceLocation;
   commands: ISessionCommands;
+  runtimeTools: ISessionRuntimeTools;
   events: ISessionEvents;
   promptResolution: ISessionPromptResolution;
   backgroundTasks: ISessionBackgroundTasks;
@@ -179,6 +193,7 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
   identity: Object.freeze(['getSession'] as const),
   workspaceLocation: Object.freeze(['getCwd'] as const),
   commands: Object.freeze(['executeCommand', 'listCommands'] as const),
+  runtimeTools: Object.freeze(['listRuntimeTools', 'invokeRuntimeTool'] as const),
   events: Object.freeze(['on', 'off'] as const),
   promptResolution: Object.freeze(['resolvePermission', 'resolveAsk'] as const),
   backgroundTasks: Object.freeze([

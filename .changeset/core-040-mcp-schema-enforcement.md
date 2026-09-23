@@ -1,5 +1,5 @@
 ---
-'@robota-sdk/agent-tool-mcp': patch
+'@robota-sdk/agent-mcp': patch
 ---
 
 CORE-040: an MCP tool's declared parameters are enforced, not merely advertised

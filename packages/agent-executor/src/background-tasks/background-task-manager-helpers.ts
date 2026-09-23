@@ -7,6 +7,7 @@ import {
   type IBackgroundTaskResult,
   type IBackgroundTaskState,
   type TBackgroundPrimitive,
+  type TBackgroundTaskStatus,
   type TBackgroundTaskTimeoutReason,
 } from './types.js';
 
@@ -147,9 +148,38 @@ function resolveBackgroundTaskPreview(
   if (request.kind === 'process') {
     return { commandPreview: request.command.slice(0, previewLength) };
   }
+  if (request.kind === 'tool-invocation') {
+    return {
+      commandPreview: `${request.toolName} (${request.serverId})`.slice(0, previewLength),
+    };
+  }
   // scheduled: a shell command, an agent-wake instruction, or both — preview whichever is set.
   const source = request.command ?? request.agentInstruction;
   return source !== undefined ? { commandPreview: source.slice(0, previewLength) } : {};
+}
+
+/**
+ * MCP-004 §S1: `IToolInvocationBackgroundTaskRequest` keeps its provenance as primitive fields
+ * (data only — no nested object). This projects those same fields into `metadata` so `/tasks` and
+ * every other metadata-only reader can see them without knowing the request shape, alongside
+ * whatever `request.metadata` already carries.
+ */
+function resolveBackgroundTaskMetadata(
+  request: TBackgroundTaskRequest,
+): Record<string, TBackgroundPrimitive> | undefined {
+  const base = request.metadata ? { ...request.metadata } : undefined;
+  if (request.kind !== 'tool-invocation') return base;
+  return {
+    ...base,
+    toolName: request.toolName,
+    serverId: request.serverId,
+    sourceName: request.sourceName,
+    ...(request.securityIdentity !== undefined
+      ? { securityIdentity: request.securityIdentity }
+      : {}),
+    permissionMode: request.permissionMode,
+    provenanceOwner: request.provenanceOwner,
+  };
 }
 
 export function createQueuedBackgroundTaskState(
@@ -157,8 +187,16 @@ export function createQueuedBackgroundTaskState(
   request: TBackgroundTaskRequest,
   now: string,
   previewLength: number,
+  /**
+   * MCP-004 §S1: `'queued'` for every runner as before; a runner declaring
+   * `admission: 'already-running'` constructs its state as `'running'` from the start, so
+   * `background_task_created` is emitted with a state that is already running — `spawn` never
+   * enqueues or transitions it (`background-task-manager.ts`).
+   */
+  status: TBackgroundTaskStatus = 'queued',
 ): IBackgroundTaskState {
   const preview = resolveBackgroundTaskPreview(request, previewLength);
+  const metadata = resolveBackgroundTaskMetadata(request);
   // FLOW-003: capture the reconstructable schedule so a resumed session can re-arm the cron job.
   const schedule =
     request.kind === 'scheduled'
@@ -180,7 +218,7 @@ export function createQueuedBackgroundTaskState(
     kind: request.kind,
     label: request.label,
     agentType: request.kind === 'agent' ? request.agentType : undefined,
-    status: 'queued',
+    status,
     mode: request.mode,
     parentSessionId: request.parentSessionId,
     parentTaskId: request.parentTaskId,
@@ -193,7 +231,7 @@ export function createQueuedBackgroundTaskState(
     ...(request.kind === 'agent' && request.resumeSessionId !== undefined
       ? { resumeSessionId: request.resumeSessionId }
       : {}),
-    ...(request.metadata ? { metadata: { ...request.metadata } } : {}),
+    ...(metadata ? { metadata } : {}),
     ...schedule,
     ...preview,
   };
