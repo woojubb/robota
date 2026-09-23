@@ -112,6 +112,27 @@ function toolNamesOf(sessionOptions: Record<string, unknown>): string[] {
   return tools.map((tool) => tool.getName?.() ?? '').filter(Boolean);
 }
 
+function asyncInitDeps(): Parameters<
+  typeof import('../interactive/interactive-session-init.js').initializeInteractiveSessionAsync
+>[1] {
+  return {
+    sandboxSnapshotId: undefined,
+    resumeSessionId: undefined,
+    pendingRestoreMessages: null,
+    permissionHandler: undefined,
+    askHandler: undefined,
+    onTextDelta: () => {},
+    onContextUpdate: () => {},
+    onCompactEvent: () => {},
+    onToolExecution: () => {},
+    executeModelCommand: () => Promise.resolve(null),
+    isModelCommandInvocable: () => false,
+    commandDescriptors: [],
+    commandSemanticRoles: undefined,
+    setEditCheckpointStore: () => {},
+  } as never;
+}
+
 describe('SEC-016: the built-in executors survive a non-empty executor array', () => {
   // `runHooks` resolves executors as `executors ?? createDefaultExecutors()` — the fallback is
   // UNDEFINED-only, so a non-empty array REPLACES the built-ins instead of extending them. Supplying
@@ -182,6 +203,72 @@ describe('SEC-016: the built-in executors survive a non-empty executor array', (
     expect(commandEntries).toHaveLength(2);
     // Last wins in `runHooks`'s map build, so the caller's must be the later one.
     expect(commandEntries[commandEntries.length - 1]).toBe(custom);
+  });
+});
+
+describe('issue #2875: explicit built-in hook executor restriction', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('keeps the executor list empty when a public caller disables command and http hooks', async () => {
+    const { initializeInteractiveSessionAsync } =
+      await import('../interactive/interactive-session-init.js');
+
+    await initializeInteractiveSessionAsync(
+      {
+        cwd: '/restricted-hook-executors',
+        provider: createMockProvider(),
+        bare: true,
+        config: baseConfig(),
+        disableBuiltInHookExecutors: true,
+      },
+      asyncInitDeps(),
+    );
+
+    expect(sessionCtorCalls).toHaveLength(1);
+    expect(sessionCtorCalls[0]!.hookTypeExecutors).toEqual([]);
+  });
+
+  it('refuses a configured command hook before constructing a restricted session', async () => {
+    const { initializeInteractiveSessionAsync } =
+      await import('../interactive/interactive-session-init.js');
+
+    await expect(
+      initializeInteractiveSessionAsync(
+        {
+          cwd: '/restricted-hook-executors',
+          provider: createMockProvider(),
+          bare: true,
+          config: baseConfig({
+            PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'echo unsafe' }] }],
+          } as IResolvedConfig['hooks']),
+          disableBuiltInHookExecutors: true,
+        },
+        asyncInitDeps(),
+      ),
+    ).rejects.toThrow(/cannot execute: "command"/);
+    expect(sessionCtorCalls).toHaveLength(0);
+  });
+
+  it('keeps a requested guardrail executor while omitting the command and HTTP seeds', async () => {
+    const { initializeInteractiveSessionAsync } =
+      await import('../interactive/interactive-session-init.js');
+
+    await initializeInteractiveSessionAsync(
+      {
+        cwd: '/restricted-hook-executors',
+        provider: createMockProvider(),
+        bare: true,
+        config: baseConfig(),
+        guardrails: { neverPasses: NEVER_PASSES },
+        disableBuiltInHookExecutors: true,
+      },
+      asyncInitDeps(),
+    );
+
+    expect(sessionCtorCalls).toHaveLength(1);
+    expect(executorTypesOf(sessionCtorCalls[0]!)).toEqual(['guardrail']);
   });
 });
 
@@ -317,27 +404,6 @@ describe('ARCH-013 stage 3 — the PUBLIC surface carries both ports (this is wh
    * projection the first commit fixed, so every `createSession`-level case passed on the pre-fix tree
    * while a consumer still got silence.
    */
-  function asyncInitDeps(): Parameters<
-    typeof import('../interactive/interactive-session-init.js').initializeInteractiveSessionAsync
-  >[1] {
-    return {
-      sandboxSnapshotId: undefined,
-      resumeSessionId: undefined,
-      pendingRestoreMessages: null,
-      permissionHandler: undefined,
-      askHandler: undefined,
-      onTextDelta: () => {},
-      onContextUpdate: () => {},
-      onCompactEvent: () => {},
-      onToolExecution: () => {},
-      executeModelCommand: () => Promise.resolve(null),
-      isModelCommandInvocable: () => false,
-      commandDescriptors: [],
-      commandSemanticRoles: undefined,
-      setEditCheckpointStore: () => {},
-    } as never;
-  }
-
   it('carries a guardrail registry set on the published option type all the way to the session', async () => {
     const { initializeInteractiveSessionAsync } =
       await import('../interactive/interactive-session-init.js');

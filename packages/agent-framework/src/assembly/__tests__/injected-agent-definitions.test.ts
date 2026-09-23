@@ -36,6 +36,20 @@ function runtimeOptions(overrides: Partial<ICreateSessionOptions> = {}): ICreate
 }
 
 describe('buildAgentRuntime — injected agentDefinitions (owner Decision 2)', () => {
+  it('passes an intentionally empty hook executor set to child sessions without restoring defaults', () => {
+    const result = buildAgentRuntime(
+      runtimeOptions(),
+      'restricted-session',
+      process.cwd(),
+      undefined as never,
+      [],
+      [],
+    );
+
+    expect(result.agentToolDeps).toBeDefined();
+    expect(result.agentToolDeps?.hookTypeExecutors).toEqual([]);
+  });
+
   it('makes an INJECTED definition reachable in the runtime agent roster', () => {
     const result = buildAgentRuntime(
       runtimeOptions({ agentDefinitions: [packAgent('pack-reviewer')] }),
