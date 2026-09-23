@@ -615,7 +615,9 @@ export class InteractiveSession
     this.stoppedWakeTaskIds.add(taskId);
     let durableStop = false;
     try {
-      await this.ensureInitialized();
+      // An accepted loop already initialized this session. Do not yield before its synchronous
+      // stop write and queue removal: an active turn could drain the queued wake in that gap.
+      if (!this.initialized) await this.ensureInitialized();
       const task = this.bgTracker.getTask(taskId);
       const loopId = task?.metadata?.['sessionLoopId'];
       if (

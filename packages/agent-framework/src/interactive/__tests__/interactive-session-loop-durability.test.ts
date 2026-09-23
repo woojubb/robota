@@ -10,7 +10,27 @@ import type {
   IBackgroundTaskStart,
 } from '@robota-sdk/agent-executor';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
+import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
 import { createSessionStub } from './helpers/session-stub.js';
+
+function holdForeground(interactive: InteractiveSession): {
+  controller: SessionExecutionController;
+  release: () => void;
+} {
+  const controller = (interactive as unknown as { execCtrl: SessionExecutionController }).execCtrl;
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  void controller.executeForegroundCommand(
+    async () => {
+      await held;
+      return { success: true, message: 'released' };
+    },
+    () => Promise.resolve(),
+  );
+  return { controller, release };
+}
 
 interface ITestRecord {
   id: string;
@@ -144,6 +164,41 @@ describe('session-loop creation durability', () => {
 });
 
 describe('session-loop stop durability', () => {
+  it('removes a queued wake before the stop operation yields', async () => {
+    const { interactive } = setup(() => undefined);
+    const task = await interactive.spawnScheduledWake(loop);
+    const { controller, release } = holdForeground(interactive);
+    expect(interactive.requestWakeup('check', task.id)).toBe(true);
+    await Promise.resolve();
+    expect(controller.pending.contents).toHaveLength(1);
+
+    const stopping = interactive.cancelBackgroundTask(task.id, 'Loop stopped by user');
+    expect(controller.pending.contents).toHaveLength(0);
+    await stopping;
+    release();
+  });
+
+  it('keeps a queued wake when the durable stop write fails', async () => {
+    let failStop = false;
+    const { interactive } = setup((record) => {
+      if (failStop && record.backgroundTasks?.some((task) => task.status === 'cancelled')) {
+        throw new Error('disk full');
+      }
+    });
+    const task = await interactive.spawnScheduledWake(loop);
+    const { controller, release } = holdForeground(interactive);
+    expect(interactive.requestWakeup('check', task.id)).toBe(true);
+    await Promise.resolve();
+    failStop = true;
+
+    await expect(interactive.cancelBackgroundTask(task.id, 'Loop stopped by user')).rejects.toThrow(
+      'disk full',
+    );
+    expect(controller.pending.contents).toHaveLength(1);
+    interactive.cancelQueue();
+    release();
+  });
+
   it('does not stop a loop when its durable stop record cannot be written', async () => {
     let failStop = false;
     const { interactive, manager, cancel, records } = setup((record) => {
