@@ -403,8 +403,11 @@ in the post-merge sequence, before any branch deletion.
   `security`, `review-policy`, and `workflow provenance`, and
   **never treat "pending" or "not-required-skipped" as pass**.
 - **Verification of a completed merge is not permission to perform one.** If the provider's
-  required-check projection is confirmed empty by readable live protection state, report that fact
-  and verify every declared applicable context at the exact merged PR head through its actual
+  required-check projection is confirmed empty by readable live protection state for a branch
+  governed by `.github/required-status-checks.json`, report **PROTECTION ANOMALY** with the branch,
+  declared ruleset id, live scope and evidence. Emptiness is a control-plane discrepancy, not a
+  normal accepted projection. Report it to the owner and keep it unresolved until explicitly
+  dispositioned; verifying individual workflows does not clear the anomaly. Also verify every declared applicable context at the exact merged PR head through its actual
   owning workflow, using results completed before the merge. An unsuccessful or indeterminate
   query is not a confirmed empty projection. Unreadable or indeterminate declarations, workflows
   or results, and failed, missing, pending, cancelled or skipped applicable checks, block PASS.

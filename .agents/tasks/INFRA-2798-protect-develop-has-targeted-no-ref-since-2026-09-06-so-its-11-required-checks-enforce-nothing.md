@@ -13,6 +13,13 @@ depends_on: []
 
 ## Objective
 
+**Historical snapshot:** the incident analysis and eleven-context evidence below describe the
+2026-09-06 through 2026-09-21 incident. Scope was restored on 2026-09-21. On 2026-09-23 the live
+`protect-develop` ruleset still includes `refs/heads/develop`, and its current four contexts are
+`pr-validation`, `security`, `review-policy`, and `workflow provenance`, matching the declaration.
+The historical eleven-context tables are retained as evidence, not as the current configuration.
+The original decision prerequisite in Notes was fulfilled by the TC-01 outcome below.
+
 Decide the control-plane state of `develop` and record the decision, so the repository stops
 adapting its rules to a configuration nobody chose.
 
@@ -88,19 +95,19 @@ path rather than on a `develop` merge. `run-all-scans.mjs` registers only the he
       history version id is recorded here. If (b): `required-status-checks.json`'s
       `branches.develop` states that these 11 are a LOCAL floor with no live enforcement, and
       `git-branch.md`'s pre-merge section says so in the same words.
-- [ ] TC-03 (mechanical): `reconcileLiveBranch` in
+- [x] TC-03 (mechanical): `reconcileLiveBranch` in
       `scripts/harness/required-status-checks-live.mjs` reads the declared `ruleset_id`'s
       `conditions.ref_name.include` and emits a finding, distinct from its per-context ones, when
       that list does not contain `refs/heads/<branch>`. Today the scan infers the state from 11
       missing contexts; it never reads the scope that caused them, so it cannot say why.
-- [ ] TC-04 (prose): `git-branch.md`'s empty-projection paragraph (`:396-404`) and
+- [x] TC-04 (prose): `git-branch.md`'s empty-projection paragraph (`:396-404`) and
       `.claude/agents/merge-verifier.md` say that a confirmed-empty projection is REPORTED as an
       anomaly against the declared branch, not merely verified around. The rule already requires
       reporting the fact and re-verifying each declared context — this adds that the emptiness is
       itself the anomaly, so a future un-scoping surfaces on the next merge rather than passing as
       a known-handled shape. Under (a) this is what restores detection without a cron: the
       projection is non-empty, so going empty is visible on the next verdict.
-- [ ] TC-05: The two stale comments that claim a schedule owns the live half —
+- [x] TC-05: The two stale comments that claim a schedule owns the live half —
       `scripts/harness/required-status-checks-live.mjs:48` ("the scheduled reconciler owns this
       half … a red cron") and `scripts/harness/scan-main-required-checks.mjs:58-59` ("the scheduled
       `.github/workflows/ruleset-drift.yml` runs that half") — say what is true: the workflow is
@@ -203,8 +210,31 @@ edit, and 13:08 was a re-run of that batch, so there is nothing to file there ei
 recorded as corrections rather than dropped, because an unchallenged verifier finding becomes the
 next session's premise.
 
-TC-03, TC-04 and TC-05 remain open; restoring the scope did not close them, and the detection they
-buy is what makes a future un-scoping visible without a cron.
+At the 2026-09-21 stop point, TC-03, TC-04 and TC-05 remained open; restoring the scope did not
+close them. The implementation outcome below addresses their detection gap.
+
+## Detection implementation — 2026-09-23
+
+TC-03 now reads the declared ruleset object separately from the paginated branch-rules projection.
+A missing or malformed `conditions.ref_name.include`, or one omitting the explicit branch ref,
+produces `(ruleset scope: <branch>)`; a failed ruleset read is a distinct live-read finding.
+Missing-context and strict-policy findings remain visible alongside the scope cause.
+
+TC-04 names a confirmed-empty governed projection as **PROTECTION ANOMALY** in both the branch rule
+and merge-verifier definition, with branch, ruleset id and live scope evidence reported to the owner.
+Individual successful checks do not clear it. Existing missing/failed/pending/cancelled/skipped-check
+refusals and the distinction between post-merge verification and permission to merge are unchanged.
+
+TC-05 corrects both schedule comments: the workflow is dispatch-only. The latest run was re-read as
+[2026-08-11T04:38:42Z](https://github.com/woojubb/robota/actions/runs/31459126365); no schedule or remote
+protection settings were changed.
+
+Verification follows the simplified harness rather than the historical full-sweep Test Plan above.
+The seven new wiring cases failed before implementation, including matched contexts with an empty
+scope returning no finding and the injected ruleset reader never being called. After implementation,
+`pnpm exec vitest run scripts/harness/__tests__/scan-main-required-checks.test.mjs` passed 59/59 tests.
+The live reconciler passed against the restored scope and current declarations. Delivery remains
+in progress until the reviewed change lands and issue #2798 is closed.
 
 ## Notes
 

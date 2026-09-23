@@ -43,8 +43,9 @@ export const RECONCILED_BRANCHES = [GOVERNED_BRANCH, 'develop'];
 
 /**
  * Reconcile each declared branch against its LIVE ruleset. Opt-in (`--live`) and never part of the
- * hermetic default: the scheduled reconciler owns this half, so a GitHub outage costs a red cron
- * rather than a blocked promotion.
+ * hermetic default: ruleset-drift.yml is workflow_dispatch-only under the 2026-08-04 no-cron
+ * directive. As observed on 2026-09-23, its last run was 2026-08-11; detection requires an
+ * explicit invocation. A GitHub outage makes that live invocation fail, not the offline gate.
  */
 export function reconcileLive(root = WORKSPACE_ROOT) {
   return RECONCILED_BRANCHES.flatMap((branch) => reconcileLiveBranch(root, branch));
@@ -56,7 +57,9 @@ export function reconcileLive(root = WORKSPACE_ROOT) {
  * pure `strictPolicyFindings` alone would stay green if this function stopped calling it, which is
  * the unfalsifiable shape this repository refuses.
  */
-export function reconcileLiveBranch(root, branchName, readRules = null) {
+export function reconcileLiveBranch(root, branchName, readRules = null, readRuleset = null) {
+  const branch = readDeclarationBranch(root, branchName);
+  const findings = rulesetScopeFindings(root, branchName, branch, readRuleset);
   // SEC-007: `/rules/branches/{branch}` is a PAGINATED collection, and it was read one page at a
   // time. A ruleset whose rules spilled onto page two would make this scan report that `main` does
   // not require a check it does in fact require — a false DRIFT finding, and in the other direction a
@@ -68,14 +71,17 @@ export function reconcileLiveBranch(root, branchName, readRules = null) {
   } else {
     const slug = originSlug(root);
     if (!slug)
-      return [{ context: '(live)', detail: 'could not resolve the `origin` remote slug.' }];
+      return [
+        ...findings,
+        { context: '(live)', detail: 'could not resolve the `origin` remote slug.' },
+      ];
     try {
       rules = fetchAllPages(`repos/${slug}/rules/branches/${branchName}`).records;
     } catch (error) {
       // A failed or unparseable read is a real shape (an auth prompt, an HTML error page, a proxy
       // interstitial, a truncated walk). Report it as a finding with the message rather than throwing
       // an opaque error out of a scan whose whole subject is checks that fail informatively.
-      return [{ context: '(live)', detail: error.message }];
+      return [...findings, { context: '(live)', detail: error.message }];
     }
   }
   const live = new Set(
@@ -85,10 +91,8 @@ export function reconcileLiveBranch(root, branchName, readRules = null) {
       .map((check) => check.context),
   );
   const declared = new Set(readDeclaration(root, branchName).map((entry) => entry.context));
-  const findings = [];
   // INFRA-162: the contexts are not the whole rule. `strict_required_status_checks_policy` decides
   // whether GitHub refuses a stale head, and reducing the live rule to `.context` discarded it.
-  const branch = readDeclarationBranch(root, branchName);
   findings.push(...strictPolicyFindings({ branchName, rules, branch }));
   for (const context of live) {
     if (!declared.has(context)) {
@@ -107,4 +111,51 @@ export function reconcileLiveBranch(root, branchName, readRules = null) {
     }
   }
   return findings;
+}
+
+/** The ruleset object owns scope; the branch-rules projection cannot carry it. */
+function rulesetScopeFindings(root, branchName, branch, readRuleset) {
+  const context = `(ruleset scope: ${branchName})`;
+  const id = branch.ruleset_id;
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    return [
+      { context, detail: `${DECLARATION_FILE} declares no valid ruleset_id for ${branchName}.` },
+    ];
+  }
+  let ruleset;
+  try {
+    ruleset = readRuleset ? readRuleset(id) : readLiveRuleset(root, id);
+  } catch (error) {
+    return [
+      {
+        context: `(live ruleset: ${branchName})`,
+        detail: `Could not read ruleset ${id}: ${error.message}`,
+      },
+    ];
+  }
+  const include = ruleset?.conditions?.ref_name?.include;
+  const ref = `refs/heads/${branchName}`;
+  if (!Array.isArray(include) || !include.includes(ref)) {
+    return [
+      {
+        context,
+        detail: `Declared ruleset ${id} does not explicitly include ${ref} in conditions.ref_name.include (${JSON.stringify(include) ?? 'missing'}). An empty include targets no ref; inspect the ruleset scope instead of treating missing checks as normal.`,
+      },
+    ];
+  }
+  return [];
+}
+
+/** Rulesets are individual JSON objects, not paginated branch-rule collections. */
+function readLiveRuleset(root, id) {
+  const slug = originSlug(root);
+  if (!slug) throw new Error('could not resolve the `origin` remote slug.');
+  const response = spawnSync('gh', ['api', `repos/${slug}/rulesets/${id}`], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 30000,
+  });
+  if (response.status !== 0)
+    throw new Error(response.error?.message ?? response.stderr?.trim() ?? 'ruleset query failed');
+  return JSON.parse(response.stdout);
 }
