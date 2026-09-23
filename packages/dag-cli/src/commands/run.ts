@@ -1752,7 +1752,6 @@ function buildRunReport(
 // ---------------------------------------------------------------------------
 
 const RUN_COUNT_FILE = join('.dag', '.run-count');
-const RUN_HISTORY_FILE = join('.dag', '.run-history.json');
 const MAX_HISTORY_ENTRIES = 50; // eslint-disable-line @typescript-eslint/no-magic-numbers
 
 interface IRunHistoryEntry {
@@ -1762,9 +1761,11 @@ interface IRunHistoryEntry {
 }
 
 export async function appendRunHistory(file: string, status: 'success' | 'failed'): Promise<void> {
+  const historyDir = join(process.cwd(), '.dag');
+  const historyFile = join(historyDir, '.run-history.json');
   let entries: IRunHistoryEntry[] = [];
   try {
-    const text = await readFile(RUN_HISTORY_FILE, UTF8_ENCODING);
+    const text = await readFile(historyFile, UTF8_ENCODING);
     const parsed = JSON.parse(text) as unknown;
     if (Array.isArray(parsed)) entries = parsed as IRunHistoryEntry[];
   } catch (_histReadErr) {
@@ -1774,8 +1775,8 @@ export async function appendRunHistory(file: string, status: 'success' | 'failed
   entries.push({ file, date: new Date().toISOString(), status });
   if (entries.length > MAX_HISTORY_ENTRIES) entries = entries.slice(-MAX_HISTORY_ENTRIES);
   try {
-    await mkdir('.dag', { recursive: true });
-    await writeFile(RUN_HISTORY_FILE, JSON.stringify(entries, null, 2) + '\n', UTF8_ENCODING);
+    await mkdir(historyDir, { recursive: true });
+    await writeFile(historyFile, JSON.stringify(entries, null, 2) + '\n', UTF8_ENCODING);
   } catch (_histWriteErr) {
     // allow-fallback: run history write failure is non-fatal
     void _histWriteErr;

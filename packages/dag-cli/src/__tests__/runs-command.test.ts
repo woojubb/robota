@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
@@ -47,7 +47,7 @@ function captureIo() {
 
 describe('local run history', () => {
   it('lists a completed dag run with the existing JSON fields', async () => {
-    await enterTempProject();
+    const projectDir = await enterTempProject();
     const runIo = captureIo();
     const runner = {
       events: { subscribe: vi.fn() },
@@ -73,6 +73,10 @@ describe('local run history', () => {
       completedAt: expect.any(Number),
       durationMs: expect.any(Number),
     });
+    const history = JSON.parse(await readFile(join(projectDir, '.dag/.run-history.json'), 'utf8'));
+    expect(history).toEqual([
+      { file: 'workflow.dag.json', date: expect.any(String), status: 'success' },
+    ]);
   });
 
   it('records failed results and rejected executions, and applies phase and limit', async () => {
