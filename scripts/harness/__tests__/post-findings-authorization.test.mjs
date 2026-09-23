@@ -510,6 +510,30 @@ describe('single-pass remote closeout receipts', () => {
     });
   });
 
+  it('accepts the canonical root agent identity in an immutable merge decision', () => {
+    const canonicalAgentBody = mergeDecisionBody.replace(
+      'APPROVED-BY: agent:Codex (owner-delegated)',
+      'APPROVED-BY: agent:/root (owner-delegated)',
+    );
+    expect(
+      auditCloseoutReceipts({
+        ...projection,
+        mergeComments: [closeoutEnvelope(81, 42, canonicalAgentBody, '2026-09-13T10:00:00Z')],
+      }),
+    ).toMatchObject({ ok: true, mergeDecision: { approvedBy: 'agent:/root (owner-delegated)' } });
+  });
+
+  it.each(['agent://root', 'agent:/root/', 'agent:root//worker'])(
+    'rejects malformed agent identity %s',
+    (identity) => {
+      const malformedBody = mergeDecisionBody.replace(
+        'APPROVED-BY: agent:Codex (owner-delegated)',
+        `APPROVED-BY: ${identity} (owner-delegated)`,
+      );
+      expect(parseMergeDecisionReceipt(malformedBody)).toBeNull();
+    },
+  );
+
   it.each([
     [
       'open-partial',
