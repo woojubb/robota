@@ -39,9 +39,10 @@ function parseMemoryCategory(value: string | undefined): TUserLocalMemoryCategor
 
 async function executeMemoryListCommand(
   activeRepositoryRoot: string,
+  storageRoot: string,
   parsed: IUserLocalMemoryCommandArgs,
 ): Promise<ICommandResult> {
-  const list = await listUserLocalMemoryItems({ activeRepositoryRoot });
+  const list = await listUserLocalMemoryItems({ activeRepositoryRoot, storageRoot });
   return {
     message:
       parsed.format === 'json' ? JSON.stringify(list, null, 2) : formatMemoryListText(list.items),
@@ -52,11 +53,13 @@ async function executeMemoryListCommand(
 
 async function executeMemorySetCommand(
   activeRepositoryRoot: string,
+  storageRoot: string,
   parsed: IUserLocalMemoryCommandArgs,
 ): Promise<ICommandResult> {
   const [category, key, value] = parsed.positional;
   const item = await setUserLocalMemoryItem({
     activeRepositoryRoot,
+    storageRoot,
     category: parseMemoryCategory(category),
     key: key ?? '',
     value: value ?? '',
@@ -72,11 +75,13 @@ async function executeMemorySetCommand(
 
 async function executeMemoryInspectCommand(
   activeRepositoryRoot: string,
+  storageRoot: string,
   parsed: IUserLocalMemoryCommandArgs,
 ): Promise<ICommandResult> {
   const [category, key] = parsed.positional;
   const item = await inspectUserLocalMemoryItem({
     activeRepositoryRoot,
+    storageRoot,
     category: parseMemoryCategory(category),
     key: key ?? '',
   });
@@ -92,11 +97,13 @@ async function executeMemoryInspectCommand(
 
 async function executeMemoryDisableCommand(
   activeRepositoryRoot: string,
+  storageRoot: string,
   parsed: IUserLocalMemoryCommandArgs,
 ): Promise<ICommandResult> {
   const [category, key] = parsed.positional;
   const item = await disableUserLocalMemoryItem({
     activeRepositoryRoot,
+    storageRoot,
     category: parseMemoryCategory(category),
     key: key ?? '',
   });
@@ -109,11 +116,13 @@ async function executeMemoryDisableCommand(
 
 async function executeMemoryDeleteCommand(
   activeRepositoryRoot: string,
+  storageRoot: string,
   parsed: IUserLocalMemoryCommandArgs,
 ): Promise<ICommandResult> {
   const [category, key] = parsed.positional;
   const result = await deleteUserLocalMemoryItem({
     activeRepositoryRoot,
+    storageRoot,
     category: parseMemoryCategory(category),
     key: key ?? '',
   });
@@ -126,22 +135,23 @@ async function executeMemoryDeleteCommand(
 
 export async function executeMemoryCommand(
   cwd: string,
+  storageRoot: string,
   parsed: IUserLocalMemoryCommandArgs,
 ): Promise<ICommandResult> {
   if ((parsed.action ?? 'list') === 'list') {
-    return executeMemoryListCommand(cwd, parsed);
+    return executeMemoryListCommand(cwd, storageRoot, parsed);
   }
   if (parsed.action === 'set') {
-    return executeMemorySetCommand(cwd, parsed);
+    return executeMemorySetCommand(cwd, storageRoot, parsed);
   }
   if (parsed.action === 'inspect') {
-    return executeMemoryInspectCommand(cwd, parsed);
+    return executeMemoryInspectCommand(cwd, storageRoot, parsed);
   }
   if (parsed.action === 'disable') {
-    return executeMemoryDisableCommand(cwd, parsed);
+    return executeMemoryDisableCommand(cwd, storageRoot, parsed);
   }
   if (parsed.action === 'delete') {
-    return executeMemoryDeleteCommand(cwd, parsed);
+    return executeMemoryDeleteCommand(cwd, storageRoot, parsed);
   }
   return {
     message: USER_LOCAL_COMMAND_USAGE,

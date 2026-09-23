@@ -43,6 +43,9 @@ React/Ink UI.
   not assemble settings/project paths themselves — they go through host adapters or command-facing
   common APIs. User persistence and trust-store adapters require explicit host paths; these
   adapters do not select a product's user-local storage root.
+- **User-local storage requires host authority.** Inspection and memory operations receive an
+  explicit absolute storage root from their host; omission fails before any filesystem write.
+  They reject roots inside the active repository, including symlink aliases.
 - **Project settings locations belong to the host.** The framework binds ordered host-supplied
   relative settings paths to the current trusted project reader; absent paths read no project
   settings, and a restricted project cannot read them even when paths are supplied. The framework

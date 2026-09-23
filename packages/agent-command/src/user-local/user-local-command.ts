@@ -15,6 +15,7 @@ type TUserLocalOutputFormat = 'text' | 'json';
 
 export interface IUserLocalDirectCommandOptions {
   readonly cwd: string;
+  readonly storageRoot: string;
   readonly argv: readonly string[];
   readonly format?: string;
   readonly summary?: string;
@@ -123,6 +124,7 @@ function formatStorageInspectionText(
 
 async function executeStorageCommand(
   cwd: string,
+  storageRoot: string,
   parsed: IParsedUserLocalCommand,
 ): Promise<ICommandResult> {
   if ((parsed.action ?? 'list') !== 'list') {
@@ -132,7 +134,7 @@ async function executeStorageCommand(
     };
   }
 
-  const inspection = await inspectUserLocalStorage({ activeRepositoryRoot: cwd });
+  const inspection = await inspectUserLocalStorage({ activeRepositoryRoot: cwd, storageRoot });
   return {
     message:
       parsed.format === 'json'
@@ -149,13 +151,14 @@ async function executeStorageCommand(
 
 async function executeParsedUserLocalCommand(
   cwd: string,
+  storageRoot: string,
   parsed: IParsedUserLocalCommand,
 ): Promise<ICommandResult> {
   if (parsed.target === 'storage') {
-    return executeStorageCommand(cwd, parsed);
+    return executeStorageCommand(cwd, storageRoot, parsed);
   }
   if (parsed.target === 'memory') {
-    return executeMemoryCommand(cwd, parsed);
+    return executeMemoryCommand(cwd, storageRoot, parsed);
   }
   return {
     message: USER_LOCAL_COMMAND_USAGE,
@@ -176,6 +179,7 @@ export async function executeUserLocalDirectCommand(
   try {
     return await executeParsedUserLocalCommand(
       options.cwd,
+      options.storageRoot,
       parseUserLocalArgs(options.argv, {
         format: options.format,
         summary: options.summary,
@@ -193,10 +197,12 @@ export async function executeUserLocalDirectCommand(
 export async function executeUserLocalCommand(
   context: ICommandHostWorkspace,
   rawArgs: string,
+  storageRoot: string,
 ): Promise<ICommandResult> {
   try {
     return await executeParsedUserLocalCommand(
       context.getCwd(),
+      storageRoot,
       parseUserLocalArgs(splitRawArgs(rawArgs)),
     );
   } catch (error) {

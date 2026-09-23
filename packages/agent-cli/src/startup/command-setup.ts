@@ -37,7 +37,7 @@ import { buildDoctorInputs } from './doctor-inputs.js';
 import { areSessionLoopsDisabled, createLoopDefaultPromptResolver, DEFAULT_LOOP_MAINTENANCE_PROMPT } from './loop-options.js';
 import { createDefaultPluginCommandAdapter } from '../plugins/default-plugin-command-adapter.js';
 import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
-import { userPaths } from '../product/user-paths.js';
+import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
 import type { IOutputStyleRegistry } from '@robota-sdk/agent-preset';
 import {
@@ -217,6 +217,7 @@ export function buildCommandSetup(
   });
   const { modules: baseCommandModules } = createDefaultCommandModules({
     cwd,
+    userLocalStorageRoot: userLocalStorageRoot(),
     providerDefinitions,
     providerSettingsAdapter,
     contributionSources: workspaceComposition.contributionSources,

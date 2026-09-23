@@ -1,4 +1,3 @@
-import { homedir } from 'node:os';
 import path from 'node:path';
 
 import { NodeFileSystemAsync } from '../adapters/node-file-system.js';
@@ -55,8 +54,7 @@ export interface IUserLocalStorageInspection {
 
 export interface IResolveUserLocalStorageRootOptions {
   readonly activeRepositoryRoot: string;
-  readonly homeDir?: string;
-  readonly storageRoot?: string;
+  readonly storageRoot: string;
   readonly fsAsync?: IFileSystemAsync;
 }
 
@@ -104,16 +102,12 @@ function formatIsoDate(date: Date): string {
 }
 
 function assertAbsolutePath(name: string, value: string): void {
-  if (value.trim().length === 0) {
-    throw new Error(`${name} must not be empty.`);
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${name} is required and must not be empty.`);
   }
   if (!path.isAbsolute(value)) {
     throw new Error(`${name} must be an absolute path: ${value}`);
   }
-}
-
-function resolveDefaultHomeDir(): string {
-  return process.env.HOME ?? homedir();
 }
 
 function isEqualOrInside(parentPath: string, candidatePath: string): boolean {
@@ -150,10 +144,7 @@ export async function resolveUserLocalStorageRoot(
   const activeRepositoryRoot = path.resolve(options.activeRepositoryRoot);
   assertAbsolutePath('activeRepositoryRoot', activeRepositoryRoot);
 
-  const candidateRoot =
-    options.storageRoot !== undefined
-      ? options.storageRoot
-      : path.join(options.homeDir ?? resolveDefaultHomeDir(), '.robota');
+  const candidateRoot = options.storageRoot;
 
   assertAbsolutePath('userLocalStorageRoot', candidateRoot);
 

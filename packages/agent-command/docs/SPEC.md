@@ -28,6 +28,10 @@ non-fatal notice instead of failing closed or pretending the name took effect. S
 consumes only the explicit contribution sources it is given; it never reconstructs project reads from
 `cwd`.
 
+**User-local commands.** The direct command and the assembled slash command use the same
+host-supplied storage root for inspection and memory operations. Neither command chooses a home
+directory when the host omits that root.
+
 **Demand-switch sessions.** The `agent` and `schedule` command modules declare
 `sessionRequirements: ['agent-runtime']`: composing either module makes the session layer enable the
 agent runtime. This is a demand switch, not a gate — it does not assume the runtime is available

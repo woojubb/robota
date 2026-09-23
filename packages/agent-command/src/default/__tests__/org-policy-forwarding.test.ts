@@ -61,6 +61,7 @@ const POLICY: IOrgPolicy = { allowedProviders: ['anthropic'], adminContact: 'ops
 function executorThroughFactory(orgPolicy?: IOrgPolicy): SystemCommandExecutor {
   const { modules } = createDefaultCommandModules({
     cwd: '/work',
+    userLocalStorageRoot: '/tmp/robota-test',
     providerDefinitions,
     providerSettingsAdapter: adapter,
     ...(orgPolicy === undefined ? {} : { orgPolicy }),

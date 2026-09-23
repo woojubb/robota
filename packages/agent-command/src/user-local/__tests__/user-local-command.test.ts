@@ -2,7 +2,8 @@ import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { executeUserLocalDirectCommand } from '../user-local-command.js';
+import { executeUserLocalCommand, executeUserLocalDirectCommand } from '../user-local-command.js';
+import { createUserLocalCommandModule } from '../user-local-command-module.js';
 
 const tempRoots: string[] = [];
 
@@ -20,16 +21,55 @@ afterEach(async () => {
 });
 
 describe('user-local command', () => {
+  it('fails closed when a direct caller omits the storage root', async () => {
+    const workspace = await createTempRoot('robota-user-local-missing-root-');
+    const repo = path.join(workspace, 'repo');
+    await fs.mkdir(repo);
+
+    const result = await executeUserLocalDirectCommand({
+      cwd: repo,
+      argv: ['storage', 'list'],
+    } as never);
+    expect(result).toMatchObject({ success: false });
+    expect(result.message).toContain('userLocalStorageRoot is required');
+  });
+
+  it('uses the explicit root for slash commands', async () => {
+    const workspace = await createTempRoot('robota-user-local-slash-root-');
+    const repo = path.join(workspace, 'repo');
+    const selectedRoot = path.join(workspace, 'selected', '.robota');
+    await fs.mkdir(repo);
+    vi.stubEnv('HOME', path.join(workspace, 'ambient-home'));
+
+    const directResult = await executeUserLocalCommand(
+      { getCwd: () => repo } as never,
+      'storage list --format=json',
+      selectedRoot,
+    );
+    expect(directResult.success).toBe(true);
+    expect(JSON.parse(directResult.message)).toMatchObject({ root: selectedRoot });
+
+    const slashCommand = createUserLocalCommandModule(selectedRoot).systemCommands?.[0];
+    expect(slashCommand).toBeDefined();
+    const result = await slashCommand!.execute(
+      { getCwd: () => repo } as never,
+      'storage list --format=json',
+    );
+    expect(result.success).toBe(true);
+    expect(JSON.parse(result.message)).toMatchObject({ root: selectedRoot });
+  });
+
   it('prints storage inspection JSON without provider configuration', async () => {
     const workspace = await createTempRoot('robota-user-local-command-');
     const repo = path.join(workspace, 'repo');
     const home = path.join(workspace, 'home');
     await fs.mkdir(repo);
     await fs.mkdir(home);
-    vi.stubEnv('HOME', home);
+    vi.stubEnv('HOME', path.join(workspace, 'ambient-home'));
 
     const result = await executeUserLocalDirectCommand({
       cwd: repo,
+      storageRoot: path.join(home, '.robota'),
       argv: ['storage', 'list'],
       format: 'json',
     });
@@ -57,10 +97,11 @@ describe('user-local command', () => {
     const home = path.join(workspace, 'home');
     await fs.mkdir(repo);
     await fs.mkdir(home);
-    vi.stubEnv('HOME', home);
+    vi.stubEnv('HOME', path.join(workspace, 'ambient-home'));
 
     const setResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      storageRoot: path.join(home, '.robota'),
       argv: ['memory', 'set', 'view-preference', 'last-panel', 'background'],
       summary: 'Open the background panel',
       source: 'user-input',
@@ -70,6 +111,7 @@ describe('user-local command', () => {
 
     const listResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      storageRoot: path.join(home, '.robota'),
       argv: ['memory', 'list'],
       format: 'json',
     });
@@ -86,6 +128,7 @@ describe('user-local command', () => {
 
     const inspectResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      storageRoot: path.join(home, '.robota'),
       argv: ['memory', 'inspect', 'view-preference', 'last-panel'],
       format: 'json',
     });
@@ -99,12 +142,14 @@ describe('user-local command', () => {
 
     const disableResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      storageRoot: path.join(home, '.robota'),
       argv: ['memory', 'disable', 'view-preference', 'last-panel'],
     });
     expect(disableResult.success).toBe(true);
 
     const disabledInspectResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      storageRoot: path.join(home, '.robota'),
       argv: ['memory', 'inspect', 'view-preference', 'last-panel'],
       format: 'json',
     });
@@ -113,12 +158,14 @@ describe('user-local command', () => {
 
     const deleteResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      storageRoot: path.join(home, '.robota'),
       argv: ['memory', 'delete', 'view-preference', 'last-panel'],
     });
     expect(deleteResult.success).toBe(true);
 
     const missingResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      storageRoot: path.join(home, '.robota'),
       argv: ['memory', 'inspect', 'view-preference', 'last-panel'],
       format: 'json',
     });

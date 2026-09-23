@@ -51,6 +51,7 @@ import type { IThemeCataloguePort } from '@robota-sdk/agent-interface-command';
 
 export interface IDefaultCommandModulesOptions {
   cwd: string;
+  userLocalStorageRoot: string;
   contributionSources?: readonly IContributionSource[];
   providerDefinitions: readonly IProviderDefinition[];
   providerSettingsAdapter: IProviderCommandSettingsAdapter;
@@ -117,6 +118,7 @@ export interface IDefaultCommandModulesResult {
 
 export function createDefaultCommandModules({
   cwd: _cwd,
+  userLocalStorageRoot,
   contributionSources,
   providerDefinitions,
   providerSettingsAdapter,
@@ -154,7 +156,7 @@ export function createDefaultCommandModules({
     ...(doctorInputs === undefined ? [] : [createDoctorCommandModule(doctorInputs)]),
     createMemoryCommandModule(),
     createMCPActivationCommandModule(),
-    createUserLocalCommandModule(),
+    createUserLocalCommandModule(userLocalStorageRoot),
     createCompactCommandModule(),
     createContextCommandModule(),
     createExitCommandModule(),

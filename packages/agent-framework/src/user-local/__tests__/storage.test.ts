@@ -34,7 +34,17 @@ afterEach(async () => {
 });
 
 describe('user-local storage', () => {
-  it('resolves the default root under injected user home outside the active repository', async () => {
+  it('rejects an omitted storage root instead of selecting the process home', async () => {
+    const workspace = await createTempRoot('robota-user-local-required-root-');
+    const repo = path.join(workspace, 'repo');
+    await fs.mkdir(repo);
+
+    await expect(
+      resolveUserLocalStorageRoot({ activeRepositoryRoot: repo } as never),
+    ).rejects.toThrow('userLocalStorageRoot is required');
+  });
+
+  it('resolves an explicit root outside the active repository', async () => {
     const workspace = await createTempRoot('robota-user-local-default-');
     const repo = path.join(workspace, 'repo');
     const home = path.join(workspace, 'home');
@@ -43,7 +53,7 @@ describe('user-local storage', () => {
 
     const root = await resolveUserLocalStorageRoot({
       activeRepositoryRoot: repo,
-      homeDir: home,
+      storageRoot: path.join(home, '.robota'),
     });
 
     expect(root).toBe(path.join(home, '.robota'));
@@ -87,7 +97,7 @@ describe('user-local storage', () => {
 
     const inspection = await inspectUserLocalStorage({
       activeRepositoryRoot: repo,
-      homeDir: home,
+      storageRoot: path.join(home, '.robota'),
       now: () => new Date('2026-05-09T00:00:00.000Z'),
     });
 

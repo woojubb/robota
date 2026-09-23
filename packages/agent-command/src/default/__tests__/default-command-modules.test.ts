@@ -26,7 +26,7 @@ const providerSettingsAdapter: IProviderCommandSettingsAdapter = {
   writeTargetSettings: () => undefined,
 };
 
-const baseOptions = { cwd: '/tmp', providerDefinitions, providerSettingsAdapter } as const;
+const baseOptions = { cwd: '/tmp', userLocalStorageRoot: '/tmp/robota-test', providerDefinitions, providerSettingsAdapter } as const;
 
 function moduleNames(opts: Parameters<typeof createDefaultCommandModules>[0]): string[] {
   return createDefaultCommandModules(opts).modules.map((module) => module.name);
