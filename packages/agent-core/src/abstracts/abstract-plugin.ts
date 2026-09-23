@@ -43,7 +43,7 @@ export type {
   IPluginExecutionResult,
   IPluginErrorContext,
 };
-export type { IPlugin } from './abstract-plugin-types';
+export type { IPlugin, IPluginContext } from './abstract-plugin-types';
 export { PluginCategory, PluginPriority };
 
 /**
