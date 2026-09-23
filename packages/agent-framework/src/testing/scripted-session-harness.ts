@@ -38,6 +38,7 @@ import { InteractiveSession } from '../interactive/index.js';
 
 import type { IToolCallHandoffPolicy } from '../assembly/index.js';
 import type { ICommandModule } from '../command-api/index.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type {
   IAIProvider,
   IToolWithEventService,
@@ -90,6 +91,8 @@ export interface IScriptedSessionOptions {
    * workspace it did not create.
    */
   cwd?: string;
+  /** Explicit host-issued project authority for contribution-discovery fixtures. */
+  projectAccess?: TWorkspaceProjectAccess;
   /** Resume a persisted session by id (multi-session). Requires `persistence` + the same `cwd`. */
   resumeSessionId?: string;
   /** Fork the resumed session into a new id while restoring its context (multi-session). */
@@ -199,6 +202,7 @@ export class ScriptedSessionHarness {
     this.session = new InteractiveSession({
       cwd: this.cwd,
       provider,
+      ...(options.projectAccess ? { projectAccess: options.projectAccess } : {}),
       bare: options.bare ?? true,
       permissionMode: options.permissionMode ?? 'bypassPermissions',
       ...(options.allowedTools ? { allowedTools: options.allowedTools } : {}),

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { IDagDefinition, IDagNode, IDagEdgeDefinition } from '@robota-sdk/dag-core';
 import type { IDagCliIo } from '../types.js';
 import { SUCCESS_EXIT_CODE, FAILURE_EXIT_CODE, USAGE_ERROR_EXIT_CODE } from '../types.js';
+import { decodeDagInput } from './decode-dag-input.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -570,7 +571,12 @@ async function lintFile(
     };
   }
 
-  const findings = lintDag(dag as IDagDefinition, config, strict);
+  const decoded = decodeDagInput(dag);
+  if (!decoded.ok) {
+    return { file: filePath, findings: [], parseError: decoded.message };
+  }
+
+  const findings = lintDag(decoded.value, config, strict);
   return { file: filePath, findings, parseError: null };
 }
 

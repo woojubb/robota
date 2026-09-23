@@ -4,7 +4,10 @@ import { join } from 'path';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { loadConfig as loadConfigFromSources } from '../config/config-loader.js';
+import {
+  loadConfig as loadConfigFromSources,
+  loadConfigWithHookSources,
+} from '../config/config-loader.js';
 import { createTrustedSettingsSourcesFixture } from '../testing/trusted-project-state-fixture.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-cli-test-'));
@@ -58,6 +61,34 @@ describe('loadConfig', () => {
     expect(config.permissions.deny).toEqual([]);
     expect('memory' in config).toBe(false);
     expect(config.env).toEqual({});
+  });
+
+  it('keeps actual user and project hook sources without changing the public config shape', async () => {
+    writeJson(join(userDir, 'settings.json'), {
+      disabledHooks: ['disabled-project-hook'],
+      hooks: { PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt', prompt: 'user guard' }] }] },
+    });
+    writeJson(join(projectDir, 'settings.json'), {
+      hooks: {
+        PreToolUse: [
+          {
+            id: 'disabled-project-hook',
+            matcher: '',
+            hooks: [{ type: 'agent', agent: 'disabled' }],
+          },
+          { matcher: '', hooks: [{ type: 'prompt', prompt: 'project guard' }] },
+        ],
+      },
+    });
+    const sources = await createTrustedSettingsSourcesFixture(cwd);
+    const detailed = await loadConfigWithHookSources(sources);
+
+    expect(detailed.config).toEqual(await loadConfigFromSources(sources));
+    expect(detailed.hookSources).toEqual([
+      { event: 'PreToolUse', type: 'prompt', source: join(userDir, 'settings.json') },
+      { event: 'PreToolUse', type: 'prompt', source: join('.robota', 'settings.json') },
+    ]);
+    expect(detailed.config).not.toHaveProperty('hookSources');
   });
 
   it('ignores obsolete automatic memory settings', async () => {

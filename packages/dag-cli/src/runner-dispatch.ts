@@ -1,5 +1,14 @@
-import type { IDagDefinition, IPartialRunRequest, TPortPayload } from '@robota-sdk/dag-core';
-import type { IDagOrchestrationPort } from '@robota-sdk/dag-orchestration-client';
+import type {
+  IDagDefinition,
+  IPartialRunRequest,
+  IRunDraftOperationsPort,
+  TPortPayload,
+} from '@robota-sdk/dag-core';
+import type {
+  IDagAssetHttpPort,
+  IDagOrchestrationPort,
+} from '@robota-sdk/dag-orchestration-client';
+import type { ICostMetaOperationsPort } from '@robota-sdk/dag-cost';
 import type {
   IDagCliCommandResult,
   IDagCliIo,
@@ -25,7 +34,10 @@ const COMMAND_GROUP_WORKFLOWS = 'workflows';
 
 export async function dispatchDagCliCommand(
   args: readonly string[],
-  client: IDagOrchestrationPort,
+  client: IDagOrchestrationPort &
+    IDagAssetHttpPort &
+    ICostMetaOperationsPort &
+    IRunDraftOperationsPort,
   fetchImpl: TDagCliFetch,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {

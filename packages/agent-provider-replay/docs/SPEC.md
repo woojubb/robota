@@ -11,7 +11,7 @@ end-to-end tests (e.g. SCREEN-010 streaming→commit).
 ## Boundaries
 
 - **Implements** the `@robota-sdk/agent-core` `AbstractAIProvider` contract (`chat` / `chatStream`).
-- **Consumes** already-hydrated recorded session-log lines (typed via `@robota-sdk/agent-session` —
+- **Consumes** versioned, decoded recorded session-log lines (typed via `@robota-sdk/agent-session` —
   `ISessionLogEntry`, `SESSION_LOG_EVENT`). Neutral composition receives an explicit `ISessionLogSource`.
   The separately named `createReplayProviderFromNodeLogFile` convenience adapter deliberately enters
   host-filesystem I/O through `agent-session`'s `NodeSessionLogSource`; it does not establish project trust.
@@ -54,11 +54,14 @@ explicit log/payload source ──loadSessionLogEntries + hydration──▶ ISe
 | `createReplayProviderFromSource`      | Function  | Load and hydrate through a supplied neutral session-log source                      |
 | `createReplayProviderFromNodeLogFile` | Function  | Explicit host-filesystem adapter; a filename does not establish workspace authority |
 
-The source factory partitions external-payload limits to `loadSessionLogEntries` and hydrates the complete log
-exactly once. The Node-file factory is only a conspicuous host adapter over that neutral factory. Direct
-`ReplayProvider` construction performs no I/O and throws typed `UNRESOLVED_REFERENCE` when
-a consumed normalized response still contains a reference. References in observability, tool, text-delta, or
-user events remain ignored.
+The source factory partitions external-payload limits to `loadSessionLogEntries`, hydrates the complete
+log exactly once, and consumes its decoded entries. The Node-file factory is only a conspicuous host
+adapter over that neutral factory. Direct construction uses the same session-owned event decoder before
+selecting responses. When references remain, only an explicitly supplied payload source can hydrate
+them, with one shared depth/byte budget for the supplied log; absent authority yields typed
+`UNRESOLVED_REFERENCE`. Already hydrated inputs require no payload reads. Every event must decode,
+including diagnostic events; an invalid entry never disappears by filtering for normalized responses.
+Message IDs, dates, and roles are preserved by the shared nested decoder rather than synthesized.
 
 ## Extension Points
 
@@ -75,9 +78,9 @@ user events remain ignored.
   `SessionLogPayloadResolutionError` code `UNRESOLVED_REFERENCE`; it never accepts a base-directory escape.
   Explicit-source containment, integrity, JSON, cycle, depth, and aggregate failures preserve the resolver's
   stable typed code.
-- Malformed recorded responses (missing/invalid `role`) are skipped during extraction only after any
-  external reference has been resolved or rejected; they never shift a later response because a
-  well-formed externalized response was silently omitted.
+- **Invalid or unsupported log** — `SessionLogDecodeError` preserves the session-owned code, located
+  issues, and unsupported version. Direct construction and both factories reject the complete input;
+  malformed responses are never skipped or replaced with invented fields.
 
 ## Class Contract Registry
 

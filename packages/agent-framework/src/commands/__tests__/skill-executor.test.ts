@@ -86,6 +86,12 @@ describe('Skill execution features', () => {
       expect(result.result).toBeUndefined();
     });
 
+    it('rejects a programmatic inject command carrying an unused model', async () => {
+      await expect(executeSkill(makeSkill({ model: 'unused-model' }), '', {})).rejects.toThrow(
+        'Skill model requires context: fork',
+      );
+    });
+
     it('should return inject mode for non-fork context values', async () => {
       const callbacks: ISkillExecutionCallbacks = {};
       const skill = makeSkill({ context: 'project' });
@@ -138,6 +144,16 @@ describe('Skill execution features', () => {
       await executeSkill(makeSkill({ context: 'fork', effort: 'high' }), '', { runInFork });
 
       expect(tracker.calls[0]![1]).toEqual(expect.objectContaining({ effort: 'high' }));
+    });
+
+    it('passes the skill model only into fork execution', async () => {
+      const [runInFork, tracker] = mockRunInFork('done');
+      await executeSkill(makeSkill({ context: 'fork', model: 'skill-model' }), '', { runInFork });
+      expect(tracker.calls[0]![1]).toEqual({ model: 'skill-model' });
+
+      const [runWithoutModel, withoutModel] = mockRunInFork('done');
+      await executeSkill(makeSkill({ context: 'fork' }), '', { runInFork: runWithoutModel });
+      expect(withoutModel.calls[0]![1]).not.toHaveProperty('model');
     });
 
     it('should substitute variables in fork content', async () => {

@@ -137,6 +137,32 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     ];
   }
 
+  it.each([
+    ['prompt', { type: 'prompt', prompt: 'review this action' }],
+    ['agent', { type: 'agent', agent: 'reviewer' }],
+  ] as const)(
+    'SEC-021: refuses settings-file %s hooks in the real CLI composition',
+    async (type, hook) => {
+      writeFileSync(
+        join(project, '.robota', 'settings.json'),
+        JSON.stringify({
+          currentProvider: 'scripted',
+          providers: { scripted: { type: 'scripted', model: 'scripted-model' } },
+          hooks: { PreToolUse: [{ matcher: '', hooks: [hook] }] },
+        }),
+        'utf8',
+      );
+      const scripted = createScriptedProvider([{ text: 'should not run' }]);
+
+      const result = await runScripted(project, ['-p', 'try a harmless request'], scripted);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('.robota/settings.json');
+      expect(result.stderr).toContain(type);
+      expect(scripted.requests).toHaveLength(0);
+    },
+  );
+
   it('TC-02: scripted Read→Edit→Bash turns mutate a real file through print mode', async () => {
     const target = join(project, 'greet.txt');
     writeFileSync(target, 'Hello, world\n', 'utf8');

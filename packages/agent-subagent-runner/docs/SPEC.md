@@ -12,7 +12,7 @@ Applications that do not use subagents should not carry this dependency.
 ## Boundaries
 
 - Depends on `@robota-sdk/agent-core`, `@robota-sdk/agent-executor`, `@robota-sdk/agent-framework`,
-  `@robota-sdk/agent-interface-transport`, and `@robota-sdk/agent-process`. **ARCH-021 removed the
+  `@robota-sdk/agent-interface-execution`, and `@robota-sdk/agent-process`. **ARCH-021 removed the
   `@robota-sdk/agent-builtin-providers` edge**: a neutral runner must not compose the product's surface.
 - Must NOT import from `@robota-sdk/agent-command` or `@robota-sdk/agent-cli`.
 - Must NOT import from `@robota-sdk/agent-session` directly — session lifecycle is accessed through
@@ -27,15 +27,15 @@ Applications that do not use subagents should not carry this dependency.
   lives on disk — that is a property of the packaging step, which the composition root states.
 - Does NOT own subagent lifecycle state machines — those live in `agent-executor`.
 - Does NOT own provider creation contracts — `ISerializableProviderProfile` is owned by
-  `agent-interface-transport` (`background-task-contracts.ts`); provider config is received as a
+  `agent-interface-execution` (`background-task-contracts.ts`); provider config is received as a
   serialized profile from the parent and reconstructed in the worker via `agent-provider`.
 - `ISubagentRunner`, `ISubagentJobStart`, `ISubagentJobHandle`, `ISubagentWorktreeAdapter`,
   `createWorktreeSubagentRunner`, `createProviderFromProfile`, and `BackgroundTaskError` are
   consumed from `@robota-sdk/agent-executor`.
 - ARCH-031: `ISubagentSpawnRequest` and `ISubagentJobResult` are consumed from
-  `@robota-sdk/agent-interface-transport`, their SSOT — they are derived from the background-task
+  `@robota-sdk/agent-interface-execution`, their SSOT — they are derived from the background-task
   contracts there and are no longer exported by `agent-executor`.
-- `ISerializableProviderProfile` is consumed from `@robota-sdk/agent-interface-transport` (its SSOT).
+- `ISerializableProviderProfile` is consumed from `@robota-sdk/agent-interface-execution` (its SSOT).
 - `IAgentDefinition`, `IInProcessSubagentRunnerDeps`, `TSubagentRunnerFactory`,
   `getBuiltInAgent`, `createSubagentSession`, `createSubagentLogger` are
   consumed from `@robota-sdk/agent-framework`.
@@ -99,9 +99,9 @@ package carries no concrete git/filesystem dependency.
 | `ISubagentRunner` (consumed)              | interface         | agent-executor            | Port implemented by `ChildProcessSubagentRunner`                                                                                                                                      |
 | `ISubagentJobStart` (consumed)            | interface         | agent-executor            | Input to `runner.start()`                                                                                                                                                             |
 | `ISubagentJobHandle` (consumed)           | interface         | agent-executor            | Return value of `runner.start()`                                                                                                                                                      |
-| `ISubagentJobResult` (consumed)           | interface         | agent-interface-transport | Result shape resolved by `ISubagentJobHandle.result`                                                                                                                                  |
-| `ISubagentSpawnRequest` (consumed)        | interface         | agent-interface-transport | Spawn request embedded in `ISubagentWorkerStartPayload.request`                                                                                                                       |
-| `ISerializableProviderProfile` (consumed) | interface         | agent-interface-transport | Serialized provider profile sent to worker; SSOT in `agent-interface-transport` (NOT agent-executor, NOT agent-framework)                                                             |
+| `ISubagentJobResult` (consumed)           | interface         | agent-interface-execution | Result shape resolved by `ISubagentJobHandle.result`                                                                                                                                  |
+| `ISubagentSpawnRequest` (consumed)        | interface         | agent-interface-execution | Spawn request embedded in `ISubagentWorkerStartPayload.request`                                                                                                                       |
+| `ISerializableProviderProfile` (consumed) | interface         | agent-interface-execution | Serialized provider profile sent to worker; SSOT in `agent-interface-execution` (NOT agent-executor, NOT agent-framework)                                                             |
 | `ISubagentWorktreeAdapter` (consumed)     | interface         | agent-executor            | Worktree isolation adapter injected via `worktreeAdapter` option                                                                                                                      |
 | `IAgentDefinition` (consumed)             | interface         | agent-framework           | Agent definition resolved from registry or built-in catalog                                                                                                                           |
 | `IInProcessSubagentRunnerDeps` (consumed) | interface         | agent-framework           | Dependency bag injected into runner constructor by factory                                                                                                                            |
@@ -231,9 +231,9 @@ process boundary.
 | `ISubagentRunner` (agent-executor)                         | `ChildProcessSubagentRunner`              | Interface implemented by this package                                                 |
 | `ISubagentJobStart` (agent-executor)                       | `runner.start()`                          | Input job descriptor                                                                  |
 | `ISubagentJobHandle` (agent-executor)                      | return of `runner.start()`                | Lifecycle handle returned to caller                                                   |
-| `ISubagentJobResult` (agent-interface-transport)           | `createChildProcessSubagentResult`        | Resolved value of the result promise                                                  |
-| `ISubagentSpawnRequest` (agent-interface-transport)        | `ISubagentWorkerStartPayload.request`     | Spawn request embedded in IPC start payload                                           |
-| `ISerializableProviderProfile` (agent-interface-transport) | `ISubagentWorkerStartPayload`             | Provider profile serialized into IPC start payload                                    |
+| `ISubagentJobResult` (agent-interface-execution)           | `createChildProcessSubagentResult`        | Resolved value of the result promise                                                  |
+| `ISubagentSpawnRequest` (agent-interface-execution)        | `ISubagentWorkerStartPayload.request`     | Spawn request embedded in IPC start payload                                           |
+| `ISerializableProviderProfile` (agent-interface-execution) | `ISubagentWorkerStartPayload`             | Provider profile serialized into IPC start payload                                    |
 | `ISubagentWorktreeAdapter` (agent-executor)                | `options.worktreeAdapter`                 | Required injected adapter (no concrete-git default; supplied by the composition root) |
 | `createWorktreeSubagentRunner` (agent-executor)            | `createChildProcessSubagentRunnerFactory` | Wraps runner with worktree isolation when `worktreeIsolation !== false`               |
 | `createProviderFromProfile` (agent-executor)               | `child-process-subagent-worker.ts`        | Reconstructs provider in worker from serialized profile                               |

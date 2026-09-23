@@ -10,7 +10,7 @@ import {
 import { userPaths } from '../paths.js';
 import { WorkspaceProjectSessionStore } from './workspace-session-store.js';
 
-// Session persistence contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+// Session persistence contracts SSOT relocated to @robota-sdk/agent-interface-session (DATA-001).
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IToolResultSpillStore } from '@robota-sdk/agent-core';

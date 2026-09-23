@@ -1,18 +1,14 @@
-import type {
-  IDagOrchestrationPort,
-  IDagOrchestrationOverwriteRunDraftNodeResultRequest,
-  TDagOrchestrationCreateRunDraftRequest,
-  TDagOrchestrationReplaceRunDraftRequest,
-} from '@robota-sdk/dag-orchestration-client';
+import {
+  decodeOverwriteRunDraftNodeResultInput,
+  decodeSaveRunDraftInput,
+  type IDagError,
+  type IRunDraft,
+  type IRunDraftOperationsPort,
+  type TResult,
+} from '@robota-sdk/dag-core';
 import { rejectUnexpectedArgs, takeStringOption } from './arguments.js';
 import { createCliFailure, isJsonObject, parseJsonArgument } from './json.js';
-import type {
-  IDagCliCommandResult,
-  IDagCliIo,
-  TDagCliOutputPayload,
-  TDagCliValueResult,
-  TJsonObject,
-} from './types.js';
+import type { IDagCliCommandResult, IDagCliIo, TDagCliValueResult, TJsonObject } from './types.js';
 import { FAILURE_EXIT_CODE, SUCCESS_EXIT_CODE, USAGE_ERROR_EXIT_CODE } from './types.js';
 
 const JSON_OPTION = '--json';
@@ -20,7 +16,7 @@ const JSON_OPTION = '--json';
 export async function runRunDraftsCommand(
   command: string | undefined,
   args: readonly string[],
-  client: IDagOrchestrationPort,
+  client: IRunDraftOperationsPort,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {
   if (command === 'create') {
@@ -47,66 +43,60 @@ export async function runRunDraftsCommand(
 
 async function createRunDraftCommand(
   args: readonly string[],
-  client: IDagOrchestrationPort,
+  client: IRunDraftOperationsPort,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {
-  const payload = await readRequiredJsonObject<TDagOrchestrationCreateRunDraftRequest>(
-    args,
-    'run-drafts create',
-    io,
-  );
+  const payload = await readRequiredJsonObject(args, 'run-drafts create', io);
   if (!payload.ok) return { exitCode: USAGE_ERROR_EXIT_CODE, payload: payload.failure };
-  return serverResult(await client.createRunDraft(payload.value));
+  const decoded = decodeSaveRunDraftInput(payload.value);
+  if (!decoded.ok) return usageResult(decoded.error.message);
+  return draftResult(await client.createRunDraft(decoded.value), 201);
 }
 
 async function replaceRunDraftCommand(
   args: readonly string[],
-  client: IDagOrchestrationPort,
+  client: IRunDraftOperationsPort,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {
   const [draftId, ...rest] = args;
   if (!draftId) return usageResult('run-drafts replace requires <draftId>.');
-  const payload = await readRequiredJsonObject<TDagOrchestrationReplaceRunDraftRequest>(
-    rest,
-    'run-drafts replace',
-    io,
-  );
+  const payload = await readRequiredJsonObject(rest, 'run-drafts replace', io);
   if (!payload.ok) return { exitCode: USAGE_ERROR_EXIT_CODE, payload: payload.failure };
-  return serverResult(await client.replaceRunDraft(draftId, payload.value));
+  const decoded = decodeSaveRunDraftInput(payload.value);
+  if (!decoded.ok) return usageResult(decoded.error.message);
+  return draftResult(await client.replaceRunDraft(draftId, decoded.value));
 }
 
 async function resetRunDraftCommand(
   args: readonly string[],
-  client: IDagOrchestrationPort,
+  client: IRunDraftOperationsPort,
 ): Promise<IDagCliCommandResult> {
   const ids = parseDraftAndNodeId(args, 'run-drafts reset');
   if (!ids.ok) return ids.result;
-  return serverResult(await client.resetRunDraftNodeResult(ids.draftId, ids.nodeId));
+  return draftResult(await client.resetRunDraftNodeResult(ids.draftId, ids.nodeId));
 }
 
 async function overwriteRunDraftCommand(
   args: readonly string[],
-  client: IDagOrchestrationPort,
+  client: IRunDraftOperationsPort,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {
   const ids = parseDraftAndNodeId(args, 'run-drafts overwrite');
   if (!ids.ok) return ids.result;
-  const payload = await readRequiredJsonObject<IDagOrchestrationOverwriteRunDraftNodeResultRequest>(
-    ids.rest,
-    'run-drafts overwrite',
-    io,
-  );
+  const payload = await readRequiredJsonObject(ids.rest, 'run-drafts overwrite', io);
   if (!payload.ok) return { exitCode: USAGE_ERROR_EXIT_CODE, payload: payload.failure };
-  return serverResult(
-    await client.overwriteRunDraftNodeResult(ids.draftId, ids.nodeId, payload.value),
+  const decoded = decodeOverwriteRunDraftNodeResultInput(payload.value);
+  if (!decoded.ok) return usageResult(decoded.error.message);
+  return draftResult(
+    await client.overwriteRunDraftNodeResult(ids.draftId, ids.nodeId, decoded.value),
   );
 }
 
-async function readRequiredJsonObject<TValue extends object>(
+async function readRequiredJsonObject(
   args: readonly string[],
   commandName: string,
   io: IDagCliIo,
-): Promise<TDagCliValueResult<TValue>> {
+): Promise<TDagCliValueResult<TJsonObject>> {
   const json = takeStringOption(args, JSON_OPTION);
   if (json.failure) return { ok: false, failure: json.failure };
   if (!json.value) {
@@ -128,7 +118,7 @@ async function readRequiredJsonObject<TValue extends object>(
       failure: createCliFailure('DAG_CLI_USAGE_ERROR', `${commandName} JSON must be an object.`),
     };
   }
-  return { ok: true, value: parsed.value as TJsonObject as TValue };
+  return { ok: true, value: parsed.value };
 }
 
 function parseDraftAndNodeId(
@@ -152,13 +142,11 @@ function parseDraftAndNodeId(
 async function oneArgumentCommand(
   args: readonly string[],
   message: string,
-  operation: (
-    id: string,
-  ) => Promise<{ readonly ok: boolean; readonly payload: TDagCliOutputPayload }>,
+  operation: (id: string) => Promise<TResult<IRunDraft, IDagError>>,
 ): Promise<IDagCliCommandResult> {
   const [id] = args;
   if (!id || args.length > 1) return usageResult(message);
-  return serverResult(await operation(id));
+  return draftResult(await operation(id));
 }
 
 function usageResult(detail: string): IDagCliCommandResult {
@@ -168,12 +156,41 @@ function usageResult(detail: string): IDagCliCommandResult {
   };
 }
 
-function serverResult(response: {
-  readonly ok: boolean;
-  readonly payload: TDagCliOutputPayload;
-}): IDagCliCommandResult {
+function draftResult(
+  result: TResult<IRunDraft, IDagError>,
+  successStatus = 200,
+): IDagCliCommandResult {
+  if (result.ok) {
+    return {
+      exitCode: SUCCESS_EXIT_CODE,
+      payload: { ok: true, status: successStatus, data: { draft: result.value } },
+    };
+  }
+  const status =
+    result.error.code === 'DAG_RUN_DRAFT_NOT_FOUND'
+      ? 404
+      : result.error.code === 'DAG_RUN_DRAFT_INVALID_INPUT'
+        ? 400
+        : result.error.code === 'DAG_RUN_DRAFT_STORAGE_ERROR' ||
+            result.error.code === 'DAG_RUN_DRAFT_SERVER_ERROR'
+          ? 500
+          : 502;
   return {
-    exitCode: response.ok ? SUCCESS_EXIT_CODE : FAILURE_EXIT_CODE,
-    payload: response.payload,
+    exitCode: FAILURE_EXIT_CODE,
+    payload: {
+      ok: false,
+      status,
+      errors: [
+        {
+          type: `urn:robota:problems:dag-cli:${result.error.code.toLowerCase()}`,
+          title: 'Run draft operation failed',
+          status,
+          detail: result.error.message,
+          instance: 'robota-dag',
+          code: result.error.code,
+          retryable: result.error.retryable,
+        },
+      ],
+    },
   };
 }

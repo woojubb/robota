@@ -299,6 +299,7 @@ describe('InteractiveSession skill activation common API', () => {
       'agent: Explore',
       'allowed-tools: Read',
       'effort: high',
+      'model: skill-selected-model',
     ]);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
@@ -311,6 +312,7 @@ describe('InteractiveSession skill activation common API', () => {
       description: 'Read-only explorer',
       systemPrompt: 'Explore the codebase.',
       disallowedTools: ['Write', 'Edit'],
+      model: 'agent-default-model',
     };
 
     storeAgentToolDeps(parentSession, {
@@ -343,11 +345,13 @@ describe('InteractiveSession skill activation common API', () => {
           tools: ['Read'],
           disallowedTools: ['Write', 'Edit'],
           effort: 'high',
+          model: 'skill-selected-model',
         }),
         isForkWorker: true,
       }),
     );
     expect(mocks.forkRun).toHaveBeenCalledWith(expect.stringContaining('Audit src/index.ts'));
+    expect(exploreAgent.model).toBe('agent-default-model');
     expect(complete).toHaveBeenCalledWith(expect.objectContaining({ response: 'fork result' }));
     expect(session.getMessages().map((message) => message.content)).toContain(
       '/audit src/index.ts',

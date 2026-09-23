@@ -8,6 +8,9 @@
 
 import { decodeDagDefinition, type IDagDefinition } from '@robota-sdk/dag-core';
 
+/** Maximum number of nested DAG boundaries supported by composite nodes. */
+export const MAX_COMPOSITE_DEPTH = 3;
+
 /** Mirrors `IExposedInputPort` / `IExposedOutputPort` in `index.ts` without importing the module graph. */
 interface IExposedPortShape {
   readonly key: string;
@@ -71,7 +74,13 @@ export function decodePersistedComposite(
     exposedOutputPorts.push(port);
   }
   const maxDepth = record['maxDepth'];
-  if (maxDepth !== undefined && (typeof maxDepth !== 'number' || !Number.isFinite(maxDepth))) {
+  if (
+    maxDepth !== undefined &&
+    (typeof maxDepth !== 'number' ||
+      !Number.isInteger(maxDepth) ||
+      maxDepth < 0 ||
+      maxDepth > MAX_COMPOSITE_DEPTH)
+  ) {
     return null;
   }
   return {

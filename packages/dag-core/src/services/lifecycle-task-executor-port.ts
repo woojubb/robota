@@ -8,7 +8,11 @@ import type {
   ITaskExecutorPort,
   TTaskExecutionResult,
 } from '../interfaces/ports.js';
-import type { INodeLifecycleFactory, INodeManifestRegistry } from '../types/node-lifecycle.js';
+import type {
+  IDagExecutionLineage,
+  INodeLifecycleFactory,
+  INodeManifestRegistry,
+} from '../types/node-lifecycle.js';
 import { buildValidationError } from '../utils/error-builders.js';
 
 /**
@@ -22,6 +26,7 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
   public constructor(
     private readonly nodeManifestRegistry: INodeManifestRegistry,
     lifecycleFactory?: INodeLifecycleFactory,
+    private readonly lineage?: IDagExecutionLineage,
   ) {
     this.lifecycleFactory = lifecycleFactory ?? new MissingNodeLifecycleFactory();
     this.runner = new NodeLifecycleRunner(this.lifecycleFactory, new RunCostPolicyEvaluator());
@@ -62,6 +67,11 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
         nodeManifest,
         attempt: input.attempt,
         executionPath: input.executionPath,
+        lineage: this.lineage ?? {
+          rootRunId: input.dagRunId,
+          depth: 0,
+          ancestorCompositeNodeTypes: [],
+        },
         runCreditLimit: input.costPolicy?.runCreditLimit,
         currentTotalCredits: input.currentTotalCredits ?? 0,
         ...(input.runtimeBaseUrl !== undefined ? { runtimeBaseUrl: input.runtimeBaseUrl } : {}),

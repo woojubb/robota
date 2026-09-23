@@ -135,4 +135,44 @@ describe('HeadlessInteractionChannel session options', () => {
     const options = sessionCtorSpy.mock.calls[0]?.[0] as { model?: string };
     expect(options.model).toBeUndefined();
   });
+
+  it('forwards the resolved organization policy unchanged to the session', async () => {
+    const orgPolicy = { blockedCommands: ['clear'], adminContact: 'ops@example.test' };
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      outputFormat: 'text',
+      orgPolicy,
+      shellExec: () => '',
+    } as never);
+
+    await channel.run('hello');
+
+    expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({ orgPolicy });
+  });
+
+  it('preserves print preset generation and prompt capabilities at the session boundary', async () => {
+    const responseFormat = { type: 'json_object' as const };
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      outputFormat: 'text',
+      temperature: 0.37,
+      maxOutputTokens: 481,
+      language: 'ko',
+      presetSystemPrompt: 'Preset seed',
+      responseFormat,
+      shellExec: () => '',
+    });
+
+    await channel.run('hello');
+
+    expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({
+      temperature: 0.37,
+      maxOutputTokens: 481,
+      language: 'ko',
+      presetSystemPrompt: 'Preset seed',
+      responseFormat,
+    });
+  });
 });

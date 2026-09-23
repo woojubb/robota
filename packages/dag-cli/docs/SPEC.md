@@ -8,7 +8,7 @@ Local-first command-line workflow tool for building, running, and inspecting Rob
 
 The private internal CLI requires Node.js 22.14 or later for its `node:sqlite` local run history.
 
-- Does not own DAG domain contracts. Those belong to `@robota-sdk/dag-core`.
+- Does not own DAG domain contracts. Cost management is owned by `@robota-sdk/dag-cost`; other domain contracts belong to `@robota-sdk/dag-core`.
 - Does not own operational HTTP client contracts. Those belong to `@robota-sdk/dag-orchestration-client`.
 - Does not own server-side API problem detail mapping. That belongs to `@robota-sdk/dag-api`.
 - Does not import or extend `@robota-sdk/agent-cli`; the agent TUI remains a separate thin UI.
@@ -21,7 +21,7 @@ The private internal CLI requires Node.js 22.14 or later for its `node:sqlite` l
 - `runner.ts` parses argv, applies environment/default config, dispatches the local-first top-level commands, and writes JSON output.
 - `src/commands/` holds one handler module per top-level command (see Command Surface).
 - `src/local-runner/` executes DAGs in-process by composing a runtime via `createExecutionComposition` from `@robota-sdk/dag-framework` over `dag-adapters-local` adapters; `createCliNodeRegistry()` supplies the built-in node definitions.
-- `@robota-sdk/dag-builder` supplies pipeline/spec build and workflow-file conversion helpers (`buildDagFromPipeline`, `fromDagWorkflowFile`, `isWorkflowFileFormat`) used by the build/convert/explain/view/migrate/cost commands.
+- `@robota-sdk/dag-builder` owns the total `decodeDagFile` import boundary for both supported JSON disk formats. All twelve CLI JSON DAG read sites (run stdin/URL/file, view, cost, explain, benchmark, fix, studio, diff, validate, and lint) call it before using an `IDagDefinition`; command-specific IO, optional companions, and error presentation stay in the CLI. Structurally valid definitions still reach command-owned semantic validation, lint findings, and diff rendering. Other builder helpers serve authoring and conversion.
 - `@robota-sdk/dag-orchestration-client` owns the shared `DagOrchestrationHttpClient` used for HTTP server-mode calls.
 - `json.ts` owns JSON parsing, file input decoding, and JSON output formatting.
 - `src/utils/temp-workspace.ts` owns `withTempWorkspace(prefix, fn)` — the single sanctioned way for
@@ -110,6 +110,11 @@ When a server URL is configured, unmatched commands fall through to `dispatchDag
 proxies the orchestration command groups to a compatible DAG orchestration HTTP server (e.g. `@robota-sdk/dag-runtime-server`) over HTTP:
 
 - `assets upload|get|download`
+
+`assets download` streams to a private temporary file beside the requested output, then replaces
+the destination only after the stream completes. A failed transfer leaves an existing output intact
+and reports `DAG_CLI_ASSET_DOWNLOAD_FAILED` without exposing a source path.
+
 - `cost-meta list|get|create|update|delete|validate|preview`
 - `definitions list|get|create|publish`
 - `nodes list`
@@ -117,7 +122,10 @@ proxies the orchestration command groups to a compatible DAG orchestration HTTP 
 - `run-drafts create|get|replace|reset|overwrite`
 - `workflows start <dagId> [--version <version>] [--json <json|@file>]`
 
-Output is JSON. Success responses are printed as returned by the server. CLI validation failures use a JSON envelope with `ok: false`, `status: 2`, and a single problem entry.
+Output is JSON. Legacy orchestration success responses are printed as returned by the server. Cost metadata
+and run-draft commands consume their typed domain results and render a consistent JSON success
+or failure envelope; they do not inspect transport envelopes. CLI argument validation failures
+use `ok: false`, `status: 2`, and one problem entry.
 
 ## Workspace (FLOW-007)
 
@@ -156,11 +164,13 @@ Imported from other packages:
 
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload`, `IDagNodeDefinition`, `LifecycleTaskExecutorPort`, `IWorkspaceLayout` from `@robota-sdk/dag-core`
 - `parsePersistedInstantNode`, `rehydrateInstantNode` from `@robota-sdk/dag-node-instant-node` (instant-node reload, DATA-004)
-- `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, asset request aliases, cost metadata request aliases, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
+- `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, asset request aliases, cost metadata request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
+- `IRunDraftOperationsPort`, `ISaveRunDraftInput`, and `IOverwriteRunDraftNodeResultInput` from `@robota-sdk/dag-core`
+- `ICostMetaOperationsPort`, `ICostMeta`, and formula input types from `@robota-sdk/dag-cost`
 - `IDagExecutionComposition`, `IRuntimeRunProgressEventBusPort` from `@robota-sdk/dag-api`
 - `createExecutionComposition` (in-process run composition), `scanWorkspaceCatalog`, `HttpDagRuntimeProvider`, `LocalDagRuntimeProvider` from `@robota-sdk/dag-framework`
 - `createDefaultNodeRegistrySync` (default node catalog) from `@robota-sdk/dag-nodes-default`
-- `buildDagFromPipeline`, `fromDagWorkflowFile`, `isWorkflowFileFormat`, `IDagBuildInput`, `IPipelineNodeSpec` from `@robota-sdk/dag-builder`
+- `buildDagFromPipeline`, `decodeDagFile`, `formatDagFileDecodeFailure`, `IDagBuildInput`, `IPipelineNodeSpec` from `@robota-sdk/dag-builder`
 - `InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort` from `@robota-sdk/dag-adapters-local`
 - `buildNodeDefinitionAssembly`, `StaticNodeLifecycleFactory`, `StaticNodeManifestRegistry`, `StaticNodeTaskHandlerRegistry` from `@robota-sdk/dag-node`
 - Node definition classes from `@robota-sdk/dag-node-*` packages
@@ -185,7 +195,7 @@ The barrel (`src/index.ts`) exports exactly:
 
 The following are **package-internal** (not exported by the barrel):
 
-- `LocalDagRunner` — in-process DAG runner that embeds the runtime, worker, and adapters without a server (`src/local-runner/`). Its constructor requires the product-selected trusted absolute execution root and propagates it to every node; it has no ambient fallback.
+- `LocalDagRunner` — in-process DAG runner that embeds the runtime, worker, and adapters without a server (`src/local-runner/`). Its constructor requires the product-selected trusted absolute execution root and propagates it to every node; it has no ambient fallback. A reconstructed composite runner passes trusted parent lineage into the child runner so nested depth and ancestry are preserved.
 - `createCliNodeRegistry()` — returns all built-in node definitions for use with `LocalDagRunner` (`src/local-runner/`).
 - `computeLineDiff(before, after, options?)` — LCS-based line diff utility (`src/lib/line-diff.ts`).
 - `getMainOutput(result)` — extracts primary string output from a run result for diff comparison.
@@ -240,6 +250,7 @@ None.
   credentials or rebinding HOME. A built regression runs the actual physical binary after the
   owning build and compares its reported version with the owner manifest; Node filesystem
   permissions allow only repository reads and disposable-workspace reads/writes.
+- DAG-004 regressions feed invalid status and unknown JSON shapes through all twelve JSON DAG read sites; file-command tests also assert malformed nested field paths. The decoder and diff tests cover both supported disk formats. Command-specific tests assert existing exit and output contracts (including JSON parse-error envelopes for validate/lint); studio returns HTTP 400. Structurally valid DAGs still produce semantic validation and lint findings, and diff retains its normal rendering. Companion-bearing commands retain their companion behavior.
 - Unit tests cover command parsing, server URL resolution, file JSON payloads, run creation payloads, run draft routing, published workflow version/override routing, asset upload/metadata/content download routing, cost metadata CRUD/formula routing, cost metadata argument validation, and JSON output.
 - IO-isolated command tests inject a fake fetch and fake file reader; the doctor regressions
   above instead exercise real disposable filesystem state without network requests.

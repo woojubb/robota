@@ -5,8 +5,8 @@ import type {
 } from '@robota-sdk/agent-interface-command';
 import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
 
-// ICommandListEntry SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
-// TCommandInvocationSource SSOT relocated to @robota-sdk/agent-interface-transport (REMOTE-003).
+// ICommandListEntry SSOT relocated to @robota-sdk/agent-interface-command (DATA-001).
+// TCommandInvocationSource SSOT relocated to @robota-sdk/agent-interface-command (REMOTE-003).
 
 export type { ICommandListEntry, TCommandInvocationSource };
 

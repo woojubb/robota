@@ -78,18 +78,40 @@ interface IProfileDefinition<P extends TFrontmatterProfile> {
   ) => TMetadataDecodeResult<IFrontmatterMetadataByProfile[P]>;
 }
 
+function decodeSkillWithModelScope<M extends ISkillFrontmatter>(
+  context: IDecodeContext,
+  contents: ParsedNode,
+  appliers: Readonly<Record<string, TFieldApplier<M>>>,
+  empty: () => M,
+): TMetadataDecodeResult<M> {
+  const decoded = decodeProfileMap(context, contents, appliers, empty);
+  if (!decoded.ok || decoded.value.model === undefined || decoded.value.context === 'fork') {
+    return decoded;
+  }
+  const modelPair = isMap(contents)
+    ? contents.items.find((pair) => scalarString(pair.key) === 'model')
+    : undefined;
+  return failure([
+    diagnosticAtNode(context, modelPair?.value ?? contents, {
+      code: 'invalid-value',
+      field: 'model',
+      expected: 'context: fork when model is set',
+    }),
+  ]);
+}
+
 function decodeSkillProfile(
   context: IDecodeContext,
   contents: ParsedNode,
 ): TMetadataDecodeResult<ISkillFrontmatter> {
-  return decodeProfileMap(context, contents, SKILL_FIELD_APPLIERS, () => ({}));
+  return decodeSkillWithModelScope(context, contents, SKILL_FIELD_APPLIERS, () => ({}));
 }
 
 function decodeBundleSkillProfile(
   context: IDecodeContext,
   contents: ParsedNode,
 ): TMetadataDecodeResult<IBundleSkillFrontmatter> {
-  return decodeProfileMap(context, contents, BUNDLE_SKILL_FIELD_APPLIERS, () => ({}));
+  return decodeSkillWithModelScope(context, contents, BUNDLE_SKILL_FIELD_APPLIERS, () => ({}));
 }
 
 function decodeAgentProfile(

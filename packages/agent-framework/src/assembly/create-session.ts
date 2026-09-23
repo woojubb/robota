@@ -32,6 +32,7 @@ import type {
   TSessionConstructorWithAutoCompact,
 } from './create-session-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { IHookDefinitionSource } from '../config/config-merge.js';
 import type { THooksConfig, TGuardrail } from '@robota-sdk/agent-core';
 
 export type { ICreateSessionOptions, ICreateSessionResult } from './create-session-types.js';
@@ -95,7 +96,10 @@ function resolveGuardrailHooks(
  * propagating async through it would break every consumer that builds a session without supplying
  * `defaultTools`, which is the zero-config contract this whole extraction exists to preserve.
  */
-export async function createSession(options: ICreateSessionOptions): Promise<ICreateSessionResult> {
+export async function createSession(
+  options: ICreateSessionOptions,
+  hookSources: readonly IHookDefinitionSource[] = [],
+): Promise<ICreateSessionResult> {
   if (!options.provider) {
     throw new Error(
       'provider is required. SDK is provider-neutral — consumer must create and pass a provider instance.',
@@ -148,7 +152,7 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
 
   // Issue #2245: a declared hook type with no executor would validate and then deny every tool
   // call (SEC-016). Refuse it here, before any turn, naming the type and the option it needs.
-  assertConfiguredHookTypesExecutable(resolvedHooks, hookTypeExecutors);
+  assertConfiguredHookTypesExecutable(resolvedHooks, hookTypeExecutors, hookSources);
 
   const { agentToolDeps, agentDefinitions, backgroundTaskManager } = buildAgentRuntime(
     options,

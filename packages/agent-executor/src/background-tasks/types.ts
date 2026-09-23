@@ -2,7 +2,7 @@
  * Background-task runtime SPI (runner/manager ports, handles, error class).
  *
  * The task DATA contracts (statuses, states, events, requests, results, log pages) moved
- * to `@robota-sdk/agent-interface-transport` (INFRA-025 SSOT) — imported and re-exported
+ * to `@robota-sdk/agent-interface-execution` (INFRA-025 SSOT) — imported and re-exported
  * here for intra-package use; the package's PUBLIC index does not re-export them.
  */
 

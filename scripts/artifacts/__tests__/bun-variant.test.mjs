@@ -58,7 +58,7 @@ it.skipIf(!available)(
         '--eval',
         `
     import { buildBunBinaryGeneration } from ${JSON.stringify(moduleUrl)};
-    await buildBunBinaryGeneration(${JSON.stringify(root)}, ${JSON.stringify(target)});
+    await buildBunBinaryGeneration(${JSON.stringify(root)}, [${JSON.stringify(target)}]);
   `,
       ],
       { encoding: 'utf8' },
@@ -117,7 +117,7 @@ it.skipIf(!available)(
           '--eval',
           `
       import { buildBunBinaryGeneration } from ${JSON.stringify(moduleUrl)};
-      await buildBunBinaryGeneration(${JSON.stringify(root)}, ${JSON.stringify(target)});
+      await buildBunBinaryGeneration(${JSON.stringify(root)}, [${JSON.stringify(target)}]);
     `,
         ],
         { encoding: 'utf8' },

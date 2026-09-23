@@ -1,104 +1,48 @@
 import { join, basename } from 'node:path';
 
-import { isModelEffort, MODEL_EFFORT_VALUES } from '@robota-sdk/agent-core';
+import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
+import { FrontmatterDecodeError } from '../frontmatter/frontmatter-error.js';
 
 import type { ICommandSource, ICommand } from '../command-api/types.js';
 import type { IContributionSource } from '../contributions/index.js';
-import type { TModelEffort } from '@robota-sdk/agent-core';
+import type { ISkillFrontmatter } from '../frontmatter/frontmatter-types.js';
 
-interface IFrontmatter {
-  name?: string;
-  description?: string;
-  argumentHint?: string;
-  disableModelInvocation?: boolean;
-  userInvocable?: boolean;
-  allowedTools?: string[];
-  model?: string;
-  effort?: TModelEffort;
-  context?: string;
-  agent?: string;
-}
-
-/** Known boolean frontmatter keys */
-const BOOLEAN_KEYS = new Set(['disable-model-invocation', 'user-invocable']);
-
-/** Known comma-separated or whitespace-separated list frontmatter keys */
-const LIST_KEYS = new Set(['allowed-tools']);
-
-/** Convert kebab-case to camelCase */
-function kebabToCamel(key: string): string {
-  return key.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
-}
-
-function parseListValue(rawValue: string): string[] {
-  // A plain `','` rather than `/\s*,\s*/`: the padding that regex absorbed is stripped by the `.trim()` below
-  // anyway, and `\s*,` retried its whitespace run from every offset — quadratic on a long run (SEC-003).
-  const separator = rawValue.includes(',') ? ',' : /\s+/;
-  return rawValue
-    .split(separator)
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
-}
-
-/** Parse YAML-like frontmatter between --- markers */
-export function parseFrontmatter(content: string): IFrontmatter | null {
-  const lines = content.split('\n');
-  if (lines[0]?.trim() !== '---') return null;
-
-  const result: Record<string, unknown> = {};
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i]!;
-    if (line.trim() === '---') break;
-
-    const match = line.match(/^([a-z][a-z0-9-]*):\s*(.+)/);
-    if (!match) continue;
-
-    const key = match[1]!;
-    const rawValue = match[2]!.trim();
-    const camelKey = kebabToCamel(key);
-
-    if (BOOLEAN_KEYS.has(key)) {
-      result[camelKey] = rawValue === 'true';
-    } else if (LIST_KEYS.has(key)) {
-      result[camelKey] = parseListValue(rawValue);
-    } else if (key === 'effort') {
-      if (!isModelEffort(rawValue)) {
-        throw new Error(
-          `Invalid frontmatter effort: expected one of ${MODEL_EFFORT_VALUES.join(', ')}; received "${rawValue}"`,
-        );
-      }
-      result[camelKey] = rawValue;
-    } else {
-      result[camelKey] = rawValue;
-    }
-  }
-
-  return Object.keys(result).length > 0 ? (result as IFrontmatter) : null;
+function decodeSkill(
+  content: string,
+  file: string,
+  source: IContributionSource,
+): ISkillFrontmatter {
+  const result = decodeFrontmatter({
+    source: join(source.displayName, file),
+    content,
+    profile: 'skill',
+  });
+  if (!result.ok) throw new FrontmatterDecodeError(result.diagnostics);
+  return result.metadata;
 }
 
 /** Build a command from frontmatter, content, and a fallback name */
 function buildCommand(
-  frontmatter: IFrontmatter | null,
+  frontmatter: ISkillFrontmatter,
   content: string,
   fallbackName: string,
 ): ICommand {
   const cmd: ICommand = {
-    name: frontmatter?.name ?? fallbackName,
-    description: frontmatter?.description ?? `Skill: ${fallbackName}`,
+    name: frontmatter.name ?? fallbackName,
+    description: frontmatter.description ?? `Skill: ${fallbackName}`,
     source: 'skill',
     skillContent: content,
   };
 
-  if (frontmatter?.argumentHint !== undefined) cmd.argumentHint = frontmatter.argumentHint;
-  if (frontmatter?.disableModelInvocation !== undefined)
+  if (frontmatter.argumentHint !== undefined) cmd.argumentHint = frontmatter.argumentHint;
+  if (frontmatter.disableModelInvocation !== undefined)
     cmd.disableModelInvocation = frontmatter.disableModelInvocation;
-  if (frontmatter?.userInvocable !== undefined) cmd.userInvocable = frontmatter.userInvocable;
-  if (frontmatter?.allowedTools !== undefined) cmd.allowedTools = frontmatter.allowedTools;
-  if (frontmatter?.model !== undefined) cmd.model = frontmatter.model;
-  if (frontmatter?.effort !== undefined) cmd.effort = frontmatter.effort;
-  if (frontmatter?.context !== undefined) cmd.context = frontmatter.context;
-  if (frontmatter?.agent !== undefined) cmd.agent = frontmatter.agent;
+  if (frontmatter.userInvocable !== undefined) cmd.userInvocable = frontmatter.userInvocable;
+  if (frontmatter.allowedTools !== undefined) cmd.allowedTools = frontmatter.allowedTools;
+  if (frontmatter.model !== undefined) cmd.model = frontmatter.model;
+  if (frontmatter.effort !== undefined) cmd.effort = frontmatter.effort;
+  if (frontmatter.context !== undefined) cmd.context = frontmatter.context;
+  if (frontmatter.agent !== undefined) cmd.agent = frontmatter.agent;
 
   return cmd;
 }
@@ -117,7 +61,7 @@ function scanSkillsDir(skillsDir: string, source: IContributionSource): ICommand
 
     const content = source.readText(skillFile, 'load skill definition');
     if (content === undefined) continue;
-    const frontmatter = parseFrontmatter(content);
+    const frontmatter = decodeSkill(content, skillFile, source);
     commands.push(buildCommand(frontmatter, content, entry.name));
   }
 
@@ -136,7 +80,7 @@ function scanCommandsDir(commandsDir: string, source: IContributionSource): ICom
     const filePath = join(commandsDir, entry.name);
     const content = source.readText(filePath, 'load command definition');
     if (content === undefined) continue;
-    const frontmatter = parseFrontmatter(content);
+    const frontmatter = decodeSkill(content, filePath, source);
     const fallbackName = basename(entry.name, '.md');
     commands.push(buildCommand(frontmatter, content, fallbackName));
   }
@@ -223,12 +167,29 @@ export interface ISkillSourceInspection {
   readonly roots: readonly ISkillRootInspection[];
 }
 
-function frontmatterSkip(content: string): TSkillSkipReason | undefined {
-  const lines = content.split('\n');
-  if (lines[0]?.trim() !== '---') return 'frontmatter-missing';
-  return lines.slice(1).some((line) => line.trim() === '---')
+function inspectFrontmatter(
+  source: IContributionSource,
+  file: string,
+  content: string,
+): ISkillSourceSkip | undefined {
+  const decoded = decodeFrontmatter({
+    source: join(source.displayName, file),
+    content,
+    profile: 'skill',
+  });
+  if (!decoded.ok) {
+    return {
+      path: file,
+      reason:
+        decoded.diagnostics[0].code === 'unterminated'
+          ? 'frontmatter-unterminated'
+          : 'frontmatter-invalid',
+      detail: new FrontmatterDecodeError(decoded.diagnostics).message,
+    };
+  }
+  return content.split('\n')[0]?.trim() === '---'
     ? undefined
-    : 'frontmatter-unterminated';
+    : { path: file, reason: 'frontmatter-missing' };
 }
 
 function inspectRoot(
@@ -260,23 +221,9 @@ function inspectRoot(
       skipped.push({ path: file, reason: 'unreadable' });
       continue;
     }
-    // The same parse the session runs, first: it reads to EOF whether or not the block is closed,
-    // so a refused value throws there even in an unterminated block. Its throw ends discovery, so
-    // here it is the finding, reported by file, and the entry is not counted as discovered.
-    try {
-      parseFrontmatter(content);
-    } catch (error) {
-      // allow-fallback: the parser's refusal is the finding, never a discovered entry
-      const detail = error instanceof Error ? error.message : String(error);
-      skipped.push({ path: file, reason: 'frontmatter-invalid', detail });
-      continue;
-    }
-    const reason = frontmatterSkip(content);
-    if (reason !== undefined) {
-      // Discovery still registers such a file under its directory name; the finding is that its
-      // frontmatter contributes nothing, which is what a user who wrote one wants to know.
-      skipped.push({ path: file, reason });
-    }
+    const finding = inspectFrontmatter(source, file, content);
+    if (finding !== undefined) skipped.push(finding);
+    if (finding !== undefined && finding.reason !== 'frontmatter-missing') continue;
     discovered.push(kind === 'skills' ? basename(join(file, '..')) : basename(entry.name, '.md'));
   }
   return { ...base, present: true, discovered, skipped };
@@ -285,7 +232,7 @@ function inspectRoot(
 /**
  * The read-only counterpart of `SkillCommandSource.getCommands()`: the same four roots over the same
  * contribution sources, reporting what discovery silently skips — a skill directory without
- * `SKILL.md`, an unreadable definition, a definition whose frontmatter is missing or unterminated.
+ * `SKILL.md`, an unreadable definition, or a missing or refused frontmatter block.
  */
 export function inspectSkillSources(
   sources: readonly IContributionSource[],

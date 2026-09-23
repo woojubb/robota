@@ -61,3 +61,25 @@ describe('assertConfiguredHookTypesExecutable', () => {
     expect(() => assertConfiguredHookTypesExecutable(hooks, BUILTINS)).not.toThrow();
   });
 });
+
+describe('configured hook source diagnostics', () => {
+  it('reports actual contributing sources for an unrunnable type', () => {
+    const hooks = {
+      PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt' as const, prompt: 'verify' }] }],
+    };
+    expect(() =>
+      assertConfiguredHookTypesExecutable(hooks, BUILTINS, [
+        { event: 'PreToolUse', type: 'prompt', source: '/tmp/project/.robota/settings.json' },
+      ]),
+    ).toThrow(/"prompt".*providerFactory.*source.*\/tmp\/project\/.robota\/settings\.json/);
+  });
+
+  it('keeps programmatic configs fail closed without fabricating a source path', () => {
+    const hooks = {
+      PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt' as const, prompt: 'verify' }] }],
+    };
+    expect(() => assertConfiguredHookTypesExecutable(hooks, BUILTINS)).toThrow(
+      /"prompt".*providerFactory/,
+    );
+  });
+});

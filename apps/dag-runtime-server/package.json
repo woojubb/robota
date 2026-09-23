@@ -39,6 +39,7 @@
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-framework": "workspace:*",
     "@robota-sdk/dag-orchestration-client": "workspace:*",
+    "@robota-sdk/dag-cost": "workspace:*",
     "hono": "^4.12.32"
   },
   "devDependencies": {

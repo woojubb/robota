@@ -851,7 +851,7 @@ type directly:
   `IRawProviderResponse.usage`, `IOrchestrationStepResult.usage` — typed `ITokenUsage`.
 - `IPluginExecutionResult.usage` — `Partial<ITokenUsage>`; `convertUsage` accepts
   `Partial<ITokenUsage>` and returns the full triple.
-- Downstream: `agent-interface-transport`'s `IBackgroundTaskUsage` is an alias; `agent-executor`'s
+- Downstream: `agent-interface-execution`'s `IBackgroundTaskUsage` is an alias, and its
   `ISubagentJobResult.usage` and `agent-remote-client`'s message/response usage fields reference it.
 
 (`IMessageTokenUsage`/`IContextTokenUsage` below are a DIFFERENT granularity — provider-side

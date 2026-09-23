@@ -108,6 +108,10 @@ export class SessionExecutionController {
     return this.pending.clear();
   }
 
+  removePendingWake(wakeTaskId: string): boolean {
+    return this.pending.removeWake(wakeTaskId);
+  }
+
   clearStreaming(): void {
     this.streamingText = '';
     this.activeTools = [];

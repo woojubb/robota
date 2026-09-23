@@ -22,7 +22,11 @@ import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-to
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { SessionTerminalHandoffGate } from './interactive-session-terminal-handoff.js';
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
-import { publicTurnOptions, submitNewTurn } from './interactive-session-turn-submission.js';
+import {
+  StoppedWakeSubmissionError,
+  publicTurnOptions,
+  submitNewTurn,
+} from './interactive-session-turn-submission.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
@@ -152,6 +156,7 @@ export class InteractiveSession
   protected readonly histTracker: SessionHistoryTracker;
   protected readonly skillRouter: SessionSkillRouter;
   protected readonly execCtrl: SessionExecutionController;
+  private readonly stoppedWakeTaskIds = new Set<string>();
   /** GOAL-001: autonomous objective-pursuit controller (inert until a goal is set). */
   private readonly goalController = new GoalController();
   /** SELFHOST-002: plan-mode phase controller (inert until a plan is started). */
@@ -530,8 +535,9 @@ export class InteractiveSession
         this.emit(
           'user_message',
           `[remote-control] input from ${driverId} was dropped — the co-drive queue is full ` +
-            `(max ${maxDepth}). Try again after the current work settles.`,
+          `(max ${maxDepth}). Try again after the current work settles.`,
         ),
+      isWakeStopped: (wakeTaskId) => this.stoppedWakeTaskIds.has(wakeTaskId),
     });
   }
   private async resumeQueuedTurn(entry: IQueuedInput): Promise<void> {
@@ -578,6 +584,7 @@ export class InteractiveSession
    */
   requestWakeup(instruction: string, sourceTaskId: string): boolean {
     if (this.execCtrl.shuttingDown) return false;
+    if (this.stoppedWakeTaskIds.has(sourceTaskId)) return false;
     if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return false;
     this.execCtrl.wakeTaskIds.add(sourceTaskId);
     // RUNTIME-26: the wake turn runs detached — route its rejection to reportBackgroundError instead of
@@ -585,13 +592,29 @@ export class InteractiveSession
     void this.submitNewTurn(instruction, undefined, undefined, {
       turnSource: 'agent-wakeup',
       wakeTaskId: sourceTaskId,
-    }).catch((error) =>
+    }).catch((error) => {
+      this.execCtrl.wakeTaskIds.delete(sourceTaskId);
+      if (error instanceof StoppedWakeSubmissionError) return;
       this.reportBackgroundError(
         error instanceof Error ? error : new Error(String(error)),
         'agent-wakeup',
-      ),
-    );
+      );
+    });
     return true;
+  }
+
+  override async cancelBackgroundTask(taskId: string, reason?: string): Promise<void> {
+    // Admission must stop before any await: an already-fired wake may still be awaiting initialization.
+    this.stoppedWakeTaskIds.add(taskId);
+    this.execCtrl.removePendingWake(taskId);
+    this.execCtrl.wakeTaskIds.delete(taskId);
+    try {
+      await this.ensureInitialized();
+      await this.bgTracker.cancelTask(taskId, reason);
+    } catch (error) {
+      this.stoppedWakeTaskIds.delete(taskId);
+      throw error;
+    }
   }
 
   abort(): void {

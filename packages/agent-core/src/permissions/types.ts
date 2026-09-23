@@ -37,8 +37,8 @@ export type TPermissionDecision = 'auto' | 'approve' | 'deny';
  * Per-task permission policy for a spawned background / subagent task (CORE-025).
  *
  * SSOT lives here (the permission-logic home) rather than in a transport package, because
- * `agent-interface-transport` → `agent-core` is a one-way dependency; the transport contract
- * (`IAgentBackgroundTaskRequest.permissionPolicy`) imports + re-exports this union.
+ * `agent-interface-transport` → `agent-core` is a one-way dependency. The background-task request
+ * contract in `agent-interface-execution` uses this union for `permissionPolicy` without re-exporting it.
  *
  * - `inherit-allowlist` (default): inherit the parent session allow/deny rules — matched → allow,
  *   unmatched → deny (never prompt). The detached-safe locked-down default.

@@ -40,7 +40,6 @@
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "scenario:verify": "node examples/deepseek-provider-demo.mjs",
-    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-builtin-providers --output examples/scenarios/offline-verify.record.json -- pnpm scenario:verify",
     "lint": "eslint src/ --ext .ts",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"

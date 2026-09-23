@@ -52,6 +52,8 @@ its siblings has exactly one owner module:
   were blind to the workspace's own nodes — which made `build`'s "Next steps: /workflows validate
   `<path>`" hand-off fail with `unknown node type` for every workflow `build` authored with a
   `newNodes` prompt node.) `list` marks the saved ones `[saved in <root>/nodes]`.
+- **Nested composite runs.** The persisted instant-node loader constructs child local providers
+  with the parent run's trusted lineage, so depth and ancestry cannot reset on reload.
 - **Authoring pipeline.** See below.
 
 ### NL authoring pipeline (`create` + `build`, FLOW-007 / WORKFLOW-004)

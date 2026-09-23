@@ -27,6 +27,8 @@ describe('HttpDagRuntimeProvider round-trip against the in-process server', () =
     await framework.start();
     const app = createDagRuntimeServer(
       framework.client,
+      framework.costMeta,
+      framework.runDrafts,
       framework.internals.execution.runProgressEventBus,
     );
     // Route the provider's HTTP + SSE traffic into the in-process Hono app instead of a real socket.

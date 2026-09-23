@@ -1,5 +1,6 @@
 import type {
   IDagDefinition,
+  IDagExecutionLineage,
   IDagNodeDefinition,
   IDagRun,
   ITaskRun,
@@ -45,7 +46,11 @@ export class LocalDagRunner {
   private readonly composition: IDagExecutionComposition;
   private readonly storage: InMemoryStoragePort;
 
-  public constructor(nodeDefinitions: IDagNodeDefinition[], executionRoot: string) {
+  public constructor(
+    nodeDefinitions: IDagNodeDefinition[],
+    executionRoot: string,
+    lineage?: IDagExecutionLineage,
+  ) {
     const trustedExecutionRoot = resolveTrustedExecutionRoot(executionRoot);
     const assemblyResult = buildNodeDefinitionAssembly(nodeDefinitions);
     if (!assemblyResult.ok) {
@@ -59,6 +64,7 @@ export class LocalDagRunner {
     const executor: ITaskExecutorPort = new LifecycleTaskExecutorPort(
       manifestRegistry,
       lifecycleFactory,
+      lineage,
     );
 
     this.storage = new InMemoryStoragePort();

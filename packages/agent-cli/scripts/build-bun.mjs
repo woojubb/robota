@@ -1,10 +1,11 @@
 #!/usr/bin/env bun
 /**
- * DIST-001 — Bun single-binary build for the `robota` CLI. Bun is used for PACKAGING ONLY; the Node path
+ * DIST-001 / RUNTIME-002 — Bun single-binary builds for the full CLI and headless desktop host. Bun is used for PACKAGING ONLY; the Node path
  * (bin/robota.cjs → dist/node/bin.js) is untouched. Run under Bun:
  *
  *   bun scripts/build-bun.mjs            # host target
- *   bun scripts/build-bun.mjs linux-x64  # the exact matching host target
+ *   bun scripts/build-bun.mjs linux-x64  # matching native full CLI target
+ *   bun scripts/build-bun.mjs headless all  # headless desktop targets
  *
  * Prereq: run the normal build first to produce a verified generation containing dist/node/bin.js.
  * Two build-time fixes (see the DIST-001 spec): stub ink's dev-only `react-devtools-core` static import, and
@@ -51,8 +52,8 @@ export function bunTargetForHost(platform = process.platform, arch = process.arc
   return key;
 }
 
-async function compileTarget(entry, outputRoot, version, key) {
-  const name = `robota-${key}${key.startsWith('windows') ? '.exe' : ''}`;
+async function compileTarget(entry, outputRoot, version, key, kind) {
+  const name = `${kind === 'headless' ? 'robota-headless' : 'robota'}-${key}${key.startsWith('windows') ? '.exe' : ''}`;
   // Bun 1.3's returned Blob is not the final executable bytes. Capture its explicitly nominated
   // executable in a fresh compiler spool, separate from the generation tree being verified.
   const compilerRoot = join(dirname(outputRoot), 'bun-emitter');
@@ -63,13 +64,10 @@ async function compileTarget(entry, outputRoot, version, key) {
     target: 'bun',
     compile: { target: TARGETS[key], outfile },
     define: { __ROBOTA_VERSION__: JSON.stringify(version) },
-    plugins: [
-      stubReactDevtools,
-      createKoffiBunPlugin(
-        `${process.platform}-${process.arch}`,
-        new URL('../package.json', import.meta.url),
-      ),
-    ],
+    plugins:
+      kind === 'full'
+        ? [stubReactDevtools, createKoffiBunPlugin(`${process.platform}-${process.arch}`, new URL('../package.json', import.meta.url))]
+        : [],
   });
   if (!result.success) throw new Error(`Bun compile failed: ${result.logs.map(String).join('\n')}`);
   if (result.outputs.length !== 1 || resolve(result.outputs[0].path) !== outfile) {
@@ -82,39 +80,51 @@ async function compileTarget(entry, outputRoot, version, key) {
   return { path: validateArtifactPath(relative(outputRoot, destination)), contents, mode: 0o755 };
 }
 
-export async function buildBunBinaryGeneration(packageRoot, key = bunTargetForHost()) {
-  if (!Object.hasOwn(TARGETS, key)) {
-    throw new Error(`Bun target must be one of: ${Object.keys(TARGETS).join(', ')}`);
+export async function buildBunBinaryGeneration(packageRoot, keys, kind = 'full') {
+  if (kind !== 'full' && kind !== 'headless') throw new Error(`Unknown Bun artifact kind: ${kind}`);
+  if (
+    !keys.length ||
+    new Set(keys).size !== keys.length ||
+    keys.some((key) => !Object.hasOwn(TARGETS, key))
+  ) {
+    throw new Error(`Bun target must be unique and one of: ${Object.keys(TARGETS).join(', ')}`);
   }
-  const hostTarget = bunTargetForHost();
-  if (key !== hostTarget) {
-    throw new Error(`Bun target ${key} does not match the native host ${hostTarget}.`);
+  if (kind === 'full' && (keys.length !== 1 || keys[0] !== bunTargetForHost())) {
+    throw new Error(`Full CLI packaging requires the matching native host ${bunTargetForHost()}.`);
   }
   const manifest = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8'));
-  const outputName = manifest.robota?.artifact?.variants?.bun?.output;
-  if (outputName !== 'dist-bun')
-    throw new Error('Bun output variant must be explicitly declared as dist-bun');
+  const outputName =
+    kind === 'headless'
+      ? manifest.robota?.artifact?.variants?.headless?.output
+      : manifest.robota?.artifact?.variants?.bun?.output;
+  const expectedOutput = kind === 'headless' ? 'dist-bun-headless' : 'dist-bun';
+  if (outputName !== expectedOutput)
+    throw new Error(`Bun output variant must be explicitly declared as ${expectedOutput}`);
   const pinned = pinGeneration(packageRoot);
-  const entry = join(pinned.root, 'node/bin.js');
+  const entry = join(pinned.root, kind === 'headless' ? 'node/headless.js' : 'node/bin.js');
   return assembleGeneration(
     packageRoot,
-    async ({ outputRoot }) =>
-      createManifest([await compileTarget(entry, outputRoot, manifest.version, key)]),
+    async ({ outputRoot }) => {
+      const records = [];
+      for (const key of keys)
+        records.push(await compileTarget(entry, outputRoot, manifest.version, key, kind));
+      return createManifest(records);
+    },
     { outputName },
   );
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const kind = process.argv[2] === 'headless' ? 'headless' : 'full';
+  const argument = process.argv[kind === 'headless' ? 3 : 2];
+  const keys = argument === 'all' ? Object.keys(TARGETS) : [argument ?? bunTargetForHost()];
   try {
-    const arguments_ = process.argv.slice(2);
-    if (arguments_.length > 1) {
-      throw new Error('Bun packaging accepts exactly one target.');
-    }
     const result = await buildBunBinaryGeneration(
       join(dirname(fileURLToPath(import.meta.url)), '..'),
-      arguments_[0],
+      keys,
+      kind,
     );
-    process.stdout.write(`Bun generation ${result.id}: ${result.manifest.files.length} binary\n`);
+    process.stdout.write(`Bun generation ${result.id}: ${result.manifest.files.length} binaries\n`);
   } catch (error) {
     process.stderr.write(`build-bun: ${error.message}\n`);
     process.exitCode = 1;

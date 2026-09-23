@@ -35,7 +35,10 @@ await framework.stop();
 
 ```typescript
 interface IDagFramework {
-  client: IDagOrchestrationPort; // 25-method transport-neutral orchestration port
+  client: IDagOrchestrationPort; // orchestration operations (cost capability is separate)
+  costMeta: ICostMetaOperationsPort; // typed cost capability
+  runDrafts: IRunDraftOperationsPort; // typed create/get/replace/reset/overwrite capability
+  assets: IAssetStore; // domain asset storage and byte streaming
   internals: {
     controllers: IDagControllerComposition;
     execution: IDagExecutionComposition;
@@ -142,6 +145,7 @@ import type {
 ```
 
 - `LocalDagRuntimeProvider` — embeds the runtime, worker, and adapters in-process (no server).
+- On a failed local run, its result retains the terminal task's `errorCode` and `errorRetryable` for nested composite callers.
 - `HttpDagRuntimeProvider` — talks to a native DAG runtime server over HTTP.
 
 #### `ILocalDagRuntimeProviderOptions`
@@ -152,8 +156,9 @@ import type {
 | `nodeRegistry`  | `IDagNodeDefinition[]` | `createDefaultNodeRegistrySync()` | Base node registry. CLI typically passes a registry including LLM/provider-backed nodes.    |
 | `projectDir`    | `string`               | —                                 | DAG project directory (reserved for future local node-file scanning).                       |
 | `workspace`     | `IWorkspaceLayout`     | —                                 | **FLOW-007**: injected workspace layout (root dir + workflow ext) for local node discovery. |
-| `instantNodes`  | `IDagNodeDefinition[]` | —                                 | Instant nodes injected by the caller's composition root.                                   |
+| `instantNodes`  | `IDagNodeDefinition[]` | —                                 | Instant nodes injected by the caller's composition root.                                    |
 | `extraNodes`    | `IDagNodeDefinition[]` | —                                 | Extra nodes appended at the end (test/special-purpose).                                     |
+| `lineage`       | `IDagExecutionLineage` | —                                 | Trusted in-process parent lineage passed to every node in a nested child DAG run.           |
 
 #### `IHttpDagRuntimeProviderOptions`
 
@@ -227,11 +232,19 @@ run waiter itself creates advancement demand.
 
 ### `DagFrameworkOrchestrationAdapter`
 
-In-process implementation of all 25 `IDagOrchestrationPort` methods. Wraps the controller composition directly (no HTTP). Response envelope format mirrors the HTTP client so consumers can use the same orchestration port with either adapter.
+In-process implementation of the remaining `IDagOrchestrationPort` methods. The separate
+`costMeta` capability is implemented by `UnsupportedCostMetaOperations` and returns `TResult` domain values. Until cost persistence and formula
+execution are wired with an explicit policy, all seven cost operations return
+`DAG_COST_META_UNSUPPORTED`; they do not manufacture HTTP 501 responses or URIs.
 
-Uses `IClockPort.nowIso()` for all timestamp generation (deterministic in tests).
+The separate `runDrafts` capability implements the five draft editing operations through the
+injected `IRunDraftStore` and `IClockPort`, returns `TResult<IRunDraft, IDagError>`, and never
+manufactures HTTP status codes or route URIs. Missing drafts return `DAG_RUN_DRAFT_NOT_FOUND`.
 
-Not-yet-implemented methods return `{ status: 501, ... NOT_IMPLEMENTED_IN_FRAMEWORK ... }`.
+Remaining orchestration methods still use their existing HTTP-shaped response contract.
+Asset storage and byte streaming are exposed separately as `framework.assets: IAssetStore`.
+The orchestration adapter does not encode upload bytes, fabricate download URLs, or wrap asset
+metadata in HTTP envelopes. The runtime server owns the JSON/base64 and binary HTTP mapping.
 
 ---
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mergeSettings } from './config-merge.js';
+import { mergeSettings, mergeSettingsWithHookSources } from './config-merge.js';
 
 describe('workspace trust configuration merge', () => {
   it('keeps the most restrictive trust level across layers', () => {
@@ -80,5 +80,53 @@ describe('workspace trust configuration merge', () => {
       baseURL: 'http://127.0.0.1:4318/v1',
       apiKeyEnv: 'LOWER_PROVIDER_KEY',
     });
+  });
+});
+
+describe('hook settings source tracking', () => {
+  it('tracks only effective definitions through per-event merge and disabledHook filtering', () => {
+    const merged = mergeSettingsWithHookSources([
+      {
+        source: '/home/alice/.robota/settings.json',
+        settings: {
+          hooks: {
+            PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt', prompt: 'first' }] }],
+            PostToolUse: [{ matcher: '', hooks: [{ type: 'agent', agent: 'kept-user' }] }],
+          },
+          disabledHooks: ['project-disabled'],
+        },
+      },
+      {
+        source: '.robota/settings.local.json',
+        settings: {
+          hooks: {
+            PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt', prompt: 'second' }] }],
+            PostToolUse: [
+              { id: 'project-disabled', matcher: '', hooks: [{ type: 'agent', agent: 'removed' }] },
+            ],
+          },
+        },
+      },
+      {
+        source: '.claude/settings.json',
+        settings: {
+          hooks: {
+            PostToolUse: [{ matcher: '', hooks: [{ type: 'agent', agent: 'kept-project' }] }],
+          },
+        },
+      },
+    ]);
+
+    expect(merged.settings.hooks?.PreToolUse).toHaveLength(2);
+    expect(merged.settings.hooks?.PostToolUse?.map((group) => group.hooks[0]?.type)).toEqual([
+      'agent',
+      'agent',
+    ]);
+    expect(merged.hookSources).toEqual([
+      { event: 'PreToolUse', type: 'prompt', source: '/home/alice/.robota/settings.json' },
+      { event: 'PostToolUse', type: 'agent', source: '/home/alice/.robota/settings.json' },
+      { event: 'PreToolUse', type: 'prompt', source: '.robota/settings.local.json' },
+      { event: 'PostToolUse', type: 'agent', source: '.claude/settings.json' },
+    ]);
   });
 });

@@ -298,18 +298,26 @@ describe.runIf(process.platform === 'linux')(
 
     const init = (): string =>
       JSON.stringify({
+        schemaVersion: 1,
         timestamp: '2026-05-05T00:00:00.000Z',
         sessionId: 'log-only',
         event: 'session_init',
         cwd: '/work',
+        provider: 'scripted',
+        model: 'scripted',
+        systemPrompt: '',
+        systemPromptLength: 0,
+        toolSchemas: [],
       });
 
     const appendMessage = (message: Record<string, unknown>): string =>
       JSON.stringify({
+        schemaVersion: 1,
         timestamp: '2026-05-05T00:00:01.000Z',
         sessionId: 'log-only',
         event: 'history_mutation',
         mutation: 'append_message',
+        index: 0,
         message,
       });
 

@@ -14,6 +14,7 @@ import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../../assembly/create-session-types.js';
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandHostAdapters } from '../../command-api/host-adapters.js';
+import type { IOrgPolicy } from '../../command-api/org-policy/org-policy-types.js';
 import type { IOutputStylePrompt } from '../../context/output-style-prompt.js';
 import type { IModelEffortResolution } from '../../effort/effort-resolution.js';
 import type { InteractiveSession } from '../../interactive/interactive-session.js';
@@ -29,6 +30,8 @@ import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-sessi
 export interface IHeadlessInteractionChannelOptions {
   cwd: string;
   provider: IAIProvider;
+  /** Resolved organization policy enforced by the interactive session. */
+  orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
   outputFormat: TOutputFormat;
   /**
@@ -41,6 +44,14 @@ export interface IHeadlessInteractionChannelOptions {
   outputStyle?: IOutputStylePrompt;
   /** ARCH-013: resolved preset effort, threaded to the session's `effort` seam. */
   effort?: ICreateSessionOptions['effort'];
+  /** Provider generation options resolved by the print/goal preset. */
+  temperature?: number;
+  maxOutputTokens?: number;
+  /** Response language and preset prompt seed, distinct from a replacing system prompt. */
+  language?: string;
+  presetSystemPrompt?: string;
+  /** Structured response policy, including JSON schema requests. */
+  responseFormat?: ICreateSessionOptions['responseFormat'];
   /** FLOW-008: startup source/effective metadata projected into headless results. */
   effortResolution?: IModelEffortResolution;
   permissionMode?: TPermissionMode;
@@ -136,11 +147,10 @@ export class HeadlessInteractionChannel {
       ((command: string) =>
         execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd());
 
-    // Contained — ARCH-110. This hand-maintained channel-to-session projection can silently omit
-    // optional capabilities such as orgPolicy until ARCH-110 makes the relation mechanical.
     return buildRuntimeSession({
       cwd: this.opts.cwd,
       provider: this.opts.provider,
+      ...(this.opts.orgPolicy !== undefined ? { orgPolicy: this.opts.orgPolicy } : {}),
       ...(this.opts.projectAccess !== undefined ? { projectAccess: this.opts.projectAccess } : {}),
       permissionMode: this.opts.permissionMode ?? 'bypassPermissions',
       // CMD-004 / REMOTE-007 D4a: headless subscribes to none of the session's `ask_request` surface,
@@ -154,6 +164,17 @@ export class HeadlessInteractionChannel {
       ...(this.opts.model !== undefined ? { model: this.opts.model } : {}),
       ...(this.opts.effort !== undefined ? { effort: this.opts.effort } : {}),
       ...(this.opts.outputStyle !== undefined ? { outputStyle: this.opts.outputStyle } : {}),
+      ...(this.opts.temperature !== undefined ? { temperature: this.opts.temperature } : {}),
+      ...(this.opts.maxOutputTokens !== undefined
+        ? { maxOutputTokens: this.opts.maxOutputTokens }
+        : {}),
+      ...(this.opts.language !== undefined ? { language: this.opts.language } : {}),
+      ...(this.opts.presetSystemPrompt !== undefined
+        ? { presetSystemPrompt: this.opts.presetSystemPrompt }
+        : {}),
+      ...(this.opts.responseFormat !== undefined
+        ? { responseFormat: this.opts.responseFormat }
+        : {}),
       sessionStore: this.opts.sessionStore,
       resumeSessionId: this.opts.resumeSessionId,
       forkSession: this.opts.forkSession,

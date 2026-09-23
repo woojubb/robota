@@ -41,6 +41,14 @@ console.log(`${state.usedPercentage.toFixed(1)}% context used`);
 await session.compact('Focus on the API changes');
 ```
 
+## Replay log validation
+
+`FileSessionLogger` writes versioned JSONL. `loadSessionLogEntries` and
+`decodeSessionLogEntries` validate every declared event before replay, including nested messages.
+Unknown events, malformed fields, and unsupported versions raise `SessionLogDecodeError` with safe
+field/line diagnostics. No malformed message is silently dropped or given an invented ID or date.
+Unversioned legacy logs are not accepted; persisted session snapshots keep their existing format.
+
 ## Features
 
 | Feature                    | Description                                                                                                                                                            |

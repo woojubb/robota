@@ -6,6 +6,7 @@ import type {
 } from '@robota-sdk/dag-core';
 import type { IDagCliIo } from '../types.js';
 import { USAGE_ERROR_EXIT_CODE, SUCCESS_EXIT_CODE } from '../types.js';
+import { decodeDagInput } from './decode-dag-input.js';
 
 const OUTPUT_FORMAT_PRETTY = 'pretty';
 const OUTPUT_FORMAT_JSON = 'json';
@@ -125,7 +126,8 @@ async function readDagFile(
     };
   }
 
-  return { ok: true, value: parsed as IDagDefinition };
+  const decoded = decodeDagInput(parsed);
+  return decoded.ok ? decoded : { ok: false, message: `"${filePath}": ${decoded.message}` };
 }
 
 // ---------------------------------------------------------------------------

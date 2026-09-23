@@ -54,6 +54,13 @@ new channel binds adapters to its own session before calling the registry's argu
 Both `IRenderOptions` and `ITuiInteractionChannelOptions` carry the composition root's optional
 `TWorkspaceProjectAccess` decision unchanged. A bare `cwd` is provenance only; omission produces the
 framework's explicit Restricted decision and cannot enable project contribution discovery.
+The same render-to-channel-to-session path forwards the resolved organization policy unchanged, so
+the session enforces `blockedCommands` in the default TUI. Session-capability projections declare
+every field's forwarding, rename (for example `modelId` to `model`), or presentation-only disposition;
+the projection check rejects a missing edge instead of silently dropping an optional field.
+Preset `temperature`, `maxOutputTokens`, `presetSystemPrompt` (a seed, not a replacement), and
+`responseFormat` traverse both render-to-channel and channel-to-session edges.
+CLI-composed `appendSystemPrompt` also traverses render-to-channel and retains its additive meaning.
 The same surfaces forward an optional `EditCheckpointStore`; trusted project access alone never
 creates checkpoint mutation authority inside the TUI.
 

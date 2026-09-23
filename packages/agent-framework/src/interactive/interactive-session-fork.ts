@@ -30,6 +30,7 @@ function resolveForkAgentDefinition(
   const effort = options.effort ?? definition.effort ?? parentSession.getModelEffort();
   return {
     ...definition,
+    ...(options.model ? { model: options.model } : {}),
     ...(options.allowedTools ? { tools: options.allowedTools } : {}),
     ...(effort !== 'auto' ? { effort } : {}),
   };

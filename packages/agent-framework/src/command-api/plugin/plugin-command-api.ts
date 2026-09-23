@@ -1,7 +1,7 @@
 import type { TCommandUiIntent } from '../effects.js';
 import type { ICommandHostAdapterAccess } from '../host-context.js';
 import type { ICommand } from '../types.js';
-// Plugin command adapter contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+// Plugin command adapter contracts SSOT relocated to @robota-sdk/agent-interface-command (DATA-001).
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 
 export type {

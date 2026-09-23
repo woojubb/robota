@@ -53,6 +53,7 @@ describe('runtime tools and scoped submission cancellation', () => {
           ensureInitialized: () => init.promise,
           executeAcceptedTurn: vi.fn(),
           emitDropped: vi.fn(),
+          isWakeStopped: () => false,
         },
       ),
     ).rejects.toThrow(/runtime tool/i);
@@ -90,6 +91,7 @@ describe('runtime tools and scoped submission cancellation', () => {
       ensureInitialized: async () => {},
       executeAcceptedTurn: vi.fn(),
       emitDropped: vi.fn(),
+      isWakeStopped: () => false,
     };
     const own = await submitNewTurn(
       'own',
@@ -127,6 +129,7 @@ describe('runtime tools and scoped submission cancellation', () => {
         ensureInitialized: () => init.promise,
         executeAcceptedTurn,
         emitDropped: vi.fn(),
+        isWakeStopped: () => false,
       },
     );
     await expect(runtime(execCtrl).tools.invokeRuntimeTool('tool', {})).rejects.toThrow(
@@ -157,6 +160,7 @@ describe('runtime tools and scoped submission cancellation', () => {
         execCtrl,
         ensureInitialized: async () => {},
         emitDropped: vi.fn(),
+        isWakeStopped: () => false,
         executeAcceptedTurn: async (entry) => {
           started.resolve(entry);
           await done.promise;

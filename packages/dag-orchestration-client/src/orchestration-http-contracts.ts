@@ -1,8 +1,6 @@
 import type {
   IDagDefinition,
   IPartialRunRequest,
-  IRunDraft,
-  ISaveRunDraftInput,
   TNodeConfigRecord,
   TPortPayload,
 } from '@robota-sdk/dag-core';
@@ -66,6 +64,13 @@ export interface IDagOrchestrationAssetUploadRequest {
   readonly fileName: string;
   readonly mediaType: string;
   readonly base64Data: string;
+}
+
+/** Transport-only asset operations. In-process asset access uses dag-core's IAssetStore. */
+export interface IDagAssetHttpPort {
+  uploadAsset(input: IDagOrchestrationAssetUploadRequest): Promise<IDagOrchestrationHttpResponse>;
+  getAssetMetadata(assetId: string): Promise<IDagOrchestrationHttpResponse>;
+  getAssetContentDownloadInfo(assetId: string): IDagOrchestrationAssetContentDownloadInfo;
 }
 
 export interface IDagOrchestrationAssetReference extends IDagOrchestrationJsonObject {
@@ -160,25 +165,6 @@ export interface IDagOrchestrationCostMetaPreviewSuccessPayload extends IDagOrch
   readonly data: IDagOrchestrationCostMetaPreviewData;
 }
 
-export type TDagOrchestrationCreateRunDraftRequest = ISaveRunDraftInput;
-
-export type TDagOrchestrationReplaceRunDraftRequest = Omit<ISaveRunDraftInput, 'draftId'>;
-
-export interface IDagOrchestrationOverwriteRunDraftNodeResultRequest {
-  readonly input?: TPortPayload;
-  readonly output: TPortPayload;
-}
-
-export interface IDagOrchestrationRunDraftData extends IDagOrchestrationJsonObject {
-  readonly draft: IRunDraft;
-}
-
-export interface IDagOrchestrationRunDraftSuccessPayload extends IDagOrchestrationHttpPayload {
-  readonly ok: true;
-  readonly status: number;
-  readonly data: IDagOrchestrationRunDraftData;
-}
-
 export interface IDagOrchestrationWorkflowOverrideMap {
   readonly [nodeId: string]: TNodeConfigRecord;
 }
@@ -201,9 +187,7 @@ export interface IDagOrchestrationPublishedWorkflowRunSuccessPayload extends IDa
   readonly data: IDagOrchestrationPublishedWorkflowRunData;
 }
 
-/** Transport-neutral orchestration contract. Both the HTTP client and the embedded
- *  in-process adapter implement this interface. Preferred over `IDagOrchestrationPort`
- *  for all new consumers. */
+/** Orchestration compatibility contract. Cost and run-draft editing are separate capabilities. */
 export interface IDagOrchestrationPort {
   listDefinitions(
     input?: IDagOrchestrationListDefinitionsInput,
@@ -218,37 +202,6 @@ export interface IDagOrchestrationPort {
   startRun(preparationId: string): Promise<IDagOrchestrationHttpResponse>;
   getRunStatus(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
   getRunResult(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
-  uploadAsset(input: IDagOrchestrationAssetUploadRequest): Promise<IDagOrchestrationHttpResponse>;
-  getAssetMetadata(assetId: string): Promise<IDagOrchestrationHttpResponse>;
-  getAssetContentDownloadInfo(assetId: string): IDagOrchestrationAssetContentDownloadInfo;
-  listCostMeta(): Promise<IDagOrchestrationHttpResponse>;
-  getCostMeta(nodeType: string): Promise<IDagOrchestrationHttpResponse>;
-  createCostMeta(input: TDagOrchestrationCostMetaRequest): Promise<IDagOrchestrationHttpResponse>;
-  updateCostMeta(
-    nodeType: string,
-    input: TDagOrchestrationCostMetaRequest,
-  ): Promise<IDagOrchestrationHttpResponse>;
-  deleteCostMeta(nodeType: string): Promise<IDagOrchestrationHttpResponse>;
-  validateCostMetaFormula(
-    input: IDagOrchestrationCostMetaValidateRequest,
-  ): Promise<IDagOrchestrationHttpResponse>;
-  previewCostMetaFormula(
-    input: IDagOrchestrationCostMetaPreviewRequest,
-  ): Promise<IDagOrchestrationHttpResponse>;
-  createRunDraft(
-    input: TDagOrchestrationCreateRunDraftRequest,
-  ): Promise<IDagOrchestrationHttpResponse>;
-  getRunDraft(draftId: string): Promise<IDagOrchestrationHttpResponse>;
-  replaceRunDraft(
-    draftId: string,
-    input: TDagOrchestrationReplaceRunDraftRequest,
-  ): Promise<IDagOrchestrationHttpResponse>;
-  resetRunDraftNodeResult(draftId: string, nodeId: string): Promise<IDagOrchestrationHttpResponse>;
-  overwriteRunDraftNodeResult(
-    draftId: string,
-    nodeId: string,
-    input: IDagOrchestrationOverwriteRunDraftNodeResultRequest,
-  ): Promise<IDagOrchestrationHttpResponse>;
   startPublishedWorkflowRun(
     dagId: string,
     input?: IDagOrchestrationPublishedWorkflowRunRequest,

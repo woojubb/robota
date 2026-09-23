@@ -11,23 +11,23 @@
  */
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import {
+  decodeSessionLogEntries,
   resolveSessionLogExternalPayloads,
   SESSION_LOG_EVENT,
   SessionLogPayloadResolutionError,
 } from '@robota-sdk/agent-session';
 
 import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
-import type { ISessionLogEntry } from '@robota-sdk/agent-session';
 import type { IExternalPayloadSource } from '@robota-sdk/agent-session';
 
 export interface IReplayProviderOptions {
   /** Recorded session-log lines (e.g. from `loadSessionLogEntries`). */
-  readonly entries: readonly ISessionLogEntry[];
+  readonly entries: readonly unknown[];
   /** Provider name (default `replay`). */
   readonly name?: string;
   /** Provider version (default `1.0.0`). */
   readonly version?: string;
-  /** Explicit source used only to resolve external payloads in consumed normalized responses. */
+  /** Explicit source for references anywhere in the supplied versioned log. */
   readonly externalPayloadSource?: IExternalPayloadSource;
   /** Maximum nested external-payload references for direct construction or file loading. */
   readonly maxExternalPayloadDepth?: number;
@@ -87,52 +87,46 @@ export class ReplayProvider extends AbstractAIProvider {
 
 /** Pull the normalized provider responses out of recorded session-log lines, in order. */
 function extractRecordedResponses(options: IReplayProviderOptions): TUniversalMessage[] {
-  const recordedValues: unknown[] = [];
-  for (const entry of options.entries) {
-    if (entry.event !== SESSION_LOG_EVENT.providerResponseNormalized) continue;
-    recordedValues.push((entry as { response?: unknown }).response);
-  }
-  const resolvedValues = resolveRecordedResponsePayloads(recordedValues, options);
+  const entries = decodeSessionLogEntries(resolveRecordedEntryPayloads(options.entries, options));
   const responses: TUniversalMessage[] = [];
-  for (const value of resolvedValues) {
-    const normalized = normalizeRecordedMessage(value);
-    if (normalized) responses.push(normalized);
+  for (const entry of entries) {
+    if (entry.event === SESSION_LOG_EVENT.providerResponseNormalized)
+      responses.push(entry.response);
   }
   return responses;
 }
 
-function resolveRecordedResponsePayloads(
+function resolveRecordedEntryPayloads(
   recordedValues: readonly unknown[],
   options: IReplayProviderOptions,
 ): readonly unknown[] {
-  const referencedIndexes: number[] = [];
-  const referencedValues: unknown[] = [];
-  recordedValues.forEach((value, index) => {
-    if (!containsExternalPayloadReference(value)) return;
-    referencedIndexes.push(index);
-    referencedValues.push(value);
-  });
-  if (referencedValues.length === 0) return recordedValues;
+  const referenced = recordedValues.flatMap((value, index) =>
+    containsExternalPayloadReference(value) ? [{ index, value }] : [],
+  );
+  if (referenced.length === 0) return recordedValues;
   if (options.externalPayloadSource === undefined) {
     throw new SessionLogPayloadResolutionError(
       'UNRESOLVED_REFERENCE',
       'ReplayProvider received an unresolved external payload without an explicit source.',
     );
   }
-  const hydrated = resolveSessionLogExternalPayloads(referencedValues, {
-    source: options.externalPayloadSource,
-    maxDepth: options.maxExternalPayloadDepth,
-    maxTotalBytes: options.maxExternalPayloadTotalBytes,
-  });
-  if (!Array.isArray(hydrated) || hydrated.length !== referencedValues.length) {
+  const hydrated = resolveSessionLogExternalPayloads(
+    referenced.map(({ value }) => value),
+    {
+      source: options.externalPayloadSource,
+      maxDepth: options.maxExternalPayloadDepth,
+      maxTotalBytes: options.maxExternalPayloadTotalBytes,
+    },
+  );
+  if (!Array.isArray(hydrated) || hydrated.length !== referenced.length) {
     throw new SessionLogPayloadResolutionError(
       'INVALID_JSON',
-      'Resolved replay responses did not preserve their array envelope.',
+      'Resolved replay entries did not preserve their array envelope.',
     );
   }
   const resolvedValues = [...recordedValues];
-  referencedIndexes.forEach((recordedIndex, hydratedIndex) => {
-    resolvedValues[recordedIndex] = hydrated[hydratedIndex];
+  referenced.forEach(({ index }, hydratedIndex) => {
+    resolvedValues[index] = hydrated[hydratedIndex];
   });
   return resolvedValues;
 }
@@ -145,20 +139,4 @@ function containsExternalPayloadReference(value: unknown, seen = new WeakSet<obj
   return Array.isArray(value)
     ? value.some((child) => containsExternalPayloadReference(child, seen))
     : Object.values(value).some((child) => containsExternalPayloadReference(child, seen));
-}
-
-/** Coerce a JSON-roundtripped recorded message back into a `TUniversalMessage` (Date timestamp etc.). */
-function normalizeRecordedMessage(value: unknown): TUniversalMessage | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
-  const record = value as Record<string, unknown>;
-  const role = record.role;
-  if (role !== 'assistant' && role !== 'user' && role !== 'system' && role !== 'tool') {
-    return undefined;
-  }
-  const id = typeof record.id === 'string' ? record.id : `${role}-replay`;
-  const timestamp =
-    record.timestamp instanceof Date
-      ? record.timestamp
-      : new Date(typeof record.timestamp === 'string' ? record.timestamp : 0);
-  return { ...record, id, role, timestamp } as TUniversalMessage;
 }

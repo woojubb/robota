@@ -13,6 +13,13 @@ export interface INewTurnSubmissionDeps {
   readonly ensureInitialized: () => Promise<void>;
   readonly executeAcceptedTurn: (entry: IQueuedInput) => Promise<void>;
   readonly emitDropped: (driverId: TDriverId, maxDepth: number) => void;
+  readonly isWakeStopped: (wakeTaskId: string) => boolean;
+}
+
+export class StoppedWakeSubmissionError extends Error {
+  constructor(readonly wakeTaskId: string) {
+    super(`Background wake ${wakeTaskId} was stopped before turn admission.`);
+  }
 }
 
 /**
@@ -45,6 +52,9 @@ export async function submitNewTurn(
   try {
     await deps.ensureInitialized();
     if (deps.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
+    if (options.wakeTaskId !== undefined && deps.isWakeStopped(options.wakeTaskId)) {
+      throw new StoppedWakeSubmissionError(options.wakeTaskId);
+    }
     const { driverId, turnId, completed, resolvedOptions, queueBehindRunningTurn } =
       acceptSubmission(options, deps.execCtrl);
     if (options.signal?.aborted) {

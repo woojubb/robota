@@ -87,15 +87,15 @@ describe('listNodes', () => {
   });
 });
 
-describe('cost-meta (not implemented)', () => {
-  it('listCostMeta returns 501', async () => {
-    const res = await framework.client.listCostMeta();
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+describe('cost-meta capability', () => {
+  it('reports unsupported as a domain result, not an HTTP envelope', async () => {
+    const res = await framework.costMeta.listCostMeta();
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
+    expect(res).not.toHaveProperty('status');
   });
 
   it('createCostMeta returns 501', async () => {
-    const res = await framework.client.createCostMeta({
+    const res = await framework.costMeta.createCostMeta({
       nodeType: 'input',
       displayName: 'Input',
       category: 'transform',
@@ -104,46 +104,54 @@ describe('cost-meta (not implemented)', () => {
       enabled: true,
       updatedAt: new Date().toISOString(),
     });
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
   });
 });
 
 describe('run-draft CRUD', () => {
+  it('exposes a domain result capability independent of HTTP representation', async () => {
+    const created = await framework.runDrafts.createRunDraft({
+      definition: MINIMAL_DEFINITION,
+      input: { text: 'hello' },
+    });
+    expect(created.ok).toBe(true);
+    expect(created).not.toHaveProperty('status');
+    if (!created.ok) return;
+    expect(created.value.input).toEqual({ text: 'hello' });
+
+    const found = await framework.runDrafts.getRunDraft(created.value.draftId);
+    expect(found).toEqual(created);
+    expect(await framework.runDrafts.getRunDraft('missing')).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_RUN_DRAFT_NOT_FOUND' },
+    });
+  });
+
   it('creates, retrieves, replaces, and resets drafts', async () => {
     const definition = MINIMAL_DEFINITION;
 
-    const created = await framework.client.createRunDraft({ definition, input: { text: 'hi' } });
+    const created = await framework.runDrafts.createRunDraft({ definition, input: { text: 'hi' } });
     expect(created.ok).toBe(true);
-    expect(created.status).toBe(201);
-    const draftId = (created.payload as { data: { draft: { draftId: string } } }).data.draft
-      .draftId;
+    if (!created.ok) return;
+    const draftId = created.value.draftId;
 
-    const got = await framework.client.getRunDraft(draftId);
+    const got = await framework.runDrafts.getRunDraft(draftId);
     expect(got.ok).toBe(true);
 
-    const replaced = await framework.client.replaceRunDraft(draftId, {
+    const replaced = await framework.runDrafts.replaceRunDraft(draftId, {
       definition,
       input: { text: 'changed' },
     });
     expect(replaced.ok).toBe(true);
 
-    const reset = await framework.client.resetRunDraftNodeResult(draftId, 'n1');
+    const reset = await framework.runDrafts.resetRunDraftNodeResult(draftId, 'n1');
     expect(reset.ok).toBe(true);
   });
 
   it('returns 404 for missing draft', async () => {
-    const res = await framework.client.getRunDraft('no-such-draft');
+    const res = await framework.runDrafts.getRunDraft('no-such-draft');
     expect(res.ok).toBe(false);
-    expect(res.status).toBe(404);
-  });
-});
-
-describe('getAssetContentDownloadInfo', () => {
-  it('returns an inproc URI for the given asset id', () => {
-    const info = framework.client.getAssetContentDownloadInfo('asset-123');
-    expect(info.assetId).toBe('asset-123');
-    expect(info.url).toContain('asset-123');
+    expect(res).toMatchObject({ error: { code: 'DAG_RUN_DRAFT_NOT_FOUND' } });
   });
 });
 
@@ -172,15 +180,14 @@ describe('validateDefinition', () => {
   });
 });
 
-describe('cost-meta not-implemented stubs', () => {
-  it('getCostMeta returns 501', async () => {
-    const res = await framework.client.getCostMeta('input');
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+describe('cost-meta unsupported operations', () => {
+  it('getCostMeta reports an unsupported domain result', async () => {
+    const res = await framework.costMeta.getCostMeta('input');
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
   });
 
-  it('updateCostMeta returns 501', async () => {
-    const res = await framework.client.updateCostMeta('input', {
+  it('updateCostMeta reports an unsupported domain result', async () => {
+    const res = await framework.costMeta.updateCostMeta('input', {
       nodeType: 'input',
       displayName: 'Input',
       category: 'transform',
@@ -189,86 +196,82 @@ describe('cost-meta not-implemented stubs', () => {
       enabled: true,
       updatedAt: new Date().toISOString(),
     });
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
   });
 
-  it('deleteCostMeta returns 501', async () => {
-    const res = await framework.client.deleteCostMeta('input');
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+  it('deleteCostMeta reports an unsupported domain result', async () => {
+    const res = await framework.costMeta.deleteCostMeta('input');
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
   });
 
-  it('validateCostMetaFormula returns 501', async () => {
-    const res = await framework.client.validateCostMetaFormula({
+  it('validateCostMetaFormula reports an unsupported domain result', async () => {
+    const res = await framework.costMeta.validateCostMetaFormula({
       formula: '0',
     });
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
   });
 
-  it('previewCostMetaFormula returns 501', async () => {
-    const res = await framework.client.previewCostMetaFormula({
+  it('previewCostMetaFormula reports an unsupported domain result', async () => {
+    const res = await framework.costMeta.previewCostMetaFormula({
       formula: '0',
       testContext: {},
     });
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
   });
 });
 
 describe('uploadAsset + getAssetMetadata', () => {
-  it('uploads a base64-encoded asset and retrieves its metadata', async () => {
-    const content = Buffer.from('hello asset').toString('base64');
-    const uploaded = await framework.client.uploadAsset({
-      base64Data: content,
+  it('stores bytes and streams them without HTTP envelopes', async () => {
+    const content = Buffer.from('hello asset');
+    const uploaded = await framework.assets.save({
+      content,
       fileName: 'hello.txt',
       mediaType: 'text/plain',
     });
-    expect(uploaded.ok).toBe(true);
-    expect(uploaded.status).toBe(201);
-    const assetId = (uploaded.payload as { data: { asset: { assetId: string } } }).data.asset
-      .assetId;
+    const assetId = uploaded.assetId;
     expect(typeof assetId).toBe('string');
 
-    const meta = await framework.client.getAssetMetadata(assetId);
-    expect(meta.ok).toBe(true);
-    expect(meta.status).toBe(200);
+    const meta = await framework.assets.getMetadata(assetId);
+    expect(meta?.fileName).toBe('hello.txt');
+    const contentResult = await framework.assets.getContent(assetId);
+    expect(contentResult).toBeDefined();
+    if (!contentResult) return;
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of contentResult.stream) chunks.push(chunk);
+    expect(Buffer.concat(chunks).toString()).toBe('hello asset');
   });
 
-  it('getAssetMetadata returns 404 for unknown assetId', async () => {
-    const res = await framework.client.getAssetMetadata('no-such-asset-id');
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(404);
+  it('returns undefined for an unknown assetId', async () => {
+    expect(await framework.assets.getMetadata('no-such-asset-id')).toBeUndefined();
   });
 });
 
 describe('overwriteRunDraftNodeResult', () => {
   it('overwrites a node result in an existing draft', async () => {
-    const created = await framework.client.createRunDraft({
+    const created = await framework.runDrafts.createRunDraft({
       definition: MINIMAL_DEFINITION,
       input: {},
     });
-    const draftId = (created.payload as { data: { draft: { draftId: string } } }).data.draft
-      .draftId;
+    if (!created.ok) return;
+    const draftId = created.value.draftId;
 
-    const res = await framework.client.overwriteRunDraftNodeResult(draftId, 'n1', {
+    const res = await framework.runDrafts.overwriteRunDraftNodeResult(draftId, 'n1', {
       output: { text: 'overwritten' },
     });
     expect(res.ok).toBe(true);
-    expect(res.status).toBe(200);
+    expect(res).not.toHaveProperty('status');
   });
 
   it('returns 404 when draft does not exist', async () => {
-    const res = await framework.client.overwriteRunDraftNodeResult('no-draft', 'n1', {
+    const res = await framework.runDrafts.overwriteRunDraftNodeResult('no-draft', 'n1', {
       output: { text: 'x' },
     });
     expect(res.ok).toBe(false);
-    expect(res.status).toBe(404);
+    expect(res).toMatchObject({ error: { code: 'DAG_RUN_DRAFT_NOT_FOUND' } });
   });
 
   it('preserves existing pendingDescription when overwriting node result', async () => {
-    const created = await framework.client.createRunDraft({
+    const created = await framework.runDrafts.createRunDraft({
       definition: MINIMAL_DEFINITION,
       input: {},
       nodeStateMap: {
@@ -279,17 +282,16 @@ describe('overwriteRunDraftNodeResult', () => {
         },
       },
     });
-    const draftId = (created.payload as { data: { draft: { draftId: string } } }).data.draft
-      .draftId;
+    if (!created.ok) return;
+    const draftId = created.value.draftId;
 
-    const res = await framework.client.overwriteRunDraftNodeResult(draftId, 'n1', {
+    const res = await framework.runDrafts.overwriteRunDraftNodeResult(draftId, 'n1', {
       output: { text: 'result' },
       input: { text: 'input' },
     });
     expect(res.ok).toBe(true);
-    const draft = (res.payload as { data: { draft: { nodeStateMap: Record<string, unknown> } } })
-      .data.draft;
-    expect(draft.nodeStateMap['n1']).toBeDefined();
+    if (!res.ok) return;
+    expect(res.value.nodeStateMap['n1']).toBeDefined();
   });
 });
 

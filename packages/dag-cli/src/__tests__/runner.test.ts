@@ -1,3 +1,6 @@
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { IDagCliRunOptions } from '../runner.js';
 import { runDagCli } from '../runner.js';
@@ -23,7 +26,6 @@ function createDefinition() {
     status: 'draft' as const,
     nodes: [],
     edges: [],
-    metadata: {},
   };
 }
 
@@ -152,7 +154,7 @@ function createOptions(responses: readonly IFakeResponsePayload[]): IDagCliRunOp
       const response = responses[responseIndex] ?? { ok: true, status: 200 };
       responseIndex += 1;
       return new Response(JSON.stringify(response), {
-        status: typeof response.ok === 'boolean' && response.ok ? 200 : 400,
+        status: response.status ?? (response.ok ? 200 : 400),
         headers: { 'content-type': 'application/json' },
       });
     },
@@ -248,12 +250,18 @@ describe('runDagCli', () => {
   });
 
   it('routes run draft commands through shared HTTP contracts', async () => {
+    const draft = {
+      ...createRunDraftInput(),
+      nodeStateMap: {},
+      createdAt: '2026-09-23T00:00:00.000Z',
+      updatedAt: '2026-09-23T00:00:00.000Z',
+    };
     const options = createOptions([
-      { ok: true, status: 201, data: { draft: createRunDraftInput() } },
-      { ok: true, status: 200, data: { draft: createRunDraftInput() } },
-      { ok: true, status: 200, data: { draft: createRunDraftInput() } },
-      { ok: true, status: 200, data: { draft: createRunDraftInput() } },
-      { ok: true, status: 200, data: { draft: createRunDraftInput() } },
+      { ok: true, status: 201, data: { draft } },
+      { ok: true, status: 200, data: { draft } },
+      { ok: true, status: 200, data: { draft } },
+      { ok: true, status: 200, data: { draft } },
+      { ok: true, status: 200, data: { draft } },
     ]);
 
     const createExit = await runDagCli(['run-drafts', 'create', '--json', '@draft.json'], options);
@@ -273,12 +281,45 @@ describe('runDagCli', () => {
       ['POST', `${TEST_SERVER_URL}/v1/dag/run-drafts`],
       ['GET', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201`],
       ['PUT', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201`],
-      ['PUT', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201/nodes/source%20node/reset`],
+      ['POST', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201/nodes/source%20node/reset`],
       ['PUT', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201/nodes/source%20node/result`],
     ]);
     expect(JSON.parse(String(options.requests[0]?.init.body))).toEqual(createRunDraftInput());
     expect(JSON.parse(String(options.requests[2]?.init.body))).toEqual(createRunDraftInput());
     expect(JSON.parse(String(options.requests[4]?.init.body))).toEqual(createNodeResultInput());
+  });
+
+  it('reports run-draft storage failures as internal failures', async () => {
+    const options = createOptions([
+      {
+        ok: false,
+        status: 500,
+        errors: [
+          {
+            code: 'DAG_RUN_DRAFT_STORAGE_ERROR',
+            detail: 'Run draft storage operation failed.',
+          },
+        ],
+      },
+    ]);
+    const exitCode = await runDagCli(['run-drafts', 'get', 'draft-1'], options);
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(options.output.join(''))).toMatchObject({
+      ok: false,
+      status: 500,
+      errors: [{ code: 'DAG_RUN_DRAFT_STORAGE_ERROR', status: 500 }],
+    });
+  });
+
+  it('reports unclassified run-draft server failures as internal failures', async () => {
+    const options = createOptions([{ ok: false, status: 503, errors: [] }]);
+    const exitCode = await runDagCli(['run-drafts', 'get', 'draft-1'], options);
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(options.output.join(''))).toMatchObject({
+      ok: false,
+      status: 500,
+      errors: [{ code: 'DAG_RUN_DRAFT_SERVER_ERROR', status: 500 }],
+    });
   });
 
   it('starts published workflows with version and override JSON through shared HTTP contracts', async () => {
@@ -348,6 +389,55 @@ describe('runDagCli', () => {
     expect(options.binaryWrites[0]?.filePath).toBe('photo.png');
   });
 
+  it('classifies asset transport errors without exposing internal details', async () => {
+    const options = createOptions([]);
+    const exitCode = await runDagCli(['assets', 'download', 'asset-1', '--output', 'asset.bin'], {
+      ...options,
+      fetch: async () => { throw new Error('/private/transport.sock'); },
+    });
+    expect(exitCode).toBe(1);
+    const output = options.output.join('');
+    expect(JSON.parse(output)).toMatchObject({ errors: [{ code: 'DAG_CLI_ASSET_DOWNLOAD_FAILED' }] });
+    expect(output).not.toContain('/private/transport.sock');
+  });
+
+  it('preserves a failed download target and publishes a complete retry', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'robota-dag-download-test-'));
+    const target = path.join(directory, 'asset.bin');
+    try {
+      await writeFile(target, 'original');
+      let readCount = 0;
+      const responseBody = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (readCount++ === 0) controller.enqueue(Buffer.from('partial'));
+          else controller.error(new Error('/private/source.bin'));
+        },
+      });
+      let exitCode = -1;
+      try {
+        exitCode = await runDagCli(['assets', 'download', 'asset-1', '--output', target], {
+          env: { ROBOTA_DAG_SERVER_URL: TEST_SERVER_URL },
+          fetch: async () => new Response(responseBody, { status: 200 }),
+        });
+      } catch {
+        // The pre-fix writer rejects after opening the real destination; still inspect that file.
+      }
+      expect(await readFile(target, 'utf8')).toBe('original');
+      expect(await readdir(directory)).toEqual(['asset.bin']);
+      expect(exitCode).toBe(1);
+
+      const retryExitCode = await runDagCli(['assets', 'download', 'asset-1', '--output', target], {
+        env: { ROBOTA_DAG_SERVER_URL: TEST_SERVER_URL },
+        fetch: async () => new Response(Uint8Array.from([1, 2, 3]), { status: 200 }),
+      });
+      expect(retryExitCode).toBe(0);
+      expect(Array.from(await readFile(target))).toEqual([1, 2, 3]);
+      expect(await readdir(directory)).toEqual(['asset.bin']);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it('routes cost metadata commands through shared HTTP contracts', async () => {
     const meta = createCostMeta();
     const options = createOptions([
@@ -390,13 +480,13 @@ describe('runDagCli', () => {
       previewExit,
     ]).toEqual([0, 0, 0, 0, 0, 0, 0]);
     expect(options.requests.map((request) => [request.init.method, request.url])).toEqual([
-      ['GET', `${TEST_SERVER_URL}/v1/cost-meta`],
-      ['GET', `${TEST_SERVER_URL}/v1/cost-meta/llm%20text%20openai`],
-      ['POST', `${TEST_SERVER_URL}/v1/cost-meta`],
-      ['PUT', `${TEST_SERVER_URL}/v1/cost-meta/llm%20text%20openai`],
-      ['DELETE', `${TEST_SERVER_URL}/v1/cost-meta/llm%20text%20openai`],
-      ['POST', `${TEST_SERVER_URL}/v1/cost-meta/validate`],
-      ['POST', `${TEST_SERVER_URL}/v1/cost-meta/preview`],
+      ['GET', `${TEST_SERVER_URL}/v1/dag/cost-meta`],
+      ['GET', `${TEST_SERVER_URL}/v1/dag/cost-meta/llm%20text%20openai`],
+      ['POST', `${TEST_SERVER_URL}/v1/dag/cost-meta`],
+      ['PUT', `${TEST_SERVER_URL}/v1/dag/cost-meta/llm%20text%20openai`],
+      ['DELETE', `${TEST_SERVER_URL}/v1/dag/cost-meta/llm%20text%20openai`],
+      ['POST', `${TEST_SERVER_URL}/v1/dag/cost-meta/validate`],
+      ['POST', `${TEST_SERVER_URL}/v1/dag/cost-meta/preview`],
     ]);
     expect(JSON.parse(String(options.requests[2]?.init.body))).toEqual(meta);
     expect(JSON.parse(String(options.requests[3]?.init.body))).toEqual(meta);
@@ -419,6 +509,25 @@ describe('runDagCli', () => {
       ok: false,
       status: 2,
       errors: [{ code: 'DAG_CLI_USAGE_ERROR' }],
+    });
+  });
+
+  it('reports an unavailable cost capability without a successful output envelope', async () => {
+    const options = createOptions([
+      {
+        ok: false,
+        status: 501,
+        errors: [{ detail: 'Cost metadata is not wired.' }],
+      },
+    ]);
+
+    const exitCode = await runDagCli(['cost-meta', 'list'], options);
+
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(options.output.join(''))).toMatchObject({
+      ok: false,
+      status: 501,
+      errors: [{ code: 'DAG_COST_META_UNSUPPORTED' }],
     });
   });
 });
