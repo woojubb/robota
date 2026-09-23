@@ -11,7 +11,7 @@ import {
 } from './execution-types';
 import { bindWithOwnerPath } from '../event-service/index';
 
-import type { ExecutionEventEmitter } from './execution-event-emitter';
+import type { IExecutionEventEmitterSurface } from './execution-event-emitter-surface';
 import type { IResolvedProviderInfo } from './execution-types';
 import type { IAgentConfig } from '../interfaces/agent';
 import type { IEventService, IEventContext } from '../interfaces/event-service';
@@ -22,7 +22,7 @@ import type { TUniversalMessage } from '../interfaces/messages';
  * Extracted from ExecutionEventEmitter to reduce file size.
  */
 export function emitExecutionStartEvent(
-  emitter: ExecutionEventEmitter,
+  emitter: IExecutionEventEmitterSurface,
   input: string,
   config: IAgentConfig,
   messages: TUniversalMessage[],
@@ -68,7 +68,7 @@ export function emitExecutionStartEvent(
  * Extracted from ExecutionEventEmitter to reduce file size.
  */
 export function emitUserMessageEvent(
-  emitter: ExecutionEventEmitter,
+  emitter: IExecutionEventEmitterSurface,
   input: string,
   conversationId: string,
   executionId: string,
@@ -108,7 +108,7 @@ export function emitUserMessageEvent(
  * Extracted from ExecutionEventEmitter to reduce file size.
  */
 export function emitAssistantMessageComplete(
-  emitter: ExecutionEventEmitter,
+  emitter: IExecutionEventEmitterSurface,
   baseEventService: IEventService,
   assistantResponse: { content?: string | null; timestamp?: Date },
   executionId: string,
@@ -195,7 +195,7 @@ export function emitAssistantMessageComplete(
  * Extracted from ExecutionEventEmitter to reduce file size.
  */
 export function emitToolResultsEvents(
-  emitter: ExecutionEventEmitter,
+  emitter: IExecutionEventEmitterSurface,
   baseEventService: IEventService,
   assistantToolCalls: Array<{ id?: string }>,
   toolSummary: { results: Array<{ toolName?: string }> },

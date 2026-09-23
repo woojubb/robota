@@ -1,4 +1,4 @@
-import type { TTimerId } from './index';
+import type { TTimerId } from './timer-types';
 import type { ILogger } from './logger';
 
 interface IPeriodicTaskOptions {

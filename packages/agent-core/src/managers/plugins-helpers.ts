@@ -10,7 +10,7 @@ import type {
   IPluginLifecycleEvents,
   IPluginDependency,
   IPluginRegistrationOptions,
-} from './plugins';
+} from './plugins-types';
 import type { AbstractPlugin } from '../abstracts/abstract-plugin';
 import type { ILogger } from '../utils/logger';
 

@@ -7,8 +7,7 @@ import type {
   IPluginStats,
   IPluginErrorContext,
 } from '../abstracts/abstract-plugin';
-import type { IPluginExecutionContext } from '../abstracts/abstract-plugin-types';
-import type { IPluginContext } from '../interfaces/types';
+import type { IPluginExecutionContext, IPluginContext } from '../abstracts/abstract-plugin-types';
 import type { ILogger } from '../utils/logger';
 
 /** Combined plugin type used throughout the execution service */

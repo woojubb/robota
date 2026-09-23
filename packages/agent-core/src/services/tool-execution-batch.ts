@@ -1,6 +1,6 @@
 import { ValidationError } from '../utils/errors';
 
-import type { IToolExecutionBatchContext } from './tool-execution-service';
+import type { IToolExecutionBatchContext } from './tool-execution-batch-types';
 import type { IToolExecutionRequest } from '../interfaces/service';
 import type {
   IToolExecutionResult,

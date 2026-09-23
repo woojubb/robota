@@ -16,20 +16,14 @@ import { createLogger, type ILogger } from '../utils/logger';
 
 import type { ModuleCategory, ModuleLayer } from '../abstracts/abstract-module';
 
-/** Module type validation result */
-export interface IModuleDescriptorValidationResult {
-  valid: boolean;
-  errors: string[];
-  warnings: string[];
-}
-
-/** Module dependency resolution result */
-export interface IModuleDependencyResolution {
-  resolved: boolean;
-  order: string[];
-  circularDependencies: string[][];
-  missingDependencies: string[];
-}
+export type {
+  IModuleDescriptorValidationResult,
+  IModuleDependencyResolution,
+} from './module-type-registry-types';
+import type {
+  IModuleDescriptorValidationResult,
+  IModuleDependencyResolution,
+} from './module-type-registry-types';
 
 /** Module compatibility check result */
 export interface IModuleCompatibilityResult {

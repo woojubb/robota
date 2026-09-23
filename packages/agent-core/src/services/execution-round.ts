@@ -22,13 +22,8 @@ import { callPluginHook } from './plugin-hook-dispatcher';
 import { bindWithOwnerPath } from '../event-service/index';
 import { createSystemMessage } from '../managers/conversation-message-factory';
 
-import type { ExecutionEventEmitter } from './execution-event-emitter';
-import type { TPluginWithHooks } from './plugin-hook-dispatcher';
-import type { ToolExecutionService } from './tool-execution-service';
 import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
 import type { TMessageState } from '../interfaces/messages';
-import type { ILogger } from '../utils/logger';
-import type { ExecutionCacheService } from './cache/execution-cache-service';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 
 export type { IToolResultsOutcome } from './execution-round-tools';
@@ -45,13 +40,8 @@ export {
   getContextCapacityDecision,
 } from './execution-round-context';
 
-export interface IRoundDependencies {
-  toolExecutionService: ToolExecutionService;
-  plugins: ReadonlyArray<TPluginWithHooks>;
-  logger: ILogger;
-  eventEmitter: ExecutionEventEmitter;
-  cacheService?: ExecutionCacheService;
-}
+export type { IRoundDependencies } from './execution-round-types';
+import type { IRoundDependencies } from './execution-round-types';
 
 export async function executeRound(
   roundState: IExecutionRoundState,
