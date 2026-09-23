@@ -813,7 +813,8 @@ Session logging is an SDK-internal concern. The CLI does not configure or manage
 | `@robota-sdk/agent-framework`           | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts                                                                                            |
 | `@robota-sdk/agent-core`                | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                                                                                                                        |
 | `@robota-sdk/agent-builtin-providers`   | `createDefaultProviderDefinitions()` — the default provider definition set composed by the Robota binary (the concrete provider packages `agent-provider-{anthropic,openai,gemini,openai-compatible}` are bundled transitively) |
-| `@robota-sdk/agent-interface-transport` | Transport/interaction contracts (`IInteractionChannel`, session/command contract types)                                                                                                                                         |
+| `@robota-sdk/agent-interface-session`   | Session, interaction, turn, driver, and event contracts                                                                                                                                                                         |
+| `@robota-sdk/agent-interface-transport` | Transport adapters, lifecycle, channels, and admission contracts                                                                                                                                                                |
 | `@robota-sdk/agent-framework`           | `TransportRegistry` (root barrel) for the TUI transport registry                                                                                                                                                                |
 | `@robota-sdk/agent-framework`           | Headless runner for print mode (`-p`) execution                                                                                                                                                                                 |
 | `@robota-sdk/agent-ui-terminal`         | `renderApp()` + `createDefaultTuiCliAdapter()` — the Ink TUI shell                                                                                                                                                              |
@@ -831,6 +832,9 @@ Session logging is an SDK-internal concern. The CLI does not configure or manage
 | `marked`, `marked-terminal`             | Markdown parsing and terminal rendering                                                                                                                                                                                         |
 | `string-width`                          | Unicode-aware string width calculation                                                                                                                                                                                          |
 | `qrcode`                                | Terminal QR rendering for remote-control pairing                                                                                                                                                                                |
+
+Command contract types belong to `@robota-sdk/agent-interface-command`; the CLI composes
+`@robota-sdk/agent-command` modules rather than importing that contract package directly.
 
 The remaining third-party entries in `package.json` `dependencies` (`openai`, `@anthropic-ai/sdk`,
 `@google/genai`, `werift`, `ws`, `zod`, `croner`, `fast-glob`, `jssha`, `open`, `p-limit`,

@@ -98,7 +98,9 @@ session-store.ts          -- NodeSessionStore: explicit host JSON persistence ad
 
 **Dependency direction:**
 
-- `@robota-sdk/agent-session` depends on `@robota-sdk/agent-core` and `@robota-sdk/agent-interface-transport` (SSOT for `ICompactEvent`/`TCompactTrigger`).
+- `@robota-sdk/agent-session` depends on `@robota-sdk/agent-core`, `@robota-sdk/agent-interface-session`
+  (SSOT for `ICompactEvent`/`TCompactTrigger`), and `@robota-sdk/agent-interface-execution`
+  (background-task and group record shapes).
 - No dependency on `@robota-sdk/agent-tools` or `@robota-sdk/agent-provider-anthropic`.
 - Tool and provider assembly is the responsibility of the consuming layer (`agent-framework`).
 - Workspace trust and project-path interpretation are also framework responsibilities. This package owns only
@@ -231,7 +233,7 @@ Types consumed from other packages (not owned here):
 | `TSessionLogDecodeErrorCode`                | Type                 | Stable invalid-JSON, invalid-event, and unsupported-version decode codes                                                                                                                                                                                                |
 
 `ICompactEvent` and `TCompactTrigger` are **not** part of the public API surface. Their SSOT is
-`@robota-sdk/agent-interface-transport` (INFRA-025); `src/session-types.ts` re-exports them
+`@robota-sdk/agent-interface-session` (INFRA-025); `src/session-types.ts` re-exports them
 intra-package for internal use, but they are not surfaced on the public `src/index.ts`.
 
 ### Session Constructor — sessionId Parameter
@@ -365,7 +367,7 @@ only its disposable fixture. Local verification never invokes the production def
 ## The Persisted Session Record Is Decoded, Never Cast (TRANS-005)
 
 `IInteractiveSessionRecord` is persisted and transferred, so it needs a RUNTIME owner and not only a
-compile-time one. The TYPE is owned by `@robota-sdk/agent-interface-transport`; the DECODER is owned
+compile-time one. The TYPE is owned by `@robota-sdk/agent-interface-session`; the DECODER is owned
 here, because an `agent-interface-*` package publishes contracts, vocabulary and discriminators and
 not mechanisms, and because every consumer that will route through it —
 the store, the artifact envelope, the handoff commit and the replay path — is in this package or in
@@ -825,7 +827,7 @@ When `run()` encounters an error (e.g., from the execution loop or provider), th
 
 ### Interface Implementations
 
-`NodeSessionStore` implements the `IInteractiveSessionStore` port owned by `agent-interface-transport`.
+`NodeSessionStore` implements the `IInteractiveSessionStore` port owned by `agent-interface-session`.
 `FileSessionLogger` implements `ISessionLogger`; `NodeSessionLogSource`, `NodeExternalPayloadSource`,
 and `NodeSessionLogSink` implement this package's neutral source/sink ports. Other runtime classes are
 standalone.
@@ -880,7 +882,8 @@ standalone.
 
 ## Dependencies
 
-### Production (2)
+### Production (3)
 
 - `@robota-sdk/agent-core` -- Robota agent, permission system, hook system, core types
-- `@robota-sdk/agent-interface-transport` -- SSOT for `ICompactEvent`/`TCompactTrigger` (imported/re-exported by `src/session-types.ts`)
+- `@robota-sdk/agent-interface-session` -- session record, store, and compaction contracts
+- `@robota-sdk/agent-interface-execution` -- background task and group record contracts

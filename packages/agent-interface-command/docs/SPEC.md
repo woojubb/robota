@@ -22,7 +22,7 @@ It contains type declarations only. No class, no runtime logic, no mechanism.
 | Command _implementations_ and their modules            | `agent-command`, command-module owners          |
 | Command infrastructure and reusable host APIs          | `agent-framework`                               |
 | Rendering a command's result                           | `agent-ui-terminal`, `agent-ui-web`             |
-| Session, interaction, event, turn and driver contracts | `agent-interface-transport` (until issue #2110) |
+| Session, interaction, event, turn and driver contracts | `agent-interface-session`                    |
 | Background task, workspace and subagent contracts      | `agent-interface-execution`                     |
 
 **This package declares what a command IS; it decides nothing about what any command DOES.**
@@ -103,10 +103,10 @@ Beyond that the package declares types and exports no behavior, so the remaining
 is that it compiles, which `pnpm typecheck` makes on every run. Its contracts are exercised by
 `agent-command`, `agent-command-workflows` and the transport surfaces that render command results.
 
-**The command/session boundary test stays in `agent-interface-transport`.**
+**The command/session boundary test stays in `agent-interface-session`.**
 `command-action-split-contracts.test.ts` asserts that a command action and a session event remain
 distinct, so it names types from both sides. Moving it here would make this package's test suite
-depend on the transport package — an **upward** dependency for this Layer 0 package —
+depend on the session package — an **upward** dependency for this Layer 0 package —
 so it lives on the side that can see both and imports command types from here.
 
 ## Class Contract Registry
