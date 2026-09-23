@@ -58,6 +58,7 @@
     "interface-family-owner",
     "interface-imports",
     "interface-runtime",
+    "interface-type-ownership",
     "legacy-typescript",
     "lint-ceiling-declared-vs-frozen",
     "literal-cast-union",

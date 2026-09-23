@@ -220,6 +220,12 @@
     {
       "subject": {
         "kind": "scan",
+        "value": "interface-type-ownership"
+      }
+    },
+    {
+      "subject": {
+        "kind": "scan",
         "value": "harness-config-paths"
       }
     },

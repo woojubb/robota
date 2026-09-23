@@ -86,6 +86,12 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    file: 'scan-interface-type-ownership.mjs',
+    finder: 'findInterfaceTypeOwnershipFindings',
+    tree: 'packages, .agents/specs/contract-family-owner-map.md',
+    why: 'the owner map supplies the contract-package corpus; a missing map or package tree cannot certify any Type Ownership table',
+  },
+  {
     file: 'scan-dag-node-registration-owner.mjs',
     finder: 'findDagNodeRegistrationOwnerFindings',
     tree: 'packages/dag-nodes/docs/SPEC.md',

@@ -1,7 +1,7 @@
 # Contract-Family Owner Map
 
 **Owner:** ARCH-100 (registered as issue #2080, under tracker issue #2068).
-**Parsed by:** `scripts/harness/scan-interface-family-owner.mjs` (`interface-family-owner` scan).
+**Parsed by:** `scripts/harness/scan-interface-family-owner.mjs` (`interface-family-owner` scan) for family ownership, and `scripts/harness/scan-interface-type-ownership.mjs` (`interface-type-ownership` scan) for the package set whose SPEC ownership rows are checked against declarations.
 **Routed from:** [`.agents/project-structure.md`](../project-structure.md) § Interface Package Rule.
 
 `@robota-sdk/agent-interface-transport` is named for transport and owns eleven contract families —
