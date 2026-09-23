@@ -533,8 +533,9 @@ function fetchCloseoutCommentEnvelopes(repository, number, runGh, runtime) {
 function fetchHistoricalBaseAncestry({ repository, pr, mergeDecision, runGh, runtime }) {
   const mergeCommit = String(pr?.mergeCommit?.oid ?? '').toLowerCase();
   if (!/^[0-9a-f]{40}$/u.test(mergeCommit) || !mergeDecision) return null;
+  // The Git database endpoint supplies the parents without embedding every changed-file patch.
   const commit = boundedGhJson(
-    ['api', `repos/${repository}/commits/${mergeCommit}`],
+    ['api', `repos/${repository}/git/commits/${mergeCommit}`],
     runGh,
     runtime,
   );
