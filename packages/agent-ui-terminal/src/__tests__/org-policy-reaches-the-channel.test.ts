@@ -57,7 +57,7 @@ describe('CLI-083: the TUI projection carries the org policy', () => {
     vi.stubEnv('HOME', home);
     let channel: TuiInteractionChannel | undefined;
     try {
-      const policy = loadOrgPolicy();
+      const policy = loadOrgPolicy(join(home, '.robota', 'org-policy.json'));
       expect(policy).not.toBeNull();
       channel = new TuiInteractionChannel(
         toChannelOptions(renderOptions({ cwd: home, orgPolicy: policy ?? undefined })),

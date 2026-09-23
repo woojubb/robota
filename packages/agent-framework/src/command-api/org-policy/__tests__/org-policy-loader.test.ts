@@ -10,19 +10,12 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync, realpathSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { loadOrgPolicy } from '../org-policy-loader.js';
 import { OrgPolicyParseError } from '../org-policy-parse-error.js';
 
 let home = '';
-
-// The loader resolves the policy path from `homedir()`. Mocked at module scope so each case can
-// point it at a directory it controls, rather than writing into the real home.
-vi.mock('node:os', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:os')>();
-  return { ...actual, homedir: (): string => home };
-});
 
 /** Put a policy file in this case's home, or leave the directory empty. */
 function withPolicyFile(contents?: string): void {
@@ -30,12 +23,15 @@ function withPolicyFile(contents?: string): void {
   if (contents !== undefined) writeFileSync(join(home, '.robota', 'org-policy.json'), contents);
 }
 
+function policyPath(): string {
+  return join(home, '.robota', 'org-policy.json');
+}
+
 beforeEach(() => {
   home = realpathSync(mkdtempSync(join(tmpdir(), 'org-policy-')));
 });
 
 afterEach(() => {
-  vi.restoreAllMocks();
   rmSync(home, { recursive: true, force: true });
 });
 
@@ -43,20 +39,20 @@ describe('loadOrgPolicy (issue #2023)', () => {
   it('returns null when no policy is deployed — the common case still does not throw', () => {
     // The `allow-fallback` comment this replaces was right to care about startup. A MISSING file is
     // what it was protecting, and it still returns null.
-    expect(loadOrgPolicy()).toBeNull();
+    expect(loadOrgPolicy(policyPath())).toBeNull();
   });
 
   it('throws when a deployed policy file cannot be parsed, instead of reading as no policy', () => {
     withPolicyFile('{"allowedProviders": ["anthropic"');
 
-    expect(() => loadOrgPolicy()).toThrow(OrgPolicyParseError);
+    expect(() => loadOrgPolicy(policyPath())).toThrow(OrgPolicyParseError);
   });
 
   it('names the file and says policy is not applied, so an administrator can act', () => {
     withPolicyFile('not json at all');
 
-    expect(() => loadOrgPolicy()).toThrow(/org-policy\.json/);
-    expect(() => loadOrgPolicy()).toThrow(/Policy is NOT applied/);
+    expect(() => loadOrgPolicy(policyPath())).toThrow(/org-policy\.json/);
+    expect(() => loadOrgPolicy(policyPath())).toThrow(/Policy is NOT applied/);
   });
 
   it('refuses valid JSON of the wrong shape, which would otherwise MIS-enforce', () => {
@@ -65,22 +61,31 @@ describe('loadOrgPolicy (issue #2023)', () => {
     // is worse than one that does not load, because it looks like it is working.
     withPolicyFile(JSON.stringify({ allowedProviders: 'anthropic' }));
 
-    expect(() => loadOrgPolicy()).toThrow(/must be an array of strings/);
+    expect(() => loadOrgPolicy(policyPath())).toThrow(/must be an array of strings/);
   });
 
   it('refuses an array, which `typeof === object` alone would admit', () => {
     withPolicyFile('[]');
 
-    expect(() => loadOrgPolicy()).toThrow(/expected a JSON object, found an array/);
+    expect(() => loadOrgPolicy(policyPath())).toThrow(/expected a JSON object, found an array/);
   });
 
   it('accepts a well-formed policy unchanged', () => {
     // The companion the refusals need: without it, a loader that threw on everything would pass.
     withPolicyFile(JSON.stringify({ allowedProviders: ['anthropic'], requireApiKeyFromEnv: true }));
 
-    expect(loadOrgPolicy()).toEqual({
+    expect(loadOrgPolicy(policyPath())).toEqual({
       allowedProviders: ['anthropic'],
       requireApiKeyFromEnv: true,
     });
+  });
+
+  it('reads only the policy path supplied by the host', () => {
+    withPolicyFile(JSON.stringify({ allowedProviders: ['ambient'] }));
+    const customPath = join(home, 'custom-policy.json');
+    writeFileSync(customPath, JSON.stringify({ allowedProviders: ['custom'] }));
+
+    expect(loadOrgPolicy(customPath)).toEqual({ allowedProviders: ['custom'] });
+    expect(loadOrgPolicy(join(home, 'missing-policy.json'))).toBeNull();
   });
 });

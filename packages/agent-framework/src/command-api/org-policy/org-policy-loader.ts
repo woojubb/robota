@@ -1,6 +1,4 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 
 import { OrgPolicyParseError } from './org-policy-parse-error.js';
 
@@ -26,8 +24,7 @@ import type { IUniversalObjectValue, TUniversalValue } from '@robota-sdk/agent-c
  * `settings-io.ts` (CLI-069) and the trusted-device store answer the same question the same way, one
  * and two files over. This loader was the one that did not.
  */
-export function loadOrgPolicy(): IOrgPolicy | null {
-  const policyPath = join(homedir(), '.robota', 'org-policy.json');
+export function loadOrgPolicy(policyPath: string): IOrgPolicy | null {
   if (!existsSync(policyPath)) return null;
   let parsed: TUniversalValue;
   try {

@@ -45,6 +45,8 @@ It also selects the ordered Robota and Claude-compatible user settings layers an
 through print, serve, terminal, and eval sessions, including provider switching after startup. The
 Robota settings path also controls reset, terminal model writes, and plugin enablement; disabled
 plugins stay disabled across command, theme, and interactive discovery.
+The CLI selects the Robota organization-policy file and passes its path to the neutral loader,
+preserving policy enforcement across its command and session surfaces.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.

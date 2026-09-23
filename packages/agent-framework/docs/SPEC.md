@@ -54,6 +54,9 @@ React/Ink UI.
   an ambient settings-file reader or writer; settings actions require a host-supplied adapter.
   User-settings reset takes an explicit file path. Plugin discovery likewise requires a host-selected
   enablement source; without one, an interactive session admits no bundle plugins.
+- **Organization policy is host-located and fail-closed.** The policy loader reads only the path
+  selected by its host. A missing file means no deployed policy; a present but unreadable or malformed
+  file raises a typed error rather than silently disabling enforcement.
 - **Agent definition discovery is host-directed.** The framework searches only the ordered relative
   directories supplied by the host; absent roots mean no file discovery. Discovered definitions keep
   precedence over injected and built-in definitions, without selecting a product's directory names.

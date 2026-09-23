@@ -297,7 +297,7 @@ describe('print mode session resume integration (CLI-063)', () => {
         JSON.stringify({ blockedCommands: ['clear'], adminContact: 'ops@example.test' }),
       );
       policyHome.value = home;
-      const orgPolicy = loadOrgPolicy();
+      const orgPolicy = loadOrgPolicy(join(home, '.robota', 'org-policy.json'));
       expect(orgPolicy).not.toBeNull();
 
       const { provider, lastMessages } = createRecordingProvider('unexpected provider reply');
