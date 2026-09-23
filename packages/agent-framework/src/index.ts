@@ -34,7 +34,6 @@ export {
   createNodeWorkspaceTrustService,
   createNodeWorkspaceTrustStore,
   inspectPreTrustProjectPaths,
-  getWorkspaceTrustStorePath,
   assertWorkspaceProjectAuthority,
   assertWorkspaceProjectReader,
   assertWorkspaceProjectMutation,
@@ -664,8 +663,7 @@ export { PromptExecutor, AgentExecutor } from './hooks/index.js';
 export type { TProviderFactory, IPromptProvider, IPromptExecutorOptions } from './hooks/index.js';
 export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './hooks/index.js';
 
-// ── User-owned host paths ───────────────────────────────────
-export { userPaths } from './paths.js';
+// ── Plugin scope path ──────────────────────────────────────
 export { PROJECT_PLUGIN_RELATIVE_DIRECTORY } from './plugins/plugin-scope-paths.js';
 
 // ── Explicit project/host contribution sources ─────────────

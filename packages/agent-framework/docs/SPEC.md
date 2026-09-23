@@ -41,7 +41,8 @@ React/Ink UI.
 - **No concrete settings-file I/O for hosts.** Host adapters (`NodeHost*`) exist for callers that
   deliberately own a host path, but never satisfy an authority parameter, and command modules must
   not assemble settings/project paths themselves — they go through host adapters or command-facing
-  common APIs.
+  common APIs. User persistence and trust-store adapters require explicit host paths; these
+  adapters do not select a product's user-local storage root.
 - **Command modules own product behavior.** SDK core ships no user-visible built-in commands; command
   packages (`agent-command-*`) contribute behavior through `ICommandModule`, consuming SDK command
   contracts and common APIs. The SDK does not know command ids in advance.
