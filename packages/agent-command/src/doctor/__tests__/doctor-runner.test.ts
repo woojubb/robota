@@ -1,7 +1,10 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import {
+  createNodeHostSettingsSource,
+  createRestrictedWorkspaceProjectAccess,
+} from '@robota-sdk/agent-framework';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { renderDoctorReport } from '../doctor-render.js';
@@ -44,6 +47,56 @@ const CLEAN_SETTINGS = {
 };
 
 describe('runDoctor (OBSERVABILITY-1991)', () => {
+  it('shows each effective settings hook source without embedding payloads in provenance', async () => {
+    const f = fixture({ env: {} });
+    const userPath = f.write(
+      '.robota/settings.json',
+      JSON.stringify({
+        disabledHooks: ['project-muted'],
+        hooks: {
+          PreToolUse: [{ matcher: '*', hooks: [{ type: 'command', command: 'user-private' }] }],
+        },
+      }),
+    );
+    const laterPath = f.write(
+      '.claude/settings.json',
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            { matcher: '*', hooks: [{ type: 'command', command: 'project-private' }] },
+            {
+              id: 'project-muted',
+              matcher: '*',
+              hooks: [{ type: 'prompt', prompt: 'muted-private' }],
+            },
+          ],
+        },
+      }),
+    );
+    const inputs = {
+      ...f.inputs,
+      settingsSources: [
+        createNodeHostSettingsSource('user', userPath),
+        createNodeHostSettingsSource('user', laterPath),
+      ],
+    };
+
+    const report = await runDoctor(inputs, f.deps);
+    const output = renderDoctorReport(report).join('\n');
+    const mergeDetail = byId(report, 'settings.merge').detail?.join('\n') ?? '';
+
+    expect(byId(report, 'settings.merge').detail).toContain(
+      `settings hook 1: PreToolUse/command ← ${userPath}`,
+    );
+    expect(byId(report, 'settings.merge').detail).toContain(
+      `settings hook 2: PreToolUse/command ← ${laterPath}`,
+    );
+    expect(output).toContain(`settings hook 1: PreToolUse/command ← ${userPath}`);
+    expect(output).toContain(`settings hook 2: PreToolUse/command ← ${laterPath}`);
+    expect(mergeDetail).not.toMatch(/private/);
+    expect(output).not.toContain('PreToolUse/prompt');
+  });
+
   it('TC-05/TC-02: names every failing path and cause in the broken HOME and exits 1', async () => {
     const f = fixture({ env: { ROBOTA_DOCTOR_MARKER: MARKERS.env } });
     installBrokenHome(f);
@@ -293,8 +346,9 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     ).toMatchObject({
       status: 'fail',
       cause: 'frontmatter-invalid',
-      detail: [expect.stringContaining('received "extreme"')],
+      detail: [expect.stringContaining('effort: expected one of')],
     });
+    expect(JSON.stringify(report)).not.toContain('received "extreme"');
     expect(
       byId(report, `skill.${join('.robota', 'skills', 'no-frontmatter', 'SKILL.md')}`).status,
     ).toBe('warn');

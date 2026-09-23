@@ -2661,6 +2661,8 @@ The `.claude/settings.json` layers provide Claude Code compatibility — setting
 
 **Deliberate disable (issue #2320).** A hook group may carry an optional `id`, and a layer may list ids in `disabledHooks`. A disable removes only groups declared by LATER layers — lower in trust, since layers are read user-then-project — so a user layer can turn off a named project hook while a project layer naming a user's guard changes nothing (the guard was merged before the disable was read). Groups without an `id` cannot be named and therefore cannot be disabled; disabled ids accumulate across layers and are never un-disabled by a later layer. `id` is optional so existing settings files need no migration.
 
+**Effective hook provenance (issue #2321).** `inspectSettingsLayers` reads the same classified layers and merge owner as `loadConfig`. Its public `ISettingsInspection.hookSources` reports each effective settings-layer hook definition as `{ event, type, source }` in merge order, omitting groups removed by an earlier layer's `disabledHooks`. A broken present layer sets `partial`; the hook list then describes only healthy layers and must not be presented as the complete session configuration. Source labels are the layer display names. The provenance records carry no hook command or prompt payload, and `THooksConfig` remains unchanged. Plugin-contributed hook provenance is outside this settings inspection.
+
 Provider resolution order:
 
 1. `currentProvider` plus `providers[currentProvider]`

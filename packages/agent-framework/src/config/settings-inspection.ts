@@ -13,11 +13,11 @@
  * the parser reported (when it reported one) and never its quoted snippet; a `schema-invalid` cause
  * holds issue paths and codes, never received values; an `unreadable` cause holds the errno code.
  */
-import { SETTINGS_MERGE_RULES, mergeSettings } from './config-merge.js';
+import { SETTINGS_MERGE_RULES, mergeSettingsWithHookSources } from './config-merge.js';
 import { SettingsSchema } from './config-types.js';
 import { readSettingsSourceText } from './settings-source.js';
 
-import type { TSettingsMergeRule } from './config-merge.js';
+import type { IHookDefinitionSource, TSettingsMergeRule } from './config-merge.js';
 import type { TEnvResolvedSettings, TSettings } from './config-types.js';
 import type { TSettingsSource } from './settings-source.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
@@ -69,6 +69,8 @@ export interface ISettingsInspection {
   readonly merged: TEnvResolvedSettings;
   readonly partial: boolean;
   readonly provenance: readonly ISettingsKeyProvenance[];
+  /** Effective settings-layer definitions only, in merge order. No hook commands or prompts. */
+  readonly hookSources: readonly IHookDefinitionSource[];
 }
 
 /**
@@ -207,8 +209,16 @@ export function inspectSettingsLayers(sources: readonly TSettingsSource[]): ISet
     ...(layer.settings === undefined ? {} : { settings: layer.settings }),
   }));
   const partial = layers.some((layer) => layer.state !== 'ok' && layer.state !== 'absent');
-  const merged = mergeSettings(
-    layers.flatMap((layer) => (layer.settings === undefined ? [] : [layer.settings])),
+  const merged = mergeSettingsWithHookSources(
+    layers.flatMap((layer) =>
+      layer.settings === undefined ? [] : [{ settings: layer.settings, source: layer.displayName }],
+    ),
   );
-  return { layers, merged, partial, provenance: provenanceOf(layers) };
+  return {
+    layers,
+    merged: merged.settings,
+    partial,
+    provenance: provenanceOf(layers),
+    hookSources: merged.hookSources,
+  };
 }

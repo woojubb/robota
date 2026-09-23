@@ -310,8 +310,9 @@ unexpected inability to probe is `warn` with its reason. A probe that throws bec
 carrying the owner's error class and path — never a default value. Every check carries the exact
 `path` and a `cause` built from owner-reported facts (a state word, an issue path, an errno).
 
-**Probes and their owners.** Settings layers and per-key provenance — `inspectSettingsLayers`
-(`settings.<scope>.<robota|claude>`, `settings.merge`); provider resolution — `readProviderSettings`
+**Probes and their owners.** Settings layers, per-key provenance, and each effective settings-layer hook's event/type/source in merge order — `inspectSettingsLayers` (`settings.<scope>.<robota|claude>`,
+`settings.merge`). Disabled settings hooks are absent; plugin-contributed hook provenance is outside this settings view. The `settings.merge` provenance lines never render hook commands or prompts. A broken
+layer makes this healthy-layer view partial and the merge check `warn`. Provider resolution — `readProviderSettings`
 (`provider.resolution`); reachability — a TCP connect to the host derived from the resolved profile
 `baseURL`, else the definition's `defaults.baseURL`, else the definition's diagnostic-only
 `endpoint`, else `warn` (`provider.reachability`; an unreachable host is `warn`, so an offline
