@@ -13,6 +13,7 @@ import {
   type IRunDraftOperationsPort,
   type IDagValidationPort,
   type IDagNodeCatalogPort,
+  type IDagDefinitionReadPort,
   type TRunProgressEvent,
 } from '@robota-sdk/dag-core';
 import type { IDagError, TResult } from '@robota-sdk/dag-core';
@@ -213,6 +214,7 @@ export function createDagRuntimeServer(
   build: IDagBuildPort,
   validation: IDagValidationPort,
   catalog: IDagNodeCatalogPort,
+  definitionReads: IDagDefinitionReadPort,
   progressSource?: IRunProgressSource,
   assets?: IAssetStore,
 ): Hono {
@@ -243,17 +245,35 @@ export function createDagRuntimeServer(
   // --- Definitions ---
   app.get('/v1/dag/definitions', async (c) => {
     const dagId = c.req.query('dagId');
-    return reply(c, await port.listDefinitions(dagId !== undefined ? { dagId } : undefined));
+    const items = await definitionReads.listDefinitions(dagId);
+    return c.json({ ok: true, status: 200, data: { items } }, 200);
   });
   app.get('/v1/dag/definitions/:dagId', async (c) => {
-    const version = c.req.query('version');
-    return reply(
-      c,
-      await port.getDefinition(
-        c.req.param('dagId'),
-        version !== undefined ? Number(version) : undefined,
-      ),
-    );
+    const dagId = c.req.param('dagId');
+    const versionQuery = c.req.query('version');
+    const version = versionQuery !== undefined ? Number(versionQuery) : undefined;
+    const definition = await definitionReads.getDefinition(dagId, version);
+    if (definition === undefined) {
+      return c.json(
+        {
+          ok: false,
+          status: 404,
+          errors: [
+            {
+              type: 'urn:robota:problems:dag:validation',
+              title: 'Validation failed',
+              status: 400,
+              detail: 'Definition does not exist',
+              instance: `/v1/dag/definitions/${dagId}${typeof version === 'number' ? `?version=${version}` : ''}`,
+              code: 'DAG_VALIDATION_DEFINITION_NOT_FOUND',
+              retryable: false,
+            },
+          ],
+        },
+        404,
+      );
+    }
+    return c.json({ ok: true, status: 200, data: { definition } }, 200);
   });
   app.post('/v1/dag/definitions', async (c) => {
     const body = await c.req.json<{ definition: IDagDefinition }>();

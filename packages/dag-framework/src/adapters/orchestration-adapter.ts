@@ -5,7 +5,6 @@ import type {
   IDagOrchestrationCreateRunInput,
   IDagOrchestrationHttpPayload,
   IDagOrchestrationHttpResponse,
-  IDagOrchestrationListDefinitionsInput,
   IDagOrchestrationPort,
   IDagOrchestrationPublishedWorkflowRunRequest,
   IDagOrchestrationUpdateDraftInput,
@@ -52,23 +51,6 @@ export class DagFrameworkOrchestrationAdapter implements IDagOrchestrationPort {
     this.controllers = deps.controllers;
     this.execution = deps.execution;
     this.definitionService = new DagDefinitionService(deps.storage);
-  }
-
-  public async listDefinitions(
-    input?: IDagOrchestrationListDefinitionsInput,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    const response = await this.controllers.design.listDefinitions({
-      dagId: input?.dagId,
-    });
-    return this.toHttpResponse(response);
-  }
-
-  public async getDefinition(
-    dagId: string,
-    version?: number,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    const response = await this.controllers.design.getDefinition({ dagId, version });
-    return this.toHttpResponse(response);
   }
 
   public async createDefinition(

@@ -25,6 +25,7 @@ describe('dag-runtime-server contract', () => {
       framework.build,
       framework.validation,
       framework.catalog,
+      framework.definitionReads,
       undefined,
       framework.assets,
     );
@@ -56,9 +57,52 @@ describe('dag-runtime-server contract', () => {
 
   it('GET /v1/dag/definitions returns a successful response', async () => {
     const res = await app.request('/v1/dag/definitions');
-    expect(res.status).toBeLessThan(500);
-    const payload: unknown = await res.json();
-    expect(payload).toBeDefined();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      status: 200,
+      data: { items: expect.any(Array) },
+    });
+  });
+
+  it('maps domain definition reads to the existing HTTP response and missing error', async () => {
+    const built = await framework.build.buildDag({
+      dagId: 'read-contract',
+      pipeline: [{ nodeType: 'input', config: { text: 'hello' } }],
+    });
+    if (!built.ok) throw new Error('Expected a valid test definition.');
+    expect((await framework.client.createDefinition(built.definition)).ok).toBe(true);
+    const found = await app.request('/v1/dag/definitions/read-contract?version=1');
+    expect(found.status).toBe(200);
+    expect(await found.json()).toMatchObject({
+      ok: true,
+      status: 200,
+      data: { definition: { dagId: 'read-contract', version: 1 } },
+    });
+    const listed = await app.request('/v1/dag/definitions?dagId=read-contract');
+    expect(await listed.json()).toEqual({
+      ok: true,
+      status: 200,
+      data: { items: [{ dagId: 'read-contract', latestVersion: 1, statuses: ['draft'] }] },
+    });
+
+    const missing = await app.request('/v1/dag/definitions/absent?version=2');
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({
+      ok: false,
+      status: 404,
+      errors: [
+        {
+          type: 'urn:robota:problems:dag:validation',
+          title: 'Validation failed',
+          status: 400,
+          detail: 'Definition does not exist',
+          instance: '/v1/dag/definitions/absent?version=2',
+          code: 'DAG_VALIDATION_DEFINITION_NOT_FOUND',
+          retryable: false,
+        },
+      ],
+    });
   });
 
   it('maps domain build results to the existing HTTP route envelope', async () => {
@@ -162,6 +206,7 @@ describe('dag-runtime-server contract', () => {
       framework.build,
       framework.validation,
       framework.catalog,
+      framework.definitionReads,
     );
 
     const res = await supportedApp.request('/v1/dag/cost-meta');
@@ -187,6 +232,7 @@ describe('dag-runtime-server contract', () => {
       framework.build,
       framework.validation,
       framework.catalog,
+      framework.definitionReads,
     );
 
     const res = await failingApp.request('/v1/dag/cost-meta');
@@ -254,6 +300,7 @@ describe('dag-runtime-server contract', () => {
       framework.build,
       framework.validation,
       framework.catalog,
+      framework.definitionReads,
     );
     const res = await failingApp.request('/v1/dag/run-drafts/draft-1');
     expect(res.status).toBe(500);
@@ -331,6 +378,7 @@ describe('dag-runtime-server contract', () => {
       framework.build,
       framework.validation,
       framework.catalog,
+      framework.definitionReads,
       undefined,
       referenceStore,
     );
@@ -413,6 +461,7 @@ describe('dag-runtime-server contract', () => {
       framework.build,
       framework.validation,
       framework.catalog,
+      framework.definitionReads,
     );
     const unwired = await unwiredApp.request('/v1/dag/assets/missing');
     expect(unwired.status).toBe(501);
@@ -428,6 +477,7 @@ describe('dag-runtime-server contract', () => {
       framework.build,
       framework.validation,
       framework.catalog,
+      framework.definitionReads,
       undefined,
       broken,
     );
@@ -465,6 +515,7 @@ describe('dag-runtime-server contract', () => {
       framework.build,
       framework.validation,
       framework.catalog,
+      framework.definitionReads,
       undefined,
       broken,
     );
@@ -515,6 +566,7 @@ describe('dag-runtime-server SSE progress stream', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       source,
     );
 
@@ -548,6 +600,7 @@ describe('dag-runtime-server SSE progress stream', () => {
       },
     };
     const app = createDagRuntimeServer(
+      {} as never,
       {} as never,
       {} as never,
       {} as never,

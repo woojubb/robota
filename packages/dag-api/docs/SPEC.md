@@ -25,6 +25,8 @@ implementations, and the narrow service ports those controllers consume.
   controllers.
 - All API errors are mapped to the `IProblemDetails` shape with a URN-based `type` field, so
   callers can branch on error category without parsing message text.
+- Definition-list grouping follows the domain summary policy in `dag-core`; this API layer only
+  adds the transport response envelope.
 - Composition factories accept port interfaces rather than concrete implementations, so callers can
   substitute custom `IStoragePort`, `IQueuePort`, `IClockPort`, `ILeasePort`, and
   `ITaskExecutorPort` implementations without touching controller code.

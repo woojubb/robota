@@ -35,6 +35,10 @@ re-declaring them. It defines what the DAG domain looks like, not how it execute
 
 ## DAG definition port catalog policy
 
+Definition reads return domain definitions and grouped summaries without HTTP envelopes. Summary
+items group by DAG identity, keep the highest version and distinct statuses in encounter order, and
+sort by DAG identity. Embedded adapters detach returned values from mutable storage references.
+
 The registered-node catalog capability exposes detached domain manifests without choosing a
 transport projection or response envelope. A caller may inspect or adapt its copy without changing
 registered execution metadata; hosts may project the copy for their own API surface.
