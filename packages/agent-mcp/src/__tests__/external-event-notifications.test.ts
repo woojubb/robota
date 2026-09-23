@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { startMockMcpServer } from './mock-mcp-server.js';
 import {
@@ -123,15 +124,65 @@ describe('external event MCP notifications', () => {
     session = await openSession(server, (opened) => { transport = opened; });
     const received: unknown[] = [];
     session.onExternalEvent((event) => received.push(event));
+    let closes = 0;
+    session.onClose(() => { closes += 1; });
     await send(server, session, EVENT);
     expect(received).toEqual([EVENT]);
 
     const lateMessage = transport?.onmessage;
     transport?.onclose?.();
+    expect(closes).toBe(1);
     session.onExternalEvent((event) => received.push(event));
     lateMessage?.({ jsonrpc: '2.0', method: MCP_EXTERNAL_EVENT_METHOD, params: EVENT });
     await Promise.resolve();
     await Promise.resolve();
     expect(received).toEqual([EVENT]);
+    await session.close();
+    expect(closes).toBe(1);
+  });
+
+  it('does not announce a self-close until transport cleanup finishes', async () => {
+    server = await startMockMcpServer({
+      capabilities: { tools: {}, experimental: { [MCP_EXTERNAL_EVENT_CAPABILITY]: { version: 1 } } },
+    });
+    session = await openSession(server);
+    const originalClose = Client.prototype.close;
+    let finishCleanup: (() => void) | undefined;
+    const cleanup = new Promise<void>((resolve) => { finishCleanup = resolve; });
+    const spy = vi.spyOn(Client.prototype, 'close').mockImplementation(async function (this: Client) {
+      await cleanup;
+      await originalClose.call(this);
+    });
+    try {
+      let closes = 0;
+      session.onClose(() => { closes += 1; });
+      const closing = session.close();
+      expect(closes).toBe(0);
+      finishCleanup?.();
+      await closing;
+      expect(closes).toBe(1);
+    } finally {
+      spy.mockRestore();
+      finishCleanup?.();
+    }
+  });
+
+  it('does not trigger reconnect on a self-close whose cleanup fails', async () => {
+    server = await startMockMcpServer({
+      capabilities: { tools: {}, experimental: { [MCP_EXTERNAL_EVENT_CAPABILITY]: { version: 1 } } },
+    });
+    let transport: Transport | undefined;
+    session = await openSession(server, (opened) => { transport = opened; });
+    const spy = vi.spyOn(Client.prototype, 'close').mockRejectedValueOnce(new Error('cleanup failed'));
+    try {
+      let closes = 0;
+      session.onClose(() => { closes += 1; });
+      await expect(session.close()).rejects.toThrow('cleanup failed');
+      expect(closes).toBe(0);
+    } finally {
+      spy.mockRestore();
+      session = undefined;
+      await transport?.close();
+    }
   });
 });

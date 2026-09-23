@@ -56,6 +56,8 @@ contract is authoritative for how the TUI releases resources on session switch a
   failed start unwinds its own listeners and any partially-started transports before becoming
   retryable; a rollback failure permanently closes that start path rather than risk duplicating
   live transport resources.
+- A host's asynchronous source binding finishes before transport startup. Failure follows the
+  ordinary start rollback path; the renderer never treats an unbound source as ready.
 - Stop unwires every session listener it registered, drains pending permission and user-action
   queues, stops background polling, disposes UI state, stops transports, and — unless the channel
   already shut down gracefully — shuts the underlying session down within a bounded timeout, so a

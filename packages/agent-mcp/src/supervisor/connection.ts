@@ -26,7 +26,7 @@ import type {
   IMCPServerIdentity,
   TMCPCapabilityDomain,
 } from '../catalog/types.js';
-import type { IMCPSession, IMCPToolCallResult } from '../client/session.js';
+import type { IMCPSession, IMCPToolCallResult, TMCPExternalEventListener } from '../client/session.js';
 import type { TToolParameters } from '@robota-sdk/agent-core';
 
 /** Default page bound for a `discover`/`refresh` call that does not override `options.discovery`. */
@@ -254,6 +254,7 @@ function isTransientFailure(
 
 /** Classify a thrown failure; owned here so every caller reads one answer (TC-13). */
 export function classifyMcpFailure(error: unknown): TMCPFailureClass {
+  if (error instanceof MCPSupervisorError) return error.classification;
   // Typed refusals first: a redirect refusal embeds the `Location` text in its message, so it must
   // never reach the message heuristics below (a target path containing "unauthorized" is not auth).
   if (
@@ -340,10 +341,15 @@ export class MCPConnectionSupervisor {
   private lastBackgroundCloseFailure: { readonly message: string; readonly at: number } | undefined;
 
   private pendingAttempt: Promise<TMCPAttemptOutcome> | undefined;
+  private resolvePendingRetry: ((outcome: TMCPAttemptOutcome) => void) | undefined;
   private activeAbortController: AbortController | undefined;
   private retryTimerHandle: TMCPTimerHandle | undefined;
   private idleTimerHandle: TMCPTimerHandle | undefined;
   private unsubscribeListChanged: (() => void) | undefined;
+  private unsubscribeExternalEvent: (() => void) | undefined;
+  private unsubscribeSessionClose: (() => void) | undefined;
+  private readonly externalEventListeners = new Set<TMCPExternalEventListener>();
+  private externalCloseCount = 0;
   private shutdownPromise: Promise<void> | undefined;
 
   constructor(private readonly options: IMCPConnectionSupervisorOptions) {
@@ -353,6 +359,28 @@ export class MCPConnectionSupervisor {
 
   getState(): TMCPConnectionState {
     return this.state;
+  }
+
+  /** Explicit live-server opt-in; never accepts an undeclared experimental capability. */
+  onExternalEvent(listener: TMCPExternalEventListener): () => void {
+    if (this.state.kind !== 'connected' || !this.liveSession?.externalEventsDeclared) {
+      throw new Error('MCP external event capability is unavailable on the connected server');
+    }
+    this.externalEventListeners.add(listener);
+    this.bindExternalEvent(this.liveSession);
+    this.clearIdleTimer();
+    return () => {
+      this.externalEventListeners.delete(listener);
+      if (this.externalEventListeners.size === 0) {
+        this.detachExternalEvent();
+        if (this.state.kind === 'connected') this.armIdleTimer();
+        if (this.state.kind === 'failed' && this.state.retry === 'pending' && this.externalCloseCount > 0) {
+          this.clearRetryTimer();
+          this.pendingAttempt = undefined;
+          this.setState({ kind: 'idle' });
+        }
+      }
+    };
   }
 
   /** Open if idle/failed(manual-retry)/closed, otherwise reuse the live session. */
@@ -502,6 +530,7 @@ export class MCPConnectionSupervisor {
     }
 
     // idle, or failed(manual-retry): start a fresh attempt cycle.
+    this.externalCloseCount = 0;
     return this.beginConnect(1, signal);
   }
 
@@ -528,6 +557,8 @@ export class MCPConnectionSupervisor {
       this.unsubscribeListChanged();
       this.unsubscribeListChanged = undefined;
     }
+    this.detachExternalEvent();
+    this.externalEventListeners.clear();
 
     const session = this.liveSession;
     this.liveSession = undefined;
@@ -717,7 +748,17 @@ export class MCPConnectionSupervisor {
           ),
         };
       }
+      if (this.externalEventListeners.size > 0 && !session.externalEventsDeclared) {
+        await session.close();
+        throw new MCPSupervisorError('config', 'MCP external event capability disappeared on reconnect');
+      }
       this.onConnected(session);
+      if (this.state.kind !== 'connected' || this.liveSession !== session) {
+        return {
+          ok: false,
+          error: new MCPSupervisorError('transient', 'MCP external event connection closed during subscription'),
+        };
+      }
       return { ok: true, session };
     } catch (error) {
       this.clearActiveController(controller);
@@ -752,6 +793,7 @@ export class MCPConnectionSupervisor {
     this.clearIdleTimer();
     this.unsubscribeListChanged?.();
     this.unsubscribeListChanged = undefined;
+    this.detachExternalEvent();
     this.liveSession = undefined;
     if (error.reason === 'cleanup') {
       this.setState({
@@ -800,7 +842,45 @@ export class MCPConnectionSupervisor {
     this.clearRetryTimer();
     this.unsubscribeListChanged = session.onListChanged((domain) => this.handleListChanged(domain));
     this.setState({ kind: 'connected', identity: session.identity });
-    this.armIdleTimer();
+    this.bindExternalEvent(session);
+    if (this.state.kind === 'connected' && this.liveSession === session) this.armIdleTimer();
+  }
+
+  private bindExternalEvent(session: IMCPSession): void {
+    if (this.externalEventListeners.size === 0 || this.unsubscribeExternalEvent) return;
+    const unsubscribeClose = session.onClose(() => this.handleSubscribedSessionClose(session));
+    if (this.liveSession !== session || this.state.kind !== 'connected') {
+      unsubscribeClose();
+      return;
+    }
+    this.unsubscribeSessionClose = unsubscribeClose;
+    const unsubscribeEvent = session.onExternalEvent((event) => {
+      if (this.liveSession !== session || this.state.kind !== 'connected') return;
+      for (const listener of this.externalEventListeners) listener(event);
+    });
+    if (this.liveSession !== session || this.state.kind !== 'connected') {
+      unsubscribeEvent();
+      return;
+    }
+    this.unsubscribeExternalEvent = unsubscribeEvent;
+  }
+
+  private detachExternalEvent(): void {
+    this.unsubscribeExternalEvent?.();
+    this.unsubscribeExternalEvent = undefined;
+    this.unsubscribeSessionClose?.();
+    this.unsubscribeSessionClose = undefined;
+  }
+
+  private handleSubscribedSessionClose(session: IMCPSession): void {
+    if (this.liveSession !== session || this.state.kind !== 'connected') return;
+    this.clearIdleTimer();
+    this.unsubscribeListChanged?.();
+    this.unsubscribeListChanged = undefined;
+    this.detachExternalEvent();
+    this.liveSession = undefined;
+    this.externalCloseCount += 1;
+    this.recordOpenFailure(this.externalCloseCount, 'transient', 'MCP external event connection closed');
   }
 
   private handleListChanged(domain: TMCPCapabilityDomain): void {
@@ -882,9 +962,15 @@ export class MCPConnectionSupervisor {
 
   private armRetryTimer(attempt: number, delay: number): void {
     this.clearRetryTimer();
+    this.pendingAttempt = new Promise<TMCPAttemptOutcome>((resolve) => {
+      this.resolvePendingRetry = resolve;
+    });
     this.retryTimerHandle = this.clock.setTimeout(() => {
       this.retryTimerHandle = undefined;
-      void this.startAttempt(attempt + 1);
+      const resolve = this.resolvePendingRetry;
+      this.resolvePendingRetry = undefined;
+      const next = this.startAttempt(attempt + 1);
+      void next.then((outcome) => resolve?.(outcome));
     }, delay);
   }
 
@@ -893,10 +979,18 @@ export class MCPConnectionSupervisor {
       this.clock.clearTimeout(this.retryTimerHandle);
       this.retryTimerHandle = undefined;
     }
+    if (this.resolvePendingRetry) {
+      this.resolvePendingRetry({
+        ok: false,
+        error: new MCPSupervisorError('config', 'MCP connection recovery was cancelled'),
+      });
+      this.resolvePendingRetry = undefined;
+    }
   }
 
   private armIdleTimer(): void {
     this.clearIdleTimer();
+    if (this.externalEventListeners.size > 0) return;
     this.idleTimerHandle = this.clock.setTimeout(() => {
       this.idleTimerHandle = undefined;
       void this.handleIdleTimeout();
@@ -911,12 +1005,14 @@ export class MCPConnectionSupervisor {
   }
 
   private async handleIdleTimeout(): Promise<void> {
+    if (this.externalEventListeners.size > 0) return;
     const session = this.liveSession;
     this.liveSession = undefined;
     if (this.unsubscribeListChanged) {
       this.unsubscribeListChanged();
       this.unsubscribeListChanged = undefined;
     }
+    this.detachExternalEvent();
     this.setState({ kind: 'idle' });
     if (session) {
       // No caller is awaiting this close (armed by a timer, not a request) — mirrors

@@ -18,6 +18,7 @@ import type {
   IMCPDiscoverOptions,
   IMCPSession,
   IMCPToolCallResult,
+  IMCPExternalEvent,
   TMCPListChangedListener,
 } from '../client/session.js';
 import type {
@@ -69,6 +70,7 @@ export interface IFakeSessionConfig {
   readonly identity: IMCPServerIdentity;
   readonly instructions?: string;
   readonly declaredCapabilities?: IMCPSession['declaredCapabilities'];
+  readonly externalEventsDeclared?: boolean;
   discover?(options: IMCPDiscoverOptions): Promise<IMCPDiscovery>;
   callTool?(
     name: string,
@@ -83,7 +85,7 @@ export class FakeMcpSession implements IMCPSession {
   readonly identity: IMCPServerIdentity;
   readonly instructions?: string;
   readonly declaredCapabilities: IMCPSession['declaredCapabilities'];
-  readonly externalEventsDeclared = false;
+  readonly externalEventsDeclared: boolean;
 
   readonly discoverCalls: IMCPDiscoverOptions[] = [];
   readonly callToolCalls: {
@@ -92,11 +94,15 @@ export class FakeMcpSession implements IMCPSession {
     timeoutMs?: number;
   }[] = [];
   closeCalls = 0;
+  private closed = false;
 
   private readonly listeners = new Set<TMCPListChangedListener>();
+  private readonly externalEventListeners = new Set<(event: IMCPExternalEvent) => void>();
+  private readonly closeListeners = new Set<() => void>();
 
   constructor(private readonly config: IFakeSessionConfig) {
     this.identity = config.identity;
+    this.externalEventsDeclared = config.externalEventsDeclared ?? false;
     this.instructions = config.instructions;
     this.declaredCapabilities =
       config.declaredCapabilities ??
@@ -132,12 +138,34 @@ export class FakeMcpSession implements IMCPSession {
     return () => this.listeners.delete(listener);
   }
 
-  onExternalEvent(_listener: Parameters<IMCPSession['onExternalEvent']>[0]): () => void {
-    return () => undefined;
+  onExternalEvent(listener: Parameters<IMCPSession['onExternalEvent']>[0]): () => void {
+    if (!this.externalEventsDeclared) return () => undefined;
+    this.externalEventListeners.add(listener);
+    return () => { this.externalEventListeners.delete(listener); };
+  }
+
+  onClose(listener: () => void): () => void {
+    if (this.closed) {
+      listener();
+      return () => undefined;
+    }
+    this.closeListeners.add(listener);
+    return () => { this.closeListeners.delete(listener); };
+  }
+
+  fireExternalEvent(event: IMCPExternalEvent): void {
+    for (const listener of this.externalEventListeners) listener(event);
+  }
+
+  fireTransportClose(): void {
+    this.closed = true;
+    this.externalEventListeners.clear();
+    for (const listener of [...this.closeListeners]) listener();
   }
 
   async close(): Promise<void> {
     this.closeCalls += 1;
+    this.fireTransportClose();
     if (this.config.close) {
       await this.config.close();
     }

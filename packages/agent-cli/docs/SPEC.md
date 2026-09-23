@@ -110,6 +110,19 @@ executable does not auto-approve package-runner commands.
 supply its own `IMCPActivationApprovalStore` before `robota mcp serve` starts to admit and connect
 approved definitions ahead of building the served runtime session.
 
+**External event source opt-in (#2726).** The interactive TUI alone accepts repeatable
+`--external-event-allow <serverId>:<senderId>` launch grants. Each named server must already be
+admitted and connected through the ordinary MCP policy and must declare the exact external-event
+capability; configuration or activation approval alone never enables injection. The CLI trusts an
+explicitly granted MCP server as the platform adapter that attests sender identity over its
+authenticated connection, then independently checks the exact per-server sender allowlist in the
+session-owned ingress. The notification's sender string alone is not proof of identity: operators
+must grant only servers they trust to verify their platform's sender credentials. Events are one-way,
+bounded, and processed only while this TUI session and its MCP connection are live; no remote
+permission approval or response relay is available. Print, goal, serve, and MCP-serve modes refuse
+the flag rather than silently ignoring it. Repeated connection loss stops after bounded retries;
+the host must restart or explicitly retry rather than assuming delivery from a dead channel.
+
 ### MCP background handoff settings (MCP-004)
 
 A long-running MCP tool call blocks the turn unless the host opts a session into handing it to a

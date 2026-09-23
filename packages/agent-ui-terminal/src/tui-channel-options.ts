@@ -110,7 +110,7 @@ export interface ITuiInteractionChannelOptions {
   remoteCommandPolicy?: IRemoteCommandPolicy;
   transportRegistry?: ITransportRegistryView;
   /** Bind concrete transports to each newly constructed session before registry startup. */
-  bindTransports?: (session: IInteractiveSession) => void;
+  bindTransports?: (session: IInteractiveSession) => void | Promise<void>;
   language?: string;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;

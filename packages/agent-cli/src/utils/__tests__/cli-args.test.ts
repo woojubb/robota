@@ -65,6 +65,21 @@ describe('parseCliArgs', () => {
     process.argv = originalArgv;
   });
 
+  it('requires an explicit per-server sender grant for each external event source', () => {
+    expect(parseCliArgs(['--external-event-allow', 'chat:alice', '--external-event-allow', 'chat:bob']).externalEventAllow)
+      .toEqual(['chat:alice', 'chat:bob']);
+    expect(parseCliArgs([]).externalEventAllow).toEqual([]);
+    expect(() => parseCliArgs(['--external-event-allow', 'chat:'])).toThrow('external-event-allow');
+    expect(() => parseCliArgs(['--external-event-allow', 'chat:alice', '-p', 'hello']))
+      .toThrow('interactive');
+    expect(() => parseCliArgs(['--external-event-allow', 'chat:alice', '--serve']))
+      .toThrow('interactive');
+    expect(() => parseCliArgs(['--external-event-allow', 'chat:alice', '--reset']))
+      .toThrow('interactive');
+    expect(() => parseCliArgs(['--external-event-allow', 'chat:alice', 'user-local']))
+      .toThrow('interactive');
+  });
+
   it('parses the effort flag and validates its values', () => {
     expect(parseCliArgs(['--effort', 'xhigh']).effort).toBe('xhigh');
     expect(parseCliArgs(['--effort', 'auto']).effort).toBe('auto');

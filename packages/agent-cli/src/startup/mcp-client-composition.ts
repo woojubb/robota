@@ -51,6 +51,7 @@ import type {
   IMCPTimeouts,
   IMCPToolCallResult,
   IMCPTransportAdapter,
+  TMCPExternalEventListener,
 } from '@robota-sdk/agent-mcp';
 import type {
   ICommandMCPActivationAdapter,
@@ -150,6 +151,12 @@ export interface IMcpClientComposition {
    * `reportDiagnostic` and that server is excluded; it never fails the whole call.
    */
   connect(signal?: AbortSignal): Promise<readonly IToolWithEventService[]>;
+  /** Bind a host listener only to an admitted, connected, capability-declaring MCP server. */
+  subscribeExternalEvent(
+    serverId: string,
+    listener: TMCPExternalEventListener,
+  ): { readonly ok: true; readonly unsubscribe: () => void } |
+    { readonly ok: false; readonly reason: string };
   /** Closes every supervisor opened by `connect`, cancelling their armed timers. */
   shutdown(): Promise<void>;
   /**
@@ -174,6 +181,7 @@ export interface IMcpServerConnection {
     options?: { readonly signal?: AbortSignal },
   ): Promise<IMCPToolCallResult>;
   shutdown(): Promise<void>;
+  onExternalEvent?(listener: TMCPExternalEventListener): () => void;
 }
 
 /** Narrows `agent-mcp`'s internal activation summary to the command layer's secret-free port shape. */
@@ -371,6 +379,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   const activationAdapter = buildActivationAdapter(controller);
 
   const openConnections: IMcpServerConnection[] = [];
+  const connectedByServerId = new Map<string, IMcpServerConnection>();
   const timeouts = deps.timeouts ?? DEFAULT_MCP_CLIENT_TIMEOUTS;
   const createSupervisor =
     deps.createSupervisor ??
@@ -401,6 +410,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   };
 
   async function connect(signal?: AbortSignal): Promise<readonly IToolWithEventService[]> {
+    connectedByServerId.clear();
     const catalogInputs: IMCPCatalogInput[] = [];
     const connectionByServerId = new Map<string, IMcpServerConnection>();
     const securityIdentityByServerId = new Map<string, string>();
@@ -419,6 +429,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       if (connected.connection !== undefined) {
         openConnections.push(connected.connection);
         connectionByServerId.set(request.serverId, connected.connection);
+        connectedByServerId.set(request.serverId, connected.connection);
         securityIdentityByServerId.set(request.serverId, request.securityIdentity);
       }
     }
@@ -511,11 +522,27 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   }
 
   async function shutdown(): Promise<void> {
+    connectedByServerId.clear();
     await Promise.all([
       ...openConnections.map((connection) => connection.shutdown()),
       ...(resultSpillStore ? [resultSpillStore.shutdown()] : []),
     ]);
   }
 
-  return { activationAdapter, connect, shutdown, connectedToolProvenance };
+  function subscribeExternalEvent(
+    serverId: string,
+    listener: TMCPExternalEventListener,
+  ): ReturnType<IMcpClientComposition['subscribeExternalEvent']> {
+    const connection = connectedByServerId.get(serverId);
+    if (!connection?.onExternalEvent) {
+      return { ok: false, reason: 'server is not connected for external events' };
+    }
+    try {
+      return { ok: true, unsubscribe: connection.onExternalEvent(listener) };
+    } catch {
+      return { ok: false, reason: 'server rejected external event subscription' };
+    }
+  }
+
+  return { activationAdapter, connect, subscribeExternalEvent, shutdown, connectedToolProvenance };
 }
