@@ -8,14 +8,13 @@ import { createCodingPack } from '../coding-pack.js';
 /**
  * ARCH-005 S1 — `@robota-sdk/pack-coding` is the additive-axis proof: an `ICapabilityPack` that bundles
  * EXACTLY robota's current coding toolset (the built-in tools), the coding command modules, and the coding
- * subagents. The tool assertion is pinned to `createDefaultTools()` so the pack cannot drift from robota's
- * actual default toolset — adding a default tool fails this test until the pack is updated.
+ * subagents. The pack consumes `createDefaultTools()` and the assertion checks that composition does not
+ * add, drop, or reorder that owned set.
  *
  * ARCH-006 — the pack is built by a FACTORY that takes the session's working directory, because a pack
- * whose file tools are constructed with no `cwd` carries a DISARMED working-directory path guard
- * (`checkPathWithinCwd` is a no-op when `cwd` is undefined). Once a product can hand the whole tool surface
- * to its packs (`defaultTools: []`), that would be an unsandboxed `Read`/`Write`/`Edit`. The sandbox
- * property is asserted directly below, not assumed.
+ * whose file tools are constructed with no `cwd` would have carried a disarmed path guard before
+ * ARCH-010. The leaf now refuses a missing root; the pack still requires one. The sandbox property is
+ * asserted directly below, not assumed.
  */
 
 const CWD = '/tmp/pack-coding-scope';
@@ -70,7 +69,7 @@ describe("codingPack — contributes exactly robota's current coding toolset", (
     expect(packSubagentNames).toEqual(['general-purpose', 'Explore', 'Plan']);
   });
 
-  it('bundles the coding command modules (shell + editor)', () => {
+  it('bundles the coding command modules (shell + editor + git)', () => {
     const packModuleNames = (createCodingPack({ cwd: CWD }).commandModules ?? []).map(
       (module) => module.name,
     );

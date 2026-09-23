@@ -52,6 +52,11 @@ provider-construction path. A profile that sets its own `baseURL` is probed at t
 
 This package depends on `@robota-sdk/agent-core` only among framework packages (plus its one vendor SDK where applicable). `agent-framework`, `agent-session`, and all higher-layer packages must never be imported.
 
+Within the package, `model-catalog-metadata.ts` owns the source URL and verification date shared by the
+provider definition and capability table. The definition re-exports those public constants, while the
+capability table imports their independent owner. Importing the definition first as native ESM must not
+read an uninitialized value through `provider → capability-table`.
+
 ## Build Output Contract
 
 ```
