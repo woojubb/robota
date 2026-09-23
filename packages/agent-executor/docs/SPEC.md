@@ -479,4 +479,4 @@ Production dependencies:
 | `@robota-sdk/agent-process`             | `killProcessTree`/`DEFAULT_KILL_GRACE_MS` for process-tree teardown in the background-task runners (`scheduled-task-runner.ts`, `managed-shell-process-runner.ts`) |
 | `croner`                                | Cron expression parsing and scheduling for `createScheduledTaskRunner`                                                                                             |
 
-This package must not depend on SDK, sessions, tool, concrete-provider, concrete-transport, or CLI packages (the `agent-interface-transport` contract SSOT above is not a concrete transport).
+This package must not depend on SDK, sessions, tool, concrete-provider, concrete-transport, or CLI packages.
