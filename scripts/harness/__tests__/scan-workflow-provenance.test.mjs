@@ -347,7 +347,8 @@ describe('workflow-provenance — this repository (INFRA-097)', () => {
     // the one file here that does NOT load from the pull request, because it runs on
     // `pull_request_target`. So the ratio, not the count, is the live signal: the exposure is now
     // named as two specific files rather than as "everything required".
-    expect(examined).toBe(56);
+    // The scan runner's shared source-extension import also guards workspace-packages.mjs.
+    expect(examined).toBe(57);
     expect(selfLoading).toHaveLength(2);
     expect(selfLoading.map((finding) => finding.workflow ?? finding)).not.toContain(
       '.github/workflows/workflow-provenance-gate.yml',
