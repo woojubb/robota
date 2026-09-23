@@ -26,6 +26,7 @@ describe('dag-runtime-server contract', () => {
       framework.validation,
       framework.catalog,
       framework.definitionReads,
+      framework.definitionMutations,
       undefined,
       framework.assets,
     );
@@ -71,7 +72,7 @@ describe('dag-runtime-server contract', () => {
       pipeline: [{ nodeType: 'input', config: { text: 'hello' } }],
     });
     if (!built.ok) throw new Error('Expected a valid test definition.');
-    expect((await framework.client.createDefinition(built.definition)).ok).toBe(true);
+    expect((await framework.definitionMutations.createDefinition(built.definition)).ok).toBe(true);
     const found = await app.request('/v1/dag/definitions/read-contract?version=1');
     expect(found.status).toBe(200);
     expect(await found.json()).toMatchObject({
@@ -99,6 +100,132 @@ describe('dag-runtime-server contract', () => {
           detail: 'Definition does not exist',
           instance: '/v1/dag/definitions/absent?version=2',
           code: 'DAG_VALIDATION_DEFINITION_NOT_FOUND',
+          retryable: false,
+        },
+      ],
+    });
+  });
+
+  it('maps definition mutations to the existing success and validation envelopes', async () => {
+    const built = await framework.build.buildDag({
+      dagId: 'mutation-contract',
+      pipeline: [{ nodeType: 'input', config: { text: 'hello' } }],
+    });
+    if (!built.ok) throw new Error('Expected a valid test definition.');
+    const definition = built.definition;
+    const create = () =>
+      app.request('/v1/dag/definitions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ definition }),
+      });
+    const created = await create();
+    expect(created.status).toBe(201);
+    expect(await created.json()).toMatchObject({
+      ok: true,
+      status: 201,
+      data: { definitionId: 'mutation-contract:1', definition: { status: 'draft' } },
+    });
+    const duplicate = await create();
+    expect(duplicate.status).toBe(400);
+    expect(await duplicate.json()).toMatchObject({
+      ok: false,
+      status: 400,
+      errors: [
+        {
+          type: 'urn:robota:problems:dag:validation',
+          title: 'Validation failed',
+          status: 400,
+          instance: '/v1/dag/definitions/mutation-contract/versions/1',
+          code: 'DAG_VALIDATION_DUPLICATE_VERSION',
+        },
+      ],
+    });
+
+    const updated = await app.request('/v1/dag/definitions/mutation-contract/draft', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ version: 1, definition }),
+    });
+    expect(updated.status).toBe(200);
+    expect(await updated.json()).toMatchObject({
+      ok: true,
+      status: 200,
+      data: { definition: { dagId: 'mutation-contract', status: 'draft' } },
+    });
+    const validated = await app.request('/v1/dag/definitions/mutation-contract/validate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ version: 1 }),
+    });
+    expect(validated.status).toBe(200);
+    expect(await validated.json()).toMatchObject({
+      ok: true,
+      status: 200,
+      data: { valid: true, definition: { dagId: 'mutation-contract' } },
+    });
+    const published = await app.request('/v1/dag/definitions/mutation-contract/publish', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(published.status).toBe(200);
+    expect(await published.json()).toMatchObject({
+      ok: true,
+      status: 200,
+      data: { definitionId: 'mutation-contract:2', definition: { status: 'published' } },
+    });
+    const republished = await app.request('/v1/dag/definitions/mutation-contract/publish', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(republished.status).toBe(400);
+    expect(await republished.json()).toMatchObject({
+      ok: false,
+      errors: [
+        {
+          instance: '/v1/dag/definitions/mutation-contract/versions/2/publish',
+          code: 'DAG_VALIDATION_PUBLISH_ONLY_DRAFT',
+        },
+      ],
+    });
+  });
+
+  it('preserves missing-definition errors for validation and versionless publishing', async () => {
+    const validated = await app.request('/v1/dag/definitions/absent/validate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ version: 4 }),
+    });
+    expect(validated.status).toBe(400);
+    expect(await validated.json()).toMatchObject({
+      ok: false,
+      status: 400,
+      errors: [
+        {
+          instance: '/v1/dag/definitions/absent/versions/4/validate',
+          code: 'DAG_VALIDATION_DEFINITION_NOT_FOUND',
+        },
+      ],
+    });
+    const published = await app.request('/v1/dag/definitions/absent/publish', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(published.status).toBe(404);
+    expect(await published.json()).toEqual({
+      ok: false,
+      status: 404,
+      errors: [
+        {
+          type: 'urn:robota:problems:dag:not_found',
+          title: 'Resource not found',
+          status: 404,
+          detail: 'DAG definition not found',
+          instance: '/v1/dag/definitions/absent/publish',
+          code: 'DAG_NOT_FOUND',
           retryable: false,
         },
       ],
@@ -207,6 +334,7 @@ describe('dag-runtime-server contract', () => {
       framework.validation,
       framework.catalog,
       framework.definitionReads,
+      framework.definitionMutations,
     );
 
     const res = await supportedApp.request('/v1/dag/cost-meta');
@@ -233,6 +361,7 @@ describe('dag-runtime-server contract', () => {
       framework.validation,
       framework.catalog,
       framework.definitionReads,
+      framework.definitionMutations,
     );
 
     const res = await failingApp.request('/v1/dag/cost-meta');
@@ -301,6 +430,7 @@ describe('dag-runtime-server contract', () => {
       framework.validation,
       framework.catalog,
       framework.definitionReads,
+      framework.definitionMutations,
     );
     const res = await failingApp.request('/v1/dag/run-drafts/draft-1');
     expect(res.status).toBe(500);
@@ -379,6 +509,7 @@ describe('dag-runtime-server contract', () => {
       framework.validation,
       framework.catalog,
       framework.definitionReads,
+      framework.definitionMutations,
       undefined,
       referenceStore,
     );
@@ -462,6 +593,7 @@ describe('dag-runtime-server contract', () => {
       framework.validation,
       framework.catalog,
       framework.definitionReads,
+      framework.definitionMutations,
     );
     const unwired = await unwiredApp.request('/v1/dag/assets/missing');
     expect(unwired.status).toBe(501);
@@ -478,6 +610,7 @@ describe('dag-runtime-server contract', () => {
       framework.validation,
       framework.catalog,
       framework.definitionReads,
+      framework.definitionMutations,
       undefined,
       broken,
     );
@@ -516,6 +649,7 @@ describe('dag-runtime-server contract', () => {
       framework.validation,
       framework.catalog,
       framework.definitionReads,
+      framework.definitionMutations,
       undefined,
       broken,
     );
@@ -567,6 +701,7 @@ describe('dag-runtime-server SSE progress stream', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       source,
     );
 
@@ -600,6 +735,7 @@ describe('dag-runtime-server SSE progress stream', () => {
       },
     };
     const app = createDagRuntimeServer(
+      {} as never,
       {} as never,
       {} as never,
       {} as never,

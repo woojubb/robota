@@ -15,6 +15,7 @@ export * from './interfaces/run-draft-operations-port.js';
 export * from './interfaces/definition-validation-port.js';
 export * from './interfaces/node-catalog-port.js';
 export * from './interfaces/definition-read-port.js';
+export * from './interfaces/definition-mutation-port.js';
 export * from './constants/status.js';
 export * from './constants/events.js';
 export * from './state-machines/dag-run-state-machine.js';

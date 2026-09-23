@@ -20,11 +20,11 @@ zero external runtime-server process dependencies.
   composition, worker, task, and lifecycle contracts require that root explicitly and never
   default it themselves — the factory is the sole boundary allowed to fall back to the process's
   own working directory when the root is omitted.
-- Definition reads, build, catalog-aware definition validation, registered-node catalog, cost-meta, and run-draft operations are separate domain capabilities on the returned framework, not
+- Definition reads and mutations, build, catalog-aware definition validation, registered-node catalog, cost-meta, and run-draft operations are separate domain capabilities on the returned framework, not
   folded into the main orchestration port. Until cost persistence and formula execution are wired
   with an explicit policy, cost operations report an explicit unsupported result rather than
   fabricating a response.
-- The orchestration adapter does not encode definition reads, build, validation, or catalog results, upload bytes, fabricate download URLs, or wrap asset
+- The orchestration adapter does not encode definition reads or mutations, build, validation, or catalog results, upload bytes, fabricate download URLs, or wrap asset
   metadata in HTTP envelopes — asset storage and byte streaming are exposed as a separate
   capability. Remaining orchestration methods keep an HTTP-shaped response contract because a
   native runtime server can sit behind the same port.

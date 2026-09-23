@@ -16,13 +16,13 @@ mapping and the server entrypoint.
 
 ## Architecture Overview
 
-`createDagRuntimeServer(port, costMeta, runDrafts, build, validation, catalog, definitionReads, progressSource?, assets?)` returns a Hono app. Legacy orchestration `/v1/dag/*` handlers map:
+`createDagRuntimeServer(port, costMeta, runDrafts, build, validation, catalog, definitionReads, definitionMutations, progressSource?, assets?)` returns a Hono app. Legacy orchestration `/v1/dag/*` handlers map:
 parse path/query/body → call the matching `IDagOrchestrationPort` method → return
 `c.json(response.payload, response.status)` (every port method returns a uniform
-`IDagOrchestrationHttpResponse`). Definition reads, build, definition validation, node-catalog, cost metadata, and run-draft routes instead map separate
+`IDagOrchestrationHttpResponse`). Definition reads and mutations, build, definition validation, node-catalog, cost metadata, and run-draft routes instead map separate
 domain capabilities to the same HTTP envelope. Build validation failures answer 400;
 definition validation findings remain a successful 200 response with `valid: false` and `errors`.
-The definition-read, build, validation, and catalog capabilities are required at server construction. Run-draft request JSON is decoded before calling
+The definition-read, definition-mutation, build, validation, and catalog capabilities are required at server construction. Run-draft request JSON is decoded before calling
 `IRunDraftOperationsPort`; an invalid field returns 400, a missing draft 404, a storage failure 500
 without internal details, and create returns 201. The reset route is `POST`.
 Cost metadata routes map a separate
