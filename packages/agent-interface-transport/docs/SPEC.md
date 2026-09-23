@@ -59,6 +59,9 @@ Types owned by this package (SSOT):
 | --------------------------------- | --------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
 | `ITransportAdapter`               | Interface | `transport-adapter.ts` | Core transport lifecycle: `name`, frozen `lifecycle`, `attach(session)`, `start()`, `stop()`    |
 | `ITransportRunnerAdapter`         | Interface | `transport-adapter.ts` | Runner lifecycle plus `waitForCompletion()` and exact typed outcome                             |
+| `IBoundTransportAdapter`          | Interface | `transport-adapter.ts` | Bound lifecycle base with no session attachment operation                                        |
+| `IBoundTransportServiceAdapter`   | Interface | `transport-adapter.ts` | Bound service lifecycle                                                                          |
+| `IBoundTransportRunnerAdapter`    | Interface | `transport-adapter.ts` | Bound runner lifecycle with completion wait                                                     |
 | `TBoundTransportAdapter`           | Type      | `transport-adapter.ts` | Session-bound service/runner lifecycle without an `attach` operation                            |
 | `ITransportConfig`                | Interface | `transport-config.ts`  | Persisted config shape: `{ enabled: boolean; options?: Record<string, unknown> }`               |
 | `ITransportSettingsCapability`    | Interface | `transport-config.ts`  | Orthogonal `defaultEnabled`, `optionsSchema`, and optional `validateOptions()` settings shape   |
@@ -117,6 +120,9 @@ the other.
 | `isTransportRunOutcome`            | Function  | narrows an unknown value to a `TTransportRunOutcome` — the contract's discriminator                                                                     |
 | `ITransportAdapter`                | Interface | Core attach/start/stop lifecycle contract (generic TSession)                                                                                            |
 | `ITransportRunnerAdapter`          | Interface | Runner adapter with a separate typed terminal-outcome wait                                                                                              |
+| `IBoundTransportAdapter`           | Interface | Bound lifecycle base with no session attachment operation                                                                                              |
+| `IBoundTransportServiceAdapter`    | Interface | Bound service lifecycle                                                                                                                                 |
+| `IBoundTransportRunnerAdapter`     | Interface | Bound runner lifecycle with completion wait                                                                                                             |
 | `TBoundTransportAdapter`           | Type      | Bound service/runner lifecycle carrying `binding: 'bound'`; registry consumers cannot attach a session                                                  |
 | `TBoundConfigurableTransport`      | Type      | Bound lifecycle plus the orthogonal settings capability                                                                                                |
 | `ITransportLifecycleRegistryView`  | Interface | Base-adapter registration, lifecycle, completion, and prompt failure projection                                                                         |
