@@ -94,7 +94,7 @@ export const JUSTIFIED_JOB_WRITE_SCOPES = {
   'scans-full.yml': {
     'full-harness': {
       issues:
-        'files (or comments on) the `scans-full is red on develop` issue when the full suite fails — the promotion blocker PROC-016 names',
+        'comments on existing issue #2423 when the full suite fails, preserving the consolidated issue tracker',
     },
   },
 };
