@@ -19,10 +19,10 @@ import type { IHeadlessSession } from './headless-session.js';
 import type { IModelEffortResolution } from '../../effort/effort-resolution.js';
 import type { IProviderErrorGuidance } from '../../utils/error-humanizer.js';
 import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface-session';
+import type { TOutputFormat } from './headless-output-format.js';
 
-/** Issue #2052: the ONE owner of the output-format vocabulary — type and runtime constant together. */
-export const OUTPUT_FORMATS = ['text', 'json', 'stream-json'] as const;
-export type TOutputFormat = (typeof OUTPUT_FORMATS)[number];
+export { OUTPUT_FORMATS } from './headless-output-format.js';
+export type { TOutputFormat } from './headless-output-format.js';
 
 /** RUNTIME-36: normalize a caught unknown into an Error for the error/exit-code handlers. */
 function toError(error: unknown): Error {

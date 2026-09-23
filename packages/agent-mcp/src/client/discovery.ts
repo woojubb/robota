@@ -15,7 +15,7 @@ import { parseMCPResultSizeMetadata } from '../catalog/result-size-metadata.js';
 import { MCPDiscoveryError } from '../catalog/types.js';
 import { toUniversalObject } from '../catalog/universal-value.js';
 
-import type { IMCPDiscoverOptions } from './session.js';
+import type { IMCPDiscoverOptions } from './session-types.js';
 import type {
   IMCPDiscoveredPrompt,
   IMCPDiscoveredResource,

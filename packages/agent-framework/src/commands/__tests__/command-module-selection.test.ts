@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { findUnknownModuleNames, selectCommandModules } from '../command-module-selection.js';
-import { SystemCommandExecutor } from '../system-command.js';
+import { SystemCommandExecutor } from '../system-command-executor.js';
 
 import type { ICommandModule } from '../../command-api/index.js';
 

@@ -121,5 +121,5 @@ export type {
   IContextReferenceItem,
   TContextReferenceLoadType,
   TContextReferenceStatus,
-  IPlanApprovalEvent,
 } from './event-contracts.js';
+export type { IPlanApprovalEvent } from './session-event-map.js';

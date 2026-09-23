@@ -7,7 +7,7 @@
  * caller waits forever on a turn that will never run.
  */
 
-import type { IQueuedInput } from './interactive-session-execution-controller.js';
+import type { IQueuedInput } from './interactive-session-execution-contracts.js';
 import type { TDriverId, TTurnNotRunReason } from '@robota-sdk/agent-interface-session';
 
 /**

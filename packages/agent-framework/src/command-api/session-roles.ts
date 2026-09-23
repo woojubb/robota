@@ -6,8 +6,8 @@
  * so a reader looking for a session capability is not reading the agent-job ones.
  */
 
-import type { TAutoCompactThreshold } from './context/context-command-api.js';
-import type { IModelReapplyOptions } from './host-context.js';
+import type { TAutoCompactThreshold } from '@robota-sdk/agent-session';
+import type { IModelReapplyOptions } from './host-context-types.js';
 import type {
   IContextWindowState,
   IHistoryEntry,

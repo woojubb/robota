@@ -7,15 +7,6 @@
 import { ConversationStore } from './conversation-store';
 import { createLogger, type ILogger } from '../utils/logger';
 
-import type {
-  TUniversalMessageMetadata,
-  TUniversalMessageRole,
-  IToolCall,
-  TUniversalMessage,
-  TUniversalMessagePart,
-  IHistoryEntry,
-} from '../interfaces/messages';
-
 // Re-export type guards from interfaces (SSOT)
 export {
   isUserMessage,
@@ -41,6 +32,8 @@ export { ConversationStore } from './conversation-store';
 
 export type { IProviderApiMessage } from './conversation-store';
 
+export type { IConversationHistory } from './conversation-history-types';
+
 /**
  * 0 = unbounded (append-only). Conversation history must preserve every message; context size is
  * managed by size-based compaction (which summarizes), never by count-based truncation. A positive
@@ -48,41 +41,6 @@ export type { IProviderApiMessage } from './conversation-store';
  */
 const DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 0;
 const DEFAULT_MAX_CONVERSATIONS = 50;
-
-/** Interface for managing conversation history. @public */
-export interface IConversationHistory {
-  addMessage(message: TUniversalMessage): void;
-  addUserMessage(
-    content: string,
-    metadata?: TUniversalMessageMetadata,
-    parts?: TUniversalMessagePart[],
-  ): void;
-  addAssistantMessage(
-    content: string | null,
-    toolCalls?: IToolCall[],
-    metadata?: TUniversalMessageMetadata,
-    parts?: TUniversalMessagePart[],
-  ): void;
-  addSystemMessage(
-    content: string,
-    metadata?: TUniversalMessageMetadata,
-    parts?: TUniversalMessagePart[],
-  ): void;
-  addToolMessageWithId(
-    content: string,
-    toolCallId: string,
-    toolName: string,
-    metadata?: TUniversalMessageMetadata,
-    parts?: TUniversalMessagePart[],
-  ): void;
-  addEntry(entry: IHistoryEntry): void;
-  getHistory(): IHistoryEntry[];
-  getMessages(): TUniversalMessage[];
-  getMessagesByRole(role: TUniversalMessageRole): TUniversalMessage[];
-  getRecentMessages(count: number): TUniversalMessage[];
-  clear(): void;
-  getMessageCount(): number;
-}
 
 /** Configuration options for ConversationHistory manager */
 export interface IConversationHistoryOptions {

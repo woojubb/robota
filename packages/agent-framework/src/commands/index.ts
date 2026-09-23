@@ -89,7 +89,8 @@ export type {
   TSkillSkipReason,
 } from './skill-source.js';
 export { PluginCommandSource } from './plugin-source.js';
-export { SystemCommandExecutor, createSystemCommands } from './system-command.js';
+export { createSystemCommands } from './system-command.js';
+export { SystemCommandExecutor } from './system-command-executor.js';
 export { selectCommandModules, findUnknownModuleNames } from './command-module-selection.js';
 export type {
   IProviderCommandModuleOptions,

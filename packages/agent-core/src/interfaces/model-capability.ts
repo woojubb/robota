@@ -24,7 +24,7 @@
  *    said NOTHING — different again from saying no, and what `undefined` means below.
  */
 
-import type { TProviderModelCapability } from './provider-definition.js';
+import type { TProviderModelCapability } from './provider-model-capability-kind.js';
 
 /** One model that verifiably differs from its vendor's default, and when that was checked. */
 export interface IModelCapabilityDeviation {

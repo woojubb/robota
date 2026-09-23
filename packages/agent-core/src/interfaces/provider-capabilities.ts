@@ -1,5 +1,3 @@
-import type { IAIProvider } from './provider';
-
 export interface IProviderFunctionCallingCapability {
   supported: boolean;
   reason?: string;
@@ -50,11 +48,10 @@ export function createDefaultProviderCapabilities(
   };
 }
 
-export function getProviderCapabilities(provider: IAIProvider): IProviderCapabilities {
-  const supportsTools =
-    typeof provider.supportsTools === 'function' ? provider.supportsTools() : false;
-  return provider.getCapabilities?.() ?? createDefaultProviderCapabilities(supportsTools);
-}
+// NOTE:
+// `getProviderCapabilities` moved to `./provider.ts` (it takes an `IAIProvider`, and defining it
+// here required importing `./provider`, while `provider.ts` imports this module's types —
+// a module-level import cycle). Re-exported from `./provider` under the same name.
 
 export function assertProviderNativeWebToolsAvailable(
   providerName: string,

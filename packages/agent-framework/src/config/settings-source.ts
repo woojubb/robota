@@ -9,7 +9,7 @@ import { assertWorkspaceProjectReader } from '../workspace-trust/index.js';
 import type { INodeHostSettingsSource } from './node-host-settings-source.js';
 import type { IWorkspaceProjectReader } from '../workspace-trust/index.js';
 
-export type THostSettingsScope = 'managed' | 'user';
+export type { THostSettingsScope } from './settings-scope-types.js';
 export type TProjectSettingsScope = 'project' | 'project-local';
 
 export interface IWorkspaceProjectSettingsSource {

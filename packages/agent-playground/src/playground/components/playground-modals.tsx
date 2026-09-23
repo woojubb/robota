@@ -15,7 +15,7 @@ import {
 } from '../../components/ui/select';
 import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
 import { systemPromptTemplates } from './system-prompt-templates';
-import type { TToolDraft } from './PlaygroundApp';
+import type { TToolDraft } from './playground-modal-types';
 
 export function CreateAgentModal({
   isOpen,

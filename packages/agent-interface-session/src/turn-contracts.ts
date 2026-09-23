@@ -6,8 +6,8 @@
  * is inert by rule, so the error is declared as a shape and constructed in `@robota-sdk/agent-framework`.
  */
 
-import type { IPromptFileReferenceRecord } from './event-contracts.js';
-import type { IToolSummary } from './session-contracts.js';
+import type { IPromptFileReferenceRecord } from './prompt-file-reference-types.js';
+import type { IToolSummary } from './tool-summary-types.js';
 import type { IContextWindowState, IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IUsageSnapshot } from '@robota-sdk/agent-interface-analytics';
 

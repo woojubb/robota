@@ -5,6 +5,11 @@ import {
   deleteWordBeforeCursor,
   type ICjkDeletion,
 } from './cjk-text-deletion.js';
+import type {
+  ICjkTextInputFlowState,
+  TCjkDeletionScope,
+  TCjkTextInputEffect,
+} from './cjk-text-input-types.js';
 
 const PASTE_START = '[200~';
 const PASTE_END = '[201~';
@@ -12,13 +17,11 @@ const LAST_ASCII_CONTROL_CODE = 0x1f;
 const DELETE_CONTROL_CODE = 0x7f;
 
 export { charIndexAtDisplayOffset, displayOffset } from './cjk-cursor-motion.js';
-
-export interface ICjkTextInputFlowState {
-  value: string;
-  cursor: number;
-  isPasting: boolean;
-  pasteBuffer: string;
-}
+export type {
+  ICjkTextInputFlowState,
+  TCjkDeletionScope,
+  TCjkTextInputEffect,
+} from './cjk-text-input-types.js';
 
 export interface ICjkTextInputKey {
   ctrl?: boolean;
@@ -38,16 +41,6 @@ export interface ICjkTextInputFlowOptions {
   canPaste: boolean;
   enableVerticalNavigation?: boolean;
 }
-
-/** CLI-2004: a word/line delete is announced; a single-character backspace is not (it is heard). */
-export type TCjkDeletionScope = 'word' | 'line';
-
-export type TCjkTextInputEffect =
-  | { type: 'none' }
-  | { type: 'change'; value: string; deleted?: string; deletedScope?: TCjkDeletionScope }
-  | { type: 'submit'; value: string }
-  | { type: 'paste'; text: string; cursor: number }
-  | { type: 'render' };
 
 interface ICjkTextInputFlowResult {
   state: ICjkTextInputFlowState;

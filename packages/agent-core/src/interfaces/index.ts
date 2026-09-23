@@ -73,8 +73,8 @@ export type {
 export {
   assertProviderNativeWebToolsAvailable,
   createDefaultProviderCapabilities,
-  getProviderCapabilities,
 } from './provider-capabilities';
+export { getProviderCapabilities } from './provider';
 
 export type {
   IProviderDefinitionConfig,

@@ -5,14 +5,10 @@ import { decodeSessionLogEntries, SessionLogDecodeError } from './session-log-co
 
 import type { ISessionLogPayloadResolutionOptions } from './external-payload-resolver.js';
 import type { IExternalPayloadSource, ISessionLogSource } from './session-log-sources.js';
-import type { IHistoryEntry, TUniversalMessage, TUniversalValue } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
+import type { ISessionLogEntry } from './session-log-entry-types.js';
 
-export interface ISessionLogEntry extends Record<string, TUniversalValue> {
-  schemaVersion?: number;
-  timestamp: string;
-  sessionId: string;
-  event: string;
-}
+export type { ISessionLogEntry } from './session-log-entry-types.js';
 
 export interface ISessionReplayRecord {
   sessionId: string | undefined;

@@ -23,7 +23,7 @@ import {
   successAfterAck,
 } from './worker-failure-handler.js';
 
-import type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-service.js';
+import type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-types.js';
 
 /**
  * What happens to a task once its executor has returned — success or failure.

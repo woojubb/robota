@@ -22,18 +22,15 @@ import { NodeFileSystem } from '../adapters/node-file-system.js';
 import type { MarketplaceClient, IMarketplacePluginEntry, TExecFn } from './marketplace-client.js';
 import type { NodeHostPluginSettingsStore } from './plugin-settings-store.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
+import type {
+  IInstalledPluginRecord,
+  TInstalledPluginsRegistry,
+} from './installed-plugin-types.js';
 
-/** Record of an installed plugin in installed_plugins.json. */
-export interface IInstalledPluginRecord {
-  pluginName: string;
-  marketplace: string;
-  version: string;
-  installPath: string;
-  installedAt: string;
-}
-
-/** Shape of installed_plugins.json. */
-export type TInstalledPluginsRegistry = Record<string, IInstalledPluginRecord>;
+export type {
+  IInstalledPluginRecord,
+  TInstalledPluginsRegistry,
+} from './installed-plugin-types.js';
 
 /** Options for constructing a BundlePluginInstaller. */
 export interface IBundlePluginInstallerOptions {

@@ -11,7 +11,7 @@ import {
 
 import { assertSafeSessionId } from './session-id.js';
 
-import type { IExternalPayloadReference } from './session-logger.js';
+import type { IExternalPayloadReference } from './session-log-reference-types.js';
 
 const logger = createLogger('NodeSessionLogSink');
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;

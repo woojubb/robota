@@ -7,7 +7,7 @@ import { type IExecutionRoundState } from './execution-types';
 import { getModelContextWindow } from '../context/models';
 import { SameToolInputLoopError } from '../utils/errors';
 
-import type { IRoundDependencies } from './execution-round';
+import type { IRoundDependencies } from './execution-round-types';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type {
   IAgentConfig,

@@ -8,7 +8,7 @@ import { SimpleConversationHistory } from './conversation-store-history';
 import { isAssistantMessage, isToolMessage } from '../interfaces/messages';
 import { randomId } from '../utils/random-id.js';
 
-import type { IConversationHistory } from './conversation-history-manager';
+import type { IConversationHistory } from './conversation-history-types';
 import type {
   TUniversalMessageMetadata,
   TUniversalMessageRole,

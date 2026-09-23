@@ -1,6 +1,6 @@
 import { dirname } from 'node:path';
 
-import type { TInstalledPluginsRegistry } from './bundle-plugin-installer.js';
+import type { TInstalledPluginsRegistry } from './installed-plugin-types.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /**

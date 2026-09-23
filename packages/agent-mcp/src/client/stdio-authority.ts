@@ -7,7 +7,7 @@ import type {
   IMCPStdioAuthority,
   IMCPStdioInput,
   IMCPStdioSnapshot,
-} from './stdio.js';
+} from './stdio-types.js';
 
 const MAX_FIELD_LENGTH = 16_384;
 const MAX_ARGS = 128;

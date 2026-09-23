@@ -1,5 +1,5 @@
 import type { ICommandPermissionModeAdapter } from '../host-adapters.js';
-import type { ICommandHostAdapterAccess, ICommandHostSessionAccess } from '../host-context.js';
+import type { ICommandHostAdapterAccess, ICommandHostSessionAccess } from '../host-roles.js';
 import type { ICommand } from '../types.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 

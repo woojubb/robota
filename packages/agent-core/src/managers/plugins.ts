@@ -16,28 +16,15 @@ import { createLogger, type ILogger } from '../utils/logger';
 
 import type { AbstractPlugin } from '../abstracts/abstract-plugin';
 
-/** Plugin lifecycle events */
-export interface IPluginLifecycleEvents {
-  beforeInitialize?: (plugin: AbstractPlugin) => Promise<void> | void;
-  afterInitialize?: (plugin: AbstractPlugin) => Promise<void> | void;
-  beforeDestroy?: (plugin: AbstractPlugin) => Promise<void> | void;
-  afterDestroy?: (plugin: AbstractPlugin) => Promise<void> | void;
-  onError?: (plugin: AbstractPlugin, error: Error) => Promise<void> | void;
-}
-
-/** Plugin dependency definition */
-export interface IPluginDependency {
-  name: string;
-  required: boolean;
-  minVersion?: string;
-}
-
-/** Plugin registration options */
-export interface IPluginRegistrationOptions {
-  dependencies?: IPluginDependency[];
-  priority?: number;
-  autoInitialize?: boolean;
-}
+export type {
+  IPluginLifecycleEvents,
+  IPluginDependency,
+  IPluginRegistrationOptions,
+} from './plugins-types';
+import type {
+  IPluginLifecycleEvents,
+  IPluginRegistrationOptions,
+} from './plugins-types';
 
 /** Plugin status information */
 export interface IPluginStatus {

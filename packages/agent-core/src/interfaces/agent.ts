@@ -11,9 +11,13 @@ import type { IResponseFormatConfig, ISafetySetting } from './response-format';
 import type { IRunOptions } from './run-options';
 import type { TToolSearchSetting } from './tool-search';
 import type { TConfigValue } from './types';
-import type { IModule } from '../abstracts/abstract-module';
-import type { IPluginContract, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
-import type { IToolWithEventService } from '../abstracts/abstract-tool';
+import type { IModule } from '../abstracts/abstract-module-types';
+import type {
+  IPluginContract,
+  IPluginOptions,
+  IPluginStats,
+} from '../abstracts/abstract-plugin-types';
+import type { IToolWithEventService } from '../abstracts/abstract-tool-types';
 import type { IEventService, IOwnerPathSegment } from '../interfaces/event-service';
 import type { TUtilLogLevel } from '../utils/logger';
 

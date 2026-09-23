@@ -12,9 +12,8 @@
  *    persisted record rather than after it — and guarded, so a capture bug never breaks the turn.
  */
 
-import type { TTurnSource } from './interactive-session-execution-controller.js';
 import type { IExecutionResult } from './types.js';
-import type { IMemoryEvent } from '@robota-sdk/agent-interface-session';
+import type { IMemoryEvent, TTurnSource } from '@robota-sdk/agent-interface-session';
 
 export interface IPostTurnMemoryInput {
   readonly capture?: (input: {

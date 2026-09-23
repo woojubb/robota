@@ -11,7 +11,7 @@ import {
   buildToolOwnerContext,
   buildResponseOwnerContext,
 } from './execution-event-helpers';
-import { TOOL_EVENT_PREFIX } from './tool-execution-service';
+import { TOOL_EVENT_PREFIX } from './tool-execution-constants';
 import { isDefaultEventService, bindWithOwnerPath } from '../event-service/index';
 
 import type { IResolvedProviderInfo } from './execution-types';

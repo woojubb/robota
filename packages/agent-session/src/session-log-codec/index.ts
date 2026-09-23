@@ -5,7 +5,7 @@ import { atKey, describeValue } from '../session-record-codec/decode-outcome.js'
 import { decodeString, decodeTimestampString } from '../session-record-codec/scalars.js';
 
 import type { TSessionLogEventName } from '../session-log-events.js';
-import type { ISessionLogEntry } from '../session-log-replay.js';
+import type { ISessionLogEntry } from '../session-log-entry-types.js';
 import type { TPayloadShape } from './field-decoders.js';
 import type { TDecodeIssues } from '../session-record-codec/decode-outcome.js';
 import type { TUniversalMessage, TUniversalValue } from '@robota-sdk/agent-core';

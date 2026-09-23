@@ -1,6 +1,6 @@
 import { failAfterAck, handleTerminalFailure } from './worker-failure-handler.js';
 
-import type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-service.js';
+import type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-types.js';
 
 import {
   TASK_PROGRESS_EVENTS,

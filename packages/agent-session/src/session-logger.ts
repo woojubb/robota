@@ -13,6 +13,17 @@ import { SESSION_LOG_SCHEMA_VERSION } from './session-log-events.js';
 import { normalizeLogData } from './session-log-payload.js';
 
 import type { ISessionLogSink } from './session-log-sinks.js';
+import type {
+  IFileSessionLoggerOptions,
+  TSessionLogData,
+} from './session-log-reference-types.js';
+
+export type {
+  IExternalPayloadReference,
+  IFileSessionLoggerOptions,
+  TSessionLogData,
+  TSessionLogValue,
+} from './session-log-reference-types.js';
 
 const logger = createLogger('FileSessionLogger');
 
@@ -51,23 +62,6 @@ function ensureExitFlush(loggerInstance: FileSessionLogger): void {
       live.flush();
     }
   });
-}
-
-/** Session log event data — extensible record of event metadata. */
-export type TSessionLogValue = string | number | boolean | object | null | undefined;
-export type TSessionLogData = Record<string, TSessionLogValue>;
-
-export interface IExternalPayloadReference {
-  kind: 'external-payload';
-  encoding: 'json';
-  sha256: string;
-  byteLength: number;
-  relativePath: string;
-}
-
-export interface IFileSessionLoggerOptions {
-  externalPayloadThresholdBytes?: number;
-  redactedValue?: string;
 }
 
 const BYTES_PER_KIB = 1024;
