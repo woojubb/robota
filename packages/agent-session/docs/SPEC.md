@@ -264,6 +264,14 @@ A running turn's partial response is always committed to history on abort (marke
 text is never stripped). The underlying run always returns normally on abort — it never throws —
 and the session's post-run check is the sole source of the abort error surfaced to the caller.
 
+### Tool-result spill store
+
+Oversized tool results are spilled to disk without exposing where or what they are. The store lives in
+an unpredictable, owner-only directory (created with `mkdtemp`, mode `0700`); each result is written to
+an exclusively created `0600` file and addressed by a random, opaque `tool-result:` reference. No path,
+digest or payload appears in references or diagnostics, failures carry no secret material, and spilled
+results are removed on expiry and on shutdown.
+
 ## Error Taxonomy
 
 - Tool permission denial and a hook blocking a tool are both returned as failed tool results, not

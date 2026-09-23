@@ -98,16 +98,21 @@ These are behaviors a caller cannot infer from a type signature alone.
   ability to exclude one. The general principle: restriction must be asked for explicitly; extension
   may be assumed. A declared hook type with no runnable executor is refused before the first turn,
   naming the type and the missing option, rather than being silently discarded at every tool call.
-- **Settings layering treats `hooks` as a security boundary, not an ordinary merge.** Every other
-  settings key deep-merges with a higher layer overriding a lower one; `hooks` instead merges
-  per-lifecycle-event, appending each layer's groups in layer order, so a higher-trust layer can only
-  _add_ hooks and can never remove one a lower layer did not itself declare — a project settings file
-  cannot silently disable a user's guard hook by declaring an unrelated one. A hook group may name
-  itself with an `id`; a layer may then disable ids declared by _later_ (lower-trust) layers only, so
-  a user layer can turn off a project hook but not vice versa.
+- **Settings layers merge per key, and the rule is chosen for safety, not uniformity.** Layers are
+  read user-first, project-later; the later (lower-trust) layer overrides by default, except:
+  `defaultTrustLevel` keeps the most restrictive value; `permissions.deny` is unioned while
+  `permissions.allow` is replaced; `disabledHooks` accumulates; provider/env/plugin objects merge
+  field by field; and `hooks` merge per lifecycle event, appending each layer's groups, so a later
+  project layer can only _add_ hooks and can never remove a user's guard by declaring an unrelated one.
+  A hook group may carry an `id`; a layer may disable only ids declared by later layers, so a user can
+  turn off a project hook but not the reverse.
+- **A credential never follows a changed endpoint.** When a later layer changes a provider's
+  `baseURL`, any `apiKey`/`apiKeyEnv` inherited from an earlier layer is dropped unless the same layer
+  supplies its own, so a project file cannot redirect a user's key to a different endpoint.
 - **Provider resolution order is fixed and total.** An explicit settings profile always wins; failing
   that, env-default synthesis picks the first provider definition (in definition order) whose default
-  API key is an unset-but-present environment reference and which also has a default model; failing
+  API key references an environment variable that is set and non-empty, and which also has a default
+  model; failing
   that, provider resolution throws a typed configuration error. An existing-but-corrupt settings file
   is never treated as a missing one — it fails fast with a typed parse error naming the file and the
   parse message, rather than silently falling back to defaults.
@@ -187,16 +192,20 @@ These are behaviors a caller cannot infer from a type signature alone.
 - **Session-loop first fire**: a persisted first-allowed boundary skips earlier calendar-aligned slots
   without cancelling the loop; a boundary that is invalid or later than the loop's expiry is refused.
 
+- **Memory never stores sensitive content.** Before anything is saved to project or user memory —
+  from any save path — content that looks like a secret, token, password, private key, payment-card
+  number or national ID number is skipped.
+
 ## Error taxonomy (shape, not enumeration)
 
-The package defines two named error classes at the SDK boundary: one for a provider that cannot be
-resolved at session start (no matching settings profile and no env-default candidate), and one for an
-existing-but-corrupt settings file. Every other error propagates from the owning package it
-originates in (permission denial from `agent-core`, session run failure from `agent-session`,
-background task failures from `agent-executor`, project-authority refusals from the workspace-trust
-layer) rather than being re-wrapped here. `InteractiveSession` catches everything from the underlying
-run and emits it as an `error` event instead of throwing out of `submit()`, so a caller integrates
-against one event-driven failure channel regardless of where the error originated.
+The package's own typed errors cover configuration (unresolvable provider, corrupt settings file,
+unparseable org policy), workspace authority and project read limits, command registration conflicts,
+and turn admission. Errors from lower packages (permission denial, session run failure, background
+task failure) propagate without being re-wrapped.
+
+There are two failure channels, and a caller needs both. Failures during a run are emitted as `error`
+events — `submit()` does not throw them. A turn handle's completion promise rejects with the error the
+turn itself failed on, or with a turn-not-run error that says why a submission never became a turn.
 
 ## Testing philosophy
 
