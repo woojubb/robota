@@ -13,6 +13,7 @@ import type {
   ICommandHostAdapters,
   IOutputStylePrompt,
   IOrgPolicy,
+  IProviderErrorGuidance,
   ICommandModule,
   ICreateSessionOptions,
   EditCheckpointStore,
@@ -54,6 +55,7 @@ export interface ITuiInteractionChannelOptions {
   providerDefinitions?: readonly IProviderDefinition[];
   cwd: string;
   provider: IAIProvider;
+  providerErrorGuidance?: IProviderErrorGuidance;
   /** Resolved organization policy forwarded to the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;

@@ -13,6 +13,7 @@
 
 import type { TPromptHistoryRecorder } from './interactive-session-prompt-history.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
+import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
 import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
@@ -24,6 +25,7 @@ export interface IExecutionControllerCallbacks {
   getSessionOrThrow: () => Session;
   getCwd: () => string;
   getProjectAccess: () => TWorkspaceProjectAccess;
+  providerErrorGuidance?: IProviderErrorGuidance;
   getContextState: () => IContextWindowState;
   getExecutionWorkspaceSnapshot: () => IExecutionWorkspaceSnapshot;
   emit: <E extends string>(event: E, ...args: unknown[]) => void;

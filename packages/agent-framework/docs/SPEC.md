@@ -868,6 +868,14 @@ Layered contract: classification lives in the provider (typed errors), humanizat
 package (`humanizeApiError`, SSOT), turn recovery in the interactive controller, rendering in each
 transport, and process survival in the product assembly.
 
+`TInteractiveSessionOptions.providerErrorGuidance` is optional product-owned data for recognized
+authentication, forbidden, rate-limit, and network failures. Without it, the framework gives neutral
+recovery messages; it does not name a product command or settings path. The session uses the same
+instance-scoped guidance for prompt, fork-skill, and background error history entries. Nested provider
+errors retain this guidance when the original cause is humanized.
+The headless text runner applies the same guidance when it writes a provider error to stderr;
+structured error output keeps its existing error code and envelope contract.
+
 - A failed turn commits any partially streamed answer to history as an **interrupted assistant
   entry** before the stream state clears — a mid-stream failure never evaporates the partial text.
 - The error history entry is humanized and machine-marked with `metadata.kind: 'error'` so

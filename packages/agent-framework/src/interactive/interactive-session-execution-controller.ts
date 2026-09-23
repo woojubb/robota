@@ -267,6 +267,7 @@ export class SessionExecutionController {
         }
       }
       await executePromptTurn(input, displayInput, rawInput, {
+        providerErrorGuidance: this.callbacks.providerErrorGuidance,
         ...promptTurnAttribution(ephemeralSystemContext, turnOptions.driverId),
         ...(turnOptions.signal ? { signal: turnOptions.signal } : {}),
         getSession: () => this.callbacks.getSessionOrThrow(),
@@ -373,7 +374,11 @@ export class SessionExecutionController {
       // allow-fallback: fork-skill errors must not crash the main execution thread
       const error = err instanceof Error ? err : new Error(String(err));
       this.histTracker.append(
-        messageToHistoryEntry(createSystemMessage(`Error: ${humanizeApiError(error)}`)),
+        messageToHistoryEntry(
+          createSystemMessage(
+            `Error: ${humanizeApiError(error, this.callbacks.providerErrorGuidance)}`,
+          ),
+        ),
       );
       this.callbacks.emit('error', error);
       return { mode: 'fork', result: '' };

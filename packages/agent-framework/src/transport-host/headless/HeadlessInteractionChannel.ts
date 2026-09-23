@@ -30,6 +30,7 @@ import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-sessi
 export interface IHeadlessInteractionChannelOptions {
   cwd: string;
   provider: IAIProvider;
+  providerErrorGuidance?: import('../../utils/error-humanizer.js').IProviderErrorGuidance;
   /** Resolved organization policy enforced by the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
@@ -118,6 +119,7 @@ export class HeadlessInteractionChannel {
     const runner = createHeadlessRunner({
       session,
       outputFormat: this.opts.outputFormat,
+      providerErrorGuidance: this.opts.providerErrorGuidance,
       effortResolution: this.opts.effortResolution,
     });
     this.exitCode = await runner.run(prompt);
@@ -133,6 +135,7 @@ export class HeadlessInteractionChannel {
     const runner = createHeadlessRunner({
       session,
       outputFormat: this.opts.outputFormat,
+      providerErrorGuidance: this.opts.providerErrorGuidance,
       effortResolution: this.opts.effortResolution,
     });
     this.exitCode = await runner.runGoal(objective, options);
@@ -150,6 +153,9 @@ export class HeadlessInteractionChannel {
     return buildRuntimeSession({
       cwd: this.opts.cwd,
       provider: this.opts.provider,
+      ...(this.opts.providerErrorGuidance !== undefined
+        ? { providerErrorGuidance: this.opts.providerErrorGuidance }
+        : {}),
       ...(this.opts.orgPolicy !== undefined ? { orgPolicy: this.opts.orgPolicy } : {}),
       ...(this.opts.projectAccess !== undefined ? { projectAccess: this.opts.projectAccess } : {}),
       permissionMode: this.opts.permissionMode ?? 'bypassPermissions',

@@ -55,6 +55,21 @@ describe('HeadlessInteractionChannel session options', () => {
     sessionCtorSpy.mockClear();
   });
 
+  it('forwards product provider recovery guidance to the live session', async () => {
+    const providerErrorGuidance = { authentication: 'Configure product A.' };
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      providerErrorGuidance,
+      outputFormat: 'text',
+      shellExec: () => '',
+    });
+
+    await channel.run('hello');
+
+    expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({ providerErrorGuidance });
+  });
+
   it('TC-01: passes deniedTools through to the InteractiveSession options', async () => {
     const channel = new HeadlessInteractionChannel({
       cwd: process.cwd(),

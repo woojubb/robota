@@ -182,10 +182,12 @@ export class InteractiveSession
   /** REMOTE-007: transport-neutral pending permission/ask registry (parking + fail-closed + drain). */
   private readonly promptRegistry: SessionPromptRegistry;
   private readonly projectAccess: TWorkspaceProjectAccess;
+  private readonly providerErrorGuidance?: import('../utils/error-humanizer.js').IProviderErrorGuidance;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
     this.sessionStore = options.sessionStore;
+    this.providerErrorGuidance = options.providerErrorGuidance;
     this.projectAccess =
       options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable');
     this.sessionName = options.sessionName;
@@ -295,6 +297,7 @@ export class InteractiveSession
     );
 
     this.execCtrl = new SessionExecutionController(this.histTracker, this.skillRouter, {
+      providerErrorGuidance: this.providerErrorGuidance,
       getSession: () => this.session!,
       getSessionOrThrow: () => this.getSessionOrThrow(),
       getCwd: () => this.getCwd(),
@@ -542,7 +545,7 @@ export class InteractiveSession
         this.emit(
           'user_message',
           `[remote-control] input from ${driverId} was dropped — the co-drive queue is full ` +
-          `(max ${maxDepth}). Try again after the current work settles.`,
+            `(max ${maxDepth}). Try again after the current work settles.`,
         ),
       isWakeStopped: (wakeTaskId) => this.stoppedWakeTaskIds.has(wakeTaskId),
     });
@@ -659,7 +662,9 @@ export class InteractiveSession
     try {
       task = await super.spawnScheduledWake(input);
       if (task.status !== 'sleeping' && task.status !== 'paused') {
-        throw new Error('Loop could not start a resumable timer; retry after capacity is available.');
+        throw new Error(
+          'Loop could not start a resumable timer; retry after capacity is available.',
+        );
       }
       this.persistCurrentSession(true, input.sessionLoopId);
       return task;
@@ -914,7 +919,7 @@ export class InteractiveSession
    * 'error' event drives transport error state. The session stays fully usable.
    */
   reportBackgroundError(error: Error, source = 'background'): void {
-    const message = humanizeApiError(error);
+    const message = humanizeApiError(error, this.providerErrorGuidance);
     this.histTracker.append(
       messageToHistoryEntry(
         createSystemMessage(`Error: ${message}`, { metadata: { kind: 'error', source } }),

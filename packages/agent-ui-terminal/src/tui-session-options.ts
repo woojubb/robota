@@ -17,6 +17,9 @@ export function buildTuiSessionOptions(
   return {
     cwd: opts.cwd,
     provider: opts.provider,
+    ...(opts.providerErrorGuidance !== undefined
+      ? { providerErrorGuidance: opts.providerErrorGuidance }
+      : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
     ...(opts.editCheckpointStore !== undefined

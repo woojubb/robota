@@ -79,6 +79,10 @@ subagents (`agentDefinitions`), the constructed provider, and the default preset
 top. `buildRuntime` is `buildRuntimeSession(buildRuntimeOptions(input))` — it returns the framework
 `InteractiveSession` the shell binds its own transport/presentation over.
 
+The profile may also supply plain-data `providerErrorGuidance`. The overlay passes it to the
+framework session when the shell has not supplied its own value. The fold does not interpret the text or
+branch on the product id; two assembled products in one process retain separate guidance.
+
 Merged pack **subagents** reach the runtime through `agent-framework`'s `agentDefinitions` injection seam
 (ARCH-005 S2, owner Decision 2 — a scoped ADDITIVE framework change). Precedence in the framework, highest →
 lowest: discovered project/user definitions > injected `agentDefinitions` > `BUILT_IN_AGENTS`. The overlay

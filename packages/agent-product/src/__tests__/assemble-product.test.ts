@@ -46,6 +46,7 @@ describe('assembleProduct — capability fold', () => {
       providerDefinitions: 'consumed-and-surfaced',
       providerSettings: 'consumed',
       provider: 'consumed-and-surfaced',
+      providerErrorGuidance: 'consumed',
       presets: 'consumed',
       presetRegistry: 'consumed-and-surfaced',
       defaultPresetId: 'consumed-and-surfaced',
@@ -58,6 +59,32 @@ describe('assembleProduct — capability fold', () => {
     });
     type TProviderOverrideAbsent = 'providerOverride' extends keyof IProductProfile ? false : true;
     expectTypeOf<TProviderOverrideAbsent>().toEqualTypeOf<true>();
+  });
+
+  it('overlays product-scoped provider guidance without replacing a shell override', () => {
+    const first = assembleProduct({
+      id: 'product-a',
+      providerDefinitions: [],
+      providerErrorGuidance: { authentication: 'Configure product A.' },
+    });
+    const second = assembleProduct({
+      id: 'product-b',
+      providerDefinitions: [],
+      providerErrorGuidance: { authentication: 'Configure product B.' },
+    });
+    const session = { session: {} as never };
+
+    expect(first.buildRuntimeOptions({ session }).providerErrorGuidance).toEqual({
+      authentication: 'Configure product A.',
+    });
+    expect(second.buildRuntimeOptions({ session }).providerErrorGuidance).toEqual({
+      authentication: 'Configure product B.',
+    });
+    expect(
+      first.buildRuntimeOptions({
+        session: { ...session, providerErrorGuidance: { authentication: 'Shell choice.' } },
+      }).providerErrorGuidance,
+    ).toEqual({ authentication: 'Shell choice.' });
   });
 
   it('surfaces identity and injected runtime plumbing without changing object identity', () => {

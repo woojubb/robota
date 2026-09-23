@@ -22,6 +22,7 @@ import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robot
 import type {
   IAgentDefinition,
   ICommandModule,
+  IProviderErrorGuidance,
   IUnknownCommandModuleName,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
@@ -226,6 +227,7 @@ export interface IRobotaRuntimeSeamInput {
  */
 export interface IRobotaRuntimeOptions {
   provider: IAIProvider;
+  providerErrorGuidance?: IProviderErrorGuidance;
   commandModules: readonly ICommandModule[];
   agentDefinitions: readonly IAgentDefinition[];
   /** The tool surface, grouped so every presentation channel is handed the SAME pair. */

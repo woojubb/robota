@@ -26,6 +26,7 @@ import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
+import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
@@ -47,6 +48,8 @@ export interface IInteractiveSessionStandardOptions {
   outputStyle?: IOutputStylePrompt;
   cwd: string;
   provider: IAIProvider;
+  /** Optional product-owned remediation for recognized provider errors; scoped to this session. */
+  providerErrorGuidance?: IProviderErrorGuidance;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
   permissionMode?: ICreateSessionOptions['permissionMode'];
@@ -191,6 +194,8 @@ export interface IInteractiveSessionStandardOptions {
 /** Test/advanced construction: inject pre-built session directly. */
 export interface IInteractiveSessionInjectedOptions {
   session: Session;
+  /** Optional product-owned remediation for recognized provider errors; scoped to this session. */
+  providerErrorGuidance?: IProviderErrorGuidance;
   cwd?: string;
   provider?: IAIProvider;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */

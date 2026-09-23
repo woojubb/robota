@@ -607,6 +607,12 @@ The default CLI binary assembles definitions from provider packages. Alternate e
 
 The CLI owns provider setup and provider profile writes. Default first-run writes go to `~/.robota/settings.json`; `.claude/settings.json` compatibility is read-only for Robota-specific provider profile creation. Runtime provider/model command writes must target the settings document that wins for the effective active provider scope, so a lower-priority user write cannot be masked by project-local `.robota` settings on the next startup.
 
+Robota's product profile supplies provider-error recovery hints for `/provider`, `/model`, and
+`~/.robota/settings.json`. The neutral framework provides the error classification and base message;
+the CLI's profile owns these product-specific directions, including in background errors.
+Print, serve/MCP, and TUI session projections all carry the assembled guidance. Print-mode text errors
+include the recovery hint on stderr; structured error envelopes retain their existing code contract.
+
 Supported setup flags:
 
 | Flag                             | Behavior                                                            |

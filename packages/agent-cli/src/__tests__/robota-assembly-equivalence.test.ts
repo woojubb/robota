@@ -224,6 +224,15 @@ function assembleRobota(
 }
 
 describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change baseline', () => {
+  it('supplies Robota provider recovery guidance through the product profile', () => {
+    const { product } = assembleRobota();
+    const options = product.buildRuntimeOptions({ session: { session: {} as never } });
+
+    expect(options.providerErrorGuidance?.authentication).toContain('/provider');
+    expect(options.providerErrorGuidance?.authentication).toContain('~/.robota/settings.json');
+    expect(options.providerErrorGuidance?.rateLimit).toContain('/model');
+  });
+
   it('assembles exactly the same command-module SET (no module gained or lost)', () => {
     const { commandModules } = assembleRobota();
 
