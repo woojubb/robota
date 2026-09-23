@@ -28,6 +28,15 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      - name: Harness size cap (AGENTS.md <= 50 lines, harness <= 12000 lines)
+        run: |
+          harness=$(git ls-files AGENTS.md CLAUDE.md .agents .claude scripts/harness .github/workflows | xargs cat | wc -l)
+          agents=$(wc -l < AGENTS.md)
+          echo "harness=${harness} AGENTS.md=${agents}"
+          if [ "$agents" -gt 50 ] || [ "$harness" -gt 12000 ]; then
+            echo "::error::Harness over its cap. Remove as much as you add (AGENTS.md, Keeping the harness small)."
+            exit 1
+          fi
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm typecheck

@@ -10,8 +10,7 @@ app built from these same libraries**, not the product itself.
 
 > **Where this is going:** [`VISION.md`](./VISION.md) — _Robota builds Robota_. The goal is a **general**
 > development agent capable enough to build even Robota; developing the Robota repo is the **validation
-> benchmark** (the hardest dogfood), not a Robota-dedicated tool. The capability roadmap lives in
-> [`.agents/tasks/SELFHOST-*`](./.agents/tasks/).
+> benchmark** (the hardest dogfood), not a Robota-dedicated tool.
 
 ## Quick Start — Embed the Library
 
@@ -148,8 +147,7 @@ These tables are a **curated index**, not the full workspace: they name the pack
 likely to want. They omit most workspace-private packages and several published ones that are not
 part of a usual assembly. A
 row marked _(not yet published)_ or _(internal, not published)_ is in the repository but not on the
-registry. The complete package layout lives in
-[`.agents/project-structure.md`](.agents/project-structure.md), which owns it.
+registry.
 
 ## Documentation
 

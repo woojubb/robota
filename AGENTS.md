@@ -10,9 +10,8 @@ the same change when a package's public contract changes.
 - Merge only through a PR with CI green and an independent review verdict (`review-policy`). Never push to
   `develop` or `main` directly.
 - A behavior change ships with a test that failed before the change.
-- `develop` → `main` promotion, version bumps and npm publish follow
-  [.agents/skills/version-bump](.agents/skills/version-bump/SKILL.md) and
-  [.agents/skills/npm-otp-publish](.agents/skills/npm-otp-publish/SKILL.md). Publishing needs the owner's OTP.
+- `develop` → `main` promotion, version bumps and npm publish: [.agents/skills/release](.agents/skills/release/SKILL.md).
+  Publishing needs the owner's OTP.
 
 ## Checks
 
