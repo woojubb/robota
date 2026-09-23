@@ -24,12 +24,6 @@ const AUTONOMY_TO_PERMISSION_MODE: Record<TPresetAutonomy, TPresetPermissionMode
   'act-first': 'acceptEdits',
 };
 
-/**
- * Default agent identity. Owned by `agent-preset` (not baked into `defaultPreset`, which must stay
- * a no-op). Consumers apply this when no preset and no explicit override supplies an `agentName`.
- */
-export const DEFAULT_AGENT_NAME = 'robota-cli';
-
 /** Registry of built-in presets. Built-ins always win on id conflict and cannot be overridden. */
 const BUILT_IN_PRESETS: readonly IPreset[] = [
   defaultPreset,

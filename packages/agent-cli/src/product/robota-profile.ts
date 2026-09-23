@@ -68,7 +68,7 @@ export function packCommandModuleNames(packs: readonly TCapabilityPack[]): reado
 export interface IRobotaProfileInput {
   /** CLI version string (read from package.json by the shell). */
   version: string;
-  /** Resolved agent display name (preset value, else agent-preset's `DEFAULT_AGENT_NAME`). */
+  /** Resolved agent display name (preset value, else Robota's product default). */
   agentName: string;
   /** The provider definitions `robota` offers. */
   providerDefinitions: readonly IProviderDefinition[];

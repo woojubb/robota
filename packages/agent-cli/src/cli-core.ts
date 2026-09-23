@@ -15,9 +15,9 @@ import { assembleProduct } from '@robota-sdk/agent-product';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
 import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
-import { resolveShellPreset } from './startup/preset-selection.js';
+import { loadRobotaExternalPresets, resolveShellPreset } from './startup/preset-selection.js';
 import type { IShellPresetResolution } from './startup/preset-selection.js';
-import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
+import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
 import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
@@ -251,7 +251,7 @@ async function runCliCore(
   // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.
   const userSettings = readUserSettingsOrExit();
   const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
-  const externalPresetLoad = loadExternalPresets();
+  const externalPresetLoad = loadRobotaExternalPresets();
   for (const { file, error } of externalPresetLoad.errors) {
     terminal.writeError(`Skipped external preset "${file}": ${error}`);
   }
@@ -453,7 +453,7 @@ async function runCliCore(
   const product = assembleProduct(
     createRobotaProfile({
       version,
-      agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
+      agentName: resolvedPreset.agentName ?? ROBOTA_DEFAULT_AGENT_NAME,
       providerDefinitions,
       providerSettings: { ...providerSettings, model: modelId },
       ...(args.sessionLog ? { provider: loadReplayProvider(args.sessionLog) } : {}),

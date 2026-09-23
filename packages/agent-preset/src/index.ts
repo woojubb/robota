@@ -31,11 +31,7 @@ export { defaultPreset } from './presets/default.js';
 
 export { autonomousBuilderPreset } from './presets/autonomous-builder.js';
 
-export {
-  DEFAULT_AGENT_NAME,
-  createPresetRegistry,
-  partitionExternalPresets,
-} from './resolve-preset.js';
+export { createPresetRegistry, partitionExternalPresets } from './resolve-preset.js';
 
 export type {
   IPresetSummary,
@@ -44,11 +40,7 @@ export type {
   IPresetRegistry,
 } from './resolve-preset.js';
 
-export {
-  loadExternalPresets,
-  loadExternalPresetsFromDir,
-  defaultExternalPresetDir,
-} from './load-external-presets.js';
+export { loadExternalPresetsFromDir } from './load-external-presets.js';
 
 export type { IExternalPresetLoadResult } from './load-external-presets.js';
 

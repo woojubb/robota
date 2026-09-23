@@ -11,8 +11,12 @@
  * module-global registry is no longer on robota's startup resolution path.
  */
 
-import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+import { createPresetRegistry, loadExternalPresetsFromDir } from '@robota-sdk/agent-preset';
 import type {
+  IExternalPresetLoadResult,
   IPreset,
   IPresetRegistry,
   IResolvePresetContext,
@@ -22,6 +26,11 @@ import type {
 import { parseToolList } from '../utils/cli-args.js';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+
+/** Robota's user-local preset directory is a shell choice, not a preset-package default. */
+export function loadRobotaExternalPresets(homeDirectory = homedir()): IExternalPresetLoadResult {
+  return loadExternalPresetsFromDir(join(homeDirectory, '.robota', 'presets'));
+}
 
 /** Pick the preset id: --preset flag > settings.preset > 'default'. Pure selection glue (shell). */
 export function selectPresetId(
@@ -83,7 +92,7 @@ export interface IShellPresetResolution {
 /**
  * PRESET-002/004/007/011 + ARCH-008/ARCH-009 — the shell's ONE preset resolution.
  *
- * `loadExternalPresets` reads `~/.robota/presets/*.json` (per-file problems are warnings, never
+ * `loadRobotaExternalPresets` reads `~/.robota/presets/*.json` (per-file problems are warnings, never
  * fatal) and REGISTERS NOTHING — it returns the presets it loaded. This builds the kernel's per-call
  * registry (R8) over them and resolves the selected id against it, returning registry + id +
  * override context as ONE value that travels whole into the profile. `assembleProduct` adopts that

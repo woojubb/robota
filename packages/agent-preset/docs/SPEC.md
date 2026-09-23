@@ -40,8 +40,9 @@ than being silently dropped.
 
 ### External preset loading
 
-User-authored presets are loaded at runtime from a JSON file per preset in a conventional
-directory (overridable). Each file is parsed and validated with a manual type-guard (no schema
+User-authored presets are loaded at runtime from a JSON file per preset in a directory supplied by
+the product shell. The neutral package does not choose the user's home, a product-specific storage
+root, or a default agent name. Each file is parsed and validated with a manual type-guard (no schema
 library); the untrusted effort field is validated through the framework's shared parser so external
 presets accept the same effort vocabulary as built-ins. Loading applies a conflict policy and
 returns the survivors as a value — it registers nothing globally, so a second load in the same

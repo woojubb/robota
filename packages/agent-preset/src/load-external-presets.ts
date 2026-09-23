@@ -1,5 +1,4 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { validateExternalPreset } from './preset-validation.js';
@@ -19,11 +18,6 @@ export interface IExternalPresetLoadResult {
   presets: readonly IPreset[];
   loaded: readonly string[];
   errors: readonly { file: string; error: string }[];
-}
-
-/** Conventional external-preset directory: `~/.robota/presets`. */
-export function defaultExternalPresetDir(): string {
-  return join(homedir(), '.robota', 'presets');
 }
 
 /**
@@ -74,13 +68,4 @@ export function loadExternalPresetsFromDir(dir: string): IExternalPresetLoadResu
   }
 
   return { presets: accepted, loaded: accepted.map((preset) => preset.id), errors };
-}
-
-/**
- * Load external presets from the conventional directory (or `options.dir` when given).
- * Thin wrapper over {@link loadExternalPresetsFromDir}.
- */
-export function loadExternalPresets(options?: { dir?: string }): IExternalPresetLoadResult {
-  const dir = options?.dir ?? defaultExternalPresetDir();
-  return loadExternalPresetsFromDir(dir);
 }

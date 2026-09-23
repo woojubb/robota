@@ -18,7 +18,6 @@ import {
   createPresetRegistry,
   partitionExternalPresets,
   defaultPreset,
-  DEFAULT_AGENT_NAME,
 } from '@robota-sdk/agent-preset';
 import type {
   IPreset,
@@ -44,6 +43,10 @@ const summaries = registry.listPresets(); // [{ id: 'default', title, descriptio
 
 The `default` preset carries no overrides, so resolving it is a pure no-op that reproduces the
 standard agent behaviour (no regression).
+
+When migrating from the implicit Robota defaults, choose the agent name in your product and call
+`loadExternalPresetsFromDir(directory)` with a product-owned directory. The preset package no longer
+exports `DEFAULT_AGENT_NAME`, `defaultExternalPresetDir`, or the no-argument `loadExternalPresets`.
 
 ## Dependency Position
 
