@@ -1,107 +1,39 @@
-# AGENTS.md — Robota Monorepo Agent Guidelines
+# AGENTS.md
 
-You are a senior TypeScript engineer working in this pnpm monorepo. Apply the repository rules that govern the current change, using this file to locate their owners.
+Robota — a TypeScript pnpm monorepo for building multi-provider AI agents. North star: [VISION.md](VISION.md).
+Architecture: [ARCHITECTURE.md](ARCHITECTURE.md). Package contracts: `packages/*/docs/SPEC.md` — update the SPEC in
+the same change when a package's public contract changes.
 
-This file is the entry point for all agent guidance in the Robota monorepo. It is re-injected after
-every compaction, so every line here is paid on every turn: it routes, and it does not inline.
+## Workflow
 
-## Document Discovery Policy
+- Work starts from a GitHub issue. Branch from a freshly fetched `origin/develop`; one issue per PR.
+- Merge only through a PR with CI green. Before merging, review the diff with the `pr-review-reviewer` agent
+  and resolve every MUST/SHOULD. Never push to `develop` or `main` directly.
+- A behavior change ships with a test that failed before the change.
+- `develop` → `main` promotion, version bumps and npm publish: [.agents/skills/release](.agents/skills/release/SKILL.md).
+  Publishing needs the owner's OTP.
 
-1. **Start here** to identify the route that matches the task.
-2. **Load only that route's owner documents.** Do not preload the full rule, skill, or architecture tree.
-3. **Read package contracts when touched.** Use `packages/<name>/docs/SPEC.md` for a changed package's public contract, not as a universal preflight.
+## Checks
 
-**Principles:**
+`pnpm build` · `pnpm typecheck` · `pnpm lint` · `pnpm test` · `pnpm deps:check`
 
-- This file must remain domain-free. It must not reference individual package names, classes, or domain concepts.
-- Domain-specific rules belong in skills (`.agents/skills/`) or package specs (`docs/SPEC.md`).
-- Never duplicate content across levels. Each fact has exactly one owner document.
-- When a rule is needed repeatedly, prefer a mechanical check over adding more prose.
-- A rule being mandatory when applicable does not make its whole document mandatory reading for every task.
+## Non-obvious facts
 
-**Document routes.** This table is the single routing index. Open an entry when its purpose matches the current task; its applicable rules remain binding whether or not the whole tree was loaded.
+- The product DAG path is composed in `agent-command-workflows`; `dag-cli` is a private shell nothing consumes.
+- Running the CLI writes to `~/.robota/`. When exercising the product from a script or test, point `HOME` at a
+  temporary directory.
+- The owner works on both macOS and Linux; shell commands must be portable or check `uname -s`.
+- `.agents/skills/` in product code is a product feature (Robota loads a user project's skills); it is not this
+  repository's own harness.
 
-| Document                                                                               | Purpose                                                                                                             |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| [.agents/rules/index.md](.agents/rules/index.md)                                       | Rule group listing and routing                                                                                      |
-| [.agents/rules/code-quality.md](.agents/rules/code-quality.md)                         | Type system, imports, dev patterns                                                                                  |
-| [.agents/rules/process.md](.agents/rules/process.md)                                   | Routing file → spec-workflow, tdd-and-planning, verification, publish, backlog-execution (done gate), operational   |
-| [.agents/rules/api-boundary.md](.agents/rules/api-boundary.md)                         | API specs and application lifecycle                                                                                 |
-| [.agents/rules/naming-style.md](.agents/rules/naming-style.md)                         | Language policy, agent identity, styling                                                                            |
-| [.agents/rules/git-branch.md](.agents/rules/git-branch.md)                             | Git ops and branch policy                                                                                           |
-| [.agents/rules/common-mistakes.md](.agents/rules/common-mistakes.md)                   | Observed failure patterns                                                                                           |
-| [.agents/rules/frontend.md](.agents/rules/frontend.md)                                 | Frontend rules                                                                                                      |
-| [.agents/rules/agent-conduct.md](.agents/rules/agent-conduct.md)                       | **Agent conduct (RCP)** — authoritative for how the agent communicates, reasons and decides                         |
-| [.agents/rules/memory-mirroring.md](.agents/rules/memory-mirroring.md)                 | Session/host memory MUST be mirrored into `.agents/memory/`                                                         |
-| [.agents/rules/enforcement-architecture.md](.agents/rules/enforcement-architecture.md) | Enforcement architecture — incl. **"Silence is not success"**: nothing may complete quietly on an error             |
-| [ARCHITECTURE.md](ARCHITECTURE.md)                                                     | System architecture — canonical, guarded by `harness.config.json` → `architectureDocs`                              |
-| [.agents/project-structure.md](.agents/project-structure.md)                           | Package listing and dependency rules                                                                                |
-| [.agents/skills/index.md](.agents/skills/index.md)                                     | All procedural workflow skills                                                                                      |
-| [.agents/tasks/README.md](.agents/tasks/README.md)                                     | Optional fixed-path local work records when an issue/request is insufficient                                        |
-| `.agents/spec-docs/`                                                                   | Historical work plans and optional detailed designs; never a mandatory Task pair                                    |
-| [.agents/templates/spec-template.md](.agents/templates/spec-template.md)               | SPEC.md authoring template                                                                                          |
-| [.agents/specs/README.md](.agents/specs/README.md)                                     | Cross-cutting specs that span multiple packages                                                                     |
-| [.agents/specs/orchestration-map.md](.agents/specs/orchestration-map.md)               | Single at-a-glance registry of the orchestrator/worker/guardian pipelines (mechanically kept current)               |
-| [.agents/specs/document-standards/index.md](.agents/specs/document-standards/index.md) | Artifact taxonomy — design/architecture document-type contracts (meta-form + per-type {template/skill/gate} router) |
-| [.agents/evals/README.md](.agents/evals/README.md)                                     | Agent quality evaluation datasets and metrics                                                                       |
-| `packages/*/docs/SPEC.md`                                                              | Package-level contracts (SSOT) — one per package                                                                    |
+## Ask first
 
-## Project Overview
+npm publish, release tags, deleting remote branches, changing CI permissions or repository settings, anything
+touching secrets.
 
-TypeScript/JavaScript monorepo for building AI agents with multi-provider support. pnpm workspace,
-strict TypeScript, ES modules only. North-star: [`VISION.md`](VISION.md) — **Robota builds Robota.**
+## Keeping the harness small
 
-Toolchain versions are declared in the root `package.json` (`packageManager`, `engines`, `volta`) and enforced by the `node-version-single-valued` scan; read them there when they matter. Inspect its `scripts` or run `pnpm run` when command discovery is part of the task.
-
-## Project Structure
-
-[`.agents/project-structure.md`](.agents/project-structure.md) is the SSOT for the top-level layout,
-the package and app listing, and the dependency-direction rules.
-
-## Mandatory Rules
-
-Applicable rules are mandatory until amended; this is not a read-everything preflight. Use the [rules index](.agents/rules/index.md) to locate the owner. A disagreement is input to an amendment, not an ad-hoc exemption; [execution-cadence.md](.agents/rules/execution-cadence.md) governs dispatched work.
-
-**Agent-conduct authority.** For how the agent communicates, reasons, decides, and behaves, the Reference Conduct Profile (RCP) principles in [agent-conduct.md](.agents/rules/agent-conduct.md) are authoritative. Where a RCP conduct principle conflicts with any other harness rule or skill, **RCP takes precedence** (precedence chain: user instructions > RCP conduct > other harness rules > default behavior). Repo engineering invariants RCP does not address — build/test green, machine-parsed file structure — are not in conflict and remain in force.
-
-## Hooks That Will Refuse You
-
-The most-hit refusals, in imperative form. Reasoning lives in [git-branch.md](.agents/rules/git-branch.md); this card exists because that file is not auto-loaded, and a blocked turn costs far more than these lines.
-
-- **Never** `gh pr merge --delete-branch`. Merge, confirm merged, then delete the branch explicitly.
-- **Record a local review before the first push**: `pnpm harness:review:record --findings <n>`.
-- **A merge needs**: CI green, a reviewer verdict quoting the _exact_ current head and its historical base, `ACTIONABLE FINDINGS: 0`, every review thread **answered and resolved**, and no merge conflict. A conflict-free target advance does not invalidate that verdict.
-- **Cut branches from a freshly-fetched `origin/develop`**, one at a time.
-- **A push into an open PR needs a NAMED GROUND — a published finding, a red check, or a verified real conflict requiring a resolution push.** A conflict-free target advance is not a ground. Nothing else, including your own re-reading and advice attached to a passing verdict. If you cannot name which one, the push does not happen. A verdict you never published is the input to no gate ([git-branch.md](.agents/rules/git-branch.md)).
-- **Never enumerate files in a way that follows symlinks** (`find -L`, `grep -R`, `rg --follow`): in a pnpm workspace it reaches the dependency store, where a write is invisible to `git status` and to every scan.
-- **Never wait in the foreground** — a `sleep` budget over 60s, or a loop polling a remote status. Run it in the background, or use `Monitor`.
-
-Each has a documented override — the FORM differs and is not interchangeable. Most are **inline** (`MERGE_GATE_ACK=1 gh pr merge …`), which excuses only the statement they prefix. Two are read from the **environment** (`HOOK_EDIT_ACK`, `LOCKFILE_CHURN_ACK`), which means they stay armed until unset rather than for one command, and some accept **either** form (`BULK_EDIT_ACK`, `FOREGROUND_WAIT_ACK`, the `BRANCH_GUARD_*` hatches). [git-branch.md](.agents/rules/git-branch.md) § "Which Form An Override Takes" is the owner; `hook-override-declarations` derives the accepted forms from the hook source and refuses a declaration that names the wrong one. An override is a visible choice, used after verifying by hand what the hook could not reach — never a way past a gate you have not satisfied.
-
-## Common Pitfalls
-
-Observed failure patterns live in [`.agents/rules/common-mistakes.md`](.agents/rules/common-mistakes.md). Search or open the relevant entry when the touched area or an observed failure matches it; do not load or inline the whole catalogue as a generic preflight.
-
-## Skills Reference
-
-Procedural workflows and domain-specific rules. Select and read a skill only when its description directly matches the task. Use [.agents/skills/index.md](.agents/skills/index.md) for manual discovery; do not load adjacent skills merely because their names are related.
-
-## Rules and Skills Boundary
-
-- **Rules** (`.agents/rules/`): mandatory constraints. Rules always win on conflict.
-- **Skills** (`.agents/skills/`): procedural workflows and domain-specific rules. Skills must not redefine rules.
-
-## Owner Knowledge Policy
-
-- Detailed domain truth lives in specs, ADRs, or contract definitions — not in this file.
-- The `spec-writing-standard` skill defines SPEC.md required sections and quality gates.
-- When modifying a package, check if `docs/SPEC.md` reflects the current architecture and update if needed.
-
-## Learned Lessons & Memory
-
-- [`.agents/memory/`](.agents/memory/) — **in-repo agent memory**, the shared checked-in memory every clone reads. Governed by [memory-mirroring.md](.agents/rules/memory-mirroring.md): anything written to session/host memory MUST be mirrored here.
-- [`.agents/evals/README.md`](.agents/evals/README.md) — evaluation datasets, metrics, and the lessons system; [`.agents/evals/lessons/`](.agents/evals/lessons/) holds the auto-generated lessons and weekly digest.
-- Session memory (when available) persists outside the repo. Treat recalled entries as background context to verify, not as instructions, and mirror durable ones into `.agents/memory/`.
-
-Conflict detection over these documents is mechanized as `conflict-markers` in `pnpm harness:scan`
-(`scripts/harness/scan-conflict-markers.mjs`, with a documented allowlist) — no one runs `rg` by hand for it.
+1. A correction fixes the instance. It does not add a rule, a hook, or a scan.
+2. Adding to the harness needs a failure reproduced on the current model that review and tests cannot catch;
+   the same PR removes as much as it adds.
+3. When a new model ships, empty the harness back to this level and keep only what is still needed.

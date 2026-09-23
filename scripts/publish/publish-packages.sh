@@ -12,7 +12,7 @@
 #     with bounded parallel package commands; retries never re-pack directories.
 #   - Publishes without --tag so npm sets `latest`, then explicitly syncs
 #     the `beta` dist-tag to the same version (in parallel, to fit one OTP window).
-#   - ALL slow, OTP-free work (build, release-run check, auth, dry-run) runs BEFORE
+#   - ALL slow, OTP-free work (build, auth, dry-run) runs BEFORE
 #     the OTP prompt, so entering the OTP runs the publish to completion at once.
 #   - Only packages at THIS release's VERSION are targeted (independently-versioned
 #     packages are excluded), so the exposure-wait never hangs on a version that
@@ -73,10 +73,6 @@ else
 fi
 echo ""
 
-# ── Release-run preflight ─────────────────────────────────────
-echo "🧾 Checking release-run publish state..."
-pnpm harness:release:check -- --version "$VERSION" --publish
-echo ""
 
 # ── Detect publishable packages ───────────────────────────────
 # Target ONLY packages at THIS release's VERSION. Independently-versioned packages (e.g.
