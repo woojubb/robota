@@ -18,8 +18,8 @@ function finding() {
     subject: { kind: 'hook-registration', value: 'fixture.sh' },
     examined: [{ kind: 'hook-registration', value: 'fixture.sh' }],
     severity: 'warning',
-    evidence: ['fixture hook requires a migration disposition'],
-    recommendation: 'Inspect the fixture hook migration record.',
+    evidence: ['fixture hook registration differs'],
+    recommendation: 'Inspect the fixture hook registration.',
   };
 }
 
@@ -60,6 +60,9 @@ describe('hook diagnostic delivery adapter', () => {
       correlationId: 'hook-migration.run-2',
       publication: { target: 'hook diagnostic publisher' },
     });
+    expect(delivery.report.results.at(-1).recommendation).toContain(
+      'run the registration inventory again',
+    );
   });
 
   it('keeps two independently identified outcomes correlated to one hook delivery', async () => {

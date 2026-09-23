@@ -22,6 +22,7 @@ describe('hook diagnostic inventory producer', () => {
       correlationId: 'hook-migration.full',
       subject: { kind: 'hook-diagnostic-migration' },
     });
+    expect(result.summary).toContain('Husky predicates and exit behavior are not verified here');
   });
 
   it('makes a registry mismatch visible as a canonical finding without changing a scan exit code', () => {
@@ -90,6 +91,7 @@ describe('hook diagnostic inventory producer', () => {
     });
 
     expect(calls).toEqual(['hook-migration.full', 'hook-migration.reuse']);
+    expect(lines[0]).toBe('Hook registration inventory report JSON:');
     expect(lines.join('\n')).toContain('hook.fixture.inventory');
   });
 });

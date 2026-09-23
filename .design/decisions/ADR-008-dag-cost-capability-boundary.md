@@ -10,7 +10,8 @@ The DAG orchestration port currently includes seven cost-metadata operations ret
 responses. Its in-process implementation fabricates HTTP 501 responses for all seven. The
 operational HTTP client also targets `/v1/cost-meta`, while the runtime server exposes
 `/v1/dag/cost-meta`. This makes cost capability unavailable and obscures whether the failure is
-unsupported domain behavior or a transport problem. Issue #2163 retains the broader issue #2156 boundary.
+unsupported domain behavior or a transport problem. [Issue #2163](https://github.com/woojubb/robota/issues/2163)
+retains the broader [issue #2156](https://github.com/woojubb/robota/issues/2156) boundary.
 
 ## Alternatives Considered
 
@@ -20,7 +21,8 @@ unsupported domain behavior or a transport problem. Issue #2163 retains the broa
    requires explicit edge mapping, but separates availability and domain outcomes from HTTP.
 3. **Implement persistence and formula evaluation in the framework immediately** — adds usable
    behavior, but exposes untrusted formulas and writes before the resource and validation policy in
-   issue #2163 is ready. It also leaves the wrong ownership boundary unless paired with option 2.
+   [issue #2163](https://github.com/woojubb/robota/issues/2163) is ready. It also leaves the wrong
+   ownership boundary unless paired with option 2.
 
 ## Decision
 
@@ -36,13 +38,15 @@ The HTTP client uses the server's `/v1/dag/cost-meta` paths.
 - The embedded implementation no longer invents HTTP status codes or URIs for cost operations.
 - HTTP and CLI edges must validate responses and map domain errors explicitly.
 - Cost CRUD and formula execution remain unsupported in the embedded framework; this is an
-  architectural partial delivery for issue #2156, not completion of all issue #2163 work.
+  architectural partial delivery for [issue #2156](https://github.com/woojubb/robota/issues/2156),
+  not completion of all [issue #2163](https://github.com/woojubb/robota/issues/2163) work.
 - The remaining definition, run, asset, draft, and validation operations still return HTTP-shaped
   results and require later boundary migration.
 
 ## References
 
-- Issue #2163 and historical issue #2156.
+- [Issue #2163](https://github.com/woojubb/robota/issues/2163) and historical
+  [issue #2156](https://github.com/woojubb/robota/issues/2156).
 - `packages/dag-cost/docs/SPEC.md`
 - `packages/dag-orchestration-client/docs/SPEC.md`
 - `packages/dag-framework/docs/SPEC.md`
