@@ -163,6 +163,20 @@ dag:
     expect(typeof code).toBe('number');
   });
 
+  it('rejects a workflow companion whose status is outside the definition contract', async () => {
+    const io = makeMockIo(WORKFLOW_FILE_DAG);
+    let reads = 0;
+    vi.mocked(io.readTextFile).mockImplementation(async () => {
+      reads += 1;
+      return reads === 1
+        ? WORKFLOW_FILE_DAG
+        : JSON.stringify({ dagId: 'companion', version: 1, status: 'active', nodes: {} });
+    });
+    const code = await viewCommand(['workflow.dag.json'], { io });
+    expect(code).not.toBe(0);
+    expect(vi.mocked(io.writeError).mock.calls.flat().join('')).toMatch(/status|active/i);
+  });
+
   it('reads workflow file format with companion read success (covers success in companion block)', async () => {
     // When reading workflow.dag.json, also tries to read workflow.dag.robota.json (companion)
     // Make both reads succeed: main file is WORKFLOW_FILE_DAG, companion is {}
