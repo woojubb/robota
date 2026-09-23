@@ -1,0 +1,4 @@
+{"timestamp":"2026-09-23T00:00:00.000Z","sessionId":"mcp-bidirectional","event":"provider_request","executionId":"e1","round":0}
+{"timestamp":"2026-09-23T00:00:01.000Z","sessionId":"mcp-bidirectional","event":"provider_response_normalized","executionId":"e1","round":0,"response":{"role":"assistant","content":null,"id":"a1","state":"complete","timestamp":"2026-09-23T00:00:01.000Z","toolCalls":[{"id":"call-1","type":"function","function":{"name":"probe__echo","arguments":"{\"text\":\"BIDIRECTIONAL_CALL\"}"}}]}}
+{"timestamp":"2026-09-23T00:00:02.000Z","sessionId":"mcp-bidirectional","event":"provider_request","executionId":"e1","round":1}
+{"timestamp":"2026-09-23T00:00:03.000Z","sessionId":"mcp-bidirectional","event":"provider_response_normalized","executionId":"e1","round":1,"response":{"role":"assistant","content":"BIDIRECTIONAL_COMPLETE","id":"a2","state":"complete","timestamp":"2026-09-23T00:00:03.000Z"}}

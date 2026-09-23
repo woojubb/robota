@@ -285,7 +285,16 @@ not provision stdio authority automatically, and does not auto-approve package-r
 
 **Current limit:** approval is in-memory in this unit (`createMcpClientComposition`'s default
 approval store is session-scoped, per-process), so a server approved via `/mcp approve` mid-session
-is connected on the NEXT `robota` start, not this one.
+is not connected by that already-started session. An embedding host can supply its existing
+`IMCPActivationApprovalStore` through `IStartCliOptions.mcpApprovalStore` before `robota mcp serve`
+starts; the same startup composition then admits and connects approved client definitions before
+building the one served runtime session. It can also supply `mcpHttpTransportDeps` for an explicitly
+approved egress policy. These host-owned capabilities never come from MCP settings or the remote
+MCP caller. The ordinary executable supplies neither capability automatically: pending definitions
+remain disconnected and private/loopback HTTP destinations remain refused. A session serving MCP
+can therefore consume admitted MCP tools without a second settings resolver, catalog, approval
+policy, client, or runtime assembly; the served and consumed tool identities stay separate and both
+client and carrier connections close on process shutdown.
 
 Whitebox internals are not specified here. See:
 

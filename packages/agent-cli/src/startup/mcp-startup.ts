@@ -32,7 +32,11 @@ import type {
   IToolCallHandoffProvenance,
 } from '@robota-sdk/agent-framework';
 import type { IToolResultAdmissionOptions, TPermissionMode } from '@robota-sdk/agent-core';
-import type { IMCPStdioAuthority } from '@robota-sdk/agent-mcp';
+import type {
+  IMCPActivationApprovalStore,
+  IMCPHttpTransportDeps,
+  IMCPStdioAuthority,
+} from '@robota-sdk/agent-mcp';
 import type { IMcpClientComposition } from './mcp-client-composition.js';
 
 /**
@@ -55,6 +59,8 @@ export interface IComposeMcpClientForStartupInput {
   readonly env: NodeJS.ProcessEnv;
   /** Host execution capabilities supplied independently of settings. */
   readonly stdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
+  readonly approvalStore?: IMCPActivationApprovalStore;
+  readonly httpTransportDeps?: IMCPHttpTransportDeps;
   readonly resultAdmissionLimits?: Pick<
     IToolResultAdmissionOptions,
     'warningChars' | 'hardChars' | 'repositoryMaxChars'
@@ -152,6 +158,8 @@ export async function composeMcpClientForStartup(
     resolvedEntries: entries,
     workspace,
     ...(input.stdioAuthorities === undefined ? {} : { stdioAuthorities: input.stdioAuthorities }),
+    ...(input.approvalStore === undefined ? {} : { approvalStore: input.approvalStore }),
+    ...(input.httpTransportDeps === undefined ? {} : { transport: input.httpTransportDeps }),
     timeouts: buildMcpClientTimeouts(settings.callTimeoutMs),
     createResultSpillStore: () =>
       createNodeToolResultSpillStore({

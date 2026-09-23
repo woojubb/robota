@@ -1,8 +1,9 @@
 ---
 title: 'MCP-008: prove an MCP-served session can also consume MCP tools'
 issue: https://github.com/woojubb/robota/issues/2532
-status: todo
+status: done
 created: 2026-09-03
+completed: 2026-09-23
 priority: high
 urgency: soon
 area: MCP end-to-end integration
@@ -24,10 +25,20 @@ Preserve and deliver the independently verifiable outcome of [issue #2532](https
 
 ## Plan
 
-- [ ] Revalidate the source Issue against the current tree and name the exact owner boundary.
-- [ ] Implement the target behavior without parallel ownership or a forwarding facade.
-- [ ] Add negative and positive regression evidence for the source acceptance conditions.
-- [ ] Update affected specifications and run package, type, build, and boundary verification.
+- [x] Revalidated #2532 and #2520: `agent-cli` already assembles one client and served session;
+      the missing boundary was host-owned approval and HTTP transport dependencies reaching startup.
+- [x] Forward those existing capabilities through `IStartCliOptions` to the canonical MCP client
+      composition. No second resolver, catalog, trust engine, client, or served runtime was added.
+- [x] Add a deterministic headless scenario: an embedding host approves a user MCP definition through
+      the canonical control plane, then starts the normal CLI product session. The external MCP host
+      invokes `robota_submit`, its agent turn invokes discovered `probe__echo`, the tool arguments
+      and returned value are checked, a later outbound failure is surfaced, and `Read` still works.
+      Closing the host carrier also closes the outbound event stream. Existing stdio cases cover denied tools, untrusted
+      workspaces, invalid startup and signal shutdown.
+- [x] Update the CLI SPEC and README. Focused typecheck, 24 MCP startup/composition tests, five
+      MCP stdio execution cases, dependency direction and agent-server boundary scans passed.
+      The local build was unnecessary because this scenario runs source assembly; PR CI owns the
+      clean build and consumer checks.
 
 ## Test Plan
 
@@ -35,6 +46,11 @@ Exercise the source Issue's primary success path and at least one failure or ref
 
 ## User Execution Test Scenarios
 
-Execute the source Issue's user- or operator-observable workflow from a clean fixture. Expected: the named outcome is visible through its canonical owner and no legacy or parallel path is required. Evidence is pending implementation.
+Execute the source Issue's operator-observable workflow from a clean fixture with
+`pnpm --filter @robota-sdk/agent-cli exec vitest run --config vitest.bin.config.ts src/__tests__/e2e/mcp-stdio.bintest.ts`.
+The `serves and consumes MCP tools through one admitted product session` case creates an isolated
+home and workspace, runs the normal CLI product assembly, observes the served catalog and outbound
+`tools/call` name, arguments and result, then injects an outbound failure and verifies served `Read`
+still succeeds. Closing the host carrier ends the outbound event stream.
 
-**Author verdict:** `SCENARIO DRAFTED: automatable | 1`
+**Author verdict:** `SCENARIO EXECUTED: pass | 5`

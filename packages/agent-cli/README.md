@@ -263,7 +263,15 @@ to stderr. Closing the host's stdin or sending SIGINT/SIGTERM shuts down the car
 If the host reports a connection failure, run `robota trust status` and `robota doctor` separately in
 the same project directory, then inspect the host's captured stderr for configuration errors.
 
-This is an MCP **server** mode. The settings described below configure Robota as an MCP **client**.
+The same session can also use an admitted external MCP tool while it serves the host. Its connected
+client tools appear in the served catalog under canonical names such as `probe__echo`; they still
+run through the session's normal permission policy. The server carrier and outbound client close
+independently. An embedding host can supply its own `IMCPActivationApprovalStore` through
+`startCli({ mcpApprovalStore })` before startup, along with an explicitly approved
+`mcpHttpTransportDeps` egress policy when needed. Neither capability comes from MCP settings or the
+remote caller. The ordinary `robota` executable supplies neither automatically.
+
+The settings described below configure Robota as an MCP **client**.
 
 Declare remote MCP servers under an `mcpServers` key in any layered settings file (managed, user, or
 project `.robota`/`.claude` settings) — the same precedence order every other setting uses. Each
@@ -272,8 +280,10 @@ entry names a `"type": "http"` transport and a `url`; `${VAR}`/`${VAR:-default}`
 **deny-by-default**: a server must be explicitly approved with `/mcp approve <serverId>` before its
 tools are connected. Use `/mcp` (or `/mcp list`) to see every declared server's admission status,
 and `/mcp reject`/`/mcp revoke` to withdraw approval. Only approved servers already known at startup
-are connected — approval is in-memory for the current unit of this product, so a server approved
-via `/mcp approve` mid-session is connected on the NEXT `robota` start, not the current one.
+are connected. Approval is in-memory for the ordinary executable, so `/mcp approve` mid-session
+records a decision for that session but does not connect the server in the running session or
+persist it across a restart. An embedding host can preserve approval state across starts by
+supplying the same store; it remains responsible for when to reconnect approved definitions.
 
 ### MCP Background Handoff
 
