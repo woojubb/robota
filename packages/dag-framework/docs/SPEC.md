@@ -153,7 +153,7 @@ import type {
 | Field           | Type                   | Default                           | Description                                                                                 |
 | --------------- | ---------------------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
 | `executionRoot` | `string`               | (required)                        | Trusted absolute root validated at provider construction and propagated to every node.      |
-| `nodeRegistry`  | `IDagNodeDefinition[]` | `createDefaultNodeRegistrySync()` | Base node registry. CLI typically passes a registry including LLM/provider-backed nodes.    |
+| `nodeRegistry`  | `IDagNodeDefinition[]` | `createDefaultNodeRegistrySync()` | Base 23-node registry. CLI uses this default and injects saved instant nodes separately.    |
 | `projectDir`    | `string`               | —                                 | DAG project directory (reserved for future local node-file scanning).                       |
 | `workspace`     | `IWorkspaceLayout`     | —                                 | **FLOW-007**: injected workspace layout (root dir + workflow ext) for local node discovery. |
 | `instantNodes`  | `IDagNodeDefinition[]` | —                                 | Instant nodes injected by the caller's composition root.                                    |
@@ -271,11 +271,12 @@ metadata in HTTP envelopes. The runtime server owns the JSON/base64 and binary H
   upper agent-runtime packages (`@robota-sdk/agent-framework`, `agent-session`, `agent-executor`,
   `agent-cli`, `agent-tools`, …). `src/__tests__/spec-dependency-rules.test.ts` holds the manifest to
   this list.
-- LLM node packages (`dag-node-llm-text-*`, `dag-node-gemini-*`) are declared as
-  `optionalDependencies` — loaded via dynamic import with silent skip on missing SDK.
-- `dag-node-text-to-image`, `dag-node-seedance-video`, and `dag-node-skill` load via the same
-  dynamic-import silent-skip path (`tryImport`), but are currently declared as hard
-  `dependencies` rather than `optionalDependencies`.
+- `dag-nodes-default` owns the private async catalog: the collapsed `dag-node-llm-text` is a static
+  dependency; `agent-builtin-providers` and `dag-node-gemini-image-edit` are optional dependencies;
+  `dag-node-text-to-image`, `dag-node-seedance-video`, and `dag-node-skill` are regular dependencies
+  loaded dynamically. This workspace catalog can reach 29 nodes when all optional loaders succeed;
+  it is not used by the published CLI's `/workflows` path, which uses the synchronous 23-node base
+  catalog.
 
 ---
 

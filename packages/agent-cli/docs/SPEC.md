@@ -141,26 +141,28 @@ brings its own and reuses the same kernel.
 
 #### Self-contained bundle (INFRA-028)
 
-`@robota-sdk/agent-cli` publishes as a **completely self-contained bundle**, independent of any other
-package's publish state. Every `@robota-sdk/*` workspace package it uses — including the `/workflows`
-command module (`@robota-sdk/agent-command-workflows`) and its entire private `dag-*` chain — is
-**compiled into `dist`** by tsdown. Those siblings are declared as **`devDependencies`** (build-time
-only, bundled), so the published package's runtime **`dependencies` contain zero `@robota-sdk`
-packages** — only the third-party npm libraries the bundle imports (kept external, installed from the
-public registry).
+`@robota-sdk/agent-cli` publishes a self-contained bundle for its supported CLI entry points,
+independent of sibling packages' publish state. The workspace modules used by those paths — including
+`@robota-sdk/agent-command-workflows` and its in-process DAG runtime — are compiled into `dist` by
+tsdown. Those siblings are declared as `devDependencies` (build-time only, bundled), so the published
+package's runtime `dependencies` contain zero `@robota-sdk` packages; third-party libraries kept
+external are installed from the public registry.
 
 Consequences:
 
 - `npm install @robota-sdk/agent-cli` / `npx @robota-sdk/agent-cli` never resolves an `@robota-sdk`
   sibling — a clean install has zero `@robota-sdk/*` in `node_modules` except agent-cli itself.
-- `/workflows` is **bundled and always present** (statically imported in `command-setup.ts`), including
-  in published installs — the DAG subsystem stays unpublished as its own packages, but its code ships
-  inside agent-cli.
+- `/workflows` is bundled and always present (statically imported in `command-setup.ts`). Its local
+  runtime uses the synchronous 23-node base catalog plus saved instant nodes. The private async
+  `createDefaultNodeRegistry()` catalog (up to 29 nodes in this workspace when optional loaders
+  succeed) is not a CLI entry point or a promised CLI capability. Its variable optional-package
+  specifiers currently remain unresolved in the bundle, but no supported CLI path reaches them;
+  a clean CLI install does not provide those separate packages.
 
 Bundling policy lives in `tsdown.config.ts` (no `@robota-sdk` externalization). The invariant "agent-cli
 runtime `dependencies` have zero `@robota-sdk`" is enforced by `scripts/harness/check-publish-safety.mjs`
-(check #4), and `dep-kind` exempts agent-cli's `@robota-sdk` devDep value-imports as bundled
-(`BUNDLED_WORKSPACE_PACKAGES`).
+(check #4). The former `dep-kind` scan and `BUNDLED_WORKSPACE_PACKAGES` exemption were removed by the
+minimal-harness reset.
 
 **Complete artifact assembly (ARTIFACT-2655).** Root and affected builds use the same package-owned
 artifact capability. Node, types and copied web assets are validated together in a fresh immutable
