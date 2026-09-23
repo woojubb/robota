@@ -6,7 +6,8 @@ import type { IOrgPolicy } from '@robota-sdk/agent-framework';
 
 const seen = vi.hoisted(() => vi.fn());
 
-vi.mock('@robota-sdk/agent-framework', () => ({
+vi.mock('@robota-sdk/agent-framework', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-framework')>()),
   HeadlessInteractionChannel: class {
     constructor(options: unknown) {
       seen(options);
