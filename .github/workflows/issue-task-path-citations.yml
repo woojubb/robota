@@ -1,0 +1,34 @@
+name: issue-task-path-citations
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  push:
+    branches: [develop]
+    paths:
+      - '.agents/tasks/**'
+      - '.agents/archive/task-breakdowns/**'
+      - 'scripts/harness/audit-issue-task-path-citations.mjs'
+      - 'scripts/harness/task-path-citation.mjs'
+      - '.github/workflows/issue-task-path-citations.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: develop
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+      - name: Audit issue Task-path citations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/harness/audit-issue-task-path-citations.mjs --repo "$GITHUB_REPOSITORY"
