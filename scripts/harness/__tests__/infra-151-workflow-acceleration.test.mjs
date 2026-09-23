@@ -86,8 +86,14 @@ describe('scans-full only auto-runs for verification ownership changes', () => {
       'pnpm harness:scan -- --context integration --skip dist --skip build-contracts',
     );
     expect(live).toMatch(
-      /^      - name: File or update the red-suite issue\n        if: failure\(\)$/m,
+      /^      - name: Record a red full suite on the existing harness issue\n        if: failure\(\)$/m,
     );
+  });
+
+  it('records a red full suite on the existing umbrella instead of opening an issue', () => {
+    const live = executableLines(SCANS_FULL);
+    expect(live).toMatch(/gh issue comment 2423 --repo "\$GITHUB_REPOSITORY"/u);
+    expect(live).not.toMatch(/gh issue create\b/u);
   });
 
   it('includes verification control-plane, governance, and root configuration owners', () => {

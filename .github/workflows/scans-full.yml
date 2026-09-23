@@ -147,25 +147,13 @@ jobs:
             echo "::error::full harness failed: repo=$REPO_RESULT contracts=$CONTRACT_RESULT hermetic=$HERMETIC_RESULT"
             exit 1
           fi
-      - name: File or update the red-suite issue
+      - name: Record a red full suite on the existing harness issue
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          prefix='scans-full is red on develop'
           short_sha="${GITHUB_SHA:0:7}"
-          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 50 \
-            --search "\"$prefix\" in:title" --json number,title \
-            --jq "map(select(.title | startswith(\"$prefix\"))) | .[0].number // empty")"
-          if [ -n "$existing" ]; then
-            printf -v body "Still red at \`%s\`: %s" "$short_sha" "$RUN_URL"
-            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" \
-              --body "$body"
-          else
-            printf -v body "The full repository, contract, or hermetic harness responsibility is red at \`%s\`. Run: %s" "$short_sha" "$RUN_URL"
-            gh issue create --repo "$GITHUB_REPOSITORY" \
-              --title "$prefix at $short_sha" \
-              --body "$body"
-          fi
+          printf -v body "The full repository, contract, or hermetic harness responsibility is red at \`%s\`. Run: %s" "$short_sha" "$RUN_URL"
+          gh issue comment 2423 --repo "$GITHUB_REPOSITORY" --body "$body"
