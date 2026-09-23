@@ -8,6 +8,7 @@ import type {
   IWorkspaceIdentity,
   IWorkspaceIdentityResolver,
   IWorkspaceTrustStore,
+  IWorkspaceTrustStoreSnapshot,
   TWorkspaceProjectAccess,
 } from './types.js';
 
@@ -19,12 +20,16 @@ export interface IWorkspaceTrustServiceOptions {
 export function createRestrictedWorkspaceProjectAccess(
   trustState: IRestrictedWorkspaceProjectAccess['trustState'],
   displayPath?: string,
+  cause?: Error,
+  identity?: IWorkspaceIdentity,
 ): IRestrictedWorkspaceProjectAccess {
   return {
     status: 'restricted',
     reason: 'WorkspaceAuthorityRequired',
     trustState,
     ...(displayPath === undefined ? {} : { displayPath }),
+    ...(identity === undefined ? {} : { identity }),
+    ...(cause === undefined ? {} : { cause: { name: cause.name, message: cause.message } }),
   };
 }
 
@@ -53,31 +58,68 @@ export class WorkspaceTrustService {
     let identity: IWorkspaceIdentity;
     try {
       identity = this.options.identityResolver.resolve(cwd);
-    } catch {
-      return createRestrictedWorkspaceProjectAccess('identity-unavailable');
+    } catch (error) {
+      // OBSERVABILITY-1991: keep the swallowed error's name and message so a doctor can name the cause.
+      return createRestrictedWorkspaceProjectAccess(
+        'identity-unavailable',
+        undefined,
+        error instanceof Error ? error : new Error(String(error)),
+      );
     }
 
     let snapshot;
     try {
       snapshot = await this.options.store.inspect(identity);
-    } catch {
-      return createRestrictedWorkspaceProjectAccess('store-unavailable', identity.displayPath);
+    } catch (error) {
+      return createRestrictedWorkspaceProjectAccess(
+        'store-unavailable',
+        identity.displayPath,
+        error instanceof Error ? error : new Error(String(error)),
+        identity,
+      );
     }
     if (!this.recordGeneration(identity, snapshot.generation)) {
-      return createRestrictedWorkspaceProjectAccess('stale/replaced', identity.displayPath);
+      return createRestrictedWorkspaceProjectAccess(
+        'stale/replaced',
+        identity.displayPath,
+        undefined,
+        identity,
+      );
     }
     if (snapshot.state !== 'trusted') {
-      return createRestrictedWorkspaceProjectAccess(snapshot.state, identity.displayPath);
+      return createRestrictedWorkspaceProjectAccess(
+        snapshot.state,
+        identity.displayPath,
+        undefined,
+        identity,
+      );
     }
 
+    return this.mintTrustedAccess(identity, snapshot);
+  }
+
+  /** The trusted branch: re-resolve the identity so a moved or replaced worktree cannot keep authority. */
+  private mintTrustedAccess(
+    identity: IWorkspaceIdentity,
+    snapshot: IWorkspaceTrustStoreSnapshot,
+  ): TWorkspaceProjectAccess {
     let currentIdentity: IWorkspaceIdentity;
     try {
       currentIdentity = this.options.identityResolver.resolve(identity.worktreeRoot);
-    } catch {
-      return createRestrictedWorkspaceProjectAccess('identity-unavailable', identity.displayPath);
+    } catch (error) {
+      return createRestrictedWorkspaceProjectAccess(
+        'identity-unavailable',
+        identity.displayPath,
+        error instanceof Error ? error : new Error(String(error)),
+      );
     }
     if (!sameIdentity(identity, currentIdentity)) {
-      return createRestrictedWorkspaceProjectAccess('stale/replaced', currentIdentity.displayPath);
+      return createRestrictedWorkspaceProjectAccess(
+        'stale/replaced',
+        currentIdentity.displayPath,
+        undefined,
+        currentIdentity,
+      );
     }
 
     const identityKey = this.identityKey(currentIdentity);

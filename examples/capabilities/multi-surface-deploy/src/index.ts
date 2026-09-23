@@ -17,7 +17,7 @@ import path from 'node:path';
 
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { TransportRegistry } from '@robota-sdk/agent-transport';
+import { TransportRegistry } from '@robota-sdk/agent-framework';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 

@@ -9,6 +9,7 @@
 - **CEL evaluation only.** Cost computation is delegated to CEL formula evaluation; no hardcoded pricing logic.
 - **No persistence.** This package defines the storage port interface (`ICostMetaStoragePort`) but does not implement it. Adapter packages provide concrete implementations.
 - **No HTTP transport contract ownership.** Operational HTTP request/response aliases for cost metadata live in `@robota-sdk/dag-orchestration-client` and import this package's domain types.
+- **Capability ownership.** The seven cost-metadata management operations return `TResult` values with `IDagError`; availability and failures are domain outcomes, never HTTP statuses or URLs. An implementation may explicitly report `DAG_COST_META_UNSUPPORTED` rather than fabricate a transport response.
 - **No domain logic beyond cost.** This package does not manage DAG execution, scheduling, or node lifecycle.
 - **Result-based error handling.** All evaluator methods return `TResult` — no thrown exceptions cross the public API boundary.
 
@@ -21,12 +22,16 @@
 
 ## Public API Surface
 
-| Export                 | Kind      | Description                                                                   |
-| ---------------------- | --------- | ----------------------------------------------------------------------------- |
-| `CelCostEvaluator`     | Class     | Evaluates and validates CEL cost formulas against variable contexts           |
-| `ICostMeta`            | Interface | Cost metadata for a node type (formula, category, variables, enabled flag)    |
-| `TCostMetaCategory`    | Type      | Union of cost categories: `'ai-inference' \| 'transform' \| 'io' \| 'custom'` |
-| `ICostMetaStoragePort` | Interface | Port for CRUD operations on cost metadata (get, getAll, save, delete)         |
+| Export                            | Kind      | Description                                                                                      |
+| --------------------------------- | --------- | ------------------------------------------------------------------------------------------------ |
+| `CelCostEvaluator`                | Class     | Evaluates and validates CEL cost formulas against variable contexts                              |
+| `ICostMeta`                       | Interface | Cost metadata for a node type (formula, category, variables, enabled flag)                       |
+| `TCostMetaCategory`               | Type      | Union of cost categories: `'ai-inference' \| 'transform' \| 'io' \| 'custom'`                    |
+| `ICostMetaStoragePort`            | Interface | Port for CRUD operations on cost metadata (get, getAll, save, delete)                            |
+| `ICostMetaOperationsPort`         | Interface | Management capability for metadata CRUD and formula validation/preview, returning domain results |
+| `ICostMetaFormulaPreviewInput`    | Interface | Formula and variable context for an evaluation preview                                           |
+| `ICostMetaFormulaValidationInput` | Interface | Formula text for validation                                                                      |
+| `ICostMetaFormulaValidation`      | Interface | Formula validation outcome with error messages                                                   |
 
 ## Key Behaviors
 
@@ -53,6 +58,14 @@ Each cost metadata entry contains:
 - **Cost estimation:** Compute estimated costs before executing a DAG run.
 - **Cost calculation:** Compute actual costs after execution using runtime variables.
 - **Formula validation:** Verify formula syntax at design time in the DAG designer.
+
+The management capability's `listCostMeta`, `getCostMeta`, `createCostMeta`,
+`updateCostMeta`, `deleteCostMeta`, `validateCostMetaFormula`, and
+`previewCostMetaFormula` operations return typed domain results. A successful get returns
+one metadata entry; a missing entry is `DAG_COST_META_NOT_FOUND`. Formula validation returns
+`{ valid, errors }` and preview returns a finite number. An unwired implementation returns
+`DAG_COST_META_UNSUPPORTED` for every operation. HTTP clients and servers map these results
+at their own boundaries.
 
 ## Future Direction
 

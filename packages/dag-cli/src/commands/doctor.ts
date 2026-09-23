@@ -10,6 +10,9 @@ const OUTPUT_FORMAT_JSON = 'json';
 const JSON_INDENT_SPACES = 2;
 const NODE_MIN_MAJOR = 18;
 
+// Replaced from the owner manifest by tsdown; source execution has no runtime binding.
+declare const __ROBOTA_DAG_CLI_VERSION__: string | undefined;
+
 type TCheckStatus = 'ok' | 'error' | 'warning';
 
 interface IDoctorCheck {
@@ -87,21 +90,16 @@ async function pathExists(p: string): Promise<boolean> {
 }
 
 function resolveCliVersion(): string {
+  if (typeof __ROBOTA_DAG_CLI_VERSION__ !== 'undefined' && __ROBOTA_DAG_CLI_VERSION__) {
+    return __ROBOTA_DAG_CLI_VERSION__;
+  }
   try {
     const require = createRequire(fileURLToPath(import.meta.url));
-    const pkgPath = require.resolve('@robota-sdk/dag-cli/package.json');
-    const pkg = require(pkgPath) as { version?: string };
+    const pkg = require('../../package.json') as { version?: string };
     return typeof pkg.version === 'string' ? pkg.version : 'unknown';
   } catch {
-    // allow-fallback: package.json self-resolution fails in some environments; fallback to relative path
-    try {
-      const require = createRequire(fileURLToPath(import.meta.url));
-      const pkg = require('../../../package.json') as { version?: string };
-      return typeof pkg.version === 'string' ? pkg.version : 'unknown';
-    } catch {
-      // allow-fallback: all resolution paths failed; return unknown rather than crashing doctor
-      return 'unknown';
-    }
+    // allow-fallback: owner manifest is unavailable; return unknown rather than crashing doctor
+    return 'unknown';
   }
 }
 

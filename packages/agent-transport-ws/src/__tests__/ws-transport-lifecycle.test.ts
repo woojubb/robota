@@ -10,7 +10,7 @@ import { WsTransport } from '../ws-transport-configurable.js';
 
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 /**
  * ARCH-004 RUNTIME-13 — `stop()` must resolve even with a client still connected.

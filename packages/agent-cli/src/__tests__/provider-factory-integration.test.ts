@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createProviderFromProfile } from '@robota-sdk/agent-executor';
@@ -252,7 +252,7 @@ const DEFAULT_PROVIDER_DEFINITIONS = [
   createDeepSeekProviderDefinition(),
 ];
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-provider-factory-test-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-provider-factory-test-')));
 const ORIGINAL_HOME = process.env.HOME;
 
 function writeJson(path: string, data: unknown): void {

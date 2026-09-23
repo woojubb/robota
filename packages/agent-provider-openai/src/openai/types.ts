@@ -12,7 +12,7 @@ export interface IOpenAIJsonSchemaDefinition {
 }
 
 export interface IOpenAIResponsesReasoningOptions {
-  effort?: 'low' | 'medium' | 'high';
+  effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   summary?: 'auto' | 'concise' | 'detailed';
 }
 

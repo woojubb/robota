@@ -24,7 +24,7 @@ describe('IChatOptions wire disposition (CORE-044)', () => {
     }
   });
 
-  it('the three unserializable members are the ONLY ones marked local', () => {
+  it('the local callbacks, abort signal, and adapter-bound resolution are the ONLY local members', () => {
     // If a serializable option ever appears here, it is being dropped on the wire again — which is
     // the defect, restated. A function or an AbortSignal genuinely cannot cross; nothing else.
     const local = Object.entries(CHAT_OPTION_WIRE_DISPOSITION)
@@ -32,7 +32,13 @@ describe('IChatOptions wire disposition (CORE-044)', () => {
       .map(([field]) => field)
       .sort();
 
-    expect(local).toEqual(['onProviderNativeRawPayload', 'onTextDelta', 'signal']);
+    expect(local).toEqual([
+      'effortResolution',
+      'onModelEffortOutcome',
+      'onProviderNativeRawPayload',
+      'onTextDelta',
+      'signal',
+    ]);
   });
 
   it('projects the serializable options and drops the ones that cannot cross', () => {

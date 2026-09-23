@@ -1,5 +1,5 @@
 import { AbstractManager } from '../abstracts/abstract-manager';
-import { ToolRegistry, FunctionTool } from '../tool-registry';
+import { ToolRegistry, FunctionTool, isDeferredTool, projectOfferedTools } from '../tool-registry';
 import { ToolExecutionError } from '../utils/errors';
 import { logger } from '../utils/logger';
 
@@ -11,7 +11,20 @@ import type {
   TToolParameters,
   IToolExecutionContext,
 } from '../interfaces/tool';
+import type { TToolSearchMode } from '../interfaces/tool-search';
 import type { TUniversalValue } from '../interfaces/types';
+
+/**
+ * What a tool manager is constructed with (CLI-1990).
+ *
+ * The manager owns the residency STATE — which deferred tools have been loaded — but not the policy
+ * that decides whether deferral is engaged: that is a function of the agent's config, its model and
+ * the registered set, all of which the agent owns. The policy is read through this resolver on
+ * every projection and never cached, so a config or model change is reflected by the next read.
+ */
+export interface IToolManagerOptions {
+  resolveToolSearchMode: () => TToolSearchMode;
+}
 
 /**
  * Tool Manager - manages tool registration and execution
@@ -22,13 +35,17 @@ import type { TUniversalValue } from '../interfaces/types';
 export class Tools extends AbstractManager implements IToolManager {
   private registry: ToolRegistry;
   private allowedTools?: string[];
+  private readonly resolveToolSearchMode: () => TToolSearchMode;
+  /** Deferred tools loaded so far this session — by the search tool, or by a forcing `toolChoice`. */
+  private readonly loadedDeferredTools = new Set<string>();
 
-  constructor() {
+  constructor(options: IToolManagerOptions) {
     // CORE-045: `doInitialize` below only logs, so this registry is usable the moment it exists.
     // Without this declaration `Robota.registerTool()` threw on every freshly constructed agent,
     // because the only thing that awaited `initialize()` was the first run.
     super({ readyOnConstruction: true });
     this.registry = new ToolRegistry();
+    this.resolveToolSearchMode = options.resolveToolSearchMode;
   }
 
   /**
@@ -43,6 +60,7 @@ export class Tools extends AbstractManager implements IToolManager {
    */
   protected async doDispose(): Promise<void> {
     this.registry.clear();
+    this.loadedDeferredTools.clear();
     delete this.allowedTools;
     logger.debug('Tools disposed');
   }
@@ -97,6 +115,56 @@ export class Tools extends AbstractManager implements IToolManager {
       return schemas.filter((schema) => this.allowedTools!.includes(schema.name));
     }
 
+    return schemas;
+  }
+
+  /**
+   * The schemas the model is offered at the next request (CLI-1990): every registered tool while
+   * deferral is not engaged; the resident ones plus the loaded deferred ones once it is. Read per
+   * round by the execution loop — never a snapshot — and refused, not sent, when it would be empty
+   * over a non-empty registry (`projectOfferedTools`).
+   */
+  getOfferedTools(): IToolSchema[] {
+    return projectOfferedTools(
+      this.getTools(),
+      this.loadedDeferredTools,
+      this.resolveToolSearchMode(),
+    );
+  }
+
+  /** Whether a call to this tool would execute now: registered, and offered by the projection. */
+  isToolOffered(name: string): boolean {
+    return this.getOfferedTools().some((schema) => schema.name === name);
+  }
+
+  /** Deferred tools not yet loaded — the population a search discovers. Empty while deferral is off. */
+  listDeferredTools(): IToolSchema[] {
+    if (this.resolveToolSearchMode() === 'off') return [];
+    return this.getTools().filter(
+      (schema) => isDeferredTool(schema) && !this.loadedDeferredTools.has(schema.name),
+    );
+  }
+
+  /**
+   * Mark deferred tools loaded for the rest of the session. Every name is resolved before any is
+   * loaded, so an unknown entry — thrown naming it — loads nothing; a resident name is returned as
+   * it is, already offered.
+   */
+  loadDeferredTools(names: readonly string[]): IToolSchema[] {
+    this.ensureInitialized();
+    const schemas = names.map((name) => {
+      const schema = this.registry.get(name)?.schema;
+      if (!schema) {
+        throw new ToolExecutionError(
+          `Tool "${name}" is not registered, so it cannot be loaded`,
+          name,
+        );
+      }
+      return schema;
+    });
+    for (const schema of schemas) {
+      if (isDeferredTool(schema)) this.loadedDeferredTools.add(schema.name);
+    }
     return schemas;
   }
 

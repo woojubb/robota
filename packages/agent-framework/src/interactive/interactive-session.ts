@@ -4,6 +4,7 @@ import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import { InteractiveSessionBase } from './interactive-session-base.js';
 import { SessionExecutionController } from './interactive-session-execution-controller.js';
+import { writeForkedSessionRecord } from './interactive-session-fork-record.js';
 import { runSkillInFork } from './interactive-session-fork.js';
 import { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import {
@@ -13,10 +14,13 @@ import {
 } from './interactive-session-host-actions.js';
 import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
 import { persistSession } from './interactive-session-persistence.js';
+import { createPromptHistoryRecorder } from './interactive-session-prompt-history.js';
 import { resolveUserSettingsProviderSwitch } from './interactive-session-provider-switch.js';
 import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
+import { SessionTerminalHandoffGate } from './interactive-session-terminal-handoff.js';
+import { SessionTurnMemory } from './interactive-session-turn-memory.js';
 import { publicTurnOptions, submitNewTurn } from './interactive-session-turn-submission.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
@@ -24,10 +28,6 @@ import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-p
 import { createContributionSourcesForProjectAccess } from '../contributions/index.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
-import {
-  AutomaticMemoryController,
-  renderPerTurnRecall,
-} from '../memory/automatic-memory-controller.js';
 import { PlanController } from '../plan/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
@@ -59,8 +59,9 @@ import type {
   TCommandInvocationSource,
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
+import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IGoalStartOptions } from '../goal/index.js';
-import type { IAutomaticMemoryConfig, IMemoryEvent } from '../memory/automatic-memory-types.js';
+import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type {
@@ -72,12 +73,12 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { ISession } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
+import type { IExecutionPendingRequest } from '@robota-sdk/agent-interface-execution';
 import type {
   IGoalState,
   ITurnHandle,
   IPlanArtifact,
   ISubmitOptions,
-  ITerminalHandoff,
   TTurnSource,
   TDriverId,
   TPermissionResultValue,
@@ -107,8 +108,16 @@ export class InteractiveSession
   private sessionName?: string;
   private cwd?: string;
   private pendingRestoreMessages: TUniversalMessage[] | null = null;
+  /** CLI-1994: the resumed record's assembled prompt, applied when this session is a fork. */
+  private restoredSystemPrompt?: string;
   private resumeSessionId?: string;
-  private forkSession: boolean;
+  /**
+   * Whether THIS session was started as a copy of the record it resumed (`--fork-session`), rather
+   * than as a continuation of it. Named for the property it holds, not for the flag that sets it:
+   * CLI-1994 gives the class a `forkSession()` member — the in-session fork the command host calls —
+   * and one identifier cannot be both a boolean about the past and the verb that makes a new copy.
+   */
+  private startedAsFork: boolean;
   private autoCompactThresholdSource: TAutoCompactThresholdSource = 'default';
   private shutdownPromise: Promise<void> | null = null;
   private readonly sandboxClient?: ISandboxClient;
@@ -118,15 +127,16 @@ export class InteractiveSession
   private injectedMemoryStore?: IMemoryStore;
   // SELFHOST-008 P2: optional post-turn auto-capture policy (surface-supplied); absent ⇒ capture OFF.
   private readonly automaticMemory?: IAutomaticMemoryConfig;
-  private autoMemoryController?: AutomaticMemoryController;
-  private autoMemoryTurn = 0;
   // SELFHOST-008 P3: optional per-turn recall policy (surface-supplied); absent ⇒ recall OFF.
   private readonly recallMemory?: IPerTurnRecallConfig;
+  /** SELFHOST-008 P2/P3: the capture + recall hooks over the one shared memory store. */
+  private readonly turnMemory: SessionTurnMemory;
   private sandboxSnapshotId?: string;
   private agentsFileEntries: IContextFileEntry[] = [];
   private projectNotesFileEntries: IContextFileEntry[] = [];
   private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
   private providerDefinitions: readonly IProviderDefinition[] = [];
+  private activeOutputStyleId = 'default';
   private orgPolicy: import('../command-api/org-policy/org-policy-types.js').IOrgPolicy | null =
     null;
   protected readonly bgTracker: SessionBackgroundTaskTracker;
@@ -139,8 +149,8 @@ export class InteractiveSession
   private readonly planController = new PlanController();
   /** GOAL-001: origin of the most recently started turn — gates goal-loop advancement. */
   private currentTurnSource: TTurnSource = 'user';
-  /** TERM-001: transport-provided terminal-handoff capability (undefined when none). */
-  private readonly terminalHandoff?: ITerminalHandoff;
+  /** TERM-001: exclusivity + fast-fail over the transport-provided handoff capability. */
+  private readonly terminalHandoffGate: SessionTerminalHandoffGate;
   /**
    * REMOTE-007: the framework's event-emitting "ask the user" default (never undefined). It emits
    * `ask_request` and parks the answer in {@link promptRegistry}. `getUserInteraction()` gates the
@@ -151,8 +161,6 @@ export class InteractiveSession
   /** REMOTE-007: transport-neutral pending permission/ask registry (parking + fail-closed + drain). */
   private readonly promptRegistry: SessionPromptRegistry;
   private readonly projectAccess: TWorkspaceProjectAccess;
-  /** TERM-001: guards handoff exclusivity (one handoff at a time). */
-  private terminalHandoffActive = false;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
@@ -160,14 +168,28 @@ export class InteractiveSession
     this.projectAccess =
       options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable');
     this.sessionName = options.sessionName;
-    this.terminalHandoff = options.terminalHandoff;
+    if ('outputStyle' in options && options.outputStyle !== undefined) {
+      this.activeOutputStyleId = options.outputStyle.id;
+    }
+    this.terminalHandoffGate = new SessionTerminalHandoffGate(options.terminalHandoff);
 
     // REMOTE-007: the framework owns one event-emitting prompt registry. Attached surfaces subscribe
     // to requests and answer through resolvePermission/resolveAsk; with none subscribed it fails closed.
+    // SCREEN-1992: a prompt parking or settling changes the main thread's normalized state, so the
+    // workspace snapshot is re-emitted right after each prompt event (`park` precedes the emit).
     this.promptRegistry = new SessionPromptRegistry({
-      emitPermissionRequest: (event) => this.emit('permission_request', event),
-      emitAskRequest: (event) => this.emit('ask_request', event),
-      emitPromptResolved: (event) => this.emit('prompt_resolved', event),
+      emitPermissionRequest: (event) => {
+        this.emit('permission_request', event);
+        this.execCtrl.emitExecutionWorkspaceUpdated('main_thread');
+      },
+      emitAskRequest: (event) => {
+        this.emit('ask_request', event);
+        this.execCtrl.emitExecutionWorkspaceUpdated('main_thread');
+      },
+      emitPromptResolved: (event) => {
+        this.emit('prompt_resolved', event);
+        this.execCtrl.emitExecutionWorkspaceUpdated('main_thread');
+      },
       countListeners: (event) => this.listeners.get(event)?.size ?? 0,
       // REMOTE-014 E5: stamp the active turn's driver as the prompt's requester (display-only attribution).
       getActiveDriverId: () => this.execCtrl.activeDriverId,
@@ -177,11 +199,20 @@ export class InteractiveSession
 
     this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
     this.resumeSessionId = options.resumeSessionId;
-    this.forkSession = options.forkSession ?? false;
+    this.startedAsFork = options.forkSession ?? false;
     this.sandboxClient = 'sandboxClient' in options ? options.sandboxClient : undefined;
     this.injectedMemoryStore = 'memoryStore' in options ? options.memoryStore : undefined;
     this.automaticMemory = 'automaticMemory' in options ? options.automaticMemory : undefined;
     this.recallMemory = 'recallMemory' in options ? options.recallMemory : undefined;
+    const promptHistory = 'promptHistory' in options ? options.promptHistory : undefined;
+    this.turnMemory = new SessionTurnMemory({
+      automaticMemory: this.automaticMemory,
+      recallMemory: this.recallMemory,
+      getMemoryStore: () => this.getMemoryStore(),
+      getSessionId: () => this.sessionId,
+      recordUsedMemoryReferences: (references) =>
+        this.histTracker.recordUsedMemoryReferences(references),
+    });
     this.sandboxSnapshotId = 'sandboxSnapshotId' in options ? options.sandboxSnapshotId : undefined;
     const cwd = this.cwd;
     const initCheckpointStore = options.editCheckpointStore ?? null;
@@ -260,13 +291,25 @@ export class InteractiveSession
       ...(this.automaticMemory
         ? {
             captureMemory: (turn: { userMessage: string; assistantMessage: string }) =>
-              this.captureTurnMemory(turn),
+              this.turnMemory.capture(turn),
           }
         : {}),
       // SELFHOST-008 P3: adapter-gated — only wire per-turn recall when the surface supplied a
       // `recallMemory` policy (absent ⇒ undefined ⇒ recall OFF, startup-only injection unchanged).
       ...(this.recallMemory
-        ? { recallMemory: (query: string) => this.recallTurnMemory(query) }
+        ? { recallMemory: (query: string) => this.turnMemory.recall(query) }
+        : {}),
+      // SCREEN-1993: adapter-gated — only wire the prompt-history append when the surface supplied
+      // a writer (absent ⇒ undefined ⇒ nothing is written).
+      ...(promptHistory
+        ? {
+            recordPrompt: createPromptHistoryRecorder({
+              ...promptHistory,
+              getSessionId: () => this.sessionId,
+              notify: (message) =>
+                this.histTracker.append(messageToHistoryEntry(createSystemMessage(message))),
+            }),
+          }
         : {}),
     });
 
@@ -291,6 +334,10 @@ export class InteractiveSession
     if (this.initialized) this.bgTracker.subscribe(this.session!);
     if (this.initialized) this.persistCurrentSession();
     this.resumeGoalIfActive();
+  }
+
+  protected getPendingRequest(): IExecutionPendingRequest | undefined {
+    return this.promptRegistry.pending();
   }
 
   getProjectAccess(): TWorkspaceProjectAccess {
@@ -323,13 +370,18 @@ export class InteractiveSession
       groupEvents: restored.backgroundJobGroupEvents,
     });
     this.pendingRestoreMessages = restored.pendingRestoreMessages;
-    this.sandboxSnapshotId = this.forkSession ? undefined : restored.sandboxSnapshotId;
+    // CLI-1994: a fork is a copy, prompt included; the deferred path applies it after assembly.
+    this.restoredSystemPrompt = restored.restoredSystemPrompt;
+    if (this.session && this.startedAsFork && restored.restoredSystemPrompt !== undefined) {
+      this.session.updateSystemMessage(restored.restoredSystemPrompt);
+    }
+    this.sandboxSnapshotId = this.startedAsFork ? undefined : restored.sandboxSnapshotId;
     // GOAL-001: a fork starts fresh; a true resume restores any in-flight goal so pursuit continues.
-    if (!this.forkSession && restored.goal) this.goalController.restore(restored.goal);
+    if (!this.startedAsFork && restored.goal) this.goalController.restore(restored.goal);
     // SELFHOST-002: likewise restore an in-flight plan artifact on a true resume (not a fork).
-    if (!this.forkSession && restored.plan) this.planController.restore(restored.plan);
+    if (!this.startedAsFork && restored.plan) this.planController.restore(restored.plan);
     // SELFHOST-007: restore the active checkpoint branch on a true resume (graceful on manifest drift).
-    if (!this.forkSession) this.histTracker.restoreActiveBranch(restored.activeBranch);
+    if (!this.startedAsFork) this.histTracker.restoreActiveBranch(restored.activeBranch);
     if (this.session && restored.pendingRestoreMessages === null) {
       // Injected-session path: messages were injected immediately — sync context estimate.
       this.session.syncContextFromHistory();
@@ -350,6 +402,7 @@ export class InteractiveSession
       sandboxSnapshotId: this.sandboxSnapshotId,
       resumeSessionId: this.resumeSessionId,
       pendingRestoreMessages: this.pendingRestoreMessages,
+      restoredSystemPrompt: this.restoredSystemPrompt,
       permissionHandler: (toolName, toolArgs) =>
         this.promptRegistry.requestPermission(toolName, toolArgs),
       askHandler: this.askHandler,
@@ -406,44 +459,6 @@ export class InteractiveSession
     throw new WorkspaceAuthorityRequiredError(
       'Project memory is unavailable without a workspace project authority.',
     );
-  }
-
-  /**
-   * SELFHOST-008 P2 — post-turn auto-capture, invoked by the execution controller's `finally` (before
-   * persistSession) when an `automaticMemory` policy was supplied. Extracts + evaluates + curates through
-   * the SAME injected `IMemoryStore` (SSOT with startup + `/memory`), returning the `IMemoryEvent`s for the
-   * controller to record. The controller guards this call (a capture failure never breaks the turn).
-   */
-  private async captureTurnMemory(turn: {
-    userMessage: string;
-    assistantMessage: string;
-  }): Promise<IMemoryEvent[]> {
-    if (!this.automaticMemory) return [];
-    this.autoMemoryController ??= new AutomaticMemoryController({
-      config: this.automaticMemory,
-      memoryStore: this.getMemoryStore(),
-    });
-    this.autoMemoryTurn += 1;
-    const result = await this.autoMemoryController.capture({
-      sessionId: this.sessionId || 'session',
-      turnId: `turn-${this.autoMemoryTurn}`,
-      userMessage: turn.userMessage,
-      assistantMessage: turn.assistantMessage,
-    });
-    return result.events;
-  }
-
-  /**
-   * SELFHOST-008 P3 — per-turn recall, invoked by the execution controller at turn START (query = the turn
-   * input) when a `recallMemory` policy was supplied. Recalls query-relevant durable memory through the SAME
-   * injected `IMemoryStore` (SSOT with startup + capture) and renders it under a DISTINCT `<recalled-memory>`
-   * label. Returns '' when there is nothing to recall. The controller guards this call (recall failure skips
-   * injection, never breaks the turn) and injects the result EPHEMERALLY (never persisted).
-   */
-  private async recallTurnMemory(query: string): Promise<string> {
-    if (!this.recallMemory) return '';
-    const result = await this.getMemoryStore().recall(query, this.recallMemory.budget);
-    return renderPerTurnRecall(result);
   }
 
   get sessionId(): string {
@@ -532,7 +547,14 @@ export class InteractiveSession
     return this.execCtrl.pendingCount();
   }
 
-  /** FLOW-002: inject a background wake; coalesce repeated in-flight wakes by source task id. */
+  /**
+   * FLOW-002: inject a background wake; coalesce repeated in-flight wakes by source task id.
+   *
+   * Issue #2354: the woken turn is an ordinary `submitNewTurn` and runs under THIS session's
+   * permission configuration (mode, rules, hooks, consent) — a schedule carries no policy of its own,
+   * by the decision recorded on `IScheduledBackgroundTaskRequest`. `turnSource: 'agent-wakeup'` is
+   * how a consumer tells it apart from a typed prompt; it does not change what the turn may do.
+   */
   requestWakeup(instruction: string, sourceTaskId: string): boolean {
     if (this.execCtrl.shuttingDown) return false;
     if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return false;
@@ -630,6 +652,15 @@ export class InteractiveSession
     this.rebuildLivePrompt({ persona });
   }
 
+  getActiveOutputStyleId(): string {
+    return this.activeOutputStyleId;
+  }
+
+  applyOutputStyle(style: IOutputStylePrompt): void {
+    this.activeOutputStyleId = style.id;
+    this.rebuildLivePrompt({ outputStyle: style });
+  }
+
   applySelfVerification(enabled: boolean): void {
     this.rebuildLivePrompt({ selfVerification: enabled });
   }
@@ -693,36 +724,38 @@ export class InteractiveSession
     this.promptRegistry.resolveAsk(id, response, answererDriverId ?? OWNER_DRIVER_ID);
   }
 
-  /**
-   * TERM-001: whether the active transport can hand the real terminal to a child process. False
-   * when no handoff capability was injected or its `canHandoffTerminal` is false (e.g. headless).
-   */
+  /** TERM-001 — see {@link SessionTerminalHandoffGate}. */
   canHandoffTerminal(): boolean {
-    return this.terminalHandoff?.canHandoffTerminal === true;
+    return this.terminalHandoffGate.canHandoffTerminal();
+  }
+
+  /** TERM-001 — see {@link SessionTerminalHandoffGate}. */
+  runWithTerminal<T>(fn: () => Promise<T>): Promise<T> {
+    return this.terminalHandoffGate.runWithTerminal(fn);
   }
 
   /**
-   * TERM-001: suspend the display, run `fn` (which spawns a child with inherited stdio), then
-   * restore. The framework owns the ORCHESTRATION: it enforces exclusivity (one handoff at a time)
-   * and fast-fails when no interactive terminal is available, instead of hanging. The transport
-   * implements the underlying suspend/resume; the caller's `fn` spawns whatever child it wants — the
-   * framework stays platform-neutral and never spawns a shell.
+   * CLI-1994: write a COPY of this conversation under a fresh id and a distinct name. The copy
+   * carries the messages, the assembled system message, the tool schemas and the transcript; it
+   * drops what the startup `--fork-session` drops. This session is untouched — the caller (`/fork`)
+   * starts the background job that resumes the copy, and attaching to it later is a view switch,
+   * never a merge back.
    */
-  async runWithTerminal<T>(fn: () => Promise<T>): Promise<T> {
-    if (!this.canHandoffTerminal() || this.terminalHandoff === undefined) {
-      throw new Error(
-        'Terminal handoff is unavailable: no interactive terminal (headless or non-TTY output).',
-      );
+  async forkSession(input: { name?: string } = {}): Promise<{ sessionId: string; name: string }> {
+    await this.ensureInitialized();
+    const session = this.getSessionOrThrow();
+    if (!this.sessionStore) {
+      throw new Error('Cannot fork: this session has no session store to write the copy to.');
     }
-    if (this.terminalHandoffActive) {
-      throw new Error('A terminal handoff is already in progress.');
-    }
-    this.terminalHandoffActive = true;
-    try {
-      return await this.terminalHandoff.runWithTerminal(fn);
-    } finally {
-      this.terminalHandoffActive = false;
-    }
+    return writeForkedSessionRecord({
+      source: session,
+      fullHistory: () => this.getFullHistory(),
+      sessionStore: this.sessionStore,
+      requestedName: input.name,
+      sourceName: this.sessionName,
+      sourceId: session.getSessionId(),
+      cwd: this.getCwd(),
+    });
   }
 
   setAutoCompactThreshold(
@@ -982,6 +1015,7 @@ export class InteractiveSession
       getAdapters: () => this.getCommandHostAdapters(),
       orgPolicy: this.orgPolicy,
       switchProvider: (profileName) => this.switchProvider(profileName),
+      applyOutputStyle: (style) => this.applyOutputStyle(style),
       renameSession: (newName) => {
         this.setName(newName);
         this.emit('session_renamed', { name: newName }); // all surfaces update their titles

@@ -1,5 +1,6 @@
 import {
-  SESSION_ARTIFACT_SCHEMA_VERSION,
+  SESSION_RECORD_ENVELOPE_VERSION,
+  SessionLogDecodeError,
   assertSafeSessionId,
   decodeInteractiveSessionRecord,
   decodeVersionedInteractiveSessionRecord,
@@ -45,17 +46,8 @@ function recencyOf(entry: ISessionListEntry): number {
 /**
  * The ONE producer of a `valid` outcome in this store.
  *
- * TRANS-007: the decode guard was first written at the file-read path, and this class has two other
- * places a `valid` outcome can come into existence — both from `loadFromReplayLog`, which
- * reconstructs a record from append-only log entries and casts its way to the contract. Enumerating
- * the sink is not the same as covering every path that reaches it: a value checked at one
- * constructor and produced at three is unchecked at two of them.
- *
- * So the check lives where the value is MADE. A replayed reconstruction that does not decode is
- * reported as `corrupt` rather than presented as a session this build can resume — and a decoded
- * replay carries revived `Date`s like every other `valid` outcome, instead of the ISO strings the
- * cast left behind. (Decoding the JSONL entries themselves is issue #2098's; this is the invariant
- * that a `valid` outcome from THIS store has been decoded.)
+ * JSONL entries are decoded before replay. The reconstructed record is a separate boundary:
+ * validate it here so both load and list return a complete, decoded record or an explicit failure.
  */
 function asValidatedOutcome(record: IInteractiveSessionRecord): TSessionLoadOutcome {
   const outcome = decodeInteractiveSessionRecord(record);
@@ -99,7 +91,7 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     // TRANS-007: the versioned envelope, the same shape the host store and the share artifact carry.
     this.sessions.writeText(
       `${session.id}.json`,
-      JSON.stringify({ schemaVersion: SESSION_ARTIFACT_SCHEMA_VERSION, record: session }, null, 2),
+      JSON.stringify({ schemaVersion: SESSION_RECORD_ENVELOPE_VERSION, record: session }, null, 2),
       'persist project session record',
     );
   }
@@ -119,8 +111,7 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     if (raw !== undefined) {
       return decodeStoredSessionText(raw);
     }
-    const replayed = this.loadFromReplayLog(id);
-    return replayed === undefined ? { status: 'missing' } : asValidatedOutcome(replayed);
+    return this.loadFromReplayLog(id);
   }
 
   /**
@@ -138,9 +129,9 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
       .map((id) => ({ id, outcome: this.outcomeForListedId(id) }));
     const seen = new Set(snapshots.map((entry) => entry.id));
     const entries: ISessionListEntry[] = [...snapshots];
-    for (const replayRecord of this.listReplayLogRecords()) {
-      if (!seen.has(replayRecord.id)) {
-        entries.push({ id: replayRecord.id, outcome: asValidatedOutcome(replayRecord) });
+    for (const id of this.listReplayLogIds()) {
+      if (!seen.has(id)) {
+        entries.push({ id, outcome: this.outcomeForListedId(id) });
       }
     }
     return entries.sort((left, right) => recencyOf(right) - recencyOf(left));
@@ -169,7 +160,20 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     this.sessions.deleteFile(`${id}.json`, 'delete project session record');
   }
 
-  private loadFromReplayLog(id: string): IInteractiveSessionRecord | undefined {
+  private loadFromReplayLog(id: string): TSessionLoadOutcome {
+    try {
+      const record = this.reconstructReplayLog(id);
+      return record === undefined ? { status: 'missing' } : asValidatedOutcome(record);
+    } catch (error) {
+      if (!(error instanceof SessionLogDecodeError)) throw error;
+      if (error.code === 'UNSUPPORTED_VERSION') {
+        return { status: 'unsupported', schemaVersion: error.schemaVersion };
+      }
+      return { status: 'corrupt', issues: error.issues };
+    }
+  }
+
+  private reconstructReplayLog(id: string): IInteractiveSessionRecord | undefined {
     const replay = replaySessionLogEntries(
       loadSessionLogEntries(new WorkspaceSessionLogSource(this.logs, id)),
     );
@@ -192,13 +196,10 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     };
   }
 
-  private listReplayLogRecords(): IInteractiveSessionRecord[] {
+  private listReplayLogIds(): string[] {
     return this.logs
       .listDirectory('', 'list project session logs')
       .filter((entry) => entry.kind === 'file' && entry.name.endsWith('.jsonl'))
-      .map((entry) => entry.name.slice(0, -'.jsonl'.length))
-      .filter(isSafeSessionId)
-      .map((id) => this.loadFromReplayLog(id))
-      .filter((record): record is IInteractiveSessionRecord => record !== undefined);
+      .map((entry) => entry.name.slice(0, -'.jsonl'.length));
   }
 }

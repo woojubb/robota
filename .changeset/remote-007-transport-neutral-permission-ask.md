@@ -1,8 +1,7 @@
 ---
 '@robota-sdk/agent-interface-transport': minor
 '@robota-sdk/agent-framework': minor
-'@robota-sdk/agent-transport-protocol': minor
-'@robota-sdk/agent-transport-tui': patch
+'@robota-sdk/agent-ui-terminal': patch
 ---
 
 Make the permission and "ask the user" flows transport-neutral (REMOTE-007 / B4-2a). A session now

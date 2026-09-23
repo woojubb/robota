@@ -78,6 +78,15 @@ describe('SessionBase.applyModelOptions (PRESET-013)', () => {
     );
   });
 
+  it('preserves auto as a provider-default selection instead of converting it to high', async () => {
+    setModelSpy.mockClear();
+    const session = buildSession();
+
+    await session.applyModelOptions({ effort: 'auto' });
+
+    expect(setModelSpy).toHaveBeenCalledWith(expect.objectContaining({ effort: 'auto' }));
+  });
+
   it('TC-03: applyModelOptions({ model }) updates getModelId()', async () => {
     setModelSpy.mockClear();
     const session = buildSession();

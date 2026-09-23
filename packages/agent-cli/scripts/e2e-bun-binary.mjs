@@ -10,6 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pinGeneration } from '../../../scripts/artifacts/generation.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgDir = join(here, '..'); // packages/agent-cli
@@ -44,7 +45,8 @@ if (build.status !== 0) {
 
 const os = process.platform === 'win32' ? 'windows' : process.platform;
 const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
-const bin = join(pkgDir, 'dist', 'bin', `robota-${os}-${arch}${os === 'windows' ? '.exe' : ''}`);
+const binaryGeneration = pinGeneration(pkgDir, { outputName: 'dist-bun' });
+const bin = join(binaryGeneration.root, `robota-${os}-${arch}${os === 'windows' ? '.exe' : ''}`);
 if (!existsSync(bin)) {
   console.error(`e2e: host binary not produced at ${bin}`);
   process.exit(1);

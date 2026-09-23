@@ -4,7 +4,10 @@ import { join } from 'path';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { loadConfig as loadConfigFromSources } from '../config/config-loader.js';
+import {
+  loadConfig as loadConfigFromSources,
+  loadConfigWithHookSources,
+} from '../config/config-loader.js';
 import { createTrustedSettingsSourcesFixture } from '../testing/trusted-project-state-fixture.js';
 
 const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-cli-test-'));
@@ -58,6 +61,34 @@ describe('loadConfig', () => {
     expect(config.permissions.deny).toEqual([]);
     expect('memory' in config).toBe(false);
     expect(config.env).toEqual({});
+  });
+
+  it('keeps actual user and project hook sources without changing the public config shape', async () => {
+    writeJson(join(userDir, 'settings.json'), {
+      disabledHooks: ['disabled-project-hook'],
+      hooks: { PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt', prompt: 'user guard' }] }] },
+    });
+    writeJson(join(projectDir, 'settings.json'), {
+      hooks: {
+        PreToolUse: [
+          {
+            id: 'disabled-project-hook',
+            matcher: '',
+            hooks: [{ type: 'agent', agent: 'disabled' }],
+          },
+          { matcher: '', hooks: [{ type: 'prompt', prompt: 'project guard' }] },
+        ],
+      },
+    });
+    const sources = await createTrustedSettingsSourcesFixture(cwd);
+    const detailed = await loadConfigWithHookSources(sources);
+
+    expect(detailed.config).toEqual(await loadConfigFromSources(sources));
+    expect(detailed.hookSources).toEqual([
+      { event: 'PreToolUse', type: 'prompt', source: join(userDir, 'settings.json') },
+      { event: 'PreToolUse', type: 'prompt', source: join('.robota', 'settings.json') },
+    ]);
+    expect(detailed.config).not.toHaveProperty('hookSources');
   });
 
   it('ignores obsolete automatic memory settings', async () => {
@@ -147,7 +178,7 @@ describe('loadConfig', () => {
     expect(config.defaultTrustLevel).toBe('full');
   });
 
-  it('project settings take precedence over user settings', async () => {
+  it('project settings cannot raise the user trust level', async () => {
     writeJson(join(userDir, 'settings.json'), {
       defaultTrustLevel: 'safe',
       currentProvider: 'anthropic',
@@ -157,12 +188,12 @@ describe('loadConfig', () => {
       defaultTrustLevel: 'moderate',
     });
     const config = await loadConfig(cwd);
-    expect(config.defaultTrustLevel).toBe('moderate');
+    expect(config.defaultTrustLevel).toBe('safe');
     // provider profile from user settings is still inherited when not overridden
     expect(config.provider.model).toBe('claude-3-haiku-20240307');
   });
 
-  it('local settings take precedence over project settings', async () => {
+  it('local settings cannot raise the project trust level', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       defaultTrustLevel: 'safe',
     });
@@ -170,7 +201,7 @@ describe('loadConfig', () => {
       defaultTrustLevel: 'full',
     });
     const config = await loadConfig(cwd);
-    expect(config.defaultTrustLevel).toBe('full');
+    expect(config.defaultTrustLevel).toBe('safe');
   });
 
   it('merges permissions arrays (local overrides project overrides user)', async () => {
@@ -183,6 +214,46 @@ describe('loadConfig', () => {
     const config = await loadConfig(cwd);
     // project overrides user permissions entirely
     expect(config.permissions.allow).toEqual(['Read(**)', 'Glob(**)']);
+  });
+
+  it('CONFIG-003: a project deny rule does not remove a user-global deny rule', async () => {
+    // The repository's settled combine rule, applied at the one site that disagreed:
+    // `agent-core`'s applyPresetToolLists says "the denylist UNIONS — a denial is not weakened by a
+    // later layer that forgot to repeat it", and settings-layer merging did exactly that weakening.
+    // A project layer declaring ANY deny dropped every deny the user had configured.
+    writeJson(join(userDir, 'settings.json'), {
+      permissions: { deny: ['Bash(rm -rf *)'] },
+    });
+    writeJson(join(projectDir, 'settings.json'), {
+      permissions: { deny: ['Read(.env)'] },
+    });
+    const config = await loadConfig(cwd);
+
+    expect(config.permissions.deny).toContain('Bash(rm -rf *)');
+    expect(config.permissions.deny).toContain('Read(.env)');
+  });
+
+  it('CONFIG-003: a repeated deny rule is not duplicated', async () => {
+    // Order-preserving and deduplicated, matching applyPresetToolLists. A union that grew on every
+    // layer would turn a repeated rule into a longer list that means the same thing.
+    writeJson(join(userDir, 'settings.json'), { permissions: { deny: ['Bash(rm -rf *)'] } });
+    writeJson(join(projectDir, 'settings.json'), {
+      permissions: { deny: ['Bash(rm -rf *)', 'Read(.env)'] },
+    });
+    const config = await loadConfig(cwd);
+
+    expect(config.permissions.deny).toEqual(['Bash(rm -rf *)', 'Read(.env)']);
+  });
+
+  it('CONFIG-003: allow still REPLACES — the asymmetry is the rule, not an oversight', async () => {
+    // Deliberately NOT changed. An allowlist states the complete permitted set, so a later, more
+    // specific layer supersedes it; unioning a GRANT would let a project widen what the user
+    // permitted, which is the same inverted trust direction the deny fix closes.
+    writeJson(join(userDir, 'settings.json'), { permissions: { allow: ['Bash(git *)'] } });
+    writeJson(join(projectDir, 'settings.json'), { permissions: { allow: ['Read(**)'] } });
+    const config = await loadConfig(cwd);
+
+    expect(config.permissions.allow).toEqual(['Read(**)']);
   });
 
   it('throws on invalid settings (Zod validation)', async () => {
@@ -342,7 +413,7 @@ describe('loadConfig', () => {
     });
   });
 
-  it('deep-merges provider profiles across settings layers', async () => {
+  it('deep-merges provider profiles without inheriting a credential across endpoint changes', async () => {
     writeJson(join(userDir, 'settings.json'), {
       providers: {
         openai: {
@@ -366,7 +437,7 @@ describe('loadConfig', () => {
     expect(config.provider).toMatchObject({
       name: 'openai',
       model: 'supergemma4-26b-uncensored-v2',
-      apiKey: 'lm-studio',
+      apiKey: undefined,
       baseURL: 'http://localhost:1234/v1',
     });
   });
@@ -418,7 +489,7 @@ describe('loadConfig', () => {
     expect(config.defaultTrustLevel).toBe('full');
   });
 
-  it('.claude/settings.local.json has highest priority', async () => {
+  it('.claude/settings.local.json cannot raise a stricter trust level', async () => {
     writeJson(join(claudeProjectDir, 'settings.json'), {
       defaultTrustLevel: 'safe',
     });
@@ -426,7 +497,7 @@ describe('loadConfig', () => {
       defaultTrustLevel: 'full',
     });
     const config = await loadConfig(cwd);
-    expect(config.defaultTrustLevel).toBe('full');
+    expect(config.defaultTrustLevel).toBe('safe');
   });
 
   it('.claude/ paths win over legacy .robota/ paths', async () => {
@@ -439,8 +510,8 @@ describe('loadConfig', () => {
       defaultTrustLevel: 'full',
     });
     const config = await loadConfig(cwd);
-    // .claude/ wins for trust level
-    expect(config.defaultTrustLevel).toBe('full');
+    // The most restrictive layer wins for trust level.
+    expect(config.defaultTrustLevel).toBe('safe');
     // .robota/ provider profile is inherited since .claude/ didn't set it
     expect(config.provider.model).toBe('robota-model');
   });
@@ -453,7 +524,65 @@ describe('loadConfig', () => {
     writeJson(join(claudeProjectDir, 'settings.json'), { defaultTrustLevel: 'safe' });
     writeJson(join(claudeProjectDir, 'settings.local.json'), { defaultTrustLevel: 'full' });
     const config = await loadConfig(cwd);
-    expect(config.defaultTrustLevel).toBe('full');
+    expect(config.defaultTrustLevel).toBe('safe');
+  });
+
+  it('CONFIG-003: a project hook does not delete the user-global PreToolUse guard', async () => {
+    // The defect: `hooks` fell through mergeSettings' top-level spread, so ANY later layer that
+    // declared hooks replaced the whole object. A repository could disable a user's security guard
+    // by declaring an unrelated event — a lower-trust layer removing a higher-trust control, with
+    // nothing in normal output saying so.
+    writeJson(join(userDir, 'settings.json'), {
+      hooks: {
+        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'user-guard' }] }],
+      },
+    });
+    writeJson(join(projectDir, 'settings.json'), {
+      hooks: {
+        PostToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'project-automation' }] }],
+      },
+    });
+    const config = await loadConfig(cwd);
+
+    // The guard is still there. This is the security property; everything else here is shape.
+    expect(config.hooks?.PreToolUse?.[0]?.hooks?.[0]).toMatchObject({ command: 'user-guard' });
+    // And the project's own hook was added rather than swapped in.
+    expect(config.hooks?.PostToolUse?.[0]?.hooks?.[0]).toMatchObject({
+      command: 'project-automation',
+    });
+  });
+
+  it("CONFIG-003: a project hook on the SAME event is appended after the user's, not instead of it", async () => {
+    // The same-event case is the one a per-object merge would still get wrong: replacing
+    // `PreToolUse` wholesale is exactly as fatal as replacing `hooks` wholesale, and only a
+    // per-event concatenation survives it. User first, because `runHooks` returns on the first
+    // `deny` and the user's guard should be the one that gets to say it.
+    writeJson(join(userDir, 'settings.json'), {
+      hooks: {
+        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'user-guard' }] }],
+      },
+    });
+    writeJson(join(projectDir, 'settings.json'), {
+      hooks: {
+        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'project-hook' }] }],
+      },
+    });
+    const config = await loadConfig(cwd);
+
+    expect(config.hooks?.PreToolUse).toHaveLength(2);
+    expect(config.hooks?.PreToolUse?.[0]?.hooks?.[0]).toMatchObject({ command: 'user-guard' });
+    expect(config.hooks?.PreToolUse?.[1]?.hooks?.[0]).toMatchObject({ command: 'project-hook' });
+  });
+
+  it('CONFIG-003: a project taskContext.dir does not silently re-enable an injection the user turned off', async () => {
+    // Same wholesale-replacement defect, without the security framing: `taskContext` is
+    // `{ enabled?, dir? }`, so a project setting only `dir` erased the user's `enabled: false`.
+    writeJson(join(userDir, 'settings.json'), { taskContext: { enabled: false } });
+    writeJson(join(projectDir, 'settings.json'), { taskContext: { dir: '.agents/tasks' } });
+    const config = await loadConfig(cwd);
+
+    expect(config.taskContext?.enabled).toBe(false);
+    expect(config.taskContext?.dir).toBe('.agents/tasks');
   });
 
   it('hooks from .claude/settings.json are loaded and merged', async () => {

@@ -19,6 +19,7 @@ export { SessionBusyError, TurnClaim } from './turn-claim.js';
 
 // Sub-components (exported for advanced use cases)
 export { PermissionEnforcer } from './permission-enforcer.js';
+export { consentScopeFor } from './consent-scope.js';
 export { AUTO_COMPACT_THRESHOLD, ContextWindowTracker } from './context-window-tracker.js';
 export {
   CompactionError,
@@ -39,7 +40,16 @@ export {
   NodeSessionLogSink,
 } from './session-log-sinks.js';
 export type { IExternalPayloadSink, ISessionLogSink } from './session-log-sinks.js';
-export { SESSION_LOG_EVENT, isSessionLogEvent } from './session-log-events.js';
+export {
+  SESSION_LOG_EVENT,
+  SESSION_LOG_SCHEMA_VERSION,
+  isSessionLogEvent,
+} from './session-log-events.js';
+export { decodeSessionLogEntries, SessionLogDecodeError } from './session-log-codec/index.js';
+export type {
+  TDecodedSessionLogEntry,
+  TSessionLogDecodeErrorCode,
+} from './session-log-codec/index.js';
 export type {
   TSessionLogEventName,
   ISessionLogLine,
@@ -54,6 +64,12 @@ export type {
   TSessionLogValue,
 } from './session-logger.js';
 export { NodeExternalPayloadSource, NodeSessionLogSource } from './session-log-sources.js';
+export {
+  DEFAULT_PROMPT_HISTORY_BLOCK_BYTES,
+  NodePromptHistoryFile,
+  parsePromptHistoryLine,
+} from './prompt-history-file.js';
+export type { INodePromptHistoryFileOptions } from './prompt-history-file.js';
 export type { IExternalPayloadSource, ISessionLogSource } from './session-log-sources.js';
 export {
   resolveSessionLogExternalPayloads,
@@ -97,7 +113,7 @@ export type { ICheckpointNode } from './checkpoint-tree.js';
 // (`scan-interface-runtime`), and a decoder is a mechanism.
 export {
   INTERACTIVE_SESSION_RECORD_KEYS,
-  SESSION_ARTIFACT_SCHEMA_VERSION,
+  SESSION_RECORD_ENVELOPE_VERSION,
   decodeInteractiveSessionRecord,
   decodeVersionedInteractiveSessionRecord,
 } from './session-record-codec/index.js';

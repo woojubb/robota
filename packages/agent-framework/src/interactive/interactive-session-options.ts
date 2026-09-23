@@ -6,9 +6,10 @@
  * IInitOptions: internal async init shape passed to createInteractiveSession().
  */
 
+import type { IPromptHistoryOptions } from './interactive-session-prompt-history.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
-import type { TInteractivePermissionHandler } from './types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
@@ -18,9 +19,9 @@ import type {
   ICommandModule,
   ICommandResult,
   IRemoteCommandPolicy,
-  ISystemCommandSemanticRoles,
 } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
+import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
@@ -30,14 +31,11 @@ import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
-  IContextWindowState,
+  IProviderDefinition,
   IToolWithEventService,
-  IUserInteraction,
-  TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 import type { ISessionLogSink } from '@robota-sdk/agent-session';
 import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
@@ -45,6 +43,8 @@ import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
 export interface IInteractiveSessionStandardOptions {
+  /** Additive response style applied to the composed system prompt. */
+  outputStyle?: IOutputStylePrompt;
   cwd: string;
   provider: IAIProvider;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
@@ -116,7 +116,7 @@ export interface IInteractiveSessionStandardOptions {
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
   /** Provider definitions for hot-swap via /provider switch. */
-  providerDefinitions?: readonly import('@robota-sdk/agent-core').IProviderDefinition[];
+  providerDefinitions?: readonly IProviderDefinition[];
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */
@@ -134,6 +134,12 @@ export interface IInteractiveSessionStandardOptions {
    * injection; absence leaves project memory inaccessible.
    */
   memoryStore?: IMemoryStore;
+  /**
+   * SCREEN-1993: optional prompt-history projection. When present, every turn the owner typed is
+   * appended (`{ at, sessionId, project, text }`) through the writer; absent ⇒ nothing is written.
+   * Enablement and the project key are surface-owned.
+   */
+  promptHistory?: IPromptHistoryOptions;
   /**
    * SELFHOST-008 P2: optional automatic post-turn memory-capture policy. When present, the dormant
    * capture pipeline is wired into the live turn (awaited in the controller's finally before persist),
@@ -174,8 +180,8 @@ export interface IInteractiveSessionStandardOptions {
   guardrails?: Record<string, TGuardrail>;
   /** SELFHOST-003 retrieval adapter gating `CodebaseRetrieval`. ARCH-013 S3; same seam as above. */
   retrievalAdapter?: IRetrievalAdapter;
-  /** Request structured output from the provider for this session. */
-  responseFormat?: { type: 'text' | 'json_object' };
+  /** Request structured output from the provider for this session (issue #2056: incl. `json_schema`). */
+  responseFormat?: TSessionResponseFormat;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */

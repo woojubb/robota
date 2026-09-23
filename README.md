@@ -10,8 +10,7 @@ app built from these same libraries**, not the product itself.
 
 > **Where this is going:** [`VISION.md`](./VISION.md) — _Robota builds Robota_. The goal is a **general**
 > development agent capable enough to build even Robota; developing the Robota repo is the **validation
-> benchmark** (the hardest dogfood), not a Robota-dedicated tool. The capability roadmap lives in
-> [`.agents/tasks/SELFHOST-*`](./.agents/tasks/).
+> benchmark** (the hardest dogfood), not a Robota-dedicated tool.
 
 ## Quick Start — Embed the Library
 
@@ -90,7 +89,8 @@ the reference CLI are opinionated assemblies OF the libraries.
 
 ```
 agent-cli                       ← Reference product: terminal AI coding assistant
-agent-transport-{tui,http,ws,mcp,webrtc,…} ← Standalone transports; agent-transport = lean core
+agent-transport-{http,ws,mcp,webrtc,…} ← Standalone adapters; agent-transport = lean core
+agent-ui-{terminal,web}            ← Presentation packages
   ↓
 agent-framework        ← Assembly layer: InteractiveSession, createQuery(), config/context loading
   ↓
@@ -126,7 +126,6 @@ agent-core             ← Foundation: Robota engine, abstractions, plugin contr
 | [`@robota-sdk/agent-executor`](https://www.npmjs.com/package/@robota-sdk/agent-executor)                   | Execution engine for the agentic loop                                              |
 | [`@robota-sdk/agent-subagent-runner`](https://www.npmjs.com/package/@robota-sdk/agent-subagent-runner)     | Subagent dispatch runner                                                           |
 | [`@robota-sdk/agent-session-analytics`](https://www.npmjs.com/package/@robota-sdk/agent-session-analytics) | Session log timing analysis                                                        |
-| `@robota-sdk/agent-testing` _(internal, not published)_                                                    | Real-PTY E2E test harness                                                          |
 
 **Products & transports** — the reference CLI and its interaction surfaces:
 
@@ -137,20 +136,18 @@ agent-core             ← Foundation: Robota engine, abstractions, plugin contr
 | [`@robota-sdk/agent-preset`](https://www.npmjs.com/package/@robota-sdk/agent-preset)                           | Named agent profiles (preset system)                                                                                                                                                                                                                     |
 | [`@robota-sdk/agent-interface-transport`](https://www.npmjs.com/package/@robota-sdk/agent-interface-transport) | Transport type contracts (zero deps)                                                                                                                                                                                                                     |
 | [`@robota-sdk/agent-interface-tui`](https://www.npmjs.com/package/@robota-sdk/agent-interface-tui)             | TUI interaction type contracts (zero deps)                                                                                                                                                                                                               |
-| [`@robota-sdk/agent-transport`](https://www.npmjs.com/package/@robota-sdk/agent-transport)                     | Lean transport core (`/headless`, `/testing`, `/programmatic`)                                                                                                                                                                                           |
-| [`@robota-sdk/agent-transport-tui`](https://www.npmjs.com/package/@robota-sdk/agent-transport-tui)             | TUI transport (Ink/React)                                                                                                                                                                                                                                |
+| [`@robota-sdk/agent-transport`](https://www.npmjs.com/package/@robota-sdk/agent-transport)                     | Browser-safe transport protocol and delivery substrate (`./client`, `./node`)                                                                                                                                                                            |
+| [`@robota-sdk/agent-ui-terminal`](https://www.npmjs.com/package/@robota-sdk/agent-ui-terminal)                 | Terminal UI package (Ink/React)                                                                                                                                                                                                                          |
 | [`@robota-sdk/agent-transport-http`](https://www.npmjs.com/package/@robota-sdk/agent-transport-http)           | HTTP/REST transport                                                                                                                                                                                                                                      |
 | [`@robota-sdk/agent-transport-ws`](https://www.npmjs.com/package/@robota-sdk/agent-transport-ws)               | WebSocket transport                                                                                                                                                                                                                                      |
 | [`@robota-sdk/agent-transport-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-transport-mcp)             | MCP transport                                                                                                                                                                                                                                            |
 | `@robota-sdk/agent-transport-webrtc` _(not yet published)_                                                     | P2P remote-control transport                                                                                                                                                                                                                             |
-| `@robota-sdk/agent-transport-protocol` _(not yet published)_                                                   | Wire protocol shared by the transports                                                                                                                                                                                                                   |
 
 These tables are a **curated index**, not the full workspace: they name the packages you are most
-likely to want. They omit most of the 55 workspace-private packages, list one deliberately
-(`agent-testing`, marked), and omit several published ones that are not part of a usual assembly. A
+likely to want. They omit most workspace-private packages and several published ones that are not
+part of a usual assembly. A
 row marked _(not yet published)_ or _(internal, not published)_ is in the repository but not on the
-registry. The complete package layout lives in
-[`.agents/project-structure.md`](.agents/project-structure.md), which owns it.
+registry.
 
 ## Documentation
 

@@ -4,7 +4,7 @@
  * silently treated as missing. Missing and valid files keep their behavior.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -29,8 +29,8 @@ describe('corrupt settings fail fast (CLI-069)', () => {
   let cwd: string;
 
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'robota-069-home-'));
-    cwd = mkdtempSync(join(tmpdir(), 'robota-069-cwd-'));
+    home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-069-home-')));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-069-cwd-')));
     vi.stubEnv('HOME', home);
   });
 
@@ -117,7 +117,7 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     }
     expect(thrown).toBeInstanceOf(SettingsParseError);
     expect((thrown as SettingsParseError).message).toMatch(
-      /Fix or delete the file, or run robota diagnose/,
+      /Fix or delete the file, or run robota doctor/,
     );
     expect(stderrSpy).not.toHaveBeenCalled();
     stderrSpy.mockRestore();

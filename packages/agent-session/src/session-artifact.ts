@@ -20,7 +20,7 @@
  */
 
 import {
-  SESSION_ARTIFACT_SCHEMA_VERSION,
+  SESSION_RECORD_ENVELOPE_VERSION,
   decodeVersionedInteractiveSessionRecord,
 } from './session-record-codec/index.js';
 
@@ -71,7 +71,7 @@ export function serializeSessionArtifact(
 ): string {
   const payload = options.redact ? options.redact(record) : record;
   const artifact: IVersionedInteractiveSessionRecord = {
-    schemaVersion: SESSION_ARTIFACT_SCHEMA_VERSION,
+    schemaVersion: SESSION_RECORD_ENVELOPE_VERSION,
     record: payload,
   };
   return JSON.stringify(artifact, null, 2);
@@ -86,7 +86,7 @@ export function deserializeSessionArtifact(bytes: string): IInteractiveSessionRe
   if (outcome.status === 'unsupported') {
     throw new Error(
       `Unsupported session artifact schema version ${outcome.schemaVersion ?? '(absent or not a number)'} ` +
-        `(this build reads ${SESSION_ARTIFACT_SCHEMA_VERSION}).`,
+        `(this build reads ${SESSION_RECORD_ENVELOPE_VERSION}).`,
     );
   }
   if (outcome.status === 'corrupt') {

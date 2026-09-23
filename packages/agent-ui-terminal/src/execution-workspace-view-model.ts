@@ -1,0 +1,139 @@
+import { workspaceStatusKind } from './status-glyph.js';
+
+import type { TUiStatusKind } from './status-glyph.js';
+import type {
+  IExecutionDetailRecord,
+  IExecutionWorkspaceEntry,
+  IExecutionWorkspaceSnapshot,
+  TExecutionWorkspaceStatus,
+} from '@robota-sdk/agent-interface-execution';
+
+// "Active" for the in-flight COUNT (countActiveBackgroundWorkspaceEntries) —
+// intentionally includes `waiting_permission` (a task awaiting permission is still
+// in flight). This is a different question from the status KIND used for
+// colour/glyph (where `waiting_permission` maps to its own 'waiting' kind via
+// `workspaceStatusKind`), so the two lists differ on purpose.
+const ACTIVE_STATUSES: readonly TExecutionWorkspaceStatus[] = [
+  'active',
+  'queued',
+  'running',
+  'waiting_permission',
+  'sleeping',
+];
+const DETAIL_RECORD_TEXT_LIMIT = 160;
+const PREVIEW_WHITESPACE = /\s+/g;
+const PREVIEW_SEPARATOR = ' ';
+
+export interface IExecutionWorkspaceEntryRow {
+  id: string;
+  radio: '●' | '○';
+  /** SCREEN-1992: the five-word state, rendered beside the radio and carried in the accessible text. */
+  state: string;
+  title: string;
+  subtitle?: string;
+  statusLabel: string;
+  preview?: string;
+  /** SCREEN-2002: the status KIND; the component resolves its colour from the live theme. */
+  statusKind: TUiStatusKind;
+  isSelected: boolean;
+  accessibleText: string;
+}
+
+export interface IExecutionWorkspaceEntryRowOptions {
+  selectedEntryId?: string;
+}
+
+export function getDefaultBackgroundWorkspaceEntries(
+  snapshot: IExecutionWorkspaceSnapshot | null,
+): IExecutionWorkspaceEntry[] {
+  return (snapshot?.entries ?? []).filter(
+    (entry) => entry.kind === 'background_task' && entry.visibility === 'default',
+  );
+}
+
+export function countActiveBackgroundWorkspaceEntries(
+  snapshot: IExecutionWorkspaceSnapshot | null,
+): number {
+  return getDefaultBackgroundWorkspaceEntries(snapshot).filter((entry) =>
+    ACTIVE_STATUSES.includes(entry.status),
+  ).length;
+}
+
+export function formatExecutionWorkspaceEntryRow(
+  entry: IExecutionWorkspaceEntry,
+  options: IExecutionWorkspaceEntryRowOptions = {},
+): IExecutionWorkspaceEntryRow {
+  const isSelected = entry.id === options.selectedEntryId;
+  const row = {
+    id: entry.id,
+    radio: isSelected ? '●' : '○',
+    state: entry.state,
+    title: formatEntryTitle(entry),
+    subtitle: formatEntrySubtitle(entry),
+    statusLabel: formatStatusLabel(entry.status),
+    preview: trimPreview(entry.preview ?? entry.currentAction),
+    statusKind: getEntryStatusKind(entry),
+    isSelected,
+  } satisfies Omit<IExecutionWorkspaceEntryRow, 'accessibleText'>;
+  return { ...row, accessibleText: formatAccessibleText(row) };
+}
+
+export function formatExecutionDetailRecord(record: IExecutionDetailRecord): string {
+  const text = record.text.trim().replace(PREVIEW_WHITESPACE, PREVIEW_SEPARATOR);
+  if (!text) return record.kind;
+  return text.length > DETAIL_RECORD_TEXT_LIMIT
+    ? `${text.slice(0, DETAIL_RECORD_TEXT_LIMIT)}...`
+    : text;
+}
+
+function formatEntryTitle(entry: IExecutionWorkspaceEntry): string {
+  if (entry.kind === 'main_thread') return entry.title;
+  if (entry.kind === 'background_group') return `${entry.title} group`;
+  if (entry.taskKind === 'agent') return `${entry.title} agent`;
+  if (entry.taskKind === 'process') return entry.title || 'Process';
+  if (entry.taskKind === 'scheduled') return entry.title || 'Scheduled';
+  return entry.title;
+}
+
+function formatEntrySubtitle(entry: IExecutionWorkspaceEntry): string | undefined {
+  if (entry.kind === 'main_thread') return entry.subtitle;
+  const parts = [
+    entry.taskKind,
+    entry.subtitle,
+    entry.attention === 'none' ? undefined : entry.attention,
+  ];
+  return (
+    parts
+      .filter((part): part is string => typeof part === 'string' && part.length > 0)
+      .join(' · ') || undefined
+  );
+}
+
+function formatStatusLabel(status: TExecutionWorkspaceStatus): string {
+  return status.replace(/_/g, ' ');
+}
+
+// SCREEN-2002: the view model names the status KIND, not a colour — a colour belongs to the theme
+// resolved at render time, and the kind is what keeps an entry's colour matching the glyph shown for
+// the same status everywhere (SCREEN-007). The component resolves it through `statusGlyphColor`.
+function getEntryStatusKind(entry: IExecutionWorkspaceEntry): TUiStatusKind {
+  return workspaceStatusKind(entry.status, entry.attention);
+}
+
+function trimPreview(value: string | undefined): string | undefined {
+  const preview = value?.trim().replace(PREVIEW_WHITESPACE, PREVIEW_SEPARATOR);
+  return preview || undefined;
+}
+
+function formatAccessibleText(row: Omit<IExecutionWorkspaceEntryRow, 'accessibleText'>): string {
+  const parts = [
+    `${row.radio} ${row.state}`,
+    row.title,
+    row.statusLabel,
+    row.subtitle,
+    row.preview,
+  ];
+  return parts
+    .filter((part): part is string => typeof part === 'string' && part.length > 0)
+    .join(' · ');
+}

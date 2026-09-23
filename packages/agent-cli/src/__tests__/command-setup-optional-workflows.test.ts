@@ -13,6 +13,7 @@ import { describe, it, expect } from 'vitest';
 import { createRobotaPacks, packCommandModuleNames } from '../product/robota-profile.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 
+import type { ICommandMCPActivationAdapter } from '@robota-sdk/agent-framework';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
 const ROBOTA_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(
@@ -33,6 +34,51 @@ describe('buildCommandSetup — bundled /workflows (INFRA-028)', () => {
     const workflows = setup.fixedCommandModules.filter((m) => m.name === 'agent-command-workflows');
     expect(workflows).toHaveLength(1);
     expect(workflows[0]?.systemCommands?.some((c) => c.name === 'workflows')).toBe(true);
+  });
+
+  it('forwards the optional MCP activation adapter without interpreting its policy', () => {
+    const adapter: ICommandMCPActivationAdapter = {
+      list: () => [],
+      approve: () => ({
+        serverId: 'server-1',
+        source: 'project',
+        status: 'pending',
+        allowed: false,
+        reason: 'pending',
+        provenanceId: 'project-1',
+        definitionFingerprint: 'definition-1',
+        securityIdentity: 'identity-1',
+      }),
+      reject: () => ({
+        serverId: 'server-1',
+        source: 'project',
+        status: 'rejected',
+        allowed: false,
+        reason: 'rejected',
+        provenanceId: 'project-1',
+        definitionFingerprint: 'definition-1',
+        securityIdentity: 'identity-1',
+      }),
+      revoke: () => ({
+        serverId: 'server-1',
+        source: 'project',
+        status: 'revoked',
+        allowed: false,
+        reason: 'revoked',
+        provenanceId: 'project-1',
+        definitionFingerprint: 'definition-1',
+        securityIdentity: 'identity-1',
+      }),
+    };
+
+    const setup = buildCommandSetup(
+      '/tmp',
+      MINIMAL_ARGS,
+      { mcpActivationAdapter: adapter },
+      '0.0.0-test',
+    );
+
+    expect(setup.commandHostAdapters.mcpActivation).toBe(adapter);
   });
 });
 

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 function workspaceWith(contents: unknown): { cwd: string; file: string } {
-  const cwd = mkdtempSync(path.join(tmpdir(), 'validate-status-'));
+  const cwd = realpathSync(mkdtempSync(path.join(tmpdir(), 'validate-status-')));
   dirs.push(cwd);
   writeFileSync(path.join(cwd, 'w.json'), JSON.stringify(contents));
   return { cwd, file: 'w.json' };

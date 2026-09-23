@@ -5,10 +5,11 @@ import type {
   ICommandHostAdapters,
   ICommandModule,
   ICreateSessionOptions,
+  IOrgPolicy,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
-import { HeadlessInteractionChannel } from '@robota-sdk/agent-transport/headless';
+import { HeadlessInteractionChannel } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
@@ -60,6 +61,7 @@ export async function runPrintMode(
   presetOptions: IPrintModePresetOptions = {},
   memorySessionOptions: IMemorySessionOptions = {},
   projectAccess?: TWorkspaceProjectAccess,
+  orgPolicy?: IOrgPolicy,
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -95,11 +97,13 @@ export async function runPrintMode(
   const channel = new HeadlessInteractionChannel({
     cwd,
     provider,
+    ...(orgPolicy !== undefined ? { orgPolicy } : {}),
     ...(projectAccess !== undefined ? { projectAccess } : {}),
     outputFormat: args.outputFormat ?? 'text',
     // CLI-076: forward the resolved model so `--model` takes effect (an invalid model then surfaces the
     // provider's error and a non-zero exit, instead of a silent substitution succeeding with exit 0).
     ...(presetOptions.model !== undefined ? { model: presetOptions.model } : {}),
+    ...(presetOptions.outputStyle !== undefined ? { outputStyle: presetOptions.outputStyle } : {}),
     permissionMode: args.permissionMode ?? presetOptions.permissionMode ?? 'bypassPermissions',
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
@@ -117,9 +121,15 @@ export async function runPrintMode(
       ? { enableParallelSubagents: presetOptions.enableParallelSubagents }
       : {}),
     ...(presetOptions.effort !== undefined ? { effort: presetOptions.effort } : {}),
+    ...(presetOptions.effortResolution !== undefined && !args.bare
+      ? { effortResolution: presetOptions.effortResolution }
+      : {}),
     ...(presetOptions.temperature !== undefined ? { temperature: presetOptions.temperature } : {}),
     ...(presetOptions.maxOutputTokens !== undefined
       ? { maxOutputTokens: presetOptions.maxOutputTokens }
+      : {}),
+    ...(presetOptions.responseFormat !== undefined
+      ? { responseFormat: presetOptions.responseFormat }
       : {}),
     ...(presetOptions.language !== undefined ? { language: presetOptions.language } : {}),
     // ARCH-040: onto the SEED key, never onto `systemPrompt` — that one replaces the composed prompt.

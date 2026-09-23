@@ -21,17 +21,17 @@ Rule permits at the entry.
 
 ## Boundaries
 
-| Concern                                             | Owner                                        |
-| --------------------------------------------------- | -------------------------------------------- |
-| Constructing and running a session                  | `agent-framework`, `agent-session`           |
-| Persisting a session record                         | `agent-session`                              |
-| Rendering a session to a surface                    | `agent-transport-tui`, `agent-transport-gui` |
-| Carrying a session across a wire                    | `agent-transport-*`                          |
-| Background tasks, job groups, subagents, workspaces | `agent-interface-execution`                  |
-| Commands and capability descriptors                 | `agent-interface-command`                    |
-| Usage and run-trace measurements                    | `agent-interface-analytics`                  |
-| Transport adapters, channels, admission             | `agent-interface-transport`                  |
-| Peer messaging and handoff                          | `agent-interface-session-mobility`           |
+| Concern                                             | Owner                               |
+| --------------------------------------------------- | ----------------------------------- |
+| Constructing and running a session                  | `agent-framework`, `agent-session`  |
+| Persisting a session record                         | `agent-session`                     |
+| Rendering a session to a surface                    | `agent-ui-terminal`, `agent-ui-web` |
+| Carrying a session across a wire                    | `agent-transport-*`                 |
+| Background tasks, job groups, subagents, workspaces | `agent-interface-execution`         |
+| Commands and capability descriptors                 | `agent-interface-command`           |
+| Usage and run-trace measurements                    | `agent-interface-analytics`         |
+| Transport adapters, channels, admission             | `agent-interface-transport`         |
+| Peer messaging and handoff                          | `agent-interface-session-mobility`  |
 
 ## Architecture Overview
 
@@ -47,26 +47,33 @@ symbols also redesign their composition.
 
 ## Type Ownership
 
-| Type                                                             | Location                              | Purpose                                                 |
-| ---------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------- |
-| `IInteractiveSession`, `IInteractiveSessionEvents`               | `src/session-contracts.ts`            | the session surface and its event map                   |
-| the 16 `ISession*` capability slices                             | `src/session-capability-contracts.ts` | what a session exposes, one capability at a time        |
-| `IInteractiveSessionRecord`, `IInteractiveSessionStore`          | `src/session-contracts.ts`            | the persisted session and its store port                |
-| `IGoalState`, `IPlanStep`, `IPlanArtifact`, `IBranchEvent`       | `src/session-contracts.ts`            | goal, plan and branch state carried on a session        |
-| `IInteractionChannel`, `InteractionEvent`, `IAgentDriver`        | `src/interaction-contracts.ts`        | the in-process channel port and its one-way event union |
-| `ISkillActivationEvent`, `IMemoryEvent`, `IContextReferenceItem` | `src/event-contracts.ts`              | session-event payloads                                  |
-| `TDriverId`, `ISubmitOptions`, `IUiIntentEvent`                  | `src/driver-contracts.ts`             | driver identity and driver-routed events                |
-| `ITurnHandle`, `IExecutionResult`, `ITurnNotRunError`            | `src/turn-contracts.ts`               | one turn's handle and outcome                           |
-| `ICompactEvent`, `TCompactTrigger`                               | `src/compact-contracts.ts`            | context compaction                                      |
-| `IResumableSessionSummary`                                       | `src/session-summary-contracts.ts`    | the resume-list projection                              |
+| Type                                                                                                                      | Location                              | Purpose                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IInteractiveSession`, `IInteractiveSessionEvents`                                                                        | `src/session-contracts.ts`            | the session surface and its event map                                                                                                                                                                                           |
+| the 16 `ISession*` capability slices                                                                                      | `src/session-capability-contracts.ts` | what a session exposes, one capability at a time                                                                                                                                                                                |
+| `IInteractiveSessionRecord`                                                                                               | `src/session-contracts.ts`            | the persisted session record                                                                                                                                                                                                    |
+| `IInteractiveSessionStore`                                                                                                | `src/session-store-contracts.ts`      | the session store port                                                                                                                                                                                                          |
+| `IGoalState`, `IPlanStep`, `IPlanArtifact`, `IBranchEvent`                                                                | `src/session-contracts.ts`            | goal, plan and branch state carried on a session                                                                                                                                                                                |
+| `IInteractionChannel`, `InteractionEvent`, `IAgentDriver`                                                                 | `src/interaction-contracts.ts`        | the in-process channel port and its one-way event union                                                                                                                                                                         |
+| `ISkillActivationEvent`, `IMemoryEvent`, `IContextReferenceItem`                                                          | `src/event-contracts.ts`              | session-event payloads                                                                                                                                                                                                          |
+| `TDriverId`, `ISubmitOptions`, `IUiIntentEvent`                                                                           | `src/driver-contracts.ts`             | driver identity, trusted usage surface, and routed events                                                                                                                                                                       |
+| `ITurnHandle`, `IExecutionResult`, `ITurnNotRunError`                                                                     | `src/turn-contracts.ts`               | one turn's handle and outcome                                                                                                                                                                                                   |
+| `ICompactEvent`, `TCompactTrigger`                                                                                        | `src/compact-contracts.ts`            | context compaction                                                                                                                                                                                                              |
+| `IResumableSessionSummary`                                                                                                | `src/session-summary-contracts.ts`    | the resume-list projection                                                                                                                                                                                                      |
+| `IPromptHistoryEntry`, `IPromptHistoryWriter`, `IPromptHistorySource`, `IPromptHistoryBlock`, `IPromptHistoryReadOptions` | `src/prompt-history-contracts.ts`     | SCREEN-1993: the typed-prompt projection — one entry per user-originated turn (`at`, `sessionId`, `project`, `text`), the append port, and the newest-first streamed read port whose blocks count the lines they could not read |
 
-85 declarations. `src/index.ts` is the single entry point.
+90 declarations. `src/index.ts` is the single entry point.
 
 ## Public API Surface
 
 | Export                           | Kind     | Description                                                                             |
 | -------------------------------- | -------- | --------------------------------------------------------------------------------------- |
-| the 85 names above               | type     | contract declarations                                                                   |
+| the 90 names above               | type     | contract declarations                                                                   |
+| `IPromptHistoryEntry`            | type     | SCREEN-1993: one typed prompt with `at`, `sessionId`, `project`, `text`                 |
+| `IPromptHistoryWriter`           | type     | SCREEN-1993: `append(entry)`; a failure is thrown to the caller, never swallowed        |
+| `IPromptHistorySource`           | type     | SCREEN-1993: `read({ signal })` — newest-first blocks, abort honoured between blocks    |
+| `IPromptHistoryBlock`            | type     | SCREEN-1993: `entries` newest-first plus `skippedLines` the block could not read        |
+| `IPromptHistoryReadOptions`      | type     | SCREEN-1993: the abort signal a read honours                                            |
 | `readAssistantReplies`           | Function | pure accessor — assistant reply records from an `InteractionEvent` stream               |
 | `readLastAssistantText`          | Function | pure accessor — the last assistant text from an `InteractionEvent` stream               |
 | `readToolCalls`                  | Function | pure accessor — tool-call records from an `InteractionEvent` stream                     |

@@ -11,13 +11,13 @@
  * Build-gated (`*.bintest.ts`, `test:bin` project): requires `pnpm --filter @robota-sdk/agent-cli build`.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { createProgrammaticAgent } from '@robota-sdk/agent-transport/programmatic';
+import { createProgrammaticAgent } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createBinaryAgentDriver } from '../../testing/binary-agent-driver.js';
@@ -58,9 +58,9 @@ describe('IAgentDriver cross-fidelity (INFRA-020 TC-04)', () => {
   let homeDir: string;
 
   beforeEach(() => {
-    progCwd = mkdtempSync(join(tmpdir(), 'robota-xf-prog-'));
-    binCwd = mkdtempSync(join(tmpdir(), 'robota-xf-bin-'));
-    homeDir = mkdtempSync(join(tmpdir(), 'robota-xf-home-'));
+    progCwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-xf-prog-')));
+    binCwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-xf-bin-')));
+    homeDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-xf-home-')));
     writeProviderSettings(homeDir);
   });
 

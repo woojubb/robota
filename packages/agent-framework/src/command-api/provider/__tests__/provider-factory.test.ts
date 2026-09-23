@@ -5,7 +5,7 @@
  * map it to the documented exit code 3 without message matching.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -22,7 +22,7 @@ describe('readProviderSettings error typing (CLI-064)', () => {
   });
 
   it('TC-04: throws ProviderConfigError when no provider configuration exists', () => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-provider-factory-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-provider-factory-')));
     try {
       // Issue #1929: `cwd` isolates the PROJECT settings and nothing else — the default list also
       // reads the developer's real `~/.robota/settings.json`, so "no configuration exists" has to be

@@ -15,6 +15,8 @@ const MINIMAL_DAG = JSON.stringify({
 
 const WORKFLOW_FILE_DAG = JSON.stringify({
   version: 0.4,
+  last_node_id: 2,
+  last_link_id: 0,
   nodes: [
     { id: 1, type: 'RobotaInput', pos: [0, 0], outputs: [], inputs: [] },
     { id: 2, type: 'RobotaTextOutput', pos: [250, 0], outputs: [], inputs: [] },
@@ -159,6 +161,20 @@ dag:
     const code = await viewCommand(['workflow.dag.json'], { io });
     // companion file failure is allowed - command should succeed
     expect(typeof code).toBe('number');
+  });
+
+  it('rejects a workflow companion whose status is outside the definition contract', async () => {
+    const io = makeMockIo(WORKFLOW_FILE_DAG);
+    let reads = 0;
+    vi.mocked(io.readTextFile).mockImplementation(async () => {
+      reads += 1;
+      return reads === 1
+        ? WORKFLOW_FILE_DAG
+        : JSON.stringify({ dagId: 'companion', version: 1, status: 'active', nodes: {} });
+    });
+    const code = await viewCommand(['workflow.dag.json'], { io });
+    expect(code).not.toBe(0);
+    expect(vi.mocked(io.writeError).mock.calls.flat().join('')).toMatch(/status|active/i);
   });
 
   it('reads workflow file format with companion read success (covers success in companion block)', async () => {

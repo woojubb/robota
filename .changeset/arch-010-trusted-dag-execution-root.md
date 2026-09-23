@@ -9,7 +9,6 @@
 '@robota-sdk/dag-node-file-write': minor
 '@robota-sdk/dag-node-skill': major
 '@robota-sdk/agent-command-workflows': patch
-'@robota-sdk/dag-mcp-server': patch
 '@robota-sdk/dag-runtime-server': patch
 ---
 

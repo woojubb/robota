@@ -1,6 +1,6 @@
 'use client';
 
-import { ConversationView, PermissionPrompt } from '@robota-sdk/agent-transport-gui';
+import { ConversationView, PermissionPrompt } from '@robota-sdk/agent-ui-web';
 import React, { useMemo } from 'react';
 
 import { parseRemoteClientLocation } from '../client/parse-remote-location.js';

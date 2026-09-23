@@ -5,7 +5,7 @@
  * bugs that the parser/reporter unit tests could not catch (TC-01/02/06/07).
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -54,9 +54,8 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
   let exitCode: number | undefined;
 
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'robota-obs-home-'));
-    project = mkdtempSync(join(tmpdir(), 'robota-obs-proj-'));
-    vi.stubEnv('HOME', home);
+    home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-obs-home-')));
+    project = realpathSync(mkdtempSync(join(tmpdir(), 'robota-obs-proj-')));
     stdout = [];
     stderr = [];
     exitCode = undefined;
@@ -76,7 +75,6 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.unstubAllEnvs();
     rmSync(home, { recursive: true, force: true });
     rmSync(project, { recursive: true, force: true });
   });
@@ -87,6 +85,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
         argv,
         project,
         createNodeHostSessionStore(join(project, '.robota', 'sessions')),
+        createNodeHostSessionStore(join(home, '.robota', 'sessions')),
       );
     } catch (error) {
       if (!(error instanceof Error) || !error.message.startsWith('process.exit:')) throw error;

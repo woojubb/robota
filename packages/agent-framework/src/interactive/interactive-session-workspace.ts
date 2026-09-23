@@ -20,6 +20,7 @@ import type {
   IExecutionDetailCursor,
   IExecutionDetailPage,
   IExecutionOrigin,
+  IExecutionPendingRequest,
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceFilter,
   IExecutionWorkspaceSnapshot,
@@ -33,6 +34,8 @@ export interface IWorkspaceSnapshotDeps {
   execCtrl: Pick<SessionExecutionController, 'executing' | 'pendingPrompt' | 'streamingText'>;
   histTracker: Pick<SessionHistoryTracker, 'getHistory'>;
   bgTracker: Pick<SessionBackgroundTaskTracker, 'getTaskSnapshots' | 'getGroupSnapshots'>;
+  /** SCREEN-1992: the parked permission/ask the main thread waits on, when the session has one. */
+  pendingRequest?: () => IExecutionPendingRequest | undefined;
 }
 
 export function buildExecutionWorkspaceSnapshot(
@@ -41,6 +44,7 @@ export function buildExecutionWorkspaceSnapshot(
 ): IExecutionWorkspaceSnapshot {
   const { sessionId, execCtrl, histTracker, bgTracker } = deps;
   const history = histTracker.getHistory();
+  const pendingRequest = deps.pendingRequest?.();
   return createExecutionWorkspaceSnapshot({
     sessionId,
     mainThread: {
@@ -53,6 +57,7 @@ export function buildExecutionWorkspaceSnapshot(
         execCtrl.streamingText.trim().length > 0
           ? execCtrl.streamingText
           : (history.at(-1)?.type as string | undefined),
+      ...(pendingRequest === undefined ? {} : { pendingRequest }),
     },
     tasks: bgTracker.getTaskSnapshots(),
     groups: bgTracker.getGroupSnapshots(),
@@ -67,11 +72,17 @@ export async function readWorkspaceDetail(
   bgTracker: Pick<SessionBackgroundTaskTracker, 'readGroupDetail' | 'readTaskDetail'>,
   sessionId: string,
   cursor?: IExecutionDetailCursor,
+  pendingRequest?: IExecutionPendingRequest,
 ): Promise<IExecutionDetailPage> {
   const entryRef = parseExecutionWorkspaceEntryId(entryId);
   if (!entryRef) throw new Error(`Unknown execution workspace entry: ${entryId}`);
   if (entryRef.kind === 'main_thread') {
-    return createMainThreadDetailPage({ entryId, history: getHistory(), cursor });
+    return createMainThreadDetailPage({
+      entryId,
+      history: getHistory(),
+      cursor,
+      ...(pendingRequest === undefined ? {} : { pendingRequest }),
+    });
   }
   if (entryRef.kind === 'background_group') {
     return bgTracker.readGroupDetail(entryId, entryRef.sourceId, sessionId);

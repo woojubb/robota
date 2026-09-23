@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,7 +8,7 @@ import { checkNodeHostSettingsFile } from '../command-api/provider/settings-chec
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-settings-check-test-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-settings-check-test-')));
 const providerDefinitions: readonly IProviderDefinition[] = [
   {
     type: 'openai',

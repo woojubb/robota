@@ -7,7 +7,7 @@ import { PairingGate, type IPairingGateOptions } from '../pairing-gate.js';
 
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 import type { IPeerAdmission } from '@robota-sdk/agent-interface-session-mobility';
-import type { createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import type { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 
 /**
  * SEC-010 TC-08 (#1810) — the rendezvous nonce bound to the admitted channel.
@@ -42,7 +42,7 @@ function makeHandshakeStub() {
 function makeGate(localPeer?: ILocalPeerProof, over: Partial<IPairingGateOptions> = {}) {
   const channel = { send: vi.fn(), close: vi.fn() };
   const sessionOnMessage = vi.fn();
-  const createHandler: typeof createWsHandler = () => ({
+  const createHandler: typeof createSessionMessageHandler = () => ({
     onMessage: sessionOnMessage,
     cleanup: vi.fn(),
   });

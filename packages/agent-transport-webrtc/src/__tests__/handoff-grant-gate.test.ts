@@ -12,7 +12,7 @@ import { type ILocalPeerProof } from '../local-peer-proof.js';
 
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 import type { IPeerAdmission } from '@robota-sdk/agent-interface-session-mobility';
-import type { createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import type { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 
 /**
  * SEC-011 (issue #1865) — the cross-device grant bound to the admitted channel.
@@ -57,7 +57,7 @@ function makeHandshakeStub() {
 function makeGate(handoffGrant?: IHandoffGrantProof, over: Partial<IPairingGateOptions> = {}) {
   const channel = { send: vi.fn(), close: vi.fn() };
   const sessionOnMessage = vi.fn();
-  const createHandler: typeof createWsHandler = () => ({
+  const createHandler: typeof createSessionMessageHandler = () => ({
     onMessage: sessionOnMessage,
     cleanup: vi.fn(),
   });

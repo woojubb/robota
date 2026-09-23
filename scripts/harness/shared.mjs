@@ -2,8 +2,69 @@ import { spawnSync } from 'node:child_process';
 import { appendFileSync, readdirSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 
-export const WORKSPACE_ROOT = process.cwd();
-const PNPM_WORKSPACE_PATH = path.join(WORKSPACE_ROOT, 'pnpm-workspace.yaml');
+import { isEntryPoint } from './entrypoint.mjs';
+import { createBoundedGitRefExists } from './git-base-ref-resolution.mjs';
+import {
+  changedManifestKeys,
+  classifyRootManifestChange,
+} from './manifest-change-classification.mjs';
+
+export { classifyRootManifestChange };
+export { isEntryPoint };
+
+export const ROOT_MARKER = '::root::';
+const ROOT_ENV = 'HARNESS_ROOT';
+
+/**
+ * The ONE workspace-root resolver every harness script uses (issue #2413).
+ *
+ * Convention: a scan reads the checkout it LIVES in — `<script dir>/../..` — unless an explicit
+ * override names another root: `HARNESS_ROOT=<path>` in the environment or `--root <path>` /
+ * `--root=<path>` on the command line. A fixture-driven script — one its tests spawn INSIDE a
+ * scratch workspace — passes `{ fromCwd: true }` and reads the checkout it is RUN in instead;
+ * that is the convention its callers already hold, and the override still wins over it.
+ *
+ * Six worktree reproductions once measured the MAIN checkout while standing in a worktree
+ * (`cd <worktree> && node /main/scripts/harness/scan-….mjs`), each reported as "does not reproduce",
+ * because every scan silently read the repository its file lived in and named no root. So when the
+ * calling module IS the process entry and the root it resolved is NOT the directory the caller
+ * stands in — or an override applied — the root is announced once on STDERR as a `::root:: <path>`
+ * line (the `examined`-count precedent), and a run against the wrong repository names itself.
+ * Stderr, because a script's stdout is its verdict or its payload (a scaffolded document, an
+ * allocated ID) and every consumer of that stdout parses it. A run whose root IS its cwd has
+ * nothing to disambiguate and stays silent. Library imports (tests, the runner) announce nothing.
+ *
+ * @param {ImportMeta} meta  the calling script's `import.meta`
+ */
+export function resolveWorkspaceRoot(
+  meta,
+  {
+    env = process.env,
+    argv = process.argv,
+    cwd = process.cwd(),
+    fromCwd = false,
+    out = process.stderr,
+  } = {},
+) {
+  const scriptDir = path.dirname(meta.filename);
+  const isEntry = isEntryPoint(meta, argv);
+  let override = null;
+  for (let index = 2; isEntry && index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--root' && argv[index + 1]) override = argv[index + 1];
+    else if (arg.startsWith('--root=')) override = arg.slice('--root='.length);
+  }
+  if (override === null && env[ROOT_ENV]) override = env[ROOT_ENV];
+  const defaultRoot = fromCwd ? path.resolve(cwd) : path.resolve(scriptDir, '../..');
+  const root = override === null ? defaultRoot : path.resolve(override);
+  if (isEntry && (override !== null || root !== path.resolve(cwd))) {
+    out.write(
+      `${ROOT_MARKER} ${root}${override === null ? '' : ` (override: ${env[ROOT_ENV] && override === env[ROOT_ENV] ? ROOT_ENV : '--root'})`}\n`,
+    );
+  }
+  return root;
+}
+export const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 
 export async function pathExists(targetPath) {
   try {
@@ -13,15 +74,12 @@ export async function pathExists(targetPath) {
     return false;
   }
 }
-
 export async function readJson(targetPath) {
   return JSON.parse(await fs.readFile(targetPath, 'utf8'));
 }
-
 export async function readText(targetPath) {
   return fs.readFile(targetPath, 'utf8');
 }
-
 /**
  * Every `.mjs` under a directory, RECURSIVELY, as paths relative to it.
  *
@@ -41,7 +99,6 @@ export function harnessScripts(dir, prefix = '') {
   }
   return found;
 }
-
 /**
  * Escape a value for literal use inside a `RegExp`.
  *
@@ -53,7 +110,6 @@ export function harnessScripts(dir, prefix = '') {
 export function escapeForRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-
 export function hasCanonicalSpecReference(content) {
   return (
     content.includes('`SPEC.md`') ||
@@ -61,9 +117,8 @@ export function hasCanonicalSpecReference(content) {
     content.includes('](./SPEC.md)')
   );
 }
-
-export async function readWorkspacePatterns() {
-  const content = await fs.readFile(PNPM_WORKSPACE_PATH, 'utf8');
+export async function readWorkspacePatterns(root = WORKSPACE_ROOT) {
+  const content = await fs.readFile(path.join(root, 'pnpm-workspace.yaml'), 'utf8');
   return content
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -75,7 +130,6 @@ export async function readWorkspacePatterns() {
         .replace(/^['"]|['"]$/g, ''),
     );
 }
-
 function parseGitStatusFiles(output) {
   return output
     .split(/\r?\n/)
@@ -96,21 +150,11 @@ function parseGitDiffFiles(output) {
     .map((line) => line.trim())
     .filter(Boolean);
 }
-
-function gitRefExists(ref) {
-  const result = spawnSync('git', ['rev-parse', '--verify', `${ref}^{commit}`], {
-    cwd: WORKSPACE_ROOT,
-    stdio: 'ignore',
-    encoding: 'utf8',
-  });
-  return result.status === 0;
-}
-
-export function resolveGitBaseRef(explicitBaseRef = null, env = process.env) {
+export function resolveGitBaseRef(explicitBaseRef = null, env = process.env, options = {}) {
   return resolveBaseRef({
     explicitBaseRef,
     env,
-    refExists: gitRefExists,
+    refExists: options.refExists ?? createBoundedGitRefExists({ cwd: WORKSPACE_ROOT, ...options }),
   });
 }
 
@@ -142,9 +186,54 @@ export function resolveBaseRef({ explicitBaseRef = null, env = process.env, refE
   return null;
 }
 
-export async function listWorkspaceScopes() {
+/**
+ * The HEAD a per-commit history scan evaluates — the sibling of `resolveBaseRef` (issue #2412).
+ *
+ * `resolveBaseRef` owns the base of every scan; nothing owned the head, so each per-commit consumer
+ * discovered the same trap in production and patched it differently: on a `pull_request` event
+ * `actions/checkout` leaves HEAD at GitHub's synthetic `refs/pull/N/merge`, whose FIRST parent is
+ * the base, so a range ending there is not the pull request's commits. The `repo-checks` job exports
+ * `PR_HEAD_SHA` (ci.yml) for exactly this reason, and `scan-ci-base-history` refuses a per-commit
+ * job that does not.
+ *
+ * Resolution: `--head <sha>` in `argv`, else `PR_HEAD_SHA` / `GITHUB_PR_HEAD_SHA`, else `HEAD` — but
+ * NEVER `HEAD` under a `pull_request` event, where it is the merge ref. Returns `{ head, error }`;
+ * a caller that gets `error` must refuse rather than fall back, because a scan over the wrong
+ * commit reads as a scan that passed.
+ */
+export function resolveHeadSha({ argv = [], env = process.env } = {}) {
+  const flagIndex = argv.indexOf('--head');
+  if (
+    flagIndex >= 0 &&
+    (argv[flagIndex + 1] === undefined || argv[flagIndex + 1].startsWith('--'))
+  ) {
+    return { head: undefined, error: '`--head` was passed with no value.' };
+  }
+  const explicit = (flagIndex >= 0 ? argv[flagIndex + 1] : undefined) ?? '';
+  const fromEnv = (env.PR_HEAD_SHA ?? env.GITHUB_PR_HEAD_SHA ?? '').trim();
+  const head = explicit.trim() || fromEnv;
+  if (head) {
+    if (/^refs\/pull\/\d+\/merge$/.test(head)) {
+      return {
+        head: undefined,
+        error: `refusing \`${head}\`: it is GitHub's synthetic merge ref, not the pull request's head.`,
+      };
+    }
+    return { head, error: undefined };
+  }
+  if (env.GITHUB_EVENT_NAME === 'pull_request' || env.GITHUB_EVENT_NAME === 'pull_request_target') {
+    return {
+      head: undefined,
+      error:
+        "refusing to evaluate `HEAD` on a `pull_request` event: it is GitHub's synthetic `refs/pull/N/merge`, whose FIRST parent is the base branch. Pass `--head ${{ github.event.pull_request.head.sha }}` or export PR_HEAD_SHA in the job.",
+    };
+  }
+  return { head: 'HEAD', error: undefined };
+}
+
+export async function listWorkspaceScopes(root = WORKSPACE_ROOT) {
   const scopes = [];
-  const patterns = await readWorkspacePatterns();
+  const patterns = await readWorkspacePatterns(root);
   const rootNames = Array.from(new Set(patterns.map((pattern) => pattern.split('/')[0])));
 
   for (const rootName of rootNames) {
@@ -159,11 +248,11 @@ export async function listWorkspaceScopes() {
     if (rootName === 'scratch') {
       continue;
     }
-    if (!(await pathExists(path.join(WORKSPACE_ROOT, rootName)))) {
+    if (!(await pathExists(path.join(root, rootName)))) {
       continue;
     }
 
-    await collectScopes(rootName, rootName === 'apps' ? 'app' : 'package', scopes, patterns);
+    await collectScopes(root, rootName, rootName === 'apps' ? 'app' : 'package', scopes, patterns);
   }
 
   return scopes
@@ -186,8 +275,8 @@ function matchesWorkspacePattern(relativeDir, pattern) {
   return new RegExp(`^${escaped}$`).test(relativeDir);
 }
 
-async function collectScopes(relativeDir, kind, scopes, patterns) {
-  const absoluteDir = path.join(WORKSPACE_ROOT, relativeDir);
+async function collectScopes(root, relativeDir, kind, scopes, patterns) {
+  const absoluteDir = path.join(root, relativeDir);
   const packageJsonPath = path.join(absoluteDir, 'package.json');
 
   if (
@@ -218,7 +307,7 @@ async function collectScopes(relativeDir, kind, scopes, patterns) {
     if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name.startsWith('.')) {
       continue;
     }
-    await collectScopes(path.posix.join(relativeDir, entry.name), kind, scopes, patterns);
+    await collectScopes(root, path.posix.join(relativeDir, entry.name), kind, scopes, patterns);
   }
 }
 
@@ -415,10 +504,17 @@ export function runCommand(command, args, workdir, dryRun, envOverrides = {}) {
  * INFRA-048 closed for the other half.
  */
 export function detectChangedFiles(baseRef = null) {
-  const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], {
-    cwd: WORKSPACE_ROOT,
-    encoding: 'utf8',
-  });
+  // With rename detection, porcelain/name-only output keeps only the destination path. A move out
+  // of a workspace would then erase the source owner from local affected verification. Treat a
+  // rename as its underlying deletion plus addition so both ownership sides remain visible.
+  const result = spawnSync(
+    'git',
+    ['status', '--porcelain', '--untracked-files=all', '--no-renames'],
+    {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+    },
+  );
 
   if (result.status !== 0) {
     throw new Error('Unable to read changed files from git status.');
@@ -440,7 +536,7 @@ export function detectChangedFiles(baseRef = null) {
 
   const diffResult = spawnSync(
     'git',
-    ['diff', '--name-only', '--diff-filter=ACMRD', `${resolvedBaseRef}...HEAD`],
+    ['diff', '--name-only', '--no-renames', '--diff-filter=ACMRD', `${resolvedBaseRef}...HEAD`],
     {
       cwd: WORKSPACE_ROOT,
       encoding: 'utf8',
@@ -533,28 +629,6 @@ const PACKAGE_PUBLISH_METADATA_FIELDS = [
   'publishConfig',
 ];
 
-function stableJson(value) {
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableJson(item)).join(',')}]`;
-  }
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
-      .join(',')}}`;
-  }
-  return JSON.stringify(value);
-}
-
-function valuesEqual(left, right) {
-  return stableJson(left) === stableJson(right);
-}
-
-function changedManifestKeys(before, after) {
-  const keys = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})]);
-  return Array.from(keys).filter((key) => !valuesEqual(before?.[key], after?.[key]));
-}
-
 export function classifyPackageManifestChange({ before, after }) {
   const changedKeys = changedManifestKeys(before, after);
   const hasVersionOnlyChanges = changedKeys.length === 1 && changedKeys[0] === 'version';
@@ -608,26 +682,6 @@ export function classifyPackageManifestChange({ before, after }) {
     hasPublishMetadataChanges,
     hasUnknownManifestChanges,
     needsSourceHeavyChecks,
-  };
-}
-
-const DEVELOPER_QUALITY_SCRIPT_NAMES = new Set(['lint:fix', 'lint:fix:staged']);
-
-export function classifyRootManifestChange({ before, after }) {
-  const changedKeys = changedManifestKeys(before, after);
-  const changedScriptKeys =
-    changedKeys.length === 1 && changedKeys[0] === 'scripts'
-      ? changedManifestKeys(before?.scripts ?? {}, after?.scripts ?? {})
-      : [];
-  const developerQualityOnly =
-    changedScriptKeys.length > 0 &&
-    changedScriptKeys.every((key) => DEVELOPER_QUALITY_SCRIPT_NAMES.has(key));
-
-  return {
-    kind: developerQualityOnly ? 'developer-quality-only' : 'workspace-wide',
-    changedKeys,
-    changedScriptKeys,
-    workspaceWide: !developerQualityOnly,
   };
 }
 

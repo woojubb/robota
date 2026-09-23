@@ -7,10 +7,25 @@
  * what the transport DOES with those decisions.
  */
 
+import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
+import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { ITransportLifecycleError } from '@robota-sdk/agent-interface-transport';
+import type { ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
+
 export const DEFAULT_PORT = 7070;
 export const DEFAULT_MAX_RETRIES = 20;
 
 export interface IWsTransportConfig {
+  /** Trusted server-assigned identity for turns submitted over this product surface. */
+  driverId?: TDriverId;
+  /** Trusted product surface, independent from the connection's driver identity. */
+  surface?: TUsageSurface;
+  /** Host-owned cross-session usage read model, forwarded unchanged to the protocol handler. */
+  personalUsageReporter?: ISessionMessageHandlerOptions['personalUsageReporter'];
+  /** Host-owned current-session trace/cost producer, forwarded unchanged to the protocol handler. */
+  usageReporter?: ISessionMessageHandlerOptions['usageReporter'];
+  /** Host-owned stored-session trace/cost producer for personal-usage drill-down. */
+  storedSessionUsageReporter?: ISessionMessageHandlerOptions['storedSessionUsageReporter'];
   port?: number;
   maxRetries?: number;
   /**
@@ -47,4 +62,53 @@ export interface IWsTransportConfig {
    * is gated by the token instead). Closes the "any web page in any browser" hole before history is emitted.
    */
   allowedOrigins?: readonly string[];
+}
+
+type TUsageReporters = Pick<
+  ISessionMessageHandlerOptions,
+  'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
+>;
+
+/** Remove absent reporters so exact-optional handler options remain truthful. */
+function configuredUsageReporters(config: IWsTransportConfig): TUsageReporters {
+  return {
+    ...(config.personalUsageReporter
+      ? { personalUsageReporter: config.personalUsageReporter }
+      : {}),
+    ...(config.usageReporter ? { usageReporter: config.usageReporter } : {}),
+    ...(config.storedSessionUsageReporter
+      ? { storedSessionUsageReporter: config.storedSessionUsageReporter }
+      : {}),
+  };
+}
+
+type TConfiguredHandlerOptions = Pick<
+  ISessionMessageHandlerOptions,
+  'driverId' | 'surface' | 'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
+>;
+
+/** Project immutable transport attribution/reporters into each protocol handler. */
+export function configuredWsHandlerOptions(config: IWsTransportConfig): TConfiguredHandlerOptions {
+  return {
+    ...(config.driverId ? { driverId: config.driverId } : {}),
+    ...(config.surface ? { surface: config.surface } : {}),
+    ...configuredUsageReporters(config),
+  };
+}
+
+export function validTransportOptions(options: Readonly<Record<string, unknown>>): boolean {
+  const { port, maxRetries } = options;
+  if (port !== undefined && (typeof port !== 'number' || port < 1 || port > 65535)) return false;
+  return maxRetries === undefined || (typeof maxRetries === 'number' && maxRetries >= 0);
+}
+
+export function transportLifecycleError(
+  transportName: string,
+  code: ITransportLifecycleError['code'],
+): ITransportLifecycleError {
+  return Object.assign(new Error(`${transportName} ${code}.`), {
+    name: 'TransportLifecycleError' as const,
+    code,
+    transportName,
+  });
 }

@@ -73,6 +73,10 @@ export function buildAgentRuntime(
       sessionTiers: { includeGoalTool: options.includeGoalTool === true },
       ...(options.sandboxClient !== undefined ? { sandboxClient: options.sandboxClient } : {}),
       ...(options.sandboxType !== undefined ? { sandboxType: options.sandboxType } : {}),
+      // CLI-1994: where a fork job's record lives, so the in-process runner can restore it.
+      ...(options.resumeSessionStore !== undefined
+        ? { resumeSessionStore: options.resumeSessionStore }
+        : {}),
     };
     const subagentManager = new SubagentManager({
       runner: (options.subagentRunnerFactory ?? createInProcessSubagentRunner)(agentToolDeps),

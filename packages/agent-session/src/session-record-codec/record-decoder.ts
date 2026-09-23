@@ -32,18 +32,20 @@ import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-sess
  * not decode the members it recognises, because a partially decoded session is the silent
  * field-loss this codec replaces.
  *
- * The name is the incumbent one (TRANS-006). TRANS-005 introduced a second constant for the same
- * number on an envelope with no producer; this one is published, predates it, and is what the
- * producing path actually writes, so the duplicate was retired rather than this. The name describes
- * the artifact that was its first consumer and will read oddly at its second — filed as issue #2185
- * rather than changed here, because renaming a published surface to suit a new caller is a decision
- * of its own.
+ * ONE concept, not two (issue #2185): the envelope `{ schemaVersion, record }` and the record it
+ * wraps version together — a change to either shape bumps this number, and every consumer of the
+ * envelope reads it: the portable session artifact (`serializeSessionArtifact`) and the session
+ * store (`NodeSessionStore.save`, `WorkspaceSessionStore`). Two constants would let an envelope-only
+ * change reject records that are fine, and the two shapes have never moved apart. The constant is
+ * therefore named for the pair it versions, not for its first consumer: TRANS-006 kept the
+ * incumbent `SESSION_ARTIFACT_SCHEMA_VERSION` (published, written by the producing path) over the
+ * duplicate TRANS-005 introduced, and #2185 renamed it here — prerelease, so no alias.
  *
  * Its DECLARATION lives here rather than beside the artifact functions because `session-artifact.ts`
  * imports this module; declaring it there and importing it back would be a module cycle. The export
  * from the package barrel is unchanged.
  */
-export const SESSION_ARTIFACT_SCHEMA_VERSION = 1;
+export const SESSION_RECORD_ENVELOPE_VERSION = 1;
 
 /** A persisted record with the version of the shape it was written in. */
 export interface IVersionedInteractiveSessionRecord {
@@ -115,7 +117,7 @@ export function decodeVersionedInteractiveSessionRecord(
   if (typeof declaredVersion !== 'number' || !Number.isFinite(declaredVersion)) {
     return { status: 'unsupported', schemaVersion: undefined };
   }
-  if (declaredVersion !== SESSION_ARTIFACT_SCHEMA_VERSION) {
+  if (declaredVersion !== SESSION_RECORD_ENVELOPE_VERSION) {
     return { status: 'unsupported', schemaVersion: declaredVersion };
   }
 

@@ -9,11 +9,14 @@
 import {
   applyPresetToolLists,
   evaluatePermission,
+  findInvalidPermissionPatterns,
+  matchesAnyPattern,
   resolvePermissionByPolicy,
   runHooks,
 } from '@robota-sdk/agent-core';
 
 import { decideApproval } from './abortable-approval.js';
+import { consentScopeFor } from './consent-scope.js';
 import { wrapToolWithPermission } from './tool-permission-wrapper.js';
 
 import type {
@@ -30,6 +33,17 @@ import type { IToolWithEventService, TToolArgs, THooksConfig } from '@robota-sdk
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 export type { IPermissionEnforcerOptions };
 
+/** Throw naming every malformed permission pattern and why (issue #2428). */
+function assertPermissionPatternsEvaluable(patterns: readonly string[]): void {
+  const problems = findInvalidPermissionPatterns(patterns);
+  if (problems.length === 0) return;
+  const listed = problems.map(({ pattern, reason }) => `"${pattern}" ${reason}`).join('; ');
+  throw new Error(
+    `Invalid permission pattern(s) in permissions.allow/deny: ${listed}. ` +
+      'Fix the pattern where it is configured (issue #2428).',
+  );
+}
+
 export class PermissionEnforcer {
   private readonly sessionId: string;
   private readonly cwd: string;
@@ -42,6 +56,10 @@ export class PermissionEnforcer {
   private readonly onToolExecution?: IPermissionEnforcerOptions['onToolExecution'];
   private readonly hookTypeExecutors?: IPermissionEnforcerOptions['hookTypeExecutors'];
   private readonly transcriptPath?: string;
+  /**
+   * Issue #2351: consent is remembered as PATTERNS (`consentScopeFor`), not tool names, and read
+   * back through the gate's own matcher — approving one argument does not allow every argument.
+   */
   private readonly sessionAllowedTools = new Set<string>();
   /** The configured rules before any preset contributed — see {@link applyPresetToolLists}. */
   private readonly presetFreeRules: { allow: readonly string[]; deny: readonly string[] };
@@ -61,6 +79,12 @@ export class PermissionEnforcer {
       allow: [...options.config.permissions.allow],
       deny: [...options.config.permissions.deny],
     };
+    // Issue #2428: a pattern the gate could never evaluate is refused HERE, with the pattern and
+    // the reason, before any turn — not discovered one unevaluable prompt at a time at the gate.
+    assertPermissionPatternsEvaluable([
+      ...options.config.permissions.allow,
+      ...options.config.permissions.deny,
+    ]);
     this.terminal = options.terminal;
     this.permissionHandler = options.permissionHandler;
     this.promptForApprovalFn = options.promptForApprovalFn;
@@ -96,7 +120,7 @@ export class PermissionEnforcer {
     return tools.map((tool) => wrapToolWithPermission(tool, deps));
   }
 
-  /** Get tools that have been session-approved (via "Allow always" choice). */
+  /** The consent patterns granted this session via "Allow always" — e.g. `Bash(git *)` (issue #2351). */
   getSessionAllowedTools(): string[] {
     return [...this.sessionAllowedTools];
   }
@@ -202,9 +226,10 @@ export class PermissionEnforcer {
     toolArgs: TToolArgs,
     signal?: AbortSignal,
   ): Promise<boolean> {
+    const scope = consentScopeFor(toolName, toolArgs);
     const outcome = await decideApproval({
       toolName,
-      alreadyAllowed: this.sessionAllowedTools.has(toolName),
+      alreadyAllowed: matchesAnyPattern(toolName, toolArgs, [...this.sessionAllowedTools]),
       ...(this.permissionHandler ? { handler: this.permissionHandler } : {}),
       ...(this.promptForApprovalFn
         ? { injectedPrompt: this.promptForApprovalFn, terminal: this.terminal }
@@ -212,8 +237,8 @@ export class PermissionEnforcer {
       toolArgs,
       ...(signal ? { signal } : {}),
     });
-    if (outcome.rememberForSession) this.sessionAllowedTools.add(toolName);
-    if (outcome.rememberForProject) this.onProjectAllowTool?.(toolName);
+    if (outcome.rememberForSession) this.sessionAllowedTools.add(scope);
+    if (outcome.rememberForProject) this.onProjectAllowTool?.(scope);
     return outcome.allowed;
   }
 

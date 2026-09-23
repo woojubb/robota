@@ -17,6 +17,11 @@ export type {
   IProviderOptions,
   IChatOptions,
   TModelEffort,
+  TModelEffortSelection,
+  IModelEffortOutcome,
+  IModelEffortResolution,
+  IProviderModelEffortTable,
+  TModelEffortOutcomeCallback,
   TToolChoice,
   IProviderCapabilities,
   IProviderFunctionCallingCapability,
@@ -37,6 +42,7 @@ export type {
   IProviderProbeResult,
   IProviderProfileConfig,
   IProviderProfileDefaults,
+  IProviderEndpoint,
   IProviderSetupHelpLink,
   IProviderSetupStepDefinition,
   TProviderCredentialField,
@@ -60,6 +66,9 @@ export type {
   IVideoJobAccepted,
   IVideoJobSnapshot,
   IVideoGenerationProvider,
+  IMediaProviderConfig,
+  IMediaProviderCredentialRequirement,
+  IMediaProviderDefinition,
 } from './interfaces';
 export {
   assertProviderNativeWebToolsAvailable,
@@ -68,6 +77,12 @@ export {
 } from './interfaces';
 
 export { isImageGenerationProvider, isVideoGenerationProvider } from './interfaces/media-provider';
+export {
+  createImageProviderFromDefinition,
+  createVideoProviderFromDefinition,
+  resolveMediaProviderConfig,
+} from './providers/media-provider-factory.js';
+export type { IMediaProviderOverrides } from './providers/media-provider-factory.js';
 export {
   findProviderDefinition,
   formatSupportedProviderTypes,
@@ -121,6 +136,10 @@ export type {
   IExecutor,
   IChatExecutionRequest,
   IStreamExecutionRequest,
+  IExecutorChatResult,
+  IExecutorStreamMessageEvent,
+  IExecutorStreamTerminalEvent,
+  TExecutorStreamEvent,
   ILocalExecutorConfig,
   IRemoteExecutorConfig,
 } from './interfaces/executor';
@@ -133,6 +152,14 @@ export {
   resolveEnvReference,
   hasUsableSecretReference,
 } from './utils/env-ref.js';
+export { createRecordEnvResolver, processEnvResolver } from './utils/env-resolver.js';
+export { createBoundedOutput } from './utils/bounded-output.js';
+export type {
+  IBoundedOutput,
+  IBoundedOutputOptions,
+  TOutputRetention,
+} from './utils/bounded-output.js';
+export type { TEnvResolver } from './utils/env-resolver.js';
 
 // Logger
 export { logger, SilentLogger, createLogger, type ILogger } from './utils/logger';
@@ -147,8 +174,13 @@ export {
   type IEventEmitterHierarchicalEventData,
 } from './plugins/event-emitter-plugin';
 
-// Tool registry primitives (SSOT — dependency-free runtime primitives, DATA-005)
-export { FunctionTool, ToolRegistry } from './tool-registry';
+// Tool registry primitives (SSOT, DATA-005) + CLI-1990's assembly-enforced residency invariant.
+export {
+  FunctionTool,
+  ToolRegistry,
+  assertResidentToolRemains,
+  DEFERRED_WITHOUT_LOADER_MESSAGE,
+} from './tool-registry';
 
 // Core agent
 export { Robota } from './core/robota';
@@ -161,6 +193,16 @@ export {
   type IAgentCreationStats,
   type IAgentLifecycleEvents,
 } from './managers/agent-factory';
+export {
+  isRegistryTransactionError,
+  lifecycleOf,
+  runRegistryTransaction,
+} from './managers/registry-transaction';
+export type {
+  IRegistryOwnedLifecycle,
+  IRegistryTransactionError,
+  IRegistryTransactionStep,
+} from './managers/registry-transaction';
 export { AgentTemplates, type ITemplateApplicationResult } from './managers/agent-templates';
 export { ConversationHistory, ConversationStore } from './managers/conversation-history-manager';
 export {
@@ -209,8 +251,7 @@ export {
   composeEventName,
 } from './event-service/event-service';
 export { TASK_EVENTS, TASK_EVENT_PREFIX } from './event-service/task-events';
-export { USER_EVENTS, USER_EVENT_PREFIX } from './event-service/user-events';
-export type { TUserEvent } from './event-service/user-events';
+export { USER_EVENTS, USER_EVENT_PREFIX, type TUserEvent } from './event-service/user-events';
 export { SPAN_EVENTS, SPAN_EVENT_PREFIX } from './event-service/span-events';
 export type { TSpanEvent, ISpanCompletionEventData } from './event-service/span-events';
 export { generateSpanId } from './event-service/event-service';
@@ -278,6 +319,7 @@ export {
   DEFAULT_MAX_OUTPUT,
   estimateContextTokensFromMessages,
   estimateSerializedContextTokens,
+  estimateToolSchemaTokens,
   getModelContextWindow,
   getModelMaxOutput,
   getModelName,
@@ -309,4 +351,4 @@ export type {
   THookOutcome,
   IHookTypeExecutor,
 } from './hooks/index.js';
-export { runHooks, GuardrailExecutor, decodeHookVerdict } from './hooks/index.js';
+export { runHooks, GuardrailExecutor, decodeHookVerdict, isEnforcing } from './hooks/index.js';

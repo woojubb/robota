@@ -96,7 +96,7 @@ agent-core
     ↑
 agent-interface-transport   ← this package (contracts only)
     ↑
-agent-transport / agent-transport-tui / ...   ← implementations
+agent-transport / agent-ui-terminal / ...   ← transport and UI implementations
 ```
 
 This package must not depend on `agent-framework` or any implementation package.

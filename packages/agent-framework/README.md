@@ -1,5 +1,10 @@
 # @robota-sdk/agent-framework
 
+Runtime hosts are owned by this package: import `createHeadlessTransport`,
+`HeadlessInteractionChannel`, `createProgrammaticAgent`, `ProgrammaticInteractionChannel`,
+`TransportRegistry`, and its file/memory settings repositories from the root. Their implementation
+lives in `src/transport-host/`; terminal `PrintTerminal` and `promptInput` are local to the CLI.
+
 Programmatic SDK for building AI agents with Robota. Provides `InteractiveSession` as the central client-facing API, `createQuery()` for one-shot use, `createAgentRuntime()` as a composition factory for headless and multi-session consumers, session management, SDK-owned command/common APIs, permissions, hooks, streaming, context loading, bounded prompt file references, and context reference inventory.
 
 This is the **assembly layer** of the Robota ecosystem — it composes lower-level packages (`agent-core`, `agent-tools`, `agent-session`, `agent-provider`) into a cohesive SDK.
@@ -67,9 +72,14 @@ workspace root and its real descendants while rejecting a working directory outs
 completed revoke makes the previously issued authority and all of its facets unusable. Explicit host
 contribution sources also remain root-bounded and refuse links at every path component.
 
-On Linux, authority-backed project mutations are rooted in open directory descriptors so parent
-renames or symlink swaps cannot redirect them. Other platforms currently fail closed pending the
-portable stable-mutation contract tracked by ARCH-047.
+Authority-backed project mutations share one stable-root boundary: on Linux, open root and parent
+directory descriptors prevent parent renames or symlink swaps from redirecting writes, replacements,
+appends, or deletes. Hosts without equivalent stable handle semantics fail closed with
+`WorkspaceAuthorityRequiredError` instead of falling back to pathname mutation.
+
+Replay-only project recovery validates the versioned JSONL before reconstructing a session. Loads and
+listings report malformed logs as `corrupt` and unsupported versions as `unsupported`, rather than
+hiding them as missing sessions. Snapshot encoding is unchanged; unversioned legacy logs are not replayed.
 
 The maintained offline examples verify explicit persist→resume composition and the workspace
 authority boundary with no provider credentials:
@@ -104,6 +114,7 @@ const host: IRuntimeHostHandle = await startRuntimeHost(options);
 - **SystemCommandExecutor + ISystemCommand** — SDK-level command execution infrastructure for product-composed command modules
 - **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Command registry and SDK common discovery APIs. User-visible built-ins are composed through `agent-command` packages.
 - **Model Command Common APIs** — Provider-neutral `/model` helpers that resolve active provider catalogs and optionally invoke provider-owned refresh hooks
+- **Model effort selection** — A typed provider-neutral selection record and command-host adapter keep source and provisional display state consistent across startup, live commands, and headless output; `auto` remains unpinned until the provider adapter reports its outcome
 - **createQuery()** — Provider-bound factory for one-shot AI agent interactions with streaming support
 - **Runtime host (RUNTIME-001)** — `startRuntimeHost()` builds and serves a headless session over a loopback WS (used by `robota --serve` and the desktop GUI sidecar); `buildRuntimeSession()` is the shared session-construction seam every presentation builds its `InteractiveSession` through
 - **Session assembly** — Internal factory wires tools, provider, config, and context for `InteractiveSession`
@@ -124,6 +135,7 @@ const host: IRuntimeHostHandle = await startRuntimeHost(options);
 - **Edit Checkpoints** — Checkpoint/rewind support for safer edit workflows
 - **Project Memory** — Command-driven memory capture and retrieval surfaces
 - **Replay Events** — Session execution can forward provider/tool boundary events and provider-native raw payload events into append-only logs
+- **Usage observations** — Each accepted top-level turn records one content-free outcome observation, including the active model and driver surface when known, even when token usage is absent
 - **Bundle Plugin System** — Install and manage reusable extensions packaged as bundle plugins
 
 ## Architecture
@@ -265,6 +277,13 @@ session.getSession(); // Session
 runtime-registered, root-bound, and cannot be reconstructed from a path or serialized marker. See the
 maintained offline `verify-workspace-project-authority.ts` example for a complete inspect/grant/revoke
 composition and Restricted-versus-trusted observable.
+
+The Node host supplies the production lifecycle through `createNodeWorkspaceTrustService()`. It binds
+grants to the canonical Git worktree and repository common-directory identity, stores only owner-readable
+generation records under `~/.robota/workspace-trust.json`, and treats non-Git paths, repository replacement,
+revocation, and trust-store errors as Restricted. A later provider settings layer that changes `baseURL`
+without its own credential also clears inherited `apiKey` and `apiKeyEnv` fields; endpoint provenance
+diagnostics can report the quarantine without exposing the credential.
 
 ### SystemCommandExecutor — SDK-Level Commands
 
@@ -458,7 +477,7 @@ When `sessionStore` and a snapshot-capable `sandboxClient` are both provided, `I
 
 ## Subagent Sessions
 
-`createSubagentSession()` creates an isolated child session for delegating subtasks. The subagent receives pre-resolved config and context from the parent — it does not load config files or context from disk. Callers may provide a stable `sessionId` and `sessionLogger` so the child session writes a durable transcript.
+`createSubagentSession()` creates an isolated child session for delegating subtasks. The subagent receives pre-resolved config and context from the parent — it does not load config files or context from disk. Callers may provide a stable `sessionId`, `sessionLogger`, and `sessionStore` so the child session writes durable state.
 
 ```typescript
 import { createSubagentSession } from '@robota-sdk/agent-framework';
@@ -479,6 +498,13 @@ Built-in agents: `general-purpose` (full tool access), `Explore` (read-only, Hai
 ### createAgentTool()
 
 `createAgentTool()` wraps subagent creation into a tool the AI can invoke directly. The parent session's hooks, permissions, and context are forwarded to the child.
+
+When a background job resumes a forked record, the runner passes the record's `resumeSessionId` as
+both the child session ID and the persistence key, together with the same session store that holds
+the copied record. Each completed child turn then updates that copied record, so `attach` sees the
+conversation after the fork as well as the conversation copied at fork time. Ordinary subagent jobs
+remain transient when they do not carry `resumeSessionId`; attaching is still a view switch, never a
+merge with the parent record.
 
 Background subagent lifecycle events are persisted through `InteractiveSession` when an SDK session persistence facade is configured. Streaming chunks are written to append-only JSONL logs/transcripts rather than rewriting the main session JSON per token.
 
@@ -627,6 +653,12 @@ Settings are merged from lowest to highest priority:
 ## Documentation
 
 See [docs/SPEC.md](./docs/SPEC.md) for the full specification, architecture details, and design decisions.
+
+From `packages/agent-framework` in a built repository, run
+`pnpm exec tsx examples/verify-goal-cassette-replay.mts` for offline goal replay through the public
+testing SDK. The credentialed recorder now lives at `scripts/record-goal-cassette.mts`; it is
+non-published development tooling, not a runtime provider dependency. Recording is an explicit
+live-provider operation; replay needs no credentials and preserves the committed cassette.
 
 ## License
 

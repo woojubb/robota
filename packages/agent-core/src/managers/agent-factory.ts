@@ -1,6 +1,5 @@
 import {
   applyAgentDefaults,
-  generateAgentId,
   resolveFactoryOptions,
   updateCreationStats,
   type IAgentFactoryOptions,
@@ -9,6 +8,7 @@ import {
   type TResolvedFactoryOptions,
 } from './agent-factory-helpers';
 import { AgentTemplates, type ITemplateApplicationResult } from './agent-templates';
+import { lifecycleOf, runRegistryTransaction } from './registry-transaction';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { createLogger, type ILogger } from '../utils/logger';
 import { validateAgentConfig } from '../utils/validation';
@@ -22,6 +22,8 @@ export type {
   IAgentLifecycleEvents,
 } from './agent-factory-helpers';
 
+const MAX_ID_COLLISION_RETRIES = 16;
+
 /**
  * Agent Factory for creating and managing agents
  * Instance-based for isolated agent factory management
@@ -32,6 +34,12 @@ export class AgentFactory {
   private logger: ILogger;
   private options: TResolvedFactoryOptions;
   private activeAgents: Map<string, IAgent<IAgentConfig>>;
+  /**
+   * ARCH-055 admission: ids reserved by a `createAgent` that has not yet committed. Pending plus
+   * active count toward `maxConcurrentAgents`, so concurrent creates cannot exceed the limit, and a
+   * reserved id cannot be handed to a second create while the first is still initializing.
+   */
+  private readonly pendingAgents = new Set<string>();
   private creationStats: IAgentCreationStats;
   private lifecycleEvents: IAgentLifecycleEvents;
 
@@ -72,7 +80,15 @@ export class AgentFactory {
   }
 
   /**
-   * Create a new agent instance
+   * Create a new agent instance.
+   *
+   * ARCH-055 (#2159): one transaction. Admission — the limit check and a collision-safe id with a
+   * pending slot — happens BEFORE the first `await`, so concurrent creates cannot overshoot
+   * `maxConcurrentAgents` or overwrite each other. Then `beforeCreate` → construct → `initialize` →
+   * commit (pending → active, statistics) → `afterCreate`, each with its reverse step: a failure
+   * anywhere rolls back every completed step in reverse (an initialized agent is `cleanup`ed, a
+   * committed one is unregistered and its statistics reversed), releases the slot, and rethrows the
+   * PRIMARY error with any rollback errors attached.
    */
   async createAgent(
     AgentClass: new (config: IAgentConfig) => IAgent<IAgentConfig>,
@@ -81,16 +97,11 @@ export class AgentFactory {
   ): Promise<IAgent<IAgentConfig>> {
     // Apply defaults before try so fullConfig is available in catch
     let fullConfig: IAgentConfig | undefined;
+    const agentId = this.admit();
     try {
-      // Check concurrent agent limit
-      if (this.activeAgents.size >= this.options.maxConcurrentAgents) {
-        throw new ConfigurationError(
-          `Maximum concurrent agents limit reached: ${this.options.maxConcurrentAgents}`,
-        );
-      }
-
       // Apply default configuration
       fullConfig = applyAgentDefaults(config, this.options);
+      const resolvedConfig = fullConfig;
 
       // Validate configuration
       if (this.options.strictValidation) {
@@ -100,34 +111,46 @@ export class AgentFactory {
         }
       }
 
-      // Call before create lifecycle event
-      if (this.lifecycleEvents.beforeCreate) {
-        await this.lifecycleEvents.beforeCreate(fullConfig);
-      }
-
-      // Create agent instance
-      const agent = new AgentClass(fullConfig);
-
-      // Initialize agent if it has an initialize method
-      interface IInitializableAgent {
-        initialize(): Promise<void>;
-      }
-      const maybeInitializable = agent as Partial<IInitializableAgent>;
-      if (typeof maybeInitializable.initialize === 'function') {
-        await maybeInitializable.initialize();
-      }
-
-      // Track agent
-      const agentId = generateAgentId();
-      this.activeAgents.set(agentId, agent);
-
-      // Update statistics
-      updateCreationStats(this.creationStats, fromTemplate);
-
-      // Call after create lifecycle event
-      if (this.lifecycleEvents.afterCreate) {
-        await this.lifecycleEvents.afterCreate(agent, fullConfig);
-      }
+      let agent: IAgent<IAgentConfig> | undefined;
+      await runRegistryTransaction([
+        {
+          name: 'beforeCreate',
+          run: () => this.lifecycleEvents.beforeCreate?.(resolvedConfig),
+        },
+        {
+          name: 'construct',
+          run: () => {
+            agent = new AgentClass(resolvedConfig);
+          },
+        },
+        {
+          name: 'initialize',
+          run: () => (agent ? lifecycleOf(agent)?.initialize?.() : undefined),
+          undo: () => (agent ? lifecycleOf(agent)?.cleanup?.() : undefined),
+        },
+        {
+          name: 'commit',
+          run: () => {
+            if (!agent) throw new ConfigurationError('Agent was not constructed');
+            this.activeAgents.set(agentId, agent);
+            updateCreationStats(this.creationStats, fromTemplate);
+          },
+          undo: () => {
+            this.activeAgents.delete(agentId);
+            this.creationStats.activeCount--;
+            this.creationStats.totalCreated--;
+            if (fromTemplate) this.creationStats.fromTemplates--;
+            else this.creationStats.customConfigured--;
+          },
+        },
+        {
+          name: 'afterCreate',
+          run: () =>
+            agent ? this.lifecycleEvents.afterCreate?.(agent, resolvedConfig) : undefined,
+        },
+      ]);
+      this.pendingAgents.delete(agentId);
+      if (!agent) throw new ConfigurationError('Agent was not constructed');
 
       this.logger.info('Agent created successfully', {
         agentId,
@@ -137,6 +160,7 @@ export class AgentFactory {
 
       return agent;
     } catch (error) {
+      this.pendingAgents.delete(agentId);
       // Call error lifecycle event
       const normalizedError = error instanceof Error ? error : new Error(String(error));
       if (this.lifecycleEvents.onCreateError && fullConfig) {
@@ -151,6 +175,31 @@ export class AgentFactory {
       });
       throw normalizedError;
     }
+  }
+
+  /**
+   * ARCH-055 admission: reserve a collision-safe id and a pending slot synchronously. Pending and
+   * active instances both count toward the limit.
+   */
+  private admit(): string {
+    if (this.activeAgents.size + this.pendingAgents.size >= this.options.maxConcurrentAgents) {
+      throw new ConfigurationError(
+        `Maximum concurrent agents limit reached: ${this.options.maxConcurrentAgents}`,
+      );
+    }
+    let agentId = this.options.idFactory();
+    let attempts = 0;
+    while (this.activeAgents.has(agentId) || this.pendingAgents.has(agentId)) {
+      attempts += 1;
+      if (attempts > MAX_ID_COLLISION_RETRIES) {
+        throw new ConfigurationError(
+          'Agent id factory keeps returning ids that are already in use',
+        );
+      }
+      agentId = this.options.idFactory();
+    }
+    this.pendingAgents.add(agentId);
+    return agentId;
   }
 
   /**
@@ -248,14 +297,8 @@ export class AgentFactory {
     }
 
     try {
-      // Cleanup agent if it has a cleanup method
-      interface ICleanableAgent {
-        cleanup(): Promise<void>;
-      }
-      const maybeCleanable = agent as Partial<ICleanableAgent>;
-      if (typeof maybeCleanable.cleanup === 'function') {
-        await maybeCleanable.cleanup();
-      }
+      // ARCH-055: the declared lifecycle, through the one type guard — not per-site duck typing.
+      await lifecycleOf(agent)?.cleanup?.();
 
       // Remove from tracking
       this.activeAgents.delete(agentId);

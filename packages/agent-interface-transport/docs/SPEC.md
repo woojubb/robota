@@ -21,7 +21,7 @@ MCP, TUI, etc.) and their configurable lifecycle.
   clean.
 - Does not depend on `@robota-sdk/agent-framework` or any transport implementation package.
 - Implementation packages (the separate `agent-transport-{ws,http,mcp,webrtc}` packages and
-  `agent-transport` for headless) depend on this package for interface types, not on `agent-framework`.
+  `agent-framework` for headless) depend on this package for interface types, directly from their contract owner.
 - `agent-framework` depends on this package to consume the transport contracts it wires.
 
 ## Architecture Overview
@@ -44,10 +44,10 @@ agent-transport-ws (WsTransport), agent-transport-webrtc (WebRtcTransport)
   └── implements IConfigurableTransport<TSession>
 
 agent-transport-http (createHttpTransport), agent-transport-mcp (createMcpTransport),
-agent-transport (/headless: createHeadlessTransport), agent-transport-ws (createWsTransport factory)
+agent-framework (createHeadlessTransport), agent-transport-ws (createWsTransport factory)
   └── returns bare ITransportAdapter<TSession>
 
-agent-transport
+agent-framework (transport-host)
   └── TransportRegistry            ← structurally compatible with ITransportRegistryView (no declared implements)
 ```
 
@@ -100,7 +100,7 @@ Minting throws rather than returning an open admission, so a transport that cann
 to construct instead of binding without a gate.
 
 The functions that produce the decision — `resolveAdmission`, `mintTransportToken`,
-`credentialMatches`, `bearerCredential` — live in `@robota-sdk/agent-transport-protocol`, not here.
+`credentialMatches`, `bearerCredential` — live in `@robota-sdk/agent-transport/node`, not here.
 This package is inert by rule (no runtime dependency edges), and they need `node:crypto`; putting
 them here would give every consumer of these types a runtime edge on a Node builtin.
 
@@ -110,21 +110,23 @@ the other.
 
 ## Public API Surface
 
-| Export                             | Kind      | Description                                                                            |
-| ---------------------------------- | --------- | -------------------------------------------------------------------------------------- |
-| `createTransportFailedOutcome`     | Function  | builds a failed run outcome from a non-zero exit code, refusing anything outside 1–255 |
-| `isTransportRunOutcome`            | Function  | narrows an unknown value to a `TTransportRunOutcome` — the contract's discriminator    |
-| `ITransportAdapter`                | Interface | Core attach/start/stop lifecycle contract (generic TSession)                           |
-| `ITransportRunnerAdapter`          | Interface | Runner adapter with a separate typed terminal-outcome wait                             |
-| `ITransportLifecycleRegistryView`  | Interface | Base-adapter registration, lifecycle, completion, and prompt failure projection        |
-| `ITransportSettingsRegistryView`   | Interface | Configurable-adapter settings projection                                               |
-| `ITransportConfig`                 | Interface | Persisted enabled + options shape                                                      |
-| `IConfigurableTransport`           | Interface | Configurable transport with defaultEnabled + options schema                            |
-| `ITransportEntry`                  | Interface | Configurable-only `(transport, config)` settings projection                            |
-| `ITransportRegistryView`           | Interface | Registry management: getAll, setEnabled, startAll, stopAll                             |
-| `runTransportLifecycleConformance` | Function  | Testing-subpath fixture runner for the shared adapter lifecycle contract               |
-| `ITransportAdmission`              | Interface | SEC-008: the resolved decision — a credential, or `null` with a written `openReason`   |
-| `ITransportAdmissionConfig`        | Interface | SEC-008: how a caller asks for an admission decision                                   |
+| Export                             | Kind      | Description                                                                                                                                             |
+| ---------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createTransportFailedOutcome`     | Function  | builds a failed run outcome from a non-zero exit code, refusing anything outside 1–255                                                                  |
+| `isTransportRunOutcome`            | Function  | narrows an unknown value to a `TTransportRunOutcome` — the contract's discriminator                                                                     |
+| `ITransportAdapter`                | Interface | Core attach/start/stop lifecycle contract (generic TSession)                                                                                            |
+| `ITransportRunnerAdapter`          | Interface | Runner adapter with a separate typed terminal-outcome wait                                                                                              |
+| `ITransportLifecycleRegistryView`  | Interface | Base-adapter registration, lifecycle, completion, and prompt failure projection                                                                         |
+| `ITransportSettingsRegistryView`   | Interface | Configurable-adapter settings projection                                                                                                                |
+| `ITransportConfig`                 | Interface | Persisted enabled + options shape                                                                                                                       |
+| `IConfigurableTransport`           | Interface | Configurable transport with defaultEnabled + options schema                                                                                             |
+| `ITransportEntry`                  | Interface | Configurable-only `(transport, config)` settings projection                                                                                             |
+| `ITransportRegistryView`           | Interface | Registry management: getAll, setEnabled, startAll, stopAll                                                                                              |
+| `runTransportLifecycleConformance` | Function  | Testing-subpath fixture runner for the shared adapter lifecycle contract                                                                                |
+| `ITransportAdmission`              | Interface | SEC-008: the resolved decision — a credential, or `null` with a written `openReason`                                                                    |
+| `ITransportAdmissionConfig`        | Interface | SEC-008: how a caller asks for an admission decision                                                                                                    |
+| `ITransportSavedConfig`            | Interface | TRANS-010 (issue #2480): what is persisted for one transport — `enabled?` and `options?`                                                                |
+| `ITransportSettingsRepository`     | Interface | TRANS-010: the storage port (`readAll`/`write`) the registry's settings view goes through, so no transport package owns a settings file, path or format |
 
 **This package exports what it declares, and nothing else.** Until ARCH-108 (issue #2113) this
 section carried a second table listing fourteen re-exported "contract groups" — command, session,
@@ -239,7 +241,7 @@ in the returned `IDestroyResult` rather than thrown (CORE-013).
 
 The payload-agnostic carrier seam. A transport that implements `IPayloadChannelHost` can carry
 **consumer-declared channels** alongside its own protocol profile, so the text-agent protocol
-(`text_delta`/`submit`/… owned by `agent-transport-protocol`) becomes ONE profile on the transport
+(`text_delta`/`submit`/… owned by `agent-transport`) becomes ONE profile on the transport
 rather than being the transport itself — the CMD-004 precedent of contracts below, per-environment
 behavior above.
 
@@ -269,13 +271,13 @@ never inside the library (ROOM-001 principle).
 
 This package defines contracts that consumers implement or extend:
 
-| Extension Point          | Kind      | Implementor                                                                                                                                                                  | Description                                                      |
-| ------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `ITransportAdapter`      | Interface | `createHttpTransport` (http), `createMcpTransport` (mcp), `createHeadlessTransport` (agent-transport/headless), `createWsTransport` factory (ws) — all return a bare adapter | Implement to create a transport with attach/start/stop lifecycle |
-| `IConfigurableTransport` | Interface | `WsTransport` (`agent-transport-ws`), `WebRtcTransport` (`agent-transport-webrtc`)                                                                                           | Legacy service adapter with settings capability                  |
-| `TConfigurableTransport` | Type      | Registry settings projection, including configurable runners                                                                                                                 | Compose any adapter kind with settings capability                |
-| Registry views           | Interface | `agent-transport` (`TransportRegistry`, structurally compatible)                                                                                                             | Segregate lifecycle from configurable settings projection        |
-| `IPayloadChannelHost`    | Interface | `WsTransport` (`agent-transport-ws`, via its `PayloadChannelRegistry`)                                                                                                       | Carry consumer-declared binary/event channels on the connection  |
+| Extension Point          | Kind      | Implementor                                                                                                                                                         | Description                                                      |
+| ------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `ITransportAdapter`      | Interface | `createHttpTransport` (http), `createMcpTransport` (mcp), `createHeadlessTransport` (agent-framework), `createWsTransport` factory (ws) — all return a bare adapter | Implement to create a transport with attach/start/stop lifecycle |
+| `IConfigurableTransport` | Interface | `WsTransport` (`agent-transport-ws`), `WebRtcTransport` (`agent-transport-webrtc`)                                                                                  | Legacy service adapter with settings capability                  |
+| `TConfigurableTransport` | Type      | Registry settings projection, including configurable runners                                                                                                        | Compose any adapter kind with settings capability                |
+| Registry views           | Interface | `agent-framework` (`TransportRegistry`, structurally compatible)                                                                                                    | Segregate lifecycle from configurable settings projection        |
+| `IPayloadChannelHost`    | Interface | `WsTransport` (`agent-transport-ws`, via its `PayloadChannelRegistry`)                                                                                              | Carry consumer-declared binary/event channels on the connection  |
 
 No abstract classes or base classes are exported — all extension is through interface implementation.
 
@@ -312,10 +314,10 @@ implementors must satisfy:
 
 | Interface                 | Implemented By                                                                                                                                                  | Package                                        |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `ITransportAdapter`       | `createHttpTransport`/`createMcpTransport`/`createHeadlessTransport`/`createWsTransport` factories (bare adapters); also satisfied via `IConfigurableTransport` | `agent-transport-*`, `agent-transport`         |
-| `ITransportRunnerAdapter` | `createHeadlessTransport`                                                                                                                                       | `agent-transport`                              |
+| `ITransportAdapter`       | `createHttpTransport`/`createMcpTransport`/`createHeadlessTransport`/`createWsTransport` factories (bare adapters); also satisfied via `IConfigurableTransport` | `agent-transport-*`, `agent-framework`         |
+| `ITransportRunnerAdapter` | `createHeadlessTransport`                                                                                                                                       | `agent-framework`                              |
 | `IConfigurableTransport`  | `WsTransport`, `WebRtcTransport`                                                                                                                                | `agent-transport-ws`, `agent-transport-webrtc` |
-| Registry views            | `TransportRegistry` (structurally compatible)                                                                                                                   | `agent-transport`                              |
+| Registry views            | `TransportRegistry` (structurally compatible)                                                                                                                   | `agent-framework`                              |
 | `IPayloadChannelHost`     | `WsTransport` (declared `implements`) and `PayloadChannelRegistry`                                                                                              | `agent-transport-ws`                           |
 
 The deliberate intra-package extension chains are `ITransportRunnerAdapter` and

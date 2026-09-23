@@ -1,5 +1,5 @@
 import type { TMemoryType } from './project-memory-store.js';
-// IMemoryReference / IMemoryEvent SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+// IMemoryReference / IMemoryEvent SSOT relocated to @robota-sdk/agent-interface-session (DATA-001).
 import type { IMemoryEvent, IMemoryReference } from '@robota-sdk/agent-interface-session';
 
 export type { IMemoryEvent, IMemoryReference };
@@ -12,10 +12,6 @@ export type TMemoryDecisionAction = 'skip' | 'queue' | 'save';
 
 export interface IAutomaticMemoryConfig {
   policy: TMemoryPolicyMode;
-  retrieval: {
-    maxTopics: number;
-    maxTopicChars: number;
-  };
 }
 
 export interface IMemoryCandidate {

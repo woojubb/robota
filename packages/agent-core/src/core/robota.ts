@@ -1,5 +1,6 @@
 import { RobotaBase } from './robota-base';
 import { validateAgentConfig } from './robota-config-manager';
+import { createConfiguredTools, createConversationId } from './robota-construction';
 import { createRobotaDelegates } from './robota-delegate-factory';
 import {
   emitCreatedEvent,
@@ -24,7 +25,6 @@ import { DEFAULT_ABSTRACT_EVENT_SERVICE, bindWithOwnerPath } from '../event-serv
 import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ModuleRegistry } from '../managers/module-registry';
-import { Tools } from '../managers/tool-manager';
 import { normalizeStructuredOutput } from '../schema/structured-output';
 import { createLogger, type ILogger } from '../utils/logger';
 
@@ -40,15 +40,13 @@ import type {
 } from '../interfaces/agent';
 import type { IEventService, IAgentEventData } from '../interfaces/event-service';
 import type { IHistoryEntry } from '../interfaces/messages';
-import type { IAIProvider } from '../interfaces/provider';
+import type { IAIProvider, IToolSchema } from '../interfaces/provider';
 import type { AIProviders } from '../managers/ai-provider-manager';
+import type { Tools } from '../managers/tool-manager';
 import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import type { IJsonSchemaOutput } from '../schema/structured-output';
 import type { ExecutionService } from '../services/execution-service';
 import type { ZodType, TypeOf } from 'zod';
-
-const ID_RADIX = 36;
-const ID_RANDOM_LENGTH = 9;
 
 export type { TAgentStatsMetadata } from './robota-config-manager';
 
@@ -82,9 +80,7 @@ export class Robota
   constructor(config: IAgentConfig) {
     super();
     this.config = config;
-    this.conversationId =
-      config.conversationId ||
-      `conv_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
+    this.conversationId = createConversationId(config);
     // CORE-029: `config.logging` is PER-AGENT and used to be applied with `setGlobalLogLevel`,
     // which is process-wide — so one agent built with `{ enabled: false }` silenced every other
     // agent, and every other package, from a constructor. The level belongs to this agent's logger.
@@ -96,7 +92,7 @@ export class Robota
     validateAgentConfig(config);
 
     this.aiProviders = createConfiguredProviders(config); // CORE-047 — see its docblock for why here
-    this.tools = new Tools();
+    this.tools = createConfiguredTools(() => this.config);
     this.agentFactory = new AgentFactory();
     this.conversationHistory = new ConversationHistory();
     this.eventEmitter = createModuleEventEmitter();
@@ -292,6 +288,10 @@ export class Robota
   }
   unregisterTool(toolName: string): void {
     this.tools.removeTool(toolName);
+  }
+  /** The tool schemas the model is offered at the next request — resident plus loaded (CLI-1990). */
+  getOfferedToolSchemas(): IToolSchema[] {
+    return this.tools.getOfferedTools();
   }
   getConfig(): IAgentConfig {
     return { ...this.config };

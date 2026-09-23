@@ -1,5 +1,6 @@
 import {
   buildValidationError,
+  decodeDagDefinitionAsDagError,
   type IDagDefinition,
   type IDagError,
   type TPortPayload,
@@ -31,34 +32,15 @@ export function parsePortPayload(input: string): TResult<TPortPayload, IDagError
   }
 }
 
-/** Parses a serialized DAG definition snapshot and validates required fields. */
+/**
+ * Parses a serialized DAG definition snapshot through the canonical total decoder (issue #2077), so a
+ * snapshot with a malformed nested node or edge is a diagnostic here rather than a `TypeError` later.
+ */
 export function parseDefinitionSnapshot(input: string): TResult<IDagDefinition, IDagError> {
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(input);
-    if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      Array.isArray(parsed) ||
-      !('dagId' in parsed) ||
-      !('version' in parsed) ||
-      !('nodes' in parsed) ||
-      !('edges' in parsed) ||
-      !('status' in parsed) ||
-      typeof parsed.dagId !== 'string' ||
-      typeof parsed.version !== 'number' ||
-      !Array.isArray(parsed.nodes) ||
-      !Array.isArray(parsed.edges) ||
-      typeof parsed.status !== 'string'
-    ) {
-      return {
-        ok: false,
-        error: buildValidationError(
-          'DAG_VALIDATION_DEFINITION_SNAPSHOT_INVALID',
-          'Definition snapshot must be a valid DAG definition object',
-        ),
-      };
-    }
-    return { ok: true, value: parsed as IDagDefinition };
+    parsed = JSON.parse(input);
+    // allow-fallback: a parse failure is returned as a typed error result, not swallowed
   } catch {
     return {
       ok: false,
@@ -68,4 +50,9 @@ export function parseDefinitionSnapshot(input: string): TResult<IDagDefinition, 
       ),
     };
   }
+  return decodeDagDefinitionAsDagError(
+    parsed,
+    'DAG_VALIDATION_DEFINITION_SNAPSHOT_INVALID',
+    'Definition snapshot must be a valid DAG definition object',
+  );
 }

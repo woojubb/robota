@@ -1,4 +1,4 @@
-import { mkdtempSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, existsSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import stringWidth from 'string-width';
@@ -10,7 +10,7 @@ describe('first-run', () => {
   let tempHome: string;
 
   beforeEach(() => {
-    tempHome = mkdtempSync(join(tmpdir(), 'robota-first-run-'));
+    tempHome = realpathSync(mkdtempSync(join(tmpdir(), 'robota-first-run-')));
   });
 
   afterEach(() => {

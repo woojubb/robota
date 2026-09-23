@@ -12,8 +12,13 @@ export {
   createBackgroundTaskLogPage,
   createLimitedOutputCapture,
   DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE,
+  deliverToObservers,
+  OBSERVER_FAILURE_WARNING_CODE,
+  reportObserverFailureAsWarning,
 } from './background-tasks/index.js';
 export type {
+  IObserverFailure,
+  TObserverFailureReporter,
   IBackgroundTaskHandle,
   IBackgroundTaskShellCommand,
   IBackgroundTaskShellResolutionOptions,
@@ -31,12 +36,7 @@ export type {
   ICreateLimitedOutputCaptureOptions,
   ILimitedOutputCapture,
 } from './background-tasks/index.js';
-export {
-  createProviderFromConfig,
-  createProviderFromProfile,
-  normalizeProviderConfig,
-  resolveProfileApiKey,
-} from './providers/index.js';
+export { createProviderFromProfile, resolveProfileApiKey } from './providers/index.js';
 export {
   SubagentManager,
   WorktreeSubagentRunner,
@@ -48,7 +48,7 @@ export {
 // it passes.
 export type { ISubagentExecutionEnvelope } from './subagents/index.js';
 // ARCH-031: `ISubagentSpawnRequest` and `ISubagentJobResult` are NOT here. They are owned by
-// `@robota-sdk/agent-interface-transport` now, and re-publishing another package's symbols from this
+// `@robota-sdk/agent-interface-execution` now, and re-publishing another package's symbols from this
 // barrel is the pass-through re-export the repo bans. Only the runtime SPI is this package's to export.
 export type {
   IPreparedSubagentWorktree,

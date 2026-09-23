@@ -28,6 +28,21 @@ export function createFunctionTool(
 }
 
 /**
+ * What a tool declares about itself beyond its callable shape (CLI-1990).
+ *
+ * Optional, and omission is a declaration too: a tool that says nothing is RESIDENT — its schema is
+ * sent on every request, which is what every tool in the tree does today.
+ */
+export interface IFunctionToolResidencyOptions {
+  /**
+   * Withhold this tool's schema from the model until it is loaded by `ToolSearch` or forced by a
+   * `toolChoice`. Only honoured while the tool-search policy is engaged, so declaring it on a small
+   * tool set costs nothing.
+   */
+  deferLoading?: boolean;
+}
+
+/**
  * Helper function to create a function tool from Zod schema
  */
 export function createZodFunctionTool<S extends ZodType>(
@@ -35,6 +50,7 @@ export function createZodFunctionTool<S extends ZodType>(
   description: string,
   zodSchema: S,
   fn: TToolExecutor<TypeOf<S>>,
+  residency: IFunctionToolResidencyOptions = {},
 ): FunctionTool {
   // Use comprehensive Zod to JSON schema conversion
   const parameters = zodToJsonSchema(zodSchema);
@@ -43,6 +59,9 @@ export function createZodFunctionTool<S extends ZodType>(
     name,
     description,
     parameters,
+    // Spread rather than assigned: an absent marker must stay ABSENT, not become `undefined`, so a
+    // resident tool's schema is byte-identical to what it was before residency existed.
+    ...(residency.deferLoading !== undefined && { deferLoading: residency.deferLoading }),
   };
 
   // Wrap the function with validation and ensure proper parameter handling

@@ -16,17 +16,24 @@ Owns the client-side remote execution layer for Robota SDK. Provides `RemoteExec
 
 Single entry point `./` backed by `src/index.ts`.
 
-`RemoteExecutor` (`SimpleRemoteExecutor`, `src/client/remote-executor-simple.ts`) is the main facade. It composes `HttpClient` for HTTP communication, validates requests, and maps responses to `IAssistantMessage` / `TUniversalMessage`. It implements `executeChat` (non-streaming), `executeChatStream` (SSE streaming), `supportsTools()`, `validateConfig()`, and `dispose()`.
+`RemoteExecutor` (`SimpleRemoteExecutor`, `src/client/remote-executor-simple.ts`) is the main facade. It composes `HttpClient` for HTTP communication, validates requests, and maps responses to an `IExecutorChatResult` or `TExecutorStreamEvent` sequence. It implements `executeChat` (non-streaming), `executeChatStream` (SSE streaming), `supportsTools()`, `validateConfig()`, and `dispose()`.
 
 `HttpClient` (`src/client/http-client.ts`) provides typed `post`, `get`, `chat`, and `chatStream` methods. It uses the Fetch API and delegates the actual chat/stream HTTP logic to `chat-http-methods.ts`. It accepts an injected `ILogger` via `IHttpClientConfig`.
 
 `chat-http-methods.ts` (`src/client/chat-http-methods.ts`) contains the non-streaming HTTP chat logic: `executeChatRequest` (POST to `/chat`). Also exports `validateToolCallArray` (internal guard) and defines `IChatRequestMessage` / `IChatResponsePayload` payload shapes. Extracted from `http-client.ts` to keep files under 300 lines.
 
+For API-001, the wire carries only the effort **selection** (`auto` or a concrete Core tier). The
+server-side adapter resolves its own capability table and sends one serializable `modelEffortOutcome`
+in the HTTP response or one `model-effort-outcome` SSE frame. `HttpClient` validates and preserves that
+value; `SimpleRemoteExecutor` invokes the caller's local `onModelEffortOutcome` callback exactly once
+from it, catches observer failures, and never invents an opaque or native outcome on the client.
+`effortResolution` is adapter-bound and `onModelEffortOutcome` is a function, so neither is serialized.
+
 `chat-stream-http.ts` (`src/client/chat-stream-http.ts`) owns the streaming request: `executeChatStreamRequest` (SSE POST to `/chat/stream`), the `readSseFrames` parser, and `REMOTE_CHAT_STREAM_SUFFIX` — the path constant, exported from the package entry so the SERVER's test can compare it to its own route table.
 
 **This document was wrong about streaming twice, which is why the path is now asserted rather than described.** It claimed `POST /stream` while `request-handler-simple.ts` named `/chat/stream` and no server served either, so every call was a 404; the client's tests were green because they mocked `fetch`, and a mocked transport agrees with whatever the client says. CORE-044 then removed the capability and this file went on describing it as present. One spelling, compared against the server's, is the mechanical answer to both.
 
-**The client does NOT assemble chunks (CORE-046).** The server calls `provider.chat(messages, { onTextDelta })` — already every provider's contract — so the wire carries text deltas plus ONE terminal assembled message. `executeChatStreamRequest` hands each delta to the caller's `onTextDelta` and returns the terminal message; `RemoteExecutor.executeChatStream` yields that single message, because `IExecutor.executeChatStream` yields `TUniversalMessage` and a partial message is not one. Re-implementing an accumulator here would put a second assembler in the world, against a fragmentation behaviour no in-repo test can observe — the failure class CORE-042 existed to end. A stream that ends without a terminal message throws: a truncated turn is a failed one, not a short answer.
+**The client does NOT assemble chunks (CORE-046).** The server calls `provider.chat(messages, { onTextDelta })` — already every provider's contract — so the wire carries text deltas plus ONE terminal assembled message and, for a selected effort, one final outcome frame. `executeChatStreamRequest` hands each delta to the caller's `onTextDelta` and returns the terminal message plus the validated terminal outcome; `RemoteExecutor.executeChatStream` yields one `{ kind: 'message' }` event followed by one `{ kind: 'terminal' }` event, because a partial message is not a completed executor result. Re-implementing an accumulator here would put a second assembler in the world, against a fragmentation behaviour no in-repo test can observe — the failure class CORE-042 existed to end. A stream that ends without a terminal message throws: a truncated turn is a failed one, not a short answer.
 
 `request-handler-simple.ts` (`src/client/request-handler-simple.ts`) provides pure helper functions for request/response transformation: `createChatTransportRequest`, `createStreamTransportRequest`, `transformToAssistantMessage`, `validateChatRequest`, `validateStreamRequest`. These are not exported from the package entry point.
 
@@ -130,4 +137,6 @@ Re-exports from `@robota-sdk/agent-core` via `src/shared/types.ts` (`IExecutor`,
   - `src/shared/__tests__/types.test.ts` — shared type validation
   - `src/utils/__tests__/transformers.test.ts` — pure transformer functions
   - `src/__tests__/exports.test.ts` — public entry point export surface
-- **Coverage gap**: SSE streaming paths have limited coverage.
+- **SSE contract**: `src/client/__tests__/chat-stream-http.test.ts` verifies that a server outcome frame
+  follows the terminal message and survives to the executor; server route tests assert one outcome
+  frame before `done`.

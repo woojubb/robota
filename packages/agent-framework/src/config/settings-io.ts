@@ -3,6 +3,7 @@ import { join, dirname } from 'node:path';
 
 import { ensureOwnerOnlyDirectory, tightenExistingFile } from '@robota-sdk/agent-core/node';
 
+import { NoCurrentProviderProfileError } from './no-current-provider-profile-error.js';
 import { SettingsParseError } from './settings-parse-error.js';
 
 import type { TUniversalValue } from '@robota-sdk/agent-core';
@@ -47,23 +48,24 @@ export function writeSettings(path: string, settings: TSettingsData): void {
   writeFileSync(path, JSON.stringify(settings, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 });
 }
 
+/**
+ * CONFIG-002: writes `providers[currentProvider].model`, the only shape `loadConfig()` accepts.
+ * A file with no active profile (missing file, or legacy flat `provider`) is refused with
+ * `NoCurrentProviderProfileError` and left untouched — the writer never emits a loader-rejected shape.
+ */
 export function updateModelInSettings(settingsPath: string, modelId: string): void {
   const settings = readSettings(settingsPath);
   const currentProvider = settings.currentProvider;
   const providers = settings.providers;
-  if (typeof currentProvider === 'string' && isSettingsData(providers)) {
-    const providerMap = providers as Record<string, TSettingsData | undefined>;
-    providerMap[currentProvider] = {
-      ...(isSettingsData(providerMap[currentProvider]) ? providerMap[currentProvider] : {}),
-      model: modelId,
-    };
-    settings.providers = providerMap;
-  } else {
-    settings.provider = {
-      ...(isSettingsData(settings.provider) ? settings.provider : {}),
-      model: modelId,
-    };
+  if (typeof currentProvider !== 'string' || !isSettingsData(providers)) {
+    throw new NoCurrentProviderProfileError(settingsPath);
   }
+  const providerMap = providers as Record<string, TSettingsData | undefined>;
+  providerMap[currentProvider] = {
+    ...(isSettingsData(providerMap[currentProvider]) ? providerMap[currentProvider] : {}),
+    model: modelId,
+  };
+  settings.providers = providerMap;
   writeSettings(settingsPath, settings);
 }
 

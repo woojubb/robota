@@ -1,121 +1,21 @@
 {
-  "$schema-note": "INFRA-055 / INFRA-056. SOURCE OF TRUTH for which status checks each protected branch's ruleset must require, keyed by branch. This file is the source, not a mirror. Two consumers read it, with DIFFERENT assertions per branch: `scripts/harness/scan-main-required-checks.mjs` (registered in `pnpm harness:scan`) asserts offline that every `main` context resolves to a workflow job that ACTUALLY RUNS AND CAN FAIL on a PR whose base is `main`, and reconciles both branches against the live rulesets under `--live` (run on a schedule by `.github/workflows/ruleset-drift.yml`); `scripts/harness/ci-mirror-map.mjs` asserts that every `develop` context is either reproduced by a `pnpm harness:verify-like-ci` stage — step for step — or declared un-mirrorable with a reason. Change a ruleset and this file in the same change.",
-  "why": "Measured on promotion #1427: all five contexts `protect-main` then required were no-ops on a `main` PR — `build`/`quality`/`scans`/`dependency audit` (then still named `security audit`) were 3-6 second echoes whose every real step was gated on `base_ref != 'main'`, and `commitlint` was skipped wholesale. Branch protection reported green from jobs that deliberately did no work, while the job that verifies a promotion (`release-grade verification`, 7m31s) was not required and CodeQL failed without blocking.",
+  "$schema-note": "Required status checks per protected branch. Keep in sync with the GitHub rulesets.",
   "branches": {
     "develop": {
       "ruleset": "protect-develop",
       "ruleset_id": 18715844,
-      "mirrored_by": "pnpm harness:verify-like-ci",
-      "why": "INFRA-056. `verify-like-ci` is named across the rules and skills as THE CI-equivalent verification entry point, and it ran neither `pnpm build` nor any package's test suite — the two required gates most likely to catch a functional regression. This list is what that claim is measured against: `scripts/harness/ci-mirror-map.mjs` pins every context below to a stage, step for step, or to an explicit un-mirrorable reason, so a context added here without a stage turns `pnpm harness:test` RED.",
       "required_status_checks": [
         {
-          "context": "build",
+          "context": "pr-validation",
           "workflow": ".github/workflows/ci.yml",
-          "job": "build",
-          "verifies": "`pnpm build`, gated on the verification plan containing a scope whose checks need the monorepo build output. Produces the `package-dist` artifact every later dist-consuming job restores.",
-          "local": {
-            "entryPoint": "pnpm harness:verify-like-ci"
-          }
+          "job": "pr-validation",
+          "verifies": "install, build, typecheck, lint, test, dependency direction, release safety checks"
         },
         {
-          "context": "quality",
+          "context": "security",
           "workflow": ".github/workflows/ci.yml",
-          "job": "quality",
-          "verifies": "`pnpm harness:verify` over the affected scopes (their build, TEST, lint and typecheck), plus the dist-dependent build-output contracts scan and the agent-cli binary e2e.",
-          "local": {
-            "entryPoint": "pnpm harness:verify-like-ci"
-          }
-        },
-        {
-          "context": "scans",
-          "workflow": ".github/workflows/ci.yml",
-          "job": "scans",
-          "verifies": "The harness's own test suite plus the dist-independent scan suite, on a fresh checkout that has no `dist/` at all.",
-          "local": {
-            "entryPoint": "pnpm harness:pre-push"
-          }
-        },
-        {
-          "context": "dependency audit",
-          "workflow": ".github/workflows/ci.yml",
-          "job": "dependency-audit",
-          "verifies": "osv-scanner over `pnpm-lock.yaml` — known-vulnerable DEPENDENCIES only, gated on a package-manifest or lockfile diff. It inspects no first-party source: injection, secrets and misconfiguration in this repository's own code are `review-gate`'s and CodeQL's surface, not this context's. Renamed from `security audit` by INFRA-060 D5, which is the name that invited it to be read as a whole-PR security review.",
-          "local": {
-            "notRunnable": "ci-mirror-map NOT_MIRRORED"
-          }
-        },
-        {
-          "context": "commitlint",
-          "workflow": ".github/workflows/ci.yml",
-          "job": "commitlint",
-          "verifies": "Conventional-commit format for every commit the PR itself authored (first-parent range against the base).",
-          "local": {
-            "entryPoint": "pnpm harness:verify-like-ci"
-          }
-        },
-        {
-          "context": "tui-e2e",
-          "workflow": ".github/workflows/ci.yml",
-          "job": "tui-e2e",
-          "verifies": "The TUI PTY e2e suite driven against the built `robota` binary. Gated on the `changes` classifier reporting code.",
-          "local": {
-            "entryPoint": "pnpm harness:verify-like-ci"
-          }
-        },
-        {
-          "context": "examples-typecheck",
-          "workflow": ".github/workflows/ci.yml",
-          "job": "examples-typecheck",
-          "verifies": "The `examples/` workspaces typecheck against locally-built packages — the public surface as a consumer sees it. Gated on the `changes` classifier reporting code.",
-          "local": {
-            "entryPoint": "pnpm harness:verify-like-ci"
-          }
-        },
-        {
-          "context": "windows-shell",
-          "workflow": ".github/workflows/ci.yml",
-          "job": "windows-shell",
-          "verifies": "The cross-platform shell resolver and the Shell tool spawning PowerShell, on real `windows-latest`. Gated on the `changes` classifier reporting code.",
-          "local": {
-            "notRunnable": "ci-mirror-map NOT_MIRRORED"
-          }
-        },
-        {
-          "context": "review-gate",
-          "workflow": ".github/workflows/review-gate.yml",
-          "job": "review-gate",
-          "verifies": "Reads the PR's code-scanning output and blocks on findings this PR INTRODUCES at severity error or security-severity high/critical. Advisory findings are printed, never blocking, because every alert in the standing backlog would otherwise redden every PR. A PR that changes no code is PASS (not-applicable) via the same classifier ci.yml gates its build matrix on; an analysis that is missing or unreadable BLOCKS.",
-          "local": {
-            "notRunnable": "ci-mirror-map NOT_MIRRORED"
-          }
-        },
-        {
-          "context": "workflow provenance",
-          "workflow": ".github/workflows/workflow-provenance-gate.yml",
-          "job": "provenance",
-          "verifies": "INFRA-097 / issue #1719 — the trusted control plane. It answers the one question that can be answered without running anything: does this pull request modify a file that a REQUIRED check loads? It runs on `pull_request_target`, which loads its own definition from the BASE branch, so a pull request cannot change what this gate says about it — an edit takes effect only after merge, which is after the gate it would have moved has run. It checks out the base and only the base, FETCHES the head without checking it out (reading a file name is not running the file), installs nothing, and holds `contents: read`. That is what turns a self-edit of the control plane from VISIBLE into UNMERGEABLE.",
-          "local": {
-            "notRunnable": "ci-mirror-map NOT_MIRRORED"
-          }
-        },
-        {
-          "context": "regression-red-proof (enforcing: accidental-green only)",
-          "workflow": ".github/workflows/ci.yml",
-          "job": "regression-red-proof",
-          "verifies": "INFRA-046 — a regression test must FAIL with its fix reversed. Only the `accidental-green` verdict blocks (`REGRESSION_RED_PROOF_ENFORCE=1`): a test that still passes against the pre-fix code guards nothing, and that is a defect whatever else the run found. `inconclusive`, `skipped` and `red-proof-unreached` all pass, so a verdict the checker could not reach never blocks a pull request — the property that makes this refusal trustworthy. PROMOTED 2026-08-22 on exactly the evidence its own exclusion demanded: `accidental-green` had never fired on a real pull request, and \"one observed firing is what promotes it\". It fired twice on PR #1983 and caught a real defect — a `run-all-scans.mjs` registration hunk reversible with every changed test still passing — which the author repaired in three rounds without assistance.",
-          "local": {
-            "notRunnable": "the checker RUNS locally and is useful there (`REGRESSION_RED_PROOF_ENFORCE=1 node scripts/harness/check-regression-red-proof.mjs`), but it cannot reproduce this context's VERDICT. The opt-out is read from `PR_BODY` joined with the commit subjects; off a pull request `PR_BODY` is empty, so an `allow-green-at-base: <reason>` declared in the body alone is invisible locally and the run reports `accidental-green` for a case CI legitimately excuses. A mirror that can disagree with the gate on the gate's own escape hatch is not a mirror."
-          }
-        }
-      ],
-      "deliberately_not_required": [
-        {
-          "context": "patch-coverage (advisory)",
-          "reason": "Advisory by design (HARNESS-041). It runs and prints a verdict on every code PR but never blocks; excluded because a required context must be able to fail, and this one deliberately cannot. INFRA-046 holds it advisory over two open defects: NO-DATA lines are folded into the below-target total, and the React-UI denominator policy is undecided."
-        },
-        {
-          "context": "promotion ancestry / promotion closes / main PR source guard / release-grade verification",
-          "reason": "Promotion gates, excluded at the job level on a `develop` PR. They are `protect-main`'s required list, declared under `branches.main`."
+          "job": "security",
+          "verifies": "secret scan (gitleaks) on the change range"
         }
       ]
     },
@@ -124,65 +24,16 @@
       "ruleset_id": 18715845,
       "required_status_checks": [
         {
-          "context": "promotion ancestry",
+          "context": "pr-validation",
           "workflow": ".github/workflows/ci.yml",
-          "job": "promotion-ancestry",
-          "verifies": "INFRA-051 A1/A2/A3 — the promotion carries `main`'s ancestry, adds no commit `develop` has never seen, and promotes `develop`'s tree unchanged.",
-          "local": {
-            "entryPoint": "node scripts/harness/scan-promotion-ancestry.mjs --base main --head develop",
-            "note": "the arguments are part of the entry point: with no --base it reads GITHUB_BASE_REF, finds none off a PR, and SKIPS — running green having judged nothing."
-          }
+          "job": "pr-validation",
+          "verifies": "install, build, typecheck, lint, test, dependency direction, release safety checks"
         },
         {
-          "context": "main PR source guard",
+          "context": "security",
           "workflow": ".github/workflows/ci.yml",
-          "job": "main-pr-source-guard",
-          "verifies": "#1216 recurrence guard — a PR to `main` comes from `develop`/`release/*`/`hotfix/*` in this repository, never a feature branch and never a fork.",
-          "local": {
-            "notRunnable": "reads the pull request's head repository and ref from GitHub. Off a real PR there is no head to read, so a local run would either invent the input or report a pass over a source it never saw — the vacuity this guard was added to close."
-          }
-        },
-        {
-          "context": "promotion closes",
-          "workflow": ".github/workflows/ci.yml",
-          "job": "promotion-closes",
-          "verifies": "INFRA-104 — the promotion body carries a closing keyword for every OPEN issue the pull requests it promotes declared they close. GitHub reads closing keywords only on a default-branch pull request, so the keyword on each feature→develop PR closes nothing (#1802 `Closes #1750`, #1816 `Closes #1722` — both merged, both issues left open) and the promotion is the only pull request that can carry them. The requirement is DERIVED from the promotion's own commit subjects, not from what the body claims: each `(#NNNN)` suffix resolves to that PR's body, each `Closes #N` in it is confirmed to be an OPEN issue (not a Task ID — PR #1801's body says `Closes PROV-007.`) through the issues API, and a derivation that cannot complete BLOCKS rather than reporting an empty requirement.",
-          "local": {
-            "entryPoint": "node scripts/harness/scan-promotion-closes.mjs --pr <n> --repo <owner/name>",
-            "note": "the --pr argument is part of the entry point: the verdict is computed from a live pull request's commits, body and referenced issue states. With no PR there is nothing to judge, and a run that invented one would report a pass over a promotion it never saw."
-          }
-        },
-        {
-          "context": "release-grade verification",
-          "workflow": ".github/workflows/ci.yml",
-          "job": "release-grade-verify",
-          "verifies": "`pnpm harness:verify:release` — the only required context that executes the repository's code on a promotion: full build, full scan suite, harness suite, typecheck, lint, an unconditional osv-scanner, and the workspace test suites. SPANS, corrected by INFRA-063 because the earlier wording read as total: every workspace script named exactly `test` (via `pnpm run -r --if-present test`), plus every suite declared under another `test:*` name that `scripts/harness/release-test-suites.mjs` enumerates — `test:bin` today, and whatever is added next without anyone editing a list. DOES NOT SPAN, by declaration rather than by silence: `test:pty` (runs as the required `tui-e2e` context on the develop PR of every commit a promotion carries), `test:live` and `test:bun` (need provider credentials / a Bun toolchain no runner has), the `test:coverage` and `test:watch` variants of suites already run, and `apps/agent-app`'s Electron e2e pair, which no workflow runs at all and is recorded as debt. `scan-release-sweep-coverage.mjs` re-verifies each of those claims on every scan run and turns a new unaccounted-for `test:*` script red.",
-          "local": {
-            "entryPoint": "pnpm harness:verify:release"
-          }
-        },
-        {
-          "context": "workflow provenance",
-          "workflow": ".github/workflows/workflow-provenance-gate.yml",
-          "job": "provenance",
-          "verifies": "INFRA-097 / issue #1719 — the trusted control plane. It answers the one question that can be answered without running anything: does this pull request modify a file that a REQUIRED check loads? It runs on `pull_request_target`, which loads its own definition from the BASE branch, so a pull request cannot change what this gate says about it — an edit takes effect only after merge, which is after the gate it would have moved has run. It checks out the base and only the base, FETCHES the head without checking it out (reading a file name is not running the file), installs nothing, and holds `contents: read`. That is what turns a self-edit of the control plane from VISIBLE into UNMERGEABLE.",
-          "local": {
-            "notRunnable": "the verdict is computed from a live pull request's changed-file list against its base. Off a real pull request there is no file list to read, so a local run would either invent one or report a pass over a control plane it never inspected — the vacuity this gate exists to close."
-          }
-        }
-      ],
-      "deliberately_not_required": [
-        {
-          "context": "build / quality / scans / dependency audit",
-          "reason": "Develop-side gates. On a `main` PR they are excluded at the job level and `release-grade verification` subsumes them: it runs the whole-workspace build, the whole scan suite and a whole-workspace typecheck/lint where these are affected-scope-selective via `--base-ref`, and its osv-scanner step is unconditional where `dependency audit`'s is gated on a manifest diff. On the TEST half the word FULL was an over-claim and INFRA-063 removed it: the sweep covers every `test` script plus every enumerated `test:*` suite, and its exclusions are named with reasons under `branches.main` above rather than left to `--if-present`'s silence. `quality`'s develop-side coverage is a subset of that (it runs `test` over affected scopes and the same `test:bin` binary e2e), so the subsumption holds; `tui-e2e` is the one suite required on `develop` and deliberately not re-run here."
-        },
-        {
-          "context": "commitlint",
-          "reason": "Excluded on `main` by design — a promotion's merge-commit subject is generated by GitHub, and every commit it promotes was linted on its own PR to `develop`. It was previously REQUIRED here while skipping wholesale, which branch protection accepts."
-        },
-        {
-          "context": "CodeQL / Analyze (javascript-typescript)",
-          "reason": "The standalone `codeql.yml` is push-only and therefore has no pull-request context to require. Pull-request CodeQL now runs as the ordered analyzer predecessor inside `review-gate.yml`, whose `review-gate` job is the stable verdict context and uses `classify-changed-paths.mjs` for docs-only applicability. Separately, raw CodeQL results are diff-scoped and a promotion's diff is the whole `develop`->`main` delta, so its verdict scales with promotion size rather than with anything the promotion decides (GitHub's own summary on #1427: `Alerts not introduced by this pull request might have been detected because the code changes were too large`)."
+          "job": "security",
+          "verifies": "secret scan (gitleaks) on the change range"
         }
       ]
     }

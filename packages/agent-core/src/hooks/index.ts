@@ -5,6 +5,12 @@ export type { IRunHooksResult } from './hook-runner.js';
 // feeds the BROWSER build (CORE-028). They are exported from `@robota-sdk/agent-core/node`.
 export { GuardrailExecutor } from './executors/guardrail-executor.js';
 export { decodeHookVerdict } from './verdict-decoder.js';
+export {
+  HOOK_ENFORCEMENT_POLICY,
+  isEnforcing,
+  assertPolicyCoherent,
+} from './enforcement-policy.js';
+export type { THookEnforcementPosture, IHookEventPolicy } from './enforcement-policy.js';
 export type {
   THookEvent,
   TSessionEndReason,

@@ -1,8 +1,5 @@
 import { assertProjectReadPurpose } from './project-reader-path.js';
-import {
-  deleteWorkspaceRelativeFile,
-  writeWorkspaceRelativeFile,
-} from './project-relative-writer.js';
+import { createWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 import {
   assertWorkspaceProjectAuthority,
@@ -10,9 +7,8 @@ import {
   getWorkspaceProjectIdentityResolver,
 } from './workspace-authority.js';
 
+import type { IWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import type {
-  IWorkspaceIdentity,
-  IWorkspaceIdentityResolver,
   IWorkspaceProjectAuthority,
   IWorkspaceProjectMutation,
   TWorkspaceProjectAuthorityCandidate,
@@ -24,20 +20,19 @@ const projectMutations = new WeakMap<object, IWorkspaceProjectAuthority>();
 class WorkspaceProjectMutation {
   constructor(
     private readonly authority: IWorkspaceProjectAuthority,
-    private readonly identity: IWorkspaceIdentity,
-    private readonly identityResolver: IWorkspaceIdentityResolver,
+    private readonly boundary: IWorkspaceProjectMutationBoundary,
   ) {}
 
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void {
     assertWorkspaceProjectAuthority(this.authority);
     assertProjectReadPurpose(purpose);
-    writeWorkspaceRelativeFile(this.identity, this.identityResolver, relativePath, content);
+    this.boundary.write(relativePath, content);
   }
 
   deleteFile(relativePath: string, purpose: string): boolean {
     assertWorkspaceProjectAuthority(this.authority);
     assertProjectReadPurpose(purpose);
-    return deleteWorkspaceRelativeFile(this.identity, this.identityResolver, relativePath);
+    return this.boundary.delete(relativePath);
   }
 }
 
@@ -55,8 +50,10 @@ export function createWorkspaceProjectMutation(
   const mutation = Object.freeze(
     new WorkspaceProjectMutation(
       accepted,
-      getWorkspaceProjectIdentity(accepted),
-      getWorkspaceProjectIdentityResolver(accepted),
+      createWorkspaceProjectMutationBoundary(
+        getWorkspaceProjectIdentity(accepted),
+        getWorkspaceProjectIdentityResolver(accepted),
+      ),
     ),
   );
   projectMutations.set(mutation, accepted);

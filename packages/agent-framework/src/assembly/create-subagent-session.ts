@@ -7,8 +7,14 @@
  * Session suitable for subagent use.
  */
 
+import {
+  DEFERRED_WITHOUT_LOADER_MESSAGE,
+  TOOL_SEARCH_TOOL_NAME,
+  assertResidentToolRemains,
+} from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
+import { formatDeferredToolRoster } from './deferred-tool-roster.js';
 import { assembleSubagentPrompt } from './subagent-prompts.js';
 import { resolveRoleFallbackChain } from '../routing/role-model-routing.js';
 import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
@@ -18,6 +24,7 @@ import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
+import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
 import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
 import type {
   TBackgroundPermissionPolicy,
@@ -39,14 +46,41 @@ const MODEL_SHORTCUTS: Record<string, string> = {
 };
 const LEGACY_AGENT_TOOL_NAME = 'Agent';
 
+/**
+ * Issue #2317: the context members a subagent assembly READS, and no others.
+ *
+ * `parentContext` demanded the parent's whole `ILoadedContext` — seven members, two of them
+ * (`agentsFileEntries`, `projectNotesFileEntries`) carrying the full text of every AGENTS.md and
+ * CLAUDE.md the parent loaded — while this assembly reads exactly two. Declared structurally, as
+ * ARCH-044 did for `parentConfig`: the in-process runner passes its full `ILoadedContext` and
+ * satisfies it, and the child-process runner passes a projection carrying only these two, which is
+ * what keeps the file contents off the wire.
+ */
+export interface ISubagentParentContext {
+  readonly agentsMd: ILoadedContext['agentsMd'];
+  readonly projectNotesMd: ILoadedContext['projectNotesMd'];
+}
+
 /** Options for creating a subagent session. */
 export interface ISubagentOptions {
   /** Agent definition (built-in or custom). */
   agentDefinition: IAgentDefinition;
-  /** Parent's resolved config (for provider, permissions, etc.). */
-  parentConfig: IResolvedConfig;
-  /** Parent's loaded context (CLAUDE.md, AGENTS.md). */
-  parentContext: ILoadedContext;
+  /**
+   * ARCH-044 (issue #2047): the config members this assembly READS, not the parent's whole config.
+   *
+   * Declared structurally so both callers satisfy it — the in-process runner passes its full
+   * `IResolvedConfig`, and the child-process runner passes a projection carrying only these. Before
+   * this it demanded `IResolvedConfig`, which is why the child's wire payload had to carry the
+   * parent's resolved credential and `env` map to typecheck, neither of which anything here reads.
+   */
+  parentConfig: {
+    readonly provider: { readonly model: string };
+    readonly permissions: IResolvedConfig['permissions'];
+    readonly defaultTrustLevel: IResolvedConfig['defaultTrustLevel'];
+    readonly hooks?: IResolvedConfig['hooks'];
+  };
+  /** The two members of the parent's loaded context this assembly reads (issue #2317). */
+  parentContext: ISubagentParentContext;
   /** Parent session's available tools (to inherit/filter). */
   parentTools: IToolWithEventService[];
   /** AI provider instance. */
@@ -70,6 +104,8 @@ export interface ISubagentOptions {
   cwd: string;
   /** Stable session ID for transcript files. */
   sessionId?: string;
+  /** Optional session store used by a resumed fork to persist its new turns. */
+  sessionStore?: IInteractiveSessionStore;
   /** Optional logger for subagent transcripts. */
   sessionLogger?: ISessionLogger;
   /** Whether this is a fork worker (uses fork suffix instead of standard). */
@@ -161,6 +197,25 @@ function filterTools(
 }
 
 /**
+ * CLI-1990: the residency contract crosses into the child unchanged. A deferred tool that survives
+ * the allow/deny lists is unreachable without its loader, and an allowlist naming the tool does not
+ * name the loader — so the parent's loader travels with it. A set in which every survivor is
+ * deferred is refused, exactly as the parent's assembly refuses it. Mutates `tools` in place, which
+ * is the fresh array `filterTools` returned.
+ */
+function carryResidencyContract(
+  tools: IToolWithEventService[],
+  parentTools: readonly IToolWithEventService[],
+): void {
+  assertResidentToolRemains(tools.map((tool) => tool.schema));
+  const hasDeferred = tools.some((tool) => tool.schema.deferLoading === true);
+  if (!hasDeferred || tools.some((tool) => tool.getName() === TOOL_SEARCH_TOOL_NAME)) return;
+  const loader = parentTools.find((tool) => tool.getName() === TOOL_SEARCH_TOOL_NAME);
+  if (loader === undefined) throw new Error(DEFERRED_WITHOUT_LOADER_MESSAGE);
+  tools.push(loader);
+}
+
+/**
  * Create a fully-configured Session for subagent execution.
  *
  * Assembles provider, tools, and system prompt from parent context and
@@ -175,6 +230,8 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     agentDefinition,
     options.commandSemanticRoles?.subagentSpawn,
   );
+
+  carryResidencyContract(tools, parentTools);
 
   // Resolve model (precedence): explicit alias override > SELFHOST-006 per-role routing > parent model.
   // v1 resolution site (per opaque role key = role ?? name). The subagent runs on the PARENT provider
@@ -193,6 +250,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
   // Assemble system prompt with framework suffix
   const systemMessage = assembleSubagentPrompt({
     agentBody: agentDefinition.systemPrompt,
+    toolRoster: formatDeferredToolRoster(tools),
     projectNotesMd: parentContext.projectNotesMd,
     agentsMd: parentContext.agentsMd,
     isForkWorker: options.isForkWorker ?? false,
@@ -208,8 +266,10 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     terminal,
     cwd: options.cwd,
     ...(options.sessionId !== undefined ? { sessionId: options.sessionId } : {}),
+    ...(options.sessionStore !== undefined ? { sessionStore: options.sessionStore } : {}),
     ...(options.sessionLogger !== undefined ? { sessionLogger: options.sessionLogger } : {}),
     model,
+    ...(agentDefinition.effort !== undefined ? { effort: agentDefinition.effort } : {}),
     maxTurns: agentDefinition.maxTurns,
     permissions: parentConfig.permissions,
     permissionMode: options.permissionMode,

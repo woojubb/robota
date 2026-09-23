@@ -59,6 +59,8 @@ function makeArgs(overrides: Partial<IParsedCliArgs> = {}): IParsedCliArgs {
     yes: false,
     memory: undefined,
     memoryAutoSave: false,
+    screenReader: undefined,
+    reducedMotion: undefined,
     ...overrides,
   };
 }

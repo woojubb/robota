@@ -1,4 +1,12 @@
-import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync, mkdtempSync } from 'node:fs';
+import {
+  mkdirSync,
+  rmSync,
+  existsSync,
+  writeFileSync,
+  readFileSync,
+  mkdtempSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -9,7 +17,7 @@ import { MarketplaceClient } from '../marketplace-client.js';
 import type { TMarketplaceSource } from '../marketplace-client.js';
 import type { TExecFn } from '../marketplace-types.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-marketplace-test-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-marketplace-test-')));
 
 function setupDir(path: string): void {
   mkdirSync(path, { recursive: true });

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, realpathSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 function collectionFile(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'json-collection-'));
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'json-collection-')));
   dirs.push(dir);
   return path.join(dir, 'c.json');
 }
@@ -152,7 +152,7 @@ describe('persistCollection', () => {
   it('an unreadable file THROWS rather than reading as empty', async () => {
     // Treating a real read failure as "nothing was stored" would discard exactly the state this
     // module exists to keep — the defect DAG-003 is about, one level down.
-    const dir = mkdtempSync(path.join(tmpdir(), 'json-collection-'));
+    const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'json-collection-')));
     dirs.push(dir);
     const into = new Map<string, { id: string }>();
     // A directory is not a file: reading it fails with EISDIR, not ENOENT.

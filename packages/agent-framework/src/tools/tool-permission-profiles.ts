@@ -18,13 +18,13 @@ export const FRAMEWORK_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPe
      * Starts a shell command that outlives the call. Execution, not modification — `acceptEdits`
      * accepting file edits is not the user accepting a background process.
      */
-    BackgroundProcess: { argumentKey: 'command', riskClass: 'execute' },
+    BackgroundProcess: { argument: { key: 'command', kind: 'command' }, riskClass: 'execute' },
 
     /**
      * Runs a slash command on the user's behalf. A command can do anything the CLI can do, so the
      * blast radius is not bounded by a path.
      */
-    ExecuteCommand: { argumentKey: 'command', riskClass: 'execute' },
+    ExecuteCommand: { argument: { key: 'command', kind: 'command' }, riskClass: 'execute' },
 
     /**
      * Spawns a subagent, which then runs with its own tools and its own permission policy.

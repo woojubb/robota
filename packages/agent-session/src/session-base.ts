@@ -10,6 +10,7 @@ import type {
   IHistoryEntry,
   IToolSchema,
   TModelEffort,
+  TModelEffortSelection,
   TPermissionMode,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -114,7 +115,7 @@ export abstract class SessionBase {
    */
   async applyModelOptions(options: {
     model?: string;
-    effort?: TModelEffort;
+    effort?: TModelEffortSelection;
     temperature?: number;
     maxOutputTokens?: number;
   }): Promise<void> {
@@ -133,6 +134,34 @@ export abstract class SessionBase {
       ...(options.maxOutputTokens !== undefined && { maxTokens: options.maxOutputTokens }),
     });
     this.model = nextModel;
+  }
+
+  /** Read the selection for the next model call; provider default remains `auto`. */
+  getModelEffort(): TModelEffortSelection {
+    // Some lightweight session doubles intentionally implement only the execution surface. Keep
+    // this read-only projection total for those callers; the real Robota instance exposes getModel.
+    const getModel = (
+      this.agent as Robota & { getModel?: () => { effort?: TModelEffortSelection } }
+    ).getModel;
+    if (getModel === undefined) return 'auto';
+    try {
+      return getModel.call(this.agent).effort ?? 'auto';
+    } catch (error) {
+      // Preserve the agent's own [LIFECYCLE] error when a destroyed agent is subsequently run.
+      if (error instanceof Error && /disposed/i.test(error.message)) return 'auto';
+      throw error;
+    }
+  }
+
+  /** Run an operation with a temporary effort override and restore it on every exit path. */
+  async withScopedModelEffort<T>(effort: TModelEffort, operation: () => Promise<T>): Promise<T> {
+    const previous = this.getModelEffort();
+    await this.applyModelOptions({ effort });
+    try {
+      return await operation();
+    } finally {
+      await this.applyModelOptions({ effort: previous });
+    }
   }
 
   /**
@@ -231,6 +260,21 @@ export abstract class SessionBase {
 
   getModelId(): string {
     return this.model;
+  }
+
+  /**
+   * The tool schemas the model is offered at the next request (CLI-1990).
+   *
+   * The offered set, not the registered one: a deferred tool that has not been loaded is absent,
+   * because it is absent from the request. `/context` reads this to report what the tool schemas
+   * actually cost, which is the only surface that makes deferral's saving observable.
+   */
+  getOfferedToolSchemas(): IToolSchema[] {
+    return this.agent.getOfferedToolSchemas();
+  }
+
+  getProviderId(): string {
+    return this.aiProvider.name;
   }
 
   /** Add an event entry to history (not a chat message) */

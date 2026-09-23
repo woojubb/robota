@@ -3,7 +3,7 @@
  *
  * The SSOT for carrying **arbitrary payloads** over a transport connection, alongside — and
  * independent of — the text-agent protocol profile (`text_delta`/`submit`/…) that
- * `agent-transport-protocol` owns. A consumer declares a named channel with its own event
+ * `agent-transport` owns. A consumer declares a named channel with its own event
  * vocabulary and, optionally, opaque binary frames; the transport routes those frames without ever
  * inspecting or interpreting the bytes.
  *
@@ -14,7 +14,7 @@
  * Layering (CMD-004 precedent — contracts below, per-environment behavior above):
  *
  *   agent-interface-transport   ← THIS FILE: the channel contracts
- *   agent-transport-protocol    ← the pure wire codec for these frames
+ *   agent-transport             ← the pure wire codec for these frames
  *   agent-transport-ws          ← the carrier: routes binary WS frames to channels, text WS
  *                                 frames to the text-agent protocol profile
  */

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -22,7 +22,7 @@ import { loadedRecordOrMissing } from './session-load-helpers.js';
  * adapter-gated on a surface-supplied `recallMemory` policy, guarded (recall failure never breaks the turn).
  */
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-recall-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-recall-')));
 const ORIGINAL_HOME = process.env.HOME;
 const RECALL_BODY = '### deploy\nThe staging deploy key rotates every 30 days.';
 const BUDGET: IMemoryBudget = { maxTopics: 4, maxTopicChars: 2000 };
@@ -182,5 +182,93 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
     await session.submit('anything');
 
     expect(recallSpy).toHaveBeenCalledWith('anything', { maxTopics: 2, maxTopicChars: 500 });
+  });
+
+  it('TC-07 (MEM-001): a recall with references records provenance and emits memory_retrieved', async () => {
+    const cwd = makeProject();
+    const { provider } = createProvider();
+    const references = [
+      { topic: 'deploy', path: 'deploy.md', score: 5, truncated: false },
+      { topic: 'pnpm', path: 'pnpm.md', score: 3, truncated: true },
+    ];
+    const store = createFakeStore(async () => ({
+      content: RECALL_BODY,
+      references,
+      truncated: false,
+    }));
+    const session = new InteractiveSession({
+      cwd,
+      provider,
+      bare: true,
+      memoryStore: store,
+      recallMemory: RECALL_ON,
+    });
+    const emitted: unknown[] = [];
+    session.on('memory_event', (event) => emitted.push(event));
+
+    await session.submit('how do I rotate the deploy key?');
+
+    expect(session.getUsedMemoryReferences()).toEqual(references);
+    expect(emitted).toHaveLength(2);
+    expect(emitted[0]).toMatchObject({ type: 'memory_retrieved', topic: 'deploy' });
+    expect(emitted[1]).toMatchObject({ type: 'memory_retrieved', topic: 'pnpm' });
+
+    // MEM-2055: the visible notice renders AFTER the turn's own messages, never ahead of them —
+    // recall runs before `executePromptTurn`, so recording it immediately (the first cut of this
+    // fix) put it first instead.
+    const kinds = session.getFullHistory().map((entry) => entry.type);
+    const userIndex = kinds.indexOf('user');
+    const memoryEventIndex = kinds.indexOf('memory-event');
+    expect(userIndex).toBeGreaterThanOrEqual(0);
+    expect(memoryEventIndex).toBeGreaterThan(userIndex);
+  });
+
+  it('TC-08 (MEM-001): usedMemoryReferences resets each turn — no leftover from a prior recall', async () => {
+    const cwd = makeProject();
+    const { provider } = createProvider();
+    let call = 0;
+    const store = createFakeStore(async () => {
+      call += 1;
+      return call === 1
+        ? {
+            content: RECALL_BODY,
+            references: [{ topic: 'deploy', path: 'deploy.md', score: 5, truncated: false }],
+            truncated: false,
+          }
+        : { content: '', references: [], truncated: false };
+    });
+    const session = new InteractiveSession({
+      cwd,
+      provider,
+      bare: true,
+      memoryStore: store,
+      recallMemory: RECALL_ON,
+    });
+
+    await session.submit('rotate the deploy key');
+    expect(session.getUsedMemoryReferences()).toHaveLength(1);
+
+    await session.submit('anything else, no memory this time');
+    expect(session.getUsedMemoryReferences()).toEqual([]);
+  });
+
+  it('TC-09 (MEM-001): an empty recall result records nothing and emits no memory_retrieved event', async () => {
+    const cwd = makeProject();
+    const { provider } = createProvider();
+    const store = createFakeStore(async () => ({ content: '', references: [], truncated: false }));
+    const session = new InteractiveSession({
+      cwd,
+      provider,
+      bare: true,
+      memoryStore: store,
+      recallMemory: RECALL_ON,
+    });
+    const emitted: unknown[] = [];
+    session.on('memory_event', (event) => emitted.push(event));
+
+    await session.submit('anything');
+
+    expect(session.getUsedMemoryReferences()).toEqual([]);
+    expect(emitted).toHaveLength(0);
   });
 });

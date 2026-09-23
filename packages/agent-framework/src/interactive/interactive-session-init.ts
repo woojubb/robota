@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { createLogger } from '@robota-sdk/agent-core';
 
 import { buildCreateSessionOptions } from './create-session-projection.js';
+import { applyForkedSystemPrompt } from './interactive-session-fork-record.js';
 import {
   applyInteractiveWorkspaceManifest,
   interactivePresetOptions,
@@ -25,8 +26,11 @@ import {
 import { injectSavedMessage } from './interactive-session-restore.js';
 import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js';
 import { createSession } from '../assembly/index.js';
-import { BundlePluginLoader } from '../plugins/index.js';
-import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
+import { loadHostBundlePluginsFromScopes } from '../plugins/index.js';
+import {
+  mergePluginHooksWithSources,
+  mergeHooksIntoConfig,
+} from '../plugins/plugin-hooks-merger.js';
 
 import type {
   IInteractiveSessionStandardOptions,
@@ -81,27 +85,35 @@ export async function createInteractiveSession(
   options: IInitOptions,
 ): Promise<ICreatedInteractiveSession> {
   const cwd = options.cwd;
-  const { config, context, projectInfo, contributionSources } =
+  const { config, context, projectInfo, contributionSources, hookSources } =
     await loadInteractiveProjectContext(options);
 
   let mergedConfig: IResolvedConfig = options.language
     ? { ...config, language: options.language }
     : config;
+  const effectiveHookSources = [...hookSources];
 
-  const pluginsDir = join(homedir(), '.robota', 'plugins');
-  const pluginLoader = new BundlePluginLoader(pluginsDir);
+  // Issue #2487: a project-scope install lives under the project's own plugin directory; both
+  // scopes load, the project copy winning by manifest name when a plugin is present in both.
+  const pluginsDirUnder = (base: string): string => join(base, '.robota', 'plugins');
+  const pluginsDirs = [pluginsDirUnder(cwd), pluginsDirUnder(homedir())];
+  // PLG-021 / issue #2025: built through the composition root so a disabled plugin's hooks do not
+  // load. The bare constructor defaults the enablement map to `{}`, which reads as "nothing
+  // disabled" — indistinguishable from a user who disabled nothing. `pluginsDirs` stays a local
+  // because the failure log below names it.
   if (!options.bare) {
     try {
-      const plugins = pluginLoader.loadPluginsSync();
+      const plugins = loadHostBundlePluginsFromScopes(pluginsDirs);
       if (plugins.length > 0) {
-        const pluginHooks = mergePluginHooks(plugins);
+        const pluginHooks = mergePluginHooksWithSources(plugins);
         mergedConfig = {
           ...mergedConfig,
           hooks: mergeHooksIntoConfig(
             mergedConfig.hooks as Record<string, Array<Record<string, unknown>>> | undefined,
-            pluginHooks as Record<string, Array<Record<string, unknown>>>,
+            pluginHooks.hooks as Record<string, Array<Record<string, unknown>>>,
           ),
         };
+        effectiveHookSources.push(...pluginHooks.hookSources);
       }
     } catch (error) {
       // allow-fallback: a plugin problem must not stop the session from starting. CORE-029: what it
@@ -110,7 +122,7 @@ export async function createInteractiveSession(
       // hooks stopped running had nothing to look at. The loader now reports and skips per plugin,
       // so reaching here at all means discovery itself failed.
       logger.warn('plugin discovery failed — no bundle plugin hooks are active this session', {
-        pluginsDir,
+        pluginsDirs,
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -141,6 +153,7 @@ export async function createInteractiveSession(
       contextCapacityHint,
       contributionSources,
     }),
+    effectiveHookSources,
   );
 
   return {
@@ -159,6 +172,8 @@ export interface IAsyncInitDeps {
   resumeSessionId: string | undefined;
   /** Messages deferred until the session is created (set during restore). */
   pendingRestoreMessages: TUniversalMessage[] | null;
+  /** CLI-1994: the resumed record's assembled prompt — see {@link applyForkedSystemPrompt}. */
+  restoredSystemPrompt: string | undefined;
   /** Registry-backed internal prompt handlers; never public InteractiveSession options. */
   permissionHandler: IInitOptions['permissionHandler'];
   askHandler: IInitOptions['askHandler'];
@@ -201,7 +216,8 @@ export async function initializeInteractiveSessionAsync(
   options: IInteractiveSessionStandardOptions,
   deps: IAsyncInitDeps,
 ): Promise<IAsyncInitResult> {
-  const config = await loadInteractiveProjectConfig(options.config, options.projectAccess);
+  const loadedConfig = await loadInteractiveProjectConfig(options.config, options.projectAccess);
+  const { config, hookSources } = loadedConfig;
   const autoCompactThresholdSource =
     config.autoCompactThreshold === undefined ? 'default' : 'settings';
   const checkpointStore = options.editCheckpointStore;
@@ -212,12 +228,15 @@ export async function initializeInteractiveSessionAsync(
     provider: options.provider,
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     config,
+    hookSources,
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
     permissionHandler: deps.permissionHandler,
     ...(deps.askHandler ? { askHandler: deps.askHandler } : {}),
     resumeSessionId: deps.resumeSessionId,
     forkSession: options.forkSession,
+    // CLI-1994: the store this session persists to is where `/fork` writes the copy a job resumes.
+    ...(options.sessionStore !== undefined ? { resumeSessionStore: options.sessionStore } : {}),
     ...(options.sessionLogSink !== undefined ? { sessionLogSink: options.sessionLogSink } : {}),
     ...(options.transcriptPath !== undefined ? { transcriptPath: options.transcriptPath } : {}),
     onTextDelta: deps.onTextDelta,
@@ -230,6 +249,7 @@ export async function initializeInteractiveSessionAsync(
     model: options.model,
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
     appendSystemPrompt: options.appendSystemPrompt,
+    ...(options.outputStyle !== undefined ? { outputStyle: options.outputStyle } : {}),
     ...(options.persona !== undefined ? { persona: options.persona } : {}),
     ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
     language: options.language,
@@ -265,6 +285,12 @@ export async function initializeInteractiveSessionAsync(
           isModelCommandInvocable: deps.isModelCommandInvocable,
         }
       : {}),
+  });
+
+  applyForkedSystemPrompt(created.session, {
+    isFork: options.forkSession === true,
+    restoredSystemPrompt: deps.restoredSystemPrompt,
+    explicitSystemPrompt: options.systemPrompt,
   });
 
   if (deps.pendingRestoreMessages) {

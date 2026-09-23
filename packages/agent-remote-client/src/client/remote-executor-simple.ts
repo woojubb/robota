@@ -18,10 +18,29 @@ import type {
   IChatExecutionRequest,
   IExecutor,
   ILogger,
+  IExecutorChatResult,
+  IModelEffortOutcome,
+  TExecutorStreamEvent,
 } from '@robota-sdk/agent-core';
 
 // Simple inline type checking instead of external type guards
 const DEFAULT_TIMEOUT_MS = 30000;
+
+/** The callback remains local; the server envelope is already the terminal authority. */
+function notifyModelEffortOutcome(
+  logger: ILogger,
+  options: IChatExecutionRequest['options'],
+  outcome: IModelEffortOutcome | undefined,
+): void {
+  if (outcome === undefined || options?.onModelEffortOutcome === undefined) return;
+  try {
+    options.onModelEffortOutcome(outcome);
+  } catch (error) {
+    logger.warn('Model-effort outcome observer failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
 
 function validateChatExecutionRequest(
   request: IChatExecutionRequest | IStreamExecutionRequest,
@@ -107,7 +126,7 @@ export class SimpleRemoteExecutor implements IExecutor {
   /**
    * Execute chat request (IExecutor compatible)
    */
-  async executeChat(request: IChatExecutionRequest): Promise<IAssistantMessage> {
+  async executeChat(request: IChatExecutionRequest): Promise<IExecutorChatResult> {
     validateChatExecutionRequest(request);
 
     this.logger.debug('SimpleRemoteExecutor.executeChat called', {
@@ -130,7 +149,7 @@ export class SimpleRemoteExecutor implements IExecutor {
       request.tools,
       request.options,
     );
-
+    notifyModelEffortOutcome(this.logger, request.options, response.modelEffortOutcome);
     // Convert IResponseMessage to IAssistantMessage (IExecutor requirement)
     const assistantMessage: IAssistantMessage = {
       id: randomUUID(),
@@ -143,8 +162,12 @@ export class SimpleRemoteExecutor implements IExecutor {
     if (response.toolCalls) {
       assistantMessage.toolCalls = response.toolCalls;
     }
-
-    return assistantMessage;
+    return {
+      message: assistantMessage,
+      ...(response.modelEffortOutcome !== undefined && {
+        modelEffortOutcome: response.modelEffortOutcome,
+      }),
+    };
   }
 
   /**
@@ -162,11 +185,11 @@ export class SimpleRemoteExecutor implements IExecutor {
    * There is one assembler in the world and it is the provider's.
    *
    * This generator therefore does the small half: hand each delta to the caller's `onTextDelta` and
-   * yield the terminal message. Yielding ONE message rather than a message per delta is deliberate —
-   * `IExecutor.executeChatStream` yields `TUniversalMessage`, and a partial message is not one; the
-   * live text is what `onTextDelta` is for, and the turn has consumed it that way since CORE-042.
+   * yield the terminal message event followed by the terminal result event. A partial message is not
+   * a completed executor result; live text is what `onTextDelta` is for, and the turn has consumed it
+   * that way since CORE-042.
    */
-  async *executeChatStream(request: IStreamExecutionRequest): AsyncIterable<TUniversalMessage> {
+  async *executeChatStream(request: IStreamExecutionRequest): AsyncIterable<TExecutorStreamEvent> {
     // The SAME validation `executeChat` runs, for the same reason it runs it. The first version of
     // this method mapped `content` to `''` when it was not a string — a silent fallback that shipped
     // a message with its content DELETED to the remote server, and made the two executor entry
@@ -182,7 +205,7 @@ export class SimpleRemoteExecutor implements IExecutor {
       request.tools,
       request.options,
     );
-
+    notifyModelEffortOutcome(this.logger, request.options, response.modelEffortOutcome);
     const assembled: IAssistantMessage = {
       id: randomUUID(),
       role: 'assistant',
@@ -193,7 +216,13 @@ export class SimpleRemoteExecutor implements IExecutor {
     if (response.toolCalls) {
       assembled.toolCalls = response.toolCalls;
     }
-    yield assembled;
+    yield { kind: 'message', message: assembled };
+    yield {
+      kind: 'terminal',
+      ...(response.modelEffortOutcome !== undefined && {
+        modelEffortOutcome: response.modelEffortOutcome,
+      }),
+    };
   }
 
   /**

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -26,7 +26,7 @@ describe('SEC-017 — hostile marketplace input reaches the port as a literal ar
   let client: MarketplaceClient;
 
   beforeEach(() => {
-    pluginsDir = mkdtempSync(join(tmpdir(), 'sec-017-'));
+    pluginsDir = realpathSync(mkdtempSync(join(tmpdir(), 'sec-017-')));
     mockExec = vi.fn().mockReturnValue('');
     client = new MarketplaceClient({ pluginsDir, exec: mockExec as unknown as TExecFn });
   });

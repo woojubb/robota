@@ -3,12 +3,14 @@ import { subagentExecutionRoot } from '@robota-sdk/agent-executor';
 
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
+import { restoreSessionRecordIntoSession } from '../interactive/interactive-session-restore.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ISubagentOptions } from '../assembly/create-subagent-session.js';
 import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
+import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
@@ -91,6 +93,14 @@ export interface IInProcessSubagentRunnerDeps {
    */
   sandboxClient?: ISandboxClient;
   sandboxType?: string;
+  /**
+   * CLI-1994: the interactive-session record store a job's `resumeSessionId` names a record in — the
+   * store `/fork` wrote the copy to. The runner uses it to restore the copied conversation and assembled
+   * system message into the child session before the first turn and to persist the child's new turns;
+   * the conversation itself never travels on the request (ARCH-044). A fork job on a runner with no
+   * store fails, stated as such, rather than starting empty.
+   */
+  resumeSessionStore?: IInteractiveSessionStore;
 }
 
 export type TSubagentRunnerFactory = (deps: IInProcessSubagentRunnerDeps) => ISubagentRunner;
@@ -134,6 +144,7 @@ function applyRequestOverrides(
   return {
     ...definition,
     ...(job.request.model ? { model: job.request.model } : {}),
+    ...(job.request.effort !== undefined ? { effort: job.request.effort } : {}),
     ...(job.request.allowedTools ? { tools: job.request.allowedTools } : {}),
     ...(job.request.disallowedTools ? { disallowedTools: job.request.disallowedTools } : {}),
   };
@@ -148,8 +159,36 @@ function extractFirstArg(toolArgs?: TToolArgs): string | undefined {
 
 function assertSupportedIsolation(job: ISubagentJobStart): void {
   if (job.request.isolation === 'worktree') {
-    throw new Error('Worktree isolation requires a runtime shell subagent runner');
+    // The message names the recovery because this is where the operator meets it: the manager marks
+    // the task failed and shows this text, after the command that spawned it has already returned.
+    throw new Error(
+      'Worktree isolation requires a runtime shell subagent runner, and this session runs subagents ' +
+        'in-process. Ask for the job without isolation — `/fork --same-dir`, or `isolation: "none"` ' +
+        'on a spawn — or run under a composition whose providers the child process can rebuild.',
+    );
   }
+}
+
+/**
+ * CLI-1994: a job that names a session record restores it — messages and assembled system message —
+ * into the freshly built child before its first turn. Only the id reached this runner; the record is
+ * read here and reused by the child Session for turn persistence. No store means the fork cannot be
+ * honoured, and that is a failed job, not an empty one.
+ */
+function resumeRequestedRecord(
+  job: ISubagentJobStart,
+  session: ReturnType<typeof createSubagentSession>,
+  resumeSessionStore: IInteractiveSessionStore | undefined,
+): void {
+  const resumeSessionId = job.request.resumeSessionId;
+  if (resumeSessionId === undefined) return;
+  if (resumeSessionStore === undefined) {
+    throw new Error(
+      `Subagent job ${job.taskId} asks to resume session ${resumeSessionId}, but this runner was ` +
+        'composed without a session record store (resumeSessionStore).',
+    );
+  }
+  restoreSessionRecordIntoSession(resumeSessionStore, resumeSessionId, session);
 }
 
 function emitToolExecutionEvent(job: ISubagentJobStart, event: TSubagentToolExecutionEvent): void {
@@ -186,6 +225,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
     start(job: ISubagentJobStart): ISubagentJobHandle {
       assertSupportedIsolation(job);
       const definition = resolveAgentDefinition(job.request.agentType, deps);
+      const resumeSessionId = job.request.resumeSessionId;
       const session = createSubagentSession({
         agentDefinition: applyRequestOverrides(definition, job),
         parentConfig: deps.config,
@@ -196,6 +236,10 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
         // ARCH-010: the spawn request has always declared `cwd` required; there was simply no option
         // to pass it to, so the child session read `process.cwd()` — the PARENT's directory.
         cwd: subagentExecutionRoot(job),
+        ...(resumeSessionId !== undefined ? { sessionId: resumeSessionId } : {}),
+        ...(resumeSessionId !== undefined && deps.resumeSessionStore !== undefined
+          ? { sessionStore: deps.resumeSessionStore }
+          : {}),
         permissionMode: deps.permissionMode,
         ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
         // CORE-025: carry the task's permission policy + its own tool lists so the child session gates tool
@@ -221,6 +265,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
           deps.onToolExecution?.(event);
         },
       });
+      resumeRequestedRecord(job, session, deps.resumeSessionStore);
 
       return {
         taskId: job.taskId,

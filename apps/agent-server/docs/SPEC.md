@@ -45,10 +45,13 @@ Machine-readable API contract: [`openapi.yaml`](../openapi.yaml) (OpenAPI 3.1).
   client that CORE-044 removed yielded raw provider chunks and depended on a fragment assembler that
   CORE-042 deleted; re-implementing an accumulator client-side would put a second assembler in the
   world, against a fragmentation behaviour no in-repo test can observe.
-- SSE frames: `delta` (`{ text }`), `message` (the assembled `TUniversalMessage`), `done`, and
-  `error`. `error` is its own frame rather than a flavour of `done`, so a client cannot mistake a
-  failed stream for a finished one. Request validation runs BEFORE the headers go out, so a rejected
-  request is an ordinary `400` with its `rejected` list rather than an error frame inside a `200`.
+- SSE frames: `delta` (`{ text }`), `message` (the assembled `TUniversalMessage`), exactly one
+  `model-effort-outcome` for a selected effort, `done`, and `error`. The server-side provider adapter
+  is the outcome authority: the route only transports its one terminal value and refuses a selected
+  request if the adapter emits zero or multiple outcomes. `error` is its own frame rather than a
+  flavour of `done`, so a client cannot mistake a failed stream for a finished one. Request validation
+  runs BEFORE the headers go out, so a rejected request is an ordinary `400` with its `rejected` list
+  rather than an error frame inside a `200`.
 - Streaming cancellation: the client aborting closes the socket, and the handler aborts the provider
   call — so work stops at both ends rather than continuing at the operator's expense.
 - `createApp({ providers })` may be given providers directly (CORE-046). They were built only from
@@ -60,6 +63,10 @@ Machine-readable API contract: [`openapi.yaml`](../openapi.yaml) (OpenAPI 3.1).
   or a tool schema missing its description, is answered `400` with a `rejected` list naming each one.
   It is never partially applied — an ignored `toolChoice` produces a plausible answer the caller did
   not ask for, which is indistinguishable from success.
+- `options.effort` accepts `auto` plus Core's concrete `none`, `minimal`, `low`, `medium`, `high`,
+  `xhigh`, and `max` values. The selection crosses the remote boundary, but an adapter-bound
+  resolution and callback do not: the HTTP response field or SSE `model-effort-outcome` frame carries
+  the server adapter's serializable terminal result.
 - Provider secrets and direct vendor API calls stay server-side in this app.
 - Owns HTTP/WebSocket routing, CORS, rate limiting, and process lifecycle composition, but does not
   own provider semantics, session policy, or Playground UI state.

@@ -7,7 +7,7 @@
  * the typed ProviderConfigError.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -142,7 +142,7 @@ describe('readProviderSettings env-default integration (CLI-066)', () => {
   });
 
   it('TC-01: no settings anywhere + env key set → env-default config', () => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-env-default-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-env-default-')));
 
     const config = readProviderSettings([], {
       providerDefinitions: DEFINITIONS,
@@ -156,7 +156,7 @@ describe('readProviderSettings env-default integration (CLI-066)', () => {
   });
 
   it('TC-03: settings profile wins over the env key', async () => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-env-default-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-env-default-')));
     const robotaDir = join(cwd, '.robota');
     mkdirSync(robotaDir, { recursive: true });
     writeFileSync(
@@ -181,7 +181,7 @@ describe('readProviderSettings env-default integration (CLI-066)', () => {
   });
 
   it('TC-04: no profile + no recognized env key → ProviderConfigError unchanged', () => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-env-default-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-env-default-')));
 
     expect(() =>
       readProviderSettings([], {

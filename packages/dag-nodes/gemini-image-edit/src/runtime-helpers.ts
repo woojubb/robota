@@ -1,3 +1,4 @@
+import { fetchWithEgressPolicy } from '@robota-sdk/agent-core/node';
 import { MediaReference } from '@robota-sdk/dag-node';
 import {
   buildValidationError,
@@ -9,8 +10,6 @@ import {
 export { normalizeImageOutput } from './image-output-normalizer.js';
 
 const DATA_URI_PREFIX_MAX_LENGTH = 64;
-
-const DEFAULT_DAG_PORT = 3011;
 
 /** Represents a base64-encoded inline image ready to send to the Gemini API. */
 export interface IInlineImageSource {
@@ -28,38 +27,6 @@ export interface IInlineImageSourceOptions {
 }
 
 /**
- * Parses a comma-separated string into a trimmed, non-empty array of values.
- *
- * @param value - The raw CSV string, or `undefined`.
- * @returns An array of trimmed non-empty tokens.
- */
-export function parseCsv(value: string | undefined): string[] {
-  if (typeof value !== 'string') {
-    return [];
-  }
-  return value
-    .split(',')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
-}
-
-/**
- * Resolves the DAG runtime base URL from environment variables.
- *
- * Falls back to `http://127.0.0.1:<port>` using `DAG_PORT` or the default port 3011.
- */
-export function resolveRuntimeBaseUrl(): string {
-  const runtimeBaseUrl = process.env.DAG_RUNTIME_BASE_URL?.trim();
-  if (runtimeBaseUrl && runtimeBaseUrl.length > 0) {
-    return runtimeBaseUrl.replace(/\/$/, '');
-  }
-  const portRaw = process.env.DAG_PORT;
-  const portParsed = typeof portRaw === 'string' ? Number.parseInt(portRaw, 10) : Number.NaN;
-  const port = Number.isFinite(portParsed) && portParsed > 0 ? portParsed : DEFAULT_DAG_PORT;
-  return `http://127.0.0.1:${port}`;
-}
-
-/**
  * Resolves and validates a model identifier against the allowed model list.
  *
  * @param selectedModel - The model requested by config.
@@ -70,7 +37,7 @@ export function resolveRuntimeBaseUrl(): string {
 export function resolveModel(
   selectedModel: string,
   defaultModel: string,
-  allowedModels: string[],
+  allowedModels: readonly string[],
 ): TResult<string, IDagError> {
   const model = selectedModel.trim().length > 0 ? selectedModel.trim() : defaultModel;
   if (allowedModels.length > 0 && !allowedModels.includes(model)) {
@@ -191,6 +158,8 @@ async function fetchAssetInlineImage(
       ),
     };
   }
+  // The DAG runtime's own asset store is loopback BY DESIGN; it is not model-supplied and stays
+  // outside the egress policy (#2026), which exists for URIs the model or a caller chose.
   const arrayBuffer = await response.arrayBuffer();
   return {
     ok: true,
@@ -220,9 +189,24 @@ function parseDataUriInlineImage(uri: string): TResult<IInlineImageSource, IDagE
   };
 }
 
+/** Whole-body image retrieval budget: enforced while streaming by the egress boundary (#2026). */
+const MAX_INPUT_IMAGE_BYTES = 25_000_000;
+
 async function fetchHttpInlineImage(uri: string): Promise<TResult<IInlineImageSource, IDagError>> {
-  const response = await fetch(uri);
-  if (!response.ok || !response.body) {
+  // #2026: a model-provided URI goes through the SAME egress boundary as WebFetch — private, loopback
+  // and metadata destinations refused, redirects re-validated, bytes capped while streaming.
+  const response = await fetchWithEgressPolicy(uri, { maxResponseBytes: MAX_INPUT_IMAGE_BYTES });
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: buildValidationError(
+        'DAG_VALIDATION_GEMINI_IMAGE_INPUT_URI_UNREACHABLE',
+        `Gemini image input URI refused by egress policy: ${response.rejection.message}`,
+        { uri, reason: response.rejection.reason },
+      ),
+    };
+  }
+  if (response.status < 200 || response.status >= 300 || response.body.byteLength === 0) {
     return {
       ok: false,
       error: buildValidationError(
@@ -243,13 +227,12 @@ async function fetchHttpInlineImage(uri: string): Promise<TResult<IInlineImageSo
       ),
     };
   }
-  const arrayBuffer = await response.arrayBuffer();
   return {
     ok: true,
     value: {
       kind: 'inline',
       mimeType: mediaType,
-      data: Buffer.from(arrayBuffer).toString('base64'),
+      data: Buffer.from(response.body).toString('base64'),
     },
   };
 }

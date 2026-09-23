@@ -6,7 +6,7 @@ const outExtensions = ({ format }: { format: string }) => ({
 });
 
 const shared = {
-  format: ['esm', 'cjs'] as const,
+  format: { esm: {}, cjs: { dts: false } } as const,
   outDir: 'dist/node',
   platform: 'node' as const,
   clean: true,

@@ -13,7 +13,7 @@
  * belongs at the id boundary so every sink inherits it.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -56,7 +56,7 @@ describe('SessionStore — session id path traversal (SEC-006)', () => {
   let store: NodeSessionStore;
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'sec006-store-'));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'sec006-store-')));
     baseDir = join(root, 'sessions');
     store = new NodeSessionStore(baseDir);
   });
@@ -109,7 +109,7 @@ describe('FileSessionLogger — session id path traversal (SEC-006)', () => {
   let logDir: string;
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'sec006-log-'));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'sec006-log-')));
     logDir = join(root, 'logs');
   });
   afterEach(() => {
@@ -136,7 +136,7 @@ describe('NodeSessionLogSink direct path boundaries', () => {
   let logDir: string;
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'sec006-direct-log-sink-'));
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'sec006-direct-log-sink-')));
     logDir = join(root, 'logs');
   });
   afterEach(() => {

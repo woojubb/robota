@@ -20,7 +20,7 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-playground": "workspace:^",
-    "@robota-sdk/agent-transport-gui": "workspace:^",
+    "@robota-sdk/agent-ui-web": "workspace:^",
     "@robota-sdk/agent-transport-webrtc-web": "workspace:*",
     "next": "^15.5.19",
     "react": "19.2.8",

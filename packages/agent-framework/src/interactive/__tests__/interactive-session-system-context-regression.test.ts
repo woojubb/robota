@@ -46,16 +46,23 @@ vi.mock('../../context/project-detector.js', () => ({
 }));
 
 vi.mock('../../config/config-loader.js', () => ({
-  loadConfig: vi.fn().mockResolvedValue({
-    defaultTrustLevel: 'moderate',
-    provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
-    permissions: { allow: [], deny: [] },
-    language: 'en',
-    env: {},
+  loadConfigWithHookSources: vi.fn().mockResolvedValue({
+    config: {
+      defaultTrustLevel: 'moderate',
+      provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
+      permissions: { allow: [], deny: [] },
+      language: 'en',
+      env: {},
+    },
+    hookSources: [],
   }),
 }));
 
+// PLG-021: the module under test builds its loader through the composition root now.
 vi.mock('../../plugins/index.js', () => ({
+  createHostBundlePluginLoader: vi.fn().mockImplementation(() => ({
+    loadPluginsSync: vi.fn().mockReturnValue([]),
+  })),
   BundlePluginLoader: vi.fn().mockImplementation(() => ({
     loadPluginsSync: vi.fn().mockReturnValue([]),
   })),

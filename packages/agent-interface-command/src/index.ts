@@ -37,4 +37,10 @@ export type {
   TPluginInstallScope,
   IStatusLineCommandSettings,
   TStatusLineCommandSettingsPatch,
+  IAppearanceSettings,
+  TAppearanceSettingsPatch,
+  IThemeAppearanceState,
+  IThemeCatalogueEntry,
+  IThemeCataloguePort,
+  TReducedMotionOverride,
 } from './command-contracts.js';

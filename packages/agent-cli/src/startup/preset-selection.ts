@@ -80,6 +80,22 @@ export interface IShellPresetResolution {
  *
  * @throws Error when the selected id matches no preset in the registry.
  */
+/**
+ * PRESET-002/004/007/011 + ARCH-008/ARCH-009 — the shell's ONE preset resolution.
+ *
+ * `loadExternalPresets` reads `~/.robota/presets/*.json` (per-file problems are warnings, never
+ * fatal) and REGISTERS NOTHING — it returns the presets it loaded. This builds the kernel's per-call
+ * registry (R8) over them and resolves the selected id against it, returning registry + id +
+ * override context as ONE value that travels whole into the profile. `assembleProduct` adopts that
+ * same registry and surfaces it on the command host, which is where in-session `/preset` discovery
+ * reads it.
+ *
+ * One registry, one load, no process state: the two surfaces cannot disagree because there is only
+ * one of them.
+ *
+ * (Moved here from `cli.ts` by CLI-083: it describes this function, and the caller only needs to
+ * know that resolution happens before command setup.)
+ */
 export function resolveShellPreset(
   externalPresets: readonly IPreset[],
   args: IParsedCliArgs,

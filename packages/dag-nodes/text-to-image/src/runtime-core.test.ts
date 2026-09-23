@@ -1,43 +1,37 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { IImageGenerationResult, TProviderMediaResult } from '@robota-sdk/agent-core';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type {
+  IImageGenerationProvider,
+  IImageGenerationResult,
+  IMediaProviderConfig,
+  IMediaProviderDefinition,
+  TProviderMediaResult,
+} from '@robota-sdk/agent-core';
 import { TextToImageRuntime } from './runtime-core.js';
-import { GoogleProvider } from '@robota-sdk/agent-provider-gemini/google';
-
-// A shared generateImage mock so every constructed GoogleProvider instance uses the same fn —
-// lets us set the return value before the runtime constructs the provider. The factory lives in
-// vi.hoisted so the vi.mock() call stays a single line (keeps the allow-module-mock escape attached).
-const { sharedGenerateImage, googleMockFactory } = vi.hoisted(() => {
-  const sharedGenerateImage = vi.fn();
-  const googleMockFactory = (): { GoogleProvider: unknown } => ({
-    GoogleProvider: vi
-      .fn()
-      .mockImplementation((options: { apiKey: string; imageCapableModels: string[] }) => ({
-        _apiKey: options.apiKey,
-        _imageCapableModels: options.imageCapableModels,
-        generateImage: sharedGenerateImage,
-      })),
-  });
-  return { sharedGenerateImage, googleMockFactory };
-});
-
-// Full replacement avoids loading the @google/genai SDK; only ctor + generateImage are exercised.
-vi.mock('@robota-sdk/agent-provider-gemini/google', googleMockFactory); // allow-module-mock: keeps the @google/genai SDK out of this leaf test's import graph, which reaches no other export
 
 const TEST_MODEL = 'test-image-model';
+const TEST_CREDENTIAL_ENV = 'TEST_IMAGE_PROVIDER_KEY';
+const generateImage = vi.fn();
+const factoryCalls: IMediaProviderConfig[] = [];
 
-function makeSuccessResult(): TProviderMediaResult<IImageGenerationResult> {
+function testDefinition(
+  overrides: Partial<IMediaProviderDefinition> = {},
+): IMediaProviderDefinition {
+  return {
+    type: 'test-image',
+    createImageProvider: (config) => {
+      factoryCalls.push(config);
+      return { generateImage } as unknown as IImageGenerationProvider;
+    },
+    ...overrides,
+  };
+}
+
+function success(): TProviderMediaResult<IImageGenerationResult> {
   return {
     ok: true,
     value: {
       model: TEST_MODEL,
-      outputs: [
-        {
-          kind: 'uri',
-          uri: 'data:image/png;base64,RESULT_DATA',
-          mimeType: 'image/png',
-          bytes: 2048,
-        },
-      ],
+      outputs: [{ kind: 'uri', uri: 'data:image/png;base64,RESULT', mimeType: 'image/png' }],
     },
   };
 }
@@ -45,80 +39,75 @@ function makeSuccessResult(): TProviderMediaResult<IImageGenerationResult> {
 describe('TextToImageRuntime', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv('GEMINI_API_KEY', undefined);
-    vi.stubEnv('DAG_TEXT_TO_IMAGE_DEFAULT_MODEL', undefined);
-    vi.stubEnv('DAG_TEXT_TO_IMAGE_ALLOWED_MODELS', undefined);
+    factoryCalls.length = 0;
+    vi.stubEnv(TEST_CREDENTIAL_ENV, undefined);
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it('returns validation error when default model is missing', async () => {
-    const runtime = new TextToImageRuntime({ apiKey: 'k' });
-    const result = await runtime.generateImage({ prompt: 'a cat', model: '' });
+  it('returns a model error when neither request nor definition supplies a model', async () => {
+    const result = await new TextToImageRuntime({
+      imageProviderDefinition: testDefinition(),
+    }).generateImage({ prompt: 'a cat', model: '' });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('DAG_VALIDATION_TEXT_TO_IMAGE_MODEL_REQUIRED');
   });
 
-  it('returns validation error when API key is missing', async () => {
-    const runtime = new TextToImageRuntime({ defaultModel: TEST_MODEL });
-    const result = await runtime.generateImage({ prompt: 'a cat', model: '' });
+  it('returns a typed credential error without a provider definition', async () => {
+    const result = await new TextToImageRuntime({ defaultModel: TEST_MODEL }).generateImage({
+      prompt: 'a cat',
+      model: '',
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('DAG_VALIDATION_TEXT_TO_IMAGE_API_KEY_REQUIRED');
   });
 
-  it('returns validation error when model is not allowed', async () => {
-    const runtime = new TextToImageRuntime({
-      apiKey: 'k',
+  it('resolves the definition credential and passes image-capable models to the factory', async () => {
+    vi.stubEnv(TEST_CREDENTIAL_ENV, 'test-key');
+    generateImage.mockResolvedValue(success());
+    const result = await new TextToImageRuntime({
+      imageProviderDefinition: testDefinition({
+        credentialRequirement: { credentialEnvVars: [TEST_CREDENTIAL_ENV] },
+      }),
       defaultModel: TEST_MODEL,
-      allowedModels: ['only-this-one'],
+      allowedModels: [TEST_MODEL],
+    }).generateImage({ prompt: 'a cat', model: '' });
+    expect(result.ok).toBe(true);
+    expect(factoryCalls.at(-1)).toEqual({
+      credential: 'test-key',
+      imageCapableModels: [TEST_MODEL],
     });
-    const result = await runtime.generateImage({ prompt: 'a cat', model: 'some-other-model' });
+    expect(generateImage).toHaveBeenCalledWith({ prompt: 'a cat', model: TEST_MODEL });
+  });
+
+  it('rejects models outside the injected allowlist', async () => {
+    const result = await new TextToImageRuntime({
+      imageProviderDefinition: testDefinition(),
+      defaultModel: TEST_MODEL,
+      allowedModels: [TEST_MODEL],
+    }).generateImage({ prompt: 'a cat', model: 'other-model' });
     expect(result.ok).toBe(false);
     if (!result.ok)
       expect(result.error.code).toBe('DAG_VALIDATION_TEXT_TO_IMAGE_MODEL_NOT_ALLOWED');
   });
 
-  it('maps a successful provider response to an image port value', async () => {
-    sharedGenerateImage.mockResolvedValue(makeSuccessResult());
-    const runtime = new TextToImageRuntime({ apiKey: 'k', defaultModel: TEST_MODEL });
-    const result = await runtime.generateImage({ prompt: 'a cat', model: '' });
-    expect(GoogleProvider).toHaveBeenCalledWith({ apiKey: 'k', imageCapableModels: [] });
-    expect(sharedGenerateImage).toHaveBeenCalledWith({ prompt: 'a cat', model: TEST_MODEL });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.kind).toBe('image');
-      expect(result.value.mimeType).toBe('image/png');
-      expect(result.value.uri).toContain('data:image/png;base64,RESULT_DATA');
-    }
-  });
-
-  it('maps a provider failure to a task execution error', async () => {
-    sharedGenerateImage.mockResolvedValue({
-      ok: false,
-      error: { code: 'PROVIDER_ERROR', message: 'boom' },
+  it('maps provider failures and missing outputs to task errors', async () => {
+    const runtime = new TextToImageRuntime({
+      imageProviderDefinition: testDefinition(),
+      defaultModel: TEST_MODEL,
     });
-    const runtime = new TextToImageRuntime({ apiKey: 'k', defaultModel: TEST_MODEL });
-    const result = await runtime.generateImage({ prompt: 'a cat', model: '' });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe('DAG_TASK_EXECUTION_TEXT_TO_IMAGE_FAILED');
-  });
+    generateImage.mockResolvedValue({ ok: false, error: { code: 'UPSTREAM', message: 'boom' } });
+    const failed = await runtime.generateImage({ prompt: 'a cat', model: '' });
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) expect(failed.error.code).toBe('DAG_TASK_EXECUTION_TEXT_TO_IMAGE_FAILED');
 
-  it('errors when the provider returns no outputs', async () => {
-    sharedGenerateImage.mockResolvedValue({ ok: true, value: { model: TEST_MODEL, outputs: [] } });
-    const runtime = new TextToImageRuntime({ apiKey: 'k', defaultModel: TEST_MODEL });
-    const result = await runtime.generateImage({ prompt: 'a cat', model: '' });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe('DAG_TASK_EXECUTION_TEXT_TO_IMAGE_RESPONSE_MISSING_IMAGE');
+    generateImage.mockResolvedValue({ ok: true, value: { model: TEST_MODEL, outputs: [] } });
+    const missing = await runtime.generateImage({ prompt: 'a cat', model: '' });
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) {
+      expect(missing.error.code).toBe('DAG_TASK_EXECUTION_TEXT_TO_IMAGE_RESPONSE_MISSING_IMAGE');
     }
-  });
-
-  it('resolves the model from config over the default', async () => {
-    sharedGenerateImage.mockResolvedValue(makeSuccessResult());
-    const runtime = new TextToImageRuntime({ apiKey: 'k', defaultModel: TEST_MODEL });
-    await runtime.generateImage({ prompt: 'a cat', model: 'chosen-model' });
-    expect(sharedGenerateImage).toHaveBeenCalledWith({ prompt: 'a cat', model: 'chosen-model' });
   });
 });

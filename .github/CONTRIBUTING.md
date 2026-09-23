@@ -21,7 +21,6 @@ pnpm build              # Build all packages
 pnpm test               # Run all tests
 pnpm typecheck          # TypeScript strict check
 pnpm lint               # ESLint
-pnpm harness:scan       # Full harness verification
 
 # Per-package
 pnpm --filter @robota-sdk/<pkg> build

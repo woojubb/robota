@@ -40,25 +40,32 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
 
   it('TC-04: neither enabled nor disabled given → full default set unchanged (no-regression)', () => {
     const names = moduleNames(baseOptions);
-    // No-regression: the default set length is the documented 27 modules (SELFHOST-002 added
-    // `/plan`; PEER-004 added `/peers`). The list below is the assertion that matters — a length on
-    // its own can be restored by any substitution, and the count exists only to catch an addition
-    // that also removed something.
-    expect(names).toHaveLength(28);
+    // No-regression: the default set length is the documented 32 modules (SELFHOST-002 added
+    // `/plan`; PEER-004 added `/peers`; CLI-1994 added `/fork`; MCP-2520 added `/mcp`; CLI-1988 added
+    // `/output-style`; FLOW-008 added `/effort`). The list below is the assertion
+    // that matters — a length on its own can be restored by any substitution, and the count exists
+    // only to catch an addition that also removed something.
+    expect(names).toHaveLength(33);
     expect(names).toEqual([
       'agent-command-skills',
       'agent-command-help',
       'agent-command-agent',
+      'agent-command-effort',
       'agent-command-permissions',
       'agent-command-mode',
       'agent-command-preset',
+      'agent-command-output-style',
       'agent-command-language',
       'agent-command-background',
+      // CLI-1994: registered beside `/background`, because a fork IS a background job.
+      'agent-command-fork',
       'agent-command-goal',
       'agent-command-plan',
       'agent-command-shell',
       'agent-command-editor',
+      'agent-command-git',
       'agent-command-memory',
+      'agent-command-mcp-activation',
       'agent-command-user-local',
       'agent-command-compact',
       'agent-command-context',
@@ -81,6 +88,16 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     const names = moduleNames({ ...baseOptions, enabledCommandModules: [HELP, AGENT] });
     expect(new Set(names)).toEqual(new Set([HELP, AGENT]));
     expect(names).toHaveLength(2);
+  });
+
+  it('BEHAVIOR-2003: registers /keybindings only when the file capability is injected', () => {
+    expect(moduleNames(baseOptions)).not.toContain('agent-command-keybindings');
+    expect(
+      moduleNames({
+        ...baseOptions,
+        keybindingsFilePort: { ensureFile: async () => '/tmp/keybindings.json' },
+      }),
+    ).toContain('agent-command-keybindings');
   });
 
   it('TC-02: disabledCommandModules blacklist removes the named module', () => {

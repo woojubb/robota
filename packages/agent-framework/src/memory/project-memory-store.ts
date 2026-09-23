@@ -4,7 +4,7 @@ import { trimEdgeChars } from '../utils/trim-char.js';
 import { assertWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
-// TMemoryType SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+// TMemoryType SSOT relocated to @robota-sdk/agent-interface-session (DATA-001).
 import type { TMemoryType } from '@robota-sdk/agent-interface-session';
 
 export type { TMemoryType };

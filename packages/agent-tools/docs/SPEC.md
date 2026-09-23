@@ -2,7 +2,7 @@
 
 ## Browser Surface (CORE-028)
 
-browser-node-subpath: allowed — `src/builtins/path-guard.ts` imports `@robota-sdk/agent-core/node` for `isPathInside`, and this package declares a browser build. They do not meet: the browser condition points at `dist/browser/browser.js`, a SEPARATE entry whose graph does not reach the file-tool sandbox. Measured rather than assumed — the built browser bundle contains no `node:` builtin and no `isPathInside`.
+browser-node-subpath: allowed — `src/builtins/path-guard.ts` imports `@robota-sdk/agent-core/node` for `isPathInside`, `src/builtins/web-fetch-tool.ts` imports it for `fetchWithEgressPolicy` (issue #2026), and this package declares a browser build. They do not meet: the browser condition points at `dist/browser/browser.js`, a SEPARATE entry (`src/browser.ts`) whose only imports are `./types/tool-result` and `./implementations/function-tool` — it excludes every Node-only builtin (bash, read, write, edit, glob, grep, web-fetch, web-search) by construction, so neither file is in that graph. Measured rather than assumed — for `path-guard.ts` the built browser bundle was checked to contain no `node:` builtin and no `isPathInside`; for `web-fetch-tool.ts` the browser entry's import graph was read and reaches no builtin.
 
 ## Scope
 
@@ -47,7 +47,7 @@ builtins/
   index.ts              -- Re-exports all built-in CLI tools + classifyFetchError
   atomic-file-write.ts  -- Same-directory temp write + atomic rename helper for UTF-8 file replacement
   path-guard.ts         -- checkPathWithinCwd: path traversal guard for host-local tool operations
-  shell-tool.ts         -- Shell + Bash (alias): execute host shell commands; OS-aware (PowerShell on Windows) via agent-core resolvePlatformShell
+  shell-tool.ts         -- Shell + Bash (alias): execute host shell commands; OS-aware (PowerShell on Windows) via agent-core resolvePlatformShell; stdout/stderr retained through agent-core createBoundedOutput (2 MB head each, ARCH-056 #2161) so memory is bounded while the command runs
   read-tool.ts          -- Read: read file contents with line numbers
   write-tool.ts         -- Write: write content to a file
   edit-tool.ts          -- Edit: replace a string in a file
@@ -148,6 +148,13 @@ Types owned by this package (SSOT):
 | `createComputerActTool`                 | Function | SELFHOST-010 — the `Computer` act tool (one typed mutating action → post-action screenshot); permission-gated `approve`/`deny` like `Shell`                  |
 | `PageComputerDriver`                    | Class    | SELFHOST-010 — reference `IComputerDriver` adapter over an injected duck-typed page object (no browser SDK dependency)                                       |
 | `PageComputerDriver`                    | Class    | SELFHOST-010 — zero-dep reference `IComputerDriver` duck-typing a browser page via `IBrowserPageAdapter` (imports NO browser SDK; surface passes the page)   |
+| `createToolSearchTool`                  | Function | CLI-1990 — the resident `ToolSearch` tool: loads withheld tool schemas by query or exact name through the runtime's deferred-tool catalog                    |
+| `toolSearchTool`                        | Const    | CLI-1990 — a default `ToolSearch` instance, as the other builtins publish one                                                                                |
+| `TOOL_SEARCH_NAME`                      | Const    | CLI-1990 — agent-core's `TOOL_SEARCH_TOOL_NAME` re-exported under this package's name (one owner, no second literal)                                                      |
+| `matchDeferredTools`                    | Function | CLI-1990 — the pure match/rank half: which withheld tools a query selects, best match first, capped at a limit                                               |
+| `DEFAULT_TOOL_SEARCH_LIMIT`             | Const    | CLI-1990 — default results per query (5), the default both vendors use                                                                                       |
+| `IToolSearchOutput`                     | Type     | CLI-1990 — the tool's result payload: `{ loaded, unavailableSources }`                                                                                       |
+| `IFunctionToolResidencyOptions`         | Type     | CLI-1990 — what `createZodFunctionTool` accepts about residency (`deferLoading`); omission means resident                                                    |
 | `IComputerDriver`                       | Type     | SELFHOST-010 — computer-use driver port: `screenshot()` (perceive) + `act(action)` (typed mutating action → screenshot) + optional takeover hooks            |
 | `IComputerToolOptions`                  | Type     | SELFHOST-010 — tool-factory options carrying the computer-use driver (mirror `ISandboxToolOptions`)                                                          |
 | `TComputerAction`                       | Type     | SELFHOST-010 — the whole typed mutating-action union (`click`/`double_click`/`type`/`keypress`/`scroll`/`drag`/`wait`/`takeover`)                            |
@@ -158,18 +165,18 @@ Types owned by this package (SSOT):
 
 ### Public API: Built-in CLI Tools
 
-| Export                | Kind    | Tool Name         | Description                                                                                                  |
-| --------------------- | ------- | ----------------- | ------------------------------------------------------------------------------------------------------------ |
-| `createShellTool`     | Factory | `Shell`           | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell)                                |
-| `createBashTool`      | Factory | `Bash`            | Model-familiar alias of `Shell` — same OS-aware implementation                                               |
-| `createReadTool`      | Factory | `Read`            | Read file contents with line numbers (cat -n)                                                                |
-| `createWriteTool`     | Factory | `Write`           | Write content to a file (creates parent dirs)                                                                |
-| `createEditTool`      | Factory | `Edit`            | Replace a specific string in a file                                                                          |
-| `createGlobTool`      | Factory | `Glob`            | Find files matching a glob pattern (fast-glob)                                                               |
-| `createGrepTool`      | Factory | `Grep`            | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results                     |
-| `webFetchTool`        | Object  | `WebFetch`        | Fetch URL content with HTML-to-text conversion                                                               |
-| `webSearchTool`       | Object  | `WebSearch`       | Web search over the `IWebSearchProvider` port (default provider: Brave Search adapter)                       |
-| `askUserQuestionTool` | Object  | `AskUserQuestion` | Model-issued structured questions (options/multi-select/free text) via `IToolExecutionContext.ask` (CMD-005) |
+| Export                | Kind    | Tool Name         | Description                                                                                                                                                                                    |
+| --------------------- | ------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createShellTool`     | Factory | `Shell`           | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell)                                                                                                                  |
+| `createBashTool`      | Factory | `Bash`            | Model-familiar alias of `Shell` — same OS-aware implementation                                                                                                                                 |
+| `createReadTool`      | Factory | `Read`            | Read file contents with line numbers (cat -n)                                                                                                                                                  |
+| `createWriteTool`     | Factory | `Write`           | Write content to a file (creates parent dirs)                                                                                                                                                  |
+| `createEditTool`      | Factory | `Edit`            | Replace a specific string in a file                                                                                                                                                            |
+| `createGlobTool`      | Factory | `Glob`            | Find files matching a glob pattern (fast-glob)                                                                                                                                                 |
+| `createGrepTool`      | Factory | `Grep`            | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results                                                                                                       |
+| `webFetchTool`        | Object  | `WebFetch`        | Fetch URL content with HTML-to-text conversion; fetches through `fetchWithEgressPolicy` (issue #2026) — private/loopback/metadata refused, redirects re-validated, body capped while streaming |
+| `webSearchTool`       | Object  | `WebSearch`       | Web search over the `IWebSearchProvider` port (default provider: Brave Search adapter)                                                                                                         |
+| `askUserQuestionTool` | Object  | `AskUserQuestion` | Model-issued structured questions (options/multi-select/free text) via `IToolExecutionContext.ask` (CMD-005)                                                                                   |
 
 **These are factories, not instances — ARCH-010.** This package used to also export a ready-made
 `readTool`/`writeTool`/`editTool`/`globTool`/`grepTool`/`shellTool`/`bashTool` for each of them. A
@@ -196,21 +203,24 @@ Every builtin has a factory; the singleton exports above are the factories' zero
 All factories accept `IBuiltinToolDescriptionOptions.description` (NEUT-002 override seam — see
 "Tool Descriptions" below).
 
-| Export                      | Kind     | Description                                                                                                                |
-| --------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `createShellTool`           | Function | Creates `Shell` (sandbox-aware); `availableTools` restricts sibling routing hints to the registered tool set               |
-| `createBashTool`            | Function | Creates `Bash`, the model-familiar alias of the same OS-aware shell tool                                                   |
-| `createReadTool`            | Function | Creates `Read` (sandbox-aware)                                                                                             |
-| `createWriteTool`           | Function | Creates `Write` (sandbox-aware)                                                                                            |
-| `createEditTool`            | Function | Creates `Edit` (sandbox-aware)                                                                                             |
-| `createGlobTool`            | Function | Creates `Glob`                                                                                                             |
-| `createGrepTool`            | Function | Creates `Grep`; `shellToolName` derives the shell-tool reference in the default description (default `Shell`)              |
-| `createWebFetchTool`        | Function | Creates `WebFetch`                                                                                                         |
-| `createWebSearchTool`       | Function | Creates `WebSearch` over an injected `IWebSearchProvider` (NEUT-008; default: the Brave Search adapter)                    |
-| `createBraveSearchProvider` | Function | The default `IWebSearchProvider` adapter — the only module holding the vendor endpoint; reads `BRAVE_API_KEY` at call time |
-| `createAskUserQuestionTool` | Function | Creates `AskUserQuestion` (binds the `IToolExecutionContext.ask` port)                                                     |
+| Export                      | Kind      | Description                                                                                                                                                                 |
+| --------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createShellTool`           | Function  | Creates `Shell` (sandbox-aware); `availableTools` restricts sibling routing hints to the registered tool set                                                                |
+| `createBashTool`            | Function  | Creates `Bash`, the model-familiar alias of the same OS-aware shell tool                                                                                                    |
+| `createReadTool`            | Function  | Creates `Read` (sandbox-aware)                                                                                                                                              |
+| `createWriteTool`           | Function  | Creates `Write` (sandbox-aware)                                                                                                                                             |
+| `createEditTool`            | Function  | Creates `Edit` (sandbox-aware)                                                                                                                                              |
+| `createGlobTool`            | Function  | Creates `Glob`                                                                                                                                                              |
+| `createGrepTool`            | Function  | Creates `Grep`; `shellToolName` derives the shell-tool reference in the default description (default `Shell`)                                                               |
+| `IWebFetchToolOptions`      | Interface | `createWebFetchTool` options — the `IBuiltinToolDescriptionOptions` description seam plus `egress?` (issue #2026 policy deps); exported so a caller can name what it passes |
+| `createWebFetchTool`        | Function  | Creates `WebFetch`                                                                                                                                                          |
+| `createWebSearchTool`       | Function  | Creates `WebSearch` over an injected `IWebSearchProvider` (NEUT-008; default: the Brave Search adapter)                                                                     |
+| `createBraveSearchProvider` | Function  | The default `IWebSearchProvider` adapter — the only module holding the vendor endpoint; reads `BRAVE_API_KEY` at call time                                                  |
+| `createAskUserQuestionTool` | Function  | Creates `AskUserQuestion` (binds the `IToolExecutionContext.ask` port)                                                                                                      |
 
 When an `ISandboxClient` is supplied, shell command execution plus Read/Write/Edit filesystem operations are routed through the sandbox client. When no sandbox client is supplied, the singleton exports keep host-local behavior, resolving the shell per-OS through agent-core's `resolvePlatformShell` (POSIX `sh`/`bash`, Windows PowerShell). The `Shell` tool's description is built dynamically from the resolved shell so the model writes syntax the host shell can run.
+
+**Relative `filePath` (issue #2429)**: `Read`, `Write` and `Edit` declare `filePath` absolute, but a relative one the model supplies is resolved against the tool's containment root (`cwd`) — `resolveHostPath` in `path-guard.ts` — before the containment check and the filesystem call, never against `process.cwd()`; the same anchoring `resolveSearchRoot` gives `Glob`/`Grep`. The permission gate is not this package's (see Boundaries); the consumer that wraps the tool canonicalises the same argument the same way before the gate sees it, so the path judged is the path opened.
 
 **WriteTool output**: Reports actual UTF-8 byte count via `Buffer.byteLength(content, 'utf8')`, not JS `content.length` (which is character count and differs for multibyte content).
 
@@ -266,6 +276,44 @@ as a contract, not as incidental strings:
 Contract tests: `src/__tests__/builtin-descriptions.test.ts` (policy-phrase absence, derived
 names, registry-subset routing hints, override seam) and `src/__tests__/web-search-provider.test.ts`
 (vendor-literal absence at the tool layer).
+
+## ToolSearch — Loading Deferred Tool Schemas (CLI-1990)
+
+`ToolSearch` (`src/builtins/tool-search-tool.ts`) is the model-facing half of client-side tool
+deferral. A tool whose schema declares `deferLoading` is withheld from the request entirely while
+the tool-search policy is engaged (agent-core `docs/SPEC.md` § Tool Residency and Tool Search owns
+that contract); this tool is how the model gets the schema back. Matches become resident for the
+rest of the session, so they are on the wire from the next round.
+
+- **Arguments** — `{ query?: string; names?: string[]; limit?: number }`. `query` is matched
+  case-insensitively against each withheld tool's name, description, and its parameters' names and
+  descriptions, so an exact tool name is a valid query. `names` loads exactly those, skipping the
+  search. `limit` defaults to `DEFAULT_TOOL_SEARCH_LIMIT` (5), the default both vendors use. A call
+  carrying neither `query` nor `names` is refused rather than guessed at.
+- **Ordering is total and deterministic** — `matchDeferredTools` ranks exact-name, then name, then
+  description, then parameter matches, breaking ties by name. The same catalog and query always
+  return the same tools in the same sequence, which is what makes a cap meaningful.
+- **An empty match is a normal result**, `{ loaded: [], unavailableSources: [] }` — mirroring the
+  vendor's own empty `tool_references` array. **An unknown entry in `names` is an error** naming the
+  entry, and nothing is loaded. The distinction is the contract: one is an answer, the other a
+  mistake to correct.
+- **`unavailableSources` is present and empty from day one.** MCP-003 fills it with servers that
+  failed or need auth, so "nothing matched" can be told apart from "the server holding it is down"
+  without a contract change here.
+- **The tool is itself always resident**, and it refuses to run without
+  `IToolExecutionContext.deferredTools` rather than reporting an empty catalog for a search that was
+  never run. It is registered by session assembly, not by `createDefaultTools`.
+- **Residency is declarable at construction** — `createZodFunctionTool(..., { deferLoading })`
+  forwards the marker onto the schema. Omission leaves the member absent, so a resident tool's
+  schema is byte-identical to what it was before residency existed.
+
+Permission profile: `ToolSearch` is classified `inspect` with `query` as its narrowable argument.
+Loading a schema is not calling the tool it describes — the loaded tool is gated on its own name
+when the model actually calls it, exactly as it would be were it never deferred. Classifying it is
+what keeps a rule naming `ToolSearch` evaluable instead of falling to `'unevaluable'` → prompt.
+
+Contract tests: `src/builtins/__tests__/tool-search-tool.test.ts`,
+`src/__tests__/tool-permission-profiles.test.ts`.
 
 ## Error Taxonomy
 

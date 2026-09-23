@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, symlinkSync, writeFileSync, rmSync } from 'node:fs';
+import { chmodSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync, rmSync } from 'node:fs';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -17,7 +17,7 @@ afterAll(() => {
 });
 
 function guardedDir(mode = 0o700): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'sec-010-'));
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'sec-010-')));
   scratch.push(dir);
   chmodSync(dir, mode);
   return dir;
@@ -130,7 +130,7 @@ describe('SEC-010 — the socket must be inside the directory that vouches for i
     const admission = admitLocalPeerSocket(path.join(dir, 'peer.sock'), { expectedUid: UID });
 
     expect(admission.admitted).toBe(true);
-    expect(admission.binding?.socketPath).toBe(path.join(dir, 'peer.sock'));
+    expect(admission.binding?.socketPath).toBe(path.join(realpathSync(dir), 'peer.sock'));
   });
 
   it('admits a real, listening socket inside the guarded directory', async () => {

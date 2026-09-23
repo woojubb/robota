@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -9,7 +9,7 @@ import {
   readStatusLineSettings,
 } from '../command-api/statusline/statusline-command-api.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-statusline-settings-test-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-statusline-settings-test-')));
 
 function readJson(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;

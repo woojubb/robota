@@ -20,6 +20,7 @@ const GUIDE_ORDER = [
   'building-agents',
   'sdk',
   'cli',
+  'keybindings',
   'local-llm',
   'providers',
   'embedding',

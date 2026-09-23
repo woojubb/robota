@@ -78,7 +78,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ChatResponse'
+                $ref: '#/components/schemas/RemoteChatResponse'
         '400':
           description: Invalid request (missing provider, unknown provider, or invalid messages)
           content:
@@ -91,6 +91,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RateLimitError'
+        '500':
+          description: Provider or internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/remote/chat/stream:
+    post:
+      operationId: postRemoteChatStream
+      summary: Streaming provider chat proxy
+      description: |
+        Proxy a chat request over SSE. The server emits `delta` frames, one assembled `message`
+        frame, then for a selected model effort exactly one server-adapter-owned
+        `model-effort-outcome` frame before `done`. The client keeps its callback local and only
+        transports that terminal value.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: SSE frames (`delta`, `message`, `model-effort-outcome`, `done`, or `error`)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: UTF-8 Server-Sent Events; each `data:` value uses the named event schema.
+              x-sse-events:
+                delta:
+                  $ref: '#/components/schemas/RemoteChatStreamDelta'
+                message:
+                  $ref: '#/components/schemas/AssistantMessage'
+                model-effort-outcome:
+                  $ref: '#/components/schemas/ModelEffortOutcome'
+                done:
+                  $ref: '#/components/schemas/RemoteChatStreamDone'
+                error:
+                  $ref: '#/components/schemas/RemoteChatStreamError'
+        '400':
+          description: Invalid request before the SSE stream is opened
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Provider or internal error
           content:
@@ -221,6 +268,106 @@ components:
           type: string
           description: Optional model override. Defaults to provider package default.
           example: gpt-4o
+        tools:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        options:
+          $ref: '#/components/schemas/ChatOptions'
+
+    ChatOptions:
+      type: object
+      properties:
+        maxTokens:
+          type: number
+        temperature:
+          type: number
+        effort:
+          $ref: '#/components/schemas/ModelEffortSelection'
+        toolChoice:
+          oneOf:
+            - type: string
+              enum: [auto, none, required]
+            - type: object
+              required: [tool]
+              properties:
+                tool:
+                  type: string
+        responseFormat:
+          type: object
+          additionalProperties: true
+        nativeWebTools:
+          type: object
+          additionalProperties: true
+        openai:
+          type: object
+          additionalProperties: true
+        anthropic:
+          type: object
+          additionalProperties: true
+        google:
+          type: object
+          additionalProperties: true
+
+    ModelEffortSelection:
+      type: string
+      enum: [auto, none, minimal, low, medium, high, xhigh, max]
+
+    ModelEffortOutcome:
+      type: object
+      required: [resolution, nativeControl, providerDispatch]
+      properties:
+        resolution:
+          type: object
+          required: [selection, effective, disposition, fingerprint]
+          properties:
+            selection:
+              $ref: '#/components/schemas/ModelEffortSelection'
+            effective:
+              oneOf:
+                - type: 'null'
+                - type: string
+                  enum: [none, minimal, low, medium, high, xhigh, max]
+            disposition:
+              type: string
+              enum: [exact, clamped, model-default, not-applied]
+            fingerprint:
+              type: string
+        nativeControl:
+          oneOf:
+            - type: object
+              required: [state, id]
+              properties:
+                state:
+                  type: string
+                  enum: [sent]
+                id:
+                  type: string
+            - type: object
+              required: [state, reason]
+              properties:
+                state:
+                  type: string
+                  enum: [omitted]
+                reason:
+                  type: string
+        providerDispatch:
+          oneOf:
+            - type: object
+              required: [state]
+              properties:
+                state:
+                  type: string
+                  enum: [sent]
+            - type: object
+              required: [state, reason]
+              properties:
+                state:
+                  type: string
+                  enum: [not-dispatched]
+                reason:
+                  type: string
 
     TokenUsage:
       type: object
@@ -233,31 +380,60 @@ components:
         totalTokens:
           type: integer
 
-    ChatResponse:
+    AssistantMessage:
       type: object
-      required: [content]
-      description: Raw provider response (agent-core IRawProviderResponse).
+      required: [id, role, content, state, timestamp]
+      description: Serialized agent-core assistant message returned by a provider chat call.
       properties:
+        id:
+          type: string
+        role:
+          type: string
+          enum: [assistant]
         content:
           type: string
           nullable: true
-          description: Generated text content, or null for tool-call-only responses
+          description: Generated text content, or null for tool-call-only responses.
         toolCalls:
           type: array
           items:
             type: object
-          description: Tool calls requested by the model
-        usage:
-          $ref: '#/components/schemas/TokenUsage'
-        finishReason:
+          description: Tool calls requested by the model.
+        state:
           type: string
-          example: stop
-        model:
+          enum: [complete, interrupted]
+        timestamp:
           type: string
-          description: Model used for the response as reported by the provider
+          format: date-time
         metadata:
           type: object
           additionalProperties: true
+
+    RemoteChatResponse:
+      allOf:
+        - $ref: '#/components/schemas/AssistantMessage'
+        - type: object
+          properties:
+            modelEffortOutcome:
+              $ref: '#/components/schemas/ModelEffortOutcome'
+
+    RemoteChatStreamDelta:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+
+    RemoteChatStreamDone:
+      type: string
+      enum: ['[DONE]']
+
+    RemoteChatStreamError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
 
     WsStatusEnabled:
       type: object

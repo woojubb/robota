@@ -1,6 +1,7 @@
 import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
 
 import { buildAgentRuntime } from './build-agent-runtime.js';
+import { formatDeferredToolRoster } from './deferred-tool-roster.js';
 import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { storeSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
@@ -11,6 +12,7 @@ import { formatProjectedModelCommandToolPromptDescription } from '../tools/model
 import type { ICreateSessionOptions } from './create-session-types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
@@ -45,8 +47,10 @@ export const DEFAULT_TOOL_DESCRIPTIONS = [
   'AskUserQuestion — ask the user structured questions (options/multi-select/free text) mid-task',
 ];
 
-// Re-exported so existing importers of the assembly module keep one entry point.
+// Re-exported so existing importers of the assembly module keep one entry point — CLI-1990's
+// deferred roster included, since its one consumer is the prompt build below.
 export { buildAgentRuntime };
+export { DEFERRED_TOOL_ROSTER_HEADER, formatDeferredToolRoster } from './deferred-tool-roster.js';
 export type { IAgentRuntimeResult } from './build-agent-runtime.js';
 
 /**
@@ -58,6 +62,7 @@ export type { IAgentRuntimeResult } from './build-agent-runtime.js';
  * copy that forgets a field.
  */
 export interface TLivePromptOverrides {
+  outputStyle?: IOutputStylePrompt;
   persona?: string;
   selfVerification?: boolean | string;
   language?: string;
@@ -115,7 +120,7 @@ function buildStaticPromptParams(
     disableModelInvocation?: boolean;
   }>,
   agentDefinitions: IAgentDefinition[],
-): Omit<ISystemPromptParams, 'persona' | 'selfVerification'> {
+): Omit<ISystemPromptParams, 'outputStyle' | 'persona' | 'selfVerification'> {
   return {
     agentsMd: options.context.agentsMd,
     projectNotesMd: options.context.projectNotesMd,
@@ -157,6 +162,7 @@ export function buildSessionSystemPrompt(
     disableModelInvocation?: boolean;
   }>,
   agentDefinitions: IAgentDefinition[],
+  assembledTools: readonly IToolWithEventService[] = [],
 ): ISystemPromptResult {
   const buildPrompt = options.systemPromptBuilder ?? buildSystemPrompt;
   const defaultToolDescriptions = [
@@ -167,7 +173,7 @@ export function buildSessionSystemPrompt(
         )
       : []),
   ];
-  const resolvedToolDescriptions =
+  const listedToolDescriptions =
     options.toolDescriptions ??
     (backgroundProcessToolDeps
       ? [
@@ -175,11 +181,20 @@ export function buildSessionSystemPrompt(
           'BackgroundProcess — start long-running shell commands as managed background tasks',
         ]
       : defaultToolDescriptions);
+  // CLI-1990: appended AFTER the override branch, deliberately. A caller supplying its own
+  // `toolDescriptions` owns which resident tools are described, but no caller can know what this
+  // session deferred — and a deferred tool the model is never told about cannot be searched for.
+  const resolvedToolDescriptions = [
+    ...listedToolDescriptions,
+    ...formatDeferredToolRoster(assembledTools),
+  ];
 
   // PRESET-014: persona is mutable for the lifetime of this closure. A live preset switch can
   // re-apply a new persona mid-session (via `rebuildSystemMessage(..., { persona })`); later
   // staleness rebuilds (no override) must keep the most recently applied persona.
   let currentPersona = options.persona;
+
+  let currentOutputStyle = options.outputStyle;
 
   // PRESET-017: selfVerification is mutable for the lifetime of this closure, mirroring persona. A
   // live preset switch can toggle the verify-before-done section mid-session (via
@@ -214,6 +229,7 @@ export function buildSessionSystemPrompt(
   );
   const systemMessage = buildPrompt({
     ...staticPromptParams,
+    ...(currentOutputStyle !== undefined ? { outputStyle: currentOutputStyle } : {}),
     ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
     ...(currentSelfVerification !== undefined ? { selfVerification: currentSelfVerification } : {}),
     ...(currentLanguage !== undefined ? { language: currentLanguage } : {}),
@@ -230,6 +246,9 @@ export function buildSessionSystemPrompt(
     newProjectNotesMd: string,
     overrides?: TLivePromptOverrides,
   ): string => {
+    if (overrides?.outputStyle !== undefined) {
+      currentOutputStyle = overrides.outputStyle;
+    }
     // PRESET-014: a persona override mutates the retained persona so subsequent rebuilds
     // (e.g. staleness refresh, which passes no override) keep the latest applied persona.
     if (overrides?.persona !== undefined) {
@@ -248,6 +267,7 @@ export function buildSessionSystemPrompt(
     }
     const rebuilt = buildPrompt({
       ...staticPromptParams,
+      ...(currentOutputStyle !== undefined ? { outputStyle: currentOutputStyle } : {}),
       ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
       ...(currentSelfVerification !== undefined
         ? { selfVerification: currentSelfVerification }
@@ -272,6 +292,12 @@ export function wireSessionDeps(
   backgroundTaskManager: IBackgroundTaskManager,
 ): void {
   if (agentToolDeps) agentToolDeps.parentSessionId = session.getSessionId();
+  if (agentToolDeps) {
+    agentToolDeps.getParentModelEffort = () => {
+      const selection = session.getModelEffort();
+      return selection === 'auto' ? undefined : selection;
+    };
+  }
   // PRESET-016: wire the runtime gate to the session's live flag so a preset switch can
   // enable/disable subagent dispatch on this already-constructed session.
   if (agentToolDeps) {

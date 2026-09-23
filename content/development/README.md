@@ -48,8 +48,8 @@ packages/
 ├── agent-command/              ← All slash command modules in one package
 ├── agent-provider/             ← Consolidated AI provider (sub-paths: /anthropic, /openai, /gemini, /google, /gemma, /qwen, /deepseek, /bytedance)
 ├── agent-plugin/               ← Consolidated plugin package
-├── agent-transport/            ← Lean transport core (sub-paths: /headless, /testing, /programmatic)
-├── agent-transport-tui/        ← TUI transport (Ink/React) — standalone
+├── agent-transport/            ← Browser-safe protocol/delivery substrate (sub-paths: /client, /node)
+├── agent-ui-terminal/        ← Terminal UI (Ink/React) — standalone
 ├── agent-transport-http/       ← HTTP/REST transport — standalone
 ├── agent-transport-ws/         ← WebSocket transport — standalone
 ├── agent-transport-mcp/        ← MCP transport — standalone
@@ -58,7 +58,7 @@ packages/
 ├── agent-cli/                  ← Terminal AI coding assistant
 ├── agent-subagent-runner/      ← Opt-in child-process subagent runner
 ├── agent-remote-client/        ← HTTP client for remote agents
-├── agent-transport-gui/        ← Shared GUI core (SessionMonitor + session reducer)
+├── agent-ui-web/        ← Shared GUI core (SessionMonitor + session reducer)
 ├── agent-transport-webrtc-web/ ← Browser WebRTC peer over the GUI core
 ├── agent-tool-mcp/             ← MCP tool client adapter
 └── agent-playground/           ← Playground executor, hooks, and components

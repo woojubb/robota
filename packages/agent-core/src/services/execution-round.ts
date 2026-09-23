@@ -17,7 +17,7 @@ import {
   LAST_MESSAGES_SLICE,
   MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS,
 } from './execution-types';
-import { collectAssistantUsageMetadata } from './execution-usage';
+import * as executionUsage from './execution-usage';
 import { callPluginHook } from './plugin-hook-dispatcher';
 import { bindWithOwnerPath } from '../event-service/index';
 import { createSystemMessage } from '../managers/conversation-message-factory';
@@ -26,7 +26,7 @@ import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 import type { ToolExecutionService } from './tool-execution-service';
 import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
-import type { TUniversalMessage, TMessageState } from '../interfaces/messages';
+import type { TMessageState } from '../interfaces/messages';
 import type { ILogger } from '../utils/logger';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
 import type { ConversationStore } from '../managers/conversation-history-manager';
@@ -45,7 +45,6 @@ export {
   getContextCapacityDecision,
 } from './execution-round-context';
 
-/** Dependencies required by the round executor */
 export interface IRoundDependencies {
   toolExecutionService: ToolExecutionService;
   plugins: ReadonlyArray<TPluginWithHooks>;
@@ -54,7 +53,6 @@ export interface IRoundDependencies {
   cacheService?: ExecutionCacheService;
 }
 
-/** Execute a single round of the conversation loop. Returns true if loop should break. */
 export async function executeRound(
   roundState: IExecutionRoundState,
   maxRounds: number,
@@ -68,14 +66,12 @@ export async function executeRound(
 ): Promise<boolean> {
   const { plugins, logger, eventEmitter, cacheService } = deps;
   const currentRound = roundState.currentRound;
-
   logger.debug(`[ROUND-${currentRound}] Starting execution round ${currentRound}`, {
     executionId,
     conversationId: fullContext.conversationId,
     round: currentRound,
     maxRounds,
   });
-
   const conversationMessages = conversationStore.getMessages();
   // SELFHOST-008 P3: an EPHEMERAL per-run system block (e.g. per-turn recalled memory) is appended to a
   // DERIVED provider-message array only — it is sent to the model for this call but never written to the
@@ -91,7 +87,6 @@ export async function executeRound(
   );
 
   await callPluginHook(plugins, 'beforeProviderCall', { messages: conversationMessages }, logger);
-
   logger.debug('Sending messages to AI provider', {
     round: currentRound,
     messageCount: conversationMessages.length,
@@ -148,6 +143,7 @@ export async function executeRound(
   }
 
   conversationStore.beginAssistant();
+  const usageObservationId = executionUsage.createUsageObservationId();
 
   const { wrappedOnTextDelta, wrappedOnProviderNativeRawPayload } = createRoundStreamingCallbacks(
     fullContext,
@@ -165,6 +161,7 @@ export async function executeRound(
     conversationStore,
     currentRound,
     executionId,
+    usageObservationId,
     logger,
     wrappedOnTextDelta,
     wrappedOnProviderNativeRawPayload,
@@ -186,6 +183,8 @@ export async function executeRound(
     { messages: conversationMessages, responseMessage: response },
     logger,
   );
+  // PLG-020 (issue #2460): the assistant message is observable as it lands, like the user's.
+  await callPluginHook(plugins, 'onMessageAdded', { message: response }, logger);
 
   const responseHasText =
     typeof assistantResponse.content === 'string' && assistantResponse.content.trim().length > 0;
@@ -199,7 +198,7 @@ export async function executeRound(
     return true;
   }
 
-  const usageMetadata = collectAssistantUsageMetadata(assistantResponse);
+  const usageMetadata = executionUsage.collectAssistantUsageMetadata(assistantResponse);
   const inputTokens = usageMetadata?.inputTokens ?? 0;
 
   if (inputTokens > 0) {
@@ -213,6 +212,10 @@ export async function executeRound(
   const messageState: TMessageState = fullContext.signal?.aborted ? 'interrupted' : 'complete';
   conversationStore.commitAssistant(messageState, {
     round: currentRound,
+    usageObservationId,
+    executionId,
+    providerId: resolved.currentInfo.provider,
+    modelId: resolved.aiProviderInfo.model,
     ...(usageMetadata ?? {}),
   });
   const committedAssistantMessage = conversationStore.getMessages().at(-1);
@@ -296,8 +299,6 @@ export async function executeRound(
     return true;
   }
 
-  logger.debug(
-    `Round ${currentRound} completed - continuing to next round for agent ${fullContext.conversationId}`,
-  );
+  logger.debug(`Round ${currentRound} completed for agent ${fullContext.conversationId}`);
   return false;
 }

@@ -149,10 +149,39 @@ describe('SimpleRemoteExecutor Facade', () => {
 
       const result = await executor.executeChat(validRequest);
 
-      expect(result.role).toBe('assistant');
-      expect(result.content).toBe('Hello back!');
-      expect(result.timestamp).toBeInstanceOf(Date);
+      expect(result.message.role).toBe('assistant');
+      expect(result.message.content).toBe('Hello back!');
+      expect(result.message.timestamp).toBeInstanceOf(Date);
       expect(mockHttpClient.chat).toHaveBeenCalled();
+    });
+
+    it('invokes the caller-local outcome observer exactly once from the server envelope', async () => {
+      const modelEffortOutcome = {
+        resolution: {
+          selection: 'high' as const,
+          effective: 'high' as const,
+          disposition: 'exact' as const,
+          fingerprint: 'gpt-5.1|high|high|exact|responses.reasoning.effort|2026-09-11',
+        },
+        nativeControl: { state: 'sent' as const, id: 'responses.reasoning.effort' },
+        providerDispatch: { state: 'sent' as const },
+      };
+      const observer = vi.fn();
+      mockHttpClient.chat.mockResolvedValue({
+        role: 'assistant',
+        content: 'Hello back!',
+        timestamp: new Date(),
+        modelEffortOutcome,
+      });
+
+      const result = await executor.executeChat({
+        ...validRequest,
+        options: { effort: 'high', onModelEffortOutcome: observer },
+      });
+
+      expect(observer).toHaveBeenCalledTimes(1);
+      expect(observer).toHaveBeenCalledWith(modelEffortOutcome);
+      expect(result.modelEffortOutcome).toEqual(modelEffortOutcome);
     });
 
     it('should validate request before execution', async () => {
@@ -286,13 +315,44 @@ describe('SimpleRemoteExecutor Facade', () => {
       }
 
       expect(deltas).toEqual(['a', 'b', 'c']);
-      // ONE message, not one per delta: `IExecutor.executeChatStream` yields `TUniversalMessage`,
-      // and a partial message is not one. The live text is what `onTextDelta` carries.
-      expect(yielded).toHaveLength(1);
-      expect(yielded[0].content).toBe('abc');
-      // Narrowed rather than asserted through the union: only an assistant message carries them,
-      // and yielding anything else would be the defect this case is about.
-      expect((yielded[0] as { toolCalls?: unknown[] }).toolCalls).toHaveLength(1);
+      // One assembled message plus a separate terminal envelope: no partial `TUniversalMessage` is
+      // made to impersonate an execution result.
+      expect(yielded).toHaveLength(2);
+      expect(yielded[0]).toEqual(
+        expect.objectContaining({
+          kind: 'message',
+          message: expect.objectContaining({ content: 'abc' }),
+        }),
+      );
+      expect(yielded[1]).toEqual(expect.objectContaining({ kind: 'terminal' }));
+    });
+
+    it('invokes the caller-local observer once from the streaming server envelope', async () => {
+      const modelEffortOutcome = {
+        resolution: {
+          selection: 'high' as const,
+          effective: 'high' as const,
+          disposition: 'exact' as const,
+          fingerprint: 'gpt-5.1|high|high|exact|responses.reasoning.effort|2026-09-11',
+        },
+        nativeControl: { state: 'sent' as const, id: 'responses.reasoning.effort' },
+        providerDispatch: { state: 'sent' as const },
+      };
+      const observer = vi.fn();
+      mockHttpClient.chatStream = vi.fn().mockResolvedValue({
+        content: 'complete',
+        modelEffortOutcome,
+      });
+
+      for await (const _message of executor.executeChatStream!({
+        ...streamRequest,
+        options: { effort: 'high', onModelEffortOutcome: observer },
+      } as never)) {
+        // Drain the one assembled message.
+      }
+
+      expect(observer).toHaveBeenCalledTimes(1);
+      expect(observer).toHaveBeenCalledWith(modelEffortOutcome);
     });
 
     it('REFUSES a non-string content instead of shipping it with the content deleted', async () => {
@@ -399,9 +459,9 @@ describe('SimpleRemoteExecutor Facade', () => {
 
       const response = await executor.executeChat(request);
 
-      expect(response.role).toBe('assistant');
-      expect(response.content).toContain('TypeScript');
-      expect(response.timestamp).toBeInstanceOf(Date);
+      expect(response.message.role).toBe('assistant');
+      expect(response.message.content).toContain('TypeScript');
+      expect(response.message.timestamp).toBeInstanceOf(Date);
     });
 
     it('should handle configuration changes', () => {

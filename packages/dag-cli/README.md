@@ -9,8 +9,17 @@ Command-line tool for running, validating, and managing Robota DAG workflows —
 ## Usage
 
 The `robota-dag` binary is available within the monorepo via workspace references.
+It requires Node.js 22.14 or later; local run history uses `node:sqlite`.
+
+`robota-dag runs list` displays completed and failed local `run` attempts from `.dag/runs.db`.
+Use `--phase completed` or `--phase failed` to filter, `--limit <n>` to bound the list, and
+`--output json` for run IDs, workflow IDs, status, completion time, and duration.
 
 ## Commands
+
+`robota-dag doctor` reports the CLI's own version. Built binaries embed it from this package's
+manifest so package-local immutable generation paths do not change the result. Source execution
+reads the same owner manifest; missing diagnostic configuration still produces an error status.
 
 Commands operate against the current workspace layout, which defaults to `.workflows/`. Pass a
 leading `--workspace <dir>` to point at a different workspace root.
@@ -52,15 +61,6 @@ robota-dag catalog history              # show recent run history
 
 Operates on the workspace layout (default `.workflows/`), the FLOW-007 on-disk format for
 authored workflows.
-
-### `mcp` — Start an MCP server
-
-```bash
-robota-dag mcp [--transport stdio]
-```
-
-Starts a local MCP server exposing DAG tools to AI agents:
-`dag_nodes_list`, `dag_nodes_info`, `dag_run_definition`, `dag_run_file`, `dag_validate`.
 
 ### Server mode — Connect to a remote orchestrator
 

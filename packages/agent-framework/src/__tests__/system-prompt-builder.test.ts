@@ -102,6 +102,24 @@ describe('buildSystemPrompt', () => {
     expect(result).not.toContain('Always respond in ko');
   });
 
+  it('composes the active output style before project instructions and retains permission context', () => {
+    const result = buildSystemPrompt({
+      ...BASE_PARAMS,
+      outputStyle: {
+        id: 'concise',
+        name: 'Concise',
+        instructions: 'OUTPUT_STYLE_MARKER',
+        keepCodingInstructions: true,
+        tokenCost: 'low',
+      },
+      agentsMd: 'AGENTS_MARKER',
+    });
+
+    expect(result).toContain('OUTPUT_STYLE_MARKER');
+    expect(result.indexOf('OUTPUT_STYLE_MARKER')).toBeLessThan(result.indexOf('AGENTS_MARKER'));
+    expect(result).toContain('- **Permission mode:** default');
+  });
+
   it('includes project name and type in output', () => {
     const result = buildSystemPrompt(BASE_PARAMS);
     expect(result).toContain('my-project');

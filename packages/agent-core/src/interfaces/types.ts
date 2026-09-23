@@ -78,6 +78,8 @@ export type TToolParameters = Record<string, TUniversalValue>;
 /**
  * Plugin context type - for plugin execution contexts
  */
+import type { IPluginExecutionResult } from '../abstracts/abstract-plugin-types';
+
 export interface IPluginContext {
   input?: string;
   response?: string;
@@ -86,6 +88,10 @@ export interface IPluginContext {
   metadata?: TMetadata;
   error?: Error;
   executionContext?: TContextData;
+  /** PLG-020 (issue #2460): the run's result, for `afterExecution` / `afterConversation` / `afterToolExecution`. */
+  executionResult?: IPluginExecutionResult;
+  /** PLG-020 (issue #2460): the message just appended to the conversation, for `onMessageAdded`. */
+  message?: TUniversalMessage;
 }
 
 /**

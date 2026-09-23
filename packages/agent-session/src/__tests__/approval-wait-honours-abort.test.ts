@@ -5,7 +5,11 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { PermissionEnforcer } from '../permission-enforcer.js';
 import { Session } from '../session.js';
 
-import type { IPermissionEnforcerOptions, TPermissionResult } from '../permission-types.js';
+import type {
+  IPermissionEnforcerOptions,
+  TPermissionHandler,
+  TPermissionResult,
+} from '../permission-types.js';
 import type { IToolWithEventService, ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
 
 /**
@@ -100,7 +104,7 @@ describe('an approval prompt observes the turn abort (RUNTIME-005)', () => {
   it('an ALREADY aborted signal does not prompt at all', async () => {
     const controller = new AbortController();
     controller.abort();
-    const handler = vi.fn<[string, TToolArgs], Promise<TPermissionResult>>();
+    const handler = vi.fn<TPermissionHandler>();
     const enforcer = makeEnforcer({ permissionHandler: handler });
 
     await expect(enforcer.checkPermission('Bash', ARGS, controller.signal)).resolves.toBe(false);
@@ -112,9 +116,7 @@ describe('an approval prompt observes the turn abort (RUNTIME-005)', () => {
     // this fix's clothes.
     const controller = new AbortController();
     const enforcer = makeEnforcer({
-      permissionHandler: vi
-        .fn<[string, TToolArgs], Promise<TPermissionResult>>()
-        .mockResolvedValue(true),
+      permissionHandler: vi.fn<TPermissionHandler>().mockResolvedValue(true),
     });
 
     await expect(enforcer.checkPermission('Bash', ARGS, controller.signal)).resolves.toBe(true);
@@ -122,9 +124,7 @@ describe('an approval prompt observes the turn abort (RUNTIME-005)', () => {
 
   it('works with no signal at all — the parameter is optional', async () => {
     const enforcer = makeEnforcer({
-      permissionHandler: vi
-        .fn<[string, TToolArgs], Promise<TPermissionResult>>()
-        .mockResolvedValue(true),
+      permissionHandler: vi.fn<TPermissionHandler>().mockResolvedValue(true),
     });
     await expect(enforcer.checkPermission('Bash', ARGS)).resolves.toBe(true);
   });
@@ -182,9 +182,7 @@ describe('the turn signal reaches the prompt through the tool wrapper (RUNTIME-0
 
   it('an approved tool still runs — the signal did not turn every call into a denial', async () => {
     const enforcer = makeEnforcer({
-      permissionHandler: vi
-        .fn<[string, TToolArgs], Promise<TPermissionResult>>()
-        .mockResolvedValue(true),
+      permissionHandler: vi.fn<TPermissionHandler>().mockResolvedValue(true),
     });
     const tool = makeTool();
     const [wrapped] = enforcer.wrapTools([tool]);

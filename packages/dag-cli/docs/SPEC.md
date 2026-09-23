@@ -2,11 +2,13 @@
 
 ## Scope
 
-Local-first command-line workflow tool for building, running, and inspecting Robota DAG workflows. This package is an operational tool for humans and AI agents that author, validate, execute, and inspect DAG workflows locally (no server required) via an in-process runner, plus supporting commands for cost estimation, MCP serving, node inspection, cataloging, sharing, and diagnostics. When a server URL is configured it can additionally delegate the orchestration command groups (definitions, runs, run-drafts, cost metadata, assets, published workflows) to a compatible DAG orchestration HTTP server (e.g. `@robota-sdk/dag-runtime-server`) over HTTP.
+Local-first command-line workflow tool for building, running, and inspecting Robota DAG workflows. This package is an operational tool for humans and AI agents that author, validate, execute, and inspect DAG workflows locally (no server required) via an in-process runner, plus supporting commands for cost estimation, node inspection, cataloging, sharing, and diagnostics. When a server URL is configured it can additionally delegate the orchestration command groups (definitions, runs, run-drafts, cost metadata, assets, published workflows) to a compatible DAG orchestration HTTP server (e.g. `@robota-sdk/dag-runtime-server`) over HTTP.
 
 ## Boundaries
 
-- Does not own DAG domain contracts. Those belong to `@robota-sdk/dag-core`.
+The private internal CLI requires Node.js 22.14 or later for its `node:sqlite` local run history.
+
+- Does not own DAG domain contracts. Cost management is owned by `@robota-sdk/dag-cost`; other domain contracts belong to `@robota-sdk/dag-core`.
 - Does not own operational HTTP client contracts. Those belong to `@robota-sdk/dag-orchestration-client`.
 - Does not own server-side API problem detail mapping. That belongs to `@robota-sdk/dag-api`.
 - Does not import or extend `@robota-sdk/agent-cli`; the agent TUI remains a separate thin UI.
@@ -19,7 +21,7 @@ Local-first command-line workflow tool for building, running, and inspecting Rob
 - `runner.ts` parses argv, applies environment/default config, dispatches the local-first top-level commands, and writes JSON output.
 - `src/commands/` holds one handler module per top-level command (see Command Surface).
 - `src/local-runner/` executes DAGs in-process by composing a runtime via `createExecutionComposition` from `@robota-sdk/dag-framework` over `dag-adapters-local` adapters; `createCliNodeRegistry()` supplies the built-in node definitions.
-- `@robota-sdk/dag-builder` supplies pipeline/spec build and workflow-file conversion helpers (`buildDagFromPipeline`, `fromDagWorkflowFile`, `isWorkflowFileFormat`) used by the build/convert/explain/view/migrate/cost commands.
+- `@robota-sdk/dag-builder` owns the total `decodeDagFile` import boundary for both supported JSON disk formats. All twelve CLI JSON DAG read sites (run stdin/URL/file, view, cost, explain, benchmark, fix, studio, diff, validate, and lint) call it before using an `IDagDefinition`; command-specific IO, optional companions, and error presentation stay in the CLI. Structurally valid definitions still reach command-owned semantic validation, lint findings, and diff rendering. Other builder helpers serve authoring and conversion.
 - `@robota-sdk/dag-orchestration-client` owns the shared `DagOrchestrationHttpClient` used for HTTP server-mode calls.
 - `json.ts` owns JSON parsing, file input decoding, and JSON output formatting.
 - `src/utils/temp-workspace.ts` owns `withTempWorkspace(prefix, fn)` — the single sanctioned way for
@@ -55,11 +57,15 @@ Local-first top-level commands (`src/commands/`):
 - `validate <file>` — validate a DAG without executing
 - `node <subcommand>` — inspect the local node registry
 - `init` — scaffold a new DAG project
-- `mcp` — start the local MCP server (also `mcp schema`, `--inspect`)
 - `catalog <subcommand>` — manage the local workflow catalog
 - `template <subcommand>` — built-in topology templates
 - `migrate` — migrate DAG file formats
-- `doctor` — environment diagnostics
+- `doctor` — environment diagnostics; compiled entries use `__ROBOTA_DAG_CLI_VERSION__`, injected
+  by the owning tsdown configuration from its package manifest, so sealed-generation depth does
+  not affect version reporting. Source execution uses a `typeof` guard and the owner-local
+  `../../package.json` fallback, without an exported manifest subpath or ancestor-search ladder.
+  Unreadable manifests or non-string versions retain `unknown`; other diagnostics and output
+  formats are unchanged.
 - `build` — generate a DAG file from a simplified spec
 - `convert` — convert spec formats (linear, mermaid → IBuildSpec JSON)
 - `diff` — structural diff between two DAG files
@@ -84,7 +90,13 @@ Local-first top-level commands (`src/commands/`):
 - `fix <file>` — analyze and repair a broken DAG
 - `studio` — start the local web UI server
 - `view <file>` — ASCII flow diagram viewer
-- `session <subcommand>` — bounded agent session management
+
+Each local `dag run` execution attempt writes its actual result to `.dag/runs.db` in the current
+working directory. `dag runs list` without `--provider` reads these records, newest first, with
+`runId`, `dagId`, `status` (`completed` or `failed`), `completedAt` (epoch milliseconds), and
+`durationMs`. `--phase` filters by stored status and `--limit` bounds the result. Dry runs and
+attempts stopped before execution do not create records. A history write or read failure is reported
+as an error and returns a nonzero exit code. Explicit providers retain their detached-run behavior.
 
 ### HTTP server mode
 
@@ -98,6 +110,11 @@ When a server URL is configured, unmatched commands fall through to `dispatchDag
 proxies the orchestration command groups to a compatible DAG orchestration HTTP server (e.g. `@robota-sdk/dag-runtime-server`) over HTTP:
 
 - `assets upload|get|download`
+
+`assets download` streams to a private temporary file beside the requested output, then replaces
+the destination only after the stream completes. A failed transfer leaves an existing output intact
+and reports `DAG_CLI_ASSET_DOWNLOAD_FAILED` without exposing a source path.
+
 - `cost-meta list|get|create|update|delete|validate|preview`
 - `definitions list|get|create|publish`
 - `nodes list`
@@ -105,7 +122,10 @@ proxies the orchestration command groups to a compatible DAG orchestration HTTP 
 - `run-drafts create|get|replace|reset|overwrite`
 - `workflows start <dagId> [--version <version>] [--json <json|@file>]`
 
-Output is JSON. Success responses are printed as returned by the server. CLI validation failures use a JSON envelope with `ok: false`, `status: 2`, and a single problem entry.
+Output is JSON. Legacy orchestration success responses are printed as returned by the server. Cost metadata
+and run-draft commands consume their typed domain results and render a consistent JSON success
+or failure envelope; they do not inspect transport envelopes. CLI argument validation failures
+use `ok: false`, `status: 2`, and one problem entry.
 
 ## Workspace (FLOW-007)
 
@@ -144,11 +164,13 @@ Imported from other packages:
 
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload`, `IDagNodeDefinition`, `LifecycleTaskExecutorPort`, `IWorkspaceLayout` from `@robota-sdk/dag-core`
 - `parsePersistedInstantNode`, `rehydrateInstantNode` from `@robota-sdk/dag-node-instant-node` (instant-node reload, DATA-004)
-- `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, asset request aliases, cost metadata request aliases, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
+- `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, asset request aliases, cost metadata request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
+- `IRunDraftOperationsPort`, `ISaveRunDraftInput`, and `IOverwriteRunDraftNodeResultInput` from `@robota-sdk/dag-core`
+- `ICostMetaOperationsPort`, `ICostMeta`, and formula input types from `@robota-sdk/dag-cost`
 - `IDagExecutionComposition`, `IRuntimeRunProgressEventBusPort` from `@robota-sdk/dag-api`
 - `createExecutionComposition` (in-process run composition), `scanWorkspaceCatalog`, `HttpDagRuntimeProvider`, `LocalDagRuntimeProvider` from `@robota-sdk/dag-framework`
 - `createDefaultNodeRegistrySync` (default node catalog) from `@robota-sdk/dag-nodes-default`
-- `buildDagFromPipeline`, `fromDagWorkflowFile`, `isWorkflowFileFormat`, `IDagBuildInput`, `IPipelineNodeSpec` from `@robota-sdk/dag-builder`
+- `buildDagFromPipeline`, `decodeDagFile`, `formatDagFileDecodeFailure`, `IDagBuildInput`, `IPipelineNodeSpec` from `@robota-sdk/dag-builder`
 - `InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort` from `@robota-sdk/dag-adapters-local`
 - `buildNodeDefinitionAssembly`, `StaticNodeLifecycleFactory`, `StaticNodeManifestRegistry`, `StaticNodeTaskHandlerRegistry` from `@robota-sdk/dag-node`
 - Node definition classes from `@robota-sdk/dag-node-*` packages
@@ -173,7 +195,7 @@ The barrel (`src/index.ts`) exports exactly:
 
 The following are **package-internal** (not exported by the barrel):
 
-- `LocalDagRunner` — in-process DAG runner that embeds the runtime, worker, and adapters without a server (`src/local-runner/`). Its constructor requires the product-selected trusted absolute execution root and propagates it to every node; it has no ambient fallback.
+- `LocalDagRunner` — in-process DAG runner that embeds the runtime, worker, and adapters without a server (`src/local-runner/`). Its constructor requires the product-selected trusted absolute execution root and propagates it to every node; it has no ambient fallback. A reconstructed composite runner passes trusted parent lineage into the child runner so nested depth and ancestry are preserved.
 - `createCliNodeRegistry()` — returns all built-in node definitions for use with `LocalDagRunner` (`src/local-runner/`).
 - `computeLineDiff(before, after, options?)` — LCS-based line diff utility (`src/lib/line-diff.ts`).
 - `getMainOutput(result)` — extracts primary string output from a run result for diff comparison.
@@ -191,6 +213,7 @@ Scripts capturing `--result` or `--output json` output should read stdout only. 
 
 - `DAG_CLI_USAGE_ERROR` — invalid command, missing argument, or invalid option.
 - `DAG_CLI_JSON_PARSE_ERROR` — JSON argument or file content could not be parsed.
+- Local run-history storage failures are reported on stderr with a nonzero exit code.
 - Server-originated problem detail payloads are passed through unchanged.
 
 ## Class Contract Registry
@@ -219,6 +242,16 @@ None.
 
 ## Test Strategy
 
+- `src/__tests__/runs-command.test.ts` executes local runs in a disposable working directory and
+  checks `runs list` JSON fields, completed/failed status, phase and limit filtering, and storage errors.
+- `src/__tests__/doctor-version.test.ts` executes the actual source doctor in an ordinary temporary
+  cwd with captured IO and a child environment containing only PATH. It checks the owner version,
+  expected missing-configuration diagnostics and unchanged JSON output without reading user
+  credentials or rebinding HOME. A built regression runs the actual physical binary after the
+  owning build and compares its reported version with the owner manifest; Node filesystem
+  permissions allow only repository reads and disposable-workspace reads/writes.
+- DAG-004 regressions feed invalid status and unknown JSON shapes through all twelve JSON DAG read sites; file-command tests also assert malformed nested field paths. The decoder and diff tests cover both supported disk formats. Command-specific tests assert existing exit and output contracts (including JSON parse-error envelopes for validate/lint); studio returns HTTP 400. Structurally valid DAGs still produce semantic validation and lint findings, and diff retains its normal rendering. Companion-bearing commands retain their companion behavior.
 - Unit tests cover command parsing, server URL resolution, file JSON payloads, run creation payloads, run draft routing, published workflow version/override routing, asset upload/metadata/content download routing, cost metadata CRUD/formula routing, cost metadata argument validation, and JSON output.
-- Tests inject a fake fetch and fake file reader; no network or filesystem access is required.
+- IO-isolated command tests inject a fake fetch and fake file reader; the doctor regressions
+  above instead exercise real disposable filesystem state without network requests.
 - Run: `pnpm --filter @robota-sdk/dag-cli test`

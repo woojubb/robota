@@ -66,6 +66,8 @@ async function executeScheduleManagement(
     await host.editSchedule(id, {
       cronExpression: parsed.spec.cronExpression,
       agentInstruction: parsed.spec.instruction,
+      // CMD-009: `list` renders the label, so it must follow the instruction it summarizes.
+      label: labelFor('Scheduled', parsed.spec.instruction),
     });
     return {
       message: `Schedule updated: ${id} (cron \`${parsed.spec.cronExpression}\`).`,

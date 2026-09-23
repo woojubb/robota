@@ -140,6 +140,7 @@ describe('Agent tool', () => {
     expect(props).toHaveProperty('prompt');
     expect(props).toHaveProperty('subagent_type');
     expect(props).toHaveProperty('model');
+    expect(props).toHaveProperty('effort');
     expect(props).not.toHaveProperty('parallel');
     expect(props).not.toHaveProperty('background');
     expect(props).not.toHaveProperty('detach');
@@ -958,13 +959,14 @@ describe('Agent tool', () => {
     expect(result['error']).toContain('nonexistent');
   });
 
-  it('should apply model override from tool args', async () => {
+  it('should apply model and effort overrides from tool args', async () => {
     const tool = createAgentTool(makeDeps());
 
     await tool.execute({
       prompt: 'Do task',
       subagent_type: 'general-purpose',
       model: 'haiku',
+      effort: 'high',
     });
 
     expect(createSubagentSession).toHaveBeenCalledWith(
@@ -972,7 +974,29 @@ describe('Agent tool', () => {
         agentDefinition: expect.objectContaining({
           name: 'general-purpose',
           model: 'haiku',
+          effort: 'high',
         }),
+      }),
+    );
+  });
+
+  it('should inherit the parent effective effort when no request or definition override exists', async () => {
+    const tool = createAgentTool(
+      makeDeps({
+        getParentModelEffort: () => 'low',
+        customAgentRegistry: () => ({
+          name: 'worker',
+          description: 'Worker',
+          systemPrompt: 'Work',
+        }),
+      }),
+    );
+
+    await tool.execute({ prompt: 'Do task', subagent_type: 'worker' });
+
+    expect(createSubagentSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentDefinition: expect.objectContaining({ effort: 'low' }),
       }),
     );
   });

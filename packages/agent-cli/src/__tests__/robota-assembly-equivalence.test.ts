@@ -53,7 +53,16 @@ import type { IPreset } from '@robota-sdk/agent-preset';
  * change that adds it — which is the point: the baseline exists to make an accidental gain or loss
  * visible, and an entry appearing without a reason in the diff is the thing it catches.
  * `agent-command-peers` was added by PEER-004 (issue #1863); `agent-command-handoff` by
- * HANDOFF-001 (issue #1864).
+ * HANDOFF-001 (issue #1864); `agent-command-fork` by CLI-1994 (issue #1994), which registers `/fork`
+ * beside `/background` because the two spawn the same kind of child and differ only in what context
+ * it starts from.
+ * `agent-command-mcp-activation` was added by MCP-2520 to expose the explicit trust-admission
+ * lifecycle without constructing or connecting an MCP client. `agent-command-doctor` was added by
+ * OBSERVABILITY-1991: `/doctor` shares the pre-session doctor runner with `robota doctor`.
+ * `agent-command-output-style` was added by CLI-1988 to expose provider-neutral response-style
+ * selection through the same command host used by interactive and headless surfaces.
+ * `agent-command-effort` was added by FLOW-008 to expose active model-effort selection through the
+ * same command host used by interactive and headless surfaces.
  */
 const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-skills',
@@ -64,11 +73,17 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-preset',
   'agent-command-language',
   'agent-command-background',
+  'agent-command-fork',
   'agent-command-goal',
   'agent-command-plan',
   'agent-command-shell',
   'agent-command-editor',
+  'agent-command-git',
+  'agent-command-doctor',
   'agent-command-memory',
+  'agent-command-mcp-activation',
+  'agent-command-output-style',
+  'agent-command-effort',
   'agent-command-user-local',
   'agent-command-compact',
   'agent-command-context',
@@ -217,6 +232,16 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
     );
   });
 
+  it('composes /mode alongside /permissions in the default set — CLI-079 (issue #2444)', () => {
+    // The agent-cli SPEC once said the default CLI does NOT compose `/mode` while the code did; the
+    // set-equality above would catch a silent loss, but only through a baseline a reader must diff.
+    // This pins the product decision by name so a future "tidy /mode away" reads as a decision.
+    const names = assembleRobota().commandModules.map((m) => m.name);
+
+    expect(names).toContain('agent-command-mode');
+    expect(names).toContain('agent-command-permissions');
+  });
+
   it('derives the same module-NAME superset the kernel actually merges (no drift)', () => {
     // The shell reports INFRA-032 unknown names from `mergedCommandModuleNames` BEFORE assembling (so the
     // notice survives the init/--configure early-returns). That shortcut is only valid while the derived
@@ -234,7 +259,7 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
     const { product } = assembleRobota();
     const packNames = ROBOTA_PACK_COMMAND_MODULE_NAMES;
 
-    expect(packNames).toEqual(['agent-command-shell', 'agent-command-editor']);
+    expect(packNames).toEqual(['agent-command-shell', 'agent-command-editor', 'agent-command-git']);
     // Present in the merged product…
     for (const name of packNames) {
       expect(product.commandModules.map((m) => m.name)).toContain(name);

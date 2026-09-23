@@ -43,9 +43,9 @@
  *     legacy AST but a `BindingElement` with no `name` in the native one. Any caller walking
  *     binding patterns must skip a nameless `BindingElement`; `scan-composition-neutrality` does.
  *
- *  4. `forEachChild` is a METHOD on the node, not a free function. The free-function form is
- *     re-exported here so call sites keep the legacy shape. Three guards are also RENAMED
- *     (`isParameter`, `isMethodSignature`, `isPropertySignature`); they are aliased back below.
+ *  4. `forEachChild` is a METHOD on the node, not a free function. Callers use that native shape.
+ *     Native guard names are explicit too: `isParameterDeclaration`,
+ *     `isMethodSignatureDeclaration` and `isPropertySignatureDeclaration`.
  *
  *  5. OPTIONALITY OF A TYPE MEMBER IS `postfixToken`, NOT `questionToken`. The native AST leaves
  *     `questionToken` undefined on a `PropertySignature`/`MethodSignature`, so a caller reading it
@@ -64,7 +64,7 @@
  * Everything else the scans rely on — `node.parent`, `pos`/`end`, `getStart()`, `getText()`,
  * `getLineAndCharacterOfPosition()`, `modifiers`, `heritageClauses`, `elements`, `.text` on
  * identifiers and string literals — is present with the same names and the same semantics.
- * `SyntaxKind`, `ScriptTarget` and `ScriptKind` carry the same numeric values as the legacy enums.
+ * `SyntaxKind` and `ScriptKind` carry the same numeric values as the legacy enums.
  *
  * COST. A parse is one RPC round-trip, ~4.8 ms, against ~0.8 ms for the in-process legacy parser.
  * That is paid per FILE, and the three CI scans parse tens of files each; the repo-wide audit
@@ -73,11 +73,11 @@
  * and the point of this migration is that the finding sets stay bit-identical.
  */
 
-import { ScriptKind, ScriptTarget, SyntaxKind } from '@typescript/native-preview/unstable/ast';
+import { ScriptKind, SyntaxKind } from '@typescript/native-preview/unstable/ast';
 import * as guards from '@typescript/native-preview/unstable/ast/is';
 import { API } from '@typescript/native-preview/unstable/sync';
 
-export { ScriptKind, ScriptTarget, SyntaxKind };
+export { ScriptKind, SyntaxKind };
 
 /**
  * A directory no tsconfig in this repo covers, so every file presented here resolves to tsgo's
@@ -119,7 +119,7 @@ function ensureApi() {
 
 /**
  * The virtual file extension that makes the parser use a given script kind. When the caller does
- * not state a kind, the legacy parser infers it from the file name — so this mirrors that, keeping
+ * not state a kind, the file name supplies it — keeping
  * `.tsx` callers (audit-implements) on TSX and explicit-`ScriptKind.TS` callers
  * (check-spec-public-surface, which parses `.tsx` entry files AS TS) on exactly what they asked for.
  */
@@ -128,37 +128,44 @@ function extensionFor(fileName, scriptKind) {
   if (scriptKind === ScriptKind.TS) return '.ts';
   if (scriptKind === ScriptKind.JSX) return '.jsx';
   if (scriptKind === ScriptKind.JS) return '.js';
+  if (/\.jsx$/i.test(fileName)) return '.jsx';
   return /\.tsx$/i.test(fileName) ? '.tsx' : '.ts';
 }
 
 /**
- * Parse one source string into a `SourceFile`, legacy-signature-compatible.
- *
- * `languageVersion` and `setParentNodes` are accepted and ignored: the native parser is always at
- * the latest language version, and always populates `parent`. They are kept in the signature so
- * call sites read the same as they did before the migration.
+ * Parse one source string into a `SourceFile` using the native parser contract.
  *
  * @param {string} fileName reporting name; also the script-kind hint when `scriptKind` is omitted
  * @param {string} sourceText
- * @param {number} [languageVersion] ignored (always latest)
- * @param {boolean} [setParentNodes] ignored (parents are always set)
- * @param {number} [scriptKind] a {@link ScriptKind}; inferred from `fileName` when omitted
+ * @param {{scriptKind?: number}} [options]
  */
-export function createSourceFile(
-  fileName,
-  sourceText,
-  languageVersion,
-  setParentNodes,
-  scriptKind,
-) {
+export function createSourceFile(fileName, sourceText, { scriptKind } = {}) {
+  return createParsedSource(fileName, sourceText, scriptKind).sourceFile;
+}
+
+/** Visit synchronously and return detached evidence, never AST nodes that outlive the snapshot. */
+export function withSourceFile(fileName, sourceText, visit, scriptKind) {
+  const { sourceFile, snapshot } = createParsedSource(fileName, sourceText, scriptKind);
+  try {
+    return visit(sourceFile);
+  } finally {
+    snapshot.dispose();
+  }
+}
+
+function createParsedSource(fileName, sourceText, scriptKind) {
   const client = ensureApi();
   const virtualPath = `${VIRTUAL_ROOT}/p${parseCounter++}${extensionFor(fileName, scriptKind)}`;
   virtualFiles.set(virtualPath, sourceText);
+  if (openFile !== undefined) virtualFiles.delete(openFile);
 
   const snapshot = client.updateSnapshot({
     openFiles: [virtualPath],
     closeFiles: openFile === undefined ? undefined : [openFile],
-    fileChanges: { created: [virtualPath] },
+    fileChanges: {
+      created: [virtualPath],
+      deleted: openFile === undefined ? undefined : [openFile],
+    },
   });
 
   const previous = openFile;
@@ -170,15 +177,7 @@ export function createSourceFile(
   if (sourceFile === undefined) {
     throw new Error(`ts-ast: the native parser returned no source file for ${fileName}`);
   }
-  return sourceFile;
-}
-
-/**
- * Free-function `forEachChild`, matching the legacy call shape. The native AST exposes this only as
- * a node method.
- */
-export function forEachChild(node, visitor, visitArray) {
-  return node.forEachChild(visitor, visitArray);
+  return { sourceFile, snapshot };
 }
 
 /**
@@ -193,10 +192,9 @@ export function isTypeOnlyImportClause(clause) {
   return clause?.phaseModifier === SyntaxKind.TypeKeyword;
 }
 
-// The `isXxx` type guards the four scans actually use, re-exported so call sites read
-// `ts.isClassDeclaration` exactly as they did against the legacy API. This is a deliberate subset of
-// the package's 347, not a re-export of all of them: each name here is checked at import time
-// (below), and that check is only meaningful for guards we have a call site for.
+// The native `isXxx` type guards the scans actually use. This is a deliberate subset of the
+// package's 347, not a re-export of all of them: each name here is checked at import time (below),
+// and that check is only meaningful for guards we have a call site for.
 export const {
   isArrayBindingPattern,
   isArrowFunction,
@@ -227,6 +225,7 @@ export const {
   isLabeledStatement,
   isLiteralTypeNode,
   isMethodDeclaration,
+  isMethodSignatureDeclaration,
   isModuleDeclaration,
   isNamedExports,
   isNamedImports,
@@ -235,10 +234,12 @@ export const {
   isNonNullExpression,
   isObjectBindingPattern,
   isObjectLiteralExpression,
+  isParameterDeclaration,
   isParenthesizedExpression,
   isPropertyAccessExpression,
   isPropertyAssignment,
   isPropertyDeclaration,
+  isPropertySignatureDeclaration,
   isQualifiedName,
   isSetAccessorDeclaration,
   isStringLiteral,
@@ -251,17 +252,6 @@ export const {
 } = guards;
 
 /**
- * Three guards the native package RENAMED. Each is a pure rename — the native body is the identical
- * single `node.kind === SyntaxKind.X` test as the legacy one (`Parameter`, `MethodSignature`,
- * `PropertySignature` respectively), so aliasing them back to the legacy names is exact, not
- * approximate. They are listed separately rather than folded into the block above precisely so the
- * rename stays visible at the swap point.
- */
-export const isParameter = guards.isParameterDeclaration;
-export const isMethodSignature = guards.isMethodSignatureDeclaration;
-export const isPropertySignature = guards.isPropertySignatureDeclaration;
-
-/**
  * Fail LOUDLY, at import time, if the pinned dev build stops exporting a guard this module
  * re-exports.
  *
@@ -270,9 +260,8 @@ export const isPropertySignature = guards.isPropertySignatureDeclaration;
  * reached on some code path. A guard used on a rare branch could therefore go missing and turn a
  * scan into a quieter version of itself, which is indistinguishable from "the tree got cleaner".
  * That is exactly the failure this migration had to rule out, so it is checked mechanically here
- * rather than trusted. Three guards were ALREADY renamed by the native package
- * (`isParameter` → `isParameterDeclaration`, and the two `*Signature` ones); this check is what
- * turns the next such rename into an immediate, obvious failure at the swap point.
+ * rather than trusted. This check turns an upstream removal or rename into an immediate, obvious
+ * failure at the swap point.
  */
 {
   const exported = {
@@ -305,7 +294,7 @@ export const isPropertySignature = guards.isPropertySignatureDeclaration;
     isLabeledStatement,
     isLiteralTypeNode,
     isMethodDeclaration,
-    isMethodSignature,
+    isMethodSignatureDeclaration,
     isModuleDeclaration,
     isNamedExports,
     isNamedImports,
@@ -314,12 +303,12 @@ export const isPropertySignature = guards.isPropertySignatureDeclaration;
     isNonNullExpression,
     isObjectBindingPattern,
     isObjectLiteralExpression,
-    isParameter,
+    isParameterDeclaration,
     isParenthesizedExpression,
     isPropertyAccessExpression,
     isPropertyAssignment,
     isPropertyDeclaration,
-    isPropertySignature,
+    isPropertySignatureDeclaration,
     isQualifiedName,
     isSetAccessorDeclaration,
     isStringLiteral,

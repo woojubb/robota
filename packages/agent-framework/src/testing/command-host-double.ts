@@ -152,6 +152,10 @@ export function createTestSessionRuntime(
     setAutoCompactThreshold: () => {},
     getSessionTokenUsage: () => undefined,
     getModelId: () => undefined,
+    getModelEffort: () => 'high',
+    // CLI-1990: no tools by default, so a fixture that does not care about the tool surface reports
+    // zero schema tokens rather than a made-up figure. A case that does care overrides it.
+    getOfferedToolSchemas: () => [],
     applyModelOptions: () => {},
     applyAgentName: () => {},
     getActivePresetId: () => 'default',
@@ -190,12 +194,20 @@ export function createTestCommandHost(
     getCwd: () => cwd,
     getCommandInvocationSource: () => 'user',
     clearConversationHistory: () => {},
+    // CLI-1994: "this host wrote a copy" — a stable id and the default fork name, nothing on disk.
+    forkSession: (input) =>
+      Promise.resolve({
+        sessionId: `test-command-host-${doublesCreated}-fork`,
+        name: input?.name ?? `test-command-host-${doublesCreated} (fork)`,
+      }),
     // `undefined` is "no interactive renderer is attached" — the headless case, which every
     // command must already handle as a cancellation rather than a silent guess (CMD-004).
     getUserInteraction: () => undefined,
+    getActiveOutputStyleId: () => 'default',
     applyPersona: () => {},
     applySelfVerification: () => {},
     applyResponseLanguage: () => {},
+    applyOutputStyle: () => {},
     applyPresetSystemPrompt: () => {},
     // An empty array is "every name matched" (INFRA-032), not "nothing was applied".
     applyCommandModuleSelection: () => [],

@@ -1,4 +1,12 @@
-import { mkdirSync, rmSync, readFileSync, writeFileSync, existsSync, mkdtempSync } from 'node:fs';
+import {
+  mkdirSync,
+  rmSync,
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdtempSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -21,7 +29,7 @@ import type {
 } from '../command-api/provider/provider-settings.js';
 import type { IProviderSwitchOptions } from '../command-api/provider/provider-configuration.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-provider-configuration-test-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-provider-configuration-test-')));
 const ORIGINAL_HOME = process.env.HOME;
 
 function nodeHostProviderSettingsPaths(cwd: string): string[] {

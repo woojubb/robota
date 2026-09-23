@@ -53,17 +53,21 @@ wss.on('connection', async (ws) => {
 
 ## Advanced: Direct Handler
 
-For more control, use `createWsHandler` directly:
+For more control, compose the carrier-neutral session handler with an outbound delivery boundary:
 
 <!-- doc-example-skip: continues the ws server example above (requires the host app's ws dependency) -->
 
 ```typescript
-import { createWsHandler } from '@robota-sdk/agent-transport-ws';
+import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 
 wss.on('connection', (ws) => {
-  const { onMessage, cleanup } = createWsHandler({
+  const deliver = createOutboundDelivery(
+    (message) => ws.send(JSON.stringify(message)),
+    () => ws.close(1011, 'Outbound delivery failed'),
+  );
+  const { onMessage, cleanup } = createSessionMessageHandler({
     session: interactiveSession,
-    send: (msg) => ws.send(JSON.stringify(msg)),
+    deliver,
   });
 
   ws.on('message', (data) => onMessage(String(data)));

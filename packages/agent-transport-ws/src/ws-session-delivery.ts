@@ -1,7 +1,16 @@
-import { createOutboundDelivery } from '@robota-sdk/agent-transport-protocol';
+import {
+  createOutboundDelivery,
+  createPendingStallClock,
+  DEFAULT_MAX_PENDING_BYTES,
+  isOverPendingBudget,
+} from '@robota-sdk/agent-transport';
 import { WebSocket } from 'ws';
 
-import type { TOutboundDeliver, TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type {
+  IPendingStallClock,
+  TOutboundDeliver,
+  TServerMessage,
+} from '@robota-sdk/agent-transport';
 
 /**
  * Connection-scoped session delivery lifecycle shared by sync and async WebSocket failures.
@@ -15,10 +24,16 @@ export class WsSessionDelivery {
   private cleanupProtocol = (): void => undefined;
   private detachSink = (): void => undefined;
   private closed = false;
+  /**
+   * Issue #2306: ONE drain clock for the socket. `bufferedAmount` does not distinguish text from
+   * binary, so both halves observe the same clock — a slow reader of payload frames is caught when a
+   * JSON reply is attempted, and the reverse.
+   */
+  private readonly stallClock: IPendingStallClock = createPendingStallClock();
 
   /**
    * The connection's outbound boundary. Built here, from this class's own sink and its own `close`
-   * policy, and passed DOWN into `createWsHandler` — the carrier owns both halves, so it builds the
+   * policy, and passed DOWN into `createSessionMessageHandler` — the carrier owns both halves, so it builds the
    * boundary rather than handing the protocol layer a raw sink to wrap.
    */
   readonly deliver: TOutboundDeliver;
@@ -27,8 +42,42 @@ export class WsSessionDelivery {
     this.deliver = createOutboundDelivery(
       (message) => this.rawSend(message),
       () => this.close(),
+      // ARCH-030 / issue #1734: the socket's own count of what it has accepted and not yet written.
+      // Read at call time — it changes underneath.
+      () => this.socket.bufferedAmount,
+      DEFAULT_MAX_PENDING_BYTES,
+      this.stallClock,
     );
   }
+
+  /**
+   * Put a TRANS-001 payload frame on this socket, under the SAME budget and the same close policy as
+   * the text protocol (ARCH-030 / issue #1734).
+   *
+   * A WebSocket carries two kinds of outbound frame over one socket, and until this existed the
+   * binary half went straight to `socket.send` — outside the boundary, with no budget, and with a
+   * failure that could only surface as a throw inside a listener. `bufferedAmount` does not
+   * distinguish the two, so a non-reading peer accumulating payload frames was invisible to a budget
+   * that only guarded the other half.
+   *
+   * It is not `deliver`: that boundary is typed for `TServerMessage` and its brand is what makes a
+   * raw send unusable where a protocol frame is required. Widening it to accept bytes would remove
+   * the property the brand exists for.
+   */
+  readonly deliverBinary = (frame: Uint8Array): void => {
+    if (this.closed) return;
+    if (this.socket.readyState !== WebSocket.OPEN) return;
+    if (
+      isOverPendingBudget(this.socket.bufferedAmount) ||
+      this.stallClock.observe(this.socket.bufferedAmount) !== undefined
+    ) {
+      this.close();
+      return;
+    }
+    this.socket.send(frame, { binary: true }, (error) => {
+      if (error) this.close();
+    });
+  };
 
   private rawSend(message: TServerMessage): void {
     if (this.socket.readyState !== WebSocket.OPEN) throw new Error('WebSocket is not open');

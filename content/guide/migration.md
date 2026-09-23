@@ -29,6 +29,21 @@ before/after examples for each one.
 
 ## Package Renames
 
+### Repository development tooling
+
+These paths concern repository contributors, not installed SDK entry points. Hook examples now
+live in `packages/agent-core/examples/`; run them from that package after building it. The legacy
+history migration command lives in `packages/agent-session/scripts/` and accepts an explicit
+`--sessions-dir <absolute-directory>`; back up the selected legacy files before migrating them.
+The package also provides `examples/verify-session-history-migration.mjs` with disposable data.
+
+Goal cassette recording moved to `packages/agent-framework/scripts/record-goal-cassette.mts`.
+Use its `examples/verify-goal-cassette-replay.mts` for credential-free offline replay instead of
+recording a live provider. DeepSeek's offline definition/composition example now belongs to
+`packages/agent-builtin-providers/examples/`. The private, never-published `agent-testing`
+workspace was removed; TUI tests import their own internal PTY support. Public SDK contracts
+are unchanged by these relocations.
+
 ### Provider packages
 
 In v2.x, each provider was its own npm package:

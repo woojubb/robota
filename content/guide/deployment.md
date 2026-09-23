@@ -14,7 +14,7 @@ per-surface runtime fork** — a gateway would re-introduce the coupling the tra
 
 ```ts
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { TransportRegistry } from '@robota-sdk/agent-transport';
+import { TransportRegistry } from '@robota-sdk/agent-framework';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 

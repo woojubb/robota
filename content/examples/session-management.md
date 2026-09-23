@@ -44,6 +44,19 @@ const forked = new InteractiveSession({
 });
 ```
 
+## Recovery log failures
+
+The project session store can recover from its append-only log when a snapshot is missing. It first
+validates the versioned JSONL and every event payload. A damaged log is reported as `corrupt`; an
+unsupported version is reported as `unsupported`. Such logs remain visible in store listings rather
+than disappearing as missing sessions, and valid lines are not used as a partial substitute for a
+damaged log. A corrupt snapshot never falls back to replay.
+
+New logs carry schema version 1. Unversioned legacy logs are not accepted by the replay codec; this
+change does not alter the session snapshot format. Direct log readers and the replay provider raise
+`SessionLogDecodeError` with a safe field/line location. External-payload integrity failures retain
+their existing typed errors.
+
 ## Using InteractiveSession Events
 
 ```typescript

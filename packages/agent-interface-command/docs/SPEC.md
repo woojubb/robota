@@ -24,7 +24,7 @@ It contains type declarations only. No class, no runtime logic, no mechanism.
 | ------------------------------------------------------ | ----------------------------------------------- |
 | Command _implementations_ and their modules            | `agent-command`, command-module owners          |
 | Command infrastructure and reusable host APIs          | `agent-framework`                               |
-| Rendering a command's result                           | `agent-transport-tui`, `agent-transport-gui`    |
+| Rendering a command's result                           | `agent-ui-terminal`, `agent-ui-web`             |
 | Session, interaction, event, turn and driver contracts | `agent-interface-transport` (until issue #2110) |
 | Background task, workspace and subagent contracts      | `agent-interface-execution`                     |
 
@@ -49,24 +49,34 @@ keep it.
 
 ## Type Ownership
 
-| Type                                                            | Location                      | Purpose                                       |
-| --------------------------------------------------------------- | ----------------------------- | --------------------------------------------- |
-| `ICommand`, `ICommandSource`                                    | `src/command-contracts.ts`    | what a command is and where it came from      |
-| `ICommandResult`, `TCommandResultDataValue`                     | `src/command-contracts.ts`    | what running one produces                     |
-| `ICommandListEntry`, `TCommandInvocationSource`                 | `src/command-contracts.ts`    | listing and invocation provenance             |
-| `TCommandHostAction`, `TCommandUiIntent`                        | `src/command-contracts.ts`    | what a command asks of its host and of the UI |
-| `ICommandPluginAdapter` and the four plugin record types        | `src/command-contracts.ts`    | the plugin surface a command host exposes     |
-| `ISkillExecutionPort`, `ISkillResolutionResult`                 | `src/command-contracts.ts`    | resolving a skill command to its prompt       |
-| `IStatusLineCommandSettings`, `TStatusLineCommandSettingsPatch` | `src/command-contracts.ts`    | the status-line command's settings shape      |
-| `ICapabilityDescriptor`, `TCapabilityKind`, `TCapabilitySafety` | `src/capability-contracts.ts` | what a command declares about its own effects |
+| Type                                                                                             | Location                      | Purpose                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ICommand`, `ICommandSource`                                                                     | `src/command-contracts.ts`    | what a command is and where it came from; command effort metadata uses the core `TModelEffort` vocabulary                                                                                                            |
+| `ICommandResult`, `TCommandResultDataValue`                                                      | `src/command-contracts.ts`    | what running one produces                                                                                                                                                                                            |
+| `ICommandListEntry`, `TCommandInvocationSource`                                                  | `src/command-contracts.ts`    | listing and invocation provenance                                                                                                                                                                                    |
+| `TCommandHostAction`, `TCommandUiIntent`                                                         | `src/command-contracts.ts`    | what a command asks of its host and of the UI                                                                                                                                                                        |
+| `output-style-change` host-action variant                                                        | `src/command-contracts.ts`    | validated provider-neutral response-style selection request                                                                                                                                                          |
+| `ICommandPluginAdapter` and the four plugin record types                                         | `src/command-contracts.ts`    | the plugin surface a command host exposes                                                                                                                                                                            |
+| `ISkillExecutionPort`, `ISkillResolutionResult`                                                  | `src/command-contracts.ts`    | resolving a skill command to its prompt                                                                                                                                                                              |
+| `IStatusLineCommandSettings`, `TStatusLineCommandSettingsPatch`                                  | `src/command-contracts.ts`    | the status-line command's settings shape                                                                                                                                                                             |
+| `IAppearanceSettings`, `TAppearanceSettingsPatch`                                                | `src/command-contracts.ts`    | SCREEN-2002: the appearance a run renders with — theme id, syntax highlighting, reduced motion                                                                                                                       |
+| `IThemeCataloguePort`, `IThemeCatalogueEntry`, `IThemeAppearanceState`, `TReducedMotionOverride` | `src/command-contracts.ts`    | SCREEN-2002: the surface's theme catalogue as the command layer asks it. Declared here, in the package both the command layer and the surface depend on, so neither has to re-declare a structurally-compatible copy |
+| `ICapabilityDescriptor`, `TCapabilityKind`, `TCapabilitySafety`                                  | `src/capability-contracts.ts` | what a command declares about its own effects                                                                                                                                                                        |
 
-21 declarations in total. `src/index.ts` is the single entry point; there is no subpath export.
+`src/index.ts` is the single entry point; there is no subpath export. The `output-style-change`
+variant carries only a style id; prompt instructions remain in the host-owned registry.
 
 ## Public API Surface
 
-| Export           | Kind | Description                               |
-| ---------------- | ---- | ----------------------------------------- |
-| every name above | type | contract declarations; see Type Ownership |
+| Export                     | Kind | Description                                                                                                                                                         |
+| -------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| every name above           | type | contract declarations; see Type Ownership                                                                                                                           |
+| `IAppearanceSettings`      | type | SCREEN-2002: the appearance a run renders with — theme id, syntax highlighting, reduced motion                                                                      |
+| `TAppearanceSettingsPatch` | type | A sparse patch over `IAppearanceSettings`                                                                                                                           |
+| `IThemeCataloguePort`      | type | The surface's theme catalogue, as the command layer asks it                                                                                                         |
+| `IThemeCatalogueEntry`     | type | One catalogue row: id, name, appearance and source — never a colour                                                                                                 |
+| `IThemeAppearanceState`    | type | The persisted appearance plus the pin on reduced motion, if any — the tier AND what it pinned, as one value, because the tier alone cannot say which way a run went |
+| `TReducedMotionOverride`   | type | `flag` \| `environment` \| `screen-reader`                                                                                                                          |
 
 **No runtime value is exported.** `scan-interface-runtime` refuses anything beyond a contract's
 vocabulary and its discriminators, and this package needs neither.

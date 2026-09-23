@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileLogStorage } from '../file-storage';
@@ -18,7 +18,7 @@ describe('FileLogStorage (PLUGIN-001: real persistence)', () => {
   let filePath: string;
 
   function freshStorage(): FileLogStorage {
-    dir = mkdtempSync(join(tmpdir(), 'robota-log-'));
+    dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-log-')));
     filePath = join(dir, 'app.log');
     return new FileLogStorage(filePath);
   }

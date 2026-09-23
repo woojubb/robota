@@ -50,8 +50,11 @@ describe('SELFHOST-009 TC-05 — single runHooks path, no second tier', () => {
     // The one EXECUTOR-driven block trigger (SEC-015 renamed it from `exitCode === 2`).
     expect(runner).toMatch(/outcome\.outcome === 'deny'/);
     // And the trigger stays singular: an `error` outcome must NOT also be wired to block here.
-    // That is issue #2093's decision to make, and if it is made by editing this file rather than by
-    // adding a per-event policy, this assertion is what notices.
+    // Issue #2093 has since made that decision, and made it the way this assertion anticipated: a
+    // per-event policy (`HOOK_ENFORCEMENT_POLICY`, read at the boundary via `isEnforcing`) rather
+    // than a second block trigger in the runner. So the assertion still guards exactly what it
+    // guarded — the runner reports and does not enforce — and it is now also what notices if the
+    // policy is ever collapsed back into this file.
     expect(runner).not.toMatch(/outcome\.outcome === 'error'[\s\S]{0,200}blocked:\s*true/);
   });
 });

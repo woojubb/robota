@@ -38,9 +38,9 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
-import { envWithoutGitVars } from './shared.mjs';
+import { envWithoutGitVars, resolveWorkspaceRoot } from './shared.mjs';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
 function gitLines(args, cwd = WORKSPACE_ROOT) {
   const out = execFileSync('git', args, {

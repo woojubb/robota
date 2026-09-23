@@ -1,5 +1,8 @@
 import type { ICommandPluginAdapter } from './plugin/plugin-command-api.js';
 import type { IPresetApplicationOptions } from './preset/preset-application.js';
+import type { ICommandSessionModel } from './session-roles.js';
+import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
+import type { IModelEffortResolution, TEffortSelection } from '../effort/effort-resolution.js';
 import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface ICommandSettingsDocument {
@@ -35,6 +38,15 @@ export interface ICommandPermissionModeAdapter {
   listSessionAllowedTools(): readonly string[];
 }
 
+/** Live model-effort state and application seam supplied by the composition root. */
+export interface ICommandEffortAdapter {
+  getResolution(): IModelEffortResolution;
+  apply(
+    selection: TEffortSelection,
+    session: ICommandSessionModel,
+  ): IModelEffortResolution | Promise<IModelEffortResolution>;
+}
+
 /**
  * REMOTE-008: view of `/remote-control` state, so the command can report status without touching the
  * transport. CMD-004 Phase 2 supersedes the original status-only design: the enable/stop ACTIONS are
@@ -68,6 +80,30 @@ export interface ICommandRemoteControlAdapter {
   enable?(): string | Promise<string>;
   /** CMD-004 Phase 2: stop remote control; resolves to the user-facing message (see {@link enable}). */
   stop?(): string | Promise<string>;
+}
+
+/**
+ * MCP-2520 — public, secret-free view of one resolved MCP definition. The command layer can show
+ * this value and request a decision, but it cannot construct or connect an MCP client.
+ */
+export interface ICommandMCPActivationSummary {
+  readonly serverId: string;
+  readonly displayName?: string;
+  readonly source: 'managed' | 'user' | 'project' | 'plugin' | 'local';
+  readonly status: 'approved' | 'pending' | 'rejected' | 'revoked' | 'stale' | 'untrusted';
+  readonly allowed: boolean;
+  readonly reason: string;
+  readonly provenanceId: string;
+  readonly definitionFingerprint: string;
+  readonly securityIdentity: string;
+}
+
+/** MCP activation lifecycle port. Implemented by the composition root over the MCP policy service. */
+export interface ICommandMCPActivationAdapter {
+  list(): readonly ICommandMCPActivationSummary[];
+  approve(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
+  reject(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
+  revoke(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
 }
 
 /**
@@ -149,6 +185,21 @@ export interface ICommandPresetRegistryAdapter {
   resolvePreset(id: string, context?: unknown): IPresetApplicationOptions;
 }
 
+/** CLI-1988: the command-facing projection of the host's provider-neutral output-style registry. */
+export interface ICommandOutputStyleSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly tokenCost?: string;
+  readonly source?: string;
+}
+
+/** CLI-1988: discovery and resolution only; commands never read style files or own persistence. */
+export interface ICommandOutputStyleRegistryAdapter {
+  listOutputStyles(): readonly ICommandOutputStyleSummary[];
+  getOutputStyle(id: string): IOutputStylePrompt | undefined;
+}
+
 /**
  * HANDOFF-001 (issue #1864): what a hand-off looks like to the operator, in the operator's words.
  *
@@ -201,12 +252,37 @@ export interface ICommandHandoffAdapter {
   status(): IHandoffProgress;
 }
 
+/** The persisted `/cost budget` document. */
+export interface ICommandCostBudget {
+  monthly: number;
+}
+
+/**
+ * CMD-007 (issue #2058): the narrow storage port `/cost budget` reads and writes through.
+ *
+ * The command used to own the budget file's location and the filesystem calls itself, which made a
+ * reusable command package responsible for a product's storage location and symlink policy. The
+ * shell now composes an adapter (agent-cli: a file under the workspace, written atomically and never
+ * through a symlink); the command sees `read/write/clear` and nothing else, so another product can
+ * store the budget wherever it likes. `write`/`clear` throw a typed failure the command renders.
+ */
+export interface ICommandCostBudgetAdapter {
+  /** `undefined` when no budget is set (absent, empty or unreadable document alike). */
+  read(): ICommandCostBudget | undefined;
+  write(budget: ICommandCostBudget): void;
+  clear(): void;
+}
+
 export interface ICommandHostAdapters {
   settings?: ICommandSettingsAdapter;
+  effort?: ICommandEffortAdapter;
+  /** CMD-007 (issue #2058). Absent on a host with no budget storage — `/cost budget` then says so. */
+  costBudget?: ICommandCostBudgetAdapter;
   process?: ICommandProcessAdapter;
   permissionMode?: ICommandPermissionModeAdapter;
   plugin?: ICommandPluginAdapter;
   remoteControl?: ICommandRemoteControlAdapter;
+  mcpActivation?: ICommandMCPActivationAdapter;
   localPeers?: ICommandLocalPeersAdapter;
   /**
    * ARCH-009 — the instance registry the host resolved with, so in-session `/preset` discovers THIS
@@ -215,6 +291,8 @@ export interface ICommandHostAdapters {
    * shell to the command.
    */
   presetRegistry?: ICommandPresetRegistryAdapter;
+  /** CLI-1988 — the instance-scoped output-style catalog resolved by the composition root. */
+  outputStyleRegistry?: ICommandOutputStyleRegistryAdapter;
   /**
    * HANDOFF-001 (issue #1864). Absent on a host with no carrier — `/handoff` then says so rather
    * than offering a transfer it cannot perform.

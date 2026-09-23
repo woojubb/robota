@@ -2,7 +2,6 @@
 @import 'tw-animate-css';
 
 @source "../../../../packages/agent-playground/src";
-@source "../../../../packages/agent-web/src";
 
 @custom-variant dark (&:is(.dark *));
 

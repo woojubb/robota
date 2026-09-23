@@ -6,13 +6,13 @@ WebRTC P2P transport (REMOTE-001 / REMOTE-002 Stage A). Carries the protocol-own
 `IProtocolSession` capability over an
 `RTCDataChannel` so an external remote client can co-drive a live `agent-cli` session directly, peer-to-peer,
 without routing session content through any server. Reuses the transport-neutral session bridge + wire protocol
-from `@robota-sdk/agent-transport-protocol` (the same `createWsHandler` the WebSocket transport uses) so the
+from `@robota-sdk/agent-transport` (the same `createSessionMessageHandler` the WebSocket transport uses) so the
 protocol is shared, not duplicated.
 
 ## Boundaries
 
-- Does NOT own the session bridge or wire protocol — that is `@robota-sdk/agent-transport-protocol`
-  (`createWsHandler`, `TClientMessage`/`TServerMessage`). This package only carries those frames over a data
+- Does NOT own the session bridge or wire protocol — that is `@robota-sdk/agent-transport`
+  (`createSessionMessageHandler`, `TClientMessage`/`TServerMessage`). This package only carries those frames over a data
   channel; it has **no** `webrtc → ws` package edge.
 - Owns the **pairing GATE** (REMOTE-008), not the pairing crypto — the directional-HMAC handshake +
   DTLS-fingerprint channel binding is `@robota-sdk/agent-remote-pairing` (a zero-dep isomorphic leaf). The gate must
@@ -33,7 +33,7 @@ protocol is shared, not duplicated.
   Without a `secret` the constructor THROWS unless the caller passes `{ open: true, openReason: '…' }`. Running
   ungated is a decision someone has to make and write down; it used to be what happened when nobody said anything,
   which is the shape SEC-008 removed. `secret` together with `open: true` is contradictory and also throws. The
-  written-reason requirement lives in `resolveAdmission` in `@robota-sdk/agent-transport-protocol`, so the sibling
+  written-reason requirement lives in `resolveAdmission` in `@robota-sdk/agent-transport/node`, so the sibling
   transports cannot drift apart on what counts as an answer.
 
 - **Owns the local-peer channel GATE, not the local-peer policy (SEC-010, #1810).** When `localPeer` is
@@ -68,12 +68,12 @@ and adds `attach(IProtocolSession)` for the exact role subset (`name='webrtc'`,
 `RTCPeerConnection`, subscribes ICE candidates to the injected signaling client, serializes inbound
 answer/ICE signals (so `setRemoteDescription` always precedes any `addIceCandidate` — werift does not buffer
 trickle candidates that precede the remote description), creates the `robota-session` data channel, and sends the
-SDP offer. The data channel is wired **eagerly at creation** (not on `open`): `createWsHandler({ session, send })`
+SDP offer. The data channel is wired **eagerly at creation** (not on `open`): `createSessionMessageHandler({ session, deliver })`
 is built immediately and `onMessage` subscribed at once, because werift does not buffer inbound frames that
 arrive before a subscription and the remote can send its first `TClientMessage` before the host's channel opens.
 Outbound delivery is owned by the carrier — ARCH-030: the transport and the pairing gate each BUILD the
 connection's `TOutboundDeliver` boundary from their own channel sink and their own failure policy and pass
-it into `createWsHandler`, so replies and session events share one guard. A data-channel send failure
+it into `createSessionMessageHandler`, so replies and session events share one guard. A data-channel send failure
 routes through one idempotent channel/handler cleanup path and an optional owner observer; it never
 escapes back into the committed session operation, and the boundary reports it once. A reconnect
 attachment detaches its failed sink while retaining the frame in the resume buffer. `stop()` tears down the handler, signal subscription, and peer.
@@ -89,7 +89,7 @@ SWITCH into `PairingGate` (`src/pairing-gate.ts`) — never a deferred subscript
 captured from the offer SDP; the remote fingerprint from the answer SDP in the signal branch, where the gate is then
 constructed (the channel cannot open until DTLS, i.e. post-answer, so no frame precedes the gate). Pre-accept the
 gate routes pairing frames to `startPairingHandshake` and DROPS everything else; on `result` accept it builds
-`createWsHandler` and switches routing to the session; on reject/timeout it closes the channel and exposes nothing.
+`createSessionMessageHandler` and switches routing to the session; on reject/timeout it closes the channel and exposes nothing.
 The transport's optional `onPaired`/`onPairingFailed` callbacks fire on gate accept/reject so the host can drive its
 lifecycle (REMOTE-008: status `paired`, and teardown of the peer/signaling on failure so nothing leaks). **REMOTE-012
 E3:** when `IWebRtcTransportOptions.reconnect` (an `IHostReconnectConfig`) is set, the gate becomes reactive — the
@@ -110,8 +110,13 @@ reserved for E4). Without `reconnect`, the gate is exactly the B4 first-pair-onl
 | `IAttachSessionOptions`, `IAttachedSession` | `src/session-attachment.ts`       | How an admitted channel is wired to the session (bridge or handler).                                                        |
 | `IControllerContext`                        | `src/pairing-controllers.ts`      | What the first-pair and reconnect controllers need to talk on the channel.                                                  |
 
-`TClientMessage`/`TServerMessage`/`IWsHandlerOptions` are re-consumed from `@robota-sdk/agent-transport-protocol`
+`TClientMessage`/`TServerMessage`/`ISessionMessageHandlerOptions` are re-consumed from `@robota-sdk/agent-transport`
 (their SSOT) — this package does not re-declare them.
+
+The host-owned `personalUsageReporter`, current-session `usageReporter`, and
+`storedSessionUsageReporter` capabilities are forwarded only after admission on both direct and paired
+handlers. A reconnecting session's `SessionResumeBridge` retains the same reporters for its full lifetime,
+so resumption changes delivery state but not admitted-owner query authority.
 
 ## Public API Surface
 
@@ -173,7 +178,7 @@ owner callback delivery, and non-propagation into the session emitter.
 
 ## Dependencies
 
-`@robota-sdk/agent-interface-transport` (contracts) + `@robota-sdk/agent-transport-protocol` (shared handler +
+`@robota-sdk/agent-interface-transport` (contracts) + `@robota-sdk/agent-transport` (shared handler +
 protocol) + `@robota-sdk/agent-remote-pairing` (REMOTE-008 pairing gate; zero-dep isomorphic leaf — no cycle).
 `werift` is an **optional peer dependency** (lazy-loaded); it is a dev dependency here only to run the loopback tests.
 
@@ -194,6 +199,6 @@ None.
 | Owner                                                               | Consumer                           | Location                                               |
 | ------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------ |
 | `agent-interface-transport` `IConfigurableTransport`                | `WebRtcTransport`                  | `src/webrtc-transport.ts`                              |
-| `agent-transport-protocol` `createWsHandler`                        | `WebRtcTransport`, `attachSession` | `src/webrtc-transport.ts`, `src/session-attachment.ts` |
+| `agent-transport` `createSessionMessageHandler`                     | `WebRtcTransport`, `attachSession` | `src/webrtc-transport.ts`, `src/session-attachment.ts` |
 | `agent-remote-pairing` `startPairingHandshake`/`startHostReconnect` | the pairing controllers            | `src/pairing-controllers.ts`                           |
 | `agent-remote-pairing` `extractDtlsFingerprint`                     | `WebRtcTransport`                  | `src/webrtc-transport.ts`                              |

@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 function createGitRepo(): string {
-  const repo = mkdtempSync(join(tmpdir(), 'robota-worktree-test-'));
+  const repo = realpathSync(mkdtempSync(join(tmpdir(), 'robota-worktree-test-')));
   tempRepos.push(repo);
   runGit(repo, ['init']);
   runGit(repo, ['config', 'user.email', 'test@example.com']);
@@ -196,7 +196,7 @@ describe('GitWorktreeIsolationAdapter', () => {
   it(
     'fails with an actionable message outside a git repository',
     () => {
-      const directory = mkdtempSync(join(tmpdir(), 'robota-nongit-test-'));
+      const directory = realpathSync(mkdtempSync(join(tmpdir(), 'robota-nongit-test-')));
       tempRepos.push(directory);
       const adapter = new GitWorktreeIsolationAdapter();
 

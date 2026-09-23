@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -17,7 +17,7 @@ import {
 const roots: string[] = [];
 
 function tempRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), 'robota-settings-store-'));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-settings-store-')));
   roots.push(root);
   return root;
 }
@@ -36,23 +36,27 @@ describe('settings stores', () => {
     expect(store.read()).toEqual({ user: true });
   });
 
-  it('reads and writes only the project target approved by the same authority', async () => {
-    const root = tempRoot();
-    const access = await createTrustedProjectAccessFixture(root);
-    if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
-    const writer = createWorkspaceProjectSettingsWriter(access.authority, {
-      status: 'approved',
-      target: 'project-local',
-      purpose: 'test settings store',
-    });
-    const store = createWorkspaceProjectSettingsStore(access.authority, writer);
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'reads and writes only the project target approved by the same authority',
+    async () => {
+      const root = tempRoot();
+      const access = await createTrustedProjectAccessFixture(root);
+      if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+      const writer = createWorkspaceProjectSettingsWriter(access.authority, {
+        status: 'approved',
+        target: 'project-local',
+        purpose: 'test settings store',
+      });
+      const store = createWorkspaceProjectSettingsStore(access.authority, writer);
 
-    store.write({ project: true });
+      store.write({ project: true });
 
-    expect(store.kind).toBe('project');
-    expect(store.scope).toBe('project-local');
-    expect(store.read()).toEqual({ project: true });
-  });
+      expect(store.kind).toBe('project');
+      expect(store.scope).toBe('project-local');
+      expect(store.read()).toEqual({ project: true });
+    },
+  );
 
   it('rejects a settings writer minted for a different workspace authority', async () => {
     const left = await createTrustedProjectAccessFixture(tempRoot());

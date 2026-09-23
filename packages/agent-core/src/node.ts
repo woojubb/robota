@@ -28,3 +28,20 @@ export {
   writeOwnerOnlyFile,
 } from './utils/owner-only-store.js';
 export { CommandExecutor, HttpExecutor } from './hooks/executors/index.js';
+
+// #2026: the shared egress boundary is Node-only (node:dns, node:net) and lives on this subpath.
+export {
+  BLOCKED_HOSTNAMES,
+  fetchWithEgressPolicy,
+  isPrivateAddress,
+  rejectDestination,
+} from './utils/egress-policy.js';
+export type {
+  IEgressDeps,
+  IEgressFetchOptions,
+  IEgressPolicy,
+  IEgressRejection,
+  TEgressFetchResult,
+  TEgressLookup,
+  TEgressRejectionReason,
+} from './utils/egress-policy.js';

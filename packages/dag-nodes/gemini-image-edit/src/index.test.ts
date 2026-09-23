@@ -243,7 +243,10 @@ describe('GeminiImageEditNodeDefinition', () => {
 
   describe('construction with options', () => {
     it('passes options to GeminiImageRuntime', () => {
-      const options = { apiKey: 'key-123', defaultModel: 'model-x' };
+      const options = {
+        imageProviderDefinition: { type: 'test-image' } as never,
+        defaultModel: 'model-x',
+      };
       new GeminiImageEditNodeDefinition(options);
       expect(GeminiImageRuntime).toHaveBeenCalledWith(options);
     });
@@ -412,7 +415,10 @@ describe('GeminiImageComposeNodeDefinition', () => {
 
   describe('construction with options', () => {
     it('passes options to GeminiImageRuntime', () => {
-      const options = { apiKey: 'key-456', defaultModel: 'model-y' };
+      const options = {
+        imageProviderDefinition: { type: 'test-image' } as never,
+        defaultModel: 'model-y',
+      };
       new GeminiImageComposeNodeDefinition(options);
       expect(GeminiImageRuntime).toHaveBeenCalledWith(options);
     });

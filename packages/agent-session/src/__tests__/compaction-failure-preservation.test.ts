@@ -25,7 +25,7 @@ function createProviderReturning(content: unknown): IAIProvider {
       state: 'complete' as const,
       timestamp: new Date(),
     }),
-  } as IAIProvider;
+  } as unknown as IAIProvider;
 }
 
 function createHistory(): TUniversalMessage[] {

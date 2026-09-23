@@ -117,3 +117,46 @@ describe('createDefaultTools', () => {
     expect(withDriver).toContain('Computer');
   });
 });
+
+/**
+ * CLI-1990 TC-11 — the default tier is RESIDENT.
+ *
+ * Residency is declared by omission: a tool that says nothing about `deferLoading` is sent on every
+ * request, which is what every built-in must remain. Anthropic's own guidance is that standard tool
+ * calling beats a search under ten tools, so deferring any of these would be a measurable
+ * regression rather than a saving — and the invariant that at least one tool stays resident is
+ * satisfied by this tier alone.
+ */
+describe('CLI-1990 TC-11 — default tool residency', () => {
+  it('declares no deferLoading on any built-in — the whole tier is resident', () => {
+    const deferred = createDefaultTools({ cwd: ASSEMBLY_ROOT })
+      .filter((tool) => tool.schema.deferLoading !== undefined)
+      .map((tool) => tool.getName());
+    expect(deferred).toEqual([]);
+  });
+
+  it('keeps the ten built-ins ten — the search tool is added by session assembly, not here', () => {
+    const names = createDefaultTools({ cwd: ASSEMBLY_ROOT }).map((tool) => tool.getName());
+    expect(names).toEqual([
+      'Shell',
+      'Bash',
+      'Read',
+      'Write',
+      'Edit',
+      'Glob',
+      'Grep',
+      'WebFetch',
+      'WebSearch',
+      'AskUserQuestion',
+    ]);
+    expect(names).not.toContain('ToolSearch');
+  });
+
+  it('stays resident under the adapter gates too', () => {
+    const retrievalAdapter: IRetrievalAdapter = {
+      retrieve: async () => ({ symbols: [], totalTokens: 0 }),
+    };
+    const withRetrieval = createDefaultTools({ retrievalAdapter, cwd: ASSEMBLY_ROOT });
+    expect(withRetrieval.every((tool) => tool.schema.deferLoading === undefined)).toBe(true);
+  });
+});

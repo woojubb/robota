@@ -84,6 +84,34 @@ describe('diffCommand - argument parsing', () => {
 });
 
 describe('diffCommand - file I/O errors', () => {
+  it('rejects malformed status in either input while retaining usage-error output', async () => {
+    const bad = JSON.stringify({ ...JSON.parse(DAG_A), status: 'active' });
+    for (const files of [
+      { 'a.dag.json': bad, 'b.dag.json': DAG_B },
+      { 'a.dag.json': DAG_A, 'b.dag.json': bad },
+    ]) {
+      const io = makeIo(files);
+      expect(await diffCommand(['a.dag.json', 'b.dag.json'], { io })).toBe(2);
+      expect(io.writes.join('')).toMatch(/Malformed DAG definition.*status/);
+    }
+  });
+
+  it('rejects an unknown JSON shape before diffing', async () => {
+    const io = makeIo({ 'a.dag.json': '{"something":"else"}', 'b.dag.json': DAG_B });
+    expect(await diffCommand(['a.dag.json', 'b.dag.json'], { io })).toBe(2);
+    expect(io.writes.join('')).toContain('Not a DAG file');
+  });
+
+  it('reports a malformed nested field path before diffing', async () => {
+    const malformed = JSON.stringify({
+      ...JSON.parse(DAG_A),
+      nodes: [{ nodeId: 42, nodeType: 'input', dependsOn: [], config: {} }],
+    });
+    const io = makeIo({ 'a.dag.json': malformed, 'b.dag.json': DAG_B });
+    expect(await diffCommand(['a.dag.json', 'b.dag.json'], { io })).toBe(2);
+    expect(io.writes.join('')).toMatch(/nodes\[0\].*nodeId/);
+  });
+
   it('returns error when file A cannot be read', async () => {
     const io = makeIo({ 'b.dag.json': DAG_B });
     const code = await diffCommand(['missing-a.dag.json', 'b.dag.json'], { io });
@@ -114,6 +142,19 @@ describe('diffCommand - file I/O errors', () => {
 });
 
 describe('diffCommand - pretty output', () => {
+  it('accepts the workflow-file disk format through the canonical decoder', async () => {
+    const workflow = JSON.stringify({
+      version: 0.4,
+      last_node_id: 0,
+      last_link_id: 0,
+      nodes: [],
+      links: [],
+    });
+    const io = makeIo({ 'a.dag.json': workflow, 'b.dag.json': workflow });
+    expect(await diffCommand(['a.dag.json', 'b.dag.json'], { io })).toBe(0);
+    expect(io.writes.join('')).toContain('No structural difference');
+  });
+
   it('reports identical when two DAGs are the same', async () => {
     const io = makeIo({ 'a.dag.json': DAG_A, 'b.dag.json': DAG_A });
     const code = await diffCommand(['a.dag.json', 'b.dag.json'], { io });

@@ -22,11 +22,11 @@ import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
  * measured, not assumed: re-declaring `IPrintModePresetOptions` produces 12 `tsgo` errors and 3
  * green vitest cases.
  *
- * `pnpm typecheck` is a stage of `harness:verify-like-ci`, so the gate is real; it is simply not this
- * file. The assignment case is kept because it FAILS THE BUILD at the point a copy reappears, and
- * because it names the property in the place someone editing these types will look — but it is
- * documentation of a compile-time contract, not a runtime assertion, and calling it the latter would
- * be the "case that cannot fail on the condition it names" defect this repository scans for.
+ * `pnpm typecheck` owns that repository-wide check; it is simply not this file. The assignment case
+ * is kept because it FAILS THE BUILD at the point a copy reappears, and because it names the property
+ * in the place someone editing these types will look — but it is documentation of a compile-time
+ * contract, not a runtime assertion, and calling it the latter would be the "case that cannot fail on
+ * the condition it names" defect this repository scans for.
  *
  * The two `model` cases below are ordinary runtime assertions and do fail on their condition:
  * dropping the projection turns the first red.
@@ -37,6 +37,14 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     // these assignments stop compiling — which is the failure this case exists to cause.
     const everyField: Required<IPresetSurfaceOptions> = {
       model: 'some-model',
+      outputStyle: {
+        id: 'concise',
+        name: 'Concise',
+        instructions: 'Lead with the answer.',
+        keepCodingInstructions: true,
+        tokenCost: 'low',
+      },
+      responseFormat: { type: 'json_object' },
       agentName: 'acme-bot',
       activePresetId: 'acme',
       persona: 'be brief',
@@ -44,6 +52,7 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
       enableParallelSubagents: true,
       selfVerification: true,
       effort: 'high',
+      effortResolution: undefined,
       temperature: 0.2,
       maxOutputTokens: 4096,
       language: 'ko',
@@ -77,6 +86,25 @@ describe('the preset surface projection is declared once (ARCH-041)', () => {
     const surface = buildPresetSurfaceOptions(resolved, 'acme', 'default');
     expect(surface.temperature).toBe(0.2);
     expect(surface.maxOutputTokens).toBe(4096);
+  });
+
+  it('keeps an auto selection for the provider boundary instead of projecting its display fallback', () => {
+    const surface = buildPresetSurfaceOptions(
+      {} as IResolvedPresetOptions,
+      'acme',
+      'default',
+      undefined,
+      undefined,
+      {
+        requested: 'auto',
+        effective: 'high',
+        source: 'model-default',
+        disposition: 'model-default',
+        modelDefault: 'high',
+      },
+    );
+
+    expect(surface.effort).toBe('auto');
   });
 
   it('projects `language` (ARCH-040 Group F)', () => {

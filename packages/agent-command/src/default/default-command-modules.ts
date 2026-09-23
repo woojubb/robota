@@ -4,14 +4,21 @@ import { createAgentCommandModule } from '../agent/index.js';
 import { createBackgroundCommandModule } from '../background/index.js';
 import { createCompactCommandModule } from '../compact/index.js';
 import { createContextCommandModule } from '../context/index.js';
+import { createDoctorCommandModule } from '../doctor/index.js';
 import { createEditorCommandModule } from '../editor/index.js';
+import { createEffortCommandModule } from '../effort/index.js';
 import { createExitCommandModule } from '../exit/index.js';
+import { createForkCommandModule } from '../fork/index.js';
+import { createGitCommandModule } from '../git/index.js';
 import { createGoalCommandModule } from '../goal/index.js';
 import { createHandoffCommandModule } from '../handoff/index.js';
 import { createHelpCommandModule } from '../help/index.js';
+import { createKeybindingsCommandModule } from '../keybindings/index.js';
 import { createLanguageCommandModule } from '../language/index.js';
+import { createMCPActivationCommandModule } from '../mcp-activation/index.js';
 import { createMemoryCommandModule } from '../memory/index.js';
 import { createModeCommandModule } from '../mode/index.js';
+import { createOutputStyleCommandModule } from '../output-style/index.js';
 import { createPeersCommandModule } from '../peers/index.js';
 import { createPermissionsCommandModule } from '../permissions/index.js';
 import { createPlanCommandModule } from '../plan/index.js';
@@ -27,21 +34,45 @@ import { createSettingsCommandModule } from '../settings/index.js';
 import { createShellCommandModule } from '../shell/index.js';
 import { createSkillsCommandModule } from '../skills/index.js';
 import { createStatusLineCommandModule } from '../statusline/index.js';
+import { createThemeCommandModule } from '../theme/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
 
+import type { IDoctorInputs } from '../doctor/index.js';
+import type { IKeybindingsFilePort } from '../keybindings/index.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
+  IOrgPolicy,
   IContributionSource,
   ICommandModule,
   IProviderCommandSettingsAdapter,
   IUnknownCommandModuleName,
 } from '@robota-sdk/agent-framework';
+import type { IThemeCataloguePort } from '@robota-sdk/agent-interface-command';
 
 export interface IDefaultCommandModulesOptions {
   cwd: string;
   contributionSources?: readonly IContributionSource[];
   providerDefinitions: readonly IProviderDefinition[];
   providerSettingsAdapter: IProviderCommandSettingsAdapter;
+  /**
+   * CLI-083 (issue #2287) — the org policy, so `allowedProviders` and `requireApiKeyFromEnv` are
+   * reachable. This parameter existed, was removed by `92596bc6f` along with its only caller, and
+   * the consumer never stopped reading it: `provider-command-profile-operations.ts` still
+   * destructures `orgPolicy` from its options and enforces on it. Optional, so its absence stays
+   * distinguishable from a policy that allows everything — and that optionality is why nothing went
+   * red when the producer dropped it.
+   */
+  orgPolicy?: IOrgPolicy;
+  /** Optional TUI-owned file capability; absence means `/keybindings` is not registered. */
+  keybindingsFilePort?: IKeybindingsFilePort;
+  /**
+   * SCREEN-2002: the surface's theme catalogue. Absence means `/theme` is not registered at all —
+   * print mode and `--serve` render no themes, and a command that cannot do anything is better
+   * missing than present-and-failing.
+   */
+  themeCataloguePort?: IThemeCataloguePort;
+  /** OBSERVABILITY-1991: host-composed doctor inputs; absence means `/doctor` is not registered. */
+  doctorInputs?: IDoctorInputs;
   /**
    * Whitelist of module `name`s to keep. When provided, only modules whose `name`
    * appears here survive. Omitted → all modules kept (no-regression).
@@ -87,6 +118,10 @@ export function createDefaultCommandModules({
   contributionSources,
   providerDefinitions,
   providerSettingsAdapter,
+  orgPolicy,
+  keybindingsFilePort,
+  themeCataloguePort,
+  doctorInputs,
   enabledCommandModules,
   disabledCommandModules,
 }: IDefaultCommandModulesOptions): IDefaultCommandModulesResult {
@@ -94,16 +129,28 @@ export function createDefaultCommandModules({
     createSkillsCommandModule({ contributionSources: contributionSources ?? [] }),
     createHelpCommandModule(),
     createAgentCommandModule(),
+    createEffortCommandModule(),
     createPermissionsCommandModule(),
     createModeCommandModule(),
     createPresetCommandModule(),
+    createOutputStyleCommandModule(),
     createLanguageCommandModule(),
     createBackgroundCommandModule(),
+    // CLI-1994: beside `/background`, because a fork IS a background job — the one it starts is
+    // listed, peeked at, stopped and attached to through that command and its panel.
+    createForkCommandModule(),
     createGoalCommandModule(),
     createPlanCommandModule(),
     createShellCommandModule(),
     createEditorCommandModule(),
+    createGitCommandModule(),
+    ...(keybindingsFilePort === undefined
+      ? []
+      : [createKeybindingsCommandModule(keybindingsFilePort)]),
+    ...(themeCataloguePort === undefined ? [] : [createThemeCommandModule(themeCataloguePort)]),
+    ...(doctorInputs === undefined ? [] : [createDoctorCommandModule(doctorInputs)]),
     createMemoryCommandModule(),
+    createMCPActivationCommandModule(),
     createUserLocalCommandModule(),
     createCompactCommandModule(),
     createContextCommandModule(),
@@ -124,6 +171,7 @@ export function createDefaultCommandModules({
     createProviderCommandModule({
       providerDefinitions,
       settings: providerSettingsAdapter,
+      ...(orgPolicy === undefined ? {} : { orgPolicy }),
     }),
   ];
   const builtModuleNames = modules.map((module) => module.name);

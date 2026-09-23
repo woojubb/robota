@@ -26,11 +26,18 @@
     "dist",
     "src"
   ],
+  "robota": {
+    "artifact": {
+      "builder": "tsdown"
+    }
+  },
   "scripts": {
-    "build": "tsdown",
-    "build:js": "tsdown --no-dts",
-    "build:types": "tsdown --dts",
-    "typecheck": "tsgo --noEmit",
+    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
+    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
+    "typecheck": "tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit",
+    "scenario:verify": "pnpm typecheck",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "lint": "eslint src/ --ext .ts",

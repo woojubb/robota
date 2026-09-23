@@ -9,16 +9,21 @@ function createSharedProvider(): IAIProvider & {
     name: 'mock-provider',
     version: '1.0.0',
     onTextDelta: undefined,
-    chat: vi.fn(async (_messages: TUniversalMessage[], options?: IChatOptions) => {
-      options?.onTextDelta?.('streamed text');
-      return {
-        id: 'assistant_1',
-        role: 'assistant',
-        content: 'final text',
-        timestamp: new Date(),
-        state: 'complete',
-      };
-    }),
+    chat: vi.fn(
+      async (
+        _messages: TUniversalMessage[],
+        options?: IChatOptions,
+      ): Promise<TUniversalMessage> => {
+        options?.onTextDelta?.('streamed text');
+        return {
+          id: 'assistant_1',
+          role: 'assistant',
+          content: 'final text',
+          timestamp: new Date(),
+          state: 'complete',
+        };
+      },
+    ),
     generateResponse: vi.fn(),
     supportsTools: () => true,
     validateConfig: () => true,
@@ -69,7 +74,7 @@ describe('Session provider callback isolation', () => {
   it('emits context updates before provider response and after usage reconciliation', async () => {
     const snapshots: Array<{ usedTokens: number; usedPercentage: number }> = [];
     const provider = createSharedProvider();
-    provider.chat = vi.fn(async () => {
+    provider.chat = vi.fn(async (): Promise<TUniversalMessage> => {
       expect(snapshots.length).toBeGreaterThan(0);
       return {
         id: 'assistant_1',

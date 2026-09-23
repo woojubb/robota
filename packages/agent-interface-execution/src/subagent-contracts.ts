@@ -55,6 +55,7 @@ export interface ISubagentJobState extends Pick<
   | 'pid'
   | 'cwd'
   | 'isolation'
+  | 'resumeSessionId'
   | 'worktreePath'
   | 'branchName'
   | 'worktreeStatus'

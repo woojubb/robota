@@ -9,6 +9,7 @@
 import type {
   ITokenUsage,
   TBackgroundPermissionPolicy,
+  TModelEffort,
   TUniversalValue,
 } from '@robota-sdk/agent-core';
 
@@ -88,7 +89,16 @@ export interface IAgentBackgroundTaskRequest extends IBaseBackgroundTaskRequest 
   agentType: string;
   prompt: string;
   model?: string;
+  effort?: TModelEffort;
   isolation?: TBackgroundTaskIsolation;
+  /**
+   * CLI-1994: the persisted session record the child RESTORES before its first turn — a fork of the
+   * parent conversation written under a fresh id by `/fork`. Only the id crosses: the conversation
+   * itself never rides on the request, so the child-process wire stays as narrow as ARCH-044 left it
+   * (the child reads the record from the session store, exactly as `--fork-session` does). Absent ⇒
+   * the child starts with an empty conversation, unchanged.
+   */
+  resumeSessionId?: string;
   allowedTools?: string[];
   disallowedTools?: string[];
   permissionPolicy: TBackgroundPermissionPolicy;
@@ -116,6 +126,17 @@ export interface IProcessBackgroundTaskRequest extends IBaseBackgroundTaskReques
   agentInstruction?: string;
 }
 
+/**
+ * A scheduled task carries NO `permissionPolicy`, by decision (issue #2354).
+ *
+ * A `kind: 'agent'` task spawns a SEPARATE agent, so it declares its own policy and CORE-025
+ * enforces it. A schedule with `agentInstruction` does not spawn anything: it WAKES the host
+ * session (`background_task_waking` → `requestWakeup` → an `agent-wakeup` turn), and that turn runs
+ * under the host session's own permission configuration — mode, allow/deny rules, hooks, session
+ * consent — exactly as a turn the user typed would. Inheritance is the contract, not an omission:
+ * a policy field here would either duplicate the session's or silently disagree with it. The
+ * `contracts.test.ts` type assertion fails if one is added without that wiring being designed.
+ */
 export interface IScheduledBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
   kind: 'scheduled';
   cronExpression: string;
@@ -173,6 +194,11 @@ export interface IBackgroundTaskState {
   promptPreview?: string;
   commandPreview?: string;
   isolation?: TBackgroundTaskIsolation;
+  /**
+   * CLI-1994: carried from `IAgentBackgroundTaskRequest.resumeSessionId` so a surface can offer to
+   * ATTACH to the forked session — a view switch onto that record, never a merge with the parent.
+   */
+  resumeSessionId?: string;
   currentAction?: string;
   unread: boolean;
   result?: IBackgroundTaskResult;

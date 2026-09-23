@@ -27,7 +27,7 @@ describe('Tools (ToolManager)', () => {
   };
 
   beforeEach(async () => {
-    toolManager = new Tools();
+    toolManager = new Tools({ resolveToolSearchMode: () => 'off' });
     await toolManager.initialize();
   });
 
@@ -37,7 +37,7 @@ describe('Tools (ToolManager)', () => {
 
   describe('Initialization and Disposal', () => {
     it('should initialize successfully', async () => {
-      const newManager = new Tools();
+      const newManager = new Tools({ resolveToolSearchMode: () => 'off' });
       await expect(newManager.initialize()).resolves.not.toThrow();
       await newManager.dispose();
     });

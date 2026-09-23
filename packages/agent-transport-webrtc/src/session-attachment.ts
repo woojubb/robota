@@ -10,18 +10,26 @@
  * by the time either runs, that question is closed.
  */
 
-import { createWsHandler, type SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+import {
+  createSessionMessageHandler,
+  type ISessionMessageHandlerOptions,
+  type SessionResumeBridge,
+} from '@robota-sdk/agent-transport';
 
 import { createChannelDelivery } from './channel-delivery.js';
 
 import type { IPairingChannel } from './pairing-gate.js';
-import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 export interface IAttachSessionOptions {
   readonly channel: IPairingChannel;
   readonly session: IProtocolSession;
   readonly resumeBridge?: SessionResumeBridge;
-  readonly createHandler?: typeof createWsHandler;
+  readonly createHandler?: typeof createSessionMessageHandler;
+  readonly personalUsageReporter?: ISessionMessageHandlerOptions['personalUsageReporter'];
+  readonly usageReporter?: ISessionMessageHandlerOptions['usageReporter'];
+  readonly storedSessionUsageReporter?: ISessionMessageHandlerOptions['storedSessionUsageReporter'];
+  readonly surface?: ISessionMessageHandlerOptions['surface'];
 }
 
 export interface IAttachedSession {
@@ -51,6 +59,10 @@ export function attachSession(
     bridge.attach((data) => options.channel.send(data), {
       awaitResume: viaReconnect,
       onDeliveryError,
+      // ARCH-030: without this the bridge's boundary has no backpressure reading, so the replay
+      // path — the burst this budget exists for — runs unbudgeted while every other outbound path
+      // on the same connection is guarded. Read at call time; `bufferedAmount` is live.
+      pendingBytes: () => options.channel.bufferedAmount,
     });
     return {
       onSessionMessage: (data) => bridge.onClientMessage(data),
@@ -58,11 +70,19 @@ export function attachSession(
     };
   }
 
-  const create = options.createHandler ?? createWsHandler;
+  const create = options.createHandler ?? createSessionMessageHandler;
   // ARCH-030: the gate is the carrier on this branch — its own channel sink, its own failure policy.
   const { onMessage, cleanup } = create({
     session: options.session,
     deliver: createChannelDelivery(options.channel, onDeliveryError),
+    ...(options.personalUsageReporter
+      ? { personalUsageReporter: options.personalUsageReporter }
+      : {}),
+    ...(options.usageReporter ? { usageReporter: options.usageReporter } : {}),
+    ...(options.storedSessionUsageReporter
+      ? { storedSessionUsageReporter: options.storedSessionUsageReporter }
+      : {}),
+    ...(options.surface ? { surface: options.surface } : {}),
   });
   return { onSessionMessage: onMessage, cleanup };
 }

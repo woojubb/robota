@@ -47,8 +47,8 @@ export function resolvePermissionByPolicy(
   const taskDeny = context.taskDeny ?? [];
   const parentDeny = context.parentDeny ?? [];
   if (
-    matchesAnyPattern(toolName, toolArgs, taskDeny) ||
-    matchesAnyPattern(toolName, toolArgs, parentDeny)
+    matchesAnyPattern(toolName, toolArgs, taskDeny, 'deny') ||
+    matchesAnyPattern(toolName, toolArgs, parentDeny, 'deny')
   ) {
     return 'deny';
   }

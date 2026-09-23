@@ -90,7 +90,14 @@ export type TProviderModelCapability =
   | 'json_object'
   | 'reasoning'
   | 'native_web'
-  | 'streaming';
+  | 'streaming'
+  /**
+   * CLI-1990: the vendor documents a server-side tool search — deferred definitions the API expands
+   * on demand. Declaration-only in v1: Robota runs its own client-side catalog on every provider
+   * and emits no vendor block. The member exists so a later offload can be capability-gated in this
+   * table rather than by provider name.
+   */
+  | 'tool_search';
 
 export interface IProviderModelCatalogEntry {
   id: string;
@@ -129,6 +136,20 @@ export interface IProviderSetupStepDefinition {
 
 export type TProviderCategory = 'cloud-paid' | 'cloud-free' | 'local-free';
 
+/**
+ * Passive reachability declaration for diagnostics (OBSERVABILITY-1991).
+ *
+ * The host and port a pre-session doctor may TCP-probe when a profile declares no `baseURL` and the
+ * definition declares no `defaults.baseURL` — the case for vendors whose SDK embeds its endpoint. It
+ * is deliberately not a URL and not part of `defaults`: nothing in setup, persistence or provider
+ * construction reads it, so declaring it cannot switch an API surface or persist a base URL. It is
+ * distinct from `probeProfile`, which is an active HTTP probe.
+ */
+export interface IProviderEndpoint {
+  readonly host: string;
+  readonly port: number;
+}
+
 export interface IProviderDefinition {
   type: string;
   aliases?: readonly string[];
@@ -161,6 +182,8 @@ export interface IProviderDefinition {
   requiresApiKey?: boolean;
   createProvider: (config: IProviderDefinitionConfig) => IAIProvider;
   probeProfile?: (profile: IProviderProfileConfig) => Promise<IProviderProbeResult>;
+  /** Diagnostic-only reachability declaration; read by no setup, persistence or runtime path. */
+  endpoint?: IProviderEndpoint;
 }
 
 export function findProviderDefinition(

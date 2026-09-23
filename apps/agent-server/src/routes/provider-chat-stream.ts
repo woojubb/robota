@@ -30,13 +30,14 @@
  *
  * SSE, chosen over chunked transfer because it frames messages for us: a delta and the terminal
  * message are different kinds of thing, and `event:` says which without the client having to invent
- * a delimiter. Frames are `delta`, `message`, `done` and `error`.
+ * a delimiter. Frames are `delta`, `message`, `model-effort-outcome`, `done`, and `error`.
  */
 
 import { createLogger } from '@robota-sdk/agent-core';
 
 import { requireOperatorKeyAuth } from '../middleware/require-operator-key-auth.js';
 import { parseChatOptionsFromBody } from '../remote-chat-options.js';
+import { createRemoteModelEffortOutcomeCollector } from '../remote-model-effort-outcome.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { Express, Response } from 'express';
@@ -102,12 +103,18 @@ export function registerProviderChatStreamRoute(
     req.on('close', () => controller.abort());
 
     try {
+      const outcome = createRemoteModelEffortOutcomeCollector();
       const assembled = await provider.chat(messages, {
         ...options,
         signal: controller.signal,
         onTextDelta: (delta: string) => writeFrame(res, 'delta', { text: delta }),
+        onModelEffortOutcome: outcome.observe,
       });
       writeFrame(res, 'message', assembled);
+      const terminalOutcome = outcome.terminalForSelection(options.effort !== undefined);
+      if (terminalOutcome !== undefined) {
+        writeFrame(res, 'model-effort-outcome', terminalOutcome);
+      }
       writeFrame(res, 'done', '[DONE]');
     } catch (err) {
       // The headers are already sent, so the failure has to travel as a frame. It is named `error`

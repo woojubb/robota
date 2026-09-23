@@ -32,6 +32,8 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
     defaults: {
       apiKey: DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE,
     },
+    // OBSERVABILITY-1991: the SDK embeds this endpoint; declared here for the pre-session doctor only.
+    endpoint: { host: 'api.openai.com', port: 443 },
     modelCatalog: {
       status: 'unavailable',
       sourceUrl: 'https://platform.openai.com/docs/api-reference/models/list',

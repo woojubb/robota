@@ -5,6 +5,7 @@ import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { ICommandResult } from '../commands/system-command.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
+import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IProjectInfo } from '../context/project-detector.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IContributionSource } from '../contributions/index.js';
@@ -20,10 +21,11 @@ import type {
   IHookTypeExecutor,
   TGuardrail,
   TPermissionMode,
-  TModelEffort,
+  TModelEffortSelection,
   TToolArgs,
   IUserInteraction,
 } from '@robota-sdk/agent-core';
+import type { IResponseFormatConfig } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type {
@@ -33,10 +35,24 @@ import type {
   TPermissionHandler,
   TPermissionResult,
   ISessionLogger,
+  TAutoCompactThreshold as TSessionAutoCompactThreshold,
 } from '@robota-sdk/agent-session';
 import type { ISandboxClient, IRetrievalAdapter } from '@robota-sdk/agent-tools';
 
-export type TAutoCompactThreshold = number | false;
+/**
+ * Issue #2056 (CLI-081): the session-level structured-output option is the provider contract's own
+ * `responseFormat` — including `json_schema` — so a product flag such as `--json-schema` is routed as
+ * structured policy (provider capability, fallback, validation are CORE-043's) and never as prose.
+ */
+export type TSessionResponseFormat = IResponseFormatConfig;
+
+/**
+ * Issue #2052: the threshold vocabulary is owned by agent-session. This is the framework's OWN name
+ * for it — an SDK-owned facade, not a pass-through re-export of the owner's binding — because
+ * `agent-command` reads it and depends on this package alone, never on agent-session
+ * (`sdk-public-surface` refuses the public graph passing through the owner directly).
+ */
+export type TAutoCompactThreshold = TSessionAutoCompactThreshold;
 export type TSessionOptionsWithAutoCompact = ISessionOptions & {
   autoCompactThreshold?: TAutoCompactThreshold;
 };
@@ -46,6 +62,8 @@ export type TSessionConstructorWithAutoCompact = new (
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
+  /** Additive response style; it never replaces framework, project, permission, or capability sections. */
+  outputStyle?: IOutputStylePrompt;
   /** Resolved CLI configuration (model, API key, permissions) */
   config: IResolvedConfig;
   /** Working directory used for project context, skills, and agent definitions. */
@@ -64,6 +82,13 @@ export interface ICreateSessionOptions {
   maxTurns?: number;
   /** Optional session store for persistence */
   sessionStore?: IInteractiveSessionStore;
+  /**
+   * CLI-1994: the interactive-session record store a subagent RESUMES a `resumeSessionId` from — the
+   * store `/fork` wrote the copy to. Read-only at the runner; distinct from `sessionStore`, which is
+   * the underlying `Session`'s own persistence seam and would make the runtime a second writer of the
+   * same records. Absent ⇒ a fork job cannot restore its record and fails, stated as such.
+   */
+  resumeSessionStore?: IInteractiveSessionStore;
   /** Inject a pre-constructed AI provider (used by tests to avoid real API calls) */
   provider?: IAIProvider;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
@@ -175,12 +200,11 @@ export interface ICreateSessionOptions {
   /** Override the model from config. When set, takes precedence over config.provider.model. */
   model?: string;
   /**
-   * Reasoning-effort dial for this session, threaded to the provider request builder.
-   * Resolved from a preset's `effort` (PRESET-008). When unset, the framework→provider
-   * seam defaults it to `'high'`. Native-effort providers map it onto their request
-   * parameter; providers without native effort ignore it as a documented no-op.
+   * Reasoning-effort selection for this session, threaded to the provider request builder.
+   * Resolved from a preset's `effort` (PRESET-008). When unset, Core preserves `auto` so the
+   * adapter can use the selected model's documented default.
    */
-  effort?: TModelEffort;
+  effort?: TModelEffortSelection;
   /**
    * ARCH-040: sampling temperature and output cap. Same shape as `effort` one line up, and the same
    * cause — the live `/preset` path applied both through `applyModelOptions` and startup applied
@@ -237,8 +261,8 @@ export interface ICreateSessionOptions {
   agentName?: string;
   /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
   activePresetId?: string;
-  /** Request structured output from the provider for this session. */
-  responseFormat?: { type: 'text' | 'json_object' };
+  /** Request structured output from the provider for this session (issue #2056: incl. `json_schema`). */
+  responseFormat?: TSessionResponseFormat;
 }
 
 /** Result of createSession — session instance plus a system-message rebuilder for context refresh. */
@@ -254,6 +278,12 @@ export interface ICreateSessionResult {
   rebuildSystemMessage: (
     agentsMd: string,
     projectNotesMd: string,
-    overrides?: { persona?: string; selfVerification?: boolean | string },
+    overrides?: {
+      outputStyle?: IOutputStylePrompt;
+      persona?: string;
+      selfVerification?: boolean | string;
+      language?: string;
+      presetSystemPrompt?: string;
+    },
   ) => string;
 }

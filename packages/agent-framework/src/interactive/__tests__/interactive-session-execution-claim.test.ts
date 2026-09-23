@@ -103,8 +103,9 @@ describe('interactive foreground execution claim ownership', () => {
   });
 
   it('keeps the claim through callbacks and hands the queue off before re-entry', async () => {
-    let controller!: SessionExecutionController;
     let reentrant!: Promise<unknown>;
+    // `controller` is read inside the callback only after `createController` returns, so a `const`
+    // declared below is safe here (prefer-const, issue #2254).
     const persistSession = vi.fn(() => {
       expect(controller.executing).toBe(true);
       reentrant = controller.executeForegroundCommand(
@@ -112,7 +113,7 @@ describe('interactive foreground execution claim ownership', () => {
         () => Promise.resolve(),
       );
     });
-    controller = createController({ persistSession });
+    const controller: SessionExecutionController = createController({ persistSession });
     const queued = controller.turns.begin();
     controller.enqueuePending({ input: 'queued', options: {}, turnId: queued.turnId });
     const resumed: string[] = [];
@@ -207,9 +208,8 @@ describe('interactive foreground execution claim ownership', () => {
   });
 
   it('commits trimmed tool state before a synchronous tool-end listener reads it', () => {
-    let controller!: SessionExecutionController;
     const observedCounts: number[] = [];
-    controller = createController({
+    const controller: SessionExecutionController = createController({
       emit: vi.fn((event: string) => {
         if (event === 'tool_end') observedCounts.push(controller.activeTools.length);
       }),

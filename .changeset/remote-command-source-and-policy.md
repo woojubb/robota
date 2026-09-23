@@ -1,8 +1,7 @@
 ---
 '@robota-sdk/agent-interface-transport': minor
 '@robota-sdk/agent-framework': minor
-'@robota-sdk/agent-transport-protocol': patch
-'@robota-sdk/agent-transport-tui': patch
+'@robota-sdk/agent-ui-terminal': patch
 '@robota-sdk/agent-cli': patch
 ---
 

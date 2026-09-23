@@ -22,15 +22,22 @@
   "files": [
     "dist"
   ],
+  "robota": {
+    "artifact": {
+      "builder": "tsdown"
+    }
+  },
   "scripts": {
-    "build": "tsdown",
-    "build:js": "tsdown --no-dts",
-    "build:types": "tsdown --dts",
+    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
+    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "typecheck": "tsgo --noEmit",
     "lint": "eslint src/ --ext .ts,.tsx",
     "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
+    "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --status && pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --lifecycle",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },

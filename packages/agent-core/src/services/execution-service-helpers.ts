@@ -102,26 +102,26 @@ export function resolveProviderAndTools(
   if (!currentInfo || !currentInfo.provider || !provider) {
     throw new Error('[EXECUTION] Provider is required');
   }
-  const availableTools = tools.getTools();
+  const registeredTools = tools.getTools();
   const aiProviderInfo = {
     providerName: currentInfo.provider,
     model: config.defaultModel.model,
     temperature: config.defaultModel.temperature,
     maxTokens: config.defaultModel.maxTokens,
   };
-  const toolsInfo = availableTools.map((tool) => {
-    const paramSchema = tool.parameters as { properties?: Record<string, object> } | undefined;
-    const props = paramSchema?.properties;
+  const toolsInfo = registeredTools.map((tool) => {
     if (!tool.description || tool.description.length === 0) {
       throw new Error(`[EXECUTION] Tool "${tool.name}" is missing description`);
     }
     return {
       name: tool.name,
       description: tool.description,
-      parameters: props && typeof props === 'object' ? Object.keys(props) : [],
+      parameters: Object.keys(tool.parameters.properties ?? {}),
     };
   });
-  return { provider, currentInfo, aiProviderInfo, toolsInfo, availableTools };
+  const readAvailableTools = (): IToolSchema[] => tools.getOfferedTools();
+  const deferredTools = tools;
+  return { provider, currentInfo, aiProviderInfo, toolsInfo, readAvailableTools, deferredTools };
 }
 
 /**

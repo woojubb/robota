@@ -1,0 +1,331 @@
+/**
+ * CJK-aware TextInput component for Ink.
+ *
+ * Replaces ink-text-input with proper wide character support:
+ * - Uses string-width for display width calculation
+ * - Cursor position based on character index (not display columns)
+ * - Renders CJK characters correctly (2 columns each)
+ * - Uses refs for value/cursor to avoid React state batching issues
+ *   (IME sends multiple keystrokes synchronously, state updates are async)
+ *
+ * Drop-in replacement: same props as ink-text-input.
+ */
+
+import chalk from 'chalk';
+import { Box, usePaste } from 'ink';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+
+import {
+  applyCjkTextInput,
+  applyCjkTextPaste,
+  createCjkTextInputFlowState,
+  syncCjkTextInputFlowState,
+  type ICjkTextInputFlowState,
+} from './flows/cjk-text-input-flow.js';
+import {
+  cancelDeferredSubmit,
+  createDeferSubmitState,
+  scheduleDeferredSubmit,
+  type IDeferSubmitState,
+} from './flows/defer-submit.js';
+import { useRealCursorPosition } from './hooks/useRealCursorPosition.js';
+import { useKeybindingActions } from './keybindings/keybindings-context.js';
+import { RenderedText } from './SafeText.js';
+import { sanitizeTerminalText } from './sanitize-terminal-text.js';
+import { useScreenReaderPacing } from './screen-reader-pacing-context.js';
+import { supportsImeCursorPositioning } from './terminal-capabilities.js';
+import { foreground, usePalette } from './theme/index.js';
+
+import type { IKeyInput, TKeybindingContext } from './keybindings/keybinding-registry.js';
+import type { DOMElement } from 'ink';
+
+interface IProps {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit?: (value: string) => void;
+  onPaste?: (text: string, cursorPosition: number) => void;
+  placeholder?: string;
+  focus?: boolean;
+  showCursor?: boolean;
+  /** Available width in columns for visual line wrapping navigation */
+  availableWidth?: number;
+  /** Cursor position hint for external value changes. null = end (default). */
+  cursorHint?: number | null;
+  /** When false, parent flows own up/down arrow behavior. */
+  enableVerticalNavigation?: boolean;
+  /**
+   * CLI-2004: called with the text a word/line delete removed. A reader announces what is LEFT on
+   * the line, so the removed text is the one thing it cannot tell you.
+   */
+  onDeletedText?: (deleted: string) => void;
+  /** Semantic key context; autocomplete consumes its own actions without invoking text actions. */
+  keybindingContext?: 'chat-input' | 'text-input' | 'autocomplete-menu';
+}
+
+interface IInputHandlerOptions {
+  stateRef: React.MutableRefObject<ICjkTextInputFlowState>;
+  onChange: (value: string) => void;
+  onSubmit?: (value: string) => void;
+  onPaste?: (text: string, cursorPosition: number) => void;
+  availableWidth?: number;
+  focus: boolean;
+  enableVerticalNavigation: boolean;
+  onDeletedText?: (deleted: string) => void;
+  forceRender: React.Dispatch<React.SetStateAction<number>>;
+  /** CLI-061: deferred-submit state (timer + submit guard). The input pipeline stays live during the window. */
+  deferState: IDeferSubmitState;
+  keybindingContext: 'chat-input' | 'text-input' | 'autocomplete-menu';
+}
+
+export default function CjkTextInput({
+  value,
+  onChange,
+  onSubmit,
+  onPaste,
+  placeholder = '',
+  focus = true,
+  showCursor = true,
+  availableWidth,
+  cursorHint = null,
+  enableVerticalNavigation = true,
+  onDeletedText,
+  keybindingContext = 'text-input',
+}: IProps): React.ReactElement {
+  const stateRef = useRef<ICjkTextInputFlowState>(createCjkTextInputFlowState(value));
+  const [, forceRender] = useState(0);
+  // CLI-061: deferred-submit state so a trailing IME character (a stdin event arriving just after Enter) is
+  // included in the submitted value. The timer is cancelled on unmount so no submit fires after teardown.
+  const deferRef = useRef<IDeferSubmitState>(createDeferSubmitState());
+  useEffect(() => () => cancelDeferredSubmit(deferRef.current), []);
+
+  // Sync ref when value changes from parent (e.g., setValue(''), tab completion, paste)
+  stateRef.current = syncCjkTextInputFlowState(stateRef.current, value, cursorHint);
+
+  useCjkTextInputHandlers({
+    stateRef,
+    onChange,
+    onSubmit,
+    onPaste,
+    availableWidth,
+    focus,
+    enableVerticalNavigation,
+    ...(onDeletedText !== undefined ? { onDeletedText } : {}),
+    forceRender,
+    deferState: deferRef.current,
+    keybindingContext,
+  });
+
+  // CLI-062: real terminal cursor positioning so the OS IME composition window appears AT the
+  // input position. The historical Terminal.app SIGSEGV came from a hardcoded `y: 0` (logo area);
+  // the hook only positions with a y measured from the live yoga layout and refuses the ink
+  // fullscreen geometry (invariants I1–I5 — see flows/real-cursor-flow.ts and the hook itself).
+  // SCREEN-2002: the placeholder's muted colour comes from the resolved theme, not a chalk literal.
+  const palette = usePalette();
+  const mutedPlaceholder = useMemo(() => foreground(palette.text.muted), [palette.text.muted]);
+  const boxRef = useRef<DOMElement | null>(null);
+  const { realCursorActive } = useRealCursorPosition({
+    boxRef,
+    enabled: focus && showCursor && supportsImeCursorPositioning(),
+    value: stateRef.current.value,
+    cursor: stateRef.current.cursor,
+    ...(availableWidth !== undefined ? { availableWidth } : {}),
+  });
+
+  return (
+    <Box ref={boxRef}>
+      <RenderedText>
+        {renderWithCursor(
+          stateRef.current.value,
+          stateRef.current.cursor,
+          placeholder,
+          // I4: the drawn inverse cursor is suppressed ONLY while real positioning is active;
+          // any guard failure falls back to exactly today's rendering.
+          showCursor && focus && !realCursorActive,
+          mutedPlaceholder,
+        )}
+      </RenderedText>
+    </Box>
+  );
+}
+
+/**
+ * SCREEN-2670: which keys arm the echo exemption. Text insertion and deletion only — a keystroke
+ * whose commit repaints the composer. Submit and execute run through this same handler
+ * (`translateCjkInput` returns `key.return` for them) and their commit appends the user's prompt
+ * line to the transcript, which is exactly the content the park exists to pace; cursor moves and
+ * tab commit no text of the composer's own.
+ */
+function mutatesComposerText(
+  action: string | undefined,
+  translated: { input: string; key: IKeyInput },
+): boolean {
+  if (action === 'delete-backward' || action === 'delete-word' || action === 'delete-line')
+    return true;
+  return (
+    translated.key.return !== true &&
+    translated.key.ctrl !== true &&
+    translated.key.tab !== true &&
+    translated.input.length > 0
+  );
+}
+
+function useCjkTextInputHandlers(options: IInputHandlerOptions): void {
+  const pacing = useScreenReaderPacing();
+  usePaste(
+    (text) => {
+      pacing.armEchoRelease();
+      applyCjkFlowSafely(options, () =>
+        applyCjkTextPaste(options.stateRef.current, text, createFlowOptions(options)),
+      );
+    },
+    { isActive: options.focus },
+  );
+
+  useKeybindingActions(
+    options.keybindingContext,
+    (actions, input, key, consumed) => {
+      const translated = translateCjkInput(
+        options.keybindingContext,
+        actions,
+        input,
+        key,
+        consumed,
+      );
+      if (translated === undefined) return;
+      if (mutatesComposerText(actions[0], translated)) pacing.armEchoRelease();
+      applyCjkFlowSafely(options, () =>
+        applyCjkTextInput(
+          options.stateRef.current,
+          translated.input,
+          translated.key,
+          createFlowOptions(options),
+        ),
+      );
+    },
+    { isActive: options.focus },
+  );
+}
+
+function translateCjkInput(
+  context: TKeybindingContext,
+  actions: readonly string[],
+  input: string,
+  key: IKeyInput,
+  consumed: boolean,
+): { input: string; key: IKeyInput } | undefined {
+  const action = actions[0];
+  if (action === 'submit' || action === 'execute') return { input: '', key: { return: true } };
+  if (context === 'autocomplete-menu' && consumed) return undefined;
+  if (action === 'cursor-left') return { input: '', key: { leftArrow: true } };
+  if (action === 'cursor-right') return { input: '', key: { rightArrow: true } };
+  if (action === 'cursor-up') return { input: '', key: { upArrow: true } };
+  if (action === 'cursor-down') return { input: '', key: { downArrow: true } };
+  if (action === 'delete-backward') return { input: '', key: { backspace: true } };
+  if (action === 'delete-word') return { input: 'w', key: { ctrl: true } };
+  if (action === 'delete-line') return { input: 'u', key: { ctrl: true } };
+  if (consumed) return undefined;
+  const rawText =
+    key.ctrl !== true &&
+    key.meta !== true &&
+    !key.return &&
+    !key.escape &&
+    !key.tab &&
+    !key.upArrow &&
+    !key.downArrow &&
+    !key.leftArrow &&
+    !key.rightArrow &&
+    !key.backspace &&
+    !key.delete;
+  return rawText || (key.ctrl === true && input === 'c') || key.tab ? { input, key } : undefined;
+}
+
+function createFlowOptions(options: IInputHandlerOptions): {
+  availableWidth?: number;
+  canPaste: boolean;
+  enableVerticalNavigation: boolean;
+} {
+  return {
+    availableWidth: options.availableWidth,
+    canPaste: options.onPaste !== undefined,
+    enableVerticalNavigation: options.enableVerticalNavigation,
+  };
+}
+
+function applyCjkFlowSafely(
+  options: IInputHandlerOptions,
+  run: () => ReturnType<typeof applyCjkTextInput>,
+): void {
+  try {
+    const result = run();
+    options.stateRef.current = result.state;
+    applyCjkTextInputEffect(options, result.effect);
+  } catch {
+    // allow-fallback: Korean IME in raw mode can produce unexpected byte sequences
+  }
+}
+
+function applyCjkTextInputEffect(
+  options: IInputHandlerOptions,
+  effect: ReturnType<typeof applyCjkTextInput>['effect'],
+): void {
+  if (effect.type === 'change') {
+    if (effect.deleted !== undefined) options.onDeletedText?.(effect.deleted);
+    options.onChange(effect.value);
+  } else if (effect.type === 'submit') {
+    // CLI-061: DEFER the submit and re-read the LIVE `stateRef.current.value` at fire time — never the stale
+    // `effect.value` captured at Enter. The input pipeline (this same handler) stays live during the window, so
+    // a trailing IME character's stdin event is applied to `stateRef` before the deferred read. The guard only
+    // blocks a SECOND submit — it must not gate the input pipeline (that would drop the trailing char).
+    const onSubmit = options.onSubmit;
+    if (onSubmit) {
+      scheduleDeferredSubmit(options.deferState, () => options.stateRef.current.value, onSubmit);
+    }
+  } else if (effect.type === 'paste') {
+    options.onPaste?.(effect.text, effect.cursor);
+  } else if (effect.type === 'render') {
+    options.forceRender((n) => n + 1);
+  }
+}
+
+/**
+ * Render text with an inverse-style cursor at the correct position.
+ *
+ * #2222: the input is sanitized BEFORE the cursor is drawn, and the result renders through
+ * `RenderedText` — the SGR here (inverse cursor, muted placeholder) is this component's own styling,
+ * and `SafeText` would strip it along with everything else, which is exactly how the drawn cursor
+ * disappeared (CLI-062 byte-identical rendering).
+ */
+function renderWithCursor(
+  rawValue: string,
+  cursorOffset: number,
+  rawPlaceholder: string,
+  showCursor: boolean,
+  mutedPlaceholder: (text: string) => string,
+): string {
+  const value = sanitizeTerminalText(rawValue);
+  const placeholder = sanitizeTerminalText(rawPlaceholder);
+  if (!showCursor) {
+    return value.length > 0 ? value : placeholder ? mutedPlaceholder(placeholder) : '';
+  }
+
+  if (value.length === 0) {
+    if (placeholder.length > 0) {
+      return chalk.inverse(placeholder[0]) + mutedPlaceholder(placeholder.slice(1));
+    }
+    return chalk.inverse(' ');
+  }
+
+  const chars = [...value];
+  let rendered = '';
+
+  for (let i = 0; i < chars.length; i++) {
+    const char = chars[i] ?? '';
+    rendered += i === cursorOffset ? chalk.inverse(char) : char;
+  }
+
+  if (cursorOffset >= chars.length) {
+    rendered += chalk.inverse(' ');
+  }
+
+  return rendered;
+}

@@ -20,7 +20,7 @@
  * Build-gated (`*.bintest.ts`, `test:bin` project): requires `pnpm --filter @robota-sdk/agent-cli build`.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { connect, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -45,7 +45,7 @@ const BEFORE_ALL_MS = 30_000;
 const TC_B_TIMEOUT_MS = 25_000;
 const TC_C_TIMEOUT_MS = 12_000;
 
-/** The only server frames this black-box client inspects (subset of the agent-transport-protocol contract). */
+/** The only server frames this black-box client inspects (subset of the agent-transport contract). */
 interface IServerFrame {
   type: string;
   result?: { response: string };
@@ -156,8 +156,8 @@ describe('robota --serve black-box runtime host (RUNTIME-001)', () => {
   const url = (t = token): string => `ws://127.0.0.1:${port}?token=${encodeURIComponent(t)}`;
 
   beforeAll(async () => {
-    binCwd = mkdtempSync(join(tmpdir(), 'robota-serve-bin-'));
-    homeDir = mkdtempSync(join(tmpdir(), 'robota-serve-home-'));
+    binCwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-serve-bin-')));
+    homeDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-serve-home-')));
     writeProviderSettings(homeDir);
     port = await findFreePort();
 

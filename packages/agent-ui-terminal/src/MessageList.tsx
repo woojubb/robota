@@ -1,0 +1,302 @@
+import { isToolMessage, isAssistantMessage } from '@robota-sdk/agent-core';
+import { Box } from 'ink';
+import React from 'react';
+
+import { formatCommandOutputSummary } from './command-output-summary.js';
+import { useRenderMarkdown } from './hooks/useRenderMarkdown.js';
+import { humanizeToolName } from './humanize-tool-name.js';
+import { RoleLabel } from './RoleLabel.js';
+import { RenderedText, Text } from './SafeText.js';
+import { sanitizeTerminalText } from './sanitize-terminal-text.js';
+import { useScreenReader } from './screen-reader-context.js';
+import { SCREEN_READER_LABELS, type TScreenReaderLabelKind } from './screen-reader-labels.js';
+import { statusGlyphColor } from './status-glyph.js';
+import { usePalette } from './theme/index.js';
+import { getToolSummaryLabel, toolSummaryStatusKind } from './tool-summary-status.js';
+import ToolCommandOutput from './ToolCommandOutput.js';
+import ToolDiffBlock from './ToolDiffBlock.js';
+import UsageSummaryEntry from './UsageSummaryEntry.js';
+
+import type { TToolSummaryItem } from './tool-summary-status.js';
+import type { IToolCallSummary } from './utils/tool-call-extractor.js';
+import type { IHistoryEntry, TUniversalMessage, TUniversalValue } from '@robota-sdk/agent-core';
+
+interface IProps {
+  history: IHistoryEntry[];
+}
+
+/**
+ * CLI-2004: one transcript label. In screen-reader mode it speaks the shared vocabulary and drops
+ * the colour — the searchable word IS the cue there — and outside it renders exactly as before.
+ */
+function EntryLabel({
+  kind,
+  text,
+  color,
+}: {
+  kind: TScreenReaderLabelKind;
+  text: string;
+  color: string;
+}): React.ReactElement {
+  if (useScreenReader()) return <Text>{SCREEN_READER_LABELS[kind]} </Text>;
+  return (
+    <Text color={color} bold>
+      {text}
+    </Text>
+  );
+}
+
+function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactElement {
+  const palette = usePalette();
+  if (!isToolMessage(message)) {
+    return <></>;
+  }
+  const toolName = message.name;
+  const content = message.content;
+
+  // Try to parse structured tool summaries (with diff info)
+  let summaries: IToolCallSummary[] | null = null;
+  try {
+    const parsed = JSON.parse(content) as IToolCallSummary[];
+    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0].line === 'string') {
+      summaries = parsed as IToolCallSummary[];
+    }
+  } catch {
+    // Not JSON — fall back to plain text lines
+  }
+
+  if (summaries) {
+    return (
+      <Box flexDirection="column" marginBottom={1}>
+        <Box>
+          <EntryLabel kind="tool" text="Tool: " color={palette.text.emphasis} />
+          {toolName && (
+            <Text color={palette.text.emphasis} dimColor>
+              [{humanizeToolName(toolName)}]
+            </Text>
+          )}
+        </Box>
+        <Text> </Text>
+        {summaries.map((s, i) => (
+          <Box key={i} flexDirection="column">
+            <Text color={palette.text.success}>
+              {'  '}
+              {'✓'} {sanitizeTerminalText(s.line)}
+            </Text>
+            {s.diffLines && s.diffLines.length > 0 && (
+              <ToolDiffBlock file={s.diffFile} lines={s.diffLines} />
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  }
+
+  // Fallback: plain text lines
+  const lines = content.split('\n').filter((l) => l.trim());
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <EntryLabel kind="tool" text="Tool: " color={palette.text.emphasis} />
+        {toolName && (
+          <Text color={palette.text.emphasis} dimColor>
+            [{sanitizeTerminalText(toolName)}]
+          </Text>
+        )}
+      </Box>
+      <Text> </Text>
+      {lines.map((line, i) => (
+        <Text key={i} color={palette.text.success}>
+          {'  '}
+          {'✓'} {sanitizeTerminalText(line)}
+        </Text>
+      ))}
+    </Box>
+  );
+}
+
+/** ERR-001 G2: a failed turn renders as a styled error block, not a plain system note. */
+function ErrorEntryBlock({ message }: { message: TUniversalMessage }): React.ReactElement {
+  const palette = usePalette();
+  // SEC-019: an error message is untrusted text — it carries provider responses, tool stderr and
+  // file contents — and it reaches `<Text>` without going through the markdown renderer, so it does
+  // not inherit that path's sanitization.
+  const content = sanitizeTerminalText((message.content ?? '').replace(/^Error:\s*/, ''));
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <EntryLabel kind="error" text="✖ Error: " color={palette.text.error} />
+      </Box>
+      <Box marginLeft={2} flexDirection="column">
+        <Text color={palette.text.error} wrap="wrap">
+          {content}
+        </Text>
+        <Text dimColor wrap="wrap">
+          The session is still alive — type your next prompt when ready.
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
+const MessageItem = React.memo(function MessageItem({
+  message,
+}: {
+  message: TUniversalMessage;
+}): React.ReactElement {
+  // Every hook this component uses runs BEFORE the early returns: a message whose role or kind
+  // changes in place would otherwise render a different NUMBER of hooks and React would throw.
+  const renderMarkdown = useRenderMarkdown();
+
+  if (isToolMessage(message)) {
+    return <ToolMessage message={message} />;
+  }
+
+  if (message.role === 'system' && message.metadata?.kind === 'error') {
+    return <ErrorEntryBlock message={message} />;
+  }
+
+  const content = message.content ?? '';
+  const isInterrupted = message.state === 'interrupted';
+
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <RoleLabel
+          role={message.role}
+          {...(typeof message.metadata?.driverId === 'string'
+            ? { driverId: message.metadata.driverId }
+            : {})}
+        />
+      </Box>
+      <Text> </Text>
+      <Box marginLeft={2}>
+        {isAssistantMessage(message) ? (
+          // `renderMarkdown` sanitizes its input and then styles it; the SGR in its output is ours.
+          <RenderedText wrap="wrap">
+            {renderMarkdown(content + (isInterrupted ? '\n\n_(interrupted)_' : ''))}
+          </RenderedText>
+        ) : (
+          <Text wrap="wrap">{content}</Text>
+        )}
+      </Box>
+    </Box>
+  );
+});
+
+function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
+  const palette = usePalette();
+  const data = entry.data as
+    | {
+        summary?: string;
+        tools?: TToolSummaryItem[];
+      }
+    | undefined;
+  const tools = data?.tools;
+  const lines = data?.summary?.split('\n') ?? [];
+
+  if (tools && tools.length > 0) {
+    return (
+      <Box flexDirection="column" marginBottom={1}>
+        <Box>
+          <EntryLabel kind="tool" text="Tool: " color={palette.text.emphasis} />
+        </Box>
+        <Text> </Text>
+        {tools.map((tool, i) => {
+          const kind = toolSummaryStatusKind(
+            tool,
+            formatCommandOutputSummary(tool)?.status === 'error',
+          );
+          return (
+            <Box key={i} flexDirection="column">
+              <Text color={statusGlyphColor(palette, kind)}>
+                {'  '}
+                {getToolSummaryLabel(tool, kind)}
+              </Text>
+              <ToolCommandOutput tool={tool} />
+              {tool.diffLines && tool.diffLines.length > 0 && (
+                <ToolDiffBlock file={tool.diffFile} lines={tool.diffLines} />
+              )}
+            </Box>
+          );
+        })}
+      </Box>
+    );
+  }
+
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <EntryLabel kind="tool" text="Tool: " color={palette.text.emphasis} />
+      </Box>
+      <Text> </Text>
+      {lines.map((line, i) => (
+        <Text key={i} color={palette.text.success}>
+          {'  '}
+          {sanitizeTerminalText(line)}
+        </Text>
+      ))}
+    </Box>
+  );
+}
+
+function EventEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
+  const palette = usePalette();
+  const eventData = entry.data as Record<string, TUniversalValue> | undefined;
+  // SEC-019: an event message is BUILT by a neutral package from untrusted parts — a skill name that
+  // may come from a plugin, a memory topic the model chose — and interpolated into a sentence. The
+  // formatter cannot sanitize for a terminal (the same string reaches the GUI, where escapes are not
+  // the threat and stripping them would be arbitrary), so this render site is the boundary.
+  const eventMessage = sanitizeTerminalText(
+    typeof eventData?.message === 'string'
+      ? eventData.message
+      : typeof eventData?.content === 'string'
+        ? eventData.content
+        : entry.type,
+  );
+
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <EntryLabel kind="warning" text="System: " color={palette.text.warning} />
+      </Box>
+      <Text> </Text>
+      <Box marginLeft={2}>
+        <Text wrap="wrap">{eventMessage}</Text>
+      </Box>
+    </Box>
+  );
+}
+
+export function EntryItem({ entry }: { entry: IHistoryEntry }): React.ReactElement {
+  if (entry.category === 'chat') {
+    const message = entry.data as TUniversalMessage;
+    return <MessageItem message={message} />;
+  }
+
+  if (entry.type === 'tool-summary') {
+    return <ToolSummaryEntry entry={entry} />;
+  }
+
+  if (entry.type === 'usage-summary') {
+    return <UsageSummaryEntry entry={entry} />;
+  }
+
+  // tool-start/tool-end are recorded in history for persistence but not rendered
+  // (StreamingIndicator shows them during streaming, tool-summary shows them after)
+  if (entry.type === 'tool-start' || entry.type === 'tool-end') {
+    return <></>;
+  }
+
+  return <EventEntry entry={entry} />;
+}
+
+export default function MessageList({ history }: IProps): React.ReactElement {
+  return (
+    <Box flexDirection="column">
+      {history.map((entry) => (
+        <EntryItem key={entry.id} entry={entry} />
+      ))}
+    </Box>
+  );
+}

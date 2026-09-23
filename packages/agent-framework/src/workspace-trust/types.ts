@@ -39,8 +39,34 @@ export interface IWorkspaceTrustStoreSnapshot {
   readonly grantedAt?: string;
 }
 
+/**
+ * One recorded grant, as the store persists it. FLOW-2006 reads these to resolve a deep link's
+ * `repo=owner/name` against clones the user has ALREADY trusted; nothing else enumerates them.
+ */
+export interface IWorkspaceTrustGrant {
+  readonly repositoryKey: string;
+  readonly worktreeRoot: string;
+  readonly state: 'trusted' | 'revoked';
+  readonly generation: number;
+  readonly grantedAt?: string;
+}
+
 export interface IWorkspaceTrustStore {
   inspect(identity: IWorkspaceIdentity): Promise<IWorkspaceTrustStoreSnapshot>;
+  /**
+   * Every recorded grant, read-only — OPTIONAL, and optional on purpose.
+   *
+   * This is a deliberate widening: it hands its caller the list of every local path the user has
+   * ever trusted, so it exists for one consumer (FLOW-2006's `repo=owner/name` resolution) and
+   * returns the same validated shape the store already enforces. A corrupt store throws rather than
+   * returning a partial list — "could not read" is never "no grants".
+   *
+   * It is optional rather than required because a store is free not to be enumerable: an in-memory
+   * test double or a host that keeps grants somewhere unlistable owes no such answer, and forcing
+   * one would mean every implementer inventing a list it does not have. The consumer treats absence
+   * the same way it treats a read failure — a refusal, never an empty list.
+   */
+  listGrants?(): Promise<readonly IWorkspaceTrustGrant[]>;
   grant(
     identity: IWorkspaceIdentity,
     expectedGeneration: number,
@@ -127,11 +153,28 @@ export interface ITrustedWorkspaceProjectAccess {
   readonly grantedAt?: string;
 }
 
+/**
+ * The owner error behind an `identity-unavailable` or `store-unavailable` trust state
+ * (OBSERVABILITY-1991). Name and message only — never file content.
+ */
+export interface IWorkspaceTrustCause {
+  readonly name: string;
+  readonly message: string;
+}
+
 export interface IRestrictedWorkspaceProjectAccess {
   readonly status: 'restricted';
   readonly reason: 'WorkspaceAuthorityRequired';
   readonly trustState: Exclude<TWorkspaceTrustState, 'trusted'>;
   readonly displayPath?: string;
+  /**
+   * SCREEN-1993: the identity the trust service resolved before deciding the state — present for
+   * every state except `identity-unavailable`, so a consumer that needs the worktree root (the
+   * prompt-history project key) reads the one resolution already made instead of resolving again.
+   */
+  readonly identity?: IWorkspaceIdentity;
+  /** Present when the state was caused by a swallowed identity/store error a diagnostic should name. */
+  readonly cause?: IWorkspaceTrustCause;
 }
 
 export type TWorkspaceProjectAccess =

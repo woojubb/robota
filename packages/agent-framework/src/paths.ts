@@ -13,11 +13,14 @@ export function userPaths(): {
   settings: string;
   sessions: string;
   onboarded: string;
+  /** SCREEN-1993: the prompt-history projection, one JSON line per typed prompt. */
+  history: string;
 } {
   const base = join(homedir(), '.robota');
   return {
     settings: join(base, 'settings.json'),
     sessions: join(base, 'sessions'),
     onboarded: join(base, 'onboarded'),
+    history: join(base, 'history.jsonl'),
   };
 }

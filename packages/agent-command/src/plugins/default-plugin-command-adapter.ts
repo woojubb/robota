@@ -3,13 +3,15 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  createHostBundlePluginLoader,
   BundlePluginInstaller,
-  BundlePluginLoader,
   MarketplaceClient,
   NodeHostPluginSettingsStore,
 } from '@robota-sdk/agent-framework';
 
-import type { IMarketplaceManifest } from '@robota-sdk/agent-framework';
+// `BundlePluginLoader` is now a TYPE here and nothing more: this module names it in
+// `IPluginServices` but no longer constructs one — the composition root does (PLG-021).
+import type { BundlePluginLoader, IMarketplaceManifest } from '@robota-sdk/agent-framework';
 import type {
   ICommandAvailablePlugin,
   ICommandInstalledPlugin,
@@ -22,7 +24,16 @@ interface IPluginServices {
   cwd: string;
   marketplace: MarketplaceClient;
   installer: BundlePluginInstaller;
-  loader: BundlePluginLoader;
+  /**
+   * Build a loader holding a CURRENT enablement snapshot.
+   *
+   * A factory rather than an instance, because `BundlePluginLoader` captures the map in its
+   * constructor. A cached instance answers with the map as it was when the services object was
+   * built, and `enable`/`disable` on this same adapter write to disk without touching it — so
+   * "disable then reload" in one process would keep loading the plugin just disabled. That is
+   * PLG-021 again, one step over: not a MISSING map, a STALE one.
+   */
+  createLoader: () => BundlePluginLoader;
   settingsStore: NodeHostPluginSettingsStore;
 }
 
@@ -97,13 +108,21 @@ function createPluginServices(cwd: string): IPluginServices {
     marketplaceClient: marketplace,
     exec: runGit,
   });
-  const loader = new BundlePluginLoader(pluginsDir);
+  // PLG-021 / issue #2025: the enablement state was never unreachable here — `settingsStore` is
+  // built above and knows exactly which plugins the user disabled. It simply was not passed, and
+  // the loader's optional map defaults to `{}`, which means "nothing disabled". Read PER CALL, so a
+  // disable made through this same adapter is visible to the next load.
+  const createLoader = (): BundlePluginLoader =>
+    createHostBundlePluginLoader({
+      pluginsDir,
+      enabledPlugins: settingsStore.getEnabledPlugins(),
+    });
 
   return {
     cwd,
     marketplace,
     installer,
-    loader,
+    createLoader,
     settingsStore,
   };
 }
@@ -111,7 +130,7 @@ function createPluginServices(cwd: string): IPluginServices {
 async function listInstalledPlugins(
   services: IPluginServices,
 ): Promise<readonly ICommandInstalledPlugin[]> {
-  const plugins = await services.loader.loadAll();
+  const plugins = await services.createLoader().loadAll();
   const enabledMap = services.settingsStore.getEnabledPlugins();
   return plugins.map((plugin) => {
     const parts = plugin.pluginDir.split('/');
@@ -205,7 +224,7 @@ export function createDefaultPluginCommandAdapter(cwd: string): ICommandPluginAd
     marketplaceUpdate: async (name) => services.marketplace.updateMarketplace(name),
     marketplaceList: async () => listMarketplaces(services),
     reloadPlugins: async () => ({
-      loadedPluginCount: (await services.loader.loadAll()).length,
+      loadedPluginCount: (await services.createLoader().loadAll()).length,
     }),
   };
 }

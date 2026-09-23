@@ -342,6 +342,86 @@ describe('AnthropicProvider', () => {
       expect(result.metadata?.outputTokens).toBe(20);
     });
 
+    it('API-001: merges a verified effort control with output_config.format and reports it', async () => {
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
+      const outcomes: unknown[] = [];
+
+      await provider.chat(
+        [
+          {
+            id: 'msg-effort',
+            state: 'complete' as const,
+            role: 'user',
+            content: 'Return a result',
+            timestamp: new Date(),
+          },
+        ],
+        {
+          model: 'claude-sonnet-4-6',
+          effort: 'max',
+          responseFormat: {
+            type: 'json_schema',
+            name: 'result',
+            schema: { type: 'object', properties: { answer: { type: 'string' } } },
+          },
+          onModelEffortOutcome: (outcome) => outcomes.push(outcome),
+        },
+      );
+
+      expect(mockClient.messages.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          output_config: expect.objectContaining({
+            effort: 'max',
+            format: expect.objectContaining({ type: 'json_schema' }),
+          }),
+        }),
+        undefined,
+      );
+      expect(outcomes).toEqual([
+        expect.objectContaining({
+          resolution: expect.objectContaining({ selection: 'max', effective: 'max' }),
+          nativeControl: { state: 'sent', id: 'output_config.effort' },
+          providerDispatch: { state: 'sent' },
+        }),
+      ]);
+    });
+
+    it('API-001: custom endpoints omit unverified effort and expose not-applied', async () => {
+      const gatewayProvider = new AnthropicProvider({
+        client: mockClient as unknown as Anthropic,
+        baseURL: 'https://gateway.example/v1',
+      });
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
+      const outcomes: unknown[] = [];
+
+      await gatewayProvider.chat(
+        [
+          {
+            id: 'msg-effort-gateway',
+            state: 'complete' as const,
+            role: 'user',
+            content: 'Return a result',
+            timestamp: new Date(),
+          },
+        ],
+        {
+          model: 'claude-sonnet-4-6',
+          effort: 'high',
+          onModelEffortOutcome: (outcome) => outcomes.push(outcome),
+        },
+      );
+
+      const request = mockClient.messages.create.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(request['output_config']).toBeUndefined();
+      expect(outcomes).toEqual([
+        expect.objectContaining({
+          resolution: expect.objectContaining({ effective: null, disposition: 'not-applied' }),
+          nativeControl: { state: 'omitted', reason: 'model-effort-not-applied' },
+          providerDispatch: { state: 'sent' },
+        }),
+      ]);
+    });
+
     it('maps json_schema responseFormat onto output_config.format (CORE-015)', async () => {
       const apiResponse = makeTextResponse('{"title": "ok"}');
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));
@@ -857,7 +937,7 @@ describe('AnthropicProvider', () => {
         timestamp: new Date(),
       };
       const executor: IExecutor = {
-        executeChat: vi.fn().mockResolvedValue(expectedResponse),
+        executeChat: vi.fn().mockResolvedValue({ message: expectedResponse }),
         executeChatStream: vi.fn(),
         supportsTools: () => true,
         validateConfig: () => true,
@@ -1121,8 +1201,9 @@ describe('AnthropicProvider', () => {
         executeChat: vi.fn(),
         executeChatStream: vi.fn().mockImplementation(async function* () {
           for (const c of streamChunks) {
-            yield c;
+            yield { kind: 'message', message: c };
           }
+          yield { kind: 'terminal' };
         }),
         supportsTools: () => true,
         validateConfig: () => true,

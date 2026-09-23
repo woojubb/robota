@@ -8,6 +8,7 @@
  * `dag-cli` product.
  */
 import { join } from 'node:path';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type { IDagNodeDefinition, IDagRuntimeResult, TPortPayload } from '@robota-sdk/dag-core';
 import {
@@ -55,11 +56,12 @@ function buildCompositeRunner(
   liveDefs: IDagNodeDefinition[],
 ): ICompositeSubRunner {
   return {
-    async run(dag, input) {
+    async run(dag, input, lineage) {
       const provider = new LocalDagRuntimeProvider({
         executionRoot: project.executionRoot,
         workspace: layout,
         projectDir: project.executionRoot,
+        lineage,
         ...(liveDefs.length > 0 ? { instantNodes: liveDefs } : {}),
       });
       const result = await provider.execute(dag, input);
@@ -67,6 +69,8 @@ function buildCompositeRunner(
         ok: result.ok,
         outputs: toNestedOutputs(result.outputs),
         ...(result.ok ? {} : { error: result.error ?? 'Inner DAG run failed' }),
+        ...(result.errorCode ? { errorCode: result.errorCode } : {}),
+        ...(result.errorRetryable === undefined ? {} : { retryable: result.errorRetryable }),
       };
     },
   };
@@ -81,6 +85,7 @@ function buildCompositeRunner(
 export async function loadInstantNodes(
   project: IWorkflowProject,
   layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
+  providers: readonly IProviderDefinition[] = [],
 ): Promise<IDagNodeDefinition[]> {
   const accepted = assertWorkflowProject(project);
   const dir = join(layout.root, 'nodes');
@@ -102,7 +107,10 @@ export async function loadInstantNodes(
     }
     if (!record) continue;
     nodes.push(
-      rehydrateInstantNode(record, record.kind === 'composite' ? { compositeRunner } : {}),
+      rehydrateInstantNode(record, {
+        ...(record.kind === 'composite' ? { compositeRunner } : {}),
+        providers,
+      }),
     );
   }
   return nodes;

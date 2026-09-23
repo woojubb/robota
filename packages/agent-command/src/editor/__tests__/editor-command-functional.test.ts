@@ -6,7 +6,7 @@
  * command opens the editor via `runWithTerminal`, captures the saved text, and cleans up — without a
  * real interactive editor (which is a manual gate, TERM-002).
  */
-import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -31,7 +31,7 @@ function fakeHandoff(canHandoff: boolean): ITerminalHandoff {
 
 /** Write a fake `$EDITOR`: a script that writes `content` into the file it is given as $1. */
 function installFakeEditor(content: string): string {
-  const dir = mkdtempSync(join(tmpdir(), 'robota-fake-editor-'));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-fake-editor-')));
   const script = join(dir, 'fake-editor.sh');
   writeFileSync(script, `#!/bin/sh\nprintf '%s' '${content}' > "$1"\n`, 'utf8');
   chmodSync(script, 0o755);

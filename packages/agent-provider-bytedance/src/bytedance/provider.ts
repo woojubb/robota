@@ -1,11 +1,10 @@
 import { requestJson } from './http-client';
+import { decodeCreateVideoTaskResponse, decodeVideoTaskResponse } from './response-decoders';
 import { mapVideoJobSnapshot, mapInitialStatus, toIsoTimestamp } from './status-mapper';
 
 import type {
   IBytedanceCreateVideoTaskRequest,
-  IBytedanceCreateVideoTaskResponse,
   IBytedanceProviderOptions,
-  IBytedanceVideoTaskResponse,
   TBytedanceTaskContent,
 } from './types';
 import type {
@@ -56,10 +55,11 @@ export class BytedanceProvider implements IVideoGenerationProvider {
       ratio: request.aspectRatio,
     };
 
-    const responseResult = await requestJson<IBytedanceCreateVideoTaskResponse>(this.options, {
+    const responseResult = await requestJson(this.options, {
       path: this.options.createVideoPath ?? DEFAULT_CREATE_VIDEO_PATH,
       method: 'POST',
       body: JSON.stringify(payload),
+      decode: decodeCreateVideoTaskResponse,
     });
     if (!responseResult.ok) {
       return responseResult;
@@ -87,12 +87,13 @@ export class BytedanceProvider implements IVideoGenerationProvider {
       return buildInvalidRequestError('Video job lookup requires non-empty jobId.');
     }
 
-    const responseResult = await requestJson<IBytedanceVideoTaskResponse>(this.options, {
+    const responseResult = await requestJson(this.options, {
       path: buildPath(
         this.options.getVideoTaskPathTemplate ?? DEFAULT_GET_VIDEO_TASK_PATH_TEMPLATE,
         jobId,
       ),
       method: 'GET',
+      decode: decodeVideoTaskResponse('getVideoJob'),
     });
     if (!responseResult.ok) {
       return responseResult;
@@ -106,12 +107,13 @@ export class BytedanceProvider implements IVideoGenerationProvider {
     }
 
     const cancelMethod = this.options.cancelVideoTaskMethod ?? 'DELETE';
-    const responseResult = await requestJson<IBytedanceVideoTaskResponse>(this.options, {
+    const responseResult = await requestJson(this.options, {
       path: buildPath(
         this.options.cancelVideoTaskPathTemplate ?? DEFAULT_CANCEL_VIDEO_TASK_PATH_TEMPLATE,
         jobId,
       ),
       method: cancelMethod,
+      decode: decodeVideoTaskResponse('cancelVideoJob'),
     });
     if (!responseResult.ok) {
       return responseResult;

@@ -1,0 +1,135 @@
+/**
+ * Streaming indicator — shows real-time tool execution and AI response text.
+ * Displayed during session.run() execution.
+ */
+
+import { Box } from 'ink';
+import React from 'react';
+
+import { useRenderMarkdown } from './hooks/useRenderMarkdown.js';
+import { humanizeToolArgument, humanizeToolName } from './humanize-tool-name.js';
+import { RenderedText, Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
+import { SCREEN_READER_LABELS } from './screen-reader-labels.js';
+import { STATUS_SYMBOL, statusGlyphColor, toolStateStatusKind } from './status-glyph.js';
+import { usePalette } from './theme/index.js';
+import ToolDiffBlock from './ToolDiffBlock.js';
+
+import type { IThemeColors } from './theme/index.js';
+import type { IToolState } from '@robota-sdk/agent-interface-session';
+
+function getToolStyle(
+  t: IToolState,
+  palette: IThemeColors,
+): {
+  color: string;
+  icon: string;
+  strikethrough: boolean;
+} {
+  const kind = toolStateStatusKind(t);
+  return {
+    color: statusGlyphColor(palette, kind),
+    icon: STATUS_SYMBOL[kind],
+    strikethrough: kind === 'error' || kind === 'denied',
+  };
+}
+
+interface IProps {
+  text: string;
+  activeTools: readonly IToolState[];
+  isThinking?: boolean;
+}
+
+function ThinkingFallback({ isThinking }: { isThinking: boolean }): React.ReactElement {
+  const palette = usePalette();
+  if (!isThinking) return <></>;
+  return (
+    <Box marginBottom={1}>
+      <Text color={palette.text.warning}>Thinking...</Text>
+    </Box>
+  );
+}
+
+function ActiveTools({ activeTools }: { activeTools: readonly IToolState[] }): React.ReactElement {
+  const palette = usePalette();
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Text color={palette.text.emphasis} bold>
+        Tools:
+      </Text>
+      <Text> </Text>
+      {activeTools.map((t, i) => {
+        const { color, icon, strikethrough } = getToolStyle(t, palette);
+        return (
+          <Box key={`${t.toolName}-${i}`} flexDirection="column">
+            <Text color={color} strikethrough={strikethrough}>
+              {'  '}
+              {icon} {humanizeToolName(t.toolName)}({humanizeToolArgument(t.firstArg)})
+            </Text>
+            {t.diffLines && t.diffLines.length > 0 && (
+              <ToolDiffBlock file={t.diffFile} lines={t.diffLines} />
+            )}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
+/**
+ * CLI-2004: the whole progress indicator collapses to ONE static line. A spinner is a repaint per
+ * frame, and a repaint is an announcement — the reader would hear the same line forever. The line
+ * still carries what changed (which tools are running, how far the reply has got), just once per
+ * actual change instead of once per frame.
+ */
+function renderScreenReaderStatus(
+  text: string,
+  activeTools: readonly IToolState[],
+  isThinking: boolean,
+): React.ReactElement {
+  const running = activeTools.map((tool) => humanizeToolName(tool.toolName)).join(', ');
+  const parts = [
+    running.length > 0 ? `${SCREEN_READER_LABELS.tool} ${running}` : undefined,
+    text.length > 0 ? text : isThinking ? SCREEN_READER_LABELS.thinking : undefined,
+  ].filter((part): part is string => part !== undefined);
+  if (parts.length === 0) return <></>;
+  return <Text>{parts.join(' — ')}</Text>;
+}
+
+export default function StreamingIndicator({
+  text,
+  activeTools,
+  isThinking = false,
+}: IProps): React.ReactElement {
+  const palette = usePalette();
+  const renderMarkdown = useRenderMarkdown();
+  const hasTools = activeTools.length > 0;
+  const hasText = text.length > 0;
+  const screenReader = useScreenReader();
+
+  if (screenReader) {
+    return renderScreenReaderStatus(text, activeTools, isThinking);
+  }
+
+  if (!hasTools && !hasText) {
+    return <ThinkingFallback isThinking={isThinking} />;
+  }
+
+  return (
+    <Box flexDirection="column">
+      {hasTools && <ActiveTools activeTools={activeTools} />}
+      {hasText && (
+        <Box flexDirection="column" marginBottom={1}>
+          <Text color={palette.text.accent} bold>
+            Robota:
+          </Text>
+          <Text> </Text>
+          <Box marginLeft={2}>
+            {/* `renderMarkdown` sanitizes its input and then styles it; the SGR in its output is ours. */}
+            <RenderedText wrap="wrap">{renderMarkdown(text)}</RenderedText>
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+}

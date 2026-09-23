@@ -7,8 +7,9 @@ import {
 } from '@robota-sdk/agent-remote-pairing';
 import { WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
 
-import { defaultCreateTransport } from './default-transport-factory.js';
-import { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+import { defaultCreateResumeBridge, defaultCreateTransport } from './default-transport-factory.js';
+import type { TUsageReporters } from './default-transport-factory.js';
+import { SessionResumeBridge } from '@robota-sdk/agent-transport';
 
 import { hasTurnServer } from './ice-config.js';
 
@@ -20,24 +21,12 @@ import type {
   IIceServer,
   ISignalingClient,
 } from '@robota-sdk/agent-transport-webrtc';
-import type { TransportRegistry } from '@robota-sdk/agent-transport';
+import type { TransportRegistry } from '@robota-sdk/agent-framework';
 import type { TRemoteControlStatus } from '@robota-sdk/agent-framework';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
-/**
- * Composition-root controller for `/remote-control` (REMOTE-008 Step 4).
- *
- * The command is a declarative trigger; ALL transport construction lives HERE (the composition root owns
- * settings, the transport registry, and the live session). On enable it mints a pairing secret + rendezvous,
- * builds a `WsSignalingClient` against the configured relay and a pairing-gated `WebRtcTransport`, registers
- * and starts it, and returns a QR + link the operator shares with the device. The `getStatus` view is read
- * by the command through the injected `ICommandHostAdapters.remoteControl` adapter over this same instance's
- * mutable state (the adapter is created before any transport exists).
- *
- * Fail-closed: no relay configured ⇒ do nothing (never a silent default to a public relay); a `werift`-absent
- * or start failure ⇒ report the error and stay off.
- */
+/** Composition-root controller for pairing-gated `/remote-control` lifecycle and reconnect state. */
 
 export interface IRemoteControlControllerDeps {
   /** The full transport registry (needs `register`, so not the view). */
@@ -74,9 +63,13 @@ export interface IRemoteControlControllerDeps {
     ice: { iceServers?: readonly IIceServer[]; forceTurn?: boolean },
     reconnect?: IHostReconnectConfig,
     resumeBridge?: SessionResumeBridge,
+    localPeer?: import('@robota-sdk/agent-transport-webrtc').ILocalPeerProof,
+    usageReporters?: TUsageReporters,
   ) => IConfigurableTransport<IInteractiveSession>;
   /** REMOTE-013 E4: build the session-scoped resume bridge (default: real `SessionResumeBridge`). */
   createResumeBridge?: (session: IInteractiveSession) => SessionResumeBridge;
+  /** Host-owned usage reporters shared by every admitted transport surface. */
+  usageReporters?: TUsageReporters;
   /** REMOTE-013 E4: relay URL for reconnect signaling (defaults to `readRelayUrl`). */
   now?: () => number;
   /** REMOTE-013 E4: schedule a deferred callback (default `setTimeout`); tests inject a controllable fake. */
@@ -171,15 +164,15 @@ export class RemoteControlController {
       }
     }
 
-    // REMOTE-013 E4: a session-scoped resume bridge (only when reconnect/E3 is active) that survives channel
-    // drops. Retain the config needed to re-arm reconnect signaling later.
+    // REMOTE-013 E4: retain the session bridge and inputs needed to re-arm reconnect signaling.
     this.relayUrl = relayUrl;
     this.iceConfig = { ...(iceServers ? { iceServers } : {}), forceTurn };
     this.reconnectConfig = reconnect;
     if (reconnect && !this.bridge) {
-      this.bridge = (
-        this.deps.createResumeBridge ?? ((s) => new SessionResumeBridge({ session: s }))
-      )(session);
+      const createBridge =
+        this.deps.createResumeBridge ??
+        ((current) => defaultCreateResumeBridge(current, this.deps.usageReporters));
+      this.bridge = createBridge(session);
     }
 
     const pairing = generatePairingSecret();
@@ -211,6 +204,8 @@ export class RemoteControlController {
       this.iceConfig,
       reconnect,
       this.bridge,
+      undefined,
+      this.deps.usageReporters,
     );
 
     this.deps.registry.register(transport);
@@ -342,10 +337,11 @@ export class RemoteControlController {
       this.iceConfig,
       this.reconnectConfig,
       this.bridge,
+      undefined,
+      this.deps.usageReporters,
     );
     this.reconnectPeers.push(peer);
     this.reconnectSignalings.push(signaling);
-    this.deps.registry.register(peer);
     peer.attach(session);
     void peer.start().catch(() => undefined);
   }
@@ -372,6 +368,7 @@ export class RemoteControlController {
     }
     this.reconnectPeers = [];
     this.reconnectSignalings = [];
+    this.deps.registry.replace(winner); // #2043: the entry must name the live instance
     this.transport = winner;
     this.signaling = winnerSignaling;
     this.status = { state: 'paired' };

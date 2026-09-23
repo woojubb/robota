@@ -37,16 +37,29 @@ function assertCondition(condition: boolean, message: string): asserts condition
   if (!condition) throw new Error(message);
 }
 
+// Git hooks export GIT_* variables that force child git commands back to the hook's own repository,
+// silently overriding `-C <cwd>` (mirrors packages/agent-cli's git-worktree-isolation-adapter.ts).
+function gitEnvironment(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('GIT_')) delete env[key];
+  }
+  return env;
+}
+
 class GitWorkspaceIdentityResolver implements IWorkspaceIdentityResolver {
   resolve(cwd: string): IWorkspaceIdentity {
+    const env = gitEnvironment();
     const worktreeRoot = realpathSync(
       execFileSync('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], {
         encoding: 'utf8',
+        env,
       }).trim(),
     );
     const repositoryKey = realpathSync(
       execFileSync('git', ['-C', cwd, 'rev-parse', '--absolute-git-dir'], {
         encoding: 'utf8',
+        env,
       }).trim(),
     );
     return { repositoryKey, displayPath: worktreeRoot, worktreeRoot };
@@ -107,7 +120,7 @@ class FileWorkspaceTrustStore implements IWorkspaceTrustStore {
 
 function initializeGitProject(root: string): void {
   mkdirSync(root, { recursive: true });
-  execFileSync('git', ['init', '--quiet', root]);
+  execFileSync('git', ['init', '--quiet', root], { env: gitEnvironment() });
 }
 
 function observeCanaries(projectAccess: TWorkspaceProjectAccess, userHome: string): string[] {

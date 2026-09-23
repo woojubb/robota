@@ -41,20 +41,29 @@ console.log(`${state.usedPercentage.toFixed(1)}% context used`);
 await session.compact('Focus on the API changes');
 ```
 
+## Replay log validation
+
+`FileSessionLogger` writes versioned JSONL. `loadSessionLogEntries` and
+`decodeSessionLogEntries` validate every declared event before replay, including nested messages.
+Unknown events, malformed fields, and unsupported versions raise `SessionLogDecodeError` with safe
+field/line diagnostics. No malformed message is silently dropped or given an invented ID or date.
+Unversioned legacy logs are not accepted; persisted session snapshots keep their existing format.
+
 ## Features
 
-| Feature                    | Description                                                                                                                        |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Permission enforcement** | Tool calls gated by 3-step policy (deny list, allow list, mode policy)                                                             |
-| **Hook execution**         | PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop                                                               |
-| **Context tracking**       | Effective token usage from the shared core estimator, configurable auto-compact threshold (default ~83.5%)                         |
-| **Compaction**             | LLM-generated conversation summary to free context space; an invalid summary throws `CompactionError` and leaves history untouched |
-| **Persistence**            | `IInteractiveSessionStore` injection; explicit `NodeSessionStore` host adapter uses atomic temp-file + rename writes               |
-| **Abort**                  | Cancel via `session.abort()` — propagates AbortSignal to `robota.run()`, throws `AbortError` to caller                             |
-| **One turn at a time**     | A concurrent `run()` is refused with `SessionBusyError` (RUNTIME-003); `isRunning()` is authoritative — see SPEC § Turn Identity   |
-| **Session logging**        | `FileSessionLogger` writes JSONL through an injected neutral sink; `NodeSessionLogSink` is the explicit host adapter               |
-| **Replay events**          | Provider/tool execution boundary events are forwarded from core into append-only session logs                                      |
-| **Provider capabilities**  | Generic native web capability setup is requested through the provider contract, not provider-name branches                         |
+| Feature                    | Description                                                                                                                                                            |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Permission enforcement** | Tool calls gated by 3-step policy (deny list, allow list, mode policy)                                                                                                 |
+| **Hook execution**         | PreToolUse, PostToolUse, PreModelCall, PostModelCall, PreCompact, PostCompact, SessionStart, Stop; model-call hooks include selected effort (`auto` when unset)        |
+| **Context tracking**       | Effective token usage from the shared core estimator, configurable auto-compact threshold (default ~83.5%)                                                             |
+| **Compaction**             | LLM-generated conversation summary to free context space; an invalid summary throws `CompactionError` and leaves history untouched                                     |
+| **Persistence**            | `IInteractiveSessionStore` injection; each completed `run()` and shutdown persist through the store; explicit `NodeSessionStore` uses atomic temp-file + rename writes |
+| **Abort**                  | Cancel via `session.abort()` — propagates AbortSignal to `robota.run()`, throws `AbortError` to caller                                                                 |
+| **One turn at a time**     | A concurrent `run()` is refused with `SessionBusyError` (RUNTIME-003); `isRunning()` is authoritative — see SPEC § Turn Identity                                       |
+| **Session logging**        | `FileSessionLogger` writes JSONL through an injected neutral sink; `NodeSessionLogSink` is the explicit host adapter                                                   |
+| **Replay events**          | Provider/tool execution boundary events are forwarded from core into append-only session logs                                                                          |
+| **Usage observations**     | Content-free top-level turn outcomes and invocation-scoped provider usage identities are preserved for cross-session analytics                                         |
+| **Provider capabilities**  | Generic native web capability setup is requested through the provider contract, not provider-name branches                                                             |
 
 ## Key Methods
 
@@ -67,6 +76,7 @@ await session.compact('Focus on the API changes');
 | `getContextState()`                               | Effective token usage: `{ usedTokens, maxTokens, usedPercentage }`      |
 | `getAutoCompactThreshold()`                       | Auto-compact threshold fraction, or `false` if disabled                 |
 | `getPermissionMode()` / `setPermissionMode(mode)` | Read/change permission mode                                             |
+| `getModelEffort()`                                | Read the model-effort selection for the next call (`auto` when unset)   |
 | `getHistory()` / `clearHistory()`                 | Access or clear conversation history                                    |
 | `abort()`                                         | Signal the running turn to stop (it holds the session until it unwinds) |
 | `isRunning()`                                     | True while a turn is in flight, including one aborted and unwinding     |
@@ -125,13 +135,18 @@ Note: `IPermissionEnforcerOptions` is an internal type and is not exported from 
 
 `IInteractiveSessionRecord` is owned by `@robota-sdk/agent-interface-transport` and carries the full conversation and resumable state. `NodeSessionStore` persists this record without inspecting its payload. It is a conspicuously named host adapter: passing a directory does not establish workspace trust. Framework project composition instead adapts an accepted project-authority state facet to the same neutral store port. When a raw `Session` re-saves an existing record, it preserves fields it does not own and refreshes only its live conversation, history, prompt, schema, path, and timestamp fields.
 
+When a raw `Session` re-saves an existing record, it preserves fields it does not own and refreshes
+only its live conversation, history, prompt, schema, path, and timestamp fields. A resumed session
+must reuse the record ID when its new turns are intended to update that record; sessions without a
+store remain transient.
+
 Session-log parsing is source-driven. `loadSessionLogEntries(source)` consumes an explicit
 `ISessionLogSource`; it never converts a filename into filesystem authority. Use
 `NodeSessionLogSource` only when the application deliberately owns the host path, or provide a
 framework authority-backed source for project logs. Empty or whitespace-only Node log paths are
 rejected before sidecar authority is derived. Stable no-follow sidecar reads are currently available
 only on Linux; macOS and Windows fail closed pending
-[ARCH-049](../../.agents/tasks/ARCH-049-cross-platform-stable-external-payload-replay.md).
+[ARCH-049](../../.agents/tasks/completed/ARCH-049-cross-platform-stable-external-payload-replay.md).
 
 Streaming text deltas are written to append-only JSONL session logs as `text_delta` events. Consumers should store high-frequency streaming chunks in JSONL logs/transcripts and keep session JSON focused on resumable snapshots and references.
 
@@ -182,6 +197,14 @@ Most users should use `InteractiveSession` or `createQuery()` from `@robota-sdk/
 ## Dependencies
 
 - `@robota-sdk/agent-core` (production) — Robota agent, permission system, hook system, core types
+
+## Legacy Session Migration
+
+For legacy session history, run `node scripts/migrate-session-history.mjs --sessions-dir
+<absolute-directory>` from `packages/agent-session` in the repository. This writes the selected
+legacy session files; back them up first. The disposable example
+`node examples/verify-session-history-migration.mjs` checks conversion without using your stored
+sessions. See [Session Data Migration](./docs/SPEC.md#session-data-migration) for the exact policy.
 
 ## License
 

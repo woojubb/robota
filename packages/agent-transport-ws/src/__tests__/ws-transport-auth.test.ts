@@ -100,6 +100,39 @@ function probe(
 }
 
 describe('WsTransport loopback auth (GUI-002 TC-03)', () => {
+  it('attributes submissions with the trusted server-side surface driver id', async () => {
+    const port = 17650;
+    const submit = vi.fn().mockResolvedValue(undefined);
+    const session = Object.assign(mockSession(), { submit });
+    const transport = new WsTransport({
+      port,
+      maxRetries: 30,
+      open: true,
+      openReason: 'surface-attribution regression test',
+      driverId: 'app',
+      surface: 'desktop-app',
+    });
+    transport.attach(session);
+    await transport.start();
+    started.push(transport);
+    const ws = new WebSocket(`ws://127.0.0.1:${transport.boundPort}`);
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', resolve);
+      ws.on('error', reject);
+    });
+
+    ws.send(JSON.stringify({ type: 'submit', prompt: 'attribute me' }));
+    await vi.waitFor(() => expect(submit).toHaveBeenCalled());
+
+    expect(submit).toHaveBeenCalledWith('attribute me', undefined, undefined, {
+      driverId: 'app',
+      surface: 'desktop-app',
+    });
+    const closed = new Promise<void>((resolve) => ws.once('close', () => resolve()));
+    ws.close();
+    await closed;
+  });
+
   it('accepts a connection presenting the correct token via query param', async () => {
     const { port } = await startOn({ token: 'secret-nonce' });
     expect(await probe(port, { token: 'secret-nonce' })).toBe('messages');

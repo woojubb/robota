@@ -1,5 +1,5 @@
 import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
-import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
+import type { IResolvedConfig } from '@robota-sdk/agent-framework';
 import type {
   ISerializableProviderProfile,
   ISubagentSpawnRequest,
@@ -9,7 +9,22 @@ export type TSubagentWorkerWireValue = string | number | boolean | null | undefi
 
 type TSubagentWorkerWireRecord = Record<string, TSubagentWorkerWireValue>;
 
+import {
+  decodeAgentDefinitionDto,
+  decodeParentContextDto,
+  type ISubagentWorkerAgentDefinitionDto,
+  type ISubagentWorkerParentContextDto,
+} from './subagent-worker-start-dto.js';
+
 import type { ISandboxProjection } from './worker-composition.js';
+
+/** ARCH-044: the four config members the child reads. See `projectParentConfig`. */
+export interface ISubagentWorkerParentConfig {
+  readonly provider: { readonly model: string };
+  readonly permissions: IResolvedConfig['permissions'];
+  readonly defaultTrustLevel: IResolvedConfig['defaultTrustLevel'];
+  readonly hooks?: IResolvedConfig['hooks'];
+}
 
 export interface ISubagentWorkerStartPayload {
   taskId: string;
@@ -24,9 +39,26 @@ export interface ISubagentWorkerStartPayload {
    * reason other than the absence of a present-day consumer.
    */
   worktree?: { readonly path: string; readonly branch?: string };
-  agentDefinition: IAgentDefinition;
-  parentConfig: IInProcessSubagentRunnerDeps['config'];
-  parentContext: IInProcessSubagentRunnerDeps['context'];
+  /** ARCH-044 (issue #2047): a JSON-safe DTO owned here, projected from `IAgentDefinition` by the parent. */
+  agentDefinition: ISubagentWorkerAgentDefinitionDto;
+  /**
+   * ARCH-044 (issue #2047): the config members the child reads, declared here rather than indexed
+   * out of the runtime type.
+   *
+   * It was `IInProcessSubagentRunnerDeps['config']`, so the wire shape was the in-process shape and
+   * grew with it — which put the parent's resolved `provider.apiKey` and its `env` map into a second
+   * process where nothing read either. Declaring the members means a new field on `IResolvedConfig`
+   * does not reach the child by default; `projectParentConfig` is what enforces it at runtime,
+   * because structural typing would accept the whole config here.
+   */
+  parentConfig: ISubagentWorkerParentConfig;
+  /**
+   * ARCH-044 (issue #2047): a JSON-safe DTO owned here, decoded totally on the child side. The parent
+   * fills it from `projectParentContext` (issue #2317): the two context members the child reads —
+   * `agentsMd` and `projectNotesMd` — and never the parent's whole `ILoadedContext`, whose file
+   * entries carry the full text of every AGENTS.md and CLAUDE.md the parent loaded.
+   */
+  parentContext: ISubagentWorkerParentContextDto;
   providerProfile: ISerializableProviderProfile;
   /**
    * ARCH-033: how the child rebuilds the parent's sandbox, as `(type, snapshotId)`.
@@ -154,6 +186,14 @@ function hasPayloadString(
   return hasString(value, key);
 }
 
+/** An OPTIONAL request key: absent is valid, present must be a string — typed against the request. */
+function hasOptionalRequestString(
+  value: TSubagentWorkerWireRecord,
+  key: keyof ISubagentSpawnRequest & string,
+): boolean {
+  return value[key] === undefined || typeof value[key] === 'string';
+}
+
 /**
  * CORE-024 (RUNTIME-47): validate the optional `usage` payload on a `result` message so a
  * malformed object cannot be spread verbatim into the parent's token/cost accounting. Absent is
@@ -197,6 +237,9 @@ function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWork
   // the payload, `subagentExecutionRoot` returns it verbatim. A payload without it gives the child's
   // tools `undefined` as their containment root, which is the breach this rule exists to prevent.
   if (!hasRequestString(value.request, 'cwd')) return false;
+  // CLI-1994: a fork job names the record it resumes — an id, never the conversation. A non-string
+  // here is a payload that put something else where the id goes, and the worker must not guess.
+  if (!hasOptionalRequestString(value.request, 'resumeSessionId')) return false;
   // …and `worktree.path` is the HIGHER-precedence carrier — `worktree?.path ?? request.cwd` — so
   // validating `cwd` alone leaves the winning branch unchecked. Before ARCH-031 the runner rewrote
   // `request.cwd` to the worktree, so one check covered both; now it does not.
@@ -204,11 +247,11 @@ function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWork
     if (!isRecord(value.worktree)) return false;
     if (!hasString(value.worktree, 'path')) return false;
   }
-  if (!isRecord(value.agentDefinition)) return false;
-  if (!hasString(value.agentDefinition, 'name')) return false;
-  if (!hasString(value.agentDefinition, 'systemPrompt')) return false;
+  // ARCH-044 (issue #2047): both DTOs are decoded totally — every declared field, arrays rejected
+  // where a record is required — instead of being accepted as any `object`.
+  if (!decodeAgentDefinitionDto(value.agentDefinition).ok) return false;
   if (!isRecord(value.parentConfig)) return false;
-  if (!isRecord(value.parentContext)) return false;
+  if (!decodeParentContextDto(value.parentContext).ok) return false;
   if (!isRecord(value.providerProfile)) return false;
   if (!hasString(value.providerProfile, 'type')) return false;
   return hasString(value.providerProfile, 'model');

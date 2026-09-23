@@ -2,7 +2,7 @@
  * Types for session-log timing analysis.
  *
  * The input record shape is derived from the canonical `IInteractiveSessionRecord`
- * (agent-interface-transport, DATA-001 SSOT) via `Pick` — this package owns no duplicate
+ * (agent-interface-session, DATA-001 SSOT) via `Pick` — this package owns no duplicate
  * session-record type. History entries are the canonical `IHistoryEntry` (agent-core).
  */
 

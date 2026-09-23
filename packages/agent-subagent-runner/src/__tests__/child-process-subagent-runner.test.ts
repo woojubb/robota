@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
-import { mkdtempSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
@@ -20,6 +20,11 @@ import {
 const FIXTURE_WORKER_ENTRY = {
   execPath: process.execPath,
   args: [fileURLToPath(new URL('./fixtures/subagent-worker-fixture.mjs', import.meta.url))],
+  execArgv: [] as readonly string[],
+};
+const FORK_PERSISTENCE_WORKER_ENTRY = {
+  execPath: process.execPath,
+  args: [fileURLToPath(new URL('./fixtures/fork-persistence-worker-entry.mjs', import.meta.url))],
   execArgv: [] as readonly string[],
 };
 const TEST_TIMEOUT_MS = 20_000;
@@ -117,6 +122,64 @@ describe('ChildProcessSubagentRunner', () => {
   );
 
   it(
+    'persists a resumed fork turn into the copied record',
+    async () => {
+      const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-cli-1994-child-')));
+      const resumeSessionId = 'session_cli-1994-child-fork';
+      const record = {
+        id: resumeSessionId,
+        name: 'parent (fork)',
+        cwd,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+        messages: [
+          {
+            id: 'm-1',
+            role: 'user',
+            content: 'Remember the child record.',
+            timestamp: new Date('2026-08-01T00:00:00.000Z'),
+            state: 'complete',
+          },
+        ],
+        systemPrompt: 'The copied parent prompt.',
+      };
+      mkdirSync(join(cwd, 'sessions'), { recursive: true });
+      writeFileSync(
+        join(cwd, 'sessions', `${resumeSessionId}.json`),
+        JSON.stringify(record),
+        'utf8',
+      );
+
+      try {
+        const runner = new ChildProcessSubagentRunner(createDeps(), {
+          workerEntry: FORK_PERSISTENCE_WORKER_ENTRY,
+          worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        });
+        const result = await runner.start({
+          ...createJob(),
+          request: {
+            ...createJob().request,
+            cwd,
+            prompt: 'Continue the child record.',
+            resumeSessionId,
+          },
+        }).result;
+
+        expect(result.output).toBe('the child process answers');
+        const loaded = JSON.parse(
+          readFileSync(join(cwd, 'sessions', `${resumeSessionId}.json`), 'utf8'),
+        ) as { messages: Array<{ content: unknown }> };
+        const messages = loaded.messages.map((message) => String(message.content));
+        expect(messages).toContain('Continue the child record.');
+        expect(messages).toContain('the child process answers');
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
     'reports why a worker died instead of only its exit code (DIST-006)',
     async () => {
       // This is the defect's own diagnosability. DIST-006 presented as
@@ -151,7 +214,10 @@ describe('ChildProcessSubagentRunner', () => {
       // Review proposed deferring the read to `'close'` to beat a drain race. Measured, that is not
       // the mechanism — see the comment at the read site — so this pins the bound's direction
       // rather than a wait.
-      const noisyWorker = join(mkdtempSync(join(tmpdir(), 'robota-dist-006-noisy-')), 'noisy.mjs');
+      const noisyWorker = join(
+        realpathSync(mkdtempSync(join(tmpdir(), 'robota-dist-006-noisy-'))),
+        'noisy.mjs',
+      );
       writeFileSync(
         noisyWorker,
         [
@@ -186,7 +252,7 @@ describe('ChildProcessSubagentRunner', () => {
       // optional, so without a handshake deadline the parent waits forever — a silent hang, where
       // the seam this replaced failed loudly.
       const silentEntry = join(
-        mkdtempSync(join(tmpdir(), 'robota-dist-006-silent-')),
+        realpathSync(mkdtempSync(join(tmpdir(), 'robota-dist-006-silent-'))),
         'silent.mjs',
       );
       writeFileSync(silentEntry, 'setTimeout(() => {}, 60_000);\n', 'utf8');
@@ -284,7 +350,7 @@ describe('ChildProcessSubagentRunner', () => {
   it(
     'exposes a deterministic transcript path and reads transcript pages',
     async () => {
-      const logsDir = mkdtempSync(join(tmpdir(), 'robota-subagent-logs-'));
+      const logsDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-subagent-logs-')));
       const transcriptDir = join(logsDir, 'session_1', 'subagents');
       mkdirSync(transcriptDir, { recursive: true });
       writeFileSync(join(transcriptDir, 'agent_1.jsonl'), 'line1\nline2\n', 'utf8');

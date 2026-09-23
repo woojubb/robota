@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,15 +6,26 @@ import { describe, it, expect, afterEach } from 'vitest';
 
 import { AgentDefinitionLoader } from '../agent-definition-loader.js';
 import { BUILT_IN_AGENTS } from '../built-in-agents.js';
+import { FrontmatterDecodeError } from '../../frontmatter/frontmatter-error.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 
 function createTempDir(): string {
-  return mkdtempSync(join(tmpdir(), 'agent-loader-test-'));
+  return realpathSync(mkdtempSync(join(tmpdir(), 'agent-loader-test-')));
 }
 
 function writeAgentFile(dir: string, filename: string, content: string): void {
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, filename), content, 'utf-8');
+}
+
+function captureDecodeError(action: () => unknown): FrontmatterDecodeError {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof FrontmatterDecodeError) return error;
+    throw error;
+  }
+  throw new Error('expected frontmatter decoding to fail');
 }
 
 describe('AgentDefinitionLoader', () => {
@@ -347,10 +358,11 @@ Prompt.`,
 
   it('should handle file without frontmatter', () => {
     const cwd = makeTempDir();
+    const prompt = '\n  Just a plain system prompt with no frontmatter.  \n';
     writeAgentFile(
       join(cwd, '.claude', 'agents'),
       'bare.md',
-      'Just a plain system prompt with no frontmatter.',
+      prompt,
     );
 
     const loader = new AgentDefinitionLoader(
@@ -361,10 +373,10 @@ Prompt.`,
     expect(agent).toBeDefined();
     expect(agent!.name).toBe('bare');
     expect(agent!.description).toBe('');
-    expect(agent!.systemPrompt).toBe('Just a plain system prompt with no frontmatter.');
+    expect(agent!.systemPrompt).toBe(prompt);
   });
 
-  it('should handle unclosed frontmatter (missing closing ---)', () => {
+  it('rejects unclosed frontmatter with the source file in its diagnostic', () => {
     const cwd = makeTempDir();
     writeAgentFile(
       join(cwd, '.claude', 'agents'),
@@ -379,16 +391,10 @@ Some body content here.`,
     const loader = new AgentDefinitionLoader(
       createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
     );
-    const agent = loader.getAgent('broken');
-
-    // Unclosed frontmatter = no frontmatter parsed, entire content is body
-    expect(agent).toBeDefined();
-    expect(agent!.name).toBe('broken'); // fallback to filename
-    expect(agent!.description).toBe('');
-    expect(agent!.systemPrompt).toContain('name: broken-agent');
+    expect(() => loader.getAgent('broken')).toThrow(/broken\.md.*unterminated/i);
   });
 
-  it('should handle frontmatter with no valid key-value pairs', () => {
+  it('rejects a non-mapping frontmatter document with a file diagnostic', () => {
     const cwd = makeTempDir();
     writeAgentFile(
       join(cwd, '.claude', 'agents'),
@@ -404,15 +410,14 @@ Actual body here.`,
     const loader = new AgentDefinitionLoader(
       createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
     );
-    const agent = loader.getAgent('empty-fm');
-
-    expect(agent).toBeDefined();
-    expect(agent!.name).toBe('empty-fm'); // fallback to filename
-    expect(agent!.description).toBe('');
-    expect(agent!.systemPrompt).toBe('Actual body here.');
+    const error = captureDecodeError(() => loader.getAgent('empty-fm'));
+    expect(error.diagnostics[0]).toMatchObject({
+      source: join(cwd, '.claude/agents/empty-fm.md'),
+      code: 'root-type',
+    });
   });
 
-  it('should handle NaN maxTurns gracefully', () => {
+  it('rejects NaN maxTurns with a source-field diagnostic', () => {
     const cwd = makeTempDir();
     writeAgentFile(
       join(cwd, '.claude', 'agents'),
@@ -429,11 +434,95 @@ Prompt.`,
     const loader = new AgentDefinitionLoader(
       createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
     );
-    const agent = loader.getAgent('nan-turns');
+    const error = captureDecodeError(() => loader.getAgent('nan-turns'));
+    expect(error.diagnostics[0]).toMatchObject({
+      source: join(cwd, '.claude/agents/nan-turns.md'),
+      field: 'maxTurns',
+    });
+  });
 
-    expect(agent).toBeDefined();
-    // parseInt('not-a-number') returns NaN
-    expect(agent!.maxTurns).toBeNaN();
+  it.each([
+    ['project .robota', '.robota/agents', 'project'],
+    ['project .agents', '.agents/agents', 'project'],
+    ['project .claude', '.claude/agents', 'project'],
+    ['user .robota', '.robota/agents', 'user'],
+    ['user .agents', '.agents/agents', 'user'],
+    ['user .claude', '.claude/agents', 'user'],
+  ])('rejects numeric prefixes identically at the %s discovery root', (_label, relative, owner) => {
+    const cwd = makeTempDir();
+    const home = makeTempDir();
+    const root = owner === 'project' ? cwd : home;
+    writeAgentFile(join(root, relative), 'strict.md', '---\nmaxTurns: 20abc\n---\nPrompt.');
+
+    const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
+    const error = captureDecodeError(() => loader.getAgent('strict'));
+    const source = join(root, relative, 'strict.md');
+    expect(error.message).toContain(`${source}:2:11 [invalid-type] maxTurns:`);
+    expect(error.diagnostics[0]).toMatchObject({
+      source,
+      line: 2,
+      column: 11,
+      field: 'maxTurns',
+      code: 'invalid-type',
+    });
+  });
+
+  it('does not let a valid lower-priority collision hide invalid higher-priority metadata', () => {
+    const cwd = makeTempDir();
+    const home = makeTempDir();
+    writeAgentFile(
+      join(cwd, '.robota', 'agents'),
+      'shared.md',
+      '---\nname: shared\nmaxTurns: 0\n---\nInvalid high-priority definition.',
+    );
+    writeAgentFile(
+      join(home, '.robota', 'agents'),
+      'shared.md',
+      '---\nname: shared\nmaxTurns: 5\n---\nValid lower-priority definition.',
+    );
+
+    const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
+    const error = captureDecodeError(() => loader.getAgent('shared'));
+    const source = join(cwd, '.robota/agents/shared.md');
+    expect(error.message).toContain(`${source}:3:11 [invalid-value] maxTurns:`);
+    expect(error.diagnostics[0]?.source).toBe(source);
+  });
+
+  it.each([
+    ['NaN', '.nan', 'invalid-value'],
+    ['zero', '0', 'invalid-value'],
+    ['negative', '-2', 'invalid-value'],
+    ['fractional', '2.5', 'invalid-value'],
+    ['boolean', 'true', 'invalid-type'],
+    ['null', 'null', 'invalid-type'],
+    ['sequence', '[2]', 'invalid-type'],
+  ])('rejects %s maxTurns with a structured field diagnostic', (_label, value, code) => {
+    const cwd = makeTempDir();
+    writeAgentFile(
+      join(cwd, '.claude', 'agents'),
+      'bad-turns.md',
+      `---\nmaxTurns: ${value}\n---\nPrompt.`,
+    );
+    const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd));
+    const error = captureDecodeError(() => loader.getAgent('bad-turns'));
+    expect(error.diagnostics[0]).toMatchObject({
+      source: join(cwd, '.claude/agents/bad-turns.md'),
+      field: 'maxTurns',
+      code,
+    });
+  });
+
+  it('should decode YAML tool sequences without changing their order', () => {
+    const cwd = makeTempDir();
+    writeAgentFile(
+      join(cwd, '.claude', 'agents'),
+      'sequence-tools.md',
+      `---\nname: sequence-tools\ntools:\n  - Read\n  - Edit\ndisallowedTools:\n  - Bash\n---\nPrompt.`,
+    );
+    const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd));
+    const agent = loader.getAgent('sequence-tools');
+    expect(agent?.tools).toEqual(['Read', 'Edit']);
+    expect(agent?.disallowedTools).toEqual(['Bash']);
   });
 
   it('should handle empty tools list', () => {

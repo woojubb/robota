@@ -1,4 +1,11 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,7 +21,7 @@ import { createTrustedDeviceStore, type ITrustedDeviceRecord } from '../trusted-
 
 let dir: string;
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'remote-e3-'));
+  dir = realpathSync(mkdtempSync(join(tmpdir(), 'remote-e3-')));
 });
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });

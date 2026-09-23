@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readFile, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
-import { mkdtempSync } from 'node:fs';
+import { readFile, mkdir, mkdtemp, writeFile, realpath } from 'node:fs/promises';
+import { mkdtempSync, realpathSync } from 'node:fs';
 import { doctorCommand } from '../commands/doctor.js';
 import type { IDoctorCommandOptions } from '../commands/doctor.js';
 
 // SEC-003: a private 0700 dir, not the shared world-writable OS temp dir itself.
-const FALLBACK_CWD = mkdtempSync(join(tmpdir(), 'dag-doctor-cwd-'));
+const FALLBACK_CWD = realpathSync(mkdtempSync(join(tmpdir(), 'dag-doctor-cwd-')));
 
 function createOptions(cwd?: string): IDoctorCommandOptions & { written: string[] } {
   const written: string[] = [];
@@ -55,7 +55,7 @@ describe('doctorCommand', () => {
   });
 
   it('--save writes JSON to file', async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-test-'));
+    const tmpDir = await realpath(await mkdtemp(join(tmpdir(), 'dag-doctor-test-')));
     const savePath = join(tmpDir, 'report', 'doctor.json');
     const opts = createOptions();
     await doctorCommand(['--json', '--save', savePath], opts);
@@ -66,7 +66,7 @@ describe('doctorCommand', () => {
   });
 
   it('--save alone also outputs JSON (implicit json mode)', async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-test2-'));
+    const tmpDir = await realpath(await mkdtemp(join(tmpdir(), 'dag-doctor-test2-')));
     const savePath = join(tmpDir, 'auto.json');
     const opts = createOptions();
     await doctorCommand(['--save', savePath], opts);
@@ -99,7 +99,7 @@ describe('doctorCommand', () => {
   });
 
   it('outputs "All checks passed" when all required checks pass (covers result.ok=true branch)', async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-allok-'));
+    const tmpDir = await realpath(await mkdtemp(join(tmpdir(), 'dag-doctor-allok-')));
     const dagDir = join(tmpDir, '.dag');
     const workflowsDir = join(dagDir, 'workflows');
     await mkdir(workflowsDir, { recursive: true });
@@ -139,7 +139,7 @@ describe('doctorCommand', () => {
   });
 
   it('reports valid workflow file when .dag/workflows exists with dag.json files', async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-wf-'));
+    const tmpDir = await realpath(await mkdtemp(join(tmpdir(), 'dag-doctor-wf-')));
     const workflowsDir = join(tmpDir, '.dag', 'workflows');
     await mkdir(workflowsDir, { recursive: true });
     const validDag = JSON.stringify({
@@ -171,7 +171,7 @@ describe('doctorCommand', () => {
   });
 
   it('reports invalid dag.json when workflow file has invalid JSON', async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-bad-'));
+    const tmpDir = await realpath(await mkdtemp(join(tmpdir(), 'dag-doctor-bad-')));
     const workflowsDir = join(tmpDir, '.dag', 'workflows');
     await mkdir(workflowsDir, { recursive: true });
     await writeFile(join(workflowsDir, 'broken.dag.json'), 'not valid json', 'utf8');
@@ -196,7 +196,7 @@ describe('doctorCommand', () => {
   });
 
   it('shows empty result when .dag/workflows has no .dag.json files', async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-empty-'));
+    const tmpDir = await realpath(await mkdtemp(join(tmpdir(), 'dag-doctor-empty-')));
     const workflowsDir = join(tmpDir, '.dag', 'workflows');
     await mkdir(workflowsDir, { recursive: true });
     // Write a non-.dag.json file so readdir returns something but dagJsonFiles is empty
@@ -220,7 +220,7 @@ describe('doctorCommand', () => {
   });
 
   it('shows valid check for dag file without nodes array (nodeCount=null)', async () => {
-    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-nonodes-'));
+    const tmpDir = await realpath(await mkdtemp(join(tmpdir(), 'dag-doctor-nonodes-')));
     const workflowsDir = join(tmpDir, '.dag', 'workflows');
     await mkdir(workflowsDir, { recursive: true });
     // Valid JSON object but no nodes array → nodeCount = null

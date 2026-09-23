@@ -51,7 +51,7 @@ function makeEnforcer(overrides: Partial<IPermissionEnforcerOptions> = {}): Perm
     // The tool must actually RUN for a crash case to be about the crash. With the default config it
     // was denied instead, and the listener case then passed on the denial's own end event — green
     // for a reason that has nothing to do with what it asserts.
-    permissionHandler: async () => 'allow',
+    permissionHandler: async () => true,
     ...overrides,
   });
 }
@@ -170,7 +170,7 @@ describe('CORE-027: a denial, a crash and a success are three different things',
   it('tells a denial apart from a crash without reading prose', async () => {
     const denying = makeEnforcer({
       getPermissionMode: () => 'default',
-      permissionHandler: async () => 'deny',
+      permissionHandler: async () => false,
     });
     const [deniedTool] = denying.wrapTools([makeTool('Blocked', async () => ({ success: true }))]);
 

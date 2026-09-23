@@ -1,0 +1,34 @@
+name: Documentation request
+description: Report missing, incorrect, or unclear documentation
+title: '[docs] '
+labels: ['documentation', 'status:needs-triage']
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Where is the documentation problem?
+      description: Provide a URL or repository path.
+      placeholder: packages/example/README.md or https://...
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: What is missing, incorrect, or unclear?
+      description: Quote only the minimum needed context and explain the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should the documentation enable?
+      description: State the decision, task, or result a reader should reach.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I checked the current documentation and searched for a duplicate issue.
+          required: true

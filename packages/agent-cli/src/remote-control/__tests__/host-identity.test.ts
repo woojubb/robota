@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -16,7 +16,7 @@ let dir: string;
 let filePath: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(path.join(tmpdir(), 'host-identity-'));
+  dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'host-identity-')));
   filePath = path.join(dir, 'nested', 'remote-host-identity.json');
 });
 

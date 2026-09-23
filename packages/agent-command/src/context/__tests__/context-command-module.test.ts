@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, IToolSchema } from '@robota-sdk/agent-core';
 import type {
   ICommandHostContext,
   ICommandSessionRuntime,
@@ -357,5 +357,79 @@ describe('createContextCommandModule', () => {
     expect(result?.message).toContain('Prompt references (@-syntax):');
     // All sections empty
     expect(result?.message).not.toContain('~');
+  });
+});
+
+/**
+ * CLI-1990 TC-12 — `/context` reports what the TOOL SCHEMAS cost.
+ *
+ * Before this, no surface separated the tool schemas from the system prompt they are billed
+ * alongside: `estimateSerializedContextTokens` covered messages only, and the tool line in the
+ * breakdown counted tool RESULTS. So the saving deferral exists to produce had no observable at all.
+ * These cases pin the figure and, crucially, that it FALLS when tools are deferred — a smaller
+ * offered set is a smaller request, which is the whole claim.
+ */
+function toolSchema(name: string): IToolSchema {
+  return {
+    name,
+    description: `the ${name} tool, described at a realistic length for a request`,
+    parameters: {
+      type: 'object',
+      properties: { path: { type: 'string', description: 'what to operate on' } },
+    },
+  };
+}
+
+function createHostWithTools(schemas: IToolSchema[]) {
+  const runtime = createTestSessionRuntime({
+    getContextState: () => CONTEXT_STATE,
+    getOfferedToolSchemas: () => schemas,
+  });
+  return createTestCommandHost({
+    overrides: {
+      getSession: () => runtime,
+      getContextState: () => CONTEXT_STATE,
+      listContextReferences: () => [],
+    },
+  });
+}
+
+describe('CLI-1990 TC-12 — /context reports toolSchemaTokens', () => {
+  it('reports a figure greater than zero for a session with tools', async () => {
+    const context = createHostWithTools([toolSchema('Read'), toolSchema('Write')]);
+
+    const result = await createExecutor().execute('context', context, 'list');
+
+    expect(result?.success).toBe(true);
+    const tokens = (result?.data as { toolSchemaTokens: number }).toolSchemaTokens;
+    expect(tokens).toBeGreaterThan(0);
+    expect(result?.message).toContain('Tool schemas (sent every turn)');
+    expect(result?.message).toContain('Read');
+    expect(result?.message).toContain('Write');
+  });
+
+  it('reports a SMALLER figure when tools are deferred — the saving, made observable', async () => {
+    const all = [toolSchema('Read'), toolSchema('Write'), toolSchema('Grep')];
+    const full = await createExecutor().execute('context', createHostWithTools(all), 'list');
+    // With deferral engaged the withheld schemas are not in the offered set, so they are not sent.
+    const deferred = await createExecutor().execute(
+      'context',
+      createHostWithTools(all.slice(0, 1)),
+      'list',
+    );
+
+    const fullTokens = (full?.data as { toolSchemaTokens: number }).toolSchemaTokens;
+    const deferredTokens = (deferred?.data as { toolSchemaTokens: number }).toolSchemaTokens;
+    expect(deferredTokens).toBeGreaterThan(0);
+    expect(deferredTokens).toBeLessThan(fullTokens);
+  });
+
+  it('reports zero, and no token label, for a session offering no tools', async () => {
+    const context = createHostWithTools([]);
+
+    const result = await createExecutor().execute('context', context, 'list');
+
+    expect((result?.data as { toolSchemaTokens: number }).toolSchemaTokens).toBe(0);
+    expect(result?.message).toContain('Tool schemas (sent every turn):\n  (none)');
   });
 });

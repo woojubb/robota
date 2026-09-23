@@ -11,7 +11,10 @@ import type { ILocalPeerProof } from './local-peer-proof.js';
 import type { ISignalingClient } from './signaling.js';
 import type { IWeriftModule } from './werift-loader.js';
 import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
-import type { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+import type {
+  ISessionMessageHandlerOptions,
+  SessionResumeBridge,
+} from '@robota-sdk/agent-transport';
 
 /**
  * A single ICE (STUN/TURN) server for the HOST (werift) transport (REMOTE-010). `urls` is a SINGLE string with a
@@ -28,6 +31,10 @@ export interface IIceServer {
 
 /** Construction options for {@link WebRtcTransport}. The signaling client is injected (Stage A: no settings). */
 export interface IWebRtcTransportOptions {
+  /** Host-owned usage read models, available only after admission. */
+  readonly personalUsageReporter?: ISessionMessageHandlerOptions['personalUsageReporter'];
+  readonly usageReporter?: ISessionMessageHandlerOptions['usageReporter'];
+  readonly storedSessionUsageReporter?: ISessionMessageHandlerOptions['storedSessionUsageReporter'];
   /** Signaling port used to exchange SDP/ICE with the remote peer by rendezvous id. */
   readonly signaling: ISignalingClient;
   /** Optional ICE servers (STUN/TURN). Omitted → host-candidate/loopback only. */

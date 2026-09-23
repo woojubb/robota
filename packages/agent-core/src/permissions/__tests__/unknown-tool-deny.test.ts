@@ -33,8 +33,14 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
   // happens for a tool NOBODY has declared, so the contrast needs the declared ones present.
   beforeEach(() => {
     clearRegisteredToolProfiles();
-    registerToolPermissionProfile('Shell', { argumentKey: 'command', riskClass: 'execute' });
-    registerToolPermissionProfile('Read', { argumentKey: 'filePath', riskClass: 'inspect' });
+    registerToolPermissionProfile('Shell', {
+      argument: { key: 'command', kind: 'text' },
+      riskClass: 'execute',
+    });
+    registerToolPermissionProfile('Read', {
+      argument: { key: 'filePath', kind: 'text' },
+      riskClass: 'inspect',
+    });
   });
 
   afterEach(() => clearRegisteredToolProfiles());
@@ -79,7 +85,7 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
   });
 
   it('DENIES once the tool owner declares which argument the pattern is about', () => {
-    registerToolPermissionProfile('MyTool', { argumentKey: 'path' });
+    registerToolPermissionProfile('MyTool', { argument: { key: 'path', kind: 'text' } });
     expect(
       evaluatePermission('MyTool', { path: 'secrets/key.pem' }, 'default', narrowDenyBroadAllow),
     ).toBe('deny');
@@ -98,7 +104,7 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
    * is a real NON-match: the pattern is about `path`, there is no path, so there is nothing to deny.
    */
   it('a DECLARED key absent from the invocation is a real non-match, not an unevaluable one', () => {
-    registerToolPermissionProfile('MyTool', { argumentKey: 'path' });
+    registerToolPermissionProfile('MyTool', { argument: { key: 'path', kind: 'text' } });
     // No `path` in the args at all. The deny cannot apply, so the allow list decides.
     expect(evaluatePermission('MyTool', { other: 'x' }, 'default', narrowDenyBroadAllow)).toBe(
       'auto',
@@ -132,7 +138,7 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
   });
 
   it('a later declaration corrects an earlier one, so an owner can fix its own key', () => {
-    registerToolPermissionProfile('Shell', { argumentKey: 'script' });
+    registerToolPermissionProfile('Shell', { argument: { key: 'script', kind: 'text' } });
     expect(
       evaluatePermission('Shell', { script: 'rm -rf /', command: 'ls' }, 'default', {
         deny: ['Shell(rm*)'],
@@ -156,8 +162,14 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
 describe('the background/subagent gate has the same rule (CORE-030)', () => {
   beforeEach(() => {
     clearRegisteredToolProfiles();
-    registerToolPermissionProfile('Shell', { argumentKey: 'command', riskClass: 'execute' });
-    registerToolPermissionProfile('Read', { argumentKey: 'filePath', riskClass: 'inspect' });
+    registerToolPermissionProfile('Shell', {
+      argument: { key: 'command', kind: 'text' },
+      riskClass: 'execute',
+    });
+    registerToolPermissionProfile('Read', {
+      argument: { key: 'filePath', kind: 'text' },
+      riskClass: 'inspect',
+    });
   });
 
   afterEach(() => clearRegisteredToolProfiles());
@@ -186,7 +198,7 @@ describe('the background/subagent gate has the same rule (CORE-030)', () => {
   });
 
   it('ALLOWS once the owner declares the key and the argument does not match the deny', () => {
-    registerToolPermissionProfile('MyTool', { argumentKey: 'path' });
+    registerToolPermissionProfile('MyTool', { argument: { key: 'path', kind: 'text' } });
     expect(
       resolvePermissionByPolicy('preapproved', 'MyTool', { path: 'public/readme.md' }, context),
     ).toBe('allow');
@@ -223,7 +235,10 @@ describe('CORE-030 — a third-party tool can be classified, which is what the u
     expect(evaluatePermission('MyTool', {}, 'plan')).toBe('deny');
     expect(evaluatePermission('MyTool', {}, 'default')).toBe('approve');
 
-    registerToolPermissionProfile('MyTool', { argumentKey: 'path', riskClass: 'inspect' });
+    registerToolPermissionProfile('MyTool', {
+      argument: { key: 'path', kind: 'text' },
+      riskClass: 'inspect',
+    });
 
     expect(evaluatePermission('MyTool', {}, 'plan')).toBe('auto');
     expect(evaluatePermission('MyTool', {}, 'default')).toBe('auto');
@@ -234,7 +249,10 @@ describe('CORE-030 — a third-party tool can be classified, which is what the u
     // ordinary way to write these lists; for a tool the foundation did not know, the narrow deny
     // simply vanished and the call was auto-approved.
     clearRegisteredToolProfiles();
-    registerToolPermissionProfile('MyTool', { argumentKey: 'path', riskClass: 'inspect' });
+    registerToolPermissionProfile('MyTool', {
+      argument: { key: 'path', kind: 'text' },
+      riskClass: 'inspect',
+    });
     const lists = { deny: ['MyTool(secrets/**)'], allow: ['MyTool'] };
 
     for (const mode of ['default', 'acceptEdits'] as const) {

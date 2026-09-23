@@ -1,4 +1,6 @@
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
+import { createModelEffortOutcome } from '@robota-sdk/agent-core';
+import { resolveModelEffort } from '@robota-sdk/agent-core';
 import { SilentLogger } from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
 
@@ -6,6 +8,7 @@ import {
   chatStreamWithOpenAIChatCompletions,
   chatWithOpenAIChatCompletions,
 } from './chat-completions-chat';
+import { OPENAI_MODEL_EFFORT_TABLE } from './model-effort-table';
 import { OpenAIResponseParser } from './parsers/response-parser';
 import { chatStreamWithOpenAIResponsesApi, chatWithOpenAIResponsesApi } from './responses-chat';
 
@@ -16,6 +19,7 @@ import type {
   IChatOptions,
   IAssistantMessage,
   IProviderCapabilities,
+  IProviderModelEffortTable,
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
 
@@ -80,10 +84,15 @@ export class OpenAIProvider extends AbstractAIProvider {
   ): Promise<TUniversalMessage> {
     this.validateMessages(messages);
     this.validateNativeWebTools(options?.nativeWebTools);
+    const resolvedOptions = this.resolveEffortOptions(options);
 
     if (this.executor) {
       try {
-        return await this.executeViaExecutorOrDirect(messages, options);
+        const result = await this.executeViaExecutorOrDirect(messages, resolvedOptions);
+        if (result.modelEffortOutcome === undefined) {
+          this.publishModelEffortOutcome(resolvedOptions, 'opaque-executor');
+        }
+        return result.message;
       } catch (error) {
         this.logger.error(
           'OpenAI Provider executor chat error:',
@@ -94,24 +103,28 @@ export class OpenAIProvider extends AbstractAIProvider {
     }
 
     if (this.apiSurface === 'responses') {
-      return chatWithOpenAIResponsesApi({
+      const response = await chatWithOpenAIResponsesApi({
         client: this.client,
         messages,
-        chatOptions: options,
+        chatOptions: resolvedOptions,
         providerOptions: this.options,
         onTextDelta: this.onTextDelta,
       });
+      this.publishModelEffortOutcome(resolvedOptions);
+      return response;
     }
 
-    return chatWithOpenAIChatCompletions({
+    const response = await chatWithOpenAIChatCompletions({
       client: this.client,
       messages,
-      chatOptions: options,
+      chatOptions: resolvedOptions,
       providerOptions: this.options,
       payloadLogger: this.payloadLogger,
       responseParser: this.responseParser,
       onTextDelta: this.onTextDelta,
     });
+    this.publishModelEffortOutcome(resolvedOptions);
+    return response;
   }
 
   override async *chatStream(
@@ -119,10 +132,24 @@ export class OpenAIProvider extends AbstractAIProvider {
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
     this.validateNativeWebTools(options?.nativeWebTools);
+    const resolvedOptions = this.resolveEffortOptions(options);
 
     if (this.executor) {
       try {
-        yield* this.executeStreamViaExecutorOrDirect(messages, options);
+        let executorOutcomeSeen = false;
+        for await (const event of this.executeStreamViaExecutorOrDirect(
+          messages,
+          resolvedOptions,
+        )) {
+          if (event.kind === 'message') {
+            yield event.message;
+          } else {
+            executorOutcomeSeen = event.modelEffortOutcome !== undefined;
+          }
+        }
+        if (!executorOutcomeSeen) {
+          this.publishModelEffortOutcome(resolvedOptions, 'opaque-executor');
+        }
         return;
       } catch (error) {
         this.logger.error(
@@ -133,26 +160,35 @@ export class OpenAIProvider extends AbstractAIProvider {
       }
     }
 
+    yield* this.streamDirect(messages, resolvedOptions);
+  }
+
+  private async *streamDirect(
+    messages: TUniversalMessage[],
+    resolvedOptions: IChatOptions | undefined,
+  ): AsyncIterable<TUniversalMessage> {
     if (this.apiSurface === 'responses') {
       yield* chatStreamWithOpenAIResponsesApi({
         client: this.client,
         messages,
-        chatOptions: options,
+        chatOptions: resolvedOptions,
         providerOptions: this.options,
         onTextDelta: this.onTextDelta,
       });
+      this.publishModelEffortOutcome(resolvedOptions);
       return;
     }
 
     yield* chatStreamWithOpenAIChatCompletions({
       client: this.client,
       messages,
-      chatOptions: options,
+      chatOptions: resolvedOptions,
       providerOptions: this.options,
       payloadLogger: this.payloadLogger,
       responseParser: this.responseParser,
       onTextDelta: this.onTextDelta,
     });
+    this.publishModelEffortOutcome(resolvedOptions);
   }
 
   /**
@@ -166,6 +202,55 @@ export class OpenAIProvider extends AbstractAIProvider {
    */
   endpointIsVendorDefault(): boolean {
     return this.options.baseURL === undefined;
+  }
+
+  override effortTable(): IProviderModelEffortTable | undefined {
+    return this.endpointIsVendorDefault() && this.apiSurface === 'responses'
+      ? OPENAI_MODEL_EFFORT_TABLE
+      : undefined;
+  }
+
+  private resolveEffortOptions(options: IChatOptions | undefined): IChatOptions | undefined {
+    if (options?.effort === undefined || options.effortResolution !== undefined) return options;
+    const model = options.model ?? this.options.defaultModel;
+    if (model === undefined) return options;
+    return {
+      ...options,
+      effortResolution: resolveModelEffort(this.effortTable(), model, options.effort),
+    };
+  }
+
+  private publishModelEffortOutcome(
+    options: IChatOptions | undefined,
+    opaqueReason?: string,
+  ): void {
+    const resolution = options?.effortResolution;
+    const observer = options?.onModelEffortOutcome;
+    if (resolution === undefined || observer === undefined) return;
+
+    const nativeControl =
+      opaqueReason !== undefined
+        ? { state: 'omitted' as const, reason: opaqueReason }
+        : resolution.effective !== null && resolution.disposition !== 'model-default'
+          ? { state: 'sent' as const, id: 'responses.reasoning.effort' }
+          : {
+              state: 'omitted' as const,
+              reason:
+                resolution.disposition === 'model-default'
+                  ? 'provider-default-selection'
+                  : 'model-effort-not-applied',
+            };
+    const providerDispatch =
+      opaqueReason !== undefined
+        ? { state: 'not-dispatched' as const, reason: opaqueReason }
+        : { state: 'sent' as const };
+    try {
+      observer(createModelEffortOutcome(resolution, { nativeControl, providerDispatch }));
+    } catch (error) {
+      this.logger.warn('Model-effort outcome observer failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   override supportsTools(): boolean {

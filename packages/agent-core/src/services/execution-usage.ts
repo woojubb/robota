@@ -1,5 +1,6 @@
 import { readTokenUsageFromMessage } from '../context/token-usage';
 import { chatEntryToMessage, isChatEntry } from '../interfaces/messages';
+import { randomId } from '../utils/random-id';
 
 import type { IHistoryEntry, TUniversalMessage } from '../interfaces/messages';
 import type { ITokenUsage } from '../interfaces/provider';
@@ -45,6 +46,10 @@ export interface IAssistantUsageMetadata {
     inputTokens: number;
     outputTokens: number;
   };
+}
+
+export function createUsageObservationId(): string {
+  return randomId();
 }
 
 export function collectAssistantUsageMetadata(

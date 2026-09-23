@@ -3,7 +3,7 @@
  * matrix (TTY × --yes). Refusal paths leave the settings file untouched.
  */
 
-import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -18,7 +18,7 @@ describe('--reset confirmation matrix (CLI-070)', () => {
   let settingsPath: string;
 
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'robota-070-'));
+    home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-070-')));
     vi.stubEnv('HOME', home);
     settingsPath = join(home, '.robota', 'settings.json');
     mkdirSync(join(home, '.robota'), { recursive: true });

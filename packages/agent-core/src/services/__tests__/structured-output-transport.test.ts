@@ -48,7 +48,8 @@ function resolvedWith(table: IProviderCapabilityTable | undefined): IResolvedPro
       maxTokens: undefined,
     },
     toolsInfo: [],
-    availableTools: [],
+    readAvailableTools: () => [],
+    deferredTools: { listDeferredTools: () => [], loadDeferredTools: () => [] },
   } as unknown as IResolvedProviderInfo;
 }
 
@@ -228,7 +229,8 @@ describe('CORE-043 — the session log records the request that was actually sen
         maxTokens: undefined,
       },
       toolsInfo: [],
-      availableTools: [],
+      readAvailableTools: () => [],
+      deferredTools: { listDeferredTools: () => [], loadDeferredTools: () => [] },
     } as unknown as IResolvedProviderInfo;
 
     await callProviderWithCache(

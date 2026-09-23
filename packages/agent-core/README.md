@@ -143,6 +143,14 @@ console.log(decision, summary);
 
 The same directive can be set agent-wide via `defaultModel.toolChoice`.
 
+### Model Effort Selection
+
+`defaultModel.effort` and per-call `IChatOptions.effort` accept `auto`, `none`, `minimal`, `low`,
+`medium`, `high`, `xhigh`, or `max`. `auto` is preserved to the provider adapter, which resolves its
+documented exact-model default from a source-dated capability table. The adapter reports the terminal
+resolution, native-control, and dispatch outcome through `onModelEffortOutcome`; Core does not guess
+vendor field names or defaults.
+
 ### Execution Boundary Events
 
 `run()` accepts `onExecutionEvent` in run options. The execution loop emits provider-neutral events that higher layers can persist as append-only session provenance:
@@ -160,6 +168,10 @@ The same directive can be set agent-wide via `defaultModel.toolChoice`.
 - `history_mutation`
 
 Provider-specific SDK payload capture remains provider-owned. Providers may call `IChatOptions.onProviderNativeRawPayload` with exact SDK request, response, or stream event objects; `Robota` forwards those callbacks as provider-neutral `provider_native_raw_payload` execution events without importing concrete provider SDK types. `provider_response_raw.responseKind` remains `provider-normalized-message`, which keeps common replay validation provider-neutral.
+
+Each provider round also receives a `usageObservationId` before invocation. Streaming fragments from
+that round reuse the identifier, while a separately billed round receives a new one. Persisted
+analytics can therefore deduplicate provider usage by identity without collapsing equal token totals.
 
 ## IAgentConfig
 
@@ -209,6 +221,14 @@ agent-cli         ← Terminal UI
 | `FunctionTool`, `ToolRegistry`, `OpenAPITool` | `@robota-sdk/agent-tools`    |
 | `MCPTool`, `RelayMcpTool`                     | `@robota-sdk/agent-tool-mcp` |
 | 8 plugins (logging, usage, performance, etc.) | `@robota-sdk/agent-plugin`   |
+
+## Repository Examples
+
+Repository contributors can run the owner-local hook examples after building this package:
+`node examples/hook-block-demo.mjs`, `node examples/hook-json-response-demo.mjs`,
+`node examples/hook-permission-mode-demo.mjs`, and `node examples/hook-timeout-demo.mjs`,
+from `packages/agent-core`. They exercise hooks without a live model; see the
+[hook contract](./docs/SPEC.md#hook-events) for each example's verification limits.
 
 ## License
 

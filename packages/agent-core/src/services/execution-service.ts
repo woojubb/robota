@@ -181,6 +181,22 @@ export class ExecutionService {
         },
         this.logger,
       );
+      // PLG-020 (issue #2460): the execution-level hook, with the ids and the conversation so far.
+      const pluginExecutionContext = { executionId, conversationId };
+      if (userMessage) {
+        await callPluginHook(
+          this.plugins,
+          'onMessageAdded',
+          { message: userMessage, executionContext: pluginExecutionContext },
+          this.logger,
+        );
+      }
+      await callPluginHook(
+        this.plugins,
+        'beforeExecution',
+        { messages: conversationStore.getMessages(), executionContext: pluginExecutionContext },
+        this.logger,
+      );
 
       validateProvider(resolved);
 

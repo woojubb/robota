@@ -7,6 +7,7 @@ import { buildEditCheckpointInspection } from './edit-checkpoint-inspection.js';
 import {
   DEFAULT_BRANCH_ID,
   migrateManifestsToTree,
+  resolveContainedSnapshotPath,
   safePathSegment,
 } from './edit-checkpoint-store-helpers.js';
 
@@ -160,7 +161,10 @@ export class EditCheckpointStore {
       manifests,
       readSnapshotBytes: (inputSessionId, inputCheckpointId, snapshotFile) =>
         this.authorityIO.readSnapshotBytes(
-          join(this.checkpointDir(inputSessionId, inputCheckpointId), snapshotFile),
+          resolveContainedSnapshotPath(
+            this.checkpointDir(inputSessionId, inputCheckpointId),
+            snapshotFile,
+          ),
         ),
     });
   }
@@ -179,13 +183,7 @@ export class EditCheckpointStore {
       .filter((manifest) => manifest.sequence > target.sequence)
       .sort((a, b) => b.sequence - a.sequence);
 
-    let restoredFileCount = 0;
-    for (const manifest of later) {
-      for (const file of manifest.files) {
-        await this.restoreFile(sessionId, manifest.id, file);
-        restoredFileCount += 1;
-      }
-    }
+    const restoredFileCount = this.restoreFiles(this.planRestore(sessionId, later));
 
     // SELFHOST-007: NON-DESTRUCTIVE — the later checkpoints are NOT removed; they stay on disk as a
     // sibling branch (the abandoned future), reachable via the checkpoint tree. Instead of `rm`, we
@@ -225,13 +223,7 @@ export class EditCheckpointStore {
       .filter((manifest) => manifest.sequence >= target.sequence)
       .sort((a, b) => b.sequence - a.sequence);
 
-    let restoredFileCount = 0;
-    for (const manifest of rollbackRange) {
-      for (const file of manifest.files) {
-        await this.restoreFile(sessionId, manifest.id, file);
-        restoredFileCount += 1;
-      }
-    }
+    const restoredFileCount = this.restoreFiles(this.planRestore(sessionId, rollbackRange));
 
     // SELFHOST-007: NON-DESTRUCTIVE — rollback reverts THROUGH the target (inclusive) but keeps those
     // checkpoints on disk as a sibling branch. The active HEAD forks from the target's PARENT (the
@@ -253,17 +245,40 @@ export class EditCheckpointStore {
     };
   }
 
-  private async restoreFile(
+  /**
+   * Issue #2076: a manifest is mutable bytes on disk, so restore re-establishes containment for
+   * EVERY entry — the target inside the project, the snapshot inside its checkpoint directory —
+   * before the first mutation. One invalid entry throws here and nothing is restored; the
+   * alternative (validate as you go) is a partial restore with an error at the end.
+   */
+  private planRestore(
     sessionId: string,
-    checkpointId: string,
-    record: IEditCheckpointFileRecord,
-  ): Promise<void> {
-    this.authorityIO.restoreFile(
-      record.snapshotFile === undefined
-        ? undefined
-        : join(this.checkpointDir(sessionId, checkpointId), record.snapshotFile),
-      record,
-    );
+    manifests: readonly IEditCheckpointManifest[],
+  ): { snapshotPath: string | undefined; record: IEditCheckpointFileRecord }[] {
+    const plan: { snapshotPath: string | undefined; record: IEditCheckpointFileRecord }[] = [];
+    for (const manifest of manifests) {
+      const checkpointDir = this.checkpointDir(sessionId, manifest.id);
+      for (const record of manifest.files) {
+        this.authorityIO.toProjectRelativePath(record.originalPath);
+        plan.push({
+          record,
+          snapshotPath:
+            record.snapshotFile === undefined
+              ? undefined
+              : resolveContainedSnapshotPath(checkpointDir, record.snapshotFile),
+        });
+      }
+    }
+    return plan;
+  }
+
+  private restoreFiles(
+    plan: readonly { snapshotPath: string | undefined; record: IEditCheckpointFileRecord }[],
+  ): number {
+    for (const entry of plan) {
+      this.authorityIO.restoreFile(entry.snapshotPath, entry.record);
+    }
+    return plan.length;
   }
 
   private loadManifests(sessionId: string): IEditCheckpointManifest[] {

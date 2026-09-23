@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
+
 const swap = vi.hoisted(() => ({
   armedParent: undefined as string | undefined,
   movedParent: undefined as string | undefined,
@@ -41,8 +43,7 @@ vi.mock('node:fs', async (importOriginal) => {
 });
 
 const fs = await vi.importActual<typeof import('node:fs')>('node:fs');
-const { deleteWorkspaceRelativeFile, writeWorkspaceRelativeFile } =
-  await import('./project-relative-writer.js');
+const { createWorkspaceProjectMutationBoundary } = await import('./project-relative-writer.js');
 
 describe('project-relative writer containment', () => {
   const roots: string[] = [];
@@ -73,9 +74,7 @@ describe('project-relative writer containment', () => {
       swap.movedParent = movedParent;
       swap.outside = outside;
 
-      writeWorkspaceRelativeFile(
-        identity,
-        { resolve: () => identity },
+      createWorkspaceProjectMutationBoundary(identity, { resolve: () => identity }).write(
         'state/entry.txt',
         'inside',
       );
@@ -106,11 +105,112 @@ describe('project-relative writer containment', () => {
       swap.outside = outside;
 
       expect(
-        deleteWorkspaceRelativeFile(identity, { resolve: () => identity }, 'state/entry.txt'),
+        createWorkspaceProjectMutationBoundary(identity, { resolve: () => identity }).delete(
+          'state/entry.txt',
+        ),
       ).toBe(true);
 
       expect(fs.readFileSync(join(outside, 'entry.txt'), 'utf8')).toBe('outside canary');
       expect(fs.existsSync(join(movedParent, 'entry.txt'))).toBe(false);
     },
   );
+
+  it.runIf(process.platform === 'linux')(
+    'uses one stable boundary for write, append, and delete operations',
+    () => {
+      const root = fs.mkdtempSync(join(tmpdir(), 'robota-project-boundary-root-'));
+      roots.push(root);
+      const identity = Object.freeze({
+        repositoryKey: `test:${root}`,
+        displayPath: root,
+        worktreeRoot: root,
+      });
+      const boundary = createWorkspaceProjectMutationBoundary(identity, {
+        resolve: () => identity,
+      });
+
+      expect(Object.isFrozen(boundary)).toBe(true);
+      boundary.write('state/entry.txt', 'created');
+      boundary.write('state/entry.txt', 'replaced');
+      boundary.append('state/entry.txt', '-appended');
+      expect(fs.readFileSync(join(root, 'state', 'entry.txt'), 'utf8')).toBe('replaced-appended');
+      expect(boundary.delete('state/entry.txt')).toBe(true);
+      expect(fs.existsSync(join(root, 'state', 'entry.txt'))).toBe(false);
+    },
+  );
+
+  it.runIf(process.platform === 'linux')(
+    'refuses a final target symlink without touching its outside target',
+    () => {
+      const root = fs.mkdtempSync(join(tmpdir(), 'robota-project-target-root-'));
+      const outside = fs.mkdtempSync(join(tmpdir(), 'robota-project-target-outside-'));
+      roots.push(root, outside);
+      fs.writeFileSync(join(outside, 'entry.txt'), 'outside canary');
+      fs.symlinkSync(join(outside, 'entry.txt'), join(root, 'entry.txt'));
+      const identity = Object.freeze({
+        repositoryKey: `test:${root}`,
+        displayPath: root,
+        worktreeRoot: root,
+      });
+
+      expect(() =>
+        createWorkspaceProjectMutationBoundary(identity, { resolve: () => identity }).write(
+          'entry.txt',
+          'must not escape',
+        ),
+      ).toThrowError(WorkspaceAuthorityRequiredError);
+      expect(fs.readFileSync(join(outside, 'entry.txt'), 'utf8')).toBe('outside canary');
+    },
+  );
+
+  it.runIf(process.platform === 'linux')(
+    'refuses when the workspace identity changes during boundary setup',
+    () => {
+      const root = fs.mkdtempSync(join(tmpdir(), 'robota-project-stale-root-'));
+      const replacement = fs.mkdtempSync(join(tmpdir(), 'robota-project-stale-replacement-'));
+      roots.push(root, replacement);
+      const identity = Object.freeze({
+        repositoryKey: `test:${root}`,
+        displayPath: root,
+        worktreeRoot: root,
+      });
+      const replacementIdentity = Object.freeze({
+        repositoryKey: `test:${replacement}`,
+        displayPath: replacement,
+        worktreeRoot: replacement,
+      });
+      let calls = 0;
+      const boundary = createWorkspaceProjectMutationBoundary(identity, {
+        resolve: () => (calls++ === 0 ? identity : replacementIdentity),
+      });
+
+      expect(() => boundary.write('entry.txt', 'must refuse')).toThrowError(
+        /workspace identity changed/i,
+      );
+      expect(fs.existsSync(join(root, 'entry.txt'))).toBe(false);
+      expect(fs.existsSync(join(replacement, 'entry.txt'))).toBe(false);
+    },
+  );
+
+  it('fails closed on hosts without stable root-anchored mutation support', () => {
+    const root = fs.mkdtempSync(join(tmpdir(), 'robota-project-unsupported-root-'));
+    roots.push(root);
+    const identity = Object.freeze({
+      repositoryKey: `test:${root}`,
+      displayPath: root,
+      worktreeRoot: root,
+    });
+    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    try {
+      const boundary = createWorkspaceProjectMutationBoundary(identity, {
+        resolve: () => identity,
+      });
+      expect(() => boundary.write('entry.txt', 'must refuse')).toThrowError(
+        /stable root-anchored host support/i,
+      );
+      expect(fs.existsSync(join(root, 'entry.txt'))).toBe(false);
+    } finally {
+      platform.mockRestore();
+    }
+  });
 });

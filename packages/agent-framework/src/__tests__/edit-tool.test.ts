@@ -2,7 +2,7 @@
  * Tests for EditTool
  */
 
-import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -27,7 +27,7 @@ async function run(params: TToolParameters): Promise<IToolInvocationResult> {
 let tmpDir: string;
 
 beforeAll(async () => {
-  tmpDir = await mkdtemp(join(tmpdir(), 'edit-tool-test-'));
+  tmpDir = await realpath(await mkdtemp(join(tmpdir(), 'edit-tool-test-')));
   editTool = createEditTool({ cwd: tmpDir });
 });
 

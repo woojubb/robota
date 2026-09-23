@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,7 +16,7 @@ import type { IWorkspaceIdentity, IWorkspaceTrustStoreSnapshot } from '@robota-s
 const roots: string[] = [];
 
 function tempRoot(prefix: string): string {
-  const root = mkdtempSync(join(tmpdir(), prefix));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
   roots.push(root);
   return root;
 }
@@ -66,44 +66,48 @@ describe('CLI workspace project composition', () => {
     expect(composition.memoryStore).toBeUndefined();
   });
 
-  it('derives project readers and state only from the supplied trusted authority', async () => {
-    const cwd = tempRoot('robota-cli-trusted-project-');
-    const userHome = tempRoot('robota-cli-trusted-user-');
-    const access = await trustedAccess(cwd);
-    if (access.status !== 'trusted') throw new Error('Expected trusted access.');
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'derives project readers and state only from the supplied trusted authority',
+    async () => {
+      const cwd = tempRoot('robota-cli-trusted-project-');
+      const userHome = tempRoot('robota-cli-trusted-user-');
+      const access = await trustedAccess(cwd);
+      if (access.status !== 'trusted') throw new Error('Expected trusted access.');
 
-    const composition = createCliWorkspaceComposition({ cwd, userHome, projectAccess: access });
+      const composition = createCliWorkspaceComposition({ cwd, userHome, projectAccess: access });
 
-    expect(composition.projectAccess).toBe(access);
-    expect(composition.contributionSources.map((source) => source.kind)).toEqual([
-      'project',
-      'host',
-    ]);
-    expect(composition.settingsSources.map((source) => source.kind)).toEqual([
-      'host',
-      'host',
-      'project',
-      'project',
-      'project',
-      'project',
-    ]);
-    expect(composition.settingsStores.map((store) => store.kind)).toEqual(['host']);
-    expect(composition.memoryStore).toBeDefined();
+      expect(composition.projectAccess).toBe(access);
+      expect(composition.contributionSources.map((source) => source.kind)).toEqual([
+        'project',
+        'host',
+      ]);
+      expect(composition.settingsSources.map((source) => source.kind)).toEqual([
+        'host',
+        'host',
+        'project',
+        'project',
+        'project',
+        'project',
+      ]);
+      expect(composition.settingsStores.map((store) => store.kind)).toEqual(['host']);
+      expect(composition.memoryStore).toBeDefined();
 
-    composition.sessionStore.save({
-      id: 'trusted-session',
-      cwd,
-      createdAt: '2026-08-22T00:00:00.000Z',
-      updatedAt: '2026-08-22T00:00:00.000Z',
-      messages: [],
-    });
-    expect(
-      (() => {
-        const o = composition.sessionStore.load('trusted-session');
-        return o.status === 'valid' ? o.record.cwd : undefined;
-      })(),
-    ).toBe(cwd);
-  });
+      composition.sessionStore.save({
+        id: 'trusted-session',
+        cwd,
+        createdAt: '2026-08-22T00:00:00.000Z',
+        updatedAt: '2026-08-22T00:00:00.000Z',
+        messages: [],
+      });
+      expect(
+        (() => {
+          const o = composition.sessionStore.load('trusted-session');
+          return o.status === 'valid' ? o.record.cwd : undefined;
+        })(),
+      ).toBe(cwd);
+    },
+  );
 
   it('refuses trusted project access minted for a different CLI workspace root', async () => {
     const trustedRoot = tempRoot('robota-cli-trusted-root-');

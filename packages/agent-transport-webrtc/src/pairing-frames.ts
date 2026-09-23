@@ -1,39 +1,34 @@
 /**
  * Predicates over the pairing/reconnect frame vocabulary the gate admits pre-accept.
  *
- * These answer "what KIND of frame is this", which is a question about the wire vocabulary, not about
- * the gate's state machine. They lived inside `pairing-gate.ts` where they were the only thing in the
- * file not about gating.
+ * Issue #2046: these are thin adapters over the OWNER codec in `@robota-sdk/agent-remote-pairing`,
+ * which decodes every required field (presence, base64url, length ceiling) rather than only the `t`
+ * discriminator this file used to check. A true answer means the narrowed value is well-formed; the
+ * browser `ResponderGate` imports the same codec, so one corpus governs both carriers.
  */
 
-import type { TPairingFrame, TReconnectFrame } from '@robota-sdk/agent-remote-pairing';
+import {
+  decodeEnrollFrame,
+  decodePairingFrame,
+  decodeReconnectFrame,
+  type IEnrollFrame,
+  type TPairingFrame,
+  type TReconnectFrame,
+} from '@robota-sdk/agent-remote-pairing';
 
-/** A gate-level identity-exchange frame (first-pair enrollment, post-B3-accept). */
-export interface IEnrollFrame {
-  readonly t: 'enroll-key';
-  readonly spki: string;
-}
+export type { IEnrollFrame };
 
-/** True when a parsed value is a B3 pairing frame (`{ t: 'pair-nonce' | 'pair-confirm', … }`). */
+/** True when a parsed value is a well-formed B3 pairing frame (`pair-nonce` | `pair-confirm`). */
 export function isPairingFrame(value: unknown): value is TPairingFrame {
-  if (typeof value !== 'object' || value === null) return false;
-  const t = (value as { t?: unknown }).t;
-  return t === 'pair-nonce' || t === 'pair-confirm';
+  return decodePairingFrame(value).ok;
 }
 
-/** True when a parsed value is a reconnect frame the host consumes (`rc-hello` / `rc-device`). */
+/** True when a parsed value is a well-formed reconnect frame (`rc-hello` | `rc-host` | `rc-device`). */
 export function isReconnectFrame(value: unknown): value is TReconnectFrame {
-  if (typeof value !== 'object' || value === null) return false;
-  const t = (value as { t?: unknown }).t;
-  return t === 'rc-hello' || t === 'rc-device';
+  return decodeReconnectFrame(value).ok;
 }
 
-/** True when a parsed value is the first-pair enrollment frame carrying a device SPKI. */
+/** True when a parsed value is a well-formed first-pair enrollment frame carrying a device SPKI. */
 export function isEnrollFrame(value: unknown): value is IEnrollFrame {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as { t?: unknown }).t === 'enroll-key' &&
-    typeof (value as { spki?: unknown }).spki === 'string'
-  );
+  return decodeEnrollFrame(value).ok;
 }

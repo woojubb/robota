@@ -42,23 +42,30 @@
   "files": [
     "dist"
   ],
+  "robota": {
+    "artifact": {
+      "builder": "tsdown"
+    }
+  },
   "scripts": {
-    "build": "tsdown",
-    "build:js": "tsdown --no-dts",
-    "build:types": "tsdown --dts",
+    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
+    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "scenario:verify": "pnpm scenario:verify:external-payload && pnpm scenario:verify:runtime-session-store && pnpm scenario:verify:prompt-resolution && pnpm scenario:verify:zero-config-tools && pnpm scenario:verify:workspace-authority",
+    "scenario:verify": "pnpm scenario:verify:external-payload && pnpm scenario:verify:runtime-session-store && pnpm scenario:verify:prompt-resolution && pnpm scenario:verify:zero-config-tools && pnpm scenario:verify:workspace-authority && pnpm scenario:verify:memory-recall-provenance && pnpm scenario:verify:fork-record-persistence",
     "scenario:verify:external-payload": "pnpm exec tsx --conditions=source examples/verify-session-log-external-payload-replay.ts",
     "scenario:verify:runtime-session-store": "pnpm exec tsx --conditions=source examples/verify-agent-runtime-session-store.ts",
     "scenario:verify:prompt-resolution": "pnpm exec tsx --conditions=source examples/verify-prompt-request-resolution.ts",
-    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-framework --output examples/scenarios/framework-offline-scenarios.record.json -- pnpm scenario:verify",
     "typecheck": "tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit",
     "lint": "eslint src/ --ext .ts",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh",
     "scenario:verify:zero-config-tools": "pnpm exec tsx --conditions=source examples/verify-zero-config-default-tools.ts",
-    "scenario:verify:workspace-authority": "pnpm exec tsx --conditions=source examples/verify-workspace-project-authority.ts"
+    "scenario:verify:workspace-authority": "pnpm exec tsx --conditions=source examples/verify-workspace-project-authority.ts",
+    "scenario:verify:memory-recall-provenance": "pnpm exec tsx --conditions=source examples/verify-memory-recall-provenance.ts",
+    "scenario:verify:fork-record-persistence": "pnpm exec tsx examples/verify-fork-record-persistence.ts"
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
@@ -72,9 +79,11 @@
     "@robota-sdk/agent-session": "workspace:*",
     "@robota-sdk/agent-tool-defaults": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*",
+    "yaml": "^2.9.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@robota-sdk/agent-provider-openai-compatible": "workspace:*",
     "@robota-sdk/agent-provider-replay": "workspace:*",
     "@robota-sdk/agent-session-analytics": "workspace:*",
     "rimraf": "^5.0.10",

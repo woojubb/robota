@@ -26,13 +26,20 @@
     "dist",
     "src"
   ],
+  "robota": {
+    "artifact": {
+      "builder": "tsdown"
+    }
+  },
   "scripts": {
-    "build": "tsdown",
-    "build:js": "tsdown --no-dts",
-    "build:types": "tsdown --dts",
+    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
+    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
     "typecheck": "tsgo --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
+    "scenario:verify": "node examples/deepseek-provider-demo.mjs",
     "lint": "eslint src/ --ext .ts",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
@@ -48,6 +55,7 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",
+    "@robota-sdk/agent-provider-bytedance": "workspace:*",
     "@robota-sdk/agent-provider-gemini": "workspace:*",
     "@robota-sdk/agent-provider-openai": "workspace:*",
     "@robota-sdk/agent-provider-openai-compatible": "workspace:*"

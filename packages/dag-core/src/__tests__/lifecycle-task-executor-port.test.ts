@@ -142,6 +142,35 @@ describe('LifecycleTaskExecutorPort', () => {
     );
   });
 
+  it('binds root lineage to the run and forwards an injected child lineage', async () => {
+    const handler: INodeTaskHandler = {
+      execute: vi.fn().mockResolvedValue({ ok: true, value: {} }),
+    };
+    const registry = new TestNodeManifestRegistry([testManifest]);
+    const factory = new TestNodeLifecycleFactory({ 'test-node': handler });
+    await new LifecycleTaskExecutorPort(registry, factory).execute(makeInput());
+    expect(handler.execute).toHaveBeenLastCalledWith(
+      {},
+      expect.objectContaining({
+        lineage: { rootRunId: 'run-1', depth: 0, ancestorCompositeNodeTypes: [] },
+      }),
+    );
+
+    const childLineage = {
+      rootRunId: 'root-run',
+      parentRunId: 'parent-run',
+      depth: 2,
+      ancestorCompositeNodeTypes: ['first', 'second'],
+    } as const;
+    await new LifecycleTaskExecutorPort(registry, factory, childLineage).execute(
+      makeInput({ dagRunId: 'child-run' }),
+    );
+    expect(handler.execute).toHaveBeenLastCalledWith(
+      {},
+      expect.objectContaining({ lineage: childLineage, dagRunId: 'child-run' }),
+    );
+  });
+
   it('uses MissingNodeLifecycleFactory when no factory is provided', async () => {
     const registry = new TestNodeManifestRegistry([testManifest]);
     const port = new LifecycleTaskExecutorPort(registry);

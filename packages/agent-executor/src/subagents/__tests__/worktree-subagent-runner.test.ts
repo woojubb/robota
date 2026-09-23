@@ -43,6 +43,7 @@ function createJob(isolation?: TBackgroundTaskIsolation): ISubagentJobStart {
       depth: 1,
       cwd: '/repo',
       prompt: 'do work',
+      permissionPolicy: 'inherit-allowlist',
       ...(isolation ? { isolation } : {}),
     },
   };

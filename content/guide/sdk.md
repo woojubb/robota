@@ -296,6 +296,11 @@ If the injected sandbox client implements `snapshot()` and `restore(snapshotId)`
 
 `createSubagentSession()` spawns a child session for delegating subtasks to a subagent. The child session forks the parent's context (`context:fork`), inherits hooks and permissions, and runs independently.
 
+For a background job that continues a forked record, pass its `resumeSessionId` through the job API
+with a session store configured on the runtime. The runner restores the copied conversation and uses
+the same ID/store for the child, so completed turns are visible when a client attaches to the fork.
+Jobs without `resumeSessionId` remain transient, and the parent and fork records are never merged.
+
 ```typescript
 import { createSubagentSession } from '@robota-sdk/agent-framework';
 import type { ISubagentOptions } from '@robota-sdk/agent-framework';
@@ -394,15 +399,16 @@ The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_
 
 `InteractiveSession` is the single entry point for all interactive use cases. Transport adapters
 consume it to expose the session over different protocols. Since beta.76 the protocol transports are
-standalone packages; `@robota-sdk/agent-transport` itself is a lean core that keeps the
-`/headless`, `/testing`, and `/programmatic` sub-paths:
+standalone packages. Headless execution, programmatic driving and the registry are owned by
+`@robota-sdk/agent-framework`; terminal I/O is local to `agent-cli`. The transport parent has an
+intentionally empty root during STRUCT-012 S2:
 
-| Package / sub-path         | Protocol                       | Description                                                      |
-| -------------------------- | ------------------------------ | ---------------------------------------------------------------- |
-| `agent-transport-http`     | HTTP / REST                    | Hono-based adapter; runs on Cloudflare Workers, Node.js, Lambda  |
-| `agent-transport-mcp`      | MCP                            | Exposes the session as an MCP server for Claude and other agents |
-| `agent-transport-ws`       | WebSocket                      | Framework-agnostic real-time adapter (any WS library)            |
-| `agent-transport/headless` | stdin/stdout (non-interactive) | Non-interactive execution with text/json/stream-json output      |
+| Package / sub-path     | Protocol                       | Description                                                      |
+| ---------------------- | ------------------------------ | ---------------------------------------------------------------- |
+| `agent-transport-http` | HTTP / REST                    | Hono-based adapter; runs on Cloudflare Workers, Node.js, Lambda  |
+| `agent-transport-mcp`  | MCP                            | Exposes the session as an MCP server for Claude and other agents |
+| `agent-transport-ws`   | WebSocket                      | Framework-agnostic real-time adapter (any WS library)            |
+| `agent-framework`      | stdin/stdout (non-interactive) | Non-interactive execution with text/json/stream-json output      |
 
 Each transport wraps an `InteractiveSession` instance and translates protocol messages into `submit()` / `abort()` calls, then forwards emitted events back to the client. No separate gateway interface exists — `InteractiveSession` is the gateway.
 
@@ -430,7 +436,7 @@ checkpoint transitions emit `branch_event` after the state change is saved.
 | Quick one-shot                 | `createQuery({ provider })` — creates an `InteractiveSession` internally |
 | Interactive CLI / web / server | `InteractiveSession` — event-driven, queuing, command handling           |
 | Expose over HTTP / MCP / WS    | `agent-transport-{http,mcp,ws}` wrapping `InteractiveSession`            |
-| Non-interactive / headless     | `agent-transport/headless` — text, JSON, or stream-JSON output           |
+| Non-interactive / headless     | `agent-framework` — text, JSON, or stream-JSON output                    |
 | Call a remote agent over HTTP  | `agent-remote-client` — standalone HTTP client                           |
 | Custom agent (no SDK)          | `new Robota()` from `agent-core` directly                                |
 | Custom session (no SDK)        | `new Session()` from `agent-session` with your own tools/provider        |

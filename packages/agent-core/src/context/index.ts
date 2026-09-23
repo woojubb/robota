@@ -6,6 +6,7 @@ export {
   CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
   estimateContextTokensFromMessages,
   estimateSerializedContextTokens,
+  estimateToolSchemaTokens,
 } from './estimation.js';
 export { readTokenUsageFromMessage, readTokenUsageFromMetadata } from './token-usage.js';
 

@@ -6,7 +6,7 @@
  * Also verifies BundlePlugin skills flow into the system prompt builder.
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -25,7 +25,7 @@ import type { THooksConfig, IHookInput, IHookTypeExecutor } from '@robota-sdk/ag
 let tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'cross-pkg-hooks-'));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cross-pkg-hooks-')));
   tempDirs.push(dir);
   return dir;
 }

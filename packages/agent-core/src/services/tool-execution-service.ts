@@ -1,4 +1,5 @@
 import { executeBatch } from './tool-execution-batch';
+import { TOOL_SEARCH_TOOL_NAME } from '../interfaces/tool-search';
 import { ValidationError } from '../utils/errors';
 import { SilentLogger, type ILogger } from '../utils/logger';
 
@@ -12,6 +13,7 @@ import type {
   TToolParameters,
   TToolMetadata,
 } from '../interfaces/tool';
+import type { IDeferredToolCatalog } from '../interfaces/tool-search';
 
 /**
  * ToolExecutionService owned events
@@ -47,10 +49,16 @@ export class ToolExecutionService {
   private tools: IToolManager;
   private logger: ILogger;
   private askHandler?: IUserInteraction['ask'];
+  /** CLI-1990: the narrow port a search tool loads through — no tool ever holds the manager. */
+  private readonly deferredToolCatalog: IDeferredToolCatalog;
 
   constructor(tools: IToolManager, logger: ILogger = SilentLogger) {
     this.tools = tools;
     this.logger = logger;
+    this.deferredToolCatalog = {
+      listDeferredTools: () => this.tools.listDeferredTools(),
+      loadDeferredTools: (names) => this.tools.loadDeferredTools(names),
+    };
   }
 
   /**
@@ -82,12 +90,18 @@ export class ToolExecutionService {
         );
       }
 
-      if (!this.tools.hasTool(toolName)) {
+      // CLI-1990: a deferred tool the model has not loaded is refused like an unknown one — the model
+      // was never shown its schema — and the remedy names the tool that loads it, so the two rounds
+      // before the unknown-tool loop guard force-summarises are recoverable rather than fatal.
+      const withheld =
+        this.tools.getToolSchema(toolName)?.deferLoading === true &&
+        !this.tools.isToolOffered(toolName);
+      if (!this.tools.hasTool(toolName) || withheld) {
         const availableTools = this.tools
-          .getTools()
+          .getOfferedTools()
           .map((tool) => tool.name)
           .sort();
-        const error = formatUnknownToolError(toolName, availableTools);
+        const error = formatUnknownToolError(toolName, availableTools, withheld);
         const eventService = context.eventService;
         if (eventService) {
           const errorEvent: IToolEventData = {
@@ -199,14 +213,11 @@ export class ToolExecutionService {
     },
   ): IToolExecutionRequest[] {
     return toolCalls.map((toolCall) => {
-      let parsedParameters: TToolParameters;
-      try {
-        parsedParameters = JSON.parse(toolCall.function.arguments) as TToolParameters;
-      } catch {
-        throw new ValidationError(
-          `Failed to parse arguments for tool "${toolCall.function.name}" (call ${toolCall.id}): invalid JSON`,
-        );
-      }
+      const parsedParameters = decodeToolCallArguments(
+        toolCall.id,
+        toolCall.function.name,
+        toolCall.function.arguments,
+      );
       return {
         toolName: toolCall.function.name,
         parameters: parsedParameters,
@@ -216,6 +227,7 @@ export class ToolExecutionService {
         ownerPath: [...context.ownerPathBase, { type: 'tool', id: toolCall.id }],
         metadata: context.metadataFactory ? context.metadataFactory(toolCall) : undefined,
         ...(this.askHandler ? { ask: this.askHandler } : {}),
+        deferredTools: this.deferredToolCatalog,
       };
     });
   }
@@ -232,8 +244,43 @@ export class ToolExecutionService {
   }
 }
 
-function formatUnknownToolError(toolName: string, availableTools: string[]): string {
+/**
+ * Issue #2078: `TToolParameters` is a record contract, so a syntactically valid JSON body whose root
+ * is `null`, a scalar, or an array is refused HERE. The parameter validator downstream enumerates
+ * fields with `in` and assumes a non-null object; the former bare cast let those roots reach it.
+ */
+function decodeToolCallArguments(callId: string, toolName: string, raw: string): TToolParameters {
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(raw);
+  } catch {
+    throw new ValidationError(
+      `Failed to parse arguments for tool "${toolName}" (call ${callId}): invalid JSON`,
+    );
+  }
+  if (decoded === null || typeof decoded !== 'object' || Array.isArray(decoded)) {
+    const root =
+      decoded === null ? 'null' : Array.isArray(decoded) ? 'an array' : `a ${typeof decoded}`;
+    throw new ValidationError(
+      `Failed to parse arguments for tool "${toolName}" (call ${callId}): expected a JSON object at the root, got ${root}`,
+    );
+  }
+  return decoded as TToolParameters;
+}
+
+function formatUnknownToolError(
+  toolName: string,
+  availableTools: string[],
+  withheld: boolean,
+): string {
   const available =
     availableTools.length > 0 ? availableTools.join(', ') : 'no registered tools are available';
+  if (withheld) {
+    return (
+      `Tool "${toolName}" is registered but deferred and not yet loaded, so the tool call was not executed. ` +
+      `Call ${TOOL_SEARCH_TOOL_NAME} with names: ["${toolName}"] to load it, then call it again. ` +
+      `Available tools: ${available}.`
+    );
+  }
   return `Tool "${toolName}" is not registered, so the tool call was not executed. Available tools: ${available}.`;
 }

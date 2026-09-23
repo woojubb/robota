@@ -9,6 +9,7 @@
  */
 import { mkdir, writeFile, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
   type IDagDefinition,
@@ -26,7 +27,15 @@ import { scanWorkspaceCatalog } from '@robota-sdk/dag-framework';
 import { LocalDagRunner, createCliNodeRegistry } from '../index.js';
 import { parseCodeManifest, reconstructCodeNode } from '../code-node-adapter.js';
 import { NODE_MANIFEST_EXT, nodesDir, workflowsDir } from './paths.js';
-import { safeParseJson } from '../../mcp/utils.js';
+
+function safeParseJson(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    // allow-fallback: malformed task output snapshots are skipped when collecting composite outputs
+    return undefined;
+  }
+}
 
 /**
  * Persist a node from its own serializable manifest view. Prompt AND composite nodes; the composite
@@ -57,11 +66,16 @@ export function buildCompositeRunner(
   executionRoot: string,
 ): ICompositeSubRunner {
   return {
-    async run(dag, input) {
+    async run(dag, input, lineage) {
       const subRunner = new LocalDagRunner(
         [...createCliNodeRegistry(), ...liveDefs],
         executionRoot,
+        lineage,
       );
+      let failedTaskRetryable: boolean | undefined;
+      const unsubscribe = subRunner.events.subscribe((event) => {
+        if (event.eventType === 'task.failed') failedTaskRetryable = event.error.retryable;
+      });
       try {
         // allow-fallback: inner DAG errors are returned as structured result
         const subResult = await subRunner.run(dag, input);
@@ -74,7 +88,14 @@ export function buildCompositeRunner(
             }
           }
         }
-        return { ok: subResult.dagRun.status === 'success', outputs };
+        const failedTask = subResult.taskRuns.findLast((task) => task.status === 'failed');
+        return {
+          ok: subResult.dagRun.status === 'success',
+          outputs,
+          ...(failedTask?.errorMessage ? { error: failedTask.errorMessage } : {}),
+          ...(failedTask?.errorCode ? { errorCode: failedTask.errorCode } : {}),
+          ...(failedTaskRetryable === undefined ? {} : { retryable: failedTaskRetryable }),
+        };
       } catch (err) {
         // allow-fallback: inner DAG errors are returned as structured result
         return {
@@ -82,6 +103,8 @@ export function buildCompositeRunner(
           outputs: {},
           error: err instanceof Error ? err.message : 'Inner DAG run failed',
         };
+      } finally {
+        unsubscribe();
       }
     },
   };
@@ -124,6 +147,7 @@ export async function loadNodes(
       liveDefs.push(
         rehydrateInstantNode(record, {
           compositeRunner: buildCompositeRunner(liveDefs, projectDir),
+          providers: createDefaultProviderDefinitions(),
         }),
       );
     } catch {

@@ -11,6 +11,7 @@
  */
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type { IDagNodeDefinition } from '@robota-sdk/dag-core';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import { LocalDagRuntimeProvider } from '@robota-sdk/dag-framework';
 
 import { loadInstantNodes } from './persistence/instant-node-loader.js';
@@ -33,9 +34,10 @@ export interface IWorkspaceRuntime {
 export async function createWorkspaceRuntime(
   project: IWorkflowProject,
   layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
+  providerDefinitions: readonly IProviderDefinition[] = [],
 ): Promise<IWorkspaceRuntime> {
   const accepted = assertWorkflowProject(project);
-  const instantNodes = await loadInstantNodes(accepted, layout);
+  const instantNodes = await loadInstantNodes(accepted, layout, providerDefinitions);
   const provider = new LocalDagRuntimeProvider({
     executionRoot: accepted.executionRoot,
     workspace: layout,

@@ -1,24 +1,29 @@
 import type { IDagNodeDefinition, IWorkspaceLayout } from '@robota-sdk/dag-core';
+import { findMediaProviderDefinition } from '@robota-sdk/agent-core';
 import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
 import { LlmTextNodeDefinition } from '@robota-sdk/dag-node-llm-text';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import {
+  createDefaultMediaProviderDefinitions,
+  createDefaultProviderDefinitions,
+} from '@robota-sdk/agent-builtin-providers';
 import {
   GeminiImageEditNodeDefinition,
   GeminiImageComposeNodeDefinition,
 } from '@robota-sdk/dag-node-gemini-image-edit';
-import { McpToolNodeDefinition } from '@robota-sdk/dag-node-mcp-tool';
 import { HttpRequestNodeDefinition } from '@robota-sdk/dag-node-http-request';
 import { FileReadNodeDefinition } from '@robota-sdk/dag-node-file-read';
 import { FileWriteNodeDefinition } from '@robota-sdk/dag-node-file-write';
 import { loadLocalNodeDefinitions } from './local-node-loader.js';
 
 export function createCliNodeRegistry(): IDagNodeDefinition[] {
+  const providers = createDefaultProviderDefinitions();
+  const mediaProviders = createDefaultMediaProviderDefinitions();
+  const imageProviderDefinition = findMediaProviderDefinition(mediaProviders, 'gemini-image');
   return [
     ...createDefaultNodeRegistrySync(),
-    new LlmTextNodeDefinition(createDefaultProviderDefinitions()),
-    new GeminiImageEditNodeDefinition(),
-    new GeminiImageComposeNodeDefinition(),
-    new McpToolNodeDefinition(),
+    new LlmTextNodeDefinition(providers),
+    new GeminiImageEditNodeDefinition({ imageProviderDefinition }),
+    new GeminiImageComposeNodeDefinition({ imageProviderDefinition }),
     new HttpRequestNodeDefinition(),
     new FileReadNodeDefinition(),
     new FileWriteNodeDefinition(),

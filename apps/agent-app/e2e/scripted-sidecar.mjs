@@ -13,12 +13,14 @@ import { EventEmitter } from 'node:events';
 
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 
-const token = process.env.ROBOTA_WS_TOKEN;
+const launchToken = process.env.ROBOTA_WS_TOKEN;
 const port = Number.parseInt(process.env.ROBOTA_WS_PORT ?? '0', 10);
-if (!token || !port) {
+if (!launchToken || !port) {
   console.error('scripted-sidecar: ROBOTA_WS_TOKEN + ROBOTA_WS_PORT required');
   process.exit(1);
 }
+const rejectAdmission = process.env.ROBOTA_E2E_REJECT_ADMISSION === '1';
+const token = rejectAdmission ? `rejected-${launchToken}` : launchToken;
 
 /** Yield a macrotask so the renderer's streaming-text React state/ref flushes between emits. */
 const tick = (ms = 20) => new Promise((r) => setTimeout(r, ms));
@@ -65,6 +67,14 @@ class ScriptedSession extends EventEmitter {
       });
       return;
     }
+    if (String(input).toLowerCase().includes('fail')) {
+      await tick();
+      this.emit('thinking', true);
+      this.emit('text_delta', 'Partial reply before failure.');
+      await tick();
+      this.emit('error', new Error('Scripted provider failure'));
+      return;
+    }
     await tick();
     this.emit('thinking', true);
     this.emit('text_delta', 'Hello from the scripted agent.');
@@ -95,10 +105,127 @@ class ScriptedSession extends EventEmitter {
 }
 
 const session = new ScriptedSession();
-const transport = new WsTransport({ token, port, maxRetries: 0 });
+const usageBySource = {
+  sessionId: 'usage-e2e-session',
+  totalTokens: 42,
+  promptTokens: 30,
+  completionTokens: 12,
+  costUsd: 0.0042,
+  costExact: false,
+  bySource: [],
+  timeline: [
+    { turnIndex: 0, source: { scope: 'main' }, label: 'main', spans: [], totalDurationMs: 0 },
+  ],
+};
+const transport = new WsTransport({
+  token,
+  port,
+  maxRetries: 0,
+  allowedOrigins: ['file://'],
+  personalUsageReporter: ({ period, timezone }) => {
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    return {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      period,
+      timezone,
+      interval: { startDate: today, endDate: today },
+      totals: {
+        sessions: 1,
+        turns: 1,
+        promptTokens: 30,
+        completionTokens: 12,
+        totalTokens: 42,
+        costUsd: 0.0042,
+        costStatus: 'estimated',
+      },
+      daily: [
+        {
+          date: today,
+          partial: true,
+          sessionIds: ['usage-e2e-session'],
+          totals: {
+            sessions: 1,
+            turns: 1,
+            promptTokens: 30,
+            completionTokens: 12,
+            totalTokens: 42,
+            costUsd: 0.0042,
+            costStatus: 'estimated',
+          },
+        },
+      ],
+      byModel: [
+        {
+          key: 'scripted-model',
+          label: 'scripted-model',
+          turns: 1,
+          promptTokens: 30,
+          completionTokens: 12,
+          totalTokens: 42,
+          costUsd: 0.0042,
+          costStatus: 'estimated',
+          sessionIds: ['usage-e2e-session'],
+        },
+      ],
+      byProvider: [
+        {
+          key: 'unknown',
+          label: 'unknown',
+          turns: 1,
+          promptTokens: 30,
+          completionTokens: 12,
+          totalTokens: 42,
+          costUsd: 0.0042,
+          costStatus: 'estimated',
+          sessionIds: ['usage-e2e-session'],
+        },
+      ],
+      bySurface: [
+        {
+          key: 'desktop-app',
+          label: 'desktop-app',
+          turns: 1,
+          promptTokens: 30,
+          completionTokens: 12,
+          totalTokens: 42,
+          costUsd: 0.0042,
+          costStatus: 'estimated',
+          sessionIds: ['usage-e2e-session'],
+        },
+      ],
+      bySource: [],
+      byActivity: [{ key: 'tool:Read', label: 'Read', kind: 'tool', count: 2 }],
+      sessionIds: ['usage-e2e-session'],
+      coverage: {
+        validSessions: 1,
+        corruptSessions: 0,
+        unsupportedSessions: 0,
+        duplicateObservations: 0,
+        legacyObservations: 0,
+        unknownModelObservations: 0,
+        unknownProviderObservations: 0,
+        unknownSurfaceObservations: 0,
+        corruptSessionIds: [],
+        unsupportedSessionIds: [],
+      },
+    };
+  },
+  usageReporter: () => usageBySource,
+  storedSessionUsageReporter: () => usageBySource,
+});
 transport.attach(session);
 await transport.start();
 console.error(`scripted-sidecar: listening on 127.0.0.1:${port} (token-gated)`);
+
+if (rejectAdmission) {
+  setTimeout(() => process.exit(17), 1_000);
+}
 
 // Graceful shutdown so the GUI's window-close SIGTERM path is exercised without an orphan.
 for (const sig of ['SIGTERM', 'SIGINT']) {

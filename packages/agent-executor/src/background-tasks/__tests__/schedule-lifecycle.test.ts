@@ -119,6 +119,16 @@ describe('SELFHOST-012 manager schedule lifecycle', () => {
     expect(manager.get(id)?.id).toBe(id); // same identity
   });
 
+  it('editScheduledTask with a label refreshes the list label, not the schedule (CMD-009)', async () => {
+    const { manager, id } = await spawnScheduled();
+    await manager.editScheduledTask(id, { agentInstruction: 'ping', label: 'Scheduled: ping' });
+
+    const listed = manager.list().find((t) => t.id === id);
+    expect(listed?.label).toBe('Scheduled: ping');
+    expect(listed?.schedule?.agentInstruction).toBe('ping');
+    expect(listed?.schedule).not.toHaveProperty('label');
+  });
+
   it('pause is idempotent and resume is a no-op on a non-paused task', async () => {
     const { manager, handles, id } = await spawnScheduled();
     await manager.pauseScheduledTask(id);

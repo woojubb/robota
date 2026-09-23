@@ -2,6 +2,7 @@ export type {
   IAgentJobHostContext,
   ICommand,
   ICommandHostAdapters,
+  ICommandEffortAdapter,
   ICommandHandoffAdapter,
   ICommandHostContext,
   ICommandListEntry,
@@ -11,7 +12,11 @@ export type {
   ICommandPluginAdapter,
   ICommandProcessAdapter,
   ICommandLocalPeersAdapter,
+  ICommandMCPActivationAdapter,
+  ICommandMCPActivationSummary,
   ICommandPresetRegistryAdapter,
+  ICommandOutputStyleRegistryAdapter,
+  ICommandOutputStyleSummary,
   ICommandRemoteControlAdapter,
   ICommandResult,
   ICommandSessionReplayValidationReport,
@@ -76,7 +81,13 @@ export {
   resolveEnvDefaultProvider,
 } from '../command-api/provider/provider-factory.js';
 export { commandToCapabilityDescriptor } from './capability-descriptors.js';
-export { SkillCommandSource, parseFrontmatter } from './skill-source.js';
+export { SkillCommandSource, inspectSkillSources } from './skill-source.js';
+export type {
+  ISkillRootInspection,
+  ISkillSourceInspection,
+  ISkillSourceSkip,
+  TSkillSkipReason,
+} from './skill-source.js';
 export { PluginCommandSource } from './plugin-source.js';
 export { SystemCommandExecutor, createSystemCommands } from './system-command.js';
 export { selectCommandModules, findUnknownModuleNames } from './command-module-selection.js';
@@ -193,6 +204,17 @@ export {
   readStatusLineSettings,
   applyStatusLineSettings,
 } from '../command-api/statusline/statusline-command-api.js';
+export {
+  APPEARANCE_SETTINGS_KEYS,
+  applyAppearanceSettings,
+  DEFAULT_APPEARANCE_SETTINGS,
+  isAppearanceSettingsPatch,
+  readAppearanceSettings,
+} from '../command-api/appearance/appearance-command-api.js';
+export type {
+  IAppearanceSettings,
+  TAppearanceSettingsPatch,
+} from '../command-api/appearance/appearance-command-api.js';
 export type {
   ICommandAvailablePlugin,
   ICommandInstalledPlugin,

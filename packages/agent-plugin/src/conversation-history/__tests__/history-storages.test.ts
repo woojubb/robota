@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileHistoryStorage } from '../storages/file-storage';
@@ -74,7 +74,7 @@ describe('FileHistoryStorage (PLUGIN-001: real persistence)', () => {
   let storage: FileHistoryStorage;
 
   function freshStorage(): { dir: string; storage: FileHistoryStorage } {
-    const d = mkdtempSync(join(tmpdir(), 'robota-hist-'));
+    const d = realpathSync(mkdtempSync(join(tmpdir(), 'robota-hist-')));
     return { dir: d, storage: new FileHistoryStorage(join(d, 'history.json')) };
   }
 

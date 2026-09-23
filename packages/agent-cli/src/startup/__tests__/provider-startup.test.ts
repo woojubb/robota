@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { rmSync, readFileSync, mkdirSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { rmSync, readFileSync, mkdirSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
@@ -25,7 +25,7 @@ const NOOP_TERMINAL: ITerminalOutput = {
   spinner: (): ISpinner => ({ stop: () => {}, update: () => {} }),
 };
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-provider-startup-test-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-provider-startup-test-')));
 const ORIGINAL_HOME = process.env.HOME;
 const ORIGINAL_STDIN_TTY = process.stdin.isTTY;
 const ORIGINAL_STDOUT_TTY = process.stdout.isTTY;
@@ -174,6 +174,8 @@ function baseArgs(): IParsedCliArgs {
     yes: false,
     memory: undefined,
     memoryAutoSave: false,
+    screenReader: undefined,
+    reducedMotion: undefined,
   };
 }
 
@@ -384,105 +386,113 @@ describe('provider startup', () => {
     expect(prompted).toBe(false);
   });
 
-  it('writes startup setup to project-local settings when project currentProvider masks user settings', async () => {
-    const home = join(TMP_BASE, 'home-project-active');
-    const project = join(TMP_BASE, 'project-active');
-    process.env.HOME = home;
-    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
-    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
-    writeJson(join(home, '.robota', 'settings.json'), {
-      provider: {
-        name: 'anthropic',
-        model: 'claude-sonnet-4-6',
-        apiKey: 'sk-ant-user',
-      },
-    });
-    writeJson(join(project, '.robota', 'settings.local.json'), {
-      currentProvider: 'qwen',
-      providers: {
-        qwen: {
-          type: 'qwen',
-          model: 'qwen-plus',
-          apiKey: '$ENV:DASHSCOPE_API_KEY',
-        },
-      },
-    });
-    const answers = ['1', '1', 'sk-ant-project', '', 'ko'];
-    const promptInput = async (): Promise<string> => answers.shift() ?? '';
-
-    await ensureConfig(
-      project,
-      baseArgs(),
-      promptInput,
-      NOOP_TERMINAL,
-      providerDefinitions,
-      true,
-      await projectSettingsAccess(project, home),
-    );
-
-    const settings = JSON.parse(
-      readFileSync(join(project, '.robota', 'settings.local.json'), 'utf8'),
-    ) as {
-      currentProvider?: string;
-      language?: string;
-      providers?: Record<string, Record<string, unknown>>;
-    };
-    expect(settings.currentProvider).toBe('anthropic');
-    expect(settings.language).toBe('ko');
-    expect(settings.providers?.['anthropic']).toMatchObject({
-      type: 'anthropic',
-      model: 'claude-sonnet-4-6',
-      apiKey: 'sk-ant-project',
-    });
-    expect(settings.providers?.qwen).toMatchObject({
-      type: 'qwen',
-      model: 'qwen-plus',
-    });
-  });
-
-  it('sets current provider in the effective project-local settings scope by default', async () => {
-    const home = join(TMP_BASE, 'home-provider-switch');
-    const project = join(TMP_BASE, 'project-provider-switch');
-    process.env.HOME = home;
-    writeJson(join(home, '.robota', 'settings.json'), {
-      currentProvider: 'anthropic',
-      providers: {
-        anthropic: {
-          type: 'anthropic',
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'writes startup setup to project-local settings when project currentProvider masks user settings',
+    async () => {
+      const home = join(TMP_BASE, 'home-project-active');
+      const project = join(TMP_BASE, 'project-active');
+      process.env.HOME = home;
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+      Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+      writeJson(join(home, '.robota', 'settings.json'), {
+        provider: {
+          name: 'anthropic',
           model: 'claude-sonnet-4-6',
           apiKey: 'sk-ant-user',
         },
-      },
-    });
-    writeJson(join(project, '.robota', 'settings.local.json'), {
-      currentProvider: 'anthropic',
-      providers: {
-        qwen: {
-          type: 'qwen',
-          model: 'qwen-plus',
-          apiKey: '$ENV:DASHSCOPE_API_KEY',
+      });
+      writeJson(join(project, '.robota', 'settings.local.json'), {
+        currentProvider: 'qwen',
+        providers: {
+          qwen: {
+            type: 'qwen',
+            model: 'qwen-plus',
+            apiKey: '$ENV:DASHSCOPE_API_KEY',
+          },
         },
-      },
-    });
+      });
+      const answers = ['1', '1', 'sk-ant-project', '', 'ko'];
+      const promptInput = async (): Promise<string> => answers.shift() ?? '';
 
-    const handled = handleProviderConfigurationArgs(
-      project,
-      { ...baseArgs(), provider: 'qwen', setCurrent: true },
-      NOOP_TERMINAL,
-      providerDefinitions,
-      await projectSettingsAccess(project, home),
-    );
+      await ensureConfig(
+        project,
+        baseArgs(),
+        promptInput,
+        NOOP_TERMINAL,
+        providerDefinitions,
+        true,
+        await projectSettingsAccess(project, home),
+      );
 
-    const userSettings = JSON.parse(
-      readFileSync(join(home, '.robota', 'settings.json'), 'utf8'),
-    ) as { currentProvider?: string };
-    const projectSettings = JSON.parse(
-      readFileSync(join(project, '.robota', 'settings.local.json'), 'utf8'),
-    ) as { currentProvider?: string };
-    expect(handled).toBe(true);
-    expect(userSettings.currentProvider).toBe('anthropic');
-    expect(projectSettings.currentProvider).toBe('qwen');
-  });
+      const settings = JSON.parse(
+        readFileSync(join(project, '.robota', 'settings.local.json'), 'utf8'),
+      ) as {
+        currentProvider?: string;
+        language?: string;
+        providers?: Record<string, Record<string, unknown>>;
+      };
+      expect(settings.currentProvider).toBe('anthropic');
+      expect(settings.language).toBe('ko');
+      expect(settings.providers?.['anthropic']).toMatchObject({
+        type: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        apiKey: 'sk-ant-project',
+      });
+      expect(settings.providers?.qwen).toMatchObject({
+        type: 'qwen',
+        model: 'qwen-plus',
+      });
+    },
+  );
+
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'sets current provider in the effective project-local settings scope by default',
+    async () => {
+      const home = join(TMP_BASE, 'home-provider-switch');
+      const project = join(TMP_BASE, 'project-provider-switch');
+      process.env.HOME = home;
+      writeJson(join(home, '.robota', 'settings.json'), {
+        currentProvider: 'anthropic',
+        providers: {
+          anthropic: {
+            type: 'anthropic',
+            model: 'claude-sonnet-4-6',
+            apiKey: 'sk-ant-user',
+          },
+        },
+      });
+      writeJson(join(project, '.robota', 'settings.local.json'), {
+        currentProvider: 'anthropic',
+        providers: {
+          qwen: {
+            type: 'qwen',
+            model: 'qwen-plus',
+            apiKey: '$ENV:DASHSCOPE_API_KEY',
+          },
+        },
+      });
+
+      const handled = handleProviderConfigurationArgs(
+        project,
+        { ...baseArgs(), provider: 'qwen', setCurrent: true },
+        NOOP_TERMINAL,
+        providerDefinitions,
+        await projectSettingsAccess(project, home),
+      );
+
+      const userSettings = JSON.parse(
+        readFileSync(join(home, '.robota', 'settings.json'), 'utf8'),
+      ) as { currentProvider?: string };
+      const projectSettings = JSON.parse(
+        readFileSync(join(project, '.robota', 'settings.local.json'), 'utf8'),
+      ) as { currentProvider?: string };
+      expect(handled).toBe(true);
+      expect(userSettings.currentProvider).toBe('anthropic');
+      expect(projectSettings.currentProvider).toBe('qwen');
+    },
+  );
 
   it('formats missing-config guidance from injected provider definitions', () => {
     const message = formatMissingProviderConfigMessage(providerDefinitions);

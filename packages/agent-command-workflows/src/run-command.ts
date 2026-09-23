@@ -6,6 +6,7 @@ import {
   type IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import { parseFileArg } from './args.js';
 import { createWorkspaceRuntime } from './workspace-runtime.js';
 import { assertWorkflowProject } from './workflow-project.js';
@@ -38,6 +39,7 @@ export async function executeWorkflowsRun(
   argStr: string,
   project: IWorkflowProject,
   workspace: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
+  providerDefinitions: readonly IProviderDefinition[] = [],
 ): Promise<ICommandResult> {
   const parsedArgs = parseFileArg(argStr, 'run');
   if (!parsedArgs.ok) {
@@ -58,7 +60,7 @@ export async function executeWorkflowsRun(
   }
 
   // Shared workspace runtime: built-ins + any prompt/composite nodes saved under `<root>/nodes/`.
-  const { provider } = await createWorkspaceRuntime(project, workspace);
+  const { provider } = await createWorkspaceRuntime(project, workspace, providerDefinitions);
   const result = await provider.execute(dag, {});
   if (!result.ok) {
     return {

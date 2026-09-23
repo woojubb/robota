@@ -6,6 +6,7 @@ import {
   readdirSync,
   symlinkSync,
   writeFileSync,
+  realpathSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -40,7 +41,7 @@ function leakedInto(dir: string): string[] {
 }
 
 function scratch() {
-  const base = mkdtempSync(join(tmpdir(), 'checkpoint-containment-'));
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'checkpoint-containment-')));
   const sandbox = join(base, 'sandbox');
   const outside = join(base, 'outside');
   mkdirSync(sandbox, { recursive: true });
@@ -61,7 +62,8 @@ async function createStore(cwd: string): Promise<EditCheckpointStore> {
   });
 }
 
-describe('EditCheckpointStore.captureFile containment', () => {
+// ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+describe.runIf(process.platform === 'linux')('EditCheckpointStore.captureFile containment', () => {
   // captureFile runs BEFORE the contained tool refuses, so without containment the snapshot IS the
   // read the sandbox denied: the bytes land inside the working directory and stay there for a later
   // in-sandbox Read. Proven end-to-end before the fix.

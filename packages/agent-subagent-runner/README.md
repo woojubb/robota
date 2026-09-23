@@ -94,6 +94,14 @@ Pass `factory` to `createAgentRuntime({ subagentRunnerFactory: factory })`.
 | `TSubagentWorkerChildMessage`        | Union of all messages the worker sends to the parent       |
 | `TSubagentWorkerWireValue`           | Serializable value type used in IPC messages               |
 
+### Forked session records
+
+If a job includes `resumeSessionId`, the composition root must provide
+`ISubagentWorkerComposition.openSessionStore`. The worker opens that store for the parent request's
+`cwd`, restores the copied record, and uses the same ID and store for the child `Session`, so each
+completed turn is persisted back into the fork record. Only the ID crosses IPC; the conversation does
+not. Jobs without `resumeSessionId` remain transient.
+
 ### Type Guards
 
 | Export                          | Description                               |

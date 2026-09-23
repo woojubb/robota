@@ -100,12 +100,20 @@ describe('DagOrchestrationHttpClient', () => {
 
   it('calls run draft endpoints through package-owned HTTP contracts', async () => {
     const definition = createDefinition();
+    const draft = {
+      draftId: 'draft 1',
+      definition,
+      input: { prompt: 'hello' },
+      nodeStateMap: {},
+      createdAt: '2026-09-23T00:00:00.000Z',
+      updatedAt: '2026-09-23T00:00:00.000Z',
+    };
     const { client, requests } = createClient([
-      { ok: true, status: 201, data: { draft: { draftId: 'draft 1' } } },
-      { ok: true, status: 200, data: { draft: { draftId: 'draft 1' } } },
-      { ok: true, status: 200, data: { draft: { draftId: 'draft 1' } } },
-      { ok: true, status: 200, data: { draft: { draftId: 'draft 1' } } },
-      { ok: true, status: 200, data: { draft: { draftId: 'draft 1' } } },
+      { ok: true, status: 201, data: { draft } },
+      { ok: true, status: 200, data: { draft } },
+      { ok: true, status: 200, data: { draft } },
+      { ok: true, status: 200, data: { draft } },
+      { ok: true, status: 200, data: { draft } },
     ]);
 
     const createResult = await client.createRunDraft({
@@ -124,7 +132,7 @@ describe('DagOrchestrationHttpClient', () => {
       output: { text: 'manual result' },
     });
 
-    expect(createResult.status).toBe(201);
+    expect(createResult).toMatchObject({ ok: true, value: draft });
     expect(requests.map((request) => request.url)).toEqual([
       `${TEST_SERVER_URL}/v1/dag/run-drafts`,
       `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201`,
@@ -136,7 +144,7 @@ describe('DagOrchestrationHttpClient', () => {
       'POST',
       'GET',
       'PUT',
-      'PUT',
+      'POST',
       'PUT',
     ]);
     expect(JSON.parse(String(requests[0]?.init.body))).toEqual({
@@ -148,10 +156,70 @@ describe('DagOrchestrationHttpClient', () => {
       definition,
       input: { prompt: 'updated' },
     });
-    expect(JSON.parse(String(requests[3]?.init.body))).toEqual({});
+    expect(requests[3]?.init.body).toBeUndefined();
     expect(JSON.parse(String(requests[4]?.init.body))).toEqual({
       input: { prompt: 'manual' },
       output: { text: 'manual result' },
+    });
+  });
+
+  it('rejects malformed successful run-draft data and preserves a missing-draft error', async () => {
+    const { client } = createClient([
+      { ok: true, status: 200, data: { draft: { draftId: 'incomplete' } } },
+      {
+        ok: false,
+        status: 404,
+        errors: [{ code: 'DAG_RUN_DRAFT_NOT_FOUND', detail: 'Run draft not found.' }],
+      },
+    ]);
+    expect(await client.getRunDraft('incomplete')).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_RUN_DRAFT_INVALID_RESPONSE' },
+    });
+    expect(await client.getRunDraft('missing')).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_RUN_DRAFT_NOT_FOUND', retryable: false },
+    });
+  });
+
+  it('does not expose transport exception details in a run-draft domain error', async () => {
+    const client = new DagOrchestrationHttpClient({
+      baseUrl: TEST_SERVER_URL,
+      fetch: async () => {
+        throw new Error('request failed with token secret-123');
+      },
+    });
+    const result = await client.getRunDraft('draft-1');
+    expect(result).toMatchObject({ ok: false, error: { code: 'DAG_RUN_DRAFT_TRANSPORT_ERROR' } });
+    expect(JSON.stringify(result)).not.toContain('secret-123');
+  });
+
+  it('treats null or malformed run-draft JSON as a non-retryable invalid response', async () => {
+    const bodies = ['null', '{broken'];
+    const client = new DagOrchestrationHttpClient({
+      baseUrl: TEST_SERVER_URL,
+      fetch: async () =>
+        new Response(bodies.shift(), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    });
+    for (const draftId of ['null', 'malformed']) {
+      expect(await client.getRunDraft(draftId)).toMatchObject({
+        ok: false,
+        error: { code: 'DAG_RUN_DRAFT_INVALID_RESPONSE', retryable: false },
+      });
+    }
+  });
+
+  it('keeps a non-JSON 5xx run-draft reply retryable as a server failure', async () => {
+    const client = new DagOrchestrationHttpClient({
+      baseUrl: TEST_SERVER_URL,
+      fetch: async () => new Response('upstream unavailable', { status: 503 }),
+    });
+    expect(await client.getRunDraft('draft-1')).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_RUN_DRAFT_SERVER_ERROR', retryable: true },
     });
   });
 

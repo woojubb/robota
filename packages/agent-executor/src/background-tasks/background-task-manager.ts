@@ -19,6 +19,11 @@ import {
   validateBackgroundTaskRequest,
 } from './background-task-manager-state.js';
 import { createBackgroundTaskWatchdogs } from './background-task-watchdogs.js';
+import {
+  deliverToObservers,
+  reportObserverFailureAsWarning,
+  type TObserverFailureReporter,
+} from './observer-delivery.js';
 import { isTerminalBackgroundTaskStatus } from './state-machine.js';
 import {
   BackgroundTaskError,
@@ -55,6 +60,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   private readonly watchdogs: BackgroundTaskWatchdogController;
   private readonly listeners = new Set<TBackgroundTaskEventListener>();
   private readonly eventSink?: TBackgroundTaskEventListener;
+  private readonly onObserverFailure: TObserverFailureReporter<TBackgroundTaskEvent>;
   private readonly tasks = new Map<string, ITrackedBackgroundTask>();
   private readonly queue: string[] = [];
   /**
@@ -72,6 +78,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     this.maxConcurrent = options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT;
     this.maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
     this.eventSink = options.eventSink;
+    this.onObserverFailure = options.onObserverFailure ?? reportObserverFailureAsWarning;
     this.now = options.now ?? (() => new Date().toISOString());
     this.watchdogs = createBackgroundTaskWatchdogs(options, (task, reason, message) => {
       void this.failForTimeout(task, reason, message);
@@ -187,10 +194,13 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       throw createRunnerError(`Background task runner does not support edit: ${taskId}`);
     }
     await handle.editSchedule(patch);
+    const { label, ...schedulePatch } = patch;
     // Keep the reconstructable schedule (FLOW-003) + list view in sync with the in-place re-arm.
     if (task.state.schedule) {
-      task.state.schedule = { ...task.state.schedule, ...patch };
+      task.state.schedule = { ...task.state.schedule, ...schedulePatch };
     }
+    // CMD-009: the label is the list view's rendering of the instruction, so it moves with it.
+    if (label !== undefined) task.state.label = label;
     task.state.updatedAt = this.now();
     this.emit({ type: 'background_task_updated', task: cloneBackgroundTaskState(task.state) });
   }
@@ -390,8 +400,12 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     return task;
   }
 
+  /**
+   * ARCH-053: observers are notified only after the authoritative transition is committed, so a
+   * throwing observer is isolated, delivery continues to the rest, and the failure is reported.
+   */
   private emit(event: TBackgroundTaskEvent): void {
-    this.eventSink?.(event);
-    for (const listener of this.listeners) listener(event);
+    const observers = this.eventSink ? [this.eventSink, ...this.listeners] : [...this.listeners];
+    deliverToObservers(event, observers, this.onObserverFailure);
   }
 }

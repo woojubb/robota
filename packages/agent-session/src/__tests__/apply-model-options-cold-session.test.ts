@@ -26,7 +26,13 @@ class ColdTestProvider extends AbstractAIProvider {
   readonly version = '1.0.0';
 
   override async chat(): Promise<TUniversalMessage> {
-    return { role: 'assistant', content: 'ok', state: 'complete', timestamp: new Date() };
+    return {
+      id: 'msg-cold-1',
+      role: 'assistant',
+      content: 'ok',
+      state: 'complete',
+      timestamp: new Date(),
+    };
   }
 }
 
@@ -67,5 +73,58 @@ describe('SessionBase.applyModelOptions — cold session (regression)', () => {
   it('applies effort-only on a cold session and stays usable', async () => {
     const session = buildColdSession();
     await expect(session.applyModelOptions({ effort: 'medium' })).resolves.toBeUndefined();
+  });
+
+  it('scopes an effort override and restores the previous effort after success', async () => {
+    const session = buildColdSession();
+    await session.applyModelOptions({ effort: 'low' });
+
+    await session.withScopedModelEffort('high', async () => {
+      expect(session.getModelEffort()).toBe('high');
+    });
+
+    expect(session.getModelEffort()).toBe('low');
+  });
+
+  it('restores the previous effort when the scoped operation fails', async () => {
+    const session = buildColdSession();
+    await session.applyModelOptions({ effort: 'low' });
+    const failure = new Error('scoped failure');
+
+    await expect(
+      session.withScopedModelEffort('high', async () => {
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+
+    expect(session.getModelEffort()).toBe('low');
+  });
+
+  it('restores nested scopes to their enclosing effort before the outer scope', async () => {
+    const session = buildColdSession();
+    await session.applyModelOptions({ effort: 'low' });
+
+    await session.withScopedModelEffort('medium', async () => {
+      await session.withScopedModelEffort('high', async () => {
+        expect(session.getModelEffort()).toBe('high');
+      });
+      expect(session.getModelEffort()).toBe('medium');
+    });
+
+    expect(session.getModelEffort()).toBe('low');
+  });
+
+  it('restores the previous effort when the scoped operation is cancelled', async () => {
+    const session = buildColdSession();
+    await session.applyModelOptions({ effort: 'low' });
+    const cancellation = new DOMException('cancelled', 'AbortError');
+
+    await expect(
+      session.withScopedModelEffort('high', async () => {
+        throw cancellation;
+      }),
+    ).rejects.toBe(cancellation);
+
+    expect(session.getModelEffort()).toBe('low');
   });
 });

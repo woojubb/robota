@@ -25,7 +25,8 @@ function createResolvedProviderInfo(overrides: Partial<Record<string, unknown>> 
       maxTokens: undefined,
     },
     toolsInfo: [],
-    availableTools: [],
+    readAvailableTools: () => [],
+    deferredTools: { listDeferredTools: () => [], loadDeferredTools: () => [] },
     ...overrides,
   };
 }
@@ -224,8 +225,8 @@ describe('execution-round helpers', () => {
       expect(resolved.provider.chat).toHaveBeenCalled();
     });
 
-    // TC-02 (PRESET-008): effort defaults to 'high' at the framework→provider seam.
-    it('defaults effort to high in chatOptions when config.defaultModel.effort is unset', async () => {
+    // API-001: an omitted setting preserves provider-default selection for the adapter boundary.
+    it('defaults effort to auto in chatOptions when config.defaultModel.effort is unset', async () => {
       const chat = vi.fn().mockResolvedValue({
         role: 'assistant',
         content: 'hi',
@@ -237,7 +238,7 @@ describe('execution-round helpers', () => {
       await callProviderWithCache([], config as any, resolved);
       expect(chat).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ effort: 'high' }),
+        expect.objectContaining({ effort: 'auto' }),
       );
     });
 
@@ -259,6 +260,50 @@ describe('execution-round helpers', () => {
         expect.anything(),
         expect.objectContaining({ effort: 'max' }),
       );
+    });
+
+    it('bypasses cache lookup and storage for each explicit effort selection', async () => {
+      const chat = vi
+        .fn()
+        .mockResolvedValueOnce({
+          role: 'assistant',
+          content: 'low response',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        })
+        .mockResolvedValueOnce({
+          role: 'assistant',
+          content: 'high response',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        });
+      const resolved = createResolvedProviderInfo({ provider: { chat } });
+      const cacheService = {
+        lookup: vi.fn().mockReturnValue('stale cached response'),
+        store: vi.fn(),
+      };
+      const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
+
+      await callProviderWithCache([], config as any, resolved, cacheService as any, {
+        effort: 'low',
+      });
+      await callProviderWithCache([], config as any, resolved, cacheService as any, {
+        effort: 'high',
+      });
+
+      expect(chat).toHaveBeenCalledTimes(2);
+      expect(chat).toHaveBeenNthCalledWith(
+        1,
+        expect.anything(),
+        expect.objectContaining({ effort: 'low' }),
+      );
+      expect(chat).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        expect.objectContaining({ effort: 'high' }),
+      );
+      expect(cacheService.lookup).not.toHaveBeenCalled();
+      expect(cacheService.store).not.toHaveBeenCalled();
     });
 
     it('uses cached response when available', async () => {

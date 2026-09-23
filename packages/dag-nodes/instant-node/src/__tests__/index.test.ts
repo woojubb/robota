@@ -1,34 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Partial mocks: every other export of each package stays real. Only the agent entrypoint and the
-// provider classes the node constructs are stubbed, so no provider SDK client is ever instantiated
-// and no real API call is made.
+// Only the agent entrypoint is stubbed. Provider construction is supplied through the injected
+// provider-definition registry, which keeps this leaf test independent of vendor SDK packages.
 vi.mock('@robota-sdk/agent-core', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@robota-sdk/agent-core')>()),
   Robota: vi.fn().mockImplementation(() => ({
     run: vi.fn().mockResolvedValue('mocked response'),
   })),
-}));
-
-vi.mock('@robota-sdk/agent-provider-anthropic', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@robota-sdk/agent-provider-anthropic')>()),
-  AnthropicProvider: vi.fn().mockImplementation(() => ({})),
-}));
-
-vi.mock('@robota-sdk/agent-provider-openai', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@robota-sdk/agent-provider-openai')>()),
-  OpenAIProvider: vi.fn().mockImplementation(() => ({})),
-}));
-
-vi.mock('@robota-sdk/agent-provider-gemini/google', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@robota-sdk/agent-provider-gemini/google')>()),
-  GoogleProvider: vi.fn().mockImplementation(() => ({})),
-}));
-
-vi.mock('@robota-sdk/agent-provider-openai-compatible', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@robota-sdk/agent-provider-openai-compatible')>()),
-  DeepSeekProvider: vi.fn().mockImplementation(() => ({})),
-  QwenProvider: vi.fn().mockImplementation(() => ({})),
 }));
 
 import {
@@ -38,6 +16,20 @@ import {
 } from '../index.js';
 import type { ICreatePromptNodeInput } from '../index.js';
 import type { IDagDefinition, INodeExecutionContext, TPortPayload } from '@robota-sdk/dag-core';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
+
+const TEST_PROVIDERS: readonly IProviderDefinition[] = [
+  {
+    type: 'anthropic',
+    defaults: { model: 'test-model', apiKey: '$ENV:ANTHROPIC_API_KEY' },
+    credentialRequirement: { anyOf: ['apiKey'] },
+    createProvider: () => ({ name: 'anthropic' }) as never,
+  },
+];
+
+function createTestNode(spec: ICreatePromptNodeInput = SINGLE_PORT_SPEC) {
+  return createPromptBackedNodeDefinition(spec, TEST_PROVIDERS);
+}
 
 const MOCK_CONTEXT: INodeExecutionContext = {
   executionRoot: '/test/execution-root',
@@ -73,50 +65,50 @@ const SINGLE_PORT_SPEC: ICreatePromptNodeInput = {
 
 describe('createPromptBackedNodeDefinition', () => {
   it('returns a PromptBackedNodeDefinition instance', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node).toBeInstanceOf(PromptBackedNodeDefinition);
   });
 
   it('sets nodeType from spec', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.nodeType).toBe('my-custom-node');
   });
 
   it('sets displayName from spec', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.displayName).toBe('My Custom Node');
   });
 
   it('sets category to Instant', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.category).toBe('Instant');
   });
 
   it('builds inputs from inputPorts', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.inputs).toHaveLength(1);
     expect(node.inputs[0]).toMatchObject({ key: 'text', type: 'string', required: true });
   });
 
   it('builds outputs from outputPort', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.outputs).toHaveLength(1);
     expect(node.outputs[0]).toMatchObject({ key: 'text', type: 'string', required: true });
   });
 
   it('sets defaultInputPort to first input port key', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.defaultInputPort).toBe('text');
   });
 
   it('sets defaultOutputPort to output port key', () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     expect(node.defaultOutputPort).toBe('text');
   });
 
   it('each instance has independent nodeType', () => {
-    const nodeA = createPromptBackedNodeDefinition({ ...SINGLE_PORT_SPEC, nodeType: 'node-a' });
-    const nodeB = createPromptBackedNodeDefinition({ ...SINGLE_PORT_SPEC, nodeType: 'node-b' });
+    const nodeA = createTestNode({ ...SINGLE_PORT_SPEC, nodeType: 'node-a' });
+    const nodeB = createTestNode({ ...SINGLE_PORT_SPEC, nodeType: 'node-b' });
     expect(nodeA.nodeType).toBe('node-a');
     expect(nodeB.nodeType).toBe('node-b');
   });
@@ -133,7 +125,7 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
   });
 
   it('renders template and returns output on success', async () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     const input: TPortPayload = { text: 'hello world' };
     const result = await node.taskHandler.execute(input, MOCK_CONTEXT);
     expect(result.ok).toBe(true);
@@ -143,7 +135,7 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
   });
 
   it('returns validation error when required input port is missing', async () => {
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     const result = await node.taskHandler.execute({}, MOCK_CONTEXT);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -153,7 +145,7 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
 
   it('returns validation error when API key is missing', async () => {
     vi.stubEnv('ANTHROPIC_API_KEY', undefined);
-    const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
+    const node = createTestNode();
     const result = await node.taskHandler.execute({ text: 'hello' }, MOCK_CONTEXT);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -171,7 +163,7 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
       outputPort: { key: 'result' },
       provider: 'anthropic',
     };
-    const node = createPromptBackedNodeDefinition(multiSpec);
+    const node = createTestNode(multiSpec);
     const result = await node.taskHandler.execute(
       { name: 'Alice', age: '30' },
       { ...MOCK_CONTEXT, nodeDefinition: { ...MOCK_CONTEXT.nodeDefinition, nodeId: 'multi' } },
@@ -182,7 +174,7 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
 
 describe('persistence view (BEHAVIOR-006)', () => {
   it('PromptBackedNodeDefinition.toPersisted() returns a prompt record', () => {
-    const node = createPromptBackedNodeDefinition({
+    const node = createTestNode({
       nodeType: 'p',
       displayName: 'P',
       systemPromptTemplate: 'Hi {{text}}',
@@ -228,6 +220,144 @@ describe('persistence view (BEHAVIOR-006)', () => {
       innerDag,
       exposedInputPort: { key: 'text', mapsTo: { nodeId: 'in', portKey: 'text' } },
       exposedOutputPorts: [{ key: 'result', mapsTo: { nodeId: 'out', portKey: 'text' } }],
+    });
+  });
+});
+
+describe('composite nested-run lineage', () => {
+  function composite(
+    nodeType: string,
+    innerTypes: string[],
+    runner: ReturnType<typeof vi.fn>,
+    maxDepth?: number,
+  ) {
+    const innerDag = {
+      dagId: `inner-${nodeType}`,
+      version: 1,
+      status: 'draft',
+      nodes: innerTypes.map((type, index) => ({
+        nodeId: `inner-${index}`,
+        nodeType: type,
+        dependsOn: [],
+        config: {},
+      })),
+      edges: [],
+    } as unknown as IDagDefinition;
+    return createCompositeInstantNodeDefinition({
+      nodeType,
+      displayName: nodeType,
+      innerDag,
+      exposedInputPort: { key: 'text', mapsTo: { nodeId: 'inner-0', portKey: 'text' } },
+      exposedOutputPorts: [{ key: 'result', mapsTo: { nodeId: 'inner-0', portKey: 'text' } }],
+      runner: { run: runner },
+      ...(maxDepth === undefined ? {} : { maxDepth }),
+    });
+  }
+
+  function context(nodeType: string, lineage?: object): INodeExecutionContext {
+    return {
+      ...MOCK_CONTEXT,
+      nodeDefinition: { ...MOCK_CONTEXT.nodeDefinition, nodeType },
+      ...(lineage ? { lineage } : {}),
+    } as INodeExecutionContext;
+  }
+
+  it('rejects direct recursion before launching a child', async () => {
+    const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
+    const node = composite('recursive', ['recursive'], runner);
+    const result = await node.taskHandler.execute({ text: 'x' }, context('recursive'));
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_COMPOSITE_RECURSION' },
+    });
+    expect(runner).not.toHaveBeenCalled();
+  });
+
+  it('rejects indirect recursion through an ancestor type before launching a child', async () => {
+    const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
+    const node = composite('second', ['first'], runner);
+    const result = await node.taskHandler.execute(
+      { text: 'x' },
+      context('second', {
+        rootRunId: 'root',
+        parentRunId: 'root',
+        depth: 1,
+        ancestorCompositeNodeTypes: ['first'],
+      }),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_COMPOSITE_RECURSION' },
+    });
+    expect(runner).not.toHaveBeenCalled();
+  });
+
+  it('rejects a child launch beyond the declared depth', async () => {
+    const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
+    const node = composite('bounded', ['input'], runner, 2);
+    const result = await node.taskHandler.execute(
+      { text: 'x' },
+      context('bounded', {
+        rootRunId: 'root',
+        parentRunId: 'parent',
+        depth: 2,
+        ancestorCompositeNodeTypes: ['first', 'second'],
+      }),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_COMPOSITE_DEPTH_EXCEEDED' },
+    });
+    expect(runner).not.toHaveBeenCalled();
+  });
+
+  it('passes immutable root/parent lineage to a child runner', async () => {
+    const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
+    const node = composite('bounded', ['input'], runner);
+    const result = await node.taskHandler.execute({ text: 'x' }, context('bounded'));
+    expect(result.ok).toBe(true);
+    expect(runner).toHaveBeenCalledWith(expect.any(Object), expect.any(Object), {
+      rootRunId: 'test-run',
+      parentRunId: 'test-run',
+      depth: 1,
+      maxDepth: 3,
+      ancestorCompositeNodeTypes: ['bounded'],
+    });
+  });
+
+  it('keeps the tightest ancestor depth ceiling', async () => {
+    const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
+    const node = composite('child', ['input'], runner);
+    const result = await node.taskHandler.execute(
+      { text: 'x' },
+      context('child', {
+        rootRunId: 'root',
+        parentRunId: 'parent',
+        depth: 1,
+        maxDepth: 1,
+        ancestorCompositeNodeTypes: ['outer'],
+      }),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_COMPOSITE_DEPTH_EXCEEDED', retryable: false },
+    });
+    expect(runner).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('preserves a child error with retryable=%s', async (retryable) => {
+    const runner = vi.fn(async () => ({
+      ok: false,
+      outputs: {},
+      error: 'child failed',
+      errorCode: 'DAG_TASK_EXECUTION_CHILD_FAILURE',
+      retryable,
+    }));
+    const node = composite('parent', ['input'], runner);
+    const result = await node.taskHandler.execute({ text: 'x' }, context('parent'));
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_CHILD_FAILURE', retryable },
     });
   });
 });

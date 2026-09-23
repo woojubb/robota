@@ -130,3 +130,72 @@ describe('callPluginHook', () => {
     expect(callArgs[1].userId).toBe('user-1');
   });
 });
+
+describe('PLG-020 (issue #2460): execution-level hooks are dispatched', () => {
+  const logger = createMockLogger();
+  const executionContext = { executionId: 'exec-1', sessionId: 'sess-1' };
+  const executionResult = {
+    response: 'ok',
+    duration: 5,
+    tokensUsed: 7,
+    success: true,
+    toolCalls: [{ name: 'Read' }],
+  };
+
+  it('beforeExecution receives ids and messages as an IPluginExecutionContext', async () => {
+    const plugin = createMockPlugin({ beforeExecution: vi.fn() });
+    const messages = [{ role: 'user', content: 'hi' }] as any;
+    await callPluginHook([plugin], 'beforeExecution', { messages, executionContext }, logger);
+    expect(plugin.beforeExecution).toHaveBeenCalledWith({
+      executionId: 'exec-1',
+      sessionId: 'sess-1',
+      messages,
+    });
+  });
+
+  it('afterExecution and afterConversation receive the run result', async () => {
+    const plugin = createMockPlugin({ afterExecution: vi.fn(), afterConversation: vi.fn() });
+    await callPluginHook([plugin], 'afterExecution', { executionContext, executionResult }, logger);
+    await callPluginHook(
+      [plugin],
+      'afterConversation',
+      { executionContext, executionResult },
+      logger,
+    );
+    expect(plugin.afterExecution).toHaveBeenCalledWith(
+      { executionId: 'exec-1', sessionId: 'sess-1' },
+      executionResult,
+    );
+    expect(plugin.afterConversation).toHaveBeenCalledWith(
+      { executionId: 'exec-1', sessionId: 'sess-1' },
+      executionResult,
+    );
+  });
+
+  it('afterToolExecution fires only when a tool ran', async () => {
+    const plugin = createMockPlugin({ afterToolExecution: vi.fn() });
+    await callPluginHook(
+      [plugin],
+      'afterToolExecution',
+      { executionContext, executionResult: { ...executionResult, toolCalls: [] } },
+      logger,
+    );
+    expect(plugin.afterToolExecution).not.toHaveBeenCalled();
+    await callPluginHook(
+      [plugin],
+      'afterToolExecution',
+      { executionContext, executionResult },
+      logger,
+    );
+    expect(plugin.afterToolExecution).toHaveBeenCalledTimes(1);
+  });
+
+  it('onMessageAdded receives the appended message', async () => {
+    const plugin = createMockPlugin({ onMessageAdded: vi.fn() });
+    const message = { role: 'assistant', content: 'hello' } as any;
+    await callPluginHook([plugin], 'onMessageAdded', { message }, logger);
+    expect(plugin.onMessageAdded).toHaveBeenCalledWith(message);
+    await callPluginHook([plugin], 'onMessageAdded', {}, logger);
+    expect(plugin.onMessageAdded).toHaveBeenCalledTimes(1);
+  });
+});

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/agent-provider-anthropic",
+  "packageName": "@robota-sdk/agent-provider-anthropic",
+  "command": {
+    "executable": "pnpm",
+    "args": ["scenario:verify"],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-provider-anthropic@3.0.0-beta.79 scenario:verify /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-provider-anthropic\n> pnpm typecheck\n\n\n> @robota-sdk/agent-provider-anthropic@3.0.0-beta.79 typecheck /Users/jungyoun/Documents/dev/woojubb/robota-5/packages/agent-provider-anthropic\n> tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit\n\n",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

@@ -1,6 +1,8 @@
 # Agent Transport
 
-Protocol-level transport adapters for the Robota SDK — headless, HTTP, WebSocket, MCP, and WebRTC.
+Browser-safe transport protocol and delivery substrate for the Robota SDK. The root exports shared
+wire messages, session bridging, channel codecs, and delivery helpers. Browser decoders are also
+available from `./client`; Node-only admission and handoff helpers are available from `./node`.
 
 ## Installation
 
@@ -10,19 +12,19 @@ npm install @robota-sdk/agent-transport
 
 ## Available Transports
 
-Headless is a sub-path of this package. HTTP, WebSocket, MCP, and WebRTC ship as
-standalone packages.
+Headless execution belongs to `agent-framework`. HTTP, WebSocket, MCP, and WebRTC ship as standalone
+transport packages.
 
-| Transport | Package / Sub-path                     | Description                                             |
-| --------- | -------------------------------------- | ------------------------------------------------------- |
-| Headless  | `@robota-sdk/agent-transport/headless` | Non-interactive text / JSON / stream-JSON output        |
-| HTTP      | `@robota-sdk/agent-transport-http`     | Hono-based REST adapter (Node.js / CF Workers / Lambda) |
-| WebSocket | `@robota-sdk/agent-transport-ws`       | Framework-agnostic real-time bidirectional adapter      |
-| MCP       | `@robota-sdk/agent-transport-mcp`      | Model Context Protocol server adapter                   |
-| WebRTC    | `@robota-sdk/agent-transport-webrtc`   | Peer-to-peer data-channel adapter                       |
+| Transport | Package / Sub-path                   | Description                                             |
+| --------- | ------------------------------------ | ------------------------------------------------------- |
+| Headless  | `@robota-sdk/agent-framework`        | Non-interactive text / JSON / stream-JSON output        |
+| HTTP      | `@robota-sdk/agent-transport-http`   | Hono-based REST adapter (Node.js / CF Workers / Lambda) |
+| WebSocket | `@robota-sdk/agent-transport-ws`     | Framework-agnostic real-time bidirectional adapter      |
+| MCP       | `@robota-sdk/agent-transport-mcp`    | Model Context Protocol server adapter                   |
+| WebRTC    | `@robota-sdk/agent-transport-webrtc` | Peer-to-peer data-channel adapter                       |
 
-This package also exposes the `./testing` (scripted-provider fixtures) and
-`./programmatic` sub-paths.
+Scripted-provider test fixtures live in `@robota-sdk/agent-core/testing` (the former `./testing`
+pass-through was removed, issue #2052).
 
 All session-owning entry points treat `cwd` as provenance, not project trust. Pass a host-issued
 `TWorkspaceProjectAccess` decision through `projectAccess`; omitting it creates a Restricted session
@@ -33,7 +35,7 @@ that does not load project contributions.
 ### Headless
 
 ```typescript
-import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
+import { createHeadlessTransport } from '@robota-sdk/agent-framework';
 
 const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'Hello!' });
 ```
@@ -65,35 +67,36 @@ const transport = createMcpTransport({ name: 'my-agent', version: '1.0.0' });
 ### TUI presentation (Ink/React)
 
 ```typescript
-import { renderApp } from '@robota-sdk/agent-transport-tui';
-import type { IRenderOptions } from '@robota-sdk/agent-transport-tui';
+import { renderApp } from '@robota-sdk/agent-ui-terminal';
+import type { IRenderOptions } from '@robota-sdk/agent-ui-terminal';
 
 declare const options: IRenderOptions;
 await renderApp(options);
 ```
 
 > React and Ink dependencies are confined to the standalone
-> `@robota-sdk/agent-transport-tui` package. This core package stays React-free.
+> `@robota-sdk/agent-ui-terminal` package. This core package stays React-free.
 
 ## Sub-path Imports
 
 Import only what you need to keep bundles small:
 
 ```typescript
-import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
+import { createHeadlessTransport } from '@robota-sdk/agent-framework';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
-import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { TServerMessage } from '@robota-sdk/agent-transport';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
-import { renderApp } from '@robota-sdk/agent-transport-tui';
+import { renderApp } from '@robota-sdk/agent-ui-terminal';
 ```
 
-The root import exposes only the headless and programmatic surfaces (plus the
-`TransportRegistry`). The HTTP, WebSocket, MCP, and WebRTC transports are not
-re-exported here — import them from their own packages shown above.
+The framework root owns headless and programmatic surfaces plus `TransportRegistry`. The transport
+root owns transport-neutral wire messages, session bridging, channel codecs, and delivery helpers;
+browser decoders are also available from `@robota-sdk/agent-transport/client`, while Node-only
+admission and handoff helpers live under `@robota-sdk/agent-transport/node`.
 
 ```typescript
-import { createHeadlessTransport } from '@robota-sdk/agent-transport';
+import { createHeadlessTransport } from '@robota-sdk/agent-framework';
 ```
 
 `TransportRegistry` accepts the discriminated base service/runner adapter union. It rejects active
@@ -103,13 +106,17 @@ immediately, and returns a complete ordered aggregate whose pending runners beco
 
 ## Dependencies
 
-- `@robota-sdk/agent-core`
+- `@robota-sdk/agent-interface-analytics`
+- `@robota-sdk/agent-interface-command`
+- `@robota-sdk/agent-interface-execution`
+- `@robota-sdk/agent-interface-session`
+- `@robota-sdk/agent-interface-session-mobility`
 - `@robota-sdk/agent-interface-transport`
-- `@robota-sdk/agent-framework`
 
 The heavier protocol dependencies (`ws`, `hono`, `@modelcontextprotocol/sdk`,
 `react`, `ink`, and friends) now live in the split transport packages
-(`@robota-sdk/agent-transport-{http,ws,mcp,tui}`).
+(`@robota-sdk/agent-transport-{http,ws,mcp}`) and presentation packages
+(`@robota-sdk/agent-ui-{terminal,web}`).
 
 ## Links
 

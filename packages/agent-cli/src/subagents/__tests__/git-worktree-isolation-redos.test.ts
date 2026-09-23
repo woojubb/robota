@@ -7,7 +7,7 @@
  * 8 characters afterwards, so the resulting worktree is ordinary and `prepare()` completes normally.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -38,7 +38,7 @@ function runGit(cwd: string, args: string[]): void {
 }
 
 function createGitRepo(): string {
-  const repo = mkdtempSync(join(tmpdir(), 'robota-worktree-redos-'));
+  const repo = realpathSync(mkdtempSync(join(tmpdir(), 'robota-worktree-redos-')));
   tempRepos.push(repo);
   runGit(repo, ['init']);
   runGit(repo, ['config', 'user.email', 'test@example.com']);

@@ -1,10 +1,4 @@
-/**
- * SessionExecutionController — owns execution lifecycle state and methods
- * for InteractiveSession.
- *
- * Manages: execution claim, streaming text, active tools, pending queue,
- * shutting-down flag, and all private execution lifecycle methods.
- */
+/** InteractiveSession execution lifecycle, queue, streaming, and tool state. */
 
 import {
   createUserMessage,
@@ -23,6 +17,7 @@ import { PendingInputQueue } from './interactive-session-pending-queue.js';
 import { capturePostTurnMemory } from './interactive-session-post-turn-memory.js';
 import { executePromptTurn, promptTurnAttribution } from './interactive-session-prompt.js';
 import { STREAMING_FLUSH_INTERVAL_MS } from './interactive-session-streaming.js';
+import { recordUsageObservation } from './interactive-session-usage-observation.js';
 import { TurnSettlerRegistry } from './turn-settler-registry.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
 
@@ -42,6 +37,7 @@ import type { TExecutionWorkspaceUpdateCause } from '../background-tasks/index.j
 import type { ICommand, ICommandResult, ISkillExecutionResult } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
+import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { TToolArgs } from '@robota-sdk/agent-core';
 import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-session';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
@@ -208,12 +204,8 @@ export class SessionExecutionController {
     turnId: string,
     turnOptions: ITurnOptions = {},
   ): Promise<void> {
-    // RUNTIME-12: claim the turn SYNCHRONOUSLY at entry. The caller's `if (execCtrl.executing)` gate
-    // (interactive-session.submit) and this claim are synchronous, so a second concurrent submit
-    // observes `executing` and coalesces to the pending queue instead of BOTH starting a turn. (Previously
-    // set only AFTER the awaited checkAndRefreshContextIfStale below, leaving a two-await window where both
-    // entries saw idle.) The `finally` always releases it — including if the refresh throws, which is why
-    // checkAndRefreshContextIfStale now runs INSIDE the try.
+    // RUNTIME-12: claim synchronously before any await so a concurrent submit queues rather than also
+    // starting. The `finally` releases this claim even when context refresh or execution throws.
     let executionClaim: IExecutionClaim;
     try {
       executionClaim = this.executionClaim.acquire('prompt');
@@ -231,7 +223,10 @@ export class SessionExecutionController {
     // COMPLETED path only, and a handle must settle for an interrupted turn too.
     let terminalResult: IExecutionResult | undefined;
     let turnError: Error | undefined;
+    let turnOutcome: 'success' | 'failure' | 'interrupted' = 'failure';
     let ephemeralSystemContext: string | undefined;
+    // MEM-2055: recall runs before the turn's own messages reach history — stash events, record in `finally`.
+    let pendingMemoryEvents: IMemoryEvent[] = [];
     try {
       await checkAndRefreshContextIfStale(
         agentsFileEntries,
@@ -247,11 +242,20 @@ export class SessionExecutionController {
       // prompt from an agent-wakeup re-entry.
       this.callbacks.emit('turn_source', turnOptions.turnSource ?? 'user');
       this.callbacks.emit('user_message', displayInput ?? input);
+      // SCREEN-1993: what the owner typed, recorded after the message is on the channel.
+      this.callbacks.recordPrompt?.({
+        input,
+        rawInput,
+        turnSource: turnOptions.turnSource ?? 'user',
+        driverId: turnOptions.driverId,
+      });
       this.callbacks.emit('thinking', true);
+      this.histTracker.resetUsedMemoryReferences(); // MEM-2055: before recall — old order lost it
       if (this.callbacks.recallMemory) {
         try {
           const recalled = await this.callbacks.recallMemory(input);
-          if (recalled && recalled.trim().length > 0) ephemeralSystemContext = recalled;
+          if (recalled.context.trim().length > 0) ephemeralSystemContext = recalled.context;
+          pendingMemoryEvents = recalled.events;
         } catch {
           // allow-fallback: per-turn recall is best-effort over the always-present startup memory; a recall
           // error skips ephemeral injection and the turn proceeds normally (SELFHOST-008 P3 declared degradation).
@@ -266,7 +270,6 @@ export class SessionExecutionController {
         getHistory: () => this.histTracker.getHistory(),
         getContextReferences: () => this.histTracker.listInjectionContextReferences(),
         getActiveTools: () => this.activeTools,
-        resetUsedMemoryReferences: () => this.histTracker.resetUsedMemoryReferences(),
         recordContextReferenceUsage: (r) => this.histTracker.recordContextReferenceUsage(r),
         recordPromptContextReferences: (r) => this.histTracker.recordPromptContextReferences(r),
         beginEditCheckpointTurn: (p) => this.histTracker.beginEditCheckpointTurn(p),
@@ -277,11 +280,13 @@ export class SessionExecutionController {
         onComplete: (result: IExecutionResult) => {
           completedResult = result; // stash for post-turn capture in the `finally`
           terminalResult = result;
+          turnOutcome = 'success';
           this.callbacks.emit('complete', result);
         },
         onInterrupted: (result: IExecutionResult) => {
           // RUNTIME-003: an interrupted turn RAN — resolve, do not reject.
           terminalResult = result;
+          turnOutcome = 'interrupted';
           this.callbacks.emit('interrupted', result);
         },
         onError: (err: Error) => {
@@ -293,17 +298,7 @@ export class SessionExecutionController {
         },
       });
     } catch (error) {
-      // RUNTIME-003: the REAL error, not the generic fallback below.
-      //
-      // `executePromptTurn` catches its own throws and routes them to `onError`, so `turnError` is
-      // set for anything that happens INSIDE it. Everything before it in this `try` is not covered:
-      // the `checkAndRefreshContextIfStale` await, a synchronous listener on one of the `emit`
-      // calls, the recall block's own rethrow. Review found that such a throw left both
-      // `terminalResult` and `turnError` undefined, so the handle rejected with "the turn ended
-      // without a result" — a message that names the symptom and destroys the cause.
-      //
-      // Rethrown, so callers of `executePrompt` see exactly what they saw before. The only thing
-      // this changes is WHAT the handle rejects with.
+      // RUNTIME-003: preserve pre-execution failures instead of replacing the real cause.
       turnError = error instanceof Error ? error : new Error(String(error));
       throw error;
     } finally {
@@ -312,6 +307,8 @@ export class SessionExecutionController {
       } catch (error) {
         this.callbacks.emit('error', error instanceof Error ? error : new Error(String(error)));
       }
+      // MEM-2055: turn's own messages are already in history now, so this renders after them.
+      for (const event of pendingMemoryEvents) this.histTracker.recordMemoryEvent(event);
       // SELFHOST-008 P2: post-turn auto-capture, awaited here so its events land in THIS turn's record.
       await capturePostTurnMemory({
         capture: this.callbacks.captureMemory,
@@ -320,6 +317,13 @@ export class SessionExecutionController {
         userMessage: displayInput ?? input,
         record: (event) => this.histTracker.recordMemoryEvent(event),
         onError: (error) => this.callbacks.emit('error', error),
+      });
+      recordUsageObservation(this.histTracker.getHistory(), this.callbacks.getSessionOrThrow(), {
+        turnId,
+        outcome: turnOutcome,
+        ...(turnOptions.driverId ? { driverId: turnOptions.driverId } : {}),
+        ...(turnOptions.surface ? { surface: turnOptions.surface } : {}),
+        ...(terminalResult?.usage ? { usage: terminalResult.usage } : {}),
       });
       // RUNTIME-003: settled BEFORE draining, in the `finally` that always runs — so a caller is
       // answered by ITS turn, and a turn that threw where onError never saw still settles.

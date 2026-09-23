@@ -6,7 +6,7 @@ import { PairingGate, type IPairingGateOptions } from '../pairing-gate.js';
 import { WebRtcDeliveryLifecycle } from '../webrtc-delivery-lifecycle.js';
 
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
-import type { createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import type { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { RTCDataChannel } from 'werift';
 
@@ -49,7 +49,7 @@ function makeGate(over: Partial<IPairingGateOptions> = {}) {
   const session = Object.assign(createTestInteractiveSession(), {});
   const sessionOnMessage = vi.fn();
   const handlerCleanup = vi.fn();
-  const createHandler: typeof createWsHandler = () => ({
+  const createHandler: typeof createSessionMessageHandler = () => ({
     onMessage: sessionOnMessage,
     cleanup: handlerCleanup,
   });
@@ -91,6 +91,21 @@ describe('PairingGate (REMOTE-008 Step 1 — fail-closed routing switch)', () =>
     // Undecodable garbage pre-accept is dropped without throwing.
     expect(() => gate.onInbound('not json')).not.toThrow();
   });
+
+  it.each([
+    ['an empty mac', { t: 'pair-confirm', mac: '' }],
+    ['a numeric nonce', { t: 'pair-nonce', nonce: 7 }],
+    ['a padded (non-base64url) mac', { t: 'pair-confirm', mac: 'bWFj==' }],
+    ['a mac over the ceiling', { t: 'pair-confirm', mac: 'A'.repeat(129) }],
+  ])(
+    'issue #2046: a pairing frame with the right discriminator but %s never reaches the handshake',
+    (_label, frame) => {
+      // Against the old discriminator-only predicate every one of these was handed to the controller.
+      const { gate, hs } = makeGate();
+      gate.onInbound(JSON.stringify(frame));
+      expect(hs.received).toEqual([]);
+    },
+  );
 
   it('on ACCEPT: builds the session bridge and routes subsequent frames to it', async () => {
     const { gate, hs, sessionOnMessage } = makeGate();

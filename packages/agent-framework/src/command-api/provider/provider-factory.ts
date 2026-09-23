@@ -1,5 +1,8 @@
-import { ENV_REFERENCE_PREFIX, isEnvReference } from '@robota-sdk/agent-core';
-import { createProviderFromConfig } from '@robota-sdk/agent-executor';
+import {
+  ENV_REFERENCE_PREFIX,
+  createProviderFromConfig,
+  isEnvReference,
+} from '@robota-sdk/agent-core';
 
 import { readMergedProviderSettingsFromSources, resolveActiveProvider } from './provider-merge.js';
 

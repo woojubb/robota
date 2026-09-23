@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 /**
  * Runs build:types for packages under packages/** in strict topological order.
- * Packages are executed one tier at a time in deterministic order.
+ * Independent packages in one tier execute concurrently, while their captured
+ * output is rendered in package-name order after the tier completes.
  */
 
-import { execSync } from 'child_process';
+import { spawn } from 'node:child_process';
 import fs from 'fs';
+import os from 'node:os';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { listManifestPackageDirs } from './harness/workspace-packages.mjs';
@@ -19,6 +21,12 @@ const DEPENDENCY_FIELDS = [
   'peerDependencies',
   'optionalDependencies',
 ];
+
+export function defaultBuildTypeConcurrency() {
+  const available =
+    typeof os.availableParallelism === 'function' ? os.availableParallelism() : os.cpus().length;
+  return Math.max(1, Math.min(4, available || 1));
+}
 
 export function findBuildTypePackages(workspaceRoot = root) {
   const results = new Map(); // name -> pkg info
@@ -75,19 +83,146 @@ export function createBuildTypeTiers(discoveredPackages) {
   return tiers;
 }
 
-function runTierSerially(packages) {
-  for (const pkg of packages) {
-    try {
-      execSync('pnpm build:types', { cwd: pkg.dir, stdio: 'inherit' });
-    } catch {
-      throw new Error(`FAILED: ${pkg.name} build:types`);
+export function selectBuildTypePackages(discoveredPackages, requestedNames = []) {
+  if (requestedNames.length === 0) return [...discoveredPackages];
+
+  const byName = new Map(discoveredPackages.map((pkg) => [pkg.name, pkg]));
+  const unknown = [...new Set(requestedNames)].filter((name) => !byName.has(name)).sort();
+  if (unknown.length > 0) {
+    throw new Error(`Unknown or non-buildable package(s): ${unknown.join(', ')}`);
+  }
+
+  const selected = new Set();
+  const visit = (name) => {
+    if (selected.has(name)) return;
+    selected.add(name);
+    const pkg = byName.get(name);
+    for (const dependency of localDependencies(pkg, new Set(byName.keys()))) {
+      visit(dependency);
+    }
+  };
+  for (const name of requestedNames) visit(name);
+
+  return [...selected]
+    .map((name) => byName.get(name))
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function executeBuildType(pkg) {
+  return new Promise((resolve) => {
+    const child = spawn('pnpm', ['build:types'], {
+      cwd: pkg.dir,
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.on('error', (error) => resolve({ status: 1, signal: null, stdout, stderr, error }));
+    child.on('close', (status, signal) => resolve({ status, signal, stdout, stderr }));
+  });
+}
+
+export async function runBuildTypeTier(
+  packages,
+  {
+    concurrency = defaultBuildTypeConcurrency(),
+    runPackage = executeBuildType,
+    write = (value) => process.stdout.write(value),
+  } = {},
+) {
+  if (!Number.isInteger(concurrency) || concurrency < 1) {
+    throw new Error(`Build concurrency must be a positive integer, received: ${concurrency}`);
+  }
+
+  const ordered = [...packages].sort((left, right) => left.name.localeCompare(right.name));
+  const results = new Array(ordered.length);
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < ordered.length) {
+      const index = cursor;
+      cursor += 1;
+      const pkg = ordered[index];
+      try {
+        results[index] = await runPackage(pkg);
+      } catch (error) {
+        results[index] = { status: 1, signal: null, stdout: '', stderr: '', error };
+      }
     }
   }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, ordered.length) }, () => worker()));
+
+  for (let index = 0; index < ordered.length; index += 1) {
+    const pkg = ordered[index];
+    const result = results[index];
+    write(`\n[build:types] ${pkg.name}\n`);
+    if (result.stdout) write(result.stdout.endsWith('\n') ? result.stdout : `${result.stdout}\n`);
+    if (result.stderr) write(result.stderr.endsWith('\n') ? result.stderr : `${result.stderr}\n`);
+  }
+
+  const failures = ordered
+    .map((pkg, index) => ({ pkg, result: results[index] }))
+    .filter(({ result }) => result.status !== 0 || result.signal || result.error);
+  if (failures.length > 0) {
+    const details = failures.map(({ pkg, result }) => {
+      const reason = result.error?.message ?? result.signal ?? `exit ${result.status}`;
+      return `${pkg.name} (${reason})`;
+    });
+    throw new Error(`FAILED build:types: ${details.join(', ')}`);
+  }
+
+  return results;
+}
+
+export function parseBuildTypeArgs(argv) {
+  const options = {
+    concurrency: Number.parseInt(process.env.ROBOTA_BUILD_TYPES_CONCURRENCY ?? '', 10),
+    packageNames: [],
+  };
+  if (!Number.isInteger(options.concurrency) || options.concurrency < 1) {
+    options.concurrency = defaultBuildTypeConcurrency();
+  }
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (token === '--') continue;
+    if (token === '--concurrency') {
+      const value = Number.parseInt(argv[index + 1] ?? '', 10);
+      if (!Number.isInteger(value) || value < 1) {
+        throw new Error('--concurrency requires a positive integer');
+      }
+      options.concurrency = value;
+      index += 1;
+      continue;
+    }
+    if (token === '--package') {
+      const value = argv[index + 1];
+      if (!value) throw new Error('--package requires a workspace package name');
+      options.packageNames.push(value);
+      index += 1;
+      continue;
+    }
+    throw new Error(`Unknown argument: ${token}`);
+  }
+
+  return options;
 }
 
 async function main() {
-  const packages = findBuildTypePackages();
-  console.log(`Building types for ${packages.length} packages in topological order...\n`);
+  const options = parseBuildTypeArgs(process.argv.slice(2));
+  const discovered = findBuildTypePackages();
+  const packages = selectBuildTypePackages(discovered, options.packageNames);
+  console.log(
+    `Building types for ${packages.length} packages in topological order ` +
+      `(concurrency ${options.concurrency})...\n`,
+  );
 
   const tiers = createBuildTypeTiers(packages);
 
@@ -95,7 +230,7 @@ async function main() {
     const tier = tiers[i];
     const names = tier.map((p) => p.name.replace('@robota-sdk/', '')).join(', ');
     console.log(`Tier ${i + 1}/${tiers.length} [${tier.length} packages]: ${names}`);
-    runTierSerially(tier);
+    await runBuildTypeTier(tier, { concurrency: options.concurrency });
     console.log(`  ✓ done\n`);
   }
 

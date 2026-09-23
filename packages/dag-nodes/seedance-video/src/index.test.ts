@@ -180,7 +180,10 @@ describe('SeedanceVideoNodeDefinition', () => {
 
   describe('construction with options', () => {
     it('passes options to SeedanceVideoRuntime', () => {
-      const options = { apiKey: 'k', baseUrl: 'https://api.test', defaultModel: 'seedance-2.0' };
+      const options = {
+        videoProviderDefinition: { type: 'test-video' } as never,
+        defaultModel: 'seedance-2.0',
+      };
       new SeedanceVideoNodeDefinition(options);
       expect(SeedanceVideoRuntime).toHaveBeenCalledWith(options);
     });

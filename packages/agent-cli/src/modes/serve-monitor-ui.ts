@@ -38,7 +38,7 @@ export interface IMonitorUiServer {
 }
 
 /**
- * Resolve the built web-monitor asset root (`dist/web`, copied from `agent-cli-web` by `copy-web-assets`).
+ * Resolve the built web-monitor asset root (`dist/web`, assembled from a pinned web-producer generation).
  * From the compiled module at `dist/node/…`, the assets sit at `dist/web`. Returns null if not present (a
  * dev tree without a CLI build) — the caller then skips serving the UI without failing the WS host.
  */
@@ -109,7 +109,7 @@ export async function startMonitorUiServer(
       res.writeHead(403).end('Forbidden');
       return;
     }
-    const lexicalPath = join(webRoot, ...segments);
+    const lexicalPath = join(webRootReal, ...segments);
     // Segment validation alone is NOT containment: `escape` is a perfectly plain segment, and if it
     // is a symlink pointing outside webRoot then `join` stays inside lexically while the open follows
     // the link straight out. Only canonicalization sees through that, so containment is decided on

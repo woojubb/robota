@@ -152,8 +152,8 @@ describe.each(ENTRY_POINTS)('CORE-042 turn parity — %s()', (entry) => {
 
     expect(scripted.chatOptions[0]?.maxTokens).toBe(512);
     expect(scripted.chatOptions[0]?.temperature).toBe(0.25);
-    // The framework→provider seam defaults the reasoning dial rather than leaving it absent.
-    expect(scripted.chatOptions[0]?.effort).toBe('high');
+    // Preserve the automatic selection so the provider can resolve it from its model capability table.
+    expect(scripted.chatOptions[0]?.effort).toBe('auto');
   });
 
   it('carries the tool-invocation directive into the chat options', async () => {

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -11,6 +11,16 @@ import {
   validateSessionReplayLogEntries,
   type ISessionLogEntry,
 } from '../session-log-replay.js';
+import { SessionLogDecodeError } from '../session-log-codec/index.js';
+
+const logEnvelope = { schemaVersion: 1, timestamp: '2026-05-05T00:00:00.000Z', sessionId: 's1' };
+const assistantMessage = {
+  id: 'a1',
+  role: 'assistant',
+  content: 'hi',
+  state: 'complete',
+  timestamp: logEnvelope.timestamp,
+};
 
 describe('session log replay support', () => {
   it('ARCH-042: rejects an empty Node session-log path before deriving sidecar authority', () => {
@@ -19,7 +29,7 @@ describe('session log replay support', () => {
   });
 
   it('redacts sensitive fields and stores large payloads by content-addressed reference', () => {
-    const logDir = mkdtempSync(join(tmpdir(), 'robota-log-'));
+    const logDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-log-')));
     const logger = new FileSessionLogger(new NodeSessionLogSink(logDir), {
       externalPayloadThresholdBytes: 32,
     });
@@ -54,39 +64,46 @@ describe('session log replay support', () => {
     expect(JSON.parse(payload)).toBe('x'.repeat(128));
   });
 
-  it('ARCH-014: loadSessionLogEntries hydrates externalized values before replay', () => {
-    const logDir = mkdtempSync(join(tmpdir(), 'robota-log-hydration-'));
-    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir), {
-      externalPayloadThresholdBytes: 32,
-    });
+  // ARCH-049 containment: external-payload reads refuse off Linux (see external-payload-resolver.test.ts).
+  it.skipIf(process.platform !== 'linux')(
+    'ARCH-014: loadSessionLogEntries hydrates externalized values before replay',
+    () => {
+      const logDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-log-hydration-')));
+      const logger = new FileSessionLogger(new NodeSessionLogSink(logDir), {
+        externalPayloadThresholdBytes: 32,
+      });
 
-    logger.log('hydrated_session', 'history_mutation', {
-      mutation: 'append_message',
-      message: {
-        id: 'a1',
-        role: 'assistant',
-        content: 'x'.repeat(128),
-        state: 'complete',
-        timestamp: '2026-08-15T00:00:00.000Z',
-      },
-    });
+      logger.log('hydrated_session', 'history_mutation', {
+        mutation: 'append_message',
+        index: 0,
+        message: {
+          id: 'a1',
+          role: 'assistant',
+          content: 'x'.repeat(128),
+          state: 'complete',
+          timestamp: '2026-08-15T00:00:00.000Z',
+        },
+      });
 
-    const [entry] = loadSessionLogEntries(
-      new NodeSessionLogSource(join(logDir, 'hydrated_session.jsonl')),
-    );
+      const [entry] = loadSessionLogEntries(
+        new NodeSessionLogSource(join(logDir, 'hydrated_session.jsonl')),
+      );
 
-    expect(entry?.message).toEqual(
-      expect.objectContaining({ role: 'assistant', content: 'x'.repeat(128) }),
-    );
-  });
+      expect(entry?.message).toEqual(
+        expect.objectContaining({ role: 'assistant', content: 'x'.repeat(128) }),
+      );
+    },
+  );
 
   it('replays append-only history mutation events into messages and chat history', () => {
     const entries: ISessionLogEntry[] = [
       {
+        schemaVersion: 1,
         timestamp: '2026-05-05T00:00:00.000Z',
         sessionId: 's1',
         event: 'history_mutation',
         mutation: 'append_message',
+        index: 0,
         message: {
           id: 'u1',
           role: 'user',
@@ -96,10 +113,12 @@ describe('session log replay support', () => {
         },
       },
       {
+        schemaVersion: 1,
         timestamp: '2026-05-05T00:00:01.000Z',
         sessionId: 's1',
         event: 'history_mutation',
         mutation: 'append_message',
+        index: 1,
         message: {
           id: 'a1',
           role: 'assistant',
@@ -119,19 +138,26 @@ describe('session log replay support', () => {
   it('validates provider/tool replay event completeness', () => {
     const entries: ISessionLogEntry[] = [
       {
+        schemaVersion: 1,
         timestamp: '2026-05-05T00:00:00.000Z',
         sessionId: 's1',
         event: 'provider_request',
         executionId: 'exec-1',
         round: 1,
+        provider: 'test',
+        model: 'test-model',
+        messages: [],
       },
       {
+        schemaVersion: 1,
         timestamp: '2026-05-05T00:00:01.000Z',
         sessionId: 's1',
         event: 'tool_execution_request',
         executionId: 'exec-1',
         toolCallId: 'tool-1',
         toolName: 'Read',
+        round: 1,
+        parameters: {},
       },
     ];
 
@@ -149,16 +175,21 @@ describe('session log replay support', () => {
 
   it('accepts provider-native raw response or stream payloads for replay validation', () => {
     const baseProviderRequest: ISessionLogEntry = {
+      schemaVersion: 1,
       timestamp: '2026-05-05T00:00:00.000Z',
       sessionId: 's1',
       event: 'provider_request',
       executionId: 'exec-1',
       round: 1,
+      provider: 'test',
+      model: 'test-model',
+      messages: [],
     };
 
     const result = validateSessionReplayLogEntries([
       baseProviderRequest,
       {
+        schemaVersion: 1,
         timestamp: '2026-05-05T00:00:01.000Z',
         sessionId: 's1',
         event: 'provider_native_raw_payload',
@@ -170,18 +201,23 @@ describe('session log replay support', () => {
         payload: { id: 'chunk-1' },
       },
       {
+        schemaVersion: 1,
         timestamp: '2026-05-05T00:00:02.000Z',
         sessionId: 's1',
         event: 'provider_response_raw',
         executionId: 'exec-1',
         round: 1,
+        response: assistantMessage,
+        responseKind: 'provider-normalized-message',
       },
       {
+        schemaVersion: 1,
         timestamp: '2026-05-05T00:00:03.000Z',
         sessionId: 's1',
         event: 'provider_response_normalized',
         executionId: 'exec-1',
         round: 1,
+        response: assistantMessage,
       },
     ]);
 
@@ -190,57 +226,70 @@ describe('session log replay support', () => {
 
   it('ARCH-014: rejects an unresolved normalized response as replay-incomplete', () => {
     const shared = {
+      schemaVersion: 1,
       timestamp: '2026-08-15T00:00:00.000Z',
       sessionId: 's1',
       executionId: 'exec-1',
       round: 1,
     };
-    const result = validateSessionReplayLogEntries([
-      { ...shared, event: 'provider_request' },
-      {
-        ...shared,
-        event: 'provider_native_raw_payload',
-        payloadKind: 'response',
-      },
-      { ...shared, event: 'provider_response_raw' },
-      {
-        ...shared,
-        event: 'provider_response_normalized',
-        response: {
-          kind: 'external-payload',
-          encoding: 'json',
-          sha256: 'a'.repeat(64),
-          byteLength: 10,
-          relativePath: 's1.payloads/payload.json',
+    expect(() =>
+      validateSessionReplayLogEntries([
+        {
+          ...shared,
+          event: 'provider_request',
+          provider: 'test',
+          model: 'test-model',
+          messages: [],
         },
-      },
-    ]);
-
-    expect(result.issues.map((issue) => issue.code)).toEqual(
-      expect.arrayContaining(['UNRESOLVED_REPLAY_PAYLOAD', 'PROVIDER_RESPONSE_NORMALIZED_MISSING']),
-    );
+        {
+          ...shared,
+          event: 'provider_native_raw_payload',
+          provider: 'test',
+          payloadKind: 'response',
+          sequence: 0,
+          payload: {},
+        },
+        {
+          ...shared,
+          event: 'provider_response_raw',
+          response: assistantMessage,
+          responseKind: 'provider-normalized-message',
+        },
+        {
+          ...shared,
+          event: 'provider_response_normalized',
+          response: {
+            kind: 'external-payload',
+            encoding: 'json',
+            sha256: 'a'.repeat(64),
+            byteLength: 10,
+            relativePath: 's1.payloads/payload.json',
+          },
+        },
+      ]),
+    ).toThrow(SessionLogDecodeError);
   });
 
   it('ARCH-014: validator applies the resolver reference-shape contract', () => {
-    const result = validateSessionReplayLogEntries([
-      {
-        timestamp: '2026-08-15T00:00:00.000Z',
-        sessionId: 's1',
-        event: 'history_mutation',
-        mutation: 'append_message',
-        message: {
-          kind: 'external-payload',
-          encoding: 'json',
-          sha256: 'too-short',
-          byteLength: -1,
-          relativePath: '',
-          unexpected: true,
+    expect(() =>
+      validateSessionReplayLogEntries([
+        {
+          schemaVersion: 1,
+          timestamp: '2026-08-15T00:00:00.000Z',
+          sessionId: 's1',
+          event: 'history_mutation',
+          mutation: 'append_message',
+          index: 0,
+          message: {
+            kind: 'external-payload',
+            encoding: 'json',
+            sha256: 'too-short',
+            byteLength: -1,
+            relativePath: '',
+            unexpected: true,
+          },
         },
-      },
-    ]);
-
-    expect(result.issues.map((issue) => issue.code)).toEqual(
-      expect.arrayContaining(['PAYLOAD_REFERENCE_INVALID', 'UNRESOLVED_REPLAY_PAYLOAD']),
-    );
+      ]),
+    ).toThrow(SessionLogDecodeError);
   });
 });

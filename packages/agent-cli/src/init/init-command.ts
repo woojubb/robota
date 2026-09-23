@@ -1,4 +1,4 @@
-import { promptInput } from '@robota-sdk/agent-transport/headless';
+import { promptInput } from '../cli-input.js';
 import {
   assertWorkspaceProjectMutationForAuthority,
   getWorkspaceProjectReader,

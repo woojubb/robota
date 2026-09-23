@@ -4,7 +4,7 @@
  * Replays a committed cassette of an actual Qwen run of the goal loop — real prompts, the model's
  * real decision to use Bash and call `report_goal_status` — deterministically, with no key and no
  * network. This proves the part scripted tests cannot: that a real model actually drives the goal
- * feature to completion. Re-record with packages/agent-cli/scripts/record-goal-cassette.mts.
+ * feature to completion. Re-record with packages/agent-framework/scripts/record-goal-cassette.mts.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 

@@ -87,7 +87,7 @@ export async function forceSummaryCall(
     // Tools stay deliberately absent: this call exists to END the tool loop, not to extend it.
     const chatOptions: IChatOptions = {
       model: resolved.aiProviderInfo.model,
-      effort: config.defaultModel?.effort ?? 'high',
+      effort: config.defaultModel?.effort ?? 'auto',
       ...(config.defaultModel?.maxTokens !== undefined && {
         maxTokens: config.defaultModel.maxTokens,
       }),

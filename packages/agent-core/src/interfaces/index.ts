@@ -57,6 +57,19 @@ export type {
   TProviderConfigValue,
   TProviderOptionValueBase,
 } from './provider';
+export { isModelEffort, MODEL_EFFORT_VALUES } from './provider';
+export { createModelEffortOutcome, resolveModelEffort } from './model-effort-capability';
+export type {
+  IModelEffortCapability,
+  IModelEffortOutcome,
+  IModelEffortResolution,
+  IProviderModelEffortTable,
+  TModelEffortDisposition,
+  TModelEffortNativeControl,
+  TModelEffortOutcomeCallback,
+  TModelEffortProviderDispatch,
+  TModelEffortSelection,
+} from './model-effort-capability';
 export {
   assertProviderNativeWebToolsAvailable,
   createDefaultProviderCapabilities,
@@ -72,6 +85,7 @@ export type {
   IProviderProbeResult,
   IProviderProfileConfig,
   IProviderProfileDefaults,
+  IProviderEndpoint,
   IProviderSetupHelpLink,
   IProviderSetupStepDefinition,
   TProviderCredentialField,
@@ -123,14 +137,20 @@ export type {
 export { isImageGenerationProvider, isVideoGenerationProvider } from './media-provider';
 
 export type {
-  TAgentCreationMetadata,
-  TManagerToolParameters,
-  IConfigValidationResult,
-  IAgentCreationOptions,
-  IAgentFactory,
-  IAIProviderManager,
-  IToolManager,
-} from './manager';
+  IMediaProviderConfig,
+  IMediaProviderCredentialRequirement,
+  IMediaProviderDefinition,
+} from './media-provider-definition';
+export {
+  findMediaProviderDefinition,
+  isMediaProviderDefinition,
+} from './media-provider-definition';
+
+export type { TManagerToolParameters, IAIProviderManager, IToolManager } from './manager';
+
+// CLI-1990: tool residency vocabulary — the deferred-tool catalog port and the policy settings.
+export type { IDeferredToolCatalog, TToolSearchMode, TToolSearchSetting } from './tool-search';
+export { TOOL_SEARCH_TOOL_NAME } from './tool-search';
 
 export type {
   ITool,
@@ -197,24 +217,24 @@ export {
 export type {
   TConversationContextMetadata,
   TToolExecutionParameters,
-  TExecutionMetadata,
   TResponseMetadata,
   IToolExecutionRequest,
   IConversationContext,
   IConversationResponse,
   IStreamingChunk,
   IContextOptions,
-  IExecutionServiceOptions,
   IConversationServiceOptions,
   IConversationService,
-  IToolExecutionService,
-  IExecutionService,
 } from './service';
 
 export type {
   IExecutor,
   IChatExecutionRequest,
   IStreamExecutionRequest,
+  IExecutorChatResult,
+  IExecutorStreamMessageEvent,
+  IExecutorStreamTerminalEvent,
+  TExecutorStreamEvent,
   ILocalExecutorConfig,
   IRemoteExecutorConfig,
 } from './executor';
@@ -232,3 +252,5 @@ export type { ISpinner, ITerminalOutput } from './terminal-output';
 export type { ISession } from './session';
 
 export type { IDirent, IStats, IFileSystem, IFileSystemAsync } from './file-system';
+// Issue #2056: the structured-output shape a session forwards into the agent config.
+export type { IResponseFormatConfig } from './response-format';

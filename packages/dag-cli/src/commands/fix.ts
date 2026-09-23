@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
 import type { INodeManifest } from '@robota-sdk/dag-core';
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
-import { isWorkflowFileFormat, fromDagWorkflowFile } from '@robota-sdk/dag-builder';
+import { decodeDagInput } from './decode-dag-input.js';
 import type { IDagCliIo } from '../types.js';
 import { FAILURE_EXIT_CODE, SUCCESS_EXIT_CODE, USAGE_ERROR_EXIT_CODE } from '../types.js';
 import { createCliNodeRegistry, LocalDagRunner } from '../local-runner/index.js';
@@ -281,19 +281,20 @@ export async function fixCommand(
     return FAILURE_EXIT_CODE;
   }
 
-  let dag: IDagDefinition;
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(fileContent) as unknown;
-    if (isWorkflowFileFormat(parsed)) {
-      dag = fromDagWorkflowFile(parsed);
-    } else {
-      dag = parsed as IDagDefinition;
-    }
+    parsed = JSON.parse(fileContent) as unknown;
   } catch (parseErr) {
     // allow-fallback: JSON parse failure returned as structured error
     io.write(`Error: "${file}" is not valid JSON: ${resolveErrorMessage(parseErr)}\n`);
     return FAILURE_EXIT_CODE;
   }
+  const decoded = decodeDagInput(parsed);
+  if (!decoded.ok) {
+    io.write(`Error: "${file}": ${decoded.message}\n`);
+    return FAILURE_EXIT_CODE;
+  }
+  const dag: IDagDefinition = decoded.value;
 
   // Load env for LLM
   await applyEnvFile(DEFAULT_ENV_FILE);

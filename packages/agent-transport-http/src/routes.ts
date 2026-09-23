@@ -10,7 +10,7 @@ import {
   bearerCredential,
   credentialMatches,
   resolveAdmission,
-} from '@robota-sdk/agent-transport-protocol';
+} from '@robota-sdk/agent-transport/node';
 import { Hono } from 'hono';
 
 import { submitHandler } from './submit-route.js';

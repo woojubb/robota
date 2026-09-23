@@ -2,6 +2,14 @@
 
 This document defines how DAG media nodes consume provider capabilities exposed by `@robota-sdk/agent-core`.
 
+## Composition Boundary
+
+Media nodes consume an injected `IMediaProviderDefinition`, not a concrete provider instance or
+vendor SDK. The definition declares credential/endpoint environment names and creates the provider
+through a factory at execution time. `createImageProviderFromDefinition` and
+`createVideoProviderFromDefinition` resolve those declarations and apply capability guards. Concrete
+`agent-provider-*` packages are composed by `agent-builtin-providers` or another application root.
+
 ## Capability Contracts
 
 - Image nodes depend on `IImageGenerationProvider`.

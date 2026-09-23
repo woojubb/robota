@@ -3,7 +3,8 @@ import { defineConfig } from 'tsdown';
 export default defineConfig([
   {
     entry: { index: 'src/index.ts' },
-    format: ['esm', 'cjs'],
+    // Both public formats share one canonical declaration file, emitted by ESM only.
+    format: { esm: {}, cjs: { dts: false } },
     outDir: 'dist/node',
     platform: 'node',
     clean: true,

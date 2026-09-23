@@ -10,7 +10,7 @@ The **browser** WebRTC transport peer for a robota session (REMOTE-009 Stage D) 
 node-side host transport `@robota-sdk/agent-transport-webrtc`. It opens the pairing URL, answers the host's
 WebRTC offer over a **native** `RTCPeerConnection`, runs the directional-HMAC pairing handshake as RESPONDER
 behind a fail-closed gate, and co-drives the SAME session over an `RTCDataChannel` — swapping WebSocket for the
-data channel while reusing the shared session reducer from `@robota-sdk/agent-transport-gui`.
+data channel while reusing the shared session reducer from `@robota-sdk/agent-ui-web`.
 
 Provides:
 
@@ -34,8 +34,8 @@ browser-only. It reuses the isomorphic zero-dep `@robota-sdk/agent-remote-pairin
 ## Boundaries
 
 - Does NOT own the session reducer, the view components, or the localhost WS client — those are the shared GUI
-  core `@robota-sdk/agent-transport-gui`, imported directly (NOT re-exported — no pass-through).
-- Does NOT own the WS/RTC wire protocol framing — that is `@robota-sdk/agent-transport-protocol`.
+  core `@robota-sdk/agent-ui-web`, imported directly (NOT re-exported — no pass-through).
+- Does NOT own the WS/RTC wire protocol framing — that is `@robota-sdk/agent-transport`.
 - Does NOT own the pairing CRYPTO — the directional-HMAC handshake + DTLS-fingerprint channel binding is the
   isomorphic zero-dep `@robota-sdk/agent-remote-pairing` leaf.
 - Does NOT own the node host transport (offerer, werift) — that is `@robota-sdk/agent-transport-webrtc`.
@@ -54,8 +54,8 @@ remote.html (paired peer)
               └── createRtcSessionClient (answerer + ResponderGate + data-channel client)
                     ├── createRtcSignalingClient (native WebSocket ISignalingClient)
                     ├── agent-remote-pairing (directional-HMAC + DTLS channel binding)
-                    └── useSessionClient<TSessionStatus>  (agent-transport-gui reducer)
-                          └── agent-transport-protocol (TServerMessage / TClientMessage)
+                    └── useSessionClient<TSessionStatus>  (agent-ui-web reducer)
+                          └── agent-transport (TServerMessage / TClientMessage)
 ```
 
 `useRtcSession` instantiates the shared `useSessionClient<TSessionStatus>` generic — keeping the RTC-only status
@@ -67,8 +67,8 @@ states out of the core (the core does not depend on this package; no cycle).
 | -------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | `TRtcConnectionStatus`                                                                             | this package (`rtc-session-client.ts`) |
 | `TSessionStatus`                                                                                   | this package (`useRtcSession.ts`)      |
-| `IWsSessionState`, `TConnectionStatus`, `useSessionClient`, `ConversationView`, `PermissionPrompt` | `@robota-sdk/agent-transport-gui`      |
-| `TServerMessage`, `TClientMessage`                                                                 | `@robota-sdk/agent-transport-protocol` |
+| `IWsSessionState`, `TConnectionStatus`, `useSessionClient`, `ConversationView`, `PermissionPrompt` | `@robota-sdk/agent-ui-web`             |
+| `TServerMessage`, `TClientMessage`                                                                 | `@robota-sdk/agent-transport`          |
 | pairing handshake / channel binding                                                                | `@robota-sdk/agent-remote-pairing`     |
 
 ## Public API Surface
@@ -85,7 +85,7 @@ Exported from the package root (node) and `./client` (browser):
 | `TRtcConnectionStatus`      | type      | RTC lifecycle additions (`pairing`, `failed`)                           |
 | `TSessionStatus`            | type      | Union of the WS + RTC connection statuses                               |
 
-The shared reducer + view components are imported from `@robota-sdk/agent-transport-gui` and are NOT re-exported
+The shared reducer + view components are imported from `@robota-sdk/agent-ui-web` and are NOT re-exported
 here (no pass-through re-exports).
 
 ## Extension Points
@@ -106,8 +106,11 @@ here (no pass-through re-exports).
 ## Test Strategy
 
 - `src/client/__tests__/` — the responder gate (incl. E3), session client, signaling, credential store, ICE
-  parsing, location parsing, and fingerprint parity (REMOTE-009..013). The shared reducer + WS client are tested
-  in `agent-transport-gui`.
+  parsing and location parsing (REMOTE-009..013). The session-client test retains its owner-local
+  `fixtures/native-browser-answer.sdp`; SDP-dialect fingerprint parity belongs to
+  [agent-remote-pairing's tests](../../agent-remote-pairing/docs/SPEC.md#test-strategy), not a cross-package
+  read of its private fixtures. The shared reducer + WS client are tested
+  in `agent-ui-web`.
 
 ## Class Contract Registry
 

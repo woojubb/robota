@@ -5,11 +5,12 @@ import type {
   TProviderConfigValue,
   IAIProvider,
   TTextDeltaCallback,
-  TModelEffort,
+  TModelEffortSelection,
   TToolChoice,
 } from './provider';
 import type { IResponseFormatConfig, ISafetySetting } from './response-format';
 import type { IRunOptions } from './run-options';
+import type { TToolSearchSetting } from './tool-search';
 import type { TMetadata, TConfigValue } from './types';
 import type { IModule } from '../abstracts/abstract-module';
 import type { IPluginContract, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
@@ -89,13 +90,19 @@ export interface IAgentConfig {
     maxTokens?: number;
     topP?: number;
     /** Reasoning-effort dial threaded to the provider request builder per call. */
-    effort?: TModelEffort;
+    effort?: TModelEffortSelection;
     /** Default tool-invocation directive for every run (CORE-017). `IRunOptions.toolChoice` wins. */
     toolChoice?: TToolChoice;
   };
 
   // Tools and plugins
   tools?: Array<IToolWithEventService>;
+  /**
+   * CLI-1990: whether tools that declare `deferLoading` are withheld from the model until loaded.
+   * `'auto'` (the default) decides by threshold — `resolveToolSearchMode` — so a small tool set is
+   * never deferred; `'on'` and `'off'` force the answer. Read on every round, never snapshotted.
+   */
+  toolSearch?: TToolSearchSetting;
   plugins?: Array<IPluginContract<IPluginOptions, IPluginStats>>;
 
   // Modules for extended functionality

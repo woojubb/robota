@@ -53,15 +53,17 @@ describe('FLOW-006 agent-wake task labeling', () => {
     );
     expect(entry?.subtitle).toContain('↻ wake');
     expect(entry?.subtitle).toContain('summarize logs');
-    expect(entry?.subtitle).toContain('next:');
+    // SCREEN-1992: the next fire is carried as a timestamp for a surface-side countdown, not baked text.
+    expect(entry?.subtitle).not.toContain('next:');
+    expect(entry?.nextFireAt).toBe('2999-01-01T00:00:00.000Z');
   });
 
-  it('TC-02: a shell-only schedule shows next: … without the wake marker', () => {
+  it('TC-02: a shell-only schedule carries its next fire without the wake marker', () => {
     const entry = backgroundEntry(
       scheduledTask({ schedule: { cronExpression: '0 0 * * *', command: 'backup.sh' } }),
     );
-    expect(entry?.subtitle).toContain('next:');
-    expect(entry?.subtitle).not.toContain('↻ wake');
+    expect(entry?.nextFireAt).toBe('2999-01-01T00:00:00.000Z');
+    expect(entry?.subtitle ?? '').not.toContain('↻ wake');
   });
 
   it('TC-03: a long instruction preview is truncated', () => {

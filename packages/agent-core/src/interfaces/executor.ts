@@ -1,5 +1,6 @@
 import type { IChatOptions, IToolSchema } from './index';
 import type { TUniversalMessage, IAssistantMessage } from './messages';
+import type { IModelEffortOutcome } from './model-effort-capability';
 
 /**
  * Request for executing a streaming chat completion through an executor
@@ -25,6 +26,26 @@ export interface IStreamExecutionRequest extends IChatExecutionRequest {
   stream: true;
 }
 
+/** Terminal result of a non-streaming executor call; outcome metadata is not part of the message. */
+export interface IExecutorChatResult {
+  message: IAssistantMessage;
+  modelEffortOutcome?: IModelEffortOutcome;
+}
+
+/** A streamed message, kept separate from the one result-bearing terminal event. */
+export interface IExecutorStreamMessageEvent {
+  kind: 'message';
+  message: TUniversalMessage;
+}
+
+/** Exactly one successful stream terminal is emitted after all message events. */
+export interface IExecutorStreamTerminalEvent {
+  kind: 'terminal';
+  modelEffortOutcome?: IModelEffortOutcome;
+}
+
+export type TExecutorStreamEvent = IExecutorStreamMessageEvent | IExecutorStreamTerminalEvent;
+
 /**
  * Interface for executing AI provider operations
  *
@@ -42,7 +63,7 @@ export interface IExecutor {
    * Execute a chat completion request
    *
    * @param request - Chat execution request with messages, options, and tools
-   * @returns Promise resolving to assistant message response
+   * @returns Promise resolving to an assistant message plus one terminal outcome envelope
    *
    * @example
    * ```typescript
@@ -54,28 +75,29 @@ export interface IExecutor {
    * });
    * ```
    */
-  executeChat(request: IChatExecutionRequest): Promise<IAssistantMessage>;
+  executeChat(request: IChatExecutionRequest): Promise<IExecutorChatResult>;
 
   /**
    * Execute a streaming chat completion request
    *
    * @param request - Streaming chat execution request
-   * @returns AsyncIterable of message chunks
+   * @returns AsyncIterable of message events followed by exactly one terminal event
    *
    * @example
    * ```typescript
-   * for await (const chunk of executor.executeChatStream({
+   * for await (const event of executor.executeChatStream({
    *   messages: [{ role: 'user', content: 'Tell me a story' }],
    *   options: { model: 'gpt-4' },
    *   provider: 'openai',
    *   model: 'gpt-4',
    *   stream: true
    * })) {
-   *   console.log(chunk.content);
+   *   if (event.kind === 'message') console.log(event.message.content);
+   *   else console.log(event.modelEffortOutcome);
    * }
    * ```
    */
-  executeChatStream?(request: IStreamExecutionRequest): AsyncIterable<TUniversalMessage>;
+  executeChatStream?(request: IStreamExecutionRequest): AsyncIterable<TExecutorStreamEvent>;
 
   /**
    * Check if the executor supports tool calling

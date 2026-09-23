@@ -11,12 +11,13 @@
  *    argument with the same quote-aware tokenizer `create`/`build` use, and reject surplus/unknown
  *    tokens explicitly instead of folding them into the path.
  */
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAssistantMessage } from '@robota-sdk/agent-core';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 import { executeWorkflowsBuild as executeWorkflowsBuildWithProject } from '../build-command.js';
 import type { IWorkflowsAuthoringDeps } from '../authoring/args.js';
@@ -32,27 +33,40 @@ async function executeWorkflowsBuild(args: string, root: string, deps?: IWorkflo
 async function executeWorkflowsList(
   root: string,
   layout?: Parameters<typeof executeWorkflowsListWithProject>[1],
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ) {
-  return executeWorkflowsListWithProject(await createWorkflowProjectFixture(root), layout);
+  return executeWorkflowsListWithProject(
+    await createWorkflowProjectFixture(root),
+    layout,
+    providerDefinitions,
+  );
 }
 
 async function executeWorkflowsRun(
   args: string,
   root: string,
   layout?: Parameters<typeof executeWorkflowsRunWithProject>[2],
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ) {
-  return executeWorkflowsRunWithProject(args, await createWorkflowProjectFixture(root), layout);
+  return executeWorkflowsRunWithProject(
+    args,
+    await createWorkflowProjectFixture(root),
+    layout,
+    providerDefinitions,
+  );
 }
 
 async function executeWorkflowsValidate(
   args: string,
   root: string,
   layout?: Parameters<typeof executeWorkflowsValidateWithProject>[2],
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ) {
   return executeWorkflowsValidateWithProject(
     args,
     await createWorkflowProjectFixture(root),
     layout,
+    providerDefinitions,
   );
 }
 
@@ -89,7 +103,7 @@ const UPPERCASE_SPEC = JSON.stringify({
 let dir: string;
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'wf-p3-'));
+  dir = await realpath(await mkdtemp(join(tmpdir(), 'wf-p3-')));
 });
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
@@ -98,30 +112,47 @@ afterEach(async () => {
 function baseDeps(specJson: string): IWorkflowsAuthoringDeps {
   return {
     resolveProvider: () => stubProvider(specJson),
+    providerDefinitions: createDefaultProviderDefinitions(),
     now: () => '2026-07-25T00:00:00.000Z',
   };
 }
 
 describe('P3-A: one node catalog across subcommands', () => {
-  it('validates a workflow that `build` authored with a new prompt node', async () => {
-    const built = await executeWorkflowsBuild('"rewrite as a pirate"', dir, baseDeps(PIRATE_SPEC));
-    expect(built.success).toBe(true);
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'validates a workflow that `build` authored with a new prompt node',
+    async () => {
+      const built = await executeWorkflowsBuild(
+        '"rewrite as a pirate"',
+        dir,
+        baseDeps(PIRATE_SPEC),
+      );
+      expect(built.success).toBe(true);
 
-    // `build` tells the user to run exactly this; it must not fail on the node build just saved.
-    const savedPath = join('.workflows', 'pirate-rewrite.json');
-    const validated = await executeWorkflowsValidate(savedPath, dir);
-    expect(validated.message).not.toContain('unknown node type');
-    expect(validated.success).toBe(true);
-  });
+      // `build` tells the user to run exactly this; it must not fail on the node build just saved.
+      const savedPath = join('.workflows', 'pirate-rewrite.json');
+      const validated = await executeWorkflowsValidate(savedPath, dir);
+      expect(validated.message).not.toContain('unknown node type');
+      expect(validated.success).toBe(true);
+    },
+  );
 
-  it('lists workspace-saved instant nodes alongside the built-in node catalog', async () => {
-    const built = await executeWorkflowsBuild('"rewrite as a pirate"', dir, baseDeps(PIRATE_SPEC));
-    expect(built.success).toBe(true);
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'lists workspace-saved instant nodes alongside the built-in node catalog',
+    async () => {
+      const built = await executeWorkflowsBuild(
+        '"rewrite as a pirate"',
+        dir,
+        baseDeps(PIRATE_SPEC),
+      );
+      expect(built.success).toBe(true);
 
-    const listed = await executeWorkflowsList(dir);
-    expect(listed.success).toBe(true);
-    expect(listed.message).toContain('pirate-speak');
-  });
+      const listed = await executeWorkflowsList(dir);
+      expect(listed.success).toBe(true);
+      expect(listed.message).toContain('pirate-speak');
+    },
+  );
 
   it('still lists the built-in nodes when the workspace has no saved nodes', async () => {
     const listed = await executeWorkflowsList(dir);
@@ -131,22 +162,26 @@ describe('P3-A: one node catalog across subcommands', () => {
 });
 
 describe('P3-B: one argument grammar across subcommands', () => {
-  it('accepts a quoted file argument for `validate` and `run` (same tokenizer as create/build)', async () => {
-    const built = await executeWorkflowsBuild(
-      '"uppercase the text" --input text=hi',
-      dir,
-      baseDeps(UPPERCASE_SPEC),
-    );
-    expect(built.success).toBe(true);
-    const savedPath = join('.workflows', 'uppercase-it.json');
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'accepts a quoted file argument for `validate` and `run` (same tokenizer as create/build)',
+    async () => {
+      const built = await executeWorkflowsBuild(
+        '"uppercase the text" --input text=hi',
+        dir,
+        baseDeps(UPPERCASE_SPEC),
+      );
+      expect(built.success).toBe(true);
+      const savedPath = join('.workflows', 'uppercase-it.json');
 
-    const validated = await executeWorkflowsValidate(`"${savedPath}"`, dir);
-    expect(validated.success).toBe(true);
+      const validated = await executeWorkflowsValidate(`"${savedPath}"`, dir);
+      expect(validated.success).toBe(true);
 
-    const ran = await executeWorkflowsRun(`"${savedPath}"`, dir);
-    expect(ran.success).toBe(true);
-    expect(ran.message).toContain('HI');
-  });
+      const ran = await executeWorkflowsRun(`"${savedPath}"`, dir);
+      expect(ran.success).toBe(true);
+      expect(ran.message).toContain('HI');
+    },
+  );
 
   it('rejects surplus arguments instead of folding them into the file path', async () => {
     const validated = await executeWorkflowsValidate('a.json b.json', dir);

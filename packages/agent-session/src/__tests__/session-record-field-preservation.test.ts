@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -33,8 +33,10 @@ class PreservationProvider extends AbstractAIProvider {
   ): Promise<TUniversalMessage> {
     const content = messages.at(-1)?.content;
     return {
+      id: 'msg-arch-015',
       role: 'assistant',
       content: `arch-015:${typeof content === 'string' ? content : ''}`,
+      state: 'complete',
       timestamp: new Date(),
     };
   }
@@ -51,6 +53,13 @@ const silentTerminal: ITerminalOutput = {
   write(): void {},
   writeLine(): void {},
   writeMarkdown(): void {},
+  writeError(): void {},
+  async prompt(): Promise<string> {
+    return '';
+  },
+  async select(): Promise<number> {
+    return 0;
+  },
   spinner(): ISpinner {
     return { stop(): void {}, update(): void {} };
   },
@@ -184,7 +193,7 @@ describe('ARCH-015 Session record field preservation', () => {
   });
 
   it('preserves every non-owned field while refreshing Session-owned fields', async () => {
-    const scratchDir = mkdtempSync(join(tmpdir(), 'arch-015-'));
+    const scratchDir = realpathSync(mkdtempSync(join(tmpdir(), 'arch-015-')));
     scratchDirs.push(scratchDir);
     const store = new NodeSessionStore(join(scratchDir, 'sessions'));
     const existing = createExistingRecord();

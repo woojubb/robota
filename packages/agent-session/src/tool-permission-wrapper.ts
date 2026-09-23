@@ -1,4 +1,5 @@
 import { PERMISSION_DENIED_RESULT, reportToolCrash } from './permission-types.js';
+import { canonicaliseToolArguments } from './tool-argument-canonicalisation.js';
 import {
   buildHookInput,
   firePostToolHook,
@@ -47,9 +48,14 @@ export function wrapToolWithPermission(
 
   const wrappedTool = Object.create(tool) as IToolWithEventService;
   wrappedTool.execute = async (
-    parameters: TToolParameters,
+    rawParameters: TToolParameters,
     context?: IToolExecutionContext,
   ): Promise<IToolResult> => {
+    // Issue #2429: the gate, the hooks, the logs and the tool all see ONE canonical form of the
+    // arguments — a relative path argument resolved against the session root — so a pattern judges
+    // the path the tool will actually open. Canonicalising needs the tool's name, which is read
+    // inside the try below, so until then this holds the raw form.
+    let parameters: TToolParameters = rawParameters;
     // Must NEVER throw — if this throws, the execution round records the
     // assistant tool_use in history but never adds a tool_result, which
     // corrupts the conversation and causes a 400 error on the next API call.
@@ -62,6 +68,7 @@ export function wrapToolWithPermission(
 
     try {
       toolName = tool.getName();
+      parameters = canonicaliseToolArguments(toolName, rawParameters, enforcer.cwd);
       enforcer.log('tool_call', {
         tool: toolName,
         args: parameters as Record<string, string | number | boolean | object>,

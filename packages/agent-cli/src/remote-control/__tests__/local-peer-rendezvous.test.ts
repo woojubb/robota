@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,7 +16,7 @@ import { ensureRendezvousDirectory, resolveRendezvousDirectory } from '../local-
 const made: string[] = [];
 
 function scratch(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'robota-rv-'));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-rv-')));
   made.push(dir);
   return dir;
 }

@@ -80,8 +80,14 @@ describe('SELFHOST-009 TC-03 — PermissionDecision hook', () => {
   // otherwise every pattern here is unevaluable and the gate prompts instead of deciding.
   beforeEach(() => {
     clearRegisteredToolProfiles();
-    registerToolPermissionProfile('Read', { argumentKey: 'filePath', riskClass: 'inspect' });
-    registerToolPermissionProfile('Bash', { argumentKey: 'command', riskClass: 'execute' });
+    registerToolPermissionProfile('Read', {
+      argument: { key: 'filePath', kind: 'path' },
+      riskClass: 'inspect',
+    });
+    registerToolPermissionProfile('Bash', {
+      argument: { key: 'command', kind: 'command' },
+      riskClass: 'execute',
+    });
   });
 
   afterEach(() => {

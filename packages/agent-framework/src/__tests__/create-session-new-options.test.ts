@@ -6,7 +6,7 @@
  * - appendSystemPrompt: 'EXTRA TEXT' → Session receives systemMessage ending with '\n\nEXTRA TEXT'
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -266,7 +266,7 @@ describe('createSession — appendSystemPrompt option', () => {
 
   it('includes discovered agent metadata without registering a duplicate Agent tool', async () => {
     const { createSession } = await import('../assembly/create-session.js');
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-agents-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-create-session-agents-')));
     const agentsDir = join(cwd, '.robota', 'agents');
     mkdirSync(agentsDir, { recursive: true });
     writeFileSync(
@@ -339,7 +339,7 @@ describe('createSession — command descriptor tool guidance', () => {
 
   it('does not expose skill metadata when the skills command is not model-invocable', async () => {
     const { createSession } = await import('../assembly/create-session.js');
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-skills-hidden-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-create-session-skills-hidden-')));
     mkdirSync(join(cwd, '.agents', 'skills', 'audit'), { recursive: true });
     writeFileSync(
       join(cwd, '.agents', 'skills', 'audit', 'SKILL.md'),
@@ -368,7 +368,7 @@ describe('createSession — command descriptor tool guidance', () => {
 
   it('exposes skill metadata for an alternate model-invocable skill-activation command id', async () => {
     const { createSession } = await import('../assembly/create-session.js');
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-skills-visible-'));
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-create-session-skills-visible-')));
     mkdirSync(join(cwd, '.agents', 'skills', 'audit'), { recursive: true });
     writeFileSync(
       join(cwd, '.agents', 'skills', 'audit', 'SKILL.md'),
@@ -410,7 +410,9 @@ describe('createSession — command descriptor tool guidance', () => {
 
   it('does not infer skill activation from an unannotated coincidental command name', async () => {
     const { createSession } = await import('../assembly/create-session.js');
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-skills-unannotated-'));
+    const cwd = realpathSync(
+      mkdtempSync(join(tmpdir(), 'robota-create-session-skills-unannotated-')),
+    );
     mkdirSync(join(cwd, '.agents', 'skills', 'audit'), { recursive: true });
     writeFileSync(
       join(cwd, '.agents', 'skills', 'audit', 'SKILL.md'),

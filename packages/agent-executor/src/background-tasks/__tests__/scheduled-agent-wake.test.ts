@@ -6,7 +6,7 @@
  *   (previously this event was swallowed).
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { BackgroundTaskManager } from '../background-task-manager.js';
 import { createScheduledTaskRunner } from '../runners/scheduled-task-runner.js';
@@ -123,5 +123,59 @@ describe('FLOW-001 scheduled agent-wake foundation', () => {
     expect(waking).toBeDefined();
     expect(waking?.taskId).toBe(created.id);
     expect(waking?.instruction).toBeUndefined();
+  });
+});
+
+describe('SCREEN-1992 one-shot schedules reach a terminal state (TC-08)', () => {
+  it('a one-shot agent-wake schedule fires once and then resolves its handle (manager → completed)', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const emitted: TBackgroundTaskRunnerEvent[] = [];
+      const runner = createScheduledTaskRunner();
+      const handle = runner.start({
+        taskId: 'once_1',
+        request: scheduledRequest({
+          agentInstruction: 'say hello',
+          cronExpression: '2026-01-01T00:00:05.000Z',
+        }),
+        emit: (event) => emitted.push(event),
+      });
+      expect(emitted.at(-1)?.type).toBe('background_task_sleeping');
+
+      await vi.advanceTimersByTimeAsync(6_000);
+      expect(emitted.some((e) => e.type === 'background_task_waking')).toBe(true);
+      // No second sleeping after the only fire — the handle resolves instead of hanging forever.
+      expect(emitted.filter((e) => e.type === 'background_task_sleeping')).toHaveLength(1);
+      await expect(handle.result).resolves.toMatchObject({ taskId: 'once_1', kind: 'scheduled' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a recurring schedule re-arms to sleeping after a fire and does not resolve', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:30.000Z'));
+      const emitted: TBackgroundTaskRunnerEvent[] = [];
+      const runner = createScheduledTaskRunner();
+      const handle = runner.start({
+        taskId: 'every_1',
+        request: scheduledRequest({ agentInstruction: 'tick', cronExpression: '* * * * *' }),
+        emit: (event) => emitted.push(event),
+      });
+      await vi.advanceTimersByTimeAsync(31_000);
+      expect(emitted.filter((e) => e.type === 'background_task_waking')).toHaveLength(1);
+      expect(emitted.filter((e) => e.type === 'background_task_sleeping')).toHaveLength(2);
+      let settled = false;
+      void handle.result.then(() => {
+        settled = true;
+      });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      await handle.cancel();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

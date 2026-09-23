@@ -1,6 +1,14 @@
 import { runEvalCommand } from '../eval/eval-command.js';
+import { PrintTerminal } from '../print-terminal.js';
+import { isDoctorCommandName, runDoctorRoute } from './doctor-route.js';
+import { readVersion } from './version.js';
 import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.js';
-import { createInitialCliWorkspaceComposition } from './workspace-project-composition.js';
+import { runUsageCommand } from '../usage/usage-command.js';
+import {
+  createInitialCliWorkspaceComposition,
+  resolveInitialCliWorkspaceProjectAccess,
+} from './workspace-project-composition.js';
+import { runWorkspaceTrustCommand } from './workspace-trust-command.js';
 
 import type { IStartCliOptions } from './command-setup.js';
 
@@ -14,7 +22,39 @@ export async function runPreparsedCliCommand(
   argv: readonly string[] = process.argv,
   cwd: string = process.cwd(),
 ): Promise<boolean> {
-  const composition = createInitialCliWorkspaceComposition(cwd, options);
+  // OBSERVABILITY-1991: the doctor is matched BEFORE the shared composition below, and composes its
+  // own inside a failure boundary — a configuration broken enough to throw here must still be
+  // diagnosable, and `--repair <id>` / `--yes` must never reach the strict global parser.
+  if (isDoctorCommandName(argv[SUBCOMMAND_INDEX])) {
+    process.exitCode = await runDoctorRoute(
+      {
+        version: readVersion(),
+        terminal: new PrintTerminal(),
+        cwd,
+        options,
+        isTTY: process.stdin.isTTY === true,
+      },
+      argv.slice(ACTION_INDEX),
+      argv[SUBCOMMAND_INDEX],
+    );
+    return true;
+  }
+  const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
+  const composition = createInitialCliWorkspaceComposition(cwd, {
+    ...options,
+    projectAccess,
+  });
+  if (argv[SUBCOMMAND_INDEX] === 'trust') {
+    process.exitCode = await runWorkspaceTrustCommand(argv.slice(ACTION_INDEX), cwd);
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'usage') {
+    process.exitCode = runUsageCommand(
+      argv.slice(ACTION_INDEX),
+      composition.projectAccess.status === 'trusted' ? composition.sessionStore : undefined,
+    );
+    return true;
+  }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'analyze') {
     await runSessionAnalyze(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),

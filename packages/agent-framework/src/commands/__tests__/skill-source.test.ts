@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -24,7 +24,7 @@ describe('SkillCommandSource multi-path', () => {
   let homeDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), 'skill-source-test-'));
+    tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'skill-source-test-')));
     projectDir = join(tmpDir, 'project');
     homeDir = join(tmpDir, 'home');
     mkdirSync(projectDir, { recursive: true });
@@ -96,7 +96,7 @@ describe('SkillCommandSource multi-path', () => {
         'allowed-tools: Read,Edit,Grep',
         'model: claude-opus-4-6',
         'effort: high',
-        'context: project',
+        'context: fork',
         'agent: researcher',
         '---',
         '# Full Meta Skill',
@@ -117,7 +117,7 @@ describe('SkillCommandSource multi-path', () => {
     expect(cmd!.allowedTools).toEqual(['Read', 'Edit', 'Grep']);
     expect(cmd!.model).toBe('claude-opus-4-6');
     expect(cmd!.effort).toBe('high');
-    expect(cmd!.context).toBe('project');
+    expect(cmd!.context).toBe('fork');
     expect(cmd!.agent).toBe('researcher');
   });
 
@@ -144,6 +144,22 @@ describe('SkillCommandSource multi-path', () => {
 
     expect(cmd).toBeDefined();
     expect(cmd!.allowedTools).toEqual(['Read', 'Grep', 'Glob']);
+  });
+
+  it('should reject an invalid effort value at the legacy frontmatter boundary', () => {
+    const claudeSkills = join(projectDir, '.claude', 'skills');
+    mkdirSync(claudeSkills, { recursive: true });
+    createSkillDir(
+      claudeSkills,
+      'invalid-effort',
+      '---\nname: invalid-effort\ndescription: invalid effort\neffort: extreme\n---\n',
+    );
+
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
+
+    expect(() => source.getCommands()).toThrow(/effort.*invalid|invalid.*effort/i);
   });
 
   it('should filter model-invocable skills', () => {
@@ -257,6 +273,29 @@ describe('SkillCommandSource multi-path', () => {
 
     expect(cmd!.disableModelInvocation).toBe(false);
     expect(cmd!.userInvocable).toBe(true);
+  });
+
+  it.each([
+    ['.robota/skills', 'project'],
+    ['.agents/skills', 'project'],
+    ['.claude/skills', 'project'],
+    ['.claude/commands', 'project'],
+    ['.robota/skills', 'home'],
+  ])('refuses a malformed disabling flag in %s from %s', (root, sourceKind) => {
+    const base = sourceKind === 'home' ? homeDir : projectDir;
+    const directory = join(base, root);
+    const content = '---\nname: denied\ndisable-model-invocation: treu\n---\nBody';
+    const file = root.endsWith('commands')
+      ? join(directory, 'denied.md')
+      : join(directory, 'denied', 'SKILL.md');
+    if (root.endsWith('commands')) createMdFile(directory, 'denied.md', content);
+    else createSkillDir(directory, 'denied', content);
+
+    const source = new SkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
+    expect(() => source.getModelInvocableSkills()).toThrow(file);
+    expect(() => source.getCommands()).toThrow(/disable-model-invocation/);
   });
 
   it('should use directory name as fallback when no frontmatter name', () => {

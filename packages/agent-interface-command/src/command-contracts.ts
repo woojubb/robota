@@ -7,7 +7,7 @@
  */
 
 import type { TCapabilitySafety } from './capability-contracts.js';
-import type { TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
+import type { TModelEffort, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 
 /**
  * Origin of a command invocation. `'user'` = the local operator; `'model'` = a model-invoked command;
@@ -50,7 +50,7 @@ export interface ICommand {
   /** Preferred model for executing this skill */
   model?: string;
   /** Effort level hint for the skill */
-  effort?: string;
+  effort?: TModelEffort;
   /** Context scope for the skill (e.g., "project") */
   context?: string;
   /** Agent identity to use when executing this skill */
@@ -104,6 +104,72 @@ export type TStatusLineCommandSettingsPatch = Partial<IStatusLineCommandSettings
   Record<string, TUniversalValue>;
 
 /**
+ * SCREEN-2002: the appearance a run renders with, persisted as three FLAT keys in the settings
+ * document (`theme`, `syntaxHighlighting`, `reducedMotion`) rather than one nested object — the
+ * shape `screenReader` and `outputStyle` already use, and the shape a user editing the file by hand
+ * expects. The theme is named by ID, not by value: the settings document never holds a colour, so a
+ * theme that is renamed or removed degrades to a notice instead of persisting stale colours.
+ */
+export interface IAppearanceSettings {
+  /** A theme id the registry holds. An unknown id resolves to the default WITH a visible notice. */
+  theme: string;
+  /** Whether fenced code blocks are syntax-highlighted. Orthogonal to the theme. */
+  syntaxHighlighting: boolean;
+  /** Whether animation is suppressed. A flag or the environment can override this for one run. */
+  reducedMotion: boolean;
+}
+
+export type TAppearanceSettingsPatch = Partial<IAppearanceSettings> &
+  Record<string, TUniversalValue>;
+
+/** SCREEN-2002: why `reducedMotion` is not what the settings document says, for THIS run. */
+export type TReducedMotionOverride = 'flag' | 'environment' | 'screen-reader';
+
+/** One row of the theme catalogue, as a command lists it. Carries no colour — only identity. */
+export interface IThemeCatalogueEntry {
+  readonly id: string;
+  readonly name: string;
+  readonly appearance: 'dark' | 'light';
+  readonly source: 'built-in' | 'user' | 'plugin';
+}
+
+export interface IThemeAppearanceState {
+  /** What is PERSISTED — what a command writes to and reports as stored. */
+  readonly settings: IAppearanceSettings;
+  /**
+   * The pin on reduced motion for this run, when something outside the settings applied one —
+   * WHICH tier and WHAT it pinned, as ONE value.
+   *
+   * Not two optionals. The tier alone cannot be rendered: `--reduced-motion` and
+   * `--no-reduced-motion` are both overrides and they pin opposite values, so a surface holding the
+   * tier and the PERSISTED value prints `reduced motion: off (pinned by flag)` on a run whose
+   * motion is pinned on — a line that contradicts itself and answers "is motion reduced right now"
+   * with the wrong word. Two optional fields would let a producer supply the tier alone and leave
+   * every consumer to default the other half, which is exactly that bug with an extra step.
+   */
+  readonly reducedMotionPin?: {
+    readonly tier: TReducedMotionOverride;
+    /** What this run DOES, which is not always what is saved. */
+    readonly reducedMotion: boolean;
+  };
+}
+
+/**
+ * SCREEN-2002 — the surface's theme catalogue, injected into the command layer.
+ *
+ * The contract lives here, in the types-only package BOTH sides already depend on, rather than in
+ * the command package the surface does not depend on: the alternative is the surface re-declaring a
+ * structurally-compatible copy, which type-checks at the composition root and drifts everywhere
+ * else. A command knows ids and never colours — which colours a theme carries, and how they are
+ * applied, belongs to whatever is rendering.
+ */
+export interface IThemeCataloguePort {
+  listThemes(): readonly IThemeCatalogueEntry[];
+  getTheme(id: string): IThemeCatalogueEntry | undefined;
+  getAppearance(): IThemeAppearanceState;
+}
+
+/**
  * CMD-004 Phase 2: host-executed command ACTIONS — semantic operations the SESSION layer (the host)
  * executes via `ICommandHostAdapters` or directly on the session, BEFORE the command result is
  * returned. They execute with zero surfaces attached (headless parity — the LSP
@@ -112,12 +178,14 @@ export type TStatusLineCommandSettingsPatch = Partial<IStatusLineCommandSettings
  */
 export type TCommandHostAction =
   | { type: 'provider-hot-swap'; profileName: string }
+  | { type: 'output-style-change'; styleId: string }
   | { type: 'language-change'; language: string }
   | { type: 'settings-reset' }
   | { type: 'session-exit'; reason?: TSessionEndReason; message?: string }
   | { type: 'session-restart'; reason: TSessionEndReason; message: string }
   | { type: 'session-rename'; name: string }
   | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch }
+  | { type: 'appearance-settings-patch'; patch: TAppearanceSettingsPatch }
   | { type: 'remote-control-enable' }
   | { type: 'remote-control-stop' };
 
@@ -132,7 +200,8 @@ export type TCommandUiIntent =
   | { type: 'show-plugin-manager' }
   | { type: 'show-settings' }
   | { type: 'show-session-picker' }
-  | { type: 'show-agent-switcher' };
+  | { type: 'show-agent-switcher' }
+  | { type: 'show-theme-picker' };
 
 export type TCommandResultDataValue =
   TUniversalValue | Record<string, unknown> | readonly Record<string, unknown>[];

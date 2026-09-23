@@ -1,5 +1,5 @@
 import { spawn as spawnMock } from 'node:child_process';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -123,7 +123,7 @@ describe.skipIf(process.platform === 'win32')(
 
     /** A directory holding an executable named `sh` that ignores its args and reports the hijack. */
     function hijackedShellDir(): string {
-      const dir = mkdtempSync(path.join(tmpdir(), 'shell-hijack-'));
+      const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'shell-hijack-')));
       createdDirs.push(dir);
       const hijack = path.join(dir, 'sh');
       writeFileSync(hijack, '#!/bin/sh\nprintf HIJACKED\n', 'utf8');

@@ -245,6 +245,36 @@ describe('startStudioServer', () => {
     expect(result.status).toBe(400);
   });
 
+  it('GET /api/dag refuses a parseable DAG with an invalid status', async () => {
+    const fsModule = await import('node:fs/promises');
+    vi.mocked(fsModule.readFile).mockResolvedValueOnce(
+      JSON.stringify({ dagId: 'bad', version: 1, status: 'active', nodes: [], edges: [] }),
+    );
+
+    const result = await makeRequest({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/dag?file=invalid.dag.json',
+      method: 'GET',
+    });
+    expect(result.status).toBe(400);
+    const body = JSON.parse(result.body) as { error: string };
+    expect(body.error).toMatch(/status|active/i);
+  });
+
+  it('GET /api/dag returns 400 for an unknown JSON object shape', async () => {
+    const fsModule = await import('node:fs/promises');
+    vi.mocked(fsModule.readFile).mockResolvedValueOnce('{"something":"else"}');
+    const result = await makeRequest({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/dag?file=unknown.dag.json',
+      method: 'GET',
+    });
+    expect(result.status).toBe(400);
+    expect(JSON.parse(result.body)).toEqual({ error: expect.stringContaining('Not a DAG file') });
+  });
+
   // -------------------------------------------------------------------------
   // GET /api/nodes
   // -------------------------------------------------------------------------

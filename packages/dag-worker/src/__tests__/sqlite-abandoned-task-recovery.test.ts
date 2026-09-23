@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -28,7 +28,7 @@ describe('SQLite abandoned-task recovery (DAG-001)', () => {
   });
 
   it('reopens persisted abandoned work and advances the task and run to success through idle sweep', async () => {
-    root = await mkdtemp(path.join(tmpdir(), 'robota-dag001-sqlite-'));
+    root = await realpath(await mkdtemp(path.join(tmpdir(), 'robota-dag001-sqlite-')));
     const databasePath = path.join(root, 'dag.sqlite');
     const beforeCrashStorage = track(new SqliteStorageAdapter(databasePath));
     const beforeCrashQueue = track(new SqliteQueueAdapter(databasePath));

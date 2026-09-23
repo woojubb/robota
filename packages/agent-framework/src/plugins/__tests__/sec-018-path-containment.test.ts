@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -80,7 +80,7 @@ describe('SEC-018 - containment is judged on the canonical path', () => {
   const fs = new NodeFileSystem();
 
   beforeEach(() => {
-    const base = mkdtempSync(join(tmpdir(), 'sec-018-'));
+    const base = realpathSync(mkdtempSync(join(tmpdir(), 'sec-018-')));
     root = join(base, 'plugins');
     outside = join(base, 'outside');
     mkdirSync(root, { recursive: true });

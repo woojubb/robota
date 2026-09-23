@@ -9,6 +9,8 @@ import type {
 } from '@robota-sdk/agent-core';
 import { configureProvider } from '../session-lifecycle';
 
+import type { ISessionOptions } from '../session-types.js';
+
 const enabledCapabilities: IProviderCapabilities = {
   functionCalling: { supported: true },
   nativeWebTools: {
@@ -49,7 +51,9 @@ describe('configureProvider', () => {
   it('uses provider-neutral native web configuration hooks', () => {
     const provider = new HookedProvider();
 
-    configureProvider(provider, {}, vi.fn());
+    // `configureProvider` does not read its options argument (`_options`), so this case supplies
+    // the empty object it has always passed rather than an unrelated full session configuration.
+    configureProvider(provider, {} as ISessionOptions, vi.fn());
 
     expect(provider.configureNativeWebTools).toHaveBeenCalledWith({ webSearch: true });
   });

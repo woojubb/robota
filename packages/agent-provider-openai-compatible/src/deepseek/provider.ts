@@ -85,7 +85,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
 
     if (this.executor) {
       try {
-        return await this.executeViaExecutorOrDirect(messages, options);
+        return (await this.executeViaExecutorOrDirect(messages, options)).message;
       } catch (error) {
         this.logger.error(
           'DeepSeek Provider executor chat error:',
@@ -139,7 +139,9 @@ export class DeepSeekProvider extends AbstractAIProvider {
 
     if (this.executor) {
       try {
-        yield* this.executeStreamViaExecutorOrDirect(messages, options);
+        for await (const event of this.executeStreamViaExecutorOrDirect(messages, options)) {
+          if (event.kind === 'message') yield event.message;
+        }
         return;
       } catch (error) {
         this.logger.error(

@@ -10,7 +10,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -55,7 +55,7 @@ describe('Filesystem smoke: skill discovery', () => {
   let homeDir: string;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'robota-smoke-'));
+    tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-smoke-')));
     homeDir = join(tempDir, 'fake-home');
     mkdirSync(homeDir, { recursive: true });
   });
@@ -172,7 +172,7 @@ describe('Filesystem smoke: skill discovery', () => {
         'allowed-tools: Read,Edit,Grep',
         'model: claude-opus-4-6',
         'effort: high',
-        'context: project',
+        'context: fork',
         'agent: researcher',
         '---',
         '# Full Meta Skill',
@@ -194,7 +194,7 @@ describe('Filesystem smoke: skill discovery', () => {
     expect(cmd!.allowedTools).toEqual(['Read', 'Edit', 'Grep']);
     expect(cmd!.model).toBe('claude-opus-4-6');
     expect(cmd!.effort).toBe('high');
-    expect(cmd!.context).toBe('project');
+    expect(cmd!.context).toBe('fork');
     expect(cmd!.agent).toBe('researcher');
   });
 
@@ -264,7 +264,7 @@ describe('Filesystem smoke: variable substitution', () => {
   let homeDir: string;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'robota-smoke-vars-'));
+    tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-smoke-vars-')));
     homeDir = join(tempDir, 'fake-home');
     mkdirSync(homeDir, { recursive: true });
   });
@@ -384,7 +384,7 @@ describe('Filesystem smoke: hook config loading', () => {
   const originalHome = process.env.HOME;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'robota-smoke-hooks-'));
+    tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-smoke-hooks-')));
     // Override HOME so loadConfig doesn't read user's real settings
     process.env.HOME = join(tempDir, 'fake-home');
     mkdirSync(process.env.HOME, { recursive: true });
@@ -441,7 +441,7 @@ describe('Filesystem smoke: hook config loading', () => {
       },
     };
 
-    // Local settings override hooks entirely
+    // Local settings ADD hooks (CONFIG-003 — they used to replace them entirely)
     const localSettings = {
       hooks: {
         PreToolUse: [
@@ -462,9 +462,11 @@ describe('Filesystem smoke: hook config loading', () => {
     const config = await loadConfig(projectDir);
 
     expect(config.hooks).toBeDefined();
-    expect(config.hooks!.PreToolUse).toHaveLength(1);
-    // Local should win — matcher is "Read", not "Bash"
-    expect(config.hooks!.PreToolUse![0]!.matcher).toBe('Read');
+    // CONFIG-003: both layers' groups survive, earlier first. The previous assertion required the
+    // base hook to be gone, under a title that said "merge".
+    expect(config.hooks!.PreToolUse).toHaveLength(2);
+    expect(config.hooks!.PreToolUse![0]!.matcher).toBe('Bash');
+    expect(config.hooks!.PreToolUse![1]!.matcher).toBe('Read');
   });
 
   it('should load provider settings from .claude/settings.json', async () => {
@@ -509,7 +511,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'robota-smoke-plugin-'));
+    tempDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-smoke-plugin-')));
   });
 
   afterEach(() => {

@@ -125,7 +125,7 @@ describe('SEC-008: the decision is resolved once', () => {
     // `bearerCredential` requires at least one character after `Bearer ` and so a presented
     // credential is never the empty string. It is a LOCKOUT, not a bypass. That is exactly why the
     // fix deletes the discriminator instead of testing around it, and why the case that IS red on
-    // it lives at the seam (`agent-transport-protocol/src/__tests__/admission.test.ts`).
+    // it lives at the seam (`agent-transport/src/__tests__/admission.test.ts`).
     const transport = createHttpTransport({ admission: { token: '' } });
     transport.attach(createMockSession());
     await transport.start();

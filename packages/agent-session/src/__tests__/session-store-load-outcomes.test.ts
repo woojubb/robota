@@ -13,14 +13,14 @@
  *     only that the codec agrees with itself; the format change is what is on disk.
  */
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { persistSession } from '../session-history-ops.js';
-import { SESSION_ARTIFACT_SCHEMA_VERSION } from '../session-record-codec/index.js';
+import { SESSION_RECORD_ENVELOPE_VERSION } from '../session-record-codec/index.js';
 import { NodeSessionStore } from '../session-store.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
@@ -28,7 +28,7 @@ import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-sess
 const SESSION_ID = 'sess_outcomes';
 
 function newStoreDir(): string {
-  return mkdtempSync(path.join(tmpdir(), 'trans-007-'));
+  return realpathSync(mkdtempSync(path.join(tmpdir(), 'trans-007-')));
 }
 
 function record(id = SESSION_ID): IInteractiveSessionRecord {
@@ -87,7 +87,7 @@ describe('TC-02: a damaged file is corrupt, not missing', () => {
     const store = new NodeSessionStore(dir);
     writeFileSync(
       path.join(dir, `${SESSION_ID}.json`),
-      JSON.stringify({ schemaVersion: SESSION_ARTIFACT_SCHEMA_VERSION, record: { id: 'x' } }),
+      JSON.stringify({ schemaVersion: SESSION_RECORD_ENVELOPE_VERSION, record: { id: 'x' } }),
       'utf-8',
     );
     const outcome = store.load(SESSION_ID);
@@ -225,7 +225,7 @@ describe('TC-10: the envelope is on disk, not merely in the round trip', () => {
       schemaVersion: number;
       record: { id: string };
     };
-    expect(onDisk.schemaVersion).toBe(SESSION_ARTIFACT_SCHEMA_VERSION);
+    expect(onDisk.schemaVersion).toBe(SESSION_RECORD_ENVELOPE_VERSION);
     expect(onDisk.record.id).toBe(SESSION_ID);
     // The bare record is NOT the top level any more — the assertion that would have passed before.
     expect((onDisk as unknown as { id?: string }).id).toBeUndefined();

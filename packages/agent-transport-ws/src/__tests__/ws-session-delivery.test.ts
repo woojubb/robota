@@ -1,5 +1,5 @@
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
-import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 
@@ -45,7 +45,10 @@ describe('WsSessionDelivery', () => {
     delivery.bindSinkDetach(detachSink);
     const harness = createSessionHarness();
     // ARCH-030: the carrier's own boundary is what the handler receives — there is no raw sink to pass.
-    const handler = createWsHandler({ session: harness.session, deliver: delivery.deliver });
+    const handler = createSessionMessageHandler({
+      session: harness.session,
+      deliver: delivery.deliver,
+    });
     delivery.bindProtocolCleanup(handler.cleanup);
 
     expect(harness.fireBranchEvent).not.toThrow();

@@ -216,3 +216,28 @@ describe('ARCH-034 — the runner choice is packaging, not capability', () => {
     expect(withTier.filter((name) => name !== 'report_goal_status')).toEqual(base);
   });
 });
+
+/**
+ * CLI-1994 — a `/fork` job names a record to resume, and the composition is what tells the worker
+ * where records live.
+ *
+ * The existing cases in this file all build the child's deps by hand, so none of them can see the
+ * one arrangement that ships: `bin.ts` passes `createRobotaSubagentComposition()` with no arguments,
+ * and if that composition registers no `openSessionStore`, every fork job dies in the worker with
+ * "this composition opens no session store" AFTER `/fork` has already told the operator it worked.
+ * That is what this asserts — against the product composition itself, not a hand-built one.
+ */
+describe('CLI-1994 — the product composition can resume a forked record', () => {
+  it('registers openSessionStore, which a fork job requires and nothing else supplies', () => {
+    expect(createRobotaSubagentComposition().openSessionStore).toBeTypeOf('function');
+  });
+
+  it('opens a store for the PARENT cwd, since a worktree-isolated child holds no records', () => {
+    const composition = createRobotaSubagentComposition();
+    const store = composition.openSessionStore?.({ cwd: CWD });
+    // The port the resume path calls, present and callable — not merely a truthy object.
+    expect(store).toBeDefined();
+    expect(store?.load).toBeTypeOf('function');
+    expect(store?.list).toBeTypeOf('function');
+  });
+});

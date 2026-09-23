@@ -14,7 +14,7 @@
  * multi-step pipeline the model composes, a Phase-3 prompt node created + persisted + executed, and a
  * re-run-from-disk round-trip) so the exact checks are repeatable next time.
  */
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -66,7 +66,7 @@ beforeAll(() => {
   providerDefinitions = createDefaultProviderDefinitions();
 });
 beforeAll(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'flow007-live-'));
+  dir = await realpath(await mkdtemp(join(tmpdir(), 'flow007-live-')));
 });
 afterAll(async () => {
   if (dir) await rm(dir, { recursive: true, force: true });

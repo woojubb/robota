@@ -1,10 +1,12 @@
 /**
  * WebFetchTool — fetch a URL and return its content as text.
  *
- * HTML is stripped to plain text for readability. Uses Node.js native fetch.
- * Output is capped at 30K chars (same as other tools).
+ * HTML is stripped to plain text for readability. Fetches through the shared egress boundary
+ * (`fetchWithEgressPolicy`, #2026): loopback / private / link-local / metadata destinations are
+ * refused, redirects are re-validated, and the response is capped while streaming.
  */
 
+import { fetchWithEgressPolicy } from '@robota-sdk/agent-core/node';
 import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
@@ -12,6 +14,7 @@ import { createZodFunctionTool } from '../implementations/function-tool';
 import type { IBuiltinToolDescriptionOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
+import type { IEgressDeps, IEgressPolicy } from '@robota-sdk/agent-core/node';
 
 // CORE-030: defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
@@ -25,6 +28,16 @@ const WebFetchSchema = z.object({
 });
 
 type TWebFetchArgs = z.infer<typeof WebFetchSchema>;
+
+/** #2026: the egress policy this tool fetches under, and the deps a test injects (fetch, DNS lookup). */
+export interface IWebFetchEgressOptions {
+  policy?: IEgressPolicy;
+  deps?: IEgressDeps;
+}
+
+export interface IWebFetchToolOptions extends IBuiltinToolDescriptionOptions {
+  egress?: IWebFetchEgressOptions;
+}
 
 /**
  * Remove every `<tag>…</tag>` element — the linear equivalent of `replace(/<tag[\s\S]*?<\/tag>/gi, '')`.
@@ -138,7 +151,11 @@ export function classifyFetchError(err: unknown): string {
   return `Network error: ${err.message} Check that the URL is correct and the server is reachable.`;
 }
 
-async function runWebFetch(args: TWebFetchArgs, signal?: AbortSignal): Promise<string> {
+async function runWebFetch(
+  args: TWebFetchArgs,
+  egress: IWebFetchEgressOptions,
+  signal?: AbortSignal,
+): Promise<string> {
   const { url, headers } = args;
 
   try {
@@ -154,23 +171,31 @@ async function runWebFetch(args: TWebFetchArgs, signal?: AbortSignal): Promise<s
   }
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
-    // CORE-018: the run-scoped signal aborts the in-flight request alongside the timeout.
-    const fetchSignal = signal ? AbortSignal.any([controller.signal, signal]) : controller.signal;
-
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Robota-CLI/3.0',
-        ...(headers ?? {}),
+    // #2026: destination safety, redirect re-validation, the deadline (composed with the CORE-018
+    // run-scoped signal) and the streaming byte cap all live in the shared egress boundary.
+    const response = await fetchWithEgressPolicy(
+      url,
+      {
+        headers: { 'User-Agent': 'Robota-CLI/3.0', ...(headers ?? {}) },
+        signal,
+        timeoutMs: DEFAULT_TIMEOUT_MS,
+        maxResponseBytes: MAX_RESPONSE_BYTES,
       },
-      signal: fetchSignal,
-      redirect: 'follow',
-    });
-
-    clearTimeout(timeout);
+      egress.policy,
+      egress.deps,
+    );
 
     if (!response.ok) {
+      const { rejection } = response;
+      const error =
+        rejection.reason === 'response_too_large'
+          ? `Response too large (max ${MAX_RESPONSE_BYTES} bytes). Consider fetching a more specific URL or a paginated endpoint.`
+          : `Blocked by egress policy: ${rejection.message} Do not retry with the same URL.`;
+      const result: IToolInvocationResult = { success: false, output: '', error };
+      return JSON.stringify(result);
+    }
+
+    if (response.status < 200 || response.status >= 300) {
       const retryHint =
         response.status >= 500
           ? ' The server is temporarily unavailable — retrying may help.'
@@ -184,18 +209,7 @@ async function runWebFetch(args: TWebFetchArgs, signal?: AbortSignal): Promise<s
     }
 
     const contentType = response.headers.get('content-type') ?? '';
-    const buffer = await response.arrayBuffer();
-
-    if (buffer.byteLength > MAX_RESPONSE_BYTES) {
-      const result: IToolInvocationResult = {
-        success: false,
-        output: '',
-        error: `Response too large: ${buffer.byteLength} bytes (max ${MAX_RESPONSE_BYTES}). Consider fetching a more specific URL or a paginated endpoint.`,
-      };
-      return JSON.stringify(result);
-    }
-
-    let text = new TextDecoder().decode(buffer);
+    let text = new TextDecoder().decode(response.body);
 
     // Strip HTML if content-type indicates HTML
     if (contentType.includes('html')) {
@@ -221,12 +235,13 @@ const DEFAULT_WEB_FETCH_DESCRIPTION =
 /**
  * Create a WebFetchTool instance — register with Robota agent tools registry.
  */
-export function createWebFetchTool(options: IBuiltinToolDescriptionOptions = {}): FunctionTool {
+export function createWebFetchTool(options: IWebFetchToolOptions = {}): FunctionTool {
+  const egress = options.egress ?? {};
   return createZodFunctionTool(
     'WebFetch',
     options.description ?? DEFAULT_WEB_FETCH_DESCRIPTION,
     WebFetchSchema,
-    async (params, context) => runWebFetch(params, context?.signal),
+    async (params, context) => runWebFetch(params, egress, context?.signal),
   );
 }
 

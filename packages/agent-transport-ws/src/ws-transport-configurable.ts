@@ -5,8 +5,8 @@
 
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 
-import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
-import { WebSocketServer, WebSocket } from 'ws';
+import { createSessionMessageHandler } from '@robota-sdk/agent-transport';
+import { WebSocketServer } from 'ws';
 
 import { PayloadChannelRegistry } from './payload-channels.js';
 import {
@@ -18,7 +18,13 @@ import {
 } from './ws-connection-guards.js';
 import { toBytes } from './ws-message-data.js';
 import { WsSessionDelivery } from './ws-session-delivery.js';
-import { DEFAULT_MAX_RETRIES, DEFAULT_PORT } from './ws-transport-config.js';
+import {
+  DEFAULT_MAX_RETRIES,
+  DEFAULT_PORT,
+  configuredWsHandlerOptions,
+  transportLifecycleError,
+  validTransportOptions,
+} from './ws-transport-config.js';
 
 import type { IWsTransportConfig } from './ws-transport-config.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
@@ -26,13 +32,12 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
   IChannelDescriptor,
   IConfigurableTransport,
-  ITransportLifecycleError,
   IPayloadChannel,
   IPayloadChannelHost,
   TChannelEventMap,
 } from '@robota-sdk/agent-interface-transport';
-import type { IProtocolSession } from '@robota-sdk/agent-transport-protocol';
-import type { RawData } from 'ws';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
+import type { RawData, WebSocket } from 'ws';
 
 /**
  * RUNTIME-13: forced-terminate deadline for `stop()`. `WebSocketServer.close()` fires its callback only after
@@ -44,7 +49,7 @@ const WS_STOP_TERMINATE_DEADLINE_MS = 5000;
 
 /**
  * TRANS-001: the WS transport is a payload-agnostic CARRIER that routes by WebSocket frame opcode —
- * TEXT frames go to the text-agent protocol profile (`createWsHandler`), BINARY frames go to the
+ * TEXT frames go to the text-agent protocol profile (`createSessionMessageHandler`), BINARY frames go to the
  * consumer-declared channels. The two profiles share one connection and never constrain each other.
  */
 export class WsTransport
@@ -67,11 +72,12 @@ export class WsTransport
   private state: 'detached' | 'attached' | 'starting' | 'ready' | 'stopping' = 'detached';
   private startOperation: Promise<{ stop: () => Promise<void>; port: number }> | undefined;
   private startCancelled = false;
-  private readonly port: number;
-  private readonly maxRetries: number;
+  private port: number;
+  private maxRetries: number;
   private readonly token?: string;
   private readonly allowedHosts: ReadonlySet<string>;
   private readonly allowedOrigins: ReadonlySet<string>;
+  private readonly handlerOptions: ReturnType<typeof configuredWsHandlerOptions>;
   private readonly channels = new PayloadChannelRegistry();
   private resolvedPort?: number;
 
@@ -84,6 +90,7 @@ export class WsTransport
     if (admission.token !== null) this.token = admission.token;
     this.allowedHosts = new Set(config.allowedHosts ?? []);
     this.allowedOrigins = new Set(config.allowedOrigins ?? []);
+    this.handlerOptions = configuredWsHandlerOptions(config);
   }
 
   attach(session: IInteractiveSession): void;
@@ -120,9 +127,9 @@ export class WsTransport
   }
 
   async start(): Promise<void> {
-    if (!this.session) throw this.lifecycleError('not-attached');
+    if (!this.session) throw transportLifecycleError(this.name, 'not-attached');
     if (this.state === 'starting' || this.state === 'ready' || this.state === 'stopping') {
-      throw this.lifecycleError('already-started');
+      throw transportLifecycleError(this.name, 'already-started');
     }
     this.state = 'starting';
     this.startCancelled = false;
@@ -167,20 +174,20 @@ export class WsTransport
     this.state = 'detached';
   }
 
-  validateOptions(options: Record<string, TUniversalValue>): boolean {
-    const { port, maxRetries } = options;
-    if (port !== undefined && (typeof port !== 'number' || port < 1 || port > 65535)) return false;
-    if (maxRetries !== undefined && (typeof maxRetries !== 'number' || maxRetries < 0))
-      return false;
-    return true;
+  /** TRANS-002 (issue #2480): persisted `port`/`maxRetries` reach the server through here, before start. */
+  configure(options: Record<string, TUniversalValue>): void {
+    if (this.state !== 'detached' && this.state !== 'attached') {
+      throw transportLifecycleError(this.name, 'already-started');
+    }
+    if (!this.validateOptions(options)) {
+      throw new TypeError('WsTransport options are invalid (port 1-65535, maxRetries >= 0).');
+    }
+    if (typeof options['port'] === 'number') this.port = options['port'];
+    if (typeof options['maxRetries'] === 'number') this.maxRetries = options['maxRetries'];
   }
 
-  private lifecycleError(code: ITransportLifecycleError['code']): ITransportLifecycleError {
-    return Object.assign(new Error(`WsTransport ${code}.`), {
-      name: 'TransportLifecycleError' as const,
-      code,
-      transportName: this.name,
-    });
+  validateOptions(options: Record<string, TUniversalValue>): boolean {
+    return validTransportOptions(options);
   }
 
   private bindWithRetry(
@@ -241,13 +248,19 @@ export class WsTransport
           }
 
           const delivery = new WsSessionDelivery(ws);
-          const handler = createWsHandler({ session, deliver: delivery.deliver });
+          const handler = createSessionMessageHandler({
+            session,
+            deliver: delivery.deliver,
+            ...this.handlerOptions,
+          });
           delivery.bindProtocolCleanup(handler.cleanup);
 
           delivery.bindSinkDetach(
-            channels.addSink((frame: Uint8Array) => {
-              if (ws.readyState === WebSocket.OPEN) ws.send(frame, { binary: true });
-            }),
+            // ARCH-030: through the connection's own delivery, so payload frames share the text
+            // protocol's backpressure budget and its close policy. The bare `readyState` check plus
+            // `ws.send` that stood here was the last outbound path on this socket outside the
+            // boundary.
+            channels.addSink((frame: Uint8Array) => delivery.deliverBinary(frame)),
           );
 
           // Route by frame opcode: TEXT → the text-agent protocol profile, BINARY → the

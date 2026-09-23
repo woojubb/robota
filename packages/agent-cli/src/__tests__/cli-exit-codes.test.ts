@@ -6,7 +6,7 @@
  * retry" from runtime failures (exit 1). Non-print startup keeps exit 1.
  */
 
-import { mkdirSync, rmSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, rmSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -21,7 +21,7 @@ import type {
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-cli-exit-codes-test-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-cli-exit-codes-test-')));
 const ORIGINAL_ARGV = process.argv;
 const ORIGINAL_HOME = process.env.HOME;
 

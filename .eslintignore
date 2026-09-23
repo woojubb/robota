@@ -1,8 +1,5 @@
-# Ignore test files
-**/*.test.ts
-**/*.test.tsx
-**/*.spec.ts
-**/*.spec.tsx
+# Test files are linted (issue #2254): the former **/*.test.* / **/*.spec.* exclusion made the
+# lint gate blind to test code, and neither `pnpm lint` nor its output said so.
 
 # Ignore build output
 dist/

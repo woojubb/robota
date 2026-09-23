@@ -42,6 +42,11 @@ function createMockToolManager(overrides: Partial<IToolManager> = {}): IToolMana
     getTool: vi.fn(),
     getToolSchema: vi.fn(),
     getTools: vi.fn().mockReturnValue([]),
+    // CLI-1990: with nothing deferred the offered set IS the registered set.
+    getOfferedTools: vi.fn().mockReturnValue([]),
+    isToolOffered: vi.fn().mockReturnValue(true),
+    listDeferredTools: vi.fn().mockReturnValue([]),
+    loadDeferredTools: vi.fn().mockReturnValue([]),
     executeTool: vi.fn().mockResolvedValue('tool result'),
     hasTool: vi.fn().mockReturnValue(true),
     setAllowedTools: vi.fn(),
@@ -164,6 +169,7 @@ describe('ToolExecutionService', () => {
     it('should not execute unknown tools and should explain why execution was skipped', async () => {
       const tools = createMockToolManager({
         getTools: vi.fn().mockReturnValue([{ name: 'ExecuteCommand' }, { name: 'Read' }]),
+        getOfferedTools: vi.fn().mockReturnValue([{ name: 'ExecuteCommand' }, { name: 'Read' }]),
         hasTool: vi.fn().mockReturnValue(false),
         executeTool: vi.fn(),
       });
@@ -284,6 +290,37 @@ describe('ToolExecutionService', () => {
       });
 
       expect(requests[0]?.metadata).toEqual({ toolCallId: 'call_1' });
+    });
+
+    it('rejects malformed JSON with a ValidationError naming the tool and call (#2078)', () => {
+      const service = new ToolExecutionService(createMockToolManager());
+      const toolCalls = [{ id: 'call_bad', function: { name: 'tool_a', arguments: '{not json' } }];
+
+      expect(() =>
+        service.createExecutionRequestsWithContext(toolCalls, { ownerPathBase: [] }),
+      ).toThrow(ValidationError);
+      expect(() =>
+        service.createExecutionRequestsWithContext(toolCalls, { ownerPathBase: [] }),
+      ).toThrow(/tool "tool_a" \(call call_bad\): invalid JSON/);
+    });
+
+    // Issue #2078: JSON syntax is not the contract — the root must be a non-null, non-array object.
+    it.each([
+      ['null', 'null'],
+      ['a number', '42'],
+      ['a string', '"text"'],
+      ['a boolean', 'true'],
+      ['an array', '[{"x": 1}]'],
+    ])('rejects a JSON body whose root is %s, naming the tool and call (#2078)', (_label, args) => {
+      const service = new ToolExecutionService(createMockToolManager());
+      const toolCalls = [{ id: 'call_bad', function: { name: 'tool_a', arguments: args } }];
+
+      expect(() =>
+        service.createExecutionRequestsWithContext(toolCalls, { ownerPathBase: [] }),
+      ).toThrow(ValidationError);
+      expect(() =>
+        service.createExecutionRequestsWithContext(toolCalls, { ownerPathBase: [] }),
+      ).toThrow(/tool "tool_a" \(call call_bad\): expected a JSON object at the root/);
     });
   });
 

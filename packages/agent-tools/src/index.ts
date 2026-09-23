@@ -93,6 +93,7 @@ export {
 // FunctionTool and ToolRegistry classes are owned by @robota-sdk/agent-core (DATA-005 SSOT).
 // agent-tools exposes only the factories that construct core's FunctionTool.
 export { createFunctionTool, createZodFunctionTool } from './implementations/function-tool';
+export type { IFunctionToolResidencyOptions } from './implementations/function-tool';
 // zodToJsonSchema and the Zod compatibility types moved to @robota-sdk/agent-core (CORE-015 SSOT).
 export type {
   IFunctionToolValidationOptions,
@@ -110,6 +111,7 @@ export { createGlobTool } from './builtins/glob-tool';
 export { createGrepTool } from './builtins/grep-tool';
 export type { IGrepToolOptions } from './builtins/grep-tool';
 export { webFetchTool, createWebFetchTool } from './builtins/web-fetch-tool';
+export type { IWebFetchToolOptions } from './builtins/web-fetch-tool';
 export { webSearchTool, createWebSearchTool } from './builtins/web-search-tool';
 export type { IWebSearchToolOptions } from './builtins/web-search-tool';
 export { createBraveSearchProvider } from './builtins/brave-search-provider';
@@ -120,6 +122,14 @@ export type {
   IWebSearchToolProviderOptions,
 } from './builtins/web-search-provider';
 export { askUserQuestionTool, createAskUserQuestionTool } from './builtins/ask-user-question-tool';
+// CLI-1990: the resident tool that loads deferred schemas on demand, and its pure match/rank half.
+export {
+  toolSearchTool,
+  createToolSearchTool,
+  TOOL_SEARCH_NAME,
+} from './builtins/tool-search-tool';
+export type { IToolSearchOutput } from './builtins/tool-search-tool';
+export { DEFAULT_TOOL_SEARCH_LIMIT, matchDeferredTools } from './builtins/tool-search-matching';
 export type {
   IBuiltinToolDescriptionOptions,
   IContainedBuiltinToolOptions,

@@ -57,12 +57,19 @@ export type {
 } from './host-context.js';
 export type {
   ICommandHostAdapters,
+  ICommandEffortAdapter,
+  ICommandCostBudget,
+  ICommandCostBudgetAdapter,
   ICommandHandoffAdapter,
   ICommandPermissionModeAdapter,
   ICommandPickerAdapter,
   ICommandProcessAdapter,
   ICommandLocalPeersAdapter,
+  ICommandMCPActivationAdapter,
+  ICommandMCPActivationSummary,
   ICommandPresetRegistryAdapter,
+  ICommandOutputStyleRegistryAdapter,
+  ICommandOutputStyleSummary,
   ICommandRemoteControlAdapter,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
@@ -71,6 +78,14 @@ export type {
   ILocalPeerSummary,
   TRemoteControlStatus,
 } from './host-adapters.js';
+export type {
+  IModelEffortInputs,
+  IModelEffortResolution,
+  TEffortDisposition,
+  TEffortSelection,
+  TEffortSource,
+} from '../effort/index.js';
+export { parseModelEffort, resolveModelEffort } from '../effort/index.js';
 export type {
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,
@@ -179,6 +194,17 @@ export type {
   IStatusLineCommandSettings,
   TStatusLineCommandSettingsPatch,
 } from './statusline/statusline-command-api.js';
+export type {
+  IAppearanceSettings,
+  TAppearanceSettingsPatch,
+} from './appearance/appearance-command-api.js';
+export {
+  APPEARANCE_SETTINGS_KEYS,
+  applyAppearanceSettings,
+  DEFAULT_APPEARANCE_SETTINGS,
+  isAppearanceSettingsPatch,
+  readAppearanceSettings,
+} from './appearance/appearance-command-api.js';
 export {
   buildLanguageCommandSubcommands,
   formatLanguageUsageMessage,

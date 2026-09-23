@@ -40,20 +40,19 @@ export function buildShellToolDescription(
       ? [
           `IMPORTANT: Avoid using this tool to run \`find\`, \`grep\`, \`cat\`, \`head\`, \`tail\`, \`sed\`, \`awk\`, or \`echo\` commands. Instead, use the appropriate dedicated tool:`,
           ...hints.map((entry) => entry.hint),
-          ``,
         ]
       : [];
 
+  // TOOL-004: every sentence here describes a mechanism THIS tool enforces. Each command runs in
+  // `workingDirectory` (default: the configured root) with no state carried between calls; there is
+  // no `description` parameter; output truncation belongs to whichever layer applies it, not here.
   return [
     `Executes a command in the host shell and returns its output.`,
     ``,
     `Active shell: ${shell.label}. ${shell.syntaxHint}`,
     ``,
-    `The working directory persists between commands, but shell state does not.`,
+    `Each command runs in a fresh shell in workingDirectory (default: the configured working directory); no shell state carries over between calls.`,
     ``,
     ...routingBlock,
-    `For simple commands, keep the description brief (5-10 words). For complex commands, include enough context to clarify what the command does.`,
-    ``,
-    `Output is limited to 30,000 characters. Longer output will be middle-truncated.`,
   ].join('\n');
 }

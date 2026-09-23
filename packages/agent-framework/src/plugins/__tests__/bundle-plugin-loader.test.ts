@@ -1,15 +1,17 @@
 import { setGlobalLoggerSink, type ILogger } from '@robota-sdk/agent-core';
-import { writeFileSync, mkdirSync, rmSync, existsSync, mkdtempSync } from 'node:fs';
+import { writeFileSync, mkdirSync, rmSync, existsSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { BundlePluginLoader } from '../bundle-plugin-loader.js';
+import { PluginCommandSource } from '../../commands/plugin-source.js';
+import { commandToCapabilityDescriptor } from '../../commands/capability-descriptors.js';
 
 import type { IBundlePluginManifest, TEnabledPlugins } from '../bundle-plugin-types.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-bundle-plugin-test-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-bundle-plugin-test-')));
 
 function setupDir(path: string): void {
   mkdirSync(path, { recursive: true });
@@ -176,6 +178,88 @@ Content here.
     const plugins = await loader.loadAll();
 
     expect(plugins[0].skills[0].tags).toEqual(['alpha', 'beta']);
+  });
+
+  it('preserves a plugin skill disabling flag through model capability projection', async () => {
+    const manifest: IBundlePluginManifest = {
+      name: 'secure-plugin',
+      version: '1.0.0',
+      description: 'Secured skills',
+      features: { skills: true },
+    };
+    createPluginInCache(pluginsDir, 'market', 'secure-plugin', '1.0.0', manifest, {
+      skills: [
+        {
+          name: 'private',
+          content: '---\nname: private\ndisable-model-invocation: true\n---\nbody',
+        },
+      ],
+    });
+
+    const plugin = (await new BundlePluginLoader(pluginsDir).loadAll())[0]!;
+    const command = new PluginCommandSource([plugin]).getCommands()[0]!;
+    expect(plugin.skills[0]?.disableModelInvocation).toBe(true);
+    expect(command.disableModelInvocation).toBe(true);
+    expect(commandToCapabilityDescriptor(command).modelInvocable).toBe(false);
+  });
+
+  it('preserves plugin command invocation and execution metadata', async () => {
+    const manifest: IBundlePluginManifest = {
+      name: 'command-plugin',
+      version: '1.0.0',
+      description: 'Secured command',
+      features: { commands: true },
+    };
+    createPluginInCache(pluginsDir, 'market', 'command-plugin', '1.0.0', manifest, {
+      commands: [
+        {
+          name: 'review.md',
+          content:
+            '---\nname: review\ndisable-model-invocation: true\nuser-invocable: false\nallowed-tools: Read, Grep\ncontext: fork\neffort: high\n---\nbody',
+        },
+      ],
+    });
+
+    const plugin = (await new BundlePluginLoader(pluginsDir).loadAll())[0]!;
+    const command = new PluginCommandSource([plugin]).getCommands()[0]!;
+    expect(command).toMatchObject({
+      name: 'command-plugin:review',
+      disableModelInvocation: true,
+      userInvocable: false,
+      allowedTools: ['Read', 'Grep'],
+      context: 'fork',
+      effort: 'high',
+    });
+    expect(commandToCapabilityDescriptor(command)).toMatchObject({
+      modelInvocable: false,
+      userInvocable: false,
+    });
+  });
+
+  it('reports a malformed plugin skill by source path while loading its neighbor', () => {
+    const manifest = (name: string): IBundlePluginManifest => ({
+      name,
+      version: '1.0.0',
+      description: name,
+      features: { skills: true },
+    });
+    const badDir = createPluginInCache(pluginsDir, 'market', 'bad', '1.0.0', manifest('bad'), {
+      skills: [{ name: 'unsafe', content: '---\ndisable-model-invocation: treu\n---\nbody' }],
+    });
+    createPluginInCache(pluginsDir, 'market', 'good', '1.0.0', manifest('good'), {
+      skills: [{ name: 'safe', content: '---\ndisable-model-invocation: true\n---\nbody' }],
+    });
+
+    const inspection = new BundlePluginLoader(pluginsDir).inspectPluginsSync();
+    expect(inspection.loaded.map((plugin) => plugin.manifest.name)).toEqual(['good']);
+    expect(inspection.skipped).toEqual([
+      expect.objectContaining({
+        pluginId: 'bad@market',
+        reason: 'load-failed',
+        detail: expect.stringContaining(join(badDir, 'skills', 'unsafe', 'SKILL.md')),
+      }),
+    ]);
+    expect(inspection.skipped[0]?.detail).not.toContain('treu');
   });
 
   it('should load hooks from plugin hooks/hooks.json', async () => {
@@ -347,6 +431,23 @@ Just content, no frontmatter.
     expect(plugins[0].skills[0].name).toBe('simple');
     expect(plugins[0].skills[0].description).toBe('');
     expect(plugins[0].skills[0].skillContent).toContain('# Simple Skill');
+  });
+
+  it('preserves leading whitespace in plugin files without frontmatter', async () => {
+    const manifest: IBundlePluginManifest = {
+      name: 'plain-plugin',
+      version: '1.0.0',
+      description: 'Plain content',
+      features: { skills: true, commands: true },
+    };
+    createPluginInCache(pluginsDir, 'market', 'plain-plugin', '1.0.0', manifest, {
+      skills: [{ name: 'plain', content: '  # Skill\nBody' }],
+      commands: [{ name: 'plain.md', content: '\n  # Command\nBody' }],
+    });
+
+    const plugin = (await new BundlePluginLoader(pluginsDir).loadAll())[0]!;
+    expect(plugin.skills[0]?.skillContent).toBe('  # Skill\nBody');
+    expect(plugin.commands[0]?.skillContent).toBe('\n  # Command\nBody');
   });
 
   it('skips a plugin whose plugin.json is invalid JSON, and still loads its neighbours', async () => {

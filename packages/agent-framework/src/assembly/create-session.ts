@@ -6,20 +6,20 @@
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
-import { applyPresetToolLists, GuardrailExecutor } from '@robota-sdk/agent-core';
+import { applyPresetToolLists } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
 import { assembleSessionTools } from './assemble-session-tools.js';
+import { buildHookTypeExecutors } from './build-hook-type-executors.js';
 import {
   buildAgentRuntime,
   buildBackgroundProcessTool,
   buildSessionSystemPrompt,
   wireSessionDeps,
 } from './create-session-runtime.js';
+import { assertConfiguredHookTypesExecutable } from './hook-type-reachability.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
 import { readSettings, writeSettings } from '../config/settings-io.js';
-import { AgentExecutor } from '../hooks/agent-executor.js';
-import { PromptExecutor } from '../hooks/prompt-executor.js';
 import {
   createModelCommandToolProjection,
   createProjectedCommandExecutionTools,
@@ -31,14 +31,8 @@ import type {
   TSessionConstructorWithAutoCompact,
 } from './create-session-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { TSessionFactory } from '../hooks/agent-executor.js';
-import type { TProviderFactory } from '../hooks/prompt-executor.js';
-import type {
-  IToolWithEventService,
-  IHookTypeExecutor,
-  THooksConfig,
-  TGuardrail,
-} from '@robota-sdk/agent-core';
+import type { IHookDefinitionSource } from '../config/config-merge.js';
+import type { THooksConfig, TGuardrail } from '@robota-sdk/agent-core';
 
 export type { ICreateSessionOptions, ICreateSessionResult } from './create-session-types.js';
 
@@ -101,7 +95,10 @@ function resolveGuardrailHooks(
  * propagating async through it would break every consumer that builds a session without supplying
  * `defaultTools`, which is the zero-config contract this whole extraction exists to preserve.
  */
-export async function createSession(options: ICreateSessionOptions): Promise<ICreateSessionResult> {
+export async function createSession(
+  options: ICreateSessionOptions,
+  hookSources: readonly IHookDefinitionSource[] = [],
+): Promise<ICreateSessionResult> {
   if (!options.provider) {
     throw new Error(
       'provider is required. SDK is provider-neutral — consumer must create and pass a provider instance.',
@@ -143,26 +140,7 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
     );
   }
 
-  const hookTypeExecutors: IHookTypeExecutor[] = [];
-  if (options.providerFactory) {
-    hookTypeExecutors.push(
-      new PromptExecutor({
-        providerFactory: options.providerFactory,
-        defaultModel: options.config.provider.model,
-      }),
-    );
-  }
-  if (options.sessionFactory) {
-    hookTypeExecutors.push(new AgentExecutor({ sessionFactory: options.sessionFactory }));
-  }
-  if (options.guardrails && Object.keys(options.guardrails).length > 0) {
-    // SELFHOST-005: register the guardrail executor so a { type: 'guardrail' } hook definition runs
-    // the consumer's guardrail set in parallel and fails the turn fast via the existing blocked path.
-    hookTypeExecutors.push(new GuardrailExecutor(options.guardrails));
-  }
-  if (options.additionalHookExecutors) {
-    hookTypeExecutors.push(...options.additionalHookExecutors);
-  }
+  const hookTypeExecutors = buildHookTypeExecutors(options);
 
   // SELFHOST-005: registering guardrails only adds the EXECUTOR; the guardrail set fires only if a
   // { type: 'guardrail' } hook definition exists on an enforcing event. When guardrails are registered
@@ -170,6 +148,10 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
   // the gate actually runs — otherwise P3 would be inert. Idempotent: skipped if the user already
   // declared a guardrail hook.
   const resolvedHooks = resolveGuardrailHooks(options.config.hooks, options.guardrails);
+
+  // Issue #2245: a declared hook type with no executor would validate and then deny every tool
+  // call (SEC-016). Refuse it here, before any turn, naming the type and the option it needs.
+  assertConfiguredHookTypesExecutable(resolvedHooks, hookTypeExecutors, hookSources);
 
   const { agentToolDeps, agentDefinitions, backgroundTaskManager } = buildAgentRuntime(
     options,
@@ -196,6 +178,9 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
     backgroundProcessToolDeps,
     modelVisibleSkills,
     agentDefinitions,
+    // CLI-1990: the assembled set, so the prompt can name what is deferred (and therefore
+    // searchable). Passed here rather than recomputed: this is the list the session actually holds.
+    tools,
   );
 
   const defaultAllow = [
@@ -226,8 +211,10 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
   const mergedPermissions = applyPresetToolLists(presetFreePermissions, options);
 
   const projectSettingsPath = join(cwd, '.robota', 'settings.local.json');
-  function onProjectAllowTool(toolName: string): void {
-    const pattern = `${toolName}(*)`;
+  // Issue #2351: the enforcer hands over the CONSENT SCOPE pattern (`Bash(git *)`,
+  // `Read(/w/src/**)`), which is persisted as-is; a bare tool name still widens to `Tool(*)`.
+  function onProjectAllowTool(scope: string): void {
+    const pattern = scope.includes('(') ? scope : `${scope}(*)`;
     const settings = readSettings(projectSettingsPath);
     const currentAllow = Array.isArray(settings.permissions)
       ? []
@@ -279,7 +266,7 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
     autoCompactThreshold: options.autoCompactThreshold ?? options.config.autoCompactThreshold,
     sessionLogger: options.sessionLogger,
     transcriptPath: options.transcriptPath,
-    hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
+    hookTypeExecutors,
     agentName: options.agentName,
     ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
@@ -292,6 +279,11 @@ export async function createSession(options: ICreateSessionOptions): Promise<ICr
   return { session, rebuildSystemMessage };
 }
 
-function createSessionId(): string {
+/**
+ * The id every session this package assembles gets. Exported for the one other producer of a
+ * session record — the in-session fork (`interactive-session-fork-record.ts`, CLI-1994) — so the
+ * `session_<uuid>` form is written here once rather than a second time beside it.
+ */
+export function createSessionId(): string {
   return `session_${randomUUID()}`;
 }

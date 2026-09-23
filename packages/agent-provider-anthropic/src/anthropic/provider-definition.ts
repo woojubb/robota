@@ -33,6 +33,8 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
       model: DEFAULT_ANTHROPIC_PROVIDER_MODEL,
       apiKey: DEFAULT_ANTHROPIC_PROVIDER_API_KEY_REFERENCE,
     },
+    // OBSERVABILITY-1991: the SDK embeds this endpoint; declared here for the pre-session doctor only.
+    endpoint: { host: 'api.anthropic.com', port: 443 },
     modelCatalog: {
       status: 'fallback',
       sourceUrl: ANTHROPIC_MODEL_SOURCE_URL,

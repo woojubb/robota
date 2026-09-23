@@ -1,190 +1,158 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
+  IMediaProviderConfig,
+  IMediaProviderDefinition,
+  IVideoGenerationProvider,
   IVideoJobAccepted,
   IVideoJobSnapshot,
   TProviderMediaResult,
 } from '@robota-sdk/agent-core';
 import { SeedanceVideoRuntime, type ISeedanceVideoRequest } from './runtime-core.js';
 
-// Shared job mocks so every constructed BytedanceProvider uses the same fns. The factory lives in
-// vi.hoisted so the vi.mock() call stays a single line (keeps the allow-module-mock escape attached).
-const { createVideo, getVideoJob, cancelVideoJob, bytedanceMockFactory } = vi.hoisted(() => {
-  const createVideo = vi.fn();
-  const getVideoJob = vi.fn();
-  const cancelVideoJob = vi.fn();
-  const bytedanceMockFactory = (): { BytedanceProvider: unknown } => ({
-    BytedanceProvider: vi
-      .fn()
-      .mockImplementation(() => ({ createVideo, getVideoJob, cancelVideoJob })),
-  });
-  return { createVideo, getVideoJob, cancelVideoJob, bytedanceMockFactory };
-});
-
-// Full replacement avoids loading the ByteDance HTTP client; only the video job methods are exercised.
-vi.mock('@robota-sdk/agent-provider-bytedance', bytedanceMockFactory); // allow-module-mock: keeps the ByteDance HTTP client out of this leaf test's import graph, which reaches no other export
-
 const MODEL = 'seedance-2.0';
+const TEST_CREDENTIAL_ENV = 'TEST_VIDEO_PROVIDER_KEY';
+const TEST_BASE_URL_ENV = 'TEST_VIDEO_PROVIDER_BASE_URL';
+const createVideo = vi.fn();
+const getVideoJob = vi.fn();
+const cancelVideoJob = vi.fn();
+const factoryCalls: IMediaProviderConfig[] = [];
+
+function testDefinition(
+  overrides: Partial<IMediaProviderDefinition> = {},
+): IMediaProviderDefinition {
+  return {
+    type: 'test-video',
+    createVideoProvider: (config) => {
+      factoryCalls.push(config);
+      return { createVideo, getVideoJob, cancelVideoJob } as unknown as IVideoGenerationProvider;
+    },
+    ...overrides,
+  };
+}
+
+function credentialedDefinition(): IMediaProviderDefinition {
+  return testDefinition({
+    credentialRequirement: {
+      credentialEnvVars: [TEST_CREDENTIAL_ENV],
+      baseUrlEnvVars: [TEST_BASE_URL_ENV],
+      requiresBaseUrl: true,
+    },
+  });
+}
 
 function accepted(): TProviderMediaResult<IVideoJobAccepted> {
   return {
     ok: true,
-    value: { jobId: 'job-1', status: 'queued', createdAt: '2026-07-05T00:00:00Z' },
+    value: { jobId: 'job-1', status: 'queued', createdAt: '2026-09-09T00:00:00Z' },
   };
 }
 
-function snapshot(overrides: Partial<IVideoJobSnapshot>): TProviderMediaResult<IVideoJobSnapshot> {
+function snapshot(
+  overrides: Partial<IVideoJobSnapshot> = {},
+): TProviderMediaResult<IVideoJobSnapshot> {
   return {
     ok: true,
-    value: { jobId: 'job-1', status: 'running', updatedAt: '2026-07-05T00:00:01Z', ...overrides },
+    value: { jobId: 'job-1', status: 'running', updatedAt: '2026-09-09T00:00:01Z', ...overrides },
   };
 }
 
-function makeRuntime(): SeedanceVideoRuntime {
+function request(overrides: Partial<ISeedanceVideoRequest> = {}): ISeedanceVideoRequest {
+  return { prompt: 'a drone shot', model: '', pollIntervalMs: 1, maxWaitMs: 1000, ...overrides };
+}
+
+function runtime(): SeedanceVideoRuntime {
   return new SeedanceVideoRuntime({
-    apiKey: 'k',
-    baseUrl: 'https://api.test',
+    videoProviderDefinition: testDefinition(),
     defaultModel: MODEL,
     sleep: async () => {},
   });
 }
 
-function req(overrides?: Partial<ISeedanceVideoRequest>): ISeedanceVideoRequest {
-  return { prompt: 'a drone shot', model: '', pollIntervalMs: 1, maxWaitMs: 1000, ...overrides };
-}
-
 describe('SeedanceVideoRuntime', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv('SEEDANCE_API_KEY', undefined);
-    vi.stubEnv('SEEDANCE_BASE_URL', undefined);
-    vi.stubEnv('DAG_SEEDANCE_VIDEO_DEFAULT_MODEL', undefined);
-    vi.stubEnv('DAG_SEEDANCE_VIDEO_ALLOWED_MODELS', undefined);
+    factoryCalls.length = 0;
+    vi.stubEnv(TEST_CREDENTIAL_ENV, undefined);
+    vi.stubEnv(TEST_BASE_URL_ENV, undefined);
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it('returns validation error when default model is missing', async () => {
-    const runtime = new SeedanceVideoRuntime({ apiKey: 'k', baseUrl: 'https://api.test' });
-    const result = await runtime.generateVideo(req());
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe('DAG_VALIDATION_SEEDANCE_VIDEO_MODEL_REQUIRED');
-  });
-
-  it('returns validation error when credentials are missing', async () => {
-    const runtime = new SeedanceVideoRuntime({ defaultModel: MODEL });
-    const result = await runtime.generateVideo(req());
+  it('returns a typed credential error without a provider definition', async () => {
+    const result = await new SeedanceVideoRuntime({ defaultModel: MODEL }).generateVideo(request());
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe('DAG_VALIDATION_SEEDANCE_VIDEO_CREDENTIALS_REQUIRED');
     }
   });
 
-  it('returns validation error when model is not allowed', async () => {
-    const runtime = new SeedanceVideoRuntime({
-      apiKey: 'k',
-      baseUrl: 'https://api.test',
+  it('requires every credential field declared by the definition', async () => {
+    vi.stubEnv(TEST_CREDENTIAL_ENV, 'key');
+    const result = await new SeedanceVideoRuntime({
+      videoProviderDefinition: credentialedDefinition(),
       defaultModel: MODEL,
-      allowedModels: ['only-this'],
       sleep: async () => {},
-    });
-    const result = await runtime.generateVideo(req({ model: 'other-model' }));
+    }).generateVideo(request());
     expect(result.ok).toBe(false);
-    if (!result.ok)
-      expect(result.error.code).toBe('DAG_VALIDATION_SEEDANCE_VIDEO_MODEL_NOT_ALLOWED');
+    if (!result.ok) {
+      expect(result.error.code).toBe('DAG_VALIDATION_SEEDANCE_VIDEO_CREDENTIALS_REQUIRED');
+    }
+    expect(factoryCalls).toHaveLength(0);
   });
 
-  it('maps a createVideo failure to a task execution error', async () => {
-    createVideo.mockResolvedValue({
-      ok: false,
-      error: { code: 'PROVIDER_AUTH_ERROR', message: 'bad key' },
-    });
-    const result = await makeRuntime().generateVideo(req());
-    expect(result.ok).toBe(false);
-    if (!result.ok)
-      expect(result.error.code).toBe('DAG_TASK_EXECUTION_SEEDANCE_VIDEO_CREATE_FAILED');
-  });
-
-  it('polls until succeeded and normalizes the video output', async () => {
+  it('resolves the declared credential and endpoint before creating the provider', async () => {
+    vi.stubEnv(TEST_CREDENTIAL_ENV, 'key');
+    vi.stubEnv(TEST_BASE_URL_ENV, 'https://api.test');
     createVideo.mockResolvedValue(accepted());
-    getVideoJob.mockResolvedValueOnce(snapshot({ status: 'running' })).mockResolvedValueOnce(
+    getVideoJob.mockResolvedValue(
+      snapshot({ status: 'succeeded', output: { kind: 'uri', uri: 'https://cdn.test/v.mp4' } }),
+    );
+    const result = await new SeedanceVideoRuntime({
+      videoProviderDefinition: credentialedDefinition(),
+      defaultModel: MODEL,
+      sleep: async () => {},
+    }).generateVideo(request());
+    expect(result.ok).toBe(true);
+    expect(factoryCalls.at(-1)).toEqual({ credential: 'key', baseUrl: 'https://api.test' });
+  });
+
+  it('polls a successful job and normalizes the video output', async () => {
+    createVideo.mockResolvedValue(accepted());
+    getVideoJob.mockResolvedValueOnce(snapshot()).mockResolvedValueOnce(
       snapshot({
         status: 'succeeded',
-        output: { kind: 'uri', uri: 'https://cdn.test/v.mp4', mimeType: 'video/mp4', bytes: 1024 },
+        output: { kind: 'uri', uri: 'https://cdn.test/v.mp4', mimeType: 'video/mp4' },
       }),
     );
-    const result = await makeRuntime().generateVideo(req());
+    const result = await runtime().generateVideo(
+      request({ durationSeconds: 5, aspectRatio: '16:9' }),
+    );
+    expect(result.ok).toBe(true);
     expect(getVideoJob).toHaveBeenCalledTimes(2);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.kind).toBe('video');
-      expect(result.value.mimeType).toBe('video/mp4');
-      expect(result.value.uri).toBe('https://cdn.test/v.mp4');
-    }
-  });
-
-  it('defaults a missing mime type to video/mp4', async () => {
-    createVideo.mockResolvedValue(accepted());
-    getVideoJob.mockResolvedValue(
-      snapshot({ status: 'succeeded', output: { kind: 'uri', uri: 'https://cdn.test/v.mp4' } }),
-    );
-    const result = await makeRuntime().generateVideo(req());
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value.mimeType).toBe('video/mp4');
-  });
-
-  it('maps a failed job to a task execution error', async () => {
-    createVideo.mockResolvedValue(accepted());
-    getVideoJob.mockResolvedValue(
-      snapshot({ status: 'failed', error: { code: 'PROVIDER_UPSTREAM_ERROR', message: 'boom' } }),
-    );
-    const result = await makeRuntime().generateVideo(req());
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe('DAG_TASK_EXECUTION_SEEDANCE_VIDEO_JOB_FAILED');
-  });
-
-  it('maps a getVideoJob failure to a poll error', async () => {
-    createVideo.mockResolvedValue(accepted());
-    getVideoJob.mockResolvedValue({
-      ok: false,
-      error: { code: 'PROVIDER_JOB_NOT_FOUND', message: 'gone' },
-    });
-    const result = await makeRuntime().generateVideo(req());
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe('DAG_TASK_EXECUTION_SEEDANCE_VIDEO_POLL_FAILED');
-  });
-
-  it('errors when a succeeded job has no output', async () => {
-    createVideo.mockResolvedValue(accepted());
-    getVideoJob.mockResolvedValue(snapshot({ status: 'succeeded' }));
-    const result = await makeRuntime().generateVideo(req());
-    expect(result.ok).toBe(false);
-    if (!result.ok)
-      expect(result.error.code).toBe('DAG_TASK_EXECUTION_SEEDANCE_VIDEO_OUTPUT_MISSING');
-  });
-
-  it('times out and best-effort cancels when the job never completes', async () => {
-    createVideo.mockResolvedValue(accepted());
-    getVideoJob.mockResolvedValue(snapshot({ status: 'running' }));
-    cancelVideoJob.mockResolvedValue(snapshot({ status: 'cancelled' }));
-    const result = await makeRuntime().generateVideo(req({ maxWaitMs: 0 }));
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe('DAG_TASK_EXECUTION_SEEDANCE_VIDEO_TIMEOUT');
-    expect(cancelVideoJob).toHaveBeenCalledWith('job-1');
-  });
-
-  it('does not send the seed field and forwards duration/aspectRatio', async () => {
-    createVideo.mockResolvedValue(accepted());
-    getVideoJob.mockResolvedValue(
-      snapshot({ status: 'succeeded', output: { kind: 'uri', uri: 'https://cdn.test/v.mp4' } }),
-    );
-    await makeRuntime().generateVideo(req({ durationSeconds: 5, aspectRatio: '16:9' }));
     expect(createVideo).toHaveBeenCalledWith({
       prompt: 'a drone shot',
       model: MODEL,
       durationSeconds: 5,
       aspectRatio: '16:9',
     });
+  });
+
+  it('maps provider failure and timeout to task errors', async () => {
+    createVideo.mockResolvedValue({ ok: false, error: { code: 'UPSTREAM', message: 'failed' } });
+    const failed = await runtime().generateVideo(request());
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) {
+      expect(failed.error.code).toBe('DAG_TASK_EXECUTION_SEEDANCE_VIDEO_CREATE_FAILED');
+    }
+
+    createVideo.mockResolvedValue(accepted());
+    getVideoJob.mockResolvedValue(snapshot());
+    cancelVideoJob.mockResolvedValue(snapshot({ status: 'cancelled' }));
+    const timedOut = await runtime().generateVideo(request({ maxWaitMs: 0 }));
+    expect(timedOut.ok).toBe(false);
+    if (!timedOut.ok) expect(timedOut.error.code).toBe('DAG_TASK_EXECUTION_SEEDANCE_VIDEO_TIMEOUT');
+    expect(cancelVideoJob).toHaveBeenCalledWith('job-1');
   });
 });

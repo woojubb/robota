@@ -19,7 +19,13 @@ export type TExecutionEntryKind = 'main_thread' | 'background_task' | 'backgroun
 export type TExecutionWorkspaceStatus = 'active' | 'idle' | TBackgroundTaskStatus;
 export type TExecutionAttention = 'none' | 'unread' | 'failed' | 'permission' | 'completed';
 export type TExecutionWorkspaceVisibility = 'default' | 'collapsed';
-export type TExecutionControl = 'select' | 'cancel' | 'close' | 'send' | 'read_log' | 'wait';
+/**
+ * `attach` (CLI-1994) is offered on a `background_task` entry whose request carried a
+ * `resumeSessionId` — a forked conversation. Selecting it is a VIEW SWITCH onto that session record,
+ * not a merge: the parent and the fork stay separate records.
+ */
+export type TExecutionControl =
+  'select' | 'cancel' | 'close' | 'send' | 'read_log' | 'wait' | 'attach';
 export type TExecutionOriginKind =
   | 'user_prompt'
   | 'slash_command'
@@ -37,6 +43,25 @@ export type TExecutionDetailRecordKind =
   | 'error'
   | 'group_summary';
 export type TExecutionWorkspaceUpdateCause = 'main_thread' | 'background_task' | 'background_group';
+/**
+ * SCREEN-1992 — the five-word normalization every surface renders beside the detailed `status`:
+ * `working` (queued/running/sleeping/active), `needs-input` (a parked prompt or a task waiting for
+ * permission), `completed`, `failed`, `stopped` (cancelled or paused — never reported as completed).
+ * Total over every `TExecutionWorkspaceStatus`; derived once by the projection, never re-derived.
+ */
+export type TExecutionNormalizedState =
+  'working' | 'needs-input' | 'completed' | 'failed' | 'stopped';
+/** SCREEN-1992 — the row's one-line text: what it is doing, the question it is asking, or its result. */
+export type TExecutionHeadlineKind = 'activity' | 'question' | 'result';
+export interface IExecutionHeadline {
+  readonly kind: TExecutionHeadlineKind;
+  readonly text: string;
+}
+/** SCREEN-1992 — the prompt the main thread is parked on, so a surface can say what it is waiting for. */
+export interface IExecutionPendingRequest {
+  readonly kind: 'permission' | 'ask';
+  readonly text: string;
+}
 
 export interface IExecutionOrigin {
   readonly kind: TExecutionOriginKind;
@@ -66,6 +91,14 @@ export interface IExecutionWorkspaceEntry {
   readonly visibility: TExecutionWorkspaceVisibility;
   readonly updatedAt: string;
   readonly controls: readonly TExecutionControl[];
+  /** CLI-1994: the forked session record an `attach` control switches the view onto. */
+  readonly resumeSessionId?: string;
+  /** SCREEN-1992: the normalized state word (see `TExecutionNormalizedState`). */
+  readonly state: TExecutionNormalizedState;
+  /** SCREEN-1992: the row's one-line text SSOT; `preview` stays the raw last output. */
+  readonly headline?: IExecutionHeadline;
+  /** SCREEN-1992: ISO time of a sleeping schedule's next fire, for a surface-side countdown. */
+  readonly nextFireAt?: string;
 }
 
 export interface IExecutionWorkspaceFilter {
@@ -119,6 +152,8 @@ export interface ICreateMainThreadEntryInput {
   readonly historyLength: number;
   readonly updatedAt: string;
   readonly preview?: string;
+  /** SCREEN-1992: the parked permission/ask the main thread is waiting on, when there is one. */
+  readonly pendingRequest?: IExecutionPendingRequest;
 }
 
 export interface ICreateExecutionWorkspaceSnapshotInput {
@@ -139,6 +174,8 @@ export interface ICreateMainThreadDetailPageInput {
   readonly entryId: string;
   readonly history: readonly IHistoryEntry[];
   readonly cursor?: IExecutionDetailCursor;
+  /** SCREEN-1992: a parked prompt leads the page so a peek shows the blocking question first. */
+  readonly pendingRequest?: IExecutionPendingRequest;
 }
 
 export interface ICreateLineDetailPageInput {

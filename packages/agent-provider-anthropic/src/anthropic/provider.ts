@@ -1,7 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
 import Anthropic from '@anthropic-ai/sdk';
-import { AbstractAIProvider, ConfigurationError, ValidationError } from '@robota-sdk/agent-core';
+import {
+  AbstractAIProvider,
+  ConfigurationError,
+  createModelEffortOutcome,
+  resolveModelEffort,
+  ValidationError,
+} from '@robota-sdk/agent-core';
 
 import { ANTHROPIC_CAPABILITY_TABLE } from './capability-table';
 import { resolveAnthropicMaxTokens } from './claude-models.js';
@@ -11,6 +17,7 @@ import {
   convertToolsToAnthropicFormat,
   toAnthropicToolChoice,
 } from './message-converter';
+import { ANTHROPIC_MODEL_EFFORT_TABLE } from './model-effort-table';
 import { buildOutputConfig } from './output-schema.js';
 import { anthropicProviderCapabilities } from './provider-capabilities';
 import { streamAndAssemble, toUniversalStreamChunks } from './streaming-handler';
@@ -20,6 +27,7 @@ import type {
   IProviderCapabilityTable,
   IProviderCapabilities,
   IProviderNativeWebToolRequest,
+  IProviderModelEffortTable,
   TUniversalMessage,
   IChatOptions,
   TTextDeltaCallback,
@@ -97,10 +105,15 @@ export class AnthropicProvider extends AbstractAIProvider {
   ): Promise<TUniversalMessage> {
     this.validateMessages(messages);
     this.validateNativeWebTools(options?.nativeWebTools);
+    const resolvedOptions = this.resolveEffortOptions(options);
 
     // Use executor when configured; otherwise use direct execution
     if (this.executor) {
-      return this.executeViaExecutorOrDirect(messages, options);
+      const result = await this.executeViaExecutorOrDirect(messages, resolvedOptions);
+      if (result.modelEffortOutcome === undefined) {
+        this.publishModelEffortOutcome(resolvedOptions, 'opaque-executor');
+      }
+      return result.message;
     }
 
     // Direct execution with Anthropic client
@@ -116,44 +129,50 @@ export class AnthropicProvider extends AbstractAIProvider {
     const anthropicMessages = convertToAnthropicFormat(nonSystemMessages);
     const systemPrompt = systemMessages.map((m) => m.content || '').join('\n\n') || undefined;
 
-    if (!options?.model) {
+    if (!resolvedOptions?.model) {
       throw new Error(
         'Model is required in chat options. Please specify a model in defaultModel configuration.',
       );
     }
 
-    const functionTools = options?.tools ? convertToolsToAnthropicFormat(options.tools) : [];
+    const functionTools = resolvedOptions?.tools
+      ? convertToolsToAnthropicFormat(resolvedOptions.tools)
+      : [];
     const serverTools: Anthropic.Messages.ToolUnion[] = this.enableWebTools
       ? [{ type: 'web_search_20250305' as const, name: 'web_search' }]
       : [];
     const allTools: Anthropic.Messages.ToolUnion[] = [...functionTools, ...serverTools];
 
     const baseParams: Anthropic.MessageCreateParamsNonStreaming = {
-      model: options.model as string,
+      model: resolvedOptions.model,
       messages: anthropicMessages,
-      max_tokens: resolveAnthropicMaxTokens(options.model as string, options?.maxTokens),
+      max_tokens: resolveAnthropicMaxTokens(resolvedOptions.model, resolvedOptions.maxTokens),
       ...(systemPrompt && { system: systemPrompt }),
-      ...(options?.temperature !== undefined && { temperature: options.temperature }),
+      ...(resolvedOptions.temperature !== undefined && {
+        temperature: resolvedOptions.temperature,
+      }),
       ...(allTools.length > 0 && { tools: allTools }),
       ...(allTools.length > 0 &&
-        options?.toolChoice !== undefined && {
-          tool_choice: toAnthropicToolChoice(options.toolChoice),
+        resolvedOptions.toolChoice !== undefined && {
+          tool_choice: toAnthropicToolChoice(resolvedOptions.toolChoice),
         }),
-      ...buildOutputConfig(options),
+      ...buildOutputConfig(resolvedOptions),
     };
 
     // Always use streaming to avoid Anthropic SDK's 10-minute non-streaming timeout.
     // When no onTextDelta callback is available, use a no-op to silently assemble the response.
-    const textDeltaCb = options?.onTextDelta ?? this.onTextDelta ?? (() => {});
+    const textDeltaCb = resolvedOptions.onTextDelta ?? this.onTextDelta ?? (() => {});
     try {
-      return await streamAndAssemble(
+      const response = await streamAndAssemble(
         this.client,
         baseParams,
         textDeltaCb,
         this.onServerToolUse,
-        options?.signal,
-        options?.onProviderNativeRawPayload,
+        resolvedOptions.signal,
+        resolvedOptions.onProviderNativeRawPayload,
       );
+      this.publishModelEffortOutcome(resolvedOptions);
+      return response;
     } catch (error) {
       rethrowAnthropicError(error);
     }
@@ -168,10 +187,21 @@ export class AnthropicProvider extends AbstractAIProvider {
   ): AsyncIterable<TUniversalMessage> {
     this.validateMessages(messages);
     this.validateNativeWebTools(options?.nativeWebTools);
+    const resolvedOptions = this.resolveEffortOptions(options);
 
     // Use executor when configured; otherwise use direct execution
     if (this.executor) {
-      yield* this.executeStreamViaExecutorOrDirect(messages, options);
+      let executorOutcomeSeen = false;
+      for await (const event of this.executeStreamViaExecutorOrDirect(messages, resolvedOptions)) {
+        if (event.kind === 'message') {
+          yield event.message;
+        } else {
+          executorOutcomeSeen = event.modelEffortOutcome !== undefined;
+        }
+      }
+      if (!executorOutcomeSeen) {
+        this.publishModelEffortOutcome(resolvedOptions, 'opaque-executor');
+      }
       return;
     }
 
@@ -184,25 +214,27 @@ export class AnthropicProvider extends AbstractAIProvider {
 
     const anthropicMessages = convertToAnthropicFormat(messages);
 
-    if (!options?.model) {
+    if (!resolvedOptions?.model) {
       throw new Error(
         'Model is required in chat options. Please specify a model in defaultModel configuration.',
       );
     }
 
     const requestParams: Anthropic.MessageCreateParamsStreaming = {
-      model: options.model as string,
+      model: resolvedOptions.model,
       messages: anthropicMessages,
-      max_tokens: resolveAnthropicMaxTokens(options.model as string, options?.maxTokens),
+      max_tokens: resolveAnthropicMaxTokens(resolvedOptions.model, resolvedOptions.maxTokens),
       stream: true,
-      ...buildOutputConfig(options),
+      ...buildOutputConfig(resolvedOptions),
     };
 
-    if (options?.temperature !== undefined) {
-      requestParams.temperature = options.temperature;
+    if (resolvedOptions.temperature !== undefined) {
+      requestParams.temperature = resolvedOptions.temperature;
     }
 
-    const functionTools = options?.tools ? convertToolsToAnthropicFormat(options.tools) : [];
+    const functionTools = resolvedOptions.tools
+      ? convertToolsToAnthropicFormat(resolvedOptions.tools)
+      : [];
     const serverTools: Anthropic.Messages.ToolUnion[] = this.enableWebTools
       ? [{ type: 'web_search_20250305' as const, name: 'web_search' }]
       : [];
@@ -210,12 +242,12 @@ export class AnthropicProvider extends AbstractAIProvider {
 
     if (allTools.length > 0) {
       requestParams.tools = allTools;
-      if (options?.toolChoice !== undefined) {
-        requestParams.tool_choice = toAnthropicToolChoice(options.toolChoice);
+      if (resolvedOptions.toolChoice !== undefined) {
+        requestParams.tool_choice = toAnthropicToolChoice(resolvedOptions.toolChoice);
       }
     }
 
-    options?.onProviderNativeRawPayload?.({
+    resolvedOptions.onProviderNativeRawPayload?.({
       provider: 'anthropic',
       apiSurface: 'anthropic-messages',
       payloadKind: 'request',
@@ -230,7 +262,7 @@ export class AnthropicProvider extends AbstractAIProvider {
 
     let sequence = 0;
     for await (const chunk of stream) {
-      options?.onProviderNativeRawPayload?.({
+      resolvedOptions.onProviderNativeRawPayload?.({
         provider: 'anthropic',
         apiSurface: 'anthropic-messages',
         payloadKind: 'stream_event',
@@ -240,6 +272,7 @@ export class AnthropicProvider extends AbstractAIProvider {
       sequence++;
       yield* toUniversalStreamChunks(chunk);
     }
+    this.publishModelEffortOutcome(resolvedOptions);
   }
 
   /** What THIS vendor's models can do, per model (PROV-008). */
@@ -247,9 +280,55 @@ export class AnthropicProvider extends AbstractAIProvider {
     return ANTHROPIC_CAPABILITY_TABLE;
   }
 
+  override effortTable(): IProviderModelEffortTable | undefined {
+    return this.endpointIsVendorDefault() ? ANTHROPIC_MODEL_EFFORT_TABLE : undefined;
+  }
+
   /** CORE-043: a configured `baseURL` is a gateway, whose guarantees are not the vendor's. */
   endpointIsVendorDefault(): boolean {
     return this.options.baseURL === undefined;
+  }
+
+  private resolveEffortOptions(options: IChatOptions | undefined): IChatOptions | undefined {
+    if (options?.effort === undefined || options.effortResolution !== undefined) return options;
+    if (options.model === undefined) return options;
+    return {
+      ...options,
+      effortResolution: resolveModelEffort(this.effortTable(), options.model, options.effort),
+    };
+  }
+
+  private publishModelEffortOutcome(
+    options: IChatOptions | undefined,
+    opaqueReason?: string,
+  ): void {
+    const resolution = options?.effortResolution;
+    const observer = options?.onModelEffortOutcome;
+    if (resolution === undefined || observer === undefined) return;
+
+    const nativeControl =
+      opaqueReason !== undefined
+        ? { state: 'omitted' as const, reason: opaqueReason }
+        : resolution.effective !== null && resolution.disposition !== 'model-default'
+          ? { state: 'sent' as const, id: 'output_config.effort' }
+          : {
+              state: 'omitted' as const,
+              reason:
+                resolution.disposition === 'model-default'
+                  ? 'provider-default-selection'
+                  : 'model-effort-not-applied',
+            };
+    const providerDispatch =
+      opaqueReason !== undefined
+        ? { state: 'not-dispatched' as const, reason: opaqueReason }
+        : { state: 'sent' as const };
+    try {
+      observer(createModelEffortOutcome(resolution, { nativeControl, providerDispatch }));
+    } catch (error) {
+      this.logger.warn('Model-effort outcome observer failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   override supportsTools(): boolean {

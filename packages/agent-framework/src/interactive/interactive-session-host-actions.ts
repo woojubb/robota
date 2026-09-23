@@ -14,6 +14,10 @@
 
 import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 
+import {
+  isAppearanceSettingsPatch,
+  readAppearanceSettings,
+} from '../command-api/appearance/appearance-command-api.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
 import {
   isStatusLineCommandSettingsPatch,
@@ -23,6 +27,7 @@ import {
 import type { ICommandHostAdapters } from '../command-api/host-adapters.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { TCommandInvocationSource } from '../commands/index.js';
+import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type {
   ICommandResult,
   TCommandHostAction,
@@ -39,6 +44,8 @@ export interface IHostActionExecutionDeps {
   switchProvider(profileName: string): Promise<void>;
   /** Execute the session rename directly on the session (the session owns its own name) and broadcast it. */
   renameSession(name: string): void;
+  /** Apply a resolved output style to the live prompt and runtime state. */
+  applyOutputStyle(style: IOutputStylePrompt): void;
 }
 
 export interface IHostActionApplication {
@@ -125,6 +132,28 @@ async function applyOneHostAction(
         await deps.switchProvider(action.profileName);
         return null;
       }
+      case 'output-style-change': {
+        const registry = adapters.outputStyleRegistry;
+        if (!registry)
+          return missingCapabilityFailure(action.type, 'an output-style registry adapter');
+        const style = registry.getOutputStyle(action.styleId);
+        if (!style) {
+          const available = registry
+            .listOutputStyles()
+            .map((entry) => entry.id)
+            .join(', ');
+          return {
+            success: false,
+            message: `Unknown output style "${action.styleId}". Available: ${available || '(none)'}`,
+          };
+        }
+        const settings = adapters.settings;
+        if (!settings) return missingCapabilityFailure(action.type, 'a settings adapter');
+        settings.write({ ...settings.read(), outputStyle: action.styleId });
+        deps.applyOutputStyle(style);
+        appendedMessages.push(`Output style: ${style.name}`);
+        return null;
+      }
       case 'language-change': {
         const settings = adapters.settings;
         if (!settings) return missingCapabilityFailure(action.type, 'a settings adapter');
@@ -169,6 +198,25 @@ async function applyOneHostAction(
         const document = settings.read();
         const next = { ...readStatusLineSettings(document), ...action.patch };
         settings.write({ ...document, statusline: next });
+        return null;
+      }
+      case 'appearance-settings-patch': {
+        const settings = adapters.settings;
+        if (!settings) return missingCapabilityFailure(action.type, 'a settings adapter');
+        if (!isAppearanceSettingsPatch(action.patch))
+          return actionErrorFailure(action.type, new Error('invalid appearance settings patch'));
+        const document = settings.read();
+        // SCREEN-2002: three FLAT keys, written BY NAME rather than by spreading the patch. These
+        // keys sit at the document's root, beside the provider profiles and their credentials, so a
+        // spread would let any extra key the guard let through reach them. The guard refuses
+        // unknown keys; writing by name means it does not have to be the only thing that does.
+        const next = { ...readAppearanceSettings(document), ...action.patch };
+        settings.write({
+          ...document,
+          theme: next.theme,
+          syntaxHighlighting: next.syntaxHighlighting,
+          reducedMotion: next.reducedMotion,
+        });
         return null;
       }
       case 'remote-control-enable': {

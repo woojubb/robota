@@ -37,6 +37,7 @@ const modules = [
 | `/compact`     | Conversation compaction                        |
 | `/context`     | Context window management                      |
 | `/editor`      | Compose a message in `$EDITOR`, then return it |
+| `/effort`      | Show or change the model effort level          |
 | `/exit`        | Session exit / quit                            |
 | `/goal`        | Assign an autonomous goal pursued across turns |
 | `/help`        | Help display                                   |
@@ -69,7 +70,7 @@ const helpCmd = createHelpCommandModule();
 ```
 
 All command factory functions are re-exported from the root entry point. `createDefaultCommandModules`
-registers 24 default command modules.
+registers the default command modules, including `/effort` for the active model-effort selection.
 
 Project-aware command composition is capability-based. Supply framework contribution sources for
 skills and discriminated settings sources/stores for provider setup. The command package does not

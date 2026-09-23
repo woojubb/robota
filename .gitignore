@@ -5,8 +5,13 @@ node_modules/.pnpm
 # output
 out
 dist
+dist-bun
+dist-bun-headless
 dist-ssr
 *.tgz
+# ARTIFACT-2655: immutable outputs, recovery records and temporary publication links.
+.robota-artifacts/
+packages/**/.dist-*
 
 # generated files
 packages/**/*.js
@@ -159,10 +164,8 @@ stryker.log
 !.agents/local-reviews/README.md
 
 # HARNESS-109: per-clone agent-harness configuration, written by the tool and never committed.
-# Not merely noise: `verification-receipt.mjs` refuses to stand behind a receipt while the tree is
-# dirty, so an untracked file present in EVERY agent clone made `readVerificationReceipt()` return
-# null for whole sessions and every push re-ran the full gate — the same regression its header
-# records for the lessons churn.
+# Not merely noise: scan-receipt reuse calls `isCleanTree()` from
+# `verification-receipt-storage.mjs`, so an untracked file present in every clone invalidates reuse.
 #
 # A CLASS, not a filename. The first fix named `settings.local.json` alone, which is how the lessons
 # churn was closed too — and naming files one at a time is what let a second instance happen. The

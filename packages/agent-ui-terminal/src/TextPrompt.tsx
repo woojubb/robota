@@ -1,0 +1,112 @@
+import { Box } from 'ink';
+import React, { useState, useRef, useCallback } from 'react';
+
+import {
+  applyTextPromptInput,
+  createTextPromptFlowState,
+  type ITextPromptFlowState,
+  type TTextPromptInputAction,
+} from './flows/text-prompt-flow.js';
+import { KeyHintFooter, type IKeyHint } from './key-hint-footer.js';
+import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindings-context.js';
+import { Text } from './SafeText.js';
+import { useScreenReader } from './screen-reader-context.js';
+import { usePalette } from './theme/index.js';
+
+/** Footer for the free-text prompt. */
+export const TEXT_PROMPT_FOOTER_HINTS: readonly IKeyHint[] = [
+  { keys: 'Enter', label: 'Submit' },
+  { keys: 'Esc', label: 'Cancel' },
+];
+
+interface IProps {
+  title: string;
+  description?: string;
+  placeholder?: string;
+  onSubmit: (value: string) => void;
+  onCancel: () => void;
+  validate?: (value: string) => string | undefined;
+  allowEmpty?: boolean;
+  masked?: boolean;
+}
+
+export default function TextPrompt({
+  title,
+  description,
+  placeholder,
+  onSubmit,
+  onCancel,
+  validate,
+  allowEmpty = false,
+  masked = false,
+}: IProps): React.ReactElement {
+  const palette = usePalette();
+  const [state, setState] = useState<ITextPromptFlowState>(() => createTextPromptFlowState());
+  const stateRef = useRef(state);
+  const applyAction = useCallback(
+    (action: TTextPromptInputAction): void => {
+      const result = applyTextPromptInput(stateRef.current, action, { allowEmpty, validate });
+      stateRef.current = result.state;
+      setState(result.state);
+      if (result.effect.type === 'cancel') {
+        onCancel();
+      } else if (result.effect.type === 'submit') {
+        onSubmit(result.effect.value);
+      }
+    },
+    [allowEmpty, validate, onCancel, onSubmit],
+  );
+
+  const screenReader = useScreenReader();
+
+  useKeybindingActions('text-prompt', (actions, input, key, consumed) => {
+    for (const action of actions) {
+      if (action === 'submit') applyAction({ type: 'submit' });
+      else if (action === 'cancel') applyAction({ type: 'cancel' });
+      else if (action === 'delete-backward') applyAction({ type: 'delete' });
+    }
+    if (actions.length === 0 && !consumed && input && key.ctrl !== true && key.meta !== true) {
+      applyAction({ type: 'insert', value: input });
+    }
+  });
+  const footerHints = useKeybindingHints('text-prompt', [
+    ['submit', 'Submit'],
+    ['cancel', 'Cancel'],
+  ]);
+
+  // CLI-2004: the box is dropped rather than restyled — the mode omits the prop, so no colour
+  // literal is introduced and the palette floor stays green.
+  return (
+    <Box
+      flexDirection="column"
+      {...(screenReader
+        ? {}
+        : { borderStyle: 'round' as const, borderColor: palette.border.attention })}
+      paddingX={1}
+    >
+      <Text color={palette.text.warning} bold>
+        {title}
+      </Text>
+      <PromptDescription description={description} />
+      <Box marginTop={1}>
+        <Text color={palette.text.accent}>&gt; </Text>
+        {state.value ? (
+          <Text>{masked ? '*'.repeat(state.value.length) : state.value}</Text>
+        ) : placeholder ? (
+          <Text dimColor>{placeholder}</Text>
+        ) : null}
+        <Text color={palette.text.accent}>█</Text>
+      </Box>
+      {state.error && <Text color={palette.text.error}>{state.error}</Text>}
+      <KeyHintFooter hints={footerHints} />
+    </Box>
+  );
+}
+
+function PromptDescription({ description }: { description?: string }): React.ReactElement | null {
+  if (description === undefined || description.length === 0) {
+    return null;
+  }
+
+  return <Text dimColor>{description}</Text>;
+}

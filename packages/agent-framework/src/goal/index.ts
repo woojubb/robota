@@ -3,7 +3,7 @@
  *
  * Public surface of the goal module: the completion-signal tool, the pure decision controller,
  * and the prompt builders. Goal state contract types (`IGoalState`, `IGoalEvent`, …) live in
- * `@robota-sdk/agent-interface-transport` (the persistence/transport SSOT).
+ * `@robota-sdk/agent-interface-session` (the session-state SSOT).
  */
 
 export {

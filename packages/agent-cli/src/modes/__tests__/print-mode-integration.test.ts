@@ -5,11 +5,11 @@
  * to verify session resume/fork semantics that the TUI already has.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore, loadOrgPolicy } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runPrintMode } from '../print-mode.js';
@@ -23,6 +23,16 @@ import {
 import type { IPrintModeSessionResolution } from '../print-mode.js';
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
+import type { IOrgPolicy } from '@robota-sdk/agent-framework';
+
+const policyHome = vi.hoisted(() => ({ value: '' }));
+
+// Linux can cache homedir() before a test stubs HOME. Point the real policy loader at this
+// test's temporary home without relying on that platform-dependent cache behavior.
+vi.mock('node:os', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:os')>();
+  return { ...actual, homedir: (): string => policyHome.value || actual.homedir() };
+});
 
 class ExitSentinel extends Error {
   constructor(public readonly code: number) {
@@ -112,6 +122,8 @@ function makeArgs(overrides: Partial<IParsedCliArgs> = {}): IParsedCliArgs {
     yes: false,
     memory: undefined,
     memoryAutoSave: false,
+    screenReader: undefined,
+    reducedMotion: undefined,
     ...overrides,
   };
 }
@@ -121,6 +133,7 @@ async function runPrint(
   prompt: string,
   provider: IAIProvider,
   sessionResolution: IPrintModeSessionResolution = {},
+  orgPolicy?: IOrgPolicy,
 ): Promise<number> {
   const sessionStore = createNodeHostSessionStore(join(cwd, '.robota', 'sessions'));
   try {
@@ -138,6 +151,10 @@ async function runPrint(
       [],
       {} as never,
       sessionResolution,
+      {},
+      {},
+      undefined,
+      orgPolicy,
     );
   } catch (error) {
     if (error instanceof ExitSentinel) {
@@ -151,15 +168,18 @@ async function runPrint(
 describe('print mode session resume integration (CLI-063)', () => {
   let cwd: string;
   let stdoutWriteCount = 0;
+  let stdoutChunks: string[] = [];
 
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-print-resume-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-print-resume-')));
     vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new ExitSentinel(code ?? 0);
     }) as never);
     stdoutWriteCount = 0;
-    vi.spyOn(process.stdout, 'write').mockImplementation((() => {
+    stdoutChunks = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation(((chunk: string | Uint8Array) => {
       stdoutWriteCount += 1;
+      stdoutChunks.push(String(chunk));
       return true;
     }) as never);
   });
@@ -252,6 +272,31 @@ describe('print mode session resume integration (CLI-063)', () => {
     expect(original?.messages).toHaveLength(priorMessageCount);
     expect(stdoutWriteCount).toBeGreaterThan(0);
   });
+
+  it('rejects a blocked slash command with a policy loaded from disk', async () => {
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-print-policy-')));
+    try {
+      mkdirSync(join(home, '.robota'));
+      writeFileSync(
+        join(home, '.robota', 'org-policy.json'),
+        JSON.stringify({ blockedCommands: ['clear'], adminContact: 'ops@example.test' }),
+      );
+      policyHome.value = home;
+      const orgPolicy = loadOrgPolicy();
+      expect(orgPolicy).not.toBeNull();
+
+      const { provider, lastMessages } = createRecordingProvider('unexpected provider reply');
+      const exitCode = await runPrint(cwd, '/clear', provider, {}, orgPolicy ?? undefined);
+
+      expect(exitCode).toBe(1);
+      expect(stdoutChunks.join('')).toContain('Command /clear is blocked');
+      expect(stdoutChunks.join('')).toContain('ops@example.test');
+      expect(lastMessages()).toEqual([]);
+    } finally {
+      policyHome.value = '';
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
 });
 
 /**
@@ -266,7 +311,7 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
   let cwd: string;
 
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'robota-append-prompt-'));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-append-prompt-')));
     vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
       throw new ExitSentinel(code ?? 0);
     }) as never);

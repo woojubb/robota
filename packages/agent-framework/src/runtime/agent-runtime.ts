@@ -14,6 +14,7 @@ import {
 } from '../workspace-trust/index.js';
 import { isWorkspacePathContained } from '../workspace-trust/project-reader-path.js';
 
+import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
 import type { CommandRegistry, IRemoteCommandPolicy } from '../commands/index.js';
@@ -64,8 +65,8 @@ export interface IHeadlessSessionOptions {
   additionalTools?: IToolWithEventService[];
   /** Resume an existing persisted session by ID. Requires sessionStore to be configured. */
   resumeSessionId?: string;
-  /** Request structured output from the provider for this session. */
-  responseFormat?: { type: 'text' | 'json_object' };
+  /** Request structured output from the provider for this session (issue #2056: incl. `json_schema`). */
+  responseFormat?: TSessionResponseFormat;
 }
 
 export interface IAgentRuntime {

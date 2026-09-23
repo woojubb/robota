@@ -7,13 +7,13 @@
  */
 
 import { readFileSync, existsSync, unlinkSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { resolve, sep } from 'path';
 
 import { ensureOwnerOnlyDirectory, writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
 
 import { assertSafeSessionId, isSafeSessionId } from './session-id.js';
 import {
-  SESSION_ARTIFACT_SCHEMA_VERSION,
+  SESSION_RECORD_ENVELOPE_VERSION,
   decodeVersionedInteractiveSessionRecord,
 } from './session-record-codec/index.js';
 
@@ -104,10 +104,24 @@ export class NodeSessionStore implements IInteractiveSessionStore {
    *
    * SEC-006: every public method routes through here, so validating the id at this one point covers
    * `save` (write), `load` (read), and `delete` (unlink) at once.
+   *
+   * Issue #2240: `assertSafeSessionId` is the guard, and it is sound — no separator, no `.`/`..`
+   * can pass it. But it is a regex reject behind a helper, which static analysis does not model as
+   * a path sanitizer, so `js/path-injection` re-opened on `load` every time this function changed
+   * length. The containment check below is the shape such tools DO recognise: the resolved path
+   * must stay inside the resolved base directory. It is unreachable after the assertion and costs
+   * one `resolve`; it exists so the guard is visible where the sink is, not to replace the guard.
    */
   private filePath(id: string): string {
     assertSafeSessionId(id);
-    return join(this.baseDir, `${id}.json`);
+    const base = resolve(this.baseDir);
+    const candidate = resolve(base, `${id}.json`);
+    if (!candidate.startsWith(base + sep)) {
+      throw new Error(
+        `Invalid session id: ${JSON.stringify(id)} resolves outside the session store.`,
+      );
+    }
+    return candidate;
   }
 
   /**
@@ -132,7 +146,7 @@ export class NodeSessionStore implements IInteractiveSessionStore {
     // SEC-020's owner-only atomic write carries it: the envelope is WHAT is written, the mode is HOW.
     writeOwnerOnlyFile(
       this.filePath(session.id),
-      JSON.stringify({ schemaVersion: SESSION_ARTIFACT_SCHEMA_VERSION, record: session }, null, 2),
+      JSON.stringify({ schemaVersion: SESSION_RECORD_ENVELOPE_VERSION, record: session }, null, 2),
     );
   }
 

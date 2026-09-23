@@ -8,7 +8,7 @@
  * so they observe the defect rather than the spelling of the fix.
  */
 import { execFileSync, execSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -21,7 +21,7 @@ describe('SEC-006: action inputs must never reach a shell', () => {
   let marker: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'action-injection-'));
+    dir = realpathSync(mkdtempSync(join(tmpdir(), 'action-injection-')));
     marker = join(dir, 'PWNED');
   });
   afterEach(() => {

@@ -1,8 +1,8 @@
 # Agent Executor Specification
 
-> **INFRA-025 (2026-07-04):** the background-task DATA contracts (statuses, states, events,
-> errors, requests, results, log pages) and the subagent job state family moved to
-> `@robota-sdk/agent-interface-transport` as their SSOT. This package keeps the runtime SPI
+> **Current contract split:** the background-task DATA contracts (statuses, states, events,
+> errors, requests, results, log pages) and the subagent job state family belong to
+> `@robota-sdk/agent-interface-execution` as their SSOT. This package keeps the runtime SPI
 > (`BackgroundTaskError`, runner/manager ports, handles) and imports the contracts; its
 > public index does not re-export them.
 
@@ -50,7 +50,7 @@ agent-executor
   │   │   └── scheduled-task-runner.ts          -- croner-based scheduled runner
   │   └── types.ts                              -- task requests, state, result, runner ports
   ├── providers/
-  │   └── provider-factory.ts                   -- normalizeProviderConfig, createProviderFromConfig/Profile
+  │   └── provider-factory.ts                   -- resolveProfileApiKey, createProviderFromProfile
   └── subagents/
       ├── types.ts                              -- subagent job contracts and runner port
       ├── subagent-manager.ts                   -- compatibility facade over BackgroundTaskManager
@@ -71,16 +71,16 @@ Design rules:
 
 | Type                             | Location                                                  | Purpose                                                                                                                                                                                        |
 | -------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TBackgroundTaskKind`            | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'agent' \| 'process' \| 'scheduled'`                                                                                                                                                          |
-| `TBackgroundTaskMode`            | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'foreground' \| 'background'`                                                                                                                                                                 |
-| `TBackgroundTaskIsolation`       | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'none' \| 'worktree'`                                                                                                                                                                         |
-| `TBackgroundTaskStatus`          | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'queued' \| 'running' \| 'waiting_permission' \| 'sleeping' \| 'paused' \| 'completed' \| 'failed' \| 'cancelled'` (SELFHOST-012: `paused` = non-destructively paused schedule, non-terminal) |
+| `TBackgroundTaskKind`            | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | `'agent' \| 'process' \| 'scheduled'`                                                                                                                                                          |
+| `TBackgroundTaskMode`            | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | `'foreground' \| 'background'`                                                                                                                                                                 |
+| `TBackgroundTaskIsolation`       | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | `'none' \| 'worktree'`                                                                                                                                                                         |
+| `TBackgroundTaskStatus`          | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | `'queued' \| 'running' \| 'waiting_permission' \| 'sleeping' \| 'paused' \| 'completed' \| 'failed' \| 'cancelled'` (SELFHOST-012: `paused` = non-destructively paused schedule, non-terminal) |
 | `TBackgroundPermissionPolicy`    | `@robota-sdk/agent-core` (SSOT; CORE-025)                 | `'inherit-allowlist' \| 'preapproved' \| 'prompt' \| 'deny'`                                                                                                                                   |
-| `TBackgroundTaskTimeoutReason`   | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Watchdog terminal reason union                                                                                                                                                                 |
-| `TBackgroundTaskErrorCategory`   | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Error category union used by `BackgroundTaskError`                                                                                                                                             |
-| `TBackgroundPrimitive`           | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `string \| number \| boolean` — opaque metadata value type                                                                                                                                     |
-| `TBackgroundTaskEvent`           | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Lifecycle/progress event union emitted by `BackgroundTaskManager`                                                                                                                              |
-| `TBackgroundTaskEventListener`   | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Listener callback type for `TBackgroundTaskEvent`                                                                                                                                              |
+| `TBackgroundTaskTimeoutReason`   | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | Watchdog terminal reason union                                                                                                                                                                 |
+| `TBackgroundTaskErrorCategory`   | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | Error category union used by `BackgroundTaskError`                                                                                                                                             |
+| `TBackgroundPrimitive`           | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | `string \| number \| boolean` — opaque metadata value type                                                                                                                                     |
+| `TBackgroundTaskEvent`           | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | Lifecycle/progress event union emitted by `BackgroundTaskManager`                                                                                                                              |
+| `TBackgroundTaskEventListener`   | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025) | Listener callback type for `TBackgroundTaskEvent`                                                                                                                                              |
 | `TBackgroundTaskRunnerEvent`     | `src/background-tasks/types.ts` (owned)                   | Events reported by runners to the manager during execution                                                                                                                                     |
 | `TBackgroundTaskIdFactory`       | `src/background-tasks/types.ts` (owned)                   | Function type for custom task ID generation                                                                                                                                                    |
 | `TBackgroundTaskTransitionEvent` | `src/background-tasks/state-machine.ts`                   | State machine input events (e.g. `START`, `SLEEP`, `WAKE`, `CANCEL`)                                                                                                                           |
@@ -89,19 +89,19 @@ Design rules:
 
 | Type                                    | Location                                                       | Purpose                                                                                                                                                |
 | --------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `IBackgroundTaskError`                  | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Structured error shape with category and recoverability                                                                                                |
-| `ISerializableProviderProfile`          | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Provider profile handoff for background workers, including credential references and provider-owned `options`                                          |
-| `IBaseBackgroundTaskRequest`            | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Common fields for all task request variants                                                                                                            |
-| `IAgentBackgroundTaskRequest`           | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Agent task request (`kind: 'agent'`)                                                                                                                   |
-| `IProcessBackgroundTaskRequest`         | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Shell process task request (`kind: 'process'`)                                                                                                         |
-| `IScheduledBackgroundTaskRequest`       | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Cron-scheduled task request (`kind: 'scheduled'`)                                                                                                      |
-| `TBackgroundTaskRequest`                | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Union of all three task request variants                                                                                                               |
-| `IBackgroundTaskResult`                 | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Completed task output and metadata                                                                                                                     |
-| `IBackgroundTaskState`                  | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Immutable task state snapshot shape                                                                                                                    |
-| `IBackgroundTaskInput`                  | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Input sent to a running task via `send()`                                                                                                              |
-| `IBackgroundTaskLogCursor`              | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Cursor for paginated log reads                                                                                                                         |
-| `IBackgroundTaskLogPage`                | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Paginated log page result                                                                                                                              |
-| `IBackgroundTaskListFilter`             | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025)      | Filter shape for `list()` queries                                                                                                                      |
+| `IBackgroundTaskError`                  | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Structured error shape with category and recoverability                                                                                                |
+| `ISerializableProviderProfile`          | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Provider profile handoff for background workers, including credential references and provider-owned `options`                                          |
+| `IBaseBackgroundTaskRequest`            | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Common fields for all task request variants                                                                                                            |
+| `IAgentBackgroundTaskRequest`           | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Agent task request (`kind: 'agent'`)                                                                                                                   |
+| `IProcessBackgroundTaskRequest`         | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Shell process task request (`kind: 'process'`)                                                                                                         |
+| `IScheduledBackgroundTaskRequest`       | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Cron-scheduled task request (`kind: 'scheduled'`)                                                                                                      |
+| `TBackgroundTaskRequest`                | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Union of all three task request variants                                                                                                               |
+| `IBackgroundTaskResult`                 | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Completed task output and metadata                                                                                                                     |
+| `IBackgroundTaskState`                  | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Immutable task state snapshot shape                                                                                                                    |
+| `IBackgroundTaskInput`                  | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Input sent to a running task via `send()`                                                                                                              |
+| `IBackgroundTaskLogCursor`              | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Cursor for paginated log reads                                                                                                                         |
+| `IBackgroundTaskLogPage`                | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Paginated log page result                                                                                                                              |
+| `IBackgroundTaskListFilter`             | `@robota-sdk/agent-interface-execution` (SSOT; INFRA-025)      | Filter shape for `list()` queries                                                                                                                      |
 | `IBackgroundTaskStart`                  | `src/background-tasks/types.ts` (owned)                        | Argument passed from manager to runner `start()` call                                                                                                  |
 | `IBackgroundTaskHandle`                 | `src/background-tasks/types.ts` (owned)                        | Cancellable handle returned by `IBackgroundTaskRunner.start()`                                                                                         |
 | `IBackgroundTaskRunner`                 | `src/background-tasks/types.ts` (owned)                        | Port for executing one task kind                                                                                                                       |
@@ -120,11 +120,11 @@ Design rules:
 
 | Type                              | Location                                                                                | Purpose                                                                                                                          |
 | --------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `TSubagentJobStatus`              | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent job status union — derived `Exclude<TBackgroundTaskStatus, 'paused'>` (TYPE-003)                                        |
-| `TSubagentJobMode`                | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts`) | `'foreground' \| 'background'`                                                                                                   |
-| `ISubagentSpawnRequest`           | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent spawn request — derived `Omit<IAgentBackgroundTaskRequest, 'kind'>` (ARCH-031)                                          |
-| `ISubagentJobState`               | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent job state projection                                                                                                    |
-| `ISubagentJobResult`              | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent completion output and metadata — derived `Omit<IBackgroundTaskResult, 'kind' \| 'exitCode' \| 'signalCode'>` (ARCH-031) |
+| `TSubagentJobStatus`              | `@robota-sdk/agent-interface-execution` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent job status union — derived `Exclude<TBackgroundTaskStatus, 'paused'>` (TYPE-003)                                        |
+| `TSubagentJobMode`                | `@robota-sdk/agent-interface-execution` (SSOT; re-exported at `src/subagents/types.ts`) | `'foreground' \| 'background'`                                                                                                   |
+| `ISubagentSpawnRequest`           | `@robota-sdk/agent-interface-execution` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent spawn request — derived `Omit<IAgentBackgroundTaskRequest, 'kind'>` (ARCH-031)                                          |
+| `ISubagentJobState`               | `@robota-sdk/agent-interface-execution` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent job state projection                                                                                                    |
+| `ISubagentJobResult`              | `@robota-sdk/agent-interface-execution` (SSOT; re-exported at `src/subagents/types.ts`) | Subagent completion output and metadata — derived `Omit<IBackgroundTaskResult, 'kind' \| 'exitCode' \| 'signalCode'>` (ARCH-031) |
 | `ISubagentJobStart`               | `src/subagents/types.ts` (owned)                                                        | Argument passed from manager to runner `start()` call                                                                            |
 | `ISubagentJobHandle`              | `src/subagents/types.ts` (owned)                                                        | Cancellable handle returned by `ISubagentRunner.start()`                                                                         |
 | `ISubagentRunner`                 | `src/subagents/types.ts` (owned)                                                        | Port for executing one subagent job                                                                                              |
@@ -137,21 +137,40 @@ Design rules:
 
 Hook event types and hook execution are owned by `agent-core`.
 
+#### Forked conversations pass through, they are not interpreted (CLI-1994)
+
+`ISubagentSpawnRequest` is derived `Omit<IAgentBackgroundTaskRequest, 'kind'>`, so
+`resumeSessionId?` — the persisted session record a **fork** job restores before its first turn —
+arrives here for free, and `SubagentManager.toBackgroundRequest` (`{ kind: 'agent', ...request }`)
+carries it through untouched. `createQueuedBackgroundTaskState` copies it onto
+`IBackgroundTaskState.resumeSessionId` so a surface can tell a fork's task from an ordinary one and
+offer the `attach` control.
+
+This package never reads the record. Only the id passes through it; resolving the id into a
+conversation is the runner's job, on whichever side of the process boundary it runs. A fork is a
+**copy** of a conversation under its own record — the parent's record is neither read nor written by
+the job — and attaching to it is a **view switch, not a merge**.
+
 ## Public API Surface
 
 ### Public API: Background Tasks
 
-| Export                                  | Kind     | Description                                          |
-| --------------------------------------- | -------- | ---------------------------------------------------- |
-| `BackgroundTaskManager`                 | class    | In-memory task registry and scheduler                |
-| `BackgroundTaskError`                   | class    | Typed runtime error with category and recoverability |
-| `transitionBackgroundTaskStatus`        | function | Pure state transition function                       |
-| `isTerminalBackgroundTaskStatus`        | function | Terminal-state predicate                             |
-| `getBackgroundTaskTransitions`          | function | Transition table snapshot for tests/audits           |
-| `createLimitedOutputCapture`            | function | UTF-8-safe bounded output capture helper             |
-| `appendPrefixedLogLines`                | function | Append source-prefixed non-empty log lines           |
-| `createBackgroundTaskLogPage`           | function | Cursor-based log pagination helper                   |
-| `DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE` | constant | Default page size (200 lines) for log pagination     |
+| Export                                  | Kind      | Description                                                                                                                                |
+| --------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `BackgroundTaskManager`                 | class     | In-memory task registry and scheduler                                                                                                      |
+| `BackgroundTaskError`                   | class     | Typed runtime error with category and recoverability                                                                                       |
+| `transitionBackgroundTaskStatus`        | function  | Pure state transition function                                                                                                             |
+| `isTerminalBackgroundTaskStatus`        | function  | Terminal-state predicate                                                                                                                   |
+| `getBackgroundTaskTransitions`          | function  | Transition table snapshot for tests/audits                                                                                                 |
+| `createLimitedOutputCapture`            | function  | UTF-8-safe bounded output capture helper                                                                                                   |
+| `appendPrefixedLogLines`                | function  | Append source-prefixed non-empty log lines                                                                                                 |
+| `createBackgroundTaskLogPage`           | function  | Cursor-based log pagination helper                                                                                                         |
+| `DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE` | constant  | Default page size (200 lines) for log pagination                                                                                           |
+| `deliverToObservers`                    | function  | ARCH-053: deliver one event to every observer, isolating each — a throwing observer is reported, not propagated; returns the failure count |
+| `reportObserverFailureAsWarning`        | function  | Default `TObserverFailureReporter`: surfaces the failure as a process `warning` (stderr) outside the emitter's call stack                  |
+| `OBSERVER_FAILURE_WARNING_CODE`         | constant  | `ROBOTA_BACKGROUND_OBSERVER_FAILURE` — the warning code the default reporter emits                                                         |
+| `IObserverFailure`                      | interface | The `event` an observer was handed and the `error` it threw                                                                                |
+| `TObserverFailureReporter`              | type      | `(failure: IObserverFailure) => void` — the host's own channel for observer defects                                                        |
 
 ### Public API: Background Task Runners (Concrete — default implementations)
 
@@ -182,6 +201,13 @@ wiring croner's own `.pause()`/`.resume()` on the handle (`IBackgroundTaskHandle
 in place (same task id + `schedule`). No new scheduler is introduced — this is a thin lifecycle extension over
 the existing runner. (Persistence of `paused` across restart is the FLOW-003 re-arm path — a later slice.)
 
+**SCREEN-1992 — a one-shot schedule finishes.** After a fire, when croner reports no next run (an ISO
+timestamp / `in <N>` schedule that has just fired) and the schedule is neither paused nor cancelled, the
+runner resolves its handle with the accumulated log as output, and the manager moves the task through
+its ordinary `running → completed` transition. A recurring schedule re-arms to `sleeping` with a new
+`nextFireAt` exactly as before. Previously such a task stayed `running` with no `nextFireAt` forever,
+because only `cancel` resolved the handle.
+
 ### Public API: Subagents
 
 | Export                         | Kind     | Description                                                                                                                                                                                                                                                             |
@@ -205,12 +231,10 @@ The package entrypoint exports these symbols explicitly from `src/index.ts`. SDK
 
 Functions in `src/providers/` resolve serializable provider config or profiles into live `IAIProvider` instances. They depend only on `@robota-sdk/agent-core` provider definitions and are provider-package-agnostic.
 
-| Export                      | Kind     | Description                                                                                    |
-| --------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `normalizeProviderConfig`   | function | Merges explicit settings with definition defaults; resolves `$ENV:` references in `apiKey`     |
-| `resolveProfileApiKey`      | function | Resolves `apiKey` (direct or `$ENV:`) or `apiKeyEnv` from an `ISerializableProviderProfile`    |
-| `createProviderFromConfig`  | function | Creates an `IAIProvider` from a resolved `IProviderConfig` using injected provider definitions |
-| `createProviderFromProfile` | function | Convenience: normalizes a profile and delegates to `createProviderFromConfig`                  |
+| Export                      | Kind     | Description                                                                                  |
+| --------------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `resolveProfileApiKey`      | function | Resolves `apiKey` (direct or `$ENV:`) or `apiKeyEnv` from an `ISerializableProviderProfile`  |
+| `createProviderFromProfile` | function | Convenience: normalizes a profile and delegates to `agent-core`'s `createProviderFromConfig` |
 
 ## Extension Points
 
@@ -312,6 +336,14 @@ agent-core and propagates unchanged before spawn so callers can identify and cor
 
 Events contain cloned task snapshots or primitive progress data. Consumers may project these events into TUI rows, transport messages, or logs, but event listeners must not mutate manager state directly.
 
+**Observer-failure contract (ARCH-053, issue #2157).** Events are emitted only after the authoritative
+state transition is committed, so an observer that throws must never unwind the emitter. `emit`
+delivers through `deliverToObservers` (`background-tasks/observer-delivery.ts`): every observer —
+the `eventSink` first, then listeners in registration order — is isolated, delivery continues past a
+throwing one, and each failure is passed to `IBackgroundTaskManagerOptions.onObserverFailure`
+(default: a `process.emitWarning` with code `ROBOTA_BACKGROUND_OBSERVER_FAILURE`). The sibling
+lifecycle owner `BackgroundJobOrchestrator` (agent-framework) uses the same helper and option.
+
 ## Watchdog and Shutdown Contract
 
 `BackgroundTaskManager` owns provider-neutral watchdog semantics for long-running agent tasks:
@@ -376,7 +408,10 @@ Unit tests cover:
   assert both spawn paths consume the pair and unknown shells record zero spawn attempts
 - subagent manager lifecycle facade behavior
 - worktree runner clean/dirty/failure/delegation/hook behavior with fake adapters
-- provider factory: `normalizeProviderConfig`, `resolveProfileApiKey`, `createProviderFromConfig`, `createProviderFromProfile`
+- provider factory: `resolveProfileApiKey`, `createProviderFromProfile`. **`normalizeProviderConfig` and
+  `createProviderFromConfig` are `agent-core`'s and are not re-exported here (ARCH-111)** — they were,
+  "so existing consumers are unaffected", and the duplicate name is what let `agent-framework` and
+  `agent-product` import the same function from two different packages.
 
 Adapter packages or shells must add integration tests for concrete side effects such as local Git or child processes.
 
@@ -402,7 +437,9 @@ Pure helper contracts:
 - `createBackgroundTaskLogPage()` owns cursor pagination for append-only task logs.
 - `createDefaultBackgroundTaskRunners()` returns `[createManagedShellProcessRunner(), createScheduledTaskRunner()]` as the default runner set for CLI/SDK assembly.
 
-Provider factory functions (`normalizeProviderConfig`, `resolveProfileApiKey`, `createProviderFromConfig`, `createProviderFromProfile`) are pure utilities that depend only on `@robota-sdk/agent-core` provider definition types and produce `IAIProvider` instances.
+This package's provider factory functions are `resolveProfileApiKey` and `createProviderFromProfile`; they depend on the executor-owned `ISerializableProviderProfile` and delegate normalization to `agent-core`.
+
+Since issue #2347 they are deterministic from their arguments and an injected `TEnvResolver` (`resolve`, defaulting to `processEnvResolver` from `agent-core`): `resolveProfileApiKey(profile, resolve)` routes BOTH its `apiKey` (`$ENV:` reference) and `apiKeyEnv` (variable name) branches through `resolve`, and `createProviderFromProfile(profile, model, definitions, resolve)` hands the same resolver to `normalizeProviderConfig`. None of them reads `process.env`; the `provider-env-resolution` scan refuses it in `agent-executor/src/providers/provider-factory.ts`, `agent-core/src/utils/env-ref.ts` and `agent-core/src/providers/provider-factory.ts`. A unit test injects `createRecordEnvResolver({...})` instead of mutating the process environment.
 
 Cross-package port consumers:
 
@@ -417,8 +454,9 @@ Production dependencies:
 | Package                                 | Reason                                                                                                                                                             |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `@robota-sdk/agent-core`                | Hook types, hook runner (`WorktreeSubagentRunner`), and provider definition types (factories)                                                                      |
-| `@robota-sdk/agent-interface-transport` | Contract SSOT (INFRA-025) for background-task/subagent state families (`src/background-tasks/types.ts`, `src/subagents/types.ts`)                                  |
+| `@robota-sdk/agent-interface-execution` | Contract SSOT for background-task/subagent state families (`src/background-tasks/types.ts`, `src/subagents/types.ts`)                                              |
+| `@robota-sdk/agent-interface-transport` | Declared in `package.json`; no production source imports remain. Removal is a separate dependency cleanup.                                                         |
 | `@robota-sdk/agent-process`             | `killProcessTree`/`DEFAULT_KILL_GRACE_MS` for process-tree teardown in the background-task runners (`scheduled-task-runner.ts`, `managed-shell-process-runner.ts`) |
 | `croner`                                | Cron expression parsing and scheduling for `createScheduledTaskRunner`                                                                                             |
 
-This package must not depend on SDK, sessions, tool, concrete-provider, concrete-transport, or CLI packages (the `agent-interface-transport` contract SSOT above is not a concrete transport).
+This package must not depend on SDK, sessions, tool, concrete-provider, concrete-transport, or CLI packages (neither interface package above is a concrete transport).

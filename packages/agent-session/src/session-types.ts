@@ -18,10 +18,10 @@ import type {
   TSessionEndReason,
   TPermissionMode,
   TBackgroundPermissionPolicy,
-  TModelEffort,
+  TModelEffortSelection,
   TToolArgs,
 } from '@robota-sdk/agent-core';
-import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type { IHookTypeExecutor, IResponseFormatConfig } from '@robota-sdk/agent-core';
 import type { ICompactEvent, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-session';
@@ -159,13 +159,16 @@ export interface ISessionOptions {
   hookTypeExecutors?: IHookTypeExecutor[];
   /** Name reported to the Robota agent config. Defaults to 'agent' if not provided. */
   agentName?: string;
-  /** Request structured output from the provider for this session. */
-  responseFormat?: { type: 'text' | 'json_object' };
   /**
-   * Reasoning-effort dial threaded to the Robota agent config and on to the provider
-   * request builder. When unset, the framework→provider seam defaults it to `'high'`.
+   * Request structured output from the provider for this session. Issue #2056: the agent config's
+   * own shape (`json_schema` included), so a schema request reaches the provider intact.
    */
-  effort?: TModelEffort;
+  responseFormat?: IResponseFormatConfig;
+  /**
+   * Reasoning-effort selection threaded to the Robota agent config and provider boundary.
+   * When unset, Core preserves provider-default selection as `auto`.
+   */
+  effort?: TModelEffortSelection;
   /**
    * ARCH-040: sampling temperature and output cap, threaded to the agent config at CONSTRUCTION.
    *

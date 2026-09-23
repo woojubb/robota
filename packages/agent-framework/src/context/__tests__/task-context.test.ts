@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,7 +16,7 @@ import { getWorkspaceProjectReader } from '../../workspace-trust/index.js';
 
 import type { IWorkspaceProjectReader } from '../../workspace-trust/index.js';
 
-const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-task-context-'));
+const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'robota-task-context-')));
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

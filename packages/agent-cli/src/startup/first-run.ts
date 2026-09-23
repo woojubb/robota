@@ -56,6 +56,21 @@ function drawBox(lines: readonly string[]): string {
 
 const WELCOME_MESSAGE = `\n${drawBox(WELCOME_LINES)}\n`;
 
-export function printFirstRunWelcome(terminal: ITerminalOutput): void {
-  terminal.writeLine(WELCOME_MESSAGE);
+/**
+ * CLI-2004: the same copy without the frame. The box is chrome — a screen reader announces every
+ * `│` and every run of `─` before it reaches a word of the welcome, which is the first thing a
+ * first-run user would hear. The content is kept; only the drawing goes.
+ */
+const WELCOME_MESSAGE_PLAIN = `\n${WELCOME_LINES.join('\n')}\n`;
+
+export interface IFirstRunWelcomeOptions {
+  /** Screen-reader mode ⇒ the unframed form. */
+  screenReader?: boolean;
+}
+
+export function printFirstRunWelcome(
+  terminal: ITerminalOutput,
+  options: IFirstRunWelcomeOptions = {},
+): void {
+  terminal.writeLine(options.screenReader === true ? WELCOME_MESSAGE_PLAIN : WELCOME_MESSAGE);
 }

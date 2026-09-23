@@ -7,6 +7,7 @@ import { assertWorkflowProject } from './workflow-project.js';
 
 import type { IDagDefinition } from '@robota-sdk/dag-core';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { IWorkflowProject } from './workflow-project.js';
 
 /**
@@ -22,6 +23,7 @@ export async function executeWorkflowsValidate(
   argStr: string,
   project: IWorkflowProject,
   layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
+  providerDefinitions: readonly IProviderDefinition[] = [],
 ): Promise<ICommandResult> {
   const parsedArgs = parseFileArg(argStr, 'validate');
   if (!parsedArgs.ok) {
@@ -56,7 +58,7 @@ export async function executeWorkflowsValidate(
     };
   }
 
-  const { provider } = await createWorkspaceRuntime(project, layout);
+  const { provider } = await createWorkspaceRuntime(project, layout, providerDefinitions);
   const manifests = await provider.listNodes();
   const knownTypes = new Set(manifests.map((m) => m.nodeType));
   const nodeIds = new Set(definition.nodes.map((n) => n.nodeId));

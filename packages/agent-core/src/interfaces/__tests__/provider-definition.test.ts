@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { IProviderDefinition } from '../provider-definition';
+import type {
+  IProviderDefinition,
+  IProviderModelCatalogEntry,
+  TProviderModelCapability,
+} from '../provider-definition';
 import {
   findProviderDefinition,
   formatSupportedProviderTypes,
@@ -79,5 +83,31 @@ describe('provider definition helpers', () => {
       kind: 'api-key',
       label: 'Gemini API keys',
     });
+  });
+});
+
+/**
+ * CLI-1990 TC-15 — `'tool_search'` is a member of `TProviderModelCapability`.
+ *
+ * Declaration-only in v1: it records that a vendor documents a server-side tool search (deferred
+ * definitions the API expands on demand), and NOTHING emits a vendor block on the strength of it.
+ * Robota runs its own client-side catalog on every provider, because the vendor feature keeps
+ * definitions out of the context window while still sending every one of them in the request — and
+ * because Gemini documents no equivalent at all. The member exists so a later offload can be gated
+ * on the capability table rather than on a provider name.
+ */
+describe('CLI-1990 TC-15 — the tool_search capability member', () => {
+  it('is assignable to TProviderModelCapability', () => {
+    const capability: TProviderModelCapability = 'tool_search';
+    expect(capability).toBe('tool_search');
+  });
+
+  it('sits beside the other capabilities in a catalog entry, not in a parallel structure', () => {
+    const entry: IProviderModelCatalogEntry = {
+      id: 'test-model',
+      displayName: 'Test Model',
+      capabilities: ['tools', 'streaming', 'tool_search'],
+    };
+    expect(entry.capabilities).toContain('tool_search');
   });
 });

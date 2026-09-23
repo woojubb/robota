@@ -1,0 +1,71 @@
+import { describe, expect, it } from 'vitest';
+import { formatStatusActivity } from '../status-activity.js';
+
+describe('formatStatusActivity', () => {
+  it('prioritizes running tools over thinking, background work, and queued prompts', () => {
+    const activity = formatStatusActivity({
+      isThinking: true,
+      activeToolCount: 2,
+      activeBackgroundTaskCount: 3,
+      hasPendingPrompt: true,
+    });
+
+    expect(activity.kind).toBe('tools');
+    expect(activity.label).toBe('Tools (2)');
+    expect(activity.tone).toBe('accent');
+    expect(activity.segments).toEqual(['queued']);
+    expect(activity.text).toBe('Tools (2) · queued');
+  });
+
+  it('shows thinking as the primary model waiting state', () => {
+    const activity = formatStatusActivity({
+      isThinking: true,
+      activeToolCount: 0,
+      activeBackgroundTaskCount: 0,
+      hasPendingPrompt: false,
+    });
+
+    expect(activity.kind).toBe('thinking');
+    expect(activity.label).toBe('Thinking');
+    expect(activity.segments).toEqual([]);
+  });
+
+  it('shows background activity when foreground work is idle', () => {
+    const activity = formatStatusActivity({
+      isThinking: false,
+      activeToolCount: 0,
+      activeBackgroundTaskCount: 1,
+      hasPendingPrompt: false,
+    });
+
+    expect(activity.kind).toBe('background');
+    expect(activity.label).toBe('Background (1)');
+    expect(activity.tone).toBe('accent');
+  });
+
+  it('shows queued prompt before idle when no work is active', () => {
+    const activity = formatStatusActivity({
+      isThinking: false,
+      activeToolCount: 0,
+      activeBackgroundTaskCount: 0,
+      hasPendingPrompt: true,
+    });
+
+    expect(activity.kind).toBe('queued');
+    expect(activity.label).toBe('Queued');
+    expect(activity.tone).toBe('warning');
+  });
+
+  it('keeps idle compact and dim', () => {
+    const activity = formatStatusActivity({
+      isThinking: false,
+      activeToolCount: 0,
+      activeBackgroundTaskCount: 0,
+      hasPendingPrompt: false,
+    });
+
+    expect(activity.kind).toBe('idle');
+    expect(activity.text).toBe('Idle');
+    expect(activity.tone).toBe('muted');
+  });
+});

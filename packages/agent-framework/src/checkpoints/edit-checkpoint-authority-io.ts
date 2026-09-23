@@ -89,7 +89,8 @@ export class EditCheckpointAuthorityIO {
     this.state.writeText(path, JSON.stringify(manifest, null, 2), 'persist checkpoint manifest');
   }
 
-  private toProjectRelativePath(originalPath: string): string {
+  /** The project-relative form of a manifest's `originalPath`; throws when it is not inside the project. */
+  toProjectRelativePath(originalPath: string): string {
     const candidate = resolve(originalPath);
     const relativePath = relative(this.cwd, candidate);
     if (

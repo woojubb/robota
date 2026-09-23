@@ -1,21 +1,28 @@
 // GUI-003 TC-02a/TC-04 — the BUNDLED runtime inside the packaged app is a working `robota --serve`.
 // nonce handshake succeeds, a wrong token is rejected before session data, SIGTERM shuts down cleanly.
 import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { connect, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { dirname, join as pjoin } from 'node:path';
 import { fileURLToPath } from 'node:url';
-const BIN = pjoin(
-  dirname(fileURLToPath(import.meta.url)),
-  '..',
-  'release',
-  'linux-unpacked',
-  'resources',
-  'robota',
-);
+const releaseDir = pjoin(dirname(fileURLToPath(import.meta.url)), '..', 'release');
+const BIN =
+  process.platform === 'darwin'
+    ? pjoin(
+        releaseDir,
+        `mac-${process.arch}`,
+        'robota-desktop.app',
+        'Contents',
+        'Resources',
+        'robota',
+      )
+    : process.platform === 'win32'
+      ? pjoin(releaseDir, 'win-unpacked', 'resources', 'robota.exe')
+      : pjoin(releaseDir, 'linux-unpacked', 'resources', 'robota');
+if (!existsSync(BIN)) throw new Error(`Packaged runtime not found: ${BIN}`);
 
 const freePort = () =>
   new Promise((res, rej) => {
@@ -78,8 +85,9 @@ const drive = (url, onOpen, predicate, timeout) =>
 const binCwd = mkdtempSync(join(tmpdir(), 'gui003-bin-'));
 const home = mkdtempSync(join(tmpdir(), 'gui003-home-'));
 mkdirSync(join(binCwd, '.robota'), { recursive: true });
+mkdirSync(join(home, '.robota'), { recursive: true });
 writeFileSync(
-  join(binCwd, '.robota', 'settings.json'),
+  join(home, '.robota', 'settings.json'),
   JSON.stringify({
     currentProvider: 'anthropic',
     providers: {
@@ -95,7 +103,11 @@ const url = (t = token) => `ws://127.0.0.1:${port}?token=${encodeURIComponent(t)
 const child = spawn(BIN, ['--serve', '--no-session-persistence'], {
   cwd: binCwd,
   env: { PATH: process.env.PATH, HOME: home, ROBOTA_WS_TOKEN: token, ROBOTA_WS_PORT: String(port) },
-  stdio: 'ignore',
+  stdio: ['ignore', 'ignore', 'pipe'],
+});
+let stderr = '';
+child.stderr.on('data', (chunk) => {
+  stderr += String(chunk);
 });
 
 let ok = true;
@@ -105,7 +117,11 @@ const check = (label, cond) => {
 };
 
 try {
-  await waitTcp(port, 20000);
+  try {
+    await waitTcp(port, 20000);
+  } catch (error) {
+    throw new Error(`${error.message}; packaged runtime stderr: ${stderr}`);
+  }
 
   // TC-02a: authed nonce connection → the session `messages` snapshot arrives (handshake complete).
   const authed = await drive(
@@ -133,13 +149,20 @@ try {
 
   // TC-02a: clean SIGTERM shutdown.
   const exited = await new Promise((res) => {
-    child.once('exit', (code, signal) => res({ code, signal }));
+    const timer = setTimeout(() => res({ timeout: true }), 8000);
+    child.once('exit', (code, signal) => {
+      clearTimeout(timer);
+      res({ code, signal });
+    });
     child.kill('SIGTERM');
-    setTimeout(() => res({ timeout: true }), 8000);
   });
+  const successfulShutdown =
+    process.platform === 'win32'
+      ? exited.code === 0 || (exited.code === null && exited.signal === 'SIGTERM')
+      : exited.code === 0 && exited.signal === null;
   check(
-    'TC-02a: SIGTERM shuts the bundled runtime down cleanly (no hang/SIGKILL)',
-    !exited.timeout && exited.signal !== 'SIGKILL',
+    'TC-02a: SIGTERM shuts the bundled runtime down cleanly',
+    !exited.timeout && successfulShutdown,
   );
 } finally {
   if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');

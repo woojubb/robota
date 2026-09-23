@@ -27,6 +27,7 @@
  */
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -137,9 +138,22 @@ describe('DIST-006 — the built binary is its own subagent worker', () => {
 
   it('TC-C ships no worker file for anything to look for', () => {
     // The fix is not "emit the file where the resolver looks" — it is that nothing looks.
-    const bundle = readFileSync(BUILT_BUNDLE, 'utf8');
-
-    expect(bundle).not.toContain('child-process-subagent-worker.js');
-    expect(bundle).toContain(WORKER_MODE_FLAG);
+    // The executable can share emitted chunks with another entry. Inspect its reachable graph,
+    // not only the small entry file, so the worker flag cannot disappear behind an import.
+    const pending = [BUILT_BUNDLE];
+    const seen = new Set<string>();
+    let workerFlagFound = false;
+    while (pending.length > 0) {
+      const file = pending.pop();
+      if (file === undefined || seen.has(file)) continue;
+      seen.add(file);
+      const source = readFileSync(file, 'utf8');
+      expect(source).not.toContain('child-process-subagent-worker.js');
+      workerFlagFound ||= source.includes(WORKER_MODE_FLAG);
+      for (const match of source.matchAll(/\bfrom["'](\.[^"']+)["']/gu)) {
+        pending.push(join(dirname(file), match[1] as string));
+      }
+    }
+    expect(workerFlagFound).toBe(true);
   });
 });

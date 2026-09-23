@@ -12,6 +12,7 @@ import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TCommandInvocationSource } from '../commands/index.js';
+import type { TModelEffort } from '@robota-sdk/agent-core';
 import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
 import type {
   ISubagentJobState,
@@ -66,7 +67,10 @@ export interface ISpawnAgentJobInput {
   mode: 'foreground' | 'background';
   prompt: string;
   model?: string;
+  effort?: TModelEffort;
   isolation?: TBackgroundTaskIsolation;
+  /** CLI-1994: the forked session record the job restores before its first turn (id only). */
+  resumeSessionId?: string;
 }
 
 /** Spawn a new agent job with the given parameters. */
@@ -81,6 +85,9 @@ export async function spawnAgentJobFromSession(
   const definition = resolveAgentDefinition(input.agentType, deps);
   const sessionId = session.getSessionId();
   const manager = getSubagentManagerOrThrow(session);
+  const parentSelection = session.getModelEffort();
+  const effort =
+    input.effort ?? definition.effort ?? (parentSelection === 'auto' ? undefined : parentSelection);
   return manager.spawn({
     agentType: input.agentType,
     // ARCH-031: stated, not inherited from a default applied mid-projection.
@@ -92,7 +99,10 @@ export async function spawnAgentJobFromSession(
     cwd: deps.cwd ?? cwd ?? process.cwd(),
     prompt: input.prompt,
     model: input.model ?? definition.model,
+    ...(effort !== undefined ? { effort } : {}),
     isolation: input.isolation,
+    // CLI-1994: forwarded as an id and nothing more — the conversation stays in the session store.
+    ...(input.resumeSessionId !== undefined ? { resumeSessionId: input.resumeSessionId } : {}),
     allowedTools: definition.tools,
     disallowedTools: definition.disallowedTools,
     metadata: createExecutionOriginMetadata({

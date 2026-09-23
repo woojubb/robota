@@ -13,8 +13,8 @@ yarn.lock
 # `weekly-digest.md` is already prettier-unclean — so `format-check`, the one local stage no required
 # CI check re-runs, failed on two files the person running it is not allowed to fix. A guard firing
 # on correct work is how a guard stops being read (INFRA-066).
-.agents/evals/lessons/auto-lessons.md
-.agents/evals/lessons/weekly-digest.md
+
+# Migration manifests are RFC 8785 canonical bytes plus one newline. Formatting changes their digest.
 dist/
 **/dist/
 coverage/
@@ -26,4 +26,5 @@ coverage/
 # Safe because scan-mistake-mechanisms parses the `**Mechanism:**` TOKEN and a `| <n> |` row opener
 # with `\s*`, never column geometry: verified by re-running it across the squeeze — 88 entries,
 # 39 mechanisms, 49 accepted, before and after.
-.agents/rules/common-mistakes.md
+
+# Preserve the historical RULE-2380 record from replacement ancestry byte-for-byte.

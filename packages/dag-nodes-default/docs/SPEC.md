@@ -33,19 +33,21 @@ await loadDefaults())` + the dynamically-loaded optional media/skill nodes.
 
 ## Type Ownership
 
-| Type/Symbol                     | Location       | Purpose                                        |
-| ------------------------------- | -------------- | ---------------------------------------------- |
-| `createDefaultNodeRegistrySync` | `src/index.ts` | SDK-free base node set                         |
-| `createDefaultNodeRegistry`     | `src/index.ts` | Full async default catalog                     |
-| `TProviderDefinitionLoader`     | `src/index.ts` | Lazy provider-set loader signature (test seam) |
+| Type/Symbol                      | Location       | Purpose                                                     |
+| -------------------------------- | -------------- | ----------------------------------------------------------- |
+| `createDefaultNodeRegistrySync`  | `src/index.ts` | SDK-free base node set                                      |
+| `createDefaultNodeRegistry`      | `src/index.ts` | Full async default catalog                                  |
+| `TProviderDefinitionLoader`      | `src/index.ts` | Lazy provider-set loader signature (test seam)              |
+| `TMediaProviderDefinitionLoader` | `src/index.ts` | Lazy media-provider definition loader signature (test seam) |
 
 ## Public API Surface
 
-| Export                          | Kind     |
-| ------------------------------- | -------- |
-| `createDefaultNodeRegistrySync` | function |
-| `createDefaultNodeRegistry`     | function |
-| `TProviderDefinitionLoader`     | type     |
+| Export                           | Kind     |
+| -------------------------------- | -------- |
+| `createDefaultNodeRegistrySync`  | function |
+| `createDefaultNodeRegistry`      | function |
+| `TProviderDefinitionLoader`      | type     |
+| `TMediaProviderDefinitionLoader` | type     |
 
 ## Extension Points
 

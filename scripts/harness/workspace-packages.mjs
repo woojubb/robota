@@ -37,7 +37,7 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage']);
  */
 
 /** The extensions a scan means by "source" unless it asks for a narrower set. */
-const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.mjs', '.cjs', '.js', '.jsx'];
+export const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.mjs', '.cjs', '.js', '.jsx'];
 
 /** Directories and filenames holding tests rather than shipped source. */
 const TEST_DIRS = new Set(['__tests__']);

@@ -74,7 +74,11 @@ describe("codingPack — contributes exactly robota's current coding toolset", (
     const packModuleNames = (createCodingPack({ cwd: CWD }).commandModules ?? []).map(
       (module) => module.name,
     );
-    expect(packModuleNames).toEqual(['agent-command-shell', 'agent-command-editor']);
+    expect(packModuleNames).toEqual([
+      'agent-command-shell',
+      'agent-command-editor',
+      'agent-command-git',
+    ]);
   });
 
   it('has a stable pack id', () => {
@@ -158,6 +162,7 @@ describe('codingPack — is a well-formed additive pack', () => {
     expect(merged.commandModules.map((m) => m.name)).toEqual([
       'agent-command-shell',
       'agent-command-editor',
+      'agent-command-git',
     ]);
     expect(merged.tools.length).toBeGreaterThan(0);
     expect(merged.subagents.map((a) => a.name)).toContain('Explore');

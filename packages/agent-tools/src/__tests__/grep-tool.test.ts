@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -28,7 +28,7 @@ describe('grepTool', () => {
   let bulkDir: string;
 
   beforeAll(() => {
-    fixtureDir = mkdtempSync(join(tmpdir(), 'grep-tool-test-'));
+    fixtureDir = realpathSync(mkdtempSync(join(tmpdir(), 'grep-tool-test-')));
     writeFileSync(join(fixtureDir, 'a.txt'), 'alpha\nbeta\nalpha beta\ngamma\n');
     writeFileSync(join(fixtureDir, 'b.txt'), 'alpha\ndelta\n');
     writeFileSync(join(fixtureDir, 'c.md'), 'alpha markdown\n');
@@ -37,7 +37,7 @@ describe('grepTool', () => {
 
     // Deterministic multi-file corpus for ordering/determinism tests (CLI-042).
     // Separate tmpdir so it does not alter the counts the fixtureDir tests assert.
-    bulkDir = mkdtempSync(join(tmpdir(), 'grep-tool-bulk-'));
+    bulkDir = realpathSync(mkdtempSync(join(tmpdir(), 'grep-tool-bulk-')));
     for (let i = 0; i < 80; i++) {
       const id = String(i).padStart(2, '0');
       writeFileSync(

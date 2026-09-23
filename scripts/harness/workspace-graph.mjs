@@ -1,0 +1,282 @@
+import { lstatSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+
+import { globSync } from 'glob';
+
+import { normalizeWorkspacePath } from './workspace-affected-git.mjs';
+import {
+  collectWorkspaceReferenceInventory,
+  readWorkspaceImportDependencies,
+} from './workspace-source-dependencies.mjs';
+import { readArtifactCapability } from '../artifacts/capability.mjs';
+
+const BUILD_DEPENDENCY_FIELDS = ['dependencies', 'optionalDependencies', 'peerDependencies'];
+const DEVELOPMENT_DEPENDENCY_FIELDS = ['devDependencies'];
+
+/** Parse only the top-level `packages:` sequence from pnpm-workspace.yaml. */
+export function parseWorkspacePatterns(source) {
+  const patterns = [];
+  let packagesIndent = null;
+  for (const rawLine of String(source ?? '').split(/\r?\n/u)) {
+    const withoutComment = rawLine.replace(/\s+#.*$/u, '');
+    if (packagesIndent === null) {
+      const match = /^(\s*)packages:\s*$/u.exec(withoutComment);
+      if (match) packagesIndent = match[1].length;
+      continue;
+    }
+    if (!withoutComment.trim()) continue;
+    const indent = /^\s*/u.exec(withoutComment)?.[0].length ?? 0;
+    if (indent <= packagesIndent) break;
+    const item = /^\s*-\s+(.+?)\s*$/u.exec(withoutComment)?.[1];
+    if (!item) throw new Error('pnpm workspace packages list is unreadable');
+    const value = item.replace(/^(['"])(.*)\1$/u, '$2').trim();
+    if (!value) throw new Error('pnpm workspace contains an empty package pattern');
+    patterns.push(value);
+  }
+  if (packagesIndent === null || patterns.length === 0) {
+    throw new Error('pnpm workspace packages list is missing or empty');
+  }
+  return patterns;
+}
+
+function manifestDependencyNames(manifest, fields) {
+  const names = new Set();
+  for (const field of fields) {
+    const values = manifest[field];
+    if (values === undefined) continue;
+    if (!values || typeof values !== 'object' || Array.isArray(values)) {
+      throw new Error(`manifest ${field} must be an object`);
+    }
+    for (const name of Object.keys(values)) names.add(name);
+  }
+  return [...names].sort();
+}
+
+function isRegularManifest(root, directory) {
+  try {
+    const segments = [...directory.split('/'), 'package.json'];
+    let info;
+    for (let count = 1; count <= segments.length; count += 1) {
+      info = lstatSync(path.join(root, ...segments.slice(0, count)));
+      if (info.isSymbolicLink()) return false;
+    }
+    return info.isFile();
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return false;
+    throw error;
+  }
+}
+
+function readWorkspaceManifests(root, patterns) {
+  const excluded = patterns
+    .filter((pattern) => pattern.startsWith('!'))
+    .map((pattern) => pattern.slice(1));
+  const included = patterns.filter((pattern) => !pattern.startsWith('!'));
+  const directories = globSync(included, {
+    cwd: root,
+    onlyDirectories: true,
+    dot: false,
+    follow: false,
+    ignore: ['**/node_modules/**', ...excluded],
+  })
+    .map(normalizeWorkspacePath)
+    .filter((directory) => directory && isRegularManifest(root, directory))
+    .sort();
+  const packages = [];
+  const names = new Set();
+  for (const directory of [...new Set(directories)]) {
+    let manifest;
+    try {
+      manifest = JSON.parse(readFileSync(path.join(root, directory, 'package.json'), 'utf8'));
+    } catch (error) {
+      throw new Error(`cannot read workspace manifest ${directory}/package.json: ${error.message}`);
+    }
+    if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+      throw new Error(`workspace manifest ${directory}/package.json is not an object`);
+    }
+    if (typeof manifest.name !== 'string' || !manifest.name.trim()) {
+      throw new Error(`workspace manifest ${directory}/package.json has no name`);
+    }
+    const name = manifest.name.trim();
+    if (names.has(name)) throw new Error(`duplicate workspace package name: ${name}`);
+    names.add(name);
+    let artifact;
+    try {
+      artifact = readArtifactCapability(manifest);
+    } catch (error) {
+      throw new Error(`${directory}: invalid robota.artifact: ${error.message}`);
+    }
+    packages.push({
+      name,
+      directory,
+      artifact,
+      scripts:
+        manifest.scripts && typeof manifest.scripts === 'object' && !Array.isArray(manifest.scripts)
+          ? manifest.scripts
+          : {},
+      productionDependencyNames: manifestDependencyNames(manifest, BUILD_DEPENDENCY_FIELDS),
+      developmentDependencyNames: manifestDependencyNames(manifest, DEVELOPMENT_DEPENDENCY_FIELDS),
+    });
+  }
+  if (packages.length === 0) throw new Error('workspace patterns resolved to zero packages');
+  return packages;
+}
+
+/** Discover all workspace manifests from pnpm's declared globs. */
+export function readWorkspaceGraph(
+  root,
+  {
+    inventory,
+    collectSourceFiles,
+    includeSourceDependencies = true,
+    sourceInventoryMode = 'git',
+  } = {},
+) {
+  if (typeof includeSourceDependencies !== 'boolean')
+    throw new Error('includeSourceDependencies must be a boolean');
+  if (!['git', 'filesystem'].includes(sourceInventoryMode))
+    throw new Error(`invalid source inventory mode: ${sourceInventoryMode}`);
+  const patterns = parseWorkspacePatterns(
+    readFileSync(path.join(root, 'pnpm-workspace.yaml'), 'utf8'),
+  );
+  const packages = readWorkspaceManifests(root, patterns);
+  const sourceInventory = includeSourceDependencies
+    ? (inventory ??
+      collectWorkspaceReferenceInventory(root, packages, collectSourceFiles, {
+        mode: sourceInventoryMode,
+      }))
+    : null;
+  if (includeSourceDependencies && !(sourceInventory?.files instanceof Set))
+    throw new Error('source inventory files must be a Set');
+  const resolutionContext = includeSourceDependencies
+    ? {
+        packages,
+        files: sourceInventory.files,
+        readFile: (file) => readFileSync(path.join(root, file), 'utf8'),
+        // One cache per graph analysis; content validation remains in the shared resolver owner.
+        parsedInputs: new Map(),
+      }
+    : null;
+  const workspaceNames = new Set(packages.map((entry) => entry.name));
+  const byName = new Map(packages.map((entry) => [entry.name, entry]));
+  for (const entry of packages) {
+    for (const copy of entry.artifact?.copies ?? []) {
+      const producer = byName.get(copy.package);
+      if (!producer?.artifact || !producer.scripts.build) {
+        throw new Error(
+          `${entry.name}: copied artifact producer ${copy.package} must declare an artifact and build script`,
+        );
+      }
+    }
+    const imports = includeSourceDependencies
+      ? readWorkspaceImportDependencies(root, entry, workspaceNames, {
+          resolutionContext,
+        })
+      : null;
+    entry.sourceReferences = imports?.references ?? null;
+    entry.buildDependencies = [
+      ...new Set([
+        ...entry.productionDependencyNames.filter((name) => workspaceNames.has(name)),
+        ...(imports?.production ?? []).filter((name) => name !== entry.name),
+        ...(entry.artifact?.copies ?? []).map((copy) => copy.package),
+      ]),
+    ].sort();
+    entry.typecheckDependencies = imports
+      ? imports.production.filter((name) => name !== entry.name).sort()
+      : null;
+    entry.testDependencies = imports
+      ? imports.verification.filter((name) => name !== entry.name).sort()
+      : null;
+    entry.verificationDependencies = imports ? [...entry.testDependencies] : null;
+    entry.dependencies = [...entry.buildDependencies];
+    delete entry.productionDependencyNames;
+    delete entry.developmentDependencyNames;
+  }
+  const sortedPackages = packages.sort((a, b) => a.directory.localeCompare(b.directory));
+  assertAcyclicWorkspaceGraph(sortedPackages);
+  return {
+    patterns,
+    packages: sortedPackages,
+    sourceAnalysis: {
+      status: includeSourceDependencies ? 'performed' : 'not-performed',
+      inventoryMode: includeSourceDependencies
+        ? inventory != null
+          ? 'provided'
+          : sourceInventoryMode
+        : null,
+    },
+  };
+}
+
+export function workspaceDependenciesForOperation(workspacePackage, operation) {
+  if (workspacePackage.sourceReferences === null)
+    throw new Error(
+      `${workspacePackage.name}: source analysis was not performed; cannot schedule ${operation}`,
+    );
+  if (operation === 'consumer-build') {
+    return [...(workspacePackage.buildDependencies ?? workspacePackage.dependencies ?? [])].sort();
+  }
+  if (operation === 'build') {
+    // The affected build is also the producer for the following test/typecheck stages. Include
+    // workspace imports found only in verification files so a fresh checkout has dist for
+    // test-only devDependencies, while keeping the product build graph exposed separately.
+    return [
+      ...new Set([
+        ...(workspacePackage.buildDependencies ?? workspacePackage.dependencies ?? []),
+        ...(workspacePackage.verificationDependencies ?? workspacePackage.testDependencies ?? []),
+      ]),
+    ].sort();
+  }
+  if (operation === 'typecheck' || operation === 'examples-typecheck') {
+    return [
+      ...(workspacePackage.typecheckDependencies ??
+        workspacePackage.verificationDependencies ??
+        workspacePackage.buildDependencies ??
+        workspacePackage.dependencies ??
+        []),
+    ].sort();
+  }
+  return [
+    ...(workspacePackage.testDependencies ??
+      workspacePackage.verificationDependencies ??
+      workspacePackage.buildDependencies ??
+      workspacePackage.dependencies ??
+      []),
+  ].sort();
+}
+
+export function createWorkspaceReachability(packages, operation) {
+  const dependencies = new Map(
+    packages.map((item) => [item.name, workspaceDependenciesForOperation(item, operation)]),
+  );
+  const dependents = new Map(packages.map((item) => [item.name, []]));
+  for (const [name, dependencyNames] of dependencies) {
+    for (const dependency of dependencyNames) {
+      if (!dependents.has(dependency))
+        throw new Error(`unknown workspace dependency: ${dependency}`);
+      dependents.get(dependency).push(name);
+    }
+  }
+  for (const names of dependents.values()) names.sort();
+  return { dependencies, dependents };
+}
+
+function assertAcyclicWorkspaceGraph(packages) {
+  const dependencies = new Map(packages.map((entry) => [entry.name, entry.dependencies ?? []]));
+  const visiting = new Set();
+  const visited = new Set();
+  function visit(name, trail) {
+    if (visiting.has(name)) {
+      const cycleStart = trail.indexOf(name);
+      throw new Error(
+        `workspace dependency cycle: ${[...trail.slice(cycleStart), name].join(' -> ')}`,
+      );
+    }
+    if (visited.has(name)) return;
+    visiting.add(name);
+    for (const dependency of dependencies.get(name) ?? []) visit(dependency, [...trail, name]);
+    visiting.delete(name);
+    visited.add(name);
+  }
+  for (const name of [...dependencies.keys()].sort()) visit(name, []);
+}

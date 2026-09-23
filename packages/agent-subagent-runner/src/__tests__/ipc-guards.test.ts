@@ -21,9 +21,9 @@ function validStartPayload(): ISubagentWorkerStartPayload {
       permissionPolicy: 'inherit-allowlist',
       cwd: '/tmp/parent-checkout',
     },
-    agentDefinition: { name: 'tester', systemPrompt: 'Run tasks.' },
+    agentDefinition: { name: 'tester', description: 'Tests.', systemPrompt: 'Run tasks.' },
     parentConfig: {},
-    parentContext: {},
+    parentContext: { agentsMd: '', projectNotesMd: '' },
     providerProfile: { type: 'openai', model: 'test-model' },
   } as unknown as ISubagentWorkerStartPayload;
 }

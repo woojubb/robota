@@ -9,7 +9,7 @@ import type { TUniversalMessage } from './messages';
 import type { IToolCall } from './messages';
 import type { IToolSchema, IAIProvider, ITokenUsage } from './provider';
 import type { TToolParameters, TToolMetadata } from './tool';
-import type { TUniversalValue } from './types';
+import type { IDeferredToolCatalog } from './tool-search';
 
 /**
  * Reusable type definitions for service layer
@@ -29,12 +29,6 @@ export type TToolExecutionParameters = Record<
   string,
   string | number | boolean | string[] | number[] | boolean[]
 >;
-
-/**
- * Execution metadata type
- * Used for storing metadata about execution processes and options
- */
-export type TExecutionMetadata = Record<string, string | number | boolean | Date>;
 
 /**
  * Response metadata type
@@ -60,6 +54,8 @@ export interface IToolExecutionRequest {
   baseEventService?: IEventService;
   /** Injected "ask the user" port propagated into the tool's execution context (CMD-005). */
   ask?: IUserInteraction['ask'];
+  /** The deferred-tool catalog propagated into the tool's execution context (CLI-1990). */
+  deferredTools?: IDeferredToolCatalog;
 }
 
 /**
@@ -142,20 +138,6 @@ export interface IContextOptions {
 }
 
 /**
- * Execution service options
- */
-export interface IExecutionServiceOptions {
-  /** Maximum number of tool execution rounds */
-  maxToolRounds?: number;
-  /** Tool execution timeout */
-  toolTimeout?: number;
-  /** Whether to enable parallel tool execution */
-  enableParallelExecution?: boolean;
-  /** Additional execution metadata */
-  metadata?: TExecutionMetadata;
-}
-
-/**
  * Interface for conversation service operations
  * All methods should be stateless and pure functions
  */
@@ -197,47 +179,4 @@ export interface IConversationService {
    * Pure validation function
    */
   validateContext(context: IConversationContext): { isValid: boolean; errors: string[] };
-}
-
-/**
- * Interface for tool execution service operations
- */
-export interface IToolExecutionService {
-  /**
-   * Execute a single tool
-   */
-  executeTool(toolName: string, parameters: TToolParameters): Promise<TUniversalValue>;
-
-  /**
-   * Execute multiple tools in parallel
-   */
-  executeToolsParallel(toolCalls: IToolExecutionRequest[]): Promise<TUniversalValue[]>;
-
-  /**
-   * Execute multiple tools sequentially
-   */
-  executeToolsSequential(toolCalls: IToolExecutionRequest[]): Promise<TUniversalValue[]>;
-}
-
-/**
- * Interface for execution service operations
- */
-export interface IExecutionService {
-  /**
-   * Execute complete agent pipeline
-   */
-  execute(
-    input: string,
-    context: IConversationContext,
-    options?: IExecutionServiceOptions,
-  ): Promise<string>;
-
-  /**
-   * Execute streaming agent pipeline
-   */
-  executeStream(
-    input: string,
-    context: IConversationContext,
-    options?: IExecutionServiceOptions,
-  ): AsyncGenerator<string, void, never>;
 }

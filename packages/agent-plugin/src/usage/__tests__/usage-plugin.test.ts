@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -257,7 +257,7 @@ describe('UsagePlugin', () => {
     let filePath: string;
 
     beforeEach(() => {
-      fileDir = mkdtempSync(join(tmpdir(), 'robota-usage-'));
+      fileDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-usage-')));
       filePath = join(fileDir, 'usage.json');
     });
 

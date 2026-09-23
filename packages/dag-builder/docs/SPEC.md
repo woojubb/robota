@@ -32,17 +32,23 @@
 
 ## Public API Surface
 
-| Export                        | Signature              | Purpose                                                                 |
-| ----------------------------- | ---------------------- | ----------------------------------------------------------------------- |
-| `buildDagFromPipeline`        | `(input, manifests)`   | Main builder: a pipeline spec plus node manifests → `IDagDefinition`    |
-| `dagDefinitionFromParsedFile` | `(parsed, companion?)` | Import adapter: parsed JSON in either on-disk format → `IDagDefinition` |
-| `toDagWorkflowFile`           | `(definition)`         | Export a definition to the `.dag.json` workflow-file format             |
-| `fromDagWorkflowFile`         | `(file, companion?)`   | Parse a `.dag.json` workflow file back to `IDagDefinition`              |
-| `toWorkflowNodeType`          | `(nodeType)`           | Domain node type → workflow-file node type string                       |
-| `fromWorkflowNodeType`        | `(nodeType)`           | Workflow-file node type string → domain node type                       |
-| `isWorkflowFileFormat`        | `(obj)`                | Format guard: parsed JSON is a workflow file                            |
-| `isLegacyDefinitionFormat`    | `(obj)`                | Format guard: parsed JSON is an `IDagDefinition`                        |
-| `DAG_BUILDER_PACKAGE_NAME`    | `string`               | This package's name, for diagnostics that must not hardcode it          |
+| Export                               | Signature                                                                                 | Purpose                                                                                                                        |
+| ------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `buildDagFromPipeline`               | `(input, manifests)`                                                                      | Main builder: a pipeline spec plus node manifests → `IDagDefinition`                                                           |
+| `dagDefinitionFromParsedFile`        | `(parsed, companion?)`                                                                    | Import adapter: parsed JSON in either on-disk format → `IDagDefinition`                                                        |
+| `toDagWorkflowFile`                  | `(definition)`                                                                            | Export a definition to the `.dag.json` workflow-file format                                                                    |
+| `fromDagWorkflowFile`                | `(file, companion?)`                                                                      | Parse a `.dag.json` workflow file back to `IDagDefinition`                                                                     |
+| `toWorkflowNodeType`                 | `(nodeType)`                                                                              | Domain node type → workflow-file node type string                                                                              |
+| `fromWorkflowNodeType`               | `(nodeType)`                                                                              | Workflow-file node type string → domain node type                                                                              |
+| `isWorkflowFileFormat`               | `(obj)`                                                                                   | Format guard: parsed JSON is a workflow file                                                                                   |
+| `isLegacyDefinitionFormat`           | `(obj)`                                                                                   | Format guard: parsed JSON is an `IDagDefinition`                                                                               |
+| `DAG_BUILDER_PACKAGE_NAME`           | `string`                                                                                  | This package's name, for diagnostics that must not hardcode it                                                                 |
+| `decodeDagFile`                      | `(parsed: unknown, companion?: IDagRobotaCompanion) => TResult<…, IDagFileDecodeFailure>` | Total decode of either on-disk format (workflow file or definition); never throws, never casts                                 |
+| `formatDagFileDecodeFailure`         | `(failure: IDagFileDecodeFailure) => string`                                              | Render a decode failure as one operator-facing line, naming the format it was recognised as                                    |
+| `DagFileDecodeError`                 | `class extends Error`                                                                     | Thrown by `dagDefinitionFromParsedFile`; carries the `IDagFileDecodeFailure` for callers that render it                        |
+| `DAG_DEFINITION_FILE_DECODE_OPTIONS` | `IDagDefinitionDecodeOptions`                                                             | The file-boundary allowances: a definition FILE may predate `status` (→ `draft`) and `edges` (→ `[]`); absent is not malformed |
+| `IDagFileDecodeFailure`              | `interface`                                                                               | `{ format: TDagFileFormat \| 'unrecognised', issues: IDagDecodeIssue[] }` — why a parsed value is not a DAG file               |
+| `TDagFileFormat`                     | `type`                                                                                    | `'workflow-file' \| 'definition'` — which on-disk format a parsed value was recognised as                                      |
 
 `dagDefinitionFromParsedFile` is where the workflow-file format SHOULD be read, and where the
 surfaces converted so far do read it — `/workflows run`, `/workflows validate` and `dag runs submit`.

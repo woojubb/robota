@@ -1,19 +1,25 @@
 /**
  * FLOW-007 C3 — shared workspace-catalog reader. Real fs, no mocks.
  */
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { IWorkspaceLayout } from '@robota-sdk/dag-core';
 import { scanWorkspaceCatalog } from '../workspace-catalog.js';
 
-const DAG = { dagId: 'x', version: 1, status: 'draft', nodes: [{ nodeId: 'a' }], edges: [] };
+const DAG = {
+  dagId: 'x',
+  version: 1,
+  status: 'draft',
+  nodes: [{ nodeId: 'a', nodeType: 'input', dependsOn: [], config: {} }],
+  edges: [],
+};
 
 describe('scanWorkspaceCatalog (FLOW-007 C3)', () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'ws-catalog-'));
+    dir = realpathSync(mkdtempSync(join(tmpdir(), 'ws-catalog-')));
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });

@@ -5,12 +5,22 @@
 
 import { parseArgs } from 'node:util';
 
+import {
+  OUTPUT_FORMATS,
+  parseModelEffort,
+  type TOutputFormat,
+  type TEffortSelection,
+} from '@robota-sdk/agent-framework';
+
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+
+// Issue #2052: the output-format vocabulary is owned by the headless transport; re-exported here so
+// existing CLI imports keep working without a second declaration of the same union.
+export type { TOutputFormat };
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
 
-const VALID_OUTPUT_FORMATS = ['text', 'json', 'stream-json'] as const;
-export type TOutputFormat = (typeof VALID_OUTPUT_FORMATS)[number];
+const VALID_OUTPUT_FORMATS = OUTPUT_FORMATS;
 
 export interface IParsedCliArgs {
   positional: string[];
@@ -44,7 +54,11 @@ export interface IParsedCliArgs {
   allowedTools: string | undefined;
   deniedTools: string | undefined;
   model: string | undefined;
+  /** Requested model-effort level; `auto` follows the selected model default. */
+  effort?: TEffortSelection;
   preset: string | undefined;
+  /** CLI-1988: provider-neutral output-style id; resolved against the startup style registry. */
+  outputStyle?: string;
   noSessionPersistence: boolean;
   jsonSchema: string | undefined;
   configure: boolean;
@@ -69,63 +83,22 @@ export interface IParsedCliArgs {
   memory: boolean | undefined;
   /** SELFHOST-008 P6: `--memory-autosave` flips the capture policy to `auto_save`. */
   memoryAutoSave: boolean;
+  /**
+   * CLI-2004: tri-state screen-reader override — `true` (`--screen-reader`), `false`
+   * (`--no-screen-reader`), or `undefined` (neither given, defer to env/settings). `--no-screen-reader`
+   * wins if both. Unlike memory, the FLAG is the top tier: see `startup/screen-reader-enablement.ts`.
+   */
+  screenReader: boolean | undefined;
+  /**
+   * SCREEN-2002: tri-state reduced-motion override — `true` (`--reduced-motion`), `false`
+   * (`--no-reduced-motion`), or `undefined` (neither given, defer to env/settings).
+   * `--no-reduced-motion` wins if both. The FLAG is the top tier, like the screen-reader pair.
+   */
+  reducedMotion: boolean | undefined;
 }
 
-/** Return CLI usage help text. */
-export function printHelp(): string {
-  return `
-Usage: robota [options] [-p <prompt>]
-
-Options:
-  -p <prompt>                Run in print (headless) mode with the given prompt
-  --output-format <format>   Output format: text | json | stream-json (default: text)
-  --system-prompt <text>     Override the system prompt for this session
-  --append-system-prompt <t> Append text to the system prompt
-  --language <lang>          Language preference (e.g. ko, en)
-  --no-session-persistence   Disable session persistence for this run
-  --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions
-  --max-turns <n>            Maximum agent turns before stopping
-  -c, --continue             Continue the most recent session
-  -r, --resume <id>          Resume a session by ID or name
-  -n, --name <name>          Name for the new session
-  --fork-session             Fork the current session into a new independent session
-  --task-file <path>         Read a task prompt from file and append it to the system prompt
-  --bare                     Print mode: output raw text only, no formatting wrapper
-  --configure                Run interactive provider configuration
-  --configure-provider <n>   Configure a specific provider
-  --allowed-tools <list>     Comma-separated tool allowlist (TUI and print mode)
-  --denied-tools <list>      Comma-separated tool denylist (TUI and print mode)
-  --model <model>            Model override for this run
-  --preset <id>              Preset id to apply (default: settings.preset or "default")
-  --memory / --no-memory     Enable/disable durable memory for this run (default: off; opt-in).
-                             Overrides settings.json memory.enabled; ROBOTA_MEMORY=1|0 overrides both
-  --memory-autosave          With memory on, auto-save captured facts (default: approval-required queue)
-  --json-schema <schema>     Print mode: instruct the model to respond with JSON matching this schema
-  --dry-run                  Alias for --permission-mode plan (plan only, no execution)
-  --reset                    Delete ~/.robota/settings.json (provider profiles and preferences).
-                             Asks for confirmation; use --yes to skip
-  --yes                      Skip confirmation prompts (required for --reset in non-TTY)
-  --serve --open             Serve the web monitor over localhost and open it in a browser
-  --check-update             Check for CLI updates
-  --version                  Show version number
-  -h, --help                 Show this help message
-
-Commands:
-  robota init                      Initialize AGENTS.md and .robota/settings.json
-  robota diagnose                  Check setup and print a diagnostics report
-  robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
-
-Examples:
-  robota                           Start interactive TUI session
-  robota init                      Initialize project files
-  robota -p "Hello"                Print mode: send prompt and exit
-  robota -p "Hello" --output-format json
-  robota -p "Review this diff" --bare    Raw output for shell pipelines
-  robota --task-file task.md       Run task from file (appended to system prompt)
-  robota -p "Refactor the auth module" --dry-run   Plan only, no execution
-  robota --continue                Resume the last session
-`;
-}
+// CLI-2004: the help catalogue is its own module; re-exported so every import site is unchanged.
+export { printHelp } from './cli-help.js';
 
 /** Split a comma-separated tool list into trimmed, non-empty names. */
 export function parseToolList(value: string | undefined): string[] | undefined {
@@ -194,7 +167,9 @@ const PARSE_ARGS_CONFIG = {
     'allowed-tools': { type: 'string' },
     'denied-tools': { type: 'string' },
     model: { type: 'string' },
+    effort: { type: 'string' },
     preset: { type: 'string' },
+    'output-style': { type: 'string' },
     'no-session-persistence': { type: 'boolean', default: false },
     'json-schema': { type: 'string' },
     configure: { type: 'boolean', default: false },
@@ -215,6 +190,13 @@ const PARSE_ARGS_CONFIG = {
     memory: { type: 'boolean' },
     'no-memory': { type: 'boolean' },
     'memory-autosave': { type: 'boolean' },
+    // CLI-2004: same tri-state shape — absence must stay distinguishable from an explicit `false`.
+    'screen-reader': { type: 'boolean' },
+    'no-screen-reader': { type: 'boolean' },
+    // SCREEN-2002: the same tri-state shape again. `--no-reduced-motion` exists so a run can
+    // override a PERSISTED `reducedMotion: true` for once, which a bare `--reduced-motion` cannot.
+    'reduced-motion': { type: 'boolean' },
+    'no-reduced-motion': { type: 'boolean' },
   },
 } as const;
 
@@ -232,10 +214,40 @@ function resolveMemoryArgs(
   return { memory, memoryAutoSave: values['memory-autosave'] ?? false };
 }
 
+/**
+ * CLI-2004: `--screen-reader` / `--no-screen-reader` is the same tri-state shape as the memory pair —
+ * `--no-screen-reader` wins if both are given, and absence stays `undefined` so the enablement
+ * resolver can tell "no opinion" from "explicitly off".
+ */
+function resolveScreenReaderArgs(values: TParsedArgValues): Pick<IParsedCliArgs, 'screenReader'> {
+  const screenReader =
+    values['no-screen-reader'] === true
+      ? false
+      : values['screen-reader'] === true
+        ? true
+        : undefined;
+  return { screenReader };
+}
+
+/**
+ * SCREEN-2002: `--reduced-motion` / `--no-reduced-motion`, tri-state like the pair above —
+ * `--no-reduced-motion` wins if both are given, and absence stays `undefined` so the resolver can
+ * tell "no opinion" from "explicitly animate".
+ */
+function resolveReducedMotionArgs(values: TParsedArgValues): Pick<IParsedCliArgs, 'reducedMotion'> {
+  const reducedMotion =
+    values['no-reduced-motion'] === true
+      ? false
+      : values['reduced-motion'] === true
+        ? true
+        : undefined;
+  return { reducedMotion };
+}
+
 function mapParsedValues(
   values: TParsedArgValues,
   positionals: string[],
-): Omit<IParsedCliArgs, 'memory' | 'memoryAutoSave'> {
+): Omit<IParsedCliArgs, 'memory' | 'memoryAutoSave' | 'screenReader' | 'reducedMotion'> {
   return {
     positional: positionals,
     help: values['help'] ?? false,
@@ -264,7 +276,9 @@ function mapParsedValues(
     allowedTools: values['allowed-tools'],
     deniedTools: values['denied-tools'],
     model: values['model'],
+    effort: parseModelEffort(values['effort']),
     preset: values['preset'],
+    outputStyle: values['output-style'],
     noSessionPersistence: values['no-session-persistence'] ?? false,
     jsonSchema: values['json-schema'],
     configure: values['configure'] ?? false,
@@ -284,12 +298,13 @@ function mapParsedValues(
   };
 }
 
-/** Parse and validate CLI arguments. */
-export function parseCliArgs(): IParsedCliArgs {
-  const { values, positionals } = parseArgs(PARSE_ARGS_CONFIG);
+export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
+  const { values, positionals } = parseArgs({ ...PARSE_ARGS_CONFIG, args: argv });
   const args: IParsedCliArgs = {
     ...mapParsedValues(values, positionals),
     ...resolveMemoryArgs(values),
+    ...resolveScreenReaderArgs(values),
+    ...resolveReducedMotionArgs(values),
   };
   if (args.printMode) {
     if (args.resumeId === '') {

@@ -9,14 +9,13 @@
  *   5. .claude/settings.json         (project, Claude Code compat)
  *   6. .claude/settings.local.json   (project-local, highest priority)
  */
-import {
-  SettingsSchema,
-  type TSettings,
-  type TEnvResolvedSettings,
-  type IResolvedConfig,
-} from './config-types.js';
-import { readSettingsSourceText } from './settings-source.js';
+import { mergeSettingsWithHookSources } from './config-merge.js';
+import { readSettingsLayers } from './settings-inspection.js';
+import { SettingsParseError } from './settings-parse-error.js';
 
+import type { IHookDefinitionSource } from './config-merge.js';
+import type { TSettings, TEnvResolvedSettings, IResolvedConfig } from './config-types.js';
+import type { IReadSettingsLayer } from './settings-inspection.js';
 import type { TSettingsSource } from './settings-source.js';
 
 /** Default resolved config values */
@@ -35,23 +34,26 @@ const DEFAULTS: IResolvedConfig = {
 };
 
 /**
- * Read and parse a JSON file. Returns undefined if the file does not exist.
- * Throws on parse errors.
+ * Raise the loader's read-phase error for a classified layer.
+ *
+ * The classification itself lives in `settings-inspection.ts` (`readSettingsLayers`) so the doctor
+ * and the loader read one implementation (OBSERVABILITY-1991); the errors raised here are the ones
+ * this loader has always raised, at the same layer:
+ * - an existing but empty file is corrupt, not absent (`settings-io.readSettings` reaches
+ *   `JSON.parse('')` for the same file, and a crash during write is precisely how a settings file
+ *   becomes empty);
+ * - a corrupt layer is refused rather than skipped — CONFIG-002 / issue #2023: returning `undefined`
+ *   let a truncated project file that had carried a deny list come back as a config with none;
+ * - an unreadable existing file propagates the reader's own error.
  */
-function readJsonSource(source: TSettingsSource): unknown {
-  const content = readSettingsSourceText(source, 'load configuration settings');
-  if (content === undefined) return undefined;
-  const raw = content.trim();
-  if (raw.length === 0) {
-    // Empty file — likely from a crash during write. Treat as missing.
-    return undefined;
+function throwReadPhaseError(layer: IReadSettingsLayer): void {
+  if (layer.state === 'empty') {
+    throw new SettingsParseError(layer.source.displayName, 'the settings file is empty');
   }
-  try {
-    return JSON.parse(raw) as unknown;
-  } catch {
-    // allow-fallback: corrupt config JSON (likely a crash during write) is treated as missing config
-    return undefined;
+  if (layer.state === 'invalid-json') {
+    throw new SettingsParseError(layer.source.displayName, layer.error?.message ?? 'invalid JSON');
   }
+  if (layer.state === 'unreadable') throw layer.error;
 }
 
 /**
@@ -115,59 +117,6 @@ function resolveProviderCredentialEnvRefs<TProvider extends { apiKey?: string }>
     apiKey: resolveEnvRef(provider.apiKey),
     ...(wasReference && { apiKeyEnv: provider.apiKey.slice(ENV_PREFIX.length) }),
   };
-}
-
-/**
- * Deep-merge settings objects. Later entries in the array win.
- * Arrays are replaced (not concatenated) so that project settings
- * fully override user settings for list-type fields.
- */
-function mergeSettings(layers: TEnvResolvedSettings[]): TEnvResolvedSettings {
-  return layers.reduce<TEnvResolvedSettings>((merged, layer) => {
-    return {
-      ...merged,
-      ...layer,
-      provider:
-        merged.provider !== undefined || layer.provider !== undefined
-          ? { ...merged.provider, ...layer.provider }
-          : undefined,
-      permissions:
-        merged.permissions !== undefined || layer.permissions !== undefined
-          ? {
-              allow: layer.permissions?.allow ?? merged.permissions?.allow,
-              deny: layer.permissions?.deny ?? merged.permissions?.deny,
-            }
-          : undefined,
-      env: {
-        ...(merged.env ?? {}),
-        ...(layer.env ?? {}),
-      },
-      providers:
-        merged.providers !== undefined || layer.providers !== undefined
-          ? mergeProviders(merged.providers, layer.providers)
-          : undefined,
-      enabledPlugins:
-        merged.enabledPlugins !== undefined || layer.enabledPlugins !== undefined
-          ? { ...(merged.enabledPlugins ?? {}), ...(layer.enabledPlugins ?? {}) }
-          : undefined,
-      extraKnownMarketplaces: layer.extraKnownMarketplaces ?? merged.extraKnownMarketplaces,
-      autoCompactThreshold: layer.autoCompactThreshold ?? merged.autoCompactThreshold,
-    };
-  }, {});
-}
-
-function mergeProviders(
-  base: TEnvResolvedSettings['providers'],
-  override: TEnvResolvedSettings['providers'],
-): TEnvResolvedSettings['providers'] {
-  const result: NonNullable<TEnvResolvedSettings['providers']> = { ...(base ?? {}) };
-  for (const [name, profile] of Object.entries(override ?? {})) {
-    result[name] = {
-      ...result[name],
-      ...profile,
-    };
-  }
-  return result;
 }
 
 function resolveProvider(merged: TEnvResolvedSettings): IResolvedConfig['provider'] {
@@ -235,22 +184,29 @@ function toResolvedConfig(merged: TEnvResolvedSettings): IResolvedConfig {
  * Load and merge all settings files, validate with Zod, return resolved config.
  */
 export async function loadConfig(sources: readonly TSettingsSource[]): Promise<IResolvedConfig> {
-  const rawEntries: Array<{ raw: unknown; source: TSettingsSource }> = [];
-  for (const source of sources) {
-    const raw = readJsonSource(source);
-    if (raw !== undefined) {
-      rawEntries.push({ raw, source });
+  return (await loadConfigWithHookSources(sources)).config;
+}
+
+/** Internal composition metadata; intentionally not re-exported from the package root. */
+export async function loadConfigWithHookSources(
+  sources: readonly TSettingsSource[],
+): Promise<{ config: IResolvedConfig; hookSources: readonly IHookDefinitionSource[] }> {
+  const layers = readSettingsLayers(sources);
+  // Read-phase errors first, across every layer, then the first schema failure — the order the
+  // two-phase loader always had (see `throwReadPhaseError`).
+  for (const layer of layers) throwReadPhaseError(layer);
+  const parsedLayers: Array<{ settings: TEnvResolvedSettings; source: string }> = [];
+  for (const layer of layers) {
+    if (layer.state === 'absent') continue;
+    if (layer.state === 'schema-invalid' || layer.settings === undefined) {
+      throw new Error(`Invalid settings in ${layer.source.displayName}: ${layer.schemaMessage}`);
     }
+    parsedLayers.push({
+      settings: resolveEnvRefs(layer.settings),
+      source: layer.source.displayName,
+    });
   }
 
-  const parsedLayers: TEnvResolvedSettings[] = rawEntries.map(({ raw, source }) => {
-    const result = SettingsSchema.safeParse(raw);
-    if (!result.success) {
-      throw new Error(`Invalid settings in ${source.displayName}: ${result.error.message}`);
-    }
-    return resolveEnvRefs(result.data);
-  });
-
-  const merged = mergeSettings(parsedLayers);
-  return toResolvedConfig(merged);
+  const merged = mergeSettingsWithHookSources(parsedLayers);
+  return { config: toResolvedConfig(merged.settings), hookSources: merged.hookSources };
 }

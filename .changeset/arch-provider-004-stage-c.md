@@ -3,7 +3,6 @@
 '@robota-sdk/dag-framework': minor
 '@robota-sdk/agent-command-workflows': patch
 '@robota-sdk/dag-cli': patch
-'@robota-sdk/dag-mcp-server': patch
 ---
 
 Provider DIP Stage C (ARCH-PROVIDER-004): extract the default DAG node catalog into a new

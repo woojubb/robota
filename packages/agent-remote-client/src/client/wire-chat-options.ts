@@ -70,6 +70,14 @@ export const CHAT_OPTION_WIRE_DISPOSITION: Record<
     kind: 'local',
     note: 'a function cannot cross a wire, and the payload it captures is the SERVER-side provider SDK object, which is not the caller`s to observe',
   },
+  effortResolution: {
+    kind: 'local',
+    note: 'the server adapter resolves its own capability table; an adapter-bound resolution must never be serialized from the caller',
+  },
+  onModelEffortOutcome: {
+    kind: 'local',
+    note: 'a function cannot cross a wire; SimpleRemoteExecutor invokes it once from the server-adapter terminal outcome envelope',
+  },
 };
 
 /**

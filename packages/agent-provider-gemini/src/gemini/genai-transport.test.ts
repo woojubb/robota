@@ -102,6 +102,84 @@ describe('GeminiProvider @google/genai transport', () => {
     });
   });
 
+  it('API-001: resolves verified effort into thinkingLevel while preserving non-control config', async () => {
+    generateContentMock.mockResolvedValue({
+      candidates: [{ content: { parts: [{ text: 'done' }] } }],
+    });
+    const { GeminiProvider } = await import('./provider');
+    const outcomes: unknown[] = [];
+
+    const provider = new GeminiProvider({
+      apiKey: 'test-key',
+      thinkingConfig: { includeThoughts: true },
+    });
+    await provider.chat([createUserMessage('hello')], {
+      model: 'gemini-3-flash-preview',
+      effort: 'max',
+      onModelEffortOutcome: (outcome) => outcomes.push(outcome),
+    });
+
+    expect(generateContentMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          thinkingConfig: { includeThoughts: true, thinkingLevel: 'HIGH' },
+        }),
+      }),
+    );
+    expect(outcomes).toEqual([
+      expect.objectContaining({
+        resolution: expect.objectContaining({ effective: 'high', disposition: 'clamped' }),
+        nativeControl: { state: 'sent', id: 'thinkingConfig.thinkingLevel' },
+        providerDispatch: { state: 'sent' },
+      }),
+    ]);
+  });
+
+  it('API-001: rejects a conflicting static thinking control', async () => {
+    generateContentMock.mockResolvedValue({
+      candidates: [{ content: { parts: [{ text: 'done' }] } }],
+    });
+    const { GeminiProvider } = await import('./provider');
+    const provider = new GeminiProvider({
+      apiKey: 'test-key',
+      thinkingConfig: { thinkingLevel: 'LOW' },
+    });
+
+    await expect(
+      provider.chat([createUserMessage('hello')], {
+        model: 'gemini-3-flash-preview',
+        effort: 'high',
+      }),
+    ).rejects.toThrow('conflicts with static thinkingConfig.thinkingLevel');
+  });
+
+  it('API-001: unknown models omit the native control and expose not-applied', async () => {
+    generateContentMock.mockResolvedValue({
+      candidates: [{ content: { parts: [{ text: 'done' }] } }],
+    });
+    const { GeminiProvider } = await import('./provider');
+    const outcomes: unknown[] = [];
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+
+    await provider.chat([createUserMessage('hello')], {
+      model: 'unknown-gemini-model',
+      effort: 'high',
+      onModelEffortOutcome: (outcome) => outcomes.push(outcome),
+    });
+
+    const request = generateContentMock.mock.calls[0]?.[0] as {
+      config: Record<string, unknown>;
+    };
+    expect(request.config['thinkingConfig']).toBeUndefined();
+    expect(outcomes).toEqual([
+      expect.objectContaining({
+        resolution: expect.objectContaining({ effective: null, disposition: 'not-applied' }),
+        nativeControl: { state: 'omitted', reason: 'model-effort-not-applied' },
+        providerDispatch: { state: 'sent' },
+      }),
+    ]);
+  });
+
   it('maps json_schema responseFormat onto responseSchema + JSON mime type (CORE-015)', async () => {
     generateContentMock.mockResolvedValue({
       candidates: [{ content: { parts: [{ text: '{"title": "ok"}' }] } }],

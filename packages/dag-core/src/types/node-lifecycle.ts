@@ -9,6 +9,17 @@ export interface ICostEstimate {
   details?: Record<string, string | number | boolean>;
 }
 
+/** Immutable ancestry carried from a root run into each in-process nested DAG run. */
+export interface IDagExecutionLineage {
+  readonly rootRunId: string;
+  readonly parentRunId?: string;
+  /** Number of child-DAG boundaries crossed since the root run. */
+  readonly depth: number;
+  /** Effective root-to-child depth ceiling inherited from all enclosing composites. */
+  readonly maxDepth?: number;
+  readonly ancestorCompositeNodeTypes: readonly string[];
+}
+
 /** Runtime context passed to every node lifecycle method during execution. */
 export interface INodeExecutionContext {
   /** Trusted canonical absolute directory used as filesystem containment authority. */
@@ -20,8 +31,22 @@ export interface INodeExecutionContext {
   nodeManifest: INodeManifest;
   attempt: number;
   executionPath: string[];
+  /** In-process nested-run lineage; older custom executors may omit it and are treated as roots. */
+  lineage?: IDagExecutionLineage;
   runCreditLimit?: number;
   currentTotalCredits: number;
+  /** The executing runtime's own asset base URL, supplied per run rather than stored in a node. */
+  runtimeBaseUrl?: string;
+}
+
+export const DEFAULT_DAG_RUNTIME_BASE_URL = 'http://127.0.0.1:3011';
+
+export function resolveRuntimeBaseUrl(
+  context: Pick<INodeExecutionContext, 'runtimeBaseUrl'>,
+): string {
+  const declared = context.runtimeBaseUrl?.trim();
+  if (declared === undefined || declared.length === 0) return DEFAULT_DAG_RUNTIME_BASE_URL;
+  return declared.replace(/\/$/, '');
 }
 
 /** Final output of a node execution including payload and cost accounting. */

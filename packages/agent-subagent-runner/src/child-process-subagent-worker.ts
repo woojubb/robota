@@ -8,6 +8,8 @@ import {
   type TSubagentWorkerChildMessage,
   type TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
+import { openResumeSessionStore, resumeRequestedRecord } from './child-process-subagent-resume.js';
+import { restoreAgentDefinition, restoreParentContext } from './subagent-worker-start-dto.js';
 import { restoreProjectedSandbox } from './worker-composition.js';
 
 import type { ISubagentWorkerComposition } from './worker-composition.js';
@@ -100,10 +102,12 @@ async function runInitialPrompt(
     const sessionLogger = payload.logsDir
       ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir)
       : undefined;
+    const resumeSessionStore = openResumeSessionStore(payload, composition);
     session = createSubagentSession({
-      agentDefinition: payload.agentDefinition,
+      // ARCH-044 (issue #2047): explicit restore from the wire DTOs into the runtime models.
+      agentDefinition: restoreAgentDefinition(payload.agentDefinition),
       parentConfig: payload.parentConfig,
-      parentContext: payload.parentContext,
+      parentContext: restoreParentContext(payload.parentContext),
       // ARCH-010: the spawn request already carries the root; this call simply never passed it, so
       // every tool the child built was unconfined. Same reader as the session root below — the tools
       // and the session being told DIFFERENT roots is the same class of defect as neither being told
@@ -125,7 +129,8 @@ async function runInitialPrompt(
       cwd: subagentExecutionRoot(payload),
       provider,
       terminal: NOOP_TERMINAL,
-      sessionId: payload.taskId,
+      sessionId: payload.request.resumeSessionId ?? payload.taskId,
+      ...(resumeSessionStore !== undefined ? { sessionStore: resumeSessionStore } : {}),
       ...(sessionLogger ? { sessionLogger } : {}),
       permissionMode: payload.permissionMode,
       // CORE-025: enforce the task's permission policy in the child-process subagent too.
@@ -142,6 +147,7 @@ async function runInitialPrompt(
       onTextDelta: (delta) => sendChildMessage({ type: 'text_delta', delta }),
       onToolExecution: forwardToolExecution,
     });
+    resumeRequestedRecord(payload, session, resumeSessionStore);
     const output = await session.run(payload.request.prompt);
     if (cancelled) {
       sendTerminalMessageAndExit(

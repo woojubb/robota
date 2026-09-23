@@ -109,10 +109,25 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ## Development Setup (Monorepo)
 
 ```bash
-# Build dependencies and CLI
-pnpm build:deps
-pnpm --filter @robota-sdk/agent-cli build
+# Build all packages, including the CLI and its web monitor
+pnpm build
 ```
+
+Root and affected builds assemble complete, verified output before switching `dist` to a new
+generation. A web-monitor change also selects CLI reassembly. Existing monitor servers retain their
+original generation. Do not edit managed output or pack its symlink directly; create a verified archive
+from the repository root with:
+
+```bash
+node scripts/artifacts/pack.mjs --package packages/agent-cli --destination /tmp/robota-cli-pack
+```
+
+Standalone Bun builds use the separate `dist-bun` variant (`pnpm --filter @robota-sdk/agent-cli build:bun`).
+If a build reports an interrupted transaction, first ensure its writer has exited, then run
+`node scripts/artifacts/recovery.mjs packages/agent-cli` from the repository root. Recovery preserves
+previous output; it refuses to take over an active writer. The first transition from physical `dist`
+requires readers to be stopped. Only that transition and Windows replacement are non-atomic;
+normal managed Linux/macOS replacement is atomic.
 
 ## Usage (Monorepo)
 
@@ -146,17 +161,61 @@ robota --max-turns <n>              # Limit agentic turns per interaction
 robota --goal "<objective>"         # Pursue an autonomous goal headlessly until satisfied or a bound
 robota --goal-max-iterations <n>    # Per-goal turn budget (default 25)
 robota --output-format <fmt>        # text | json | stream-json (print mode)
+robota --effort <level>             # auto | none | minimal | low | medium | high | xhigh | max
 robota --system-prompt <text>       # Replace system prompt (print mode)
 robota --append-system-prompt <text> # Append to system prompt (print mode)
 robota --model claude-sonnet-4-6     # Override provider model for this session
 robota --allowed-tools "Bash,Read"  # Whitelist specific tools
 robota --denied-tools "Bash,Write"  # Blacklist specific tools (denied > allowed)
+robota --screen-reader              # Screen-reader mode: no chrome, no motion, numbered menus, role labels
+robota --no-screen-reader           # Force it off for this run, whatever the env or settings say
+# Pacing (ms): ROBOTA_SCREEN_READER_STARTUP_QUIET_MS=900  ROBOTA_SCREEN_READER_PREPARK_MS=50  (0 disables either)
 robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
+robota trust status                 # Inspect canonical workspace trust
+robota trust --yes                  # Grant trust for the current Git workspace
+robota trust revoke --yes           # Revoke the current workspace grant
+robota usage                        # Show the last 7 days of personal usage from local session history
+robota usage --period 30d           # Show complete buckets for the last 30 calendar days
+robota usage --timezone UTC --format json # Emit the versioned JSON projection
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip interactive startup update check for this run
 robota --version                    # Show version
+robota --reduced-motion             # Suppress animation for this run (colour is unaffected)
+robota --no-reduced-motion          # Allow animation, overriding a persisted reducedMotion
 ```
+
+### Personal Usage
+
+`robota usage` reads local user and trusted-project session stores without starting a provider or
+requiring network access. It reports sessions, started turns, tokens, cost confidence, model/provider/
+surface/source breakdowns, privacy-safe activity counts, and coverage diagnostics. The project copy
+wins when the same session ID exists in both stores. Stored prompts, responses, paths, and tool
+payloads are never printed.
+
+Use `--period 7d` (the default) or `--period 30d`, choose an IANA timezone with `--timezone`, and use
+`--format json` for the external `schemaVersion: 1` projection. An empty store produces an empty
+report; a supplied store set containing no readable records exits with an error instead of silently
+reporting zero usage.
+
+### Doctor
+
+`robota doctor` (aliases: `checkup`, `diagnose`) diagnoses configuration and runtime readiness
+before any session exists, so a broken configuration cannot make the diagnostic unreachable. It reports
+every settings layer in precedence order with its state and cause, the merged keys with the layer that
+contributed each, provider resolution and endpoint reachability, workspace trust, storage, plugins,
+skills, hooks and MCP declarations — naming the exact file and cause, never a credential. Exit code
+`0` means no check failed (warnings allowed); `1` means at least one did.
+
+```bash
+robota doctor                                   # full report
+robota doctor --repair settings.user.robota     # one allowlisted repair, asks [y/N] first
+robota doctor --repair storage.user --yes       # no prompt (required in a non-interactive shell)
+```
+
+Repairs are limited to an empty user settings file (rewritten as `{}`) and a missing or too-open
+user storage directory; everything else is reported with the path to fix. `/doctor` runs the same
+report inside a session, and `/doctor repair <check-id>` asks before writing.
 
 ### CLI Updates
 
@@ -255,6 +314,95 @@ The AI agent can invoke 9 distinct local tools (the runtime registers 10 tool na
 - Background subagents are real runtime jobs with transcripts and resumable task snapshots.
 - Explicit multi-agent requests use the `/agent` command module batch path through the SDK runtime.
 
+### Recap when you come back
+
+The TUI notices when you leave the terminal — by focus, where the terminal reports it (iTerm2,
+Kitty, WezTerm, Alacritty, Ghostty, VS Code, Windows Terminal, tmux with `focus-events on`), or
+after five minutes without a keystroke elsewhere — and on your return prints one line for the
+interval, or nothing if nothing happened:
+
+```
+While away 12m: 2 turns finished (1 wake) · 1 needs input · 1 failed
+```
+
+Every background row carries its state word beside the glyph (`working`, `needs-input`,
+`completed`, `failed`, `stopped`), the one-line headline, and for a sleeping `/schedule` a live
+`in 59s` countdown. `ROBOTA_FOCUS_EVENTS=0` turns focus reporting off (idle detection remains);
+`=1` requests it even where the TUI would not.
+
+### Prompt history
+
+`Ctrl+R` searches every prompt you have typed — in this session, in this project, or anywhere —
+the way a shell's reverse search does. Type to narrow the list (newest first, matches highlighted),
+`Ctrl+S` cycles the scope `all → session → project`, `Enter` or `Tab` puts the highlighted prompt back
+in the input, `Ctrl+E` runs it, `Esc` returns you to exactly the draft you had. Every key is
+rebindable in `~/.robota/keybindings.json` (context `history-search`, and `chat-input.history-search`
+for the opener).
+
+What is written, where, and how to turn it off: the interactive TUI appends each prompt you submit
+to `~/.robota/history.jsonl` (one JSON line — timestamp, session id, project root, text; readable by
+you only). Prompts are already kept verbatim in the session record; this file is a searchable index
+of them across sessions. `--serve` and print mode never write it. Set `"promptHistory": false` in
+`~/.robota/settings.json` to turn it off, or `ROBOTA_PROMPT_HISTORY=0` for one run (`=1` overrides
+the setting). Delete the file to forget everything.
+
+Searching the conversation itself needs no viewer: the TUI never switches to the alternate screen,
+so every message of a resumed session is in your terminal's own scrollback and search.
+
+### Themes
+
+`/theme` opens a picker: moving the highlight previews that theme in the live region — the input
+frame, the status bar and the overlay itself — so you judge a colour scheme against the thing it
+applies to rather than a swatch. `Enter` applies it, `Esc` leaves the previous one in place. The
+transcript above keeps the colours it was written in, because the terminal owns those lines once
+they are printed.
+
+Four built-ins ship: `dark` (what Robota has always looked like), `light`, and `dark-daltonized` /
+`light-daltonized`, which avoid the red/green distinction entirely — blue for "good", orange for
+"bad" — for the roughly 1 in 12 men with a colour-vision deficiency. The daltonized pair is checked
+mechanically: a test simulates protanopia and deuteranopia over the pairs whose difference in colour
+carries meaning and fails if any of them come too close.
+
+Without the picker: `/theme list` shows what is installed and what is active, `/theme <id>` switches,
+`/theme syntax on|off` toggles code-block highlighting, and `/theme motion on|off` toggles animation.
+All three persist to `~/.robota/settings.json` as the flat keys `theme`, `syntaxHighlighting` and
+`reducedMotion`.
+
+#### Writing your own
+
+Drop a `.json` file in `~/.robota/themes/` and it appears in the list as `custom:<file-name>`. The
+name becomes part of an id you type, so it may use up to 24 characters from letters, digits, `.`,
+`-` and `_` — a file named anything else is skipped with a line saying so, rather than listed as a theme no command can apply:
+
+```json
+{
+  "name": "Mine",
+  "base": "light",
+  "overrides": { "colors": { "text": { "accent": "#56b4e9" } } }
+}
+```
+
+`base` is any built-in and `overrides` is a sparse map over the same token paths the built-ins use —
+`colors`, `markdown`, `syntax` and `motion` — so you change the colours you care about and inherit
+the rest. Values use Ink's colour grammar: a chalk colour name, `#rgb`, `#rrggbb`, `ansi256(n)` or
+`rgb(r,g,b)`. A raw escape sequence is not in that grammar, so it cannot enter through a theme.
+
+A plugin ships themes the same way, in its own `themes/` directory; they are listed as
+`custom:<plugin>:<file-name>`, and the plugin's own name has to satisfy the same rule for the same
+reason. Both namespaces start with `custom:`, so a file can never take a
+built-in's name whatever it is called.
+
+A file is applied whole or not at all. An unknown token, a value that is not a colour, or JSON that
+does not parse skips the WHOLE file with the path that refused it — printed once at startup as
+`Skipped theme "mine.json": $.overrides.colors.text.accent: "nope" is not a colour …`, and shown in
+the picker as a row that carries the same reason and cannot be chosen. Its neighbours still load.
+
+Motion can also be decided per run: `--reduced-motion` / `--no-reduced-motion` beat
+`ROBOTA_REDUCED_MOTION=1|0`, which beats the setting. A run that pins it says so — `/theme motion on`
+reports that it saved the setting and that this run keeps what pinned it, rather than appearing to
+do nothing. `NO_COLOR`, `FORCE_COLOR=0`, a non-TTY stdout and screen-reader mode still win over
+every theme: no colour and no animation, exactly as before.
+
 ## Permission System
 
 Every tool call passes through a three-step permission gate:
@@ -308,6 +456,7 @@ Pattern syntax: `ToolName` matches any invocation; `ToolName(pattern)` matches o
 | Key        | Action                                                      |
 | ---------- | ----------------------------------------------------------- |
 | Enter      | Submit input                                                |
+| Ctrl+R     | Search prompt history (see "Prompt history")                |
 | ESC        | Abort current execution (graceful — saves partial response) |
 | Ctrl+C     | Exit process immediately                                    |
 | Up/Down    | Navigate visual lines in wrapped multi-line input           |
@@ -360,21 +509,59 @@ When a session has a name, it appears in three places:
 - **Terminal title** — updated via ANSI escape sequences
 - **StatusBar** — displayed alongside activity, model, and context usage
 
+## Deep Links
+
+A `robota://open` link starts a session in a directory you have already trusted, with a prompt
+already in the composer and **not** submitted — you read it and press Enter, or clear it.
+
+```bash
+robota open 'robota://open?v=1&prompt=Summarize%20the%20README&cwd=/absolute/path/to/repo'
+```
+
+| Key      | Meaning                                                                                                              |
+| -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `v`      | Contract version. Required, and must be `1`.                                                                         |
+| `prompt` | The text to prefill. At most 5,000 characters; it may not begin with `/`.                                            |
+| `cwd`    | Absolute path of the directory to open.                                                                              |
+| `repo`   | `owner/name` of an already-trusted local clone, when you do not want to name a path. `cwd` wins if both are present. |
+
+Everything else is refused, and a refusal discards the whole link, says which rule it broke, writes
+to stderr and exits non-zero without starting a session: an unknown key (so a link cannot carry
+`provider=`, `permission-mode=`, `plugin=` or any other configuration), a duplicate key, a missing
+or different `v`, a link over 8,192 characters, a prompt over 5,000, a prompt beginning with `/`
+(one Enter would otherwise run it as a command), a relative, UNC or `..`-bearing path, and a second
+link appended after the first (the argv shape a desktop handler can be made to produce). Your own
+flags still apply after the link; a trailing token that is neither a link nor a flag is currently
+discarded rather than refused — a CLI-wide gap tracked separately, not specific to links.
+
+The target must already be trusted — `robota trust --yes` in that directory — for `cwd=` exactly as
+for `repo=`. A link opens only what you have already approved; it never clones, never fetches, and
+never reads a repository you have not trusted. While the composer still holds exactly what the link
+supplied, the line `Prompt from an external link` sits below the input, and above 1,000 characters it
+adds the character count and asks you to read the whole thing before sending. Edit that text and the
+line goes: what is in the composer is then yours, and the label would be claiming otherwise.
+
+**Known limitations.** No URL scheme is registered with the operating system yet, so a browser
+cannot hand the link over: pass it to `robota open` yourself, or point your own handler at that
+command. Registering the scheme on macOS, Linux and Windows, and the HTTPS launcher that works
+around chat clients stripping custom schemes, are tracked separately.
+
 ## Slash Commands
 
 Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inserts without executing, Enter executes. Subcommands (e.g., `/provider list`) show a nested submenu.
 
 ### Session & Context
 
-| Command                   | Description                                                            |
-| ------------------------- | ---------------------------------------------------------------------- |
-| `/clear`                  | Clear conversation history                                             |
-| `/compact [instructions]` | Compress context window                                                |
-| `/context`                | Context window details, reference inventory, and auto-compact controls |
-| `/cost`                   | Show session token usage and cost                                      |
-| `/resume`                 | List recent sessions and resume one                                    |
-| `/rename <name>`          | Rename the current session                                             |
-| `/rewind`                 | List, inspect, restore, or rollback edit checkpoints                   |
+| Command                   | Description                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------ |
+| `/clear`                  | Clear conversation history                                                                       |
+| `/compact [instructions]` | Compress context window                                                                          |
+| `/context`                | Context window details, reference inventory, and auto-compact controls                           |
+| `/cost`                   | Show session token usage and cost                                                                |
+| `/effort [level]`         | Show or change model effort (`auto`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`) |
+| `/resume`                 | List recent sessions and resume one                                                              |
+| `/rename <name>`          | Rename the current session                                                                       |
+| `/rewind`                 | List, inspect, restore, or rollback edit checkpoints                                             |
 
 ### Providers & Settings
 
@@ -397,6 +584,20 @@ Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inse
 | `/agent`               | Run and manage background subagent jobs                              |
 | `/skills [name]`       | List registered skills or activate one by name                       |
 | `/plugin [subcommand]` | Plugin management                                                    |
+
+### Git
+
+| Command                                                     | Description                                                                                          |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `/git status`                                               | Branch plus the staged, unstaged and untracked paths                                                 |
+| `/git diff [--staged \| <rev> \| <a>..<b>] [-- <path> ...]` | Unstaged diff, staged diff, or a diff against one or two revisions (each revision is verified first) |
+| `/git commit [<subject>]`                                   | Commit the staged changes after a confirmation listing the message and the staged files              |
+
+`/git commit` operates on the staged set only — no `-a`, no paths. The subject must follow the
+Conventional Commits form `<type>[(scope)][!]: <description>`; the type list, the 72-character limit
+and a trailing period are warnings, not refusals. With nothing staged it says so, with the unstaged and
+untracked counts. Headless (`-p`) runs cancel the commit because no confirmation can be asked for.
+Other git flags are not accepted — `/shell git ...` remains the way to run arbitrary git.
 
 ### Sessions on this host
 
@@ -538,6 +739,25 @@ The two user layers are always host-owned. The four project layers participate o
 supplies trusted project access; Restricted composition does not probe them. Project writes require a
 separately approved settings writer for the same authority.
 
+### Workspace trust
+
+Robota admits project-controlled settings and executable contributions only after a host-owned grant
+for the canonical Git workspace identity. In a new or revoked workspace, interactive startup remains
+usable with project settings, hooks, plugins, skills, and provider overrides disabled. Headless startup
+fails closed until trust is granted:
+
+```bash
+robota trust status
+robota trust --yes
+robota trust revoke --yes
+```
+
+The grant survives process restart and is invalidated by repository replacement, revocation, or a
+trust-store error. Symlink aliases resolve to the canonical workspace; a different repository at the
+same textual path does not inherit the grant. `robota doctor` reports trust and endpoint provenance
+without printing credentials. If a lower-trust settings layer changes a provider endpoint without
+providing its own key, Robota removes the inherited key and reports `provider endpoint quarantined`.
+
 ```json
 {
   "defaultMode": "default",
@@ -655,19 +875,15 @@ bin.ts → cli.ts (arg parsing)
 
 ## Dependencies
 
-| Package                                      | Purpose                                    |
-| -------------------------------------------- | ------------------------------------------ |
-| `@robota-sdk/agent-framework`                | Session factory, query, config, context    |
-| `@robota-sdk/agent-core`                     | Types (TPermissionMode, TToolArgs)         |
-| `@robota-sdk/agent-transport` (`./headless`) | Headless runner for print mode (`-p`)      |
-| `ink` 7, `react` 19.2+                       | TUI rendering                              |
-| `ink-select-input`                           | Arrow-key selection (permission prompt)    |
-| `ink-spinner`                                | Loading spinner                            |
-| `chalk`                                      | Terminal colors                            |
-| `ink-text-input`                             | Base text input (extended by CjkTextInput) |
-| `marked`, `marked-terminal`                  | Markdown parsing and terminal rendering    |
-| `cli-highlight`                              | Syntax highlighting for code blocks        |
-| `string-width`                               | Unicode-aware string width (CJK support)   |
+| Package                       | Purpose                                                                       |
+| ----------------------------- | ----------------------------------------------------------------------------- |
+| `@robota-sdk/agent-framework` | Session factory, query, config, context                                       |
+| `@robota-sdk/agent-core`      | Types (TPermissionMode, TToolArgs)                                            |
+| `@robota-sdk/agent-framework` | Headless runner and registry for print mode (`-p`); terminal I/O is CLI-local |
+| `ink` 7, `react` 19.2+        | TUI rendering                                                                 |
+| `chalk`                       | Terminal colors                                                               |
+| `marked`, `marked-terminal`   | Markdown parsing and terminal rendering                                       |
+| `string-width`                | Unicode-aware string width (CJK support)                                      |
 
 ## Documentation
 

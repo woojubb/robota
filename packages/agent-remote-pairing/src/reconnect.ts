@@ -39,6 +39,17 @@ interface ISettle {
   settled(): boolean;
 }
 
+/**
+ * Run one fallible async frame transition so that a rejection SETTLES the controller (issue #2046).
+ * Every spawned operation — resolver, crypto, storage — used to be `void`-detached, so a throw became
+ * an unhandled rejection while `result` stayed pending until the timeout.
+ */
+function guarded(settle: ISettle, transition: () => Promise<void>): void {
+  transition().catch((error: unknown) => {
+    settle.fail(`reconnect rejected: ${error instanceof Error ? error.message : String(error)}`);
+  });
+}
+
 function makeSettle(
   resolve: (r: IReconnectResult) => void,
   reject: (e: Error) => void,
@@ -101,7 +112,7 @@ export function startDeviceReconnect(options: IDeviceReconnectOptions): IReconne
     result,
     onFrame(frame: TReconnectFrame): void {
       if (settle.settled() || frame.t !== 'rc-host') return;
-      void (async (): Promise<void> => {
+      guarded(settle, async (): Promise<void> => {
         const challenge: IReconnectChallenge = {
           deviceId: options.deviceId,
           hostIdentityId: options.hostIdentityId,
@@ -120,7 +131,7 @@ export function startDeviceReconnect(options: IDeviceReconnectOptions): IReconne
         if (settle.settled()) return;
         options.send({ t: 'rc-device', sig });
         settle.succeed({ deviceId: options.deviceId });
-      })();
+      });
     },
   };
 }
@@ -158,7 +169,7 @@ export function startHostReconnect(options: IHostReconnectOptions): IReconnectCo
     onFrame(frame: TReconnectFrame): void {
       if (settle.settled()) return;
       if (frame.t === 'rc-hello') {
-        void (async (): Promise<void> => {
+        guarded(settle, async (): Promise<void> => {
           const devicePublicKey = await options.resolveDevicePublicKey(frame.deviceId);
           if (settle.settled()) return;
           if (!devicePublicKey) {
@@ -178,14 +189,14 @@ export function startHostReconnect(options: IHostReconnectOptions): IReconnectCo
           if (settle.settled()) return;
           pending = { deviceId: frame.deviceId, devicePublicKey, challenge };
           options.send({ t: 'rc-host', nonceHost, sig });
-        })();
+        });
       } else if (frame.t === 'rc-device') {
         const current = pending;
         if (!current) {
           settle.fail('reconnect rejected: rc-device before rc-hello');
           return;
         }
-        void (async (): Promise<void> => {
+        guarded(settle, async (): Promise<void> => {
           const deviceOk = await verifyChallenge(
             current.devicePublicKey,
             frame.sig,
@@ -197,7 +208,7 @@ export function startHostReconnect(options: IHostReconnectOptions): IReconnectCo
             return;
           }
           settle.succeed({ deviceId: current.deviceId });
-        })();
+        });
       }
     },
   };

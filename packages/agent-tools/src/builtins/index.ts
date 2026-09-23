@@ -18,4 +18,8 @@ export type {
   IWebSearchToolProviderOptions,
 } from './web-search-provider.js';
 export { askUserQuestionTool, createAskUserQuestionTool } from './ask-user-question-tool.js';
+// CLI-1990: the resident tool that loads deferred schemas on demand.
+export { toolSearchTool, createToolSearchTool, TOOL_SEARCH_NAME } from './tool-search-tool.js';
+export type { IToolSearchOutput } from './tool-search-tool.js';
+export { DEFAULT_TOOL_SEARCH_LIMIT, matchDeferredTools } from './tool-search-matching.js';
 export type { IBuiltinToolDescriptionOptions, ISandboxBuiltinToolOptions } from './tool-options.js';

@@ -1,11 +1,11 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { NodeSessionLogSource } from '@robota-sdk/agent-session';
+import { NodeSessionLogSource, SessionLogDecodeError } from '@robota-sdk/agent-session';
 
 import type { ICommandSessionReplayValidationReport } from '../../host-context.js';
 import { createTestCommandHost } from '../../../testing/command-host-double.js';
@@ -31,7 +31,7 @@ function writeLog(
   sessionId: string,
   lines: readonly string[],
 ): { source: NodeSessionLogSource; reference: string } {
-  const root = mkdtempSync(join(tmpdir(), 'arch-029-replay-'));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'arch-029-replay-')));
   const logs = join(root, '.robota', 'logs');
   mkdirSync(logs, { recursive: true });
   const logFile = join(logs, `${sessionId}.jsonl`);
@@ -79,7 +79,13 @@ describe('ARCH-029 TC-08 — session replay validation has one owner', () => {
   });
 
   it('the extracted helper still computes what the deleted branch computed', () => {
-    const entry = JSON.stringify({ type: 'user', content: 'hi', timestamp: 1 });
+    const entry = JSON.stringify({
+      schemaVersion: 1,
+      sessionId: 'session-a',
+      event: 'user',
+      content: 'hi',
+      timestamp: '2026-09-23T00:00:00.000Z',
+    });
     const log = writeLog('session-a', [entry, entry]);
 
     const report = computeSessionReplayValidationReport(log.source, log.reference);
@@ -93,7 +99,13 @@ describe('ARCH-029 TC-08 — session replay validation has one owner', () => {
     // The design's actual requirement: the production host does not compute its own report, it
     // calls the same helper. Equal outputs for equal inputs is what makes "same helper" checkable
     // from outside the class.
-    const entry = JSON.stringify({ type: 'user', content: 'hi', timestamp: 1 });
+    const entry = JSON.stringify({
+      schemaVersion: 1,
+      sessionId: 'session-b',
+      event: 'user',
+      content: 'hi',
+      timestamp: '2026-09-23T00:00:00.000Z',
+    });
     const log = writeLog('session-b', [entry]);
     const host = createTestCommandHost({
       overrides: {
@@ -104,6 +116,25 @@ describe('ARCH-029 TC-08 — session replay validation has one owner', () => {
 
     expect(validateCommandSessionReplayLog(host)).toEqual(
       computeSessionReplayValidationReport(log.source, log.reference),
+    );
+  });
+
+  it('reports a malformed log with its physical location instead of a successful report', () => {
+    const log = writeLog('session-c', [
+      '',
+      JSON.stringify({
+        schemaVersion: 1,
+        sessionId: 'session-c',
+        event: 'text_delta',
+        delta: 123,
+        timestamp: '2026-09-23T00:00:00.000Z',
+      }),
+    ]);
+    expect(() => computeSessionReplayValidationReport(log.source, log.reference)).toThrow(
+      SessionLogDecodeError,
+    );
+    expect(() => computeSessionReplayValidationReport(log.source, log.reference)).toThrow(
+      /line 2.delta/,
     );
   });
 });

@@ -15,9 +15,16 @@
  * cannot produce an answer nobody asked for.
  */
 
-import type { IChatOptions, IToolSchema, TModelEffort, TToolChoice } from '@robota-sdk/agent-core';
+import { isModelEffort, MODEL_EFFORT_VALUES } from '@robota-sdk/agent-core';
 
-const EFFORTS: readonly TModelEffort[] = ['low', 'medium', 'high', 'xhigh', 'max'];
+import type {
+  IChatOptions,
+  IToolSchema,
+  TToolChoice,
+  TUniversalValue,
+} from '@robota-sdk/agent-core';
+
+const EFFORT_SELECTIONS = ['auto', ...MODEL_EFFORT_VALUES] as const;
 const SIMPLE_TOOL_CHOICES = ['auto', 'none', 'required'] as const;
 
 /** What the body asked for, and what could not be honoured. */
@@ -29,6 +36,23 @@ export interface IParsedChatOptions {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isUniversalValue(value: unknown): value is TUniversalValue {
+  return (
+    value === null ||
+    value === undefined ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    value instanceof Date ||
+    (Array.isArray(value) && value.every(isUniversalValue)) ||
+    isUniversalObject(value)
+  );
+}
+
+function isUniversalObject(value: unknown): value is Record<string, TUniversalValue> {
+  return isRecord(value) && Object.values(value).every(isUniversalValue);
 }
 
 function parseToolChoice(value: unknown): TToolChoice | undefined {
@@ -47,7 +71,7 @@ function parseResponseFormat(value: unknown): IChatOptions['responseFormat'] | u
   if (type === 'text' || type === 'json_object') {
     return { type };
   }
-  if (type === 'json_schema' && isRecord(value['schema'])) {
+  if (type === 'json_schema' && isUniversalObject(value['schema'])) {
     return {
       type: 'json_schema',
       ...(typeof value['name'] === 'string' && { name: value['name'] }),
@@ -130,14 +154,12 @@ export function parseChatOptionsFromBody(
       rejected.push('options.temperature: not a finite number');
     }
   }
-  if (wire['effort'] !== undefined) {
-    if (
-      typeof wire['effort'] === 'string' &&
-      (EFFORTS as readonly string[]).includes(wire['effort'])
-    ) {
-      options.effort = wire['effort'] as TModelEffort;
+  const rawEffort = wire['effort'];
+  if (rawEffort !== undefined) {
+    if (typeof rawEffort === 'string' && (rawEffort === 'auto' || isModelEffort(rawEffort))) {
+      options.effort = rawEffort;
     } else {
-      rejected.push(`options.effort: not one of ${EFFORTS.join(', ')}`);
+      rejected.push(`options.effort: not one of ${EFFORT_SELECTIONS.join(', ')}`);
     }
   }
   if (wire['toolChoice'] !== undefined) {

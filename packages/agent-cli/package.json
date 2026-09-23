@@ -37,16 +37,36 @@
     "dist",
     "bin"
   ],
+  "robota": {
+    "artifact": {
+      "builder": "tsdown",
+      "copies": [
+        {
+          "package": "@robota-sdk/agent-cli-web",
+          "target": "web"
+        }
+      ],
+      "variants": {
+        "bun": {
+          "output": "dist-bun"
+        },
+        "headless": {
+          "output": "dist-bun-headless"
+        }
+      }
+    }
+  },
   "scripts": {
-    "build": "pnpm --filter @robota-sdk/agent-cli-web build && node scripts/copy-web-assets.mjs && tsdown",
-    "build:js": "tsdown --no-dts",
-    "build:types": "tsdown --dts",
+    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
+    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build",
     "dev": "tsx src/bin.ts",
     "start": "node dist/node/bin.js",
     "test": "vitest run --passWithNoTests",
     "test:bin": "vitest run --config vitest.bin.config.ts",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit",
     "lint": "eslint src/ --ext .ts,.tsx",
     "clean": "rimraf dist",
     "demo:record": "node scripts/record-demo.mjs",
@@ -58,7 +78,17 @@
     "build:bun:linux-x64": "bun scripts/build-bun.mjs linux-x64",
     "build:bun:linux-arm64": "bun scripts/build-bun.mjs linux-arm64",
     "build:bun:windows-x64": "bun scripts/build-bun.mjs windows-x64",
-    "test:bun": "node scripts/e2e-bun-binary.mjs"
+    "test:bun": "node scripts/e2e-bun-binary.mjs",
+    "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-session-event-delivery.ts",
+    "scenario:usage:verify": "pnpm exec tsx --conditions=source examples/verify-personal-usage.ts",
+    "build:bun:headless": "bun scripts/build-bun.mjs headless",
+    "build:bun:headless:all": "bun scripts/build-bun.mjs headless all",
+    "build:bun:headless:darwin-arm64": "bun scripts/build-bun.mjs headless darwin-arm64",
+    "build:bun:headless:darwin-x64": "bun scripts/build-bun.mjs headless darwin-x64",
+    "build:bun:headless:linux-x64": "bun scripts/build-bun.mjs headless linux-x64",
+    "build:bun:headless:linux-arm64": "bun scripts/build-bun.mjs headless linux-arm64",
+    "build:bun:headless:windows-x64": "bun scripts/build-bun.mjs headless windows-x64",
+    "test:bun:headless": "node scripts/e2e-headless-binary.mjs"
   },
   "comment:dependencies": "INFRA-028: agent-cli publishes as a SELF-CONTAINED bundle. ALL @robota-sdk workspace code (incl. the /workflows + dag-* chain) is bundled into dist (see devDependencies + tsdown.config.ts). Runtime `dependencies` therefore contain ONLY the third-party npm packages that the bundled closure imports — kept external so npm installs them from the public registry. Do NOT add any @robota-sdk edge here.",
   "dependencies": {
@@ -66,13 +96,9 @@
     "@google/genai": "^1.52.0",
     "@marcbachmann/cel-js": "^7.5.3",
     "chalk": "^5.6.2",
-    "cli-highlight": "^2.1.11",
     "croner": "^10.0.1",
     "fast-glob": "^3.3.3",
     "ink": "^7.1.1",
-    "ink-select-input": "^6.2.0",
-    "ink-spinner": "^5.0.0",
-    "ink-text-input": "^6.0.0",
     "jssha": "^3.3.2",
     "marked": "^9.1.6",
     "marked-terminal": "^7.3.0",
@@ -95,6 +121,7 @@
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-executor": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
+    "@robota-sdk/agent-interface-analytics": "workspace:*",
     "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-session-mobility": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
@@ -110,8 +137,7 @@
     "@robota-sdk/agent-subagent-runner": "workspace:*",
     "@robota-sdk/agent-tool-defaults": "workspace:*",
     "@robota-sdk/agent-transport": "workspace:*",
-    "@robota-sdk/agent-transport-protocol": "workspace:*",
-    "@robota-sdk/agent-transport-tui": "workspace:*",
+    "@robota-sdk/agent-ui-terminal": "workspace:*",
     "@robota-sdk/agent-transport-webrtc": "workspace:*",
     "@robota-sdk/agent-transport-ws": "workspace:*",
     "@robota-sdk/pack-coding": "workspace:*",

@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -46,7 +46,7 @@ async function knownNodeType(): Promise<string> {
 
 describe('workflows command module', () => {
   it('refuses project workflow discovery when no explicit project capability was injected', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'wf-restricted-'));
+    const dir = await realpath(await mkdtemp(join(tmpdir(), 'wf-restricted-')));
     await mkdir(join(dir, '.workflows'), { recursive: true });
     await writeFile(join(dir, '.workflows', 'canary.json'), '{}');
     const context = createTestCommandHost({ cwd: dir });
@@ -139,7 +139,7 @@ describe('workflows command module', () => {
 
 describe('workflows validate', () => {
   it('accepts a definition whose node types exist in the catalog', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'wf-validate-'));
+    const dir = await realpath(await mkdtemp(join(tmpdir(), 'wf-validate-')));
     const file = 'ok.dag.json';
     const definition = {
       dagId: 'ok',
@@ -155,7 +155,7 @@ describe('workflows validate', () => {
   });
 
   it('rejects a definition with an unknown node type', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'wf-validate-'));
+    const dir = await realpath(await mkdtemp(join(tmpdir(), 'wf-validate-')));
     const file = 'bad.dag.json';
     const definition = {
       dagId: 'bad',
@@ -171,7 +171,7 @@ describe('workflows validate', () => {
   });
 
   it('rejects an unrecognized file shape', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'wf-validate-'));
+    const dir = await realpath(await mkdtemp(join(tmpdir(), 'wf-validate-')));
     await writeFile(join(dir, 'x.dag.json'), JSON.stringify({ foo: 1 }));
     const result = await executeWorkflowsValidate('x.dag.json', dir);
     expect(result.success).toBe(false);
@@ -181,14 +181,14 @@ describe('workflows validate', () => {
 
 describe('workflows catalog', () => {
   it('reports an empty state when no workflows exist', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'wf-catalog-'));
+    const dir = await realpath(await mkdtemp(join(tmpdir(), 'wf-catalog-')));
     const result = await executeWorkflowsCatalog(dir);
     expect(result.success).toBe(true);
     expect(result.message).toContain('No workflow files');
   });
 
   it('lists workflow files flat under the workspace root (.workflows/)', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'wf-catalog-'));
+    const dir = await realpath(await mkdtemp(join(tmpdir(), 'wf-catalog-')));
     const catalogDir = join(dir, '.workflows');
     await mkdir(join(catalogDir, 'nodes'), { recursive: true });
     await writeFile(

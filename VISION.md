@@ -34,10 +34,8 @@ Two loops, one flywheel:
 
 - **Product self-hosting** — Robota (the agent) is capable enough to do real engineering on the Robota
   monorepo: plan, understand the codebase, change it across layers, test, review, and ship.
-- **Process self-improvement** — the harness (SENSE → ENFORCE → IMPROVE; see
-  [`.agents/rules/enforcement-architecture.md`](.agents/rules/enforcement-architecture.md) and the
-  [orchestration map](.agents/specs/orchestration-map.md)) makes every one of those steps correct and
-  gets better over time.
+- **Process self-improvement** — the harness (SENSE → ENFORCE → IMPROVE) makes every one of those steps
+  correct and gets better over time.
 
 Each turn of the flywheel makes both the agent and the process stronger, so the next turn is easier.
 
@@ -48,8 +46,8 @@ Each turn of the flywheel makes both the agent and the process stronger, so the 
   worker/guardian/orchestrator review, and branch-safety — can develop almost anything. Self-hosting is
   the forcing function that keeps the product honest.
 - **Every capability is proven by use.** A feature is not "done" because it exists; it is done when
-  Robota used it to build Robota. The [PR-review orchestration](.agents/specs/orchestration-map.md)
-  (Robota reviewing Robota's PRs) is the first live instance of this.
+  Robota used it to build Robota. The PR-review orchestration (Robota reviewing Robota's PRs) is the
+  first live instance of this.
 - **Compounding.** A better Robota builds Robota faster and better, which produces a better Robota.
 
 ## What it demands of the product — the roadmap
@@ -57,7 +55,7 @@ Each turn of the flywheel makes both the agent and the process stronger, so the 
 To reach "Robota codes Robota", the product must have first-class, competitively-strong versions of the
 capabilities a real development agent needs. These are surveyed from leading commercial/OSS agents
 (Claude Code, Cursor, Devin, aider, CrewAI, Hermes, LangGraph, OpenAI Agents SDK, ADK, Mastra, …) and
-tracked as the **self-hosting roadmap** in [`.agents/tasks/SELFHOST-*`](.agents/tasks/). Highlights:
+tracked as the **self-hosting roadmap**. Highlights:
 crew/multi-agent orchestration, explicit plan-mode, codebase indexing/RAG, branching time-travel,
 self-curating memory, run tracing + cost budgeting, guardrails, a rich hook catalog, computer use, and
 evals-as-code — each placed at the **correct architectural layer** (never skinned onto a surface).
@@ -73,9 +71,7 @@ not reaching the goal.
 **Library neutrality is not a side rule here — it is the goal restated.** Because the target is a _general_
 agent (see "What this does NOT mean"), every capability must be a neutral mechanism usable on any project;
 Robota-specific content in `packages/` would make the agent less general, i.e. move it away from the
-north-star. Enforced by the library-neutrality rule (TRANS-001, [project-structure.md](.agents/project-structure.md))
-and the neutrality scans (e.g. `orchestration-neutrality`). "Self-hosting" is a benchmark, never a licence to
-couple the product to the Robota domain.
+north-star. "Self-hosting" is a benchmark, never a licence to couple the product to the Robota domain.
 
 ---
 

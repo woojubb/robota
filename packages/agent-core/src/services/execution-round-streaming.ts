@@ -63,6 +63,7 @@ export async function callRoundProviderWithEvents(
   conversationStore: ConversationStore,
   currentRound: number,
   executionId: string,
+  usageObservationId: string,
   logger: ILogger,
   wrappedOnTextDelta: (delta: string) => void,
   wrappedOnProviderNativeRawPayload: TProviderNativeRawPayloadCallback,
@@ -96,6 +97,9 @@ export async function callRoundProviderWithEvents(
       // `conversationMessages` does not contain, and a `provider_request` logging the caller's own
       // array would describe a request that was never sent — `agent-session/docs/SPEC.md` promises
       // this event carries the request envelope, and a replay has to be able to reproduce it.
+      // The same rule holds for `tools` (CLI-1990): the wire carries the residency projection and
+      // whatever the model-capability guard removed, so the envelope logs the options as sent, not
+      // the registry the round was assembled from.
       (request) => {
         fullContext.onExecutionEvent?.('provider_request', {
           executionId,
@@ -103,8 +107,9 @@ export async function callRoundProviderWithEvents(
           round: currentRound,
           provider: resolved.currentInfo.provider,
           model: config.defaultModel.model,
+          effort: request.options.effort,
           messages: request.messages,
-          tools: resolved.availableTools,
+          tools: request.options.tools,
         } as TExecutionEventData);
         // CORE-043: which transport actually carried the schema. The OUTCOME, not the resolution —
         // "the table declares json_schema" describes a catalog, while "the schema was sent as a
@@ -167,6 +172,7 @@ export async function callRoundProviderWithEvents(
       executionId,
       conversationId: fullContext.conversationId,
       round: currentRound,
+      effort: config.defaultModel?.effort ?? 'high',
       response,
       responseKind: 'provider-normalized-message',
     } as TExecutionEventData);
@@ -188,7 +194,13 @@ export async function callRoundProviderWithEvents(
     // from its prose. The substring test that stood here committed the round as `interrupted` for
     // any provider failure whose message happened to contain "abort".
     if (isAbortFailure(providerError, fullContext.signal)) {
-      conversationStore.commitAssistant('interrupted', { round: currentRound });
+      conversationStore.commitAssistant('interrupted', {
+        round: currentRound,
+        usageObservationId,
+        executionId,
+        providerId: resolved.currentInfo.provider,
+        modelId: resolved.aiProviderInfo.model,
+      });
       throw providerError;
     }
     conversationStore.discardPending();
@@ -200,12 +212,20 @@ export async function callRoundProviderWithEvents(
     logger.error('[ROUND] Provider call failed', { error: errMsg, round: currentRound });
     conversationStore.addAssistantMessage(`Request failed: ${errMsg}`, [], {
       round: currentRound,
+      usageObservationId,
+      executionId,
+      providerId: resolved.currentInfo.provider,
+      modelId: resolved.aiProviderInfo.model,
       providerError: true,
     });
     // CORE-033: announced like every other append. A failed turn is precisely when a reader goes to
     // the session log, and this record was the one message the log never contained.
     announceAppend(conversationStore, fullContext, executionId, fullContext.conversationId, {
       round: currentRound,
+      usageObservationId,
+      executionId,
+      providerId: resolved.currentInfo.provider,
+      modelId: resolved.aiProviderInfo.model,
       providerError: true,
     });
     return null;

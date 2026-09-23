@@ -1,8 +1,8 @@
 # CLI Reference
 
-`@robota-sdk/agent-cli` is a purely CLI entry point that wires providers, transports, and commands into a terminal experience. `InteractiveSession` (from `@robota-sdk/agent-framework`) drives all session logic. The CLI has no session logic of its own: `TuiStateManager` (in `agent-transport-tui`) receives session events and produces an immutable state snapshot consumed by the Ink React component tree. All session logic — command handling, prompt queuing, system commands, skill discovery — lives in the framework layer.
+`@robota-sdk/agent-cli` is a purely CLI entry point that wires providers, transports, and commands into a terminal experience. `InteractiveSession` (from `@robota-sdk/agent-framework`) drives all session logic. The CLI has no session logic of its own: `TuiStateManager` (in `agent-ui-terminal`) receives session events and produces an immutable state snapshot consumed by the Ink React component tree. All session logic — command handling, prompt queuing, system commands, skill discovery — lives in the framework layer.
 
-State is managed by `TuiStateManager`, a pure TypeScript class (no React dependency) that receives SDK events and produces an immutable state snapshot. `TuiInteractionChannel` (in `agent-transport-tui`) owns the session lifecycle and drives `TuiStateManager`. The `useTuiChannel` hook bridges channel state into the React component tree.
+State is managed by `TuiStateManager`, a pure TypeScript class (no React dependency) that receives SDK events and produces an immutable state snapshot. `TuiInteractionChannel` (in `agent-ui-terminal`) owns the session lifecycle and drives `TuiStateManager`. The `useTuiChannel` hook bridges channel state into the React component tree.
 
 ## Installation
 
@@ -26,15 +26,36 @@ robota --permission-mode plan       # Permission mode override
 robota --max-turns 10               # Limit agentic turns
 robota --goal "ship the feature"    # Autonomous goal: pursue across turns until satisfied or a bound
 robota --output-format json         # Output format (text/json/stream-json)
+robota --effort high                # Model effort: auto | none | minimal | low | medium | high | xhigh | max
 robota --append-system-prompt "..." # Append to system prompt
 robota --configure                  # Interactive provider setup
 robota --provider qwen              # Run with a configured provider profile
 robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
+robota usage                        # Show the last 7 days of personal usage from local session history
+robota usage --period 30d           # Show the last 30 complete calendar-day buckets
+robota usage --timezone UTC --format json # Emit the versioned JSON projection
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip startup update check for this run
 robota --version                    # Show version
 ```
+
+## Personal Usage
+
+Run `robota usage` before starting a session to summarize local user and trusted-project history. The
+report includes sessions, started turns, tokens, cost confidence, daily buckets, attribution
+breakdowns, privacy-safe activity counts, and coverage warnings. It does not send data to a provider
+or print stored prompts, responses, paths, or tool payloads.
+
+```bash
+robota usage
+robota usage --period 30d --timezone Asia/Seoul
+robota usage --period 30d --timezone UTC --format json
+```
+
+The JSON form is a stable external projection with `schemaVersion: 1`. The desktop app exposes the
+same shared report under **Usage**, including 7/30-day controls, model/surface breakdowns, coverage
+states, and links back to contributing session details.
 
 ## CLI Updates
 
@@ -54,7 +75,7 @@ Startup checks are rate-limited by a user-level cache at `~/.robota/update-check
 
 ## Non-Interactive (Headless) Mode
 
-Print mode (`-p`) runs a single prompt without the interactive TUI and exits. It delegates to `@robota-sdk/agent-transport/headless` for output formatting. When the prompt starts with `/skill-name`, headless mode calls `InteractiveSession.executeCommand()`, and the SDK normalizes the virtual skill alias to command `skills` with args `<skill-name> [args]`.
+Print mode (`-p`) runs a single prompt without the interactive TUI and exits. It delegates to `@robota-sdk/agent-framework` for output formatting. When the prompt starts with `/skill-name`, headless mode calls `InteractiveSession.executeCommand()`, and the SDK normalizes the virtual skill alias to command `skills` with args `<skill-name> [args]`.
 
 ### Output Formats
 
@@ -235,9 +256,36 @@ The CLI is intentionally a thin TUI over SDK-owned session state. Recent updates
 - Background subagent work renders as tree rows with status activity instead of a flat list.
 - Print/headless mode skips startup update checks so scripted stdout/stderr remain deterministic.
 
+### Screen Reader Mode
+
+The TUI draws boxes, repaints a live region, and asks for menu answers with arrow keys — none of
+which a screen reader can follow. `--screen-reader` replaces all three: borders, rules, the banner
+and the spinners are omitted, every message carries a role label (`you:`, `assistant:`, `tool:`),
+menus render as `1. option` lines answered by typing the number, markdown tables are flattened to
+`Header: value`, word and line deletions are announced, and the terminal bell rings when a reply or
+a long tool finishes. The mode is off by default and is never enabled by detection.
+
+Three ways to turn it on, and a flag beats the environment, which beats the settings file:
+
+| Channel                        | Value                                                               |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `--screen-reader`              | on for this run — wins over both channels below                     |
+| `--no-screen-reader`           | off for this run — wins over both channels below                    |
+| `ROBOTA_SCREEN_READER=1`, `=0` | on / off for the environment; `INK_SCREEN_READER=true` also enables |
+| `"screenReader": true`         | on, in `~/.robota/settings.json`                                    |
+
+The precedence is deliberately the opposite of `ROBOTA_MEMORY`'s: a per-invocation flag has to be
+able to turn the mode on for one run on a machine whose environment says otherwise, which is the
+remote-shell case this exists for. The first line the TUI prints names the mode and the channel that
+set it: `[Screen reader mode: on via flag]`.
+
+`ROBOTA_SCREEN_READER_STARTUP_QUIET_MS` (default `900`) is how long the CLI waits after that line
+before drawing the first prompt, so the reader can finish speaking it; any keypress ends the wait
+early and `0` skips it.
+
 ### TuiInteractionChannel and useTuiChannel
 
-`TuiInteractionChannel` (in `agent-transport-tui`) is the owner of the `InteractiveSession` lifecycle in TUI mode. It:
+`TuiInteractionChannel` (in `agent-ui-terminal`) is the owner of the `InteractiveSession` lifecycle in TUI mode. It:
 
 1. Creates `InteractiveSession` and `CommandRegistry` once (not recreated on re-render).
 2. Subscribes to the exhaustive TUI-classified SDK event set and drives a `TuiStateManager` instance.
@@ -269,6 +317,7 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 | `/clear`                  | Clear conversation history                          |
 | `/compact [instructions]` | Compress context window                             |
 | `/cost`                   | Show session info                                   |
+| `/effort [level]`         | Show or change active model effort                  |
 | `/context`                | Context window details                              |
 | `/permissions [mode]`     | Show permission rules or change mode                |
 | `/memory`                 | Inspect and manage project memory                   |
@@ -291,6 +340,19 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 `/permissions` shows a nested submenu for permission mode selection.
 
 `/provider` and `/provider list` show configured provider profiles. In the interactive TUI, selecting a profile opens provider actions for switch, edit, test, duplicate, delete, and cancel. `/provider switch <profile>` hot-swaps the provider immediately without restarting — conversation history is preserved. In print/headless mode, provider commands keep deterministic text output and do not wait for interactive prompts.
+
+### Model effort (`--effort`, `/effort`)
+
+Model effort is selected in this order: `--effort` flag, `ROBOTA_EFFORT` environment variable,
+settings, selected preset, and the active model default. Supported selections are `auto`, `none`,
+`minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. `auto` remains a provider-default selection
+until the provider adapter resolves its source-dated model table; `max` is session-only, while a named
+level may be persisted by `/effort` when the settings adapter permits it.
+
+`/effort` reports the selected value, provisional display value, source, and disposition. Print JSON
+includes the same record under `data.effort`; text mode prints a compact status line after the response.
+`--bare` keeps raw text output. The TUI status bar shows the active selection when available. Thinking
+display settings and ordinary prompt wording are independent from model effort.
 
 ### Workflows (`/workflows`)
 

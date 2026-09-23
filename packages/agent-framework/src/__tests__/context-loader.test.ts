@@ -59,16 +59,20 @@ describe('loadContext', () => {
     expect(result.projectNotesMd).toContain('# Root CLAUDE');
   });
 
-  it('loads project memory index when .robota/memory/MEMORY.md exists', async () => {
-    const memoryStore = createWorkspaceMemoryStore(
-      await createTrustedProjectStateFixture(rootDir, 'memory'),
-    );
-    await memoryStore.append({ type: 'project', topic: 'build', text: 'Remember pnpm' });
+  // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
+  it.runIf(process.platform === 'linux')(
+    'loads project memory index when .robota/memory/MEMORY.md exists',
+    async () => {
+      const memoryStore = createWorkspaceMemoryStore(
+        await createTrustedProjectStateFixture(rootDir, 'memory'),
+      );
+      await memoryStore.append({ type: 'project', topic: 'build', text: 'Remember pnpm' });
 
-    const result = await loadContext(await projectSource(rootDir), memoryStore);
+      const result = await loadContext(await projectSource(rootDir), memoryStore);
 
-    expect(result.memoryMd).toContain('Remember pnpm');
-  });
+      expect(result.memoryMd).toContain('Remember pnpm');
+    },
+  );
 
   it('loads active task context when .agents/tasks contains task files', async () => {
     setupDir(join(rootDir, '.agents', 'tasks'));

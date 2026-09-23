@@ -1,9 +1,14 @@
 import type { IAgentConfig, IAssistantMessage, TExecutionEventCallback } from '../interfaces/agent';
 import type { IAIProviderManager } from '../interfaces/manager';
-import type { IToolManager } from '../interfaces/manager';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IProviderCapabilityTable } from '../interfaces/model-capability';
-import type { IChatOptions, TTextDeltaCallback, TToolChoice } from '../interfaces/provider';
+import type {
+  IChatOptions,
+  IToolSchema,
+  TTextDeltaCallback,
+  TToolChoice,
+} from '../interfaces/provider';
+import type { IDeferredToolCatalog } from '../interfaces/tool-search';
 import type { TMetadata } from '../interfaces/types';
 
 /** Preview length for general content truncation */
@@ -70,7 +75,14 @@ export interface IResolvedProviderInfo {
     description: string;
     parameters: string[];
   }>;
-  availableTools: ReturnType<IToolManager['getTools']>;
+  /**
+   * CLI-1990: the tools the model is offered, read PER ROUND — never a per-run snapshot. A deferred
+   * tool loaded by a round-N tool call is on the wire in round N+1, which is what a search tool
+   * needs and what the snapshot this replaced made impossible.
+   */
+  readAvailableTools: () => IToolSchema[];
+  /** The catalog a forcing `toolChoice` loads through before the request is asserted (CLI-1990). */
+  deferredTools: IDeferredToolCatalog;
 }
 
 /** Consecutive model rounds with an unavailable tool call before the loop force-summarizes. */

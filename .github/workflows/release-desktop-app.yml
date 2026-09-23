@@ -71,13 +71,13 @@ jobs:
           ref: ${{ steps.tag.outputs.tag }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: 'pnpm'
@@ -95,10 +95,13 @@ jobs:
           bun-version: 1.3.14
 
       - name: Compile the host Bun runtime binary
-        run: pnpm --filter @robota-sdk/agent-cli build:bun:${{ matrix.bun_target }}
+        run: pnpm --filter @robota-sdk/agent-cli build:bun:headless:${{ matrix.bun_target }}
 
       - name: Package the desktop app (bundles the runtime)
         run: pnpm --filter @robota-sdk/agent-app dist:app
+
+      - name: Exercise the packaged runtime
+        run: pnpm --filter @robota-sdk/agent-app test:e2e:bundled
 
       # `gh release upload release/*.dmg` with no match uploads nothing and still exits 0 on some gh
       # versions, and an empty or truncated installer uploads perfectly happily. Assert the artifacts

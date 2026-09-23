@@ -1,4 +1,3 @@
-import type { IAgentConfig, IAgent } from './agent';
 import type { IAIProvider, IToolSchema } from './provider';
 import type { ITool, TToolExecutor, IToolExecutionContext, TToolParameters } from './tool';
 import type { TUniversalValue } from './types';
@@ -8,12 +7,6 @@ import type { TUniversalValue } from './types';
  */
 
 /**
- * Agent creation metadata type
- * Used for storing additional information about agent creation and configuration
- */
-export type TAgentCreationMetadata = Record<string, string | number | boolean | Date>;
-
-/**
  * Tool execution parameters for manager operations
  * Used for tool parameter validation and execution in manager context
  */
@@ -21,15 +14,6 @@ export type TManagerToolParameters = Record<
   string,
   string | number | boolean | string[] | number[] | boolean[]
 >;
-
-/**
- * Configuration validation result
- */
-export interface IConfigValidationResult {
-  isValid: boolean;
-  errors: string[];
-  warnings?: string[];
-}
 
 /**
  * AI Provider Manager interface for provider registration and selection
@@ -101,6 +85,29 @@ export interface IToolManager {
   getTools(): IToolSchema[];
 
   /**
+   * CLI-1990: the schemas the model is offered at the next request — every registered tool while
+   * deferral is not engaged; the resident ones plus the loaded deferred ones once it is. Read per
+   * round by the execution loop; it is never a snapshot.
+   */
+  getOfferedTools(): IToolSchema[];
+
+  /** CLI-1990: whether a call to this tool would execute now — registered AND offered. */
+  isToolOffered(name: string): boolean;
+
+  /**
+   * CLI-1990: deferred tools not yet loaded — the population a search discovers. Empty while
+   * deferral is not engaged. The same member `IDeferredToolCatalog` declares.
+   */
+  listDeferredTools(): IToolSchema[];
+
+  /**
+   * CLI-1990: mark deferred tools loaded for the rest of the session and return their schemas; an
+   * unknown name throws, naming it, before anything is loaded. The same member
+   * `IDeferredToolCatalog` declares.
+   */
+  loadDeferredTools(names: readonly string[]): IToolSchema[];
+
+  /**
    * Execute a tool
    */
   executeTool(
@@ -123,44 +130,4 @@ export interface IToolManager {
    * Get allowed tools
    */
   getAllowedTools(): string[] | undefined;
-}
-
-/**
- * Agent creation options
- */
-export interface IAgentCreationOptions {
-  /** Override default configuration */
-  overrides?: Partial<IAgentConfig>;
-  /** Validation options */
-  validation?: {
-    strict?: boolean;
-    skipOptional?: boolean;
-  };
-  /** Additional metadata */
-  metadata?: TAgentCreationMetadata;
-}
-
-/**
- * Agent Factory interface for agent creation and configuration
- */
-export interface IAgentFactory {
-  /**
-   * Create agent instance
-   */
-  createAgent(config: IAgentConfig, options?: IAgentCreationOptions): IAgent<IAgentConfig>;
-
-  /**
-   * Validate agent configuration
-   */
-  validateConfig(config: IAgentConfig): IConfigValidationResult;
-
-  /**
-   * Get default configuration
-   */
-  getDefaultConfig(): IAgentConfig;
-
-  /**
-   * Merge configurations
-   */
-  mergeConfig(base: IAgentConfig, override: Partial<IAgentConfig>): IAgentConfig;
 }

@@ -1,13 +1,10 @@
-import { createWriteStream } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
-import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
 import type { IDagDefinition, IWorkspaceLayout, TPortPayload } from '@robota-sdk/dag-core';
 import { DagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
 import { parseGlobalConfig } from './arguments.js';
 import { dispatchDagCliCommand } from './runner-dispatch.js';
+import { writeAssetFile } from './asset-file-writer.js';
 import { formatJsonOutput } from './json.js';
 import type { IDagCliIo, IDagCliRunOptions, TDagCliFetch } from './types.js';
 import { FAILURE_EXIT_CODE, SUCCESS_EXIT_CODE, USAGE_ERROR_EXIT_CODE } from './types.js';
@@ -16,7 +13,6 @@ import { runsCommand } from './commands/runs.js';
 import { validateCommand } from './commands/validate.js';
 import { nodeCommand } from './commands/node.js';
 import { initCommand } from './commands/init.js';
-import { mcpCommand } from './commands/mcp.js';
 import { catalogCommand } from './commands/catalog.js';
 import { templateCommand } from './commands/template.js';
 import { runMigrateCommand } from './commands/migrate.js';
@@ -46,7 +42,6 @@ import { describeCommand } from './commands/describe.js';
 import { fixCommand } from './commands/fix.js';
 import { studioCommand } from './commands/studio.js';
 import { viewCommand } from './commands/view.js';
-import { sessionCommand } from './commands/session.js';
 
 const UTF8_ENCODING = 'utf8';
 
@@ -58,12 +53,7 @@ const defaultIo: IDagCliIo = {
     process.stderr.write(text);
   },
   readTextFile: async (filePath: string) => readFile(filePath, UTF8_ENCODING),
-  writeBinaryStream: async (filePath, stream) => {
-    await pipeline(
-      Readable.fromWeb(stream as NodeReadableStream<Uint8Array>),
-      createWriteStream(filePath),
-    );
-  },
+  writeBinaryStream: writeAssetFile,
 };
 
 const defaultFetch: TDagCliFetch = async (url: string, init?: RequestInit) => fetch(url, init);
@@ -127,7 +117,6 @@ const RUNS_SUBCOMMAND = 'runs';
 const VALIDATE_SUBCOMMAND = 'validate';
 const NODE_SUBCOMMAND = 'node';
 const INIT_SUBCOMMAND = 'init';
-const MCP_SUBCOMMAND = 'mcp';
 const CATALOG_SUBCOMMAND = 'catalog';
 const TEMPLATE_SUBCOMMAND = 'template';
 const MIGRATE_SUBCOMMAND = 'migrate';
@@ -156,22 +145,15 @@ const DESCRIBE_SUBCOMMAND = 'describe';
 const FIX_SUBCOMMAND = 'fix';
 const STUDIO_SUBCOMMAND = 'studio';
 const VIEW_SUBCOMMAND = 'view';
-const SESSION_SUBCOMMAND = 'session';
 const SERVER_FLAG = '--server';
 
-const TOP_LEVEL_HELP_TEXT = `dag — The DAG built for AI agents. Local-first, MCP-native, no server required.
+const TOP_LEVEL_HELP_TEXT = `dag — The DAG built for AI agents. Local-first, no server required.
 
 [Quick Start]
   dag demo                          Try it now — no API key required
   dag run --pipeline \\
     "input | llm-text[provider=anthropic] | text-output" \\
     --input text="Hello"            Run a pipeline in one line
-
-[For AI Agents (Claude Code / MCP)]
-  dag init --claude                 Auto-configure .claude/mcp.json
-  dag mcp --transport stdio         Start MCP server (28 tools for agents)
-  dag mcp --inspect                 List all MCP tools with descriptions
-  dag mcp schema                    Output tool schemas as JSON
 
 [Getting Started]
   dag init                          Create a new DAG project
@@ -261,11 +243,6 @@ export async function runDagCli(
   // Route `init` to project scaffolding.
   if (args[0] === INIT_SUBCOMMAND) {
     return initCommand(args.slice(1), { io: wrappedIo });
-  }
-
-  // Route `mcp` to local MCP server.
-  if (args[0] === MCP_SUBCOMMAND) {
-    return mcpCommand(args.slice(1));
   }
 
   // Route `catalog` to local file catalog commands.
@@ -408,11 +385,6 @@ export async function runDagCli(
   // Route `view` to the ASCII flow diagram viewer.
   if (args[0] === VIEW_SUBCOMMAND) {
     return viewCommand(args.slice(1), { io: wrappedIo });
-  }
-
-  // Route `session` to bounded agent session management.
-  if (args[0] === SESSION_SUBCOMMAND) {
-    return sessionCommand(args.slice(1), { io: wrappedIo });
   }
 
   const config = parseGlobalConfig(args, options.env?.ROBOTA_DAG_SERVER_URL);

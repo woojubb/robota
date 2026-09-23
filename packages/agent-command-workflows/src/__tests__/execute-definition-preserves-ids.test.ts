@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -74,7 +74,7 @@ function authoredDefinition(): IDagDefinition {
 
 describe('executeDefinition runs the definition it was given (DAG-002)', () => {
   it('the run names the node ids the author wrote', async () => {
-    const cwd = mkdtempSync(path.join(tmpdir(), 'exec-definition-'));
+    const cwd = realpathSync(mkdtempSync(path.join(tmpdir(), 'exec-definition-')));
     tempDirs.push(cwd);
 
     const outcome = await executeDefinition(

@@ -8,6 +8,9 @@
  * See `docs/SPEC.md` § "Session-level tool composition" for the published contract.
  */
 
+import { assertResidentToolRemains } from '@robota-sdk/agent-core';
+import { createToolSearchTool } from '@robota-sdk/agent-tools';
+
 import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
 import { createGoalStatusTool } from '../goal/index.js';
 import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
@@ -40,6 +43,18 @@ function dedupeToolsByName(tools: readonly IToolWithEventService[]): IToolWithEv
     deduped.push(tool);
   }
   return deduped;
+}
+
+/**
+ * Whether this session has anything to search FOR (CLI-1990).
+ *
+ * The search tool is added only when some assembled tool declares `deferLoading` — a session of ten
+ * resident built-ins gets exactly the ten it gets today, and no eleventh tool appears in a prompt
+ * that has nothing to load. Whether deferral actually ENGAGES is a separate, later question the
+ * per-round policy answers (`resolveToolSearchMode`); this only decides whether the door exists.
+ */
+function hasDeferrableTool(tools: readonly IToolWithEventService[]): boolean {
+  return tools.some((tool) => tool.schema.deferLoading === true);
 }
 
 /** The assembled tool list plus the one flag the reversible-execution policy reads back. */
@@ -80,11 +95,22 @@ export async function assembleSessionTools(
   const defaultTools = options.defaultTools ?? (await loadDefaultTools());
   const checkpointAvailable =
     options.editCheckpointRecorder !== undefined && options.sandboxClient === undefined;
-  const dedupedTools = dedupeToolsByName([
+  // CLI-1990: the DECLARED set — every tier the session was configured with, before the framework
+  // adds anything of its own. Dedupe keeps the first entry for a name, so the surviving tool carries
+  // its own residency marker; nothing here rewrites one.
+  const declaredTools = dedupeToolsByName([
     ...defaultTools,
     ...(options.additionalTools ?? []),
     ...(options.includeGoalTool ? [createGoalStatusTool()] : []),
   ]);
+  // Asserted over the DECLARED set, before the search tool is added. Adding a resident tool first
+  // would make the invariant unfailable — an all-deferred configuration would silently acquire the
+  // one resident tool that satisfies it instead of being reported, which is the misconfiguration
+  // this check exists to name.
+  assertResidentToolRemains(declaredTools.map((tool) => tool.schema));
+  const dedupedTools = hasDeferrableTool(declaredTools)
+    ? dedupeToolsByName([...declaredTools, createToolSearchTool()])
+    : declaredTools;
   // The edit-checkpoint wrap covers the ASSEMBLED set, not just the default tier: once a product can hand
   // the tool axis to its capability packs (`defaultTools: []` + pack-supplied `additionalTools`), a
   // contributed `Write`/`Edit` must still be checkpointed. With no contributed Write/Edit this is

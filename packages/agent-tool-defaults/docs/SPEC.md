@@ -2,13 +2,20 @@
 
 ## Overview
 
-Composition leaf that aggregates the built-in tool set. `createDefaultTools()` returns the ten
+Composition leaf that assembles the **SDK's own built-in default tool set** — whose defaults: the
+Robota SDK's, applied to every product session whose composition root supplies no tool list (issue #2202).
+`createDefaultTools()` returns the ten
 always-present tools — Shell, Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch,
 AskUserQuestion — and gates two more on the adapters the caller supplies: `CodebaseRetrieval` when a
 `retrievalAdapter` is given (SELFHOST-003), and the Computer tools when a `computerDriver` is
 (SELFHOST-010). There is no host fallback for either; absent adapter means absent tool.
 
-ARCH-035 moved this out of `@robota-sdk/agent-framework`. It is a defaults aggregator, and
+**Measurement (issue #2202).** This package composes one lower-layer package, `agent-tools`; it does not
+bundle same-level `agent-tool-*` siblings (`agent-tool-mcp` is not a dependency). The STRUCT-011
+prefix rule for aggregators-inside-their-family therefore does not apply, and the name stays; the
+"whose defaults" half is answered in the description and here.
+
+ARCH-035 moved this out of `@robota-sdk/agent-framework`. It is a defaults leaf, and
 `.agents/project-structure.md` classifies that family as a composition leaf "imported only at
 composition roots (entry-point-only)" — not something a mid-layer assembly library owns, publishes and
 self-consumes.
@@ -150,6 +157,24 @@ capability the caller never granted reaches a model.
 
 The tool BEHAVIOURS are not retested here; they belong to `agent-tools` and duplicating them would
 create a second place to update when one changes.
+
+## Tool Residency — The Default Tier Is Resident (CLI-1990)
+
+No tool this package returns declares `deferLoading`. Residency is declared by omission, so the
+whole tier is sent on every request, and that is deliberate rather than incidental: at ten tools
+every vendor's own guidance is that standard tool calling beats a search, so deferring any built-in
+would be a measurable regression rather than a saving. The invariant that at least one tool stays
+resident (agent-core `docs/SPEC.md` § Tool Residency and Tool Search) is satisfied by this tier
+alone whenever it is present. The adapter-gated additions — `CodebaseRetrieval`, `ComputerView`,
+`Computer` — are resident on the same terms.
+
+`ToolSearch` is deliberately **not** part of this tier. It is added by session assembly, and only
+when the assembled set actually contains a deferred tool, so a session with nothing to search for
+gets exactly the ten built-ins it gets today rather than an eleventh tool with nothing to load.
+`createDefaultTools` therefore stays the answer to "what tools does a session start with", and does
+not become the answer to "is deferral configured" — a question it has no way to see.
+
+Contract test: `src/__tests__/create-default-tools.test.ts` § CLI-1990 TC-11.
 
 ## User-Facing Contract
 

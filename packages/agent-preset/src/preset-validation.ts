@@ -1,16 +1,14 @@
+import { parseModelEffort } from '@robota-sdk/agent-framework';
+
 import type {
   IPreset,
   TPresetAutonomy,
-  TPresetEffort,
   TPresetPermissionMode,
   IResolvedPresetOptions,
 } from './preset-types.js';
 
 /** Result of {@link validateExternalPreset}: the validated preset, or a single error message. */
 export type TPresetValidationResult = { ok: true; preset: IPreset } | { ok: false; error: string };
-
-/** Runtime membership list for {@link TPresetEffort}. */
-const EFFORT_VALUES: readonly TPresetEffort[] = ['low', 'medium', 'high', 'xhigh', 'max'];
 
 /** Runtime membership list for {@link TPresetAutonomy}. */
 const AUTONOMY_VALUES: readonly TPresetAutonomy[] = ['ask-first', 'act-first', 'balanced'];
@@ -103,10 +101,18 @@ function validateEnumFields(
   options: IResolvedPresetOptions,
 ): string | undefined {
   if (value.effort !== undefined) {
-    if (!EFFORT_VALUES.includes(value.effort as TPresetEffort)) {
-      return `effort: expected one of ${EFFORT_VALUES.join(', ')}`;
+    if (typeof value.effort !== 'string') {
+      return 'effort: expected a string';
     }
-    options.effort = value.effort as TPresetEffort;
+    try {
+      const effort = parseModelEffort(value.effort, 'effort');
+      if (effort === undefined) {
+        return 'effort: expected a Core-owned effort selection';
+      }
+      options.effort = effort;
+    } catch (error) {
+      return `effort: ${error instanceof Error ? error.message : String(error)}`;
+    }
   }
 
   if (value.autonomy !== undefined) {

@@ -23,16 +23,6 @@ pnpm install
 pnpm dev
 ```
 
-## Project Structure
-
-Robota is a pnpm monorepo. The package and app listing lives in
-[`.agents/project-structure.md`](.agents/project-structure.md), which owns it — see that document for
-the current set and the dependency-direction rules.
-
-A second copy used to live here and had already drifted, naming a package that does not exist; it was
-removed rather than re-synchronised, because one owner beats two copies a scan has to keep agreeing.
-The reasoning is recorded in `.agents/tasks/completed/HARNESS-068-the-one-owner-rule-has-a-blind-spot.md`.
-
 ## Developing New Features
 
 1. Create a new branch:

@@ -27,10 +27,13 @@ function resolveForkAgentDefinition(
   if (!definition) {
     throw new Error(`Unknown agent type: ${agentType}`);
   }
-  if (options.allowedTools) {
-    return { ...definition, tools: options.allowedTools };
-  }
-  return definition;
+  const effort = options.effort ?? definition.effort ?? parentSession.getModelEffort();
+  return {
+    ...definition,
+    ...(options.model ? { model: options.model } : {}),
+    ...(options.allowedTools ? { tools: options.allowedTools } : {}),
+    ...(effort !== 'auto' ? { effort } : {}),
+  };
 }
 
 export async function runSkillInFork(

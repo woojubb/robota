@@ -72,6 +72,7 @@ function createExecutionContext(
     eventService: request.eventService,
     baseEventService: request.baseEventService,
     ...(request.ask ? { ask: request.ask } : {}),
+    ...(request.deferredTools ? { deferredTools: request.deferredTools } : {}),
   };
 }
 

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/agent-cli",
+  "packageName": "@robota-sdk/agent-cli",
+  "command": {
+    "executable": "pnpm",
+    "args": ["scenario:verify"],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-cli@3.0.0-beta.79 scenario:verify /work/repo/packages/agent-cli\n> pnpm exec tsx --conditions=source examples/verify-session-event-delivery.ts\n\n{\"scenario\":\"ARCH-020+ARCH-028-protocol\",\"planEvents\":[\"plan_created\",\"plan_approved\"],\"contextRefreshFiles\":[\"AGENTS.md\"],\"branchEvents\":[{\"kind\":\"checkpoint_created\",\"checkpointId\":\"turn-0001\",\"branchId\":\"main\"},{\"kind\":\"checkpoint_created\",\"checkpointId\":\"turn-0002\",\"branchId\":\"main\"},{\"kind\":\"branch_forked\",\"checkpointId\":\"turn-0001\",\"branchId\":\"branch-1\"},{\"kind\":\"branch_switched\",\"checkpointId\":\"turn-0002\",\"branchId\":\"branch-2\"}],\"finalActiveBranch\":{\"branchId\":\"branch-2\",\"checkpointId\":\"turn-0002\"},\"deliveryFailure\":{\"message\":\"forced protocol send failure\",\"event\":\"branch_event\",\"operationCommitted\":true},\"cleanupRemoved\":true}\n",
+    "normalized": "{\"scenario\":\"ARCH-020+ARCH-028-protocol\",\"planEvents\":[\"plan_created\",\"plan_approved\"],\"contextRefreshFiles\":[\"AGENTS.md\"],\"branchEvents\":[{\"kind\":\"checkpoint_created\",\"checkpointId\":\"turn-0001\",\"branchId\":\"main\"},{\"kind\":\"checkpoint_created\",\"checkpointId\":\"turn-0002\",\"branchId\":\"main\"},{\"kind\":\"branch_forked\",\"checkpointId\":\"turn-0001\",\"branchId\":\"branch-1\"},{\"kind\":\"branch_switched\",\"checkpointId\":\"turn-0002\",\"branchId\":\"branch-2\"}],\"finalActiveBranch\":{\"branchId\":\"branch-2\",\"checkpointId\":\"turn-0002\"},\"deliveryFailure\":{\"message\":\"forced protocol send failure\",\"event\":\"branch_event\",\"operationCommitted\":true},\"cleanupRemoved\":true}",
+    "sha256": "c1e2491a6b646ad43cfaca380bfec390ed4df5cb1e908052970d2088d3e699ae"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

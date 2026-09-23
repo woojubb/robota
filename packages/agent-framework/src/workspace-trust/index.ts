@@ -22,9 +22,16 @@ export {
   WorkspaceTrustService,
   createRestrictedWorkspaceProjectAccess,
 } from './workspace-trust-service.js';
+export {
+  createNodeWorkspaceIdentityResolver,
+  createNodeWorkspaceTrustService,
+  createNodeWorkspaceTrustStore,
+  getWorkspaceTrustStorePath,
+} from './node-host-workspace-trust.js';
 
 export type {
   IRestrictedWorkspaceProjectAccess,
+  IWorkspaceTrustCause,
   ITrustedWorkspaceProjectAccess,
   IWorkspaceAncestorTextEntry,
   IWorkspaceDirectoryEntry,
@@ -35,6 +42,7 @@ export type {
   IWorkspaceProjectSettingsWriter,
   IWorkspaceProjectMutation,
   IWorkspaceProjectStateStorage,
+  IWorkspaceTrustGrant,
   IWorkspaceTrustStore,
   IWorkspaceTrustStoreSnapshot,
   TWorkspaceContributionKind,

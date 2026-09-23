@@ -4,17 +4,17 @@
 
 `agent-app` is a thin **Electron** desktop application (macOS / Linux / Windows) that drives a live
 `robota` session graphically. It is a **presentation surface only** — the mirror of the TUI
-(`agent-transport-tui`): it owns the desktop shell (window, lifecycle) and the loopback wiring, and reuses
-`@robota-sdk/agent-transport-gui`'s React session view + reducer verbatim. All session/command/permission logic
+(`agent-ui-terminal`): it owns the desktop shell (window, lifecycle) and the loopback wiring, and reuses
+`@robota-sdk/agent-ui-web`'s React session view + reducer verbatim. All session/command/permission logic
 lives **below the wire**, in a `robota` sidecar process reached over a loopback WebSocket (GUI-002).
 
 ## Boundaries
 
 - **Does NOT own session logic.** No agent runtime, tools, providers, command routing, or permission
-  policy — those run in the spawned `robota` sidecar and are reached over WS (`agent-transport-gui`'s reducer folds
+  policy — those run in the spawned `robota` sidecar and are reached over WS (`agent-ui-web`'s reducer folds
   the `TServerMessage` stream). The GUI never imports `@robota-sdk/agent-framework` or `agent-core`.
 - **Does NOT own the wire protocol or the session contract** — those belong to
-  `agent-transport-protocol` / `agent-interface-transport`, consumed transitively via `agent-transport-gui`.
+  `agent-transport` / `agent-interface-transport`, consumed transitively via `agent-ui-web`.
 - **Does NOT own packaging/signing** in Stage 1 — per-OS installers, code-signing, notarization, and
   auto-update are deferred to **GUI-003** (`electron-builder`).
 
@@ -32,9 +32,10 @@ Electron main (Node)                         robota sidecar (Node CLI)
   └─ supervise child (exit → fatal; close → SIGTERM→SIGKILL)
         │
         ▼ (renderer, Chromium)
-   agent-transport-gui React presentation core
+   agent-ui-web React presentation core
      useWsSession('ws://127.0.0.1:<port>?token=<nonce>')  ← token in query (browser WS can't set headers)
-     ConversationView + AgentActivityPanel + PermissionPrompt + composer
+   ConversationView + AgentActivityPanel + PermissionPrompt + composer
+   PersonalUsageDashboard (7/30-day cross-session read model; no prompt content)
 ```
 
 - **`electron/sidecar.ts`** — Electron-free logic (endpoint minting, spawn-arg building, `SidecarSupervisor`);
@@ -44,6 +45,13 @@ Electron main (Node)                         robota sidecar (Node CLI)
 - **`electron/preload.ts`** — a minimal `contextBridge` exposing ONLY the endpoint + lifecycle signals.
 - **`src/App.tsx`** — `SessionSurface` (pure presentation over `IWsSessionState`, unit-tested) + `SessionView`
   (the thin `useWsSession` binding) + `App` (endpoint resolution + fatal-state gate).
+
+## Bundled runtime source (RUNTIME-002)
+
+Packaging reads the manifest-verified `agent-cli` `dist-bun-headless` generation for the current
+OS/architecture and copies `robota-headless-<os>-<arch>[.exe]` to the existing fixed
+`resources/robota[.exe]` path. Electron still launches that path with `--serve` and carries the
+per-launch nonce and port in the child environment. The full CLI Bun release remains separate.
 
 ## Sidecar + loopback-auth contract (GUI-002)
 
@@ -67,7 +75,7 @@ None — `agent-app` is a private application (`"private": true`), not a library
 
 ## Dependencies
 
-`@robota-sdk/agent-transport-gui` (workspace) + `react`/`react-dom`. Dev: `electron`, `vite`,
+`@robota-sdk/agent-ui-web` (workspace) + `react`/`react-dom`. Dev: `electron`, `vite`,
 `@vitejs/plugin-react`, `@tailwindcss/vite`, `tailwindcss`, `vitest`, `@testing-library/react`, `jsdom`,
 `playwright`, `typescript`, and `@robota-sdk/agent-transport-ws` (workspace, e2e-only — the headless Electron
 e2e stands up the real `WsTransport` sidecar). **No `agent-framework`/`agent-core`** (the sidecar owns the
@@ -78,7 +86,8 @@ runtime) — enforced by review + the harness `deps` scan.
 - `electron/__tests__/sidecar.test.ts` — endpoint/token minting, spawn-arg building (token in env, not
   argv), and `SidecarSupervisor` (crash → fatal, ready, shutdown SIGTERM→SIGKILL, idempotent).
 - `src/__tests__/session-surface.test.tsx` — the compose-root renders the session over a stub
-  `IWsSessionState` and answers permission prompts, proving no session logic lives in the GUI.
+  `IWsSessionState`, answers permission prompts, enables the desktop-only Usage navigation, routes
+  slash commands, and renders usage/error/empty/drill-down states while keeping session logic in the GUI package.
 - **Headless end-to-end (`e2e/`, `pnpm --filter @robota-sdk/agent-app test:e2e`):** launches the REAL built
   Electron app under **`xvfb`** via **Playwright `_electron`**, pointed at `e2e/scripted-sidecar.mjs` — a
   deterministic sidecar that stands up the **REAL `WsTransport`** (so the GUI-002 T5 loopback auth is
@@ -87,6 +96,19 @@ runtime) — enforced by review + the harness `deps` scan.
   shutdown (TC-01/TC-02/TC-04). Runs on this headless Linux box (Electron launched with `--no-sandbox`, the
   standard CI posture). This is the agent-owned automated form of the smoke below — GUI verification is not
   deferred to the owner.
+- **Usage/reachability end-to-end (`pnpm --filter @robota-sdk/agent-app test:e2e:usage`):** launches
+  the same built app and real transport, then verifies slash-command feedback, partial-stream error
+  recovery, 7/30-day aggregate views, model/surface breakdowns, contributor-session and current-
+  session reports, privacy, and an admission-token mismatch that yields no usage data and an explicit
+  unavailable state.
+- **Packaged runtime end-to-end (`pnpm --filter @robota-sdk/agent-app test:e2e:bundled`):** after
+  `dist:app`, launches the sidecar from the host OS's actual packaged resources, checks the authenticated
+  WebSocket session, rejects a wrong nonce before session data, and verifies shutdown. The desktop release
+  workflow runs this gate on each OS before uploading installers.
+- **Required workflow reachability:** the develop PR `build` check reads the affected-scope plan and,
+  whenever it includes `@robota-sdk/agent-app` (or classification fails closed to full), runs both
+  Electron scenarios under `xvfb`. The release sweep records this as already covered by that required
+  check rather than silently excluding the non-default `test:e2e:*` scripts.
 
 ## User Execution Test Scenario (manual, real `robota`)
 

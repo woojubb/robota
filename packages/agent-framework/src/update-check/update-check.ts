@@ -1,8 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-
+import {
+  getUserUpdateCheckCachePath,
+  readUpdateCheckCache,
+  writeUpdateCheckCache,
+} from './update-check-cache.js';
 import { compareSemverVersions, isNewerSemverVersion } from '../utils/semver-compare.js';
 import { trimTrailingChars } from '../utils/trim-char.js';
+
+import type { IUpdateCheckCache, TJsonValue } from './update-check-cache.js';
 
 export const CLI_UPDATE_PACKAGE_NAME = '@robota-sdk/agent-cli';
 export const CLI_UPDATE_REGISTRY_URL = 'https://registry.npmjs.org';
@@ -20,14 +24,6 @@ export interface ICliUpdateNotice {
   currentVersion: string;
   latestVersion: string;
   installCommand: string;
-}
-
-export interface IUpdateCheckCache {
-  packageName: string;
-  checkedAt: string;
-  currentVersion: string;
-  latestVersion?: string;
-  errorMessage?: string;
 }
 
 export type TCliUpdateCheckResult =
@@ -60,33 +56,6 @@ interface INpmPackageMetadata {
   };
 }
 export { compareSemverVersions, isNewerSemverVersion };
-
-type TJsonValue =
-  string | number | boolean | null | readonly TJsonValue[] | { readonly [key: string]: TJsonValue };
-
-export function getUserUpdateCheckCachePath(
-  home = process.env.HOME ?? process.env.USERPROFILE ?? '/',
-): string {
-  return join(home, '.robota', 'update-check.json');
-}
-
-export function readUpdateCheckCache(path: string): IUpdateCheckCache | undefined {
-  if (!existsSync(path)) {
-    return undefined;
-  }
-  try {
-    const parsed = JSON.parse(readFileSync(path, 'utf8')) as TJsonValue;
-    return parseUpdateCheckCache(parsed);
-  } catch {
-    // allow-fallback: corrupt cache must not block startup; silently discard and re-fetch
-    return undefined;
-  }
-}
-
-export function writeUpdateCheckCache(path: string, cache: IUpdateCheckCache): void {
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify(cache, null, 2) + '\n', 'utf8');
-}
 
 export async function checkForCliUpdate(
   options: ICheckForCliUpdateOptions,
@@ -274,31 +243,4 @@ async function fetchLatestVersion(options: {
 function buildPackageMetadataUrl(registryUrl: string, packageName: string): string {
   // `trimTrailingChars` rather than `/\/+$/`: an unanchored trailing-run regex is quadratic (SEC-003).
   return `${trimTrailingChars(registryUrl, '/')}/${encodeURIComponent(packageName)}`;
-}
-
-function parseUpdateCheckCache(value: TJsonValue): IUpdateCheckCache | undefined {
-  if (!isJsonObject(value)) {
-    return undefined;
-  }
-  const candidate = value;
-  if (
-    typeof candidate.packageName === 'string' &&
-    typeof candidate.checkedAt === 'string' &&
-    typeof candidate.currentVersion === 'string' &&
-    (candidate.latestVersion === undefined || typeof candidate.latestVersion === 'string') &&
-    (candidate.errorMessage === undefined || typeof candidate.errorMessage === 'string')
-  ) {
-    return {
-      packageName: candidate.packageName,
-      checkedAt: candidate.checkedAt,
-      currentVersion: candidate.currentVersion,
-      ...(candidate.latestVersion !== undefined && { latestVersion: candidate.latestVersion }),
-      ...(candidate.errorMessage !== undefined && { errorMessage: candidate.errorMessage }),
-    };
-  }
-  return undefined;
-}
-
-function isJsonObject(value: TJsonValue): value is { readonly [key: string]: TJsonValue } {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

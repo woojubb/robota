@@ -72,6 +72,7 @@ export function buildCreateSessionOptions(
     ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
     ...(options.maxOutputTokens !== undefined ? { maxOutputTokens: options.maxOutputTokens } : {}),
     appendSystemPrompt: options.appendSystemPrompt,
+    ...(options.outputStyle !== undefined ? { outputStyle: options.outputStyle } : {}),
     ...(options.persona !== undefined ? { persona: options.persona } : {}),
     ...(options.systemPrompt ? { systemPromptBuilder: () => options.systemPrompt! } : {}),
     // ARCH-013 stage 3 — the two consumer-supplied extension ports, and the one place they were lost.
@@ -103,6 +104,10 @@ export function buildCreateSessionOptions(
       : {}),
     backgroundTaskRunners: options.backgroundTaskRunners,
     subagentRunnerFactory: options.subagentRunnerFactory,
+    // CLI-1994: the fork job's record store reaches the runner through the agent runtime.
+    ...(options.resumeSessionStore !== undefined
+      ? { resumeSessionStore: options.resumeSessionStore }
+      : {}),
     // ARCH-005: composition-root-contributed subagent definitions (capability packs).
     ...(options.agentDefinitions ? { agentDefinitions: options.agentDefinitions } : {}),
     ...(options.commandModules?.some((module) =>

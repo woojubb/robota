@@ -65,14 +65,15 @@ All types are internal to this app. No types are exported to other workspace pac
 
 No programmatic exports. This is a private static web app (`"private": true`).
 
-| Artifact                      | Kind            | Description                                            |
-| ----------------------------- | --------------- | ------------------------------------------------------ |
-| Static site (`out/`)          | build output    | Rendered HTML pages for Cloudflare Pages deployment    |
-| `src/lib/content.ts`          | internal module | Slug discovery, file resolution, page content parsing  |
-| `src/lib/sidebar.ts`          | internal module | Sidebar tree builder (locale-aware)                    |
-| `src/lib/toc.ts`              | internal module | Markdown heading extractor for in-page TOC             |
-| `src/lib/remark-mermaid.ts`   | internal plugin | Remark plugin transforming Mermaid fences to diagrams  |
-| `src/lib/remark-fix-links.ts` | internal plugin | Remark plugin rewriting relative `.md` links to routes |
+| Artifact                           | Kind               | Description                                                   |
+| ---------------------------------- | ------------------ | ------------------------------------------------------------- |
+| Static site (`out/`)               | build output       | Rendered HTML pages for Cloudflare Pages deployment           |
+| `/schemas/keybindings.schema.json` | static JSON Schema | Editor validation for the contextual TUI keybindings document |
+| `src/lib/content.ts`               | internal module    | Slug discovery, file resolution, page content parsing         |
+| `src/lib/sidebar.ts`               | internal module    | Sidebar tree builder (locale-aware)                           |
+| `src/lib/toc.ts`                   | internal module    | Markdown heading extractor for in-page TOC                    |
+| `src/lib/remark-mermaid.ts`        | internal plugin    | Remark plugin transforming Mermaid fences to diagrams         |
+| `src/lib/remark-fix-links.ts`      | internal plugin    | Remark plugin rewriting relative `.md` links to routes        |
 
 ## Extension Points
 

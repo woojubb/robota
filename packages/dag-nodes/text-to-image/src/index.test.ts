@@ -170,7 +170,10 @@ describe('TextToImageNodeDefinition', () => {
 
   describe('construction with options', () => {
     it('passes options to TextToImageRuntime', () => {
-      const options = { apiKey: 'key-123', defaultModel: 'model-x' };
+      const options = {
+        imageProviderDefinition: { type: 'test-image' } as never,
+        defaultModel: 'model-x',
+      };
       new TextToImageNodeDefinition(options);
       expect(TextToImageRuntime).toHaveBeenCalledWith(options);
     });

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -39,7 +39,7 @@ function targets(root: string) {
 }
 
 function root(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'hydration-gate-'));
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'hydration-gate-')));
   dirs.push(dir);
   return dir;
 }

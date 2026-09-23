@@ -1,11 +1,38 @@
 // @robota-sdk/agent-framework — Universal AI agent SDK
 // Provider-neutral. InteractiveSession is the single entry point.
 
+// Runtime-host implementations (STRUCT-012): these symbols are owned here.
+export { HeadlessInteractionChannel } from './transport-host/headless/HeadlessInteractionChannel.js';
+export type { IHeadlessInteractionChannelOptions } from './transport-host/headless/HeadlessInteractionChannel.js';
+export { createHeadlessRunner, OUTPUT_FORMATS } from './transport-host/headless/headless-runner.js';
+export type {
+  IHeadlessRunnerOptions,
+  TOutputFormat,
+} from './transport-host/headless/headless-runner.js';
+export { createHeadlessTransport } from './transport-host/headless/headless-transport.js';
+export type {
+  IHeadlessTransport,
+  IHeadlessTransportOptions,
+} from './transport-host/headless/headless-transport.js';
+export type { IHeadlessSession } from './transport-host/headless/headless-session.js';
+export { ProgrammaticInteractionChannel } from './transport-host/programmatic/ProgrammaticInteractionChannel.js';
+export { createProgrammaticAgent } from './transport-host/programmatic/createProgrammaticAgent.js';
+export type { ICreateProgrammaticAgentOptions } from './transport-host/programmatic/createProgrammaticAgent.js';
+export { TransportRegistry } from './transport-host/transport-registry.js';
+export {
+  createFileTransportSettingsRepository,
+  createMemoryTransportSettingsRepository,
+} from './transport-host/transport-settings-repository.js';
+
 // ── Explicit workspace project authority (ARCH-042) ────────
 export {
   WorkspaceAuthorityRequiredError,
   WorkspaceTrustService,
   createRestrictedWorkspaceProjectAccess,
+  createNodeWorkspaceIdentityResolver,
+  createNodeWorkspaceTrustService,
+  createNodeWorkspaceTrustStore,
+  getWorkspaceTrustStorePath,
   assertWorkspaceProjectAuthority,
   assertWorkspaceProjectReader,
   assertWorkspaceProjectMutation,
@@ -20,6 +47,7 @@ export {
 } from './workspace-trust/index.js';
 export type {
   IRestrictedWorkspaceProjectAccess,
+  IWorkspaceTrustCause,
   ITrustedWorkspaceProjectAccess,
   IWorkspaceAncestorTextEntry,
   IWorkspaceDirectoryEntry,
@@ -31,6 +59,7 @@ export type {
   IWorkspaceProjectSettingsWriter,
   IWorkspaceProjectStateStorage,
   IWorkspaceTrustServiceOptions,
+  IWorkspaceTrustGrant,
   IWorkspaceTrustStore,
   IWorkspaceTrustStoreSnapshot,
   TWorkspaceContributionKind,
@@ -67,14 +96,17 @@ export {
   createProjectSessionStore,
   createNodeHostSessionStore,
   createUserSessionStore,
+  createUserPromptHistoryFile,
   listResumableSessionSummaries,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
   generateSessionName,
+  restoreSessionRecordIntoSession,
   WorkspaceProjectSessionStore,
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,
 } from './interactive/index.js';
+export type { ISessionRecordRestoreResult } from './interactive/index.js';
 export type {
   TInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
@@ -90,10 +122,10 @@ export {
   BuiltinCommandSource,
   createBuiltinCommandModule,
   SkillCommandSource,
+  inspectSkillSources,
   PluginCommandSource,
   SystemCommandExecutor,
   createSystemCommands,
-  parseFrontmatter,
   executeSkill,
   createSkillExecutionPort,
   selectCommandModules,
@@ -103,14 +135,17 @@ export {
 } from './commands/index.js';
 export type {} from './capabilities/types.js';
 export type { IOrgPolicy } from './command-api/org-policy/index.js';
+export type { ICommandCostBudget, ICommandCostBudgetAdapter } from './command-api/index.js';
 export {
   loadOrgPolicy,
   formatOrgPolicyViolationMessage,
   isApiKeyPlaintext,
+  OrgPolicyParseError,
 } from './command-api/org-policy/index.js';
 export type {
   IAgentJobHostContext,
   ICommandHostAdapters,
+  ICommandEffortAdapter,
   ICommandHandoffAdapter,
   ICommandHostContext,
   IHandoffProgress,
@@ -130,6 +165,10 @@ export type {
   TSystemCommandLifecycle,
   TSystemCommandSemanticRole,
   ICommandPermissionModeAdapter,
+  ICommandMCPActivationAdapter,
+  ICommandMCPActivationSummary,
+  ICommandOutputStyleRegistryAdapter,
+  ICommandOutputStyleSummary,
   ICommandRemoteControlAdapter,
   TRemoteControlStatus,
   IForkExecutionOptions,
@@ -155,7 +194,17 @@ export type {
   IContextReferenceAddResult,
   IContextReferenceClearResult,
   IContextReferenceRemoveResult,
+  IAppearanceSettings,
+  TAppearanceSettingsPatch,
 } from './commands/index.js';
+export { parseModelEffort, resolveModelEffort } from './effort/index.js';
+export type {
+  IModelEffortInputs,
+  IModelEffortResolution,
+  TEffortDisposition,
+  TEffortSelection,
+  TEffortSource,
+} from './effort/index.js';
 export {
   addCommandContextReference,
   buildProviderProfile,
@@ -260,6 +309,11 @@ export {
   isStatusLineCommandSettingsPatch,
   readStatusLineSettings,
   applyStatusLineSettings,
+  APPEARANCE_SETTINGS_KEYS,
+  applyAppearanceSettings,
+  DEFAULT_APPEARANCE_SETTINGS,
+  isAppearanceSettingsPatch,
+  readAppearanceSettings,
   isCommandMemoryType,
   inspectCommandEditCheckpoint,
   listCommandEditCheckpoints,
@@ -361,6 +415,8 @@ export type {
   IMemoryExtractorPolicy,
   IMemoryExtractorTrigger,
 } from './memory/index.js';
+// ── Prompt history (SCREEN-1993) ────────────────────────────
+export type { IPromptHistoryOptions } from './interactive/interactive-session-prompt-history.js';
 // ── Edit checkpointing ─────────────────────────────────────
 export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
 export type {
@@ -426,7 +482,14 @@ export type {
 } from './reversible-execution/index.js';
 
 // ── Plugin management ───────────────────────────────────────
-export { NodeHostPluginSettingsStore, BundlePluginLoader } from './plugins/index.js';
+export {
+  NodeHostPluginSettingsStore,
+  BundlePluginLoader,
+  createHostBundlePluginLoader,
+  loadHostBundlePluginInspectionFromScopes,
+  loadHostBundlePluginsFromScopes,
+} from './plugins/index.js';
+export type { IHostBundlePluginLoaderOptions } from './plugins/index.js';
 export type { IPluginSettings } from './plugins/index.js';
 export { BundlePluginInstaller } from './plugins/index.js';
 export { MarketplaceClient } from './plugins/index.js';
@@ -440,10 +503,16 @@ export type {
   IMarketplaceClientOptions,
   IKnownMarketplaceEntry,
   TKnownMarketplacesRegistry,
-  IBundlePluginManifest,
   IBundlePluginFeatures,
+  IBundlePluginHookIssue,
+  IBundlePluginInspection,
+  IBundlePluginManifest,
+  IBundlePluginMcpFault,
+  IBundlePluginMcpServer,
+  IBundlePluginSkip,
   IBundleSkill,
   ILoadedBundlePlugin,
+  TBundlePluginSkipReason,
   TEnabledPlugins,
 } from './plugins/index.js';
 
@@ -451,7 +520,6 @@ export type { IAgentDefinition } from './agents/index.js';
 export { BUILT_IN_AGENTS } from './agents/index.js';
 
 export {
-  createSession,
   getSubagentSuffix,
   getForkWorkerSuffix,
   assembleSubagentPrompt,
@@ -463,9 +531,37 @@ export {
 export type {
   ISubagentPromptOptions,
   ISubagentOptions,
+  ISubagentParentContext,
   TSubagentSuffix,
 } from './assembly/index.js';
-export type { ICreateSessionOptions, ICreateSessionResult } from './assembly/index.js';
+// `ICreateSessionOptions` stays exported although `createSession` does not (issue #2270).
+//
+// It is agent-framework's OWN type, and four packages read indexed-access types off it as the option
+// SSOT: agent-preset, agent-cli, agent-transport, agent-ui-terminal. Exporting a type this package
+// owns is ownership, not pass-through.
+//
+// The tempting alternative — re-export `agent-core`'s `TPermissionMode` / `TModelEffort` from here so
+// the options type can go — is banned as a pass-through re-export of another package's symbols
+// (STRUCT-07). Consumers that want those unions take them from `agent-core`, which exports both from
+// its root. NOTE for anyone re-deriving this: an earlier version of this comment claimed
+// `TPermissionMode` is exported from no package root. That was false — agent-core's root re-exports
+// its permissions barrel wholesale (a star re-export), so the symbol never appears BY NAME in that
+// index and a grep for the name cannot see it. Resolve exports against the built .d.ts instead of
+// grepping barrels.
+//
+// Written without the literal re-export syntax on purpose: `check-sdk-public-surface.mjs` (scan id
+// `sdk-public-surface`) matches raw source, so spelling it out here registers a phantom export-star
+// in this barrel and fails that scan.
+// That is issue #2258's defect — comment text read as code — arriving from the other direction.
+//
+// The type is inert without the factory: no exported function accepts it, so nothing public reaches
+// `additionalHookExecutors` through it.
+//
+// `ICreateSessionResult` is no longer re-exported from this root (it stays on `assembly/index.ts`).
+// The ground is not that it had few consumers — `.agents/project-structure.md` bans that reasoning
+// about a public surface at any count. It is the return type of a factory that is no longer public,
+// so it describes nothing a consumer can obtain.
+export type { ICreateSessionOptions, TSessionResponseFormat } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
 export { createCommandExecutionTool } from './tools/command-execution-tool.js';
@@ -500,8 +596,15 @@ export {
   createMainThreadExecutionEntryId,
   EXECUTION_ORIGIN_METADATA_KEYS,
   parseExecutionWorkspaceEntryId,
+  // CLI-1994: a surface asks this whether an entry can be attached to; the answer is the framework's
+  // because the same module decides when the `attach` control is offered.
+  resolveExecutionAttach,
   summarizeBackgroundJobGroup,
 } from './background-tasks/index.js';
+export type {
+  IResolveExecutionAttachInput,
+  TExecutionAttachOutcome,
+} from './background-tasks/execution-workspace-attach.js';
 // ARCH-039: nine `agent-executor` names were re-exported here through the background-tasks barrel
 // and had NO external importer — this barrel was their only consumer, re-publishing what nothing
 // asked for. The per-symbol exemption made that visible; they are imported from
@@ -519,7 +622,7 @@ export type {
 // ── Subagent process manager contracts ─────────────────────
 export { createInProcessSubagentRunner } from './subagents/index.js';
 // ARCH-031 removed eleven type-only `agent-executor` republications. Import from the owner: the SPI
-// from `@robota-sdk/agent-executor`, data contracts from `@robota-sdk/agent-interface-transport`.
+// from `@robota-sdk/agent-executor`, data contracts from `@robota-sdk/agent-interface-execution`.
 export type { IInProcessSubagentRunnerDeps, TSubagentRunnerFactory } from './subagents/index.js';
 
 // ── Multi-agent orchestration mechanism (SELFHOST-001) ──────
@@ -610,7 +713,7 @@ export type {
   IContextReferenceUpsertResult,
 } from './context/context-reference-inventory.js';
 
-// ── Interaction channel contracts: SSOT is @robota-sdk/agent-interface-transport ─────
+// ── Interaction channel contracts: SSOT is @robota-sdk/agent-interface-session ─────
 // (HARNESS-022 / CONTRACT-013: the residual type-only pass-through re-exports were removed;
 // consumers import IInteractionChannel/InteractionEvent/ICommandInfo from the SSOT.)
 export { parseInput, isSlashCommand, tokeniseSlashCommand } from './interaction/input-parser.js';
@@ -620,7 +723,9 @@ export { createInteractiveRuntime } from './interaction/createInteractiveRuntime
 export type { IInteractiveRuntimeOptions } from './interaction/createInteractiveRuntime.js';
 
 // ── Permissions ─────────────────────────────────────────────
-export { promptForApproval } from './permissions/permission-prompt.js';
+// Issue #2351: `consentScopeFor` is what "allow always" grants, so every prompt surface prints the
+// same scope — the framework's own facade over agent-session's rule (see permission-prompt.ts).
+export { consentScopeFor, promptForApproval } from './permissions/permission-prompt.js';
 
 // ── Testing utilities ────────────────────────────────────────
 // Test-only fixtures (the functional session harness + stub session) are exported from the
@@ -653,7 +758,25 @@ export {
   deleteSettings,
 } from './config/settings-io.js';
 export type { TSettingsData, TSettingsScope } from './config/settings-io.js';
+export { inspectSettingsLayers } from './config/settings-inspection.js';
+export type {
+  ISettingsInspection,
+  ISettingsKeyProvenance,
+  ISettingsLayerCause,
+  ISettingsLayerInspection,
+  ISettingsSchemaIssue,
+  TSettingsLayerState,
+} from './config/settings-inspection.js';
+export type { TSettingsMergeRule } from './config/config-merge.js';
+export type { TSettings } from './config/config-types.js';
+export type {
+  ISkillRootInspection,
+  ISkillSourceInspection,
+  ISkillSourceSkip,
+  TSkillSkipReason,
+} from './commands/index.js';
 export { SettingsParseError } from './config/settings-parse-error.js';
+export { NoCurrentProviderProfileError } from './config/no-current-provider-profile-error.js';
 export { resetUserConfig } from './config/reset-user-config.js';
 export type { IResetUserConfigResult } from './config/reset-user-config.js';
 
@@ -672,23 +795,25 @@ export {
   formatCliUpdateCheckMessage,
   formatCliUpdateNotice,
   getStartupCliUpdateNotice,
-  getUserUpdateCheckCachePath,
-  readUpdateCheckCache,
   shouldRunStartupCliUpdateCheck,
-  writeUpdateCheckCache,
   CLI_UPDATE_CACHE_TTL_MS,
   CLI_UPDATE_PACKAGE_NAME,
   CLI_UPDATE_REGISTRY_URL,
   CLI_UPDATE_TIMEOUT_MS,
 } from './update-check/update-check.js';
+export {
+  getUserUpdateCheckCachePath,
+  readUpdateCheckCache,
+  writeUpdateCheckCache,
+} from './update-check/update-check-cache.js';
 export { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 export type {
   ICheckForCliUpdateOptions,
   ICliUpdateNotice,
   IStartupCliUpdatePolicyInput,
-  IUpdateCheckCache,
   TCliUpdateCheckResult,
 } from './update-check/update-check.js';
+export type { IUpdateCheckCache } from './update-check/update-check-cache.js';
 
 // ── Agent runtime ─────────────────────────────────────────────
 export { createAgentRuntime, createStatelessRuntime } from './runtime/index.js';
@@ -702,6 +827,7 @@ export type {
 export { buildRuntimeSession, startRuntimeHost } from './runtime/index.js';
 export type { IRuntimeHostOptions, IRuntimeHostHandle } from './runtime/index.js';
 export type { IResolvedConfig } from './config/config-types.js';
+export type { IOutputStylePrompt } from './context/output-style-prompt.js';
 
 // SELFHOST-006: per-role model routing policy (neutral, over the provider DIP).
 export {
@@ -713,6 +839,8 @@ export {
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):
 //   createProvider()       — REMOVED (provider comes from consumer)
+//   createSession()        — assembly factory (restored to this ledger by issue #2270; the entry
+//                            was deleted by 2d3b2c028 in the same commit that made it public)
 //   loadConfig()           — config loading (used by InteractiveSession internally)
 //   loadContext()          — context loading (used by InteractiveSession internally)
 // ──────────────────────────────────────────────────────────────

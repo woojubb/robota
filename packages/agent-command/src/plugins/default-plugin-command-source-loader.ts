@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import { BundlePluginLoader, PluginCommandSource } from '@robota-sdk/agent-framework';
+import { loadHostBundlePluginsFromScopes, PluginCommandSource } from '@robota-sdk/agent-framework';
 
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
 
@@ -11,12 +11,34 @@ function getHomeDir(): string {
   return process.env.HOME ?? homedir();
 }
 
-export function reloadPluginCommandSource(registry: CommandRegistry): number {
-  const pluginsDir = join(getHomeDir(), '.robota', 'plugins');
-  const loader = new BundlePluginLoader(pluginsDir);
+/**
+ * Issue #2487 (PLG-021 residual): `install --scope project` writes under the project's own plugin
+ * directory, but this loader read only the user-level one, so a project-scope install was invisible
+ * to the session that made it. Project scope is listed first — the more specific one wins when a
+ * plugin is present in both.
+ */
+function pluginsDirUnder(base: string): string {
+  return join(base, '.robota', 'plugins');
+}
+
+/**
+ * The plugin scope directories, most specific first. Exported (OBSERVABILITY-1991) so the doctor
+ * reads the same layout this loader reads instead of computing a third copy.
+ */
+export function pluginScopeDirs(
+  cwd: string | undefined,
+  userHome: string = getHomeDir(),
+): string[] {
+  const user = pluginsDirUnder(userHome);
+  return cwd === undefined ? [user] : [pluginsDirUnder(cwd), user];
+}
+
+export function reloadPluginCommandSource(registry: CommandRegistry, cwd?: string): number {
   try {
+    // PLG-021 / issue #2025: the reload path reported plugins as reloaded while a disabled plugin's
+    // commands came back with them, because the bare loader defaults its enablement map to `{}`.
     // allow-fallback: plugin load failure is non-fatal — clear source and return empty
-    const plugins = loader.loadPluginsSync();
+    const plugins = loadHostBundlePluginsFromScopes(pluginScopeDirs(cwd));
     if (plugins.length === 0) {
       registry.replaceSource(PLUGIN_SOURCE_NAME);
       return 0;

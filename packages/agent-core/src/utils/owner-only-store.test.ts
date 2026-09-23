@@ -6,7 +6,15 @@
  * finding: the assertion holds either way, so it asserts nothing.
  */
 
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  statSync,
+  writeFileSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -29,7 +37,7 @@ let previousUmask: number;
 
 beforeEach(() => {
   previousUmask = process.umask(PERMISSIVE_UMASK);
-  root = mkdtempSync(join(tmpdir(), 'owner-only-'));
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'owner-only-')));
 });
 
 afterEach(() => {

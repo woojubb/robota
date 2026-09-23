@@ -8,6 +8,14 @@ between the runtime that schedules execution and the surfaces that display it.
 
 It contains type declarations only. No class, no runtime logic, no mechanism.
 
+## Package Identity
+
+- **npm name**: `@robota-sdk/agent-interface-execution`
+- **Layer**: Layer 0 — the dependency set that places it there is declared in this package's manifest
+  and enforced by `check-dependency-direction.mjs`; not restated here. The layer itself is declared in
+  [`.agents/specs/contract-family-owner-map.md`](../../../.agents/specs/contract-family-owner-map.md)
+  and enforced by `scripts/harness/interface-layers.mjs` (ARCH-101).
+
 ## Boundaries
 
 **Not owned here.**
@@ -25,11 +33,11 @@ an owner package; this one gives it the vocabulary to describe the behavior.
 
 ## Architecture Overview
 
-**Layer 0.** Its internal dependency set is `{@robota-sdk/agent-core}` and it depends on **no peer
-`agent-interface-*` package**. Composition runs downward into it — `agent-interface-session` names
-these types; this package never names a session type. The layer is declared in
-[`.agents/specs/contract-family-owner-map.md`](../../../.agents/specs/contract-family-owner-map.md)
-and enforced by `scripts/harness/interface-layers.mjs` through two guards (ARCH-101).
+**Layer 0.** It depends on **no peer `agent-interface-*` package** — that boundary is the
+commitment this document makes; which packages it does depend on is the manifest's to say (see
+Package Identity). Composition runs downward into it — `agent-interface-session` names these types;
+this package never names a session type. The layer is enforced by
+`scripts/harness/interface-layers.mjs` through two guards (ARCH-101).
 
 Four modules, one contract family each, and the dependency between them runs one way:
 
@@ -45,25 +53,53 @@ upward edge in the interface tree.
 
 ## Type Ownership
 
-| Type                                                                                     | Location                            | Purpose                                    |
-| ---------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------ |
-| `TBackgroundTaskRequest` and its four request shapes                                     | `src/background-task-contracts.ts`  | what is being asked of the executor        |
-| `IBackgroundTaskState`, `IBackgroundTaskResult`, `IBackgroundTaskError`                  | `src/background-task-contracts.ts`  | the lifecycle of one task                  |
-| `IBackgroundTaskLogCursor`, `IBackgroundTaskLogPage`, `IBackgroundTaskListFilter`        | `src/background-task-contracts.ts`  | reading a task's output and the task list  |
-| `IBackgroundTaskUsage`                                                                   | `src/background-task-contracts.ts`  | token/cost attribution for a task          |
-| `IBackgroundJobGroupState`, `IBackgroundJobGroupSummary`, `IBackgroundJobResultEnvelope` | `src/background-group-contracts.ts` | several tasks waited on as one unit        |
-| `TBackgroundJobWaitPolicy`, `TBackgroundJobGroupStatus`                                  | `src/background-group-contracts.ts` | how a group completes                      |
-| `ISubagentJobState`, `ISubagentJobResult`, `ISubagentSpawnRequest`                       | `src/subagent-contracts.ts`         | a subagent job as a data record            |
-| `IExecutionWorkspaceSnapshot`, `IExecutionWorkspaceEntry`, `IExecutionWorkspaceEvent`    | `src/workspace-contracts.ts`        | the switchable view over running work      |
-| `IExecutionDetailRecord`, `IExecutionDetailPage`, `IExecutionDetailCursor`               | `src/workspace-contracts.ts`        | the detail pane behind one workspace entry |
+| Type                                                                    | Location                           | Purpose                                                                                      |
+| ----------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------- |
+| `TBackgroundTaskRequest` and its four request shapes                    | `src/background-task-contracts.ts` | what is being asked of the executor; agent requests carry optional core-owned `TModelEffort` |
+| `IBackgroundTaskState`, `IBackgroundTaskResult`, `IBackgroundTaskError` | `src/background-task-contracts.ts` | the lifecycle of one task                                                                    |
 
-60 declarations in total. `src/index.ts` is the single entry point; there is no subpath export.
+A `kind: 'scheduled'` request carries **no `permissionPolicy`, by decision** (issue #2354): a schedule with `agentInstruction` wakes the HOST session rather than spawning an agent, and the woken turn runs under that session's own permission configuration. Only `kind: 'agent'` — a separate agent — declares a policy. `src/__tests__/contracts.test.ts` fails if a policy field is added to the scheduled request without that wiring being designed.
+| `IBackgroundTaskLogCursor`, `IBackgroundTaskLogPage`, `IBackgroundTaskListFilter` | `src/background-task-contracts.ts` | reading a task's output and the task list |
+| `IBackgroundTaskUsage` | `src/background-task-contracts.ts` | token/cost attribution for a task |
+| `IBackgroundJobGroupState`, `IBackgroundJobGroupSummary`, `IBackgroundJobResultEnvelope` | `src/background-group-contracts.ts` | several tasks waited on as one unit |
+| `TBackgroundJobWaitPolicy`, `TBackgroundJobGroupStatus` | `src/background-group-contracts.ts` | how a group completes |
+| `ISubagentJobState`, `ISubagentJobResult`, `ISubagentSpawnRequest` | `src/subagent-contracts.ts` | a subagent job as a data record |
+| `IExecutionWorkspaceSnapshot`, `IExecutionWorkspaceEntry`, `IExecutionWorkspaceEvent` | `src/workspace-contracts.ts` | the switchable view over running work |
+| `IExecutionDetailRecord`, `IExecutionDetailPage`, `IExecutionDetailCursor` | `src/workspace-contracts.ts` | the detail pane behind one workspace entry |
+| `TExecutionNormalizedState`, `IExecutionHeadline`, `TExecutionHeadlineKind`, `IExecutionPendingRequest` | `src/workspace-contracts.ts` | SCREEN-1992: the five-word state (`working` / `needs-input` / `completed` / `failed` / `stopped`), the row's one-line text (activity / question / result) and the parked prompt the main thread waits on — carried on `IExecutionWorkspaceEntry` (`state`, `headline`, `nextFireAt`) and `ICreateMainThreadEntryInput` (`pendingRequest`), derived once by the projection |
+
+An agent request's optional `effort` is typed by `@robota-sdk/agent-core` and is carried unchanged
+through `ISubagentSpawnRequest`. An explicit request value is more specific than the selected agent
+definition; when both are absent, the framework supplies the parent's effective effort before a
+runner projection.
+
+64 declarations in total. `src/index.ts` is the single entry point; there is no subpath export.
+
+### Forking a conversation into a background task (CLI-1994)
+
+`IAgentBackgroundTaskRequest.resumeSessionId?` names a persisted session record the child **restores**
+before its first turn. It is how a **fork** — a COPY of a live conversation, written under a fresh id
+by `/fork` — reaches a background job. Only the id travels: the conversation itself never rides on the
+request and therefore never crosses the child-process wire, so the ARCH-044 projection boundary is
+unchanged; the child reads the record from the session store, exactly as `--fork-session` does at
+startup. `IBackgroundTaskState.resumeSessionId?` carries it onto the task's state so a surface can
+tell a fork's task from an ordinary one. Absent ⇒ the child starts with an empty conversation, as
+before.
+
+A fork is a **copy**, not a branch of one live thing: from the moment the record is written the two
+conversations are separate records that never rejoin. `TExecutionControl` gains `'attach'` for exactly
+that reason — attaching to a fork is a **view switch** onto its record, never a merge, and the entry
+carries the `resumeSessionId` the view switches onto.
 
 ## Public API Surface
 
-| Export           | Kind | Description                               |
-| ---------------- | ---- | ----------------------------------------- |
-| every name above | type | contract declarations; see Type Ownership |
+| Export                      | Kind | Description                                                                            |
+| --------------------------- | ---- | -------------------------------------------------------------------------------------- |
+| every name above            | type | contract declarations; see Type Ownership                                              |
+| `TExecutionNormalizedState` | type | SCREEN-1992: the five-word state every workspace entry carries (`working` … `stopped`) |
+| `TExecutionHeadlineKind`    | type | SCREEN-1992: `activity` / `question` / `result` — which kind of line the headline is   |
+| `IExecutionHeadline`        | type | SCREEN-1992: the entry's one-line text, the row-text SSOT                              |
+| `IExecutionPendingRequest`  | type | SCREEN-1992: the parked permission/ask the main thread waits on (`kind`, `text`)       |
 
 **No runtime value is exported.** The Interface Package Rule permits a package's entry to publish its
 contracts' vocabulary (a `const` holding a value) and their discriminators (a type predicate); this

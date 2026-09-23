@@ -47,11 +47,12 @@ describe('promptForApproval', () => {
     expect(result).toBe(false);
   });
 
-  it('Passes 3 options to terminal.select', async () => {
+  it('Passes 3 options to terminal.select, naming the consent scope the session option grants', async () => {
     const terminal = makeTerminal(0);
     await promptForApproval(terminal, 'Bash', TOOL_ARGS);
+    // Issue #2351: the session option prints the scope the enforcer will remember for this invocation.
     expect(terminal.select).toHaveBeenCalledWith(
-      ['Allow once', 'Allow for this session', 'Deny'],
+      ['Allow once', 'Allow Bash for this session', 'Deny'],
       0,
     );
   });

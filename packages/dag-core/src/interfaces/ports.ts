@@ -158,6 +158,8 @@ export interface ITaskExecutionInput {
   nodeDefinition?: IDagNode;
   costPolicy?: ICostPolicy;
   currentTotalCredits?: number;
+  /** Runtime-owned asset base URL forwarded to node execution context. */
+  runtimeBaseUrl?: string;
 }
 
 /** Successful task execution outcome with output payload and optional costs. */

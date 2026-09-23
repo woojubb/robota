@@ -10,6 +10,13 @@ export * from './lifecycle/static-node-lifecycle-factory.js';
 export * from './lifecycle/default-node-task-handlers.js';
 export * from './registry/static-node-manifest-registry.js';
 export * from './value-objects/media-reference.js';
+export { normalizeProviderMediaOutput } from './value-objects/provider-media-output.js';
+export type {
+  IProviderMediaOutputCandidate,
+  IProviderMediaOutputPolicy,
+  TProviderMediaOutputRejection,
+  TProviderMediaOutputResult,
+} from './value-objects/provider-media-output.js';
 export * from './schemas/media-reference-schema.js';
 export * from './utils/node-descriptor.js';
 export * from './node-definition-assembly.js';

@@ -15,6 +15,7 @@ import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
 
 import { requireOperatorKeyAuth } from '../middleware/require-operator-key-auth.js';
 import { parseChatOptionsFromBody } from '../remote-chat-options.js';
+import { createRemoteModelEffortOutcomeCollector } from '../remote-model-effort-outcome.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { Express } from 'express';
@@ -72,8 +73,16 @@ export function registerProviderChatRoutes(
         res.status(400).json({ error: 'Invalid request options', rejected });
         return;
       }
-      const response = await provider.chat(messages, options);
-      res.json(response);
+      const outcome = createRemoteModelEffortOutcomeCollector();
+      const response = await provider.chat(messages, {
+        ...options,
+        onModelEffortOutcome: outcome.observe,
+      });
+      const terminalOutcome = outcome.terminalForSelection(options.effort !== undefined);
+      res.json({
+        ...response,
+        ...(terminalOutcome !== undefined && { modelEffortOutcome: terminalOutcome }),
+      });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
@@ -123,8 +132,16 @@ export function registerProviderChatRoutes(
         res.status(400).json({ error: 'Invalid request options', rejected });
         return;
       }
-      const response = await byokProvider.chat(messages, options);
-      res.json(response);
+      const outcome = createRemoteModelEffortOutcomeCollector();
+      const response = await byokProvider.chat(messages, {
+        ...options,
+        onModelEffortOutcome: outcome.observe,
+      });
+      const terminalOutcome = outcome.terminalForSelection(options.effort !== undefined);
+      res.json({
+        ...response,
+        ...(terminalOutcome !== undefined && { modelEffortOutcome: terminalOutcome }),
+      });
     } catch (err) {
       routeLogger.error(
         'BYOK chat failed',

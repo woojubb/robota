@@ -16,6 +16,14 @@ export {
 export type { IPairingSecret, IConfirmationInput, TPairingRole } from './pairing.js';
 export { startPairingHandshake } from './handshake.js';
 export type { IPairingHandshakeOptions, IPairingResult, TPairingFrame } from './handshake.js';
+// Issue #2046: the pre-auth frame vocabulary is decoded HERE, totally, and both carriers import it.
+export {
+  PRE_AUTH_FRAME_LIMITS,
+  decodeEnrollFrame,
+  decodePairingFrame,
+  decodeReconnectFrame,
+} from './frame-codec.js';
+export type { IEnrollFrame, TFrameDecodeResult, TPreAuthFrame } from './frame-codec.js';
 export {
   generateIdentityKeyPair,
   exportPublicKey,

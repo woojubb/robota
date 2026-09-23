@@ -5,6 +5,8 @@ import {
   deleteSettings,
   getStartupCliUpdateNotice,
   getUserSettingsPath,
+  loadOrgPolicy,
+  OrgPolicyParseError,
   readMergedProviderSettings,
   readSettings,
   resolveProviderSettingsWriteTarget,
@@ -13,12 +15,14 @@ import {
 } from '@robota-sdk/agent-framework';
 import type {
   ICliUpdateNotice,
+  IOrgPolicy,
   ICommandHostAdapters,
   ICommandModule,
   IWorkspaceProjectMutation,
   IWorkspaceProjectSettingsWriter,
   TProviderSettingsDocument,
   TWorkspaceProjectAccess,
+  ICommandMCPActivationAdapter,
 } from '@robota-sdk/agent-framework';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
@@ -26,12 +30,17 @@ import {
   createDefaultCommandModules,
   createDefaultPluginCommandAdapter,
 } from '@robota-sdk/agent-command';
+import type { IKeybindingsFilePort, IThemeCataloguePort } from '@robota-sdk/agent-command';
+import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-preset';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import {
   createWorkspaceWorkflowProject,
   createWorkflowsCommandModule,
 } from '@robota-sdk/agent-command-workflows';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+import { buildDoctorInputs } from './doctor-inputs.js';
+import { buildOutputStyleSources } from './output-style-sources.js';
+import type { IOutputStyleRegistry, IOutputStyleSource } from '@robota-sdk/agent-preset';
 import {
   createCliWorkspaceComposition,
   type ICliWorkspaceComposition,
@@ -73,11 +82,44 @@ export interface IStartCliOptions {
   projectSettingsWriter?: IWorkspaceProjectSettingsWriter;
   /** Separately approved bounded project mutation capability. */
   projectMutation?: IWorkspaceProjectMutation;
+  /** Host-composed MCP definition registry and trust-admission controller. */
+  mcpActivationAdapter?: ICommandMCPActivationAdapter;
+  /** Host-composed managed output styles, applied above user/project style sources. */
+  managedOutputStyleSources?: readonly IOutputStyleSource[];
 }
 
 export interface ICliSetup {
   commandHostAdapters: ICommandHostAdapters;
+  outputStyleRegistry: IOutputStyleRegistry;
+  outputStyleLoadErrors: readonly { file: string; error: string }[];
   providerDefinitions: readonly IProviderDefinition[];
+  /**
+   * ARCH-109: whether `providerDefinitions` above came from the caller rather than from
+   * `createDefaultProviderDefinitions()`.
+   *
+   * Reported rather than re-derived, because it cannot be re-derived. The definitions carry
+   * `createProvider` and `probeProfile` — functions — so a downstream reader can compare them with
+   * the default set only by NAME, and that comparison says "same" in the one case that matters
+   * most: a caller-supplied definition sharing a built-in's name while running different code.
+   * This function is the only place that still knows which branch was taken.
+   */
+  callerSuppliedProviderDefinitions: boolean;
+  /**
+   * CLI-083 (issue #2287) — the org policy read from `~/.robota/org-policy.json`, `null` when there
+   * is none. Surfaced because it feeds TWO destinations and only one of them is inside this file:
+   * the command-module chain built here (provider `allowedProviders` / `requireApiKeyFromEnv`), and
+   * the SESSION, which `cli.ts` assembles for both the served and TUI paths.
+   *
+   * Loading it here and not returning it left three of the four enforcement sites dead while
+   * looking wired — the "the chain exists but is not fed" shape this item is about, recurring one
+   * level up. Found in review of the change that restored the loader.
+   *
+   * Optional rather than `| null` so callers forward it as a plain `orgPolicy,` instead of a
+   * conditional spread. A spread bypasses TypeScript's excess-property check, which is how a third
+   * recurrence reached the TUI layer and was dropped there in silence. Written plainly, a target
+   * that does not declare the field fails to compile.
+   */
+  orgPolicy?: IOrgPolicy | undefined;
   /**
    * ARCH-005 S2: the product's BASE command modules — the default set MINUS the modules a capability pack
    * supplies (`packCommandModuleNames`). They are handed to `assembleProduct` as
@@ -118,6 +160,8 @@ export function buildCommandSetup(
   options: IStartCliOptions,
   version: string,
   packCommandModuleNames: readonly string[] = [],
+  keybindingsFilePort?: IKeybindingsFilePort,
+  themeCataloguePort?: IThemeCataloguePort,
 ): ICliSetup {
   const workspaceComposition = createCliWorkspaceComposition({
     cwd,
@@ -127,6 +171,14 @@ export function buildCommandSetup(
       ? { projectSettingsWriter: options.projectSettingsWriter }
       : {}),
   });
+  const outputStyleSources = buildOutputStyleSources({
+    cwd,
+    userHome: homedir(),
+    projectAccess: workspaceComposition.projectAccess,
+    managedOutputStyleSources: options.managedOutputStyleSources,
+  });
+  const outputStyleLoad = loadOutputStylesFromSources(outputStyleSources);
+  const outputStyleRegistry = createOutputStyleRegistry(outputStyleSources);
   const commandHostAdapters: ICommandHostAdapters = {
     settings: {
       read: () => readSettings(getUserSettingsPath()),
@@ -135,6 +187,10 @@ export function buildCommandSetup(
       delete: () => deleteSettings(getUserSettingsPath()),
     },
     plugin: createDefaultPluginCommandAdapter(cwd),
+    ...(options.mcpActivationAdapter === undefined
+      ? {}
+      : { mcpActivation: options.mcpActivationAdapter }),
+    outputStyleRegistry,
   };
   const providerDefinitions = options.providerDefinitions ?? createDefaultProviderDefinitions();
   const providerSettingsSources = workspaceComposition.settingsSources;
@@ -157,11 +213,30 @@ export function buildCommandSetup(
   // The pack-supplied modules are excluded from the base; `assembleProduct` merges them back in from the
   // profile's packs. `unknownModuleNames` is not read here — every excluded name is a real module, and the
   // preset delta's unknown-name diagnostics are computed by the shell against the MERGED superset.
+  // CLI-083 (issue #2287). This call is where `loadOrgPolicy()` used to be: `48ebec353` added it,
+  // `92596bc6f` removed it two days later while slimming this file, and four implemented enforcement
+  // sites have been unreachable since. Nothing failed, because the parameter is optional and its
+  // consumers read absence as "no policy configured".
+  const orgPolicy = loadOrgPolicy();
+  // OBSERVABILITY-1991: `/doctor` runs the same runner as `robota doctor`, over the inputs this host
+  // composed; the shell supplies them, the command package owns the behaviour.
+  const doctorInputs = buildDoctorInputs({
+    cwd,
+    version,
+    options,
+    projectAccess: workspaceComposition.projectAccess,
+    providerDefinitions,
+    env: process.env,
+  });
   const { modules: baseCommandModules } = createDefaultCommandModules({
     cwd,
     providerDefinitions,
     providerSettingsAdapter,
     contributionSources: workspaceComposition.contributionSources,
+    ...(keybindingsFilePort === undefined ? {} : { keybindingsFilePort }),
+    ...(themeCataloguePort === undefined ? {} : { themeCataloguePort }),
+    doctorInputs,
+    ...(orgPolicy === null ? {} : { orgPolicy }),
     ...(packCommandModuleNames.length > 0
       ? { disabledCommandModules: packCommandModuleNames }
       : {}),
@@ -171,11 +246,52 @@ export function buildCommandSetup(
     : undefined;
   return {
     commandHostAdapters,
+    outputStyleRegistry,
+    outputStyleLoadErrors: outputStyleLoad.errors,
     providerDefinitions,
+    callerSuppliedProviderDefinitions: options.providerDefinitions !== undefined,
     baseCommandModules,
+    // CLI-083 (issue #2287). Returned, not just consumed above: the command-module chain reaches the
+    // provider checks, and the SESSION-level `blockedCommands` enforcement is fed from `cli.ts`
+    // instead. Loading it here and not surfacing it left three of the four enforcement sites dead
+    // and looked wired — the same "the chain exists but is not fed" shape this item is about, one
+    // level up. Found in review of this change.
+    //
+    // Normalised to `undefined` here so every downstream forward is a plain `orgPolicy,` rather than
+    // a conditional spread: a spread bypasses the excess-property check, which is how the third
+    // recurrence reached the TUI layer and was dropped in silence.
+    orgPolicy: orgPolicy ?? undefined,
     fixedCommandModules: [workflowsModule, ...(options.commandModules ?? [])],
     startupUpdateNoticePromise,
     remoteCommandPolicy: createDefaultRemoteCommandPolicy(), // REMOTE-006: allow-by-default (local == remote).
     workspaceComposition,
   };
+}
+
+/**
+ * `buildCommandSetup`, with the one startup failure that is terminal presented rather than thrown.
+ *
+ * Issue #2023: an org policy file that EXISTS and cannot be read means the policy is NOT applied.
+ * Starting anyway is the fail-open that change removed, and crashing with a stack trace is the
+ * "must not crash CLI startup" outcome the comment it replaced was protecting — an administrator
+ * needs to see which file to fix, not a trace.
+ *
+ * Presented the way `resolveShellPreset` presents an unknown preset id: message to stderr, exit 1.
+ * It lives HERE rather than in `cli.ts` because that file is at its size baseline, and because the
+ * presentation of a setup failure belongs beside the setup rather than in the shell that calls it.
+ *
+ * **Narrow on purpose.** A broad catch would turn every unrelated startup defect into a clean exit
+ * carrying someone else's message, which is a worse failure than the one being fixed.
+ */
+export function buildCommandSetupOrExit(
+  ...args: Parameters<typeof buildCommandSetup>
+): ReturnType<typeof buildCommandSetup> {
+  try {
+    return buildCommandSetup(...args);
+  } catch (error) {
+    if (!(error instanceof OrgPolicyParseError)) throw error;
+    // allow-fallback: an unreadable org policy is terminal — surface the file, exit
+    process.stderr.write(`${error.message}\n`);
+    process.exit(1);
+  }
 }

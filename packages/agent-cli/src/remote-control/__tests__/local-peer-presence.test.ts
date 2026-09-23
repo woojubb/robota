@@ -6,7 +6,7 @@
  * clean exit removes it, and that a refused rendezvous is not quietly announced anyway.
  */
 
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -20,7 +20,7 @@ afterAll(() => {
 });
 
 function guardedDirectory(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'peer-presence-'));
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'peer-presence-')));
   scratch.push(dir);
   return dir;
 }
