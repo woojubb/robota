@@ -106,7 +106,10 @@ describe('composeMcpClientForStartup', () => {
     try {
       const tools = await mcp.connect();
       expect(messages).toEqual([]);
-      expect(tools.map((tool) => tool.getName())).toEqual(['local__ping']);
+      expect(tools.map((tool) => tool.getName())).toEqual([
+        'local__ping',
+        'robota_read_mcp_result',
+      ]);
       const tool = tools[0];
       if (tool === undefined) throw new Error('Expected admitted stdio tool');
       const result = await tool.execute({}, { toolName: 'local__ping', parameters: {} });

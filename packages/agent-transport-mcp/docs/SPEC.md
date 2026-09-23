@@ -12,7 +12,7 @@ isolated unit.
 
 ## Boundaries
 
-- Owns the MCP server transport adapter and agent MCP server builder.
+- Owns the MCP server transport adapter, official SDK stdio carrier, and agent MCP server builder.
 - Depends on `agent-interface-session` and `agent-interface-transport` contracts, not framework internals.
 - No other transport package depends on this one.
 
@@ -33,12 +33,12 @@ overload. A full session remains assignable structurally because it implements t
 
 ## Public API Surface
 
-| Export                 | Kind      | Description                                            |
-| ---------------------- | --------- | ------------------------------------------------------ |
-| `createMcpTransport`   | function  | MCP server transport adapter                           |
-| `createAgentMcpServer` | function  | Build an MCP server for an agent                       |
-| `IMcpTransport`        | interface | Adapter bound to the exact MCP session port             |
-| `IMcpTransportSession` | interface | Exact submission + runtime-tool session roles          |
+| Export                 | Kind      | Description                                   |
+| ---------------------- | --------- | --------------------------------------------- |
+| `createMcpTransport`   | function  | MCP server transport adapter                  |
+| `createAgentMcpServer` | function  | Build an MCP server for an agent              |
+| `IMcpTransport`        | interface | Adapter bound to the exact MCP session port   |
+| `IMcpTransportSession` | interface | Exact submission + runtime-tool session roles |
 
 ## Extension Points
 
@@ -46,10 +46,17 @@ New executable tools belong to the canonical session runtime catalog. Prompts an
 
 ## Lifecycle Conformance (ARCH-011)
 
-`createMcpTransport` is a frozen `service` lifecycle. Readiness means the MCP `Server` exists through
-`getServer()`; carrier connection remains the host's responsibility. Start before attach and repeated
-active start reject `TransportLifecycleError`; repeated stop is safe and restart requires a new
-attach. The shared suite owner id is `@robota-sdk/agent-transport-mcp#createMcpTransport`.
+`createMcpTransport` is a frozen `service` lifecycle. `start()` validates the canonical catalog,
+connects the official SDK `StdioServerTransport`, and resolves only when the carrier can serve
+requests. This package owns carrier creation, stdin/stdout close/error observation, and idempotent
+carrier/server teardown. Early input is bridged with backpressure during catalog validation, so
+stdin EOF is observable before carrier connection. A pending start is cancellable by stop/EOF and
+bounded to 15 seconds. `waitForClose()` resolves on peer/stdin close and rejects on carrier
+failure, allowing the process owner to select an exit code and shut down its session. The optional
+stdio streams are injected only to isolate the carrier in tests and reserve the product's stdout.
+Start before attach and repeated active start reject `TransportLifecycleError`; repeated stop is
+safe and restart requires a new attach. The shared suite owner id is
+`@robota-sdk/agent-transport-mcp#createMcpTransport`.
 
 ## Error Taxonomy
 

@@ -175,6 +175,7 @@ robota --screen-reader              # Screen-reader mode: no chrome, no motion, 
 robota --no-screen-reader           # Force it off for this run, whatever the env or settings say
 # Pacing (ms): ROBOTA_SCREEN_READER_STARTUP_QUIET_MS=900  ROBOTA_SCREEN_READER_PREPARK_MS=50  (0 disables either)
 robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
+robota mcp serve                   # Serve one session to a local MCP client over stdio
 robota trust status                 # Inspect canonical workspace trust
 robota trust --yes                  # Grant trust for the current Git workspace
 robota trust revoke --yes           # Revoke the current workspace grant
@@ -222,6 +223,47 @@ user storage directory; everything else is reported with the path to fix. `/doct
 report inside a session, and `/doctor repair <check-id>` asks before writing.
 
 ### MCP Servers
+
+#### Serve Robota to an MCP host
+
+Install `@robota-sdk/agent-cli`, configure a provider with `robota --configure`, and grant the
+intended project with `robota trust --yes` before starting a headless server. Resolve the actual
+executable (`command -v robota`) and use its **absolute path** in the host configuration. For an
+MCP client that supports a child-process working directory, configure:
+
+```json
+{
+  "mcpServers": {
+    "robota": {
+      "command": "/absolute/path/to/robota",
+      "args": ["mcp", "serve"],
+      "cwd": "/absolute/path/to/trusted/project"
+    }
+  }
+}
+```
+
+The host must launch the process in the intended project directory. Robota uses that inherited
+directory for its normal project-root, access and trust decision; an MCP `roots/list` value or an
+environment variable does not silently change it. For Claude Code, whose stdio server environment
+includes `CLAUDE_PROJECT_DIR`, a project-scoped launch command can select that directory explicitly:
+
+```sh
+claude mcp add --scope project --transport stdio robota -- \
+  /bin/sh -c 'cd "$CLAUDE_PROJECT_DIR" && exec /absolute/path/to/robota mcp serve'
+```
+
+The host receives the canonical runtime tool catalog plus `robota_submit`. Model-invocable commands
+appear only through their canonical `robota_command_*` names. Tools run through the session's normal
+permission and hook policy; denied or approval-requiring calls return MCP tool errors, never an
+interactive prompt on the protocol stream. The peer is a local process started by the user and can
+request actions within that session's admitted workspace and permissions. This mode starts no web
+server, WebSocket sidecar or TUI. Stdout carries only MCP messages; startup notices and failures go
+to stderr. Closing the host's stdin or sending SIGINT/SIGTERM shuts down the carrier and session.
+If the host reports a connection failure, run `robota trust status` and `robota doctor` separately in
+the same project directory, then inspect the host's captured stderr for configuration errors.
+
+This is an MCP **server** mode. The settings described below configure Robota as an MCP **client**.
 
 Declare remote MCP servers under an `mcpServers` key in any layered settings file (managed, user, or
 project `.robota`/`.claude` settings) — the same precedence order every other setting uses. Each

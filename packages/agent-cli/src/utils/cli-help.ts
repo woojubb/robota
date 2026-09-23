@@ -27,8 +27,8 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --bare                     Print mode: output raw text only, no formatting wrapper
   --configure                Run interactive provider configuration
   --configure-provider <n>   Configure a specific provider
-  --allowed-tools <list>     Comma-separated tool allowlist (TUI and print mode)
-  --denied-tools <list>      Comma-separated tool denylist (TUI and print mode)
+  --allowed-tools <list>     Comma-separated tool auto-approval list
+  --denied-tools <list>      Comma-separated tool denylist
   --model <model>            Model override for this run
   --effort <level>           Model effort: auto | low | medium | high | xhigh | max
   --preset <id>              Preset id to apply (default: settings.preset or "default")
@@ -66,6 +66,7 @@ Commands:
                                   directory with the prompt prefilled and unsent. It takes exactly
                                   one link; your own flags still apply after it.
   robota usage [options]           Show 7/30-day cross-session personal usage (text or JSON)
+  robota mcp serve [options]       Serve one Robota session as a local stdio MCP server
   robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 
 Examples:

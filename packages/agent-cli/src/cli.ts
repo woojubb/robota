@@ -68,6 +68,9 @@ import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { runServeMode } from './modes/serve-mode.js';
+import { buildServeSessionOptions } from './modes/serve-mode.js';
+import { runMcpServeMode } from './modes/mcp-serve-mode.js';
+import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
 import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
 import { resolveFocusReportingOverride } from './startup/focus-reporting-enablement.js';
 import { resolvePromptHistoryRenderFields } from './startup/prompt-history-enablement.js';
@@ -76,17 +79,40 @@ import {
   formatHeadlessWorkspaceTrustError,
   requiresHeadlessWorkspaceTrust,
 } from './startup/workspace-trust-admission.js';
+import type { Writable } from 'node:stream';
 
 export type { IStartCliOptions };
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
-  // FLOW-2006: `robota open <url>` is decided BEFORE the working directory is read and before the
-  // workspace is resolved — it is the one invocation that changes which directory the process is
-  // about, and resolving trust for the directory the user happened to start in would be answering
-  // the wrong question. On success it has already chdir'd and stripped its two argv tokens.
+  // FLOW-2006: a deep link can change cwd and argv, so resolve it before parsing the MCP command.
   const launch = await applyLaunchInvocation();
   if (launch.kind === 'refused') return;
   const initialInput = launch.kind === 'launched' ? launch.initialInput : undefined;
+  let parsedMcpArgs: IParsedCliArgs | undefined;
+  if (process.argv.includes('mcp')) {
+    try {
+      const parsed = parseCliArgs();
+      if (parsed.positional[0] === 'mcp' && parsed.positional[1] === 'serve') {
+        parsedMcpArgs = parsed;
+      }
+    } catch {
+      // The normal parser below reports invalid arguments through the existing error boundary.
+    }
+  }
+  const mcpOutput = parsedMcpArgs === undefined ? undefined : reserveMcpStdout();
+  try {
+    await runCli(options, initialInput, mcpOutput?.protocol, parsedMcpArgs);
+  } finally {
+    mcpOutput?.restore();
+  }
+}
+
+async function runCli(
+  options: IStartCliOptions,
+  initialInput?: string,
+  mcpProtocolStdout?: Writable,
+  preParsedArgs?: IParsedCliArgs,
+): Promise<void> {
   const cwd = process.cwd();
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
   const startupOptions: IStartCliOptions = { ...options, projectAccess };
@@ -94,13 +120,31 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   let args: IParsedCliArgs;
   try {
-    args = parseCliArgs();
+    args = preParsedArgs ?? parseCliArgs();
   } catch (error) {
     // allow-fallback: argument validation errors are terminal — exit is the correct response
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
   const version = readVersion();
+  const mcpServe = args.positional[0] === 'mcp' && args.positional[1] === 'serve';
+  if (args.positional[0] === 'mcp' && (!mcpServe || args.positional.length !== 2)) {
+    throw new Error('Usage: robota mcp serve [options]');
+  }
+  if (
+    mcpServe &&
+    (args.serve ||
+      args.printMode ||
+      args.goal !== undefined ||
+      args.open ||
+      args.configure ||
+      args.configureProvider !== undefined ||
+      args.reset)
+  ) {
+    throw new Error(
+      'robota mcp serve cannot be combined with another process mode or setup command',
+    );
+  }
 
   if (args.help) {
     process.stdout.write(printHelp());
@@ -140,7 +184,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   if (
-    (args.printMode || args.goal !== undefined || args.serve) &&
+    (args.printMode || args.goal !== undefined || args.serve || mcpServe) &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
     process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
@@ -200,7 +244,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd);
   const keybindingsSource =
-    args.printMode || args.goal !== undefined || args.serve
+    args.printMode || args.goal !== undefined || args.serve || mcpServe
       ? undefined
       : createNodeKeybindingsSource({
           onDiagnostic: (diagnostic) =>
@@ -220,7 +264,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // MCP-004 S3: the same mode discriminant `print`/`serve`/interactive branch on below, resolved
   // early because `composeMcpClientForStartup` gates `toolCallHandoff` on it (spec § Modes).
   const mcpStartupMode: TMcpStartupMode =
-    args.printMode || args.goal ? 'print' : args.serve ? 'serve' : 'interactive';
+    args.printMode || args.goal ? 'print' : args.serve || mcpServe ? 'serve' : 'interactive';
   // MCP-002: source the product's own `mcpServers` settings and compose the `/mcp` port + tools —
   // a caller-supplied `mcpActivationAdapter` (tests do this) always wins and skips composition.
   const mcp =
@@ -283,7 +327,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     args.outputStyle !== undefined || userSettings.outputStyle !== undefined;
   if (outputStyleWasSelected) {
     const outputStyleNotice = `Output style: ${outputStyle.name} (${outputStyle.id}; input cost ${outputStyle.tokenCost})`;
-    if (args.printMode) {
+    if (args.printMode || mcpServe) {
       process.stderr.write(`${outputStyleNotice}\n`);
     } else {
       terminal.writeLine(outputStyleNotice);
@@ -349,7 +393,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   commandHostAdapters.effort = createCliEffortAdapter(effortResolution);
   if (providerSettings.source === 'env-default' && providerSettings.sourceEnvVar !== undefined) {
     const notice = `Using ${providerSettings.name} (${modelId}) via ${providerSettings.sourceEnvVar} — run \`robota --configure\` to persist a profile.\n`;
-    if (args.printMode) {
+    if (args.printMode || mcpServe) {
       process.stderr.write(notice);
     } else {
       terminal.writeLine(notice.trimEnd());
@@ -504,6 +548,37 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     );
     try {
       await printRun;
+    } finally {
+      if (mcp !== undefined) await mcp.shutdown();
+    }
+    return;
+  }
+
+  if (mcpServe) {
+    if (mcpProtocolStdout === undefined) throw new Error('MCP protocol stdout was not reserved');
+    const sessionOptions = buildServeSessionOptions({
+      cwd,
+      args,
+      provider,
+      sessionStore,
+      projectAccess: workspaceComposition.projectAccess,
+      orgPolicy,
+      backgroundTaskRunners,
+      subagentRunnerFactory,
+      agentDefinitions,
+      ...toolOptions,
+      ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
+      commandModules,
+      commandHostAdapters,
+      transportRegistry,
+      ...(remoteCommandPolicy ? { remoteCommandPolicy } : {}),
+      resumeSessionId,
+      model: modelId,
+      preset: presetSurface,
+      memorySessionOptions,
+    });
+    try {
+      await runMcpServeMode(sessionOptions, version, mcpProtocolStdout);
     } finally {
       if (mcp !== undefined) await mcp.shutdown();
     }
