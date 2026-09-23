@@ -22,6 +22,7 @@ import {
   createReplayProvider,
   createRecordingProvider,
 } from '@robota-sdk/agent-core/testing';
+import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 import { NodeSessionLogSink, NodeSessionStore } from '@robota-sdk/agent-session';
 
 import { peerTurnOptions } from './harness-peer-driver.js';
@@ -96,6 +97,8 @@ export interface IScriptedSessionOptions {
   forkSession?: boolean;
   /** Command modules composed into the session (e.g. the `/goal` module). */
   commandModules?: readonly ICommandModule[];
+  /** Enable the real background-task runners for schedule/monitor functional tests. */
+  backgroundTasks?: boolean;
   /** Permission posture. Defaults to `bypassPermissions` so tools run unattended. */
   permissionMode?: TPermissionMode;
   /** Pre-approved tool names. */
@@ -201,6 +204,9 @@ export class ScriptedSessionHarness {
       ...(options.resumeSessionId ? { resumeSessionId: options.resumeSessionId } : {}),
       ...(options.forkSession ? { forkSession: options.forkSession } : {}),
       ...(options.commandModules ? { commandModules: options.commandModules } : {}),
+      ...(options.backgroundTasks
+        ? { backgroundTaskRunners: createDefaultBackgroundTaskRunners() }
+        : {}),
       ...(options.maxTurns !== undefined ? { maxTurns: options.maxTurns } : {}),
       ...(options.model !== undefined ? { model: options.model } : {}),
       ...(options.terminalHandoff ? { terminalHandoff: options.terminalHandoff } : {}),

@@ -339,6 +339,7 @@ export abstract class InteractiveSessionBase {
     label: string;
     cronExpression: string;
     agentInstruction: string;
+    sessionLoop?: boolean;
   }): Promise<IBackgroundTaskState> {
     await this.ensureInitialized();
     return this.bgTracker.getManagerOrThrow().spawn({
@@ -350,6 +351,7 @@ export abstract class InteractiveSessionBase {
       cwd: this.getCwd(),
       cronExpression: input.cronExpression,
       agentInstruction: input.agentInstruction,
+      ...(input.sessionLoop ? { metadata: { sessionLoop: true } } : {}),
     });
   }
 
