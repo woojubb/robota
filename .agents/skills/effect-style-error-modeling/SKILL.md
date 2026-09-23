@@ -7,25 +7,16 @@ description: Model predictable TypeScript workflow failures with explicit Result
 
 ## Rule Anchor
 
-- [operational.md](../../rules/operational.md) > "No Fallback Policy"
-- [code-quality.md](../../rules/code-quality.md) > "Development Patterns"
+[common-mistakes.md, entry 57](../../rules/common-mistakes.md) owns the failure convention.
+This skill supplies an implementation method, not another Result-vs-throw policy.
 
-The No-Fallback rule (owned by [operational.md](../../rules/operational.md)) is the constraint;
-this skill owns only the Result-vs-throw decision method. Model errors as data
-(`type Result<T, E> = { ok: true; value: T } | { ok: false; error: E }`), define domain-specific
-error unions, map external exceptions to typed variants once at the boundary adapter, and keep one
-canonical error path per use case. Never convert terminal failure into active processing without a
-separately gated, explicitly authorized policy path.
+## Method
 
-## When to Use Result vs Throw
-
-| Scenario                                                           | Use                                 | Rationale                                    |
-| ------------------------------------------------------------------ | ----------------------------------- | -------------------------------------------- |
-| Domain operation that can fail (validation, not found, conflict)   | `Result<T, E>`                      | Caller must handle failure explicitly        |
-| Truly unexpected programmer error (assertion, invariant violation) | `throw`                             | Should crash, not be silently handled        |
-| External SDK/API call boundary                                     | `Result<T, E>` via boundary adapter | Convert exception to typed error at boundary |
-| Internal helper called only by Result-returning functions          | Either                              | Match the caller's convention                |
-
-**Decision rule:** if the caller should reasonably handle the failure, return `Result`. If the
-failure means a bug in the code, throw. Do not mix `throw` and `Result` randomly in one flow, and
-never catch-everything into a generic fallback success.
+1. Read the owning SPEC and trace failures from producer through adapters to callers, marking
+   where the public contract changes. If the convention is unspecified or contradictory, resolve
+   it in that SPEC before changing the implementation.
+2. Reuse the declared error/result types. For a Result-based contract, enumerate predictable
+   failure variants and implement the caller's handling of each variant. Locate any conversion
+   in the adapter that owns the receiving contract.
+3. Verify the selected contract with focused tests for failure outcomes, required exception
+   identity, and declared boundary conversions.
