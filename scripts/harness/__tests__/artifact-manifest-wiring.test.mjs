@@ -15,13 +15,13 @@ const manifests = globSync(['packages/*/package.json', 'packages/dag-nodes/*/pac
   .map((file) => ({ file, value: JSON.parse(readFileSync(path.join(root, file), 'utf8')) }));
 
 describe('complete artifact manifest wiring (ARTIFACT-2655)', () => {
-  it('routes all 31 compiler-watch dev owners through complete assembly, excluding product dev servers', () => {
+  it('routes all 30 compiler-watch dev owners through complete assembly, excluding product dev servers', () => {
     const watchOwners = manifests.filter(
       ({ value }) =>
         /^(?:tsup|tsdown)\b.*--watch/u.test(value.scripts?.dev ?? '') ||
         value.scripts?.dev?.endsWith('/scripts/artifacts/watch-package.mjs'),
     );
-    expect(watchOwners).toHaveLength(31);
+    expect(watchOwners).toHaveLength(30);
     for (const { file, value } of watchOwners) {
       expect(value.name).not.toBe('@robota-sdk/agent-cli');
       const relativeRoot = path

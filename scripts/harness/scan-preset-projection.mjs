@@ -112,7 +112,7 @@ function importAliases(sourceFile, sourceInterface) {
         }
       }
     }
-    ts.forEachChild(node, visit);
+    node.forEachChild(visit);
   };
   visit(sourceFile);
   return aliases;
@@ -288,7 +288,7 @@ function pickFromType(type, sourceInterface, sourceFile, fileName, sourceFieldNa
   const literals = [];
   const collect = (n) => {
     if (ts.isLiteralTypeNode(n) && n.literal?.text) literals.push(n.literal.text);
-    ts.forEachChild(n, collect);
+    n.forEachChild(collect);
   };
   collect(keys);
   const { line } = sourceFile.getLineAndCharacterOfPosition(type.getStart(sourceFile));
@@ -350,7 +350,7 @@ export function pickedFields(content, fileName, sourceInterface, sourceFieldName
         if (picked) picks.push(picked);
       }
     }
-    ts.forEachChild(node, visit);
+    node.forEachChild(visit);
   };
   visit(sourceFile);
   return picks;

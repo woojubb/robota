@@ -29,7 +29,11 @@
 import { spawnSync } from 'node:child_process';
 
 import { readWithBackoff } from './github-api.mjs';
-import { collectClosingLines, parsePullRequestNumbers } from './promotion-closes.mjs';
+import {
+  collectClosingLines,
+  createGitHubReaders,
+  resolveLandingPullNumbers,
+} from './promotion-closes.mjs';
 
 /** Sentinel a caller passes when the requirement could not be derived. Blocks, never passes. */
 export const UNAVAILABLE = 'UNAVAILABLE';
@@ -131,89 +135,94 @@ export function decidePromotionCloses({ baseRef, body, requiredIssues, defaultBr
 /* ------------------------------------------------------------------ CLI */
 
 function ghRunner(args) {
-  return spawnSync('gh', args, { encoding: 'utf8' });
+  return spawnSync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 }
 
 /** allow-unpaginated: a pull request by number is ONE resource, not a collection; no count derived. */
 function readPull(repo, pullNumber) {
   const response = readWithBackoff(
     ghRunner,
-    ['api', `repos/${repo}/pulls/${pullNumber}`, '--jq', '{base: .base.ref, body: (.body // "")}'],
+    [
+      'api',
+      `repos/${repo}/pulls/${pullNumber}`,
+      '--jq',
+      '{base: .base.ref, baseOid: .base.sha, headOid: .head.sha, body: (.body // "")}',
+    ],
     `pulls/${pullNumber}`,
   );
   return JSON.parse(response.stdout);
 }
 
-/**
- * Subjects out of the raw `gh` stdout, one JSON-encoded commit message per line.
- *
- * The encoding is not decoration. `--jq '.[].commit.message'` prints a scalar RAW, so a squash
- * message's body arrives as further lines of stdout and every one of them reads as another commit's
- * subject. A body line that happens to end in `(#123)` — quoting another pull request, which a
- * promotion body routinely does — then enters `parsePullRequestNumbers` as a carried pull request,
- * and this guard is a required check on `protect-main`: the promotion is blocked on an issue no
- * commit here carries. `@json` puts each message on exactly ONE line, which is the shape the caller
- * always assumed, and this function is where the assumption is now testable.
- */
-export function parseCommitSubjects(stdout) {
-  return (stdout ?? '')
-    .split('\n')
-    .filter((line) => line.trim() !== '')
-    .map((line) => {
-      let message;
-      try {
-        message = JSON.parse(line);
-      } catch {
-        // Fail loudly: the caller turns a throw into UNAVAILABLE, which BLOCKS. Guessing at a
-        // half-decoded line would let a mis-parse read as "no pull requests carried" — a pass.
-        throw new Error(`commit message line is not JSON-encoded: ${line.slice(0, 80)}`);
-      }
-      if (typeof message !== 'string') {
-        throw new Error(`commit message is not a string: ${line.slice(0, 80)}`);
-      }
-      return message.split('\n')[0].trim();
-    })
-    .filter((subject) => subject !== '');
-}
-
-function pullCommitSubjects(repo, pullNumber) {
+function readCommitParents(repo, oid) {
   const response = readWithBackoff(
     ghRunner,
-    [
-      'api',
-      '--paginate',
-      `repos/${repo}/pulls/${pullNumber}/commits?per_page=100`,
-      '--jq',
-      '.[].commit.message | @json',
-    ],
-    `pulls/${pullNumber}/commits`,
-  );
-  return parseCommitSubjects(response.stdout);
-}
-
-/** allow-unpaginated: a pull request by number is ONE resource, not a collection; no count derived. */
-function readPullBodyViaApi(repo, pullNumber) {
-  const response = readWithBackoff(
-    ghRunner,
-    ['api', `repos/${repo}/pulls/${pullNumber}`, '--jq', '.body // ""'],
-    `pulls/${pullNumber}`,
-  );
-  return response.stdout ?? '';
-}
-
-/** allow-unpaginated: an issue by number is ONE resource, not a collection; no count derived. */
-function readIssueStateViaApi(repo, issueNumber) {
-  const response = readWithBackoff(
-    ghRunner,
-    [
-      'api',
-      `repos/${repo}/issues/${issueNumber}`,
-      '--jq',
-      '{state: .state, isPullRequest: (has("pull_request"))}',
-    ],
-    `issues/${issueNumber}`,
+    ['api', `repos/${repo}/commits/${oid}`, '--jq', '[.parents[].sha]'],
+    `commits/${oid}`,
   );
   return JSON.parse(response.stdout);
+}
+
+export function promotionDevelopHead({ headOid, baseOid, parents }) {
+  if (parents.length !== 2 || parents.some((oid) => !/^[0-9a-f]{40}$/i.test(oid))) {
+    throw new Error(
+      `promotion head ${headOid} must be the sanctioned two-parent merge; found ${parents.length} parent(s)`,
+    );
+  }
+  if (parents[1] !== baseOid) {
+    throw new Error(
+      `promotion head ${headOid} must record base ${baseOid} as its second parent; found ${parents[1]}`,
+    );
+  }
+  return parents[0];
+}
+
+export function comparisonFirstParentLandingOids({ headOid, pages }) {
+  if (!Array.isArray(pages) || pages.length === 0) {
+    throw new Error('promotion comparison returned no pages');
+  }
+  const mergeBase = pages[0]?.merge_base_commit?.sha;
+  const total = pages[0]?.total_commits;
+  const commits = pages.flatMap((page) => (Array.isArray(page?.commits) ? page.commits : []));
+  if (!/^[0-9a-f]{40}$/i.test(mergeBase ?? '')) {
+    throw new Error('promotion comparison returned no full merge-base OID');
+  }
+  if (!Number.isSafeInteger(total) || total < 0 || commits.length !== total) {
+    throw new Error(
+      `promotion comparison is incomplete: expected ${String(total)}, read ${commits.length} commit(s)`,
+    );
+  }
+  const byOid = new Map(
+    commits.map((commit) => [
+      commit.sha,
+      Array.isArray(commit.parents) ? commit.parents.map((parent) => parent.sha) : [],
+    ]),
+  );
+  const landingOids = [];
+  const seen = new Set();
+  let current = headOid;
+  while (current !== mergeBase) {
+    if (seen.has(current)) throw new Error(`promotion comparison first-parent cycle at ${current}`);
+    seen.add(current);
+    const parents = byOid.get(current);
+    if (!parents || !/^[0-9a-f]{40}$/i.test(parents[0] ?? '')) {
+      throw new Error(`promotion comparison cannot continue first-parent walk from ${current}`);
+    }
+    landingOids.push(current);
+    current = parents[0];
+  }
+  return landingOids;
+}
+
+function comparisonLandingOids(repo, baseOid, headOid) {
+  const endpoint = `repos/${repo}/compare/${baseOid}...${headOid}?per_page=100`;
+  const response = readWithBackoff(ghRunner, ['api', '--paginate', '--slurp', endpoint], endpoint);
+  let pages;
+  try {
+    pages = JSON.parse(response.stdout);
+  } catch (error) {
+    throw new Error(`promotion comparison returned invalid JSON: ${error.message}`);
+  }
+  return comparisonFirstParentLandingOids({ headOid, pages });
 }
 
 function parseArgs(argv) {
@@ -252,11 +261,20 @@ export async function main(argv = process.argv.slice(2)) {
   let requiredIssues = UNAVAILABLE;
   if (pull.base === defaultBranch) {
     try {
-      const carried = parsePullRequestNumbers(pullCommitSubjects(repo, pr));
+      const readers = createGitHubReaders(repo);
+      const developHead = promotionDevelopHead({
+        headOid: pull.headOid,
+        baseOid: pull.baseOid,
+        parents: readCommitParents(repo, pull.headOid),
+      });
+      const carried = resolveLandingPullNumbers({
+        landingOids: comparisonLandingOids(repo, pull.baseOid, developHead),
+        baseRefName: 'develop',
+        readAssociatedPull: readers.readAssociatedPull,
+      });
       requiredIssues = collectClosingLines({
         pullNumbers: carried,
-        readPullBody: (n) => readPullBodyViaApi(repo, n),
-        readIssueState: (n) => readIssueStateViaApi(repo, n),
+        ...readers,
       }).issues;
     } catch (error) {
       // Deliberately NOT rethrown as a crash: `requiredIssues` is left at UNAVAILABLE so the

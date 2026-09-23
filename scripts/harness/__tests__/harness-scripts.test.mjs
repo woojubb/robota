@@ -159,36 +159,23 @@ describe('repository-check ownership', () => {
     );
   });
 
-  it('keeps harness suites CI-owned without automatic pre-push or local diagnostic execution', () => {
-    const localGate = readFileSync('scripts/harness/verify-like-ci-execution.mjs', 'utf8');
+  it('keeps harness suites CI-owned without automatic pre-push execution', () => {
     const prePushRuntime = readFileSync('scripts/harness/pre-push-runtime.mjs', 'utf8');
-    const prePushMirror = readFileSync('scripts/harness/pre-push-ci-mirror.mjs', 'utf8');
-    const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
-    const scansStart = ci.indexOf('\n  scans:');
-    const scansEnd = ci.indexOf('\n  dependency-audit:', scansStart);
-    expect(scansStart).toBeGreaterThanOrEqual(0);
-    expect(scansEnd).toBeGreaterThan(scansStart);
-    const scansJob = ci.slice(scansStart, scansEnd);
+    const jobs = parse(readFileSync('.github/workflows/ci.yml', 'utf8')).jobs;
+    const contractsRun = jobs['harness-contracts'].steps.find(
+      (step) => step.name === 'Run affected harness contracts',
+    ).run;
+    const hermeticRun = jobs['harness-hermetic'].steps.find((step) =>
+      step.run?.includes('harness:test:hermetic'),
+    ).run;
 
     expect(prePushRuntime).toContain('runPrePushVerification');
-    expect(prePushRuntime).not.toContain('createCiScansJobMirror');
-    expect(localGate).not.toMatch(/'harness-(?:self|hermetic)-test'|'scan-suite-dist-free'/);
-    expect(localGate).not.toMatch(/['"]harness:test(?::[^'"]*)?['"]/);
-    expect(scansJob.match(/pnpm harness:test:contracts:affected\b/g)).toHaveLength(1);
-    expect(scansJob.match(/pnpm harness:test:hermetic\b/g)).toHaveLength(1);
-    expect(scansJob).toContain('--head-ref HEAD');
+    expect(prePushRuntime).not.toMatch(/harness:test|harness:scan/);
+    expect(contractsRun).toContain('pnpm harness:test:contracts:affected');
+    expect(contractsRun).toContain('--head-ref HEAD');
+    expect(hermeticRun).toBe('pnpm harness:test:hermetic');
     const { calls } = captureLocalPrePush({ mode: 'full' });
-    expect(calls).toEqual([
-      ['pnpm', ['harness:plan', '--', '--base-ref', 'origin/develop']],
-      [
-        'pnpm',
-        ['harness:verify-like-ci', '--', '--base-ref', 'origin/develop', '--only', 'format-check'],
-      ],
-    ]);
-    // The pure command reference remains available for the CI workflow coverage assertions.
-    expect(prePushMirror).toContain("'harness:test:contracts:affected'");
-    expect(prePushMirror).toContain("return [command, ['harness:test:contracts']]");
-    expect(prePushMirror).toContain("['pnpm', ['harness:test:hermetic']]");
+    expect(calls).toEqual([['pnpm', ['harness:plan', '--', '--base-ref', 'origin/develop']]]);
   });
 });
 
@@ -199,7 +186,6 @@ describe('CI build workflow', () => {
   it('runs the monorepo root build once instead of per-scope package builds', () => {
     const content = readFileSync('.github/workflows/ci.yml', 'utf8');
 
-    expect(content).toContain('run: pnpm build');
     expect(content).toContain('Detect build requirement');
     expect(content).toContain(
       "const checksRequiringPackageDist = new Set(['build', 'test', 'typecheck'])",
@@ -209,6 +195,9 @@ describe('CI build workflow', () => {
     );
     expect(content).toContain("steps.build_requirement.outputs.required == 'true'");
     const steps = parse(content).jobs.build.steps;
+    const workspaceBuild = steps.find((step) => step.name === 'Build full or affected workspace');
+    expect(workspaceBuild.run).toContain('pnpm build');
+    expect(workspaceBuild.run).toContain('pnpm build:affected');
     const archiveIndex = steps.findIndex((step) => step.name === 'Archive package build output');
     expect(archiveIndex).toBeGreaterThan(
       steps.findIndex((step) => step.name === 'Build full or affected workspace'),
@@ -225,38 +214,20 @@ describe('CI build workflow', () => {
     expect(steps[uploadIndex].if).toBe(steps[archiveIndex].if);
     expect(content).not.toContain('tar -czf package-dist.tgz packages/*/dist');
     expect(content).toContain(
-      'package_dist_required: ${{ steps.build_requirement.outputs.required || steps.build_requirement_na.outputs.required }}',
+      'package_dist_required: ${{ steps.build_requirement.outputs.required }}',
     );
     expect(content).not.toContain('Build affected scopes');
     expect(content).not.toContain('--skip-tests --skip-lint --skip-typecheck');
     expect(content).not.toContain('<scope>^...');
   });
 
-  it('keeps dist-dependent contracts in the shared build/quality producer', () => {
-    const content = readFileSync('.github/workflows/ci.yml', 'utf8');
-    const buildStart = content.indexOf('\n  build:\n');
-    const qualityStart = content.indexOf('\n  quality:\n');
-    const scansStart = content.indexOf('\n  scans:\n');
-
-    expect(buildStart).toBeGreaterThanOrEqual(0);
-    expect(qualityStart).toBeGreaterThan(buildStart);
-    expect(scansStart).toBeGreaterThan(qualityStart);
-
-    const buildJob = content.slice(buildStart, qualityStart);
-    const qualityJob = content.slice(qualityStart, scansStart);
-    const workspaceBuildIndex = buildJob.indexOf('Build full or affected workspace');
-    const packageQualityIndex = buildJob.indexOf(
-      'Verify full or affected package quality concurrently',
+  it('keeps dist-dependent contracts in the build producer without a duplicate quality job', () => {
+    const jobs = parse(readFileSync('.github/workflows/ci.yml', 'utf8')).jobs;
+    const names = jobs.build.steps.map((step) => step.name).filter(Boolean);
+    expect(names.indexOf('Build-output contracts scan (dist-dependent)')).toBeGreaterThan(
+      names.indexOf('Build full or affected workspace'),
     );
-    const buildContractsIndex = buildJob.indexOf('Build-output contracts scan (dist-dependent)');
-
-    expect(workspaceBuildIndex).toBeGreaterThanOrEqual(0);
-    expect(packageQualityIndex).toBeGreaterThan(workspaceBuildIndex);
-    expect(buildContractsIndex).toBeGreaterThan(packageQualityIndex);
-    expect(qualityJob).toContain('needs: [changes, build]');
-    expect(qualityJob).toContain('Publish the product verification verdict');
-    expect(qualityJob).toContain('BUILD_RESULT: ${{ needs.build.result }}');
-    expect(qualityJob).not.toContain('Build-output contracts scan (dist-dependent)');
+    expect(jobs).not.toHaveProperty('quality');
   });
 
   it('delegates scoped typechecks to the affected root command exactly once', () => {
@@ -280,7 +251,15 @@ describe('CI build workflow', () => {
     expect(content).not.toContain('covered by release-grade verification');
     expect(content).not.toMatch(/name: Skip duplicate/);
 
-    for (const jobId of ['build', 'quality', 'scans', 'dependency-audit']) {
+    for (const jobId of [
+      'build',
+      'repo-checks',
+      'harness-contracts',
+      'harness-hermetic',
+      'dependency-security',
+      'dependency-policy',
+      'secret-scan',
+    ]) {
       const jobIndex = content.indexOf(`\n  ${jobId}:\n`);
       expect(jobIndex, `${jobId} job must exist`).toBeGreaterThanOrEqual(0);
       const header = content.slice(jobIndex, content.indexOf('steps:', jobIndex));
@@ -290,15 +269,14 @@ describe('CI build workflow', () => {
     }
   });
 
-  it('detects dependency graph changes before the security scan (INFRA-038: osv-scanner, not the retired pnpm audit)', () => {
+  it('selects the security scan from semantic dependency classification (INFRA-038)', () => {
     const content = readFileSync('.github/workflows/ci.yml', 'utf8');
-    const diffIndex = content.indexOf('Detect dependency graph changes');
-    const scanIndex = content.indexOf(
-      'Vulnerability scan (osv-scanner) for dependency graph changes',
-    );
+    const workflow = parse(content);
+    const dependencySecurity = workflow.jobs['dependency-security'];
 
-    expect(diffIndex).toBeGreaterThanOrEqual(0);
-    expect(scanIndex).toBeGreaterThan(diffIndex);
+    expect(dependencySecurity.needs).toBe('changes');
+    expect(dependencySecurity.if).toContain("needs.changes.outputs.dependencies == 'true'");
+    expect(dependencySecurity.steps.some((step) => step.name?.includes('osv-scanner'))).toBe(true);
     // The retired npm audit endpoint (410) must not be reintroduced as a command.
     expect(content).not.toContain('pnpm audit --audit-level');
     expect(content).toContain('scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml');
@@ -554,11 +532,10 @@ describe('pre-push hook', () => {
     const full = captureLocalPrePush({ mode: 'full' });
     expect(fast.calls[0][1]).toContain('--skip-dependent-scopes');
     expect(full.calls[0][1]).not.toContain('--skip-dependent-scopes');
-    expect(fast.calls[1]).toEqual(full.calls[1]);
-    expect(fast.calls).toHaveLength(2);
-    expect(full.calls).toHaveLength(2);
+    expect(fast.calls).toHaveLength(1);
+    expect(full.calls).toHaveLength(1);
     expect(fast.output).toContain('planning dependent scope expansion: skipped');
-    expect(full.output).toContain('Local checks passed: planning, formatting — not CI-equivalent');
+    expect(full.output).toContain('Pre-push ran only changed-input planning');
   });
 
   it('does not skip dirty working tree changes as tree-equivalent pushes', () => {
@@ -821,22 +798,31 @@ describe('classifyRootManifestChange', () => {
     });
   });
 
-  it('recognizes root harness command changes as developer-quality-only', () => {
+  it('recognizes explicit local authoring commands as developer-quality-only', () => {
     const after = structuredClone(before);
-    after.scripts['harness:work-run'] = 'node scripts/harness/work-run.mjs';
-    after.scripts['harness:test'] = 'node scripts/harness/harness-test-tiers.mjs --tier contracts';
+    after.scripts['harness:review'] = 'node scripts/harness/review-change.mjs';
+    after.scripts['harness:plan'] = 'node scripts/harness/plan-change.mjs';
 
     expect(classifyRootManifestChange({ before, after })).toEqual({
       kind: 'developer-quality-only',
       changedKeys: ['scripts'],
-      changedScriptKeys: ['harness:work-run', 'harness:test'],
+      changedScriptKeys: ['harness:review', 'harness:plan'],
       workspaceWide: false,
     });
   });
 
+  it.each(['harness:workspace:run', 'harness:scan:build-contracts', 'build:affected'])(
+    'fails closed when CI execution command %s changes',
+    (script) => {
+      const after = structuredClone(before);
+      after.scripts[script] = 'changed command';
+      expect(classifyRootManifestChange({ before, after }).workspaceWide).toBe(true);
+    },
+  );
+
   it('fails closed when a product test command changes beside harness commands', () => {
     const after = structuredClone(before);
-    after.scripts['harness:work-run'] = 'node scripts/harness/work-run.mjs';
+    after.scripts['harness:review'] = 'node scripts/harness/review-change.mjs';
     after.scripts.test = 'pnpm -r test --changed';
 
     expect(classifyRootManifestChange({ before, after }).workspaceWide).toBe(true);

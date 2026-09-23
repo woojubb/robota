@@ -81,7 +81,7 @@ describe('the exemptions', () => {
   });
 
   it('leaves a verbatim-quoted instruction alone', () => {
-    // GATE-APPROVAL's evidence log records the user's own words exactly. Rewriting the quote to add
+    // Historical approval evidence records the user's own words exactly. Rewriting the quote to add
     // a qualifier would falsify the record it exists to preserve — the same reason a fenced block is
     // a specimen rather than a claim (item 13.6, 2026-09-08 overhead report).
     expect(

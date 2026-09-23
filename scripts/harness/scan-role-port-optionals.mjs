@@ -150,9 +150,9 @@ export function declarationsOf(content, fileName) {
     if (ts.isModuleDeclaration(node)) {
       const collect = (inner) => {
         if (ts.isInterfaceDeclaration(inner)) nested.push({ name: inner.name.text });
-        ts.forEachChild(inner, collect);
+        inner.forEachChild(collect);
       };
-      ts.forEachChild(node, collect);
+      node.forEachChild(collect);
       return;
     }
     if (ts.isInterfaceDeclaration(node)) {
@@ -166,7 +166,7 @@ export function declarationsOf(content, fileName) {
         if (local) imports.set(local, { module, exported: element.propertyName?.text ?? local });
       }
     }
-    ts.forEachChild(node, (child) => visit(child, inModule));
+    node.forEachChild((child) => visit(child, inModule));
   };
   visit(sourceFile, false);
 

@@ -12,7 +12,7 @@ import {
 } from './verification-budget-runtime.mjs';
 
 // Closeout CLI:
-//   --select-merge-decision --pr N --head SHA --base BRANCH --base-oid SHA  (comments JSON on stdin)
+//   --select-merge-decision --pr N --head SHA --base BRANCH  (comments JSON on stdin)
 //   --audit-closeout --repo OWNER/REPO --pr N --issue N|none --merge-comment N --completion-comment N
 
 const REQUIRED = Object.freeze([
@@ -63,8 +63,7 @@ export function parsePostFindingsAuthorization(body) {
   )
     return null;
   const actionMatchesGround =
-    (action === 'rebase' && ground === 'rebase') ||
-    (action === 'push' && ['finding', 'red-check'].includes(ground));
+    action === 'push' && ['finding', 'red-check', 'conflict'].includes(ground);
   if (!actionMatchesGround) return null;
   if (
     fields.get('APPROVED').toLowerCase() !== 'yes' ||
@@ -400,8 +399,7 @@ export function auditMergeDecisionReceipts({ pr, comments }) {
     mergeDecision.commentNumber !== pr.number ||
     mergeDecision.prNumber !== pr.number ||
     mergeDecision.head !== String(pr.headRefOid ?? '').toLowerCase() ||
-    mergeDecision.base !== pr.baseRefName ||
-    mergeDecision.baseOid !== String(pr.baseRefOid ?? '').toLowerCase()
+    mergeDecision.base !== pr.baseRefName
   ) {
     return { ok: false, reason: 'merge-decision-state-mismatch' };
   }
@@ -412,9 +410,9 @@ export function auditCloseoutReceipts({
   repository,
   pr,
   issue,
-  mergeParentOid,
   mergeComments,
   completionComments,
+  historicalBaseAncestry,
 }) {
   if (!/^[^/\s]+\/[^/\s]+$/.test(repository ?? '') || !pr || !Array.isArray(mergeComments)) {
     return { ok: false, reason: 'invalid-closeout-projection' };
@@ -445,7 +443,10 @@ export function auditCloseoutReceipts({
     mergeDecision.prNumber !== pr.number ||
     mergeDecision.head !== String(pr.headRefOid ?? '').toLowerCase() ||
     mergeDecision.base !== pr.baseRefName ||
-    mergeDecision.baseOid !== String(mergeParentOid ?? '').toLowerCase() ||
+    historicalBaseAncestry?.mergeCommit !== String(pr.mergeCommit?.oid ?? '').toLowerCase() ||
+    historicalBaseAncestry?.historicalBase !== mergeDecision.baseOid ||
+    !/^[0-9a-f]{40}$/u.test(historicalBaseAncestry?.firstParent ?? '') ||
+    !['ahead', 'identical'].includes(historicalBaseAncestry?.status) ||
     Date.parse(mergeDecision.createdAt) > mergedAt
   ) {
     return { ok: false, reason: 'merge-decision-state-mismatch' };
@@ -529,6 +530,34 @@ function fetchCloseoutCommentEnvelopes(repository, number, runGh, runtime) {
   return pages.flat().map(closeoutEnvelopeFromApi);
 }
 
+function fetchHistoricalBaseAncestry({ repository, pr, mergeDecision, runGh, runtime }) {
+  const mergeCommit = String(pr?.mergeCommit?.oid ?? '').toLowerCase();
+  if (!/^[0-9a-f]{40}$/u.test(mergeCommit) || !mergeDecision) return null;
+  const commit = boundedGhJson(
+    ['api', `repos/${repository}/commits/${mergeCommit}`],
+    runGh,
+    runtime,
+  );
+  const firstParent = String(commit?.parents?.[0]?.sha ?? '').toLowerCase();
+  if (
+    String(commit?.sha ?? '').toLowerCase() !== mergeCommit ||
+    !/^[0-9a-f]{40}$/u.test(firstParent)
+  ) {
+    return null;
+  }
+  const comparison = boundedGhJson(
+    ['api', `repos/${repository}/compare/${mergeDecision.baseOid}...${firstParent}`],
+    runGh,
+    runtime,
+  );
+  return {
+    mergeCommit,
+    firstParent,
+    historicalBase: mergeDecision.baseOid,
+    status: comparison?.status,
+  };
+}
+
 export function fetchCloseoutAudit({
   repository,
   prNumber,
@@ -576,11 +605,6 @@ export function fetchCloseoutAudit({
     runGh,
     runtime,
   );
-  const mergeCommitOid = String(pr.mergeCommit?.oid ?? '').toLowerCase();
-  const mergeGitCommit = /^[0-9a-f]{40}$/.test(mergeCommitOid)
-    ? boundedGhJson(['api', `repos/${repository}/git/commits/${mergeCommitOid}`], runGh, runtime)
-    : null;
-  const mergeParentOid = mergeGitCommit?.parents?.[0]?.sha ?? null;
   const completionComments =
     issueNumber === null
       ? mergeComments
@@ -593,13 +617,28 @@ export function fetchCloseoutAudit({
           runGh,
           runtime,
         );
+  const selectedMerge = uniqueReceipt(
+    mergeComments,
+    parseMergeDecisionReceipt,
+    'missing-merge-decision',
+    'ambiguous-merge-decision',
+  );
+  const historicalBaseAncestry = selectedMerge.ok
+    ? fetchHistoricalBaseAncestry({
+        repository,
+        pr,
+        mergeDecision: selectedMerge.receipt,
+        runGh,
+        runtime,
+      })
+    : null;
   const audit = auditCloseoutReceipts({
     repository,
     pr,
     issue,
-    mergeParentOid,
     mergeComments,
     completionComments,
+    historicalBaseAncestry,
   });
   if (
     audit.ok &&
@@ -627,7 +666,6 @@ export async function main(argv = process.argv.slice(2)) {
         number: Number(option(argv, '--pr')),
         headRefOid: option(argv, '--head'),
         baseRefName: option(argv, '--base'),
-        baseRefOid: option(argv, '--base-oid'),
       },
       comments: envelopes,
     });
@@ -661,7 +699,8 @@ export async function main(argv = process.argv.slice(2)) {
       action,
     }),
   );
-  process.stdout.write(results.filter((result) => result.ok).length === 1 ? '1\n' : '0\n');
+  const matches = results.filter((result) => result.ok);
+  process.stdout.write(matches.length === 1 ? `${matches[0].ground}\n` : '0\n');
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {

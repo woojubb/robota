@@ -408,7 +408,7 @@ export function findLegacyImportsInSource(source, file) {
   // possibly match. A file that never spells the package cannot import it.
   if (!source.includes(LEGACY_PACKAGE)) return [];
 
-  const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  const sourceFile = ts.createSourceFile(file, source);
   const hits = [];
   const visit = (node) => {
     const specifier = moduleSpecifierOf(node);
@@ -418,9 +418,9 @@ export function findLegacyImportsInSource(source, file) {
         specifier,
       });
     }
-    ts.forEachChild(node, visit);
+    node.forEachChild(visit);
   };
-  ts.forEachChild(sourceFile, visit);
+  sourceFile.forEachChild(visit);
   return hits;
 }
 
@@ -665,7 +665,7 @@ function main() {
   console.error(
     '\nPERF-005: no first-party code may depend on the legacy TypeScript compiler.\n' +
       '  - legacy-typescript-import: use `scripts/harness/lib/ts-ast.mjs` (the native-AST adapter),\n' +
-      '    which covers the syntactic API — createSourceFile, forEachChild, SyntaxKind, isXxx guards.\n' +
+      '    which covers the syntactic API — createSourceFile, node.forEachChild, SyntaxKind, and isXxx guards.\n' +
       '    Nothing in this repo uses the type checker; if you genuinely need it, that is a design\n' +
       '    decision for the backlog item, not a new import.\n' +
       '  - legacy-typescript-dependency: only the root manifest may declare it, and only while\n' +

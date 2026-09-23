@@ -152,11 +152,14 @@ describe('a skill does not instruct itself to do what it disowned', () => {
     // Fail closed: if the table convention is renamed, every case below passes over nothing.
     const declaring = SKILLS.filter((s) => disownedActions(s.text).length > 0);
 
-    // Five, not fourteen: most rows in these tables are "Define …" / "Decide …", which state who owns
+    // Three, not fourteen: most rows in these tables are "Define …" / "Decide …", which state who owns
     // a POLICY. Only a performable action can be crossed by a procedure, so only those are scanned —
     // and the number is asserted so a narrowing that quietly emptied the set would fail here.
-    expect(declaring.length).toBeGreaterThanOrEqual(5);
-    expect(declaring.map((s) => s.name)).toContain('pr-finding-resolution-loop');
+    expect(declaring.map((s) => s.name).sort()).toEqual([
+      'delegated-refactor-green-gate',
+      'post-merge-cycle',
+      'release-orchestration',
+    ]);
   });
 
   for (const skill of SKILLS) {

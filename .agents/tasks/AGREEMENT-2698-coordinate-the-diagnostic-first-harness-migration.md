@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-2698: Coordinate the diagnostic-first harness migration'
 issue: https://github.com/woojubb/robota/issues/2698
-status: in-progress
+status: superseded
 created: 2026-09-11
 priority: medium
 urgency: soon
@@ -18,6 +18,12 @@ children:
 ---
 
 # AGREEMENT-2698: Coordinate the diagnostic-first harness migration
+
+## Disposition
+
+**Superseded as a separate initiative by issue #2826.** The diagnostic-first migration is performed
+directly by the simplified harness: policy findings remain visible, detector failures are explicit,
+and obsolete gate/ledger machinery is deleted rather than kept as a compatibility layer.
 
 ## Objective
 

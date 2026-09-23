@@ -40,6 +40,10 @@ export function runHermeticTestsInStrippedRepository(root = DEFAULT_ROOT) {
   return runHermetic(root);
 }
 
+export function runCompleteContractTier(root, tiers) {
+  return runAffectedContractTierBase(['--distributed-shard'], root, tiers);
+}
+
 function valueAfter(argv, flag) {
   const index = argv.indexOf(flag);
   return index >= 0 ? argv[index + 1] : undefined;
@@ -145,6 +149,9 @@ export async function main(argv = process.argv.slice(2), root = DEFAULT_ROOT) {
       return undefined;
     }
     return runAffectedContractTier(argv, root, tiers);
+  }
+  if (tier === 'contracts') {
+    return runCompleteContractTier(root, tiers);
   }
   let result;
   for (const files of testInvocationsForTier(tiers, tier)) {

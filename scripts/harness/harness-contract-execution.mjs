@@ -9,9 +9,10 @@ import {
 } from './affected-contract-tests.mjs';
 import { inspectContractTestCache, recordSuccessfulContractShard } from './contract-test-cache.mjs';
 import { createContractTestRegistry } from './contract-test-inputs.mjs';
-import { vitestInvocation, vitestInvocationAsync } from './harness-vitest-process.mjs';
+import { ACTIVE_SHARD_CHILDREN, vitestInvocationAsync } from './harness-vitest-process.mjs';
 
 export const DEFAULT_CONTRACT_SHARD_CONCURRENCY = 2;
+const WORKTREE_FINGERPRINT_MAX_BUFFER_BYTES = 256 * 1024 * 1024;
 
 /** A submitted shard is not proof that every individual test in it finished executing. */
 export function summarizeContractExecution(selected, cacheHits, runs) {
@@ -39,7 +40,11 @@ function contractShardConcurrency(environment = process.env) {
 }
 
 function gitOutput(root, args) {
-  const result = spawnSync('git', args, { cwd: root, encoding: null });
+  const result = spawnSync('git', args, {
+    cwd: root,
+    encoding: null,
+    maxBuffer: WORKTREE_FINGERPRINT_MAX_BUFFER_BYTES,
+  });
   if (result.status !== 0 || result.signal) {
     throw new Error(`worktree fingerprint failed: git ${args.join(' ')}`);
   }
@@ -67,6 +72,78 @@ export function worktreeFingerprint(root) {
 function printRun(result) {
   process.stdout.write(result.stdout ?? '');
   process.stderr.write(result.stderr ?? '');
+}
+
+function runContractFiles(root, kind, files, execution = undefined) {
+  const executionArgs = execution?.maxWorkers === 1 ? ' --pool=threads --maxWorkers=1' : '';
+  process.stdout.write(
+    `[contract-tests] started ${kind}: ${files.join(', ')}\n` +
+      `[contract-tests] reproduce: pnpm exec vitest run ${files.join(' ')}${executionArgs}\n`,
+  );
+  return vitestInvocationAsync(root, files, {
+    execution,
+    onOutput(stream, chunk) {
+      (stream === 'stderr' ? process.stderr : process.stdout).write(chunk);
+    },
+  });
+}
+
+/**
+ * Continuously fill a bounded worker pool. Isolated tests remain serial with each other, but one
+ * may run beside an ordinary shard so a slow isolated fixture no longer waits behind every batch.
+ * Results are published as each child finishes; a sibling failure never cancels independent work.
+ */
+export async function runBoundedContractTasks({
+  shards,
+  isolated,
+  concurrency,
+  runShard,
+  runIsolated,
+  onComplete = () => {},
+  isCancelled = () => false,
+}) {
+  const ordinary = shards.map((files) => ({ kind: 'shard', files }));
+  const serial = isolated.map((files) => ({ kind: 'isolated', files }));
+  const results = [];
+  let ordinaryIndex = 0;
+  let isolatedIndex = 0;
+  let isolatedActive = false;
+
+  const claim = () => {
+    if (isCancelled()) return undefined;
+    if (!isolatedActive && isolatedIndex < serial.length) {
+      isolatedActive = true;
+      return serial[isolatedIndex++];
+    }
+    if (ordinaryIndex < ordinary.length) return ordinary[ordinaryIndex++];
+    return undefined;
+  };
+
+  const worker = async () => {
+    for (let task = claim(); task; task = claim()) {
+      let result;
+      try {
+        result =
+          task.kind === 'isolated' ? await runIsolated(task.files) : await runShard(task.files);
+      } catch (error) {
+        result = {
+          status: 1,
+          signal: null,
+          stdout: '',
+          stderr: `contract task failed before its child process started: ${error instanceof Error ? error.message : String(error)}\n`,
+          outputForwarded: false,
+        };
+      } finally {
+        if (task.kind === 'isolated') isolatedActive = false;
+      }
+      results.push({ ...task, result });
+      onComplete(task, result);
+    }
+  };
+
+  const workerCount = Math.min(Math.max(1, concurrency), ordinary.length + serial.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
 }
 
 function changedRefs(argv) {
@@ -132,53 +209,36 @@ export async function runAffectedContractTier(argv, root, tiers) {
   const shardFiles = plan.shards
     .map((files) => files.filter((file) => misses.has(file)))
     .filter((files) => files.length > 0);
-  const before = worktreeFingerprint(root);
-  const shardRuns = [];
   const concurrency = contractShardConcurrency();
-  for (let index = 0; index < shardFiles.length; index += concurrency) {
-    const batch = await Promise.all(
-      shardFiles.slice(index, index + concurrency).map(async (files) => ({
-        files,
-        result: await vitestInvocationAsync(root, files),
-      })),
-    );
-    shardRuns.push(...batch);
-  }
-  for (const { result } of shardRuns) printRun(result);
-  let failed = shardRuns.some(({ result }) => result.status !== 0 || result.signal);
-  const isolatedRuns = [];
-  if (!failed) {
-    for (const files of plan.isolated.filter((file) => misses.has(file)).map((file) => [file])) {
-      // Isolated contract fixtures may run real Git histories for several minutes. A single thread
-      // worker keeps Vitest's worker RPC responsive while preserving the separate-process isolation
-      // that this tier promises; concurrent affected shards retain the bounded thread pool above.
-      const result = vitestInvocation(root, files, root, undefined, {
-        pool: 'threads',
-        maxWorkers: 1,
-      });
-      isolatedRuns.push({ files, result });
-      printRun(result);
-      if ((result.status ?? 1) !== 0 || result.signal) {
-        failed = true;
-        break;
-      }
-    }
-  }
-  if (worktreeFingerprint(root) !== before) {
+  const isolatedFiles = plan.isolated.filter((file) => misses.has(file)).map((file) => [file]);
+  const hasRunnableTasks = shardFiles.length + isolatedFiles.length > 0;
+  const before = hasRunnableTasks ? worktreeFingerprint(root) : null;
+  const runs = await runBoundedContractTasks({
+    shards: shardFiles,
+    isolated: isolatedFiles,
+    concurrency,
+    runShard: (files) => runContractFiles(root, 'shard', files),
+    runIsolated: (files) =>
+      runContractFiles(root, 'isolated', files, { pool: 'threads', maxWorkers: 1 }),
+    onComplete(task, result) {
+      process.stdout.write(`[contract-tests] completed ${task.kind}: ${task.files.join(', ')}\n`);
+      if (!result.outputForwarded) printRun(result);
+    },
+    isCancelled: () => ACTIVE_SHARD_CHILDREN.cancelled,
+  });
+  let failed = runs.some(({ result }) => result.status !== 0 || result.signal);
+  if (before !== null && worktreeFingerprint(root) !== before) {
     process.stderr.write('contract tests modified the caller worktree\n');
     failed = true;
   } else {
     let recorded = 0;
-    for (const { files, result } of [...shardRuns, ...isolatedRuns]) {
+    for (const { files, result } of runs) {
       recorded += recordSuccessfulContractShard({ cache, files, result });
     }
     process.stdout.write(`[contract-tests] cache: recorded ${recorded} successful miss(es)\n`);
   }
   process.exitCode = failed ? 1 : 0;
-  const coverage = summarizeContractExecution(plan.selected, cache.hits, [
-    ...shardRuns,
-    ...isolatedRuns,
-  ]);
+  const coverage = summarizeContractExecution(plan.selected, cache.hits, runs);
   process.stdout.write(
     `[contract-tests] coverage: ${coverage.cacheHits.length} cache-reused; ${coverage.invoked.length} submitted to runners; ${coverage.notInvoked.length} not invoked; ${coverage.failedShards.length} failed shard(s)\n`,
   );

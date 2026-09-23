@@ -11,12 +11,12 @@ current) is [.agents/specs/orchestration-map.md](../specs/orchestration-map.md).
 - **Orchestrator** — manages the PIPELINE ONLY. Runs stages in order; on a verdict it routes forward, or
   **rewinds** to an earlier stage. It performs no domain work and makes no quality judgment of its own — it
   routes purely on the verdict handed to it (and on machine-readable state such as a spec's `status:`
-  frontmatter). Exemplar: `backlog-pipeline`.
+  frontmatter).
 - **Worker** — PRODUCES ONLY. One job (e.g. "write the spec", "research prior art"). Does not inspect its own
   output, does not judge, does not fix. Exemplars: `backlog-writer`, the `prior-art-researcher` agent.
 - **Guardian** — JUDGES ONLY. Inspects a worker's output and returns a **structured, machine-actionable
   verdict** (e.g. `PASS | FAIL | NON-COMPLIANCE`) plus what is missing. It does not do the work and does not fix
-  it. Exemplar: `backlog-gate-guard`.
+  it. Exemplar: `wiring-guardian`.
 
 A skill/agent that both produces and judges, or that judges and also routes, violates this rule. Split it.
 
@@ -85,83 +85,25 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
     no-progress rule to compare, so a COUNT is the right bound and the only one available, and it MUST
     be stated as a number. Demanding an escape here would be a rule firing on a correct state.
 
-  Every loop DECLARES its kind, in one line of its skill's frontmatter, so the population is
-  established by a machine and not by a hand-kept list:
+  The owning workflow states its stopping rule next to the loop. Do not maintain a second registry or
+  per-run ledger merely to restate that runtime behavior.
 
-  ```yaml
-  loop: over=finding-set; escape=no-progress; bound=2 rounds
-  loop: over=attempt; bound=3 requests
-  ```
+- **Halt-for-user (human-decision boundaries)** — the orchestrator stops and surfaces the decision when
+  owner input is actually required. Use where a human sign-off is the point, not as an automatic stage.
 
-  Enforced by `scan-loop-contract.mjs`, which reads that declaration, requires the skill's BODY to
-  state the escape it declares — a declaration nothing implements is the dodge this repository has a
-  separate floor about — and requires the orchestration map's Loop-back cell to agree with it.
+## Runtime evidence, not committed loop ledgers
 
-  The PR-review loop runs with no count at all by owner directive; see
-  [pr-finding-resolution-loop](../skills/pr-finding-resolution-loop/SKILL.md), which owns that decision and
-  the evidence for it.
+Run and round boundaries follow [execution-cadence.md](execution-cadence.md). The executor reports the
+actual result or error where the work runs. Do not create a manually committed per-skill ledger, receipt
+commit, or correlation record for an ordinary synchronous loop.
 
-- **Halt-for-user (human-decision gates)** — the orchestrator stops and surfaces the verdict for the user to
-  decide (the current GATE-APPROVAL shape). Use where a human sign-off is the point.
+Asynchronous or genuinely complex distributed work may carry a runtime correlation identifier, but that
+identifier is operational state rather than a second work lifecycle. The authoritative issue, request,
+PR, check run, or release record owns durable decisions. Historical `.agents/loop-runs/` files remain
+readable evidence and are not enrollment points for new work.
 
-## A loop run is recorded
-
-Run and round boundaries follow [execution-cadence.md](execution-cadence.md). A LOCAL edit or a
-skill read is not a new run. Keep a running pipeline open across its related repair batch and
-record the batch's actual result once; do not dispatch extra pipelines solely to create records.
-
-A declaration says what a loop's escape IS. It cannot say whether the escape ever fired, and for as long
-as nothing recorded a run, `escape=no-progress` was a claim no check could reach — the scan that requires
-it reads only the tree, and a run is not in the tree.
-
-**Every run of a loop-driving skill has one durable evidence owner.** Runs whose terminal facts exist
-before the PR diff freezes are recorded through `node scripts/harness/loop-run.mjs` under
-`.agents/loop-runs/` — one entry per run, appended when it opens and sealed when it closes:
-
-```bash
-node scripts/harness/loop-run.mjs open  --loop <skill>
-node scripts/harness/loop-run.mjs expect --loop <skill> --run <id> --phase <phase> --agent <agent> --subject <subject> --token <signal>
-node scripts/harness/loop-run.mjs observe --loop <skill> --run <id> --phase <phase> --agent <agent> --subject <subject> --signal '<terminal-line>'
-node scripts/harness/loop-run.mjs round --loop <skill> --run <id> --findings <n>
-node scripts/harness/loop-run.mjs close --loop <skill> --run <id> --terminal <reason>
-```
-
-Three properties, and each exists because its absence collapses two states into one:
-
-- **How a run ended comes from a CLOSED vocabulary** — `converged`, `no-progress`, `bound-reached`,
-  `halted-for-user`, `abandoned` — never inferred by a reader. A terminal reason the skill's declaration
-  cannot reach is refused: recording `no-progress` for a loop that declares no such escape is a record
-  describing some other loop.
-- **A run that stopped without reaching an ending is closed as `abandoned`**, not left open and not left
-  out. Not-closed is a STATE, not an absence; this is § "Silence is not success" applied to the record
-  itself, because a dropped run and a run that never started are otherwise the same silence.
-- **The round count is not stored.** `roundFindings.length` is the count, everywhere. A second stored
-  number is a second source, and two sources agree until the day the number is needed
-  ([measurement-provenance.md](measurement-provenance.md) clause 1).
-
-The ceiling, stated rather than implied: a run that is never opened leaves no line, and nothing that reads
-this tree can see it. This rule makes a run recordable and its record coherent; it does not prove that
-every run was recorded.
-
-Remote-terminal runs are the deliberate second form. When a fact becomes true only after a PR exists
-or after it merges, the canonical structured GitHub receipt named by the owning skill is the durable
-record; do not append a tracked ledger row that cannot be part of the frozen or already-merged diff.
-`pr-finding-resolution-loop` owns `PR_MERGE_DECISION` and `post-merge-cycle` owns
-`DELIVERY_COMPLETION_RECORD`. Their parser/readback rejects silence, ambiguity, stale identities,
-untrusted or edited comments, and live-state mismatch. Historical tracked remote-terminal rows remain
-readable evidence; they do not authorize new rows.
-
-Enforced by: `scripts/harness/scan-loop-run-records.mjs`, registered as `loop-run-records`. It refuses a
-ledger naming no loop-declaring skill, a line that does not parse, a terminal reason the declaration
-cannot reach, and a run left open past seven days.
-
-Pipelines whose guardians declare runtime signal contracts also record every expectation **before**
-dispatch and exactly one matching observation afterward. Pipeline-owned scans validate the payload and
-route metadata because the canonical ledger owns persistence while each pipeline owns the meaning of its
-signals. For architecture audit, `architecture-refresh-signals` fails on silence, duplication,
-misattribution, malformed counts, missing verifier pass-through, incomplete foundational reconciliation,
-or an unresolved material disposition. A nested fanout is linked to its outer run with `loop-run.mjs link`;
-that link is evidence of composition, not a replacement for either ledger.
+Enforced by: no prospective loop-ledger scan. The obsolete ledger writer and its contract/proof/record
+scans are retired; execution failure must remain visible at the command or check boundary.
 
 A retired agent definition must also become unreachable from every live instruction that could still dispatch
 it. The `retired-agent-references` scan enforces that retirement boundary while preserving only exact,
@@ -173,7 +115,7 @@ fingerprinted provenance records; deleting the definition alone is not completio
    **orchestrator** (routes on the verdict). Keep them separate.
 2. Give the guardian a **mechanical floor** (a scan/hook) — not just a prose criterion.
 3. Choose the **loop-back kind** (auto-re-drive vs halt) by whether the gate is completeness or human-decision.
-4. Reuse the `backlog-pipeline` / `backlog-gate-guard` shape: an orchestrator that only routes, a worker
+4. Use an orchestrator that only routes and a worker
    that only produces, a guardian that only judges. Add a tier only when a phase owns its own ordering
    (see the nesting note above) — never to make a step more likely to run.
 
@@ -232,10 +174,9 @@ violated. Which kind a hook is, is read from the hook itself.
 
 ### Silence is not success — the rule, for every layer
 
-Gate-evaluator code (`scripts/harness/gate.mjs`, `.claude/hooks/**`, and scans that implement gate
-criteria) must not be changed inside the item whose gate it evaluates. This remains forbidden even
-with approval. A tool defect is a separate item that passes its own applicable gate; the evaluated item
-must use the explicit `tool-defect` closure disposition instead of changing its judge in place.
+An enforcement mechanism must not silently weaken the invariant it claims to check. When the enforcement
+itself is the requested change, focused tests must demonstrate both the former behavior and the intended
+new boundary; otherwise, fix the product under test rather than its judge.
 
 **Owner directive. This binds every skill, every hook, and every GitHub Action step, not only the
 shell guards above.**

@@ -780,6 +780,14 @@ fail/blur/unmount → exactly today's drawn-cursor rendering; I5 Apple_Terminal 
 `supportsImeCursorPositioning()`) each exist as a code comment AND a test; the drawn inverse
 cursor is suppressed only while real positioning is active.
 
+**Terminal.app hardware evidence (2026-09-22).** On macOS 27.0 (build 26A428) with Terminal.app
+2.15 (488) and the 2-Set Korean input source, both `pnpm exec robota` and
+`ROBOTA_IME_CURSOR=1 pnpm exec robota` survived a mid-line `한` composition followed by Left and Right.
+The opt-in cell did **not** place its initial composition display at the mid-line input point: it appeared
+below the input line at its left edge. That is an incorrect placement even without a crash, so the I5
+Apple_Terminal default-off branch remains required. The full per-cell evidence, including screenshot
+paths and process checks, is recorded in `SCREEN-2442`.
+
 ## Extension Points
 
 New TUI components/flows live under `src/`. The adapter seam (`ITuiCliAdapter`) lets the CLI inject

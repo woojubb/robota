@@ -79,7 +79,8 @@ package or checklist row, and it keeps issue #1987 as the external parent initia
 - Each child runs its targeted package tests, affected builds, and the repository change loop.
 - The parent gate verifies every issue checklist row has an explicit disposition and every child is
   terminal before AGREEMENT-004 can become done.
-- `pnpm harness:scan` and `pnpm harness:verify-like-ci` must be green before merge.
+- `pnpm harness:scan`, affected package checks, and the required GitHub CI aggregates on the exact
+  PR head must be green before merge.
 
 ## User Execution Test Scenarios
 

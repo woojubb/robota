@@ -183,7 +183,7 @@ async function checkForbiddenTerms(findings, sourceIndex) {
  */
 export function hasBlindAssertion(sourceText, fileName, kind) {
   let found = false;
-  const sf = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true);
+  const sf = ts.createSourceFile(fileName, sourceText);
   const typeTextOf = (node) => (node.type ? node.type.getText().trim() : '');
   const visit = (node) => {
     if (found) return;
@@ -198,9 +198,9 @@ export function hasBlindAssertion(sourceText, fileName, kind) {
         found = true;
       }
     }
-    if (!found) ts.forEachChild(node, visit);
+    if (!found) node.forEachChild(visit);
   };
-  ts.forEachChild(sf, visit);
+  sf.forEachChild(visit);
   return found;
 }
 

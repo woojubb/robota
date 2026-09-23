@@ -1,7 +1,8 @@
 name: Dependency Review
 
-# Gate PR-introduced dependencies by vulnerability AND license policy (distinct from the lockfile-wide
-# osv-scanner in ci.yml): dependency-review diffs the PR's ADDED deps and enforces a license allow-list.
+# Reusable dependency and license policy owned by CI's required `security` decision. The
+# dependency-review action diffs the PR's ADDED deps and enforces a license allow-list, while the
+# lockfile-wide osv-scanner remains the other selected security child in ci.yml.
 # License gating matters here — the project is dual-licensed (AGPL + Commercial, no CLA yet), so a runtime
 # dep under a strong-copyleft license would virally break the commercial-relicensing right.
 #
@@ -11,37 +12,20 @@ name: Dependency Review
 # `minimatch@10.2.5 → BlueOak-1.0.0`), 2440 exact-version entries in all. So the allow-list really is
 # evaluated over the pnpm-lock closure a PR adds to, not just the `^range` manifest entries.
 #
-# This check is ADVISORY — it is in neither branch ruleset's required-status-checks list, so a denied
-# license or a high-severity advisory annotates the PR and blocks nothing. Making it required is a
-# merge-gate change and is the owner's call.
 on:
-  pull_request:
-    branches: [main, develop]
-    types: [opened, synchronize]
-    # Dependency review is only meaningful when the dependency graph changes. This job is ADVISORY (not a
-    # required status check), so a paths-skip is safe — for a REQUIRED check, a paths-filtered skip reports
-    # "pending" forever and blocks merge, which is why ci.yml uses IN-JOB change detection instead.
-    paths:
-      - '**/package.json'
-      - 'pnpm-lock.yaml'
-      - 'scripts/harness/generate-dependency-review-license-exemptions.mjs'
-      - '.github/workflows/dependency-review.yml'
+  workflow_call:
 
 permissions:
   contents: read
   pull-requests: write
 
-# A superseded push should not keep a runner. Without this, every rapid re-push leaves the
-# previous run to finish work whose answer is already stale, and it is billed in full.
-# Scoped to the pull request, so runs on different PRs never cancel each other.
-concurrency:
-  group: dependency-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
   dependency-review:
     name: Dependency review
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     # Fork PRs cannot post the summary comment; the check still runs read-only.
     steps:
       - uses: actions/checkout@v7
@@ -75,7 +59,7 @@ jobs:
           # Two facts bound what this can cost later. The action gates the dependencies a PR ADDS,
           # not the existing graph — so the measurement above bounds the migration at zero and the
           # ongoing cost falls only on a future dev dependency under a license nobody has yet chosen
-          # to accept. And this check is ADVISORY (see the header): it annotates, it blocks nothing.
+          # to accept. The caller folds this result into the required `security` decision.
           #
           # The narrower policy is defensible — a dev-only dependency is not distributed, and the
           # hazard this gate exists for is distribution. It is not what is written here, and flipping

@@ -105,8 +105,9 @@ review order from that graph, not from a copy here.
 - [ ] Single responsibility verified for each class
 - [ ] No internal types leaked through barrel exports
 - [ ] SPEC.md Class Contract Registry matches audit output
-- [ ] `pnpm build` passes after any changes
-- [ ] `pnpm harness:scan` passes
+- [ ] Required CI clean build passes for source changes; build locally only when a selected audit check consumes generated output
+- [ ] Focused contract-audit checks and any affected scan selected for the changed registry pass locally
+- [ ] Exact-head required CI supplies the complete repository/contract/hermetic verdict
 
 ## Anti-Patterns
 

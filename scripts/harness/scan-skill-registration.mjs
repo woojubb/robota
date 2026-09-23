@@ -9,10 +9,9 @@
  *
  * Measured on session 50cb28dd (34.6 days, 26,068 turns) before this scan existed:
  *   - `.agents/skills/` held 53 skills; `.claude/skills/` held 5 symlinks, 3 of them DANGLING.
- *   - Two hooks named skills imperatively on every UserPromptSubmit
- *     (`spec-first-gate.sh:64,70`, `correction-detect.sh:45`).
+ *   - Hooks named skills imperatively on UserPromptSubmit without proving registration.
  *   - Every project-skill invocation failed: `Unknown skill` ×13 (lesson-to-harness 6,
- *     backlog-writer 3, backlog-pipeline 3, user-request-gate 1).
+ *     backlog-writer 3, user-request-gate 1, and other retired routes).
  *   - `learning-loop.md:8` names `lesson-to-harness` as THE procedure for turning a repeated
  *     lesson into an enforced rule. The repo's learning loop had a 0% invocation success rate.
  *

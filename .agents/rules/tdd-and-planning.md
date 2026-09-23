@@ -1,41 +1,15 @@
-# TDD & Planning Rules
+# TDD and Planning
 
-Rules for test-driven development and implementation planning.
-Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
+Parent: [AGENTS.md](../../AGENTS.md)
 
-### Test-Driven Development
+Plan only to the depth needed to make the implementation decision clear. A concise plan in the authoritative issue, request, or PR is sufficient for ordinary work and does not require its own commit.
 
-- Follow Kent Beck's Red-Green-Refactor cycle.
-- Never write production code without a failing test that demands it.
-- Never refactor while tests are failing.
-- Bug fixes start with a test that reproduces the bug.
-- **Prove the regression test RED before it counts as verification (anti-accidental-green).** A test that
-  verifies a defect fix MUST be demonstrated to FAIL against the pre-fix state — it must fail without the source
-  change. This holds regardless of ordering: in a **fix-first** flow (bug found → fixed → test written), you
-  MUST run the new test against the unfixed code (revert the fix, run against the merge-base, or use a fixture
-  that reproduces the defect), confirm it FAILS, then restore and confirm it PASSES. A regression test that
-  passes on both the buggy and the fixed code guards nothing and is false assurance — the fix is effectively
-  unverified. The most common accidental-green shape is a test that asserts a **late invariant** both versions
-  satisfy (e.g. checking a state only after the code path under test has already run), never exercising the
-  window/branch the bug lived in. Record the RED→GREEN result as GATE-VERIFY evidence.
-- Agent/tool orchestration bugs require behavior tests that prove trigger, runtime event, terminal result or timeout, session persistence, and parent-turn follow-up. A test that only checks parser output or spawned-job count is incomplete.
-- **Pre-refactor rule**: Before modularizing or restructuring existing code, write characterization tests that capture current behavior. Commit tests before any extraction. See `pre-refactor-test-harness` skill.
+For observable behavior changes:
 
-### Planning Requirements
+1. Reproduce or characterize the failure.
+2. Add a focused failing test when practical.
+3. Implement the smallest complete correction.
+4. Refactor while the focused suite remains green.
+5. Run affected integration or user-surface verification proportional to risk.
 
-- Every development plan MUST include a **Test Strategy** section.
-- The test strategy must specify: what to test, how to test (unit / integration / contract / E2E), and the verification commands to run.
-- Plans without a test strategy are incomplete and must not be executed.
-- For each task in the plan, test steps (write failing test → verify fail → implement → verify pass) must be explicit, not implied.
-- When reviewing or approving a plan, verify the test strategy exists and covers the critical paths before proceeding.
-- **Mechanical enforcement**: `pnpm harness:scan:test-plans` scans all documents in `docs/superpowers/plans/`, `docs/superpowers/specs/`, and `.agents/tasks/` for a test plan section (heading matching `## Test Plan`, `## Test Strategy`, `## Testing`, `## 테스트`, `## 검증`) with at least 50 characters of content. Documents without a qualifying test plan section cause the scan to fail.
-
-### Plan Documentation Requirement
-
-- Every implementation plan MUST be a saved document before execution begins. A plan that exists only
-  in conversation context is not finalized, and a plan without a saved document must not be executed.
-  The document is the SSOT for the plan.
-- The document must state goal, architecture, data flow, and affected files.
-- **Where it is saved, and when the governing specification is updated, are owned by
-  [spec-workflow.md](spec-workflow.md)** — the plan-document location and the same-PR spec-update
-  mandate both live there. Do not restate either here.
+Documentation-only, mechanical, or configuration changes may use direct before/after assertions instead of manufacturing a unit-test cycle. Never add a ceremony artifact merely to claim TDD.

@@ -192,4 +192,5 @@ When converting between SDK/external library types and internal types:
 - `pnpm --filter @robota-sdk/<pkg> lint`
 - `pnpm --filter @robota-sdk/<pkg> exec tsc -p tsconfig.json --noEmit`
 - `node scripts/ssot-scan-declarations.mjs`
-- `pnpm harness:scan`
+
+Complete repository, contract, and hermetic ownership remains with exact-head required CI.

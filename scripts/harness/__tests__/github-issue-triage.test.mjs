@@ -42,10 +42,15 @@ function proceduralBoundaryHolds(text) {
   const normalized = text.replace(/\s+/g, ' ');
   const contradictsBoundary =
     /(?:after decomposition[^.]{0,80}(?:always|must) close the parent|(?:always|must) close the parent[^.]{0,80}after decomposition)/i;
+  const keepsIssueAuthoritative =
+    normalized.includes('issue as the authoritative work record') ||
+    normalized.includes('canonical issue remains authoritative');
+  const taskIsOptional =
+    normalized.includes('Create one repository Task only when') ||
+    normalized.includes('does not require a Task');
   return (
-    normalized.includes('Task decomposition never closes') &&
-    normalized.includes('Issue body owns the current') &&
-    normalized.includes('Task-marker') &&
+    keepsIssueAuthoritative &&
+    taskIsOptional &&
     !contradictsBoundary.test(normalized)
   );
 }
@@ -1337,7 +1342,7 @@ describe('Issue to Task conversion finalization', () => {
 });
 
 describe('the rule owns policy and the skill owns procedure', () => {
-  it('pins the authority handoff and the commands that execute it', () => {
+  it('keeps the issue authoritative and limits commands to reporting and label maintenance', () => {
     const rule = readFileSync(
       path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
       'utf8',
@@ -1347,15 +1352,14 @@ describe('the rule owns policy and the skill owns procedure', () => {
       'utf8',
     );
 
-    expect(rule).toContain('GitHub Issue Intake and Conversion Queue');
-    expect(rule).toContain('Task `priority` and `urgency` are the sole execution authority');
-    expect(rule).toContain('P2 must be promoted to P1 before conversion');
+    expect(rule).toContain('One issue, accepted specification, or direct request owns the work');
+    expect(rule).toContain('no fixed triager/reviewer/scenario/writing chain is required');
     expect(skill).toContain('github-issue-triage.mjs audit');
-    expect(skill).toContain('github-issue-triage.mjs convert');
     expect(skill).toContain('github-issue-triage.mjs labels');
+    expect(skill).not.toContain('github-issue-triage.mjs convert');
   });
 
-  it('keeps internal decomposition in Tasks and makes child Issues exception-only', () => {
+  it('uses one authoritative issue and creates a Task only for durable coordination', () => {
     const rule = readFileSync(
       path.join(WORKSPACE_ROOT, '.agents/rules/backlog-execution.md'),
       'utf8',
@@ -1374,36 +1378,14 @@ describe('the rule owns policy and the skill owns procedure', () => {
     const normalizedTriage = triage.replace(/\s+/g, ' ');
     const normalizedTasks = tasks.replace(/\s+/g, ' ');
 
-    expect(normalizedRule).toContain('Child Issues are exception-only');
-    expect(normalizedRule).toContain('## Independent external lifecycle');
-    expect(normalizedRule).toContain('reviewer other than the author or migration actor');
-    expect(normalizedRule).toContain('independently forces `OWNER_REVIEW`');
-    expect(normalizedRule).toContain('approved frozen migration manifest');
-    expect(normalizedRule).toContain(
-      "without that new Task's mere existence forcing `OWNER_REVIEW`",
-    );
-    expect(normalizedRule).toContain('The Issue body owns the current external problem');
-    expect(normalizedRule).toContain('Narrative comments are optional');
-    expect(normalizedConversion).toContain('Create Tasks for internal cause decomposition');
-    expect(normalizedConversion).not.toContain('close the parent with a decomposition comment');
-    expect(normalizedConversion).toContain('semantic `RETAIN` review');
-    expect(normalizedConversion).toContain('Any one forces `OWNER_REVIEW`');
-    expect(normalizedConversion).toContain(
-      'new canonical migration Task created from an approved frozen manifest',
-    );
-    expect(normalizedConversion).toContain(
-      'when absorbing an existing Issue hierarchy, the AGREEMENT cites the tracker and each child Task cites its exact leaf Issue',
-    );
-    expect(normalizedTriage).toContain('audits native child relationships');
-    expect(normalizedTriage).toContain('## Independent external lifecycle');
-    expect(normalizedTriage).toContain('Do not mutate an `OWNER_REVIEW` row');
-    expect(normalizedTriage).toContain(
-      'new canonical migration Task from an approved frozen manifest',
-    );
-    expect(normalizedTasks).toContain('Child Issues are exception-only');
-    expect(normalizedTasks).toContain('Semantic review: @<github-login> on YYYY-MM-DD — RETAIN');
-    expect(normalizedTasks).toContain('The Issue body owns the current external problem');
-    expect(normalizedTasks).toContain('Narrative comments are optional');
+    expect(normalizedRule).toContain('One issue, accepted specification, or direct request owns the work');
+    expect(normalizedConversion).toContain('Keep the issue as the authoritative work record');
+    expect(normalizedConversion).toContain('Create one repository Task only when');
+    expect(normalizedConversion).toContain('Never require a separate registration comment, paired Task/spec');
+    expect(normalizedTriage).toContain('canonical issue remains authoritative by default');
+    expect(normalizedTriage).toContain('child issues are reserved for independently releasable work');
+    expect(normalizedTasks).toContain('A Task is an optional repository-local work record');
+    expect(normalizedTasks).toContain('Do not move it through status directories');
     expect(proceduralBoundaryHolds(conversion)).toBe(true);
     expect(proceduralBoundaryHolds(triage)).toBe(true);
     expect(

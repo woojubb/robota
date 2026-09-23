@@ -5,7 +5,7 @@
   "check-capability-placement.mjs": 11,
   "check-command-layering.mjs": 8,
   "check-dep-kind.mjs": 4,
-  "check-dependency-direction.mjs": 4,
+  "check-dependency-direction.mjs": 3,
   "check-doc-examples.mjs": 6,
   "check-ghost-package-refs.mjs": 1,
   "check-interface-imports.mjs": 3,
@@ -13,7 +13,5 @@
   "check-sdk-public-surface.mjs": 4,
   "check-workspace-refs.mjs": 4,
   "live-provider-smoke.mjs": 3,
-  "scan-agent-tools-neutrality.mjs": 1,
-  "verify-like-ci-execution.mjs": 3,
-  "verify-like-ci-product.mjs": 1
+  "scan-agent-tools-neutrality.mjs": 1
 }

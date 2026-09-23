@@ -39,29 +39,42 @@ The four direct child records use canonical umbrella [issue #2525](https://githu
 - `PAYLOAD-2153` alone owns a portable, replacement-safe external-payload read primitive; no consumer may restore check-then-open pathname reads as a compatibility path.
 - `MCP-2522` alone owns command, arguments, environment, working-directory, and child-process lifecycle authority for local stdio clients.
 - `MCP-2533` alone owns the MCP Streamable HTTP carrier, loopback network admission, and protocol-session mapping; it must not reuse Robota HTTP or WebSocket protocol carriers.
-- Every source outcome remains independently specified, approved, tested, and user-scenario verified. A future shared contract is allowed only when a child design proves a real common owner without merging these security boundaries.
+- Every source outcome remains independently implemented, tested, and user execution test scenario verified from
+  its already-approved design. A future shared contract is allowed only when a child design proves
+  a real common owner without merging these security boundaries.
 
 ## Plan
 
 - [ ] Revalidate the six-source register, current MCP references, existing Task graph, and package ownership before child implementation starts.
-- [ ] Keep one paired Agreement spec that records the dependency graph, non-overlap rules, research evidence, and the security boundaries each child must preserve.
-- [ ] Run each direct child through its own L2 design, approval, implementation, focused verification, and executable user-scenario gate.
+- [ ] Treat this owner map and the four already-approved child designs as the implementation entry;
+      do not create or synchronize another lifecycle record solely to repeat their status.
+- [ ] Implement each direct child from its approved design, then run focused verification and its
+      executable user execution test scenario before the one completion decision.
 - [ ] Reconcile the existing `AGREEMENT-014` and `AGREEMENT-015` streams from their source Tasks without duplicating or nesting their records.
 - [ ] Audit all twelve retained outcomes and delivery evidence before the parent Issue's terminal writeback.
 
 ## Completion Criteria
 
-- [ ] TC-01: The four direct child records, this Agreement's `children` field, and the paired spec's `## Tasks` rows have identical IDs, statuses, and paths.
+- [ ] TC-01: The four direct children remain the explicit, non-overlapping owner map; any retained
+      Agreement spec is design evidence rather than a mirrored lifecycle/status gate.
 - [ ] TC-02: Every retained source row has one exact owner, and no direct child claims another child's filesystem, subprocess, result-lifecycle, or network-admission authority.
-- [ ] TC-03: `PAYLOAD-2153`, `MCP-2522`, `MCP-2525`, and `MCP-2533` each finish their own approved contract, negative-path tests, and runnable product-surface scenario.
+- [ ] TC-03: `PAYLOAD-2153`, `MCP-2522`, `MCP-2525`, and `MCP-2533` each finish the approved design,
+      negative-path tests, and runnable product-surface scenario.
 - [ ] TC-04: All eight Tasks under `AGREEMENT-014` and `AGREEMENT-015` have truthful terminal delivery evidence; their source outcomes are not inferred from this Agreement's existence.
 - [ ] TC-05: The final issue #2525 audit proves every source-register row against merged `origin/develop` evidence before the Issue is closed.
 
 ## Test Plan
 
-Check the Task/spec projection and dependency graph mechanically. For each direct child, run its package tests, typecheck, build, security negative cases, and declared user execution test scenario. For the final audit, read the six source records, all twelve Tasks, their paired specs, merge ancestry, and the current Issue map; a green aggregate scan alone is insufficient evidence.
+Check the dependency graph and non-overlap ownership mechanically. For each direct child, run its
+focused package tests, typecheck/build when affected, security negative cases, and declared user
+execution scenario. For the final audit, read the six source outcomes, merged evidence, and current
+Issue map; do not recreate a Task/spec projection merely to prove bookkeeping symmetry.
 
 ## Gate-Fail Correction Record
+
+Historical evidence only. Issue #2826 supersedes the future gate references below; the four child
+designs are approved and resume through one entry decision and one completion decision without
+replaying `GATE-WRITE` or `GATE-APPROVAL`.
 
 **Instruction (verbatim):** "[https://github.com/woojubb/robota/issues/2525](https://github.com/woojubb/robota/issues/2525) 이 이슈를 처리하고 닫을 때까지 반복해서 처리해서 최종적으로 닫아주세요."
 

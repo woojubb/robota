@@ -6,7 +6,7 @@ const shared = {
   clean: true,
   deps: {
     // Bundle all node_modules inline — dag-cli is a fully standalone CLI.
-    // Only Node.js builtins and @modelcontextprotocol/sdk remain external.
+    // Bundle runtime dependencies for the standalone CLI.
     bundleNodeModules: true,
   },
   outExtensions: (ctx) => ({

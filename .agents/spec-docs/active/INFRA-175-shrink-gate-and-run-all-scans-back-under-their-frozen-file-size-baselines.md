@@ -1,11 +1,16 @@
 ---
-status: in-progress
+status: rejected
 type: INFRA
 tags: [infra]
 lane: L2
 ---
 
 # INFRA-175: shrink gate.mjs and run-all-scans.mjs back under their frozen file-size baselines
+
+## Disposition
+
+**Superseded by issue #2826.** The obsolete multi-gate evaluator was removed, not moved behind a
+smaller facade. Historical measurements below remain intact but are not prospective instructions.
 
 Paired with `.agents/tasks/INFRA-175-shrink-gate-and-run-all-scans-back-under-their-frozen-file-size-baselines.md`.
 Arising from [issue #2596](https://github.com/woojubb/robota/issues/2596).

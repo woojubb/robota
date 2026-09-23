@@ -373,9 +373,8 @@ Moved here from SEC-003 (2026-07-26) — these had no other owner:
 - Per-package vitest suites for every touched package, foreground: `agent-tools` (239),
   `pack-coding` (11), `agent-framework` (1302), `dag-node-file-read` (8), `dag-node-file-write` (9),
   plus the harness suite for the pagination floor (21).
-- `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm harness:verify-like-ci`. Per INFRA-056,
-  `verify-like-ci` runs neither `build` nor package tests, so those are run separately and it is not
-  treated as sufficient.
+- `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm harness:scan`, the applicable harness test
+  tiers, and the required GitHub CI aggregates on the exact PR head.
 - Every fix carries a test that FAILS before it, with the failing output quoted above. The two
   enumeration CONTROL tests prove the escape is real on disk rather than assumed.
 - Reverse-apply proof for the `Shell` default-cwd fix (the source hunk removed, the test goes red).

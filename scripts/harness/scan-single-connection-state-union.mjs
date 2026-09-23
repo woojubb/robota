@@ -23,13 +23,10 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import {
-  ScriptTarget,
   SyntaxKind,
   createSourceFile,
-  forEachChild,
-  getModifiers,
   isLiteralTypeNode,
-  isPropertySignature,
+  isPropertySignatureDeclaration,
   isStringLiteral,
   isTypeAliasDeclaration,
   isTypeLiteralNode,
@@ -60,12 +57,12 @@ function collectSourceFiles(dir) {
 }
 
 function hasExportModifier(node) {
-  return getModifiers(node).some((modifier) => modifier.kind === SyntaxKind.ExportKeyword);
+  return (node.modifiers ?? []).some((modifier) => modifier.kind === SyntaxKind.ExportKeyword);
 }
 
 function walk(node, visit) {
   visit(node);
-  forEachChild(node, (child) => walk(child, visit));
+  node.forEachChild((child) => walk(child, visit));
 }
 
 /**
@@ -83,7 +80,7 @@ function kindLiteralsOf(alias) {
       return undefined;
     }
     const kindMember = member.members.find(
-      (m) => isPropertySignature(m) && m.name.getText() === 'kind',
+      (m) => isPropertySignatureDeclaration(m) && m.name.getText() === 'kind',
     );
     if (
       !kindMember?.type ||
@@ -101,7 +98,7 @@ function findConnectionStateUnions(files) {
   const matches = [];
   for (const file of files) {
     const sourceText = readFileSync(file, 'utf8');
-    const sourceFile = createSourceFile(file, sourceText, ScriptTarget.Latest, true);
+    const sourceFile = createSourceFile(file, sourceText);
     walk(sourceFile, (node) => {
       if (!isTypeAliasDeclaration(node) || !hasExportModifier(node)) {
         return;

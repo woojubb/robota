@@ -1,11 +1,17 @@
 ---
-status: in-progress
+status: rejected
 type: INFRA
 tags: [harness, ci, security]
 lane: L2
 ---
 
 # INFRA-182: restore green CI from the current develop baseline
+
+## Disposition
+
+**Superseded by issue #2826's current CI contract.** The old red baseline, deleted lifecycle scans,
+and broad local/CI verification list are no longer prospective completion criteria. Relevant
+dependency and security checks remain owned by their selected workflows.
 
 Paired with `.agents/tasks/INFRA-182-ci-green-develop-recovery.md`. This recovery item consolidates
 the red checks observed after the recent merges, including [GitHub Issue 2617](https://github.com/woojubb/robota/issues/2617)

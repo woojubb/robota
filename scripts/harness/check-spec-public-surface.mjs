@@ -213,9 +213,7 @@ export function effectiveExports(file, seen = new Set()) {
   const sourceFile = ts.createSourceFile(
     file,
     readFileSync(file, 'utf8'),
-    ts.ScriptTarget.Latest,
-    /* setParentNodes */ true,
-    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+    { scriptKind: file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS },
   );
 
   for (const stmt of sourceFile.statements) {

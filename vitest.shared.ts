@@ -71,9 +71,9 @@ const WORKER_HEAP_MB = positiveIntEnv('VITEST_WORKER_HEAP_MB', 512);
  *
  * ## Why this is here and not in one test file
  *
- * A git HOOK exports `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and friends into everything it
- * launches. `.husky/pre-push` launches the verification gate, the gate launches vitest, and every
- * `git` a test spawns then inherits them — so a fixture that carefully builds its repository under
+ * Git exports `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and friends into child processes. Any
+ * shell or tool that launches Vitest from such a process can pass them onward, and every `git` a
+ * test spawns then inherits them — so a fixture that carefully builds its repository under
  * `mkdtemp` and passes `cwd` still writes to **the repository being pushed from**, because `GIT_DIR`
  * outranks `cwd`.
  *

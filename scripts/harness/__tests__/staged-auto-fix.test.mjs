@@ -92,7 +92,7 @@ function contractProblems({ hook, lintStaged, packageJson, typedProject, workflo
   }
   // Owner directive 2026-09-05: Prettier no longer auto-runs at commit time (reformatted
   // lines a prior edit had only indented, producing repeated add/delete churn). Format drift
-  // is caught by the separate format-check verify-like-ci stage instead (INFRA-083).
+  // is caught by the explicit local formatting owner instead (INFRA-083).
   if (
     Object.values(lintStaged).some(
       (tasks) => Array.isArray(tasks) && tasks.includes('prettier --write'),

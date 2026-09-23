@@ -7,12 +7,6 @@ import { runPostVerdictGuard } from './pre-push-local-checks.mjs';
 import { createPrePushSteps } from './pre-push-runtime.mjs';
 import { runPrePushGate } from './pre-push-work-run.mjs';
 
-export {
-  CI_BASE_REF_PLACEHOLDER,
-  CI_HEAD_REF_PLACEHOLDER,
-  CI_SCANS_JOB_MIRROR,
-  createCiScansJobMirror,
-} from './pre-push-ci-mirror.mjs';
 export { prerequisitesFor, runPostVerdictGuard } from './pre-push-local-checks.mjs';
 export {
   createPrePushRuntime,

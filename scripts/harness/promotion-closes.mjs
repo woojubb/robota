@@ -26,9 +26,10 @@
  *
  *  1. **The keyword lives in the pull-request BODY, not the commit.** `git log -1 --format=%B
  *     93d061dd3` — the squash of PR #1802 — contains no `Closes` line: GitHub's squash body is the
- *     concatenated commit messages, not the pull-request description. So the derivation reaches the
- *     bodies through the `(#NNNN)` suffix GitHub appends to every squash subject. Reading commit
- *     messages instead would return an empty block that looks exactly like a clean promotion.
+ *     concatenated commit messages, not the pull-request description. The derivation therefore maps
+ *     each first-parent landing OID to its authoritative merged pull request, then reads that PR's
+ *     body. Reading commit messages instead would return an empty block that looks exactly like a
+ *     clean promotion.
  *  2. **A `Closes` target is not always an issue.** PR #1801's body opens `Closes PROV-007.` — a Task
  *     ID — and a `#N` may name a pull request. Only a `#<digits>` that the API confirms is an OPEN
  *     ISSUE contributes a line.
@@ -48,6 +49,7 @@
 import { spawnSync } from 'node:child_process';
 
 import { readWithBackoff } from './github-api.mjs';
+import { readAssociatedPull as readAssociatedPullFromGitHub } from './landing-pull-request.mjs';
 
 /**
  * GitHub's closing keywords, all three families and every inflection it accepts.
@@ -55,28 +57,46 @@ import { readWithBackoff } from './github-api.mjs';
  */
 const CLOSING_KEYWORD = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b/gi;
 
-/** GitHub appends ` (#N)` to the subject of every squash merge. Anchored to the END of the line. */
-const TRAILING_PULL_REFERENCE = /\(#(\d+)\)\s*$/;
-
 /** The heading the promotion pull-request body carries above the derived lines. */
 export const BLOCK_HEADING = '## Issues this promotion closes';
 
-/**
- * Pull-request numbers for the commits a promotion carries, in the order given.
- *
- * Only the TRAILING `(#N)` counts: a subject may mention an issue mid-sentence ("undo the change
- * from #1409"), and that is a cross-reference, not the pull request the commit came from.
- *
- * @param {string[]} subjects one commit subject per entry, newest first
- * @returns {number[]}
- */
-export function parsePullRequestNumbers(subjects) {
-  const numbers = [];
-  for (const subject of subjects) {
-    const match = TRAILING_PULL_REFERENCE.exec(String(subject));
-    if (match) numbers.push(Number(match[1]));
+/** Resolve first-parent integration commits to the PRs that introduced them. */
+export function resolveLandingPullNumbers({ landingOids, baseRefName, readAssociatedPull }) {
+  const landingSet = new Set(landingOids.map((oid) => String(oid).toLowerCase()));
+  const pulls = new Map();
+  for (const oid of landingOids) {
+    const pull = readAssociatedPull(oid, baseRefName);
+    const previous = pulls.get(pull.number);
+    if (previous && previous.mergeCommit.oid !== pull.mergeCommit.oid) {
+      throw new Error(`pull #${pull.number} has inconsistent merge commit associations`);
+    }
+    if (!previous) pulls.set(pull.number, pull);
   }
-  return numbers;
+  for (const pull of pulls.values()) {
+    if (!landingSet.has(pull.mergeCommit.oid)) {
+      throw new Error(
+        `pull #${pull.number} merge commit ${pull.mergeCommit.oid} is absent from the first-parent landing range`,
+      );
+    }
+  }
+  return [...pulls.keys()];
+}
+
+export function firstParentLandingOids({ base, head, git }) {
+  const result = git(['log', '--first-parent', '--format=%H', `${base}..${head}`]);
+  if (result.code !== 0) {
+    throw new Error(
+      `promotion-closes: git log --first-parent ${base}..${head} failed: ${result.stderr || result.stdout || 'no output'}`,
+    );
+  }
+  const oids = result.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (oids.some((oid) => !/^[0-9a-f]{40}$/i.test(oid))) {
+    throw new Error('promotion-closes: first-parent history returned a non-commit OID');
+  }
+  return oids;
 }
 
 /**
@@ -188,16 +208,13 @@ export function renderBlock(lines) {
 
 /* ------------------------------------------------------------------ CLI */
 
-function gitSubjects(base, head) {
-  const result = spawnSync('git', ['log', '--format=%s', `${base}..${head}`], {
-    encoding: 'utf8',
-  });
-  if (result.status !== 0) {
-    throw new Error(
-      `promotion-closes: \`git log ${base}..${head}\` failed (${result.stderr?.trim() || 'no stderr'})`,
-    );
-  }
-  return result.stdout.split('\n').filter((line) => line.trim() !== '');
+function gitRunner(args) {
+  const result = spawnSync('git', args, { encoding: 'utf8' });
+  return {
+    code: result.status ?? 1,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  };
 }
 
 function ghRunner(args) {
@@ -230,10 +247,16 @@ function readIssueStateViaApi(repo, issueNumber) {
 }
 
 function parseArgs(argv) {
-  const args = { base: 'main', head: 'HEAD', repo: process.env.GITHUB_REPOSITORY };
+  const args = {
+    base: 'main',
+    head: 'HEAD',
+    landingBase: 'develop',
+    repo: process.env.GITHUB_REPOSITORY,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--base') args.base = argv[++i];
     else if (argv[i] === '--head') args.head = argv[++i];
+    else if (argv[i] === '--landing-base') args.landingBase = argv[++i];
     else if (argv[i] === '--repo') args.repo = argv[++i];
     else throw new Error(`promotion-closes: unknown argument \`${argv[i]}\``);
   }
@@ -248,6 +271,8 @@ function parseArgs(argv) {
  */
 export function createGitHubReaders(repo) {
   return {
+    readAssociatedPull: (oid, baseRefName) =>
+      readAssociatedPullFromGitHub({ repository: repo, landingOid: oid, baseRefName }),
     readPullBody: (n) => readPullBodyViaApi(repo, n),
     readIssueState: (n) => readIssueStateViaApi(repo, n),
   };
@@ -269,10 +294,15 @@ export function resolveRepository(explicit) {
 }
 
 export async function main(argv = process.argv.slice(2)) {
-  const { base, head, repo: explicitRepo } = parseArgs(argv);
+  const { base, head, landingBase, repo: explicitRepo } = parseArgs(argv);
   const repo = resolveRepository(explicitRepo);
-  const pullNumbers = parsePullRequestNumbers(gitSubjects(base, head));
-  const { lines } = collectClosingLines({ pullNumbers, ...createGitHubReaders(repo) });
+  const readers = createGitHubReaders(repo);
+  const pullNumbers = resolveLandingPullNumbers({
+    landingOids: firstParentLandingOids({ base, head, git: gitRunner }),
+    baseRefName: landingBase,
+    readAssociatedPull: readers.readAssociatedPull,
+  });
+  const { lines } = collectClosingLines({ pullNumbers, ...readers });
   const block = renderBlock(lines);
   if (block) process.stdout.write(block);
   console.error(

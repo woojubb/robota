@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  DEFERS_TO_MIRROR_MAP,
   judgeContexts,
   resolvesCommand,
   scanRequiredCheckLocalReachability,
@@ -10,7 +9,6 @@ import {
 const WORLD = {
   scripts: { 'harness:verify:release': 'pnpm build:deps && …', 'harness:scan': 'node …' },
   fileExists: (relative) => relative === 'scripts/harness/scan-promotion-ancestry.mjs',
-  excusedByMirrorMap: new Set(['windows-shell']),
 };
 
 const judge = (contexts, branch = 'develop') =>
@@ -58,12 +56,6 @@ describe('every required context answers', () => {
         { context: 'scans', local: { ciOwned: 'CI owns this', entryPoint: 'pnpm harness:scan' } },
       ])[0].kind,
     ).toBe('answers-both-ways');
-    expect(judge([{ context: 'scans', local: { ciOwned: DEFERS_TO_MIRROR_MAP } }])[0].kind).toBe(
-      'defers-to-an-owner-that-does-not-own-it',
-    );
-    expect(judge([{ context: 'windows-shell', local: { ciOwned: DEFERS_TO_MIRROR_MAP } }])).toEqual(
-      [],
-    );
   });
 
   it('refuses a context that declares nothing', () => {
@@ -114,38 +106,6 @@ describe('every required context answers', () => {
 
       expect(findings, `\`${JSON.stringify(value)}\` passed as a reason`).not.toEqual([]);
     }
-  });
-});
-
-describe('the excuse has one owner, and the two sources must agree', () => {
-  it('accepts deferring to the mirror map for a context the mirror map excuses', () => {
-    expect(
-      judge([{ context: 'windows-shell', local: { notRunnable: DEFERS_TO_MIRROR_MAP } }]),
-    ).toEqual([]);
-  });
-
-  it('refuses deferring to an owner that carries no entry for it', () => {
-    // A pointer at nothing is worse than no pointer: it reads as though a reason was written down
-    // somewhere, and the reader who goes looking finds an empty place where one should be.
-    const findings = judge([{ context: 'quality', local: { notRunnable: DEFERS_TO_MIRROR_MAP } }]);
-
-    expect(findings[0].kind).toBe('defers-to-an-owner-that-does-not-own-it');
-  });
-
-  it('refuses a context the two sources disagree about', () => {
-    const findings = judge([
-      { context: 'windows-shell', local: { entryPoint: 'pnpm harness:scan' } },
-    ]);
-
-    expect(findings.map((f) => f.kind)).toContain('disagrees-with-the-mirror-map');
-  });
-
-  it('does not apply the mirror map to a branch it does not speak for', () => {
-    // `NOT_MIRRORED` is develop's. Reading it as authority over `main` would refuse a correct
-    // declaration — a guard firing on correct work, which is the shape that gets guards suppressed.
-    expect(
-      judge([{ context: 'windows-shell', local: { entryPoint: 'pnpm harness:scan' } }], 'main'),
-    ).toEqual([]);
   });
 });
 

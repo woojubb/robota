@@ -49,7 +49,7 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { ScriptTarget, SyntaxKind, createSourceFile, forEachChild } from './lib/ts-ast.mjs';
+import { SyntaxKind, createSourceFile } from './lib/ts-ast.mjs';
 
 import { loadHarnessConfig } from './harness-config.mjs';
 import { harnessScripts, resolveWorkspaceRoot } from './shared.mjs';
@@ -89,7 +89,7 @@ const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/scope-literal-b
  * governs is not. An identifier cannot contain `@`, so nothing else can carry the literal.
  */
 export function codeOnly(source) {
-  const ast = createSourceFile('scan.mjs', source, ScriptTarget.Latest, true);
+  const ast = createSourceFile('scan.mjs', source);
   const parts = [];
   const visit = (node) => {
     const kind = node.kind;
@@ -103,7 +103,7 @@ export function codeOnly(source) {
     ) {
       parts.push(node.getText(ast));
     }
-    forEachChild(node, visit);
+    node.forEachChild(visit);
   };
   visit(ast);
   // Inside a REGEX literal the scope is written `@scope\/…` — the form the audit isolated. A counter

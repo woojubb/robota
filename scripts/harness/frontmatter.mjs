@@ -48,7 +48,7 @@ export function parseGitTrailerLine(line) {
  * Conservative on purpose — a value that merely CONTAINS the quote character (`"a" and "b"`) is
  * returned untouched, so a quoted phrase inside a prose value is never mangled. The one interior
  * quote that IS understood is YAML's single-quoted escape, the doubled apostrophe: `'it''s'` reads
- * as `it's`, which is what `allocate-work-item-id.mjs` writes for a title carrying one (issue
+ * as `it's`, which is how a YAML single-quoted title carries one (issue
  * #2298). An interior apostrophe that is not doubled still leaves the value untouched.
  */
 export function unquote(text) {

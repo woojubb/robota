@@ -187,53 +187,12 @@ describe('initCommand', () => {
     expect(output.join('')).toContain('already exists');
   });
 
-  it('writes mcp.json when --claude flag is used', async () => {
+  it('refuses the removed --claude integration without writing a scaffold', async () => {
     const { io, output } = makeIo();
     const code = await initCommand(['--claude'], { io });
-    expect(code).toBe(0);
-    const allOutput = output.join('');
-    expect(allOutput).toContain('mcp.json');
-    const paths = vi.mocked(writeFile).mock.calls.map((c) => c[0] as string);
-    expect(paths.some((p) => p.includes('mcp.json'))).toBe(true);
-  });
-
-  it('merges with existing valid mcp.json when --claude flag is used', async () => {
-    const existingMcp = JSON.stringify({ mcpServers: { other: { command: 'node', args: [] } } });
-    vi.mocked(access).mockImplementation(async (p: unknown) => {
-      if (typeof p === 'string' && p.includes('mcp.json')) {
-        return undefined; // mcp.json exists
-      }
-      throw new Error('ENOENT');
-    });
-    vi.mocked(readFile).mockResolvedValueOnce(existingMcp as unknown as string);
-    const { io } = makeIo();
-    const code = await initCommand(['--claude'], { io });
-    expect(code).toBe(0);
-    const mcpCall = vi
-      .mocked(writeFile)
-      .mock.calls.find((c) => (c[0] as string).includes('mcp.json'));
-    expect(mcpCall).toBeDefined();
-    const written = mcpCall![1] as string;
-    expect(written).toContain('robota-dag');
-    expect(written).toContain('other'); // existing entry preserved
-  });
-
-  it('resets malformed mcp.json when --claude flag is used', async () => {
-    vi.mocked(access).mockImplementation(async (p: unknown) => {
-      if (typeof p === 'string' && p.includes('mcp.json')) {
-        return undefined; // mcp.json exists
-      }
-      throw new Error('ENOENT');
-    });
-    vi.mocked(readFile).mockResolvedValueOnce('not valid json' as unknown as string);
-    const { io } = makeIo();
-    const code = await initCommand(['--claude'], { io });
-    expect(code).toBe(0);
-    const mcpCall = vi
-      .mocked(writeFile)
-      .mock.calls.find((c) => (c[0] as string).includes('mcp.json'));
-    expect(mcpCall).toBeDefined();
-    expect(mcpCall![1] as string).toContain('robota-dag');
+    expect(code).toBe(2);
+    expect(output.join('')).toContain('--claude is no longer supported');
+    expect(writeFile).not.toHaveBeenCalled();
   });
 
   it('writes team files when --team flag is used', async () => {

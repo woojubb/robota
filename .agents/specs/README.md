@@ -12,11 +12,9 @@ Package-specific specs are owned by each package at `packages/<name>/docs/SPEC.m
 | [architecture-map/README.md](architecture-map/README.md)                   | Architecture-map document tree and update policy                                         |
 | [agent-invocation-router.md](agent-invocation-router.md)                   | Agent command descriptors, deterministic invocation routing, and claim guards            |
 | [ai-workflow-control-plane.md](ai-workflow-control-plane.md)               | Repo-native AI workflow manifest, evidence, hook, review, and CLI ownership design       |
-| [gate-catalogue.md](gate-catalogue.md)                                     | Fact catalogue: every named gate, its criteria, its prior gate, and its evidence format  |
 | [orchestration-map.md](orchestration-map.md)                               | Fact catalogue: every orchestrator / worker / guardian pipeline and agent                |
 | [deployment-matrix.md](deployment-matrix.md)                               | Fact catalogue: surface × runtime × transport for the one-definition-many-channels story |
 | [harness-composition-design.md](harness-composition-design.md)             | Living design: rules vs orchestration skills vs agent definitions; nesting + neutrality  |
-| [harness-composition-inventory.md](harness-composition-inventory.md)       | Companion inventory: every rule section classified invariant/procedure/role + ledger     |
 | [background-work-state.md](background-work-state.md)                       | Switchable main-thread, process, agent, group, and skill-spawned work state contract     |
 | [background-task-layer.md](background-task-layer.md)                       | Generic background task lifecycle, composition, runners, and TUI/transport projection    |
 | [command-inventory.md](command-inventory.md)                               | Built-in command ownership, lifecycle, model visibility, and host effect surfaces        |

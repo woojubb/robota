@@ -38,43 +38,8 @@ describe('hook diagnostic migration inventory', () => {
         predicate: 'protected-branch-direct-commit',
       },
       { entrypoint: 'pre-commit', pathId: 'lessons', predicate: 'staged-generated-lessons' },
-      {
-        entrypoint: 'pre-commit',
-        pathId: 'planning-order',
-        predicate: 'user-execution-plan-order',
-      },
       { entrypoint: 'pre-commit', pathId: 'lint-staged', predicate: 'lint-staged-success' },
       { entrypoint: 'pre-push', pathId: 'pre-push', predicate: 'harness-pre-push' },
-      {
-        entrypoint: '_/post-checkout',
-        pathId: 'target-executable',
-        predicate: 'tracked-target-executable',
-      },
-      {
-        entrypoint: '_/post-checkout.fallback',
-        pathId: 'target-executable',
-        predicate: 'tracked-target-executable',
-      },
-      {
-        entrypoint: '_/pre-push',
-        pathId: 'target-executable',
-        predicate: 'tracked-target-executable',
-      },
-      {
-        entrypoint: '_/pre-push.fallback',
-        pathId: 'target-executable',
-        predicate: 'tracked-target-executable',
-      },
-      {
-        entrypoint: '_/prepare-commit-msg',
-        pathId: 'target-executable',
-        predicate: 'tracked-target-executable',
-      },
-      {
-        entrypoint: '_/prepare-commit-msg.fallback',
-        pathId: 'target-executable',
-        predicate: 'tracked-target-executable',
-      },
     ]);
     expect(manifest.requiredStatusContexts.map((record) => record.subject.value).sort()).toEqual(
       Object.entries(requiredChecks.branches)

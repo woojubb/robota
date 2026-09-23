@@ -17,9 +17,9 @@ import {
   decidePromotionCloses,
   examinedIssueCount,
   findMissingKeywords,
-  parseCommitSubjects,
+  comparisonFirstParentLandingOids,
+  promotionDevelopHead,
 } from '../scan-promotion-closes.mjs';
-import { parsePullRequestNumbers } from '../promotion-closes.mjs';
 
 describe('findMissingKeywords', () => {
   it('finds an issue the body never mentions', () => {
@@ -111,38 +111,73 @@ describe('the published examined size', () => {
   });
 });
 
-describe('parseCommitSubjects', () => {
-  it('takes only the subject of a multi-line message', () => {
-    const stdout = [
-      JSON.stringify('feat(x): a thing (#1841)\n\nBody line one.\nBody line two.'),
-      JSON.stringify('fix(y): another (#1843)'),
-    ].join('\n');
-
-    expect(parseCommitSubjects(stdout)).toEqual([
-      'feat(x): a thing (#1841)',
-      'fix(y): another (#1843)',
-    ]);
+describe('promotionDevelopHead', () => {
+  it('uses the first parent of the sanctioned promotion merge as the develop tip', () => {
+    const develop = 'a'.repeat(40);
+    const main = 'b'.repeat(40);
+    const head = 'c'.repeat(40);
+    expect(
+      promotionDevelopHead({
+        headOid: head,
+        baseOid: main,
+        parents: [develop, main],
+      }),
+    ).toBe(develop);
   });
 
-  it('does not read a body line that quotes another pull request as a carried one', () => {
-    // The reason this guard needed the encoding: with raw `gh` output this body line arrived as its
-    // own line of stdout, and `(#9999)` made it a pull request the promotion never carried. This
-    // guard is required on `protect-main`, so that reading blocks a correct promotion.
-    const stdout = JSON.stringify(
-      'feat(z): the real subject (#1850)\n\nSupersedes the approach taken in (#9999)',
-    );
+  it('rejects a reverse merge that puts main in the first-parent position', () => {
+    const develop = 'a'.repeat(40);
+    const main = 'b'.repeat(40);
+    expect(() =>
+      promotionDevelopHead({
+        headOid: 'c'.repeat(40),
+        baseOid: main,
+        parents: [main, develop],
+      }),
+    ).toThrow(/second parent/);
+  });
+});
 
-    expect(parsePullRequestNumbers(parseCommitSubjects(stdout))).toEqual([1850]);
+describe('comparisonFirstParentLandingOids', () => {
+  it('reconstructs only the first-parent develop landings from paginated API data', () => {
+    const base = 'a'.repeat(40);
+    const first = 'b'.repeat(40);
+    const side = 'c'.repeat(40);
+    const head = 'd'.repeat(40);
+    expect(
+      comparisonFirstParentLandingOids({
+        headOid: head,
+        pages: [
+          {
+            merge_base_commit: { sha: base },
+            total_commits: 3,
+            commits: [
+              { sha: first, parents: [{ sha: base }] },
+              { sha: side, parents: [{ sha: base }] },
+            ],
+          },
+          {
+            merge_base_commit: { sha: base },
+            total_commits: 3,
+            commits: [{ sha: head, parents: [{ sha: first }, { sha: side }] }],
+          },
+        ],
+      }),
+    ).toEqual([head, first]);
   });
 
-  it('throws rather than guessing when a line is not JSON-encoded', () => {
-    // The caller turns a throw into UNAVAILABLE, which BLOCKS. A silently dropped line would read as
-    // "no pull requests carried", which PASSES — the direction a guard must never fail in.
-    expect(() => parseCommitSubjects('feat(x): raw, unencoded (#1)')).toThrow(/not JSON-encoded/);
-  });
-
-  it('is empty for empty output', () => {
-    expect(parseCommitSubjects('')).toEqual([]);
-    expect(parseCommitSubjects(undefined)).toEqual([]);
+  it('fails closed when a comparison page is missing', () => {
+    expect(() =>
+      comparisonFirstParentLandingOids({
+        headOid: 'b'.repeat(40),
+        pages: [
+          {
+            merge_base_commit: { sha: 'a'.repeat(40) },
+            total_commits: 2,
+            commits: [{ sha: 'b'.repeat(40), parents: [{ sha: 'a'.repeat(40) }] }],
+          },
+        ],
+      }),
+    ).toThrow(/incomplete/);
   });
 });

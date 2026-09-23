@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, integration/**]
     # INFRA-055: `edited` is NOT in GitHub's default activity set (`opened`, `synchronize`,
     # `reopened`), and retargeting a PR's BASE BRANCH fires `edited` — not `synchronize`. Without it
     # the whole `main`-only pipeline is bypassable through the GitHub UI in two clicks, MEASURED on
@@ -23,9 +23,9 @@ on:
     # That same property has ONE benign instance here, and it is benign only for a reason that could
     # be undone by accident: a develop→main retarget re-dispatches this workflow, and the four
     # develop-side jobs then publish `skipped` over the `success` they had earned against `develop`.
-    # That is harmless ONLY because `build`/`quality`/`scans`/`dependency audit` are no longer required
-    # on `protect-main`. Putting any of them back in that required list would make a retarget erase
-    # its own evidence. `scan-main-required-checks.mjs` is what refuses that combination.
+    # That is harmless only because the develop verification contexts are not required on
+    # `protect-main`. Adding them there would make a retarget erase its own evidence;
+    # `scan-main-required-checks.mjs` refuses that combination.
     types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
     inputs:
@@ -55,8 +55,8 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || format('benchmark-{0}-{1}', inputs.base_ref, inputs.head_ref) }}
   cancel-in-progress: true
 
-# INFRA-061: osv-scanner is downloaded from a GitHub release and then EXECUTED, in TWO jobs below —
-# one of which (`dependency audit`) is a REQUIRED status check. Pinning the version does not pin the
+# INFRA-061: osv-scanner is downloaded from a GitHub release and then executed by security jobs,
+# whose result feeds the required `security` context. Pinning the version does not pin the
 # bytes: a release asset can be replaced under an existing tag, so an unverified download is arbitrary
 # code execution on a runner that has the repository checked out. Running an unverified binary to prove
 # the tree is clean inverts the point of the job. Both call sites now verify this digest before
@@ -129,7 +129,7 @@ jobs:
   #
   # It is a REQUIRED status check on `protect-main`, alongside `main PR source guard` and
   # `release-grade verification` (INFRA-055). Those three are the whole required list for `main`: the
-  # former no-op contexts (build/quality/scans/dependency audit/commitlint) were dropped, because on a
+  # former no-op develop contexts were dropped, because on a
   # `main` PR they asserted nothing — see the note above the `build` job.
   promotion-ancestry:
     name: promotion ancestry
@@ -218,101 +218,139 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/harness/scan-promotion-closes.mjs --pr ${{ github.event.pull_request.number }}
 
-  # Proportional CI (DX): classify whether a PR touches CODE or is documentation-only, so a docs/harness-markdown
-  # PR skips the heavy build/test/e2e matrix. Those gated jobs are NOT required status checks on `protect-main`
-  # (required there = promotion ancestry / main PR source guard / release-grade verification), so skipping them
-  # is safe for branch protection — a skipped non-required job does not block the merge. On `protect-develop`
-  # tui-e2e / examples-typecheck / windows-shell ARE required and remain present for non-product changes,
-  # where they publish explicit non-applicability rather than disappearing. Every undeterminable case enables
-  # all safety-relevant capabilities, so classifier failure cannot turn required work into N/A.
-  #
-  # INFRA-058: the classifier being fail-safe was only HALF the property. `classify-changed-paths.mjs`
-  # always exits 0 (the verdict is its output, not its status), so it can only classify fail-safe —
-  # it cannot protect against this JOB going red for a reason outside the classifier: a checkout
-  # failure, a runner OOM, a syntax error introduced into the script, a Node crash. When that
-  # happens GitHub reports the four dependents as `skipped`, not `failed`, and branch protection
-  # ACCEPTS a skipped required check (INFRA-050, measured on #1424 with three required contexts
-  # reporting `skipping`). `changes` is not itself required, so nothing red would remain on the PR.
-  # The fetch-depth fix removed one CAUSE; the four dependents' `if:` now removes the MECHANISM —
-  # each treats a non-success `changes` as CODE and runs anyway. `scan-required-check-needs.mjs`
-  # keeps that shape from being edited back out.
+  # Proportional CI classifies the changed capabilities so implementation-shaped child jobs run only
+  # when relevant. Those children are not required contexts; `pr-validation` always evaluates their
+  # selected/skipped/cancelled/failed results and is the stable required decision on develop. An
+  # unreadable classification therefore makes the aggregate fail rather than turning missing work into N/A.
   changes:
     name: changes
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.filter.outputs.code }}
-      product: ${{ steps.filter.outputs.product }}
+      product: ${{ steps.filter.outputs.product == 'true' || steps.control-plane.outputs.product == 'true' }}
       tui: ${{ steps.filter.outputs.tui }}
       examples: ${{ steps.filter.outputs.examples }}
       windows: ${{ steps.filter.outputs.windows }}
       cli: ${{ steps.filter.outputs.cli }}
-      harness: ${{ steps.filter.outputs.harness }}
-      full: ${{ steps.filter.outputs.full }}
+      harness: ${{ steps.filter.outputs.harness == 'true' || steps.control-plane.outputs.harness == 'true' }}
+      hermetic: ${{ steps.filter.outputs.hermetic == 'true' || steps.control-plane.outputs.hermetic == 'true' }}
+      build_machinery: ${{ steps.filter.outputs.build_machinery }}
+      workflow: ${{ steps.filter.outputs.workflow == 'true' || steps.control-plane.outputs.workflow == 'true' }}
+      dependencies: ${{ steps.filter.outputs.dependencies == 'true' || steps.control-plane.outputs.dependencies == 'true' }}
+      full: ${{ steps.filter.outputs.full == 'true' || steps.control-plane.outputs.full == 'true' }}
+      product_integration: ${{ steps.product-integration.outputs.applicable == 'true' || steps.control-plane.outputs.product_integration == 'true' }}
+      external_units: ${{ steps.external-units.outputs.applicable }}
     steps:
-      # INFRA-050: `fetch-depth: 0`, and NO depth-limited fetch anywhere in this job. A `--depth`
-      # fetch GRAFTS the whole repository (INFRA-049 measured 109 commits locally vs 97 — a
-      # different set — in CI), and this job's verdict is computed from the MERGE BASE. Once the
-      # base's ancestry is truncated past the merge base, `git diff origin/<base>...HEAD` stops
-      # being a diff and starts being an error ("no merge base"), which fails this job — and
-      # because `changes` is not itself a required check while tui-e2e / examples-typecheck /
-      # windows-shell are, its dependents then report `skipping`, which branch protection accepts.
-      # A code PR would merge having never been e2e'd. Full history is ~3s on this repo.
+      # Full history is required to compute every merge base. `pr-validation` fails when this
+      # selector fails or when any selected child is missing, skipped, cancelled, or failed.
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
           fetch-depth: 0
+      - id: control-plane
+        name: Force owner jobs for verification control-plane edits
+        shell: bash
+        env:
+          BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+        run: |
+          set -euo pipefail
+          harness=false
+          hermetic=false
+          workflow=false
+          dependencies=false
+          full=false
+          product=false
+          product_integration=false
+          while IFS= read -r file; do
+            case "$file" in
+              scripts/harness/*)
+                harness=true
+                hermetic=true
+                ;;
+            esac
+            case "$file" in
+              .github/workflows/*)
+                workflow=true
+                ;;
+            esac
+            case "$file" in
+              scripts/harness/classify-changed-paths.mjs|scripts/harness/changed-path-capabilities.mjs|scripts/harness/entrypoint.mjs|scripts/harness/git-base-ref-resolution.mjs|scripts/harness/shared.mjs|scripts/harness/manifest-change-classification.mjs|scripts/harness/harness-test-classification.mjs)
+                full=true
+                ;;
+            esac
+            case "$file" in
+              scripts/harness/product-integration-tests.mjs|scripts/harness/workspace-affected-git.mjs)
+                product=true
+                product_integration=true
+                ;;
+            esac
+            case "$file" in
+              pnpm-lock.yaml|osv-scanner.toml|.github/workflows/dependency-review.yml|.github/workflows/security-scheduled.yml|scripts/harness/generate-dependency-review-license-exemptions.mjs)
+                dependencies=true
+                ;;
+            esac
+          done < <(git diff --name-only --no-renames "${BASE_REF}"...HEAD)
+          {
+            echo "harness=${harness}"
+            echo "hermetic=${hermetic}"
+            echo "workflow=${workflow}"
+            echo "dependencies=${dependencies}"
+            echo "full=${full}"
+            echo "product=${product}"
+            echo "product_integration=${product_integration}"
+          } >> "$GITHUB_OUTPUT"
       - id: filter
         name: Classify changed paths and affected capabilities
         env:
           BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
         run: |
-          # The classification lives in scripts/harness/classify-changed-paths.mjs — ONE
-          # implementation with two callers. `review-gate.yml` invokes the same module to decide
-          # whether a code-scanning analysis is expected for this PR at all, and if it re-derived
-          # "no code changed" with its own rule, that rule would be the bypass: a PR could skip the
-          # review gate without skipping this matrix. Extracting it is what makes the two verdicts
-          # the same verdict by construction.
-          #
+          # The classification lives in scripts/harness/classify-changed-paths.mjs and feeds every
+          # selected child plus the `pr-validation` aggregate.
           # Unchanged behaviour (asserted in __tests__/classify-changed-paths.test.mjs): the merge
           # base is computed explicitly and over `--all` for this repo's criss-cross history, and
           # every undeterminable case — no merge base, a failed diff, an empty file list —
           # classifies as CODE so no required check is silently skipped.
           #
-          # No `setup-node`: the runner's preinstalled Node runs this (the script imports only
-          # node: builtins), and adding a network-dependent setup step to the job that GATES the
+          # No `setup-node`: the runner's preinstalled Node runs this (its dependency tree imports
+          # only node: builtins), and adding a network-dependent setup step to the job that GATES the
           # required matrix would trade a real risk for a cosmetic one — a flake here makes
           # tui-e2e / examples-typecheck / windows-shell report `skipping`, which branch protection
           # accepts. review-gate.yml has run `node scripts/harness/*.mjs` bare since #1434.
           node scripts/harness/classify-changed-paths.mjs --base-ref "${BASE_REF}"
 
-  # INFRA-055: `build` / `quality` / `scans` / `dependency audit` are DEVELOP-side gates. They used to run on a
-  # `main` PR too, as a "Skip duplicate …" echo with every real step gated on `base_ref != 'main'` — a 3–6
-  # second job that asserted nothing. That shape existed for one reason: all four were REQUIRED contexts on
-  # `protect-main`, so they had to resolve rather than linger pending. Measured on promotion #1427 they
-  # reported 5s / 5s / 6s / 3s of echo, and branch protection reported green from jobs that deliberately did
-  # no work, while the job that actually verifies a promotion (`release-grade verification`) was not required.
-  #
-  # The required list was moved to match (`promotion ancestry`, `main PR source guard`, `release-grade
-  # verification`), so the reason for the echo shape is gone and these jobs are simply excluded on a `main`
-  # PR at the JOB level. `harness:verify:release` subsumes them there: it runs the FULL build, the FULL scan
-  # suite (plus `harness:test`), the FULL test/typecheck/lint sweep and an UNCONDITIONAL osv-scanner, where
-  # these four are affected-scope-selective via `--base-ref`.
+      - id: product-integration
+        name: Select affected product integration and consumer-contract tests
+        if: steps.filter.outputs.product == 'true' || steps.filter.outputs.full == 'true' || steps.control-plane.outputs.product == 'true' || steps.control-plane.outputs.full == 'true'
+        env:
+          BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+        run: node scripts/harness/product-integration-tests.mjs --base-ref "${BASE_REF}" --github-output
+
+      - id: external-units
+        name: Select affected pure unit tests for external contributions
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && (steps.filter.outputs.product == 'true' || steps.filter.outputs.full == 'true' || steps.control-plane.outputs.product == 'true' || steps.control-plane.outputs.full == 'true')
+        env:
+          BASE_REF: ${{ format('origin/{0}', github.base_ref) }}
+        run: node scripts/harness/product-integration-tests.mjs --external-units --base-ref "${BASE_REF}" --github-output
+
+  # Develop verification jobs are excluded from `main` PRs at the job level. Main promotions use the
+  # dedicated release-grade verification path; develop pull requests use the affected-scope jobs below.
   #
   # Do not re-add work to these jobs for `main` without adding the job back to `protect-main`'s required list
   # AND to `.github/required-status-checks.json` — `scan-main-required-checks.mjs` enforces the converse
   # direction (nothing vacuous may be required).
   build:
     name: build
-    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
+    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && (needs.changes.outputs.product == 'true' || needs.changes.outputs.build_machinery == 'true' || needs.changes.outputs.full == 'true') }}
     runs-on: ubuntu-latest
     needs: changes
     env:
       FULL_VERIFICATION: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' }}
-      PRODUCT_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.product == 'true' }}
+      PRODUCT_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.product == 'true' || needs.changes.outputs.build_machinery == 'true' }}
       CLI_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.cli == 'true' }}
+      BUILD_MACHINERY_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.build_machinery == 'true' }}
     outputs:
-      package_dist_required: ${{ steps.build_requirement.outputs.required || steps.build_requirement_na.outputs.required }}
-      package_dist_complete: ${{ steps.build_requirement.outputs.complete || steps.build_requirement_na.outputs.complete }}
+      package_dist_required: ${{ steps.build_requirement.outputs.required }}
+      package_dist_complete: ${{ steps.build_requirement.outputs.complete }}
 
     steps:
       - name: Refuse unsafe benchmark check attachment
@@ -342,15 +380,6 @@ jobs:
         with:
           node-version: '22.x'
           cache: 'pnpm'
-
-      - name: Restore cross-head ESLint content cache
-        if: env.PRODUCT_APPLICABLE == 'true'
-        uses: actions/cache@v6
-        with:
-          path: .cache/eslint/ci.cache
-          key: robota-eslint-content-v1-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            robota-eslint-content-v1-${{ runner.os }}-node22-
 
       - name: Install dependencies
         if: env.PRODUCT_APPLICABLE == 'true'
@@ -388,14 +417,13 @@ jobs:
         if: env.PRODUCT_APPLICABLE == 'true'
         env:
           FULL_VERIFICATION: ${{ env.FULL_VERIFICATION }}
+          BUILD_MACHINERY_APPLICABLE: ${{ env.BUILD_MACHINERY_APPLICABLE }}
         run: |
           node --input-type=module <<'EOF'
           import { appendFileSync, readFileSync } from 'node:fs';
-          import { isBuildMachineryPath } from './scripts/harness/classify-changed-paths.mjs';
-
           const plan = JSON.parse(readFileSync('.agents/evals/local-metrics/ci-plan.json', 'utf8'));
           const workspaceBuildPlan = JSON.parse(readFileSync('.agents/evals/local-metrics/workspace-build-plan.json', 'utf8'));
-          const cleanFrameworkProof = !Array.isArray(plan.changedFiles) || plan.changedFiles.length === 0 || plan.changedFiles.some(isBuildMachineryPath);
+          const cleanFrameworkProof = process.env.BUILD_MACHINERY_APPLICABLE === 'true';
           appendFileSync(process.env.GITHUB_OUTPUT, `clean_framework_proof=${cleanFrameworkProof}\n`);
           const checksRequiringPackageDist = new Set(['build', 'test', 'typecheck']);
           const required = workspaceBuildPlan.mode === 'global' || process.env.FULL_VERIFICATION === 'true' || plan.scopes.some((scope) =>
@@ -407,6 +435,12 @@ jobs:
           appendFileSync(process.env.GITHUB_OUTPUT, `required=${required ? 'true' : 'false'}\n`);
           appendFileSync(process.env.GITHUB_OUTPUT, `complete=${process.env.FULL_VERIFICATION === 'true' ? 'true' : 'false'}\n`);
           appendFileSync(process.env.GITHUB_OUTPUT, `agent_app_required=${agentAppRequired ? 'true' : 'false'}\n`);
+          const artifactContractsRequired = process.env.FULL_VERIFICATION === 'true' || cleanFrameworkProof || plan.scopes.some(
+            (scope) => scope.scope.startsWith('packages/'),
+          );
+          appendFileSync(process.env.GITHUB_OUTPUT, `artifact_contracts_required=${artifactContractsRequired ? 'true' : 'false'}\n`);
+          const artifactTestsRequired = process.env.FULL_VERIFICATION === 'true' || cleanFrameworkProof;
+          appendFileSync(process.env.GITHUB_OUTPUT, `artifact_tests_required=${artifactTestsRequired ? 'true' : 'false'}\n`);
 
           if (required) {
             console.log('Package or app verification requires the root monorepo build output.');
@@ -476,71 +510,12 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      # Build and quality share checkout, runtime, install, and the just-produced dist. Keeping both
-      # verdicts in this producer removes a measured 32-second duplicate setup from the critical path;
-      # the required `quality` job below only publishes this producer's conclusion.
-      - name: Verify full or affected package quality concurrently
-        if: env.PRODUCT_APPLICABLE == 'true'
-        shell: bash
-        env:
-          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
-        run: |
-          set +e
-          mkdir -p .cache/eslint
-          # Issue #2300: tests must not be satisfied by the author's runner HOME (for example,
-          # unrelated ~/.claude skills). Keep the test process hermetic while leaving typecheck and
-          # lint on the normal runner environment; tests that need host-like state must fixture it.
-          empty_home="${RUNNER_TEMP}/empty-home"
-          mkdir -p "$empty_home"
-          labels=()
-          pids=()
-          logs=()
-
-          start_check() {
-            local label="$1"
-            shift
-            local log_file="${RUNNER_TEMP}/quality-${label}.log"
-            labels+=("$label")
-            logs+=("$log_file")
-            "$@" >"$log_file" 2>&1 &
-            pids+=("$!")
-          }
-
-          if [[ "$FULL_VERIFICATION" == "true" ]]; then
-            # Recursive pnpm already runs four workspaces; one fork per workspace avoids
-            # multiplying that into sixteen test workers alongside typecheck and lint.
-            start_check test env HOME="$empty_home" VITEST_MAX_FORKS=1 pnpm test
-            start_check typecheck pnpm typecheck
-            start_check lint pnpm lint
-          else
-            start_check test env HOME="$empty_home" VITEST_MAX_FORKS=1 pnpm test:affected
-            start_check typecheck pnpm typecheck:affected
-            start_check lint pnpm lint:affected
-          fi
-
-          failed=0
-          for index in "${!pids[@]}"; do
-            status=0
-            wait "${pids[$index]}" || status=$?
-            echo "::group::${labels[$index]} (exit ${status})"
-            if ! cat "${logs[$index]}"; then
-              echo "::error::${labels[$index]} log is missing or unreadable"
-              status=1
-            fi
-            echo "::endgroup::"
-            if (( status != 0 )); then
-              echo "::error::${labels[$index]} failed with child status ${status}"
-              failed=1
-            fi
-          done
-          exit "$failed"
-
       - name: Build-output contracts scan (dist-dependent)
-        if: env.PRODUCT_APPLICABLE == 'true'
+        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.artifact_contracts_required == 'true'
         run: pnpm harness:scan:build-contracts
 
       - name: Verify artifact generation, exact pack and release-path regressions
-        if: env.PRODUCT_APPLICABLE == 'true'
+        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.artifact_tests_required == 'true'
         run: pnpm exec vitest run scripts/artifacts/__tests__
 
       # ARCH-2164: these valid-wire product paths were previously exercised only by scripts that no
@@ -562,50 +537,116 @@ jobs:
         if: env.CLI_APPLICABLE == 'true'
         run: pnpm --filter @robota-sdk/agent-cli test:bin
 
-      - name: Binary e2e not applicable
-        if: env.PRODUCT_APPLICABLE == 'true' && env.CLI_APPLICABLE != 'true'
-        run: echo "This change cannot reach the agent CLI binary."
-
-      - name: Skip monorepo build when no build output is required
-        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required != 'true'
-        run: echo "No package or app verification requires build output."
-
-      - name: Product verification not applicable
-        id: build_requirement_na
-        if: env.PRODUCT_APPLICABLE != 'true'
-        run: |
-          echo "Infrastructure-only change: product build is not applicable."
-          echo "required=false" >> "$GITHUB_OUTPUT"
-          echo "complete=false" >> "$GITHUB_OUTPUT"
-
-  quality:
-    name: quality
-    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
-    runs-on: ubuntu-latest
+  # Pure unit and bugfix RED/GREEN evidence are local-owned for same-repository work. This job runs
+  # only the separately named integration/contract/e2e files belonging to changed packages or their
+  # manifest consumers.
+  # The selector executes in `changes`, so a product change with no such test does not start a runner.
+  product-integration:
+    name: product-integration
     needs: [changes, build]
+    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && needs.build.result == 'success' && needs.changes.outputs.product_integration == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Refuse unsafe benchmark check attachment
-        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
-        uses: actions/github-script@v9
+      - uses: actions/checkout@v7
         with:
-          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
-      - name: Publish the product verification verdict
-        env:
-          BUILD_RESULT: ${{ needs.build.result }}
-        run: |
-          if [[ "$BUILD_RESULT" != "success" ]]; then
-            echo "::error::build/quality producer concluded ${BUILD_RESULT}"
-            exit 1
-          fi
-          echo "Build and package quality verification passed in the shared producer job."
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          fetch-depth: 0
 
-  # INFRA-037: the dist-INDEPENDENT scan suite + harness unit tests run here with NO `needs: build`, so
-  # they start immediately and run in parallel with `build` (removing the ~3-min build-wait for work that
-  # never consumed dist). INFRA-055: develop-side only — see the note above `build`.
-  scans:
-    name: scans
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Download clean affected build output
+        if: needs.build.outputs.package_dist_required == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: package-dist
+          path: .artifacts/package-dist
+
+      - name: Restore clean affected build output
+        if: needs.build.outputs.package_dist_required == 'true'
+        run: node scripts/artifacts/transfer.mjs restore --archive .artifacts/package-dist/package-dist.tgz
+
+      - name: Guarantee selected integration consumer dist
+        env:
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+        shell: bash
+        run: |
+          mapfile -t targets < <(node scripts/harness/product-integration-tests.mjs --base-ref "$HARNESS_BASE_REF" --build-targets)
+          args=()
+          for target in "${targets[@]}"; do args+=(--changed-file "$target"); done
+          [[ "${#args[@]}" -gt 0 ]] || { echo "::error::selected product-integration job has no build targets"; exit 1; }
+          pnpm harness:workspace:run -- --operation build "${args[@]}"
+
+      - name: Run affected integration and consumer-contract tests
+        env:
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+        run: node scripts/harness/product-integration-tests.mjs --base-ref "$HARNESS_BASE_REF"
+
+  # External contributors cannot supply trusted local review evidence, so fork PRs get a bounded
+  # affected pure-unit lane in addition to the normal integration lane. Same-repository PRs skip it.
+  external-units:
+    name: external-units
+    needs: [changes, build]
+    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && needs.build.result == 'success' && needs.changes.outputs.external_units == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Download clean affected build output
+        if: needs.build.outputs.package_dist_required == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: package-dist
+          path: .artifacts/package-dist
+
+      - name: Restore clean affected build output
+        if: needs.build.outputs.package_dist_required == 'true'
+        run: node scripts/artifacts/transfer.mjs restore --archive .artifacts/package-dist/package-dist.tgz
+
+      - name: Guarantee selected unit-test consumer dist
+        env:
+          HARNESS_BASE_REF: ${{ format('origin/{0}', github.base_ref) }}
+        shell: bash
+        run: |
+          mapfile -t targets < <(node scripts/harness/product-integration-tests.mjs --external-units --base-ref "$HARNESS_BASE_REF" --build-targets)
+          args=()
+          for target in "${targets[@]}"; do args+=(--changed-file "$target"); done
+          [[ "${#args[@]}" -gt 0 ]] || { echo "::error::selected external-units job has no build targets"; exit 1; }
+          pnpm harness:workspace:run -- --operation build "${args[@]}"
+
+      - name: Run affected pure unit tests for external contributions
+        env:
+          HARNESS_BASE_REF: ${{ format('origin/{0}', github.base_ref) }}
+        run: node scripts/harness/product-integration-tests.mjs --external-units --base-ref "$HARNESS_BASE_REF"
+
+  # Issue #2826: each responsibility is independently retriable and publishes its own output.
+  repo-checks:
+    name: repo-checks
     needs: changes
-    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
+    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -637,120 +678,105 @@ jobs:
           node-version: '22.x'
           cache: 'pnpm'
 
-      # A unique primary key makes every completed run publish an immutable snapshot. Restore may
-      # cross heads because every marker is content-addressed and revalidated against the test's
-      # complete implementation/input key before it can count as a hit.
-      - name: Restore cross-head contract-test content cache
-        uses: actions/cache@v6
+      - name: Restore independently proven scan successes
+        id: scan-success-cache
+        uses: actions/cache/restore@v6
         with:
-          path: .cache/robota-contract-tests
-          key: robota-contract-tests-v2-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .cache/robota-scan-successes
+          key: robota-scan-success-v2-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            robota-contract-tests-v2-${{ runner.os }}-node22-
+            robota-scan-success-v2-${{ runner.os }}-node22-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # INFRA-151: the contract selector owns fail-closed fallback to the full four-shard suite.
-      # Contracts, the affected dist-independent scan, and (when applicable) hermetic tests are
-      # independent after installation, so run them concurrently. Each child writes a complete log;
-      # every result is collected before the aggregate exits, and any non-zero status (including a
-      # signal-derived status), missing child result, or unreadable log fails this required context.
-      # A failed changes job or missing harness output runs hermetic tests too; only a proven
-      # harness=false may omit that tier.
-      #
-      # INFRA-026: the full scan suite is a develop-merge gate, not a release-only one.
-      # `dist` is a LOCAL pre-CI freshness check (a fresh checkout has no dist to measure — skip printed,
-      # never silent); `build-contracts` (INFRA-037) is dist-dependent and runs in the `quality` job after
-      # dist restore, so it is skipped here rather than silently no-op'ing on a source/build-change PR.
-      # PR #1891 moved `action-references` onto the authenticated API, where an unverifiable
-      # reference is a FAILURE and not a skip — deliberately, because "could not determine, exit 0"
-      # is the defect that guard exists to catch. This job had no token, so every one of the 80
-      # references was unverifiable and the whole suite went red on arrival. `github.token` is the
-      # same credential the promotion check above already uses.
-      # PROC-016: on a pull request this is the AFFECTED set — every scan whose declared globs a
-      # changed path reaches, plus every scan declared `always` — run in the `pr` context, where a
-      # scan that grades the agent's own prose (transcripts, narrative references) reports its
-      # failure as an advisory instead of failing the context. A changed path no scan declares
-      # selects the full suite here, fail closed. The FULL suite in the `integration` context, where
-      # those advisories block, runs on every push to `develop` and on demand (`scans-full.yml`).
-      # `pre-push.mjs` runs this same line locally; `pre-push-mirrors-ci-scans.test.mjs` pins it.
-      #
-      # PROC-016: `scan-lane-declaration` reads the pull request body's `Lane:` line through
-      # `HARNESS_PR_BODY_FILE` — the scan runner passes it no arguments, so a file is the only way in,
-      # and without one a pull request that declares its lane only in the body was refused here as
-      # "no lane declared". The body is untrusted text: it is handed over as an environment variable
-      # and written with `printf '%s'`, never interpolated into a script (the same shape as the
-      # regression-red-proof step below). An absent body writes an empty file, and the declaration
-      # then comes from the spec-document frontmatter or the commit trailers, as the scan's priority
-      # order says. This step is CI plumbing, not a check: locally the body does not exist yet, so
-      # `pre-push-mirrors-ci-scans.test.mjs` and `ci-mirror-map.mjs` declare it as such by name.
-      - name: Write pull request body for the lane declaration
-        env:
-          PR_BODY: ${{ github.event.pull_request.body || inputs.pr_body }}
-          HARNESS_PR_BODY_FILE: ${{ runner.temp }}/pr-body.txt
-        run: printf '%s' "$PR_BODY" > "$HARNESS_PR_BODY_FILE"
-
-      - name: Harness affected verification (concurrent, dist-independent)
+      # The pull request runs only repository checks selected by the changed-path classifier.
+      # Contract and hermetic suites have independent jobs below, so each responsibility can retry
+      # without rerunning this repository scan. The complete harness remains reachable through
+      # `scans-full.yml`.
+      - name: Run affected repository checks
         env:
           GH_TOKEN: ${{ github.token }}
-          HARNESS_PR_BODY_FILE: ${{ runner.temp }}/pr-body.txt
           HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
-          BENCHMARK_MODE: ${{ github.event_name == 'workflow_dispatch' }}
-          RUN_HERMETIC: ${{ needs.changes.result != 'success' || needs.changes.outputs.harness != 'false' }}
           # Issue #2412: the head the per-commit history scans end at (on pull_request, HEAD is the
           # synthetic merge ref); `scan-ci-base-history` refuses a per-commit job without it.
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
-          set +e
-
-          labels=()
-          pids=()
-          logs=()
-
-          start_check() {
-            local label="$1"
-            shift
-            local log_file="${RUNNER_TEMP}/scans-${label}.log"
-            labels+=("$label")
-            logs+=("$log_file")
-            "$@" >"$log_file" 2>&1 &
-            pids+=("$!")
-          }
-
-          start_check contracts \
-            pnpm harness:test:contracts:affected -- --base-ref "${HARNESS_BASE_REF}" --head-ref HEAD
           scan_args=(harness:scan -- --skip dist --skip build-contracts --affected --context pr --base "${HARNESS_BASE_REF}")
-          if [[ "$BENCHMARK_MODE" == "true" ]]; then
-            scan_args+=(--skip lane-declaration --skip user-execution-plan-order)
-          fi
-          start_check scans pnpm "${scan_args[@]}"
-          if [[ "$RUN_HERMETIC" == "true" ]]; then
-            start_check hermetic pnpm harness:test:hermetic
-          fi
+          pnpm "${scan_args[@]}"
 
-          failed=0
-          for index in "${!pids[@]}"; do
-            status=0
-            wait "${pids[$index]}" || status=$?
-            echo "::group::${labels[$index]} (exit ${status})"
-            if ! cat "${logs[$index]}"; then
-              echo "::error::${labels[$index]} log is missing or unreadable"
-              status=1
-            fi
-            echo "::endgroup::"
-            if (( status != 0 )); then
-              echo "::error::${labels[$index]} failed with child status ${status}"
-              failed=1
-            fi
-          done
+      - name: Persist independently proven scan successes
+        if: ${{ always() }}
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/robota-scan-successes
+          key: ${{ steps.scan-success-cache.outputs.cache-primary-key }}
 
-          exit "$failed"
+  harness-contracts:
+    name: harness-contracts
+    needs: changes
+    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && (needs.changes.outputs.harness == 'true' || needs.changes.outputs.full == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+      - name: Restore validated contract-test successes
+        id: contract-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/robota-contract-tests
+          key: robota-contract-tests-v3-${{ runner.os }}-node22-${{ github.event.pull_request.head.sha || inputs.head_ref }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            robota-contract-tests-v3-${{ runner.os }}-node22-
+      - run: pnpm install --frozen-lockfile
+      - name: Run affected harness contracts
+        env:
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+        run: pnpm harness:test:contracts:affected -- --base-ref "${HARNESS_BASE_REF}" --head-ref HEAD
+      - name: Persist independently proven contract successes
+        if: ${{ always() }}
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/robota-contract-tests
+          key: ${{ steps.contract-cache.outputs.cache-primary-key }}
 
-  dependency-audit:
-    name: dependency audit
-    if: (github.base_ref || inputs.base_ref) != 'main'
+  harness-hermetic:
+    name: harness-hermetic
+    needs: changes
+    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && (needs.changes.outputs.hermetic == 'true' || needs.changes.outputs.full == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Run harness behavior in a stripped repository
+        run: pnpm harness:test:hermetic
+
+  dependency-security:
+    name: dependency-security
+    needs: changes
+    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && needs.changes.outputs.dependencies == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -768,41 +794,10 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
           fetch-depth: 0
 
-      - name: Detect dependency graph changes
-        id: dependency_changes
-        env:
-          BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
-        run: |
-          # Explicit merge base(s), union over all of them, and any failure classifies as CHANGED —
-          # an unscannable history must run the scan, never silently skip it.
-          bases="$(git merge-base --all "${BASE_REF}" HEAD)" || bases=''
-          changed_files=''
-          scan=''
-          if [ -z "$bases" ]; then
-            echo "::error::dependency audit: no merge base between ${BASE_REF} and HEAD. Running the vulnerability scan rather than skipping it."
-            scan=forced
-          fi
-          for base in $bases; do
-            if ! diff_files="$(git diff --name-only --diff-filter=ACMRD "$base" HEAD)"; then
-              echo "::error::dependency audit: git diff against merge base $base failed. Running the vulnerability scan rather than skipping it."
-              scan=forced
-              break
-            fi
-            changed_files="${changed_files}${diff_files}
-          "
-          done
-          if [ "$scan" = forced ] || printf '%s\n' "$changed_files" | grep -Eq '(^pnpm-lock.yaml$|(^|/)package.json$)'; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No package manifest or lockfile changes; skipping vulnerability scan."
-          fi
-
       # INFRA-038: npm retired the legacy audit endpoint (pnpm audit → 410). osv-scanner reads the pnpm lockfile
       # directly (OSV.dev DB) — no pnpm/node install needed; it fails on any un-ignored vuln; re-accepts live in
       # osv-scanner.toml (single SSOT).
       - name: Vulnerability scan (osv-scanner) for dependency graph changes
-        if: steps.dependency_changes.outputs.changed == 'true'
         run: |
           set -euo pipefail
           curl -fsSL "https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64" \
@@ -811,6 +806,66 @@ jobs:
           echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/osv-scanner"
           "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml
+
+  dependency-policy:
+    name: dependency-policy
+    needs: changes
+    if: ${{ github.event_name == 'pull_request' && github.base_ref != 'main' && needs.changes.result == 'success' && needs.changes.outputs.dependencies == 'true' }}
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: ./.github/workflows/dependency-review.yml
+
+  secret-scan:
+    name: secret-scan
+    if: ${{ (github.base_ref || inputs.base_ref) != 'main' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/gitleaks.yml
+    with:
+      base_ref: ${{ github.base_ref || inputs.base_ref }}
+      head_ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+
+  security:
+    name: security
+    needs: [changes, dependency-security, dependency-policy, secret-scan]
+    if: ${{ always() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != '' && needs.dependency-security.result != '' && needs.dependency-policy.result != '' && needs.secret-scan.result != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the selected security decision
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          DEPENDENCY_RESULT: ${{ needs.dependency-security.result }}
+          POLICY_RESULT: ${{ needs.dependency-policy.result }}
+          SECRET_RESULT: ${{ needs.secret-scan.result }}
+          DEPENDENCIES_APPLICABLE: ${{ needs.changes.outputs.dependencies == 'true' }}
+          POLICY_APPLICABLE: ${{ github.event_name == 'pull_request' && needs.changes.outputs.dependencies == 'true' }}
+        run: |
+          if [[ "$CHANGES_RESULT" != success ]]; then
+            echo "::error::changed-path selection concluded $CHANGES_RESULT"
+            exit 1
+          fi
+          if [[ "$SECRET_RESULT" != success ]]; then
+            echo "::error::secret detection concluded $SECRET_RESULT"
+            exit 1
+          fi
+          if [[ "$DEPENDENCIES_APPLICABLE" == true ]]; then
+            if [[ "$DEPENDENCY_RESULT" != success ]]; then
+              echo "::error::selected vulnerability check concluded $DEPENDENCY_RESULT"
+              exit 1
+            fi
+          elif [[ "$DEPENDENCY_RESULT" != skipped ]]; then
+            echo "::error::unselected vulnerability check concluded $DEPENDENCY_RESULT"
+            exit 1
+          fi
+          if [[ "$POLICY_APPLICABLE" == true && "$POLICY_RESULT" != success ]]; then
+            echo "::error::selected dependency policy concluded $POLICY_RESULT"
+            exit 1
+          fi
+          if [[ "$POLICY_APPLICABLE" != true && "$POLICY_RESULT" != skipped ]]; then
+            echo "::error::unselected dependency policy concluded $POLICY_RESULT"
+            exit 1
+          fi
 
   # INFRA-055: the REQUIRED content gate for a promotion. It is the only required context on `protect-main`
   # that executes the repository's code, and it qualifies as required because it always reaches a conclusion
@@ -827,7 +882,7 @@ jobs:
 
     steps:
       # INFRA-050: full history — `harness:verify:release` runs the scan suite, which contains a
-      # base-history gate (see the `scans` job note above).
+      # base-history gate used by the repository-check suite.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -874,82 +929,29 @@ jobs:
           chmod +x "$RUNNER_TEMP/osv-scanner"
           "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml
 
-  # compat-node18 was removed: its first REAL Node 18 run (promotion #1306) proved the build chain
-  # (rolldown, engines ^20.19 || >=22.12) cannot run on Node 18 at all, and Node 18 has been EOL since
-  # 2025-04 — the engines floor is now >=20.19.0, making a separate compat job redundant with `build`.
-  # INFRA-055: develop-side only, and no longer a required context on `protect-main`. A promotion's merge
-  # commit subject is generated by GitHub, and every commit it promotes was linted on its own PR to
-  # `develop` — so on a `main` PR this job has nothing to assert. It was previously REQUIRED there while
-  # skipping wholesale, which branch protection accepts.
-  # INFRA-083: the ONE thing a bypassed local gate used to ship.
-  #
-  # Every other local stage is re-run by a required CI job, so a push that skipped the hooks could
-  # not merge broken code — it merely cost a CI cycle. Formatting was the exception: `ci-mirror-map`
-  # recorded "no CI job re-checks formatting, and a --no-verify push from a fresh worktree never runs
-  # the SSOT formatter". That made the local hook the only line of defence for it, which is exactly
-  # the position a gate should never be in.
-  #
-  # It calls the SAME code path the local stage calls, rather than re-deriving the file set from a
-  # glob here. A second derivation is how CI and local come to disagree about what "formatted" means,
-  # and this repository has paid for that class often enough.
-  format-check:
-    name: format-check
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.base_ref != 'main'
-
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 8.15.4
-
-      - name: Use Node.js 22.x
-        uses: actions/setup-node@v6
-        with:
-          node-version: '22.x'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # `--base-ref` explicitly, like the sibling `commitlint` job. Without it the stage diffs against
-      # a hardcoded `origin/develop`, which is right today only because this job is skipped when the
-      # base IS main and policy sends everything else to develop — an assumption held in two places
-      # and stated in neither.
-      - name: Check formatting
-        run: node scripts/harness/verify-like-ci.mjs --only format-check --base-ref origin/${{ github.base_ref }}
-
   # INFRA-065 half 1. `scan-action-references` verifies that every `uses:` REFERENCE resolves — which
   # is what caught `vercel/action@v1`, and which actionlint does not check. The reverse is also true,
   # and this job is that half: expression syntax and context typing, `run:` block shellcheck, and
   # job/step schema errors GitHub accepts silently.
   #
-  # A JOB, NOT A STEP OF `scans`, and the harness decided that rather than a preference. Folding it
-  # into `scans` cost no concurrency slot but broke two invariants at once: `ci-mirror-map` requires
-  # every step of a REQUIRED job to be reproduced by a `verify-like-ci` stage or declared plumbing
-  # (INFRA-056 — otherwise "I ran the CI-equivalent check" covers less than it claims), and
-  # `pre-push-mirrors-ci-scans` requires the pre-push gate to run every command `scans` runs. Both
-  # would have been satisfiable only by making every developer install actionlint. The concurrency
-  # baseline is re-frozen deliberately instead, which is the option that scan itself offers: one
-  # account slot, spent knowingly, against a locally-unverifiable required context.
+  # Actionlint is selected independently so it can be retried without rerunning repository or
+  # harness checks. `pr-validation` aggregates the result when workflow files changed.
   #
-  # NOT required, and not proposed as required: a new refusal in the merge path, and INFRA-046
-  # records why an untested one is not promoted. A failure is still visible as a non-required red,
-  # which `merge-gate.sh` refuses to merge past.
+  # It is not a standalone protected context; when selected, its result is transitively required by
+  # `pr-validation`. This keeps the protection interface stable without making a red advisory.
   #
   # Measured before landing: actionlint 1.7.7 reports ZERO problems across this repository's
   # workflows, so it arrives clean rather than with a backlog to acknowledge.
   actionlint:
     name: actionlint
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.base_ref != 'main'
+    needs: changes
+    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && needs.changes.outputs.workflow == 'true' }}
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
 
       - name: Lint workflow files
         run: |
@@ -971,117 +973,16 @@ jobs:
           }
           "$RUNNER_TEMP/actionlint" -color
 
-  commitlint:
-    name: commitlint
-    runs-on: ubuntu-latest
-    # `merged != true`: a body edit AFTER the merge re-dispatches this workflow against the closed PR
-    # (`edited` is subscribed for INFRA-055), and on a merged PR the range `origin/<base>..<head>` is
-    # empty by construction — so this job failed closed and repainted the merged head's required
-    # projection red 12 minutes after a green landing (issue #2424, PRs #2414/#2417). A closed PR has
-    # nothing left for this gate to decide; skip rather than fail. Open-PR behaviour is unchanged.
-    if: (github.base_ref || inputs.base_ref) != 'main' && github.event.pull_request.merged != true
-
-    steps:
-      - name: Refuse unsafe benchmark check attachment
-        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
-        uses: actions/github-script@v9
-        with:
-          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
-
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
-          fetch-depth: 0
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 8.15.4
-
-      - name: Use Node.js 22.x
-        uses: actions/setup-node@v6
-        with:
-          node-version: '22.x'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # INFRA-049: lint ONLY the commits this PR authored. Three things make that true, and all
-      # three are load-bearing — see .agents/tasks/completed/INFRA-049-*.md for the evidence.
-      #
-      # 1. NO base fetch, and above all no `--depth`. `actions/checkout` already fetched every
-      #    branch at full depth (fetch-depth: 0), so `origin/<base>` is present and complete. The
-      #    `git fetch origin <base> --depth=50` step that used to sit here GRAFTED the repository at
-      #    depth 50, destroying the ancestry that `<base>..<head>` is computed from: commits long
-      #    since merged into the base looked unreachable and were re-linted. That is what failed
-      #    #1415 — 97 inherited commits and 26 errors in CI, while the identical command exited 0
-      #    on a full local clone. Removing it is what makes CI and a local run agree.
-      # 2. `--first-parent` drops history the PR merged IN from another branch. A main→develop
-      #    back-merge carries ~109 already-merged commits its author cannot rewrite; those belong to
-      #    the PRs that introduced them. Every commit the PR itself authored — including its own
-      #    merge commits — sits on the first-parent path and is still linted in full, so a bad
-      #    subject the PR wrote still fails the gate.
-      # 3. `github.event.pull_request.head.sha`, NOT `HEAD`. On a pull_request event HEAD is
-      #    GitHub's synthetic `refs/pull/N/merge`, whose FIRST parent is the base branch — walking
-      #    first-parent from it would traverse the base and lint nothing at all.
-      #
-      # commitlint's own `--git-log-args=--first-parent` is NOT usable here: @commitlint/read passes
-      # the parsed flags to @conventional-changelog/git-client, which only understands the camelCase
-      # `firstParent` key and silently drops anything else (its own source says so). The documented
-      # spelling is a no-op, so the range is computed with git directly.
-      #
-      # Local equivalent — same commit set, given an up-to-date origin/<base>:
-      #   git rev-list --first-parent origin/develop..HEAD |
-      #     while read -r sha; do
-      #       git log -1 --format=%B "$sha" | pnpm exec commitlint --verbose || exit 1
-      #     done
-      - name: Lint PR commit messages
-        env:
-          BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.head_ref }}
-        run: |
-          # INFRA-058: resolve the range into a variable and CHECK it, rather than expanding
-          # `$(git rev-list …)` straight into the `for` word-list. GitHub runs this block as
-          # `bash -e`, and `set -e` does NOT fire on a command substitution used as a word-list: a
-          # failing `git rev-list` produced an EMPTY list, the loop body never ran, and `exit
-          # "$status"` returned 0. MEASURED by extracting this step verbatim and running it with an
-          # unresolvable head sha: two `fatal: Invalid revision range` lines, `Linting  commit(s)`,
-          # and exit 0 — this REQUIRED check reporting green having linted nothing. "Could not
-          # determine" is not "checked and clean"; both now fail closed.
-          range="${BASE_REF}..${HEAD_SHA}"
-          if ! commits="$(git rev-list --first-parent "$range")"; then
-            echo "::error::commitlint: could not resolve the commit range '$range'. ${BASE_REF} or ${HEAD_SHA} is not present in this checkout (the job checks out with fetch-depth: 0, so this means the head sha was force-pushed away or the base ref was never fetched). Failing rather than linting zero commits."
-            exit 1
-          fi
-          if [ -z "$commits" ]; then
-            echo "::error::commitlint: the range '$range' contains no commits. A PR always authors at least one, so an empty range means the range is degenerate, not that the PR is clean. Failing rather than linting zero commits."
-            exit 1
-          fi
-          echo "Linting $(printf '%s\n' "$commits" | wc -l) commit(s) authored by this PR ($range, first-parent)."
-          status=0
-          for sha in $commits; do
-            echo "── $(git log -1 --format='%h %s' "$sha")"
-            git log -1 --format=%B "$sha" | pnpm exec commitlint --verbose || status=1
-          done
-          exit "$status"
-
   examples-typecheck:
     name: examples-typecheck
     runs-on: ubuntu-latest
-    # `build` joins `changes` so the built packages can be reused. The `if:` below already carries
-    # `!cancelled()`, which disables the implicit `success()` over `needs` — so a failed `build` does
-    # NOT turn this required check into a skip; the job runs and falls back to building.
+    # `build` joins `changes` so selected examples can reuse package output.
     needs: [changes, build]
     env:
       FULL_VERIFICATION: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' }}
       EXAMPLES_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.examples == 'true' }}
-    # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
-    # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
-    # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
-    # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
-    # because a cancelled run is superseded, not unverified.
-    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
+    # A failed selector/build skips this child; `pr-validation` sees that result and fails closed.
+    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && (needs.changes.outputs.examples == 'true' || needs.changes.outputs.full == 'true') }}
 
     steps:
       - name: Refuse unsafe benchmark check attachment
@@ -1115,8 +1016,7 @@ jobs:
 
       # Reuse the build the `build` job already produced and uploaded, instead of repeating it.
       # Measured: this job spent about 80% of its runtime rebuilding what another job had just built,
-      # and billing counts that wall clock. `quality` already consumes this artifact, so this is the
-      # existing pattern rather than a new mechanism.
+      # and billing counts that wall clock. Other consumer jobs use the same artifact contract.
       #
       # The fallback is not optional: `build` uploads only when the run needs package dist, and a
       # required check that assumes an artifact is present would go from "slow" to "broken" the first
@@ -1189,27 +1089,19 @@ jobs:
             pnpm examples:typecheck:affected
           fi
 
-      - name: Examples verification not applicable
-        if: env.EXAMPLES_APPLICABLE != 'true'
-        run: echo "This change does not affect product examples."
-
   # TERM-007 item 2 / TERM-008: verify cross-platform shell execution on real Windows.
   # The resolver + Shell tool spawn PowerShell here, so these tests exercise the win32 path
   # that the macOS/Linux jobs (and mocked-platform unit tests) cannot. Blocking: first run
   # passed green on windows-latest (PR #900, 1m34s), so Windows shell execution is now a
-  # maintained, every-PR gate rather than a one-off pass.
+  # maintained on relevant Windows-sensitive changes rather than a one-off pass.
   windows-shell:
     name: windows-shell
     runs-on: windows-latest
     needs: changes
     env:
       WINDOWS_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.windows == 'true' }}
-    # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
-    # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
-    # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
-    # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
-    # because a cancelled run is superseded, not unverified.
-    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
+    # A failed selector skips this child; `pr-validation` sees that result and fails closed.
+    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && (needs.changes.outputs.windows == 'true' || needs.changes.outputs.full == 'true') }}
 
     steps:
       - name: Refuse unsafe benchmark check attachment
@@ -1276,8 +1168,8 @@ jobs:
       # NO COVERAGE IS LOST, and the argument is stronger than "it runs somewhere else too". A pure
       # function's verdict cannot change unless its subject or its test changes; both live in
       # `agent-core`, and a change to `agent-core` is exactly what puts it in `harness:verify`'s
-      # scope. Measured: touching `platform-shell.ts` selects `packages/agent-core: build, test,
-      # lint, typecheck`, which the REQUIRED `quality` job runs.
+      # scope. Touching `platform-shell.ts` selects the affected package build, test, lint, and
+      # typecheck checks in pull-request verification.
       - name: Verify the Shell tool actually spawns PowerShell on Windows
         if: env.WINDOWS_APPLICABLE == 'true'
         # The genuinely win32-only half: it SPAWNS a real shell and asserts PowerShell answers. No
@@ -1300,27 +1192,19 @@ jobs:
           path: ${{ runner.temp }}/arch-026-windows-shell.json
           if-no-files-found: error
 
-      - name: Windows verification not applicable
-        if: env.WINDOWS_APPLICABLE != 'true'
-        run: echo "This change does not affect Windows product behavior."
-
   # TEST-010: run the TUI PTY E2E suite (`*.ptytest.ts`) against the BUILT robota binary on every PR,
   # so the live-TUI behaviours — the SCREEN-013 Ctrl+B drill-in entry point and the existing
   # flag/scrollback/handoff PTY checks — are maintained, not bit-rotting outside CI.
   tui-e2e:
     name: tui-e2e
     runs-on: ubuntu-latest
-    # See examples-typecheck: `!cancelled()` keeps a failed `build` from skipping this required check.
+    # See examples-typecheck: selected TUI work reuses the build artifact when available.
     needs: [changes, build]
     env:
       FULL_VERIFICATION: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' }}
       TUI_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.tui == 'true' }}
-    # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
-    # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
-    # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
-    # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
-    # because a cancelled run is superseded, not unverified.
-    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' }}
+    # A failed selector/build skips this child; `pr-validation` sees that result and fails closed.
+    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && (needs.changes.outputs.tui == 'true' || needs.changes.outputs.full == 'true') }}
 
     steps:
       - name: Refuse unsafe benchmark check attachment
@@ -1354,8 +1238,7 @@ jobs:
 
       # Reuse the build the `build` job already produced and uploaded, instead of repeating it.
       # Measured: this job spent about 80% of its runtime rebuilding what another job had just built,
-      # and billing counts that wall clock. `quality` already consumes this artifact, so this is the
-      # existing pattern rather than a new mechanism.
+      # and billing counts that wall clock. Other consumer jobs use the same artifact contract.
       #
       # The fallback is not optional: `build` uploads only when the run needs package dist, and a
       # required check that assumes an artifact is present would go from "slow" to "broken" the first
@@ -1387,306 +1270,77 @@ jobs:
         if: env.TUI_APPLICABLE == 'true'
         run: pnpm --filter @robota-sdk/agent-ui-terminal test:pty
 
-      - name: TUI verification not applicable
-        if: env.TUI_APPLICABLE != 'true'
-        run: echo "This change does not affect TUI behavior."
-
-  # HARNESS-041: mechanical floor for accidental-green regression tests. For a `fix:` PR with a
-  # same-package (source+test) pair, it reverse-applies the source hunks and requires the changed test
-  # to FAIL — proving the regression test actually exercises the fix. ENFORCING as of INFRA-046: the
-  # job fails the run on `accidental-green` and on nothing else. NOT YET REQUIRED, which buys less
-  # than it sounds like — `merge-gate.sh` refuses any non-CLEAN mergeStateStatus and GitHub reports
-  # UNSTABLE when a NON-required check fails, so a red here stops merges either way. Held membership
-  # is about the branch-protection ruleset, not about consequences; see required-status-checks.json.
-  #
-  # Promoted 2026-08-04 (INFRA-046) on measured evidence, not elapsed time. The 2026-07-25 audit
-  # found ZERO substantive verdicts across 40 pull requests — the gate's core path had never once
-  # executed, so promoting it then would have made a required check out of untested code. After
-  # INFRA-071 widened the subject to `.claude/hooks` and `scripts/harness`, 13 of the last 22 runs
-  # produced `red-proof-ok`: the reverse-apply-and-re-run path now runs on real changes, with no
-  # false positive in the window.
-  #
-  # Required-check membership is deliberately HELD. `accidental-green` has never fired on a real pull
-  # request, so its blocking path is unproven in production; making it required would put an untested
-  # refusal in the merge path. One observed firing is the evidence that promotion needs.
-  regression-red-proof:
-    name: 'regression-red-proof (enforcing: accidental-green only)'
-    runs-on: ubuntu-latest
-    needs: changes
-    # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
-    # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
-    # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
-    # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
-    # because a cancelled run is superseded, not unverified.
-    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
-
-    steps:
-      - name: Refuse unsafe benchmark check attachment
-        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/develop'
-        uses: actions/github-script@v9
-        with:
-          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
-
-      # INFRA-050: full history, no `--depth` fetch — check-regression-red-proof.mjs resolves the
-      # PR's source hunks from `git merge-base <base> HEAD`, which a graft can truncate away.
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
-          fetch-depth: 0
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 8.15.4
-
-      - name: Use Node.js 22.x
-        uses: actions/setup-node@v6
-        with:
-          node-version: '22.x'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Prove regression tests are RED without the fix
-        env:
-          PR_BODY: ${{ github.event.pull_request.body || inputs.pr_body }}
-          # ENFORCING (INFRA-046, owner decision 2026-08-04). Only `accidental-green` exits 1: a test
-          # that still passes with the fix reversed guards nothing, and that is a defect whatever
-          # else the run found. `inconclusive`, `skipped` and `red-proof-unreached` still pass, so a
-          # verdict the checker could not reach never blocks a pull request.
-          REGRESSION_RED_PROOF_ENFORCE: '1'
-          # Issue #2412: a per-commit history consumer (`log base..HEAD`, then `diff-tree` per commit)
-          # is handed the pull request's head, not the synthetic merge ref.
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: node scripts/harness/check-regression-red-proof.mjs
-
-  # INFRA-041: PR patch (diff) coverage — the lines a PR adds/changes in package/app `src` must
-  # themselves be exercised by tests. The former global 80% average (compat-node18, removed) never
-  # guaranteed this: a PR could add untested lines while the repo average stayed green. ADVISORY in
-  # v1 (never blocks; the script exits 0 unless PATCH_COVERAGE_ENFORCE=1 — same rollout pattern as
-  # regression-red-proof). Honest by construction: when coverage data for an affected package cannot
-  # be produced, the verdict is INCONCLUSIVE with an explicit NO-DATA log — never a silent pass.
-  # Runtime is bounded: a --detect pre-step gates the build+test steps to PRs that actually change
-  # coverable src lines, and coverage runs execute ONLY the affected packages' suites.
-  patch-coverage:
-    name: patch-coverage (advisory)
-    runs-on: ubuntu-latest
-    # INFRA-094: `build` joins `needs` so this job can RESTORE the dist it used to rebuild. The item
-    # offered two directions and only this one is available — its option (a), moving the job onto a
-    # schedule, needs a `schedule:` trigger, and the 2026-08-04 owner directive removed every one of
-    # those from this repository.
-    #
-    # The trade is stated rather than hidden: total COMPUTE falls by a whole `pnpm build:deps`, and
-    # this job can no longer start before `build` finishes. It is advisory and blocks nothing, so
-    # what it costs is a later advisory verdict, not a later merge.
-    needs: [changes, build]
-    env:
-      FULL_VERIFICATION: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' }}
-    # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
-    # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
-    # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
-    # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
-    # because a cancelled run is superseded, not unverified.
-    if: ${{ github.event_name == 'pull_request' && !cancelled() && github.base_ref != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
-
-    steps:
-      # INFRA-050: full history, no `--depth` fetch — check-patch-coverage.mjs takes its changed
-      # LINES from `git diff -U0 <merge-base>..HEAD`, which a graft can truncate away.
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 8.15.4
-
-      - name: Use Node.js 22.x
-        uses: actions/setup-node@v6
-        with:
-          node-version: '22.x'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Detect packages with coverable changed lines
-        id: detect
-        env:
-          PATCH_COVERAGE_BASE_REF: origin/${{ github.base_ref }}
-        run: node scripts/harness/check-patch-coverage.mjs --detect
-
-      # INFRA-094: the `build` job already produced this exact dist and uploaded it as `package-dist`
-      # — the same artifact `quality` and the binary e2e restore. Rebuilding it here compiled the
-      # whole workspace a second time on every code pull request.
-      - name: Download package build output
-        if: steps.detect.outputs.affected == 'true' && needs.build.outputs.package_dist_required == 'true'
-        uses: actions/download-artifact@v8
-        with:
-          name: package-dist
-          path: .artifacts/package-dist
-
-      - name: Restore package build output
-        if: steps.detect.outputs.affected == 'true' && needs.build.outputs.package_dist_required == 'true'
-        run: node scripts/artifacts/transfer.mjs restore --archive .artifacts/package-dist/package-dist.tgz
-
-      # Coverage consumes changed package tests and their imports. A partial restore is not enough;
-      # complete exactly the changed owners' build prerequisites. A successful full producer needs
-      # no duplicate work.
-      - name: Guarantee affected coverage dist
-        if: steps.detect.outputs.affected == 'true' && (needs.build.result != 'success' || needs.build.outputs.package_dist_complete != 'true')
-        env:
-          HARNESS_BASE_REF: origin/${{ github.base_ref }}
-        run: pnpm build:affected
-
-      - name: Compute patch coverage over changed lines
-        if: steps.detect.outputs.affected == 'true'
-        env:
-          PATCH_COVERAGE_BASE_REF: origin/${{ github.base_ref }}
-        run: node scripts/harness/check-patch-coverage.mjs
-
-      - name: Skip (no coverable src changes)
-        if: steps.detect.outputs.affected != 'true'
-        run: echo "No package/app src lines changed — patch coverage is a no-op for this PR."
-
-  # Manual-only companions complete the 11-context develop benchmark without creating a pull
-  # request. Normal pull_request behavior remains owned by review-gate.yml and
-  # workflow-provenance-gate.yml; these jobs never run for that event.
-  benchmark-review-gate:
-    name: review-gate
-    if: github.event_name == 'workflow_dispatch'
-    needs: changes
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Refuse unsafe benchmark check attachment
-        if: github.ref != 'refs/heads/develop'
-        uses: actions/github-script@v9
-        with:
-          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
-
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.head_ref }}
-          fetch-depth: 0
-      - name: Record PR-free review limitations
-        run: |
-          {
-            echo '### PR-free review-gate benchmark'
-            echo
-            echo "- range: \`${{ inputs.base_ref }}...${{ inputs.head_ref }}\`"
-            echo "- code classification: \`${{ needs.changes.outputs.code }}\`"
-            echo '- Required PR policy is measured here; CodeQL runs after merge on develop/main.'
-            echo '- PR labels, body policy, comments, and auto-merge are N/A without a pull request.'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  benchmark-workflow-provenance:
-    name: workflow provenance
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Refuse unsafe benchmark check attachment
-        if: github.ref != 'refs/heads/develop'
-        uses: actions/github-script@v9
-        with:
-          script: core.setFailed('PR-free benchmarks must use ref=develop so their checks cannot satisfy a feature PR.')
-
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.base_ref }}
-          fetch-depth: 0
-      - name: Use Node.js 22.x
-        uses: actions/setup-node@v6
-        with:
-          node-version: '22.x'
-      - name: Judge the explicit file range against guarded workflows
-        env:
-          BASE_REF: ${{ inputs.base_ref }}
-          HEAD_REF: ${{ inputs.head_ref }}
-        run: |
-          git fetch --no-tags origin "$HEAD_REF"
-          node scripts/harness/scan-workflow-provenance.mjs \
-            --base-ref "$BASE_REF" --head-ref FETCH_HEAD
-
-  benchmark-summary:
-    name: required-context benchmark summary
-    if: ${{ github.event_name == 'workflow_dispatch' && always() }}
+  pr-validation:
+    name: pr-validation
     needs:
+      - changes
       - build
-      - quality
-      - scans
-      - dependency-audit
-      - commitlint
-      - tui-e2e
+      - repo-checks
+      - harness-contracts
+      - harness-hermetic
+      - actionlint
       - examples-typecheck
       - windows-shell
-      - benchmark-review-gate
-      - benchmark-workflow-provenance
-      - regression-red-proof
+      - tui-e2e
+      - product-integration
+      - external-units
+    if: ${{ always() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != '' && needs.build.result != '' && needs.repo-checks.result != '' && needs.harness-contracts.result != '' && needs.harness-hermetic.result != '' && needs.actionlint.result != '' && needs.examples-typecheck.result != '' && needs.windows-shell.result != '' && needs.tui-e2e.result != '' && needs.product-integration.result != '' && needs.external-units.result != '' }}
     runs-on: ubuntu-latest
-    permissions:
-      actions: read
     steps:
-      - name: Measure all 11 develop-required contexts
+      - name: Aggregate selected verification without rerunning it
         env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.run_id }}
-          REPOSITORY: ${{ github.repository }}
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          REPO_CHECKS_RESULT: ${{ needs.repo-checks.result }}
+          CONTRACTS_RESULT: ${{ needs.harness-contracts.result }}
+          HERMETIC_RESULT: ${{ needs.harness-hermetic.result }}
+          ACTIONLINT_RESULT: ${{ needs.actionlint.result }}
+          EXAMPLES_RESULT: ${{ needs.examples-typecheck.result }}
+          WINDOWS_RESULT: ${{ needs.windows-shell.result }}
+          TUI_RESULT: ${{ needs.tui-e2e.result }}
+          PRODUCT_INTEGRATION_RESULT: ${{ needs.product-integration.result }}
+          EXTERNAL_UNITS_RESULT: ${{ needs.external-units.result }}
+          PRODUCT_APPLICABLE: ${{ needs.changes.outputs.product == 'true' || needs.changes.outputs.build_machinery == 'true' || needs.changes.outputs.full == 'true' }}
+          HARNESS_APPLICABLE: ${{ needs.changes.outputs.harness == 'true' || needs.changes.outputs.full == 'true' }}
+          HERMETIC_APPLICABLE: ${{ needs.changes.outputs.hermetic == 'true' || needs.changes.outputs.full == 'true' }}
+          WORKFLOW_APPLICABLE: ${{ needs.changes.outputs.workflow == 'true' }}
+          EXAMPLES_APPLICABLE: ${{ needs.changes.outputs.examples == 'true' || needs.changes.outputs.full == 'true' }}
+          WINDOWS_APPLICABLE: ${{ needs.changes.outputs.windows == 'true' || needs.changes.outputs.full == 'true' }}
+          TUI_APPLICABLE: ${{ needs.changes.outputs.tui == 'true' || needs.changes.outputs.full == 'true' }}
+          PRODUCT_INTEGRATION_APPLICABLE: ${{ needs.changes.outputs.product_integration == 'true' }}
+          EXTERNAL_UNITS_APPLICABLE: ${{ needs.changes.outputs.external_units == 'true' }}
+        shell: bash
         run: |
           set -euo pipefail
-          required='["build","quality","scans","dependency audit","commitlint","tui-e2e","examples-typecheck","windows-shell","review-gate","workflow provenance","regression-red-proof (enforcing: accidental-green only)"]'
-          run_created_at="$(gh api --paginate "repos/${REPOSITORY}/actions/runs/${RUN_ID}" --jq '.created_at')"
-          for attempt in {1..10}; do
-            gh api --paginate --slurp \
-              "repos/${REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" \
-              > "$RUNNER_TEMP/job-pages.json"
-            if jq -e --argjson required "$required" '
-              [.[].jobs[]] as $jobs
-              | [$required[] as $name | $jobs[] | select(.name == $name)]
-              | length == 11 and all(.[]; (.completed_at | type) == "string")
-            ' "$RUNNER_TEMP/job-pages.json" >/dev/null; then
-              break
+          check() {
+            local name="$1" result="$2" applicable="$3"
+            if [[ "$applicable" == true && "$result" != success ]]; then
+              echo "::error::${name} was selected but concluded ${result}"
+              return 1
             fi
-            if [[ "$attempt" == 10 ]]; then
-              echo '::error::required job timestamps did not become conclusive'
-              exit 1
+            if [[ "$applicable" != true && "$result" != skipped ]]; then
+              echo "::error::${name} was not selected but concluded ${result}; selection and execution disagree"
+              return 1
             fi
-            sleep 2
-          done
-          jq --argjson required "$required" --arg run_created_at "$run_created_at" '
-            [.[].jobs[]] as $jobs
-            | [$required[] as $name
-              | [$jobs[] | select(.name == $name)] as $matches
-              | if ($matches | length) != 1 then
-                  error("expected exactly one benchmark job named " + $name)
-                else
-                  $matches[0]
-                  | {
-                      name,
-                      conclusion,
-                      started_at,
-                      completed_at,
-                      duration_seconds: ((.completed_at | fromdateiso8601) - (.started_at | fromdateiso8601)),
-                      elapsed_seconds: ((.completed_at | fromdateiso8601) - ($run_created_at | fromdateiso8601))
-                    }
-                end]
-          ' "$RUNNER_TEMP/job-pages.json" > "$RUNNER_TEMP/required-contexts.json"
-          {
-            echo '### Develop required-context benchmark'
-            echo
-            echo "Range: \`${{ inputs.base_ref }}...${{ inputs.head_ref }}\`"
-            echo
-            echo '| context | conclusion | job seconds | conclusive seconds |'
-            echo '|---|---:|---:|---:|'
-            jq -r '.[] | "| \(.name) | \(.conclusion) | \(.duration_seconds) | \(.elapsed_seconds) |"' \
-              "$RUNNER_TEMP/required-contexts.json"
-            echo
-            jq -r '"Push-to-conclusive critical path: **\(map(.elapsed_seconds) | max) seconds** (target: 128 seconds)"' \
-              "$RUNNER_TEMP/required-contexts.json"
-          } >> "$GITHUB_STEP_SUMMARY"
-          jq -e 'length == 11 and all(.[]; .conclusion == "success") and (map(.elapsed_seconds) | max) <= 128' \
-            "$RUNNER_TEMP/required-contexts.json" >/dev/null
+          }
+
+          [[ "$CHANGES_RESULT" == success ]] || {
+            echo "::error::changed-path selection concluded ${CHANGES_RESULT}"
+            exit 1
+          }
+          [[ "$REPO_CHECKS_RESULT" == success ]] || {
+            echo "::error::repo-checks concluded ${REPO_CHECKS_RESULT}"
+            exit 1
+          }
+
+          failed=0
+          check build "$BUILD_RESULT" "$PRODUCT_APPLICABLE" || failed=1
+          check harness-contracts "$CONTRACTS_RESULT" "$HARNESS_APPLICABLE" || failed=1
+          check harness-hermetic "$HERMETIC_RESULT" "$HERMETIC_APPLICABLE" || failed=1
+          check actionlint "$ACTIONLINT_RESULT" "$WORKFLOW_APPLICABLE" || failed=1
+          check examples-typecheck "$EXAMPLES_RESULT" "$EXAMPLES_APPLICABLE" || failed=1
+          check windows-shell "$WINDOWS_RESULT" "$WINDOWS_APPLICABLE" || failed=1
+          check tui-e2e "$TUI_RESULT" "$TUI_APPLICABLE" || failed=1
+          check product-integration "$PRODUCT_INTEGRATION_RESULT" "$PRODUCT_INTEGRATION_APPLICABLE" || failed=1
+          check external-units "$EXTERNAL_UNITS_RESULT" "$EXTERNAL_UNITS_APPLICABLE" || failed=1
+          exit "$failed"

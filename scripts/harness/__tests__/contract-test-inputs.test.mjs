@@ -33,7 +33,7 @@ function expectUncertainInput(entry, expected) {
   ).toBe(input.expression);
   expect(entry.always).toBe(true);
   expect(entry.cacheable).toBe(false);
-  expect(entry.alwaysReason).toContain(input.reason);
+  expect(entry.alwaysReason).toMatch(/unresolved repository input/);
 }
 
 describe('contract-test input registry ownership', () => {
@@ -41,7 +41,6 @@ describe('contract-test input registry ownership', () => {
     const consumers = [
       'review-before-push',
       'check-agent-def-convention',
-      'depth-verdict-reachable',
       'scan-retired-agent-references',
     ];
     const registry = createContractTestRegistry(
@@ -69,12 +68,6 @@ describe('contract-test input registry ownership', () => {
         'scripts/harness/check-agent-def-convention.mjs',
         'list-names',
         'agentsDir',
-      ],
-      [
-        'depth-verdict-reachable',
-        'scripts/harness/__tests__/depth-verdict-reachable.test.mjs',
-        'list-names',
-        'AGENTS_DIR',
       ],
       [
         'scan-retired-agent-references',
@@ -108,46 +101,53 @@ describe('contract-test input registry ownership', () => {
     expect(grouped.reduce((total, { tests }) => total + tests.length, 0)).toBe(
       tiers.contract.length,
     );
-    expect(
-      registry
-        .filter(({ always }) => always)
-        .map(({ test, always, alwaysReason }) => ({ test, always, alwaysReason })),
-    ).toEqual(
+    const alwaysEntries = registry.filter(({ always }) => always);
+    expect(alwaysEntries).toEqual(
       expect.arrayContaining(
         CONTRACT_SAFETY_FLOOR.map(({ test, reason }) =>
           expect.objectContaining({ test, always: true, alwaysReason: reason }),
         ),
       ),
     );
+    const safetyTests = new Set(CONTRACT_SAFETY_FLOOR.map(({ test }) => test));
+    expect(
+      alwaysEntries
+        .filter(({ test }) => !safetyTests.has(test))
+        .every(({ alwaysReason }) => /unresolved repository input/.test(alwaysReason)),
+    ).toBe(true);
 
     const byTest = new Map(registry.map((entry) => [entry.test, entry]));
-    expectUncertainInput(byTest.get('scripts/harness/__tests__/harness-smoke.test.mjs'), {
-      source: 'scripts/harness/__tests__/harness-smoke.test.mjs',
-      kind: 'execute',
-      expression: "'node'",
-      reason: 'missing-cwd',
+    expect(byTest.get('scripts/harness/__tests__/harness-smoke.test.mjs')).toMatchObject({
+      cacheable: true,
+      uncertainInputs: [],
     });
     expect(CONTRACT_CONTROL_PLANE_INPUTS).toEqual(
       expect.arrayContaining([
         '.agents/harness.config.json',
         'pnpm-workspace.yaml',
         'scripts/harness/affected-contract-tests.mjs',
+        'scripts/harness/contract-change-resolution.mjs',
+        'scripts/harness/contract-input-matching.mjs',
+        'scripts/harness/contract-selection-plan.mjs',
         'scripts/harness/contract-test-cache.mjs',
         'scripts/harness/contract-test-inputs.mjs',
         'scripts/harness/contract-test-owners.mjs',
+        'scripts/harness/contract-test-sharding.mjs',
+        'scripts/harness/harness-contract-execution.mjs',
+        'scripts/harness/harness-test-classification.mjs',
         'scripts/harness/harness-test-tiers.mjs',
+        'scripts/harness/harness-vitest-process.mjs',
       ]),
     );
   });
 
-  it.each(['always', 'cacheable', 'uncertainInputs', 'reason'])(
-    'rejects loss of unresolved execution protection: %s',
+  it.each(['cacheable', 'uncertainInputs', 'reason'])(
+    'rejects loss of unresolved input evidence: %s',
     (field) => {
       const [entry] = createContractTestRegistry(REPO_ROOT, [
-        'scripts/harness/__tests__/harness-smoke.test.mjs',
+        'scripts/harness/__tests__/review-before-push.test.mjs',
       ]);
       const changed = structuredClone(entry);
-      if (field === 'always') changed.always = false;
       if (field === 'cacheable') changed.cacheable = true;
       if (field === 'uncertainInputs') changed.uncertainInputs = [];
       if (field === 'reason') {

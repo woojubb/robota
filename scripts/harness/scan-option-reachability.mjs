@@ -63,16 +63,14 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import {
-  ScriptTarget,
   SyntaxKind,
   createSourceFile,
-  forEachChild,
   isBinaryExpression,
   isIdentifier,
   isInterfaceDeclaration,
   isPropertyAccessExpression,
   isPropertyAssignment,
-  isPropertySignature,
+  isPropertySignatureDeclaration,
   isStringLiteral,
   isTypeReferenceNode,
 } from './lib/ts-ast.mjs';
@@ -111,7 +109,7 @@ function sourceFiles(dir, out = []) {
 }
 
 function parse(file, source) {
-  return createSourceFile(file, source, ScriptTarget.Latest, true);
+  return createSourceFile(file, source);
 }
 
 /** The declared property names of a named interface, or null when the interface is not in the file. */
@@ -122,13 +120,13 @@ export function declaredKeys(source, fileName, interfaceName) {
     if (isInterfaceDeclaration(node) && node.name.getText(ast) === interfaceName) {
       keys = [];
       for (const member of node.members) {
-        if (!isPropertySignature(member)) continue;
+        if (!isPropertySignatureDeclaration(member)) continue;
         const name = member.name;
         if (isIdentifier(name)) keys.push(name.text);
         else if (isStringLiteral(name)) keys.push(name.text);
       }
     }
-    forEachChild(node, visit);
+    node.forEachChild(visit);
   };
   visit(ast);
   return keys;
@@ -234,7 +232,7 @@ export function assignedKeys(
         }
       }
     }
-    forEachChild(node, visit);
+    node.forEachChild(visit);
   };
   visit(ast);
   return into;
@@ -280,11 +278,11 @@ function collectReturnedLiterals(node, into, opaque) {
       spreadKeys(child.expression, into, opaque);
       return;
     }
-    forEachChild(child, walk);
+    child.forEachChild(walk);
   };
   if (node.body !== undefined) {
     if (node.body.kind === SyntaxKind.ObjectLiteralExpression) literalKeys(node.body, into, opaque);
-    else forEachChild(node.body, walk);
+    else node.body.forEachChild(walk);
   }
 }
 

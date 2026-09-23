@@ -163,6 +163,19 @@ function createOptions(responses: readonly IFakeResponsePayload[]): IDagCliRunOp
 }
 
 describe('runDagCli', () => {
+  it('refuses the removed mcp command without contacting a server', async () => {
+    const options = createOptions([]);
+
+    const exitCode = await runDagCli(['mcp'], options);
+
+    expect(exitCode).toBe(2);
+    expect(options.requests).toHaveLength(0);
+    expect(JSON.parse(options.output.join(''))).toMatchObject({
+      ok: false,
+      errors: [{ code: 'DAG_CLI_USAGE_ERROR' }],
+    });
+  });
+
   it('lists definitions from configured orchestrator server', async () => {
     const options = createOptions([{ ok: true, status: 200, data: { items: [] } }]);
 

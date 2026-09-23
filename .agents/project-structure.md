@@ -41,12 +41,11 @@ packages/
 ├── dag-cost/                    # DAG cost-metadata domain types
 ├── dag-orchestration-client/    # Thin HTTP client + contracts for DAG orchestration endpoints
 ├── dag-api/                     # DAG server-side API response mapping/contracts
-├── dag-cli/                     # DAG command-line product (`robota-dag`): run/validate/build/catalog/mcp
-├── dag-mcp-server/              # Standalone MCP server exposing DAG orchestration tools
+├── dag-cli/                     # DAG command-line product (`robota-dag`): run/validate/build/catalog
 ├── dag-scheduler/               # DAG scheduled-run triggering
 ├── dag-adapters-local/          # DAG in-memory persistence/queue/clock adapters
 ├── dag-adapters-sqlite/         # DAG SQLite persistence adapter
-├── dag-nodes/*/                 # DAG node-family packages (`@robota-sdk/dag-node-*`): llm-text providers, image edit, text-to-image, seedance-video, skill, http, file r/w, mcp-tool, in-process tool, router, instant-node
+├── dag-nodes/*/                 # DAG node-family packages (`@robota-sdk/dag-node-*`): llm-text providers, image edit, text-to-image, seedance-video, skill, http, file r/w, in-process tool, router, instant-node
 └── dag-nodes-default/           # DAG default node-set aggregator (composition leaf): createDefaultNodeRegistry(); consumed at composition roots by dag-cli + agent-command-workflows, lazy-loaded by dag-framework via a dynamic import() (its sole optionalDependency)
 apps/
 ├── action/                 # Official GitHub Action wrapper for the CLI (robota-sdk/action)

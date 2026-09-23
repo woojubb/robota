@@ -1,11 +1,16 @@
 ---
-status: approved
+status: rejected
 type: INFRA
 tags: [infra]
 lane: L1
 ---
 
 # INFRA-176: a computed refusal reason is discarded, so a pending planning unit reads as no checkpoint at all
+
+## Disposition
+
+**Superseded by issue #2826.** The plan-order scanner and checkpoint refusal it described were
+removed. Historical reproduction and review evidence below remain descriptive, not actionable.
 
 Paired with `.agents/tasks/INFRA-176-a-computed-refusal-reason-is-discarded-so-a-pending-unit-reads-as-no-checkpoint.md`.
 Arising from [issue #2597](https://github.com/woojubb/robota/issues/2597).

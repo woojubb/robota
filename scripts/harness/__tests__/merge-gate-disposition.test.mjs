@@ -11,7 +11,7 @@ import { DISPOSITION_LABELS } from '../record-local-review.mjs';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/merge-gate.sh');
 const WORKFLOW = path.join(WORKSPACE_ROOT, '.github/workflows/review-gate.yml');
-const HEAD_OID = '2222222222222222222222222222222222222222';
+let HEAD_OID = '';
 
 /**
  * The disposition a merge is judged against belongs to the PR, not to a checkout (PROC-007).
@@ -64,6 +64,12 @@ beforeAll(() => {
   gitIn(seed, 'commit', '--quiet', '-m', 'develop base');
   BASE_OID = gitIn(seed, 'rev-parse', 'HEAD');
   gitIn(seed, 'push', '--quiet', origin, 'develop');
+  gitIn(seed, 'switch', '--quiet', '-c', 'feat/disposition-fixture');
+  writeFileSync(path.join(seed, 'feature.txt'), 'head\n');
+  gitIn(seed, 'add', 'feature.txt');
+  gitIn(seed, 'commit', '--quiet', '-m', 'feature head');
+  HEAD_OID = gitIn(seed, 'rev-parse', 'HEAD');
+  gitIn(seed, 'push', '--quiet', origin, 'feat/disposition-fixture');
 
   ELSEWHERE = scratchDir('merge-gate-elsewhere-');
   execFileSync('git', ['clone', '--quiet', origin, ELSEWHERE]);
@@ -146,6 +152,14 @@ function stubbedPath(prs) {
       '  process.exit(0);',
       '}',
       'if (args.includes("mergeStateStatus")) { console.log(pr.state ?? "CLEAN"); process.exit(0); }',
+      '// INFRA-2804 added a gate between the merge-state read and everything below: a CLEAN pull',
+      '// request that ran NO repository check is refused, because CLEAN only means nothing FAILED.',
+      '// These fixtures are about disposition, so they answer with a plausible gate check present',
+      '// unless a case sets `gateChecks: 0` deliberately.',
+      'if (args.includes("statusCheckRollup")) {',
+      '  console.log(String(pr.gateChecks ?? 1));',
+      '  process.exit(0);',
+      '}',
       'if (args.includes("baseRefOid") && args.includes("headRefOid")) {',
       '  // issue #2309: the base branch NAME rides along, so the hook can read the branch itself.',
       '  console.log(`${pr.baseOid ?? ""} ${pr.headOid ?? ""} ${pr.baseRefName ?? "develop"}`);',

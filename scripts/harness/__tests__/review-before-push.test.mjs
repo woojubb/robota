@@ -157,13 +157,14 @@ function trustedIntegrationRepo({
 
 function trustedIntegrationSyncRepo({ variant = 'clean' } = {}) {
   const fixture = trustedIntegrationRepo();
-  if (variant === 'conflict-tree') {
+  if (variant === 'conflict-tree' || variant === 'resolved-conflict') {
     fixture.git('checkout', '--quiet', fixture.integrationBranch);
     fixture.commit('sync-conflict.txt', 'integration\n', 'feat: integration side of sync conflict');
     fixture.git('push', '--quiet', 'origin', fixture.integrationBranch);
     fixture.integrationHead = fixture.git('rev-parse', 'HEAD');
     fixture.git('checkout', '--quiet', '-b', 'fixture/develop-ahead', 'origin/develop');
     fixture.commit('sync-conflict.txt', 'develop\n', 'feat: develop side of sync conflict');
+    fixture.commit('develop-only.txt', 'preserved\n', 'feat: preserve independent develop change');
     fixture.git('push', '--quiet', 'origin', 'HEAD:develop');
     fixture.git('fetch', '--quiet', 'origin');
     fixture.git('checkout', '--quiet', fixture.integrationBranch);
@@ -175,6 +176,19 @@ function trustedIntegrationSyncRepo({ variant = 'clean' } = {}) {
     if (mergeTree.status === 0)
       throw new Error('conflict-tree fixture unexpectedly merged cleanly');
     const tree = mergeTree.stdout.split('\n')[0].trim();
+    if (variant === 'resolved-conflict') {
+      const merge = spawnSync(
+        'git',
+        ['-C', fixture.dir, 'merge', '--no-ff', 'origin/develop'],
+        { encoding: 'utf8' },
+      );
+      if (merge.status !== 1) throw new Error('resolved-conflict fixture did not conflict');
+      fixture.git('checkout', '--ours', '--', 'sync-conflict.txt');
+      fixture.git('add', 'sync-conflict.txt');
+      fixture.git('commit', '--quiet', '-m', 'merge: resolve integration sync conflict');
+      record(fixture.dir, fixture.integrationBranch, fixture.git('rev-parse', 'HEAD'));
+      return fixture;
+    }
     const conflictCommit = fixture.git(
       'commit-tree',
       tree,
@@ -327,7 +341,7 @@ describe('a stacked child declares a trusted integration base', () => {
     }
   });
 
-  it('requires the matching Task and spec to be open in frontmatter', () => {
+  it('does not require duplicate Task/spec lifecycle state for the authoritative branch identity', () => {
     const fixture = trustedIntegrationRepo({
       taskStatus: 'done',
       specStatus: 'done',
@@ -339,8 +353,7 @@ describe('a stacked child declares a trusted integration base', () => {
       'HARNESS_BASE_REF=origin/integration/agreement-2664 git push origin fix/stacked-child',
     );
 
-    expect(verdict.status, verdict.output).toBe(2);
-    expect(verdict.output).toMatch(/matching open AGREEMENT-2664 Task\/spec pair/);
+    expect(verdict.status, verdict.output).toBe(0);
   });
 
   it('preserves the ordinary foreign-merge refusal without a declaration', () => {
@@ -371,7 +384,7 @@ describe('a stacked child declares a trusted integration base', () => {
     }
   });
 
-  it('requires the remote ref identity to match its AGREEMENT pair', () => {
+  it('accepts an authoritative integration identity without a duplicate repository pair', () => {
     const fixture = trustedIntegrationRepo();
     fixture.git(
       'push',
@@ -385,8 +398,7 @@ describe('a stacked child declares a trusted integration base', () => {
       fixture.dir,
       'HARNESS_BASE_REF=origin/integration/agreement-999 git push origin fix/stacked-child',
     );
-    expect(verdict.status, verdict.output).toBe(2);
-    expect(verdict.output).toMatch(/matching open AGREEMENT-999 Task\/spec pair/);
+    expect(verdict.status, verdict.output).toBe(0);
   });
 
   it('rejects a stale remote-tracking claim instead of trusting its local value', () => {
@@ -501,10 +513,30 @@ describe('an integration base syncs current develop', () => {
     expect(verdict.status, verdict.output).toBe(0);
   });
 
-  it('rejects reversed, stale, remote-stale, additional, own-path, and conflicted-tree sync variants', () => {
+  it('allows a reviewed HEAD merge after a real conflict is resolved', () => {
+    const fixture = trustedIntegrationSyncRepo({ variant: 'resolved-conflict' });
+    expect(fixture.git('show', 'HEAD:develop-only.txt')).toBe('preserved');
+    const verdict = push(
+      fixture.dir,
+      `HARNESS_BASE_REF=origin/${fixture.integrationBranch} git push origin ${fixture.integrationBranch}`,
+    );
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
+  it('does not require another sync when develop advances after the reviewed merge', () => {
+    const fixture = trustedIntegrationSyncRepo({ variant: 'stale' });
+    const verdict = push(
+      fixture.dir,
+      `HARNESS_BASE_REF=origin/${fixture.integrationBranch} git push origin ${fixture.integrationBranch}`,
+    );
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
+  it('rejects reversed, remote-stale, additional, own-path, and conflicted-tree sync variants', () => {
     for (const variant of [
       'reversed',
-      'stale',
       'remote-stale',
       'extra',
       'own-path',
@@ -517,7 +549,9 @@ describe('an integration base syncs current develop', () => {
       );
 
       expect(verdict.status, `${variant}\n${verdict.output}`).toBe(2);
-      expect(verdict.output).toMatch(/invalid integration-base sync|origin\/develop is stale/);
+      expect(verdict.output).toMatch(
+        /invalid integration-base sync|origin\/develop is stale|clean integration-base sync|conflicted integration-base sync/,
+      );
     }
   });
 });
@@ -918,7 +952,7 @@ describe('a foundational finding must name a root item that exists', () => {
     // `.agents/tasks/` already holds SELFHOST-003-P4, SELFHOST-008-P5 and SELFHOST-011-P3-P4.
     // Truncating at the first number does two wrong things at once: the real ID is refused, and a
     // TRUNCATED id that names no file is accepted as though it did. The repository already parses
-    // this correctly in `check-backlog-placement`, so the pattern has one owner rather than two.
+    // this correctly in the shared frontmatter parser, so the pattern has one owner rather than two.
     const dir = scratchRepo('feat/probe');
     mkdirSync(path.join(dir, '.agents/tasks'), { recursive: true });
     writeFileSync(
@@ -1016,6 +1050,20 @@ describe('the skill still puts the round before the push', () => {
     // push — so this pins the narrowed claim rather than the phrase it replaced.
     expect(skill).toMatch(/before the pull request exists/i);
     expect(skill).toMatch(/harness:review:record/);
+  });
+
+  it('publishes that same review once in the format required by review-policy', () => {
+    expect(skill).toContain('gh pr review "$PR_NUMBER" --comment');
+    for (const marker of [
+      'INDEPENDENT_REVIEW',
+      'REVIEWER: agent:%s',
+      'REVIEWED HEAD: %s',
+      'ACTIONABLE FINDINGS: %s',
+    ]) {
+      expect(skill).toContain(marker);
+    }
+    expect(skill).toMatch(/remote projection of the same review, not a second clean review/i);
+    expect(skill).toMatch(/review-policy/);
   });
 
   it('never dispatches a reviewer on the open pull request', () => {

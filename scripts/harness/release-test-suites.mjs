@@ -72,7 +72,7 @@ export const EXCLUSIONS = [
   {
     script: 'test:coverage',
     kind: 'sweep-variant',
-    why: 'the workspace `test` suite re-run under a coverage reporter — identical assertions, roughly double the wall clock. Coverage has its own entry points (`pnpm test:coverage`, the patch-coverage job); a required promotion gate gains no assertion by running every suite twice.',
+    why: 'the workspace `test` suite re-run under a coverage reporter — identical assertions, roughly double the wall clock. Coverage remains available through explicit `pnpm test:coverage`; a required promotion gate gains no assertion by running every suite twice.',
   },
   {
     script: 'test:watch',

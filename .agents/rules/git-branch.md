@@ -51,11 +51,11 @@ ruleset applies. If required-check discovery is empty or disagrees with that dec
 every declared context's actual owning workflow; missing, failed, cancelled or skipped results do
 not authorize an agent merge. Do not change remote protection settings without owner authority.
 
-Local affected verification is owned by [verification.md](verification.md). The historical command
-`pnpm harness:verify-like-ci` remains an optional local diagnostic, not a mandatory pre-merge gate
-or CI-equivalent certificate. The existing remote scans job owns fresh-checkout contract, hermetic
-and dist-independent verification. A local result reports only what ran, and never replaces the
-remote checks. Do not repeat an already-passing verification solely to obtain a push receipt.
+Local affected verification is owned by [verification.md](verification.md). Remote `repo-checks`,
+`harness-contracts`, and `harness-hermetic` jobs
+own their distinct fresh-checkout responsibilities only when selected. A local result reports only
+what ran, and never replaces the remote checks. Do not repeat an already-passing verification solely
+to obtain a push receipt.
 
 **A PR into `main` is a different gate.** `protect-main` requires `promotion ancestry`, `main PR
 source guard` and `release-grade verification`; the entry point that reproduces the last of those is
@@ -149,7 +149,8 @@ git push --no-verify
 git commit -n -m "..."
 
 # CORRECT — if the gate is wrong or unrunnable, change the gate:
-pnpm install --frozen-lockfile && pnpm build   # a fresh worktree owes this once
+pnpm install --frozen-lockfile                 # prepare the fresh worktree
+pnpm build                                     # only if the selected local check reads build output
 ```
 
 **Measured: four parallel agents bypassed this way in a single day.** The cause was real — the gate
@@ -251,16 +252,28 @@ so an `export` in an earlier statement does not reach it.
   from its open remote base uses both statement-local exceptions —
   `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 BRANCH_GUARD_ALLOW_BASE=1` — and every child push binds its
   target with `HARNESS_BASE_REF=origin/integration/<agreement-id>` on that push statement. The
-  declaration is verified against the matching open AGREEMENT and contained merge ancestry; it is
-  not a general foreign-merge exception. If `develop` moves, the only base sync is one clean merge
-  at `HEAD` with parent 1 equal to the declared remote integration base and parent 2 equal to current
-  `origin/develop`. Plan-order validates each child through its merge-bounded second-parent history
-  and admits only a unique ordered prefix of the AGREEMENT children; final completeness remains the
-  AGREEMENT completion and final-PR gate's responsibility. When migrating a legacy base, create the
+  declaration binds the authoritative issue/request identity encoded by the integration branch and
+  is verified against its remote identity and contained merge ancestry; it is not a general
+  foreign-merge exception and does not require a duplicate Task/spec pair. If `develop` moves and a
+  real conflict requires a base sync, use one reviewed merge at `HEAD` with parent 1 equal to the
+  declared remote integration base and parent 2 equal to the observed `origin/develop` commit.
+  If `develop` advances again without a conflict, do not chase its new head: parent 2 may remain
+  an ancestor of current `origin/develop`, and the PR merge handles any later conflict. A clean merge
+  must match the automatic merge tree exactly; a conflicted merge must resolve its conflicts and
+  pass the same review and CI gates. A conflict-free movement of `develop` alone does not require
+  a sync. The authoritative issue/request owns the bounded child set and final
+  completeness; review and applicable checks validate each child before it lands. When migrating a legacy base, create the
   new integration branch from fresh develop with `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1`, replay the
-  AGREEMENT planning commits and child non-merge commits in order, verify ordered stable patch IDs
-  and base-relative changed-path sets, and keep the legacy ref immutable until every replacement
-  merge is verified.
+  AGREEMENT planning commits and child non-merge commits in order, and prove ordered stable patch-ID
+  and base-relative changed-path equality for every replayed segment — strict equality is the
+  default. Where the replacement must differ (an approved child the legacy prelude never declared, a
+  base adaptation), every difference is named in a closed divergence manifest committed under
+  `.agents/evidence/migrations/` and verified by
+  `node scripts/harness/integration-migration-manifest.mjs verify`, which recomputes every non-merge
+  commit's raw tree delta and every merge's parents; merge own-content verification is added by the
+  bundle that lands it. A manual waiver is not a manifest, and the legacy ref stays immutable until
+  every replacement merge is verified. Enforced by: nothing mechanical yet — the publication bundle
+  adds the gate; until then the reviewer of a migration runs the verifier and records its exit code.
 - Merging `develop` into `main` requires explicit user approval and is a release-level action. **Build the
   promotion branch with `node scripts/harness/promote.mjs` — never by hand** (§ Promotion below).
 - When merging a branch, always merge back to the branch it was forked from. Verify the fork point before proposing a merge target.
@@ -312,7 +325,7 @@ unrecoverable by button. Re-run `promote.mjs` instead; it rebuilds the branch fr
 
 | Layer            | Mechanism                                                                                                                   | What it blocks                                                                                                                                                   |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Merge **method** | `protect-main` ruleset, `pull_request` rule with `allowed_merge_methods: ["merge"]`                                         | GitHub refuses to squash- or rebase-merge any PR into `main`. `protect-develop` is untouched, so feature PRs still squash.                                       |
+| Merge **method** | `protect-main` ruleset, `pull_request` rule with `allowed_merge_methods: ["merge"]`                                         | GitHub refuses to squash- or rebase-merge any PR into `main`. `protect-develop` remains independent and may admit its configured landing methods.                |
 | Merge **input**  | `promotion ancestry` CI job (required status check on `protect-main`) running `scripts/harness/scan-promotion-ancestry.mjs` | A promotion whose head does not contain `origin/main` (**A1**), carries non-merge commits `develop` has never seen (**A2**), or changes develop's tree (**A3**). |
 
 Both are gates, not detectors: they block before the merge, not after. A **plain `develop → main` PR
@@ -391,7 +404,8 @@ in the post-merge sequence, before any branch deletion.
   verdict is what "verified" means here.
 - **Verify each hop of a multi-hop flow** (e.g. feature→develop→main): the landing check runs after every
   hop, not only the last.
-- A required gate counts as green only if it actually passed: explicitly check `quality`/build, and
+- A required gate counts as green only if it actually passed: explicitly check `pr-validation`,
+  `security`, `review-policy`, and `workflow provenance`, and
   **never treat "pending" or "not-required-skipped" as pass**.
 - **Verification of a completed merge is not permission to perform one.** If the provider's
   required-check projection is confirmed empty by readable live protection state, report that fact
@@ -418,6 +432,10 @@ in the post-merge sequence, before any branch deletion.
   `scripts/harness/github-api.mjs` is the one place that dedupe lives; every gate or script reading
   check state goes through it. And `cancelled` is **evidence in neither direction** — not a failure,
   not a pass, but the absence of a result: wait for or trigger a real run (`checkRunEvidence`).
+  That dedupe is a total order only while ONE job owns each name: a second job publishing a
+  required context's name — even one whose `if:` is false, which still registers as `skipped` —
+  puts two rows under the name with no defined winner, so every declared context is published by
+  exactly one job across the workflow files, enforced by `main-required-checks`.
 
 **Why:** a merge that lands past a red required gate ships the failure to the integration branch, and
 nothing after the merge announces it — only an independent landing check sees it.
@@ -430,10 +448,10 @@ judgement conditions above govern, and when one of them holds the branch stays a
 **Never** use `gh pr merge --delete-branch` (see the ban above) — delete explicitly, only after confirming
 the branch is merged:
 
-- **Verify first, and verify the MERGE COMMIT — never the branch.** This repository squash-merges: a
-  squash merge writes a NEW commit on the target, so a merged branch's own commits are ancestors of
-  nothing there. Ancestry of the branch therefore answers a question nobody asked. Ask instead whether
-  the branch's pull request LANDED on the target:
+- **Verify first, and verify the landing commit — never the branch.** `develop` accepts more than one
+  landing method. In particular, a squash merge writes a NEW commit on the target, so a merged
+  branch's own commits need not be ancestors there. Branch ancestry therefore answers a question
+  nobody asked. Ask instead whether the branch's pull request LANDED on the target:
 
   ```bash
   MC=$(gh pr list --state merged --head "<branch>" --json mergeCommit --jq '.[0].mergeCommit.oid')
@@ -447,8 +465,8 @@ the branch is merged:
 
 - **Name the target deliberately.** `main` trails `develop` between promotions, so a branch merged to
   `develop` is legitimately absent from `main`. Check against the branch it was merged INTO.
-- **Local:** `git branch -D <branch>`, after the same verification. `-d` is not a usable guard here: it
-  applies the same ancestry test and so refuses every squash-merged branch. The verification above is
+- **Local:** `git branch -D <branch>`, after the same verification. `-d` is not a sufficient guard here:
+  it applies branch ancestry and so refuses squash-landed branches. The verification above is
   the guard; `-D` without it is not.
 - **Remote:** `gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<branch>`.
 
@@ -525,8 +543,9 @@ versus its base)**, not to one file and not to the whole tree.
 **What "resolved" means.** A finding is "resolved" when one of these is true, recorded in a PR
 comment (or the PR description):
 
-- it is **fixed** with a follow-up commit on the same branch (then re-run the relevant
-  tests/typecheck/`harness:scan` so the fix is verified), **or**
+- it is **fixed** with a follow-up commit on the same branch (then run the focused owner check or
+  reproducer for that repair and require affected remote CI on the exact new head; use
+  `pnpm harness:scan -- --affected ...` only when the repair changes harness-owned inputs), **or**
 - it is **refuted** with an explicit, written reason why it is not a real problem (a false positive
   or out-of-scope), **or**
 - it is **deferred** by filing a backlog item and linking it, only when the finding is real but
@@ -535,18 +554,29 @@ comment (or the PR description):
 No CONFIRMED/PLAUSIBLE finding may be left silently unaddressed. **Only after all findings are resolved**
 may the PR be merged.
 
-### Landing a control-plane change (a workflow that provides a required check)
+### Landing a control-plane change
 
 `workflow provenance` is a required context on both protected branches, and it refuses any pull
-request that edits a workflow file providing a required check — BY DESIGN, because the edited
-definition is what would judge that pull request, so the change could move its own gate. The
+request that edits a workflow file providing a required check,
+`.github/required-status-checks.json`, the registry that defines that guarded set, or a policy
+input or trusted selector/scheduler implementation that controls a required check's verdict — BY
+DESIGN. Editing a workflow can move its own verdict; editing the registry can hide the next
+workflow edit; editing a verdict policy can make a check permissive without touching its workflow;
+editing the trusted implementation closure can suppress work in this or a later pull request. The
 context stays red for the life of the pull request, so the ordinary merge path cannot land it. That
 is the correct property. This section is the other half: how a legitimate control-plane change
 lands, written once so it is not re-decided from scratch each time.
 
-1. **State the reason in the PR body.** Which workflow file changes, and why the control plane has
-   to change rather than the code under it. The scan's finding names the required context(s) the
-   edited file provides; that list goes in the body verbatim.
+Enforced by: `workflow-provenance` for visibility and ordinary-path refusal — it makes the edit
+visible and unmergeable through the ordinary path, and its finding points here. Steps 1–4 and
+delegation applicability remain operator-reviewed and are checked by the independent landing
+verifier; no scan validates these decision records. This routing amendment is recorded, not
+mechanized; the existing recurrence ledger L7 remains OPEN.
+
+1. **State the reason in the PR body.** Which workflow, registry, verdict-policy, or trusted
+   selector/scheduler file changes, and why the control plane has to change rather than the code
+   under it. Include the required context(s) or owner jobs the scan names. For the registry, name
+   the guarded-set delta and compare it with the live ruleset.
 2. **A reviewer reads the JOB, not the diff.** For every context the scan listed, the reviewer opens
    the job that reports it in the edited file and confirms what the edit does to that context's
    verdict — moved deliberately (say how) or untouched. Recorded as a review comment naming each
@@ -561,8 +591,8 @@ lands, written once so it is not re-decided from scratch each time.
    every other applicable required context must actually succeed through its owning workflow,
    including the repository-declared floor when live protection supplies no required projection.
    Missing, pending, cancelled or skipped owner results are not success. Only the intentional
-   workflow-edit provenance failure is covered, not other provenance errors or any other red
-   check. This delegated route does not authorize `main`, release/promotion merges, publication,
+   guarded workflow/registry/policy/implementation provenance failure is covered, not other provenance errors or
+   any other red check. This delegated route does not authorize `main`, release/promotion merges, publication,
    deployment or protection changes. No local hatch grants this authority — the override forms
    below excuse local hooks, not a branch ruleset.
 4. **Leave the record beside the red check.** One PR comment: control-plane change; approved by
@@ -578,11 +608,6 @@ lands, written once so it is not re-decided from scratch each time.
 The first such edit — the lint-warning ceiling step in the required `quality` job of `ci.yml` —
 landed on an owner decision taken in conversation, because none of the above was written; this
 section is that decision written down so the next one costs a read.
-
-Enforced by: `workflow-provenance` — it makes the edit visible and unmergeable through the ordinary
-path, and its finding points here. Steps 1–4 and delegation applicability remain operator-reviewed
-and are checked by the independent landing verifier; no scan validates these decision records.
-This routing amendment is recorded, not mechanized; the existing recurrence ledger L7 remains OPEN.
 
 ### One issue, one PR, one session (mandatory)
 
@@ -601,8 +626,8 @@ derivable from the issue tracker: an open issue and an unowned issue look identi
 - Releasing ownership is explicit and one-directional.
 
 **Why it is quiet:** the collision is not in the file system, so nothing local refuses it. Two sessions
-can hold disjoint branches, pass every hook, and discover at rebase time that they solved the same
-problem twice — or that one silently reverted the other's reasoning while resolving a clean merge.
+can hold disjoint branches, pass every hook, and discover at integration time that they solved the same
+problem twice — or that one silently reverted the other's reasoning while resolving a real conflict.
 
 Enforced by: nothing — ownership exists only in the orchestrator's assignment list. A clone can see
 which branches exist and which issues are open; it cannot see who was TOLD to do what, and the two
@@ -615,54 +640,61 @@ Case: [PROC-013](https://github.com/woojubb/robota/issues/2283).
 
 <!-- enforcement declaration -->
 
-Enforced mechanically for pushes by `.claude/hooks/pre-push-check.sh`; merge/rebase actions must use the same published request as an operator gate.
+Enforced mechanically for pushes by `.claude/hooks/pre-push-check.sh`; a conflict-resolution push
+must use the same published request and live conflict evidence as an operator gate.
 
 **Any published findings verdict obliges exactly one thing: STOP EDITING.** This includes both
 `ACTIONABLE FINDINGS: 0` and a non-zero count. It is not a signal to merge, not a deadline, and not a
 reason to hurry.
 
-Before every next action (edit/push, rebase, or merge), the owning session must read the latest verdict.
-For push/rebase, publish a head- and verdict-bound `POST_FINDINGS_ACTION_REQUEST` comment on the PR
-with maintainer approval and exactly these auditable fields. Merge decisions use the separate
-operator-owned record below, not this push/rebase format:
+Before every next action (edit/push or merge), the owning session must read the latest verdict. For
+a push, publish a head- and verdict-bound `POST_FINDINGS_ACTION_REQUEST` comment on the PR with
+maintainer approval and exactly these auditable fields. A conflict-resolution push additionally
+requires the live pull request to report `mergeStateStatus: DIRTY`; conflict-free target advance is
+not a rebase or push ground. Merge decisions use the separate operator-owned record below, not this
+push format:
 
 ```
 POST_FINDINGS_ACTION_REQUEST
 HEAD: <exact current PR head SHA>
 VERDICT: <latest ACTIONABLE FINDINGS count>
-ACTION: push | rebase
-GROUND: finding | red-check | rebase
+ACTION: push
+GROUND: finding | red-check | conflict
 EVIDENCE: <link or command output another person can inspect>
 SCOPE: <the files/operation the request permits>
 APPROVED: yes
 APPROVED-BY: @<maintainer>
 ```
 
-For a merge, publish a `POST_FINDINGS_ACTION_REQUEST` decision naming the current PR, head/base,
-latest verdict, `ACTION: merge`, inspected CI/review evidence, scope, approval and actual approver.
+For a merge, publish exactly one `PR_MERGE_DECISION` using the owner/form below. It names the
+current PR, exact head and reviewed base, latest verdict, inspected CI/review evidence, bounded
+scope, authority, approval, and actual approver. Do not use `POST_FINDINGS_ACTION_REQUEST` for a
+merge; that parser intentionally accepts only push actions.
 A maintainer approves unless an explicit, unrevoked owner delegation covers that merge into
 `develop`; then the owning agent may make the per-PR decision without requesting fresh owner
 approval. Include the deciding agent and owner's delegation provenance, and use
 `APPROVED-BY: agent:<name> (owner-delegated)` for that decision; do not
 present it as a new direct owner approval or an independent code review. Re-evaluate changed
-evidence for each merge. Delegation does not waive the merge gate, expand push/rebase authority,
+evidence for each merge. Delegation does not waive the merge gate, expand push authority,
 authorize `main` or release merges, or permit protection changes. Red-check bypasses require the
 separate, explicitly delegated `develop` control-plane exception above; ordinary merge delegation
 does not grant it, and no other red check is waived.
-A justified merge does not require a finding, red check or rebase; those named grounds restrict
+A justified merge does not require a finding, red check or conflict; those named grounds restrict
 pushes, not the decision to land verified work.
 
 When the configured automated reviewer has produced no feedback at all, do not synthesize a second
 empty `ACTIONABLE FINDINGS` verdict and do not skip review verification. Publish exactly one trusted,
-unedited merge decision with this form; the merge gate binds it to the live base branch tip and current
-PR head:
+unedited merge decision with this form; it records the reviewed historical base and current PR head.
+If the target later advances, the merge gate accepts it only while the recorded base remains an
+ancestor of the live target and the exact live head/base pair produces a conflict-free tree under
+`git merge-tree`:
 
 ```
 PR_MERGE_DECISION
 PR: <number>
 HEAD: <40-hex>
 BASE: <branch>
-BASE-OID: <40-hex live branch tip>
+BASE-OID: <40-hex historical base reviewed for this decision>
 VERDICT: 0
 CI-OBSERVER: ci-gate-watch
 CI-RESULT: GREEN
@@ -677,11 +709,12 @@ APPROVED-BY: @<maintainer> | agent:<name> (owner-delegated)
 This one comment is the merge decision, the clean Round B terminal record, and the CI observation
 receipt. Do not create parallel comments for those same facts.
 
-The next-action guard checks push/rebase requests: marker, latest verdict count, exact head,
+The next-action guard checks push requests: marker, latest verdict count, exact head,
 action, explicit ground, evidence, scope, and maintainer approval. Its parser does not accept
 merge actions or delegated-agent approver values. The separate merge-decision selector validates
-the exact immutable receipt and current head/base binding; the operator still owns whether the cited
-authority evidence actually covers that merge. A local review record, private judgement, advice attached to a passing
+the exact immutable receipt, current head, named base, and historical base identity; the merge gate
+then verifies historical ancestry and live conflict-free mergeability. The operator still owns whether
+the cited authority evidence actually covers that merge. A local review record, private judgement, advice attached to a passing
 verdict, or an override token is not approval. After an approved action, a new head or verdict requires
 a new decision comment.
 
@@ -693,8 +726,9 @@ get started.**
    a reviewer verdict, or a review you posted yourself through the writer. A finding held in one
    session is not a ground — see below.
 2. **A required check that is red.** The check names what is wrong; fixing it is the resolution.
-3. **The base moved and the branch must be rebased.** That is not an edit and does not restart the
-   loop.
+3. **A real merge conflict requires a resolution commit.** The push guard requires an approved
+   `GROUND: conflict` request and verifies that GitHub currently reports `mergeStateStatus: DIRTY`.
+   A conflict-free target advance is not a ground for a rebase, push, retest, or new review.
 
 **Nothing else is a ground.** Not an improvement you noticed. Not your own prose re-read and found
 imprecise. Not advice a reviewer attached to a passing verdict. Not a thing that is _true_ and _better_
@@ -718,9 +752,9 @@ terminal condition, because each fix creates the surface the next round reads.
 **Merging is a separate judgement, made once, without urgency.**
 
 - **Green checks are not authorization.** A person or orchestrator decides; a state does not.
-- **Do not race the base.** Aiming at speed is what puts a merge in a race with base moves,
-  concurrent merges and stale verdicts. If the base moves, rebase and re-verify — that is not an edit
-  and does not restart the finding loop.
+- **Do not chase a moving base.** If the head is unchanged, required checks and review passed, and
+  GitHub reports no conflict, preserve the historical review pair and merge without rewriting the
+  branch. Resolve and verify only a real conflict.
 - **Round count is not the condition.** A loop is not wrong because it is long; it is wrong when it
   is editing a pull request that reported clean.
 
@@ -745,10 +779,8 @@ That is checkable by anyone; the rest of this paragraph is not, and the differen
 The owning session reported dispatching its own reviewer each round and never dispatching
 `pr-review-writer` — 32 reviewer dispatches, 0 writer dispatches, and 0 runs of `gh pr view`.
 **Those three figures come from that session's account of its own behaviour and from nowhere else.**
-`git grep` finds them in no file, and `.agents/loop-runs/pr-finding-resolution-loop.jsonl` — the
-ledger that exists precisely to record finding-resolution rounds — holds ten rows, **none of them
-this pull request.** A session's report of what it did is evidence and is worth stating; it is not a
-command output, and this block previously presented it as one under the word _Measured_.
+`git grep` finds them in no file. A session's report of what it did is evidence and is worth stating;
+it is not a command output, and this block previously presented it as one under the word _Measured_.
 
 So: it dispatched its own reviewer each round, consumed the findings privately, pushed a fix, and
 dispatched again. **The merge gate's input was zero from round one.** The first clean verdict landed at
@@ -767,9 +799,11 @@ Case: [PR #2323](https://github.com/woojubb/robota/pull/2323).
 
 **So the rule is not "the reviewer keeps suggesting things" and not "stop when the gate says zero".**
 
-- **If you dispatch a reviewer, publish its verdict.** `pr-review-writer` exists for this. An
-  unpublished verdict is the input to no gate, visible to nobody, and answerable by nobody — and a
-  session that fixes against it has built a gate only it can see, then reports being held by it.
+- **If you dispatch a reviewer, publish its verdict.** The current
+  `pr-finding-resolution-loop` projects Round A once as a strict COMMENTED GitHub review, then the
+  responsible author repairs any published findings directly. An unpublished verdict is the input
+  to no gate, visible to nobody, and answerable by nobody — and a session that fixes against it has
+  built a gate only it can see, then reports being held by it.
 - **Publishing converts a finding from fuel into a record.** Published, it can be answered, deferred,
   filed as its own issue, or refuted by someone else. Unpublished, the only thing that can be done
   with it is the next commit.
@@ -790,21 +824,22 @@ the argument for publishing rather than for discarding: the repository's light-p
 dispatched deep reviewer answer different questions, and the gap between them belongs on the pull
 request where both are visible, not inside whichever session happened to look.
 
-**The ordering is already written down and nothing checks it.** `pr-finding-resolution-loop` step 5
-reads _"Dispatch `pr-review-writer` (posts the review to the PR), **then** `pr-review-fixer`"_ — publish
-first, fix second. Measured: **nothing enforces that ordering.** `scripts/harness/__tests__/`
-mentions the writer — in a doc comment and in an exemption set — and neither reference checks that a
-dispatch happened, so a session can run reviewer → fixer → push, thirty-two times, and no mechanism
-notices the middle step was skipped.
+**At the time of the measured case, the ordering was written down and nothing checked it.** The then-
+current `pr-finding-resolution-loop` said _"Dispatch `pr-review-writer` (posts the review to the PR),
+**then** `pr-review-fixer`"_ — publish first, fix second — but no mechanism enforced that ordering.
+That assembly line is retired. The operative skill now publishes the completed local verdict once
+as a strict COMMENTED review before the responsible author repairs a published finding; the required
+`review-policy` projection and the push freeze consume that same review record.
 
 **This paragraph first said "no file references it at all", which was false**, and the correction is
 worth keeping rather than quietly applying: _referenced by nothing_ and _enforced by nothing_ are
 different claims, and the first was the stronger one to make and the cheaper one to falsify — eleven
 words of `grep`. A rule about not overclaiming, overclaiming in its own evidence line.
 
-**And the surrounding mechanism does better than this paragraph did.** `scan-review-findings.mjs`
-scopes itself in its own header — it checks contract PRESENCE, not that any mechanism ran — and
-`orchestration-map.md` records it as a **partial** floor rather than counting it as a satisfied one.
+**And the surrounding mechanism does better than this paragraph did.** The review-policy workflow
+checks a trusted exact-head approval or a strict `INDEPENDENT_REVIEW` verdict published as a GitHub
+review; submitted, edited, and dismissed reviews re-run that required context. `orchestration-map.md`
+records the boundary without counting an unexecuted local helper as satisfied.
 A check that declares what it does not cover, and a map that refuses to count it as coverage, is the
 opposite of the failure this section describes.
 
@@ -828,13 +863,10 @@ its own hatch: `PRE_PUSH_ALLOW_FROZEN_DIFF=1` inline. `PRE_PUSH_ALLOW_UNREVIEWED
 excuse it — that one asserts the diff is unreviewed, which is a different claim about a different
 rule, and one switch disarming two unrelated gates is how both stop being asked.
 
-**It reads two of the three grounds and says which.** A published finding is the verdict count; a red
-required check it now reads too, because for a while it did not — and a push resolving a failing check
-was refused as work on a pull request the same hook called merge-ready while `merge-gate.sh` would
-have blocked the merge on `mergeStateStatus`. **A rebase it cannot see**, so that is the ground the
-hatch is for, and the refusal says so rather than offering a remedy the author is already following.
-An unreadable answer to either question leaves the refusal standing: unknown is not zero, in both
-directions. The rest is not mechanizable here: whether to merge, and when, is a
+**It validates all three grounds.** A published finding is bound to the latest verdict; a red
+required check is visible through the check set; and a conflict-ground request is accepted only
+while GitHub reports `mergeStateStatus: DIRTY`. An unreadable answer leaves the refusal standing:
+unknown is not permission. Whether to merge, and when, is a
 judgement about a state the repository can observe but not evaluate, and a check that merged on green
 would be the automation this section exists to refuse.
 
@@ -869,9 +901,9 @@ The closing/partial/no-issue outcome is recorded once, after landing and cleanup
 landing, branch disposition, base reset/skip, criteria result, and action. The same record supports
 `closed`, `open-partial`, and `no-issue`; do not add a separate landing comment or final closeout
 receipt. `post-findings-authorization.mjs --audit-closeout` reads back the exact immutable comments and
-live PR/issue projection, and binds the pre-merge `BASE-OID` to the delivered merge commit's first
-parent rather than to the base branch after that branch has advanced. A new
-`.agents/loop-runs/post-merge-cycle.jsonl` row is not part of closeout.
+live PR/issue projection. It preserves the merge decision's historical `BASE-OID`; a conflict-free
+target advance does not rewrite the receipt to the delivered merge commit's first parent. No committed
+loop-ledger row is part of closeout.
 
 Enforced by: nothing — whether a merged change satisfies an issue is not decidable from the tree. When
 this was measured, 57 open issues were named by a merged `develop` pull request and almost every one of
@@ -910,10 +942,10 @@ push into an open PR resolves what the review reported; when the PR's latest rev
 An unreadable count is not zero — the exemption stands, because a refusal on a failed measurement
 blocks correct work on no evidence. Deliberate exception: `PRE_PUSH_ALLOW_UNREVIEWED=1` inline.
 
-**Enforced** by `.claude/hooks/merge-gate.sh`, which refuses `gh pr merge` unless the PR is `CLEAN`
-and carries a review naming the exact current `headRefOid` and a base that is either the base branch's
-live tip — read with `git ls-remote`, because GitHub's `baseRefOid` lags the branch by minutes
-(issue #2309) — or moved over no file the PR touches (a clean merge is required either way — PROC-016), and refuses outright <!-- allow-citation: the item that changed the gate -->
+**Enforced** by `.claude/hooks/merge-gate.sh`, which refuses `gh pr merge` unless the PR is mergeable,
+carries a review naming the exact current `headRefOid`, and names a historical base that remains an
+ancestor of the live target. A conflict-free target advance preserves the verdict regardless of file
+overlap; a retargeted/rewritten base or actual conflict blocks. The hook also refuses outright <!-- allow-citation: the item that changed the gate -->
 when the reviewer's own `ACTIONABLE FINDINGS: <n>` says findings remain. Timestamp recency is not
 review identity: a base can change while the child head does not. The hook fails closed on missing,
 malformed, duplicate, stale, or unreadable markers. Deliberate exception: `MERGE_GATE_ACK=1` **inline

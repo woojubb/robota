@@ -19,10 +19,6 @@ These scripts are the executable layer of the Robota harness.
 - `pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--report-format markdown|json] [--base-ref <git-ref>]`
 - `pnpm harness:self-check`
 - `pnpm harness:cleanup`
-- `pnpm harness:work-run -- <claim|bind|start|phase-start|phase-complete|pause|resume|ready|reopen|exclude|abandon|recover|trailers|cutover-plan|cutover-seal>`
-- `pnpm harness:work-run:attest`
-- `pnpm harness:work-run:report`
-- `pnpm harness:scan:work-run -- --base <git-ref>`
 
 ## Ownership Rules
 
@@ -78,7 +74,7 @@ These scripts are the executable layer of the Robota harness.
 
 ### `scan-package-boundary-ownership.mjs`
 
-- is discovered by `harness:scan` as `package-boundary-ownership` through its own `scanDefinition`; no duplicate legacy runner entry is required
+- is registered once by `harness:scan` as `package-boundary-ownership`
 - declares `always: true` because ownership candidates include repository tooling and tracked data outside package source directories
 - consumes `.agents/package-boundaries.json` with the existing workspace graph, reference resolver and source inventory; it does not own a second package graph
 - checks shared candidate ownership/contracts and independent consumers, stale reference declarations and unclassified cross-owner references; unresolved evidence remains visible
@@ -99,9 +95,11 @@ These scripts are the executable layer of the Robota harness.
 - skips verification when the pushed tree already matches the resolved base, such as cleanup after a squash-merged PR
 - does not use the tree-equivalent skip when the local working tree is dirty
 - prints the scoped verification plan
-- defaults to fast mode, which verifies directly changed scopes and executable repository checks
-- uses `--skip-dependent-scopes` in fast mode so local push latency does not explode on shared package entrypoint changes
-- supports `HARNESS_PRE_PUSH_MODE=full` when dependent scope typechecks should run locally before publishing
+- defaults to fast planning mode, which omits dependent-scope expansion
+- supports `HARNESS_PRE_PUSH_MODE=full` to show the expanded dependent-scope plan; neither mode executes
+  product checks
+- leaves focused tests and affected product diagnostics to explicit local commands such as
+  `pnpm harness:verify -- --base-ref <ref>`
 - leaves `pnpm harness:verify:release` available as an explicit diagnostic; for promotions,
   protected main-PR CI is the sole automatic release-grade verification owner
 
@@ -170,13 +168,10 @@ These scripts are the executable layer of the Robota harness.
   the gain in the same change. Before HARNESS-069 this script contained no `process.exit` and no
   `process.exitCode`, so whatever it found, a caller heard success.
 - **This section owns where the ratchet is enforced**, and the script's docstring and the test header
-  point here rather than restating it. (Three copies existed; the "unconditionally in the `scans`
-  job" correction landed in two of them and left the third contradicting the others — HARNESS-068's
-  subject, inside the change that raised it.) It is enforced by
+  point here rather than restating it. It is enforced by
   `scripts/harness/__tests__/cleanup-drift.test.mjs`, not by `run-all-scans.mjs`, so that test file is
-  where a rise fails. CI reaches it on both sides: the `scans` job (`base_ref != 'main'`) runs the
-  always-applicable `pnpm harness:test:contracts` tier, and a promotion to `main` runs the complete
-  `pnpm harness:test` suite inside `harness:verify:release`.
+  where a rise fails. PR CI reaches it through `harness-contracts` when harness-owned inputs change;
+  `scans-full.yml` and release verification retain the complete contract suite.
 - a failed measurement is an error, never a smaller number: `grep` exiting 2 or more, or a root with
   no `packages/`, stops the run rather than reporting less drift.
 
@@ -184,9 +179,9 @@ These scripts are the executable layer of the Robota harness.
 
 - `pnpm harness:test` runs the complete self-test directory and remains the release-grade command.
 - `pnpm harness:test:contracts` runs every test not explicitly admitted to the hermetic allowlist.
-  This tier is fail-closed and always runs in `scans`, pre-push, and verify-like-CI.
-- `pnpm harness:test:hermetic` skips only when the canonical changed-path classifier successfully
-  reports explicit `harness=false`. Harness-owner changes, missing output, and classifier failure run it.
+  PR CI selects it for harness-owned changes; full integration and release routes run it completely.
+- `pnpm harness:test:hermetic` runs in its own PR job for harness-owned changes and completely in the
+  full integration route.
 - `pnpm harness:test:tiers:guard` copies `scripts/harness/**` into a stripped temporary repository,
   links only installed runtime dependencies, and proves every allowlisted test without `.git`,
   `.github`, `.agents`, hooks, packages, apps, or unrelated root files. Unlisted tests never enter

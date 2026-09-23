@@ -4,7 +4,7 @@
  * THE LIST IS NOT COPIED HERE. `.agents/skills/spec-writing-standard/SKILL.md` owns it — the
  * document-standards taxonomy (meta-form #3) assigns "Required Sections" to the document-type
  * contract, and AGENTS.md gives each fact exactly one owner. So this module PARSES the skill's two
- * reference tables instead of restating them, mirroring `scan-doc-folder-status-agreement.mjs`,
+ * reference tables instead of restating them,
  * which parses `spec-workflow.md`'s status↔folder table for the same reason.
  *
  * That reason is not theoretical. Before RULE-013 the list existed twice — nine rows in the skill,

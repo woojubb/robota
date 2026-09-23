@@ -84,7 +84,8 @@ policy, implement product code, or claim any outcome is delivered.
 - Read [issue #2044](https://github.com/woojubb/robota/issues/2044) and
   [issue #2443](https://github.com/woojubb/robota/issues/2443) live state before ARCH-116's recommendation
   gate and before its done gate.
-- Run `node scripts/harness/scan-user-execution-plan-order.mjs --staged` on the atomic conversion prelude.
+- Review the fixed parent/child records and dependency order directly; the retired plan-order scan
+  is not a prospective prerequisite.
 - Run affected harness scans and full required verification before each repository evidence PR merges.
 
 ## User Execution Test Scenarios
