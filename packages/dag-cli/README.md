@@ -9,6 +9,11 @@ Command-line tool for running, validating, and managing Robota DAG workflows —
 ## Usage
 
 The `robota-dag` binary is available within the monorepo via workspace references.
+It requires Node.js 22.14 or later; local run history uses `node:sqlite`.
+
+`robota-dag runs list` displays completed and failed local `run` attempts from `.dag/runs.db`.
+Use `--phase completed` or `--phase failed` to filter, `--limit <n>` to bound the list, and
+`--output json` for run IDs, workflow IDs, status, completion time, and duration.
 
 ## Commands
 

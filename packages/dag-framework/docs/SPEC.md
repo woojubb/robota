@@ -152,7 +152,7 @@ import type {
 | `nodeRegistry`  | `IDagNodeDefinition[]` | `createDefaultNodeRegistrySync()` | Base node registry. CLI typically passes a registry including LLM/provider-backed nodes.    |
 | `projectDir`    | `string`               | —                                 | DAG project directory (reserved for future local node-file scanning).                       |
 | `workspace`     | `IWorkspaceLayout`     | —                                 | **FLOW-007**: injected workspace layout (root dir + workflow ext) for local node discovery. |
-| `instantNodes`  | `IDagNodeDefinition[]` | —                                 | Instant nodes (typically injected from an MCP session context).                             |
+| `instantNodes`  | `IDagNodeDefinition[]` | —                                 | Instant nodes injected by the caller's composition root.                                   |
 | `extraNodes`    | `IDagNodeDefinition[]` | —                                 | Extra nodes appended at the end (test/special-purpose).                                     |
 
 #### `IHttpDagRuntimeProviderOptions`

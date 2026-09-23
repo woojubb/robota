@@ -148,10 +148,22 @@ export async function runsCommand(
 
   // `dag runs list` without --provider: read from local SQLite run history
   if (subcommand === 'list' && provider === undefined) {
+    if (phase !== undefined && !allowedPhases.includes(phase as TAllowedPhase)) {
+      io.writeError(`Error: --phase must be one of ${allowedPhases.join(', ')}.\n`);
+      return USAGE_ERROR_EXIT_CODE;
+    }
     const storeOpts: { status?: string; limit?: number } = {};
     if (phase !== undefined) storeOpts.status = phase;
     if (limit !== undefined) storeOpts.limit = limit;
-    const runs = getRunStore(process.cwd()).list(storeOpts);
+    let runs;
+    try {
+      runs = getRunStore(process.cwd()).list(storeOpts);
+    } catch (error) {
+      io.writeError(
+        `Error: failed to read local run history: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      return FAILURE_EXIT_CODE;
+    }
     if (outputFormat === 'json') {
       io.write(`${JSON.stringify(runs, null, JSON_INDENT)}\n`);
     } else if (runs.length === 0) {
@@ -187,37 +199,6 @@ export async function runsCommand(
   }
 
   if (subcommand === 'list') {
-    // No --provider: read from local SQLite history (.dag/runs.db)
-    if (provider === undefined) {
-      const store = getRunStore(process.cwd());
-      const storeOpts: { status?: string; limit?: number } = {};
-      if (phase !== undefined) storeOpts.status = phase;
-      if (limit !== undefined) storeOpts.limit = limit;
-      const runs = store.list(storeOpts);
-      if (outputFormat === 'json') {
-        io.write(`${JSON.stringify(runs, null, JSON_INDENT)}\n`);
-        return SUCCESS_EXIT_CODE;
-      }
-      if (runs.length === 0) {
-        io.write('No local run history found. Run a DAG via `dag run` to create records.\n');
-        return SUCCESS_EXIT_CODE;
-      }
-      const COL_RUN = 26;
-      const COL_DAG = 22;
-      const COL_STATUS = 10;
-      io.write(
-        `${'Run ID'.padEnd(COL_RUN)} ${'DAG'.padEnd(COL_DAG)} ${'Status'.padEnd(COL_STATUS)} Started\n`,
-      );
-      io.write(`${'-'.repeat(COL_RUN + COL_DAG + COL_STATUS + 22)}\n`);
-      for (const run of runs) {
-        const started = new Date(run.completedAt).toISOString().replace('T', ' ').slice(0, 19);
-        io.write(
-          `${run.runId.slice(0, COL_RUN - 1).padEnd(COL_RUN)} ${run.dagId.slice(0, COL_DAG - 1).padEnd(COL_DAG)} ${run.status.padEnd(COL_STATUS)} ${started}\n`,
-        );
-      }
-      return SUCCESS_EXIT_CODE;
-    }
-
     const listOpts: { phase?: TAllowedPhase; limit?: number } = {};
     if (phase !== undefined) {
       if (!allowedPhases.includes(phase as TAllowedPhase)) {

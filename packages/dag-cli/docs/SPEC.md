@@ -6,6 +6,8 @@ Local-first command-line workflow tool for building, running, and inspecting Rob
 
 ## Boundaries
 
+The private internal CLI requires Node.js 22.14 or later for its `node:sqlite` local run history.
+
 - Does not own DAG domain contracts. Those belong to `@robota-sdk/dag-core`.
 - Does not own operational HTTP client contracts. Those belong to `@robota-sdk/dag-orchestration-client`.
 - Does not own server-side API problem detail mapping. That belongs to `@robota-sdk/dag-api`.
@@ -88,6 +90,13 @@ Local-first top-level commands (`src/commands/`):
 - `fix <file>` — analyze and repair a broken DAG
 - `studio` — start the local web UI server
 - `view <file>` — ASCII flow diagram viewer
+
+Each local `dag run` execution attempt writes its actual result to `.dag/runs.db` in the current
+working directory. `dag runs list` without `--provider` reads these records, newest first, with
+`runId`, `dagId`, `status` (`completed` or `failed`), `completedAt` (epoch milliseconds), and
+`durationMs`. `--phase` filters by stored status and `--limit` bounds the result. Dry runs and
+attempts stopped before execution do not create records. A history write or read failure is reported
+as an error and returns a nonzero exit code. Explicit providers retain their detached-run behavior.
 
 ### HTTP server mode
 
@@ -194,6 +203,7 @@ Scripts capturing `--result` or `--output json` output should read stdout only. 
 
 - `DAG_CLI_USAGE_ERROR` — invalid command, missing argument, or invalid option.
 - `DAG_CLI_JSON_PARSE_ERROR` — JSON argument or file content could not be parsed.
+- Local run-history storage failures are reported on stderr with a nonzero exit code.
 - Server-originated problem detail payloads are passed through unchanged.
 
 ## Class Contract Registry
@@ -222,6 +232,8 @@ None.
 
 ## Test Strategy
 
+- `src/__tests__/runs-command.test.ts` executes local runs in a disposable working directory and
+  checks `runs list` JSON fields, completed/failed status, phase and limit filtering, and storage errors.
 - `src/__tests__/doctor-version.test.ts` executes the actual source doctor in an ordinary temporary
   cwd with captured IO and a child environment containing only PATH. It checks the owner version,
   expected missing-configuration diagnostics and unchanged JSON output without reading user

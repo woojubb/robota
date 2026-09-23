@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
 import { watch } from 'node:fs';
 import { join, dirname, resolve, parse as parsePath } from 'node:path';
 import { homedir } from 'node:os';
+import { randomUUID } from 'node:crypto';
 import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
 import type {
   IDagDefinition,
@@ -34,6 +35,7 @@ import { isWorkflowFileFormat, fromDagWorkflowFile } from '@robota-sdk/dag-build
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
 import { validateFrozenRun } from './lock.js';
 import { parsePipelineSpec } from '../pipeline-parser.js';
+import { getRunStore } from '../run-store.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const OUTPUT_FORMAT_PRETTY = 'pretty';
@@ -1336,6 +1338,29 @@ function formatJsonRunOutput(
   io.write(`${JSON.stringify(jsonResult, null, JSON_INDENT_SPACES)}\n`);
 }
 
+function recordLocalRun(
+  runId: string,
+  dagId: string,
+  status: 'completed' | 'failed',
+  startMs: number,
+  endMs: number,
+  io: IDagCliIo,
+): boolean {
+  try {
+    getRunStore(process.cwd()).insert({
+      runId,
+      dagId,
+      status,
+      completedAt: endMs,
+      durationMs: endMs - startMs,
+    });
+    return true;
+  } catch (error) {
+    io.writeError(`Error: failed to record local run history: ${resolveErrorMessage(error)}\n`);
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Cost estimation helpers (heuristic, same model as cost.ts)
 // ---------------------------------------------------------------------------
@@ -1577,6 +1602,7 @@ async function runOnce(
     tuiRenderer?.detach();
     renderer?.detach();
     const endMs = Date.now();
+    recordLocalRun(randomUUID(), dagDefinition.dagId, 'failed', startMs, endMs, io);
     const msg = resolveErrorMessage(runErr);
     if (outputFormat === OUTPUT_FORMAT_JSON) {
       const errorResult = {
@@ -1595,6 +1621,19 @@ async function runOnce(
   tuiRenderer?.detach();
   renderer?.detach();
   const endMs = Date.now();
+
+  if (
+    !recordLocalRun(
+      result.dagRun.dagRunId,
+      dagDefinition.dagId,
+      result.dagRun.status === 'success' ? 'completed' : 'failed',
+      startMs,
+      endMs,
+      io,
+    )
+  ) {
+    return { exitCode: FAILURE_EXIT_CODE, result };
+  }
 
   if (useStream) {
     streamRenderer?.onComplete(endMs - startMs);

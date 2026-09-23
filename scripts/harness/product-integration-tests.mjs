@@ -62,6 +62,7 @@ export const AUDITED_PRODUCT_INTEGRATION_TESTS = Object.freeze([
   'packages/agent-tool-mcp/src/__tests__/mcp-tool.test.ts',
   'packages/agent-ui-terminal/src/__tests__/TuiInteractionChannel.lifecycle.test.ts',
   'packages/dag-cli/src/__tests__/persistence-store.test.ts',
+  'packages/dag-cli/src/__tests__/runs-command.test.ts',
   'packages/dag-cli/src/__tests__/code-node-persistence.test.ts',
   'packages/dag-cli/src/__tests__/studio-http-server-security.test.ts',
   'packages/dag-cli/src/__tests__/studio-http-server.test.ts',
