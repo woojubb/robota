@@ -11,7 +11,7 @@ Parent: [rules index](index.md)
 - No logical OR fallbacks for core behavior (`primary() || fallback()`).
 - Terminal failure states must remain terminal by default.
 - Retry or requeue is allowed only through an explicit policy gate, never as an implicit fallback.
-- Public domain functions that can fail MUST return `Result<T, E>`. Throwing is reserved for truly unexpected programmer errors.
+- Public-boundary failure conventions are governed by [common-mistakes.md, entry 57](common-mistakes.md).
 
 ### Idea Capture Policy
 
