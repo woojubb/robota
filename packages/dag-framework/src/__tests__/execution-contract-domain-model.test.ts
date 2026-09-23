@@ -96,7 +96,7 @@ function definitionWithStringIds(): IDagDefinition {
 }
 
 describe('the execution contract carries the domain model (DAG-002)', () => {
-  it('retains a terminal child task error code for composite callers', async () => {
+  it.each([false, true])('retains a terminal child error and retryable=%s', async (retryable) => {
     const root = projectDir();
     const failureNode: IDagNodeDefinition = {
       nodeType: 'test/failure',
@@ -108,7 +108,11 @@ describe('the execution contract carries the domain model (DAG-002)', () => {
       taskHandler: {
         execute: async () => ({
           ok: false,
-          error: buildTaskExecutionError('DAG_TASK_EXECUTION_COMPOSITE_RECURSION', 'cycle', false),
+          error: buildTaskExecutionError(
+            'DAG_TASK_EXECUTION_CHILD_FAILURE',
+            'child failed',
+            retryable,
+          ),
         }),
       },
     };
@@ -128,7 +132,8 @@ describe('the execution contract carries the domain model (DAG-002)', () => {
     );
     expect(result).toMatchObject({
       ok: false,
-      errorCode: 'DAG_TASK_EXECUTION_COMPOSITE_RECURSION',
+      errorCode: 'DAG_TASK_EXECUTION_CHILD_FAILURE',
+      errorRetryable: retryable,
     });
   });
 

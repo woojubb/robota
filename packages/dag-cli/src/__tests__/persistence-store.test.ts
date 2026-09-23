@@ -13,6 +13,7 @@ import type {
   INodeExecutionContext,
   IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
+import { buildTaskExecutionError } from '@robota-sdk/dag-core';
 import { createCompositeInstantNodeDefinition } from '@robota-sdk/dag-node-instant-node';
 import {
   buildCompositeRunner,
@@ -253,6 +254,44 @@ describe('BEHAVIOR-006 composite node reload through the local CLI store', () =>
     expect(result).toMatchObject({
       ok: false,
       error: { code: 'DAG_TASK_EXECUTION_COMPOSITE_DEPTH_EXCEEDED', retryable: false },
+    });
+  });
+
+  it('preserves a retryable terminal task error from a real child run', async () => {
+    const failingNode: IDagNodeDefinition = {
+      nodeType: 'transient',
+      displayName: 'Transient',
+      category: 'test',
+      inputs: [],
+      outputs: [],
+      configSchemaDefinition: null,
+      taskHandler: {
+        execute: async () => ({
+          ok: false,
+          error: buildTaskExecutionError('DAG_TASK_EXECUTION_TRANSIENT', 'try again', true),
+        }),
+      },
+    };
+    const result = await buildCompositeRunner([failingNode], projectDir).run(
+      {
+        dagId: 'transient-child',
+        version: 1,
+        status: 'draft',
+        nodes: [{ nodeId: 'transient', nodeType: 'transient', dependsOn: [], config: {} }],
+        edges: [],
+      },
+      {},
+      {
+        rootRunId: 'root-run',
+        parentRunId: 'parent-run',
+        depth: 1,
+        ancestorCompositeNodeTypes: ['outer'],
+      },
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      errorCode: 'DAG_TASK_EXECUTION_TRANSIENT',
+      retryable: true,
     });
   });
 });

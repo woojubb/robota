@@ -236,6 +236,7 @@ export interface ICompositeSubRunner {
     outputs: Record<string, TPortPayload>;
     error?: string;
     errorCode?: string;
+    retryable?: boolean;
   }>;
 }
 
@@ -423,7 +424,7 @@ export class CompositeInstantNodeDefinition
           error: buildTaskExecutionError(
             result.errorCode ?? 'DAG_TASK_EXECUTION_COMPOSITE_FAILED',
             result.error ?? 'Composite sub-DAG execution failed',
-            result.errorCode === undefined,
+            result.retryable ?? true,
             { nodeType: this.nodeType },
           ),
         };

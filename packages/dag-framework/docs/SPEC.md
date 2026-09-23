@@ -145,7 +145,7 @@ import type {
 ```
 
 - `LocalDagRuntimeProvider` — embeds the runtime, worker, and adapters in-process (no server).
-- On a failed local run, its result retains the terminal task's `errorCode` for nested composite callers.
+- On a failed local run, its result retains the terminal task's `errorCode` and `errorRetryable` for nested composite callers.
 - `HttpDagRuntimeProvider` — talks to a native DAG runtime server over HTTP.
 
 #### `ILocalDagRuntimeProviderOptions`

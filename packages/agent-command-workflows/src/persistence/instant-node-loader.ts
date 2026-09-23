@@ -70,6 +70,7 @@ function buildCompositeRunner(
         outputs: toNestedOutputs(result.outputs),
         ...(result.ok ? {} : { error: result.error ?? 'Inner DAG run failed' }),
         ...(result.errorCode ? { errorCode: result.errorCode } : {}),
+        ...(result.errorRetryable === undefined ? {} : { retryable: result.errorRetryable }),
       };
     },
   };

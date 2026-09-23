@@ -72,6 +72,10 @@ export function buildCompositeRunner(
         executionRoot,
         lineage,
       );
+      let failedTaskRetryable: boolean | undefined;
+      const unsubscribe = subRunner.events.subscribe((event) => {
+        if (event.eventType === 'task.failed') failedTaskRetryable = event.error.retryable;
+      });
       try {
         // allow-fallback: inner DAG errors are returned as structured result
         const subResult = await subRunner.run(dag, input);
@@ -90,6 +94,7 @@ export function buildCompositeRunner(
           outputs,
           ...(failedTask?.errorMessage ? { error: failedTask.errorMessage } : {}),
           ...(failedTask?.errorCode ? { errorCode: failedTask.errorCode } : {}),
+          ...(failedTaskRetryable === undefined ? {} : { retryable: failedTaskRetryable }),
         };
       } catch (err) {
         // allow-fallback: inner DAG errors are returned as structured result
@@ -98,6 +103,8 @@ export function buildCompositeRunner(
           outputs: {},
           error: err instanceof Error ? err.message : 'Inner DAG run failed',
         };
+      } finally {
+        unsubscribe();
       }
     },
   };

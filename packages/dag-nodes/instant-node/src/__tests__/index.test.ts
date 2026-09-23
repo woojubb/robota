@@ -344,4 +344,20 @@ describe('composite nested-run lineage', () => {
     });
     expect(runner).not.toHaveBeenCalled();
   });
+
+  it.each([false, true])('preserves a child error with retryable=%s', async (retryable) => {
+    const runner = vi.fn(async () => ({
+      ok: false,
+      outputs: {},
+      error: 'child failed',
+      errorCode: 'DAG_TASK_EXECUTION_CHILD_FAILURE',
+      retryable,
+    }));
+    const node = composite('parent', ['input'], runner);
+    const result = await node.taskHandler.execute({ text: 'x' }, context('parent'));
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_CHILD_FAILURE', retryable },
+    });
+  });
 });

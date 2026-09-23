@@ -69,6 +69,8 @@ export interface IDagRuntimeResult {
   error?: string;
   /** Code of a terminal failed task, when the in-process provider retains it. */
   errorCode?: string;
+  /** Retryability of the terminal task error when retained by an in-process provider. */
+  errorRetryable?: boolean;
 }
 
 /** Lifecycle phase of an asynchronously tracked run. */

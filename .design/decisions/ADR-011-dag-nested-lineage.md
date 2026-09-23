@@ -23,8 +23,8 @@ detect direct or indirect recursion when a child starts another DAG.
 Use option 2. `dag-core` owns the lineage shape. Each in-process child runner receives the
 derived lineage when created, and its task executor supplies that lineage to every child node.
 Composite nodes reject repeated ancestor types and depth overflow before launching a child.
-The tightest ancestor depth ceiling is inherited; terminal child error codes cross the
-in-process runner boundary without becoming retryable generic errors.
+The tightest ancestor depth ceiling is inherited; terminal child error codes and retryability
+cross the in-process runner boundary without becoming generic errors.
 
 ## Consequences
 

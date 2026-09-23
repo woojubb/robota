@@ -103,8 +103,8 @@ type or any ancestor composite node type. It also rejects a child launch beyond 
 This is a runtime guard, not a constructor-time guess. Direct and indirect recursion fail
 before launching the next child run. Budget and cancellation propagation remain separate
 unfinished parts of issue #2163.
-If a child fails, its terminal error code is preserved and is not converted to a retryable
-generic composite failure.
+If a child fails, its terminal error code and retryability are preserved rather than replaced
+with a generic composite failure.
 
 ## Provider Registry (DATA-003)
 
