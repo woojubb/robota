@@ -1199,7 +1199,7 @@ jobs:
   payload-native:
     name: payload native / ${{ matrix.target }}
     needs: changes
-    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' && (needs.changes.result != 'success' || needs.changes.outputs.payload_native == 'true') }}
+    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && needs.changes.outputs.payload_native == 'true' }}
     permissions:
       contents: read
     strategy:

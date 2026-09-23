@@ -166,6 +166,15 @@ describe('classifyFiles', () => {
     });
   });
 
+  it('selects actionlint for a policy-only change without selecting product work', () => {
+    expect(classifyFiles(['.github/actionlint.yaml'])).toMatchObject({
+      code: true,
+      product: false,
+      workflow: true,
+      full: false,
+    });
+  });
+
   it('selects hermetic only for its tests and shared execution owners', () => {
     expect(classifyFiles(['scripts/harness/check-pr-body.mjs'])).toMatchObject({
       harness: true,

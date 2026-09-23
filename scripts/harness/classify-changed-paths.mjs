@@ -391,7 +391,9 @@ export function classifyFiles(
     if (INFRASTRUCTURE_ONLY_PATTERN.test(file) || INFRASTRUCTURE_ONLY_FILES.has(file)) return false;
     return true;
   });
-  const workflow = codeFiles.some((file) => /^\.github\/workflows\/.*\.ya?ml$/u.test(file));
+  const workflow = codeFiles.some(
+    (file) => file === '.github/actionlint.yaml' || /^\.github\/workflows\/.*\.ya?ml$/u.test(file),
+  );
   const dependencies =
     dependencyChanges ??
     codeFiles.some(

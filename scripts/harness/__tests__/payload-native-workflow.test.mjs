@@ -18,6 +18,8 @@ function workflow() {
 describe('PAYLOAD-2153 native acceptance topology', () => {
   it('runs exactly one read-only leg on each approved native host', () => {
     const job = workflow().jobs['payload-native'];
+    expect(job.if).toContain("needs.changes.result == 'success'");
+    expect(job.if).not.toContain("needs.changes.result != 'success'");
     expect(job.permissions).toEqual({ contents: 'read' });
     expect(job.strategy['fail-fast']).toBe(false);
     expect(job.strategy.matrix.include).toEqual([
