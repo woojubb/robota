@@ -18,7 +18,7 @@ import type { TSessionResponseFormat } from '../assembly/create-session-types.js
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
 import type { CommandRegistry, IRemoteCommandPolicy } from '../commands/index.js';
-import type { IInteractiveSession, IInteractiveSessionStore } from '../interactive/index.js';
+import type { IInteractiveSessionStore } from '../interactive/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';

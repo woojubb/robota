@@ -16,7 +16,6 @@ import { SESSION_CAPABILITY_MEMBER_KEYS } from '../session-capability-contracts.
 
 import type {
   ISessionCapabilityMap,
-  ISessionCapabilityHost,
   TSessionCapabilityHost,
   TSessionCapabilityReadResult,
 } from '../session-capability-contracts.js';

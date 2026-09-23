@@ -1,9 +1,7 @@
 import { createLogger } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
 import { GoogleProvider } from '@robota-sdk/agent-provider-gemini/google';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
 import cors from 'cors';
 import express from 'express';
 import rateLimit from 'express-rate-limit';

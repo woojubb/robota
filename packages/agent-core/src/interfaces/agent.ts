@@ -4,22 +4,20 @@ import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
 import type {
   TProviderConfigValue,
   IAIProvider,
-  TTextDeltaCallback,
   TModelEffortSelection,
   TToolChoice,
 } from './provider';
 import type { IResponseFormatConfig, ISafetySetting } from './response-format';
 import type { IRunOptions } from './run-options';
 import type { TToolSearchSetting } from './tool-search';
-import type { TMetadata, TConfigValue } from './types';
+import type { TConfigValue } from './types';
 import type { IModule } from '../abstracts/abstract-module';
 import type { IPluginContract, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
 import type { IToolWithEventService } from '../abstracts/abstract-tool';
 import type { IEventService, IOwnerPathSegment } from '../interfaces/event-service';
-import type { TStructuredOutputSchema } from '../schema/structured-output';
+import type { TUtilLogLevel } from '../utils/logger';
 
 export type { IRunOptions, TExecutionEventCallback, TExecutionEventData } from './run-options';
-import type { TUtilLogLevel } from '../utils/logger';
 
 export type {
   TUniversalMessage,

@@ -2,6 +2,7 @@
 import type {
   IExecutionOrigin,
   IExecutionWorkspaceEntryRef,
+  TBackgroundPrimitive,
 } from '@robota-sdk/agent-interface-execution';
 
 export type {
@@ -32,7 +33,6 @@ export type {
   TExecutionHeadlineKind,
   TExecutionNormalizedState,
 } from '@robota-sdk/agent-interface-execution';
-import type { TBackgroundPrimitive } from '@robota-sdk/agent-interface-execution';
 
 export const MAIN_THREAD_ENTRY_PREFIX = 'main';
 export const BACKGROUND_TASK_ENTRY_PREFIX = 'task';

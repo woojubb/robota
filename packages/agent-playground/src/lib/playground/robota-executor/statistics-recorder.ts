@@ -1,4 +1,4 @@
-import { PlaygroundStatisticsPlugin } from '../plugins/playground-statistics-plugin';
+import type { PlaygroundStatisticsPlugin } from '../plugins/playground-statistics-plugin';
 import type { TPlaygroundMode } from '../robota-executor-types';
 
 interface IExecutionStatsInput {

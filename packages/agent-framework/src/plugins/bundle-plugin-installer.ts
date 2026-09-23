@@ -5,7 +5,7 @@
  * cache directory, and tracks installations in `installed_plugins.json`.
  */
 
-import { join, dirname } from 'node:path';
+import { join } from 'node:path';
 
 import {
   readInstalledPluginsRegistry,

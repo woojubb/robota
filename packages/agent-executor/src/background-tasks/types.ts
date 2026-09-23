@@ -9,6 +9,7 @@
 // ARCH-037: sourced from the `agent-core` SSOT, not from `agent-interface-transport`'s
 // pass-through re-export, which is deleted. Re-exported at the end of this file for the package's
 // own barrel chain — a type this file genuinely consumes, not a second name for someone else's.
+import type { TObserverFailureReporter } from './observer-delivery.js';
 import type { IToolResult, TBackgroundPermissionPolicy } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskError,
@@ -53,7 +54,6 @@ export type {
   TBackgroundTaskEvent,
   TBackgroundTaskEventListener,
 } from '@robota-sdk/agent-interface-execution';
-import type { TObserverFailureReporter } from './observer-delivery.js';
 
 export class BackgroundTaskError extends Error implements IBackgroundTaskError {
   readonly category: TBackgroundTaskErrorCategory;
