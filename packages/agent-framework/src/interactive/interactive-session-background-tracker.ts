@@ -113,6 +113,7 @@ export class SessionBackgroundTaskTracker {
         parentSessionId: task.parentSessionId,
         depth: task.depth,
         cwd: task.cwd,
+        ...(task.metadata ? { metadata: { ...task.metadata } } : {}),
         ...(task.schedule.agentInstruction !== undefined
           ? { agentInstruction: task.schedule.agentInstruction }
           : {}),

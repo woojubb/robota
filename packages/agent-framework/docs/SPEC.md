@@ -940,8 +940,8 @@ The `./testing` subpath (kept out of the runtime bundle) is the agent's standard
 verify a feature at the framework level** — the CLI is a thin wrapper and must not be where feature
 behaviour is verified.
 
-- `scriptedSession({ turns | cassette | record, files?, persistence?, cwd?, resumeSessionId?,
-forkSession?, model?, commandModules?, ... })` / `ScriptedSessionHarness` builds a **real**
+- `scriptedSession({ turns | cassette | record, files?, persistence?, cwd?, projectAccess?,
+resumeSessionId?, forkSession?, model?, commandModules?, backgroundTasks?, ... })` / `ScriptedSessionHarness` builds a **real**
   `InteractiveSession` (real agent loop, builtin tools, persistence, events) in an isolated temp
   workspace. Provider modes (exactly one): **scripted** (`turns`, hand-written, SSOT
   `createScriptedProvider`), **cassette** (`cassette: path`, a recorded real-model run replayed
@@ -952,6 +952,8 @@ forkSession?, model?, commandModules?, ... })` / `ScriptedSessionHarness` builds
   `resumeSessionId` (+ `forkSession`) open a second harness over the same workspace store to
   resume/fork a persisted session; the harness only deletes a workspace it created. No CLI, no
   network, no live LLM (replay/scripted).
+  `backgroundTasks: true` opts into the real default background-task runners for timer/monitor
+  functional tests; the default fixture remains runner-free.
 - Drivers: `submit(prompt)` → awaits the completed turn; `runGoal(objective, opts)` → awaits the
   stopped goal; `awaitEvent(name, predicate?)`.
 - Inspectors — in-memory: `history()`, `toolCalls()`, `emittedEvents(name)`, `requests`. Durable
@@ -2809,6 +2811,12 @@ runs to a completed turn:
   `shutdown()`, or a pending-queue drop. Otherwise the `sourceTaskId` lingers in the set and every
   future wake for that task is silently rejected forever (RUNTIME-19). Clearing the pending queue
   clears the corresponding wake-tracking ids.
+
+Distinct scheduled wake sources sharing the agent driver never coalesce with each other. Cancelling
+one queued source settles only that source's accepted turn; a turn already executing is not aborted.
+`IAgentJobSchedules.spawnScheduledWake` accepts an optional `sessionLoop` marker that the session
+stores in task metadata. Restored scheduled tasks forward this metadata when re-armed, so an editable
+label cannot erase a loop's identity. The runtime task ID can still change on resume.
 
 `InteractiveSession` exposes background task controls:
 

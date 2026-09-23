@@ -201,6 +201,33 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 | theme          | `createThemeCommandModule`         | `ThemeCommandSource`         | `executeThemeCommand` (SCREEN-2002: `/theme` opens the picker, `list` reports the catalogue and the live appearance, `<id> [syntax on                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | off] [motion on | off]`switches. Behind an injected`IThemeCataloguePort`— no port, no command. Emits at most ONE`appearance-settings-patch`, and an unknown id writes nothing, not even the toggles submitted beside it) |
 | user-local     | `createUserLocalCommandModule`     | `UserLocalCommandSource`     | `executeUserLocalCommand`, `executeUserLocalDirectCommand`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
+### Fixed in-session repeat (`/loop`, #2726 / historical #2005)
+
+The schedule module also registers a provider-neutral `/loop` command over the existing
+`spawnScheduledWake` and session turn queue. This first slice accepts either
+`/loop <N><s|m|h|d> <prompt>` or `/loop <prompt> every <N> <unit>` (unit names may be written out).
+The prompt is submitted as an ordinary `agent-wakeup` turn under the session's existing permission
+policy. The command is conservatively classified as permission-requiring for remote command policy,
+including its read-only `list` form. `/loop list` shows active loop schedules;
+`/loop stop <task-id>` cancels only the selected
+loop's timer and queued wake through the session's targeted cancellation path. A turn already running
+may finish. Non-loop schedules cannot be stopped through `/loop`.
+
+Supported requested intervals are positive and at most one day. Calendar-aligned cron steps divide
+60 seconds, 60 minutes, or 24 hours; a request between steps rounds **up** to the next supported
+nominal calendar step, which is reported in the creation receipt together with the next fire time
+when available. Daylight-saving changes can make actual elapsed gaps shorter or longer than that step;
+the command does not claim an exact elapsed-time `cadenceMs`.
+The first clock-aligned fire may occur sooner than one full requested interval after creation.
+Distinct loop wake sources do not replace one another in the bounded session queue; repeated
+in-flight wakes from the same scheduled task coalesce, so missed fires do not form a catch-up burst.
+The loop marker lives in persisted task metadata, not the editable display label; editing a loop
+through `/schedule edit` cannot hide it from `/loop list` or `/loop stop`. The task ID is the live
+session's stop handle. Existing schedule restoration can create a new task
+ID on resume; `/loop list` reveals that new ID. A durable loop ID, persistence guarantees, a
+seven-day expiry, jitter, Esc handling, self-paced/default-prompt modes, and prompt overrides are
+**not yet delivered**. This slice does not complete the historical #2005 checklist or #2726.
+
 ### Provider setup flow (interactive UI helpers)
 
 | Export                               | Kind     | Description                                                   |
