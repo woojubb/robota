@@ -383,6 +383,12 @@ Subagent execution is logged to `{logsDir}/{parentSessionId}/subagents/{agentId}
 
 These events are append-only provenance for debugging and future `/resume` replay. Concrete provider packages own exact SDK-native payload selection through `IChatOptions.onProviderNativeRawPayload`; `agent-core` routes the callback without provider branches, and `agent-session` validates that provider requests have native raw response or stream payload coverage.
 
+When a large event payload is externalized to a sidecar, Node replay reads it through a bounded,
+retained-root authority on qualified Linux x64/arm64, macOS x64/arm64, and Windows x64 hosts. The
+reader refuses parent or final symlink/reparse replacement instead of falling back to ambient pathname
+I/O, while replay still verifies the recorded byte length and SHA-256 digest. Unsupported hosts fail
+explicitly with `STABLE_PAYLOAD_READ_UNAVAILABLE`.
+
 ## Always-Streaming Policy
 
 The Anthropic provider always uses the streaming API internally, even when no `onTextDelta` callback is provided. This avoids the 10-minute HTTP timeout that can occur with long-running tool loops on non-streaming requests. The final response text is assembled from the stream. See [agent-provider SPEC.md](../../packages/agent-provider/docs/SPEC.md) for details.

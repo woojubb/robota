@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-2525: coordinate MCP transport hosting and bounded data handling'
 issue: https://github.com/woojubb/robota/issues/2525
-status: todo
+status: in-progress
 created: 2026-09-21
 priority: high
 urgency: soon
@@ -12,7 +12,7 @@ children: [PAYLOAD-2153, MCP-2522, MCP-2525, MCP-2533]
 
 # AGREEMENT-2525: coordinate MCP transport hosting and bounded data handling
 
-Spec: `.agents/spec-docs/todo/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md`
+Spec: `.agents/spec-docs/active/AGREEMENT-2525-coordinate-mcp-transport-hosting-and-bounded-data-handling.md`
 
 ## Objective
 
@@ -52,6 +52,9 @@ The four direct child records use canonical umbrella [issue #2525](https://githu
       executable user execution test scenario before the one completion decision.
 - [ ] Reconcile the existing `AGREEMENT-014` and `AGREEMENT-015` streams from their source Tasks without duplicating or nesting their records.
 - [ ] Audit all twelve retained outcomes and delivery evidence before the parent Issue's terminal writeback.
+- [ ] On the final integration-to-develop PR, require the applicable five-host payload qualification
+      through `pr-validation`, verify the four declared live contexts, and leave final landing for
+      the user's decision. A conflict-free base advance does not invalidate an unchanged head.
 
 ## Completion Criteria
 
@@ -62,6 +65,9 @@ The four direct child records use canonical umbrella [issue #2525](https://githu
       negative-path tests, and runnable product-surface scenario.
 - [ ] TC-04: All eight Tasks under `AGREEMENT-014` and `AGREEMENT-015` have truthful terminal delivery evidence; their source outcomes are not inferred from this Agreement's existence.
 - [ ] TC-05: The final issue #2525 audit proves every source-register row against merged `origin/develop` evidence before the Issue is closed.
+- [ ] TC-06: The applicable native qualification is a fail-closed child of `pr-validation` under
+      the simplified four-context policy. Selected missing, skipped, cancelled, or failed host legs
+      prevent acceptance; this integration does not change remote protection settings.
 
 ## Test Plan
 
@@ -69,6 +75,10 @@ Check the dependency graph and non-overlap ownership mechanically. For each dire
 focused package tests, typecheck/build when affected, security negative cases, and declared user
 execution scenario. For the final audit, read the six source outcomes, merged evidence, and current
 Issue map; do not recreate a Task/spec projection merely to prove bookkeeping symmetry.
+
+| TC-ID | Tool / Approach                                                             | Expected observable                                                                   |
+| ----- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| TC-06 | Final PR native-child read-back → `pr-validation` → live context comparison | Selected native legs and the aggregate pass; the four repository/live contexts match. |
 
 ## Gate-Fail Correction Record
 
@@ -86,7 +96,7 @@ replaying `GATE-WRITE` or `GATE-APPROVAL`.
 
 ## Children
 
-- [ ] PAYLOAD-2153 — todo — `.agents/tasks/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`
+- [x] PAYLOAD-2153 — done — `.agents/tasks/completed/PAYLOAD-2153-provide-stable-cross-platform-external-payload-replay-handles.md`
 - [ ] MCP-2522 — todo — `.agents/tasks/MCP-2522-add-a-safe-stdio-mcp-client-transport.md`
 - [ ] MCP-2525 — todo — `.agents/tasks/MCP-2525-bound-mcp-results-and-spill-oversized-output-securely.md`
 - [ ] MCP-2533 — todo — `.agents/tasks/MCP-2533-add-authenticated-loopback-streamable-http-mcp-hosting.md`
@@ -100,4 +110,27 @@ replaying `GATE-WRITE` or `GATE-APPROVAL`.
 
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
-**Reason:** This Agreement only coordinates independently user-verifiable child capabilities and adds no separate product surface; each direct child owns and must execute its own scenario before completion.
+**Reason:** This Agreement coordinates independently user-verifiable child capabilities and the final
+required-check rollout, but exposes no separate runnable product surface; each direct child owns and must
+execute its own product scenario before completion.
+
+## PAYLOAD-2153 Final-Rollout Handoff
+
+**Recommendation:** PAYLOAD-2153 owns the native capability, five-host qualification, repository-side
+stable context, and its tests. This Agreement owns only the external live activation because its final
+integration-to-develop PR is the first safe point at which the new context can be green before it becomes
+required.
+
+**Instruction (verbatim):** “모두 승인하고, 앞으로의 것도 모두 타당한 근거와 함께 제시된
+추천안이라면 그게ㅏ 타당할 경우 사전 승입합니다.”
+
+**Independent verdict:** `REVIEW VERDICT: ENDORSE` — explicit transfer is required; leaving the child
+criterion pending or waiving it would violate the one-item-at-a-time and done invariants.
+
+## Simplified-harness integration — 2026-09-23
+
+Issue #2826 and the owner's instruction to continue with the newly merged harness supersede the
+additional required-context rollout above. Preserve PAYLOAD-2153's five-host native qualification
+as an applicable child of `pr-validation`; do not restore retired benchmark jobs, local CI mirrors,
+or the former twelve-context declaration. The quoted earlier rollout decision remains historical
+evidence. This adoption neither changes live rulesets nor supplies final integration merge approval.

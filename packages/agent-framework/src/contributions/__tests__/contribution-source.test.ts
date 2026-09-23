@@ -59,9 +59,9 @@ describe('contribution sources', () => {
     const host = createNodeHostContributionSource(hostRoot);
 
     expect(host.inspectKind('linked-file.md', 'inspect host link')).toBe('link');
-    expect(() => host.readText('linked-file.md', 'read host link')).toThrow(/links/i);
+    expect(() => host.readText('linked-file.md', 'read host link')).toThrow(/unsafe path entry/i);
     expect(() => host.readText('linked-directory/secret.md', 'read through host link')).toThrow(
-      /links/i,
+      /unsafe path entry/i,
     );
     expect(() => host.listDirectory('linked-directory', 'list host link')).toThrow(/links/i);
   });

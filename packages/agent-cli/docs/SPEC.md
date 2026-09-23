@@ -925,6 +925,16 @@ The remaining third-party entries in `package.json` `dependencies` (`openai`, `@
 `@google/genai`, `werift`, `ws`, `zod`, `croner`, `fast-glob`, `jssha`, `open`, `p-limit`,
 `@marcbachmann/cel-js`, `zod-to-json-schema`, …) are not imported by CLI source; they are the hoisted
 runtime dependencies of the bundled workspace packages (see § Self-contained bundle, INFRA-028).
+`koffi@3.3.1` is the deliberate exception: the CLI declares that exact direct runtime dependency so
+the self-contained bundle and its Bun compiler plugin resolve the same qualified native bridge used by
+the transitively bundled stable file-authority capability.
+
+### Session analysis store identity
+
+An exact safe session ID is loaded from the same injected user and project stores used for prefix
+and aggregate analysis. Exact lookup does not enumerate either store; project records retain
+precedence on an ID collision. The helper must not construct a second ambient user store after
+composition supplied one.
 
 ### Distribution — Bun single binary (DIST-001)
 
@@ -934,19 +944,29 @@ existing Node entry path (`bin/robota.cjs` → `dist/node/bin.js`) is retained. 
 validated input generation and publishes the separately declared `bun` output variant; it never writes
 into the sealed npm/Node generation.
 
-- **Build:** `scripts/build-bun.mjs` (run under Bun) `Bun.build({ compile, define, plugins })`s the built
-  `dist/node/bin.js` per target. Additive scripts: `build:bun` (host), `build:bun:all`, and per-target
-  `build:bun:<os>-<arch>` (darwin-arm64/x64, linux-x64/arm64, windows-x64). Prereq: `pnpm build` (produces
-  `dist/node/bin.js`); output → `dist-bun/robota-<os>-<arch>[.exe]`. All requested targets are staged and
-  verified against Bun emission records before the variant pointer changes. A failed target retains
-  the previous complete binary generation.
+- **Build:** `scripts/build-bun.mjs` (run under Bun) accepts exactly one literal target and
+  `Bun.build({ compile, define, plugins })`s the built `dist/node/bin.js`. `build:bun` selects the host;
+  the five per-target `build:bun:<os>-<arch>` scripts select darwin-arm64/x64, linux-x64/arm64, or
+  windows-x64. There is no multi-target or `all` interface. A literal target must exactly match the
+  current host tuple and every unsupported host is refused before compilation or generation assembly,
+  leaving the previously selected binary generation unchanged. Prereq: `pnpm build` (produces
+  `dist/node/bin.js`); output → one `dist-bun/robota-<os>-<arch>[.exe]`. The compiler embeds only the
+  qualified host Koffi addon through `scripts/artifacts/koffi-bun-plugin.mjs`.
 - **Two build-time fixes** (do not affect Node): a plugin stubs ink 7.x's DEV-only static
   `react-devtools-core` import (Bun's compiler resolves it eagerly; the code path never runs in production);
   and `src/startup/version.ts` reads a `--define`d `__ROBOTA_VERSION__` through a `typeof` guard (the single
   binary can't fs-walk for `package.json` → would show `0.0.0`; in Node the identifier is undeclared so the
   guard falls through to the existing fs-walk).
-- **Smoke:** `test:bun` (`scripts/e2e-bun-binary.mjs`) builds the host binary and asserts `--version` (real
-  version, not `0.0.0`) + `--help` (exit 0); it **skips gracefully when `bun` is not on PATH**.
+- **Smoke:** `test:bun` (`scripts/e2e-bun-binary.mjs`) builds the host binary, copies the verified
+  generation to a fresh tree without `node_modules`, and asserts `--version`, `--help`, and the shared
+  provider-free native replay fixture (`robota trust --yes` followed by `robota session analyze` success
+  and replaced-parent refusal). It **skips gracefully when `bun` is not on PATH**.
+- **Release:** five read-only native build jobs each compile and execute exactly one matching target and
+  upload one uniquely named artifact. One publisher depends on all five, alone receives
+  `contents: write`, rejects missing/duplicate/unexpected inputs, creates a five-entry
+  `SHA256SUMS.txt`, uploads the established five binary names plus that manifest once, then downloads
+  all six release assets and verifies their names, sizes, and SHA-256 digests. It retains the shared-tag
+  serialization contract with the desktop release workflow.
 - **Constraint (user-facing) — removed by DIST-006:** a subagent turn used to spawn a child `node`
   process against a worker file, which required **`node` on `PATH`** and, in a compiled binary, did
   not work at all (the worker file is not there). The binary now re-executes **itself**

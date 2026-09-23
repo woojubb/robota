@@ -1,6 +1,5 @@
 import { closeSync, constants, lstatSync, openSync, readdirSync, realpathSync } from 'node:fs';
 
-import { readBoundedProjectFile } from './project-reader-bounded-file.js';
 import {
   assertCurrentWorkspaceIdentity,
   refuseProjectRead,
@@ -82,23 +81,6 @@ function openRelative(
   } finally {
     if (ownsParent) closeSync(parentDescriptor);
   }
-}
-
-export function readProjectBytesFromHandle(
-  identity: IWorkspaceIdentity,
-  identityResolver: IWorkspaceIdentityResolver,
-  segments: readonly string[],
-  maxBytes: number,
-): Uint8Array | undefined {
-  return withVerifiedRoot(identity, identityResolver, (rootDescriptor) => {
-    const descriptor = openRelative(rootDescriptor, segments, 'file');
-    if (descriptor === undefined) return undefined;
-    try {
-      return readBoundedProjectFile(descriptor, maxBytes);
-    } finally {
-      closeSync(descriptor);
-    }
-  });
 }
 
 export function listProjectDirectoryFromHandle(

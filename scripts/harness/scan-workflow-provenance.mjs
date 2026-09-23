@@ -54,6 +54,7 @@ const SECURITY_POLICY_INPUTS = [
   'osv-scanner.toml',
   'scripts/harness/generate-dependency-review-license-exemptions.mjs',
 ];
+const ACTIONLINT_POLICY_INPUTS = ['.github/actionlint.yaml'];
 
 /**
  * Every workflow file that provides a required status check, directly or through a repository-local
@@ -170,6 +171,13 @@ export function findWorkflowProvenanceFindings(root = WORKSPACE_ROOT, baseRef, h
     scan: 'workflow-provenance',
     why: 'These files control the verdict of the required security context; if one is absent, the trusted guard cannot establish which policy the pull request executes.',
   });
+  const actionlintPolicyInputs = workflows.includes('.github/workflows/ci.yml')
+    ? ACTIONLINT_POLICY_INPUTS
+    : [];
+  requireGovernedTree(root, actionlintPolicyInputs, {
+    scan: 'workflow-provenance',
+    why: 'The actionlint configuration controls diagnostics in required workflow validation; an absent configuration leaves that policy unverified.',
+  });
   const controlPlaneInputs = literalLocalImportClosure(root, TRUSTED_CONTROL_PLANE_ENTRIES);
   requireGovernedTree(root, controlPlaneInputs, {
     scan: 'workflow-provenance',
@@ -179,6 +187,7 @@ export function findWorkflowProvenanceFindings(root = WORKSPACE_ROOT, baseRef, h
     REGISTRY_RELATIVE,
     ...workflows,
     ...securityPolicyInputs,
+    ...actionlintPolicyInputs,
     ...controlPlaneInputs,
   ]);
 
@@ -216,6 +225,17 @@ export function findWorkflowProvenanceFindings(root = WORKSPACE_ROOT, baseRef, h
             'control-plane change, have a reviewer inspect its verdict effect, and use ' +
             '.agents/rules/git-branch.md § "Landing a control-plane change" for the ' +
             'owner-authorized landing record.',
+        });
+        continue;
+      }
+      if (actionlintPolicyInputs.includes(file)) {
+        findings.push({
+          file,
+          problem:
+            'is edited by this change AND controls actionlint diagnostics for required workflow ' +
+            'validation. A permissive ignore rule can hide errors in a required-check workflow ' +
+            'without editing that workflow. Treat this as a control-plane change and review the ' +
+            'actionlint and pr-validation jobs before owner-authorized landing.',
         });
         continue;
       }

@@ -941,8 +941,8 @@ describe('workspace affected planner', () => {
     });
     expect(providerTypecheck.packages).toHaveLength(1);
     expect(providerBuild.packages.length).toBeLessThanOrEqual(3);
-    // MCP-006 adds the MCP transport as a framework test prerequisite.
-    expect(cliBuild.packages.length).toBeLessThanOrEqual(68);
+    // MCP-006 and PAYLOAD-2153 each add one CLI prerequisite to the current graph.
+    expect(cliBuild.packages.length).toBeLessThanOrEqual(69);
     // ARTIFACT-2655: CLI assembly now owns the previously omitted web producer + GUI prerequisite.
     const copiedPrerequisites = ['@robota-sdk/agent-cli-web', '@robota-sdk/agent-ui-web'];
     expect(tuiBuild.packages.map((entry) => entry.name)).toEqual(
@@ -950,6 +950,6 @@ describe('workspace affected planner', () => {
     );
     expect(
       tuiBuild.packages.filter((entry) => !copiedPrerequisites.includes(entry.name)).length,
-    ).toBeLessThanOrEqual(66);
+    ).toBeLessThanOrEqual(67);
   });
 });

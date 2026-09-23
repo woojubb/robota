@@ -58,9 +58,6 @@ export const JUSTIFIED_WRITE_SCOPES = {
   'dependency-review.yml': {
     'pull-requests': 'comments the dependency-review summary on failure (comment-summary-in-pr)',
   },
-  'release-bun-binaries.yml': {
-    contents: 'uploads the compiled binaries as GitHub Release assets',
-  },
   'release-desktop-app.yml': {
     contents: 'uploads the packaged installers as GitHub Release assets',
   },
@@ -82,6 +79,11 @@ export const JUSTIFIED_JOB_WRITE_SCOPES = {
   'dependency-review.yml': {
     'dependency-review': {
       'pull-requests': 'posts the on-failure dependency and license summary on the pull request',
+    },
+  },
+  'release-bun-binaries.yml': {
+    'publish-bun': {
+      contents: 'uploads the five verified native binaries and checksum manifest to the release',
     },
   },
   'review-gate.yml': {

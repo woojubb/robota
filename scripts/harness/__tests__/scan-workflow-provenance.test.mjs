@@ -71,6 +71,7 @@ function repoWithGuardedWorkflow() {
   );
   writeFileSync(path.join(dir, 'README.md'), 'base\n');
   writeFileSync(path.join(dir, '.gitleaks.toml'), '[allowlist]\n');
+  writeFileSync(path.join(dir, '.github/actionlint.yaml'), 'self-hosted-runner: {}\n');
   writeFileSync(path.join(dir, 'osv-scanner.toml'), '[IgnoredVulns]\n');
   mkdirSync(path.join(dir, 'scripts/harness'), { recursive: true });
   writeFileSync(
@@ -264,6 +265,22 @@ describe('workflow-provenance — a change that moves its own gate (INFRA-097)',
     expect(findings[0].problem).toMatch(/make the security scan green over a secret/);
   });
 
+  it('flags an actionlint policy edit before it can suppress required workflow diagnostics', () => {
+    const dir = repoWithGuardedWorkflow();
+    writeFileSync(
+      path.join(dir, '.github/actionlint.yaml'),
+      'paths:\n  ignore:\n    - .github/workflows/ci.yml\n',
+    );
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '--quiet', '-m', 'ci: suppress workflow diagnostics');
+
+    const { findings } = findWorkflowProvenanceFindings(dir, 'HEAD~1');
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].file).toBe('.github/actionlint.yaml');
+    expect(findings[0].problem).toMatch(/actionlint|required/i);
+  });
+
   it('flags a permissive edit anywhere in the trusted implementation import closure', () => {
     const dir = repoWithGuardedWorkflow();
     writeFileSync(
@@ -325,15 +342,16 @@ describe('workflow-provenance — a change that moves its own gate (INFRA-097)',
     const dir = repoWithGuardedWorkflow();
 
     // EXACT value against a fixture of known size — one registry, one guarded workflow, three
-    // required-security policy inputs, six trusted entries, and one transitive helper. The counter
-    // is asserted after a second run so accumulation behind a bound would hide it.
+    // required-security policy inputs, one actionlint policy, six trusted entries, and one
+    // transitive helper. The counter is asserted after a second run so accumulation behind a bound
+    // would hide it.
     findWorkflowProvenanceFindings(dir);
 
-    expect(readExaminedWorkflowCount(dir)).toBe(12);
+    expect(readExaminedWorkflowCount(dir)).toBe(13);
 
     findWorkflowProvenanceFindings(dir);
 
-    expect(readExaminedWorkflowCount(dir)).toBe(12);
+    expect(readExaminedWorkflowCount(dir)).toBe(13);
   });
 });
 
@@ -347,7 +365,7 @@ describe('workflow-provenance — this repository (INFRA-097)', () => {
     // the one file here that does NOT load from the pull request, because it runs on
     // `pull_request_target`. So the ratio, not the count, is the live signal: the exposure is now
     // named as two specific files rather than as "everything required".
-    expect(examined).toBe(56);
+    expect(examined).toBe(57);
     expect(selfLoading).toHaveLength(2);
     expect(selfLoading.map((finding) => finding.workflow ?? finding)).not.toContain(
       '.github/workflows/workflow-provenance-gate.yml',

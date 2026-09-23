@@ -10,7 +10,6 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-import { readBoundedProjectFile } from './project-reader-bounded-file.js';
 import {
   assertCurrentWorkspaceIdentity,
   isWorkspacePathContained,
@@ -66,36 +65,6 @@ function assertOpenedObject(target: string, opened: BigIntStats, directory: bool
 function assertStillContained(identity: IWorkspaceIdentity, target: string): void {
   if (!isWorkspacePathContained(identity.worktreeRoot, realpathSync(target))) {
     refuseProjectRead('The opened project object resolved outside the trusted workspace root.');
-  }
-}
-
-export function readPortableProjectBytes(
-  identity: IWorkspaceIdentity,
-  identityResolver: IWorkspaceIdentityResolver,
-  segments: readonly string[],
-  maxBytes: number,
-): Uint8Array | undefined {
-  assertCurrentWorkspaceIdentity(identity, identityResolver);
-  const target = resolveNoFollowPath(identity, segments);
-  if (target === undefined) return undefined;
-  let descriptor: number | undefined;
-  try {
-    descriptor = openSync(
-      target,
-      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0),
-    );
-    const opened = fstatSync(descriptor, { bigint: true });
-    assertStillContained(identity, target);
-    assertOpenedObject(target, opened, false);
-    assertCurrentWorkspaceIdentity(identity, identityResolver);
-    return readBoundedProjectFile(descriptor, maxBytes);
-  } catch (error) {
-    if (error instanceof WorkspaceAuthorityRequiredError) throw error;
-    throw new WorkspaceAuthorityRequiredError(
-      'The project file could not be read from a stable handle.',
-    );
-  } finally {
-    if (descriptor !== undefined) closeSync(descriptor);
   }
 }
 

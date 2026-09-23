@@ -1,6 +1,10 @@
 import { dirname } from 'node:path';
 
-import { NodePromptHistoryFile, NodeSessionStore } from '@robota-sdk/agent-session';
+import {
+  NodePromptHistoryFile,
+  NodeSessionStore,
+  isSafeSessionId as sessionIsSafeSessionId,
+} from '@robota-sdk/agent-session';
 
 import { userPaths } from '../paths.js';
 import { WorkspaceProjectSessionStore } from './workspace-session-store.js';
@@ -25,6 +29,16 @@ export type {
 };
 export { WorkspaceSessionLogSink, WorkspaceSessionLogSource } from './workspace-session-io.js';
 export { WorkspaceProjectSessionStore } from './workspace-session-store.js';
+
+/**
+ * Whether an untrusted session selector is safe to use as one filesystem path component.
+ *
+ * The validation rule is owned by agent-session. This framework facade keeps command and UI
+ * consumers on the SDK boundary instead of duplicating the rule or importing the lower package.
+ */
+export function isSafeSessionId(id: string): boolean {
+  return sessionIsSafeSessionId(id);
+}
 
 export function createProjectSessionStore(
   sessions: IWorkspaceProjectStateStorage,

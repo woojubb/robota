@@ -55,6 +55,7 @@
   },
   "scripts": {
     "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
+    "pack:verified": "node ../../scripts/artifacts/pack.mjs",
     "build": "node ../../scripts/artifacts/build-package.mjs",
     "build:js": "pnpm run build",
     "build:types": "pnpm run build",
@@ -69,7 +70,6 @@
     "demo:record": "node scripts/record-demo.mjs",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh",
     "build:bun": "bun scripts/build-bun.mjs",
-    "build:bun:all": "bun scripts/build-bun.mjs all",
     "build:bun:darwin-arm64": "bun scripts/build-bun.mjs darwin-arm64",
     "build:bun:darwin-x64": "bun scripts/build-bun.mjs darwin-x64",
     "build:bun:linux-x64": "bun scripts/build-bun.mjs linux-x64",
@@ -91,6 +91,7 @@
     "fast-glob": "^3.3.3",
     "ink": "^7.1.1",
     "jssha": "^3.3.2",
+    "koffi": "3.3.1",
     "marked": "^9.1.6",
     "marked-terminal": "^7.3.0",
     "open": "^11.0.0",
