@@ -1,8 +1,9 @@
 ---
 title: 'AGREEMENT-2670: Complete CLI and TUI usability accessibility and diagnostics'
 issue: https://github.com/woojubb/robota/issues/2670
-status: todo
+status: done
 created: 2026-09-14
+completed: 2026-09-23
 priority: high
 urgency: soon
 area: CLI and terminal UI product surfaces
@@ -50,11 +51,12 @@ attention state, stored-history query, palette configuration, OS/IME integration
 
 ## Plan
 
-- [ ] Complete STRUCT-012 S3-S5 so subsequent TUI work targets the final package names.
+- [x] Complete STRUCT-012 S3-S5 so subsequent TUI work targets the final package names.
 - [x] Reconcile REFACTOR-025 with Issue #2054, remove the obsolete deleted-scan requirement, and complete its narrow-port and coordinator outcomes.
-- [ ] Execute each child Task through its own tests and user-visible scenario while preserving the complete source checklist.
-- [ ] Verify all child and prerequisite records are terminal and their delivery commits are ancestors of origin/develop.
-- [ ] Update the Issue #2670 delivery map and close the umbrella only after all eleven source outcomes are evidenced.
+- [x] Execute each child Task through its own tests and user-visible scenario while preserving the complete source checklist.
+- [x] Verify all child and prerequisite records are terminal and their delivery commits are ancestors of origin/develop.
+- [x] Update Issue #2670's delivery map, close it after recording the delivered outcomes and the two
+      independently tracked closeouts, then verify those closeouts before completing this Agreement.
 
 ## Children
 
@@ -85,3 +87,15 @@ must prove all eleven rows, not infer completion from Issue state or a green agg
 
 **Reason:** This Agreement only coordinates independently user-verifiable child capabilities; it does
 not add a separate product surface beyond the scenarios owned and executed by those children.
+
+## Result
+
+All nine declared children and both reused prerequisite Tasks (`STRUCT-012` and `REFACTOR-025`) are
+`done` under `.agents/tasks/completed/`. Their completion commits were verified as ancestors of
+`origin/develop@2a4a84631d24243d8dfb8ef75e04d790e8d60d37` on 2026-09-23.
+
+Issue #2670 was closed by owner direction on 2026-09-20 after recording nine delivered outcomes and
+splitting the two remaining closeouts to issues #2773 and #2774. Those issues subsequently closed on
+2026-09-22 and 2026-09-20 respectively, and their Tasks (`SCREEN-2442` and `SCREEN-2002`) are now also
+archived as `done`. This reconciles the initiative record with the final state of all eleven source
+outcomes; no additional product implementation remains under this Agreement.

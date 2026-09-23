@@ -1,5 +1,5 @@
 ---
-status: draft
+status: done
 type: AGREEMENT
 tags: [cli, tui, accessibility]
 lane: L2
@@ -7,7 +7,7 @@ lane: L2
 
 # AGREEMENT-2670: Complete CLI and TUI usability, accessibility, and diagnostics
 
-Paired with `.agents/tasks/AGREEMENT-2670-complete-cli-and-tui-usability-accessibility-and-diagnostics.md`. Arising from [issue #2670](https://github.com/woojubb/robota/issues/2670).
+Paired with `.agents/tasks/completed/AGREEMENT-2670-complete-cli-and-tui-usability-accessibility-and-diagnostics.md`. Arising from [issue #2670](https://github.com/woojubb/robota/issues/2670).
 
 ## Problem
 
@@ -120,18 +120,20 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: OBSERVABILITY-1991 archives with a built `doctor`/`checkup` and `/doctor` scenario covering provenance, all required checks, bounded repair, redaction and pre-session reachability.
-- [ ] TC-02: SCREEN-1992 archives with attention-return recap, normalized background states, peek and a live countdown verified through structured events and PTY output.
-- [ ] TC-03: SCREEN-1993 archives with scoped newest-first deduplicated reverse search, progressive acceptance, exact cancel restoration and native full-transcript scrollback evidence.
-- [ ] TC-04: SCREEN-2002 archives with built-in light/dark/daltonized themes, user/plugin themes, live picker, independent syntax highlighting and reduced motion, with no color-only information.
-- [ ] TC-05: BEHAVIOR-2003 archives with schema-backed contextual bindings, hot reload, modifiers, uppercase rules, chords, null unbinding, reserved/conflict diagnostics and derived hints.
-- [ ] TC-06: FLOW-2006 archives with registered allowlisted deep links that select a trusted cwd/repo and prefill without submitting or injecting configuration.
+- [x] TC-01: OBSERVABILITY-1991 archives with a built `doctor`/`checkup` and `/doctor` scenario covering provenance, all required checks, bounded repair, redaction and pre-session reachability.
+- [x] TC-02: SCREEN-1992 archives with attention-return recap, normalized background states, peek and a live countdown verified through structured events and PTY output.
+- [x] TC-03: SCREEN-1993 archives with scoped newest-first deduplicated reverse search, progressive acceptance, exact cancel restoration and native full-transcript scrollback evidence.
+- [x] TC-04: SCREEN-2002 archives with built-in light/dark/daltonized themes, user/plugin themes, live picker, independent syntax highlighting and reduced motion, with no color-only information.
+- [x] TC-05: BEHAVIOR-2003 archives with schema-backed contextual bindings, hot reload, modifiers, uppercase rules, chords, null unbinding, reserved/conflict diagnostics and derived hints.
+- [x] TC-06: FLOW-2006 archives with registered allowlisted deep links that select a trusted cwd/repo and prefill without submitting or injecting configuration.
 - [x] TC-07: REFACTOR-025 archives after Issue #2054's narrow TUI ports and responsibility extractions pass characterization, type-boundary and functional tests; the obsolete deleted scan is explicitly removed from scope.
-- [ ] TC-08: STRUCT-012 archives after S3-S5 consolidate protocol into the parent, rename presentation packages, delete the old protocol package and pass all declared conformance/build tests.
-- [ ] TC-09: BEHAVIOR-2437 archives with argument-safe `/status`, `/diff` and confirmed staged-only `/commit` behavior in a real temporary repository.
+- [x] TC-08: STRUCT-012 archives after S3-S5 consolidate protocol into the parent, rename presentation packages, delete the old protocol package and pass all declared conformance/build tests.
+- [x] TC-09: BEHAVIOR-2437 archives with argument-safe `/status`, `/diff` and confirmed staged-only `/commit` behavior in a real temporary repository.
 - [x] TC-10: SCREEN-2442 archives with recorded Terminal.app Korean IME versions, both real-cell outcomes, the iTerm2 cells recorded as out of scope, the resulting Apple Terminal policy decision and green regression suites.
-- [ ] TC-11: SCREEN-2670 archives with a bounded asynchronous pre-write park queue whose timing, FIFO frame integrity, errors/backpressure, teardown and IME cursor order are verified RED→GREEN and in PTY.
-- [ ] TC-12: all eleven owner rows are terminal with exact delivery commits ancestral to `origin/develop`; Issue #2670 and each source issue contain read-back delivery evidence before the umbrella closes.
+- [x] TC-11: SCREEN-2670 archives with a bounded asynchronous pre-write park queue whose timing, FIFO frame integrity, errors/backpressure, teardown and IME cursor order are verified RED→GREEN and in PTY.
+- [x] TC-12: all eleven owner rows are terminal with exact delivery commits ancestral to
+      `origin/develop`; Issue #2670 records the owner-directed split, and issues #2773 and #2774
+      contain read-back terminal evidence for the two outcomes completed after the umbrella closed.
 
 ## Test Plan
 
@@ -159,7 +161,7 @@ Recorded as the rule's required choice rather than skipped.
 
 ## Tasks
 
-The exact paired parent is `.agents/tasks/AGREEMENT-2670-complete-cli-and-tui-usability-accessibility-and-diagnostics.md`.
+The exact paired parent is `.agents/tasks/completed/AGREEMENT-2670-complete-cli-and-tui-usability-accessibility-and-diagnostics.md`.
 
 - [x] OBSERVABILITY-1991 — done — `.agents/tasks/completed/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md`
 - [x] SCREEN-1992 — done — `.agents/tasks/completed/SCREEN-1992-recap-unattended-session-and-background-activity.md`
@@ -179,3 +181,16 @@ per-Task dependencies were made explicit, the reviewer returned `DEPTH VERDICT: 
 `REVIEW VERDICT: ENDORSE`, with no remaining blocker. Read-only audits also established that `/diagnose`,
 background projections, full native scrollback, semantic palette and most CLI-062 mechanics are partial
 foundations rather than proof of the transferred outcomes.
+
+2026-09-23 completion reconciliation: all nine declared child Tasks and the two reused prerequisite
+Tasks are archived as `done`. Their completion commits are ancestors of
+`origin/develop@2a4a84631d24243d8dfb8ef75e04d790e8d60d37`. Issue #2670 is closed; the two closeouts
+split from its original closure record, GitHub Issue #2773 (`SCREEN-2442`) and GitHub Issue #2774
+(`SCREEN-2002`), are also closed with their corresponding Task/spec pairs archived. The parent adds no
+separate product surface, so its user-execution scenario remains correctly not applicable.
+
+TC-12 and the matching Task Plan row were reconciled to the owner-directed lifecycle actually used:
+GitHub Issue #2670 closed with nine delivered outcomes and two explicit split issues, rather than
+waiting for all eleven outcomes. The split issues later reached terminal completion before this
+Agreement was archived. This records the historical deviation instead of retroactively claiming the
+original close order ran.
