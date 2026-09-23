@@ -1,7 +1,6 @@
 import {
   EXECUTION_PROGRESS_EVENTS,
   DagRunStateMachine,
-  TaskRunStateMachine,
   buildDispatchError,
   buildValidationError,
   type IClockPort,
@@ -83,6 +82,7 @@ export async function dispatchEntryTasks(
   });
 
   const taskRunIds: string[] = [];
+  const messages: IQueueMessage[] = [];
   for (const node of entryNodes) {
     const taskRunId = `${dagRunId}:${node.nodeId}:attempt:1`;
     const admitted = await storage.commitExecution(dagRunId, {
@@ -99,7 +99,7 @@ export async function dispatchEntryTasks(
     if (!admitted.applied) continue;
     taskRunIds.push(taskRunId);
 
-    const message: IQueueMessage = {
+    messages.push({
       messageId: `${taskRunId}:message`,
       dagRunId,
       taskRunId,
@@ -114,15 +114,18 @@ export async function dispatchEntryTasks(
       ],
       payload: input,
       createdAt: clock.nowIso(),
-    };
+    });
+  }
 
+  // No entry can complete before every sibling is visible to finalization.
+  for (const message of messages) {
     try {
       await queue.enqueue(message);
     } catch (error) {
       return handleEnqueueFailure(
         dagRunId,
-        taskRunId,
-        node.nodeId,
+        message.taskRunId,
+        message.nodeId,
         taskRunIds,
         error,
         storage,
@@ -152,24 +155,6 @@ async function handleEnqueueFailure(
     'Failed to enqueue entry task',
     { dagRunId, taskRunId, nodeId, errorMessage },
   );
-  const cancelledTaskTransition = TaskRunStateMachine.transition('queued', 'CANCEL');
-  if (cancelledTaskTransition.ok) {
-    await storage.updateTaskRunStatus(
-      taskRunId,
-      cancelledTaskTransition.value.nextStatus,
-      dispatchError,
-    );
-    for (const previousTaskRunId of taskRunIds) {
-      if (previousTaskRunId === taskRunId) {
-        continue;
-      }
-      await storage.updateTaskRunStatus(
-        previousTaskRunId,
-        cancelledTaskTransition.value.nextStatus,
-        dispatchError,
-      );
-    }
-  }
   const failedRunTransition = DagRunStateMachine.transition('running', 'COMPLETE_FAILURE');
   if (failedRunTransition.ok) {
     const committed = await storage.commitExecution(dagRunId, {
@@ -185,6 +170,13 @@ async function handleEnqueueFailure(
         occurredAt: clock.nowIso(),
         error: dispatchError,
       });
+  }
+  for (const admittedTaskRunId of taskRunIds) {
+    await storage.commitExecution(dagRunId, {
+      kind: 'cancel-task',
+      taskRunId: admittedTaskRunId,
+      error: dispatchError,
+    });
   }
   return { ok: false, error: dispatchError };
 }

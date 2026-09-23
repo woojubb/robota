@@ -418,4 +418,105 @@ describe('RunOrchestratorService', () => {
     expect(await storage.listTaskRunsByDagRunId(started.value.dagRunId)).toEqual([]);
     expect(await queue.dequeue('worker', 1000)).toBeUndefined();
   });
+  it('admits every entry before the first queue consumer can finalize the run', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14));
+    const definition = createPublishedDefinitionWithTwoEntries();
+    definition.nodes = definition.nodes.filter((node) => node.dependsOn.length === 0);
+    definition.edges = [];
+    await storage.saveDefinition(definition);
+    const executed: string[] = [];
+    const enqueue = queue.enqueue.bind(queue);
+    queue.enqueue = async (message) => {
+      expect(await storage.listTaskRunsByDagRunId(message.dagRunId)).toHaveLength(2);
+      await enqueue(message);
+      const delivered = await queue.dequeue('fast-worker', 1000);
+      expect(delivered?.taskRunId).toBe(message.taskRunId);
+      await storage.setTaskRunLease(message.taskRunId, 'fast-worker', '2099-01-01');
+      await storage.updateTaskRunStatus(message.taskRunId, 'running');
+      executed.push(message.nodeId);
+      await storage.commitExecution(message.dagRunId, {
+        kind: 'settle',
+        taskRunId: message.taskRunId,
+        attempt: 1,
+        leaseOwner: 'fast-worker',
+        status: 'success',
+        outputSnapshot: '{}',
+      });
+      await storage.commitExecution(message.dagRunId, {
+        kind: 'finalize',
+        endedAt: clock.nowIso(),
+      });
+      await queue.ack(message.messageId);
+    };
+    const result = await new RunOrchestratorService(storage, queue, clock).startRun({
+      dagId: definition.dagId,
+      version: 1,
+      trigger: 'manual',
+      input: {},
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(executed).toEqual(['entry-a', 'entry-b']);
+    expect(result.value.taskRunIds).toHaveLength(2);
+    expect((await storage.getDagRun(result.value.dagRunId))?.status).toBe('success');
+  });
+  it('cancels every preadmitted entry when the first enqueue fails', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new FailingQueuePort(1);
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14));
+    const definition = createPublishedDefinitionWithTwoEntries();
+    await storage.saveDefinition(definition);
+    const result = await new RunOrchestratorService(storage, queue, clock).startRun({
+      dagId: definition.dagId,
+      version: 1,
+      trigger: 'manual',
+      input: {},
+    });
+    expect(result).toMatchObject({ ok: false, error: { code: 'DAG_DISPATCH_ENQUEUE_FAILED' } });
+    const [run] = await storage.listDagRuns();
+    expect(run?.status).toBe('failed');
+    const tasks = await storage.listTaskRunsByDagRunId(run!.dagRunId);
+    expect(tasks.map((task) => [task.nodeId, task.status])).toEqual([
+      ['entry-a', 'cancelled'],
+      ['entry-b', 'cancelled'],
+    ]);
+  });
+
+  it('preserves an already completed entry when later enqueue fails', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new FailingQueuePort(2);
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14));
+    const definition = createPublishedDefinitionWithTwoEntries();
+    await storage.saveDefinition(definition);
+    const enqueue = queue.enqueue.bind(queue);
+    queue.enqueue = async (message) => {
+      await enqueue(message);
+      await storage.setTaskRunLease(message.taskRunId, 'fast-worker', '2099-01-01');
+      await storage.updateTaskRunStatus(message.taskRunId, 'running');
+      await storage.commitExecution(message.dagRunId, {
+        kind: 'settle',
+        taskRunId: message.taskRunId,
+        attempt: 1,
+        leaseOwner: 'fast-worker',
+        status: 'success',
+        outputSnapshot: '{}',
+      });
+    };
+    const result = await new RunOrchestratorService(storage, queue, clock).startRun({
+      dagId: definition.dagId,
+      version: 1,
+      trigger: 'manual',
+      input: {},
+    });
+    expect(result).toMatchObject({ ok: false, error: { code: 'DAG_DISPATCH_ENQUEUE_FAILED' } });
+    const [run] = await storage.listDagRuns();
+    expect(run?.status).toBe('failed');
+    const tasks = await storage.listTaskRunsByDagRunId(run!.dagRunId);
+    expect(tasks.map((task) => [task.nodeId, task.status])).toEqual([
+      ['entry-a', 'success'],
+      ['entry-b', 'cancelled'],
+    ]);
+  });
 });

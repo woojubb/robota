@@ -146,9 +146,19 @@ An executor result settles only while its run is running and its task still belo
 attempt and worker. A prior cancellation cancels that matching task instead, without output/credit
 persistence, completion/failure publication, retry or downstream admission. A stale attempt cannot
 settle or cancel its replacement. If task settlement wins first, its outcome remains valid; later
-cancellation still closes retry and downstream admission. Already admitted messages may arrive
+cancellation closes downstream admission and executor entry for an already reserved retry. Already admitted messages may arrive
 later and are handled by the existing cancelled-run admission checks.
 
 Finalization and cancellation arbitrate atomically, so an awaited read cannot resurrect a cancelled
 run. This contract concerns durable outcome precedence, not preemption: active executor abort,
 nested cancellation and root aggregate budgets remain separate work.
+
+A task-free execution frontier is not sufficient for completion: for runs with a definition
+snapshot, ready nodes not yet admitted also keep the run running. This covers a sibling finishing
+while another completed task's downstream dispatcher is still awaiting storage admission.
+
+Retry eligibility uses the existing retryable-error and attempt-limit policy. Eligible failure
+settlement atomically reserves the next queued attempt before publishing the failure event;
+a concurrent finalizer therefore sees pending work. Cancellation committed first rejects both the
+failure outcome and retry reservation. If reservation commits first, its message may be delivered
+after cancellation, but the worker must settle it without invoking the executor.

@@ -139,9 +139,18 @@ resurrected by a delayed execution result. Task settlement checks both the attem
 so a replaced worker cannot overwrite its successor. An accepted success includes its output
 snapshot and credit fields in the same mutation. A rejected result emits no task outcome or retry.
 
-Retry and downstream admission have their own commit points. Cancellation committed before
-admission prevents the new attempt or child record. Admission committed first may still deliver a
+Failure settlement and retry reservation share one commit point: an eligible retry is already
+queued with its next attempt when the failure event is published, so finalization cannot overtake
+it. Downstream admission has its own commit point. Cancellation committed before admission
+prevents the new attempt or child record. Admission committed first may still deliver a
 queue message afterwards: queue delivery is not a storage transaction, and worker admission must
 reject that message if the run has since been cancelled. Run finalization evaluates pending tasks
 and commits its terminal status together. Raw persistence setters do not provide these execution
 preconditions; execution owners must use the arbitration contract.
+
+For runs with a definition snapshot, finalization also checks the immutable DAG topology: a missing
+node whose dependencies have all succeeded is pending admission, not evidence of completion. This
+prevents parallel task completion from closing the run while another dispatcher is still admitting
+a ready child. Missing descendants of failed or skipped dependencies do not block termination.
+Malformed snapshots return a validation error without finalizing. Legacy/programmatic run records
+without a definition snapshot retain their task-only finalization behavior.

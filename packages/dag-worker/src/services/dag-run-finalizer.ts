@@ -31,6 +31,7 @@ export async function finalizeDagRunIfTerminal(
     kind: 'finalize',
     endedAt: clock.nowIso(),
   });
+  if (committed.error) return { ok: false, error: committed.error };
   if (committed.runStatus === undefined) {
     return {
       ok: false,

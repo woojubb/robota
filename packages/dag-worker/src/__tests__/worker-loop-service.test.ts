@@ -229,7 +229,7 @@ describe('WorkerLoopService', () => {
   );
 
   it.each(['success', 'failure'] as const)(
-    'closes dispatch after a committed %s when cancellation wins admission',
+    'blocks new execution when cancellation follows committed %s',
     async (outcome) => {
       const storage = new InMemoryStoragePort();
       const queue = new InMemoryQueuePort();
@@ -270,7 +270,7 @@ describe('WorkerLoopService', () => {
               },
             },
       );
-      const result = await createService(
+      const service = createService(
         executor,
         storage,
         queue,
@@ -278,11 +278,23 @@ describe('WorkerLoopService', () => {
         clock,
         true,
         { publish },
-      ).processOnce();
-      expect(result).toMatchObject({ ok: true, value: { retried: false } });
+      );
+      const result = await service.processOnce();
+      expect(result).toMatchObject({ ok: true, value: { retried: outcome === 'failure' } });
+      if (outcome === 'failure') {
+        // The retry reservation preceded the failure event's cancellation callback.
+        // Its later queue delivery must be settled without a second executor invocation.
+        await service.processOnce();
+        expect((await storage.getTaskRun(taskRun.taskRunId))?.status).toBe('cancelled');
+        expect(
+          publish.mock.calls.filter(([event]) => event.eventType === 'task.failed'),
+        ).toHaveLength(1);
+      }
       expect((await storage.getDagRun(dagRun.dagRunId))?.status).toBe('cancelled');
       expect(await storage.listTaskRunsByDagRunId(dagRun.dagRunId)).toHaveLength(1);
-      expect((await storage.getTaskRun(taskRun.taskRunId))?.attempt).toBe(1);
+      expect((await storage.getTaskRun(taskRun.taskRunId))?.attempt).toBe(
+        outcome === 'failure' ? 2 : 1,
+      );
       expect(await queue.dequeue('other', 1000)).toBeUndefined();
     },
   );

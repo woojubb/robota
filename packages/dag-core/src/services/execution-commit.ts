@@ -1,3 +1,6 @@
+import { decodeDagDefinitionAsDagError } from './dag-definition-decoder.js';
+import { buildValidationError } from '../utils/error-builders.js';
+import type { TResult } from '../types/result.js';
 import { TaskRunStateMachine } from '../state-machines/task-run-state-machine.js';
 import {
   DagRunStateMachine,
@@ -15,14 +18,15 @@ export type TExecutionCommit =
       endedAt?: string;
     }
   | { kind: 'finalize'; endedAt: string }
+  | { kind: 'cancel-task'; taskRunId: string; error?: IDagError }
   | { kind: 'admit'; taskRun: ITaskRun; dependsOn: readonly string[] }
-  | { kind: 'retry'; taskRunId: string; attempt: number; leaseOwner: string }
   | {
       kind: 'settle';
       taskRunId: string;
       attempt: number;
       leaseOwner: string;
       status: 'success' | 'failed';
+      reserveRetry?: boolean;
       error?: IDagError;
       outputSnapshot?: string;
       estimatedCredits?: number;
@@ -31,6 +35,7 @@ export type TExecutionCommit =
 
 export interface IExecutionCommitResult {
   applied: boolean;
+  error?: IDagError;
   runStatus?: TDagRunStatus;
   taskRun?: ITaskRun;
 }
@@ -62,6 +67,10 @@ export function decideExecutionCommit(
       tasks.some((task) => ['created', 'queued', 'running'].includes(task.status))
     )
       return rejected;
+    const pendingAdmission = hasPendingAdmission(run, tasks);
+    if (!pendingAdmission.ok)
+      return { result: { ...rejected.result, error: pendingAdmission.error } };
+    if (pendingAdmission.value) return rejected;
     const transition = DagRunStateMachine.transition(
       run.status,
       tasks.some((task) => task.status === 'failed') ? 'COMPLETE_FAILURE' : 'COMPLETE_SUCCESS',
@@ -90,10 +99,23 @@ export function decideExecutionCommit(
     };
   }
   const task = tasks.find((candidate) => candidate.taskRunId === mutation.taskRunId);
-  const expectedStatus = mutation.kind === 'settle' ? 'running' : 'failed';
+  if (mutation.kind === 'cancel-task') {
+    if (!task || !['failed', 'cancelled'].includes(run.status)) return rejected;
+    const transition = TaskRunStateMachine.transition(task.status, 'CANCEL');
+    if (!transition.ok) return rejected;
+    const taskRun: ITaskRun = {
+      ...task,
+      status: transition.value.nextStatus,
+      leaseOwner: undefined,
+      leaseUntil: undefined,
+      errorCode: mutation.error?.code,
+      errorMessage: mutation.error?.message,
+    };
+    return { taskRun, result: { applied: true, runStatus: run.status, taskRun } };
+  }
   if (
     !task ||
-    task.status !== expectedStatus ||
+    task.status !== 'running' ||
     task.attempt !== mutation.attempt ||
     task.leaseOwner !== mutation.leaseOwner
   )
@@ -111,34 +133,64 @@ export function decideExecutionCommit(
   }
   const transition = TaskRunStateMachine.transition(
     task.status,
-    mutation.kind === 'retry'
-      ? 'RETRY'
-      : mutation.status === 'success'
-        ? 'COMPLETE_SUCCESS'
-        : 'COMPLETE_FAILURE',
+    mutation.status === 'success' ? 'COMPLETE_SUCCESS' : 'COMPLETE_FAILURE',
   );
   if (!transition.ok) return rejected;
-  const taskRun: ITaskRun =
-    mutation.kind === 'retry'
-      ? {
-          ...task,
-          status: transition.value.nextStatus,
-          attempt: task.attempt + 1,
-          errorCode: undefined,
-          errorMessage: undefined,
-        }
-      : {
-          ...task,
-          status: transition.value.nextStatus,
-          errorCode: mutation.error?.code,
-          errorMessage: mutation.error?.message,
-          ...(mutation.outputSnapshot === undefined
-            ? {}
-            : { outputSnapshot: mutation.outputSnapshot }),
-          ...(mutation.estimatedCredits === undefined
-            ? {}
-            : { estimatedCredits: mutation.estimatedCredits }),
-          ...(mutation.totalCredits === undefined ? {} : { totalCredits: mutation.totalCredits }),
-        };
+  const retry = mutation.status === 'failed' && mutation.reserveRetry === true;
+  const retryTransition = retry
+    ? TaskRunStateMachine.transition(transition.value.nextStatus, 'RETRY')
+    : undefined;
+  if (retryTransition && !retryTransition.ok) return rejected;
+  const taskRun: ITaskRun = {
+    ...task,
+    status: retryTransition?.ok ? retryTransition.value.nextStatus : transition.value.nextStatus,
+    attempt: retry ? task.attempt + 1 : task.attempt,
+    errorCode: retry ? undefined : mutation.error?.code,
+    errorMessage: retry ? undefined : mutation.error?.message,
+    ...(mutation.outputSnapshot === undefined ? {} : { outputSnapshot: mutation.outputSnapshot }),
+    ...(mutation.estimatedCredits === undefined
+      ? {}
+      : { estimatedCredits: mutation.estimatedCredits }),
+    ...(mutation.totalCredits === undefined ? {} : { totalCredits: mutation.totalCredits }),
+  };
   return { taskRun, result: { applied: true, runStatus: run.status, taskRun } };
+}
+
+/** A completed frontier can still have runnable nodes that a concurrent dispatcher has not admitted. */
+function hasPendingAdmission(
+  run: IDagRun,
+  tasks: readonly ITaskRun[],
+): TResult<boolean, IDagError> {
+  // Legacy/programmatic records may have no topology; their existing task-only semantics remain.
+  if (run.definitionSnapshot === undefined) return { ok: true, value: false };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(run.definitionSnapshot);
+  } catch {
+    return {
+      ok: false,
+      error: buildValidationError(
+        'DAG_VALIDATION_DEFINITION_SNAPSHOT_PARSE_FAILED',
+        'Failed to parse DagRun definition snapshot',
+        { dagRunId: run.dagRunId },
+      ),
+    };
+  }
+  const definition = decodeDagDefinitionAsDagError(
+    parsed,
+    'DAG_VALIDATION_DEFINITION_SNAPSHOT_INVALID',
+    'DagRun definition snapshot has invalid shape',
+    { dagRunId: run.dagRunId },
+  );
+  if (!definition.ok) return definition;
+  return {
+    ok: true,
+    value: definition.value.nodes.some(
+      (node) =>
+        !tasks.some((task) => task.nodeId === node.nodeId) &&
+        node.dependsOn.every((nodeId) =>
+          tasks.some((task) => task.nodeId === nodeId && task.status === 'success'),
+        ),
+    ),
+  };
 }

@@ -42,3 +42,9 @@ Cancellation commits against current run state. A terminal result that wins firs
 a cancellation that wins first cannot be overwritten by a stale start or dispatch-failure result.
 Entry tasks are admitted only while the run remains running. This acknowledges stored cancellation,
 not completion of active executor cleanup or descendant cancellation.
+
+All entry tasks are admitted before the first entry message is published. This prevents a fast
+consumer from completing the run while sibling entries have not yet become visible. If an entry
+enqueue fails, the run is failed unless cancellation already won, and all preadmitted nonterminal
+entry tasks are cancelled, including those not yet delivered. Already committed terminal task
+outcomes are preserved.

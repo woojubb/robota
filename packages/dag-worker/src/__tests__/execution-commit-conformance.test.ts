@@ -114,21 +114,16 @@ describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) =
 
   it('rejects retry and child admission after cancellation wins', async () => {
     const { storage } = await fixture(kind);
-    await storage.commitExecution('run', {
-      kind: 'settle',
-      taskRunId: 'task',
-      attempt: 1,
-      leaseOwner: 'worker',
-      status: 'failed',
-    });
     await storage.commitExecution('run', cancellation);
     expect(
       (
         await storage.commitExecution('run', {
-          kind: 'retry',
+          kind: 'settle',
           taskRunId: 'task',
           attempt: 1,
           leaseOwner: 'worker',
+          status: 'failed',
+          reserveRetry: true,
         })
       ).applied,
     ).toBe(false);
@@ -152,6 +147,24 @@ describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) =
     expect(
       (await storage.commitExecution('run', { kind: 'finalize', endedAt: '2026-09-24' })).runStatus,
     ).toBe('cancelled');
+  });
+
+  it('reserves the retry with failure settlement so finalization cannot overtake it', async () => {
+    const { storage, reopen } = await fixture(kind);
+    const retry: TExecutionCommit = {
+      kind: 'settle',
+      taskRunId: 'task',
+      attempt: 1,
+      leaseOwner: 'worker',
+      status: 'failed',
+      reserveRetry: true,
+    };
+    expect((await storage.commitExecution('run', retry)).applied).toBe(true);
+    expect(
+      (await storage.commitExecution('run', { kind: 'finalize', endedAt: '2026-09-24' })).applied,
+    ).toBe(false);
+    expect((await storage.commitExecution('run', retry)).applied).toBe(false);
+    expect(await reopen().getTaskRun('task')).toMatchObject({ status: 'queued', attempt: 2 });
   });
 
   it('admits a ready child once under contention and keeps the run pending', async () => {

@@ -104,12 +104,15 @@ export class TaskOutcomeHandler {
     taskRunId: string,
     error: IDagError,
   ): Promise<TResult<IWorkerLoopResult, IDagError>> {
+    const shouldRetry =
+      this.options.retryEnabled && error.retryable && message.attempt < this.options.maxAttempts;
     const committed = await this.storage.commitExecution(message.dagRunId, {
       kind: 'settle',
       taskRunId,
       attempt: message.attempt,
       leaseOwner: this.options.workerId,
       status: 'failed',
+      reserveRetry: shouldRetry,
       error,
     });
     if (!committed.applied) return successAfterAck(this.queue, message.messageId, taskRunId, false);
@@ -123,8 +126,6 @@ export class TaskOutcomeHandler {
       error,
     });
 
-    const shouldRetry =
-      this.options.retryEnabled && error.retryable && message.attempt < this.options.maxAttempts;
     if (!shouldRetry) {
       return handleTerminalFailure(
         message,
@@ -138,13 +139,6 @@ export class TaskOutcomeHandler {
       );
     }
 
-    return handleRetry(
-      message,
-      taskRunId,
-      this.storage,
-      this.queue,
-      this.clock,
-      this.options.workerId,
-    );
+    return handleRetry(message, taskRunId, this.queue, this.clock);
   }
 }

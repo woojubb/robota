@@ -52,23 +52,13 @@ export async function handleTerminalFailure(
   return successAfterAck(queue, message.messageId, _taskRunId, false);
 }
 
-/** Handles retry by re-enqueuing the message with an incremented attempt. */
+/** Enqueues the next attempt already reserved atomically by failure settlement. */
 export async function handleRetry(
   message: IQueueMessage,
   taskRunId: string,
-  storage: IStoragePort,
   queue: IQueuePort,
   clock: IClockPort,
-  leaseOwner: string,
 ): Promise<TResult<IWorkerLoopResult, IDagError>> {
-  const committed = await storage.commitExecution(message.dagRunId, {
-    kind: 'retry',
-    taskRunId,
-    attempt: message.attempt,
-    leaseOwner,
-  });
-  if (!committed.applied) return successAfterAck(queue, message.messageId, taskRunId, false);
-
   const nextAttempt = message.attempt + 1;
   const nextMessage: IQueueMessage = {
     ...message,
