@@ -2823,6 +2823,8 @@ strict record write containing its stable loop ID succeeds; on a failed or unrea
 cancels the newly spawned timer and reports the failure. Best-effort event snapshots exclude a
 not-yet-acknowledged loop, and a queued timer is refused rather than promised as resumable.
 Ordinary turn snapshots remain best-effort.
+Stopping a loop durably records its terminal state before cancelling the runtime timer or
+acknowledging `/loop stop`. A failed record write leaves the timer running and reports failure.
 
 `InteractiveSession` exposes background task controls:
 

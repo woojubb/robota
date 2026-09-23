@@ -10,10 +10,35 @@ import type {
   IBackgroundTaskStart,
 } from '@robota-sdk/agent-executor';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
+import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
 import { createSessionStub } from './helpers/session-stub.js';
 
+function holdForeground(interactive: InteractiveSession): {
+  controller: SessionExecutionController;
+  release: () => void;
+} {
+  const controller = (interactive as unknown as { execCtrl: SessionExecutionController }).execCtrl;
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  void controller.executeForegroundCommand(
+    async () => {
+      await held;
+      return { success: true, message: 'released' };
+    },
+    () => Promise.resolve(),
+  );
+  return { controller, release };
+}
+
+interface ITestRecord {
+  id: string;
+  backgroundTasks?: Array<{ id?: string; status?: string; metadata?: Record<string, unknown> }>;
+}
+
 function setup(
-  save: (record: { backgroundTasks?: Array<{ status?: string; metadata?: Record<string, unknown> }> }) => void,
+  save: (record: ITestRecord) => void,
   maxConcurrent?: number,
 ) {
   const cancel = vi.fn().mockResolvedValue(undefined);
@@ -27,9 +52,16 @@ function setup(
   const manager = new BackgroundTaskManager({ runners: [runner], maxConcurrent });
   const session = createSessionStub({ getSessionId: () => 'loop_durable' });
   storeAgentToolDeps(session, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
+  const records = new Map<string, ITestRecord>();
   const store = {
-    load: vi.fn(() => ({ status: 'missing' as const })),
-    save: vi.fn(save),
+    load: vi.fn((id: string) => {
+      const record = records.get(id);
+      return record ? { status: 'valid' as const, record } : { status: 'missing' as const };
+    }),
+    save: vi.fn((record: ITestRecord) => {
+      save(record);
+      records.set(record.id, record);
+    }),
     list: vi.fn(() => []),
     delete: vi.fn(),
   };
@@ -38,7 +70,7 @@ function setup(
     sessionStore: store as never,
     cwd: '/workspace',
   });
-  return { interactive, manager, store, cancel };
+  return { interactive, manager, store, cancel, records };
 }
 
 const loop = {
@@ -128,5 +160,85 @@ describe('session-loop creation durability', () => {
         .at(-1)
         ?.backgroundTasks?.some((item) => item.metadata?.['sessionLoopId'] === 'loop_stable'),
     ).toBe(true);
+  });
+});
+
+describe('session-loop stop durability', () => {
+  it('removes a queued wake before the stop operation yields', async () => {
+    const { interactive } = setup(() => undefined);
+    const task = await interactive.spawnScheduledWake(loop);
+    const { controller, release } = holdForeground(interactive);
+    expect(interactive.requestWakeup('check', task.id)).toBe(true);
+    await Promise.resolve();
+    expect(controller.pending.contents).toHaveLength(1);
+
+    const stopping = interactive.cancelBackgroundTask(task.id, 'Loop stopped by user');
+    expect(controller.pending.contents).toHaveLength(0);
+    await stopping;
+    release();
+  });
+
+  it('keeps a queued wake when the durable stop write fails', async () => {
+    let failStop = false;
+    const { interactive } = setup((record) => {
+      if (failStop && record.backgroundTasks?.some((task) => task.status === 'cancelled')) {
+        throw new Error('disk full');
+      }
+    });
+    const task = await interactive.spawnScheduledWake(loop);
+    const { controller, release } = holdForeground(interactive);
+    expect(interactive.requestWakeup('check', task.id)).toBe(true);
+    await Promise.resolve();
+    failStop = true;
+
+    await expect(interactive.cancelBackgroundTask(task.id, 'Loop stopped by user')).rejects.toThrow(
+      'disk full',
+    );
+    expect(controller.pending.contents).toHaveLength(1);
+    interactive.cancelQueue();
+    release();
+  });
+
+  it('does not stop a loop when its durable stop record cannot be written', async () => {
+    let failStop = false;
+    const { interactive, manager, cancel, records } = setup((record) => {
+      if (failStop && record.backgroundTasks?.some((task) => task.status === 'cancelled')) {
+        throw new Error('disk full');
+      }
+    });
+    const task = await interactive.spawnScheduledWake(loop);
+    failStop = true;
+
+    await expect(interactive.cancelBackgroundTask(task.id, 'Loop stopped by user')).rejects.toThrow(
+      'disk full',
+    );
+    expect(manager.get(task.id)?.status).toBe('sleeping');
+    expect(records.get('loop_durable')?.backgroundTasks?.find((entry) => entry.id === task.id)?.status).toBe(
+      'sleeping',
+    );
+    expect(cancel).not.toHaveBeenCalled();
+  });
+
+  it('persists a terminal loop before acknowledging stop', async () => {
+    let beforeRuntimeCancellation = false;
+    const observation: { stoppedId?: string; manager?: BackgroundTaskManager } = {};
+    const { interactive, manager, records } = setup((record) => {
+      if (
+        observation.stoppedId &&
+        record.backgroundTasks?.some((entry) => entry.id === observation.stoppedId && entry.status === 'cancelled')
+      ) {
+        beforeRuntimeCancellation ||= observation.manager?.get(observation.stoppedId)?.status === 'sleeping';
+      }
+    });
+    observation.manager = manager;
+    const task = await interactive.spawnScheduledWake(loop);
+    observation.stoppedId = task.id;
+
+    await interactive.cancelBackgroundTask(task.id, 'Loop stopped by user');
+    expect(beforeRuntimeCancellation).toBe(true);
+    expect(manager.get(task.id)?.status).toBe('cancelled');
+    expect(records.get('loop_durable')?.backgroundTasks?.find((entry) => entry.id === task.id)?.status).toBe(
+      'cancelled',
+    );
   });
 });
