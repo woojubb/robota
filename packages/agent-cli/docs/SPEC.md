@@ -37,6 +37,16 @@ The shell creates the WS adapter before session construction, then binds and reg
 the serve or TUI host creates the session. A TUI session switch replaces the registry entry with a
 binding to the new session. The registry starts bound adapters without receiving a session argument.
 
+`robota mcp serve` (MCP-007) selects a separate headless process mode with one normally assembled
+Robota session and one `agent-transport-mcp` stdio service. The CLI uses the caller's working
+directory and the same headless project-access/trust decision as `--serve`; it never prompts for
+trust over the protocol stream. The MCP package alone creates/connects/closes the official SDK
+carrier. From command entry until shutdown, all product notices and diagnostics use stderr while
+stdout is reserved for MCP frames. SIGINT, SIGTERM, stdin/client close, startup failure, and
+carrier failure all enter one idempotent cleanup path; a normal close exits 0 and a failure exits
+nonzero. Signals and peer close interrupt pending catalog validation. No WebSocket or TUI transport starts in this mode. The self-contained CLI bundle includes
+the MCP package code and declares the external SDK runtime dependency.
+
 ARCH-011 runner propagation is explicit in serve mode. The host's `waitForFailure()` returns the
 first named nonzero runner outcome without waiting for unrelated runners; serve mode assigns that
 exact exit code and enters its existing owned shutdown path. A rejected runner wait assigns exit 1.
