@@ -1,12 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { isAbsolute, join, resolve } from 'node:path';
 
 import { tightenExistingFile, writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
 
 import { WorkspaceTrustService } from './workspace-trust-service.js';
-import { userPaths } from '../paths.js';
 
 import type {
   IWorkspaceTrustGrant,
@@ -159,11 +157,6 @@ export function createNodeWorkspaceIdentityResolver(): IWorkspaceIdentityResolve
   });
 }
 
-/** Default user-owned location for the persistent workspace trust grants. */
-export function getWorkspaceTrustStorePath(): string {
-  return join(dirname(userPaths().settings), 'workspace-trust.json');
-}
-
 function readPersistedTrustStore(filePath: string): IPersistedTrustStore {
   if (!existsSync(filePath)) return { version: TRUST_STORE_VERSION, grants: [] };
   try {
@@ -181,9 +174,7 @@ function writePersistedTrustStore(filePath: string, store: IPersistedTrustStore)
 }
 
 /** Create the owner-only, replacement-safe persistent grant store used by the Node host. */
-export function createNodeWorkspaceTrustStore(
-  filePath: string = getWorkspaceTrustStorePath(),
-): IWorkspaceTrustStore {
+export function createNodeWorkspaceTrustStore(filePath: string): IWorkspaceTrustStore {
   const readStore = (): IPersistedTrustStore => readPersistedTrustStore(filePath);
   const writeStore = (store: IPersistedTrustStore): void =>
     writePersistedTrustStore(filePath, store);
@@ -236,10 +227,8 @@ export function createNodeWorkspaceTrustStore(
   });
 }
 
-/** Compose the default Node resolver, persistent store, and authority service for a CLI host. */
-export function createNodeWorkspaceTrustService(
-  filePath: string = getWorkspaceTrustStorePath(),
-): WorkspaceTrustService {
+/** Compose the default Node resolver, caller-selected persistent store, and authority service. */
+export function createNodeWorkspaceTrustService(filePath: string): WorkspaceTrustService {
   return new WorkspaceTrustService({
     identityResolver: createNodeWorkspaceIdentityResolver(),
     store: createNodeWorkspaceTrustStore(filePath),

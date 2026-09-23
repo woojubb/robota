@@ -32,6 +32,7 @@ The CLI owns: argument parsing and process lifecycle assembly, `TransportRegistr
 composition (selecting an injected `IProviderDefinition`, not implementing providers), concrete local
 host adapters (background runner, child-process subagent, Git worktree, settings I/O), package-version
 update checks, and the per-mode host-action adapters (`/remote-control`, process exit) CMD-004 wires.
+It chooses its user-local storage root and passes explicit paths to SDK persistence and trust adapters.
 It also chooses the Robota display-name fallback and user-local external-preset directory before
 passing explicit values to the neutral preset resolver and loader. A second product chooses its own
 identity and preset root without inheriting Robota's defaults.
