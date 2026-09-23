@@ -3,7 +3,7 @@
 ## Scope
 
 Native DAG runtime HTTP server (WORKFLOW-002). Serves an in-process DAG framework's
-`IDagOrchestrationPort` and separate build and cost capabilities over the `/v1/dag/*` route surface using Hono. Owns the route → port-method
+`IDagOrchestrationPort` and separate build, validation, and cost capabilities over the `/v1/dag/*` route surface using Hono. Owns the route → port-method
 mapping and the server entrypoint.
 
 ## Boundaries
@@ -16,12 +16,13 @@ mapping and the server entrypoint.
 
 ## Architecture Overview
 
-`createDagRuntimeServer(port, costMeta, runDrafts, build, progressSource?, assets?)` returns a Hono app. Legacy orchestration `/v1/dag/*` handlers map:
+`createDagRuntimeServer(port, costMeta, runDrafts, build, validation, progressSource?, assets?)` returns a Hono app. Legacy orchestration `/v1/dag/*` handlers map:
 parse path/query/body → call the matching `IDagOrchestrationPort` method → return
 `c.json(response.payload, response.status)` (every port method returns a uniform
-`IDagOrchestrationHttpResponse`). Build, cost metadata, and run-draft routes instead map separate
+`IDagOrchestrationHttpResponse`). Build, definition validation, cost metadata, and run-draft routes instead map separate
 domain capabilities to the same HTTP envelope. Build validation failures answer 400;
-the build capability is required at server construction. Run-draft request JSON is decoded before calling
+definition validation findings remain a successful 200 response with `valid: false` and `errors`.
+The build and validation capabilities are required at server construction. Run-draft request JSON is decoded before calling
 `IRunDraftOperationsPort`; an invalid field returns 400, a missing draft 404, a storage failure 500
 without internal details, and create returns 201. The reset route is `POST`.
 Cost metadata routes map a separate
@@ -61,7 +62,7 @@ the worker loop, and serves the app via `@hono/node-server`.
 | `GET /v1/dag/runs/:id/result`                          | `getRunResult`                      |
 | `POST /v1/dag/definitions/:dagId/start`                | `startPublishedWorkflowRun`         |
 | `POST /v1/dag/build`                                   | build capability `buildDag`         |
-| `POST /v1/dag/validate`                                | `validateDag`                       |
+| `POST /v1/dag/validate`                                | validation capability `validateDag` |
 | `POST /v1/dag/assets`                                  | `assets.save`                       |
 | `GET /v1/dag/assets/:assetId`                          | `assets.getMetadata`                |
 | `GET /v1/dag/assets/:assetId/content`                  | `assets.getContent` (binary stream) |

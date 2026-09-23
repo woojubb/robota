@@ -206,5 +206,4 @@ export interface IDagOrchestrationPort {
     input?: IDagOrchestrationPublishedWorkflowRunRequest,
     version?: number,
   ): Promise<IDagOrchestrationHttpResponse>;
-  validateDag(definition: IDagDefinition): Promise<IDagOrchestrationHttpResponse>;
 }

@@ -326,12 +326,18 @@ describe('buildDag', () => {
 });
 
 describe('validateDag', () => {
+  it('exposes validation as a domain result separate from the HTTP-shaped orchestration port', async () => {
+    expect('validateDag' in framework.client).toBe(false);
+    expect(await framework.validation.validateDag(MINIMAL_DEFINITION)).toEqual({
+      valid: true,
+      errors: [],
+    });
+  });
+
   it('returns valid:true for a known-type definition', async () => {
-    const res = await framework.client.validateDag(MINIMAL_DEFINITION);
-    expect(res.ok).toBe(true);
-    const payload = res.payload as { data: { valid: boolean; errors: string[] } };
-    expect(payload.data.valid).toBe(true);
-    expect(payload.data.errors).toHaveLength(0);
+    const res = await framework.validation.validateDag(MINIMAL_DEFINITION);
+    expect(res.valid).toBe(true);
+    expect(res.errors).toHaveLength(0);
   });
 
   it('returns errors for unknown node type', async () => {
@@ -340,11 +346,9 @@ describe('validateDag', () => {
       nodes: [{ nodeId: 'x', nodeType: 'unknown-type-xyz', dependsOn: [], config: {} }],
       edges: [],
     };
-    const res = await framework.client.validateDag(badDef);
-    expect(res.ok).toBe(true);
-    const payload = res.payload as { data: { valid: boolean; errors: string[] } };
-    expect(payload.data.valid).toBe(false);
-    expect(payload.data.errors.length).toBeGreaterThan(0);
+    const res = await framework.validation.validateDag(badDef);
+    expect(res.valid).toBe(false);
+    expect(res.errors).toContain('Unknown node type "unknown-type-xyz" for node "x"');
   });
 
   it('returns errors for edge referencing unknown node', async () => {
@@ -352,9 +356,9 @@ describe('validateDag', () => {
       ...MINIMAL_DEFINITION,
       edges: [{ from: 'n1', to: 'no-such-node', bindings: [] }],
     };
-    const res = await framework.client.validateDag(badDef);
-    const payload = res.payload as { data: { valid: boolean; errors: string[] } };
-    expect(payload.data.valid).toBe(false);
+    const res = await framework.validation.validateDag(badDef);
+    expect(res.valid).toBe(false);
+    expect(res.errors).toContain('Edge references unknown target node "no-such-node"');
   });
 });
 
