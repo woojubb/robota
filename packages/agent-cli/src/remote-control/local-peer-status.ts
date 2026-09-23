@@ -1,78 +1,51 @@
 import type { ILocalPeerPresence } from './local-peer-presence.js';
-import type {
-  ISessionEvents,
-  ISessionExecutionState,
-  ISessionLifecycle,
-} from '@robota-sdk/agent-interface-session';
 
-type TObservedSession = ISessionEvents &
-  Pick<ISessionExecutionState, 'isExecuting'> &
-  Partial<Pick<ISessionLifecycle, 'isInitialized'>>;
+type TActivityStatus = 'working' | 'needs-input' | 'idle' | undefined;
 
-/** Bind one TUI session's content-free activity to the process announcement. */
+interface IObservedChannel {
+  readonly isActiveForPeerStatus: boolean;
+  getSession(): { getLocalActivityStatus(): TActivityStatus };
+}
+
+/** A passive snapshot reader: never becomes a permission/ask answering surface. */
 export function bindLocalPeerStatus(
   presence: Pick<ILocalPeerPresence, 'publishStatus'>,
-  session: TObservedSession,
+  channel: IObservedChannel,
   report: (message: string) => void = (message) => process.emitWarning(message),
 ): () => void {
-  const pending = new Set<string>();
-  let active = true;
-  const publish = (status: 'working' | 'needs-input' | 'idle' | undefined): void => {
-    if (!active) return;
+  let lastStatus: TActivityStatus;
+  let reportedFailure = false;
+  const publish = (status: TActivityStatus): void => {
+    if (status === lastStatus) return;
     try {
       presence.publishStatus(status);
+      lastStatus = status;
+      reportedFailure = false;
     } catch (error) {
+      if (reportedFailure) return;
+      reportedFailure = true;
       report(`Local peer activity publication failed: ${String(error)}`);
     }
   };
-  const reconcile = (): void =>
-    publish(pending.size > 0 ? 'needs-input' : session.isExecuting() ? 'working' : 'idle');
-  const onTurn = (): void => publish(pending.size > 0 ? 'needs-input' : 'working');
-  const onPermission = (event: { id: string }): void => {
-    pending.add(event.id);
-    publish('needs-input');
+  const sample = (): void => {
+    if (!channel.isActiveForPeerStatus) {
+      publish(undefined);
+      return;
+    }
+    try {
+      publish(channel.getSession().getLocalActivityStatus());
+    } catch (error) {
+      publish(undefined);
+      if (reportedFailure) return;
+      reportedFailure = true;
+      report(`Local peer activity observation failed: ${String(error)}`);
+    }
   };
-  const onAsk = (event: { id: string }): void => {
-    pending.add(event.id);
-    publish('needs-input');
-  };
-  const onResolved = (event: { id: string }): void => {
-    pending.delete(event.id);
-    reconcile();
-  };
-  const onEnd = (): void => {
-    pending.clear();
-    publish('idle');
-  };
-  session.on('turn_source', onTurn);
-  session.on('permission_request', onPermission);
-  session.on('ask_request', onAsk);
-  session.on('prompt_resolved', onResolved);
-  session.on('complete', onEnd);
-  session.on('error', onEnd);
-  session.on('interrupted', onEnd);
-  // Channel-ready fires before runtime start. Claim idle only after initialization completes.
-  let readyCheck: ReturnType<typeof setInterval> | undefined;
-  if (session.isInitialized === true) reconcile();
-  else if (session.isInitialized === false) {
-    readyCheck = setInterval(() => {
-      if (session.isInitialized !== true) return;
-      clearInterval(readyCheck);
-      readyCheck = undefined;
-      reconcile();
-    }, 1_000);
-    readyCheck.unref?.();
-  }
+  sample();
+  const timer = setInterval(sample, 250);
+  timer.unref?.();
   return () => {
-    active = false;
-    if (readyCheck) clearInterval(readyCheck);
-    session.off('turn_source', onTurn);
-    session.off('permission_request', onPermission);
-    session.off('ask_request', onAsk);
-    session.off('prompt_resolved', onResolved);
-    session.off('complete', onEnd);
-    session.off('error', onEnd);
-    session.off('interrupted', onEnd);
+    clearInterval(timer);
     try {
       presence.publishStatus(undefined);
     } catch (error) {

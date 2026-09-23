@@ -107,7 +107,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   surface listening they are a defined no-op, and that never affects the host-action half.
 - **Local peer status is display-only.** The command-facing peer adapter can carry a host-observed
   fixed activity state alongside independently verified process liveness. Neither field grants
-  authority over the peer or identifies a persisted session record.
+  authority over the peer or identifies a persisted session record. The session's activity snapshot
+  reads execution ownership and parked prompt count without subscribing to permission/ask events;
+  a passive observer can never keep a request alive after its last answering surface leaves.
 - **Prompt/permission settlement is first-wins and fail-closed.** `InteractiveSession` exposes no
   session-level callback option for permission or ask prompts; it emits transport-neutral request
   events, and any attached surface settles them through one shared registry. The first settlement

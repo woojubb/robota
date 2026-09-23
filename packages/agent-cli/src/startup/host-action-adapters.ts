@@ -18,11 +18,7 @@ import { startLocalPeerMessaging } from '../remote-control/local-peer-messaging.
 
 import type { ILocalPeerPresence } from '../remote-control/local-peer-presence.js';
 import type { IPeerMessaging } from '../remote-control/local-peer-messaging.js';
-import type {
-  ISessionEvents,
-  ISessionExecutionState,
-  ITurnHandle,
-} from '@robota-sdk/agent-interface-session';
+import type { ITurnHandle } from '@robota-sdk/agent-interface-session';
 
 /** The one session operation peer messaging needs — narrow, so this file cannot grow a second one. */
 interface IPeerIngressSession {
@@ -34,15 +30,11 @@ interface IPeerIngressSession {
   ): Promise<ITurnHandle>;
 }
 
-function isObservableSession(
-  session: IPeerIngressSession,
-): session is IPeerIngressSession & ISessionEvents & Pick<ISessionExecutionState, 'isExecuting'> {
-  const candidate = session as Partial<ISessionEvents & ISessionExecutionState>;
-  return (
-    typeof candidate.on === 'function' &&
-    typeof candidate.off === 'function' &&
-    typeof candidate.isExecuting === 'function'
-  );
+function isObservableSession(session: IPeerIngressSession): session is IPeerIngressSession & {
+  getLocalActivityStatus(): 'working' | 'needs-input' | 'idle' | undefined;
+} {
+  const candidate = session as IPeerIngressSession & { getLocalActivityStatus?: () => unknown };
+  return typeof candidate.getLocalActivityStatus === 'function';
 }
 
 /**
@@ -239,7 +231,10 @@ export function attachHostAdapters(
   controller: RemoteControlController,
   report: IAdapterReporter,
   announce?: (options: { sessionId: string }) => ILocalPeerPresence,
-): (channel: { getSession(): IPeerIngressSession }) => void {
+): (channel: {
+  getSession(): IPeerIngressSession;
+  readonly isActiveForPeerStatus?: boolean;
+}) => void {
   adapters.remoteControl = buildRemoteControlHostAdapter(controller);
   const presence = attachLocalPeerDiscovery(adapters, report, announce);
   // Returns the ACTIVATOR rather than the presence, so the composition root names one thing and
@@ -255,9 +250,16 @@ export function attachHostAdapters(
     stopStatus = undefined;
     if (presence !== undefined) {
       const session = channel.getSession();
-      if (isObservableSession(session)) {
-        stopStatus = bindLocalPeerStatus(presence, session, (message) =>
-          report.writeError(message),
+      if (isObservableSession(session) && typeof channel.isActiveForPeerStatus === 'boolean') {
+        stopStatus = bindLocalPeerStatus(
+          presence,
+          {
+            getSession: () => session,
+            get isActiveForPeerStatus() {
+              return channel.isActiveForPeerStatus === true;
+            },
+          },
+          (message) => report.writeError(message),
         );
       }
     }

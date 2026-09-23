@@ -37,39 +37,40 @@ function reporter() {
 
 describe('assembling the host adapters', () => {
   it('rebinds activity to the current channel and clears the previous observation', () => {
-    const published: Array<string | undefined> = [];
-    const presence = {
-      sessionId: 'self',
-      guardedDirectory: '/tmp/rendezvous',
-      list: () => [],
-      publishStatus: (status: string | undefined) => published.push(status),
-      withdraw: () => {},
-    };
-    const start = attachHostAdapters({}, CONTROLLER, reporter(), () => presence);
-    const sessions = [0, 1].map(() => {
-      const listeners = new Map<string, Set<() => void>>();
-      return {
-        isInitialized: true,
-        isExecuting: () => false,
-        submit: async () => ({}),
-        on: (event: string, handler: () => void) => {
-          const set = listeners.get(event) ?? new Set();
-          set.add(handler);
-          listeners.set(event, set);
-        },
-        off: (event: string, handler: () => void) => listeners.get(event)?.delete(handler),
-        emit: (event: string) => {
-          for (const handler of listeners.get(event) ?? []) handler();
-        },
+    vi.useFakeTimers();
+    try {
+      const published: Array<string | undefined> = [];
+      const presence = {
+        sessionId: 'self',
+        guardedDirectory: '/tmp/rendezvous',
+        list: () => [],
+        publishStatus: (status: string | undefined) => published.push(status),
+        withdraw: () => {},
       };
-    });
-    start({ getSession: () => sessions[0]! as never });
-    sessions[0]!.emit('turn_source');
-    expect(published.at(-1)).toBe('working');
-    start({ getSession: () => sessions[1]! as never });
-    expect(published.slice(-2)).toEqual([undefined, 'idle']);
-    sessions[0]!.emit('turn_source');
-    expect(published.at(-1)).toBe('idle');
+      const start = attachHostAdapters({}, CONTROLLER, reporter(), () => presence);
+      const sessions = [0, 1].map(() => ({
+        status: 'idle' as 'idle' | 'working',
+        submit: async () => ({}),
+        getLocalActivityStatus() {
+          return this.status;
+        },
+      }));
+      const first = { isActiveForPeerStatus: true, getSession: () => sessions[0]! as never };
+      start(first);
+      sessions[0]!.status = 'working';
+      vi.advanceTimersByTime(250);
+      expect(published.at(-1)).toBe('working');
+      first.isActiveForPeerStatus = false;
+      vi.advanceTimersByTime(250);
+      expect(published.at(-1)).toBeUndefined();
+      start({ isActiveForPeerStatus: true, getSession: () => sessions[1]! as never });
+      expect(published.slice(-2)).toEqual([undefined, 'idle']);
+      sessions[0]!.status = 'working';
+      vi.advanceTimersByTime(250);
+      expect(published.at(-1)).toBe('idle');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('wires `/peers` to a presence that announced', () => {

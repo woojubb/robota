@@ -75,6 +75,8 @@ contract is authoritative for how the TUI releases resources on session switch a
   forgot to run would grant a permission no one answered.
 - A stall hint for "no provider activity" is suppressed while any tool is actively running, since a
   running tool is legitimate activity rather than a stalled connection.
+- Local peer activity is observable only after a channel has started and before teardown begins.
+  A failed stop or startup rollback must not keep the old channel's activity current.
 
 ### The renderer executes no command semantics
 

@@ -2,70 +2,65 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { bindLocalPeerStatus } from '../local-peer-status.js';
 
-describe('#2726 — session activity publication', () => {
-  it('keeps a new channel unknown until its session initializes, then announces idle', () => {
+describe('#2726 — passive session activity observation', () => {
+  it('follows actual execution and pending-input state without subscribing to prompts', () => {
     vi.useFakeTimers();
     try {
       const published: Array<string | undefined> = [];
-      let initialized = false;
+      let state: 'working' | 'needs-input' | 'idle' | undefined;
       const session = {
-        get isInitialized() {
-          return initialized;
-        },
-        isExecuting: () => false,
-        on: () => {},
-        off: () => {},
+        getLocalActivityStatus: () => state,
+        on: vi.fn(),
+        off: vi.fn(),
       };
+      const channel = { isActiveForPeerStatus: false, getSession: () => session };
       const stop = bindLocalPeerStatus(
         { publishStatus: (status) => published.push(status) },
-        session as never,
+        channel,
       );
-      expect(published).toEqual([]);
-      initialized = true;
-      vi.advanceTimersByTime(1_000);
-      expect(published).toEqual(['idle']);
+      state = 'idle';
+      vi.advanceTimersByTime(250);
+      expect(published.at(-1)).toBeUndefined();
+      channel.isActiveForPeerStatus = true;
+      vi.advanceTimersByTime(250);
+      expect(published.at(-1)).toBe('idle');
+      state = 'working';
+      vi.advanceTimersByTime(250);
+      expect(published.at(-1)).toBe('working');
+      state = 'needs-input';
+      vi.advanceTimersByTime(250);
+      expect(published.at(-1)).toBe('needs-input');
+      expect(session.on).not.toHaveBeenCalled();
+      channel.isActiveForPeerStatus = false;
+      vi.advanceTimersByTime(250);
+      expect(published.at(-1)).toBeUndefined();
       stop();
-      expect(published).toEqual(['idle', undefined]);
+      expect(session.off).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('publishes fixed states without request content and detaches on switch', () => {
-    const published: Array<string | undefined> = [];
-    const listeners = new Map<string, Set<(value?: unknown) => void>>();
-    let executing = false;
-    const session = {
-      isExecuting: () => executing,
-      on: (event: string, handler: (value?: unknown) => void) => {
-        const set = listeners.get(event) ?? new Set();
-        set.add(handler);
-        listeners.set(event, set);
-      },
-      off: (event: string, handler: (value?: unknown) => void) =>
-        listeners.get(event)?.delete(handler),
-    };
-    const emit = (event: string, value?: unknown) => {
-      for (const handler of listeners.get(event) ?? []) handler(value);
-    };
-    const stop = bindLocalPeerStatus(
-      { publishStatus: (status) => published.push(status) },
-      session as never,
-    );
-    executing = true;
-    emit('turn_source', 'human');
-    emit('permission_request', { id: 'a', toolArgs: { secret: 'never-publish' } });
-    emit('ask_request', { id: 'b', request: { message: 'private' } });
-    emit('prompt_resolved', { id: 'a' });
-    expect(published.at(-1)).toBe('needs-input');
-    emit('prompt_resolved', { id: 'b' });
-    expect(published.at(-1)).toBe('working');
-    executing = false;
-    emit('complete', {});
-    expect(published.at(-1)).toBe('idle');
-    stop();
-    emit('turn_source', 'human');
-    expect(published.at(-1)).toBeUndefined();
-    expect(JSON.stringify(published)).not.toContain('never-publish');
+  it('invalidates a stopped channel even when replacement fails for longer than freshness', () => {
+    vi.useFakeTimers();
+    try {
+      const published: Array<string | undefined> = [];
+      const channel = {
+        isActiveForPeerStatus: true,
+        getSession: () => ({ getLocalActivityStatus: () => 'working' as const }),
+      };
+      const stop = bindLocalPeerStatus(
+        { publishStatus: (status) => published.push(status) },
+        channel,
+      );
+      expect(published.at(-1)).toBe('working');
+      channel.isActiveForPeerStatus = false;
+      vi.advanceTimersByTime(31_000);
+      expect(published.at(-1)).toBeUndefined();
+      expect(published.filter((status) => status === 'working')).toHaveLength(1);
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

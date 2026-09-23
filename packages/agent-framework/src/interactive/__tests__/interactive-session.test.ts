@@ -127,7 +127,9 @@ describe('InteractiveSession', () => {
       session: createMockSession({ runResult: 'done' }) as never,
       cwd: '/tmp',
     });
-    session.on('complete', () => { throw new Error('render failed'); });
+    session.on('complete', () => {
+      throw new Error('render failed');
+    });
     const errors: Error[] = [];
     session.on('error', (error) => errors.push(error));
 
@@ -243,6 +245,9 @@ describe('InteractiveSession', () => {
     await controllableRun.started;
 
     expect(session.isExecuting()).toBe(true);
+    expect(session.getLocalActivityStatus()).toBe('working');
+    session.reportBackgroundError(new Error('background failure'));
+    expect(session.getLocalActivityStatus()).toBe('working');
 
     // Submit second — should be queued
     await session.submit('second');
@@ -288,13 +293,33 @@ describe('InteractiveSession', () => {
 
     expect(session.isExecuting()).toBe(true);
     expect(thinkingStates).toEqual([true]);
+    expect(session.getLocalActivityStatus()).toBe('working');
 
     resolveCommand!({ message: 'done', success: true });
     const result = await pending;
 
     expect(result?.message).toBe('done');
     expect(session.isExecuting()).toBe(false);
+    expect(session.getLocalActivityStatus()).toBe('idle');
     expect(thinkingStates).toEqual([true, false]);
+  });
+
+  it('observes pending input without becoming an answering surface', async () => {
+    const session = new InteractiveSession({ session: createMockSession() as never, cwd: '/tmp' });
+    const registry = (
+      session as unknown as {
+        promptRegistry: { requestPermission(name: string, args: never): Promise<boolean> };
+      }
+    ).promptRegistry;
+    const listener = vi.fn();
+    session.on('permission_request', listener);
+    const pending = registry.requestPermission('write', {} as never);
+    expect(session.getLocalActivityStatus()).toBe('needs-input');
+    session.reportBackgroundError(new Error('background failure'));
+    expect(session.getLocalActivityStatus()).toBe('needs-input');
+    session.off('permission_request', listener);
+    await expect(pending).resolves.toBe(false);
+    expect(session.getLocalActivityStatus()).toBe('idle');
   });
 
   it('does not execute another system command while a foreground command is running', async () => {
