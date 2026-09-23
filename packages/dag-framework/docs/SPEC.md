@@ -274,8 +274,9 @@ metadata in HTTP envelopes. The runtime server owns the JSON/base64 and binary H
 - `dag-nodes-default` owns the private async catalog: the collapsed `dag-node-llm-text` is a static
   dependency; `agent-builtin-providers` and `dag-node-gemini-image-edit` are optional dependencies;
   `dag-node-text-to-image`, `dag-node-seedance-video`, and `dag-node-skill` are regular dependencies
-  loaded dynamically. This 29-node workspace catalog is not used by the published CLI's
-  `/workflows` path, which uses the synchronous 23-node base catalog.
+  loaded dynamically. This workspace catalog can reach 29 nodes when all optional loaders succeed;
+  it is not used by the published CLI's `/workflows` path, which uses the synchronous 23-node base
+  catalog.
 
 ---
 
