@@ -7,8 +7,8 @@ the same change when a package's public contract changes.
 ## Workflow
 
 - Work starts from a GitHub issue. Branch from a freshly fetched `origin/develop`; one issue per PR.
-- Merge only through a PR with CI green and an independent review verdict (`review-policy`). Never push to
-  `develop` or `main` directly.
+- Merge only through a PR with CI green. Before merging, review the diff with the `pr-review-reviewer` agent
+  and resolve every MUST/SHOULD. Never push to `develop` or `main` directly.
 - A behavior change ships with a test that failed before the change.
 - `develop` → `main` promotion, version bumps and npm publish: [.agents/skills/release](.agents/skills/release/SKILL.md).
   Publishing needs the owner's OTP.

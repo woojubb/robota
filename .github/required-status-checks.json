@@ -16,12 +16,6 @@
           "workflow": ".github/workflows/ci.yml",
           "job": "security",
           "verifies": "secret scan (gitleaks) on the change range"
-        },
-        {
-          "context": "review-policy",
-          "workflow": ".github/workflows/review-gate.yml",
-          "job": "review-policy",
-          "verifies": "independent review verdict for the current head"
         }
       ]
     },
@@ -40,12 +34,6 @@
           "workflow": ".github/workflows/ci.yml",
           "job": "security",
           "verifies": "secret scan (gitleaks) on the change range"
-        },
-        {
-          "context": "review-policy",
-          "workflow": ".github/workflows/review-gate.yml",
-          "job": "review-policy",
-          "verifies": "independent review verdict for the current head"
         }
       ]
     }

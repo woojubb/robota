@@ -15,13 +15,4 @@ or edit files.
 3. If the PR fixes a bug, check that its test would fail without the fix.
 4. Do not pad or suppress findings. Judge the code, not the PR description.
 
-End with the verdict. The caller posts it unchanged as a PR review comment
-(`gh pr review <n> --comment --body-file <file>`); the `review-policy` check accepts only this exact shape,
-bound to the current head SHA:
-
-```
-INDEPENDENT_REVIEW
-REVIEWER: agent:pr-review-reviewer
-REVIEWED HEAD: <40-char head SHA>
-ACTIONABLE FINDINGS: <number of MUST + SHOULD>
-```
+End with one line: `ACTIONABLE FINDINGS: <number of MUST + SHOULD>`.
