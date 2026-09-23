@@ -1,5 +1,7 @@
 /** InteractiveSession execution lifecycle, queue, streaming, and tool state. */
 
+import { randomBytes } from 'node:crypto';
+
 import {
   createUserMessage,
   createSystemMessage,
@@ -54,6 +56,14 @@ export type {
   TResumeQueuedTurnFn,
   TSubmitFn,
 } from './interactive-session-execution-contracts.js';
+
+function randomOtelId(bytes: number): string {
+  let id: string;
+  do {
+    id = randomBytes(bytes).toString('hex');
+  } while (!/[1-9a-f]/.test(id));
+  return id;
+}
 
 export class SessionExecutionController {
   private completedToolExecutions: ICompletedToolExecution[] = [];
@@ -238,6 +248,21 @@ export class SessionExecutionController {
     let terminalResult: IExecutionResult | undefined;
     let turnError: Error | undefined;
     let turnOutcome: 'success' | 'failure' | 'interrupted' = 'failure';
+    let promptRoot:
+      | {
+          startedAt: string;
+          startedAtMs: number;
+          endedAt?: string;
+          outcome?: 'success' | 'failure' | 'interrupted';
+          traceId: string;
+          spanId: string;
+        }
+      | undefined;
+    const closePromptRoot = (outcome: 'success' | 'failure' | 'interrupted'): void => {
+      if (!promptRoot || promptRoot.endedAt) return;
+      promptRoot.endedAt = new Date(Math.max(Date.now(), promptRoot.startedAtMs)).toISOString();
+      promptRoot.outcome = outcome;
+    };
     let ephemeralSystemContext: string | undefined;
     // MEM-2055: recall runs before the turn's own messages reach history — stash events, record in `finally`.
     let pendingMemoryEvents: IMemoryEvent[] = [];
@@ -276,6 +301,13 @@ export class SessionExecutionController {
           ephemeralSystemContext = undefined;
         }
       }
+      const startedAtMs = Date.now();
+      promptRoot = {
+        startedAt: new Date(startedAtMs).toISOString(),
+        startedAtMs,
+        traceId: randomOtelId(16),
+        spanId: randomOtelId(8),
+      };
       await executePromptTurn(input, displayInput, rawInput, {
         providerErrorGuidance: this.callbacks.providerErrorGuidance,
         turnSource: turnOptions.turnSource,
@@ -295,16 +327,19 @@ export class SessionExecutionController {
         getStreamingText: () => this.streamingText,
         onWorkspaceUpdated: () => this.emitExecutionWorkspaceUpdated('main_thread'),
         onComplete: (result: IExecutionResult) => {
+          closePromptRoot('success');
           completedResult = result; // stash for post-turn capture in the `finally`
           terminalResult = result;
           turnOutcome = 'success';
         },
         onInterrupted: (result: IExecutionResult) => {
+          closePromptRoot('interrupted');
           // RUNTIME-003: an interrupted turn RAN — resolve, do not reject.
           terminalResult = result;
           turnOutcome = 'interrupted';
         },
         onError: (err: Error) => {
+          closePromptRoot('failure');
           turnError = err;
           this.callbacks.emit('error', err);
         },
@@ -313,6 +348,7 @@ export class SessionExecutionController {
         },
       });
     } catch (error) {
+      closePromptRoot('failure');
       // RUNTIME-003: preserve pre-execution failures instead of replacing the real cause.
       turnError = error instanceof Error ? error : new Error(String(error));
       throw error;
@@ -336,6 +372,15 @@ export class SessionExecutionController {
       recordUsageObservation(this.histTracker.getHistory(), this.callbacks.getSessionOrThrow(), {
         turnId,
         outcome: turnOutcome,
+        ...(promptRoot?.endedAt
+          ? {
+              promptExecutionStartedAt: promptRoot.startedAt,
+              promptExecutionEndedAt: promptRoot.endedAt,
+              promptExecutionOutcome: promptRoot.outcome,
+              promptExecutionTraceId: promptRoot.traceId,
+              promptExecutionSpanId: promptRoot.spanId,
+            }
+          : {}),
         ...(turnOptions.driverId ? { driverId: turnOptions.driverId } : {}),
         ...(turnOptions.surface ? { surface: turnOptions.surface } : {}),
         ...(terminalResult?.usage ? { usage: terminalResult.usage } : {}),
@@ -365,7 +410,10 @@ export class SessionExecutionController {
           try {
             this.callbacks.emit('error', turnError);
           } catch (notificationError) {
-            turnError = new AggregateError([turnError, notificationError], 'Turn completion notification failed');
+            turnError = new AggregateError(
+              [turnError, notificationError],
+              'Turn completion notification failed',
+            );
           }
         }
       }

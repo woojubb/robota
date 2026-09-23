@@ -15,6 +15,11 @@ function usageSurface(driverId: string | undefined): IUsageObservation['surface'
 export function createUsageObservationEntry(input: {
   turnId: string;
   outcome: IUsageObservation['outcome'];
+  promptExecutionStartedAt?: string;
+  promptExecutionEndedAt?: string;
+  promptExecutionOutcome?: IUsageObservation['outcome'];
+  promptExecutionTraceId?: string;
+  promptExecutionSpanId?: string;
   providerId?: string;
   modelId?: string;
   driverId?: string;
@@ -30,6 +35,21 @@ export function createUsageObservationEntry(input: {
       usageObservationId: input.turnId,
       turnId: input.turnId,
       outcome: input.outcome,
+      ...(input.promptExecutionStartedAt
+        ? { promptExecutionStartedAt: input.promptExecutionStartedAt }
+        : {}),
+      ...(input.promptExecutionEndedAt
+        ? { promptExecutionEndedAt: input.promptExecutionEndedAt }
+        : {}),
+      ...(input.promptExecutionOutcome
+        ? { promptExecutionOutcome: input.promptExecutionOutcome }
+        : {}),
+      ...(input.promptExecutionTraceId
+        ? { promptExecutionTraceId: input.promptExecutionTraceId }
+        : {}),
+      ...(input.promptExecutionSpanId
+        ? { promptExecutionSpanId: input.promptExecutionSpanId }
+        : {}),
       surface: input.surface ?? usageSurface(input.driverId),
       ...(input.providerId ? { providerId: input.providerId } : {}),
       ...(input.modelId ? { modelId: input.modelId } : {}),
@@ -46,6 +66,11 @@ export function recordUsageObservation(
   input: {
     turnId: string;
     outcome: IUsageObservation['outcome'];
+    promptExecutionStartedAt?: string;
+    promptExecutionEndedAt?: string;
+    promptExecutionOutcome?: IUsageObservation['outcome'];
+    promptExecutionTraceId?: string;
+    promptExecutionSpanId?: string;
     driverId?: string;
     surface?: IUsageObservation['surface'];
     usage?: IUsageSnapshot;

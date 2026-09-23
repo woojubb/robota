@@ -369,6 +369,31 @@ describe('decodeInteractiveSessionRecord — TC-02 a maximal record round-trips'
     const outcome = decodeInteractiveSessionRecord(maximalRecord());
     expect(outcome.status).toBe('valid');
   });
+
+  it('retains prompt execution root identity through persisted history decoding', () => {
+    const record = maximalRecord();
+    const root = {
+      usageObservationId: 'turn-1',
+      turnId: 'turn-1',
+      outcome: 'success',
+      promptExecutionStartedAt: '2026-08-01T00:00:01.000Z',
+      promptExecutionEndedAt: '2026-08-01T00:00:02.000Z',
+      promptExecutionOutcome: 'success',
+      promptExecutionTraceId: '1234567890abcdef1234567890abcdef',
+      promptExecutionSpanId: '1234567890abcdef',
+    };
+    record.history!.push({
+      id: 'usage-observation_turn-1',
+      timestamp: new Date('2026-08-01T00:00:02.000Z'),
+      category: 'event',
+      type: 'usage-observation',
+      data: root,
+    });
+
+    const outcome = decodeInteractiveSessionRecord(JSON.parse(JSON.stringify(record)));
+    if (outcome.status !== 'valid') throw new Error('expected valid');
+    expect(outcome.record.history?.at(-1)?.data).toEqual(root);
+  });
 });
 
 describe('decodeInteractiveSessionRecord — TC-03 every nested family reports its path', () => {

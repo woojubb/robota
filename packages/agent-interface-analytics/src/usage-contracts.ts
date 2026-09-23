@@ -51,6 +51,15 @@ export interface IUsageObservation {
   usageObservationId: string;
   turnId: string;
   outcome: 'success' | 'failure' | 'interrupted';
+  /** Actual prompt execution boundary, absent for failures before execution begins. */
+  promptExecutionStartedAt?: string;
+  /** First terminal callback, not the later context/wake/handle settlement. */
+  promptExecutionEndedAt?: string;
+  /** First terminal callback outcome; may differ from the final turn outcome after later failures. */
+  promptExecutionOutcome?: IUsageObservation['outcome'];
+  /** Fresh, content-free OpenTelemetry-compatible root identity for this prompt execution. */
+  promptExecutionTraceId?: string;
+  promptExecutionSpanId?: string;
   modelId?: string;
   providerId?: string;
   surface?: TUsageSurface;
