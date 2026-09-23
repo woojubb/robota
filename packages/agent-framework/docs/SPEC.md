@@ -2763,8 +2763,8 @@ user-sourced calls submit the rendered prompt or fork execution into the active 
 Fork skill execution must not rely on prompting the parent model to call the `Agent` tool. It must call `createSubagentSession()` directly through the per-session agent tool dependencies so the behavior is deterministic and unit-testable.
 
 The fork model applies to that child invocation only. It overrides the selected agent definition's
-model; if absent, existing assembly precedence uses the agent model, an available same-provider role
-model, then the parent's configured model. The parent session and provider identity do not change.
+model; if absent, the fork uses the agent model, then the parent's configured model. This path does
+not supply a role-model map. The parent session and provider identity do not change.
 Skill metadata that declares `model` without `context: fork` fails decoding at the `model` field;
 programmatic inject commands with a model are refused by the skill executor as well.
 
