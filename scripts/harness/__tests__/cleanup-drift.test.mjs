@@ -298,6 +298,49 @@ describe('cleanup-drift publishes its verdict (HARNESS-069)', () => {
     expect(result.stderr).toMatch(/drift GREW/);
   });
 
+  it('scans production source without counting examples or testing helpers', () => {
+    const root = makeTemp('cleanup-drift-production-');
+    dirs.push(root);
+    mkdirSync(path.join(root, 'packages/widget/src/testing'), { recursive: true });
+    mkdirSync(path.join(root, 'packages/widget/examples'), { recursive: true });
+    mkdirSync(path.join(root, '.agents/skills/spec-writing-standard'), { recursive: true });
+    writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+    writeFileSync(
+      path.join(root, 'packages/widget/package.json'),
+      JSON.stringify({ name: '@x/widget', version: '0.0.0' }),
+    );
+    writeFileSync(
+      path.join(root, '.agents/skills/index.md'),
+      '# Skills\n\n- [spec-writing-standard](spec-writing-standard/SKILL.md)\n',
+    );
+    copyFileSync(
+      path.join(ROOT, '.agents/skills/spec-writing-standard/SKILL.md'),
+      path.join(root, '.agents/skills/spec-writing-standard/SKILL.md'),
+    );
+    const violations =
+      'export const value = {} as unknown as object;\nexport const load = async () => await import("./missing.js");\n';
+    writeFileSync(path.join(root, 'packages/widget/src/testing/helper.ts'), violations);
+    writeFileSync(path.join(root, 'packages/widget/examples/example.ts'), violations);
+    const baseline = path.join(root, 'baseline.json');
+    writeFileSync(baseline, JSON.stringify({ 'blind-assertion-unknown': 0, 'dynamic-import': 0 }));
+
+    const scan = () =>
+      spawnSync('node', [path.join(ROOT, 'scripts/harness/cleanup-drift.mjs')], {
+        cwd: root,
+        encoding: 'utf8',
+        timeout: 120_000,
+        env: { ...process.env, CLEANUP_DRIFT_BASELINE: baseline },
+      });
+
+    expect(scan().status).toBe(0);
+    writeFileSync(path.join(root, 'packages/widget/src/production.ts'), violations);
+    const result = scan();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toMatch(/packages\/widget\/src\/production\.ts/);
+    expect(result.stdout).not.toMatch(/packages\/widget\/(?:examples|src\/testing)\//);
+    expect(result.stderr).toMatch(/drift GREW/);
+  });
+
   it('the frozen baseline is the one the script actually measures', () => {
     // A number nobody can reproduce is not a baseline. The pass above already proves agreement;
     // this pins that the file is non-empty, so an emptied one cannot masquerade as a clean tree.
