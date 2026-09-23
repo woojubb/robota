@@ -198,25 +198,6 @@ export class DagFrameworkOrchestrationAdapter implements IDagOrchestrationPort {
     });
   }
 
-  public async validateDag(definition: IDagDefinition): Promise<IDagOrchestrationHttpResponse> {
-    const knownTypes = new Set(this.manifests.map((m) => m.nodeType));
-    const nodeIds = new Set(definition.nodes.map((n) => n.nodeId));
-    const errors: string[] = [];
-
-    for (const node of definition.nodes) {
-      if (!knownTypes.has(node.nodeType)) {
-        errors.push(`Unknown node type "${node.nodeType}" for node "${node.nodeId}"`);
-      }
-    }
-    for (const edge of definition.edges) {
-      if (!nodeIds.has(edge.from))
-        errors.push(`Edge references unknown source node "${edge.from}"`);
-      if (!nodeIds.has(edge.to)) errors.push(`Edge references unknown target node "${edge.to}"`);
-    }
-
-    return this.successResponse(200, { valid: errors.length === 0, errors });
-  }
-
   public async startPublishedWorkflowRun(
     dagId: string,
     input?: IDagOrchestrationPublishedWorkflowRunRequest,

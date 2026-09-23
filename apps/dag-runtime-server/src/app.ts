@@ -11,6 +11,7 @@ import {
   type IDagDefinition,
   type IAssetStore,
   type IRunDraftOperationsPort,
+  type IDagValidationPort,
   type TRunProgressEvent,
 } from '@robota-sdk/dag-core';
 import type { IDagError, TResult } from '@robota-sdk/dag-core';
@@ -209,6 +210,7 @@ export function createDagRuntimeServer(
   costMeta: ICostMetaOperationsPort,
   runDrafts: IRunDraftOperationsPort,
   build: IDagBuildPort,
+  validation: IDagValidationPort,
   progressSource?: IRunProgressSource,
   assets?: IAssetStore,
 ): Hono {
@@ -355,7 +357,8 @@ export function createDagRuntimeServer(
   });
   app.post('/v1/dag/validate', async (c) => {
     const body = await c.req.json<{ definition: IDagDefinition }>();
-    return reply(c, await port.validateDag(body.definition));
+    const result = await validation.validateDag(body.definition);
+    return c.json({ ok: true, status: 200, data: result }, 200);
   });
 
   // --- Assets ---

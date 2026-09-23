@@ -23,6 +23,7 @@ describe('dag-runtime-server contract', () => {
       framework.costMeta,
       framework.runDrafts,
       framework.build,
+      framework.validation,
       undefined,
       framework.assets,
     );
@@ -81,6 +82,42 @@ describe('dag-runtime-server contract', () => {
     });
   });
 
+  it('maps domain validation results to the existing HTTP route envelope', async () => {
+    const built = await framework.build.buildDag({
+      pipeline: [{ nodeType: 'input', config: { text: 'hello' } }],
+    });
+    if (!built.ok) throw new Error('Expected a valid test definition.');
+
+    const valid = await app.request('/v1/dag/validate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ definition: built.definition }),
+    });
+    expect(valid.status).toBe(200);
+    expect(await valid.json()).toEqual({
+      ok: true,
+      status: 200,
+      data: { valid: true, errors: [] },
+    });
+
+    const invalid = await app.request('/v1/dag/validate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        definition: {
+          ...built.definition,
+          nodes: [{ ...built.definition.nodes[0], nodeType: 'missing-node' }],
+        },
+      }),
+    });
+    expect(invalid.status).toBe(200);
+    expect(await invalid.json()).toEqual({
+      ok: true,
+      status: 200,
+      data: { valid: false, errors: ['Unknown node type "missing-node" for node "input-0"'] },
+    });
+  });
+
   it('GET /v1/dag/cost-meta maps explicit unsupported capability to 501', async () => {
     const res = await app.request('/v1/dag/cost-meta');
     expect(res.status).toBe(501);
@@ -109,6 +146,7 @@ describe('dag-runtime-server contract', () => {
       costMeta,
       framework.runDrafts,
       framework.build,
+      framework.validation,
     );
 
     const res = await supportedApp.request('/v1/dag/cost-meta');
@@ -132,6 +170,7 @@ describe('dag-runtime-server contract', () => {
       costMeta,
       framework.runDrafts,
       framework.build,
+      framework.validation,
     );
 
     const res = await failingApp.request('/v1/dag/cost-meta');
@@ -197,6 +236,7 @@ describe('dag-runtime-server contract', () => {
       framework.costMeta,
       drafts,
       framework.build,
+      framework.validation,
     );
     const res = await failingApp.request('/v1/dag/run-drafts/draft-1');
     expect(res.status).toBe(500);
@@ -272,6 +312,7 @@ describe('dag-runtime-server contract', () => {
       framework.costMeta,
       framework.runDrafts,
       framework.build,
+      framework.validation,
       undefined,
       referenceStore,
     );
@@ -352,6 +393,7 @@ describe('dag-runtime-server contract', () => {
       framework.costMeta,
       framework.runDrafts,
       framework.build,
+      framework.validation,
     );
     const unwired = await unwiredApp.request('/v1/dag/assets/missing');
     expect(unwired.status).toBe(501);
@@ -365,6 +407,7 @@ describe('dag-runtime-server contract', () => {
       framework.costMeta,
       framework.runDrafts,
       framework.build,
+      framework.validation,
       undefined,
       broken,
     );
@@ -400,6 +443,7 @@ describe('dag-runtime-server contract', () => {
       framework.costMeta,
       framework.runDrafts,
       framework.build,
+      framework.validation,
       undefined,
       broken,
     );
@@ -443,7 +487,14 @@ describe('dag-runtime-server SSE progress stream', () => {
         return () => undefined;
       },
     };
-    const app = createDagRuntimeServer({} as never, {} as never, {} as never, {} as never, source);
+    const app = createDagRuntimeServer(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      source,
+    );
 
     const res = await app.request('/v1/dag/runs/run-1/events');
     expect(res.status).toBe(200);
@@ -474,7 +525,14 @@ describe('dag-runtime-server SSE progress stream', () => {
         return () => undefined;
       },
     };
-    const app = createDagRuntimeServer({} as never, {} as never, {} as never, {} as never, source);
+    const app = createDagRuntimeServer(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      source,
+    );
     const body = await (await app.request('/v1/dag/runs/run-1/events')).text();
     expect(body).not.toContain('other-run');
     expect(body).toContain('event: execution.completed');

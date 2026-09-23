@@ -35,6 +35,10 @@ re-declaring them. It defines what the DAG domain looks like, not how it execute
 
 ## DAG definition port catalog policy
 
+The catalog-aware definition validation capability reports unknown node types and edges whose
+endpoints are absent from the definition as domain findings. It does not mutate the definition or
+assign an HTTP status. This lightweight check does not replace the full structural validator below.
+
 Persisted DAG JSON stores graph instances, not runtime node schemas. A node's `inputs`/`outputs`
 are optional compatibility/catalog fields; new persisted definitions should omit them. Port
 definitions are owned by the runtime node catalog and may change independently of saved DAG
