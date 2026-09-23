@@ -19,8 +19,8 @@
   silent empty registry. Optional media/skill nodes (gemini-image-edit, text-to-image, seedance-video, skill)
   are dynamically imported and silently skipped when their optional SDK peer is absent (`// allow-fallback`).
 - This is an aggregator ABOVE the `@robota-sdk/dag-node-*` leaf layer; the plural `dag-nodes-` prefix
-  intentionally diverges from the singular `dag-node-` leaf prefix, so the leaf-invariant scan
-  (`checkDagNodesLeaf`) does not police its sibling node dependencies.
+  distinguishes its composition role from singular `dag-node-` leaves. Its dependencies on sibling
+  node packages are intentional. No leaf-invariant scan currently runs.
 
 ## Architecture Overview
 
