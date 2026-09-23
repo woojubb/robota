@@ -40,7 +40,10 @@ verify the git graph directly.
 4. **CI was green.** Read the exact merged PR head with `gh pr view <n> --json headRefOid`, then use
    `gh pr checks <n> --required` as the canonical CI verdict for that head. Apply
    [Git rules — Merge Landing Verification](../../.agents/rules/git-branch.md#merge-landing-verification-mandatory)
-   for a completed merge with a confirmed empty provider projection, and separately for the
+   for a completed merge with a confirmed empty provider projection. For a declared governed branch,
+   report **PROTECTION ANOMALY**, including the branch, declared ruleset id and live scope evidence;
+   do not absorb it as a normal projection or clear it merely because individual checks passed.
+   Surface it to the owner for disposition. Separately apply the
    documented control-plane exception, including its explicitly owner-delegated `develop` route.
    Never report an owner-exempted failure as green. A landing verdict verifies a completed merge,
    not permission to perform another merge.
