@@ -1,13 +1,11 @@
 // @robota-sdk/agent-interface-session
 //
 // The session, interaction, event, driver, turn and compaction contract families, moved out of
-// `agent-interface-transport` by ARCH-106 (issue #2110) under the owner map in
-// `.agents/specs/contract-family-owner-map.md`.
+// `agent-interface-transport` by ARCH-106 (issue #2110).
 //
 // LAYER 1. Unlike the three wave-1 owners, this package COMPOSES rather than sits at the bottom: it
 // names execution, command and analytics contracts and depends on those packages downward. Nothing
-// at layer 0 names a type from here. See ARCH-101 for the rule and `interface-layers.mjs` for the
-// guard.
+// at layer 0 names a type from here.
 
 // ── Context-compaction contracts (INFRA-025 SSOT) ────────────
 export type { TCompactTrigger, ICompactEvent } from './compact-contracts.js';

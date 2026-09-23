@@ -1,9 +1,7 @@
 # agent-cli — composition and transport registry
 
 > Whitebox design for `@robota-sdk/agent-cli`. The blackbox contract lives in
-> [`../SPEC.md`](../SPEC.md); nothing here is a promise to a consumer. Placement follows the
-> consumer-impact test in
-> [`design-doc-authoring`](../../../../.agents/skills/design-doc-authoring/SKILL.md).
+> [`../SPEC.md`](../SPEC.md); nothing here is a promise to a consumer.
 
 ## Context & Goal
 
@@ -70,5 +68,4 @@ end of that chain is specified in [`../SPEC.md`](../SPEC.md) under `Configuratio
 
 ## Test Approach
 
-Covered by the CLI startup composition tests and the composition-neutrality scan
-(`scripts/harness/scan-composition-neutrality.mjs`).
+Covered by the CLI startup composition tests.

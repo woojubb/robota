@@ -44,10 +44,12 @@ The `agent` and `schedule` command modules set `sessionRequirements: ['agent-run
 ## Dependencies
 
 ```
-@robota-sdk/agent-core                workspace:*   (IProviderDefinition, ITerminalOutput, IProviderSetupStepDefinition, etc.)
-@robota-sdk/agent-framework           workspace:*   (ICommandModule, ICommandSource, ISystemCommand, IOrgPolicy, ICommandPluginAdapter, BundlePluginInstaller, etc.)
-@robota-sdk/agent-interface-transport workspace:*   (transport-side command/list contracts)
-@robota-sdk/agent-preset              workspace:*   (listPresets, getPreset, resolvePreset — used by the `/preset` command)
+@robota-sdk/agent-core                workspace:*   (foundation types and provider definitions)
+@robota-sdk/agent-framework           workspace:*   (command-facing host APIs and plugin composition)
+@robota-sdk/agent-interface-command   workspace:*   (command contracts)
+@robota-sdk/agent-interface-execution workspace:*   (task and workspace contracts)
+@robota-sdk/agent-interface-session   workspace:*   (session and turn contracts)
+@robota-sdk/agent-preset              workspace:*   (preset resolution for the `/preset` command)
 ```
 
 No circular dependencies. This package does not depend on any other `agent-command-*` package.

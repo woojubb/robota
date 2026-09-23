@@ -11,10 +11,7 @@ It contains type declarations only. No class, no runtime logic, no mechanism.
 ## Package Identity
 
 - **npm name**: `@robota-sdk/agent-interface-execution`
-- **Layer**: Layer 0 — the dependency set that places it there is declared in this package's manifest
-  and enforced by `check-dependency-direction.mjs`; not restated here. The layer itself is declared in
-  [`.agents/specs/contract-family-owner-map.md`](../../../.agents/specs/contract-family-owner-map.md)
-  and enforced by `scripts/harness/interface-layers.mjs` (ARCH-101).
+- **Dependency position**: Layer 0. The package manifest declares only `@robota-sdk/agent-core`.
 
 ## Boundaries
 
@@ -22,8 +19,8 @@ It contains type declarations only. No class, no runtime logic, no mechanism.
 
 | Concern                                                    | Owner                                                                         |
 | ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Session, interaction, event, turn and driver contracts     | `agent-interface-transport` (until issue #2110 moves them to a session owner) |
-| Command contracts                                          | `agent-interface-transport` (until issue #2108)                               |
+| Session, interaction, event, turn and driver contracts     | `agent-interface-session`                                                   |
+| Command contracts                                          | `agent-interface-command`                                                   |
 | Transport adapter, config, channel and admission contracts | `agent-interface-transport`                                                   |
 | The RUNTIME that executes a background task                | `agent-executor`, `agent-subagent-runner`                                     |
 | Persisting or projecting execution state                   | `agent-session`, `agent-transport-*`                                          |
@@ -36,8 +33,7 @@ an owner package; this one gives it the vocabulary to describe the behavior.
 **Layer 0.** It depends on **no peer `agent-interface-*` package** — that boundary is the
 commitment this document makes; which packages it does depend on is the manifest's to say (see
 Package Identity). Composition runs downward into it — `agent-interface-session` names these types;
-this package never names a session type. The layer is enforced by
-`scripts/harness/interface-layers.mjs` through two guards (ARCH-101).
+this package never names a session type.
 
 Four modules, one contract family each, and the dependency between them runs one way:
 
@@ -103,7 +99,7 @@ carries the `resumeSessionId` the view switches onto.
 
 **No runtime value is exported.** The Interface Package Rule permits a package's entry to publish its
 contracts' vocabulary (a `const` holding a value) and their discriminators (a type predicate); this
-package currently needs neither, and `scan-interface-runtime` refuses anything else.
+package currently needs neither.
 
 ## Extension Points
 
@@ -127,11 +123,9 @@ The package has no tests of its own and needs none: it declares types and export
 only assertion available is that it compiles, which `pnpm typecheck` makes on every run.
 
 Its contracts are exercised by the suites of the packages that implement them — `agent-executor`,
-`agent-subagent-runner`, `agent-framework` and the transport surfaces. Three harness scans police the
-package itself: `interface-runtime` (no mechanism), `interface-imports` (consumers import contracts
-from here, not from `agent-framework`), and `interface-family-owner` (the four modules are placed in
-their declared owner and every edge is a legal downward layer composition).
+`agent-subagent-runner`, `agent-framework` and the transport surfaces. Consumers import these
+contracts from this package; its four modules keep their dependencies within the declared family.
 
 ## Class Contract Registry
 
-None. This package declares no class, and `scan-interface-runtime` refuses one.
+None. This package declares no class.
