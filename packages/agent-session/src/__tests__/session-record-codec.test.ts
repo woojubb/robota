@@ -578,6 +578,41 @@ describe('decodeInteractiveSessionRecord — TC-08 issues accumulate', () => {
   });
 });
 
+describe('self-paced session-loop record', () => {
+  const loop = {
+    loopId: 'loop_stable',
+    instruction: 'Check the current task',
+    createdAt: '2026-09-24T00:00:00.000Z',
+    expiresAt: '2026-10-01T00:00:00.000Z',
+    revision: 2,
+    generation: 1,
+    phase: 'waiting',
+    nextAllowedAt: '2026-09-24T00:20:00.000Z',
+    delaySeconds: 1200,
+    reason: 'Waiting for CI',
+    fallbackUsed: false,
+  };
+
+  it('round-trips a durable loop independently of an ephemeral scheduled task', () => {
+    const record = { ...(persisted() as object), sessionLoops: [loop] };
+    const outcome = decodeInteractiveSessionRecord(record);
+    expect(outcome.status).toBe('valid');
+    if (outcome.status === 'valid') expect(outcome.record.sessionLoops).toEqual([loop]);
+  });
+
+  it('rejects malformed lifecycle members with located defects', () => {
+    const record = {
+      ...(persisted() as object),
+      sessionLoops: [{ ...loop, revision: -1, nextAllowedAt: 'not-a-date' }],
+    };
+    const outcome = decodeInteractiveSessionRecord(record);
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toEqual(
+      expect.arrayContaining(['sessionLoops[0].revision', 'sessionLoops[0].nextAllowedAt']),
+    );
+  });
+});
+
 describe('TC-09 key parity between the contract and the decoder', () => {
   it('decodes every key the record contract declares', () => {
     const declared = {
@@ -594,6 +629,7 @@ describe('TC-09 key parity between the contract and the decoder', () => {
       backgroundTaskEvents: true,
       backgroundJobGroups: true,
       backgroundJobGroupEvents: true,
+      sessionLoops: true,
       skillActivationEvents: true,
       memoryEvents: true,
       usedMemoryReferences: true,

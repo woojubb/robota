@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto';
+
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 
 import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import { InteractiveSessionBase } from './interactive-session-base.js';
@@ -22,6 +24,16 @@ import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-to
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { SessionTerminalHandoffGate } from './interactive-session-terminal-handoff.js';
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
+import { DurableSessionLoopStore } from './session-loop-durable-store.js';
+import { extractSelfPacedLoopDecision } from './session-loop-decision-tool.js';
+import {
+  claimSelfPacedLoopWake,
+  createSelfPacedLoopState,
+  finishSelfPacedLoopTurn,
+  markSelfPacedLoopRunning,
+  recoverSelfPacedLoopState,
+  stopSelfPacedLoopState,
+} from './session-loop-transitions.js';
 import {
   StoppedWakeSubmissionError,
   publicTurnOptions,
@@ -102,6 +114,7 @@ import type {
   TTurnSource,
   TDriverId,
   TPermissionResultValue,
+  ISessionLoopState,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
@@ -126,6 +139,9 @@ export class InteractiveSession
   private initPromise: Promise<void> | null = null;
   private sessionStore?: IInteractiveSessionStore;
   private readonly sessionLoopsDisabled: boolean;
+  private readonly selfPacedLoops: DurableSessionLoopStore;
+  private readonly selfPacedTimerIds = new Map<string, string>();
+  private readonly selfPacedWakeClaims = new Set<string>();
   /** Do not let best-effort event snapshots publish a loop before its strict creation write. */
   private readonly pendingLoopCreations = new Set<string>();
   /** Persist a loop stop before cancelling its timer so resume cannot re-arm a stale snapshot. */
@@ -197,6 +213,19 @@ export class InteractiveSession
   constructor(options: TInteractiveSessionOptions) {
     super();
     this.sessionStore = options.sessionStore;
+    this.selfPacedLoops = new DurableSessionLoopStore([], {
+      persist: (candidate) => this.persistCurrentSession(true, undefined, candidate),
+      readCommitted: () => {
+        const id = this.session?.getSessionId();
+        if (!id || !this.sessionStore) return undefined;
+        const outcome = this.sessionStore.load(id);
+        return outcome.status === 'valid'
+          ? (outcome.record.sessionLoops ?? [])
+          : outcome.status === 'missing'
+            ? []
+            : undefined;
+      },
+    });
     this.providerErrorGuidance = options.providerErrorGuidance;
     this.sessionLoopsDisabled = options.disableSessionLoops ?? false;
     this.projectAccess =
@@ -323,6 +352,8 @@ export class InteractiveSession
           ...(args as Parameters<IInteractiveSessionEvents[TInteractiveEventName]>),
         ),
       persistSession: () => this.persistCurrentSession(),
+      onWakeTurnFinalizing: (wakeTaskId, result, outcome, toolExecutions) =>
+        this.finalizeSelfPacedIteration(wakeTaskId, result, outcome, toolExecutions),
       // SELFHOST-008 P2: adapter-gated — only wire capture when the surface supplied an `automaticMemory`
       // policy (absent ⇒ undefined ⇒ capture OFF, zero behavior change).
       ...(this.automaticMemory
@@ -368,7 +399,10 @@ export class InteractiveSession
     this.restoreSessionRecordIfNeeded(options);
     this.startAsyncInitializationIfNeeded(options, hasInjectedSession);
 
-    if (this.initialized) this.bgTracker.subscribe(this.session!);
+    if (this.initialized) {
+      this.bgTracker.subscribe(this.session!);
+      this.resumeSelfPacedLoops();
+    }
     if (this.initialized) this.persistCurrentSession();
     this.resumeGoalIfActive();
   }
@@ -417,6 +451,7 @@ export class InteractiveSession
     if (!this.startedAsFork && restored.goal) this.goalController.restore(restored.goal);
     // SELFHOST-002: likewise restore an in-flight plan artifact on a true resume (not a fork).
     if (!this.startedAsFork && restored.plan) this.planController.restore(restored.plan);
+    if (!this.startedAsFork) this.selfPacedLoops.restore(restored.sessionLoops);
     // SELFHOST-007: restore the active checkpoint branch on a true resume (graceful on manifest drift).
     if (!this.startedAsFork) this.histTracker.restoreActiveBranch(restored.activeBranch);
     if (this.session && restored.pendingRestoreMessages === null) {
@@ -466,6 +501,7 @@ export class InteractiveSession
     this.pendingRestoreMessages = null;
     this.initialized = true;
     this.bgTracker.subscribe(this.session);
+    this.resumeSelfPacedLoops();
     this.persistCurrentSession();
     this.emit('context_update', this.getContextState());
   }
@@ -569,6 +605,23 @@ export class InteractiveSession
   }
 
   private async executeAcceptedTurn(entry: IQueuedInput): Promise<void> {
+    const identity = this.parseSelfPacedWakeId(entry.options.wakeTaskId);
+    if (identity) {
+      const current = this.selfPacedLoops.get(identity.loopId);
+      const running = current && markSelfPacedLoopRunning(current, identity.generation, Date.now());
+      if (!running || this.sessionLoopsDisabled || this.selfPacedLoops.isSuspended()) {
+        this.execCtrl.turns.refuse(entry.turnId, 'cancelled');
+        this.execCtrl.wakeTaskIds.delete(entry.options.wakeTaskId!);
+        return;
+      }
+      try {
+        this.selfPacedLoops.commit(running);
+      } catch (error) {
+        this.execCtrl.turns.fail(entry.turnId, error instanceof Error ? error : new Error(String(error)));
+        this.execCtrl.wakeTaskIds.delete(entry.options.wakeTaskId!);
+        throw error;
+      }
+    }
     await this.execCtrl.executePrompt(
       entry.input,
       entry.displayInput,
@@ -608,6 +661,9 @@ export class InteractiveSession
   requestWakeup(instruction: string, sourceTaskId: string): boolean {
     if (this.execCtrl.shuttingDown) return false;
     const task = this.getBackgroundTaskManager()?.get(sourceTaskId);
+    if (task?.metadata?.['sessionLoopSelfPaced'] === true) {
+      return this.admitSelfPacedWake(sourceTaskId, task.metadata);
+    }
     const blocked = sessionLoopBlockReason(task, Date.now(), this.sessionLoopsDisabled);
     if (blocked) {
       this.stoppedWakeTaskIds.add(sourceTaskId);
@@ -689,7 +745,247 @@ export class InteractiveSession
     ];
   }
 
+  private assertNotSelfPacedTimer(taskId: string): void {
+    if (this.getBackgroundTaskManager()?.get(taskId)?.metadata?.['sessionLoopSelfPaced'] === true) {
+      throw new Error('This timer belongs to a self-paced loop; manage it with /loop instead.');
+    }
+  }
+
+  override async pauseSchedule(taskId: string): Promise<void> {
+    this.assertNotSelfPacedTimer(taskId);
+    await super.pauseSchedule(taskId);
+  }
+
+  override async resumeSchedule(taskId: string): Promise<void> {
+    this.assertNotSelfPacedTimer(taskId);
+    await super.resumeSchedule(taskId);
+  }
+
+  override async editSchedule(
+    taskId: string,
+    patch: Parameters<InteractiveSessionBase['editSchedule']>[1],
+  ): Promise<void> {
+    this.assertNotSelfPacedTimer(taskId);
+    await super.editSchedule(taskId, patch);
+  }
+
+  /** Session-owned self-paced loops remain addressable after a one-shot timer has completed. */
+  listSelfPacedLoops(): readonly ISessionLoopState[] {
+    return this.selfPacedLoops.list();
+  }
+
+  async createSelfPacedLoop(instruction: string): Promise<ISessionLoopState> {
+    await this.ensureInitialized();
+    if (this.sessionLoopsDisabled) throw new Error('Session loops are disabled by the host.');
+    if (!this.sessionStore) throw new Error('A session store is required for a resumable loop.');
+    const fixedCount = this.listSchedules().filter(
+      (task) =>
+        task.metadata?.['sessionLoop'] === true &&
+        task.metadata?.['sessionLoopSelfPaced'] !== true &&
+        task.status !== 'cancelled' &&
+        task.status !== 'completed' &&
+        task.status !== 'failed',
+    ).length;
+    const dynamicCount = this.selfPacedLoops.list().filter(
+      (state) => state.phase !== 'stopped' && state.phase !== 'expired',
+    ).length;
+    if (fixedCount + dynamicCount >= 3) {
+      throw new Error('At most 3 active loops are allowed. Stop one before creating another.');
+    }
+    const state = createSelfPacedLoopState(`loop_${randomUUID()}`, instruction, Date.now());
+    this.selfPacedLoops.commit(state);
+    this.submitSelfPacedIteration(state);
+    return state;
+  }
+
+  async stopSelfPacedLoop(loopId: string, reason = 'Loop stopped by user'): Promise<void> {
+    if (!this.initialized) await this.ensureInitialized();
+    const live = this.selfPacedLoops.get(loopId);
+    if (!live) throw new Error(`Self-paced loop not found: ${loopId}`);
+    const stopped = stopSelfPacedLoopState(live, reason);
+    if (!stopped) return;
+    this.selfPacedLoops.commit(stopped);
+    const wakeId = this.selfPacedWakeId(live);
+    this.stoppedWakeTaskIds.add(wakeId);
+    this.execCtrl.removePendingWake(wakeId);
+    this.execCtrl.wakeTaskIds.delete(wakeId);
+    const timerId = this.selfPacedTimerIds.get(loopId);
+    this.selfPacedTimerIds.delete(loopId);
+    if (timerId) await this.bgTracker.cancelTask(timerId, reason);
+  }
+
+  private selfPacedWakeId(state: ISessionLoopState): string {
+    return `self-paced:${state.loopId}:${state.generation}`;
+  }
+
+  private parseSelfPacedWakeId(wakeId: string | undefined): { loopId: string; generation: number } | null {
+    const match = /^self-paced:(loop_[^:]+):(\d+)$/.exec(wakeId ?? '');
+    return match ? { loopId: match[1]!, generation: Number(match[2]) } : null;
+  }
+
+  private async finalizeSelfPacedIteration(
+    wakeId: string,
+    result: IExecutionResult | undefined,
+    outcome: 'success' | 'failure' | 'interrupted',
+    toolExecutions: readonly { name: string; args: unknown; success: boolean }[],
+  ): Promise<void> {
+    const identity = this.parseSelfPacedWakeId(wakeId);
+    if (!identity) return;
+    const current = this.selfPacedLoops.get(identity.loopId);
+    if (!current) return;
+    const decision = outcome === 'success' && result
+      ? extractSelfPacedLoopDecision(result.toolSummaries, toolExecutions)
+      : { action: 'stop' as const };
+    const next = finishSelfPacedLoopTurn(current, identity.generation, decision, Date.now());
+    if (!next) return; // A user stop won while the model was running.
+    this.selfPacedLoops.commit(next);
+    if (next.phase === 'waiting') {
+      try {
+        await this.armSelfPacedTimer(next);
+      } catch (error) {
+        await this.stopSelfPacedLoop(next.loopId, 'Could not arm the next timer');
+        throw error;
+      }
+    }
+    // Timer creation can yield to a user stop; describe the committed state, not a stale successor.
+    const settled = this.selfPacedLoops.get(next.loopId) ?? next;
+    const receipt = settled.phase === 'waiting'
+      ? `Loop ${settled.loopId}: next check in ${settled.delaySeconds}s (${settled.reason}); eligible at ${settled.nextAllowedAt}.`
+      : `Loop ${settled.loopId} ${settled.phase}: ${settled.terminalReason}.`;
+    this.histTracker.append(messageToHistoryEntry(createSystemMessage(receipt)));
+    this.persistCurrentSession();
+  }
+
+  private async armSelfPacedTimer(state: ISessionLoopState): Promise<void> {
+    if (state.phase !== 'waiting' || !state.nextAllowedAt) return;
+    const manager = this.bgTracker.getManagerOrThrow();
+    const task = await manager.spawn({
+      kind: 'scheduled',
+      label: `Loop: ${state.instruction.slice(0, 48)}`,
+      mode: 'background',
+      parentSessionId: this.getSessionOrThrow().getSessionId(),
+      depth: 0,
+      cwd: this.getCwd(),
+      cronExpression: state.nextAllowedAt,
+      agentInstruction: state.instruction,
+      metadata: {
+        sessionLoop: true,
+        sessionLoopSelfPaced: true,
+        sessionLoopId: state.loopId,
+        sessionLoopGeneration: state.generation,
+        sessionLoopExpiresAt: state.expiresAt,
+      },
+    });
+    const current = this.selfPacedLoops.get(state.loopId);
+    if (
+      !current ||
+      current.phase !== 'waiting' ||
+      current.generation !== state.generation ||
+      task.status !== 'sleeping'
+    ) {
+      await manager.cancel(task.id, 'Stale self-paced loop timer');
+      if (current?.phase === 'waiting' && current.generation === state.generation) {
+        throw new Error('Self-paced loop could not arm a resumable timer.');
+      }
+      return;
+    }
+    this.selfPacedTimerIds.set(state.loopId, task.id);
+  }
+
+  private admitSelfPacedWake(taskId: string, metadata: Record<string, unknown>): boolean {
+    const loopId = metadata['sessionLoopId'];
+    const generation = metadata['sessionLoopGeneration'];
+    if (typeof loopId !== 'string' || !Number.isSafeInteger(generation) || this.selfPacedWakeClaims.has(taskId)) {
+      return false;
+    }
+    this.selfPacedWakeClaims.add(taskId);
+    try {
+      const current = this.selfPacedLoops.get(loopId);
+      if (!current || this.sessionLoopsDisabled || this.selfPacedLoops.isSuspended()) return false;
+      const claimed = claimSelfPacedLoopWake(current, generation as number, Date.now());
+      if (!claimed) return false;
+      this.selfPacedLoops.commit(claimed);
+      this.selfPacedTimerIds.delete(loopId);
+      this.submitSelfPacedIteration(claimed);
+      return true;
+    } catch (error) {
+      this.reportBackgroundError(error instanceof Error ? error : new Error(String(error)), 'session-loop');
+      return false;
+    } finally {
+      this.selfPacedWakeClaims.delete(taskId);
+    }
+  }
+
+  private resumeSelfPacedLoops(): void {
+    for (const state of this.selfPacedLoops.list()) {
+      // A host kill switch pauses restoration; it must not erase an unexpired persisted loop.
+      if (this.sessionLoopsDisabled && Date.now() < Date.parse(state.expiresAt)) continue;
+      const next = recoverSelfPacedLoopState(state, Date.now());
+      try {
+        if (next && next.revision !== state.revision) this.selfPacedLoops.commit(next);
+        const current = next ?? state;
+        if (current.phase === 'waiting' && !this.sessionLoopsDisabled) {
+          void this.armSelfPacedTimer(current).catch(async (error: unknown) => {
+            try {
+              await this.stopSelfPacedLoop(current.loopId, 'Could not restore timer');
+            } catch (stopError) {
+              this.reportBackgroundError(
+                stopError instanceof Error ? stopError : new Error(String(stopError)),
+                'session-loop',
+              );
+            }
+            this.reportBackgroundError(error instanceof Error ? error : new Error(String(error)), 'session-loop');
+          });
+        }
+      } catch (error) {
+        this.reportBackgroundError(error instanceof Error ? error : new Error(String(error)), 'session-loop');
+      }
+    }
+  }
+
+  private submitSelfPacedIteration(state: ISessionLoopState): void {
+    const wakeId = this.selfPacedWakeId(state);
+    if (this.execCtrl.wakeTaskIds.has(wakeId)) return;
+    this.execCtrl.wakeTaskIds.add(wakeId);
+    const input = `${state.instruction}\n\nAt the end of this self-paced loop iteration, call ` +
+      '`report_loop_decision` exactly once: choose stop, or continue with a 60–3600 second delay and reason.';
+    void this.submitNewTurn(input, state.instruction, undefined, {
+      turnSource: 'agent-wakeup',
+      wakeTaskId: wakeId,
+    })
+      .then((handle) => {
+        void handle.completed.catch((error: unknown) =>
+          this.handleSelfPacedSubmissionFailure(state, error),
+        );
+      })
+      .catch((error: unknown) => this.handleSelfPacedSubmissionFailure(state, error));
+  }
+
+  private handleSelfPacedSubmissionFailure(state: ISessionLoopState, error: unknown): void {
+    const wakeId = this.selfPacedWakeId(state);
+    this.execCtrl.wakeTaskIds.delete(wakeId);
+    const current = this.selfPacedLoops.get(state.loopId);
+    if (current?.generation !== state.generation || current.phase !== 'pending') return;
+    const reason = isTurnNotRunError(error)
+      ? `Self-paced loop turn was ${error.reason}`
+      : `Self-paced loop turn failed: ${error instanceof Error ? error.message : String(error)}`;
+    void this.stopSelfPacedLoop(state.loopId, reason).catch((stopError: unknown) =>
+      this.reportBackgroundError(
+        stopError instanceof Error ? stopError : new Error(String(stopError)),
+        'session-loop',
+      ),
+    );
+    this.reportBackgroundError(error instanceof Error ? error : new Error(String(error)), 'session-loop');
+  }
+
   override async cancelBackgroundTask(taskId: string, reason?: string): Promise<void> {
+    const task = this.getBackgroundTaskManager()?.get(taskId);
+    if (task?.metadata?.['sessionLoopSelfPaced'] === true) {
+      const loopId = task.metadata['sessionLoopId'];
+      if (typeof loopId !== 'string') throw new Error('Self-paced timer has no loop identity.');
+      await this.stopSelfPacedLoop(loopId, reason ?? 'Loop timer cancelled');
+      return;
+    }
     // Admission must stop before any await: an already-fired wake may still be awaiting initialization.
     this.stoppedWakeTaskIds.add(taskId);
     let durableStop = false;
@@ -698,10 +994,10 @@ export class InteractiveSession
       // stop write and queue removal: an active turn could drain the queued wake in that gap.
       if (!this.initialized) await this.ensureInitialized();
       const heldTask = this.bgTracker.getHeldSessionLoop(taskId);
-      const task = this.bgTracker.getTask(taskId) ?? heldTask;
-      const loopId = task?.metadata?.['sessionLoopId'];
+      const trackedTask = this.bgTracker.getTask(taskId) ?? heldTask;
+      const loopId = trackedTask?.metadata?.['sessionLoopId'];
       if (
-        task?.metadata?.['sessionLoop'] === true &&
+        trackedTask?.metadata?.['sessionLoop'] === true &&
         (typeof loopId !== 'string' || !this.pendingLoopCreations.has(loopId))
       ) {
         this.pendingLoopStops.add(taskId);
@@ -1039,7 +1335,11 @@ export class InteractiveSession
     }
   }
 
-  private persistCurrentSession(strict = false, acceptedLoopId?: string): void {
+  private persistCurrentSession(
+    strict = false,
+    acceptedLoopId?: string,
+    loopStateOverride?: readonly ISessionLoopState[],
+  ): void {
     if (!this.sessionStore || !this.session) {
       if (strict) throw new Error('A session store is required for a resumable loop.');
       return;
@@ -1078,6 +1378,7 @@ export class InteractiveSession
       // SELFHOST-007: persist the active branch pointer so a branch survives --resume.
       this.histTracker.getActiveBranchPointer(),
       strict,
+      loopStateOverride ?? this.selfPacedLoops.snapshotForOrdinarySave(),
     );
   }
 

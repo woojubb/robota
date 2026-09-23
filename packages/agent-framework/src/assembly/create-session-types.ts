@@ -127,6 +127,8 @@ export interface ICreateSessionOptions {
   defaultTools?: readonly IToolWithEventService[];
   /** GOAL-001: include the `report_goal_status` completion-signal tool (interactive sessions). */
   includeGoalTool?: boolean;
+  /** Include the structured self-paced loop decision signal for an interactive session. */
+  includeSessionLoopDecisionTool?: boolean;
   /** Additional background task runners composed by the runtime shell. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /**

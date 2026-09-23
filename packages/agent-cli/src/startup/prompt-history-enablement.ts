@@ -24,6 +24,7 @@ import type {
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { IPromptHistorySource } from '@robota-sdk/agent-interface-session';
+import { userPaths } from '../product/user-paths.js';
 
 const PROMPT_HISTORY_ENV = 'ROBOTA_PROMPT_HISTORY';
 
@@ -70,7 +71,7 @@ export function createPromptHistorySurface(inputs: {
   readonly project: string;
 }): IPromptHistorySurface {
   if (!inputs.enabled) return {};
-  const file = createUserPromptHistoryFile();
+  const file = createUserPromptHistoryFile(userPaths().history);
   return {
     promptHistory: { writer: file, project: inputs.project },
     promptHistorySource: file,

@@ -15,6 +15,7 @@ import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createRemoteUrlReader, resolveLaunchInvocation, stripOpenInvocation } from './index.js';
+import { userPaths } from '../product/user-paths.js';
 
 import type { IResolveLaunchInvocationDeps, TLaunchTargetTrust } from './index.js';
 
@@ -42,7 +43,7 @@ function isMainWorktree(root: string): boolean {
 
 /** Build the host deps. `inspectTrust` answers `unknown` when the directory has no git identity. */
 function createLaunchInvocationDeps(): IResolveLaunchInvocationDeps {
-  const store = createNodeWorkspaceTrustStore();
+  const store = createNodeWorkspaceTrustStore(userPaths().workspaceTrust);
   const resolver = createNodeWorkspaceIdentityResolver();
   const remoteUrl = createRemoteUrlReader(createGitProcess());
   return {

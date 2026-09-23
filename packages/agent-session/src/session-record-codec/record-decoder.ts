@@ -74,6 +74,7 @@ export const INTERACTIVE_SESSION_RECORD_KEYS: readonly string[] = [
   'backgroundTaskEvents',
   'backgroundJobGroups',
   'backgroundJobGroupEvents',
+  'sessionLoops',
   'skillActivationEvents',
   'memoryEvents',
   'usedMemoryReferences',

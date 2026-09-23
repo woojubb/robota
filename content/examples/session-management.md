@@ -7,8 +7,10 @@ Multi-turn sessions with permissions, context tracking, and compaction.
 ```typescript
 import { InteractiveSession, createUserSessionStore } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
-const sessionStore = createUserSessionStore();
+const sessionStore = createUserSessionStore(join(homedir(), '.my-agent', 'sessions'));
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const session = new InteractiveSession({
@@ -110,8 +112,10 @@ setTimeout(() => session.abort(), 30000);
 ```typescript
 import { InteractiveSession, createUserSessionStore } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
-const store = createUserSessionStore();
+const store = createUserSessionStore(join(homedir(), '.my-agent', 'sessions'));
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // Sessions auto-persist when a store is provided

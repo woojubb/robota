@@ -55,9 +55,9 @@ export function createLoopCommandEntry(): ICommand {
   return {
     name: 'loop',
     displayName: 'Repeat Prompt',
-    description: 'Repeat a prompt on a fixed, local-clock cadence; list or stop active loops.',
+    description: 'Repeat a prompt on a fixed cadence or let each iteration choose its next delay; list or stop active loops.',
     source: 'schedule',
-    argumentHint: '<N><s|m|h|d> <prompt> | <prompt> every <N> <unit> | list | stop <id>',
+    argumentHint: '[prompt] | <N><s|m|h|d> [prompt] | <prompt> every <N> <unit> | list | stop <id>',
     modelInvocable: true,
   };
 }

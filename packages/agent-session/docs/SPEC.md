@@ -71,8 +71,10 @@ of a store, not of a value, so a store composes its own `missing` on top of the 
 outcomes. Collapsing corruption into absence is what previously let a damaged file resume as a
 silently field-stripped session.
 
-The persisted envelope and the record it wraps share **one** version number: a change to either
-shape bumps the same number, read by the artifact path and every session store. The version is
+The persisted envelope and the record it wraps share **one** version number: an incompatible
+shape change bumps the same number, read by the artifact path and every session store. An optional
+field may be added without a bump when an older reader rejects its unfamiliar key instead of
+silently dropping it; old records remain readable by the newer decoder. The version is
 deliberately not a member of the record type itself — required would oblige every producer to
 set it, optional would mean "absent is acceptable," which is the permissive reader this codec
 replaces. The version is read first; a version this build does not implement is reported as

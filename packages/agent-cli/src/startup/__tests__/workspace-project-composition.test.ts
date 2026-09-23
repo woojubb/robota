@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -64,6 +64,15 @@ describe('CLI workspace project composition', () => {
     expect(composition.settingsSources.map((source) => source.kind)).toEqual(['host', 'host']);
     expect(composition.settingsStores.map((store) => store.kind)).toEqual(['host']);
     expect(composition.memoryStore).toBeUndefined();
+
+    composition.sessionStore.save({
+      id: 'restricted-session',
+      cwd,
+      createdAt: '2026-08-22T00:00:00.000Z',
+      updatedAt: '2026-08-22T00:00:00.000Z',
+      messages: [],
+    });
+    expect(readdirSync(join(userHome, '.robota', 'sessions')).length).toBeGreaterThan(0);
   });
 
   // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.

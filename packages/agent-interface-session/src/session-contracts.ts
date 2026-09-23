@@ -6,6 +6,7 @@
  * session-store implementation live in agent-framework and import these declarations.
  */
 
+import type { ISessionLoopState } from './session-loop-contracts.js';
 import type {
   IMemoryEvent,
   IMemoryReference,
@@ -146,6 +147,7 @@ export interface IInteractiveSessionRecord {
   backgroundTaskEvents?: TBackgroundTaskEvent[];
   backgroundJobGroups?: IBackgroundJobGroupState[];
   backgroundJobGroupEvents?: TBackgroundJobGroupEvent[];
+  sessionLoops?: ISessionLoopState[];
   skillActivationEvents?: ISkillActivationEvent[];
   memoryEvents?: IMemoryEvent[];
   usedMemoryReferences?: IMemoryReference[];

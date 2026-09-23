@@ -106,6 +106,7 @@ export class SessionBackgroundTaskTracker {
     // sleeping event and persist its snapshot while this method is still iterating.
     for (const task of restoredTasks) {
       if (!isReArmableScheduledTask(task) || !task.schedule) continue;
+      if (task.metadata?.['sessionLoopSelfPaced'] === true) continue;
       const blocked = sessionLoopBlockReason(task, nowMs, this.sessionLoopsDisabled);
       if (!blocked) continue;
       blockedIds.add(task.id);
@@ -121,6 +122,7 @@ export class SessionBackgroundTaskTracker {
       // the restore reconciliation). A paused one is re-spawned then immediately paused again so a restart keeps
       // it paused (not silently running).
       if (!isReArmableScheduledTask(task) || !task.schedule) continue;
+      if (task.metadata?.['sessionLoopSelfPaced'] === true) continue;
       if (blockedIds.has(task.id)) continue;
       // A paused schedule carries no pending fire time, so the missed-wake note applies only to sleeping ones.
       let missedFireAt: number | undefined;

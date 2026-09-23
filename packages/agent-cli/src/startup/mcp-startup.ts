@@ -15,6 +15,7 @@ import {
   createNodeToolResultSpillStore,
   createNodeWorkspaceTrustStore,
 } from '@robota-sdk/agent-framework';
+import { userPaths } from '../product/user-paths.js';
 
 import { buildMcpClientTimeouts, createMcpClientComposition } from './mcp-client-composition.js';
 import { resolveMcpDefinitions } from './mcp-definition-sources.js';
@@ -102,7 +103,7 @@ export interface IMcpStartupComposition extends IMcpClientComposition {
 async function inspectRealWorkspaceTrust(
   identity: IWorkspaceIdentity,
 ): Promise<IMcpWorkspaceTrustSnapshot> {
-  return createNodeWorkspaceTrustStore().inspect(identity);
+  return createNodeWorkspaceTrustStore(userPaths().workspaceTrust).inspect(identity);
 }
 
 /**

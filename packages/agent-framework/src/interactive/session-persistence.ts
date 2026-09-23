@@ -7,7 +7,6 @@ import {
   isSafeSessionId as sessionIsSafeSessionId,
 } from '@robota-sdk/agent-session';
 
-import { userPaths } from '../paths.js';
 import { WorkspaceProjectSessionStore } from './workspace-session-store.js';
 
 // Session persistence contracts SSOT relocated to @robota-sdk/agent-interface-session (DATA-001).
@@ -71,25 +70,25 @@ export function createNodeHostSessionStore(
 }
 
 /**
- * SCREEN-1993: the user-level prompt-history file (`userPaths().history`), one object serving
+ * SCREEN-1993: the caller-selected prompt-history file, one object serving
  * both the session-side writer and the surface's newest-first source. SEC-020: the user root is
  * passed as OWNED, exactly as `createUserSessionStore` does, so it is tightened along with the file.
  */
-export function createUserPromptHistoryFile(): IPromptHistoryWriter & IPromptHistorySource {
-  const history = userPaths().history;
+export function createUserPromptHistoryFile(
+  history: string,
+): IPromptHistoryWriter & IPromptHistorySource {
   return new NodePromptHistoryFile(history, { ownedRoot: dirname(history) });
 }
 
 /**
- * User-level session store (`~/.robota/sessions`). Symmetric to {@link createProjectSessionStore};
+ * User-level session store at a caller-selected directory. Symmetric to {@link createProjectSessionStore};
  * there is no user-level replay-log directory, so it reads persisted records only.
  */
-export function createUserSessionStore(): IInteractiveSessionStore {
+export function createUserSessionStore(sessions: string): IInteractiveSessionStore {
   // SEC-020: the user store root is passed as OWNED, so it is tightened along with the sessions
-  // directory inside it. This is the composition that knows the layout — `userPaths()` is here —
-  // and it is the path the restricted-workspace fallback takes, where no other writer may ever run
+  // directory inside it. The caller owns the layout and supplies this path.
+  // This is the path the restricted-workspace fallback takes, where no other writer may ever run
   // to tighten the root on its behalf.
-  const sessions = userPaths().sessions;
   return new NodeSessionStore(sessions, dirname(sessions));
 }
 

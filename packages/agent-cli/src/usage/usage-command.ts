@@ -14,6 +14,7 @@ import type {
   IInteractiveSessionStore,
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
+import { userPaths } from '../product/user-paths.js';
 
 interface IUsageCommandDependencies {
   readonly userSessionStore: IInteractiveSessionStore;
@@ -147,7 +148,7 @@ function enumerateUsageSnapshot(dependencies: IUsageCommandDependencies): IEnume
 export function createPersonalUsageReporter(
   projectSessionStore?: IInteractiveSessionStore,
 ): (request: IPersonalUsageRequest) => IPersonalUsageReport {
-  const userSessionStore = createUserSessionStore();
+  const userSessionStore = createUserSessionStore(userPaths().sessions);
   return (request) =>
     createPersonalUsageReport(request, {
       userSessionStore,
@@ -158,7 +159,7 @@ export function createPersonalUsageReporter(
 export function createStoredSessionUsageReporter(
   projectSessionStore?: IInteractiveSessionStore,
 ): (sessionId: string) => ReturnType<typeof summarizeUsageBySource> {
-  const userSessionStore = createUserSessionStore();
+  const userSessionStore = createUserSessionStore(userPaths().sessions);
   return (sessionId) => {
     const projectOutcome = projectSessionStore?.load(sessionId);
     const outcome =
@@ -220,7 +221,7 @@ export function runUsageCommand(
   projectSessionStore?: IInteractiveSessionStore,
 ): number {
   const result = executeUsageCommand(argv, {
-    userSessionStore: createUserSessionStore(),
+    userSessionStore: createUserSessionStore(userPaths().sessions),
     ...(projectSessionStore ? { projectSessionStore } : {}),
   });
   if (result.stdout) process.stdout.write(result.stdout);

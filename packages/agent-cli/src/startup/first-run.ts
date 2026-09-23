@@ -4,9 +4,8 @@ import { dirname } from 'node:path';
 import stringWidth from 'string-width';
 
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
-import { userPaths } from '@robota-sdk/agent-framework';
-
 import { AGENT_CLI_BIN } from '../constants.js';
+import { userPaths } from '../product/user-paths.js';
 
 export function isFirstRun(markerPath: string = userPaths().onboarded): boolean {
   return !existsSync(markerPath);
