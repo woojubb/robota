@@ -608,8 +608,7 @@ The type is inert without the factory — no exported function accepts it, so no
 so it describes nothing a consumer can obtain.
 
 **The opt-out** remains a separate design concern for a reason worth recording: it would be a new public
-capability, and this repository's `option-reachability` scan refuses a declared option that no
-production code assigns — _"a capability nothing can turn on is not delivered"_. An option only an
+capability, and a declared option that no production code assigns would not deliver it. An option only an
 external consumer can set is, from inside this repository, unverifiable; delivering it means also
 deciding which internal surface exercises it. That is a design decision with consumer impact, not a
 correction to this change.
@@ -622,8 +621,6 @@ issue #2238, and it is what produced the original deny-all.
 **Outcome contract (SEC-015).** Both executors decode the model's `{ ok, reason }` answer through `decodeHookVerdict` from `agent-core` rather than casting it: `ok: true` → `allow`, `ok: false` → `deny`, and a non-boolean or missing `ok` → `error`/`malformed-response`. A provider or session failure is `error`/`transport-failure`. A custom executor supplied here must return a `THookOutcome`. A custom executor reaches THIS seam through `createSession`, which is INTERNAL — reachable from `src/assembly/index.ts` but not from the package root — so `additionalHookExecutors` has no public entry point. **Executor injection in general does still have public entry points, and this section does not enumerate them.** Four attempts to describe that surface here were each wrong in a new way: first claiming no public entry point existed, then naming a subset the next round showed was larger, then offering a re-derivation recipe that both over-filtered (dropping routes whose option interface is not itself root-exported) and under-collected (blind to an inherited declaration, missing a route through `IAgentToolDeps`). A fifth description is not what this section needs.
 
 What it asserts instead is the one property that survived all four rounds: **`buildHookTypeExecutors` has exactly one CALL SITE, in `createSession`**, so nothing else performs the seeding described above. (Every public session path still reaches that seeding through it — `InteractiveSession` constructs its session that way.) That is checkable in one command and does not decay into a list. It is deliberately NOT the claim that built-ins are absent elsewhere — `runHooks` resolves `executors ?? createDefaultExecutors()`, so a caller passing nothing still gets `command` and `http`, and `buildAgentRuntime` hands an already-seeded array to the in-process runner. The distinction is which code decides, not whether the built-ins can appear.
-
-**And the hold this section says was missing now exists.** The undocumented-runtime-export ratchet in `scripts/harness/spec-surface-baseline.json` was re-frozen from 150 to 149 when the factory was un-exported, so re-adding it to the package root fails `spec-public-surface`. That is what the 2026-07-24 premise never had: something mechanical that goes red rather than a sentence that quietly rots.
 
 Anyone needing the actual set of public injection routes should derive it against the built declaration files of every package root, not from this document and not from a grep of option declarations — the latter is what failed here. Whether that surface is itself a defect is triage for the seam's own root item, not a claim to resolve here. Both statements are about reachability, not safety; see the seeding paragraph above for why this section refuses to treat "unexported" as a boundary.
 
@@ -1469,7 +1466,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **State machine**: `transitionSelfHostingLoop()` enforces deterministic lifecycle transitions from `idle` through checkpoint/edit/verify success or failure recovery.
 - **Handoff model**: The current process remains the old runtime and keeps already-loaded modules. Verification commands run in child processes against the new on-disk tree.
 - **Boundaries**: The SDK planner does not implement file writing, checkpoint storage, CLI rendering, or provider behavior. Atomic write behavior belongs to `agent-tools`; checkpoint storage belongs to `agent-framework/checkpoints`; CLI/TUI only invokes SDK APIs and renders results.
-- **No repo-process defaults (NEUT-001)**: `baseRef` and `commandTemplates` (`ISelfHostingCommandTemplates`) are REQUIRED injected config. The library names no package manager, verification command, base ref, or CI gate; per-scope steps come from `commandTemplates.packageVerify` (`{scope}` placeholder) and the optional repo-wide gate from `commandTemplates.repoVerify` (`{baseRef}` placeholder). Robota's own templates live in the unpublished `scripts/harness/self-hosting-verification-commands.mjs`, and the in-package test `src/__tests__/repo-process-neutrality.test.ts` keeps repo-process literals out of the framework source.
+- **No repo-process defaults (NEUT-001)**: `baseRef` and `commandTemplates` (`ISelfHostingCommandTemplates`) are REQUIRED injected config. The library names no package manager, verification command, base ref, or CI gate; per-scope steps come from `commandTemplates.packageVerify` (`{scope}` placeholder) and the optional repo-wide gate from `commandTemplates.repoVerify` (`{baseRef}` placeholder). The in-package test `src/__tests__/repo-process-neutrality.test.ts` keeps repo-process literals out of the framework source.
 
 ### Web Search
 
@@ -1492,7 +1489,7 @@ agent-cli (Ink TUI — CLI-specific)
   only when the real working directory is the trusted root or one of its descendants. `createQuery()`
   applies the same initial cross-root refusal.
 
-  > **Contained — [ARCH-048](../../../.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
+  > **Contained — [ARCH-048 historical record](https://github.com/woojubb/robota/blob/harness-archive-2026-09/.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**
   > This boundary check keeps the current independent `cwd` and `projectAccess` inputs fail-closed.
   > ARCH-048 owns replacing those independent root carriers with one canonical binding contract.
 
@@ -1592,9 +1589,7 @@ with their safe field/line location before attempting correlation validation.
 
 ### Transparent Workflow Contract (SDK-Specific)
 
-The cross-cutting contract lives in
-[../../../.agents/specs/transparent-workflow.md](../../../.agents/specs/transparent-workflow.md). The SDK
-is the designated owner for reusable transparent workflow contracts and projections:
+The SDK is the designated owner for reusable transparent workflow contracts and projections:
 
 - any new action provenance types and execution eligibility helpers;
 - mapping runtime task states into the shared user-facing state vocabulary;
@@ -1614,9 +1609,7 @@ user-selected permission policy.
 
 ### User-Local Storage Foundation (SDK-Specific)
 
-The cross-cutting storage policy lives in
-[../../../.agents/specs/user-local-storage.md](../../../.agents/specs/user-local-storage.md). The SDK
-is the designated owner for baseline workflow storage root resolution, repo-outside validation,
+The SDK is the designated owner for baseline workflow storage root resolution, repo-outside validation,
 category contracts, and item inspection/removal projections.
 
 The former public `projectPaths(cwd)` helper is removed. Project settings, session logs/records,
@@ -1630,9 +1623,7 @@ category paths themselves.
 
 ### User-Local Memory Transparency (SDK-Specific)
 
-The baseline user-local memory contract lives in
-[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). The SDK
-is the designated owner for memory item projection shapes, display/navigation disclosure rules,
+The SDK is the designated owner for memory item projection shapes, display/navigation disclosure rules,
 inspection APIs, delete/disable APIs, and disabled-item non-use.
 
 User-local memory may influence display and navigation only. It must not execute shell/process
@@ -1645,9 +1636,7 @@ storage contract instead of project memory paths.
 
 ### Transparent Process Execution (SDK-Specific)
 
-The process execution contract lives in
-[../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md). The SDK
-is the designated owner for process execution request/status projections that sit above runtime
+The SDK is the designated owner for process execution request/status projections that sit above runtime
 process tasks:
 
 - action provenance attached to user-directed process execution;
@@ -1663,9 +1652,7 @@ assemble process semantics from raw child-process state.
 
 ### Repository Situational Awareness (SDK-Specific)
 
-Passive repository context display is specified in
-[../../../.agents/specs/repository-situational-awareness.md](../../../.agents/specs/repository-situational-awareness.md).
-The SDK is the designated owner for context item projections, provenance fields, and bounded read
+For passive repository context display, the SDK is the designated owner for context item projections, provenance fields, and bounded read
 contracts for cwd, repository root, branch, dirty summary, explicit context references, and active
 background workspace context.
 
@@ -1828,8 +1815,7 @@ Resolved provider fields:
 - **Ownership**: SDK owns memory stores, memory policy primitives, and command-facing memory APIs. `@robota-sdk/agent-command` owns command behavior. CLI only composes the module and renders command results/autocomplete metadata.
 - **Prompt composition boundary**: The system prompt may include the neutral `Project Memory` startup index and the `/memory` descriptor under `Built-in Commands`; it must not include extra hardcoded memory behavior instructions outside descriptor data.
 - **User-local memory boundary**: This project memory feature is not baseline user-local memory.
-  User-local display/navigation preferences are governed by
-  [../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md) and
+  User-local display/navigation preferences belong to the SDK user-local memory surface and
   must not be stored in `.robota/memory/`.
 
 ### User-Local Storage
@@ -1959,8 +1945,7 @@ import {
 } from '@robota-sdk/agent-framework';
 
 // NEUT-001: baseRef and commandTemplates are REQUIRED injected config — the library
-// ships no repo-specific defaults. Robota's own values live in the unpublished
-// `scripts/harness/self-hosting-verification-commands.mjs`.
+// ships no repo-specific defaults. A composition root supplies its own values.
 const plan = planSelfHostingVerification({
   changedFiles: ['packages/agent-framework/src/index.ts'],
   packageScopes: ['@robota-sdk/agent-framework'],
@@ -2890,9 +2875,7 @@ may render entries, keep ephemeral selection state, and invoke explicit controls
 infer lifecycle, retention, origin, unread/attention semantics, or control availability from raw
 events when this projection is available.
 
-The cross-client background work state contract is defined in
-[../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
-The current `IExecutionWorkspaceEntry` shape covers stable ids, entry kind, origin, status, labels,
+For cross-client background work state, the current `IExecutionWorkspaceEntry` shape covers stable ids, entry kind, origin, status, labels,
 preview, current action, attention, visibility, updated time, and advisory controls. Future fields
 such as started time, elapsed time, input-needed reason, terminal result, retention state, archive,
 and clear controls must be added to the SDK projection before CLI or transport surfaces render them.

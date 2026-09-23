@@ -96,5 +96,5 @@ enumerated in this static map; the factory package owns validation and persisten
 `IProviderDefinition[]`; media nodes receive an injected `IMediaProviderDefinition`. Definitions,
 not provider instances, are passed to nodes so credentials and model capability configuration are
 resolved at execution time. Concrete `agent-provider-*` SDK dependencies belong to a composition
-aggregator such as `agent-builtin-providers`, never to a DAG node package. The family-wide rule is
-mechanically enforced by `scripts/harness/scan-composition-neutrality.mjs`.
+aggregator such as `agent-builtin-providers`, never to a DAG node package. Keep concrete provider SDK
+dependencies at the composition layer.

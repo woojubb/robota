@@ -140,9 +140,7 @@ export interface ISessionPeerMessagingPort {
 /**
  * Is this delivery state terminal — is there nothing further to wait for?
  *
- * A type PREDICATE, not a boolean helper, and the difference is enforced: `scan-interface-runtime`
- * lets a contract package publish its vocabulary and its discriminators and nothing else, and a
- * function returning bare `boolean` is a mechanism by that rule. Narrowing is also what a caller
+ * A type PREDICATE, not a boolean helper: narrowing lets a caller
  * actually wants — after this returns true the state is provably not `pending`.
  */
 export function isTerminalPeerDelivery(

@@ -3,8 +3,7 @@
  *
  * Red-first floor: no framework source file may embed Robota repo-process literals
  * (`pnpm harness:verify`, `origin/develop`, `pnpm --filter`). The repo-specific
- * command templates live in the unpublished `scripts/harness/` tier and are injected
- * by the composition root.
+ * a composition root injects its own command templates.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';

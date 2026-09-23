@@ -3,10 +3,7 @@
 ## Package Identity
 
 - **npm name**: `@robota-sdk/agent-interface-command`
-- **Layer**: Layer 0 — the dependency set that places it there is declared in this package's manifest
-  and enforced by `check-dependency-direction.mjs`; not restated here. The layer itself is declared in
-  [`.agents/specs/contract-family-owner-map.md`](../../../.agents/specs/contract-family-owner-map.md)
-  and enforced by `scripts/harness/interface-layers.mjs` (ARCH-101).
+- **Dependency position**: Layer 0. The package manifest declares only `@robota-sdk/agent-core`.
 - **SDK**: (none — contract declarations only)
 - **Platform**: node
 
@@ -78,8 +75,7 @@ variant carries only a style id; prompt instructions remain in the host-owned re
 | `IThemeAppearanceState`    | type | The persisted appearance plus the pin on reduced motion, if any — the tier AND what it pinned, as one value, because the tier alone cannot say which way a run went |
 | `TReducedMotionOverride`   | type | `flag` \| `environment` \| `screen-reader`                                                                                                                          |
 
-**No runtime value is exported.** `scan-interface-runtime` refuses anything beyond a contract's
-vocabulary and its discriminators, and this package needs neither.
+**No runtime value is exported.** This package needs only type contracts, with no vocabulary or discriminators at runtime.
 
 ## Extension Points
 
@@ -110,9 +106,9 @@ is that it compiles, which `pnpm typecheck` makes on every run. Its contracts ar
 **The command/session boundary test stays in `agent-interface-transport`.**
 `command-action-split-contracts.test.ts` asserts that a command action and a session event remain
 distinct, so it names types from both sides. Moving it here would make this package's test suite
-depend on the transport package — an **upward** edge under ARCH-101, which the layer rule forbids —
+depend on the transport package — an **upward** dependency for this Layer 0 package —
 so it lives on the side that can see both and imports command types from here.
 
 ## Class Contract Registry
 
-None. This package declares no class, and `scan-interface-runtime` refuses one.
+None. This package declares no class.

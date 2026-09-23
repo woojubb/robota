@@ -85,24 +85,8 @@ export async function runPreToolHook(
   // caught it. What the indirection does buy is that flipping `PreToolUse` to advisory in the table
   // turns this gate off.
   //
-  // And be exact about the scan, because the earlier wording here was too generous. Measured: with
-  // this entire block deleted and the `hookResult.blocked` branch above left in place,
-  // `scan-hook-enforcement-reachable.mjs` still passes. Its arm 3 asks whether SOME fire site awaits
-  // `runHooks` and reads `.blocked` — which guards the older SELFHOST-009 denial path, not the
-  // `errors` / `unknownHookTypes` gate SEC-016 adds. This gate is held by the unit tests in
-  // `__tests__/tool-hook-helpers.test.ts`, which are red-proved against its removal — not by the
-  // scan.
-  //
-  // What the scan DOES catch, each measured rather than assumed: deleting the `.blocked` read above
-  // fires `[inert-enforcing-row]`; flipping BOTH `posture` and `enforcementReachable` fires
-  // `[stale-reachability]` — and, measured, `[no-enforcing-rows]` alongside it, because
-  // `PreToolUse` is currently the only enforcing row. Flipping only `posture` fires `[no-enforcing-rows]` instead — and note
-  // that arm only holds while `PreToolUse` is the sole enforcing row, so a second enforcing event
-  // would make the same disarming edit silent (issue #2259).
-  //
-  // The first of those was FALSE until the scan learned to blank comments before matching. It
-  // matched raw source, so this very comment's mention of `hookResult.blocked` vouched for the
-  // branch after the branch was deleted — prose holding up the guard it describes.
+  // The `errors` / `unknownHookTypes` gate is covered by
+  // `__tests__/tool-hook-helpers.test.ts`, which fails if this handling is removed.
   //
   // The check stays HERE rather than inside `runHooks`, because the runner reports outcomes and must
   // not decide policy — the same split issue #2083 established between the decoder and the runner.

@@ -990,8 +990,7 @@ The permission module (`src/permissions/`) provides a deterministic, four-step p
    in this package. A hardcoded matrix could not know a product's tool inventory and had drifted from
    it — `Agent`, `BackgroundProcess`, `CodebaseRetrieval` and `ExecuteCommand` were all produced in
    the workspace and unknown to it, so a read-only retrieval tool prompted on every call and was
-   refused in plan mode. `scripts/harness/scan-tool-classification.mjs` fails a produced tool that
-   declares nothing.
+   refused in plan mode. New produced tools must declare their capability metadata.
 
 ### Permission Modes
 
@@ -1027,11 +1026,15 @@ The hook module (`src/hooks/`) provides a pluggable lifecycle hook mechanism. Ho
 
 That asymmetry is not a preference. Measured across the tree, `PreToolUse` is the only event whose fire site awaits `runHooks` and consults `blocked` — seven events fire `void`, five are called without `await`, and three await a result they never inspect. So each row also records `enforcementReachable`: whether its fire site _can_ honour an enforcing posture. Without it the table would assert postures for events that cannot act on them, and flipping such a row would change nothing while reading as though a gate had been switched on.
 
-Two independent checks keep the two fields honest: `assertPolicyCoherent` rejects a row claiming `enforcing` with `enforcementReachable: false`, and `scripts/harness/scan-hook-enforcement-reachable.mjs` rejects a row whose fire site does not in fact await and read `blocked`. Neither is the only thing standing between them.
+`assertPolicyCoherent` rejects a row claiming `enforcing` with `enforcementReachable: false`.
+Fire-site reachability must be checked against the caller when that policy changes.
 
 `isEnforcing` is the only member on the package root. `HOOK_ENFORCEMENT_POLICY`, `assertPolicyCoherent` and the two policy types are exported from `hooks/index.ts`.
 
-**A consumer asking "does this event enforce?" calls `isEnforcing` — it does not re-derive the predicate, and it does not need the table to answer that question.** Stated here rather than left to be discovered, because of how tight the budget is: `packages/agent-core/src/index.ts` sits at 312 lines against a frozen size baseline of 313, and `spec-public-surface` separately ratchets undocumented root exports. SEC-016 publishes ONE name for this reason — an attempt to publish two split the export across seven lines under the formatter and blew the size baseline by six, which is how the constraint was measured rather than assumed. A predicate re-derived at a second site is also a second thing that can disagree with the table, which is what `scan-hook-enforcement-reachable.mjs` exists to prevent — re-deriving it would put the drift back one layer out of that scan's reach.
+**A consumer asking "does this event enforce?" calls `isEnforcing` — it does not re-derive the
+predicate, and it does not need the table to answer that question.** SEC-016 publishes one root
+predicate so consumers do not re-derive enforcement posture from the table. A second predicate could
+disagree with it.
 
 ### Hook Events
 

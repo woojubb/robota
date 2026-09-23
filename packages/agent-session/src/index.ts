@@ -109,8 +109,7 @@ export type { ICheckpointNode } from './checkpoint-tree.js';
 
 // TRANS-005 (issue #2081): the total runtime decoder for a PERSISTED session record. It lives here,
 // beside the store and artifact paths that will consume it, rather than with the contract it decodes:
-// an `agent-interface-*` package publishes contracts, vocabulary and discriminators — not mechanisms
-// (`scan-interface-runtime`), and a decoder is a mechanism.
+// the interface package owns the record shape, while this package owns the decoding mechanism.
 export {
   INTERACTIVE_SESSION_RECORD_KEYS,
   SESSION_RECORD_ENVELOPE_VERSION,

@@ -3,10 +3,7 @@
 ## Package Identity
 
 - **npm name**: `@robota-sdk/agent-interface-analytics`
-- **Layer**: Layer 0 — the dependency set that places it there is declared in this package's manifest
-  and enforced by `check-dependency-direction.mjs`; not restated here. The layer itself is declared in
-  [`.agents/specs/contract-family-owner-map.md`](../../../.agents/specs/contract-family-owner-map.md)
-  and enforced by `scripts/harness/interface-layers.mjs` (ARCH-101).
+- **Dependency position**: Layer 0. The package manifest declares no workspace dependencies.
 - **SDK**: (none — contract declarations only)
 - **Platform**: node
 
@@ -43,8 +40,7 @@ Composition runs downward into it. `agent-interface-session`'s `turn-contracts` 
 `IUsageSnapshot` for `ITurnHandle.usage`; this package names no session, turn or transport type.
 
 **This family was not a file.** Its seven declarations lived inside `session-contracts.ts` in the
-transport package, which is why the owner map records it as `symbols@session-contracts` and why
-ARCH-105 was a split rather than a move.
+transport package, so ARCH-105 split declarations rather than moving a whole file.
 
 ## Type Ownership
 
@@ -84,8 +80,7 @@ ARCH-105 was a split rather than a move.
 | `IPersonalUsageCoverage`  | type | incomplete/legacy/duplicate coverage diagnostics   |
 | `IPersonalUsageReport`    | type | versioned provider-neutral personal usage report   |
 
-**No runtime value is exported.** `scan-interface-runtime` refuses anything beyond a contract's
-vocabulary and its discriminators, and this package needs neither.
+**No runtime value is exported.** This package needs only type contracts, with no vocabulary or discriminators at runtime.
 
 ## Extension Points
 
@@ -114,4 +109,4 @@ it).
 
 ## Class Contract Registry
 
-None. This package declares no class, and `scan-interface-runtime` refuses one.
+None. This package declares no class.

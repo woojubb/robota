@@ -9,8 +9,6 @@ Package-owned offline verification scenario for `@robota-sdk/agent-session`.
   `pnpm scenario:record`.
 - `verify-session-record-field-preservation.ts`: ARCH-015 public-SDK scenario proving a raw
   `Session` re-save preserves resumable fields owned by other writers while refreshing its own fields.
-- `scenarios/offline-verify.record.json`: Recorded authoritative output consumed by
-  `scripts/harness/verify-change.mjs` and `scripts/harness/collect-run-context.mjs`.
+- `scenarios/offline-verify.record.json`: Recorded output for this package-owned offline scenario.
 
-Embedding/demo examples live at the repository-root `examples/` layout (the layout SSOT — see
-`.agents/project-structure.md`).
+Embedding/demo examples live in the repository-root `examples/` directory.

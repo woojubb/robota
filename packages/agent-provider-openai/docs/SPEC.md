@@ -9,7 +9,7 @@ Users who need a provider not included here can implement `IAIProvider` from `@r
 ## Package Identity
 
 - **npm name**: `@robota-sdk/agent-provider-openai`
-- **Layer**: Layer 1 — the dependency set that places it there is declared in this package\'s manifest and enforced by `check-dependency-direction.mjs`; not restated here
+- **Layer**: Layer 1 — see the package manifest for its dependencies
 - **SDK**: `openai`
 - **Platform**: node
 

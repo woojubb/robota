@@ -259,8 +259,6 @@ transitions, queueing, cancellation, and runner behavior must not depend on thos
 
 ## Transparent Workflow Relationship
 
-The cross-cutting transparent workflow contract is defined in
-[../../../.agents/specs/transparent-workflow.md](../../../.agents/specs/transparent-workflow.md).
 `agent-executor` owns the mechanical background task lifecycle state machine and transition
 validation for agent/process work. It does not own command authorization provenance, user-local
 preference semantics, memory inspection, or TUI disclosure policy.
@@ -273,24 +271,18 @@ restarts execution. Runtime `close()` remains the mechanical terminal-record dis
 
 ## User-Local Storage Relationship
 
-Baseline workflow storage policy is defined in
-[../../../.agents/specs/user-local-storage.md](../../../.agents/specs/user-local-storage.md).
 `agent-executor` does not resolve storage roots, validate repository boundaries, or persist baseline
 workflow state. It may expose session-local task ids, metadata, events, and state snapshots; SDK
 storage contracts decide whether and how higher layers persist those associations.
 
 ## User-Local Memory Relationship
 
-Inspectable user-local memory behavior is specified in
-[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md).
 `agent-executor` may expose task ids, group ids, lifecycle state, and metadata that SDK projections
 use for user-local associations. Runtime must not read or write user-local memory, project memory,
 or command-history preferences, and remembered values must not influence runtime command execution.
 
 ## Process Execution Relationship
 
-Transparent process execution is specified in
-[../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md).
 `agent-executor` owns generic process task lifecycle, stdout/stderr log paging contracts, timeout,
 cancellation, send/read controls, exit code, signal code, and state transitions. Runtime does not
 own command selection, command meaning, environment-summary presentation, action provenance, or
@@ -298,8 +290,6 @@ correctness interpretation.
 
 ## Background Work State Relationship
 
-Switchable background work state is specified in
-[../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
 `agent-executor` owns mechanical task lifecycle, events, cancellation, wait, send, close, and log
 read operations. It does not own selected workspace entry state, filled/empty UI indicators,
 presentation grouping, archive visibility, or TUI detail rendering.

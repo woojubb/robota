@@ -1,11 +1,10 @@
 /**
  * @robota-sdk/agent-interface-analytics — usage and run-trace contracts.
  *
- * Extracted from `agent-interface-transport`'s `session-contracts.ts` by ARCH-105 (issue #2112) under
- * the owner map in `.agents/specs/contract-family-owner-map.md`.
+ * Extracted from `agent-interface-transport`'s `session-contracts.ts` by ARCH-105 (issue #2112).
  *
  * This family was declared INSIDE another module rather than as a file of its own, which is why the
- * owner map records it as `symbols@session-contracts` and why this leaf is a split rather than a move.
+ * extraction split declarations rather than moving a whole file.
  *
  * LAYER 0, with an EMPTY dependency set — every field below is a primitive or another declaration in
  * this file, so the package needs nothing, not even `agent-core`. Consumers compose it downward.

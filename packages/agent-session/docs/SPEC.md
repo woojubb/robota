@@ -4,9 +4,9 @@
 
 Owns the CLI session lifecycle for the Robota SDK. This package provides the `Session` class that wraps a `Robota` agent instance with permission-gated tool execution, hook-based lifecycle events, context window tracking, conversation compaction, and optional persistence through `IInteractiveSessionStore`. `NodeSessionStore` is the explicitly named host-filesystem adapter. The package is the primary runtime used by the CLI application (`agent-cli`) via the assembly layer (`agent-framework`). It also owns the **runtime codec for the
 persisted session record** (TRANS-005): the record's TYPE is owned by
-`@robota-sdk/agent-interface-transport`, but a decoder is a mechanism, and an `agent-interface-*`
-package publishes contracts, vocabulary and discriminators rather than mechanisms
-(`scan-interface-runtime`). The codec therefore lives beside the persistence paths that consume it.
+`@robota-sdk/agent-interface-session`, but a decoder is a mechanism, and an `agent-interface-*`
+package publishes contracts, vocabulary and discriminators rather than mechanisms. The codec
+therefore lives beside the persistence paths that consume it.
 
 ## Boundaries
 
@@ -21,7 +21,7 @@ package publishes contracts, vocabulary and discriminators rather than mechanism
 - Does not own the permission evaluation algorithm or hook execution engine. Those belong to `@robota-sdk/agent-core` (`evaluatePermission`, `runHooks`).
 - **Owns the file-persistence primitive, not the record or port shape.** `NodeSessionStore` owns atomic
   JSON file persistence and directly implements `IInteractiveSessionStore`; both that port and
-  `IInteractiveSessionRecord` are owned by `@robota-sdk/agent-interface-transport` (DATA-001 SSOT). It also owns the record's runtime DECODER (TRANS-005) — the shape is
+  `IInteractiveSessionRecord` are owned by `@robota-sdk/agent-interface-session` (DATA-001 SSOT). It also owns the record's runtime DECODER (TRANS-005) — the shape is
   declared there, and the mechanism that validates a value against it lives here.
   The former local `ISessionRecord` and `ISessionStore` declarations were removed because they drifted
   from the canonical contract. Public compatibility names are renamed re-exports only. The store remains
@@ -154,8 +154,8 @@ Types consumed from other packages (not owned here):
 | `TRUST_TO_MODE`                          | `@robota-sdk/agent-core`                                         |
 | `TUniversalMessage`                      | `@robota-sdk/agent-core`                                         |
 | `IHistoryEntry`                          | `@robota-sdk/agent-core`                                         |
-| `IInteractiveSessionRecord`              | `@robota-sdk/agent-interface-transport`                          |
-| `IInteractiveSessionStore`               | `@robota-sdk/agent-interface-transport`                          |
+| `IInteractiveSessionRecord`              | `@robota-sdk/agent-interface-session`                            |
+| `IInteractiveSessionStore`               | `@robota-sdk/agent-interface-session`                            |
 | `TModelEffort` / `TModelEffortSelection` | `@robota-sdk/agent-core`                                         |
 | `ITerminalOutput`                        | `@robota-sdk/agent-core` (re-exported via `permission-types.ts`) |
 | `ISpinner`                               | `@robota-sdk/agent-core` (re-exported via `permission-types.ts`) |
@@ -205,8 +205,8 @@ Types consumed from other packages (not owned here):
 | ~~`IPermissionEnforcerOptions`~~            | Interface (internal) | Options for constructing `PermissionEnforcer` — **not exported** from `src/index.ts`. Internal to the package.                                                                                                                                                          |
 | `ISessionLogger`                            | Interface            | Pluggable session event logger interface                                                                                                                                                                                                                                |
 | `TSessionLogData`                           | Type                 | Structured log event data                                                                                                                                                                                                                                               |
-| `IInteractiveSessionRecord`                 | Interface            | Canonical resumable-session record, re-exported from `agent-interface-transport`                                                                                                                                                                                        |
-| `IInteractiveSessionStore`                  | Interface            | Canonical persistence port, re-exported from `agent-interface-transport`                                                                                                                                                                                                |
+| `IInteractiveSessionRecord`                 | Interface            | Canonical resumable-session record, re-exported from `agent-interface-session`                                                                                                                                                                                          |
+| `IInteractiveSessionStore`                  | Interface            | Canonical persistence port, re-exported from `agent-interface-session`                                                                                                                                                                                                  |
 | `ISessionRecord`                            | Compatibility export | Renamed re-export of canonical `IInteractiveSessionRecord`; not used internally                                                                                                                                                                                         |
 | `ISessionStore`                             | Compatibility export | Renamed re-export of canonical `IInteractiveSessionStore`; not used internally                                                                                                                                                                                          |
 | `AUTO_COMPACT_THRESHOLD`                    | Constant             | Default auto-compact threshold fraction of the context window (exported from `context-window-tracker.ts`)                                                                                                                                                               |
@@ -310,9 +310,9 @@ The callback payload is provider-neutral `IContextWindowState`; provider-specifi
 
 ### Interactive Session Record Fields
 
-`IInteractiveSessionRecord` owns the field inventory in `agent-interface-transport`; this package
+`IInteractiveSessionRecord` owns the field inventory in `agent-interface-session`; this package
 consumes it directly. The compatibility `ISessionRecord` export is only a renamed re-export. The inventory is
-owned and documented by `@robota-sdk/agent-interface-transport` (`session-contracts.ts`, DATA-001)
+owned and documented by `@robota-sdk/agent-interface-session` (`session-contracts.ts`, DATA-001)
 and is intentionally NOT duplicated here. Store-relevant invariants:
 
 - The store decodes on load (TRANS-007). It persists `{ schemaVersion, record }` and returns a
@@ -323,16 +323,12 @@ and is intentionally NOT duplicated here. Store-relevant invariants:
   indistinguishable from an absent one, and a consumer that read the existing record to preserve
   fields it does not own then OVERWROTE the damaged file with a fresh one. A non-`valid` outcome is
   never treated as "no prior record" on a write path.
-- `load`/`list` return `JSON.parse(...) as IInteractiveSessionRecord` — an honest trust boundary with no
-  runtime validation (a hand-edited file is the caller's responsibility, unchanged from before).
 - `IHistoryEntry.timestamp` is `Date`-typed at compile time but round-trips through JSON as an ISO
   string; consumers of loaded records must not assume a live `Date` instance (pre-existing
   behavior, now visible in the type).
 
 Memory event and used-reference fields are audit/debug data, not baseline user-local preferences.
-Inspectable user-local memory is governed by
-[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). Session
-records must not become a command source or hidden preference store.
+Session records must not become a command source or hidden preference store.
 
 ### Session Data Migration
 
@@ -371,7 +367,7 @@ only its disposable fixture. Local verification never invokes the production def
 `IInteractiveSessionRecord` is persisted and transferred, so it needs a RUNTIME owner and not only a
 compile-time one. The TYPE is owned by `@robota-sdk/agent-interface-transport`; the DECODER is owned
 here, because an `agent-interface-*` package publishes contracts, vocabulary and discriminators and
-not mechanisms (`scan-interface-runtime`), and because every consumer that will route through it —
+not mechanisms, and because every consumer that will route through it —
 the store, the artifact envelope, the handoff commit and the replay path — is in this package or in
 `agent-framework`, which depends on it. `decodeInteractiveSessionRecord(value: unknown)` is that owner: it returns a record
 every member of which was checked, or the list of every place the value failed — not the first place.
@@ -494,7 +490,7 @@ any component fails closed; replacing a pathname after its component is open can
 descriptor. Growth during the read, or a host without the implemented stable no-follow facility, fails closed
 without returning bytes.
 
-> **Contained — [ARCH-049](../../../.agents/tasks/completed/ARCH-049-cross-platform-stable-external-payload-replay.md).**
+> **Contained — [ARCH-049 historical record](https://github.com/woojubb/robota/blob/harness-archive-2026-09/.agents/tasks/completed/ARCH-049-cross-platform-stable-external-payload-replay.md).**
 > The current stable external-payload reader is Linux-only, so public Node replay rejects externalized
 > payloads on macOS and Windows. ARCH-049 owns an equally strong stable-handle implementation for every
 > supported host; this containment must not be replaced with pathname validation followed by pathname I/O.

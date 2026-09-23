@@ -3,10 +3,7 @@
 ## Package Identity
 
 - **npm name**: `@robota-sdk/agent-interface-session-mobility`
-- **Layer**: Layer 2 — the dependency set that places it there is declared in this package's manifest
-  and enforced by `check-dependency-direction.mjs`; not restated here. The layer itself is declared in
-  [`.agents/specs/contract-family-owner-map.md`](../../../.agents/specs/contract-family-owner-map.md)
-  and enforced by `scripts/harness/interface-layers.mjs` (ARCH-101).
+- **Dependency position**: Layer 2. The package manifest declares `agent-core` and `agent-interface-session`.
 - **SDK**: (none — contract declarations only)
 - **Platform**: node
 
@@ -121,4 +118,4 @@ Its contracts are exercised by `agent-transport-webrtc` (browser peer), `agent-t
 
 ## Class Contract Registry
 
-None. This package declares no class, and `scan-interface-runtime` refuses one.
+None. This package declares no class.
