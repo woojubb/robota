@@ -1,4 +1,4 @@
-// Capability descriptor contracts — SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+// Capability descriptor contracts — SSOT relocated to @robota-sdk/agent-interface-command (DATA-001).
 export type {
   TCapabilityKind,
   TCapabilitySafety,

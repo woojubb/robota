@@ -16,7 +16,7 @@ import type {
 
 /**
  * ARCH-031: imported and re-exported here for INTRA-PACKAGE use only. The owner is
- * `agent-interface-transport`; this package's PUBLIC index does not re-export them, because a
+ * `agent-interface-execution`; this package's PUBLIC index does not re-export them, because a
  * pass-through re-export of another package's symbols is banned. Consumers import from the owner.
  */
 export type {

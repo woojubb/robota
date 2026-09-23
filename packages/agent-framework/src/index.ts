@@ -622,7 +622,7 @@ export type {
 // ── Subagent process manager contracts ─────────────────────
 export { createInProcessSubagentRunner } from './subagents/index.js';
 // ARCH-031 removed eleven type-only `agent-executor` republications. Import from the owner: the SPI
-// from `@robota-sdk/agent-executor`, data contracts from `@robota-sdk/agent-interface-transport`.
+// from `@robota-sdk/agent-executor`, data contracts from `@robota-sdk/agent-interface-execution`.
 export type { IInProcessSubagentRunnerDeps, TSubagentRunnerFactory } from './subagents/index.js';
 
 // ── Multi-agent orchestration mechanism (SELFHOST-001) ──────
@@ -713,7 +713,7 @@ export type {
   IContextReferenceUpsertResult,
 } from './context/context-reference-inventory.js';
 
-// ── Interaction channel contracts: SSOT is @robota-sdk/agent-interface-transport ─────
+// ── Interaction channel contracts: SSOT is @robota-sdk/agent-interface-session ─────
 // (HARNESS-022 / CONTRACT-013: the residual type-only pass-through re-exports were removed;
 // consumers import IInteractionChannel/InteractionEvent/ICommandInfo from the SSOT.)
 export { parseInput, isSlashCommand, tokeniseSlashCommand } from './interaction/input-parser.js';

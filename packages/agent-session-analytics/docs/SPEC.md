@@ -15,7 +15,7 @@ session lifecycle/persistence (`agent-session`) and from any CLI shell.
 - Operates on the canonical `IInteractiveSessionRecord` projection (`TSessionAnalysisInput`) and
   canonical `IHistoryEntry` — owns **no** duplicate session-record or history-entry type.
 - Depends only on contract/record owners (`@robota-sdk/agent-interface-analytics`,
-  `@robota-sdk/agent-interface-transport`) and `@robota-sdk/agent-core` for the history-entry
+  `@robota-sdk/agent-interface-session`) and `@robota-sdk/agent-core` for the history-entry
   contract. No dependency on `agent-session`, `agent-framework`, or any CLI package.
 - Persisted timestamps arrive as ISO strings at runtime (JSON has no `Date`); all timestamp math
   routes through `new Date(...)`, so both `string` and `Date` inputs are handled.
@@ -48,7 +48,7 @@ Types owned by this package (SSOT):
 | `IPersonalUsageSnapshot` | interface | `personal-usage.ts` | Immutable valid records plus explicit unreadable-record coverage   |
 
 Reused (not owned): `TSessionAnalysisInput` is `Pick<IInteractiveSessionRecord, 'id' | 'cwd' |
-'createdAt' | 'history'>` (agent-interface-transport SSOT); history entries are `IHistoryEntry`
+'createdAt' | 'history'>` (agent-interface-session SSOT); history entries are `IHistoryEntry`
 (agent-core SSOT). The trace/cost read-model — `IUsageBySourceReport`, `IUsageSourceTotals`,
 `IRunTraceSpan`, `IRunTraceTurn` (SELFHOST-004) — is a **boundary contract owned by
 `agent-interface-analytics`** (it crosses the sidecar boundary via a `TServerMessage` carrier);
@@ -107,7 +107,7 @@ loaded).
 ## Dependencies
 
 - `@robota-sdk/agent-interface-analytics` — usage observation and report contracts.
-- `@robota-sdk/agent-interface-transport` — `IInteractiveSessionRecord` (input projection SSOT).
+- `@robota-sdk/agent-interface-session` — `IInteractiveSessionRecord` (input projection SSOT).
 - `@robota-sdk/agent-core` — `IHistoryEntry` (history-entry SSOT).
 
 ## Consumption Posture (INFRA-025)

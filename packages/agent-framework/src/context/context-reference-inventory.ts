@@ -2,7 +2,7 @@ import type {
   IPromptFileReferenceRecord,
   TPromptFileReferenceReason,
 } from './prompt-file-reference-types.js';
-// Context-reference contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+// Context-reference contracts SSOT relocated to @robota-sdk/agent-interface-session (DATA-001).
 import type {
   IContextReferenceItem,
   TContextReferenceLoadType,

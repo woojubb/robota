@@ -48,7 +48,7 @@ export {
 // it passes.
 export type { ISubagentExecutionEnvelope } from './subagents/index.js';
 // ARCH-031: `ISubagentSpawnRequest` and `ISubagentJobResult` are NOT here. They are owned by
-// `@robota-sdk/agent-interface-transport` now, and re-publishing another package's symbols from this
+// `@robota-sdk/agent-interface-execution` now, and re-publishing another package's symbols from this
 // barrel is the pass-through re-export the repo bans. Only the runtime SPI is this package's to export.
 export type {
   IPreparedSubagentWorktree,
