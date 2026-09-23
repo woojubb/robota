@@ -9,11 +9,17 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, realpathSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { CommandRegistry, createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import {
+  CommandRegistry,
+  WorkspaceTrustService,
+  createRestrictedWorkspaceProjectAccess,
+} from '@robota-sdk/agent-framework';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { reloadPluginCommandSource } from '../default-plugin-command-source-loader.js';
 import { createTrustedWorkspaceProjectAccess } from '../../__tests__/helpers/trusted-workspace-project-access.js';
+
+import type { IWorkspaceTrustStoreSnapshot } from '@robota-sdk/agent-framework';
 
 const MARKET = 'test-market';
 
@@ -78,6 +84,44 @@ describe('issue #2487: project-scope plugin installs reach the reload path', () 
         await createTrustedWorkspaceProjectAccess(cwd),
       ),
     ).toBe(1);
+  });
+
+  it('does not accept trust granted to another workspace', async () => {
+    writePluginBundle(cwd, 'other-project', 'project scope');
+
+    expect(
+      reloadPluginCommandSource(
+        new CommandRegistry(),
+        cwd,
+        await createTrustedWorkspaceProjectAccess(home),
+      ),
+    ).toBe(0);
+  });
+
+  it('does not reload project plugins after the same trust authority is revoked', async () => {
+    writePluginBundle(cwd, 'revoked-project', 'project scope');
+    const identity = { repositoryKey: `test:${cwd}`, displayPath: cwd, worktreeRoot: cwd };
+    let snapshot: IWorkspaceTrustStoreSnapshot = {
+      state: 'trusted',
+      generation: 1,
+      grantedAt: '2026-08-22T00:00:00.000Z',
+    };
+    const service = new WorkspaceTrustService({
+      identityResolver: { resolve: () => identity },
+      store: {
+        inspect: async () => snapshot,
+        grant: async () => snapshot,
+        revoke: async () => {
+          snapshot = { state: 'revoked', generation: 2 };
+          return snapshot;
+        },
+      },
+    });
+    const access = await service.inspect(cwd);
+    expect(access.status).toBe('trusted');
+    await service.revoke(cwd);
+
+    expect(reloadPluginCommandSource(new CommandRegistry(), cwd, access)).toBe(0);
   });
 
   it('without cwd only the user scope is read — the former behaviour, now opt-in', () => {

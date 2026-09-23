@@ -843,8 +843,9 @@ already uses, for the same reason.
 `~/.robota/output-styles` is read through — home-only, because a theme is a preference of the person
 at the terminal rather than of the checkout. Plugin themes come from `<pluginDir>/themes` for each
 installed plugin, via the CLI-owned `src/plugins/default-plugin-command-source-loader.ts` scope helper.
-That helper includes the project scope only after workspace trust is granted; restricted startup
-reads user-installed plugins only. Ids are minted here from where the file was found (`custom:<slug>`,
+That helper includes the project scope only while a live workspace authority covers the current
+working directory; restricted, revoked, or cross-root startup reads user-installed plugins only.
+Ids are minted here from where the file was found (`custom:<slug>`,
 `custom:<plugin>:<slug>`), so no file can claim a built-in's id whatever it is called, and the first
 file to claim an id keeps it while a later claimant is skipped rather than silently replacing it.
 
@@ -1525,7 +1526,7 @@ A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). U
 
 #### `/plugin` — Plugin Management
 
-The `/plugin` command is owned by `@robota-sdk/agent-command`. The CLI supplies a local `ICommandPluginAdapter` that connects the command package and `PluginTUI` to `NodeHostPluginSettingsStore`, `BundlePluginLoader`, `BundlePluginInstaller`, and `MarketplaceClient`. Once workspace trust is granted, project plugin directories precede user directories; restricted reloads use user directories only. Each adapter reload takes a fresh enablement snapshot.
+The `/plugin` command is owned by `@robota-sdk/agent-command`. The CLI supplies a local `ICommandPluginAdapter` that connects the command package and `PluginTUI` to `NodeHostPluginSettingsStore`, `BundlePluginLoader`, `BundlePluginInstaller`, and `MarketplaceClient`. While a live workspace authority covers the current directory, project plugin directories precede user directories; restricted, revoked, and cross-root reloads use user directories only. Each adapter reload takes a fresh enablement snapshot.
 
 Subcommands:
 

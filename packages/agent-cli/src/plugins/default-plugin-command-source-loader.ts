@@ -1,7 +1,12 @@
+import { realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 
-import { loadHostBundlePluginsFromScopes, PluginCommandSource } from '@robota-sdk/agent-framework';
+import {
+  getWorkspaceProjectIdentity,
+  loadHostBundlePluginsFromScopes,
+  PluginCommandSource,
+} from '@robota-sdk/agent-framework';
 
 import type { CommandRegistry, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
@@ -31,9 +36,20 @@ export function pluginScopeDirs(
   projectAccess?: TWorkspaceProjectAccess,
 ): string[] {
   const user = pluginsDirUnder(userHome);
-  return cwd === undefined || projectAccess?.status !== 'trusted'
-    ? [user]
-    : [pluginsDirUnder(cwd), user];
+  if (cwd === undefined || projectAccess?.status !== 'trusted') return [user];
+  try {
+    // The status field alone is insufficient: a decision can be revoked or belong to another root.
+    const root = getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot;
+    const resolvedCwd = realpathSync(cwd);
+    const remainder = relative(root, resolvedCwd);
+    if (remainder === '..' || remainder.startsWith(`..${sep}`) || isAbsolute(remainder)) {
+      return [user];
+    }
+    return [pluginsDirUnder(resolvedCwd), user];
+  } catch {
+    // An invalid or expired authority cannot admit executable project plugin content.
+    return [user];
+  }
 }
 
 export function reloadPluginCommandSource(
