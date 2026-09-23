@@ -12,7 +12,6 @@ export const WORKSPACE_WIDE_BUILD_TOOLING_PATHS = [
   'pnpm-workspace.yaml',
   'scripts/artifacts/build-workspace.mjs',
   'scripts/build-agent-app-if-full.mjs',
-  'scripts/build-types-ordered.mjs',
   'tsconfig.base.json',
   'tsconfig.eslint.json',
   'tsconfig.json',
