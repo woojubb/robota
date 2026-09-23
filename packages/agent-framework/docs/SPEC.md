@@ -43,6 +43,9 @@ React/Ink UI.
   not assemble settings/project paths themselves — they go through host adapters or command-facing
   common APIs. User persistence and trust-store adapters require explicit host paths; these
   adapters do not select a product's user-local storage root.
+- **Agent definition discovery is host-directed.** The framework searches only the ordered relative
+  directories supplied by the host; absent roots mean no file discovery. Discovered definitions keep
+  precedence over injected and built-in definitions, without selecting a product's directory names.
 - **Command modules own product behavior.** SDK core ships no user-visible built-in commands; command
   packages (`agent-command-*`) contribute behavior through `ICommandModule`, consuming SDK command
   contracts and common APIs. The SDK does not know command ids in advance.

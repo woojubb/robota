@@ -47,7 +47,11 @@ export function buildAgentRuntime(
     const builtInTier = options.agentDefinitions
       ? [...options.agentDefinitions, ...BUILT_IN_AGENTS]
       : BUILT_IN_AGENTS;
-    const agentLoader = new AgentDefinitionLoader(options.contributionSources ?? [], builtInTier);
+    const agentLoader = new AgentDefinitionLoader(
+      options.contributionSources ?? [],
+      builtInTier,
+      options.agentDefinitionRoots ?? [],
+    );
     agentDefinitions = agentLoader.loadAll();
     agentToolDeps = {
       config: options.config,

@@ -17,6 +17,7 @@ import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.j
 import { loadRobotaExternalPresets, resolveShellPreset } from './startup/preset-selection.js';
 import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
+import { ROBOTA_AGENT_DEFINITION_ROOTS } from './product/robota-agent-roots.js';
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
 import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
@@ -569,6 +570,7 @@ async function runCliCore(
       },
       orgPolicy,
       providerErrorGuidance,
+      ROBOTA_AGENT_DEFINITION_ROOTS,
     );
     try {
       await printRun;
@@ -591,6 +593,7 @@ async function runCliCore(
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
+      agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
       ...toolOptions,
       ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
@@ -629,6 +632,7 @@ async function runCliCore(
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
+      agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
       ...toolOptions,
       ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
@@ -702,6 +706,7 @@ async function runCliCore(
     backgroundTaskRunners,
     subagentRunnerFactory,
     agentDefinitions,
+    agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
     ...toolOptions,
     commandModules,
     commandHostAdapters,

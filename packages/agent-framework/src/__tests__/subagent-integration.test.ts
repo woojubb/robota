@@ -338,7 +338,11 @@ You are a custom explore agent with special capabilities.`,
     );
 
     try {
-      const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(tmpDir));
+      const loader = new AgentDefinitionLoader(
+        createNodeHostContributionSourcesFixture(tmpDir),
+        BUILT_IN_AGENTS,
+        [join('.claude', 'agents')],
+      );
       const exploreAgent = loader.getAgent('Explore');
 
       expect(exploreAgent).toBeDefined();

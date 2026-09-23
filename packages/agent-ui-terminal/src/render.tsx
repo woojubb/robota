@@ -124,6 +124,7 @@ export interface IRenderOptions {
    * `assembleProduct` merged). Forwarded to the session's `agentDefinitions` seam; absent ⇒ unchanged.
    */
   agentDefinitions?: readonly IAgentDefinition[];
+  agentDefinitionRoots?: readonly string[];
   /**
    * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
    * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
@@ -247,6 +248,9 @@ export function toChannelOptions(
     subagentRunnerFactory: options.subagentRunnerFactory,
     ...(options.agentDefinitions !== undefined
       ? { agentDefinitions: options.agentDefinitions }
+      : {}),
+    ...(options.agentDefinitionRoots !== undefined
+      ? { agentDefinitionRoots: options.agentDefinitionRoots }
       : {}),
     ...(options.additionalTools !== undefined ? { additionalTools: options.additionalTools } : {}),
     ...(options.defaultTools !== undefined ? { defaultTools: options.defaultTools } : {}),

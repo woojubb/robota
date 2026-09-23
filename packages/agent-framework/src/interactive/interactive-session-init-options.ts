@@ -110,6 +110,7 @@ export interface IInitOptions {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** ARCH-005: composition-root-contributed subagent definitions (see the standard options). */
   agentDefinitions?: readonly IAgentDefinition[];
+  agentDefinitionRoots?: readonly string[];
   /** Optional command modules composed into this session. */
   commandModules?: readonly ICommandModule[];
   /** Model-visible command descriptors derived from the composed command executor. */

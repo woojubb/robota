@@ -170,6 +170,8 @@ export interface ICreateSessionOptions {
    * (unchanged behavior). Only consulted when the agent runtime is active.
    */
   agentDefinitions?: readonly IAgentDefinition[];
+  /** Ordered host-owned relative directories for discovered agent definitions. Absence disables discovery. */
+  agentDefinitionRoots?: readonly string[];
   /**
    * Preset execution capability: when true the assembly turns on `enableAgentRuntime`
    * so subagent/background dispatch is active for this session. Threaded from the

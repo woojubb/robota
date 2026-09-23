@@ -105,6 +105,8 @@ export interface IInteractiveSessionStandardOptions {
    * discovered project/user definitions > these > `BUILT_IN_AGENTS`. Absent ⇒ unchanged behavior.
    */
   agentDefinitions?: readonly IAgentDefinition[];
+  /** Ordered host-owned relative directories for discovered agent definitions. */
+  agentDefinitionRoots?: readonly string[];
   /** Optional command modules composed into this session. */
   commandModules?: readonly ICommandModule[];
   /** Host adapters available to composed command modules. */
