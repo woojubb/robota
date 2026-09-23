@@ -32,6 +32,8 @@ const USAGE_HELP = `Usage: robota usage [options]
 
 To export a content-free metric snapshot to a local OTLP collector:
   robota usage export --endpoint http://127.0.0.1:4318
+To export recorded prompt root traces to a local OTLP collector:
+  robota usage export --signal traces --endpoint http://127.0.0.1:4318
 
 Options:
   --period <7d|30d>       Calendar period including the current partial day (default: 7d)

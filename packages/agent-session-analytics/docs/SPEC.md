@@ -26,6 +26,11 @@ lifecycle/persistence (`agent-session`) and from any CLI shell.
   repeating an export must not claim new usage. Unknown cost and unknown token splits remain
   separately visible instead of becoming invented zero-priced usage. Network delivery belongs to
   the CLI, never to this pure package.
+- Explicit prompt-root trace projection reads only canonical observations carrying a complete,
+  valid root identity and first terminal-callback outcome. It cannot infer roots from legacy
+  summaries or tool events, and excludes duplicate or contradictory roots instead of choosing
+  one. It emits no content or session identity; the CLI owns loopback delivery and the user-visible
+  coverage counts. Root spans are not proof of final turn settlement or a distributed trace.
 
 ## Contract
 
