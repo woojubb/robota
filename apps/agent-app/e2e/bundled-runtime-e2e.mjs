@@ -149,13 +149,20 @@ try {
 
   // TC-02a: clean SIGTERM shutdown.
   const exited = await new Promise((res) => {
-    child.once('exit', (code, signal) => res({ code, signal }));
+    const timer = setTimeout(() => res({ timeout: true }), 8000);
+    child.once('exit', (code, signal) => {
+      clearTimeout(timer);
+      res({ code, signal });
+    });
     child.kill('SIGTERM');
-    setTimeout(() => res({ timeout: true }), 8000);
   });
+  const successfulShutdown =
+    process.platform === 'win32'
+      ? exited.code === 0 || (exited.code === null && exited.signal === 'SIGTERM')
+      : exited.code === 0 && exited.signal === null;
   check(
-    'TC-02a: SIGTERM shuts the bundled runtime down cleanly (no hang/SIGKILL)',
-    !exited.timeout && exited.signal !== 'SIGKILL',
+    'TC-02a: SIGTERM shuts the bundled runtime down cleanly',
+    !exited.timeout && successfulShutdown,
   );
 } finally {
   if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
