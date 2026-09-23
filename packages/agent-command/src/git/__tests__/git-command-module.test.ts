@@ -35,7 +35,7 @@ const providerSettingsAdapter: IProviderCommandSettingsAdapter = {
   readTargetSettings: () => ({}) as TProviderSettingsDocument,
   writeTargetSettings: () => undefined,
 };
-const BASE_OPTIONS = { cwd: '/tmp', providerDefinitions, providerSettingsAdapter } as const;
+const BASE_OPTIONS = { cwd: '/tmp', userLocalStorageRoot: '/tmp/robota-test', providerDefinitions, providerSettingsAdapter } as const;
 
 const STATUS_FIXTURE = '# branch.head main\0? scratch.log\0';
 

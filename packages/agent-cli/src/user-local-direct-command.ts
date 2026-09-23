@@ -1,6 +1,7 @@
 import { executeUserLocalDirectCommand } from '@robota-sdk/agent-command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 import type { IParsedCliArgs } from './utils/cli-args.js';
+import { userLocalStorageRoot } from './product/user-paths.js';
 
 export async function runUserLocalDirectCommandIfRequested(
   args: IParsedCliArgs,
@@ -13,6 +14,7 @@ export async function runUserLocalDirectCommandIfRequested(
 
   const result = await executeUserLocalDirectCommand({
     cwd,
+    storageRoot: userLocalStorageRoot(),
     argv: args.positional.slice(1),
     format: args.format,
     summary: args.summary,

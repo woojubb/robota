@@ -31,7 +31,7 @@ export function createUserLocalCommandEntry(): ICommand {
   };
 }
 
-function createUserLocalSystemCommand(): ISystemCommand {
+function createUserLocalSystemCommand(storageRoot: string): ISystemCommand {
   const entry = createUserLocalCommandEntry();
   return {
     name: entry.name,
@@ -43,7 +43,7 @@ function createUserLocalSystemCommand(): ISystemCommand {
     argumentHint: entry.argumentHint,
     safety: entry.safety,
     subcommands: entry.subcommands,
-    execute: executeUserLocalCommand,
+    execute: (context, rawArgs) => executeUserLocalCommand(context, rawArgs, storageRoot),
   };
 }
 
@@ -55,10 +55,10 @@ export class UserLocalCommandSource implements ICommandSource {
   }
 }
 
-export function createUserLocalCommandModule(): ICommandModule {
+export function createUserLocalCommandModule(storageRoot: string): ICommandModule {
   return {
     name: 'agent-command-user-local',
     commandSources: [new UserLocalCommandSource()],
-    systemCommands: [createUserLocalSystemCommand()],
+    systemCommands: [createUserLocalSystemCommand(storageRoot)],
   };
 }

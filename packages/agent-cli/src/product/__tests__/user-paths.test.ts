@@ -2,7 +2,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { userPaths } from '../user-paths.js';
+import { userLocalStorageRoot, userPaths } from '../user-paths.js';
 
 describe('Robota user paths', () => {
   it('keeps every user-owned runtime path under the selected home', () => {
@@ -18,5 +18,6 @@ describe('Robota user paths', () => {
       orgPolicy: join('/first-home', '.robota', 'org-policy.json'),
     });
     expect(second.sessions).toBe(join('/second-home', '.robota', 'sessions'));
+    expect(userLocalStorageRoot('/first-home')).toBe(join('/first-home', '.robota'));
   });
 });

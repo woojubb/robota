@@ -93,6 +93,7 @@ describe('default CLI command composition', () => {
 
     for (const module of createDefaultCommandModules({
       cwd: '/workspace',
+      userLocalStorageRoot: '/tmp/robota-test',
       providerDefinitions: [],
       providerSettingsAdapter: noopProviderSettingsAdapter,
     }).modules) {
@@ -232,6 +233,7 @@ describe('default CLI command composition', () => {
       permissionMode: 'default',
       commandModules: createDefaultCommandModules({
         cwd,
+        userLocalStorageRoot: join(cwd, '..', 'user-local'),
         providerDefinitions: [],
         providerSettingsAdapter: noopProviderSettingsAdapter,
       }).modules,
@@ -302,6 +304,7 @@ describe('default CLI command composition', () => {
       permissionMode: 'default',
       commandModules: createDefaultCommandModules({
         cwd,
+        userLocalStorageRoot: join(cwd, '..', 'user-local'),
         providerDefinitions: [],
         providerSettingsAdapter: createProviderSettingsAdapter(cwd),
       }).modules,

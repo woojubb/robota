@@ -10,7 +10,7 @@ export function userPaths(home: string = homedir()): {
   workspaceTrust: string;
   orgPolicy: string;
 } {
-  const base = join(home, '.robota');
+  const base = userLocalStorageRoot(home);
   return {
     settings: join(base, 'settings.json'),
     sessions: join(base, 'sessions'),
@@ -19,4 +19,9 @@ export function userPaths(home: string = homedir()): {
     workspaceTrust: join(base, 'workspace-trust.json'),
     orgPolicy: join(base, 'org-policy.json'),
   };
+}
+
+/** CLI-owned root for commands that persist user-local state. */
+export function userLocalStorageRoot(home: string = process.env.HOME ?? homedir()): string {
+  return join(home, '.robota');
 }
