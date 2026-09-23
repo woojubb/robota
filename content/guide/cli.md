@@ -325,6 +325,10 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 | `/provider`               | Manage provider profiles                            |
 | `/resume`                 | Resume a previous session                           |
 | `/background`             | List and control background tasks                   |
+| `/schedule`               | Schedule a later or recurring session wake         |
+| `/monitor`                | Wake on matching process output                    |
+| `/loop`                   | Repeat a prompt within this session                 |
+| `/goal`                   | Work toward an objective until done or bounded     |
 | `/agent`                  | Run and manage background subagent jobs             |
 | `/rename`                 | Rename the current session                          |
 | `/validate-session`       | Validate replay-grade session log data              |
@@ -338,6 +342,22 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 | `/reset`                  | Delete settings and exit                            |
 
 `/permissions` shows a nested submenu for permission mode selection.
+
+### Repeating work with `/loop`
+
+Use `/loop 5m check the build` for a fixed local-clock cadence, `/loop check the build` to let the
+agent choose its next delay (1–60 minutes), or bare `/loop` for bounded maintenance of the current
+work. `/loop 5m` uses the same maintenance prompt on a fixed cadence. `/loop list` shows active loop
+IDs and `/loop stop <id>` stops one; in the TUI, Esc also stops a waiting self-paced loop when it is
+the only one waiting. Loops expire after seven days and no more than three may be active per session.
+
+For an omitted prompt, a trusted project's `.robota/loop.md` takes precedence over
+`~/.robota/loop.md`; edits apply on the next iteration. An explicit prompt is not replaced by these
+files. The prompt file is limited to 4096 UTF-8 bytes and does not grant permissions.
+
+Prefer `/monitor` or another event notification for changes that can be pushed instead of polling.
+Use `/goal` when the task is to make continuous progress toward an objective, not to sample
+periodically. External-event session ingress is tracked separately and is not yet a `/loop` feature.
 
 `/provider` and `/provider list` show configured provider profiles. In the interactive TUI, selecting a profile opens provider actions for switch, edit, test, duplicate, delete, and cancel. `/provider switch <profile>` hot-swaps the provider immediately without restarting — conversation history is preserved. In print/headless mode, provider commands keep deterministic text output and do not wait for interactive prompts.
 
