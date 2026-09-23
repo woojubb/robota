@@ -41,6 +41,11 @@ import type {
 import type { IEventService, IAgentEventData } from '../interfaces/event-service';
 import type { IHistoryEntry } from '../interfaces/messages';
 import type { IAIProvider, IToolSchema } from '../interfaces/provider';
+import type {
+  IToolExecutionContext,
+  IToolExecutionResult,
+  TToolParameters,
+} from '../interfaces/tool';
 import type { AIProviders } from '../managers/ai-provider-manager';
 import type { Tools } from '../managers/tool-manager';
 import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
@@ -140,6 +145,37 @@ export class Robota
    */
   async ensureReady(): Promise<void> {
     await this.ensureFullyInitialized();
+  }
+
+  /** The live registered catalog, including tools deferred from model discovery. */
+  async listRuntimeTools(): Promise<IToolSchema[]> {
+    await this.ensureReady();
+    return this.tools.getTools();
+  }
+
+  /** Explicit tool invocation through the same executor used by model turns. */
+  async invokeRuntimeTool(
+    name: string,
+    parameters: TToolParameters,
+    context: IToolExecutionContext,
+  ): Promise<IToolExecutionResult> {
+    await this.ensureReady();
+    const ownerPath = [
+      ...buildOwnerPath(this.conversationId, this.config.executionContext),
+      { type: 'tool', id: context.executionId ?? name },
+    ];
+    return this.executionService.invokeRuntimeTool(name, parameters, {
+      ...context,
+      baseEventService: this.eventService,
+      eventService: bindWithOwnerPath(this.eventService, {
+        ownerPath,
+        ownerType: 'tool',
+        ownerId: context.executionId ?? name,
+      }),
+      ownerPath,
+      ownerType: 'tool',
+      ownerId: context.executionId,
+    });
   }
 
   /**

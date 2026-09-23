@@ -70,6 +70,7 @@ The package follows a modular structure with Session delegating to focused sub-c
 
 ```
 session-base.ts           -- SessionBase: abstract base holding shared session state and methods, incl. preset/model/parallel-subagent live state (getActivePresetId/setActivePresetId, getParallelSubagentsEnabled/setParallelSubagentsEnabled, applyModelOptions, getModelEffort, withScopedModelEffort)
+session-runtime-tools.ts  -- SessionRuntimeTools: direct tool execution sharing TurnClaim, cancellation linkage and graceful drain
 session.ts                -- Session class (extends SessionBase): orchestrates run loop, delegates to sub-components
 session-run.ts            -- Per-turn Session.run execution helper and replay-event forwarding
 session-tool-execution-bridge.ts -- Bridges unknown-tool replay events to onToolExecution display callbacks
@@ -167,6 +168,7 @@ Types consumed from other packages (not owned here):
 | `scrubSensitiveKeys`                        | Function             | SELFHOST-014: pure recursive redaction of values under sensitive keys (opt-in for a share `redact`; SSOT, also used by the logger)                                                                                                                                      |
 | `isSensitiveKey`                            | Function             | SELFHOST-014: the single predicate for a secret-bearing key                                                                                                                                                                                                             |
 | `SENSITIVE_KEY_PATTERN`                     | Constant             | SELFHOST-014: the sensitive-key regex SSOT                                                                                                                                                                                                                              |
+| `SessionRuntimeTools`                       | Class                | Owns direct invocation completion, shares the session TurnClaim, links caller cancellation, and drains before disposal                                                                                                                                                  |
 | `TurnClaim`                                 | Class                | RUNTIME-003: owns the identity of the turn a session is running — claim/release/abort/isRunning (see Turn Identity)                                                                                                                                                     |
 | `SessionBusyError`                          | Class                | RUNTIME-003: `run()` rejects with this when the session already has a turn in flight; `recoverable: true`                                                                                                                                                               |
 | `PermissionEnforcer`                        | Class                | Tool permission checking, hook execution, output truncation                                                                                                                                                                                                             |
@@ -853,3 +855,18 @@ standalone.
 
 - `@robota-sdk/agent-core` -- Robota agent, permission system, hook system, core types
 - `@robota-sdk/agent-interface-transport` -- SSOT for `ICompactEvent`/`TCompactTrigger` (imported/re-exported by `src/session-types.ts`)
+
+### Canonical direct runtime-tool execution (MCP-006)
+
+`Session.listRuntimeTools()` and `invokeRuntimeTool()` use the agent's live registered catalog and
+existing permission-wrapped tool execution. A direct call claims the same exclusive execution slot as
+`run`: overlapping direct calls or turns are refused with a visible busy outcome; direct calls are not
+queued. Cancellation keeps the claim until the underlying execution settles, and shutdown aborts and
+drains direct execution before destroying the agent. Calls after shutdown are refused.
+
+Direct remote tool calls cannot open an interactive permission prompt: an explicitly allowed policy
+may execute, while a decision requiring interaction fails closed. Hooks, truncation, tool events and
+session audit callbacks use the normal tool path. The returned execution envelope preserves success
+or failure; one failed call releases its claim and does not disable later calls.
+
+`Session.run` accepts an optional per-submission `signal`; it is linked to that turn’s owned controller before execution and detached on settlement, so cancellation cannot abort a later turn.

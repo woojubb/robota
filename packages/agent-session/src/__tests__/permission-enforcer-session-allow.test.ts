@@ -55,6 +55,17 @@ const BASH_ARGS: TToolArgs = { command: 'pnpm test' };
 // ---------------------------------------------------------------------------
 
 describe('PermissionEnforcer — permissionHandler session-allow', () => {
+  it('noninteractive calls preserve prior consent but never open a new approval prompt', async () => {
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue('allow-session');
+    const enforcer = makeEnforcer({ permissionHandler: handler });
+    expect(await enforcer.checkPermission('Bash', BASH_ARGS, undefined, 'deny')).toBe(false);
+    expect(handler).not.toHaveBeenCalled();
+    expect(await enforcer.checkPermission('Bash', BASH_ARGS)).toBe(true);
+    handler.mockClear();
+    expect(await enforcer.checkPermission('Bash', BASH_ARGS, undefined, 'deny')).toBe(true);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it('Given allow-session response When called once Then adds tool to session list', async () => {
     const handler = vi.fn<TPermissionHandler>().mockResolvedValue('allow-session');
     const enforcer = makeEnforcer({ permissionHandler: handler });

@@ -51,6 +51,7 @@ export function promptTurnAttribution(
 }
 
 export interface IPromptTurnContext {
+  signal?: AbortSignal;
   /**
    * SELFHOST-008 P3: an EPHEMERAL per-turn system block (rendered recalled memory) to include in THIS
    * turn's model call only — passed through to `session.run` and never persisted. Absent ⇒ no injection.
@@ -97,6 +98,7 @@ export async function executePromptTurn(
   const spanCollector = collectSpanEntries(ctx.getSession().getEventService());
 
   try {
+    ctx.signal?.throwIfAborted();
     const preparedPrompt = await preparePromptInput(
       input,
       ctx.getProjectAccess(),
@@ -114,6 +116,7 @@ export async function executePromptTurn(
     // SELFHOST-008 P3 / PEER-007: pass per-turn options only when present, preserving the 2-arg call
     // shape for the (dominant) plain path so existing run() call contracts are unchanged.
     const runOptions = {
+      ...(ctx.signal ? { signal: ctx.signal } : {}),
       ...(ctx.ephemeralSystemContext !== undefined
         ? { ephemeralSystemContext: ctx.ephemeralSystemContext }
         : {}),

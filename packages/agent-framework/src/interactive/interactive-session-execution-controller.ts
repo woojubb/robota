@@ -55,7 +55,7 @@ export type {
 } from './interactive-session-execution-contracts.js';
 
 export class SessionExecutionController {
-  private readonly executionClaim: InteractiveExecutionClaimOwner;
+  readonly executionClaim: InteractiveExecutionClaimOwner;
   streamingText = '';
   flushTimer: ReturnType<typeof setTimeout> | null = null;
   activeTools: IToolState[] = [];
@@ -264,6 +264,7 @@ export class SessionExecutionController {
       }
       await executePromptTurn(input, displayInput, rawInput, {
         ...promptTurnAttribution(ephemeralSystemContext, turnOptions.driverId),
+        ...(turnOptions.signal ? { signal: turnOptions.signal } : {}),
         getSession: () => this.callbacks.getSessionOrThrow(),
         getCwd: () => this.callbacks.getCwd(),
         getProjectAccess: () => this.callbacks.getProjectAccess(),

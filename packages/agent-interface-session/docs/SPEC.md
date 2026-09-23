@@ -50,7 +50,7 @@ symbols also redesign their composition.
 | Type                                                                                                                      | Location                              | Purpose                                                                                                                                                                                                                         |
 | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `IInteractiveSession`, `IInteractiveSessionEvents`                                                                        | `src/session-contracts.ts`            | the session surface and its event map                                                                                                                                                                                           |
-| the 16 `ISession*` capability slices                                                                                      | `src/session-capability-contracts.ts` | what a session exposes, one capability at a time                                                                                                                                                                                |
+| the 17 `ISession*` capability slices                                                                                      | `src/session-capability-contracts.ts` | what a session exposes, one capability at a time                                                                                                                                                                                |
 | `IInteractiveSessionRecord`, `IInteractiveSessionStore`                                                                   | `src/session-contracts.ts`            | the persisted session and its store port                                                                                                                                                                                        |
 | `IGoalState`, `IPlanStep`, `IPlanArtifact`, `IBranchEvent`                                                                | `src/session-contracts.ts`            | goal, plan and branch state carried on a session                                                                                                                                                                                |
 | `IInteractionChannel`, `InteractionEvent`, `IAgentDriver`                                                                 | `src/interaction-contracts.ts`        | the in-process channel port and its one-way event union                                                                                                                                                                         |
@@ -61,13 +61,14 @@ symbols also redesign their composition.
 | `IResumableSessionSummary`                                                                                                | `src/session-summary-contracts.ts`    | the resume-list projection                                                                                                                                                                                                      |
 | `IPromptHistoryEntry`, `IPromptHistoryWriter`, `IPromptHistorySource`, `IPromptHistoryBlock`, `IPromptHistoryReadOptions` | `src/prompt-history-contracts.ts`     | SCREEN-1993: the typed-prompt projection — one entry per user-originated turn (`at`, `sessionId`, `project`, `text`), the append port, and the newest-first streamed read port whose blocks count the lines they could not read |
 
-90 declarations. `src/index.ts` is the single entry point.
+`src/index.ts` is the single entry point.
 
 ## Public API Surface
 
 | Export                           | Kind     | Description                                                                             |
 | -------------------------------- | -------- | --------------------------------------------------------------------------------------- |
-| the 90 names above               | type     | contract declarations                                                                   |
+| the names above                  | type     | contract declarations                                                                   |
+| `ISessionRuntimeTools`           | type     | canonical list/invoke capability with abortable calls                                   |
 | `IPromptHistoryEntry`            | type     | SCREEN-1993: one typed prompt with `at`, `sessionId`, `project`, `text`                 |
 | `IPromptHistoryWriter`           | type     | SCREEN-1993: `append(entry)`; a failure is thrown to the caller, never swallowed        |
 | `IPromptHistorySource`           | type     | SCREEN-1993: `read({ signal })` — newest-first blocks, abort honoured between blocks    |
@@ -165,9 +166,9 @@ The second loses every co-drive attribution with no error, no log and nothing to
 the first. They are REQUIRED now: a host either provides the capability or does not claim this
 contract, so `null` from `getActiveDriverId()` means exactly one thing.
 
-The 39-member legacy interface remains an exported `interface` and extends 16 named role ports. Its
-member shape and declaration-merging behavior are unchanged, so existing full implementations remain
-source-compatible. `ISessionCapabilityHost` is the genuine interface that owns the canonical map;
+The aggregate interface remains an exported `interface` and extends 17 named role ports (41 members). Its
+declaration-merging behavior is preserved. Full implementations must now implement the runtime-tool
+role; consumers that need a subset continue using named ports. `ISessionCapabilityHost` is the genuine interface that owns the canonical map;
 `TSessionCapabilityHost` is the flattened selected-port intersection returned by the factory. New
 consumers depend on only the roles they use. Optional capability hosts use one
 typed `ISessionCapabilityMap`; `readSessionCapability(host, key)` returns `{ provided: false }` when a
@@ -176,8 +177,8 @@ role is absent and `{ provided: true, value }` when present. A present role may 
 absent role. Capability objects are local function-valued ports and are never serialized over a
 transport protocol.
 
-`SESSION_CAPABILITY_MEMBER_KEYS` is the runtime SSOT for flattening: its 16 rows are checked in exact
-`keyof` parity with all 39 role members. `createSessionCapabilityHost` forwards only those canonical
+`SESSION_CAPABILITY_MEMBER_KEYS` is the runtime SSOT for flattening: its 17 rows are checked in exact
+`keyof` parity with all 41 role members. `createSessionCapabilityHost` forwards only those canonical
 members from own or prototype implementations, binds methods to their original receiver, treats an
 explicit `undefined` role as absent in both runtime and type algebra, and rejects missing/duplicate or
 reserved members. The flattened host has a null prototype and a final non-overridable canonical
@@ -297,3 +298,11 @@ changes as families move.
 ## Class Contract Registry
 
 None. This package declares no class, and `scan-interface-runtime` refuses one.
+
+### Canonical runtime-tool capability (MCP-006)
+
+`ISessionRuntimeTools` owns asynchronous `listRuntimeTools()` and `invokeRuntimeTool(name, arguments,
+options?)`. Schemas use the existing `IToolSchema`; invocation returns `IToolExecutionResult` and accepts
+an optional `AbortSignal`. `IInteractiveSession` exposes this capability as `runtimeTools`.
+The session owns permission, hooks, execution/audit events, result admission, cancellation and
+shutdown. Transports may neither synthesize a parallel command catalog nor execute commands directly.

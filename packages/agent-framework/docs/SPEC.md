@@ -3312,3 +3312,17 @@ Headless runs are fully autonomous until a stop condition fires; interactive (TU
 | ------------------ | -------------------------------------------------------- | ------------------------------------------------------------------- |
 | **agent-tool-mcp** | Unconnected (no in-repo dependents; forward-provisioned) | Connect when MCP server is configured in InteractiveSession options |
 | **agent-plugin**   | Unconnected (no in-repo dependents; forward-provisioned) | Inject plugins during Session/Robota creation                       |
+
+### Canonical session tools for remote callers (MCP-006)
+
+`InteractiveSession` implements `ISessionRuntimeTools` over its initialized `Session`. The catalog
+contains ordinary runtime tools and model-invocable commands under their existing `robota_command_*`
+names. Direct calls and submitted turns do not overlap; a direct call while a turn is executing and
+a submission while a direct call is executing are visibly refused rather than silently queued. Normal
+submit-to-submit queue behavior remains unchanged. Admission reserves ownership before asynchronous
+initialization, so arriving submissions cannot be overtaken by direct calls. `ISubmitOptions.signal`
+cancels only its own turn: a queued entry is removed and its handle rejects with `TurnNotRunError`
+(`cancelled`); active execution receives the signal through preparation and Session.run, while other
+drivers remain queued. The listener is removed when that submission settles. Shutdown rejects new
+calls and drains the active direct execution through Session. MCP-specific identities and protocol
+errors belong to the transport.

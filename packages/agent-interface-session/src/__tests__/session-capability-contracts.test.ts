@@ -16,7 +16,7 @@ import { createTestSessionCapabilityHost } from '../testing/index.js';
 import { createSessionCapabilityHost, readSessionCapability } from '../testing/index.js';
 
 describe('session capability contracts (ARCH-012)', () => {
-  it('keeps the runtime role registry in exact 16-role and 39-member parity', () => {
+  it('keeps the runtime role registry in exact 17-role and 41-member parity', () => {
     type TRegistry = typeof SESSION_CAPABILITY_MEMBER_KEYS;
     type TExactRows = {
       [TKey in keyof ISessionCapabilityMap]:
@@ -36,6 +36,7 @@ describe('session capability contracts (ARCH-012)', () => {
       identity: true,
       workspaceLocation: true,
       commands: true,
+      runtimeTools: true,
       events: true,
       promptResolution: true,
       backgroundTasks: true,
@@ -44,8 +45,8 @@ describe('session capability contracts (ARCH-012)', () => {
       agentJobs: true,
     };
 
-    expect(Object.keys(exactRows)).toHaveLength(16);
-    expect(Object.values(SESSION_CAPABILITY_MEMBER_KEYS).flat()).toHaveLength(39);
+    expect(Object.keys(exactRows)).toHaveLength(17);
+    expect(Object.values(SESSION_CAPABILITY_MEMBER_KEYS).flat()).toHaveLength(41);
     expect(Object.isFrozen(SESSION_CAPABILITY_MEMBER_KEYS)).toBe(true);
     for (const keys of Object.values(SESSION_CAPABILITY_MEMBER_KEYS)) {
       expect(Object.isFrozen(keys)).toBe(true);
