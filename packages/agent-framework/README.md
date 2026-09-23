@@ -77,6 +77,10 @@ directory descriptors prevent parent renames or symlink swaps from redirecting w
 appends, or deletes. Hosts without equivalent stable handle semantics fail closed with
 `WorkspaceAuthorityRequiredError` instead of falling back to pathname mutation.
 
+Replay-only project recovery validates the versioned JSONL before reconstructing a session. Loads and
+listings report malformed logs as `corrupt` and unsupported versions as `unsupported`, rather than
+hiding them as missing sessions. Snapshot encoding is unchanged; unversioned legacy logs are not replayed.
+
 The maintained offline examples verify explicit persist→resume composition and the workspace
 authority boundary with no provider credentials:
 

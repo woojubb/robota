@@ -1,4 +1,5 @@
 import { isValidSessionLogExternalPayloadReference } from './external-payload-file-reader.js';
+import { decodeSessionLogEntries } from './session-log-codec/index.js';
 
 import type { ISessionLogEntry } from './session-log-replay.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
@@ -30,7 +31,7 @@ export function validateSessionReplayLogEntries(
   const providerEvents = createProviderReplayEventIndex();
   const toolEvents = createToolReplayEventIndex();
 
-  entries.forEach((entry, index) => {
+  decodeSessionLogEntries(entries).forEach((entry, index) => {
     collectPayloadReferenceIssues(entry, index, issues);
     collectUnresolvedReplayPayloadIssue(entry, index, issues);
     collectProviderReplayEvent(providerEvents, entry, index);

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
 import * as externalPayloadReferenceValidation from '../external-payload-file-reader.js';
@@ -14,9 +15,18 @@ describe('session log source contract', () => {
   });
 
   it('loads and hydrates through explicit neutral sources', () => {
+    const response = {
+      id: 'assistant-1',
+      role: 'assistant',
+      content: 'from source',
+      state: 'complete',
+      timestamp: '2026-08-22T00:00:00.000Z',
+    };
+    const bytes = Buffer.from(JSON.stringify(response));
+    const readBudgets: number[] = [];
     const externalPayloadSource: IExternalPayloadSource = {
       readBytes: (relativePath, maxBytes) => {
-        const bytes = Buffer.from(JSON.stringify({ role: 'assistant', content: 'from source' }));
+        readBudgets.push(maxBytes);
         return relativePath === 'payloads/answer.json' && bytes.byteLength <= maxBytes
           ? bytes
           : undefined;
@@ -25,21 +35,27 @@ describe('session log source contract', () => {
     const source: ISessionLogSource = {
       readText: () =>
         JSON.stringify({
+          schemaVersion: 1,
           timestamp: '2026-08-22T00:00:00.000Z',
           sessionId: 'source-contract',
           event: 'provider_response_normalized',
+          executionId: 'exec-1',
+          round: 1,
           response: {
             kind: 'external-payload',
             encoding: 'json',
-            sha256: 'ebff62f10232104a22efc341778c7526eaa5f3e708b0f6e8b48e02bf00e897e4',
-            byteLength: 44,
+            sha256: createHash('sha256').update(bytes).digest('hex'),
+            byteLength: bytes.byteLength,
             relativePath: 'payloads/answer.json',
           },
         }),
       externalPayloadSource,
     };
 
-    expect(loadSessionLogEntries(source)).toHaveLength(1);
+    const entries = loadSessionLogEntries(source, { maxTotalBytes: bytes.byteLength });
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.response).toMatchObject({ role: 'assistant', content: 'from source' });
+    expect(readBudgets).toEqual([bytes.byteLength]);
   });
 
   it('does not accept a bare file path as project authority', () => {

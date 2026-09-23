@@ -1,11 +1,9 @@
 /**
  * INFRA-017: typed contract for session-log event names + replay keys (SSOT).
  *
- * The `FileSessionLogger` writes JSONL lines `{ timestamp, sessionId, event, ...data }`. The event
- * names were previously implicit string literals scattered across the session/execution code. This
- * module names them once so the writer, the replay validator (`session-log-validation.ts`), and the
- * session-log replay provider (INFRA-017 / TEST-008) share one type-safe schema — without changing
- * what is written (it formalizes the existing format, it does not add a new one).
+ * `FileSessionLogger` owns the `{ schemaVersion, timestamp, sessionId, event }` JSONL envelope.
+ * This module owns its version and event vocabulary; `session-log-codec` validates each payload
+ * before replay or completeness checks.
  *
  * The **replay substrate** is the provider/tool execution layer, keyed deterministically:
  * a `provider_request` (executionId + round) is answered by its recorded
@@ -13,6 +11,9 @@
  * (executionId + toolCallId) by its `tool_execution_result`. `validateSessionReplayLogEntries`
  * proves a log carries all of these (i.e. is replay-complete).
  */
+
+/** Supported persisted session-log envelope version. */
+export const SESSION_LOG_SCHEMA_VERSION = 1;
 
 /** Canonical session-log event names. */
 export const SESSION_LOG_EVENT = {

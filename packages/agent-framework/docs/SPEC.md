@@ -1541,6 +1541,14 @@ agent-cli (Ink TUI — CLI-specific)
 - **attachTransport(transport)**: `attachTransport(transport: ITransportAdapter)` — attaches a transport adapter to this session. Calls `transport.attach(this)`. Used by consumers to compose transports consistently: `session.attachTransport(transport); await transport.start();`
 - **Testing**: Accepts an optional pre-built `Session` via `options.session` to enable unit testing without I/O setup
 
+Replay-only recovery consumes the session-owned versioned event codec before reconstruction.
+`WorkspaceProjectSessionStore.load()` and `list()` expose malformed JSONL as `corrupt` with located
+issues, and unsupported log versions as `unsupported`; they never turn discarded malformed messages
+into `missing` or omit a damaged replay-only session from a listing. Existing snapshot reads and writes
+remain unchanged. Sidecar integrity/containment failures retain their typed error identity rather than
+being misreported as schema corruption. The replay-validation command surfaces typed decode failures
+with their safe field/line location before attempting correlation validation.
+
 ### Command API Layer (SDK-Specific)
 
 - **Package**: `agent-framework/command-api/`
