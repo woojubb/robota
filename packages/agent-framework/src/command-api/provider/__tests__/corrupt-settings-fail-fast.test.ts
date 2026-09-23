@@ -18,6 +18,7 @@ import {
   createWorkspaceProjectSettingsSources,
 } from '../../../config/settings-source.js';
 import { createTrustedProjectAccessFixture } from '../../../testing/trusted-project-state-fixture.js';
+import { TEST_PROJECT_SETTINGS_PATHS } from '../../../testing/project-settings-path-fixture.js';
 import { getWorkspaceProjectReader } from '../../../workspace-trust/index.js';
 import { readMergedProviderSettingsFromSources } from '../provider-merge.js';
 import { readProviderSettings, ProviderConfigError } from '../provider-factory.js';
@@ -52,7 +53,10 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
     return [
       ...createDefaultUserSettingsSources(home),
-      ...createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(access.authority)),
+      ...createWorkspaceProjectSettingsSources(
+        getWorkspaceProjectReader(access.authority),
+        TEST_PROJECT_SETTINGS_PATHS,
+      ),
     ];
   }
 

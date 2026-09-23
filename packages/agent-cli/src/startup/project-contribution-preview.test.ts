@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { listFrameworkProjectContributionPaths } from '@robota-sdk/agent-framework';
 
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from '../product/robota-agent-roots.js';
+import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
 import { listProjectContributionPaths } from './project-contribution-preview.js';
 
 describe('agent definition source preview', () => {
@@ -23,6 +24,28 @@ describe('agent definition source preview', () => {
         label: 'Project agent definitions',
         relativePath,
         expectedKind: 'directory',
+      })),
+    );
+  });
+});
+
+describe('project settings source preview', () => {
+  it('lists the CLI settings layers that become readable after trust', () => {
+    const expectedPaths = [
+      join('.robota', 'settings.json'),
+      join('.robota', 'settings.local.json'),
+      join('.claude', 'settings.json'),
+      join('.claude', 'settings.local.json'),
+    ];
+    expect(ROBOTA_PROJECT_SETTINGS.map((path) => path.relativePath)).toEqual(expectedPaths);
+    expect(listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('settings:')))
+      .toEqual([]);
+    expect(listProjectContributionPaths('').filter((path) => path.id.startsWith('settings:'))).toEqual(
+      expectedPaths.map((relativePath) => ({
+        id: `settings:${relativePath}`,
+        label: 'Project settings and hooks',
+        relativePath,
+        expectedKind: 'file',
       })),
     );
   });

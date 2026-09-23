@@ -30,6 +30,7 @@ import type {
   ICommandModule,
   IRemoteCommandPolicy,
   IProviderErrorGuidance,
+  IProjectSettingsPath,
   IToolCallHandoffPolicy,
   TInteractiveSessionOptions,
   TWorkspaceProjectAccess,
@@ -52,6 +53,7 @@ export interface IServeModeOptions {
   providerErrorGuidance?: IProviderErrorGuidance;
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   projectAccess?: TWorkspaceProjectAccess;
+  projectSettingsPaths?: readonly IProjectSettingsPath[];
   /**
    * CLI-083 (issue #2287) — the org policy, forwarded so the session's `blockedCommands` and
    * `allowedProviders` enforcement is reachable in a served session. Declared on this projection
@@ -124,6 +126,9 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
       ? { providerErrorGuidance: opts.providerErrorGuidance }
       : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
+    ...(opts.projectSettingsPaths !== undefined
+      ? { projectSettingsPaths: opts.projectSettingsPaths }
+      : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     // CLI-076: forward the resolved model so `--model` takes effect in the served runtime session.
     ...(opts.model !== undefined ? { model: opts.model } : {}),

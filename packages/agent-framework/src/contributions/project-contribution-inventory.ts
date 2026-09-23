@@ -1,7 +1,6 @@
 import { isAbsolute, join, sep } from 'node:path';
 
 import { SKILL_ROOTS } from '../commands/skill-source.js';
-import { PROJECT_SETTINGS } from '../config/settings-source.js';
 import { AGENTS_FILENAME, CLAUDE_FILENAME } from '../context/context-loader.js';
 import { PROJECT_DETECTOR_PATHS } from '../context/project-detector.js';
 import { TASKS_DIR } from '../context/task-context.js';
@@ -48,12 +47,6 @@ export function listFrameworkProjectContributionPaths(
   cwdRelative: string,
 ): readonly IProjectContributionPath[] {
   return [
-    ...PROJECT_SETTINGS.map(({ relativePath }) => ({
-      id: `settings:${relativePath}`,
-      label: 'Project settings and hooks',
-      relativePath,
-      expectedKind: 'file' as const,
-    })),
     ...Object.values(PROJECT_DETECTOR_PATHS).map((relativePath) => ({
       id: `project-detection:${relativePath}`,
       label: 'Project detection metadata',

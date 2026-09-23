@@ -14,6 +14,7 @@ import type {
   IOutputStylePrompt,
   IOrgPolicy,
   IProviderErrorGuidance,
+  IProjectSettingsPath,
   ICommandModule,
   ICreateSessionOptions,
   EditCheckpointStore,
@@ -59,6 +60,7 @@ export interface ITuiInteractionChannelOptions {
   /** Resolved organization policy forwarded to the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
+  projectSettingsPaths?: readonly IProjectSettingsPath[];
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;
   /**

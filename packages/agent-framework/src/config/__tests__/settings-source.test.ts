@@ -10,6 +10,7 @@ import {
   readSettingsSourceText,
 } from '../settings-source.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import { TEST_PROJECT_SETTINGS_PATHS } from '../../testing/project-settings-path-fixture.js';
 import {
   WorkspaceAuthorityRequiredError,
   getWorkspaceProjectReader,
@@ -28,6 +29,26 @@ afterEach(() => {
 });
 
 describe('discriminated settings sources', () => {
+  it('loads only the project settings paths supplied by the host', async () => {
+    const root = tempRoot();
+    mkdirSync(join(root, '.custom'), { recursive: true });
+    mkdirSync(join(root, '.robota'), { recursive: true });
+    writeFileSync(join(root, '.custom', 'settings.json'), '{"custom":true}', 'utf8');
+    writeFileSync(join(root, '.robota', 'settings.json'), '{"robota":true}', 'utf8');
+    const access = await createTrustedProjectAccessFixture(root);
+    if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+    const reader = getWorkspaceProjectReader(access.authority);
+
+    expect(createWorkspaceProjectSettingsSources(reader, [])).toEqual([]);
+    const sources = createWorkspaceProjectSettingsSources(reader, [
+      { scope: 'project', relativePath: join('.custom', 'settings.json') },
+    ]);
+    expect(sources.map((source) => source.relativePath)).toEqual([
+      join('.custom', 'settings.json'),
+    ]);
+    expect(readSettingsSourceText(sources[0]!, 'test custom settings')).toBe('{"custom":true}');
+  });
+
   it('reads project layers only through a production-minted reader', async () => {
     const root = tempRoot();
     mkdirSync(join(root, '.robota'), { recursive: true });
@@ -37,6 +58,7 @@ describe('discriminated settings sources', () => {
 
     const sources = createWorkspaceProjectSettingsSources(
       getWorkspaceProjectReader(access.authority),
+      TEST_PROJECT_SETTINGS_PATHS,
     );
 
     expect(sources.map((source) => source.scope)).toEqual([

@@ -38,6 +38,9 @@ passing explicit values to the neutral preset resolver and loader. A second prod
 identity and preset root without inheriting Robota's defaults.
 The CLI also owns the ordered Robota/Agents/Claude-compatible agent-definition roots, passes them to
 print, serve, and terminal sessions, and lists those same project roots in the pre-trust preview.
+The CLI owns its ordered Robota and Claude-compatible project settings layers and passes them to
+trusted session construction and the pre-trust preview from one source; restricted sessions cannot
+gain a project settings reader by naming those paths.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.

@@ -43,6 +43,10 @@ React/Ink UI.
   not assemble settings/project paths themselves — they go through host adapters or command-facing
   common APIs. User persistence and trust-store adapters require explicit host paths; these
   adapters do not select a product's user-local storage root.
+- **Project settings locations belong to the host.** The framework binds ordered host-supplied
+  relative settings paths to the current trusted project reader; absent paths read no project
+  settings, and a restricted project cannot read them even when paths are supplied. The framework
+  does not select product directory names or advertise those paths in its own pre-trust inventory.
 - **Agent definition discovery is host-directed.** The framework searches only the ordered relative
   directories supplied by the host; absent roots mean no file discovery. Discovered definitions keep
   precedence over injected and built-in definitions, without selecting a product's directory names.
