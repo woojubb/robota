@@ -17,7 +17,22 @@ function readJson(relativePath) {
   return JSON.parse(readFileSync(path.join(ROOT, relativePath), 'utf8'));
 }
 
-describe('hook diagnostic migration inventory', () => {
+describe('hook registration inventory', () => {
+  it('keeps current registration facts without an abandoned future migration plan', () => {
+    const manifest = loadHookDiagnosticMigrationManifest(ROOT);
+    expect(manifest.version).toBe(2);
+    for (const [collection, recordKeys] of [
+      ['scanRegistrations', ['subject']],
+      ['preToolRegistrations', ['registration', 'subject']],
+      ['huskyVetoPaths', ['subject', 'vetoPath']],
+      ['requiredStatusContexts', ['statusContext', 'subject']],
+    ]) {
+      for (const record of manifest[collection]) {
+        expect(Object.keys(record).sort()).toEqual(recordKeys);
+      }
+    }
+  });
+
   it('declares every live scan, PreTool registration, Husky veto path, and required status context', () => {
     const manifest = loadHookDiagnosticMigrationManifest(ROOT);
     const settings = readJson('.claude/settings.json');
@@ -50,17 +65,18 @@ describe('hook diagnostic migration inventory', () => {
     );
   });
 
-  it('rejects a retained veto declaration that lacks its irreversible-risk evidence', () => {
+  it('rejects an obsolete migration disposition even when it has complete evidence', () => {
     const manifest = structuredClone(loadHookDiagnosticMigrationManifest(ROOT));
     manifest.huskyVetoPaths[0].disposition = {
       kind: 'retained',
       irreversibleRisk: 'fixture risk',
       redactionPolicy: 'fixture redaction',
       preDenialReportId: 'fixture.pre-denial',
+      independentVerification: 'fixture verification',
     };
 
     expect(() => validateHookDiagnosticMigrationManifest(manifest)).toThrow(
-      /independentVerification/,
+      /unsupported field disposition/,
     );
   });
 });

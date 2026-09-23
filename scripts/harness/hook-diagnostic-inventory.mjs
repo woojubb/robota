@@ -1,8 +1,8 @@
 /**
- * Checked-in inventory for the hook and Husky diagnostic migration.
+ * Checked-in inventory of current scan, hook, and required-status registrations.
  *
  * The manifest is deliberately data, not a scan registration: it describes the
- * migration surface without adding an exit-bearing command to SCAN_COMMANDS.
+ * registration surface without adding an exit-bearing command to SCAN_COMMANDS.
  */
 
 import { readFileSync } from 'node:fs';
@@ -55,60 +55,10 @@ function validateSubject(subject, name) {
   assertNonEmptyString(subject.value, `${name}.value`);
 }
 
-function validateDisposition(disposition, name) {
-  assertObject(disposition, name);
-  assertNonEmptyString(disposition.kind, `${name}.kind`);
-  if (disposition.kind === 'planned-diagnostic-migration') {
-    assertExactKeys(disposition, ['kind', 'slice'], name);
-    assertNonEmptyString(disposition.slice, `${name}.slice`);
-    return;
-  }
-  if (disposition.kind === 'retained') {
-    assertExactKeys(
-      disposition,
-      [
-        'kind',
-        'irreversibleRisk',
-        'redactionPolicy',
-        'preDenialReportId',
-        'independentVerification',
-      ],
-      name,
-    );
-    assertNonEmptyString(disposition.irreversibleRisk, `${name}.irreversibleRisk`);
-    assertNonEmptyString(disposition.redactionPolicy, `${name}.redactionPolicy`);
-    assertStableId(disposition.preDenialReportId, `${name}.preDenialReportId`);
-    assertNonEmptyString(disposition.independentVerification, `${name}.independentVerification`);
-    return;
-  }
-  throw new TypeError(`${name}.kind must be planned-diagnostic-migration or retained`);
-}
-
 function validateCommonRecord(record, name, additionalKeys = []) {
   assertObject(record, name);
-  assertExactKeys(
-    record,
-    [
-      'owner',
-      'subject',
-      'diagnosticId',
-      'currentExitBehavior',
-      'classification',
-      'reportId',
-      'rationale',
-      'disposition',
-      ...additionalKeys,
-    ],
-    name,
-  );
-  assertNonEmptyString(record.owner, `${name}.owner`);
+  assertExactKeys(record, ['subject', ...additionalKeys], name);
   validateSubject(record.subject, `${name}.subject`);
-  assertStableId(record.diagnosticId, `${name}.diagnosticId`);
-  assertNonEmptyString(record.currentExitBehavior, `${name}.currentExitBehavior`);
-  assertNonEmptyString(record.classification, `${name}.classification`);
-  assertStableId(record.reportId, `${name}.reportId`);
-  assertNonEmptyString(record.rationale, `${name}.rationale`);
-  validateDisposition(record.disposition, `${name}.disposition`);
 }
 
 function validateRegistration(registration, name) {
@@ -144,7 +94,7 @@ function validateStatusContext(statusContext, name) {
 
 /** Validate the complete manifest before any adapter consumes its declarations. */
 export function validateHookDiagnosticMigrationManifest(manifest) {
-  assertObject(manifest, 'hook diagnostic migration manifest');
+  assertObject(manifest, 'hook registration inventory');
   assertExactKeys(
     manifest,
     [
@@ -154,10 +104,10 @@ export function validateHookDiagnosticMigrationManifest(manifest) {
       'huskyVetoPaths',
       'requiredStatusContexts',
     ],
-    'hook diagnostic migration manifest',
+    'hook registration inventory',
   );
-  if (manifest.version !== 1) {
-    throw new TypeError('hook diagnostic migration manifest.version must equal 1');
+  if (manifest.version !== 2) {
+    throw new TypeError('hook registration inventory.version must equal 2');
   }
   for (const key of [
     'scanRegistrations',
@@ -166,7 +116,7 @@ export function validateHookDiagnosticMigrationManifest(manifest) {
     'requiredStatusContexts',
   ]) {
     if (!Array.isArray(manifest[key])) {
-      throw new TypeError(`hook diagnostic migration manifest.${key} must be an array`);
+      throw new TypeError(`hook registration inventory.${key} must be an array`);
     }
   }
   manifest.scanRegistrations.forEach((record, index) =>
@@ -187,7 +137,7 @@ export function validateHookDiagnosticMigrationManifest(manifest) {
   return manifest;
 }
 
-/** Read and validate the parent-owned migration declaration from a repository root. */
+/** Read and validate the current registration inventory from a repository root. */
 export function loadHookDiagnosticMigrationManifest(root) {
   const file = path.join(root, HOOK_DIAGNOSTIC_MIGRATION_MANIFEST);
   let parsed;

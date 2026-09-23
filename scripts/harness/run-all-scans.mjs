@@ -1262,7 +1262,7 @@ export function selectScansForExecutionContext(scans, { context, environment = p
 }
 
 /**
- * Recompute and publish the hook migration inventory outside SCAN_COMMANDS.
+ * Recompute and publish the hook registration inventory outside SCAN_COMMANDS.
  *
  * This producer is deliberately independent of a scan receipt: it runs for a
  * full scan and a reused receipt, while only ordinary scan diagnostics remain
@@ -1281,7 +1281,7 @@ export async function publishHookDiagnosticInventory({
     results,
     correlationId,
     publish: ({ json, text }) => {
-      write('Hook diagnostic migration report JSON:');
+      write('Hook registration inventory report JSON:');
       for (const line of json.trimEnd().split('\n')) write(line);
       write('');
       for (const line of text.trimEnd().split('\n')) write(line);
