@@ -19,6 +19,7 @@ import type {
   IRuntimeRunReaderPort,
 } from '@robota-sdk/dag-api';
 import type { IDagOrchestrationPort } from '@robota-sdk/dag-orchestration-client';
+import type { ICostMetaOperationsPort } from '@robota-sdk/dag-cost';
 
 /** Framework-owned assembly result for one in-process execution composition. */
 export interface IDagExecutionComposition {
@@ -33,6 +34,9 @@ export interface IDagExecutionComposition {
 export interface IDagFramework {
   /** In-process implementation of the orchestration port surface. */
   readonly client: IDagOrchestrationPort;
+
+  /** Cost metadata management is an independent domain capability. */
+  readonly costMeta: ICostMetaOperationsPort;
 
   /** Direct access to inner services for embedders that need progress streams, etc. */
   readonly internals: {

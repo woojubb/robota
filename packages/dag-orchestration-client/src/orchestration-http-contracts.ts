@@ -201,9 +201,7 @@ export interface IDagOrchestrationPublishedWorkflowRunSuccessPayload extends IDa
   readonly data: IDagOrchestrationPublishedWorkflowRunData;
 }
 
-/** Transport-neutral orchestration contract. Both the HTTP client and the embedded
- *  in-process adapter implement this interface. Preferred over `IDagOrchestrationPort`
- *  for all new consumers. */
+/** Orchestration compatibility contract. Cost management is a separate domain capability. */
 export interface IDagOrchestrationPort {
   listDefinitions(
     input?: IDagOrchestrationListDefinitionsInput,
@@ -221,20 +219,6 @@ export interface IDagOrchestrationPort {
   uploadAsset(input: IDagOrchestrationAssetUploadRequest): Promise<IDagOrchestrationHttpResponse>;
   getAssetMetadata(assetId: string): Promise<IDagOrchestrationHttpResponse>;
   getAssetContentDownloadInfo(assetId: string): IDagOrchestrationAssetContentDownloadInfo;
-  listCostMeta(): Promise<IDagOrchestrationHttpResponse>;
-  getCostMeta(nodeType: string): Promise<IDagOrchestrationHttpResponse>;
-  createCostMeta(input: TDagOrchestrationCostMetaRequest): Promise<IDagOrchestrationHttpResponse>;
-  updateCostMeta(
-    nodeType: string,
-    input: TDagOrchestrationCostMetaRequest,
-  ): Promise<IDagOrchestrationHttpResponse>;
-  deleteCostMeta(nodeType: string): Promise<IDagOrchestrationHttpResponse>;
-  validateCostMetaFormula(
-    input: IDagOrchestrationCostMetaValidateRequest,
-  ): Promise<IDagOrchestrationHttpResponse>;
-  previewCostMetaFormula(
-    input: IDagOrchestrationCostMetaPreviewRequest,
-  ): Promise<IDagOrchestrationHttpResponse>;
   createRunDraft(
     input: TDagOrchestrationCreateRunDraftRequest,
   ): Promise<IDagOrchestrationHttpResponse>;

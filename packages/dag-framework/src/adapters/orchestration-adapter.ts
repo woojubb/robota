@@ -15,8 +15,6 @@ import type { IDagExecutionComposition } from '../types.js';
 import type {
   IDagOrchestrationAssetContentDownloadInfo,
   IDagOrchestrationAssetUploadRequest,
-  IDagOrchestrationCostMetaPreviewRequest,
-  IDagOrchestrationCostMetaValidateRequest,
   IDagOrchestrationCreateRunInput,
   IDagOrchestrationHttpPayload,
   IDagOrchestrationHttpResponse,
@@ -26,7 +24,6 @@ import type {
   IDagOrchestrationPublishedWorkflowRunRequest,
   IDagOrchestrationUpdateDraftInput,
   IOrchestrationProblemDetails,
-  TDagOrchestrationCostMetaRequest,
   TDagOrchestrationCreateRunDraftRequest,
   TDagOrchestrationReplaceRunDraftRequest,
 } from '@robota-sdk/dag-orchestration-client';
@@ -56,16 +53,6 @@ function problemDetailsToOrchestration(p: IProblemDetails): IOrchestrationProble
   };
   return base;
 }
-
-const NOT_IMPLEMENTED_PROBLEM: IOrchestrationProblemDetails = {
-  type: 'urn:robota:problems:dag:framework_not_implemented',
-  title: 'Feature not implemented in framework adapter',
-  status: 501,
-  detail: 'This operation is not implemented in the in-process DAG framework adapter.',
-  instance: 'inproc://dag-framework',
-  code: 'NOT_IMPLEMENTED_IN_FRAMEWORK',
-  retryable: false,
-};
 
 /**
  * In-process implementation of {@link IDagOrchestrationPort}.
@@ -283,43 +270,6 @@ export class DagFrameworkOrchestrationAdapter implements IDagOrchestrationPort {
     };
   }
 
-  public async listCostMeta(): Promise<IDagOrchestrationHttpResponse> {
-    return this.notImplementedResponse('/v1/cost-meta');
-  }
-
-  public async getCostMeta(nodeType: string): Promise<IDagOrchestrationHttpResponse> {
-    return this.notImplementedResponse(`/v1/cost-meta/${nodeType}`);
-  }
-
-  public async createCostMeta(
-    _input: TDagOrchestrationCostMetaRequest,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    return this.notImplementedResponse('/v1/cost-meta');
-  }
-
-  public async updateCostMeta(
-    nodeType: string,
-    _input: TDagOrchestrationCostMetaRequest,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    return this.notImplementedResponse(`/v1/cost-meta/${nodeType}`);
-  }
-
-  public async deleteCostMeta(nodeType: string): Promise<IDagOrchestrationHttpResponse> {
-    return this.notImplementedResponse(`/v1/cost-meta/${nodeType}`);
-  }
-
-  public async validateCostMetaFormula(
-    _input: IDagOrchestrationCostMetaValidateRequest,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    return this.notImplementedResponse('/v1/cost-meta/validate');
-  }
-
-  public async previewCostMetaFormula(
-    _input: IDagOrchestrationCostMetaPreviewRequest,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    return this.notImplementedResponse('/v1/cost-meta/preview');
-  }
-
   public async createRunDraft(
     input: TDagOrchestrationCreateRunDraftRequest,
   ): Promise<IDagOrchestrationHttpResponse> {
@@ -522,19 +472,6 @@ export class DagFrameworkOrchestrationAdapter implements IDagOrchestrationPort {
       data,
     };
     return { ok: true, status, payload };
-  }
-
-  private notImplementedResponse(instance: string): IDagOrchestrationHttpResponse {
-    const problem: IOrchestrationProblemDetails = {
-      ...NOT_IMPLEMENTED_PROBLEM,
-      instance,
-    };
-    const payload: IDagOrchestrationHttpPayload = {
-      ok: false,
-      status: problem.status,
-      errors: [problem],
-    };
-    return { ok: false, status: problem.status, payload };
   }
 
   private notFoundResponse(instance: string, detail: string): IDagOrchestrationHttpResponse {

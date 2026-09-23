@@ -5,23 +5,132 @@ import type { IDagBuildInput } from '@robota-sdk/dag-builder';
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { IDagDefinition, TRunProgressEvent } from '@robota-sdk/dag-core';
+import type { IDagError, TResult } from '@robota-sdk/dag-core';
+import type {
+  ICostMeta,
+  ICostMetaFormulaPreviewInput,
+  ICostMetaFormulaValidationInput,
+  ICostMetaOperationsPort,
+} from '@robota-sdk/dag-cost';
 import type {
   IDagOrchestrationAssetUploadRequest,
-  IDagOrchestrationCostMetaPreviewRequest,
-  IDagOrchestrationCostMetaValidateRequest,
   IDagOrchestrationCreateRunInput,
   IDagOrchestrationHttpResponse,
   IDagOrchestrationOverwriteRunDraftNodeResultRequest,
   IDagOrchestrationPort,
   IDagOrchestrationPublishedWorkflowRunRequest,
   IDagOrchestrationUpdateDraftInput,
-  TDagOrchestrationCostMetaRequest,
   TDagOrchestrationCreateRunDraftRequest,
   TDagOrchestrationReplaceRunDraftRequest,
 } from '@robota-sdk/dag-orchestration-client';
 
 function reply(c: Context, response: IDagOrchestrationHttpResponse): Response {
   return c.json(response.payload, response.status as ContentfulStatusCode);
+}
+
+function costReply<T>(
+  c: Context,
+  result: TResult<T, IDagError>,
+  dataOf: (value: T) => object,
+  successStatus = 200,
+): Response {
+  if (result.ok) {
+    return c.json(
+      { ok: true, status: successStatus, data: dataOf(result.value) },
+      successStatus as ContentfulStatusCode,
+    );
+  }
+  const status = costErrorStatus(result.error.code);
+  const detail =
+    status >= 500 && status !== 501 ? 'Cost metadata operation failed.' : result.error.message;
+  return c.json(
+    {
+      ok: false,
+      status,
+      errors: [
+        {
+          type: `urn:robota:problems:dag:${result.error.code.toLowerCase()}`,
+          title: 'Cost metadata operation failed',
+          status,
+          detail,
+          instance: c.req.path,
+          code: result.error.code,
+          retryable: result.error.retryable,
+        },
+      ],
+    },
+    status as ContentfulStatusCode,
+  );
+}
+
+function costErrorStatus(code: string): number {
+  if (code === 'DAG_COST_META_UNSUPPORTED') return 501;
+  if (code === 'DAG_COST_META_NOT_FOUND') return 404;
+  if (code === 'DAG_COST_META_INVALID' || code.startsWith('CEL_')) return 400;
+  return 500;
+}
+
+function invalidCostInput(c: Context, detail: string): Response {
+  return costReply(
+    c,
+    {
+      ok: false,
+      error: {
+        code: 'DAG_COST_META_INVALID',
+        category: 'validation',
+        message: detail,
+        retryable: false,
+      },
+    },
+    () => ({}),
+  );
+}
+
+async function readCostJson(c: Context): Promise<unknown> {
+  try {
+    return await c.req.json<unknown>();
+  } catch {
+    return undefined;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNonemptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isCostMeta(value: unknown): value is ICostMeta {
+  if (!isRecord(value)) return false;
+  const category = value['category'];
+  return (
+    isNonemptyString(value['nodeType']) &&
+    isNonemptyString(value['displayName']) &&
+    (category === 'ai-inference' ||
+      category === 'transform' ||
+      category === 'io' ||
+      category === 'custom') &&
+    isNonemptyString(value['estimateFormula']) &&
+    (value['calculateFormula'] === undefined || isNonemptyString(value['calculateFormula'])) &&
+    isRecord(value['variables']) &&
+    typeof value['enabled'] === 'boolean' &&
+    isNonemptyString(value['updatedAt'])
+  );
+}
+
+function isValidationInput(value: unknown): value is ICostMetaFormulaValidationInput {
+  return isRecord(value) && isNonemptyString(value['formula']);
+}
+
+function isPreviewInput(value: unknown): value is ICostMetaFormulaPreviewInput {
+  return (
+    isRecord(value) &&
+    isValidationInput(value) &&
+    (value['variables'] === undefined || isRecord(value['variables'])) &&
+    (value['testContext'] === undefined || isRecord(value['testContext']))
+  );
 }
 
 /** A run-progress source the SSE stream subscribes to (structurally the framework's progress bus). */
@@ -44,6 +153,7 @@ function isTerminalProgressEvent(event: TRunProgressEvent): boolean {
  */
 export function createDagRuntimeServer(
   port: IDagOrchestrationPort,
+  costMeta: ICostMetaOperationsPort,
   progressSource?: IRunProgressSource,
 ): Hono {
   const app = new Hono();
@@ -173,28 +283,38 @@ export function createDagRuntimeServer(
   );
 
   // --- Cost metadata ---
-  app.get('/v1/dag/cost-meta', async (c) => reply(c, await port.listCostMeta()));
+  app.get('/v1/dag/cost-meta', async (c) =>
+    costReply(c, await costMeta.listCostMeta(), (items) => ({ items })),
+  );
   app.post('/v1/dag/cost-meta/validate', async (c) => {
-    const body = await c.req.json<IDagOrchestrationCostMetaValidateRequest>();
-    return reply(c, await port.validateCostMetaFormula(body));
+    const body = await readCostJson(c);
+    if (!isValidationInput(body)) return invalidCostInput(c, 'Expected a nonempty formula.');
+    return costReply(c, await costMeta.validateCostMetaFormula(body), (value) => value);
   });
   app.post('/v1/dag/cost-meta/preview', async (c) => {
-    const body = await c.req.json<IDagOrchestrationCostMetaPreviewRequest>();
-    return reply(c, await port.previewCostMetaFormula(body));
+    const body = await readCostJson(c);
+    if (!isPreviewInput(body)) return invalidCostInput(c, 'Expected formula and object contexts.');
+    return costReply(c, await costMeta.previewCostMetaFormula(body), (result) => ({ result }));
   });
   app.post('/v1/dag/cost-meta', async (c) => {
-    const body = await c.req.json<TDagOrchestrationCostMetaRequest>();
-    return reply(c, await port.createCostMeta(body));
+    const body = await readCostJson(c);
+    if (!isCostMeta(body)) return invalidCostInput(c, 'Invalid cost metadata.');
+    return costReply(c, await costMeta.createCostMeta(body), (meta) => ({ meta }), 201);
   });
   app.get('/v1/dag/cost-meta/:nodeType', async (c) =>
-    reply(c, await port.getCostMeta(c.req.param('nodeType'))),
+    costReply(c, await costMeta.getCostMeta(c.req.param('nodeType')), (meta) => ({ meta })),
   );
   app.put('/v1/dag/cost-meta/:nodeType', async (c) => {
-    const body = await c.req.json<TDagOrchestrationCostMetaRequest>();
-    return reply(c, await port.updateCostMeta(c.req.param('nodeType'), body));
+    const body = await readCostJson(c);
+    if (!isCostMeta(body) || body.nodeType !== c.req.param('nodeType')) {
+      return invalidCostInput(c, 'Invalid cost metadata or node type mismatch.');
+    }
+    return costReply(c, await costMeta.updateCostMeta(c.req.param('nodeType'), body), (meta) => ({
+      meta,
+    }));
   });
   app.delete('/v1/dag/cost-meta/:nodeType', async (c) =>
-    reply(c, await port.deleteCostMeta(c.req.param('nodeType'))),
+    costReply(c, await costMeta.deleteCostMeta(c.req.param('nodeType')), (value) => value),
   );
 
   // --- Run drafts (partial-run editing) ---
