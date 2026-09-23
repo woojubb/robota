@@ -241,7 +241,7 @@ export function parseMergeDecisionReceipt(body) {
   const validApprover =
     (authority === 'direct' && /^@[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i.test(approvedBy)) ||
     (authority === 'owner-delegated' &&
-      /^agent:[A-Za-z0-9._-]+ \(owner-delegated\)$/.test(approvedBy));
+      /^agent:\/?[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)* \(owner-delegated\)$/.test(approvedBy));
   if (
     !Number.isSafeInteger(prNumber) ||
     prNumber < 1 ||
