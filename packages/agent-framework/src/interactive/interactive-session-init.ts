@@ -222,6 +222,7 @@ export async function initializeInteractiveSessionAsync(
     options.config,
     options.projectAccess,
     options.projectSettingsPaths,
+    options.userSettingsSources,
   );
   const { config, hookSources } = loadedConfig;
   const autoCompactThresholdSource =
@@ -235,6 +236,9 @@ export async function initializeInteractiveSessionAsync(
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     ...(options.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: options.projectSettingsPaths }
+      : {}),
+    ...(options.userSettingsSources !== undefined
+      ? { userSettingsSources: options.userSettingsSources }
       : {}),
     config,
     hookSources,

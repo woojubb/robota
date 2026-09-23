@@ -220,9 +220,6 @@ describe('createInteractiveSession — bare mode', () => {
 
     // Config loading is always needed even in bare mode
     expect(mockLoadConfigWithHookSources).toHaveBeenCalledTimes(1);
-    expect(mockLoadConfigWithHookSources).toHaveBeenCalledWith([
-      expect.objectContaining({ kind: 'host', scope: 'user' }),
-      expect.objectContaining({ kind: 'host', scope: 'user' }),
-    ]);
+    expect(mockLoadConfigWithHookSources).toHaveBeenCalledWith([]);
   });
 });

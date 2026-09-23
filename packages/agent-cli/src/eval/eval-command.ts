@@ -17,7 +17,6 @@ import { pathToFileURL } from 'node:url';
 
 import {
   createAgentRuntime,
-  createDefaultUserSettingsSources,
   createProviderFromSettings,
   createSessionRunFn,
   defineEval,
@@ -33,6 +32,7 @@ import type {
   TSettingsSource,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
+import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
 
 /** Injection seams so the exit-code contract test can run without a live provider (TC-03). */
 export interface IRunEvalDeps {
@@ -98,7 +98,7 @@ async function loadEvalDefinition(absPath: string): Promise<IEvalDefinition> {
 /** Build the default `runFn` from the CLI-resolved provider (a live agent run per case). */
 function buildDefaultRunFn(cwd: string, deps: IRunEvalDeps): TEvalRunFn {
   const provider = createProviderFromSettings(
-    deps.settingsSources ?? createDefaultUserSettingsSources(),
+    deps.settingsSources ?? createRobotaUserSettingsSources(),
     undefined,
     {
       providerDefinitions: createDefaultProviderDefinitions(),

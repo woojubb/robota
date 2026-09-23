@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
 import type { EditCheckpointStore, IPromptHistoryOptions } from '@robota-sdk/agent-framework';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import { toChannelOptions } from '../render.js';
@@ -7,6 +8,17 @@ import { buildTuiSessionOptions } from '../tui-session-options.js';
 import type { IRenderOptions } from '../render.js';
 
 describe('toChannelOptions', () => {
+  it('keeps the host user settings sources through render, channel, and session', () => {
+    const sources = [createNodeHostSettingsSource('user', '/test-home/settings.json')];
+    const channel = toChannelOptions({
+      cwd: '/tmp/project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      userSettingsSources: sources,
+    });
+    expect(buildTuiSessionOptions(channel).userSettingsSources).toBe(sources);
+  });
+
   it('forwards the loop kill switch through the channel to the session', () => {
     const options = toChannelOptions({
       cwd: '/tmp/project',

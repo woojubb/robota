@@ -21,6 +21,7 @@ import type {
   IRemoteCommandPolicy,
 } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
+import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import type { IProjectSettingsPath } from '../config/settings-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
@@ -55,6 +56,8 @@ export interface IInteractiveSessionStandardOptions {
   projectAccess?: TWorkspaceProjectAccess;
   /** Host-selected project settings layers, admitted only through the current project authority. */
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  /** Explicit user settings layers; absent means no ambient user file is read. */
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
@@ -209,6 +212,7 @@ export interface IInteractiveSessionInjectedOptions {
   provider?: IAIProvider;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;

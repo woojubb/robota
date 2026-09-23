@@ -15,6 +15,7 @@ import type {
   IOrgPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
+  INodeHostSettingsSource,
   ICommandModule,
   ICreateSessionOptions,
   EditCheckpointStore,
@@ -61,6 +62,7 @@ export interface ITuiInteractionChannelOptions {
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  userSettingsSources?: readonly INodeHostSettingsSource[];
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;
   /**

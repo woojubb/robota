@@ -28,6 +28,7 @@ export interface IProjectSettingsPath {
 }
 
 export { createNodeHostSettingsSource };
+export type { INodeHostSettingsSource } from './node-host-settings-source.js';
 
 /** Default host-owned layers. Project paths are intentionally absent. */
 export function createDefaultUserSettingsSources(

@@ -47,6 +47,9 @@ React/Ink UI.
   relative settings paths to the current trusted project reader; absent paths read no project
   settings, and a restricted project cannot read them even when paths are supplied. The framework
   does not select product directory names or advertise those paths in its own pre-trust inventory.
+- **Interactive user settings are explicit.** A session reads only the host-supplied user settings
+  sources, and a provider switch reuses those same sources; an absent list never discovers an ambient
+  home-directory settings file.
 - **Agent definition discovery is host-directed.** The framework searches only the ordered relative
   directories supplied by the host; absent roots mean no file discovery. Discovered definitions keep
   precedence over injected and built-in definitions, without selecting a product's directory names.
