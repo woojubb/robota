@@ -279,6 +279,12 @@ async function runCli(
           ...(options.mcpStdioAuthorities === undefined
             ? {}
             : { stdioAuthorities: options.mcpStdioAuthorities }),
+          ...(options.mcpApprovalStore === undefined
+            ? {}
+            : { approvalStore: options.mcpApprovalStore }),
+          ...(options.mcpHttpTransportDeps === undefined
+            ? {}
+            : { httpTransportDeps: options.mcpHttpTransportDeps }),
           ...(options.mcpResultAdmissionLimits === undefined
             ? {}
             : { resultAdmissionLimits: options.mcpResultAdmissionLimits }),
