@@ -1,0 +1,127 @@
+openapi: 3.1.0
+info:
+  title: Robota DAG Asset API
+  version: 1.0.0
+  description: Asset routes on the DAG runtime server; other DAG routes are inventoried in SPEC.md.
+paths:
+  /v1/dag/assets:
+    post:
+      operationId: uploadDagAsset
+      summary: Upload base64-encoded asset bytes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetUpload'
+      responses:
+        '201':
+          description: Asset saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetEnvelope'
+        '400': { $ref: '#/components/responses/AssetError' }
+        '500': { $ref: '#/components/responses/AssetError' }
+        '501': { $ref: '#/components/responses/AssetError' }
+  /v1/dag/assets/{assetId}:
+    parameters:
+      - $ref: '#/components/parameters/AssetId'
+    get:
+      operationId: getDagAssetMetadata
+      summary: Get asset metadata
+      responses:
+        '200':
+          description: Asset metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetEnvelope'
+        '400': { $ref: '#/components/responses/AssetError' }
+        '404': { $ref: '#/components/responses/AssetError' }
+        '500': { $ref: '#/components/responses/AssetError' }
+        '501': { $ref: '#/components/responses/AssetError' }
+  /v1/dag/assets/{assetId}/content:
+    parameters:
+      - $ref: '#/components/parameters/AssetId'
+    get:
+      operationId: downloadDagAssetContent
+      summary: Stream asset bytes
+      responses:
+        '200':
+          description: Binary content; Content-Type is the stored media type.
+          headers:
+            Content-Disposition:
+              description: Attachment filename encoded as UTF-8.
+              schema: { type: string }
+          content:
+            '*/*':
+              schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/AssetError' }
+        '404': { $ref: '#/components/responses/AssetError' }
+        '500': { $ref: '#/components/responses/AssetError' }
+        '501': { $ref: '#/components/responses/AssetError' }
+components:
+  parameters:
+    AssetId:
+      name: assetId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]+$' }
+  responses:
+    AssetError:
+      description: Validation, missing asset, storage failure, or unwired capability.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    AssetUpload:
+      type: object
+      required: [fileName, mediaType, base64Data]
+      properties:
+        fileName: { type: string, minLength: 1 }
+        mediaType: { type: string, minLength: 1 }
+        base64Data: { type: string, contentEncoding: base64 }
+    AssetReference:
+      type: object
+      required: [referenceType, assetId, mediaType, uri, name, sizeBytes]
+      properties:
+        referenceType: { const: asset }
+        assetId: { type: string }
+        mediaType: { type: string }
+        uri: { type: string }
+        name: { type: string }
+        sizeBytes: { type: integer }
+        runtimeAssetId: { type: string }
+    AssetEnvelope:
+      type: object
+      required: [ok, status, data]
+      properties:
+        ok: { const: true }
+        status: { type: integer }
+        data:
+          type: object
+          required: [asset]
+          properties:
+            asset: { $ref: '#/components/schemas/AssetReference' }
+    ProblemDetails:
+      type: object
+      required: [type, title, status, detail, instance, code, retryable]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        code: { type: string }
+        retryable: { type: boolean }
+    ErrorEnvelope:
+      type: object
+      required: [ok, status, errors]
+      properties:
+        ok: { const: false }
+        status: { type: integer }
+        errors:
+          type: array
+          items: { $ref: '#/components/schemas/ProblemDetails' }

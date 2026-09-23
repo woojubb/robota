@@ -30,6 +30,7 @@ import {
   runDraftUnparseableResponse,
 } from './run-draft-response.js';
 import type {
+  IDagAssetHttpPort,
   IDagOrchestrationAssetContentDownloadInfo,
   IDagOrchestrationAssetUploadRequest,
   IDagOrchestrationCreateRunInput,
@@ -46,7 +47,11 @@ import type {
 type THttpMethod = 'DELETE' | 'GET' | 'POST' | 'PUT';
 
 export class DagOrchestrationHttpClient
-  implements IDagOrchestrationPort, ICostMetaOperationsPort, IRunDraftOperationsPort
+  implements
+    IDagOrchestrationPort,
+    IDagAssetHttpPort,
+    ICostMetaOperationsPort,
+    IRunDraftOperationsPort
 {
   private readonly baseUrl: string;
   private readonly fetch: TDagOrchestrationFetch;

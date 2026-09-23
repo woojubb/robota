@@ -42,6 +42,9 @@ export interface IDagFramework {
   /** Run-draft editing is an independent domain capability. */
   readonly runDrafts: IRunDraftOperationsPort;
 
+  /** Domain asset storage and content streaming, independent of HTTP. */
+  readonly assets: IAssetStore;
+
   /** Direct access to inner services for embedders that need progress streams, etc. */
   readonly internals: {
     readonly controllers: IDagControllerComposition;

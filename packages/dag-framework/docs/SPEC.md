@@ -38,6 +38,7 @@ interface IDagFramework {
   client: IDagOrchestrationPort; // orchestration operations (cost capability is separate)
   costMeta: ICostMetaOperationsPort; // typed cost capability
   runDrafts: IRunDraftOperationsPort; // typed create/get/replace/reset/overwrite capability
+  assets: IAssetStore; // domain asset storage and byte streaming
   internals: {
     controllers: IDagControllerComposition;
     execution: IDagExecutionComposition;
@@ -239,6 +240,9 @@ injected `IRunDraftStore` and `IClockPort`, returns `TResult<IRunDraft, IDagErro
 manufactures HTTP status codes or route URIs. Missing drafts return `DAG_RUN_DRAFT_NOT_FOUND`.
 
 Remaining orchestration methods still use their existing HTTP-shaped response contract.
+Asset storage and byte streaming are exposed separately as `framework.assets: IAssetStore`.
+The orchestration adapter does not encode upload bytes, fabricate download URLs, or wrap asset
+metadata in HTTP envelopes. The runtime server owns the JSON/base64 and binary HTTP mapping.
 
 ---
 

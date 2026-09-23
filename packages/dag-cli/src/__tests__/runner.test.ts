@@ -1,3 +1,6 @@
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { IDagCliRunOptions } from '../runner.js';
 import { runDagCli } from '../runner.js';
@@ -384,6 +387,55 @@ describe('runDagCli', () => {
     expect(options.requests[2]?.init.body).toBeUndefined();
     expect(options.binaryWrites).toHaveLength(1);
     expect(options.binaryWrites[0]?.filePath).toBe('photo.png');
+  });
+
+  it('classifies asset transport errors without exposing internal details', async () => {
+    const options = createOptions([]);
+    const exitCode = await runDagCli(['assets', 'download', 'asset-1', '--output', 'asset.bin'], {
+      ...options,
+      fetch: async () => { throw new Error('/private/transport.sock'); },
+    });
+    expect(exitCode).toBe(1);
+    const output = options.output.join('');
+    expect(JSON.parse(output)).toMatchObject({ errors: [{ code: 'DAG_CLI_ASSET_DOWNLOAD_FAILED' }] });
+    expect(output).not.toContain('/private/transport.sock');
+  });
+
+  it('preserves a failed download target and publishes a complete retry', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'robota-dag-download-test-'));
+    const target = path.join(directory, 'asset.bin');
+    try {
+      await writeFile(target, 'original');
+      let readCount = 0;
+      const responseBody = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (readCount++ === 0) controller.enqueue(Buffer.from('partial'));
+          else controller.error(new Error('/private/source.bin'));
+        },
+      });
+      let exitCode = -1;
+      try {
+        exitCode = await runDagCli(['assets', 'download', 'asset-1', '--output', target], {
+          env: { ROBOTA_DAG_SERVER_URL: TEST_SERVER_URL },
+          fetch: async () => new Response(responseBody, { status: 200 }),
+        });
+      } catch {
+        // The pre-fix writer rejects after opening the real destination; still inspect that file.
+      }
+      expect(await readFile(target, 'utf8')).toBe('original');
+      expect(await readdir(directory)).toEqual(['asset.bin']);
+      expect(exitCode).toBe(1);
+
+      const retryExitCode = await runDagCli(['assets', 'download', 'asset-1', '--output', target], {
+        env: { ROBOTA_DAG_SERVER_URL: TEST_SERVER_URL },
+        fetch: async () => new Response(Uint8Array.from([1, 2, 3]), { status: 200 }),
+      });
+      expect(retryExitCode).toBe(0);
+      expect(Array.from(await readFile(target))).toEqual([1, 2, 3]);
+      expect(await readdir(directory)).toEqual(['asset.bin']);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   it('routes cost metadata commands through shared HTTP contracts', async () => {

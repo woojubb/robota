@@ -15,7 +15,8 @@ export interface IDagRuntimeServerHandle {
 
 /**
  * Start the native DAG runtime HTTP server: composes an in-process DAG framework and serves its
- * `IDagOrchestrationPort` over the `/v1/dag/*` route surface. Returns a handle to stop it.
+ * orchestration, cost, draft and asset capabilities over `/v1/dag/*` routes.
+ * Returns a handle to stop it.
  */
 export async function startDagRuntimeServer(
   options: IStartDagRuntimeServerOptions = {},
@@ -30,6 +31,7 @@ export async function startDagRuntimeServer(
     framework.costMeta,
     framework.runDrafts,
     framework.internals.execution.runProgressEventBus,
+    framework.assets,
   );
   const server = serve({ fetch: app.fetch, port });
 

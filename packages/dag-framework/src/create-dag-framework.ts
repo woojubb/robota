@@ -179,7 +179,6 @@ export async function createDagFramework(
     controllers,
     execution,
     manifests: assembly.manifests,
-    assetStore,
   });
 
   // 11. Framework instance
@@ -187,6 +186,7 @@ export async function createDagFramework(
     client,
     costMeta: new UnsupportedCostMetaOperations(),
     runDrafts: new DagFrameworkRunDraftOperations(runDraftStore, clock),
+    assets: assetStore,
     internals: { controllers, execution, storage, promptBackend, assetStore },
     async start(): Promise<void> {
       await execution.runAdvancement.start();

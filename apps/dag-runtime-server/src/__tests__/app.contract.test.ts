@@ -7,7 +7,7 @@ import type { ICostMetaOperationsPort } from '@robota-sdk/dag-cost';
 import { createDagRuntimeServer } from '../app.js';
 
 import type { IRunProgressSource } from '../app.js';
-import type { IRunDraftOperationsPort, TRunProgressEvent } from '@robota-sdk/dag-core';
+import type { IAssetStore, IRunDraftOperationsPort, TRunProgressEvent } from '@robota-sdk/dag-core';
 import type { IDagFramework } from '@robota-sdk/dag-framework';
 import type { Hono } from 'hono';
 
@@ -18,7 +18,13 @@ describe('dag-runtime-server contract', () => {
   beforeEach(async () => {
     framework = await createDagFramework();
     await framework.start();
-    app = createDagRuntimeServer(framework.client, framework.costMeta, framework.runDrafts);
+    app = createDagRuntimeServer(
+      framework.client,
+      framework.costMeta,
+      framework.runDrafts,
+      undefined,
+      framework.assets,
+    );
   });
 
   afterEach(async () => {
@@ -174,12 +180,107 @@ describe('dag-runtime-server contract', () => {
     expect(await res.json()).toMatchObject({ errors: [{ code: 'DAG_COST_META_INVALID' }] });
   });
 
-  it('GET /v1/dag/assets/:id/content returns a download descriptor (no binary in the port)', async () => {
-    const res = await app.request('/v1/dag/assets/missing/content');
+  it('streams stored bytes through the asset content route and returns 404 for missing assets', async () => {
+    const uploaded = await app.request('/v1/dag/assets', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        fileName: 'hello.txt',
+        mediaType: 'text/plain',
+        base64Data: 'aGVsbG8=',
+      }),
+    });
+    expect(uploaded.status).toBe(201);
+    const payload = (await uploaded.json()) as { data: { asset: { assetId: string } } };
+    const res = await app.request(`/v1/dag/assets/${payload.data.asset.assetId}/content`);
     expect(res.status).toBe(200);
-    const payload = (await res.json()) as { assetId?: string; url?: string };
-    expect(payload.assetId).toBe('missing');
-    expect(typeof payload.url).toBe('string');
+    expect(res.headers.get('content-type')).toContain('text/plain');
+    expect(await res.text()).toBe('hello');
+
+    const missing = await app.request('/v1/dag/assets/missing/content');
+    expect(missing.status).toBe(404);
+  });
+
+  it('preserves the upload and metadata HTTP client contract while serving binary content', async () => {
+    const client = new DagOrchestrationHttpClient({
+      baseUrl: 'http://dag.test',
+      fetch: async (url, init) => app.request(url, init),
+    });
+    const uploaded = await client.uploadAsset({
+      fileName: 'asset.bin',
+      mediaType: 'application/octet-stream',
+      base64Data: 'AAECAw==',
+    });
+    expect(uploaded.status).toBe(201);
+    const data = uploaded.payload['data'] as { asset: { assetId: string } };
+    const metadata = await client.getAssetMetadata(data.asset.assetId);
+    expect(metadata).toMatchObject({
+      ok: true,
+      status: 200,
+      payload: { data: { asset: { sizeBytes: 4 } } },
+    });
+    const binary = await app.request(client.getAssetContentDownloadInfo(data.asset.assetId).url);
+    expect(Array.from(new Uint8Array(await binary.arrayBuffer()))).toEqual([0, 1, 2, 3]);
+  });
+
+  it('rejects invalid asset input and does not expose storage failures', async () => {
+    const invalid = await app.request('/v1/dag/assets', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        fileName: 'bad.txt',
+        mediaType: 'text/plain',
+        base64Data: 'not base64!',
+      }),
+    });
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({
+      errors: [{ type: 'urn:robota:error:dag:dag_asset_invalid_input' }],
+    });
+    expect(await framework.assets.getMetadata('bad')).toBeUndefined();
+
+    const traversal = await app.request('/v1/dag/assets/..%2Fsecret');
+    expect(traversal.status).toBe(400);
+
+    const unwiredApp = createDagRuntimeServer(
+      framework.client,
+      framework.costMeta,
+      framework.runDrafts,
+    );
+    const unwired = await unwiredApp.request('/v1/dag/assets/missing');
+    expect(unwired.status).toBe(501);
+
+    const broken = Object.create(framework.assets) as IAssetStore;
+    broken.getMetadata = async () => {
+      throw new Error('/private/secret.json');
+    };
+    const failingApp = createDagRuntimeServer(
+      framework.client,
+      framework.costMeta,
+      framework.runDrafts,
+      undefined,
+      broken,
+    );
+    const failed = await failingApp.request('/v1/dag/assets/asset-id');
+    expect(failed.status).toBe(500);
+    expect(JSON.stringify(await failed.json())).not.toContain('/private/secret.json');
+  });
+
+  it('does not complete a successful download when its source stream fails', async () => {
+    const broken = Object.create(framework.assets) as IAssetStore;
+    broken.getContent = async () => ({
+      metadata: {
+        assetId: 'broken', fileName: 'broken.bin', mediaType: 'application/octet-stream',
+        sizeBytes: 2, createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      stream: (async function* () {
+        yield Uint8Array.from([1]);
+        throw new Error('/private/source.bin');
+      })(),
+    });
+    const failingApp = createDagRuntimeServer(framework.client, framework.costMeta, framework.runDrafts, undefined, broken);
+    const response = await failingApp.request('/v1/dag/assets/broken/content');
+    await expect(response.arrayBuffer()).rejects.toThrow('Asset stream failed.');
   });
 
   it('POST /v1/dag/run-drafts is routed to the port (run-draft surface)', async () => {

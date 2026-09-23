@@ -4,7 +4,10 @@ import type {
   IRunDraftOperationsPort,
   TPortPayload,
 } from '@robota-sdk/dag-core';
-import type { IDagOrchestrationPort } from '@robota-sdk/dag-orchestration-client';
+import type {
+  IDagAssetHttpPort,
+  IDagOrchestrationPort,
+} from '@robota-sdk/dag-orchestration-client';
 import type { ICostMetaOperationsPort } from '@robota-sdk/dag-cost';
 import type {
   IDagCliCommandResult,
@@ -31,7 +34,10 @@ const COMMAND_GROUP_WORKFLOWS = 'workflows';
 
 export async function dispatchDagCliCommand(
   args: readonly string[],
-  client: IDagOrchestrationPort & ICostMetaOperationsPort & IRunDraftOperationsPort,
+  client: IDagOrchestrationPort &
+    IDagAssetHttpPort &
+    ICostMetaOperationsPort &
+    IRunDraftOperationsPort,
   fetchImpl: TDagCliFetch,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {

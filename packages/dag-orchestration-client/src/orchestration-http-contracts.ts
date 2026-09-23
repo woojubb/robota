@@ -66,6 +66,13 @@ export interface IDagOrchestrationAssetUploadRequest {
   readonly base64Data: string;
 }
 
+/** Transport-only asset operations. In-process asset access uses dag-core's IAssetStore. */
+export interface IDagAssetHttpPort {
+  uploadAsset(input: IDagOrchestrationAssetUploadRequest): Promise<IDagOrchestrationHttpResponse>;
+  getAssetMetadata(assetId: string): Promise<IDagOrchestrationHttpResponse>;
+  getAssetContentDownloadInfo(assetId: string): IDagOrchestrationAssetContentDownloadInfo;
+}
+
 export interface IDagOrchestrationAssetReference extends IDagOrchestrationJsonObject {
   readonly referenceType: 'asset';
   readonly assetId: string;
@@ -195,9 +202,6 @@ export interface IDagOrchestrationPort {
   startRun(preparationId: string): Promise<IDagOrchestrationHttpResponse>;
   getRunStatus(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
   getRunResult(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
-  uploadAsset(input: IDagOrchestrationAssetUploadRequest): Promise<IDagOrchestrationHttpResponse>;
-  getAssetMetadata(assetId: string): Promise<IDagOrchestrationHttpResponse>;
-  getAssetContentDownloadInfo(assetId: string): IDagOrchestrationAssetContentDownloadInfo;
   startPublishedWorkflowRun(
     dagId: string,
     input?: IDagOrchestrationPublishedWorkflowRunRequest,
