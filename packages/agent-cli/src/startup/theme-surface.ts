@@ -19,12 +19,14 @@ import { resolveAppearanceRenderFields } from './appearance-enablement.js';
 import { loadThemeSources } from './theme-sources.js';
 
 import type { IThemeRegistry, IThemeSkip } from '@robota-sdk/agent-ui-terminal';
-import type { TSettingsData } from '@robota-sdk/agent-framework';
+import type { TSettingsData, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import type { IThemeCataloguePort, TReducedMotionOverride } from '@robota-sdk/agent-command';
 
 export interface IThemeSurfaceOptions {
   /** Where the run was started, for the plugin scopes. `undefined` leaves the user scope alone. */
   readonly cwd: string | undefined;
+  /** Project plugin themes are visible only after workspace trust is granted. */
+  readonly projectAccess?: TWorkspaceProjectAccess;
   /** The home directory `~/.robota/themes` is read from. Home-only, like `~/.robota/output-styles`. */
   readonly userHome: string;
   /**
@@ -76,7 +78,11 @@ export function createThemeSurface(options: IThemeSurfaceOptions): IThemeSurface
     // a directory walk, and must not print a skip line about a file nothing was going to use.
     return { registry: undefined, cataloguePort: undefined, skipped: [], ...motion };
   }
-  const sources = loadThemeSources({ cwd: options.cwd, userHome: options.userHome });
+  const sources = loadThemeSources({
+    cwd: options.cwd,
+    userHome: options.userHome,
+    ...(options.projectAccess === undefined ? {} : { projectAccess: options.projectAccess }),
+  });
   const registry = createThemeRegistry(
     [...listBuiltInThemes(), ...sources.themes],
     sources.skipped,

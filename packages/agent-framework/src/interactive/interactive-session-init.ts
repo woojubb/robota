@@ -93,10 +93,13 @@ export async function createInteractiveSession(
     : config;
   const effectiveHookSources = [...hookSources];
 
-  // Issue #2487: a project-scope install lives under the project's own plugin directory; both
-  // scopes load, the project copy winning by manifest name when a plugin is present in both.
+  // Project plugins may contain executable hooks. Include that scope only after the host has
+  // granted workspace trust; a restricted session still sees user-installed plugins.
   const pluginsDirUnder = (base: string): string => join(base, '.robota', 'plugins');
-  const pluginsDirs = [pluginsDirUnder(cwd), pluginsDirUnder(homedir())];
+  const pluginsDirs = [
+    ...(options.projectAccess?.status === 'trusted' ? [pluginsDirUnder(cwd)] : []),
+    pluginsDirUnder(homedir()),
+  ];
   // PLG-021 / issue #2025: built through the composition root so a disabled plugin's hooks do not
   // load. The bare constructor defaults the enablement map to `{}`, which reads as "nothing
   // disabled" — indistinguishable from a user who disabled nothing. `pluginsDirs` stays a local

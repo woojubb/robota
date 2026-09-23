@@ -149,7 +149,7 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
     providerDefinitions: opts.providerDefinitions,
     env: opts.env,
     contributionSources,
-    pluginsDirs: pluginScopeDirs(opts.cwd, userHome),
+    pluginsDirs: pluginScopeDirs(opts.cwd, userHome, projectAccess),
     ...(opts.options.mcpActivationAdapter === undefined
       ? {}
       : { mcpActivation: opts.options.mcpActivationAdapter }),

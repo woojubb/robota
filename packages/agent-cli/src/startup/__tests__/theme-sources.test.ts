@@ -9,6 +9,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { loadThemeSources, MAX_ID_SEGMENT } from '../theme-sources.js';
@@ -203,6 +204,40 @@ describe('loadThemeSources', () => {
 
     expect(sources.themes.map((theme) => theme.id)).toEqual(['custom:theme-fixture:plugged']);
     expect(sources.themes[0]?.source).toBe('plugin');
+  });
+
+  it('does not discover themes from project plugins before workspace trust', () => {
+    const home = temporaryDirectory('robota-theme-home-');
+    const project = temporaryDirectory('robota-theme-project-');
+    const versionDir = join(
+      project,
+      '.robota',
+      'plugins',
+      'cache',
+      'fixtures',
+      'project-theme',
+      '1.0.0',
+    );
+    mkdirSync(join(versionDir, '.claude-plugin'), { recursive: true });
+    writeFileSync(
+      join(versionDir, '.claude-plugin', 'plugin.json'),
+      JSON.stringify({ name: 'project-theme', version: '1.0.0', description: 'project', features: {} }),
+    );
+    writeTheme(join(versionDir, 'themes'), 'project.json', '{}');
+
+    const previousHome = process.env['HOME'];
+    process.env['HOME'] = home;
+    try {
+      const sources = loadThemeSources({
+        cwd: project,
+        userHome: home,
+        projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', project),
+      });
+      expect(sources).toEqual({ themes: [], skipped: [] });
+    } finally {
+      if (previousHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = previousHome;
+    }
   });
 });
 

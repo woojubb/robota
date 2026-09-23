@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { loadHostBundlePluginsFromScopes, PluginCommandSource } from '@robota-sdk/agent-framework';
 
-import type { CommandRegistry } from '@robota-sdk/agent-framework';
+import type { CommandRegistry, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
 const PLUGIN_SOURCE_NAME = 'plugin';
 
@@ -22,23 +22,30 @@ function pluginsDirUnder(base: string): string {
 }
 
 /**
- * The plugin scope directories, most specific first. Exported (OBSERVABILITY-1991) so the doctor
- * reads the same layout this loader reads instead of computing a third copy.
+ * The admitted plugin scope directories, most specific first. Project plugins are executable input,
+ * so only a trusted workspace may include that scope. Doctor and theme discovery share this layout.
  */
 export function pluginScopeDirs(
   cwd: string | undefined,
   userHome: string = getHomeDir(),
+  projectAccess?: TWorkspaceProjectAccess,
 ): string[] {
   const user = pluginsDirUnder(userHome);
-  return cwd === undefined ? [user] : [pluginsDirUnder(cwd), user];
+  return cwd === undefined || projectAccess?.status !== 'trusted'
+    ? [user]
+    : [pluginsDirUnder(cwd), user];
 }
 
-export function reloadPluginCommandSource(registry: CommandRegistry, cwd?: string): number {
+export function reloadPluginCommandSource(
+  registry: CommandRegistry,
+  cwd?: string,
+  projectAccess?: TWorkspaceProjectAccess,
+): number {
   try {
     // PLG-021 / issue #2025: the reload path reported plugins as reloaded while a disabled plugin's
     // commands came back with them, because the bare loader defaults its enablement map to `{}`.
     // allow-fallback: plugin load failure is non-fatal — clear source and return empty
-    const plugins = loadHostBundlePluginsFromScopes(pluginScopeDirs(cwd));
+    const plugins = loadHostBundlePluginsFromScopes(pluginScopeDirs(cwd, getHomeDir(), projectAccess));
     if (plugins.length === 0) {
       registry.replaceSource(PLUGIN_SOURCE_NAME);
       return 0;
