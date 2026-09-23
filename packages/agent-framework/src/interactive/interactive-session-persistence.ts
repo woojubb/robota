@@ -15,6 +15,7 @@ import type {
   IGoalState,
   IPlanArtifact,
   IActiveBranchPointer,
+  ISessionLoopState,
 } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 
@@ -52,6 +53,7 @@ export function persistSession(
   planState?: IPlanArtifact,
   activeBranchState?: IActiveBranchPointer,
   strict = false,
+  sessionLoops?: readonly ISessionLoopState[],
 ): void {
   try {
     const sessionId = session.getSessionId();
@@ -82,6 +84,9 @@ export function persistSession(
         ...(goalState !== undefined ? { goalState } : {}),
         ...(planState !== undefined ? { planState } : {}),
         ...(activeBranchState !== undefined ? { activeBranchState } : {}),
+        ...(sessionLoops !== undefined || existing?.sessionLoops !== undefined
+          ? { sessionLoops: sessionLoops ?? existing?.sessionLoops }
+          : {}),
       }),
     );
   } catch (error) {
@@ -117,6 +122,7 @@ interface IBuildInteractiveSessionRecordInput {
   goalState?: IGoalState;
   planState?: IPlanArtifact;
   activeBranchState?: IActiveBranchPointer;
+  sessionLoops?: readonly ISessionLoopState[];
 }
 
 function buildInteractiveSessionRecord(
@@ -127,6 +133,7 @@ function buildInteractiveSessionRecord(
     ...(input.goalState !== undefined ? { goal: input.goalState } : {}),
     ...(input.planState !== undefined ? { plan: input.planState } : {}),
     ...(input.activeBranchState !== undefined ? { activeBranch: input.activeBranchState } : {}),
+    ...(input.sessionLoops !== undefined ? { sessionLoops: [...input.sessionLoops] } : {}),
     ...(input.sessionName !== undefined ? { name: input.sessionName } : {}),
     cwd: input.cwd,
     createdAt: input.createdAt ?? new Date().toISOString(),

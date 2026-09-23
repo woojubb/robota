@@ -24,6 +24,7 @@ import { humanizeApiError } from '../utils/error-humanizer.js';
 import type { IExecutionClaim } from './interactive-execution-claim.js';
 import type {
   IExecutionControllerCallbacks,
+  ICompletedToolExecution,
   ITurnOptions,
   IQueuedInput,
   TResumeQueuedTurnFn,
@@ -55,6 +56,7 @@ export type {
 } from './interactive-session-execution-contracts.js';
 
 export class SessionExecutionController {
+  private completedToolExecutions: ICompletedToolExecution[] = [];
   readonly executionClaim: InteractiveExecutionClaimOwner;
   streamingText = '';
   flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -150,6 +152,13 @@ export class SessionExecutionController {
     toolResultData?: string;
     executionId?: string;
   }): void {
+    if (event.type === 'end') {
+      this.completedToolExecutions.push({
+        name: event.toolName,
+        args: event.toolArgs,
+        success: event.success === true && event.denied !== true,
+      });
+    }
     this.activeTools = projectToolExecution(
       this.activeTools,
       this.histTracker.getHistory(),
@@ -220,6 +229,7 @@ export class SessionExecutionController {
     // RUNTIME-003: which submission this turn belongs to; the handle minted then settles here.
     // REMOTE-014 E5: capture the ACTIVE turn's driver so event/prompt emitters can attribute to it.
     this.activeDriverId = turnOptions.driverId ?? null;
+    this.completedToolExecutions = [];
     // SELFHOST-008 P2: stash the completed turn's result so post-turn capture can run in the `finally`
     // BEFORE persistSession() (awaiting inside `onComplete` would not order there — it is not awaited).
     let completedResult: IExecutionResult | undefined;
@@ -287,13 +297,11 @@ export class SessionExecutionController {
           completedResult = result; // stash for post-turn capture in the `finally`
           terminalResult = result;
           turnOutcome = 'success';
-          this.callbacks.emit('complete', result);
         },
         onInterrupted: (result: IExecutionResult) => {
           // RUNTIME-003: an interrupted turn RAN — resolve, do not reject.
           terminalResult = result;
           turnOutcome = 'interrupted';
-          this.callbacks.emit('interrupted', result);
         },
         onError: (err: Error) => {
           turnError = err;
@@ -331,6 +339,35 @@ export class SessionExecutionController {
         ...(turnOptions.surface ? { surface: turnOptions.surface } : {}),
         ...(terminalResult?.usage ? { usage: terminalResult.usage } : {}),
       });
+      if (turnOptions.wakeTaskId !== undefined && this.callbacks.onWakeTurnFinalizing) {
+        try {
+          await this.callbacks.onWakeTurnFinalizing(
+            turnOptions.wakeTaskId,
+            terminalResult,
+            turnOutcome,
+            this.completedToolExecutions,
+          );
+        } catch (error) {
+          turnError = error instanceof Error ? error : new Error(String(error));
+          terminalResult = undefined;
+          this.callbacks.emit('error', turnError);
+        }
+      }
+      // Observers (including the TUI) see the completed history only after the durable wake
+      // transition and its cadence receipt have succeeded. Never announce success then fail it.
+      if (terminalResult !== undefined) {
+        try {
+          emitTerminalTurnEvent(this.callbacks, turnOutcome, terminalResult);
+        } catch (error) {
+          turnError = error instanceof Error ? error : new Error(String(error));
+          terminalResult = undefined;
+          try {
+            this.callbacks.emit('error', turnError);
+          } catch (notificationError) {
+            turnError = new AggregateError([turnError, notificationError], 'Turn completion notification failed');
+          }
+        }
+      }
       // RUNTIME-003: settled BEFORE draining, in the `finally` that always runs — so a caller is
       // answered by ITS turn, and a turn that threw where onError never saw still settles.
       if (terminalResult !== undefined) this.turns.settle(turnId, terminalResult);
@@ -425,4 +462,12 @@ export class SessionExecutionController {
       () => this.clearStreaming(),
     );
   }
+}
+
+function emitTerminalTurnEvent(
+  callbacks: IExecutionControllerCallbacks,
+  outcome: 'success' | 'failure' | 'interrupted',
+  result: IExecutionResult,
+): void {
+  callbacks.emit(outcome === 'interrupted' ? 'interrupted' : 'complete', result);
 }

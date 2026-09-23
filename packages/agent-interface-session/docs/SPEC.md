@@ -55,6 +55,11 @@ unreadable" into one answer a caller could not act on differently. The store dec
 envelope and validates its shape (which is inspection), but never reads a field for its meaning —
 no branch on any field's value — so it holds no domain policy of its own.
 
+Self-paced repeats keep their stable identity and lifecycle in the session record, not in a
+disposable scheduled-task id. A waiting loop records its next allowed instant and the reason for
+that choice; a pending or running iteration records enough identity to reject stale wakes after
+resume. Stopped and expired loops remain terminal records rather than silently disappearing.
+
 ### Session capability presence
 
 A session either provides a capability or does not claim it — capabilities such as initialization

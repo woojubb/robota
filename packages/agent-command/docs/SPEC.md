@@ -95,7 +95,13 @@ is not sent with the request and is therefore not counted. The resulting number 
 observable consequence of deferral — before this breakdown existed, nothing separated tool-schema
 token cost from the system-prompt cost it is billed alongside.
 
-**`/loop` (fixed in-session repeat).** Requested intervals are positive and at most one day.
+**`/loop` (in-session repeat).** Prompt-only and bare forms start a self-paced loop; a bare form
+uses the host's bounded maintenance prompt. An explicit interval keeps the fixed schedule. In
+self-paced mode the model chooses a 1–60 minute delay and short reason through a structured tool,
+or stops; missing decisions permit only one 20-minute fallback. The stable loop id supports listing
+and stopping either mode, and the session record—not the disposable timer—owns resumption.
+
+Fixed requested intervals are positive and at most one day.
 Calendar-aligned steps only divide the minute, hour, or day; a request between supported steps rounds
 up to the next one, and the rounded step (not an exact elapsed-time figure) is what gets reported,
 because daylight-saving transitions can make the actual elapsed gap shorter or longer than the nominal
@@ -108,8 +114,8 @@ seven-day expiry; an expired loop is terminal and refuses to fire again even aft
 and stop are strictly persisted before they report success; ordinary turn snapshots remain
 best-effort. A host kill switch can block firing/re-arming while preserving paused records for a later
 restart, and separately refuses new-loop creation while still allowing `list`/`stop` so existing loops
-stay manageable. Jitter, Esc handling, a self-paced/prompt-only mode, and project/user prompt overrides
-are not yet delivered by this command.
+stay manageable. Jitter, Esc handling, and project/user prompt overrides remain outside this
+increment; the historical #2005 checklist in #2726 remains open for those behaviors.
 
 **`orgPolicy` in `/provider`.** When an `IOrgPolicy` is supplied: a switch to a profile outside
 `allowedProviders` is rejected before any settings write; a completed provider setup whose API key is

@@ -122,6 +122,22 @@ describe('InteractiveSession', () => {
     expect(mockSession.run).toHaveBeenCalledWith('hello', undefined);
   });
 
+  it('settles the turn and releases execution when a completion listener throws', async () => {
+    const session = new InteractiveSession({
+      session: createMockSession({ runResult: 'done' }) as never,
+      cwd: '/tmp',
+    });
+    session.on('complete', () => { throw new Error('render failed'); });
+    const errors: Error[] = [];
+    session.on('error', (error) => errors.push(error));
+
+    const first = await session.submit('first');
+    await expect(first.completed).rejects.toThrow('render failed');
+    expect(errors.map((error) => error.message)).toContain('render failed');
+    const second = await session.submit('second');
+    await expect(second.completed).rejects.toThrow('render failed');
+  });
+
   it('adds user message to messages on submit', async () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({

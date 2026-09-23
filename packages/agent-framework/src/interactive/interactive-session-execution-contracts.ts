@@ -12,6 +12,7 @@
  */
 
 import type { TPromptHistoryRecorder } from './interactive-session-prompt-history.js';
+import type { IExecutionResult } from './types.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
@@ -57,6 +58,19 @@ export interface IExecutionControllerCallbacks {
    * the owner typed. Absent ⇒ prompt history OFF.
    */
   recordPrompt?: TPromptHistoryRecorder;
+  /** Runs after turn history is final but before the turn handle settles or the next input drains. */
+  onWakeTurnFinalizing?: (
+    wakeTaskId: string,
+    result: IExecutionResult | undefined,
+    outcome: 'success' | 'failure' | 'interrupted',
+    toolExecutions: readonly ICompletedToolExecution[],
+  ) => Promise<void>;
+}
+
+export interface ICompletedToolExecution {
+  name: string;
+  args: unknown;
+  success: boolean;
 }
 
 /** Options threaded through submit/executePrompt for non-user turns (FLOW-002). */

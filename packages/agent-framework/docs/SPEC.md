@@ -122,6 +122,14 @@ These are behaviors a caller cannot infer from a type signature alone.
   turn commits any partially streamed answer to history as an interrupted entry before stream state
   clears. Errors from outside the turn boundary (background tasks, catalog refresh, uncaught promises)
   surface through the same humanize path via `reportBackgroundError`, and the session stays usable.
+- **Self-paced loop intent is durable before admission.** Creation, wake claim, running entry,
+  rescheduling, and stop are strict session-record writes; a failed or uncertain write cannot
+  authorize another iteration. The scheduler's one-shot task is replaceable, while the session-owned
+  loop identity survives resume. Missed wakes do not catch up; an uncertain running iteration is
+  not replayed. Only a successfully executed, structured, provider-neutral decision can select a
+  one-minute to one-hour delay or stop; an omitted or denied decision permits one 20-minute fallback
+  and then terminates. A stop removes only
+  that loop's queued wake, and a running iteration may finish without arming a successor.
 - **Tool composition is asymmetric on purpose: replace and append are not interchangeable.**
   `defaultTools` replaces the framework's default tool tier outright; `additionalTools` only appends
   and, on a name collision with an already-assembled tool, the earlier entry silently wins and the
