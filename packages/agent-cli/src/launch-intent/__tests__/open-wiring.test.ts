@@ -5,8 +5,8 @@ import { printHelp } from '../../utils/cli-help.js';
 import { OPEN_SUBCOMMAND } from '../open-invocation.js';
 
 describe('TC-06: `open` is wired where it must be, and claimed nowhere else', () => {
-  it('startCli consults the launch invocation before it reads the cwd or parses argv', () => {
-    const cli = new URL('../../cli.ts', import.meta.url);
+  it('shared CLI bootstrap consults the launch invocation before it reads the cwd or parses argv', () => {
+    const cli = new URL('../../cli-core.ts', import.meta.url);
     const source = readFileSyncUtf8(cli);
     const launch = source.indexOf('applyLaunchInvocation()');
     const cwd = source.indexOf('const cwd = process.cwd()');

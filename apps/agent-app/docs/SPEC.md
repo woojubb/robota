@@ -46,6 +46,13 @@ Electron main (Node)                         robota sidecar (Node CLI)
 - **`src/App.tsx`** — `SessionSurface` (pure presentation over `IWsSessionState`, unit-tested) + `SessionView`
   (the thin `useWsSession` binding) + `App` (endpoint resolution + fatal-state gate).
 
+## Bundled runtime source (RUNTIME-002)
+
+Packaging reads the manifest-verified `agent-cli` `dist-bun-headless` generation for the current
+OS/architecture and copies `robota-headless-<os>-<arch>[.exe]` to the existing fixed
+`resources/robota[.exe]` path. Electron still launches that path with `--serve` and carries the
+per-launch nonce and port in the child environment. The full CLI Bun release remains separate.
+
 ## Sidecar + loopback-auth contract (GUI-002)
 
 - The shell mints a **per-launch 256-bit nonce** and a **free loopback port**, spawns `robota` with them in
@@ -94,6 +101,10 @@ runtime) — enforced by review + the harness `deps` scan.
   recovery, 7/30-day aggregate views, model/surface breakdowns, contributor-session and current-
   session reports, privacy, and an admission-token mismatch that yields no usage data and an explicit
   unavailable state.
+- **Packaged runtime end-to-end (`pnpm --filter @robota-sdk/agent-app test:e2e:bundled`):** after
+  `dist:app`, launches the sidecar from the host OS's actual packaged resources, checks the authenticated
+  WebSocket session, rejects a wrong nonce before session data, and verifies shutdown. The desktop release
+  workflow runs this gate on each OS before uploading installers.
 - **Required workflow reachability:** the develop PR `build` check reads the affected-scope plan and,
   whenever it includes `@robota-sdk/agent-app` (or classification fails closed to full), runs both
   Electron scenarios under `xvfb`. The release sweep records this as already covered by that required

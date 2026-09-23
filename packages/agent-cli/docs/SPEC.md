@@ -829,6 +829,18 @@ The remaining third-party entries in `package.json` `dependencies` (`openai`, `@
 `@marcbachmann/cel-js`, `zod-to-json-schema`, …) are not imported by CLI source; they are the hoisted
 runtime dependencies of the bundled workspace packages (see § Self-contained bundle, INFRA-028).
 
+### Headless desktop binary (RUNTIME-002)
+
+The desktop app bundles a separately compiled `robota-headless-<os>-<arch>` Bun artifact from
+`dist-bun-headless`; the full `robota` CLI artifact, npm bin, and five-target `dist-bun` release
+remain available. The headless entry owns the same `--serve` startup, provider/preset/session
+composition, loopback token and port, diagnostics, and graceful shutdown as the full CLI. It accepts
+only `--serve` user launches, plus the private self-reexecuted subagent-worker IPC mode required by
+served sessions. Its transitive value-import graph excludes Ink and terminal presentation modules.
+The two Bun artifacts are measured for the same target from the same verified Node generation;
+headless must be strictly smaller. The desktop's fixed `resources/robota[.exe]` path and spawn
+arguments remain unchanged; only its copied source changes.
+
 ### Distribution — Bun single binary (DIST-001)
 
 Alongside the npm/Node package, `agent-cli` can be compiled to a **standalone single-file executable** via

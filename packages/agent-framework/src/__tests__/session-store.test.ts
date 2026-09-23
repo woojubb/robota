@@ -244,6 +244,7 @@ describe('SessionStore', () => {
               },
             }),
             JSON.stringify({
+              schemaVersion: 1,
               timestamp: '2026-05-05T00:00:03.000Z',
               sessionId: 'log-only-session',
               event: 'background_task_event',
@@ -264,6 +265,7 @@ describe('SessionStore', () => {
               },
             }),
             JSON.stringify({
+              schemaVersion: 1,
               timestamp: '2026-05-05T00:00:04.000Z',
               sessionId: 'log-only-session',
               event: 'background_job_group_event',
