@@ -91,9 +91,14 @@ function layerCheck(layer: ISettingsLayerInspection, inputs: IDoctorInputs): IDo
 }
 
 function provenanceCheck(inspection: ISettingsInspection): IDoctorCheck {
-  const lines = inspection.provenance.map(
-    (entry) => `${entry.key}: ${entry.rule} ← ${entry.contributors.join(' → ')}`,
-  );
+  const lines = [
+    ...inspection.provenance.map(
+      (entry) => `${entry.key}: ${entry.rule} ← ${entry.contributors.join(' → ')}`,
+    ),
+    ...inspection.hookSources.map(
+      (hook, index) => `settings hook ${index + 1}: ${hook.event}/${hook.type} ← ${hook.source}`,
+    ),
+  ];
   if (inspection.partial) {
     return {
       id: 'settings.merge',

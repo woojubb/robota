@@ -7,7 +7,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../config-loader.js';
 import { inspectSettingsLayers } from '../settings-inspection.js';
 import { SettingsParseError } from '../settings-parse-error.js';
-import { createNodeHostSettingsSource } from '../settings-source.js';
+import {
+  createNodeHostSettingsSource,
+  createWorkspaceProjectSettingsSources,
+} from '../settings-source.js';
+import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import { getWorkspaceProjectReader } from '../../workspace-trust/index.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -95,6 +100,53 @@ describe('inspectSettingsLayers (OBSERVABILITY-1991 TC-02)', () => {
     expect(byKey.get('language')?.rule).toBe('replace');
     expect(inspection.merged.defaultTrustLevel).toBe('safe');
     expect(inspection.merged.permissions?.deny).toEqual(['x', 'y']);
+  });
+
+  it('attributes effective user and project hooks and excludes disabled groups in a partial inspection', async () => {
+    const root = tempRoot();
+    const user = source(
+      root,
+      'user-hooks.json',
+      JSON.stringify({
+        disabledHooks: ['project-muted'],
+        hooks: {
+          PreToolUse: [{ matcher: '*', hooks: [{ type: 'command', command: 'user-private' }] }],
+        },
+      }),
+    );
+    mkdirSync(join(root, '.robota'));
+    writeFileSync(
+      join(root, '.robota', 'settings.json'),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            { matcher: '*', hooks: [{ type: 'command', command: 'project-private' }] },
+            {
+              id: 'project-muted',
+              matcher: '*',
+              hooks: [{ type: 'prompt', prompt: 'muted-private' }],
+            },
+          ],
+        },
+      }),
+      'utf8',
+    );
+    const access = await createTrustedProjectAccessFixture(root);
+    if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
+    const project = createWorkspaceProjectSettingsSources(
+      getWorkspaceProjectReader(access.authority),
+    )[0]!;
+    const broken = source(root, 'broken.json', '{');
+
+    const inspection = inspectSettingsLayers([user, project, broken]);
+
+    expect(inspection.partial).toBe(true);
+    expect(inspection.hookSources).toEqual([
+      { event: 'PreToolUse', type: 'command', source: user.displayName },
+      { event: 'PreToolUse', type: 'command', source: project.displayName },
+    ]);
+    expect(JSON.stringify(inspection.hookSources)).not.toMatch(/private/);
+    expect(inspection.merged.hooks?.PreToolUse).toHaveLength(2);
   });
 
   it('keeps loadConfig raising the same error at the same layer: read-phase first, then schema', async () => {
