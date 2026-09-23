@@ -19,7 +19,7 @@ describe('dag-runtime-server contract', () => {
     framework = await createDagFramework();
     await framework.start();
     app = createDagRuntimeServer(
-      framework.client,
+      framework.runs,
       framework.costMeta,
       framework.runDrafts,
       framework.build,
@@ -232,6 +232,120 @@ describe('dag-runtime-server contract', () => {
     });
   });
 
+  it('maps domain run lifecycle results to the existing HTTP routes', async () => {
+    const built = await framework.build.buildDag({
+      dagId: 'run-boundary-contract',
+      pipeline: [{ nodeType: 'input', config: { text: 'hello' } }],
+    });
+    if (!built.ok) throw new Error('Expected a valid test definition.');
+    const created = await app.request('/v1/dag/runs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ definition: built.definition, input: {} }),
+    });
+    expect(created.status).toBe(201);
+    const createPayload = (await created.json()) as { data: { dagRunId: string; version: number } };
+    expect(createPayload).toMatchObject({
+      ok: true,
+      status: 201,
+      data: {
+        dagRunId: expect.any(String),
+        preparationId: expect.any(String),
+        dagId: 'run-boundary-contract',
+        version: 2,
+        logicalDate: expect.any(String),
+        status: expect.any(String),
+      },
+    });
+    const runId = createPayload.data.dagRunId;
+    const started = await app.request(`/v1/dag/runs/${runId}/start`, { method: 'POST' });
+    expect(started.status).toBe(200);
+    expect(await started.json()).toMatchObject({
+      ok: true,
+      status: 200,
+      data: { dagRunId: runId, dagId: 'run-boundary-contract' },
+    });
+    for (const route of [`/v1/dag/runs/${runId}`, `/v1/dag/runs/${runId}/result`]) {
+      const found = await app.request(route);
+      expect(found.status).toBe(200);
+      expect(await found.json()).toMatchObject({
+        ok: true,
+        status: 200,
+        data: { dagRun: { dagRunId: runId }, taskRuns: expect.any(Array) },
+      });
+    }
+    const published = await app.request('/v1/dag/definitions/run-boundary-contract/start', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ input: {} }),
+    });
+    expect(published.status).toBe(201);
+    expect(await published.json()).toMatchObject({
+      ok: true,
+      status: 201,
+      data: { dagRunId: expect.any(String), preparationId: expect.any(String), version: 2 },
+    });
+  });
+
+  it('preserves run errors and implicit definition-publish failure envelopes', async () => {
+    for (const route of ['/v1/dag/runs/absent', '/v1/dag/runs/absent/result']) {
+      const missing = await app.request(route);
+      expect(missing.status).toBe(404);
+      expect(await missing.json()).toMatchObject({
+        ok: false,
+        status: 404,
+        errors: [{ title: 'DAG operation failed', instance: route, status: 404 }],
+      });
+    }
+    const missingStart = await app.request('/v1/dag/runs/absent/start', { method: 'POST' });
+    expect(missingStart.status).toBe(404);
+    expect(await missingStart.json()).toMatchObject({
+      ok: false,
+      errors: [{ title: 'DAG operation failed', instance: '/v1/dag/runs/absent/start' }],
+    });
+    const missingPublished = await app.request('/v1/dag/definitions/absent/start', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(missingPublished.status).toBe(404);
+    expect(await missingPublished.json()).toMatchObject({
+      ok: false,
+      errors: [{ title: 'DAG operation failed', instance: '/v1/dag/workflows/absent/runs' }],
+    });
+    const built = await framework.build.buildDag({
+      dagId: 'bad-run-definition',
+      pipeline: [{ nodeType: 'input', config: { text: 'hello' } }],
+    });
+    if (!built.ok) throw new Error('Expected a valid test definition.');
+    const invalid = {
+      ...built.definition,
+      edges: [{ from: 'missing', to: 'missing', bindings: [] }],
+    };
+    const rejected = await app.request('/v1/dag/runs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ definition: invalid }),
+    });
+    expect(rejected.status).toBe(400);
+    const rejectedPayload = (await rejected.json()) as {
+      ok: boolean;
+      status: number;
+      errors: Array<{ title: string; instance: string; status: number }>;
+    };
+    expect(rejectedPayload.ok).toBe(false);
+    expect(rejectedPayload.status).toBe(400);
+    expect(rejectedPayload.errors.length).toBeGreaterThan(0);
+    expect(
+      rejectedPayload.errors.every(
+        (error) =>
+          error.title === 'Publish failed' &&
+          error.instance === '/v1/dag/runs' &&
+          error.status === 400,
+      ),
+    ).toBe(true);
+  });
+
   it('maps domain build results to the existing HTTP route envelope', async () => {
     const success = await app.request('/v1/dag/build', {
       method: 'POST',
@@ -327,7 +441,7 @@ describe('dag-runtime-server contract', () => {
     const costMeta = Object.create(framework.costMeta) as ICostMetaOperationsPort;
     costMeta.listCostMeta = async () => ({ ok: true, value: [] });
     const supportedApp = createDagRuntimeServer(
-      framework.client,
+      framework.runs,
       costMeta,
       framework.runDrafts,
       framework.build,
@@ -354,7 +468,7 @@ describe('dag-runtime-server contract', () => {
       },
     });
     const failingApp = createDagRuntimeServer(
-      framework.client,
+      framework.runs,
       costMeta,
       framework.runDrafts,
       framework.build,
@@ -423,7 +537,7 @@ describe('dag-runtime-server contract', () => {
       },
     });
     const failingApp = createDagRuntimeServer(
-      framework.client,
+      framework.runs,
       framework.costMeta,
       drafts,
       framework.build,
@@ -502,7 +616,7 @@ describe('dag-runtime-server contract', () => {
       throw new Error('Reference source must not be fetched.');
     };
     const referenceApp = createDagRuntimeServer(
-      framework.client,
+      framework.runs,
       framework.costMeta,
       framework.runDrafts,
       framework.build,
@@ -586,7 +700,7 @@ describe('dag-runtime-server contract', () => {
     expect(traversal.status).toBe(400);
 
     const unwiredApp = createDagRuntimeServer(
-      framework.client,
+      framework.runs,
       framework.costMeta,
       framework.runDrafts,
       framework.build,
@@ -603,7 +717,7 @@ describe('dag-runtime-server contract', () => {
       throw new Error('/private/secret.json');
     };
     const failingApp = createDagRuntimeServer(
-      framework.client,
+      framework.runs,
       framework.costMeta,
       framework.runDrafts,
       framework.build,
@@ -642,7 +756,7 @@ describe('dag-runtime-server contract', () => {
       })(),
     });
     const failingApp = createDagRuntimeServer(
-      framework.client,
+      framework.runs,
       framework.costMeta,
       framework.runDrafts,
       framework.build,

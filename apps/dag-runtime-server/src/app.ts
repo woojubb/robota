@@ -4,7 +4,11 @@ import { streamSSE } from 'hono/streaming';
 import type { IDagBuildInput, IDagBuildPort } from '@robota-sdk/dag-builder';
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import { toProblemDetails } from '@robota-sdk/dag-api';
+import {
+  toProblemDetails,
+  type IDagRunLifecyclePort,
+  type TPrepareRunError,
+} from '@robota-sdk/dag-api';
 import {
   buildValidationError,
   decodeOverwriteRunDraftNodeResultInput,
@@ -27,15 +31,41 @@ import type {
 } from '@robota-sdk/dag-cost';
 import type {
   IDagOrchestrationCreateRunInput,
-  IDagOrchestrationHttpResponse,
-  IDagOrchestrationPort,
   IDagOrchestrationPublishedWorkflowRunRequest,
   IDagOrchestrationUpdateDraftInput,
 } from '@robota-sdk/dag-orchestration-client';
 import { registerAssetRoutes } from './asset-routes.js';
 
-function reply(c: Context, response: IDagOrchestrationHttpResponse): Response {
-  return c.json(response.payload, response.status as ContentfulStatusCode);
+function runProblem(
+  error: IDagError,
+  instance: string,
+  title = 'DAG operation failed',
+  status = error.code.endsWith('_NOT_FOUND') ? 404 : 400,
+) {
+  return {
+    type: `urn:robota:problems:dag:${error.category ?? 'validation'}`,
+    title,
+    status,
+    detail: error.message,
+    instance,
+    code: error.code,
+    retryable: error.retryable ?? false,
+  };
+}
+
+function runFailure(c: Context, error: IDagError, instance: string): Response {
+  const problem = runProblem(error, instance);
+  return c.json(
+    { ok: false, status: problem.status, errors: [problem] },
+    problem.status as ContentfulStatusCode,
+  );
+}
+
+function runCreateFailure(c: Context, failure: TPrepareRunError): Response {
+  if (failure.phase === 'run_create') return runFailure(c, failure.error, '/v1/dag/runs');
+  const title = failure.phase === 'definition_create' ? 'Validation failed' : 'Publish failed';
+  const errors = failure.errors.map((error) => runProblem(error, '/v1/dag/runs', title, 400));
+  return c.json({ ok: false, status: 400, errors }, 400);
 }
 
 function definitionMutationReply(
@@ -221,16 +251,14 @@ function isTerminalProgressEvent(event: TRunProgressEvent): boolean {
 }
 
 /**
- * Native DAG runtime HTTP server (WORKFLOW-002). Maps the `/v1/dag/*` route surface onto an
- * `IDagOrchestrationPort` — typically `createDagFramework().client` (the in-process implementation).
- * No external-runtime API surface. Legacy orchestration handlers forward JSON responses;
- * cost, draft and asset routes map their separate capabilities at the HTTP boundary.
+ * Native DAG runtime HTTP server (WORKFLOW-002). Maps in-process domain capabilities onto
+ * `/v1/dag/*` HTTP responses. No external-runtime API surface.
  *
  * When a `progressSource` is supplied, `GET /v1/dag/runs/:id/events` streams that run's progress as
  * Server-Sent Events; without one, that route answers 501.
  */
 export function createDagRuntimeServer(
-  port: IDagOrchestrationPort,
+  runs: IDagRunLifecyclePort,
   costMeta: ICostMetaOperationsPort,
   runDrafts: IRunDraftOperationsPort,
   build: IDagBuildPort,
@@ -370,13 +398,59 @@ export function createDagRuntimeServer(
   // --- Run lifecycle ---
   app.post('/v1/dag/runs', async (c) => {
     const body = await c.req.json<IDagOrchestrationCreateRunInput>();
-    return reply(c, await port.createRun(body));
+    const result = await runs.createRun(body);
+    if (!result.ok) return runCreateFailure(c, result.error);
+    return c.json(
+      {
+        ok: true,
+        status: 201,
+        data: {
+          dagRunId: result.value.dagRunId,
+          preparationId: result.value.dagRunId,
+          dagId: result.value.dagId,
+          version: result.value.version,
+          logicalDate: result.value.logicalDate,
+          status: result.value.status,
+        },
+      },
+      201,
+    );
   });
-  app.post('/v1/dag/runs/:id/start', async (c) => reply(c, await port.startRun(c.req.param('id'))));
-  app.get('/v1/dag/runs/:id', async (c) => reply(c, await port.getRunStatus(c.req.param('id'))));
-  app.get('/v1/dag/runs/:id/result', async (c) =>
-    reply(c, await port.getRunResult(c.req.param('id'))),
-  );
+  app.post('/v1/dag/runs/:id/start', async (c) => {
+    const id = c.req.param('id');
+    const result = await runs.startRun(id);
+    return result.ok
+      ? c.json({ ok: true, status: 200, data: result.value }, 200)
+      : runFailure(c, result.error, `/v1/dag/runs/${id}/start`);
+  });
+  app.get('/v1/dag/runs/:id', async (c) => {
+    const id = c.req.param('id');
+    const result = await runs.getRun(id);
+    return result.ok
+      ? c.json(
+          {
+            ok: true,
+            status: 200,
+            data: { dagRun: result.value.dagRun, taskRuns: result.value.taskRuns },
+          },
+          200,
+        )
+      : runFailure(c, result.error, `/v1/dag/runs/${id}`);
+  });
+  app.get('/v1/dag/runs/:id/result', async (c) => {
+    const id = c.req.param('id');
+    const result = await runs.getRun(id);
+    return result.ok
+      ? c.json(
+          {
+            ok: true,
+            status: 200,
+            data: { dagRun: result.value.dagRun, taskRuns: result.value.taskRuns },
+          },
+          200,
+        )
+      : runFailure(c, result.error, `/v1/dag/runs/${id}/result`);
+  });
 
   // --- Run progress stream (SSE) ---
   app.get('/v1/dag/runs/:id/events', (c) => {
@@ -417,13 +491,25 @@ export function createDagRuntimeServer(
     const body = await c.req
       .json<IDagOrchestrationPublishedWorkflowRunRequest>()
       .catch(() => undefined);
-    return reply(
-      c,
-      await port.startPublishedWorkflowRun(
-        c.req.param('dagId'),
-        body,
-        version !== undefined ? Number(version) : undefined,
-      ),
+    const dagId = c.req.param('dagId');
+    const result = await runs.startPublishedWorkflowRun(
+      dagId,
+      body?.input,
+      version !== undefined ? Number(version) : undefined,
+    );
+    if (!result.ok) return runFailure(c, result.error, `/v1/dag/workflows/${dagId}/runs`);
+    return c.json(
+      {
+        ok: true,
+        status: 201,
+        data: {
+          dagRunId: result.value.dagRunId,
+          preparationId: result.value.dagRunId,
+          dagId: result.value.dagId,
+          version: result.value.version,
+        },
+      },
+      201,
     );
   });
 

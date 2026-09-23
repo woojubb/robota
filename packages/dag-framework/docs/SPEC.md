@@ -20,14 +20,14 @@ zero external runtime-server process dependencies.
   composition, worker, task, and lifecycle contracts require that root explicitly and never
   default it themselves — the factory is the sole boundary allowed to fall back to the process's
   own working directory when the root is omitted.
-- Definition reads and mutations, build, catalog-aware definition validation, registered-node catalog, cost-meta, and run-draft operations are separate domain capabilities on the returned framework, not
-  folded into the main orchestration port. Until cost persistence and formula execution are wired
+- Run lifecycle, definition reads and mutations, build, catalog-aware definition validation,
+  registered-node catalog, cost-meta, and run-draft operations are domain capabilities on the
+  returned framework. Until cost persistence and formula execution are wired
   with an explicit policy, cost operations report an explicit unsupported result rather than
   fabricating a response.
-- The orchestration adapter does not encode definition reads or mutations, build, validation, or catalog results, upload bytes, fabricate download URLs, or wrap asset
-  metadata in HTTP envelopes — asset storage and byte streaming are exposed as a separate
-  capability. Remaining orchestration methods keep an HTTP-shaped response contract because a
-  native runtime server can sit behind the same port.
+- The in-process framework does not create HTTP response envelopes. Its run lifecycle owns the
+  implicit definition create/publish needed before a manually prepared run; the runtime server
+  maps those outcomes to HTTP. Asset storage and byte streaming remain separate capabilities.
 - The diagnostics dead-letter-reinject port this composition wires has no queue to drain and
   reports that explicitly; it must never report success in a way that reads as "the queue is
   empty," which would misstate a queue the composition does not have.

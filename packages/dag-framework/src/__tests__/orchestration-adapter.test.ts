@@ -34,10 +34,17 @@ const MINIMAL_DEFINITION: IDagDefinition = {
   edges: [{ from: 'n1', to: 'n2', bindings: [{ outputKey: 'text', inputKey: 'text' }] }],
 };
 
+it('exposes run lifecycle through a domain capability without an HTTP client', async () => {
+  expect('client' in framework).toBe(false);
+  const run = await framework.runs.getRun('missing');
+  expect(run).toMatchObject({ ok: false, error: { code: expect.any(String) } });
+  expect(run).not.toHaveProperty('status');
+});
+
 describe('listDefinitions', () => {
   it('exposes definition reads as domain data outside the HTTP port', async () => {
-    expect('listDefinitions' in framework.client).toBe(false);
-    expect('getDefinition' in framework.client).toBe(false);
+    expect('listDefinitions' in framework.runs).toBe(false);
+    expect('getDefinition' in framework.runs).toBe(false);
     expect(await framework.definitionReads.listDefinitions()).toEqual([]);
     expect(await framework.definitionReads.getDefinition('missing')).toBeUndefined();
   });
@@ -55,10 +62,10 @@ describe('listDefinitions', () => {
 
 describe('createDefinition + getDefinition', () => {
   it('exposes definition mutations as domain results outside the HTTP port', async () => {
-    expect('createDefinition' in framework.client).toBe(false);
-    expect('updateDraft' in framework.client).toBe(false);
-    expect('validateDefinition' in framework.client).toBe(false);
-    expect('publishDefinition' in framework.client).toBe(false);
+    expect('createDefinition' in framework.runs).toBe(false);
+    expect('updateDraft' in framework.runs).toBe(false);
+    expect('validateDefinition' in framework.runs).toBe(false);
+    expect('publishDefinition' in framework.runs).toBe(false);
     const created = await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
     expect(created).toMatchObject({ ok: true, value: { dagId: 'test-dag', status: 'draft' } });
     expect(created).not.toHaveProperty('status');
@@ -109,7 +116,7 @@ describe('publishDefinition', () => {
 
 describe('listNodes', () => {
   it('exposes registered manifests through a domain catalog instead of the HTTP port', async () => {
-    expect('listNodes' in framework.client).toBe(false);
+    expect('listNodes' in framework.runs).toBe(false);
     const manifests = await framework.catalog.listNodes();
     expect(manifests.find((manifest) => manifest.nodeType === 'input')?.displayName).toBeDefined();
   });
@@ -358,7 +365,7 @@ describe('overwriteRunDraftNodeResult', () => {
 
 describe('buildDag', () => {
   it('exposes build as a domain capability separate from the HTTP-shaped orchestration port', async () => {
-    expect('buildDag' in framework.client).toBe(false);
+    expect('buildDag' in framework.runs).toBe(false);
     const result = await framework.build.buildDag({
       pipeline: [{ nodeType: 'input', config: { text: 'hello' } }],
     });
@@ -388,7 +395,7 @@ describe('buildDag', () => {
 
 describe('validateDag', () => {
   it('exposes validation as a domain result separate from the HTTP-shaped orchestration port', async () => {
-    expect('validateDag' in framework.client).toBe(false);
+    expect('validateDag' in framework.runs).toBe(false);
     expect(await framework.validation.validateDag(MINIMAL_DEFINITION)).toEqual({
       valid: true,
       errors: [],
@@ -435,7 +442,7 @@ describe('publishDefinition domain errors', () => {
 
 describe('startPublishedWorkflowRun', () => {
   it('returns error when DAG does not exist', async () => {
-    const res = await framework.client.startPublishedWorkflowRun('no-dag');
+    const res = await framework.runs.startPublishedWorkflowRun('no-dag');
     expect(res.ok).toBe(false);
   });
 });
