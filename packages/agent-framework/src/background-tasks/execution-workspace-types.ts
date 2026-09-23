@@ -1,4 +1,4 @@
-// Execution-workspace contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+// Execution-workspace contracts SSOT relocated to @robota-sdk/agent-interface-execution (DATA-001).
 import type {
   IExecutionOrigin,
   IExecutionWorkspaceEntryRef,

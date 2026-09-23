@@ -3,7 +3,7 @@ import { readSettings, writeSettings } from '../../config/settings-io.js';
 import type { TSettingsData } from '../../config/settings-io.js';
 import type { ICommand } from '../types.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-// Status-line command settings contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+// Status-line command settings contracts SSOT relocated to @robota-sdk/agent-interface-command (DATA-001).
 import type {
   IStatusLineCommandSettings,
   TStatusLineCommandSettingsPatch,

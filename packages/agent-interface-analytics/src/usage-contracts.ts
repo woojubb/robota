@@ -146,9 +146,9 @@ export interface ISpanEntry {
 
 /**
  * SELFHOST-004: the trace/cost read-model that crosses the sidecar boundary (P5 carrier). It is a
- * BOUNDARY CONTRACT, so it is owned here (both the `agent-session-analytics` producer and the
- * `agent-transport` carrier depend on `agent-interface-transport`). `summarizeUsageBySource`
- * assembles it; a `TServerMessage` variant carries it to the TUI/GUI.
+ * BOUNDARY CONTRACT, so it is owned here. The `agent-session-analytics` producer depends on this
+ * package; the `agent-transport` carrier depends on this package and `agent-interface-transport`.
+ * `summarizeUsageBySource` assembles it; a `TServerMessage` variant carries it to the TUI/GUI.
  */
 export interface IUsageSourceTotals {
   /** Stable grouping key (`<scope>:<id>`). */

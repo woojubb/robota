@@ -6,7 +6,7 @@ import {
   type TObserverFailureReporter,
 } from '@robota-sdk/agent-executor';
 
-// Background job-group contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+// Background job-group contracts SSOT relocated to @robota-sdk/agent-interface-execution (DATA-001).
 import type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,

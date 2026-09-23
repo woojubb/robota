@@ -20,14 +20,14 @@ It contains type declarations only. No class, no runtime logic, no mechanism.
 
 ## Boundaries
 
-| Concern                                       | Owner                                           |
-| --------------------------------------------- | ----------------------------------------------- |
-| Assembling a report from recorded usage       | `agent-session-analytics`                       |
-| Recording usage as a turn completes           | `agent-framework`                               |
-| Model pricing, and computing a turn's cost    | `agent-core`                                    |
-| Carrying a report across the sidecar boundary | `agent-transport`                               |
-| Rendering a trace or cost view                | `agent-ui-terminal`, `agent-ui-web`             |
-| Session, turn and interaction contracts       | `agent-interface-transport` (until issue #2110) |
+| Concern                                       | Owner                               |
+| --------------------------------------------- | ----------------------------------- |
+| Assembling a report from recorded usage       | `agent-session-analytics`           |
+| Recording usage as a turn completes           | `agent-framework`                   |
+| Model pricing, and computing a turn's cost    | `agent-core`                        |
+| Carrying a report across the sidecar boundary | `agent-transport`                   |
+| Rendering a trace or cost view                | `agent-ui-terminal`, `agent-ui-web` |
+| Session, turn and interaction contracts       | `agent-interface-session`           |
 
 **This package declares the SHAPE of a measurement. It measures nothing and decides no policy** — not
 what counts as a turn, not how cost is derived, not what a report should contain.
@@ -39,7 +39,7 @@ another declaration in this package, so it depends on nothing at all — not eve
 the only contract package in the family with no dependencies, and that is a property worth keeping:
 the moment one of these types needs a foreign type, the boundary has moved.
 
-Composition runs downward into it. `agent-interface-transport`'s `turn-contracts` names
+Composition runs downward into it. `agent-interface-session`'s `turn-contracts` names
 `IUsageSnapshot` for `ITurnHandle.usage`; this package names no session, turn or transport type.
 
 **This family was not a file.** Its seven declarations lived inside `session-contracts.ts` in the
