@@ -89,6 +89,23 @@ Both `PromptBackedNodeDefinition` and `CompositeInstantNodeDefinition` implement
 
 Consumers no longer hand-roll deserialization; they parse + rehydrate through the owner.
 
+## Composite execution lineage
+
+Every composite invocation passes an `IDagExecutionLineage` to its injected
+`ICompositeSubRunner.run(dag, input, lineage)`. The lineage names the root run, the immediate
+parent run, the child DAG depth, the tightest inherited depth ceiling, and the ordered ancestor composite node types. The in-process
+CLI and workflow runners must forward it into every child node's execution context; a new child
+run cannot reset the depth by constructing a fresh runner.
+
+Before calling the sub-runner, the composite rejects a child DAG that contains its own node
+type or any ancestor composite node type. It also rejects a child launch beyond `maxDepth`
+(default and hard maximum: three nested DAG boundaries; zero disables child launches).
+This is a runtime guard, not a constructor-time guess. Direct and indirect recursion fail
+before launching the next child run. Budget and cancellation propagation remain separate
+unfinished parts of issue #2163.
+If a child fails, its terminal error code and retryability are preserved rather than replaced
+with a generic composite failure.
+
 ## Provider Registry (DATA-003)
 
 Persisted prompt nodes store a plain provider string. The node package does not own a closed provider

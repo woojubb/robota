@@ -2,12 +2,16 @@ import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
+import { DEFAULT_WORKSPACE_LAYOUT, buildTaskExecutionError } from '@robota-sdk/dag-core';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { LocalDagRuntimeProvider } from '../local-dag-runtime-provider.js';
 
-import type { IDagDefinition, IDagNodeDefinition } from '@robota-sdk/dag-core';
+import type {
+  IDagDefinition,
+  IDagExecutionLineage,
+  IDagNodeDefinition,
+} from '@robota-sdk/dag-core';
 
 /**
  * DAG-002 — the execution contract was typed on an imported system's file format.
@@ -92,6 +96,72 @@ function definitionWithStringIds(): IDagDefinition {
 }
 
 describe('the execution contract carries the domain model (DAG-002)', () => {
+  it.each([false, true])('retains a terminal child error and retryable=%s', async (retryable) => {
+    const root = projectDir();
+    const failureNode: IDagNodeDefinition = {
+      nodeType: 'test/failure',
+      displayName: 'Failure',
+      category: 'test',
+      inputs: [],
+      outputs: [],
+      configSchemaDefinition: null,
+      taskHandler: {
+        execute: async () => ({
+          ok: false,
+          error: buildTaskExecutionError(
+            'DAG_TASK_EXECUTION_CHILD_FAILURE',
+            'child failed',
+            retryable,
+          ),
+        }),
+      },
+    };
+    const provider = new LocalDagRuntimeProvider({
+      executionRoot: root,
+      instantNodes: [failureNode],
+    });
+    const result = await provider.execute(
+      {
+        dagId: 'failed-child',
+        version: 1,
+        status: 'draft',
+        nodes: [{ nodeId: 'failure', nodeType: 'test/failure', dependsOn: [], config: {} }],
+        edges: [],
+      },
+      {},
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      errorCode: 'DAG_TASK_EXECUTION_CHILD_FAILURE',
+      errorRetryable: retryable,
+    });
+  });
+
+  it('forwards inherited nested-run lineage to every node in the child DAG', async () => {
+    const root = projectDir();
+    const lineage: IDagExecutionLineage = {
+      rootRunId: 'root-run',
+      parentRunId: 'parent-run',
+      depth: 2,
+      ancestorCompositeNodeTypes: ['outer', 'middle'],
+    };
+    const observed: IDagExecutionLineage[] = [];
+    const node = echoNode();
+    const originalExecute = node.taskHandler.execute;
+    node.taskHandler.execute = async (input, context) => {
+      if (context.lineage) observed.push(context.lineage);
+      return originalExecute(input, context);
+    };
+    const provider = new LocalDagRuntimeProvider({
+      executionRoot: root,
+      instantNodes: [node],
+      lineage,
+    });
+    const result = await provider.execute(definitionWithStringIds(), {});
+    expect(result.ok).toBe(true);
+    expect(observed).toEqual([lineage, lineage]);
+  });
+
   it('run outputs name the ORIGINAL string node ids', async () => {
     const root = projectDir();
     const provider = new LocalDagRuntimeProvider({

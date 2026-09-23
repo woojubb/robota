@@ -1,5 +1,6 @@
 import type {
   IDagDefinition,
+  IDagExecutionLineage,
   IDagNodeDefinition,
   IDagRuntimeExecuteOptions,
   IDagRuntimeProgressEvent,
@@ -61,6 +62,8 @@ export interface ILocalDagRuntimeProviderOptions {
   workspace?: IWorkspaceLayout;
   instantNodes?: IDagNodeDefinition[];
   extraNodes?: IDagNodeDefinition[];
+  /** Trusted lineage supplied when this provider executes one nested in-process child DAG. */
+  lineage?: IDagExecutionLineage;
 }
 
 /**
@@ -102,12 +105,16 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         inputs as TPortPayload,
         options?.onProgress,
         options?.signal,
+        this.options.lineage,
       );
 
       const durationMs = Date.now() - startMs;
       const outputs = collectOutputsFromTaskRuns(result.taskRuns);
       const ok = result.dagRun.status === 'success';
       const errorMessage = ok ? undefined : extractRunError(result.taskRuns);
+      const failedTask = ok
+        ? undefined
+        : result.taskRuns.findLast((task) => task.status === 'failed');
 
       options?.onProgress?.({
         type: 'dag_complete',
@@ -122,6 +129,10 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         outputs,
         durationMs,
         ...(ok ? {} : { error: errorMessage ?? 'DAG run did not succeed' }),
+        ...(failedTask?.errorCode ? { errorCode: failedTask.errorCode } : {}),
+        ...(result.terminalRetryable === undefined
+          ? {}
+          : { errorRetryable: result.terminalRetryable }),
       };
     } catch (err) {
       // allow-fallback: provider contract returns a structured IDagRuntimeResult — surfacing errors as ok=false is the documented behaviour
@@ -161,6 +172,7 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
 interface IDagRunOutcome {
   dagRun: IDagRun;
   taskRuns: ITaskRun[];
+  terminalRetryable?: boolean;
 }
 
 /**
@@ -174,6 +186,7 @@ async function runDagOnce(
   inputs: TPortPayload,
   onProgress: ((event: IDagRuntimeProgressEvent) => void) | undefined,
   signal: AbortSignal | undefined,
+  lineage: IDagExecutionLineage | undefined,
 ): Promise<IDagRunOutcome> {
   const assemblyResult = buildNodeDefinitionAssembly(nodeDefinitions);
   if (!assemblyResult.ok) {
@@ -187,6 +200,7 @@ async function runDagOnce(
   const executor: ITaskExecutorPort = new LifecycleTaskExecutorPort(
     manifestRegistry,
     lifecycleFactory,
+    lineage,
   );
 
   const storage = new InMemoryStoragePort();
@@ -214,8 +228,10 @@ async function runDagOnce(
 
   const nodeTypeById = new Map(dagDefinition.nodes.map((n) => [n.nodeId, n.nodeType]));
   const startTimesByNode = new Map<string, number>();
+  let terminalRetryable: boolean | undefined;
 
   const unsubscribe = composition.runProgressEventBus.subscribe((event: TRunProgressEvent) => {
+    if (event.eventType === 'task.failed') terminalRetryable = event.error.retryable;
     if (!onProgress) return;
     if (event.eventType === 'task.started') {
       startTimesByNode.set(event.nodeId, Date.now());
@@ -268,7 +284,10 @@ async function runDagOnce(
     try {
       const terminal = await composition.runAdvancement.waitForTerminal(dagRunId);
       if (!terminal.ok) throw new Error(`Run advancement failed: ${terminal.error.code}`);
-      return terminal.value;
+      return {
+        ...terminal.value,
+        ...(terminalRetryable === undefined ? {} : { terminalRetryable }),
+      };
     } finally {
       signal?.removeEventListener('abort', cancel);
       await cancellation;

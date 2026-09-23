@@ -145,6 +145,7 @@ import type {
 ```
 
 - `LocalDagRuntimeProvider` — embeds the runtime, worker, and adapters in-process (no server).
+- On a failed local run, its result retains the terminal task's `errorCode` and `errorRetryable` for nested composite callers.
 - `HttpDagRuntimeProvider` — talks to a native DAG runtime server over HTTP.
 
 #### `ILocalDagRuntimeProviderOptions`
@@ -157,6 +158,7 @@ import type {
 | `workspace`     | `IWorkspaceLayout`     | —                                 | **FLOW-007**: injected workspace layout (root dir + workflow ext) for local node discovery. |
 | `instantNodes`  | `IDagNodeDefinition[]` | —                                 | Instant nodes injected by the caller's composition root.                                    |
 | `extraNodes`    | `IDagNodeDefinition[]` | —                                 | Extra nodes appended at the end (test/special-purpose).                                     |
+| `lineage`       | `IDagExecutionLineage` | —                                 | Trusted in-process parent lineage passed to every node in a nested child DAG run.           |
 
 #### `IHttpDagRuntimeProviderOptions`
 
