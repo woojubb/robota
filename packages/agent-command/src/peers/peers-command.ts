@@ -29,7 +29,8 @@ function describe(peer: TPeerSummary, ownSessionId: string): string {
   // answers `unknown` for every peer, and a reader who is not told that would take a stale entry for
   // a live session.
   const liveness = peer.liveness === 'unknown' ? '  liveness unknown' : '';
-  return `  ${peer.sessionId}${peer.name ? `  ${peer.name}` : ''}${liveness}${self}`;
+  const status = peer.status === 'needs-input' ? 'needs input' : (peer.status ?? 'unknown');
+  return `  ${peer.sessionId}${peer.name ? `  ${peer.name}` : ''}  status ${status}${liveness}${self}`;
 }
 
 /**

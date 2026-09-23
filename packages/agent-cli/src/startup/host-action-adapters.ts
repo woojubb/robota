@@ -13,11 +13,16 @@ import { randomUUID } from 'node:crypto';
 import { PeerMessageIngress } from '@robota-sdk/agent-framework';
 
 import { announceLocalPeerPresence } from '../remote-control/local-peer-presence.js';
+import { bindLocalPeerStatus } from '../remote-control/local-peer-status.js';
 import { startLocalPeerMessaging } from '../remote-control/local-peer-messaging.js';
 
 import type { ILocalPeerPresence } from '../remote-control/local-peer-presence.js';
 import type { IPeerMessaging } from '../remote-control/local-peer-messaging.js';
-import type { ITurnHandle } from '@robota-sdk/agent-interface-session';
+import type {
+  ISessionEvents,
+  ISessionExecutionState,
+  ITurnHandle,
+} from '@robota-sdk/agent-interface-session';
 
 /** The one session operation peer messaging needs — narrow, so this file cannot grow a second one. */
 interface IPeerIngressSession {
@@ -27,6 +32,17 @@ interface IPeerIngressSession {
     rawInput: string | undefined,
     options: { turnSource: 'peer'; driverId?: string },
   ): Promise<ITurnHandle>;
+}
+
+function isObservableSession(
+  session: IPeerIngressSession,
+): session is IPeerIngressSession & ISessionEvents & Pick<ISessionExecutionState, 'isExecuting'> {
+  const candidate = session as Partial<ISessionEvents & ISessionExecutionState>;
+  return (
+    typeof candidate.on === 'function' &&
+    typeof candidate.off === 'function' &&
+    typeof candidate.isExecuting === 'function'
+  );
 }
 
 /**
@@ -233,7 +249,18 @@ export function attachHostAdapters(
   // Threading it here rather than inside the attach keeps that state owned by the thing whose
   // lifetime it matches — one activator per process — instead of a module-level variable.
   let running: Promise<IPeerMessaging | undefined> | undefined;
+  let stopStatus: (() => void) | undefined;
   return (channel) => {
+    stopStatus?.();
+    stopStatus = undefined;
+    if (presence !== undefined) {
+      const session = channel.getSession();
+      if (isObservableSession(session)) {
+        stopStatus = bindLocalPeerStatus(presence, session, (message) =>
+          report.writeError(message),
+        );
+      }
+    }
     running = attachLocalPeerMessaging(
       adapters,
       presence,

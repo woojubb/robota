@@ -51,6 +51,8 @@ export interface ILocalPeerPresence {
   readonly guardedDirectory: string;
   /** Every announced session, this one included. */
   list(): readonly TPeerSummary[];
+  /** Publish fixed activity metadata; undefined clears it during a session switch. */
+  publishStatus(status: IPeerEntry['status']): void;
   /** Remove this session's entry and stop listening for the exit. Idempotent. */
   withdraw(): void;
 }
@@ -90,7 +92,7 @@ function resolveGuardedDirectory(): string {
 /** A second-granularity birth time becomes trustworthy only after its owner republishes later. */
 function scheduleBirthSecondCertification(
   registry: IRegistryOptions,
-  announcement: { sessionId: string; name?: string },
+  republish: (requireStartTime: boolean) => IPeerEntry,
   initial: IPeerEntry,
   isWithdrawn: () => boolean,
 ): () => void {
@@ -105,7 +107,7 @@ function scheduleBirthSecondCertification(
     timer = setTimeout(() => {
       if (isWithdrawn()) return;
       try {
-        certify(announcePeer(registry, { ...announcement, requireStartTime: true }));
+        certify(republish(true));
       } catch (error) {
         warnOnce(error instanceof Error ? error.message : String(error));
         schedule(CERTIFICATION_RETRY_MS);
@@ -151,16 +153,33 @@ export function announceLocalPeerPresence(options: IPresenceOptions): ILocalPeer
   };
 
   let withdrawn = false;
+  let status: IPeerEntry['status'];
+  const republish = (requireStartTime = false): IPeerEntry =>
+    announcePeer(registry, {
+      ...announcement,
+      ...(status !== undefined ? { status } : {}),
+      ...(requireStartTime ? { requireStartTime: true } : {}),
+    });
   const stopCertification = scheduleBirthSecondCertification(
     registry,
-    announcement,
-    announcePeer(registry, announcement),
+    republish,
+    republish(),
     () => withdrawn,
   );
+  const heartbeat = setInterval(() => {
+    if (withdrawn || status === undefined) return;
+    try {
+      republish(true);
+    } catch (error) {
+      process.emitWarning(`Local peer status refresh failed: ${String(error)}`);
+    }
+  }, 10_000);
+  heartbeat.unref?.();
   const handler = (): void => {
     if (withdrawn) return;
     withdrawn = true;
     stopCertification();
+    clearInterval(heartbeat);
     withdrawPeer(registry, options.sessionId);
   };
   const on = options.on ?? ((event, listener) => process.on(event, listener));
@@ -174,7 +193,13 @@ export function announceLocalPeerPresence(options: IPresenceOptions): ILocalPeer
         sessionId: discovered.entry.sessionId,
         ...(discovered.entry.name !== undefined ? { name: discovered.entry.name } : {}),
         liveness: discovered.liveness,
+        status: discovered.status,
       })),
+    publishStatus: (next) => {
+      if (withdrawn) return;
+      status = next;
+      republish(true);
+    },
     withdraw: () => {
       handler();
       const off = options.off ?? ((event, listener) => process.off(event, listener));

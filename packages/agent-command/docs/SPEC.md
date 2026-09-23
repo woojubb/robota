@@ -78,6 +78,10 @@ direct git child, not a hook's grandchildren still holding the output pipes open
 **`/mcp`.** Reads and requests approve/reject/revoke decisions through an injected host adapter; it
 never constructs or connects an MCP client itself.
 
+**`/peers` activity (#2726).** The command renders the host's fixed activity observation separately
+from process liveness. An absent, expired, or unverified observation is shown as unknown; the command
+does not inspect another session's conversation or infer activity from a stored transcript.
+
 **`/effort`.** `auto` is preserved as the session's own selection rather than being resolved to and
 persisted as a concrete tier — a report of the effective tier is derived for display, but the stored
 selection stays `auto`.

@@ -43,6 +43,9 @@ export interface IPeerEntry {
   /** Process start time, so a recycled pid does not inherit this entry. */
   readonly startedAt: string;
   readonly announcedAt: number;
+  /** Content-free activity observation; independent of process liveness. */
+  readonly status?: 'working' | 'needs-input' | 'idle';
+  readonly statusObservedAt?: number;
   /** macOS `ps` reports whole seconds; only a later reannouncement certifies this birth second. */
   readonly startTimePrecision?: 'seconds';
   readonly startSecondMs?: number;
@@ -54,6 +57,7 @@ export type TPeerLiveness = 'alive' | 'dead' | 'unknown';
 export interface IDiscoveredPeer {
   readonly entry: IPeerEntry;
   readonly liveness: TPeerLiveness;
+  readonly status: 'working' | 'needs-input' | 'idle' | 'unknown';
 }
 
 export interface IRegistryOptions {
@@ -70,6 +74,7 @@ export interface IRegistryOptions {
 
 const ENTRY_SUFFIX = '.peer.json';
 const SECOND_MS = 1_000;
+const STATUS_FRESH_MS = 30_000;
 
 /**
  * Read a process's start time from `/proc`.
@@ -156,16 +161,24 @@ function readAnnouncedStartMetadata(
 /** Announce this session, atomically. Returns the entry as published. */
 export function announcePeer(
   options: IRegistryOptions,
-  input: { sessionId: string; name?: string; pid?: number; requireStartTime?: boolean },
+  input: {
+    sessionId: string;
+    name?: string;
+    pid?: number;
+    requireStartTime?: boolean;
+    status?: 'working' | 'needs-input' | 'idle';
+  },
 ): IPeerEntry {
   const pid = input.pid ?? process.pid;
   const start = readAnnouncedStartMetadata(options, pid, input.requireStartTime === true);
+  const announcedAt = (options.now ?? Date.now)();
   const entry: IPeerEntry = {
     sessionId: input.sessionId,
     ...(input.name !== undefined ? { name: input.name } : {}),
     pid,
     ...start,
-    announcedAt: (options.now ?? Date.now)(),
+    announcedAt,
+    ...(input.status !== undefined ? { status: input.status, statusObservedAt: announcedAt } : {}),
   };
   const target = join(options.guardedDirectory, `${input.sessionId}${ENTRY_SUFFIX}`);
   const temporary = `${target}.${pid}.tmp`;
@@ -218,7 +231,19 @@ export function listPeers(options: IRegistryOptions): readonly IDiscoveredPeer[]
       continue;
     }
     if (typeof entry?.sessionId !== 'string' || typeof entry?.pid !== 'number') continue;
-    out.push({ entry, liveness: judgeLiveness(entry, readStartTime, probe) });
+    const liveness = judgeLiveness(entry, readStartTime, probe);
+    const now = (options.now ?? Date.now)();
+    const observed = entry.statusObservedAt;
+    const status =
+      liveness === 'alive' &&
+      (entry.status === 'working' || entry.status === 'needs-input' || entry.status === 'idle') &&
+      typeof observed === 'number' &&
+      Number.isFinite(observed) &&
+      observed <= now &&
+      now - observed <= STATUS_FRESH_MS
+        ? entry.status
+        : 'unknown';
+    out.push({ entry, liveness, status });
   }
   return out.sort((a, b) => a.entry.sessionId.localeCompare(b.entry.sessionId));
 }
