@@ -23,28 +23,29 @@ describe('/loop command in a real interactive session', () => {
 
     const created = await harness.command('loop', '1h check the build');
     expect(created?.success).toBe(true);
-    const loopId = (created?.data as { taskId: string }).taskId;
+    const { loopId, taskId } = created?.data as { loopId: string; taskId: string };
+    expect(loopId).not.toBe(taskId);
     expect(created?.message).toContain(`Stop with /loop stop ${loopId}`);
 
     const listed = await harness.command('loop', 'list');
     expect(listed?.message).toContain(loopId);
     expect(listed?.message).not.toContain('unrelated check');
 
-    const fired = await harness.wake('check the build', loopId);
+    const fired = await harness.wake('check the build', taskId);
     expect(fired).not.toBeNull();
     expect(harness.requests.length).toBe(1);
     await new Promise<void>((resolve) => setImmediate(resolve));
 
     const edited = await harness.command(
       'schedule',
-      `edit ${loopId} cron "0 0 * * *" renamed check`,
+      `edit ${taskId} cron "0 0 * * *" renamed check`,
     );
     expect(edited?.success).toBe(true);
     expect((await harness.command('loop', 'list'))?.message).toContain(loopId);
 
     const stopped = await harness.command('loop', `stop ${loopId}`);
     expect(stopped?.message).toContain('Loop stopped:');
-    expect(await harness.wake('check the build', loopId)).toBeNull();
+    expect(await harness.wake('check the build', taskId)).toBeNull();
     expect((await harness.command('loop', 'list'))?.message).toBe('No active loops.');
     expect((await harness.command('schedule', 'list'))?.message).toContain('unrelated check');
   }, 20_000);

@@ -1,5 +1,7 @@
 /** A fixed-cadence, session-local repeat built on the existing scheduled-wake path. */
 
+import { randomUUID } from 'node:crypto';
+
 import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
@@ -8,6 +10,8 @@ const LOOP_LABEL = 'Loop: ';
 const SECONDS_PER_MINUTE = 60;
 const HOURS_PER_DAY = 24;
 const MAX_LABEL_LENGTH = 48;
+const MAX_ACTIVE_LOOPS = 3;
+const pendingCreates = new WeakMap<object, number>();
 const TRAILING_INTERVAL =
   /^([\s\S]+?)\s+every\s+(\d+)\s*(seconds?|minutes?|hours?|days?|s|m|h|d)$/i;
 const USAGE =
@@ -99,6 +103,12 @@ function activeLoops(host: Pick<IAgentJobHostContext, 'listSchedules'>): IBackgr
     );
 }
 
+function loopIdOf(task: IBackgroundTaskState): string {
+  const id = task.metadata?.['sessionLoopId'];
+  // Loops created before stable ids were introduced keep their runtime id as the stop handle.
+  return typeof id === 'string' && id.length > 0 ? id : task.id;
+}
+
 export async function executeLoopCommand(
   host: Pick<IAgentJobHostContext, 'spawnScheduledWake' | 'listSchedules'>,
   cancelBackgroundTask: (taskId: string, reason: string) => Promise<void>,
@@ -118,7 +128,7 @@ function listLoops(host: Pick<IAgentJobHostContext, 'listSchedules'>): ICommandR
     message:
       loops.length === 0
         ? 'No active loops.'
-        : loops.map((task) => `- ${task.id} [${task.status}] ${task.label}`).join('\n'),
+        : loops.map((task) => `- ${loopIdOf(task)} [${task.status}] ${task.label}`).join('\n'),
     data: { count: loops.length },
   };
 }
@@ -130,36 +140,54 @@ async function stopLoop(
 ): Promise<ICommandResult> {
   const match = /^stop\s+(\S+)$/.exec(args);
   if (!match) return { success: false, message: USAGE };
-  const task = activeLoops(host).find((candidate) => candidate.id === match[1]);
+  const task = activeLoops(host).find((candidate) => loopIdOf(candidate) === match[1]);
   if (!task) return { success: false, message: `Active loop not found: ${match[1]}` };
   await cancelBackgroundTask(task.id, 'Loop stopped by user');
   return {
     success: true,
-    message: `Loop stopped: ${task.id}. An already-running turn may finish.`,
-    data: { taskId: task.id },
+    message: `Loop stopped: ${loopIdOf(task)}. An already-running turn may finish.`,
+    data: { loopId: loopIdOf(task), taskId: task.id },
   };
 }
 
 async function createLoop(
-  host: Pick<IAgentJobHostContext, 'spawnScheduledWake'>,
+  host: Pick<IAgentJobHostContext, 'spawnScheduledWake' | 'listSchedules'>,
   args: string,
 ): Promise<ICommandResult> {
   const parsed = parseCreate(args);
   if (!parsed) return { success: false, message: USAGE };
+  const pending = pendingCreates.get(host) ?? 0;
+  if (activeLoops(host).length + pending >= MAX_ACTIVE_LOOPS) {
+    return {
+      success: false,
+      message: `At most ${MAX_ACTIVE_LOOPS} active loops are allowed. Stop one before creating another.`,
+    };
+  }
   const cadence = chooseCadence(parsed.requestedMs);
   const label = `${LOOP_LABEL}${parsed.instruction.slice(0, MAX_LABEL_LENGTH)}`;
-  const task = await host.spawnScheduledWake({
-    label,
-    cronExpression: cadence.cronExpression,
-    agentInstruction: parsed.instruction,
-    sessionLoop: true,
-  });
+  const loopId = `loop_${randomUUID()}`;
+  pendingCreates.set(host, pending + 1);
+  let task: IBackgroundTaskState;
+  try {
+    task = await host.spawnScheduledWake({
+      label,
+      cronExpression: cadence.cronExpression,
+      agentInstruction: parsed.instruction,
+      sessionLoop: true,
+      sessionLoopId: loopId,
+    });
+  } finally {
+    const remaining = (pendingCreates.get(host) ?? 1) - 1;
+    if (remaining === 0) pendingCreates.delete(host);
+    else pendingCreates.set(host, remaining);
+  }
   const rounded = cadence.milliseconds !== parsed.requestedMs ? ' (rounded up)' : '';
   const nextFire = task.nextFireAt ? ` Next fire: ${task.nextFireAt}.` : '';
   return {
     success: true,
-    message: `Loop ${task.id} uses a ${cadence.description}${rounded} local-clock step; elapsed gaps can change with daylight saving.${nextFire} Stop with /loop stop ${task.id}.`,
+    message: `Loop ${loopId} uses a ${cadence.description}${rounded} local-clock step; elapsed gaps can change with daylight saving.${nextFire} Stop with /loop stop ${loopId}.`,
     data: {
+      loopId,
       taskId: task.id,
       requestedMs: parsed.requestedMs,
       cadenceLabel: cadence.description,

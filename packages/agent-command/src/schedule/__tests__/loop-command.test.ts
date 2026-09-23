@@ -5,6 +5,88 @@ import { executeLoopCommand } from '../loop-command.js';
 import { createTestAgentJobHost } from '@robota-sdk/agent-framework/testing';
 
 describe('fixed in-session loop', () => {
+  it('uses a stable loop id to find a re-armed task after its runtime id changes', async () => {
+    const spawnScheduledWake = vi
+      .fn()
+      .mockImplementation(async (input: { sessionLoopId: string }) => ({
+        id: 'runtime_before_resume',
+        metadata: { sessionLoop: true, sessionLoopId: input.sessionLoopId },
+      }));
+    const listSchedules = vi.fn().mockImplementation(() => [
+      {
+        id: 'runtime_after_resume',
+        kind: 'scheduled',
+        status: 'sleeping',
+        label: 'Loop: check',
+        metadata: {
+          sessionLoop: true,
+          sessionLoopId: spawnScheduledWake.mock.calls[0]?.[0].sessionLoopId,
+        },
+      },
+    ]);
+    const host = createTestAgentJobHost({ spawnScheduledWake, listSchedules });
+    const cancel = vi.fn().mockResolvedValue(undefined);
+
+    const created = await executeLoopCommand(host, cancel, '5m check');
+    const loopId = (created.data as { loopId?: string }).loopId;
+    expect(loopId).toMatch(/^loop_[0-9a-f-]{36}$/);
+    expect(loopId).not.toBe('runtime_before_resume');
+    expect((await executeLoopCommand(host, cancel, 'list')).message).toContain(loopId);
+
+    const stopped = await executeLoopCommand(host, cancel, `stop ${loopId}`);
+    expect(stopped.success).toBe(true);
+    expect(cancel).toHaveBeenCalledWith('runtime_after_resume', 'Loop stopped by user');
+  });
+
+  it('refuses a fourth active loop without spawning a timer', async () => {
+    const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'unexpected' });
+    const listSchedules = vi.fn().mockReturnValue(
+      Array.from({ length: 3 }, (_, index) => ({
+        id: `runtime_${index}`,
+        kind: 'scheduled',
+        status: 'sleeping',
+        label: 'Loop: check',
+        metadata: { sessionLoop: true },
+      })),
+    );
+    const host = createTestAgentJobHost({ spawnScheduledWake, listSchedules });
+    const result = await executeLoopCommand(host, vi.fn(), '5m check');
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('3 active loops');
+    expect(spawnScheduledWake).not.toHaveBeenCalled();
+  });
+
+  it('reserves the final slot while a loop creation is still pending', async () => {
+    const finishSpawns: Array<(task: { id: string }) => void> = [];
+    const spawnScheduledWake = vi.fn().mockImplementation(
+      () =>
+        new Promise<{ id: string }>((resolve) => {
+          finishSpawns.push(resolve);
+        }),
+    );
+    const listSchedules = vi.fn().mockReturnValue(
+      Array.from({ length: 2 }, (_, index) => ({
+        id: `runtime_${index}`,
+        kind: 'scheduled',
+        status: 'sleeping',
+        metadata: { sessionLoop: true },
+      })),
+    );
+    const host = createTestAgentJobHost({ spawnScheduledWake, listSchedules });
+
+    const first = executeLoopCommand(host, vi.fn(), '5m first');
+    expect(spawnScheduledWake).toHaveBeenCalledTimes(1);
+    const secondPending = executeLoopCommand(host, vi.fn(), '5m second');
+    const spawnCount = spawnScheduledWake.mock.calls.length;
+    finishSpawns.forEach((resolve, index) => resolve({ id: `runtime_${index + 2}` }));
+    const second = await secondPending;
+    expect(second.success).toBe(false);
+    expect(second.message).toContain('3 active loops');
+    expect(spawnCount).toBe(1);
+
+    expect((await first).success).toBe(true);
+  });
+
   it('creates a recurring scheduled wake with the requested prompt', async () => {
     const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'loop_task_1' });
     const host = createTestAgentJobHost({ spawnScheduledWake });
@@ -12,13 +94,17 @@ describe('fixed in-session loop', () => {
     const result = await executeLoopCommand(host, vi.fn(), '5m check the build');
 
     expect(result.success).toBe(true);
-    expect(spawnScheduledWake).toHaveBeenCalledWith({
-      label: 'Loop: check the build',
-      cronExpression: '0 */5 * * * *',
-      agentInstruction: 'check the build',
-      sessionLoop: true,
-    });
-    expect(result.message).toContain('/loop stop loop_task_1');
+    expect(spawnScheduledWake).toHaveBeenCalledWith(
+      expect.objectContaining({
+        label: 'Loop: check the build',
+        cronExpression: '0 */5 * * * *',
+        agentInstruction: 'check the build',
+        sessionLoop: true,
+        sessionLoopId: expect.stringMatching(/^loop_[0-9a-f-]{36}$/),
+      }),
+    );
+    const loopId = (result.data as { loopId: string }).loopId;
+    expect(result.message).toContain(`/loop stop ${loopId}`);
     expect(result.data).toMatchObject({ taskId: 'loop_task_1', cadenceLabel: '5m' });
   });
 
