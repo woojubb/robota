@@ -539,6 +539,15 @@ export const SCAN_COMMANDS = [
     examines: [...WORKSPACE, 'scripts/harness/spec-surface-baseline.json'],
   },
   {
+    name: 'interface-type-ownership',
+    command: ['node', 'scripts/harness/scan-interface-type-ownership.mjs'],
+    examines: [
+      PACKAGES,
+      '.agents/specs/contract-family-owner-map.md',
+      harnessFile('scan-interface-type-ownership'),
+    ],
+  },
+  {
     name: 'harness-config-paths',
     command: ['node', 'scripts/harness/check-harness-config-paths.mjs'],
     examines: [HARNESS, HARNESS_CONFIG, PACKAGES],
