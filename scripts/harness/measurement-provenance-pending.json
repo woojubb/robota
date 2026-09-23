@@ -43,6 +43,7 @@
     "scripts/harness/scan-composition-neutrality.mjs",
     "scripts/harness/scan-rule-statement-floor.mjs",
     "scripts/harness/scan-rule-table-shape.mjs",
+    "scripts/harness/scan-session-capability-projections.mjs",
     "scripts/harness/scan-symlink-following-enumeration.mjs",
     "scripts/harness/scan-temp-dir-owner.mjs",
     "scripts/harness/scan-tool-classification.mjs",

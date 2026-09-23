@@ -470,6 +470,7 @@ export async function startCliCore(
       { model: modelId, ...presetSurface },
       memorySessionOptions,
       workspaceComposition.projectAccess,
+      orgPolicy,
     );
     return;
   }

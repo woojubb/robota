@@ -14,11 +14,10 @@ import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 export function buildTuiSessionOptions(
   opts: ITuiInteractionChannelOptions,
 ): TInteractiveSessionOptions {
-  // Contained — ARCH-110. This manual channel→session projection still omits `orgPolicy`; the
-  // cross-surface projection fix and its mechanical guard belong to that root work item.
   return {
     cwd: opts.cwd,
     provider: opts.provider,
+    ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
     ...(opts.editCheckpointStore !== undefined
       ? { editCheckpointStore: opts.editCheckpointStore }
@@ -27,6 +26,12 @@ export function buildTuiSessionOptions(
     // session's config/default model.
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
+    ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
+    ...(opts.maxOutputTokens !== undefined ? { maxOutputTokens: opts.maxOutputTokens } : {}),
+    ...(opts.presetSystemPrompt !== undefined
+      ? { presetSystemPrompt: opts.presetSystemPrompt }
+      : {}),
+    ...(opts.responseFormat !== undefined ? { responseFormat: opts.responseFormat } : {}),
     ...(opts.outputStyle !== undefined ? { outputStyle: opts.outputStyle } : {}),
     permissionMode: opts.permissionMode,
     maxTurns: opts.maxTurns,

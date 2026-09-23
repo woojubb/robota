@@ -63,3 +63,16 @@ describe('CLI-083: the serve projection carries the org policy', () => {
     expect(options.orgPolicy).toBeUndefined();
   });
 });
+
+describe('serve preset capability projection', () => {
+  it('forwards a structured response format into the runtime session', () => {
+    const responseFormat = { type: 'json_object' as const };
+    const options = buildServeSessionOptions({
+      cwd: '/work',
+      args: makeArgs(),
+      preset: { responseFormat },
+    } as never) as { responseFormat?: unknown };
+
+    expect(options.responseFormat).toBe(responseFormat);
+  });
+});

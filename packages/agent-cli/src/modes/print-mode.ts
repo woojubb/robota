@@ -5,6 +5,7 @@ import type {
   ICommandHostAdapters,
   ICommandModule,
   ICreateSessionOptions,
+  IOrgPolicy,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
@@ -60,6 +61,7 @@ export async function runPrintMode(
   presetOptions: IPrintModePresetOptions = {},
   memorySessionOptions: IMemorySessionOptions = {},
   projectAccess?: TWorkspaceProjectAccess,
+  orgPolicy?: IOrgPolicy,
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -92,11 +94,10 @@ export async function runPrintMode(
     },
   };
 
-  // Contained — ARCH-110. This hand-maintained presentation-to-channel projection can silently omit
-  // optional session capabilities such as orgPolicy until ARCH-110 makes the relation mechanical.
   const channel = new HeadlessInteractionChannel({
     cwd,
     provider,
+    ...(orgPolicy !== undefined ? { orgPolicy } : {}),
     ...(projectAccess !== undefined ? { projectAccess } : {}),
     outputFormat: args.outputFormat ?? 'text',
     // CLI-076: forward the resolved model so `--model` takes effect (an invalid model then surfaces the
@@ -126,6 +127,9 @@ export async function runPrintMode(
     ...(presetOptions.temperature !== undefined ? { temperature: presetOptions.temperature } : {}),
     ...(presetOptions.maxOutputTokens !== undefined
       ? { maxOutputTokens: presetOptions.maxOutputTokens }
+      : {}),
+    ...(presetOptions.responseFormat !== undefined
+      ? { responseFormat: presetOptions.responseFormat }
       : {}),
     ...(presetOptions.language !== undefined ? { language: presetOptions.language } : {}),
     // ARCH-040: onto the SEED key, never onto `systemPrompt` — that one replaces the composed prompt.
