@@ -21,6 +21,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
@@ -38,10 +40,20 @@ jobs:
             exit 1
           fi
       - run: pnpm install --frozen-lockfile
+      # Pull requests that touch only package directories typecheck and test the changed packages and
+      # everything that depends on them (pnpm's `...[ref]` filter). Anything else runs the full suite.
+      - name: Select scope
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "${{ github.event_name }}" = pull_request ] \
+            && ! git diff --name-only "origin/${BASE_REF}...HEAD" | grep -qvE '^(packages|apps|examples)/'; then
+            echo "SCOPE=--filter=...[origin/${BASE_REF}]" >> "$GITHUB_ENV"
+          fi
       - run: pnpm build
-      - run: pnpm typecheck
+      - run: pnpm -r ${SCOPE} --workspace-concurrency=-1 --if-present run typecheck
       - run: pnpm lint
-      - run: pnpm test
+      - run: pnpm -r ${SCOPE} --if-present run test
       - run: pnpm deps:check
       - name: Release safety checks
         run: |
