@@ -50,6 +50,9 @@ export function buildTuiSessionOptions(
     ...(opts.toolCallHandoff !== undefined ? { toolCallHandoff: opts.toolCallHandoff } : {}),
     subagentRunnerFactory: opts.subagentRunnerFactory,
     ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
+    ...(opts.agentDefinitionRoots !== undefined
+      ? { agentDefinitionRoots: opts.agentDefinitionRoots }
+      : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
     commandModules: opts.commandModules,

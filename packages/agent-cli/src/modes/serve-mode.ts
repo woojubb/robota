@@ -63,6 +63,7 @@ export interface IServeModeOptions {
   subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>;
   /** ARCH-005: composition-root-contributed subagent definitions (the profile's merged pack subagents). */
   agentDefinitions?: readonly IAgentDefinition[];
+  agentDefinitionRoots?: readonly string[];
   /**
    * ARCH-006/007: the profile's merged pack TOOLS, laid on by the kernel overlay. Forwarded to the
    * session's `additionalTools` seam, where the framework dedupes them by name against its own default
@@ -139,6 +140,9 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     backgroundTaskRunners: opts.backgroundTaskRunners,
     subagentRunnerFactory: opts.subagentRunnerFactory,
     ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
+    ...(opts.agentDefinitionRoots !== undefined
+      ? { agentDefinitionRoots: opts.agentDefinitionRoots }
+      : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
     ...(opts.toolCallHandoff !== undefined ? { toolCallHandoff: opts.toolCallHandoff } : {}),

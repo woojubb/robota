@@ -1,6 +1,5 @@
 import { isAbsolute, join, sep } from 'node:path';
 
-import { AGENT_ROOTS } from '../agents/agent-definition-loader.js';
 import { SKILL_ROOTS } from '../commands/skill-source.js';
 import { PROJECT_SETTINGS } from '../config/settings-source.js';
 import { AGENTS_FILENAME, CLAUDE_FILENAME } from '../context/context-loader.js';
@@ -64,12 +63,6 @@ export function listFrameworkProjectContributionPaths(
     ...SKILL_ROOTS.map(({ root, kind }) => ({
       id: `skill:${root}`,
       label: kind === 'commands' ? 'Project commands' : 'Project skills',
-      relativePath: root,
-      expectedKind: 'directory' as const,
-    })),
-    ...AGENT_ROOTS.map((root) => ({
-      id: `agent:${root}`,
-      label: 'Project agent definitions',
       relativePath: root,
       expectedKind: 'directory' as const,
     })),

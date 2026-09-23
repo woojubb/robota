@@ -100,6 +100,7 @@ describe('fork skill model through a real scripted child Session', () => {
     harness = scriptedSession({
       cwd: workspace,
       projectAccess: await createTrustedProjectAccessFixture(workspace),
+      agentDefinitionRoots: [join('.agents', 'agents')],
       model: 'parent-model',
       commandModules: [skillActivationModule],
       record: { provider, toCassette: join(workspace, 'skill-model-cassette.json') },

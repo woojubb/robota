@@ -36,6 +36,8 @@ It chooses its user-local storage root and passes explicit paths to SDK persiste
 It also chooses the Robota display-name fallback and user-local external-preset directory before
 passing explicit values to the neutral preset resolver and loader. A second product chooses its own
 identity and preset root without inheriting Robota's defaults.
+The CLI also owns the ordered Robota/Agents/Claude-compatible agent-definition roots, passes them to
+print, serve, and terminal sessions, and lists those same project roots in the pre-trust preview.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.

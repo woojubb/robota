@@ -172,6 +172,7 @@ describe('SEC-003 sweep — agent definition frontmatter list values (unflagged 
     return new AgentDefinitionLoader(
       createNodeHostContributionSourcesFixture(cwd, join(cwd, 'home')),
       [],
+      [join('.robota', 'agents')],
     );
   }
 

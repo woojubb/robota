@@ -87,6 +87,8 @@ export interface IHeadlessInteractionChannelOptions {
    * `assembleProduct` merged). Forwarded to the session's `agentDefinitions` seam; absent ⇒ unchanged.
    */
   agentDefinitions?: readonly IAgentDefinition[];
+  /** Ordered host-owned relative directories for discovered agent definitions. */
+  agentDefinitionRoots?: readonly string[];
   /**
    * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
    * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
@@ -198,6 +200,9 @@ export class HeadlessInteractionChannel {
       subagentRunnerFactory: this.opts.subagentRunnerFactory,
       ...(this.opts.agentDefinitions !== undefined
         ? { agentDefinitions: this.opts.agentDefinitions }
+        : {}),
+      ...(this.opts.agentDefinitionRoots !== undefined
+        ? { agentDefinitionRoots: this.opts.agentDefinitionRoots }
         : {}),
       ...(this.opts.additionalTools !== undefined
         ? { additionalTools: this.opts.additionalTools }

@@ -286,6 +286,7 @@ describe('createSession — appendSystemPrompt option', () => {
         config: baseConfig(),
         cwd,
         contributionSources: createNodeHostContributionSourcesFixture(cwd),
+        agentDefinitionRoots: [join('.robota', 'agents')],
         context: { agentsMd: '', projectNotesMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),

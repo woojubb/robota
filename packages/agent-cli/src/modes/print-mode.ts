@@ -65,6 +65,7 @@ export async function runPrintMode(
   beforeExit?: () => Promise<void>,
   orgPolicy?: IOrgPolicy,
   providerErrorGuidance?: IProviderErrorGuidance,
+  agentDefinitionRoots?: readonly string[],
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -149,6 +150,7 @@ export async function runPrintMode(
     backgroundTaskRunners,
     subagentRunnerFactory,
     ...(agentDefinitions.length > 0 ? { agentDefinitions } : {}),
+    ...(agentDefinitionRoots !== undefined ? { agentDefinitionRoots } : {}),
     ...(toolOptions.additionalTools !== undefined
       ? { additionalTools: toolOptions.additionalTools }
       : {}),

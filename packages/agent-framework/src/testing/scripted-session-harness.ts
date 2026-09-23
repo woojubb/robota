@@ -94,6 +94,8 @@ export interface IScriptedSessionOptions {
   cwd?: string;
   /** Explicit host-issued project authority for contribution-discovery fixtures. */
   projectAccess?: TWorkspaceProjectAccess;
+  /** Ordered host-owned agent-definition roots for discovery tests. */
+  agentDefinitionRoots?: readonly string[];
   /** Resume a persisted session by id (multi-session). Requires `persistence` + the same `cwd`. */
   resumeSessionId?: string;
   /** Fork the resumed session into a new id while restoring its context (multi-session). */
@@ -206,6 +208,9 @@ export class ScriptedSessionHarness {
       cwd: this.cwd,
       provider,
       ...(options.projectAccess ? { projectAccess: options.projectAccess } : {}),
+      ...(options.agentDefinitionRoots !== undefined
+        ? { agentDefinitionRoots: options.agentDefinitionRoots }
+        : {}),
       bare: options.bare ?? true,
       permissionMode: options.permissionMode ?? 'bypassPermissions',
       ...(options.allowedTools ? { allowedTools: options.allowedTools } : {}),

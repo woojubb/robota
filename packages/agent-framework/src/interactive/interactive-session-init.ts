@@ -261,6 +261,9 @@ export async function initializeInteractiveSessionAsync(
     subagentRunnerFactory: options.subagentRunnerFactory,
     // ARCH-005: composition-root-contributed subagent definitions (capability packs).
     ...(options.agentDefinitions ? { agentDefinitions: options.agentDefinitions } : {}),
+    ...(options.agentDefinitionRoots !== undefined
+      ? { agentDefinitionRoots: options.agentDefinitionRoots }
+      : {}),
     ...(options.commandModules ? { commandModules: options.commandModules } : {}),
     ...(checkpointStore !== undefined ? { editCheckpointRecorder: checkpointStore } : {}),
     ...(options.reversibleExecution ? { reversibleExecution: options.reversibleExecution } : {}),
