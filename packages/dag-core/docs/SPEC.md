@@ -38,6 +38,9 @@ re-declaring them. It defines what the DAG domain looks like, not how it execute
 Definition reads return domain definitions and grouped summaries without HTTP envelopes. Summary
 items group by DAG identity, keep the highest version and distinct statuses in encounter order, and
 sort by DAG identity. Embedded adapters detach returned values from mutable storage references.
+Definition lifecycle changes return domain results with definition values or domain errors, without
+choosing HTTP statuses or problem-detail instances. Embedded adapters detach caller input and
+returned values so a later caller mutation cannot change a saved definition.
 
 The registered-node catalog capability exposes detached domain manifests without choosing a
 transport projection or response envelope. A caller may inspect or adapt its copy without changing

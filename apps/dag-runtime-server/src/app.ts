@@ -4,6 +4,7 @@ import { streamSSE } from 'hono/streaming';
 import type { IDagBuildInput, IDagBuildPort } from '@robota-sdk/dag-builder';
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import { toProblemDetails } from '@robota-sdk/dag-api';
 import {
   buildValidationError,
   decodeOverwriteRunDraftNodeResultInput,
@@ -14,6 +15,7 @@ import {
   type IDagValidationPort,
   type IDagNodeCatalogPort,
   type IDagDefinitionReadPort,
+  type IDagDefinitionMutationPort,
   type TRunProgressEvent,
 } from '@robota-sdk/dag-core';
 import type { IDagError, TResult } from '@robota-sdk/dag-core';
@@ -34,6 +36,26 @@ import { registerAssetRoutes } from './asset-routes.js';
 
 function reply(c: Context, response: IDagOrchestrationHttpResponse): Response {
   return c.json(response.payload, response.status as ContentfulStatusCode);
+}
+
+function definitionMutationReply(
+  c: Context,
+  result: TResult<IDagDefinition, IDagError[]>,
+  successStatus: 200 | 201,
+  instance: string,
+  dataOf: (definition: IDagDefinition) => object,
+): Response {
+  if (result.ok) {
+    return c.json({ ok: true, status: successStatus, data: dataOf(result.value) }, successStatus);
+  }
+  return c.json(
+    {
+      ok: false,
+      status: 400,
+      errors: result.error.map((error) => toProblemDetails(error, instance)),
+    },
+    400,
+  );
 }
 
 function costReply<T>(
@@ -215,6 +237,7 @@ export function createDagRuntimeServer(
   validation: IDagValidationPort,
   catalog: IDagNodeCatalogPort,
   definitionReads: IDagDefinitionReadPort,
+  definitionMutations: IDagDefinitionMutationPort,
   progressSource?: IRunProgressSource,
   assets?: IAssetStore,
 ): Hono {
@@ -277,24 +300,70 @@ export function createDagRuntimeServer(
   });
   app.post('/v1/dag/definitions', async (c) => {
     const body = await c.req.json<{ definition: IDagDefinition }>();
-    return reply(c, await port.createDefinition(body.definition));
+    const definition = body.definition;
+    return definitionMutationReply(
+      c,
+      await definitionMutations.createDefinition(definition),
+      201,
+      `/v1/dag/definitions/${definition.dagId}/versions/${definition.version}`,
+      (value) => ({ definitionId: `${value.dagId}:${value.version}`, definition: value }),
+    );
   });
   app.put('/v1/dag/definitions/:dagId/draft', async (c) => {
     const body = await c.req.json<Omit<IDagOrchestrationUpdateDraftInput, 'dagId'>>();
-    return reply(c, await port.updateDraft({ dagId: c.req.param('dagId'), ...body }));
+    return definitionMutationReply(
+      c,
+      await definitionMutations.updateDraft(body.definition),
+      200,
+      `/v1/dag/definitions/${c.req.param('dagId')}/versions/${body.version}`,
+      (definition) => ({ definition }),
+    );
   });
   app.post('/v1/dag/definitions/:dagId/validate', async (c) => {
     const body = await c.req.json<{ version: number }>();
-    return reply(c, await port.validateDefinition(c.req.param('dagId'), Number(body.version)));
+    const dagId = c.req.param('dagId');
+    const version = Number(body.version);
+    return definitionMutationReply(
+      c,
+      await definitionMutations.validateDefinition(dagId, version),
+      200,
+      `/v1/dag/definitions/${dagId}/versions/${version}/validate`,
+      (definition) => ({ definition, valid: true }),
+    );
   });
   app.post('/v1/dag/definitions/:dagId/publish', async (c) => {
     const body = await c.req.json<{ version?: number }>();
-    return reply(
+    const dagId = c.req.param('dagId');
+    const version =
+      body.version !== undefined
+        ? Number(body.version)
+        : (await definitionReads.getDefinition(dagId))?.version;
+    if (version === undefined) {
+      return c.json(
+        {
+          ok: false,
+          status: 404,
+          errors: [
+            {
+              type: 'urn:robota:problems:dag:not_found',
+              title: 'Resource not found',
+              status: 404,
+              detail: 'DAG definition not found',
+              instance: `/v1/dag/definitions/${dagId}/publish`,
+              code: 'DAG_NOT_FOUND',
+              retryable: false,
+            },
+          ],
+        },
+        404,
+      );
+    }
+    return definitionMutationReply(
       c,
-      await port.publishDefinition(
-        c.req.param('dagId'),
-        body.version !== undefined ? Number(body.version) : undefined,
-      ),
+      await definitionMutations.publishDefinition(dagId, version),
+      200,
+      `/v1/dag/definitions/${dagId}/versions/${version}/publish`,
+      (definition) => ({ definitionId: `${definition.dagId}:${definition.version}`, definition }),
     );
   });
 

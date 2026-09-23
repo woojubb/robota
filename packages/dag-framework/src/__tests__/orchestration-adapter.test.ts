@@ -47,20 +47,41 @@ describe('listDefinitions', () => {
   });
 
   it('returns created definition', async () => {
-    await framework.client.createDefinition(MINIMAL_DEFINITION);
+    await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
     const items = await framework.definitionReads.listDefinitions('test-dag');
     expect(items).toEqual([{ dagId: 'test-dag', latestVersion: 1, statuses: ['draft'] }]);
   });
 });
 
 describe('createDefinition + getDefinition', () => {
+  it('exposes definition mutations as domain results outside the HTTP port', async () => {
+    expect('createDefinition' in framework.client).toBe(false);
+    expect('updateDraft' in framework.client).toBe(false);
+    expect('validateDefinition' in framework.client).toBe(false);
+    expect('publishDefinition' in framework.client).toBe(false);
+    const created = await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
+    expect(created).toMatchObject({ ok: true, value: { dagId: 'test-dag', status: 'draft' } });
+    expect(created).not.toHaveProperty('status');
+  });
+
   it('creates and retrieves a definition', async () => {
-    const created = await framework.client.createDefinition(MINIMAL_DEFINITION);
+    const created = await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
     expect(created.ok).toBe(true);
-    expect(created.status).toBe(201);
+    expect(created).not.toHaveProperty('status');
 
     const got = await framework.definitionReads.getDefinition('test-dag', 1);
     expect(got?.dagId).toBe('test-dag');
+  });
+
+  it('does not let mutation callers change a stored definition through input or result', async () => {
+    const input = structuredClone(MINIMAL_DEFINITION);
+    const created = await framework.definitionMutations.createDefinition(input);
+    if (!created.ok) throw new Error('Expected a created definition.');
+    input.nodes[0]!.nodeType = 'input-mutated';
+    created.value.nodes[0]!.nodeType = 'result-mutated';
+    expect((await framework.definitionReads.getDefinition('test-dag', 1))?.nodes[0]?.nodeType).toBe(
+      'input',
+    );
   });
 
   it('returns undefined for a missing definition', async () => {
@@ -68,7 +89,7 @@ describe('createDefinition + getDefinition', () => {
   });
 
   it('does not let callers mutate the stored definition through a read result', async () => {
-    await framework.client.createDefinition(MINIMAL_DEFINITION);
+    await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
     const first = await framework.definitionReads.getDefinition('test-dag', 1);
     if (!first) throw new Error('Expected definition.');
     first.nodes[0]!.nodeType = 'changed-by-caller';
@@ -80,8 +101,8 @@ describe('createDefinition + getDefinition', () => {
 
 describe('publishDefinition', () => {
   it('publishes a draft definition', async () => {
-    await framework.client.createDefinition(MINIMAL_DEFINITION);
-    const res = await framework.client.publishDefinition('test-dag', 1);
+    await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
+    const res = await framework.definitionMutations.publishDefinition('test-dag', 1);
     expect(res.ok).toBe(true);
   });
 });
@@ -198,25 +219,24 @@ describe('run-draft CRUD', () => {
 
 describe('updateDraft', () => {
   it('updates an existing draft definition', async () => {
-    await framework.client.createDefinition(MINIMAL_DEFINITION);
-    const res = await framework.client.updateDraft({
-      dagId: 'test-dag',
-      version: 1,
-      definition: { ...MINIMAL_DEFINITION, nodes: [...MINIMAL_DEFINITION.nodes] },
+    await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
+    const res = await framework.definitionMutations.updateDraft({
+      ...MINIMAL_DEFINITION,
+      nodes: [...MINIMAL_DEFINITION.nodes],
     });
-    expect([200, 201, 404]).toContain(res.status);
+    expect(res.ok).toBe(true);
   });
 });
 
 describe('validateDefinition', () => {
   it('validates a created draft definition', async () => {
-    await framework.client.createDefinition(MINIMAL_DEFINITION);
-    const res = await framework.client.validateDefinition('test-dag', 1);
-    expect([200, 400]).toContain(res.status);
+    await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
+    const res = await framework.definitionMutations.validateDefinition('test-dag', 1);
+    expect(res.ok).toBe(true);
   });
 
   it('returns non-200 for missing definition', async () => {
-    const res = await framework.client.validateDefinition('no-such-dag', 1);
+    const res = await framework.definitionMutations.validateDefinition('no-such-dag', 1);
     expect(res.ok).toBe(false);
   });
 });
@@ -403,25 +423,13 @@ describe('validateDag', () => {
   });
 });
 
-describe('publishDefinition — resolvePublishVersion branches', () => {
-  it('returns 404 when no definitions exist for dagId', async () => {
-    const res = await framework.client.publishDefinition('nonexistent-dag');
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(404);
-  });
-
-  it('resolves version from last draft when version not specified', async () => {
-    await framework.client.createDefinition(MINIMAL_DEFINITION);
-    const res = await framework.client.publishDefinition('test-dag');
-    expect([200, 400]).toContain(res.status);
-  });
-
-  it('resolves version from last definition when no drafts exist', async () => {
-    await framework.client.createDefinition(MINIMAL_DEFINITION);
-    await framework.client.publishDefinition('test-dag', 1);
-    // now no drafts — fall to last definition
-    const res = await framework.client.publishDefinition('test-dag');
-    expect([200, 400]).toContain(res.status);
+describe('publishDefinition domain errors', () => {
+  it('returns a domain error when the requested definition does not exist', async () => {
+    const res = await framework.definitionMutations.publishDefinition('nonexistent-dag', 1);
+    expect(res).toMatchObject({
+      ok: false,
+      error: [{ code: 'DAG_VALIDATION_DEFINITION_NOT_FOUND' }],
+    });
   });
 });
 

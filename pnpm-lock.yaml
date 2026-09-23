@@ -444,6 +444,9 @@ importers:
       '@hono/node-server':
         specifier: ^2.0.11
         version: 2.0.11(hono@4.13.7)
+      '@robota-sdk/dag-api':
+        specifier: workspace:*
+        version: link:../../packages/dag-api
       '@robota-sdk/dag-builder':
         specifier: workspace:*
         version: link:../../packages/dag-builder
