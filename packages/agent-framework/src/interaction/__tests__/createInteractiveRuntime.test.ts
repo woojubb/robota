@@ -20,6 +20,8 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
 
   const session: IInteractiveSession = {
     isInitialized: true,
+    listRuntimeTools: vi.fn().mockResolvedValue([]),
+    invokeRuntimeTool: vi.fn().mockResolvedValue({ success: true }),
     // ARCH-012: required now — the optional form let this double read as "no active driver".
     getPendingCount: vi.fn().mockReturnValue(0),
     getActiveDriverId: vi.fn().mockReturnValue(null),

@@ -113,6 +113,16 @@ export class PendingInputQueue {
     return drivers;
   }
 
+  /** Remove exactly one cancelled submission without affecting another driver or active turn. */
+  cancel(turnId: string): boolean {
+    const index = this.entries.findIndex((entry) => entry.turnId === turnId);
+    if (index === -1) return false;
+    const [entry] = this.entries.splice(index, 1);
+    if (entry.options.wakeTaskId !== undefined) this.settlers.releaseWake(entry.options.wakeTaskId);
+    this.settlers.refuse(turnId, 'cancelled');
+    return true;
+  }
+
   /** Take the HEAD entry (submission order), or undefined when the queue is empty. */
   shift(): IQueuedInput | undefined {
     return this.entries.shift();

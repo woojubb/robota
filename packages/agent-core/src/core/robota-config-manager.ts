@@ -1,3 +1,4 @@
+import { toolResultValue } from './tool-result-value';
 /**
  * Configuration and tool management delegate for the Robota agent.
  *
@@ -111,7 +112,7 @@ export class RobotaConfigManager {
           throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
         }
         const result = await tool.execute(parameters, context);
-        return result.data;
+        return toolResultValue(tool.schema.name, result);
       };
       this.getTools().addTool(tool.schema, toolExecutor);
       const nm = tool.schema.name;
@@ -292,7 +293,7 @@ export class RobotaConfigManager {
         throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
       }
       const result = await tool.execute(parameters, context);
-      return result.data;
+      return toolResultValue(tool.schema.name, result);
     };
     tools.addTool(tool.schema, toolExecutor);
     this.logger.debug('Tool registered', { toolName: tool.schema.name });

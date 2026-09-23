@@ -2002,3 +2002,14 @@ cassettePath, recordCwd? })` wraps a real provider and writes each interaction t
   Extraction trigger (B3): when a second implementer family lands (a dag-\* adapter), both these
   contracts and the event unions move to a new `agent-interface-orchestration` package
   (deps ⊆ {agent-core}).
+
+### Canonical direct runtime tools (MCP-006)
+
+`Robota.listRuntimeTools()` returns the validated registered tool schemas, including deferred tools.
+`Robota.invokeRuntimeTool(name, parameters, context)` invokes the same `ToolExecutionService` and
+registered tools used by model turns, returning `IToolExecutionResult`. Direct catalog invocation
+does not require model-side deferred-tool discovery. It does not bypass configured tool allowlists,
+permission-wrapped execution, tool events, or argument handling. The caller supplies cancellation and
+execution identity. This method does not fabricate a model turn or alter conversation messages.
+
+Registration adapters preserve failed `IToolResult` envelopes as execution errors at initial registration, `registerTool`, and `updateTools`. Direct execution injects the same deferred-tool catalog and owner-bound event service as model-driven execution; it does not inject an interactive `ask` handler.

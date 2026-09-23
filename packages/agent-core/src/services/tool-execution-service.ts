@@ -80,6 +80,7 @@ export class ToolExecutionService {
     toolName: string,
     parameters: TToolParameters,
     context?: IToolExecutionContext,
+    catalog: 'offered' | 'registered' = 'offered',
   ): Promise<IToolExecutionResult> {
     this.logger.debug(`Executing tool: ${toolName}`);
 
@@ -93,12 +94,15 @@ export class ToolExecutionService {
       // CLI-1990: a deferred tool the model has not loaded is refused like an unknown one — the model
       // was never shown its schema — and the remedy names the tool that loads it, so the two rounds
       // before the unknown-tool loop guard force-summarises are recoverable rather than fatal.
+      context.signal?.throwIfAborted();
       const withheld =
+        catalog === 'offered' &&
         this.tools.getToolSchema(toolName)?.deferLoading === true &&
         !this.tools.isToolOffered(toolName);
       if (!this.tools.hasTool(toolName) || withheld) {
-        const availableTools = this.tools
-          .getOfferedTools()
+        const availableTools = (
+          catalog === 'registered' ? this.tools.getTools() : this.tools.getOfferedTools()
+        )
           .map((tool) => tool.name)
           .sort();
         const error = formatUnknownToolError(toolName, availableTools, withheld);
@@ -145,6 +149,7 @@ export class ToolExecutionService {
 
       const executionContext: IToolExecutionContext = {
         ...restContext,
+        deferredTools: this.deferredToolCatalog,
         toolName,
         parameters,
         executionId: context.executionId,

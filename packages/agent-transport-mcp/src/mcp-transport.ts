@@ -20,8 +20,6 @@ export interface IMcpTransportOptions {
   name: string;
   /** Version string. */
   version: string;
-  /** If true, register each system command as a separate MCP tool. Default: true. */
-  exposeCommands?: boolean;
 }
 
 export interface IMcpTransport extends ITransportAdapter<IInteractiveSession> {
@@ -32,6 +30,8 @@ export interface IMcpTransport extends ITransportAdapter<IInteractiveSession> {
 export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport {
   let session: IMcpTransportSession | null = null;
   let server: Server | null = null;
+  let starting: Promise<Server> | null = null;
+  let stopping: Promise<void> | null = null;
   const lifecycleError = (code: ITransportLifecycleError['code']): ITransportLifecycleError =>
     Object.assign(new Error(`MCP transport ${code}.`), {
       name: 'TransportLifecycleError' as const,
@@ -47,15 +47,28 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
     },
     async start() {
       if (!session) throw lifecycleError('not-attached');
-      if (server) throw lifecycleError('already-started');
-      server = createAgentMcpServer({ ...options, session });
-    },
-    async stop() {
-      if (server) {
-        await server.close();
-        server = null;
+      if (server || starting || stopping) throw lifecycleError('already-started');
+      starting = createAgentMcpServer({ ...options, session });
+      try {
+        server = await starting;
+      } finally {
+        starting = null;
       }
-      session = null;
+    },
+    stop() {
+      if (stopping) return stopping;
+      stopping = (async () => {
+        try {
+          if (starting) await starting;
+          if (server) await server.close();
+        } finally {
+          server = null;
+          session = null;
+        }
+      })().finally(() => {
+        stopping = null;
+      });
+      return stopping;
     },
     getServer() {
       if (!server) throw new Error('Transport not started. Call start() first.');

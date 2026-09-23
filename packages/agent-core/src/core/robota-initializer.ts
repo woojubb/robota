@@ -1,3 +1,4 @@
+import { toolResultValue } from './tool-result-value';
 /**
  * Async initialization logic for the Robota agent.
  *
@@ -123,7 +124,7 @@ async function performAsyncInitialization(ctx: IRobotaInitContext): Promise<Exec
           throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
         }
         const result = await tool.execute(parameters, context);
-        return result.data;
+        return toolResultValue(tool.schema.name, result);
       };
       tools.addTool(tool.schema, toolExecutor);
       logger.debug('Tool registered during initialization', { toolName: tool.schema.name });
