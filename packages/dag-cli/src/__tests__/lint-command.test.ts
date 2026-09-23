@@ -212,6 +212,49 @@ describe('lintCommand - valid DAG', () => {
     expect(parsed[0]?.parseError).toBeNull();
     expect(parsed[0]?.findings).toHaveLength(0);
   });
+
+  it('reports invalid status as a parse error in JSON output', async () => {
+    const fsp = await import('node:fs/promises');
+    vi.mocked(fsp.readFile).mockResolvedValue(
+      JSON.stringify({ ...JSON.parse(VALID_DAG), status: 'active' }),
+    );
+    const io = makeIo();
+    expect(await lintCommand(['bad.dag.json', '--output', 'json'], { io, cwd: '/tmp/fake' })).toBe(
+      1,
+    );
+    const result = JSON.parse(io.writes.join('')) as { parseError: string; findings: unknown[] }[];
+    expect(result[0]?.parseError).toMatch(/Malformed DAG definition.*status/);
+    expect(result[0]?.findings).toEqual([]);
+  });
+
+  it('rejects an unknown JSON shape with the existing parse-error result', async () => {
+    const fsp = await import('node:fs/promises');
+    vi.mocked(fsp.readFile).mockResolvedValue('{"something":"else"}');
+    const io = makeIo();
+    expect(
+      await lintCommand(['unknown.dag.json', '--output', 'json'], { io, cwd: '/tmp/fake' }),
+    ).toBe(1);
+    const result = JSON.parse(io.writes.join('')) as { parseError: string; findings: unknown[] }[];
+    expect(result[0]?.parseError).toContain('Not a DAG file');
+    expect(result[0]?.findings).toEqual([]);
+  });
+
+  it('reports a malformed nested field path as a parse error', async () => {
+    const fsp = await import('node:fs/promises');
+    vi.mocked(fsp.readFile).mockResolvedValue(
+      JSON.stringify({
+        ...JSON.parse(VALID_DAG),
+        nodes: [{ nodeId: 42, nodeType: 'input', dependsOn: [], config: {} }],
+      }),
+    );
+    const io = makeIo();
+    expect(await lintCommand(['bad.dag.json', '--output', 'json'], { io, cwd: '/tmp/fake' })).toBe(
+      1,
+    );
+    const result = JSON.parse(io.writes.join('')) as { parseError: string; findings: unknown[] }[];
+    expect(result[0]?.parseError).toMatch(/nodes\[0\].*nodeId/);
+    expect(result[0]?.findings).toEqual([]);
+  });
 });
 
 describe('lintCommand - DAG with violations', () => {
