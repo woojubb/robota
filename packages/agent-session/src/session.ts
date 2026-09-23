@@ -1,4 +1,4 @@
-import { TRUST_TO_MODE, ObservableEventService } from '@robota-sdk/agent-core';
+import { TRUST_TO_MODE, ObservableEventService, PROVIDER_CALL_EVENTS } from '@robota-sdk/agent-core';
 
 import { SessionBase } from './session-base.js';
 import {
@@ -329,6 +329,16 @@ export class Session extends SessionBase {
       onTextDelta: this.onTextDeltaCallback,
       onContextUpdate: this.onContextUpdateCallback,
       onToolExecution: this.onToolExecutionCallback,
+      emitProviderCallCompleted: (observation) =>
+        this.eventService.emit(
+          PROVIDER_CALL_EVENTS.COMPLETED,
+          { timestamp: new Date(), ...observation },
+          {
+            ownerType: 'session',
+            ownerId: this.sessionId,
+            ownerPath: [{ type: 'session', id: this.sessionId }],
+          },
+        ),
       knownToolNames: this.toolSchemas.map((tool) => tool.name),
     };
   }

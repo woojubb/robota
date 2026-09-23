@@ -7,6 +7,7 @@
 
 import {
   CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
+  PROVIDER_CALL_EVENTS,
   createLogger,
   createUserMessage,
   getProviderCapabilities,
@@ -22,7 +23,11 @@ import {
 
 import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
-import type { ISessionOptions, ISessionRunOptions } from './session-types.js';
+import type {
+  IProviderCallTraceObservation,
+  ISessionOptions,
+  ISessionRunOptions,
+} from './session-types.js';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -105,6 +110,7 @@ export interface IRunContext {
   onTextDelta?: TTextDeltaCallback;
   onContextUpdate?: (state: IContextWindowState) => void;
   onToolExecution?: ISessionOptions['onToolExecution'];
+  emitProviderCallCompleted?: (observation: IProviderCallTraceObservation) => void;
   knownToolNames?: readonly string[];
 }
 
@@ -211,7 +217,9 @@ export async function executeRun(
       // Thin pass-through of the per-turn options to agent-core (SELFHOST-008 P3, PEER-007).
       ...perTurnRunOptions(runOptions),
       onExecutionEvent: (event, data) => {
-        ctx.log(event, data as TSessionLogData);
+        // This new local observability signal is persisted by the interactive history owner;
+        // it is not a replay-substrate session-log event.
+        if (event !== PROVIDER_CALL_EVENTS.COMPLETED) ctx.log(event, data as TSessionLogData);
         forwardToolExecutionEvent(toolExecutionBridge, event, data);
         // SELFHOST-009: fire the informational-only model-call events from the provider-call
         // execution events the turn owner already observes. provider_request → PreModelCall (before
@@ -222,6 +230,25 @@ export async function executeRun(
           fireModelCallHook(ctx, 'PreModelCall', data as Record<string, unknown>);
         } else if (event === 'provider_response_normalized') {
           fireModelCallHook(ctx, 'PostModelCall', data as Record<string, unknown>);
+        } else if (event === PROVIDER_CALL_EVENTS.COMPLETED && ctx.emitProviderCallCompleted) {
+          // Forward an allowlist, not the generic event envelope, across the session boundary.
+          const observation = data as Record<string, unknown>;
+          if (
+            Number.isSafeInteger(observation['round']) &&
+            (observation['round'] as number) > 0 &&
+            typeof observation['startedAt'] === 'string' &&
+            typeof observation['endedAt'] === 'string' &&
+            (observation['outcome'] === 'success' ||
+              observation['outcome'] === 'failure' ||
+              observation['outcome'] === 'interrupted')
+          ) {
+            ctx.emitProviderCallCompleted({
+              round: observation['round'] as number,
+              startedAt: observation['startedAt'],
+              endedAt: observation['endedAt'],
+              outcome: observation['outcome'],
+            });
+          }
         }
         // BEHAVIOR-002: recompute and emit context per agentic round so the status bar
         // climbs live during a turn instead of jumping once at completion. The agent loop

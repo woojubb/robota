@@ -1,5 +1,7 @@
 import { announceAppend } from './execution-event-helpers';
 import { callProviderWithIdleTimeout } from './execution-round-provider';
+import { PROVIDER_CALL_EVENTS } from '../event-service/span-events';
+import { isAbortFailure } from '../utils/abort-classification';
 import { randomId } from '../utils/random-id.js';
 
 import type {
@@ -9,6 +11,7 @@ import type {
 } from './execution-types';
 import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
 import type { IChatOptions } from '../interfaces/provider';
+import type { TUniversalMessage } from '../interfaces/messages';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 import type { ILogger } from '../utils/logger';
 
@@ -112,12 +115,30 @@ export async function forceSummaryCall(
       forcedSummary: true,
     } as TExecutionEventData);
 
-    const forceResponse = await callProviderWithIdleTimeout(
-      resolved.provider.chat.bind(resolved.provider),
-      messagesForProvider,
-      chatOptions,
-      config.timeout,
-    );
+    const startedAtMs = Date.now();
+    let providerOutcome: 'success' | 'failure' | 'interrupted' = 'failure';
+    let forceResponse: TUniversalMessage;
+    try {
+      forceResponse = await callProviderWithIdleTimeout(
+        resolved.provider.chat.bind(resolved.provider),
+        messagesForProvider,
+        chatOptions,
+        config.timeout,
+      );
+      providerOutcome = 'success';
+    } catch (error) {
+      if (isAbortFailure(error, fullContext.signal)) providerOutcome = 'interrupted';
+      throw error;
+    } finally {
+      fullContext.onExecutionEvent?.(PROVIDER_CALL_EVENTS.COMPLETED, {
+        executionId,
+        conversationId,
+        round: roundState.currentRound,
+        startedAt: new Date(startedAtMs).toISOString(),
+        endedAt: new Date(Math.max(Date.now(), startedAtMs)).toISOString(),
+        outcome: providerOutcome,
+      } as TExecutionEventData);
+    }
 
     const responseText = typeof forceResponse.content === 'string' ? forceResponse.content : '';
     const committedText =

@@ -178,7 +178,7 @@ export async function executeUsageExportCommand(
     signal === 'traces' ? createOtlpPromptRootTraces(snapshot.records, version) : undefined;
   if (traces && traces.coverage.exported === 0) {
     return invalid(
-      `No valid prompt root traces to export (missing ${traces.coverage.missing}, invalid ${traces.coverage.invalid}, duplicate ${traces.coverage.duplicate}).`,
+      `No valid prompt root traces to export (missing ${traces.coverage.missing}, invalid ${traces.coverage.invalid}, duplicate ${traces.coverage.duplicate}; provider children orphaned ${traces.coverage.providerChildren.orphaned}).`,
     );
   }
   const payload =
@@ -212,7 +212,7 @@ export async function executeUsageExportCommand(
   return {
     exitCode: 0,
     stdout: traces
-      ? `Exported ${traces.coverage.exported} prompt root trace(s) to loopback collector (missing ${traces.coverage.missing}, invalid ${traces.coverage.invalid}, duplicate ${traces.coverage.duplicate}).\n`
+      ? `Exported ${traces.coverage.exported} prompt root trace(s) and ${traces.coverage.providerChildren.exported} provider child span(s) to loopback collector (roots missing ${traces.coverage.missing}, invalid ${traces.coverage.invalid}, duplicate ${traces.coverage.duplicate}; children invalid ${traces.coverage.providerChildren.invalid}, orphaned ${traces.coverage.providerChildren.orphaned}, duplicate ${traces.coverage.providerChildren.duplicate}).\n`
       : 'Exported OTLP usage snapshot to loopback collector.\n',
     stderr: '',
   };

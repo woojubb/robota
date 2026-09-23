@@ -140,6 +140,45 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(JSON.stringify(observation)).not.toContain('Hello back!');
   });
 
+  it('persists an explicit provider child linked to the prompt root without provider content', async () => {
+    const mockSession = createMockSession({ runResult: 'private response' });
+    let listener: ((event: string, data: Record<string, unknown>) => void) | undefined;
+    mockSession.getEventService.mockReturnValue({
+      subscribe: vi.fn((callback: (event: string, data: Record<string, unknown>) => void) => {
+        listener = callback;
+      }),
+      unsubscribe: vi.fn(),
+    });
+    let observedAt = '';
+    mockSession.run.mockImplementation(async () => {
+      observedAt = new Date().toISOString();
+      listener?.('provider_call_completed', {
+        timestamp: new Date(),
+        startedAt: observedAt,
+        endedAt: observedAt,
+        outcome: 'success',
+        round: 1,
+      });
+      return 'private response';
+    });
+    const session = new InteractiveSession({ session: mockSession as never, cwd: '/tmp' });
+
+    await session.submit('private prompt');
+
+    const root = recordedObservation(session);
+    const children = session.getFullHistory().filter((entry) => entry.type === 'provider-call-trace');
+    expect(children).toHaveLength(1);
+    expect(children[0]!.data).toMatchObject({
+      traceId: root.promptExecutionTraceId,
+      parentSpanId: root.promptExecutionSpanId,
+      startedAt: observedAt,
+      endedAt: observedAt,
+      outcome: 'success',
+      round: 1,
+    });
+    expect(JSON.stringify(children)).not.toMatch(/private prompt|private response/);
+  });
+
   // ── Scenario: Streaming text accumulation ─────────────────────
 
   it('streaming deltas accumulate and are retrievable', async () => {

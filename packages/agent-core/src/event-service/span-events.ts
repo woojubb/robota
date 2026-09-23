@@ -9,6 +9,11 @@ export const SPAN_EVENTS = {
   COMPLETED: 'span_completed',
 } as const;
 
+/** Content-free completion of one provider round, separate from legacy tool timing events. */
+export const PROVIDER_CALL_EVENTS = {
+  COMPLETED: 'provider_call_completed',
+} as const;
+
 export const SPAN_EVENT_PREFIX = 'span' as const;
 
 export type TSpanEvent = (typeof SPAN_EVENTS)[keyof typeof SPAN_EVENTS];

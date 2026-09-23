@@ -2,6 +2,7 @@ import { announceAppend } from './execution-event-helpers';
 import { callProviderWithCache } from './execution-round-provider';
 import { resolveToolChoiceForRound } from './execution-service-helpers';
 import { isAbortFailure } from '../utils/abort-classification';
+import { PROVIDER_CALL_EVENTS } from '../event-service/span-events';
 
 import type { IExecutionContext, IResolvedProviderInfo } from './execution-types';
 import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
@@ -69,6 +70,8 @@ export async function callRoundProviderWithEvents(
   wrappedOnProviderNativeRawPayload: TProviderNativeRawPayloadCallback,
   onProviderFailure?: (error: unknown) => void,
 ): Promise<TUniversalMessage | null> {
+  const startedAtMs = Date.now();
+  let outcome: 'success' | 'failure' | 'interrupted' = 'failure';
   try {
     const response = await callProviderWithCache(
       conversationMessages,
@@ -186,6 +189,7 @@ export async function callRoundProviderWithEvents(
           ? response.toolCalls.length
           : 0,
     } as TExecutionEventData);
+    outcome = 'success';
     return response;
   } catch (providerError) {
     // allow-fallback: provider errors terminate the round, not the process
@@ -194,6 +198,7 @@ export async function callRoundProviderWithEvents(
     // from its prose. The substring test that stood here committed the round as `interrupted` for
     // any provider failure whose message happened to contain "abort".
     if (isAbortFailure(providerError, fullContext.signal)) {
+      outcome = 'interrupted';
       conversationStore.commitAssistant('interrupted', {
         round: currentRound,
         usageObservationId,
@@ -229,5 +234,16 @@ export async function callRoundProviderWithEvents(
       providerError: true,
     });
     return null;
+  } finally {
+    // A single content-free lifecycle observation per attempted provider round. This is emitted
+    // even when the provider fails or the turn is interrupted; it contains no request/response.
+    fullContext.onExecutionEvent?.(PROVIDER_CALL_EVENTS.COMPLETED, {
+      executionId,
+      conversationId: fullContext.conversationId,
+      round: currentRound,
+      startedAt: new Date(startedAtMs).toISOString(),
+      endedAt: new Date(Math.max(Date.now(), startedAtMs)).toISOString(),
+      outcome,
+    } as TExecutionEventData);
   }
 }

@@ -10,6 +10,7 @@ export type {
   IRunTraceTurn,
   IUsageBySourceReport,
   IUsageObservation,
+  IProviderCallTraceEntry,
   TUsageSurface,
   IPersonalUsageRequest,
   IPersonalUsageTotals,

@@ -68,7 +68,7 @@ describe('content-free OTLP prompt root trace projection', () => {
       'test-version',
     );
 
-    expect(result.coverage).toEqual({ exported: 3, missing: 0, invalid: 0, duplicate: 0 });
+    expect(result.coverage).toMatchObject({ exported: 3, missing: 0, invalid: 0, duplicate: 0 });
     expect(spans(result).map((span) => span.status.code)).toEqual([1, 2, 0]);
     expect(spans(result)[0]).toMatchObject({
       traceId: TRACE_ID,
@@ -120,7 +120,7 @@ describe('content-free OTLP prompt root trace projection', () => {
       'test-version',
     );
 
-    expect(result.coverage).toEqual({ exported: 1, missing: 1, invalid: 9, duplicate: 0 });
+    expect(result.coverage).toMatchObject({ exported: 1, missing: 1, invalid: 9, duplicate: 0 });
     expect(spans(result)[0]?.startTimeUnixNano).toBe('18446744073709000000');
     expect(spans(result)[0]?.endTimeUnixNano).toBe('18446744073709000000');
   });
@@ -156,7 +156,7 @@ describe('content-free OTLP prompt root trace projection', () => {
       'test-version',
     );
 
-    expect(result.coverage).toEqual({ exported: 2, missing: 0, invalid: 0, duplicate: 4 });
+    expect(result.coverage).toMatchObject({ exported: 2, missing: 0, invalid: 0, duplicate: 4 });
     expect(spans(result).map((span) => span.traceId)).toEqual([
       '2234567890abcdef1234567890abcdef',
       '4234567890abcdef1234567890abcdef',
@@ -179,7 +179,116 @@ describe('content-free OTLP prompt root trace projection', () => {
     });
 
     const result = createOtlpPromptRootTraces([session], 'test-version');
-    expect(result.coverage).toEqual({ exported: 1, missing: 0, invalid: 0, duplicate: 0 });
+    expect(result.coverage).toMatchObject({ exported: 1, missing: 0, invalid: 0, duplicate: 0 });
     expect(spans(result)[0]?.startTimeUnixNano).toBe('0');
+  });
+
+  it('exports only a verified, content-free provider child under its recorded prompt root', () => {
+    const session = record('secret-session', [root()]);
+    session.history!.push({
+      id: 'provider-event',
+      timestamp: new Date('2026-09-24T00:01:00.000Z'),
+      category: 'event',
+      type: 'provider-call-trace',
+      data: {
+        traceId: TRACE_ID,
+        parentSpanId: SPAN_ID,
+        spanId: 'abcdef1234567890',
+        startedAt: '2026-09-24T00:00:59.100Z',
+        endedAt: '2026-09-24T00:00:59.900Z',
+        outcome: 'success',
+        round: 1,
+        providerPayload: 'secret response',
+      },
+    });
+
+    const result = createOtlpPromptRootTraces([session], 'test-version');
+    expect(result.coverage.providerChildren).toEqual({
+      exported: 1,
+      invalid: 0,
+      orphaned: 0,
+      duplicate: 0,
+    });
+    expect(spans(result)).toHaveLength(2);
+    expect(spans(result)[1]).toMatchObject({
+      traceId: TRACE_ID,
+      parentSpanId: SPAN_ID,
+      spanId: 'abcdef1234567890',
+      name: 'robota.provider_call',
+      startTimeUnixNano: '1790208059100000000',
+      endTimeUnixNano: '1790208059900000000',
+      status: { code: 1 },
+    });
+    expect(JSON.stringify(result.payload)).not.toMatch(/secret|providerPayload|response/);
+  });
+
+  it('excludes orphaned, duplicate and out-of-root children while keeping a valid failure', () => {
+    const session = record('session', [root()]);
+    const child = (spanId: string, overrides: Record<string, unknown> = {}) => ({
+      id: `event-${session.history!.length}`,
+      timestamp: new Date('2026-09-24T00:00:59.900Z'),
+      category: 'event',
+      type: 'provider-call-trace',
+      data: {
+        traceId: TRACE_ID,
+        parentSpanId: SPAN_ID,
+        spanId,
+        startedAt: '2026-09-24T00:00:59.100Z',
+        endedAt: '2026-09-24T00:00:59.900Z',
+        outcome: 'failure',
+        round: 1,
+        ...overrides,
+      },
+    });
+    session.history!.push(child('aaaaaaaaaaaaaaaa'));
+    session.history!.push(child('bbbbbbbbbbbbbbbb', { parentSpanId: 'cccccccccccccccc' }));
+    session.history!.push(child('cccccccccccccccc', { endedAt: '2026-09-24T00:01:00.001Z' }));
+    session.history!.push(child('dddddddddddddddd'));
+    session.history!.push(child('dddddddddddddddd'));
+
+    const result = createOtlpPromptRootTraces([session], 'test-version');
+    expect(result.coverage.providerChildren).toEqual({
+      exported: 1,
+      invalid: 1,
+      orphaned: 1,
+      duplicate: 2,
+    });
+    expect(spans(result)).toHaveLength(2);
+    expect(spans(result)[1]).toMatchObject({
+      spanId: 'aaaaaaaaaaaaaaaa',
+      parentSpanId: SPAN_ID,
+      status: { code: 2 },
+    });
+  });
+
+  it('excludes a valid child when a malformed sibling claims the same trace and span identity', () => {
+    const session = record('session', [root()]);
+    const valid = {
+      traceId: TRACE_ID,
+      parentSpanId: SPAN_ID,
+      spanId: 'abcdef1234567890',
+      startedAt: '2026-09-24T00:00:59.100Z',
+      endedAt: '2026-09-24T00:00:59.900Z',
+      outcome: 'success',
+      round: 1,
+    };
+    for (const data of [valid, { ...valid, endedAt: 'not-a-date' }]) {
+      session.history!.push({
+        id: `child-${session.history!.length}`,
+        timestamp: new Date('2026-09-24T00:00:59.900Z'),
+        category: 'event',
+        type: 'provider-call-trace',
+        data,
+      });
+    }
+
+    const result = createOtlpPromptRootTraces([session], 'test-version');
+    expect(spans(result)).toHaveLength(1);
+    expect(result.coverage.providerChildren).toEqual({
+      exported: 0,
+      invalid: 0,
+      orphaned: 0,
+      duplicate: 2,
+    });
   });
 });

@@ -217,6 +217,11 @@ If a run is aborted mid-stream, partial content already produced is preserved in
 
 ## Execution Loop and Error Handling
 
+Each attempted provider round, including a forced-summary call, emits one content-free completion observation with its actual
+start/end time, round number, and success/failure/interruption outcome. It describes the shared
+provider-call boundary (which may be served from cache), not proof of an outbound network request;
+request and response bodies belong only to their existing separate execution events.
+
 The default round budget for one run is a fixed number of model/tool rounds, overridable per-run or per-config (run-scoped values win); a budget of zero disables the round cap entirely and leaves stopping to abort, the context-window guard, and provider timeouts.
 
 **Identical-tool-input guard.** A configured limit on repeated byte-identical invocations of one tool within a single run exists as a distinct, _named_ error rather than a generic abort, and this distinction is deliberately behavioral, not cosmetic: this package's own abort-classification logic resolves an `AbortError` as "the caller asked to stop, and got a successful, cleanly interrupted result" — but when a run gives up because it detected a pathological identical-input loop, nobody asked it to stop; the agent failed to make progress. Reporting that as a clean interruption would misreport a stuck agent as a successful outcome, so the guard raises a specifically named, recoverable error that a caller can distinguish from both a real abort and an unrelated system failure.

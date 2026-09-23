@@ -25,7 +25,8 @@ what counts as a turn, not how cost is derived, not what a report should contain
 
 A canonical usage observation may also carry an optional prompt-execution root identity, UTC
 start/end times, and first-callback outcome. These describe only the prompt call through its first
-terminal callback, not final turn settlement or a parent/child distributed trace. The first-callback
+terminal callback, not final turn settlement. A separate provider-call entry can carry a content-free
+child span with explicit root linkage, actual times, round and outcome; no tool child is implied. The first-callback
 outcome may differ from the observation's later turn outcome. Older observations without them remain valid;
 the identity carries no prompt, response, tool, user, or session content.
 

@@ -201,3 +201,10 @@ export interface ISessionRunOptions {
    */
   driverId?: string;
 }
+
+export interface IProviderCallTraceObservation {
+  readonly round: number;
+  readonly startedAt: string;
+  readonly endedAt: string;
+  readonly outcome: 'success' | 'failure' | 'interrupted';
+}
