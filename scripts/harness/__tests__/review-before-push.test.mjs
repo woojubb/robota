@@ -177,11 +177,9 @@ function trustedIntegrationSyncRepo({ variant = 'clean' } = {}) {
       throw new Error('conflict-tree fixture unexpectedly merged cleanly');
     const tree = mergeTree.stdout.split('\n')[0].trim();
     if (variant === 'resolved-conflict') {
-      const merge = spawnSync(
-        'git',
-        ['-C', fixture.dir, 'merge', '--no-ff', 'origin/develop'],
-        { encoding: 'utf8' },
-      );
+      const merge = spawnSync('git', ['-C', fixture.dir, 'merge', '--no-ff', 'origin/develop'], {
+        encoding: 'utf8',
+      });
       if (merge.status !== 1) throw new Error('resolved-conflict fixture did not conflict');
       fixture.git('checkout', '--ours', '--', 'sync-conflict.txt');
       fixture.git('add', 'sync-conflict.txt');
@@ -424,6 +422,37 @@ describe('a stacked child declares a trusted integration base', () => {
     expect(verdict.output).toMatch(/current remote ref/);
   });
 
+  it('keeps a child push valid when its integration target advances without a conflict', () => {
+    const fixture = trustedIntegrationRepo();
+    fixture.git('checkout', '--quiet', fixture.integrationBranch);
+    fixture.commit('later-integration.txt', 'later\n', 'fix: advance integration independently');
+    fixture.git('push', '--quiet', 'origin', fixture.integrationBranch);
+    fixture.git('fetch', '--quiet', 'origin');
+    fixture.git('checkout', '--quiet', 'fix/stacked-child');
+
+    const verdict = push(
+      fixture.dir,
+      'HARNESS_BASE_REF=origin/integration/agreement-2664 git push origin fix/stacked-child',
+    );
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
+  it('rejects a child push when the advanced integration target conflicts', () => {
+    const fixture = trustedIntegrationRepo();
+    fixture.git('checkout', '--quiet', fixture.integrationBranch);
+    fixture.commit('stacked-child.txt', 'integration\n', 'fix: change same path on integration');
+    fixture.git('push', '--quiet', 'origin', fixture.integrationBranch);
+    fixture.git('fetch', '--quiet', 'origin');
+    fixture.git('checkout', '--quiet', 'fix/stacked-child');
+
+    const verdict = push(
+      fixture.dir,
+      'HARNESS_BASE_REF=origin/integration/agreement-2664 git push origin fix/stacked-child',
+    );
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/conflicts with this branch/);
+  });
+
   it('rejects a main-derived remote integration alias even with a matching pair', () => {
     const fixture = trustedIntegrationRepo();
     fixture.git('checkout', '--quiet', '-b', 'fixture/main-ahead', 'origin/main');
@@ -535,13 +564,7 @@ describe('an integration base syncs current develop', () => {
   });
 
   it('rejects reversed, remote-stale, additional, own-path, and conflicted-tree sync variants', () => {
-    for (const variant of [
-      'reversed',
-      'remote-stale',
-      'extra',
-      'own-path',
-      'conflict-tree',
-    ]) {
+    for (const variant of ['reversed', 'remote-stale', 'extra', 'own-path', 'conflict-tree']) {
       const fixture = trustedIntegrationSyncRepo({ variant });
       const verdict = push(
         fixture.dir,
