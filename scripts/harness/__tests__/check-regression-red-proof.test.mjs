@@ -1034,6 +1034,184 @@ describe('HARNESS-041 orchestrator fixtures', () => {
     });
   });
 
+  it('isolates a reverse-apply failure to its source and restores a partial mutation', async () => {
+    const failedSource = 'packages/x/src/a-failed.ts';
+    const judgedSource = 'packages/x/src/b-judged.ts';
+    const failedTest = 'packages/x/src/a-failed.test.ts';
+    const judgedTest = 'packages/x/src/b-judged.test.ts';
+    const sourceText = new Map([
+      [abs(failedSource), `export const a = 1;`],
+      [abs(judgedSource), `export const b = 1;`],
+    ]);
+    const testText = new Map([
+      [abs(failedTest), `import { a } from './a-failed.js';`],
+      [abs(judgedTest), `import { b } from './b-judged.js';`],
+    ]);
+    const restoreCalls = [];
+    const judgedTests = [];
+
+    const { verdict, decisions } = await runRegressionRedProof(
+      baseIo({
+        changedFiles: [failedSource, judgedSource, failedTest, judgedTest],
+        readText: (file) => testText.get(file) ?? sourceText.get(file) ?? '',
+        fileExists: (file) => sourceText.has(file) || testText.has(file),
+        reverseApply: ([source]) => {
+          if (source === failedSource) {
+            sourceText.set(abs(source), 'partially reversed before git rejected the patch');
+            throw new Error('cannot apply binary patch');
+          }
+          sourceText.set(abs(source), `export const b = 0;`);
+        },
+        restore: ([source]) => {
+          restoreCalls.push(source);
+          sourceText.set(
+            abs(source),
+            source === failedSource ? `export const a = 1;` : `export const b = 1;`,
+          );
+        },
+        runVitest: (_pkg, testFiles) => {
+          judgedTests.push(...testFiles);
+          return {
+            testResults: testFiles.map((file) => ({
+              name: abs(file),
+              assertionResults: [{ status: 'failed' }],
+            })),
+          };
+        },
+      }),
+    );
+
+    expect(
+      decisions.map(({ source, verdict: pairVerdict, reason }) => ({
+        source,
+        verdict: pairVerdict,
+        reason,
+      })),
+    ).toEqual([
+      {
+        source: failedSource,
+        verdict: VERDICT.INCONCLUSIVE,
+        reason: 'reverse-apply-failed: cannot apply binary patch',
+      },
+      { source: judgedSource, verdict: VERDICT.RED_PROOF_OK, reason: undefined },
+    ]);
+    expect(restoreCalls).toEqual([failedSource, judgedSource]);
+    expect(sourceText.get(abs(failedSource))).toBe(`export const a = 1;`);
+    expect(judgedTests).toEqual([judgedTest]);
+    expect(verdict).toBe(VERDICT.INCONCLUSIVE);
+    expect(exitCodeFor(verdict, true)).toBe(0);
+    expect(renderDecisionSummary({ verdict, decisions })).toContain(
+      `| \`${failedSource}\` | inconclusive | reverse-apply-failed: cannot apply binary patch |`,
+    );
+  });
+
+  it('isolates a declared-mutant write failure and restores its partial mutation', async () => {
+    const failedSource = 'packages/x/src/a-mutant.ts';
+    const judgedSource = 'packages/x/src/b-reversal.ts';
+    const failedTest = 'packages/x/src/a-mutant.test.ts';
+    const judgedTest = 'packages/x/src/b-reversal.test.ts';
+    const sourceText = new Map([
+      [abs(failedSource), `export const a = 1;`],
+      [abs(judgedSource), `export const b = 1;`],
+    ]);
+    const testText = new Map([
+      [abs(failedTest), `import { a } from './a-mutant.js';`],
+      [abs(judgedTest), `import { b } from './b-reversal.js';`],
+    ]);
+    const restoreCalls = [];
+    const judgedTests = [];
+
+    const { verdict, decisions } = await runRegressionRedProof(
+      baseIo({
+        changedFiles: [failedSource, judgedSource, failedTest, judgedTest],
+        commitSubjects: ['feat: declared mutant'],
+        declarationText:
+          'red-proof-mutant: packages/x/src/a-mutant.ts :: export const a = 1; => export const a = 2;\n',
+        readText: (file) => testText.get(file) ?? sourceText.get(file) ?? '',
+        fileExists: (file) => sourceText.has(file) || testText.has(file),
+        writeMutant: (source) => {
+          sourceText.set(abs(source), 'partially written declared mutant');
+          throw new Error('disk write interrupted');
+        },
+        reverseApply: ([source]) => {
+          sourceText.set(abs(source), `export const b = 0;`);
+        },
+        restore: ([source]) => {
+          restoreCalls.push(source);
+          sourceText.set(
+            abs(source),
+            source === failedSource ? `export const a = 1;` : `export const b = 1;`,
+          );
+        },
+        runVitest: (_pkg, testFiles) => {
+          judgedTests.push(...testFiles);
+          return {
+            testResults: testFiles.map((file) => ({
+              name: abs(file),
+              assertionResults: [{ status: 'failed' }],
+            })),
+          };
+        },
+      }),
+    );
+
+    expect(
+      decisions.map(({ source, verdict: pairVerdict, reason }) => ({
+        source,
+        verdict: pairVerdict,
+        reason,
+      })),
+    ).toEqual([
+      {
+        source: failedSource,
+        verdict: VERDICT.INCONCLUSIVE,
+        reason: 'declared-mutant-write-failed: disk write interrupted',
+      },
+      { source: judgedSource, verdict: VERDICT.RED_PROOF_OK, reason: undefined },
+    ]);
+    expect(restoreCalls).toEqual([failedSource, judgedSource]);
+    expect(sourceText.get(abs(failedSource))).toBe(`export const a = 1;`);
+    expect(judgedTests).toEqual([judgedTest]);
+    expect(verdict).toBe(VERDICT.INCONCLUSIVE);
+  });
+
+  it('aborts the run when restoring a failed mutation fails', async () => {
+    const failedSource = 'packages/x/src/a-failed.ts';
+    const nextSource = 'packages/x/src/b-next.ts';
+    const failedTest = 'packages/x/src/a-failed.test.ts';
+    const nextTest = 'packages/x/src/b-next.test.ts';
+    const files = new Map([
+      [abs(failedSource), `export const a = 1;`],
+      [abs(nextSource), `export const b = 1;`],
+      [abs(failedTest), `import { a } from './a-failed.js';`],
+      [abs(nextTest), `import { b } from './b-next.js';`],
+    ]);
+    let nextSourceAttempted = false;
+
+    await expect(
+      runRegressionRedProof(
+        baseIo({
+          changedFiles: [failedSource, nextSource, failedTest, nextTest],
+          readText: (file) => files.get(file) ?? '',
+          fileExists: (file) => files.has(file),
+          reverseApply: ([source]) => {
+            if (source === failedSource) {
+              files.set(abs(source), 'partially reversed');
+              throw new Error('binary patch rejected');
+            }
+            nextSourceAttempted = true;
+          },
+          restore: () => {
+            throw new Error('git checkout failed');
+          },
+        }),
+      ),
+    ).rejects.toThrow(
+      'Failed to restore packages/x/src/a-failed.ts after reverse-apply-failed: binary patch rejected: git checkout failed',
+    );
+    expect(nextSourceAttempted).toBe(false);
+  });
+
   it('hands git a byte-exact patch, final newline included', () => {
     // The defect that made every verdict impossible. The diff was read through the trimming helper,
     // so the patch reached `git apply -R` without its final newline and git rejected it as corrupt —

@@ -3,7 +3,6 @@
   "tag": "beta",
   "initialVersions": {
     "@robota-sdk/agent-server": "3.0.0",
-    "@robota-sdk/agent-web-ui": "0.1.0",
     "robota-docs": "1.0.25",
     "@robota-sdk/agent-cli": "3.0.0-beta.43",
     "@robota-sdk/agent-core": "3.0.0-beta.43",
@@ -53,7 +52,6 @@
     "@robota-sdk/agent-command-workflows": "3.0.0-beta.0",
     "@robota-sdk/agent-process": "3.0.0-beta.76",
     "@robota-sdk/agent-provider-replay": "3.0.0-beta.76",
-    "@robota-sdk/agent-testing": "3.0.0-beta.76",
     "@robota-sdk/dag-adapters-local": "3.0.0-beta.60",
     "@robota-sdk/dag-adapters-sqlite": "3.0.0-beta.60",
     "@robota-sdk/dag-api": "3.0.0-beta.60",

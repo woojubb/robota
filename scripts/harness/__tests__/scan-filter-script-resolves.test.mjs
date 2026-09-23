@@ -110,7 +110,7 @@ describe('judgeText', () => {
     expect(judge('pnpm --filter @fixture/core \\\n  build')).toEqual([]);
   });
 
-  it('leaves an unresolvable filter token to the two guards that own that question', () => {
+  it('leaves an unresolvable filter token to the workspace name owner', () => {
     expect(judge('pnpm --filter @fixture/never-existed test:pty')).toEqual([]);
     expect(judge('pnpm --filter <pkg> test:pty')).toEqual([]);
   });
@@ -173,7 +173,7 @@ describe('findFilterScriptFindings', () => {
     expect(examinedFileCount()).toBe(1);
   });
 
-  it('excludes immutable historical records, on the predicate ghost-package-refs owns', () => {
+  it('excludes immutable historical records, on the predicate workspace-refs owns', () => {
     const root = seed();
     mkdirSync(path.join(root, '.agents/spec-docs/done'), { recursive: true });
     writeFileSync(
