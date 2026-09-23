@@ -118,6 +118,8 @@ export class InteractiveSession
   private sessionStore?: IInteractiveSessionStore;
   /** Do not let best-effort event snapshots publish a loop before its strict creation write. */
   private readonly pendingLoopCreations = new Set<string>();
+  /** Persist a loop stop before cancelling its timer so resume cannot re-arm a stale snapshot. */
+  private readonly pendingLoopStops = new Set<string>();
   private sessionName?: string;
   private cwd?: string;
   private pendingRestoreMessages: TUniversalMessage[] | null = null;
@@ -611,14 +613,31 @@ export class InteractiveSession
   override async cancelBackgroundTask(taskId: string, reason?: string): Promise<void> {
     // Admission must stop before any await: an already-fired wake may still be awaiting initialization.
     this.stoppedWakeTaskIds.add(taskId);
-    this.execCtrl.removePendingWake(taskId);
-    this.execCtrl.wakeTaskIds.delete(taskId);
+    let durableStop = false;
     try {
       await this.ensureInitialized();
+      const task = this.bgTracker.getTask(taskId);
+      const loopId = task?.metadata?.['sessionLoopId'];
+      if (
+        task?.metadata?.['sessionLoop'] === true &&
+        (typeof loopId !== 'string' || !this.pendingLoopCreations.has(loopId))
+      ) {
+        this.pendingLoopStops.add(taskId);
+        this.persistCurrentSession(true);
+        durableStop = true;
+      }
+      this.execCtrl.removePendingWake(taskId);
+      this.execCtrl.wakeTaskIds.delete(taskId);
       await this.bgTracker.cancelTask(taskId, reason);
     } catch (error) {
-      this.stoppedWakeTaskIds.delete(taskId);
+      if (!durableStop) this.stoppedWakeTaskIds.delete(taskId);
       throw error;
+    } finally {
+      // If cancellation failed after the durable tombstone, keep both guards so a later snapshot
+      // cannot revive the loop and a stray timer cannot submit another turn.
+      if (!durableStop || this.bgTracker.getTask(taskId)?.status === 'cancelled') {
+        this.pendingLoopStops.delete(taskId);
+      }
     }
   }
 
@@ -929,14 +948,18 @@ export class InteractiveSession
       this.cwd ?? '',
       histState.history,
       {
-        tasks: bgState.tasks.filter((task) => {
-          const loopId = task.metadata?.['sessionLoopId'];
-          return (
-            typeof loopId !== 'string' ||
-            !this.pendingLoopCreations.has(loopId) ||
-            (strict && loopId === acceptedLoopId)
-          );
-        }),
+        tasks: bgState.tasks
+          .filter((task) => {
+            const loopId = task.metadata?.['sessionLoopId'];
+            return (
+              typeof loopId !== 'string' ||
+              !this.pendingLoopCreations.has(loopId) ||
+              (strict && loopId === acceptedLoopId)
+            );
+          })
+          .map((task) =>
+            this.pendingLoopStops.has(task.id) ? { ...task, status: 'cancelled' as const } : task,
+          ),
         events: bgState.taskEvents,
         groups: bgState.groups,
         groupEvents: bgState.groupEvents,
