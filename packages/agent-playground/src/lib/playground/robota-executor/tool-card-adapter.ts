@@ -1,4 +1,4 @@
-import { FunctionTool } from '@robota-sdk/agent-core';
+import type { FunctionTool } from '@robota-sdk/agent-core';
 import type { IAIProvider, IEventService } from '@robota-sdk/agent-core';
 
 import type { IToolCard } from './types';

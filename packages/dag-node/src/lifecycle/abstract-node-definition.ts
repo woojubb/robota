@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import type { z } from 'zod';
 import type { TPortPayload } from '@robota-sdk/dag-core';
 import type { IDagError } from '@robota-sdk/dag-core';
 import type { TResult } from '@robota-sdk/dag-core';

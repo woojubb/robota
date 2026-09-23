@@ -9,7 +9,7 @@ import { WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
 
 import { defaultCreateResumeBridge, defaultCreateTransport } from './default-transport-factory.js';
 import type { TUsageReporters } from './default-transport-factory.js';
-import { SessionResumeBridge } from '@robota-sdk/agent-transport';
+import type { SessionResumeBridge } from '@robota-sdk/agent-transport';
 import { bindTransportAdapter } from '@robota-sdk/agent-framework';
 
 import { hasTurnServer } from './ice-config.js';

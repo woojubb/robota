@@ -7,7 +7,7 @@ export const PACKAGE_DIST_CHECKS = ['build', 'test', 'typecheck'];
 
 export const WORKSPACE_WIDE_BUILD_TOOLING_PATHS = [
   '.eslintignore',
-  '.eslintrc.json',
+  '.eslintrc.cjs',
   'package.json',
   'pnpm-workspace.yaml',
   'scripts/artifacts/build-workspace.mjs',

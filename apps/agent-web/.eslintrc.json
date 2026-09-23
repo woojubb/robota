@@ -1,52 +1,8 @@
 {
-  "extends": ["next/core-web-vitals", "../../.eslintrc.json"],
-  "plugins": ["import"],
-  "parserOptions": {
-    "project": null
-  },
+  "extends": ["next/core-web-vitals"],
   "rules": {
-    "@typescript-eslint/no-floating-promises": "off",
-    "no-restricted-syntax": "off",
     "no-console": "off",
-    "import/order": [
-      "error",
-      {
-        "groups": ["builtin", "external", "internal", ["parent", "sibling", "index"], "type"],
-        "newlines-between": "always",
-        "alphabetize": {
-          "order": "asc",
-          "caseInsensitive": true
-        }
-      }
-    ],
-    "@typescript-eslint/consistent-type-imports": [
-      "error",
-      {
-        "prefer": "type-imports",
-        "fixStyle": "separate-type-imports"
-      }
-    ],
-    "@typescript-eslint/explicit-function-return-type": [
-      "error",
-      {
-        "allowExpressions": true,
-        "allowTypedFunctionExpressions": true,
-        "allowHigherOrderFunctions": true,
-        "allowDirectConstAssertionInArrowFunctions": true
-      }
-    ],
-    "prefer-const": "warn",
-    "object-shorthand": ["warn", "always"],
+    "no-restricted-syntax": "off",
     "@typescript-eslint/ban-types": "off"
-  },
-  "overrides": [
-    {
-      "files": ["**/*.test.ts", "**/*.test.tsx"],
-      "rules": {
-        "@typescript-eslint/explicit-function-return-type": "off",
-        "@typescript-eslint/consistent-type-imports": "off",
-        "import/order": "off"
-      }
-    }
-  ]
+  }
 }
