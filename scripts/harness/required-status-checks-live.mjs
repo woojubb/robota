@@ -58,6 +58,10 @@ export function reconcileLive(root = WORKSPACE_ROOT) {
  * the unfalsifiable shape this repository refuses.
  */
 export function reconcileLiveBranch(root, branchName, readRules = null, readRuleset = null) {
+  // Preserve the unreadable-remote result even in a repository with no declaration yet.
+  const slug = readRules ? null : originSlug(root);
+  if (!readRules && !slug)
+    return [{ context: '(live)', detail: 'could not resolve the `origin` remote slug.' }];
   const branch = readDeclarationBranch(root, branchName);
   const findings = rulesetScopeFindings(root, branchName, branch, readRuleset);
   // SEC-007: `/rules/branches/{branch}` is a PAGINATED collection, and it was read one page at a
@@ -69,12 +73,6 @@ export function reconcileLiveBranch(root, branchName, readRules = null, readRule
   if (readRules) {
     rules = readRules(branchName);
   } else {
-    const slug = originSlug(root);
-    if (!slug)
-      return [
-        ...findings,
-        { context: '(live)', detail: 'could not resolve the `origin` remote slug.' },
-      ];
     try {
       rules = fetchAllPages(`repos/${slug}/rules/branches/${branchName}`).records;
     } catch (error) {
@@ -128,8 +126,8 @@ function rulesetScopeFindings(root, branchName, branch, readRuleset) {
   } catch (error) {
     return [
       {
-        context: `(live ruleset: ${branchName})`,
-        detail: `Could not read ruleset ${id}: ${error.message}`,
+        context: '(live)',
+        detail: `Could not read ruleset ${id} for ${branchName}: ${error.message}`,
       },
     ];
   }

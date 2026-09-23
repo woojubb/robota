@@ -1011,8 +1011,8 @@ describe('the live reconciler reads the declared ruleset scope (INFRA-2798)', ()
     });
     expect(findings).toEqual([
       expect.objectContaining({
-        context: '(live ruleset: develop)',
-        detail: expect.stringContaining('ruleset read denied'),
+        context: '(live)',
+        detail: expect.stringMatching(/18715844.*develop.*ruleset read denied/),
       }),
     ]);
   });
