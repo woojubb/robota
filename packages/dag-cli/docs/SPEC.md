@@ -110,6 +110,11 @@ When a server URL is configured, unmatched commands fall through to `dispatchDag
 proxies the orchestration command groups to a compatible DAG orchestration HTTP server (e.g. `@robota-sdk/dag-runtime-server`) over HTTP:
 
 - `assets upload|get|download`
+
+`assets download` streams to a private temporary file beside the requested output, then replaces
+the destination only after the stream completes. A failed transfer leaves an existing output intact
+and reports `DAG_CLI_ASSET_DOWNLOAD_FAILED` without exposing a source path.
+
 - `cost-meta list|get|create|update|delete|validate|preview`
 - `definitions list|get|create|publish`
 - `nodes list`

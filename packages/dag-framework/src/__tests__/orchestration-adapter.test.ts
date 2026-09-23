@@ -155,14 +155,6 @@ describe('run-draft CRUD', () => {
   });
 });
 
-describe('getAssetContentDownloadInfo', () => {
-  it('returns an inproc URI for the given asset id', () => {
-    const info = framework.client.getAssetContentDownloadInfo('asset-123');
-    expect(info.assetId).toBe('asset-123');
-    expect(info.url).toContain('asset-123');
-  });
-});
-
 describe('updateDraft', () => {
   it('updates an existing draft definition', async () => {
     await framework.client.createDefinition(MINIMAL_DEFINITION);
@@ -229,28 +221,28 @@ describe('cost-meta unsupported operations', () => {
 });
 
 describe('uploadAsset + getAssetMetadata', () => {
-  it('uploads a base64-encoded asset and retrieves its metadata', async () => {
-    const content = Buffer.from('hello asset').toString('base64');
-    const uploaded = await framework.client.uploadAsset({
-      base64Data: content,
+  it('stores bytes and streams them without HTTP envelopes', async () => {
+    const content = Buffer.from('hello asset');
+    const uploaded = await framework.assets.save({
+      content,
       fileName: 'hello.txt',
       mediaType: 'text/plain',
     });
-    expect(uploaded.ok).toBe(true);
-    expect(uploaded.status).toBe(201);
-    const assetId = (uploaded.payload as { data: { asset: { assetId: string } } }).data.asset
-      .assetId;
+    const assetId = uploaded.assetId;
     expect(typeof assetId).toBe('string');
 
-    const meta = await framework.client.getAssetMetadata(assetId);
-    expect(meta.ok).toBe(true);
-    expect(meta.status).toBe(200);
+    const meta = await framework.assets.getMetadata(assetId);
+    expect(meta?.fileName).toBe('hello.txt');
+    const contentResult = await framework.assets.getContent(assetId);
+    expect(contentResult).toBeDefined();
+    if (!contentResult) return;
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of contentResult.stream) chunks.push(chunk);
+    expect(Buffer.concat(chunks).toString()).toBe('hello asset');
   });
 
-  it('getAssetMetadata returns 404 for unknown assetId', async () => {
-    const res = await framework.client.getAssetMetadata('no-such-asset-id');
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(404);
+  it('returns undefined for an unknown assetId', async () => {
+    expect(await framework.assets.getMetadata('no-such-asset-id')).toBeUndefined();
   });
 });
 

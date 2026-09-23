@@ -1,16 +1,12 @@
-import { Buffer } from 'node:buffer';
 import {
   DagDefinitionService,
   type IDagDefinition,
   type INodeManifest,
   type IStoragePort,
-  type IAssetStore,
 } from '@robota-sdk/dag-core';
 import type { IDagControllerComposition, IProblemDetails } from '@robota-sdk/dag-api';
 import type { IDagExecutionComposition } from '../types.js';
 import type {
-  IDagOrchestrationAssetContentDownloadInfo,
-  IDagOrchestrationAssetUploadRequest,
   IDagOrchestrationCreateRunInput,
   IDagOrchestrationHttpPayload,
   IDagOrchestrationHttpResponse,
@@ -28,7 +24,6 @@ export interface IDagFrameworkOrchestrationAdapterDependencies {
   readonly controllers: IDagControllerComposition;
   readonly execution: IDagExecutionComposition;
   readonly manifests: readonly INodeManifest[];
-  readonly assetStore: IAssetStore;
 }
 
 function problemDetailsToOrchestration(p: IProblemDetails): IOrchestrationProblemDetails {
@@ -58,7 +53,6 @@ export class DagFrameworkOrchestrationAdapter implements IDagOrchestrationPort {
   private readonly controllers: IDagControllerComposition;
   private readonly execution: IDagExecutionComposition;
   private readonly manifests: readonly INodeManifest[];
-  private readonly assetStore: IAssetStore;
   private readonly definitionService: DagDefinitionService;
 
   public constructor(deps: IDagFrameworkOrchestrationAdapterDependencies) {
@@ -66,7 +60,6 @@ export class DagFrameworkOrchestrationAdapter implements IDagOrchestrationPort {
     this.controllers = deps.controllers;
     this.execution = deps.execution;
     this.manifests = deps.manifests;
-    this.assetStore = deps.assetStore;
     this.definitionService = new DagDefinitionService(deps.storage);
   }
 
@@ -204,57 +197,6 @@ export class DagFrameworkOrchestrationAdapter implements IDagOrchestrationPort {
       dagRun: result.value.dagRun,
       taskRuns: result.value.taskRuns,
     });
-  }
-
-  public async uploadAsset(
-    input: IDagOrchestrationAssetUploadRequest,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    const buffer = Buffer.from(input.base64Data, 'base64');
-    const metadata = await this.assetStore.save({
-      fileName: input.fileName,
-      mediaType: input.mediaType,
-      content: new Uint8Array(buffer),
-    });
-    return this.successResponse(201, {
-      asset: {
-        referenceType: 'asset' as const,
-        assetId: metadata.assetId,
-        mediaType: metadata.mediaType,
-        uri: `asset://${metadata.assetId}`,
-        name: metadata.fileName,
-        sizeBytes: metadata.sizeBytes,
-        ...(metadata.runtimeAssetId ? { runtimeAssetId: metadata.runtimeAssetId } : {}),
-      },
-    });
-  }
-
-  public async getAssetMetadata(assetId: string): Promise<IDagOrchestrationHttpResponse> {
-    const metadata = await this.assetStore.getMetadata(assetId);
-    if (!metadata) {
-      return this.notFoundResponse(`/v1/dag/assets/${assetId}`, 'Asset not found');
-    }
-    return this.successResponse(200, {
-      asset: {
-        referenceType: 'asset' as const,
-        assetId: metadata.assetId,
-        mediaType: metadata.mediaType,
-        uri: `asset://${metadata.assetId}`,
-        name: metadata.fileName,
-        sizeBytes: metadata.sizeBytes,
-        ...(metadata.runtimeAssetId ? { runtimeAssetId: metadata.runtimeAssetId } : {}),
-      },
-    });
-  }
-
-  public getAssetContentDownloadInfo(assetId: string): IDagOrchestrationAssetContentDownloadInfo {
-    return {
-      assetId,
-      url: `inproc://dag-framework/assets/${assetId}/content`,
-      method: 'GET',
-      responseType: 'binary',
-      contentTypeHeader: 'Content-Type',
-      contentDispositionHeader: 'Content-Disposition',
-    };
   }
 
   public async buildDag(input: IDagBuildInput): Promise<IDagOrchestrationHttpResponse> {

@@ -1,13 +1,10 @@
-import { createWriteStream } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
-import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
 import type { IDagDefinition, IWorkspaceLayout, TPortPayload } from '@robota-sdk/dag-core';
 import { DagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
 import { parseGlobalConfig } from './arguments.js';
 import { dispatchDagCliCommand } from './runner-dispatch.js';
+import { writeAssetFile } from './asset-file-writer.js';
 import { formatJsonOutput } from './json.js';
 import type { IDagCliIo, IDagCliRunOptions, TDagCliFetch } from './types.js';
 import { FAILURE_EXIT_CODE, SUCCESS_EXIT_CODE, USAGE_ERROR_EXIT_CODE } from './types.js';
@@ -56,12 +53,7 @@ const defaultIo: IDagCliIo = {
     process.stderr.write(text);
   },
   readTextFile: async (filePath: string) => readFile(filePath, UTF8_ENCODING),
-  writeBinaryStream: async (filePath, stream) => {
-    await pipeline(
-      Readable.fromWeb(stream as NodeReadableStream<Uint8Array>),
-      createWriteStream(filePath),
-    );
-  },
+  writeBinaryStream: writeAssetFile,
 };
 
 const defaultFetch: TDagCliFetch = async (url: string, init?: RequestInit) => fetch(url, init);

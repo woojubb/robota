@@ -9,6 +9,7 @@ import {
   decodeOverwriteRunDraftNodeResultInput,
   decodeSaveRunDraftInput,
   type IDagDefinition,
+  type IAssetStore,
   type IRunDraftOperationsPort,
   type TRunProgressEvent,
 } from '@robota-sdk/dag-core';
@@ -20,13 +21,13 @@ import type {
   ICostMetaOperationsPort,
 } from '@robota-sdk/dag-cost';
 import type {
-  IDagOrchestrationAssetUploadRequest,
   IDagOrchestrationCreateRunInput,
   IDagOrchestrationHttpResponse,
   IDagOrchestrationPort,
   IDagOrchestrationPublishedWorkflowRunRequest,
   IDagOrchestrationUpdateDraftInput,
 } from '@robota-sdk/dag-orchestration-client';
+import { registerAssetRoutes } from './asset-routes.js';
 
 function reply(c: Context, response: IDagOrchestrationHttpResponse): Response {
   return c.json(response.payload, response.status as ContentfulStatusCode);
@@ -197,7 +198,8 @@ function isTerminalProgressEvent(event: TRunProgressEvent): boolean {
 /**
  * Native DAG runtime HTTP server (WORKFLOW-002). Maps the `/v1/dag/*` route surface onto an
  * `IDagOrchestrationPort` — typically `createDagFramework().client` (the in-process implementation).
- * No external-runtime API surface; every handler is a uniform route → port-method → JSON-response mapping.
+ * No external-runtime API surface. Legacy orchestration handlers forward JSON responses;
+ * cost, draft and asset routes map their separate capabilities at the HTTP boundary.
  *
  * When a `progressSource` is supplied, `GET /v1/dag/runs/:id/events` streams that run's progress as
  * Server-Sent Events; without one, that route answers 501.
@@ -207,6 +209,7 @@ export function createDagRuntimeServer(
   costMeta: ICostMetaOperationsPort,
   runDrafts: IRunDraftOperationsPort,
   progressSource?: IRunProgressSource,
+  assets?: IAssetStore,
 ): Hono {
   const app = new Hono();
 
@@ -322,17 +325,7 @@ export function createDagRuntimeServer(
   });
 
   // --- Assets ---
-  app.post('/v1/dag/assets', async (c) => {
-    const body = await c.req.json<IDagOrchestrationAssetUploadRequest>();
-    return reply(c, await port.uploadAsset(body));
-  });
-  app.get('/v1/dag/assets/:assetId', async (c) =>
-    reply(c, await port.getAssetMetadata(c.req.param('assetId'))),
-  );
-  // Synchronous download-info (not an HttpResponse): forward the descriptor as JSON.
-  app.get('/v1/dag/assets/:assetId/content', (c) =>
-    c.json(port.getAssetContentDownloadInfo(c.req.param('assetId'))),
-  );
+  registerAssetRoutes(app, assets);
 
   // --- Cost metadata ---
   app.get('/v1/dag/cost-meta', async (c) =>

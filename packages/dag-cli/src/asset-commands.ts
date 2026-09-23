@@ -1,6 +1,6 @@
 import type {
   IDagOrchestrationAssetUploadRequest,
-  IDagOrchestrationPort,
+  IDagAssetHttpPort,
 } from '@robota-sdk/dag-orchestration-client';
 import { rejectUnexpectedArgs, takeStringOption } from './arguments.js';
 import { createCliFailure, isJsonObject, parseJsonArgument } from './json.js';
@@ -20,7 +20,7 @@ const OUTPUT_OPTION = '--output';
 export async function runAssetsCommand(
   command: string | undefined,
   args: readonly string[],
-  client: IDagOrchestrationPort,
+  client: IDagAssetHttpPort,
   fetchImpl: TDagCliFetch,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {
@@ -42,7 +42,7 @@ export async function runAssetsCommand(
 
 async function uploadAssetCommand(
   args: readonly string[],
-  client: IDagOrchestrationPort,
+  client: IDagAssetHttpPort,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {
   const payload = await readRequiredJsonObject<IDagOrchestrationAssetUploadRequest>(
@@ -56,7 +56,7 @@ async function uploadAssetCommand(
 
 async function downloadAssetCommand(
   args: readonly string[],
-  client: IDagOrchestrationPort,
+  client: IDagAssetHttpPort,
   fetchImpl: TDagCliFetch,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {
@@ -71,27 +71,24 @@ async function downloadAssetCommand(
   if (unexpected) return { exitCode: USAGE_ERROR_EXIT_CODE, payload: unexpected };
 
   const info = client.getAssetContentDownloadInfo(assetId);
-  const response = await fetchImpl(info.url, { method: info.method });
+  let response: Response;
+  try {
+    response = await fetchImpl(info.url, { method: info.method });
+  } catch {
+    return assetDownloadFailure('Asset content request failed.');
+  }
   if (!response.ok) {
-    return {
-      exitCode: FAILURE_EXIT_CODE,
-      payload: createCliFailure(
-        'DAG_CLI_ASSET_DOWNLOAD_FAILED',
-        `Asset content download failed with status ${response.status}.`,
-      ),
-    };
+    return assetDownloadFailure(`Asset content download failed with status ${response.status}.`);
   }
   if (!response.body) {
-    return {
-      exitCode: FAILURE_EXIT_CODE,
-      payload: createCliFailure(
-        'DAG_CLI_ASSET_DOWNLOAD_FAILED',
-        'Asset content response is empty.',
-      ),
-    };
+    return assetDownloadFailure('Asset content response is empty.');
   }
 
-  await io.writeBinaryStream(output.value, response.body);
+  try {
+    await io.writeBinaryStream(output.value, response.body);
+  } catch {
+    return assetDownloadFailure('Asset content download could not be completed.');
+  }
   return {
     exitCode: SUCCESS_EXIT_CODE,
     payload: {
@@ -104,6 +101,13 @@ async function downloadAssetCommand(
         contentDisposition: response.headers.get(info.contentDispositionHeader) ?? undefined,
       },
     },
+  };
+}
+
+function assetDownloadFailure(detail: string): IDagCliCommandResult {
+  return {
+    exitCode: FAILURE_EXIT_CODE,
+    payload: createCliFailure('DAG_CLI_ASSET_DOWNLOAD_FAILED', detail),
   };
 }
 

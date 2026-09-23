@@ -19,6 +19,7 @@ This package is consumed by command-line and MCP clients that call a DAG orchest
 - `orchestration-http-client.ts` owns concrete endpoint path construction, request serialization, response parsing, and fetch execution.
 - The client is intentionally thin: it forwards server response payloads without converting them into CLI or MCP-specific output.
 - For cost metadata and run drafts, the client implements their separate domain capability ports: it validates HTTP payloads and maps successes/problems to typed domain results. Neither group's methods belong to `IDagOrchestrationPort`.
+- Asset upload, metadata and content-download URL methods belong to the transport-specific `IDagAssetHttpPort`, not the general orchestration port. In-process consumers use `IAssetStore` from `dag-core`.
 - Endpoint inventory remains intentionally limited to routes with package-owned request/response contracts.
 
 ## Endpoint Coverage Policy
@@ -58,6 +59,7 @@ This package is SSOT for:
 - `IDagOrchestrationUpdateDraftInput`
 - `IDagOrchestrationCreateRunInput`
 - `IDagOrchestrationAssetUploadRequest`
+- `IDagAssetHttpPort`
 - `IDagOrchestrationAssetReference`
 - `IDagOrchestrationAssetData`
 - `IDagOrchestrationAssetSuccessPayload`
@@ -90,6 +92,10 @@ Imported from other packages:
 - `IDagBuildInput` from `@robota-sdk/dag-builder`
 
 ## Public API Surface
+
+| Export | Contract |
+| --- | --- |
+| `IDagAssetHttpPort` | Transport-specific asset upload, metadata, and content-download location methods. |
 
 - `DagOrchestrationHttpClient` -- shared HTTP client for definition, node catalog, run lifecycle, and run draft endpoints.
 - `buildDag(input)` -- `POST /v1/dag/build`.
@@ -138,6 +144,7 @@ return `DAG_RUN_DRAFT_NOT_FOUND`, and transport failures return a typed retryabl
 | Interface                 | Implementor                  | Kind       | Location                           |
 | ------------------------- | ---------------------------- | ---------- | ---------------------------------- |
 | `IDagOrchestrationPort`   | `DagOrchestrationHttpClient` | production | `src/orchestration-http-client.ts` |
+| `IDagAssetHttpPort`       | `DagOrchestrationHttpClient` | production | `src/orchestration-http-client.ts` |
 | `ICostMetaOperationsPort` | `DagOrchestrationHttpClient` | production | `src/orchestration-http-client.ts` |
 
 ### Inheritance Chains
