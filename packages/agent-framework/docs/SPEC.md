@@ -2820,7 +2820,9 @@ re-armed, so an editable label cannot erase a loop's identity and the stable loo
 successful resume even though the runtime task ID can change.
 Creating a session loop requires a session store. The host acknowledges creation only after a
 strict record write containing its stable loop ID succeeds; on a failed or unreadable write it
-cancels the newly spawned timer and reports the failure. Ordinary turn snapshots remain best-effort.
+cancels the newly spawned timer and reports the failure. Best-effort event snapshots exclude a
+not-yet-acknowledged loop, and a queued timer is refused rather than promised as resumable.
+Ordinary turn snapshots remain best-effort.
 
 `InteractiveSession` exposes background task controls:
 

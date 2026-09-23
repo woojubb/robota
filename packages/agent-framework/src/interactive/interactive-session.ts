@@ -116,6 +116,8 @@ export class InteractiveSession
   private initialized = false;
   private initPromise: Promise<void> | null = null;
   private sessionStore?: IInteractiveSessionStore;
+  /** Do not let best-effort event snapshots publish a loop before its strict creation write. */
+  private readonly pendingLoopCreations = new Set<string>();
   private sessionName?: string;
   private cwd?: string;
   private pendingRestoreMessages: TUniversalMessage[] | null = null;
@@ -628,18 +630,24 @@ export class InteractiveSession
     sessionLoopId?: string;
   }): Promise<IBackgroundTaskState> {
     await this.ensureInitialized();
-    if (input.sessionLoop && !this.sessionStore) {
-      throw new Error('A session store is required for a resumable loop.');
-    }
-    const task = await super.spawnScheduledWake(input);
-    if (!input.sessionLoop) return task;
+    if (!input.sessionLoop) return super.spawnScheduledWake(input);
+    if (!this.sessionStore) throw new Error('A session store is required for a resumable loop.');
+    if (!input.sessionLoopId) throw new Error('A stable loop ID is required for a resumable loop.');
+    this.pendingLoopCreations.add(input.sessionLoopId);
+    let task: IBackgroundTaskState | undefined;
     try {
+      task = await super.spawnScheduledWake(input);
+      if (task.status !== 'sleeping' && task.status !== 'paused') {
+        throw new Error('Loop could not start a resumable timer; retry after capacity is available.');
+      }
       this.persistCurrentSession(true);
       return task;
     } catch (error) {
       // A loop whose creation was not durably acknowledged must not keep firing in this process.
-      await this.cancelBackgroundTask(task.id, 'Loop persistence failed');
+      if (task) await this.cancelBackgroundTask(task.id, 'Loop creation was not acknowledged');
       throw error;
+    } finally {
+      this.pendingLoopCreations.delete(input.sessionLoopId);
     }
   }
 
@@ -921,7 +929,12 @@ export class InteractiveSession
       this.cwd ?? '',
       histState.history,
       {
-        tasks: bgState.tasks,
+        tasks: strict
+          ? bgState.tasks
+          : bgState.tasks.filter((task) => {
+              const loopId = task.metadata?.['sessionLoopId'];
+              return typeof loopId !== 'string' || !this.pendingLoopCreations.has(loopId);
+            }),
         events: bgState.taskEvents,
         groups: bgState.groups,
         groupEvents: bgState.groupEvents,

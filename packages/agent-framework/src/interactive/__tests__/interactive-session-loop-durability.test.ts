@@ -13,7 +13,8 @@ import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import { createSessionStub } from './helpers/session-stub.js';
 
 function setup(
-  save: (record: { backgroundTasks?: Array<{ metadata?: Record<string, unknown> }> }) => void,
+  save: (record: { backgroundTasks?: Array<{ status?: string; metadata?: Record<string, unknown> }> }) => void,
+  maxConcurrent?: number,
 ) {
   const cancel = vi.fn().mockResolvedValue(undefined);
   const runner: IBackgroundTaskRunner = {
@@ -23,7 +24,7 @@ function setup(
       return { taskId: task.taskId, result: new Promise<never>(() => {}), cancel };
     },
   };
-  const manager = new BackgroundTaskManager({ runners: [runner] });
+  const manager = new BackgroundTaskManager({ runners: [runner], maxConcurrent });
   const session = createSessionStub({ getSessionId: () => 'loop_durable' });
   storeAgentToolDeps(session, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
   const store = {
@@ -68,6 +69,33 @@ describe('session-loop creation durability', () => {
     expect(store.save).not.toHaveBeenCalled();
     expect(manager.list().filter((task) => task.status === 'sleeping')).toHaveLength(0);
     expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not leave a previously saved loop active after a later write fails', async () => {
+    const durable: Array<{
+      backgroundTasks?: Array<{ status?: string; metadata?: Record<string, unknown> }>;
+    }> = [];
+    let writes = 0;
+    const { interactive } = setup((record) => {
+      writes += 1;
+      if (writes >= 3) throw new Error('store disconnected');
+      durable.push(record);
+    });
+    writes = 0; // Ignore the session's initial empty snapshot.
+
+    await expect(interactive.spawnScheduledWake(loop)).rejects.toThrow('store disconnected');
+    expect(
+      durable.at(-1)?.backgroundTasks?.some(
+        (task) => task.metadata?.['sessionLoopId'] === 'loop_stable' && task.status === 'sleeping',
+      ),
+    ).not.toBe(true);
+  });
+
+  it('refuses a queued loop that could not be re-armed after restart', async () => {
+    const { interactive, manager } = setup(() => undefined, 0);
+
+    await expect(interactive.spawnScheduledWake(loop)).rejects.toThrow('resumable timer');
+    expect(manager.list()).toMatchObject([{ status: 'cancelled' }]);
   });
 
   it('acknowledges a loop only after a record containing its stable identity is saved', async () => {
