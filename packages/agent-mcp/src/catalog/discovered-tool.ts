@@ -12,6 +12,8 @@
  * already avoid the same way.
  */
 
+import { admitToolResult } from '@robota-sdk/agent-core';
+
 import { ThirdPartySchemaValidator } from '../third-party-schema.js';
 import { toUniversalValue } from './universal-value.js';
 
@@ -28,6 +30,7 @@ import type {
   IToolSchema,
   IToolWithEventService,
   IUniversalObjectValue,
+  IToolResultAdmissionOptions,
   TToolParameters,
 } from '@robota-sdk/agent-core';
 
@@ -41,6 +44,8 @@ export interface IMCPToolInvoker {
 }
 
 export interface ICreateDiscoveredToolOptions {
+  /** Host-owned generic admission policy and spill storage; MCP only supplies validated metadata. */
+  readonly admission?: IToolResultAdmissionOptions;
   /**
    * CORE-040 hook, forwarded to the validator for defensive symmetry with `MCPTool`/
    * `RelayMcpTool`. In practice it is never invoked here: `entry.schema` was already narrowed once
@@ -95,7 +100,7 @@ class DiscoveredMCPTool implements IToolWithEventService {
   constructor(
     private readonly entry: IMCPCatalogToolEntry,
     private readonly invoker: IMCPToolInvoker,
-    options?: ICreateDiscoveredToolOptions,
+    private readonly options?: ICreateDiscoveredToolOptions,
   ) {
     this.schema = {
       name: entry.canonicalName,
@@ -131,23 +136,42 @@ class DiscoveredMCPTool implements IToolWithEventService {
     parameters: TToolParameters,
     context?: IToolExecutionContext,
   ): Promise<IToolResult> {
-    const result = await this.invoker.callTool(this.entry.sourceName, parameters, {
-      signal: context?.signal,
-    });
+    let result: IMCPToolCallResult;
+    try {
+      result = await this.invoker.callTool(this.entry.sourceName, parameters, {
+        signal: context?.signal,
+      });
+    } catch {
+      // SDK and remote errors can contain response bodies or request metadata. Neither is safe to
+      // pass through ToolManager's error events or the session logger.
+      if (context?.signal?.aborted)
+        throw new DOMException('Execution interrupted by user', 'AbortError');
+      throw new Error('MCP tool call failed');
+    }
 
     if (result.isError) {
       const message = joinTextContent(result.content);
-      return {
-        success: false,
-        error: message.length > 0 ? message : `${this.schema.name} reported an error`,
-      };
+      return admitToolResult(
+        this.schema.name,
+        {
+          success: false,
+          error: message.length > 0 ? message : `${this.schema.name} reported an error`,
+        },
+        this.options?.admission,
+        this.entry.maxResultChars,
+      );
     }
 
     const data = result.structuredContent
       ? toUniversalValue(result.structuredContent)
       : joinTextContent(result.content);
 
-    return { success: true, data };
+    return admitToolResult(
+      this.schema.name,
+      { success: true, data },
+      this.options?.admission,
+      this.entry.maxResultChars,
+    );
   }
 
   /**

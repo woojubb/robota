@@ -11,6 +11,7 @@
 
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 
+import { parseMCPResultSizeMetadata } from '../catalog/result-size-metadata.js';
 import { MCPDiscoveryError } from '../catalog/types.js';
 import { toUniversalObject } from '../catalog/universal-value.js';
 
@@ -46,11 +47,15 @@ function toParameterSchema(schema: Readonly<Record<string, unknown>>): IParamete
 }
 
 function mapTool(raw: TRawTool): IMCPDiscoveredTool {
+  const resultSizeMetadata = parseMCPResultSizeMetadata(
+    (raw as TRawTool & { readonly _meta?: unknown })._meta,
+  );
   return {
     name: raw.name,
     description: raw.description,
     inputSchema: toParameterSchema(raw.inputSchema),
     outputSchema: raw.outputSchema === undefined ? undefined : toUniversalObject(raw.outputSchema),
+    ...(resultSizeMetadata.kind === 'absent' ? {} : { resultSizeMetadata }),
   };
 }
 

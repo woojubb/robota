@@ -151,6 +151,9 @@ This package is the single source of truth (SSOT) for the following types:
 | `IContextWindowState`               | `context/types.ts`                      | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                                                                                                                                                                                                                                                                                                        |
 | `IContextTokenEstimate`             | `context/estimation.ts`                 | Effective context token estimate used by status display, session compaction policy, and execution safety guards                                                                                                                                                                                                                                                                                                                          |
 | `IContextTokenEstimateOptions`      | `context/estimation.ts`                 | Options for `estimateContextTokensFromMessages()`: optional `providerUsage` floor and `callerFloor`                                                                                                                                                                                                                                                                                                                                      |
+| `IToolResultAdmissionOptions`       | `core/tool-result-admission.ts`         | Provider-neutral warning, hard limit, repository cap, spill port, and payload-free warning callback                                                                                                                                                                                                                                                                                                                                      |
+| `IToolResultSpillStore`             | `core/tool-result-admission.ts`         | Host-owned persistence port that commits oversized model-facing text before returning an opaque reference                                                                                                                                                                                                                                                                                                                                |
+| `TToolResultAdmissionErrorCode`     | `core/tool-result-admission.ts`         | Stable, payload-free admission failure codes                                                                                                                                                                                                                                                                                                                                                                                             |
 | `IMessageTokenUsage`                | `context/token-usage.ts`                | Normalized token usage read from message metadata or provider usage payloads                                                                                                                                                                                                                                                                                                                                                             |
 | `IHistoryEntry`                     | `interfaces/messages.ts`                | Rich history entry that wraps a message with category, type, and structured data fields. Fields: `id` (string), `timestamp` (Date), `category` ('chat' \| 'event'), `type` (string), `data` (varies by category/type)                                                                                                                                                                                                                    |
 | `IActionRequest`                    | `interfaces/interaction.ts`             | UI-agnostic "ask the user" request (CMD-004). One shape covers confirm/single/multi/free-text/secret via `options` × `minSelect`/`maxSelect` × `allowFreeText` × `masked`. No function-valued fields (serialization-safe). SSOT lives in core so both command and tool sources reach it.                                                                                                                                                 |
@@ -535,6 +538,37 @@ table. Documented here are the ones a caller is expected to branch on by type.
 | -------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `FunctionTool` | class | Dependency-free JS-function tool primitive (`implements IFunctionTool`); honors `parameters.additionalProperties` validation (DATA-005 canonical). |
 | `ToolRegistry` | class | Dependency-free tool registry primitive (`implements IToolRegistry`); central registration, lookup, and schema retrieval.                          |
+
+### Tool Result Admission (MCP-2525)
+
+| Export                              | Kind      | Description                                                   |
+| ----------------------------------- | --------- | ------------------------------------------------------------- |
+| `DEFAULT_TOOL_RESULT_WARNING_CHARS` | constant  | Default character warning threshold                           |
+| `DEFAULT_TOOL_RESULT_HARD_CHARS`    | constant  | Default maximum admitted result length                        |
+| `MAX_TOOL_RESULT_CHARS`             | constant  | Absolute repository ceiling for raised per-tool requests      |
+| `ToolResultAdmissionError`          | class     | Secret-free admission refusal with a stable code              |
+| `admitToolResult`                   | function  | Validate limits and return admitted text or a spill reference |
+| `wasToolResultAdmitted`             | function  | Recognize an already-admitted result envelope                 |
+| `IToolResultAdmissionOptions`       | interface | Admission thresholds, spill port, and warning callback        |
+| `IToolResultSpillStore`             | interface | Host-owned persistent spill port                              |
+| `TToolResultAdmissionErrorCode`     | type      | Secret-free failure-code union                                |
+
+`admitToolResult` is the provider-neutral owner for result-envelope size policy. It measures the
+model-facing text (string data as-is, other values as JSON) in JavaScript string length units
+(UTF-16 code units) before callbacks, event publication, session logging, or provider conversion.
+The defaults are a 10,000-character warning, a 25,000-character hard limit, and a 500,000-character
+repository ceiling. A host may configure smaller positive safe-integer limits with
+`warningChars < hardChars <= repositoryMaxChars <= 500,000`; a tool's already-validated upward
+request may raise its hard limit only up to the configured repository ceiling. Invalid settings
+fail by named error, never by silently disabling admission. A valid tool request below a stricter
+host-configured hard limit leaves the host limit unchanged.
+
+An admitted result retains its normal envelope. A warned result reports only tool identity, size,
+and limit. An oversized result must be committed to the injected `IToolResultSpillStore` before the
+generic owner returns an opaque `tool-result:` reference; the raw result is never a fallback.
+Missing store or failed write returns a secret-free named refusal. The store owns reference
+resolution, retention, expiry, and cleanup; core has no filesystem dependency. A session and a
+direct SDK caller use this same policy rather than distinct MCP/provider truncation rules.
 
 ### Tool Residency (CLI-1990)
 

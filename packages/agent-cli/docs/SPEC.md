@@ -245,6 +245,20 @@ appends `connect()`'s tools to `toolOptions.additionalTools` — unless a caller
 own `mcpActivationAdapter` (tests do this), which always wins and skips composition entirely. Zero
 resolved definitions is a normal, silent-diagnostic outcome: the `/mcp` adapter simply lists nothing.
 
+**Bounded MCP results (MCP-2525):** composition passes the core result-admission policy to every
+discovered tool before it reaches the session's permission, callback, log, or provider path. Its
+default warning/hard/repository ceiling is 10,000/25,000/500,000 UTF-16 code units; embedding
+hosts may configure `resultAdmissionLimits` within the repository ceiling, while validated per-tool requests can raise
+only to the configured ceiling. The ordinary CLI lazily creates a
+`NodeToolResultSpillStore` on first overflow, reports only counts and fixed metadata-error reasons,
+and closes the store during MCP shutdown. A failed spill produces a secret-free refusal; raw
+server output is never substituted back into context. When connected tools exist, the composition
+also exposes `robota_read_mcp_result`: given an opaque reference and a character offset, it returns
+at most 4,000 characters with the total size and next offset, shrinking the chunk further when a
+host-configured hard limit requires it. Reads stay within the same live store; missing or expired
+references fail with a fixed, payload-free error. Print, serve, and TUI modes close that store on
+both success and failure; print mode closes it before its explicit process exit.
+
 **Stdio client authority (MCP-2522):** embedding hosts may pass
 `IStartCliOptions.mcpStdioAuthorities`, keyed by resolved server ID. Startup forwards this capability
 unchanged to the shared `agent-mcp` stdio adapter. Definitions and settings cannot grant execution
@@ -334,7 +348,7 @@ isolated `HOME`.
 | ICommand                  | `@robota-sdk/agent-framework`    | SDK-owned command palette and slash command entry                                                                         |
 | ICommandSource            | `@robota-sdk/agent-framework`    | SDK-owned command source contract                                                                                         |
 | IParsedCliArgs            | `src/utils/cli-args.ts`          | Parsed CLI argument structure returned by `parseCliArgs()`                                                                |
-| IStartCliOptions          | `src/startup/command-setup.ts`   | Options for the `startCli()` public entry point, including optional MCP activation and managed output-style sources       |
+| IStartCliOptions          | `src/startup/command-setup.ts`   | Options for `startCli()`, including MCP activation, bounded result admission limits, and managed output-style sources     |
 | ICliSetup                 | `src/startup/command-setup.ts`   | Assembled command modules, adapters, provider definitions, and org policy                                                 |
 | IDoctorRouteArgs          | `src/startup/doctor-route.ts`    | The doctor route's own flags (`--repair <check-id>`, `--yes`) parsed before the strict global parser                      |
 | IDoctorRouteContext       | `src/startup/doctor-route.ts`    | What the shell hands the doctor route (`version`, `terminal`, `cwd`, options, TTY state, env)                             |

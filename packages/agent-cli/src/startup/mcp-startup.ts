@@ -11,7 +11,10 @@
  * receives a policy; a positive `autoBackgroundMs` in `print` mode is reported once as ignored.
  */
 
-import { createNodeWorkspaceTrustStore } from '@robota-sdk/agent-framework';
+import {
+  createNodeToolResultSpillStore,
+  createNodeWorkspaceTrustStore,
+} from '@robota-sdk/agent-framework';
 
 import { buildMcpClientTimeouts, createMcpClientComposition } from './mcp-client-composition.js';
 import { resolveMcpDefinitions } from './mcp-definition-sources.js';
@@ -28,7 +31,7 @@ import type {
   IToolCallHandoffPolicy,
   IToolCallHandoffProvenance,
 } from '@robota-sdk/agent-framework';
-import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { IToolResultAdmissionOptions, TPermissionMode } from '@robota-sdk/agent-core';
 import type { IMCPStdioAuthority } from '@robota-sdk/agent-mcp';
 import type { IMcpClientComposition } from './mcp-client-composition.js';
 
@@ -52,6 +55,10 @@ export interface IComposeMcpClientForStartupInput {
   readonly env: NodeJS.ProcessEnv;
   /** Host execution capabilities supplied independently of settings. */
   readonly stdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
+  readonly resultAdmissionLimits?: Pick<
+    IToolResultAdmissionOptions,
+    'warningChars' | 'hardChars' | 'repositoryMaxChars'
+  >;
   /** Every sourcing/admission/connection/settings problem, one line each — never swallowed. */
   readonly reportDiagnostic: (message: string) => void;
   /** Overridable for tests; defaults to the real node host workspace-trust store. */
@@ -146,6 +153,12 @@ export async function composeMcpClientForStartup(
     workspace,
     ...(input.stdioAuthorities === undefined ? {} : { stdioAuthorities: input.stdioAuthorities }),
     timeouts: buildMcpClientTimeouts(settings.callTimeoutMs),
+    createResultSpillStore: () =>
+      createNodeToolResultSpillStore({
+        onCleanupFailure: (reason) =>
+          input.reportDiagnostic(`MCP tool-result retention cleanup failed (${reason})`),
+      }),
+    ...(input.resultAdmissionLimits ? { resultAdmissionLimits: input.resultAdmissionLimits } : {}),
     reportDiagnostic: input.reportDiagnostic,
   });
 

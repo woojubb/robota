@@ -185,6 +185,17 @@ export {
 
 // Core agent
 export { Robota } from './core/robota';
+export {
+  DEFAULT_TOOL_RESULT_WARNING_CHARS,
+  DEFAULT_TOOL_RESULT_HARD_CHARS,
+  MAX_TOOL_RESULT_CHARS,
+  ToolResultAdmissionError,
+  admitToolResult,
+  wasToolResultAdmitted,
+  type IToolResultAdmissionOptions,
+  type IToolResultSpillStore,
+  type TToolResultAdmissionErrorCode,
+} from './core/tool-result-admission';
 export type { IDestroyResult } from './core/robota-lifecycle';
 
 // Managers

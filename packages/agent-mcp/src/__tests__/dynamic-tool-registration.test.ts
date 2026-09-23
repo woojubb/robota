@@ -153,6 +153,54 @@ describe('a discovered MCP tool satisfies the runtime tool slot', () => {
     expect(result.error).toMatch(/boom/);
   });
 
+  it('admits oversized MCP output before the generic runtime can observe it', async () => {
+    const raw = 'private-output='.padEnd(130, 'x');
+    const write = vi.fn().mockResolvedValue({ reference: 'tool-result:abcdefghijklmnopqrstuv' });
+    const tool = createDiscoveredTool(
+      buildToolEntry(),
+      { callTool: async () => ({ content: [{ type: 'text', text: raw }], isError: false }) },
+      {
+        admission: {
+          warningChars: 100,
+          hardChars: 120,
+          repositoryMaxChars: 200,
+          spillStore: { write },
+        },
+      },
+    );
+    const result = await tool.execute({ path: '/x' }, { toolName: 'probe__read', parameters: {} });
+    expect(write).toHaveBeenCalledExactlyOnceWith(raw);
+    expect(result).toEqual({ success: true, data: 'tool-result:abcdefghijklmnopqrstuv' });
+  });
+
+  it('honors a catalog-validated upward limit without spilling below that limit', async () => {
+    const raw = 'x'.repeat(35_000);
+    const write = vi.fn();
+    const entry = { ...buildToolEntry(), maxResultChars: 40_000 };
+    const tool = createDiscoveredTool(
+      entry,
+      { callTool: async () => ({ content: [{ type: 'text', text: raw }], isError: false }) },
+      { admission: { spillStore: { write } } },
+    );
+    const result = await tool.execute({}, { toolName: entry.canonicalName, parameters: {} });
+    expect((result.data as string).length).toBe(35_000);
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it('does not expose an MCP transport error body to runtime observers', async () => {
+    const tool = createDiscoveredTool(buildToolEntry(), {
+      callTool: async () => Promise.reject(new Error('authorization=server-secret')),
+    });
+    await expect(tool.execute({}, { toolName: 'probe__read', parameters: {} })).rejects.toThrow(
+      'MCP tool call failed',
+    );
+    try {
+      await tool.execute({}, { toolName: 'probe__read', parameters: {} });
+    } catch (error) {
+      expect(String(error)).not.toContain('server-secret');
+    }
+  });
+
   it('validateParameters enforces the narrowed schema (required key still enforced)', () => {
     const tool = createDiscoveredTool(buildToolEntry(), { callTool: async () => okResult() });
     const result = tool.validateParameters({});

@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import {
   NodePromptHistoryFile,
   NodeSessionStore,
+  NodeToolResultSpillStore,
   isSafeSessionId as sessionIsSafeSessionId,
 } from '@robota-sdk/agent-session';
 
@@ -12,6 +13,7 @@ import { WorkspaceProjectSessionStore } from './workspace-session-store.js';
 // Session persistence contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
+import type { IToolResultSpillStore } from '@robota-sdk/agent-core';
 import type {
   IPromptHistorySource,
   IPromptHistoryWriter,
@@ -20,6 +22,7 @@ import type {
   IResumableSessionSummary,
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
+import type { INodeToolResultSpillStoreOptions } from '@robota-sdk/agent-session';
 
 export type {
   IInteractiveSessionRecord,
@@ -29,6 +32,18 @@ export type {
 };
 export { WorkspaceSessionLogSink, WorkspaceSessionLogSource } from './workspace-session-io.js';
 export { WorkspaceProjectSessionStore } from './workspace-session-store.js';
+
+export interface IHostToolResultSpillStore extends IToolResultSpillStore {
+  read(reference: string): Promise<string>;
+  shutdown(): Promise<void>;
+}
+
+/** Explicit host-owned storage for bounded MCP result references. */
+export function createNodeToolResultSpillStore(
+  options: INodeToolResultSpillStoreOptions = {},
+): IHostToolResultSpillStore {
+  return new NodeToolResultSpillStore(options);
+}
 
 /**
  * Whether an untrusted session selector is safe to use as one filesystem path component.

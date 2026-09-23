@@ -56,6 +56,12 @@ export type {
 } from './session-logger.js';
 export { NodeExternalPayloadSource, NodeSessionLogSource } from './session-log-sources.js';
 export {
+  NodeToolResultSpillStore,
+  ToolResultSpillError,
+  type INodeToolResultSpillStoreOptions,
+  type TToolResultSpillErrorCode,
+} from './tool-result-spill-store.js';
+export {
   DEFAULT_PROMPT_HISTORY_BLOCK_BYTES,
   NodePromptHistoryFile,
   parsePromptHistoryLine,

@@ -1,6 +1,6 @@
 import { homedir } from 'node:os';
 
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IProviderDefinition, IToolResultAdmissionOptions } from '@robota-sdk/agent-core';
 import type { IMCPStdioAuthority } from '@robota-sdk/agent-mcp';
 import {
   deleteSettings,
@@ -87,6 +87,11 @@ export interface IStartCliOptions {
   mcpActivationAdapter?: ICommandMCPActivationAdapter;
   /** Host-owned per-server subprocess capabilities; never inferred from settings. */
   mcpStdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
+  /** Host-configured character limits; generic admission validates the ordering and ceiling. */
+  mcpResultAdmissionLimits?: Pick<
+    IToolResultAdmissionOptions,
+    'warningChars' | 'hardChars' | 'repositoryMaxChars'
+  >;
   /** Host-composed managed output styles, applied above user/project style sources. */
   managedOutputStyleSources?: readonly IOutputStyleSource[];
 }

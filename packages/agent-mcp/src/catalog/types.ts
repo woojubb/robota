@@ -6,6 +6,7 @@
  * offers and what this package DECIDED to expose — never a connection, never a secret.
  */
 
+import type { TMCPResultSizeMetadata } from './result-size-metadata.js';
 import type { IParameterSchema, IUniversalObjectValue } from '@robota-sdk/agent-core';
 
 export type TMCPCapabilityDomain = 'tools' | 'prompts' | 'resources';
@@ -33,6 +34,8 @@ export interface IMCPDiscoveredTool {
   readonly description?: string;
   readonly inputSchema: IParameterSchema;
   readonly outputSchema?: IUniversalObjectValue;
+  /** Validated projection only; the server's raw `_meta` never enters the catalog. */
+  readonly resultSizeMetadata?: Exclude<TMCPResultSizeMetadata, { readonly kind: 'absent' }>;
 }
 
 export interface IMCPDiscoveredPromptArgument {
@@ -114,6 +117,8 @@ export interface IMCPCatalogToolEntry {
   readonly description?: string;
   /** The enforceable copy (CORE-040 narrowing applied at registration). */
   readonly schema: IParameterSchema;
+  /** Validated upward request; admission still enforces its configured repository cap. */
+  readonly maxResultChars?: number;
   /** Paths dropped by narrowing; empty when the whole schema is enforceable. */
   readonly unenforceablePaths: readonly string[];
   readonly provenance: IMCPCatalogProvenance;
