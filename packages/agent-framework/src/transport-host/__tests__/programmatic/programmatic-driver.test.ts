@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
+import { createNodeHostSettingsSource } from '../../../config/settings-source.js';
 import { WorkspaceTrustService } from '../../../workspace-trust/workspace-trust-service.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -128,6 +129,24 @@ describe('programmatic in-process agent driver (INFRA-019)', () => {
     driver = createProgrammaticAgent({ provider: scripted.provider, cwd, projectAccess });
     await driver.start();
     await driver.send('inspect project context');
+
+    const firstRequest = (scripted.requests[0] ?? []).map((message) => String(message.content));
+    expect(firstRequest.some((content) => content.includes(canary))).toBe(true);
+  });
+
+  it('passes explicit user settings into the programmatic session prompt', async () => {
+    const canary = 'PROGRAMMATIC_USER_SETTINGS_CANARY';
+    const settingsPath = join(cwd, 'host-settings.json');
+    writeFileSync(settingsPath, JSON.stringify({ language: canary }), 'utf8');
+    const scripted = createScriptedProvider([{ text: 'settings observed' }]);
+    driver = createProgrammaticAgent({
+      provider: scripted.provider,
+      cwd,
+      userSettingsSources: [createNodeHostSettingsSource('user', settingsPath)],
+    });
+
+    await driver.start();
+    await driver.send('check language');
 
     const firstRequest = (scripted.requests[0] ?? []).map((message) => String(message.content));
     expect(firstRequest.some((content) => content.includes(canary))).toBe(true);

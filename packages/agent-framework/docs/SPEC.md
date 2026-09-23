@@ -49,7 +49,8 @@ React/Ink UI.
   does not select product directory names or advertise those paths in its own pre-trust inventory.
 - **Interactive user settings are explicit.** A session reads only the host-supplied user settings
   sources, and a provider switch reuses those same sources; an absent list never discovers an ambient
-  home-directory settings file.
+  home-directory settings file. SDK runtime, query, and programmatic-agent creators forward the
+  same optional sources to their sessions.
 - **Agent definition discovery is host-directed.** The framework searches only the ordered relative
   directories supplied by the host; absent roots mean no file discovery. Discovered definitions keep
   precedence over injected and built-in definitions, without selecting a product's directory names.

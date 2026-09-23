@@ -28,6 +28,7 @@ import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-prov
 import type {
   IEvalDefinition,
   IEvalReport,
+  INodeHostSettingsSource,
   TEvalRunFn,
   TSettingsSource,
   TWorkspaceProjectAccess,
@@ -97,8 +98,9 @@ async function loadEvalDefinition(absPath: string): Promise<IEvalDefinition> {
 
 /** Build the default `runFn` from the CLI-resolved provider (a live agent run per case). */
 function buildDefaultRunFn(cwd: string, deps: IRunEvalDeps): TEvalRunFn {
+  const settingsSources = deps.settingsSources ?? createRobotaUserSettingsSources();
   const provider = createProviderFromSettings(
-    deps.settingsSources ?? createRobotaUserSettingsSources(),
+    settingsSources,
     undefined,
     {
       providerDefinitions: createDefaultProviderDefinitions(),
@@ -107,6 +109,9 @@ function buildDefaultRunFn(cwd: string, deps: IRunEvalDeps): TEvalRunFn {
   const runtime = createAgentRuntime({
     cwd,
     provider,
+    userSettingsSources: settingsSources.filter(
+      (source): source is INodeHostSettingsSource => source.kind === 'host',
+    ),
     ...(deps.projectAccess === undefined ? {} : { projectAccess: deps.projectAccess }),
   });
   return createSessionRunFn(runtime);
