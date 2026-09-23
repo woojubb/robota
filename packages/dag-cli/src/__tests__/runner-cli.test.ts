@@ -14,10 +14,6 @@ vi.mock('../commands/run.js', () => ({
 vi.mock('../commands/validate.js', () => ({ validateCommand: vi.fn().mockResolvedValue(0) }));
 vi.mock('../commands/node.js', () => ({ nodeCommand: vi.fn().mockResolvedValue(0) }));
 vi.mock('../commands/init.js', () => ({ initCommand: vi.fn().mockResolvedValue(0) }));
-vi.mock('../commands/mcp.js', () => ({
-  mcpCommand: vi.fn().mockResolvedValue(0),
-  createLocalMcpServer: vi.fn(),
-}));
 vi.mock('../commands/catalog.js', () => ({ catalogCommand: vi.fn().mockResolvedValue(0) }));
 vi.mock('../commands/template.js', () => ({ templateCommand: vi.fn().mockResolvedValue(0) }));
 vi.mock('../commands/migrate.js', () => ({ runMigrateCommand: vi.fn().mockResolvedValue(0) }));
@@ -98,6 +94,7 @@ describe('runDagCli', () => {
     const code = await runDagCli(['--help'], { io });
     expect(code).toBe(0);
     expect(io.written.join('')).toContain('dag');
+    expect(io.written.join('')).not.toContain('dag mcp');
   });
 
   it('shows help text with -h flag', async () => {
@@ -132,13 +129,6 @@ describe('runDagCli', () => {
     const io = makeMockIo();
     await runDagCli(['init'], { io });
     expect(initCommand).toHaveBeenCalled();
-  });
-
-  it('routes "mcp" to mcpCommand', async () => {
-    const { mcpCommand } = await import('../commands/mcp.js');
-    const io = makeMockIo();
-    await runDagCli(['mcp'], { io });
-    expect(mcpCommand).toHaveBeenCalled();
   });
 
   it('routes "catalog" to catalogCommand', async () => {

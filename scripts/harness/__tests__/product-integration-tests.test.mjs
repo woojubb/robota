@@ -116,14 +116,14 @@ describe('product integration test selection', () => {
       'packages/agent-transport-ws/src/__tests__/ws-transport-lifecycle.test.ts',
       'packages/agent-tool-mcp/src/__tests__/mcp-tool.test.ts',
       'packages/agent-ui-terminal/src/__tests__/TuiInteractionChannel.lifecycle.test.ts',
-      'packages/dag-cli/src/__tests__/composite-reload-real.test.ts',
+      'packages/dag-cli/src/__tests__/persistence-store.test.ts',
+      'packages/dag-cli/src/__tests__/runs-command.test.ts',
       'packages/dag-cli/src/__tests__/code-node-persistence.test.ts',
       'packages/dag-cli/src/__tests__/studio-http-server-security.test.ts',
       'packages/dag-cli/src/__tests__/studio-http-server.test.ts',
       'packages/dag-framework/src/__tests__/create-dag-framework.test.ts',
       'packages/dag-framework/src/__tests__/prompt-backend.test.ts',
       'packages/dag-framework/src/__tests__/tool-node-run.test.ts',
-      'packages/dag-mcp-server/src/__tests__/embedded-mode.test.ts',
     ]);
     for (const file of AUDITED_PRODUCT_INTEGRATION_TESTS) {
       expect(isProductIntegrationTest(file), file).toBe(true);
@@ -175,7 +175,7 @@ describe('product integration test selection', () => {
     const externalUnits = readExternalContributionUnitInventory(REPO_ROOT).flatMap(
       (entry) => entry.tests,
     );
-    expect(tests).toHaveLength(101);
+    expect(tests).toHaveLength(100);
     expect(tests).toEqual(
       expect.arrayContaining([
         'packages/agent-framework/src/goal/__tests__/goal-functional.test.ts',

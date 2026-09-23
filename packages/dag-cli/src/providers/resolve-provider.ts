@@ -55,7 +55,7 @@ export async function resolveProvider(
   throw new Error(`Unknown provider "${providerName}". Supported providers: local, http.`);
 }
 
-/** List the providers known to the CLI. Used by `dag_provider_list` MCP tool. */
+/** List the providers known to the CLI. */
 export function listAvailableProviders(): Array<{ id: string; displayName: string }> {
   return [
     { id: 'local', displayName: 'Local (in-process)' },

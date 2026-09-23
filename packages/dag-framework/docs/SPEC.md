@@ -13,8 +13,8 @@
 factory call. Consumers get a fully wired `IDagFramework` without managing individual
 infrastructure objects.
 
-Primary use case: `dag-cli mcp` and `dag-mcp-server` embedded mode — boot a DAG server
-with zero external process dependencies.
+Primary use case: local workflow execution composed by `dag-cli` and the agent CLI
+`/workflows` command, with zero external runtime-server process dependencies.
 
 ---
 
@@ -152,7 +152,7 @@ import type {
 | `nodeRegistry`  | `IDagNodeDefinition[]` | `createDefaultNodeRegistrySync()` | Base node registry. CLI typically passes a registry including LLM/provider-backed nodes.    |
 | `projectDir`    | `string`               | —                                 | DAG project directory (reserved for future local node-file scanning).                       |
 | `workspace`     | `IWorkspaceLayout`     | —                                 | **FLOW-007**: injected workspace layout (root dir + workflow ext) for local node discovery. |
-| `instantNodes`  | `IDagNodeDefinition[]` | —                                 | Instant nodes (typically injected from an MCP session context).                             |
+| `instantNodes`  | `IDagNodeDefinition[]` | —                                 | Instant nodes injected by the caller's composition root.                                   |
 | `extraNodes`    | `IDagNodeDefinition[]` | —                                 | Extra nodes appended at the end (test/special-purpose).                                     |
 
 #### `IHttpDagRuntimeProviderOptions`
@@ -227,7 +227,7 @@ run waiter itself creates advancement demand.
 
 ### `DagFrameworkOrchestrationAdapter`
 
-In-process implementation of all 25 `IDagOrchestrationPort` methods. Wraps the controller composition directly (no HTTP). Response envelope format mirrors the HTTP client so `dag-mcp-tools` consumers are reused unchanged.
+In-process implementation of all 25 `IDagOrchestrationPort` methods. Wraps the controller composition directly (no HTTP). Response envelope format mirrors the HTTP client so consumers can use the same orchestration port with either adapter.
 
 Uses `IClockPort.nowIso()` for all timestamp generation (deterministic in tests).
 

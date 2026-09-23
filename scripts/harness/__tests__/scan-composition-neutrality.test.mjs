@@ -411,12 +411,12 @@ describe('the real configured packages are neutral (guards hold on the live tree
 describe('composition scan measurement', () => {
   it('reports the exact configured target count', () => {
     scanCompositionNeutrality();
-    expect(examinedCompositionCount()).toBe(22);
+    expect(examinedCompositionCount()).toBe(21);
   });
 
   it('resets the reported target count between runs', () => {
     scanCompositionNeutrality();
     scanCompositionNeutrality();
-    expect(examinedCompositionCount()).toBe(22);
+    expect(examinedCompositionCount()).toBe(21);
   });
 });
