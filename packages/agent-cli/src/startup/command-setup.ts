@@ -1,6 +1,7 @@
 import { homedir } from 'node:os';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IMCPStdioAuthority } from '@robota-sdk/agent-mcp';
 import {
   deleteSettings,
   getStartupCliUpdateNotice,
@@ -84,6 +85,8 @@ export interface IStartCliOptions {
   projectMutation?: IWorkspaceProjectMutation;
   /** Host-composed MCP definition registry and trust-admission controller. */
   mcpActivationAdapter?: ICommandMCPActivationAdapter;
+  /** Host-owned per-server subprocess capabilities; never inferred from settings. */
+  mcpStdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
   /** Host-composed managed output styles, applied above user/project style sources. */
   managedOutputStyleSources?: readonly IOutputStyleSource[];
 }

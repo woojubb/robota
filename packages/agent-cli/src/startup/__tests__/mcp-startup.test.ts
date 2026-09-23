@@ -8,6 +8,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   WorkspaceTrustService,
@@ -69,6 +70,96 @@ async function trustedProjectSettingsSources(root: string): Promise<readonly TSe
 }
 
 describe('composeMcpClientForStartup', () => {
+  it('connects a settings-defined stdio server through startup and invokes its runtime tool', async () => {
+    const cwd = tempRoot('robota-mcp-startup-live-');
+    const userHome = tempRoot('robota-mcp-startup-live-home-');
+    const fixture = fileURLToPath(
+      new URL('../../../../agent-mcp/examples/stdio-fixture-server.mjs', import.meta.url),
+    );
+    const args = [fixture, 'normal'];
+    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    writeFileSync(
+      join(userHome, '.robota', 'settings.json'),
+      JSON.stringify({
+        mcpServers: { local: { type: 'stdio', command: process.execPath, args, cwd } },
+      }),
+    );
+    const { messages, reportDiagnostic } = diagnosticsSink();
+    const mcp = await composeMcpClientForStartup({
+      settingsSources: createDefaultUserSettingsSources(userHome),
+      projectAccess: await trustedAccessFor(cwd),
+      cwd,
+      env: {},
+      mode: 'interactive',
+      inspectTrust: async () => ({ state: 'trusted', generation: 1 }),
+      reportDiagnostic,
+      stdioAuthorities: {
+        local: {
+          allowedRoot: cwd,
+          generation: 'host-1',
+          executables: [{ command: process.execPath, args: [args] }],
+          environment: { HOME: userHome },
+        },
+      },
+    });
+    await mcp.activationAdapter.approve('local');
+    try {
+      const tools = await mcp.connect();
+      expect(messages).toEqual([]);
+      expect(tools.map((tool) => tool.getName())).toEqual(['local__ping']);
+      const tool = tools[0];
+      if (tool === undefined) throw new Error('Expected admitted stdio tool');
+      const result = await tool.execute({}, { toolName: 'local__ping', parameters: {} });
+      expect(result.success).toBe(true);
+      expect(JSON.stringify(result)).toContain('pong');
+      expect(mcp.connectedToolProvenance.get('local__ping')?.sourceName).toBe('ping');
+    } finally {
+      await mcp.shutdown();
+    }
+  });
+
+  it('forwards host stdio authority separately from settings into command admission', async () => {
+    const cwd = tempRoot('robota-mcp-startup-stdio-');
+    const userHome = tempRoot('robota-mcp-startup-stdio-home-');
+    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    writeFileSync(
+      join(userHome, '.robota', 'settings.json'),
+      JSON.stringify({
+        mcpServers: {
+          weather: {
+            type: 'stdio',
+            command: process.execPath,
+            args: ['--unapproved-argument'],
+            cwd,
+          },
+        },
+      }),
+    );
+    const { messages, reportDiagnostic } = diagnosticsSink();
+    const mcp = await composeMcpClientForStartup({
+      settingsSources: createDefaultUserSettingsSources(userHome),
+      projectAccess: await trustedAccessFor(cwd),
+      cwd,
+      env: {},
+      mode: 'interactive',
+      inspectTrust: async () => ({ state: 'trusted', generation: 1 }),
+      reportDiagnostic,
+      stdioAuthorities: {
+        weather: {
+          allowedRoot: cwd,
+          generation: 'host-1',
+          executables: [{ command: process.execPath, args: [[]] }],
+        },
+      },
+    });
+    await mcp.activationAdapter.approve('weather');
+    expect(await mcp.connect()).toEqual([]);
+    expect(messages.join('\n')).toContain('refused');
+    expect(messages.join('\n')).not.toContain('host authority');
+    expect(messages.join('\n')).not.toContain('--unapproved-argument');
+    await mcp.shutdown();
+  });
+
   it('lists a resolved http definition sourced from a fake settings source, given trusted access', async () => {
     const cwd = tempRoot('robota-mcp-startup-trusted-');
     const userHome = tempRoot('robota-mcp-startup-user-');

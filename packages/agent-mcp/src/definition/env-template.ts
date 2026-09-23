@@ -1,7 +1,7 @@
 /**
  * Environment templates in MCP definitions (MCP-001).
  *
- * `${VAR}` and `${VAR:-default}` are materialized in `command`, `args`, `env`, `url` and `headers`.
+ * `${VAR}` and `${VAR:-default}` are materialized in `command`, `args`, `cwd`, `env`, `url` and `headers`.
  *
  * An unset reference with no default is NOT an error and NOT an empty string. It is reported as a
  * warning and its literal `${VAR}` text is preserved. Both halves matter: substituting an empty
@@ -80,6 +80,9 @@ export function materializeDefinition(
     resolved.args = definition.args.map((arg, index) =>
       materializeString(arg, env, `args[${index}]`, unset),
     );
+  }
+  if (definition.cwd !== undefined) {
+    resolved.cwd = materializeString(definition.cwd, env, 'cwd', unset);
   }
   if (definition.env !== undefined) {
     resolved.env = materializeRecord(definition.env, env, 'env', unset);

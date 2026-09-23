@@ -14,6 +14,7 @@ import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 
 import { catalogIdentityOf, sameCatalogIdentity } from '../catalog/types.js';
 import { MCPSessionError } from '../client/session.js';
+import { MCPStdioError } from '../client/stdio-transport.js';
 import { MCPTransportRedirectRefusedError } from '../client/transport.js';
 
 import type {
@@ -115,6 +116,8 @@ export interface IMCPConnectionSupervisorOptions {
   readonly clock?: IMCPSupervisorClock;
   readonly discovery?: { readonly maxPages: number };
   readonly onStateChange?: (state: TMCPConnectionState) => void;
+  /** Stdio owns bounded child cleanup; wait for it after startup/global timeout and shutdown. */
+  readonly awaitOpenCleanupOnTimeout?: boolean;
 }
 
 export const DEFAULT_MCP_BACKOFF: IMCPBackoffPolicy = {
@@ -253,6 +256,12 @@ export function classifyMcpFailure(error: unknown): TMCPFailureClass {
   if (error instanceof MCPTransportRedirectRefusedError) {
     return 'config';
   }
+  if (
+    error instanceof MCPStdioError &&
+    (error.reason === 'authority' || error.reason === 'cleanup')
+  ) {
+    return 'config';
+  }
   if (error instanceof UnauthorizedError) {
     return 'auth';
   }
@@ -326,6 +335,7 @@ export class MCPConnectionSupervisor {
   private retryTimerHandle: TMCPTimerHandle | undefined;
   private idleTimerHandle: TMCPTimerHandle | undefined;
   private unsubscribeListChanged: (() => void) | undefined;
+  private shutdownPromise: Promise<void> | undefined;
 
   constructor(private readonly options: IMCPConnectionSupervisorOptions) {
     this.backoff = { ...DEFAULT_MCP_BACKOFF, ...options.backoff };
@@ -372,11 +382,17 @@ export class MCPConnectionSupervisor {
     return this.withDefaultBudget(signal, async (effectiveSignal) => {
       const session = await this.ensureConnected(effectiveSignal);
       this.noteActivity();
-      const discovery = await session.discover({
-        maxPages: this.options.discovery?.maxPages ?? DEFAULT_DISCOVERY_MAX_PAGES,
-        perRequestTimeoutMs: this.options.timeouts.perCallMs,
-        signal: effectiveSignal,
-      });
+      let discovery: IMCPDiscovery;
+      try {
+        discovery = await session.discover({
+          maxPages: this.options.discovery?.maxPages ?? DEFAULT_DISCOVERY_MAX_PAGES,
+          perRequestTimeoutMs: this.options.timeouts.perCallMs,
+          signal: effectiveSignal,
+        });
+      } catch (error) {
+        this.retireSelfClosedStdioSession(session, error);
+        throw error;
+      }
       this.lastKnownGood = {
         identity: catalogIdentityOf(session.identity),
         discovery,
@@ -405,6 +421,7 @@ export class MCPConnectionSupervisor {
         });
         return this.recordRefreshSuccess(domain, session.identity, full);
       } catch (error) {
+        this.retireSelfClosedStdioSession(session, error);
         const classification = classifyMcpFailure(error);
         const message = extractErrorMessage(error);
         this.recordRefreshFailure(domain, classification, message);
@@ -429,6 +446,7 @@ export class MCPConnectionSupervisor {
           timeoutMs: this.options.timeouts.toolCallMs,
         });
       } catch (error) {
+        this.retireSelfClosedStdioSession(session, error);
         const classification = classifyMcpFailure(error);
         const message = extractErrorMessage(error);
         throw new MCPSupervisorError(classification, message, { cause: error });
@@ -479,7 +497,13 @@ export class MCPConnectionSupervisor {
   }
 
   /** Cancels any armed timer, closes the session and its transport; leaves no live request (TC-17). */
-  async shutdown(): Promise<void> {
+  shutdown(): Promise<void> {
+    if (this.shutdownPromise !== undefined) return this.shutdownPromise;
+    this.shutdownPromise = this.shutdownOwned();
+    return this.shutdownPromise;
+  }
+
+  private async shutdownOwned(): Promise<void> {
     if (this.state.kind === 'closed') {
       return;
     }
@@ -488,6 +512,7 @@ export class MCPConnectionSupervisor {
     this.clearIdleTimer();
     this.activeAbortController?.abort();
     this.activeAbortController = undefined;
+    const pending = this.pendingAttempt;
     this.pendingAttempt = undefined;
 
     if (this.unsubscribeListChanged) {
@@ -501,6 +526,16 @@ export class MCPConnectionSupervisor {
 
     if (session) {
       await session.close();
+    }
+    if (this.options.awaitOpenCleanupOnTimeout && pending) {
+      const outcome = await pending;
+      if (
+        !outcome.ok &&
+        outcome.error.cause instanceof MCPStdioError &&
+        outcome.error.cause.reason === 'cleanup'
+      ) {
+        throw outcome.error;
+      }
     }
   }
 
@@ -536,21 +571,32 @@ export class MCPConnectionSupervisor {
       return run(signal);
     }
     const controller = new AbortController();
-    return this.withTimeout(run(controller.signal), this.options.timeouts.globalDefaultMs, () =>
-      controller.abort(),
+    return this.withTimeout(
+      run(controller.signal),
+      this.options.timeouts.globalDefaultMs,
+      () => controller.abort(),
+      this.options.awaitOpenCleanupOnTimeout,
     );
   }
 
-  private withTimeout<T>(promise: Promise<T>, ms: number, onTimeout?: () => void): Promise<T> {
+  private withTimeout<T>(
+    promise: Promise<T>,
+    ms: number,
+    onTimeout?: () => void,
+    awaitSettlement = false,
+    onLateValue?: (value: T) => Promise<void>,
+  ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       let settled = false;
+      let timedOut = false;
       const timerHandle = this.clock.setTimeout(() => {
         if (settled) {
           return;
         }
-        settled = true;
+        if (awaitSettlement) timedOut = true;
+        else settled = true;
         onTimeout?.();
-        reject(new Error(`operation timed out after ${ms}ms`));
+        if (!awaitSettlement) reject(new Error(`operation timed out after ${ms}ms`));
       }, ms);
       promise.then(
         (value) => {
@@ -559,7 +605,18 @@ export class MCPConnectionSupervisor {
           }
           settled = true;
           this.clock.clearTimeout(timerHandle);
-          resolve(value);
+          if (timedOut) {
+            if (onLateValue) {
+              try {
+                void onLateValue(value).then(
+                  () => reject(new Error(`operation timed out after ${ms}ms`)),
+                  reject,
+                );
+              } catch (error) {
+                reject(error);
+              }
+            } else reject(new Error(`operation timed out after ${ms}ms`));
+          } else resolve(value);
         },
         (error: unknown) => {
           if (settled) {
@@ -619,6 +676,8 @@ export class MCPConnectionSupervisor {
         this.options.openSession(controller.signal),
         this.options.timeouts.startupMs,
         () => controller.abort(),
+        this.options.awaitOpenCleanupOnTimeout,
+        (lateSession) => lateSession.close(),
       );
       this.clearActiveController(controller);
       if (this.state.kind === 'closed' || controller.signal.aborted) {
@@ -626,10 +685,21 @@ export class MCPConnectionSupervisor {
         // was still settling. The session that just arrived was never announced — closing it here,
         // rather than calling `onConnected`, is what keeps a post-shutdown open from resurrecting a
         // connection nothing asked for.
-        await session.close().then(
-          () => undefined,
-          (error: unknown) => this.recordBackgroundCloseFailure(error),
-        );
+        try {
+          await session.close();
+        } catch (error) {
+          if (this.options.awaitOpenCleanupOnTimeout) {
+            const cleanup =
+              error instanceof MCPStdioError && error.reason === 'cleanup'
+                ? error
+                : new MCPStdioError('cleanup');
+            return {
+              ok: false,
+              error: new MCPSupervisorError('config', cleanup.message, { cause: cleanup }),
+            };
+          }
+          this.recordBackgroundCloseFailure(error);
+        }
         return {
           ok: false,
           error: new MCPSupervisorError(
@@ -655,6 +725,31 @@ export class MCPConnectionSupervisor {
   private clearActiveController(controller: AbortController): void {
     if (this.activeAbortController === controller) {
       this.activeAbortController = undefined;
+    }
+  }
+
+  private retireSelfClosedStdioSession(session: IMCPSession, error: unknown): void {
+    if (
+      !(error instanceof MCPStdioError) ||
+      (error.reason !== 'cancelled' && error.reason !== 'cleanup') ||
+      this.liveSession !== session ||
+      this.state.kind === 'closed'
+    )
+      return;
+    this.clearIdleTimer();
+    this.unsubscribeListChanged?.();
+    this.unsubscribeListChanged = undefined;
+    this.liveSession = undefined;
+    if (error.reason === 'cleanup') {
+      this.setState({
+        kind: 'failed',
+        classification: 'config',
+        message: error.message,
+        attempt: 1,
+        retry: 'manual-retry',
+      });
+    } else {
+      this.setState({ kind: 'idle' });
     }
   }
 

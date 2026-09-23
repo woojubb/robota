@@ -50,6 +50,7 @@ describe('definitionFingerprint', () => {
     expect(definitionFingerprint(definition({ command: 'other' }))).not.toBe(base);
     expect(definitionFingerprint(definition({ args: ['--port', '2'] }))).not.toBe(base);
     expect(definitionFingerprint(definition({ timeout: 1000 }))).not.toBe(base);
+    expect(definitionFingerprint(definition({ cwd: 'work' }))).not.toBe(base);
     expect(
       definitionFingerprint(
         definition({ transport: 'http', command: undefined, args: undefined, url: 'https://a' }),

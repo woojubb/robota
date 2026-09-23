@@ -39,6 +39,7 @@
     "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
     "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --status && pnpm exec tsx --conditions=source examples/verify-mcp-activation-admission.ts --lifecycle && pnpm exec tsx --conditions=source examples/verify-mcp-definition-control-plane.ts",
     "scenario:verify:mcp-client": "pnpm exec tsx --conditions=source examples/verify-mcp-client.ts",
+    "scenario:verify:stdio-transport": "pnpm exec tsx --conditions=source examples/verify-stdio-transport.ts",
     "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-mcp --output examples/scenarios/mcp-activation-admission.record.json -- pnpm scenario:verify",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"

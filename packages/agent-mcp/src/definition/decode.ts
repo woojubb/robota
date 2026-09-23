@@ -25,6 +25,7 @@ export interface IMCPDecodeResult {
 }
 
 const REMOTE_TRANSPORTS: ReadonlySet<TMCPTransport> = new Set(['http', 'sse', 'ws']);
+const MAX_STDIO_CWD_LENGTH = 16_384;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -139,6 +140,18 @@ export function decodeEntry(
       }
       definition.args = args as readonly string[];
     }
+    const cwd = entry['cwd'];
+    if (cwd !== undefined) {
+      if (
+        typeof cwd !== 'string' ||
+        cwd.trim() === '' ||
+        cwd.length > MAX_STDIO_CWD_LENGTH ||
+        cwd.includes('\0')
+      ) {
+        return problem('`cwd` must be a bounded non-empty string without NUL');
+      }
+      definition.cwd = cwd;
+    }
     if (entry['url'] !== undefined) return problem('a stdio definition must not carry a `url`');
   } else {
     const url = entry['url'];
@@ -156,6 +169,9 @@ export function decodeEntry(
     // above says never happens.
     if (entry['args'] !== undefined) {
       return problem(`a ${transport} definition must not carry \`args\``);
+    }
+    if (entry['cwd'] !== undefined) {
+      return problem(`a ${transport} definition must not carry \`cwd\``);
     }
     // `env` is deliberately NOT refused alongside it, and the asymmetry is the point: `env` is
     // stored and carried on a remote definition (see the shared block below), so it is visible in

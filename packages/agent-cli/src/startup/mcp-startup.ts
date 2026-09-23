@@ -29,6 +29,7 @@ import type {
   IToolCallHandoffProvenance,
 } from '@robota-sdk/agent-framework';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { IMCPStdioAuthority } from '@robota-sdk/agent-mcp';
 import type { IMcpClientComposition } from './mcp-client-composition.js';
 
 /**
@@ -49,6 +50,8 @@ export interface IComposeMcpClientForStartupInput {
   readonly projectAccess: TWorkspaceProjectAccess;
   readonly cwd: string;
   readonly env: NodeJS.ProcessEnv;
+  /** Host execution capabilities supplied independently of settings. */
+  readonly stdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
   /** Every sourcing/admission/connection/settings problem, one line each — never swallowed. */
   readonly reportDiagnostic: (message: string) => void;
   /** Overridable for tests; defaults to the real node host workspace-trust store. */
@@ -141,6 +144,7 @@ export async function composeMcpClientForStartup(
   const mcp = createMcpClientComposition({
     resolvedEntries: entries,
     workspace,
+    ...(input.stdioAuthorities === undefined ? {} : { stdioAuthorities: input.stdioAuthorities }),
     timeouts: buildMcpClientTimeouts(settings.callTimeoutMs),
     reportDiagnostic: input.reportDiagnostic,
   });
