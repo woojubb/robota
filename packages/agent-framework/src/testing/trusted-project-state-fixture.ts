@@ -1,7 +1,8 @@
 import { realpathSync } from 'node:fs';
+import { join } from 'node:path';
 
 import {
-  createDefaultUserSettingsSources,
+  createNodeHostSettingsSource,
   createWorkspaceProjectSettingsSources,
 } from '../config/settings-source.js';
 import { TEST_PROJECT_SETTINGS_PATHS } from './project-settings-path-fixture.js';
@@ -80,11 +81,13 @@ export async function createTrustedProjectSessionStoreFixture(
 /** Test-only settings precedence assembled from explicit user and production-minted project sources. */
 export async function createTrustedSettingsSourcesFixture(
   root: string,
+  userHome: string = process.env.HOME ?? process.env.USERPROFILE ?? '/',
 ): Promise<readonly TSettingsSource[]> {
   const access = await createTrustedProjectAccessFixture(root);
   if (access.status !== 'trusted') throw new Error('Fixture trust service did not return trusted.');
   return [
-    ...createDefaultUserSettingsSources(),
+    createNodeHostSettingsSource('user', join(userHome, '.robota', 'settings.json')),
+    createNodeHostSettingsSource('user', join(userHome, '.claude', 'settings.json')),
     ...createWorkspaceProjectSettingsSources(
       getWorkspaceProjectReader(access.authority),
       TEST_PROJECT_SETTINGS_PATHS,

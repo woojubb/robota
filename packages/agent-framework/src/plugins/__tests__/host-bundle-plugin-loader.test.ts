@@ -66,6 +66,14 @@ describe('createHostBundlePluginLoader (PLG-021 / issue #2025)', () => {
     expect(plugins).toHaveLength(0);
   });
 
+  it('requires a host enablement source instead of reading the process home', () => {
+    createPlugin(pluginsDir, 'market', 'unconfigured-plugin');
+
+    expect(() => createHostBundlePluginLoader({ pluginsDir })).toThrow(
+      'Plugin enablement requires settingsPath or enabledPlugins',
+    );
+  });
+
   it('loads a plugin the settings file records as enabled', async () => {
     createPlugin(pluginsDir, 'market', 'wanted-plugin');
     writeJson(settingsPath, { enabledPlugins: { 'wanted-plugin@market': true } });

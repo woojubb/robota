@@ -92,6 +92,42 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
     ).resolves.toBeDefined();
   });
 
+  it('does not admit plugins without a host-selected enablement source', async () => {
+    addPlugin('no-host-settings', 'prompt');
+
+    await expect(
+      createInteractiveSession({
+        cwd,
+        projectAccess: await createTrustedProjectAccessFixture(cwd),
+        projectSettingsPaths: TEST_PROJECT_SETTINGS_PATHS,
+        provider: createScriptedProvider([]).provider,
+        onTextDelta: () => {},
+        onToolExecution: () => {},
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it('uses the supplied settings file for plugin enablement instead of HOME', async () => {
+    addPlugin('custom-disabled', 'prompt');
+    writeJson(join(home, '.robota', 'settings.json'), {
+      enabledPlugins: { 'custom-disabled@market': true },
+    });
+    const customSettingsPath = join(home, 'custom-settings.json');
+    writeJson(customSettingsPath, { enabledPlugins: { 'custom-disabled@market': false } });
+
+    await expect(
+      createInteractiveSession({
+        cwd,
+        projectAccess: await createTrustedProjectAccessFixture(cwd),
+        projectSettingsPaths: TEST_PROJECT_SETTINGS_PATHS,
+        userSettingsSources: [createNodeHostSettingsSource('user', customSettingsPath)],
+        provider: createScriptedProvider([]).provider,
+        onTextDelta: () => {},
+        onToolExecution: () => {},
+      }),
+    ).resolves.toBeDefined();
+  });
+
   it('names both settings and plugin sources for the same type, excluding disabled settings groups', async () => {
     const hooksPath = addPlugin('mixed', 'prompt');
     writeJson(join(home, '.robota', 'settings.json'), {

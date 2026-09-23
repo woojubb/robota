@@ -10,6 +10,7 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import type { CommandRegistry, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
 
 const PLUGIN_SOURCE_NAME = 'plugin';
 
@@ -62,7 +63,10 @@ export function reloadPluginCommandSource(
     // PLG-021 / issue #2025: the reload path reported plugins as reloaded while a disabled plugin's
     // commands came back with them, because the bare loader defaults its enablement map to `{}`.
     // allow-fallback: plugin load failure is non-fatal — clear source and return empty
-    const plugins = loadHostBundlePluginsFromScopes(pluginScopeDirs(cwd, getHomeDir(), projectAccess));
+    const plugins = loadHostBundlePluginsFromScopes(
+      pluginScopeDirs(cwd, getHomeDir(), projectAccess),
+      { settingsPath: robotaUserSettingsPath(getHomeDir()) },
+    );
     if (plugins.length === 0) {
       registry.replaceSource(PLUGIN_SOURCE_NAME);
       return 0;

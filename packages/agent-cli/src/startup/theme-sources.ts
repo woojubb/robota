@@ -17,6 +17,7 @@
 import { join } from 'node:path';
 
 import { pluginScopeDirs } from '../plugins/default-plugin-command-source-loader.js';
+import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
 import {
   createNodeHostContributionSource,
   loadHostBundlePluginsFromScopes,
@@ -169,7 +170,9 @@ function installedPlugins(
 ): IThemePluginDirectory[] {
   const scopes = pluginScopeDirs(cwd, userHome, projectAccess);
   try {
-    return loadHostBundlePluginsFromScopes(scopes).map((plugin) => ({
+    return loadHostBundlePluginsFromScopes(scopes, {
+      settingsPath: robotaUserSettingsPath(userHome),
+    }).map((plugin) => ({
       name: plugin.manifest.name,
       pluginDir: plugin.pluginDir,
     }));

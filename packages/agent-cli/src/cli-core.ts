@@ -19,7 +19,10 @@ import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from './product/robota-agent-roots.js';
 import { ROBOTA_PROJECT_SETTINGS } from './product/robota-project-settings.js';
-import { createRobotaUserSettingsSources } from './product/robota-user-settings.js';
+import {
+  createRobotaUserSettingsSources,
+  robotaUserSettingsPath,
+} from './product/robota-user-settings.js';
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
 import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
@@ -744,6 +747,8 @@ async function runCliCore(
     cliAdapter: presentation.createDefaultTuiCliAdapter({
       providerDefinitions,
       reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
+      userSettingsPath: robotaUserSettingsPath(),
+      settingsSources: createRobotaUserSettingsSources(),
     }),
     reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
     keybindingsSource,

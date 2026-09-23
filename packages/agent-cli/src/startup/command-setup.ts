@@ -3,7 +3,6 @@ import { homedir } from 'node:os';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
   deleteSettings,
-  getUserSettingsPath,
   loadOrgPolicy,
   OrgPolicyParseError,
   readMergedProviderSettings,
@@ -37,6 +36,7 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { buildDoctorInputs } from './doctor-inputs.js';
 import { areSessionLoopsDisabled, createLoopDefaultPromptResolver, DEFAULT_LOOP_MAINTENANCE_PROMPT } from './loop-options.js';
 import { createDefaultPluginCommandAdapter } from '../plugins/default-plugin-command-adapter.js';
+import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
 import type { IOutputStyleRegistry } from '@robota-sdk/agent-preset';
 import {
@@ -167,10 +167,10 @@ export function buildCommandSetup(
   const outputStyleRegistry = createOutputStyleRegistry(outputStyleSources);
   const commandHostAdapters: ICommandHostAdapters = {
     settings: {
-      read: () => readSettings(getUserSettingsPath()),
-      write: (settings) => writeSettings(getUserSettingsPath(), settings),
+      read: () => readSettings(robotaUserSettingsPath()),
+      write: (settings) => writeSettings(robotaUserSettingsPath(), settings),
       // CMD-004 Phase 2: the host-executed `settings-reset` action deletes the user settings document.
-      delete: () => deleteSettings(getUserSettingsPath()),
+      delete: () => deleteSettings(robotaUserSettingsPath()),
     },
     plugin: createDefaultPluginCommandAdapter(cwd),
     ...(options.mcpActivationAdapter === undefined

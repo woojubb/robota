@@ -10,7 +10,6 @@ import { join } from 'node:path';
 
 import {
   WorkspaceTrustService,
-  createDefaultUserSettingsSources,
   createWorkspaceProjectSettingsSources,
   getWorkspaceProjectReader,
 } from '@robota-sdk/agent-framework';
@@ -22,6 +21,7 @@ import {
   resolveMcpSettings,
 } from '../mcp-settings.js';
 import { ROBOTA_PROJECT_SETTINGS } from '../../product/robota-project-settings.js';
+import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
 
 import type { IWorkspaceIdentity, TSettingsSource } from '@robota-sdk/agent-framework';
 
@@ -66,7 +66,7 @@ describe('resolveMcpSettings', () => {
     mkdirSync(join(userHome, '.robota'), { recursive: true });
     writeFileSync(join(userHome, '.robota', 'settings.json'), JSON.stringify({ language: 'en' }));
 
-    const resolution = resolveMcpSettings(createDefaultUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
 
     expect(resolution.autoBackgroundMs).toBe(DEFAULT_MCP_AUTO_BACKGROUND_MS);
     expect(resolution.callTimeoutMs).toBe(DEFAULT_MCP_CALL_TIMEOUT_MS);
@@ -90,7 +90,7 @@ describe('resolveMcpSettings', () => {
     );
 
     const settingsSources = [
-      ...createDefaultUserSettingsSources(userHome),
+      ...createRobotaUserSettingsSources(userHome),
       ...(await trustedProjectSettingsSources(projectRoot)),
     ];
     const resolution = resolveMcpSettings(settingsSources);
@@ -111,7 +111,7 @@ describe('resolveMcpSettings', () => {
       JSON.stringify({ mcp: { autoBackgroundMs: 0 } }),
     );
 
-    const resolution = resolveMcpSettings(createDefaultUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
 
     expect(resolution.autoBackgroundMs).toBe(0);
     expect(resolution.handoffEnabled).toBe(false);
@@ -127,7 +127,7 @@ describe('resolveMcpSettings', () => {
       JSON.stringify({ mcp: { autoBackgroundMs: 600_000, callTimeoutMs: 600_000 } }),
     );
 
-    const resolution = resolveMcpSettings(createDefaultUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
 
     expect(resolution.handoffEnabled).toBe(false);
     expect(resolution.problems).toEqual([]);
@@ -142,7 +142,7 @@ describe('resolveMcpSettings', () => {
     const settingsPath = join(userHome, '.robota', 'settings.json');
     writeFileSync(settingsPath, JSON.stringify({ mcp: { autoBackgroundMs: -1 } }));
 
-    const resolution = resolveMcpSettings(createDefaultUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
 
     expect(resolution.autoBackgroundMs).toBe(DEFAULT_MCP_AUTO_BACKGROUND_MS);
     expect(resolution.problems).toHaveLength(1);
@@ -162,7 +162,7 @@ describe('resolveMcpSettings', () => {
       JSON.stringify({ mcp: { callTimeoutMs: 1234.5 } }),
     );
 
-    const resolution = resolveMcpSettings(createDefaultUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
 
     expect(resolution.callTimeoutMs).toBe(DEFAULT_MCP_CALL_TIMEOUT_MS);
     expect(resolution.problems).toHaveLength(1);
@@ -177,7 +177,7 @@ describe('resolveMcpSettings', () => {
       JSON.stringify({ mcp: { autoBackgroundMs: 'not-a-number', callTimeoutMs: 90_000 } }),
     );
 
-    const resolution = resolveMcpSettings(createDefaultUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
 
     expect(resolution.autoBackgroundMs).toBe(DEFAULT_MCP_AUTO_BACKGROUND_MS);
     // The valid `callTimeoutMs: 90_000` sibling is refused along with the document, not applied.
@@ -192,7 +192,7 @@ describe('resolveMcpSettings', () => {
     const settingsPath = join(userHome, '.robota', 'settings.json');
     writeFileSync(settingsPath, '{ this is not json');
 
-    const resolution = resolveMcpSettings(createDefaultUserSettingsSources(userHome));
+    const resolution = resolveMcpSettings(createRobotaUserSettingsSources(userHome));
 
     expect(resolution.autoBackgroundMs).toBe(DEFAULT_MCP_AUTO_BACKGROUND_MS);
     expect(resolution.callTimeoutMs).toBe(DEFAULT_MCP_CALL_TIMEOUT_MS);

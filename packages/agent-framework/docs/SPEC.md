@@ -52,6 +52,8 @@ React/Ink UI.
   home-directory settings file. SDK runtime, query, and programmatic-agent creators forward the
   same optional sources to their sessions. A runtime without host command adapters does not attach
   an ambient settings-file reader or writer; settings actions require a host-supplied adapter.
+  User-settings reset takes an explicit file path. Plugin discovery likewise requires a host-selected
+  enablement source; without one, an interactive session admits no bundle plugins.
 - **Agent definition discovery is host-directed.** The framework searches only the ordered relative
   directories supplied by the host; absent roots mean no file discovery. Discovered definitions keep
   precedence over injected and built-in definitions, without selecting a product's directory names.

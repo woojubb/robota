@@ -13,7 +13,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsParseError } from '../../../config/settings-parse-error.js';
 import { readSettings } from '../../../config/settings-io.js';
 import {
-  createDefaultUserSettingsSources,
   createNodeHostSettingsSource,
   createWorkspaceProjectSettingsSources,
 } from '../../../config/settings-source.js';
@@ -52,7 +51,8 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     const access = await createTrustedProjectAccessFixture(cwd);
     if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
     return [
-      ...createDefaultUserSettingsSources(home),
+      createNodeHostSettingsSource('user', join(home, '.robota', 'settings.json')),
+      createNodeHostSettingsSource('user', join(home, '.claude', 'settings.json')),
       ...createWorkspaceProjectSettingsSources(
         getWorkspaceProjectReader(access.authority),
         TEST_PROJECT_SETTINGS_PATHS,

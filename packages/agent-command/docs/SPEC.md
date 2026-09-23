@@ -127,6 +127,9 @@ the setup patch is built; and a configured `adminContact` is appended to every v
 `orgPolicy` is accepted at the `provider` command module level only — it is not a
 `createDefaultCommandModules` option.
 
+Provider startup reads and writes only settings sources and stores supplied by its host. It cannot
+select a user home or product settings path when those inputs are absent.
+
 **`/theme`.** Behind an injected theme-catalogue port only — with no port, there is no command. It
 emits at most one appearance-settings patch per invocation, and an unknown theme id writes nothing,
 not even the toggles submitted alongside it.

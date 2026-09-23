@@ -2,17 +2,17 @@
 import { homedir } from 'node:os';
 
 import {
-  createDefaultUserSettingsSources,
   createRestrictedWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import { InMemoryMCPActivationApprovalStore } from '@robota-sdk/agent-mcp';
 
 import { startCli } from '../../../cli.js';
 import { composeMcpClientForStartup } from '../../../startup/mcp-startup.js';
+import { createRobotaUserSettingsSources } from '../../../product/robota-user-settings.js';
 
 const approvalStore = new InMemoryMCPActivationApprovalStore();
 const preflight = await composeMcpClientForStartup({
-  settingsSources: createDefaultUserSettingsSources(homedir()),
+  settingsSources: createRobotaUserSettingsSources(homedir()),
   projectAccess: createRestrictedWorkspaceProjectAccess('identity-unavailable', process.cwd()),
   cwd: process.cwd(),
   env: process.env,

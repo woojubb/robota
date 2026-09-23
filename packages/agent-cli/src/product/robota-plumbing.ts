@@ -12,7 +12,6 @@ import { createRequire } from 'node:module';
 import {
   createRestrictedWorkspaceProjectAccess,
   findUnknownModuleNames,
-  getUserSettingsPath,
   selectCommandModules,
 } from '@robota-sdk/agent-framework';
 import { TransportRegistry, bindTransportAdapter } from '@robota-sdk/agent-framework';
@@ -27,6 +26,7 @@ import type {
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import { ROBOTA_PACKS_OWN_TOOL_SURFACE } from './robota-profile.js';
+import { robotaUserSettingsPath } from './robota-user-settings.js';
 
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
@@ -79,7 +79,7 @@ export function createDefaultTransportRegistry(
     'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
   >;
 } {
-  const registry = new TransportRegistry(getUserSettingsPath());
+  const registry = new TransportRegistry(robotaUserSettingsPath());
   // GUI-002: when a host (e.g. the agent-gui Electron shell) spawns this CLI as a loopback sidecar, it
   // passes ROBOTA_WS_TOKEN (a per-launch nonce) + optional ROBOTA_WS_PORT via env. The token makes the WS
   // transport reject any unauthenticated connection before emitting session data. Absent = unchanged

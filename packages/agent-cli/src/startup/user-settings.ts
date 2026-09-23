@@ -1,4 +1,5 @@
-import { getUserSettingsPath, readSettings, SettingsParseError } from '@robota-sdk/agent-framework';
+import { readSettings, SettingsParseError } from '@robota-sdk/agent-framework';
+import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 
@@ -31,7 +32,7 @@ import type { TSettingsData } from '@robota-sdk/agent-framework';
  */
 export function readUserSettingsOrExit(): TSettingsData {
   try {
-    return readSettings(getUserSettingsPath());
+    return readSettings(robotaUserSettingsPath());
   } catch (error) {
     if (!(error instanceof SettingsParseError)) throw error;
     // allow-fallback: an unreadable settings file is terminal — surface the file and the remedy, exit

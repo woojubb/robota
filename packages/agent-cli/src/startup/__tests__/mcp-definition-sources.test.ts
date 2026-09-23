@@ -10,7 +10,6 @@ import { join } from 'node:path';
 
 import {
   WorkspaceTrustService,
-  createDefaultUserSettingsSources,
   createWorkspaceProjectSettingsSources,
   getWorkspaceProjectReader,
 } from '@robota-sdk/agent-framework';
@@ -18,6 +17,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { resolveMcpDefinitions } from '../mcp-definition-sources.js';
 import { ROBOTA_PROJECT_SETTINGS } from '../../product/robota-project-settings.js';
+import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
 
 import type { IWorkspaceIdentity, TSettingsSource } from '@robota-sdk/agent-framework';
 
@@ -76,7 +76,7 @@ describe('resolveMcpDefinitions', () => {
     );
 
     const settingsSources = [
-      ...createDefaultUserSettingsSources(userHome),
+      ...createRobotaUserSettingsSources(userHome),
       ...(await trustedProjectSettingsSources(projectRoot)),
     ];
 
@@ -100,7 +100,7 @@ describe('resolveMcpDefinitions', () => {
     const settingsPath = join(userHome, '.robota', 'settings.json');
     writeFileSync(settingsPath, '{ this is not json');
 
-    const settingsSources = createDefaultUserSettingsSources(userHome);
+    const settingsSources = createRobotaUserSettingsSources(userHome);
     const { entries, problems } = resolveMcpDefinitions(settingsSources, process.env);
 
     expect(entries).toEqual([]);
@@ -114,7 +114,7 @@ describe('resolveMcpDefinitions', () => {
     mkdirSync(join(userHome, '.robota'), { recursive: true });
     writeFileSync(join(userHome, '.robota', 'settings.json'), JSON.stringify({ language: 'en' }));
 
-    const settingsSources = createDefaultUserSettingsSources(userHome);
+    const settingsSources = createRobotaUserSettingsSources(userHome);
     const { entries, problems } = resolveMcpDefinitions(settingsSources, process.env);
 
     expect(entries).toEqual([]);

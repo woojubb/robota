@@ -9,7 +9,6 @@ import { mkdirSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createDefaultUserSettingsSources } from '../../config/settings-source.js';
 import { InteractiveSession } from '../../interactive/interactive-session.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -75,13 +74,8 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
   }
   beforeEach(() => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'runtime-host-')));
-    // Contained — TEST-012. The session's default initialisation reads the real user home
-    // (`createDefaultUserSettingsSources()` → `process.env.HOME`, `homedir()` for plugins) with no
-    // seam, so on a machine whose ~/.claude/settings.json defines a SessionStart command hook the
-    // host fires that hook — and its timeout timer — during the very lifetime the #1852 case
-    // measures (issue #2383). Pointing HOME at an empty directory per test makes the assertion
-    // below mean "the host leaked a timer" on any machine; the class remedy (a global isolation or
-    // a userHome seam) is TEST-012's. `USERPROFILE` is the Windows spelling of the same default.
+    // Keep the Node home used for plugin directory resolution isolated from the developer's home.
+    // The runtime has no ambient user settings source, so this no longer admits hooks by itself.
     homeRoot = realpathSync(mkdtempSync(join(tmpdir(), 'runtime-host-home-')));
     home = join(homeRoot, 'home');
     mkdirSync(home);
@@ -180,22 +174,13 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     ).toEqual([]);
   });
 
-  it("reads settings and plugins from the isolated home, not the developer's (TEST-012 control)", () => {
-    // The isolation above is a condition of the #1852 case's meaning, so it is checked against the
-    // two things the session actually calls. `homedir()` follows `process.env.HOME` only in a forked
-    // worker (vitest.shared.ts sets `pool: 'forks'`); a pool change to threads would leave
-    // `createDefaultUserSettingsSources()` isolated and `homedir()` reading the real home — this
-    // case is what makes that loud.
-    for (const source of createDefaultUserSettingsSources()) {
-      expect(source.path.startsWith(home), source.path).toBe(true);
-    }
+  it("resolves the isolated home for plugin discovery, not the developer's (TEST-012 control)", () => {
+    // `homedir()` follows `process.env.HOME` in Vitest's forked worker. A worker-pool change must
+    // preserve this isolation for any test that deliberately admits user plugin discovery.
     expect(homedir()).toBe(home);
 
     restoreHome();
     expect(homedir()).not.toBe(home);
-    for (const source of createDefaultUserSettingsSources()) {
-      expect(source.path.startsWith(home), source.path).toBe(false);
-    }
   });
 
   it('shutdown() stops the transports and is idempotent', async () => {
