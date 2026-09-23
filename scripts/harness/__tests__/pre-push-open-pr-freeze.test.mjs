@@ -73,6 +73,10 @@ beforeAll(() => {
       '  exit 0',
       'fi',
       'if [[ "$*" == *"pulls/"*"/reviews"* ]]; then',
+      '  if [ "${STUB_REVIEWS_FAIL:-0}" = "1" ]; then',
+      '    printf "stub reviews endpoint failed\\n" >&2',
+      '    exit 1',
+      '  fi',
       '  cat "$STUB_REVIEWS_PAYLOAD"',
       '  exit 0',
       'fi',
@@ -137,6 +141,8 @@ function stubGh({
   mergeStateStatus = 'CLEAN',
   remoteHead = 'a'.repeat(40),
   ghFailure = false,
+  reviewsFailure = false,
+  malformedReviews = false,
 }) {
   const reviews =
     findings === null
@@ -174,7 +180,7 @@ function stubGh({
   const payloadPath = path.join(fixtureDir, '.git', 'stub-gh-payload.json');
   const reviewsPath = path.join(fixtureDir, '.git', 'stub-gh-reviews.json');
   writeFileSync(payloadPath, JSON.stringify(payload));
-  writeFileSync(reviewsPath, JSON.stringify([reviews]));
+  writeFileSync(reviewsPath, malformedReviews ? '{malformed json' : JSON.stringify([reviews]));
   return {
     STUB_FAILING_CHECKS: String(failingChecks),
     STUB_GH_PAYLOAD: payloadPath,
@@ -184,6 +190,7 @@ function stubGh({
     STUB_PR_AUTHOR: 'pr-author',
     STUB_MERGE_STATE: mergeStateStatus,
     STUB_GH_FAIL: ghFailure ? '1' : '0',
+    STUB_REVIEWS_FAIL: reviewsFailure ? '1' : '0',
   };
 }
 
@@ -203,6 +210,8 @@ function push({
   mergeStateStatus,
   remoteHead,
   ghFailure,
+  reviewsFailure,
+  malformedReviews,
 }) {
   const dir = scratchRepo();
   const stubEnv = stubGh({
@@ -221,6 +230,8 @@ function push({
     mergeStateStatus,
     remoteHead,
     ghFailure,
+    reviewsFailure,
+    malformedReviews,
   });
   const result = spawnSync('bash', [HOOK], {
     input: JSON.stringify({
@@ -246,6 +257,29 @@ describe('pre-push open-PR freeze — RED direction', () => {
     expect(res.status).toBe(2);
     expect(res.output).toMatch(/Frozen-diff check unavailable/);
     expect(res.output).toMatch(/no freeze verdict was established/);
+  });
+
+  it('reports a reviews-endpoint outage without changing the permissive absent-review policy', () => {
+    const res = push({ findings: null, reviewsFailure: true });
+    expect(res.status).toBe(0);
+    expect(res.output).toMatch(/could not read PR reviews/);
+    expect(res.output).toMatch(/no freeze verdict was established/);
+    expect(res.output).toMatch(/its review automation owns the review/);
+  });
+
+  it('reports malformed review JSON as a projection failure, not as a valid absent review', () => {
+    const res = push({ findings: null, malformedReviews: true });
+    expect(res.status).toBe(0);
+    expect(res.output).toMatch(/canonical review projection failed/);
+    expect(res.output).toMatch(/no freeze verdict was established/);
+    expect(res.output).toMatch(/its review automation owns the review/);
+  });
+
+  it('keeps a valid empty reviews response distinct from an unavailable projection', () => {
+    const res = push({ findings: null });
+    expect(res.status).toBe(0);
+    expect(res.output).toMatch(/its review automation owns the review/);
+    expect(res.output).not.toMatch(/Frozen-diff check unavailable/);
   });
 
   it('refuses a push when the open PR’s latest review reports zero findings', () => {
