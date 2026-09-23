@@ -68,6 +68,11 @@
       "test": "packages/agent-framework/src/testing/__tests__/session-log-external-payload-replay-functional.test.ts"
     },
     {
+      "id": "fork-skill-model",
+      "description": "A discovered fork skill selects the child provider request model while preserving parent and agent defaults; inject model metadata is rejected before provider execution.",
+      "test": "packages/agent-framework/src/testing/__tests__/skill-model-functional.test.ts"
+    },
+    {
       "id": "strict-skill-discovery",
       "description": "Strict skill authority metadata reaches a real session: disabled skills are hidden from the provider and model activation is refused; malformed flags prevent provider requests.",
       "test": "packages/agent-framework/src/testing/__tests__/strict-skill-discovery-functional.test.ts"

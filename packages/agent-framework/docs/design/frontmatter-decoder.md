@@ -29,7 +29,9 @@ its permissive parser no longer owns this boundary.
 - Profile top-level keys are closed. The skill `metadata` field is the only extensible map and accepts
   only string keys with string, finite-number, or boolean scalar values; prototype-named keys remain
   ordinary data and cannot reach object prototypes.
-- Skill metadata retains the existing optional `model` field consumed by the command contract.
+- Skill metadata accepts `model` only with `context: fork`; otherwise a field-path diagnostic
+  rejects the file before registration. A fork model is consumed by the child session and does not
+  change the parent model or provider identity.
 - Skill effort imports `TModelEffort` from `agent-core`; the local runtime guard is contained under
   `BEHAVIOR-009` until that owner exposes the runtime vocabulary alongside the type.
 - The decoder preserves LF/CRLF body bytes after the closing delimiter. Consumer-specific trimming

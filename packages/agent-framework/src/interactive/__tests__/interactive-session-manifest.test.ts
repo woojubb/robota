@@ -3,16 +3,19 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
-const mockLoadConfig = vi.fn().mockResolvedValue({
-  defaultTrustLevel: 'moderate',
-  provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
-  permissions: { allow: [], deny: [] },
-  language: 'en',
-  env: {},
+const mockLoadConfigWithHookSources = vi.fn().mockResolvedValue({
+  config: {
+    defaultTrustLevel: 'moderate',
+    provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
+    permissions: { allow: [], deny: [] },
+    language: 'en',
+    env: {},
+  },
+  hookSources: [],
 });
 
 vi.mock('../../config/config-loader.js', () => ({
-  loadConfig: mockLoadConfig,
+  loadConfigWithHookSources: mockLoadConfigWithHookSources,
 }));
 
 vi.mock('@robota-sdk/agent-session', async () => {
@@ -61,7 +64,7 @@ const NOOP_TOOL = (): void => {};
 
 describe('createInteractiveSession — workspace manifest', () => {
   beforeEach(() => {
-    mockLoadConfig.mockClear();
+    mockLoadConfigWithHookSources.mockClear();
   });
 
   it('applies the workspace manifest to the sandbox before session creation', async () => {

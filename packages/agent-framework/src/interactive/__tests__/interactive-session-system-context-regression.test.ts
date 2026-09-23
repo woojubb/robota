@@ -46,12 +46,15 @@ vi.mock('../../context/project-detector.js', () => ({
 }));
 
 vi.mock('../../config/config-loader.js', () => ({
-  loadConfig: vi.fn().mockResolvedValue({
-    defaultTrustLevel: 'moderate',
-    provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
-    permissions: { allow: [], deny: [] },
-    language: 'en',
-    env: {},
+  loadConfigWithHookSources: vi.fn().mockResolvedValue({
+    config: {
+      defaultTrustLevel: 'moderate',
+      provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
+      permissions: { allow: [], deny: [] },
+      language: 'en',
+      env: {},
+    },
+    hookSources: [],
   }),
 }));
 

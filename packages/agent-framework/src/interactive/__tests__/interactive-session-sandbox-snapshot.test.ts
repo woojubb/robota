@@ -10,16 +10,19 @@ import { loadedRecordOrMissing } from './session-load-helpers.js';
 
 const events: string[] = [];
 
-const mockLoadConfig = vi.fn().mockResolvedValue({
-  defaultTrustLevel: 'moderate',
-  provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
-  permissions: { allow: [], deny: [] },
-  language: 'en',
-  env: {},
+const mockLoadConfigWithHookSources = vi.fn().mockResolvedValue({
+  config: {
+    defaultTrustLevel: 'moderate',
+    provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
+    permissions: { allow: [], deny: [] },
+    language: 'en',
+    env: {},
+  },
+  hookSources: [],
 });
 
 vi.mock('../../config/config-loader.js', () => ({
-  loadConfig: mockLoadConfig,
+  loadConfigWithHookSources: mockLoadConfigWithHookSources,
 }));
 
 vi.mock('@robota-sdk/agent-session', async () => {
@@ -147,7 +150,7 @@ function createSnapshottingSandboxClient(snapshotId: string): ISandboxClient {
 describe('InteractiveSession sandbox snapshot hydration', () => {
   beforeEach(() => {
     events.length = 0;
-    mockLoadConfig.mockClear();
+    mockLoadConfigWithHookSources.mockClear();
   });
 
   it('restores the sandbox snapshot before replaying saved messages', async () => {

@@ -21,6 +21,8 @@ export interface IForkExecutionOptions {
   allowedTools?: string[];
   /** Reasoning effort override for the forked session. */
   effort?: TModelEffort;
+  /** Model override for this fork only; the parent provider/session is unchanged. */
+  model?: string;
 }
 
 /** Callback interface for skill execution infrastructure */
@@ -92,6 +94,9 @@ export async function executeSkill(
   callbacks: ISkillExecutionCallbacks,
   context?: ISkillPromptContext,
 ): Promise<ISkillExecutionResult> {
+  if (skill.model !== undefined && skill.context !== 'fork') {
+    throw new Error('Skill model requires context: fork');
+  }
   // Fork execution: isolated subagent session
   if (skill.context === 'fork') {
     if (!callbacks.runInFork) {
@@ -107,6 +112,7 @@ export async function executeSkill(
     if (skill.agent) options.agent = skill.agent;
     if (skill.allowedTools) options.allowedTools = skill.allowedTools;
     if (skill.effort) options.effort = skill.effort;
+    if (skill.model) options.model = skill.model;
 
     const result = await callbacks.runInFork(prompt, options);
     return { mode: 'fork', result };

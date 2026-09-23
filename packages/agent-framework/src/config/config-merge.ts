@@ -9,6 +9,7 @@
  */
 
 import type { TEnvResolvedSettings } from './config-types.js';
+import type { THooksConfig } from '@robota-sdk/agent-core';
 
 /**
  * How a later layer combines with an earlier one for a given top-level key (OBSERVABILITY-1991).
@@ -35,6 +36,17 @@ export const SETTINGS_MERGE_RULES: Readonly<Record<string, TSettingsMergeRule>> 
   taskContext: 'object-merge',
 });
 
+export interface IHookDefinitionSource {
+  readonly event: string;
+  readonly type: string;
+  readonly source: string;
+}
+
+export interface ISettingsLayerWithSource {
+  readonly settings: TEnvResolvedSettings;
+  readonly source: string;
+}
+
 /**
  * Deep-merge settings objects. Later entries in the array win.
  *
@@ -60,11 +72,46 @@ export const SETTINGS_MERGE_RULES: Readonly<Record<string, TSettingsMergeRule>> 
  * accumulates across layers (a later layer cannot un-disable an earlier layer's decision).
  */
 export function mergeSettings(layers: TEnvResolvedSettings[]): TEnvResolvedSettings {
+  return mergeSettingsCore(layers.map((settings) => ({ settings }))).settings;
+}
+
+/** Same settings merge traversal, with source facts for effective hook definitions. */
+export function mergeSettingsWithHookSources(layers: readonly ISettingsLayerWithSource[]): {
+  settings: TEnvResolvedSettings;
+  hookSources: readonly IHookDefinitionSource[];
+} {
+  const result = mergeSettingsCore(layers);
+  return { settings: result.settings, hookSources: result.hookSources };
+}
+
+function mergeSettingsCore(
+  layers: readonly { settings: TEnvResolvedSettings; source?: string }[],
+): { settings: TEnvResolvedSettings; hookSources: readonly IHookDefinitionSource[] } {
   const disabledHookIds = new Set<string>();
-  return layers.reduce<TEnvResolvedSettings>(
-    (merged, layer) => mergeLayer(merged, layer, disabledHookIds),
-    {},
-  );
+  let settings: TEnvResolvedSettings = {};
+  const hookSources: IHookDefinitionSource[] = [];
+
+  for (const { settings: layer, source } of layers) {
+    const layerHooks = withoutDisabledGroups(layer.hooks, disabledHookIds);
+    if (source !== undefined) appendHookSources(layerHooks, source, hookSources);
+    for (const id of layer.disabledHooks ?? []) disabledHookIds.add(id);
+    settings = mergeLayer(settings, { ...layer, hooks: layerHooks }, disabledHookIds);
+  }
+  return { settings, hookSources };
+}
+
+function appendHookSources(
+  hooks: THooksConfig | undefined,
+  source: string,
+  target: IHookDefinitionSource[],
+): void {
+  for (const [event, groups] of Object.entries(hooks ?? {})) {
+    for (const group of groups ?? []) {
+      for (const definition of group.hooks) {
+        target.push({ event, type: definition.type, source });
+      }
+    }
+  }
 }
 
 function mergeLayer(
@@ -72,8 +119,6 @@ function mergeLayer(
   layer: TEnvResolvedSettings,
   disabledHookIds: Set<string>,
 ): TEnvResolvedSettings {
-  const layerHooks = withoutDisabledGroups(layer.hooks, disabledHookIds);
-  for (const id of layer.disabledHooks ?? []) disabledHookIds.add(id);
   return {
     ...merged,
     ...layer,
@@ -86,7 +131,7 @@ function mergeLayer(
     enabledPlugins: mergeOptionalObject(merged.enabledPlugins, layer.enabledPlugins),
     extraKnownMarketplaces: layer.extraKnownMarketplaces ?? merged.extraKnownMarketplaces,
     autoCompactThreshold: layer.autoCompactThreshold ?? merged.autoCompactThreshold,
-    hooks: mergeOptionalHooks(merged.hooks, layerHooks),
+    hooks: mergeOptionalHooks(merged.hooks, layer.hooks),
     taskContext: mergeOptionalObject(merged.taskContext, layer.taskContext),
   };
 }

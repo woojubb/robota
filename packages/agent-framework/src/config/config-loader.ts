@@ -9,10 +9,11 @@
  *   5. .claude/settings.json         (project, Claude Code compat)
  *   6. .claude/settings.local.json   (project-local, highest priority)
  */
-import { mergeSettings } from './config-merge.js';
+import { mergeSettingsWithHookSources } from './config-merge.js';
 import { readSettingsLayers } from './settings-inspection.js';
 import { SettingsParseError } from './settings-parse-error.js';
 
+import type { IHookDefinitionSource } from './config-merge.js';
 import type { TSettings, TEnvResolvedSettings, IResolvedConfig } from './config-types.js';
 import type { IReadSettingsLayer } from './settings-inspection.js';
 import type { TSettingsSource } from './settings-source.js';
@@ -183,19 +184,29 @@ function toResolvedConfig(merged: TEnvResolvedSettings): IResolvedConfig {
  * Load and merge all settings files, validate with Zod, return resolved config.
  */
 export async function loadConfig(sources: readonly TSettingsSource[]): Promise<IResolvedConfig> {
+  return (await loadConfigWithHookSources(sources)).config;
+}
+
+/** Internal composition metadata; intentionally not re-exported from the package root. */
+export async function loadConfigWithHookSources(
+  sources: readonly TSettingsSource[],
+): Promise<{ config: IResolvedConfig; hookSources: readonly IHookDefinitionSource[] }> {
   const layers = readSettingsLayers(sources);
   // Read-phase errors first, across every layer, then the first schema failure — the order the
   // two-phase loader always had (see `throwReadPhaseError`).
   for (const layer of layers) throwReadPhaseError(layer);
-  const parsedLayers: TEnvResolvedSettings[] = [];
+  const parsedLayers: Array<{ settings: TEnvResolvedSettings; source: string }> = [];
   for (const layer of layers) {
     if (layer.state === 'absent') continue;
     if (layer.state === 'schema-invalid' || layer.settings === undefined) {
       throw new Error(`Invalid settings in ${layer.source.displayName}: ${layer.schemaMessage}`);
     }
-    parsedLayers.push(resolveEnvRefs(layer.settings));
+    parsedLayers.push({
+      settings: resolveEnvRefs(layer.settings),
+      source: layer.source.displayName,
+    });
   }
 
-  const merged = mergeSettings(parsedLayers);
-  return toResolvedConfig(merged);
+  const merged = mergeSettingsWithHookSources(parsedLayers);
+  return { config: toResolvedConfig(merged.settings), hookSources: merged.hookSources };
 }
