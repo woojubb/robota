@@ -9,17 +9,21 @@ mapping and the server entrypoint.
 ## Boundaries
 
 - Does NOT own DAG domain logic — that belongs to `@robota-sdk/dag-framework` / the DAG subsystem.
-- Does NOT own the orchestration or cost contracts — they belong to
-  `@robota-sdk/dag-orchestration-client` and `@robota-sdk/dag-cost`; this app exposes them over HTTP.
+- Does NOT own the orchestration, cost, or run-draft contracts — they belong to
+  `@robota-sdk/dag-orchestration-client`, `@robota-sdk/dag-cost`, and `@robota-sdk/dag-core`; this app exposes them over HTTP.
 - Carries NO external-runtime API surface or compatibility layer/wrapper. External-runtime
   compatibility is out of scope here; any such adapter lives in a separate source repository.
 
 ## Architecture Overview
 
-`createDagRuntimeServer(port, costMeta, progressSource?)` returns a Hono app. Non-cost `/v1/dag/*` handlers map:
+`createDagRuntimeServer(port, costMeta, runDrafts, progressSource?)` returns a Hono app. Legacy orchestration `/v1/dag/*` handlers map:
 parse path/query/body → call the matching `IDagOrchestrationPort` method → return
 `c.json(response.payload, response.status)` (every port method returns a uniform
-`IDagOrchestrationHttpResponse`). Cost metadata routes instead map a separate
+`IDagOrchestrationHttpResponse`). Cost metadata and run-draft routes instead map separate
+domain capabilities to the same HTTP envelope. Run-draft request JSON is decoded before calling
+`IRunDraftOperationsPort`; an invalid field returns 400, a missing draft 404, a storage failure 500
+without internal details, and create returns 201. The reset route is `POST`.
+Cost metadata routes map a separate
 `ICostMetaOperationsPort` domain result to HTTP success/problem responses; an unwired cost
 capability maps to 501 and never masquerades as a successful operation.
 `startDagRuntimeServer()` captures the server process working

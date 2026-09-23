@@ -109,32 +109,49 @@ describe('cost-meta capability', () => {
 });
 
 describe('run-draft CRUD', () => {
+  it('exposes a domain result capability independent of HTTP representation', async () => {
+    const created = await framework.runDrafts.createRunDraft({
+      definition: MINIMAL_DEFINITION,
+      input: { text: 'hello' },
+    });
+    expect(created.ok).toBe(true);
+    expect(created).not.toHaveProperty('status');
+    if (!created.ok) return;
+    expect(created.value.input).toEqual({ text: 'hello' });
+
+    const found = await framework.runDrafts.getRunDraft(created.value.draftId);
+    expect(found).toEqual(created);
+    expect(await framework.runDrafts.getRunDraft('missing')).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_RUN_DRAFT_NOT_FOUND' },
+    });
+  });
+
   it('creates, retrieves, replaces, and resets drafts', async () => {
     const definition = MINIMAL_DEFINITION;
 
-    const created = await framework.client.createRunDraft({ definition, input: { text: 'hi' } });
+    const created = await framework.runDrafts.createRunDraft({ definition, input: { text: 'hi' } });
     expect(created.ok).toBe(true);
-    expect(created.status).toBe(201);
-    const draftId = (created.payload as { data: { draft: { draftId: string } } }).data.draft
-      .draftId;
+    if (!created.ok) return;
+    const draftId = created.value.draftId;
 
-    const got = await framework.client.getRunDraft(draftId);
+    const got = await framework.runDrafts.getRunDraft(draftId);
     expect(got.ok).toBe(true);
 
-    const replaced = await framework.client.replaceRunDraft(draftId, {
+    const replaced = await framework.runDrafts.replaceRunDraft(draftId, {
       definition,
       input: { text: 'changed' },
     });
     expect(replaced.ok).toBe(true);
 
-    const reset = await framework.client.resetRunDraftNodeResult(draftId, 'n1');
+    const reset = await framework.runDrafts.resetRunDraftNodeResult(draftId, 'n1');
     expect(reset.ok).toBe(true);
   });
 
   it('returns 404 for missing draft', async () => {
-    const res = await framework.client.getRunDraft('no-such-draft');
+    const res = await framework.runDrafts.getRunDraft('no-such-draft');
     expect(res.ok).toBe(false);
-    expect(res.status).toBe(404);
+    expect(res).toMatchObject({ error: { code: 'DAG_RUN_DRAFT_NOT_FOUND' } });
   });
 });
 
@@ -239,30 +256,30 @@ describe('uploadAsset + getAssetMetadata', () => {
 
 describe('overwriteRunDraftNodeResult', () => {
   it('overwrites a node result in an existing draft', async () => {
-    const created = await framework.client.createRunDraft({
+    const created = await framework.runDrafts.createRunDraft({
       definition: MINIMAL_DEFINITION,
       input: {},
     });
-    const draftId = (created.payload as { data: { draft: { draftId: string } } }).data.draft
-      .draftId;
+    if (!created.ok) return;
+    const draftId = created.value.draftId;
 
-    const res = await framework.client.overwriteRunDraftNodeResult(draftId, 'n1', {
+    const res = await framework.runDrafts.overwriteRunDraftNodeResult(draftId, 'n1', {
       output: { text: 'overwritten' },
     });
     expect(res.ok).toBe(true);
-    expect(res.status).toBe(200);
+    expect(res).not.toHaveProperty('status');
   });
 
   it('returns 404 when draft does not exist', async () => {
-    const res = await framework.client.overwriteRunDraftNodeResult('no-draft', 'n1', {
+    const res = await framework.runDrafts.overwriteRunDraftNodeResult('no-draft', 'n1', {
       output: { text: 'x' },
     });
     expect(res.ok).toBe(false);
-    expect(res.status).toBe(404);
+    expect(res).toMatchObject({ error: { code: 'DAG_RUN_DRAFT_NOT_FOUND' } });
   });
 
   it('preserves existing pendingDescription when overwriting node result', async () => {
-    const created = await framework.client.createRunDraft({
+    const created = await framework.runDrafts.createRunDraft({
       definition: MINIMAL_DEFINITION,
       input: {},
       nodeStateMap: {
@@ -273,17 +290,16 @@ describe('overwriteRunDraftNodeResult', () => {
         },
       },
     });
-    const draftId = (created.payload as { data: { draft: { draftId: string } } }).data.draft
-      .draftId;
+    if (!created.ok) return;
+    const draftId = created.value.draftId;
 
-    const res = await framework.client.overwriteRunDraftNodeResult(draftId, 'n1', {
+    const res = await framework.runDrafts.overwriteRunDraftNodeResult(draftId, 'n1', {
       output: { text: 'result' },
       input: { text: 'input' },
     });
     expect(res.ok).toBe(true);
-    const draft = (res.payload as { data: { draft: { nodeStateMap: Record<string, unknown> } } })
-      .data.draft;
-    expect(draft.nodeStateMap['n1']).toBeDefined();
+    if (!res.ok) return;
+    expect(res.value.nodeStateMap['n1']).toBeDefined();
   });
 });
 

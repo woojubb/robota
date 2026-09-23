@@ -1,5 +1,12 @@
-import type { IDagDefinition } from '@robota-sdk/dag-core';
-import type { IDagError, TResult } from '@robota-sdk/dag-core';
+import type {
+  IDagDefinition,
+  IDagError,
+  IOverwriteRunDraftNodeResultInput,
+  IRunDraft,
+  IRunDraftOperationsPort,
+  ISaveRunDraftInput,
+  TResult,
+} from '@robota-sdk/dag-core';
 import type { IDagBuildInput } from '@robota-sdk/dag-builder';
 import type {
   ICostMeta,
@@ -17,6 +24,11 @@ import {
   decodeCostMetaValidation,
   decodeCostResponse,
 } from './cost-meta-response.js';
+import {
+  decodeRunDraftResponse,
+  runDraftTransportFailure,
+  runDraftUnparseableResponse,
+} from './run-draft-response.js';
 import type {
   IDagOrchestrationAssetContentDownloadInfo,
   IDagOrchestrationAssetUploadRequest,
@@ -26,17 +38,16 @@ import type {
   IDagOrchestrationHttpPayload,
   IDagOrchestrationHttpResponse,
   IDagOrchestrationListDefinitionsInput,
-  IDagOrchestrationOverwriteRunDraftNodeResultRequest,
   IDagOrchestrationPublishedWorkflowRunRequest,
   IDagOrchestrationUpdateDraftInput,
-  TDagOrchestrationCreateRunDraftRequest,
   TDagOrchestrationFetch,
-  TDagOrchestrationReplaceRunDraftRequest,
 } from './orchestration-http-contracts.js';
 
 type THttpMethod = 'DELETE' | 'GET' | 'POST' | 'PUT';
 
-export class DagOrchestrationHttpClient implements IDagOrchestrationPort, ICostMetaOperationsPort {
+export class DagOrchestrationHttpClient
+  implements IDagOrchestrationPort, ICostMetaOperationsPort, IRunDraftOperationsPort
+{
   private readonly baseUrl: string;
   private readonly fetch: TDagOrchestrationFetch;
 
@@ -189,40 +200,37 @@ export class DagOrchestrationHttpClient implements IDagOrchestrationPort, ICostM
     return this.costRequest('/v1/dag/cost-meta/preview', 'POST', decodeCostMetaPreview, input);
   }
 
-  public async createRunDraft(
-    input: TDagOrchestrationCreateRunDraftRequest,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    return this.request('/v1/dag/run-drafts', 'POST', input);
+  public async createRunDraft(input: ISaveRunDraftInput): Promise<TResult<IRunDraft, IDagError>> {
+    return this.runDraftRequest('/v1/dag/run-drafts', 'POST', input);
   }
 
-  public async getRunDraft(draftId: string): Promise<IDagOrchestrationHttpResponse> {
-    return this.request(`/v1/dag/run-drafts/${encodeURIComponent(draftId)}`, 'GET');
+  public async getRunDraft(draftId: string): Promise<TResult<IRunDraft, IDagError>> {
+    return this.runDraftRequest(`/v1/dag/run-drafts/${encodeURIComponent(draftId)}`, 'GET');
   }
 
   public async replaceRunDraft(
     draftId: string,
-    input: TDagOrchestrationReplaceRunDraftRequest,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    return this.request(`/v1/dag/run-drafts/${encodeURIComponent(draftId)}`, 'PUT', input);
+    input: Omit<ISaveRunDraftInput, 'draftId'>,
+  ): Promise<TResult<IRunDraft, IDagError>> {
+    return this.runDraftRequest(`/v1/dag/run-drafts/${encodeURIComponent(draftId)}`, 'PUT', input);
   }
 
   public async resetRunDraftNodeResult(
     draftId: string,
     nodeId: string,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    return this.request(
+  ): Promise<TResult<IRunDraft, IDagError>> {
+    return this.runDraftRequest(
       `/v1/dag/run-drafts/${encodeURIComponent(draftId)}/nodes/${encodeURIComponent(nodeId)}/reset`,
-      'PUT',
-      {},
+      'POST',
     );
   }
 
   public async overwriteRunDraftNodeResult(
     draftId: string,
     nodeId: string,
-    input: IDagOrchestrationOverwriteRunDraftNodeResultRequest,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    return this.request(
+    input: IOverwriteRunDraftNodeResultInput,
+  ): Promise<TResult<IRunDraft, IDagError>> {
+    return this.runDraftRequest(
       `/v1/dag/run-drafts/${encodeURIComponent(draftId)}/nodes/${encodeURIComponent(nodeId)}/result`,
       'PUT',
       input,
@@ -261,6 +269,40 @@ export class DagOrchestrationHttpClient implements IDagOrchestrationPort, ICostM
     } catch (error: unknown) {
       return costTransportFailure(error);
     }
+  }
+
+  private async runDraftRequest(
+    path: string,
+    method: THttpMethod,
+    body?: object,
+  ): Promise<TResult<IRunDraft, IDagError>> {
+    let response: Response;
+    try {
+      response = await this.fetch(`${this.baseUrl}${path}`, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: typeof body === 'undefined' ? undefined : JSON.stringify(body),
+      });
+    } catch (error: unknown) {
+      return runDraftTransportFailure(error);
+    }
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch (error: unknown) {
+      return error instanceof SyntaxError
+        ? runDraftUnparseableResponse(response.status)
+        : runDraftTransportFailure(error);
+    }
+    if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+      return runDraftUnparseableResponse(response.status);
+    }
+    const httpPayload = payload as IDagOrchestrationHttpPayload;
+    return decodeRunDraftResponse({
+      ok: response.ok && httpPayload.ok !== false,
+      status: response.status,
+      payload: httpPayload,
+    });
   }
 
   private async request(

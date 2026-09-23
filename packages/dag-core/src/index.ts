@@ -11,6 +11,7 @@ export * from './types/run-draft.js';
 export * from './types/session.js';
 export * from './interfaces/ports.js';
 export * from './interfaces/run-draft-store.js';
+export * from './interfaces/run-draft-operations-port.js';
 export * from './constants/status.js';
 export * from './constants/events.js';
 export * from './state-machines/dag-run-state-machine.js';
@@ -36,6 +37,7 @@ export {
   type TDagWorkflowFileDecodeResult,
 } from './services/dag-workflow-file-decoder.js';
 export * from './services/definition-service.js';
+export * from './services/run-draft-decoder.js';
 export * from './services/time-semantics.js';
 export * from './services/node-lifecycle-runner.js';
 export * from './services/lifecycle-task-executor-port.js';
