@@ -20,7 +20,7 @@ import { ABSENCE_VOCABULARY } from './cited-paths.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 import { filterScriptOccurrences, isSelector } from './lib/pnpm-invocation.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
-import { listAppDirs, listManifestPackageDirs } from './workspace-packages.mjs';
+import { SOURCE_EXTENSIONS, listAppDirs, listManifestPackageDirs } from './workspace-packages.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 
@@ -86,7 +86,10 @@ function listReferenceFiles(root) {
       if (SKIP_TREES.has(entry.name)) continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(full);
-      else if (entry.isFile() && ['.md', '.mmd', '.ts', '.mjs'].includes(path.extname(entry.name)))
+      else if (
+        entry.isFile() &&
+        ['.md', '.mmd', ...SOURCE_EXTENSIONS].includes(path.extname(entry.name))
+      )
         files.push(full);
     }
   }
@@ -291,7 +294,7 @@ export async function findWorkspaceRefFindings(root = WORKSPACE_ROOT) {
 
   examinedSourceFiles = 0;
   for (const filePath of referenceFiles) {
-    if (!['.ts', '.mjs'].includes(path.extname(filePath))) continue;
+    if (!SOURCE_EXTENSIONS.includes(path.extname(filePath))) continue;
     if (/\.(?:test|spec)\./.test(path.basename(filePath))) continue;
     if (helperScripts.has(filePath)) continue;
     const rel = path.relative(root, filePath);

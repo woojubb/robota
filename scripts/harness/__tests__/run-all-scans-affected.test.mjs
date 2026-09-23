@@ -73,6 +73,12 @@ describe('selectAffectedScans (fixture registry, nothing spawned)', () => {
       '.changeset/pre.json',
       '.changeset/pending.md',
       'vitest.config.ts',
+      'ui/view.tsx',
+      'config.mts',
+      'config.cts',
+      'config.js',
+      'ui/view.jsx',
+      'config.cjs',
     ]) {
       expect(pathMatchesAny(file, inputs), file).toBe(true);
     }

@@ -39,6 +39,7 @@ import {
   recordSuccessfulScanResults,
 } from './scan-receipt.mjs';
 import { resolveBaseRef, resolveWorkspaceRoot } from './shared.mjs';
+import { SOURCE_EXTENSIONS } from './workspace-packages.mjs';
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 /**
  * Sentinel a scan prints to mark ONE line as an ADVISORY finding (HARNESS-053).
@@ -550,8 +551,7 @@ export const SCAN_COMMANDS = [
       SCRIPTS,
       MARKDOWN,
       '**/*.mmd',
-      '**/*.ts',
-      '**/*.mjs',
+      `**/*.{${SOURCE_EXTENSIONS.map((extension) => extension.slice(1)).join(',')}}`,
       '.changeset/pre.json',
     ],
   },

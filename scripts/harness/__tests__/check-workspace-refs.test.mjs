@@ -135,6 +135,23 @@ describe('check-workspace-refs', () => {
     ]);
   });
 
+  it.each(['tsx', 'mts', 'cts', 'js', 'jsx', 'cjs'])(
+    'checks commands in authored .%s source comments',
+    async (extension) => {
+      const root = await createFixture({
+        'packages/current/package.json': pkg('@robota-sdk/current'),
+        [`packages/current/src/view.${extension}`]:
+          '// pnpm --filter @robota-sdk/renamed-away test\n',
+      });
+      expect(await findWorkspaceRefFindings(root)).toEqual([
+        expect.objectContaining({
+          file: `packages/current/src/view.${extension}`,
+          detail: expect.stringContaining('@robota-sdk/renamed-away'),
+        }),
+      ]);
+    },
+  );
+
   it('accepts valid release names while leaving changeset prose and archived records historical', async () => {
     const root = await createFixture({
       'packages/current/package.json': pkg('@robota-sdk/current'),
