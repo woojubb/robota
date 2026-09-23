@@ -490,6 +490,7 @@
       "packages/agent-command/src/index.ts",
       "packages/agent-core/src/index.ts",
       "packages/agent-executor/src/index.ts",
+      "packages/agent-file-authority/src/index.ts",
       "packages/agent-framework/src/index.ts",
       "packages/agent-interface-analytics/src/index.ts",
       "packages/agent-interface-command/src/index.ts",

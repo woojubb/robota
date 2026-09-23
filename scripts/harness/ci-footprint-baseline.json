@@ -1,9 +1,8 @@
 {
-  "jobs": 23,
+  "jobs": 24,
   "perWorkflow": {
-    "ci.yml": 19,
+    "ci.yml": 21,
     "claude-code-review.yml": 1,
-    "gitleaks.yml": 1,
     "review-gate.yml": 2
   }
 }

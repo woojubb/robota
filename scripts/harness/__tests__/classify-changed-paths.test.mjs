@@ -26,6 +26,7 @@ import {
   isFullVerificationPath,
   isDocsOnlyPath,
   isHarnessOwnerPath,
+  isPayloadNativePath,
   resolveCapabilityReachability,
 } from '../classify-changed-paths.mjs';
 
@@ -194,8 +195,49 @@ describe('classifyFiles', () => {
       examples: false,
       windows: false,
       cli: false,
+      payloadNative: false,
       full: false,
     });
+  });
+
+  it('routes only payload authority owners and their packaging control plane to native acceptance', () => {
+    for (const file of [
+      'packages/agent-file-authority/src/index.ts',
+      'packages/agent-session/src/session-log-sources.ts',
+      'packages/agent-session/src/external-payload-resolver.ts',
+      'packages/agent-framework/src/workspace-trust/project-reader.ts',
+      'packages/agent-framework/src/interactive/session-persistence.ts',
+      'packages/agent-framework/src/interactive/workspace-session-store.ts',
+      'packages/agent-framework/src/paths.ts',
+      'packages/agent-cli/src/session-analyzer/session-analyze-command.ts',
+      'packages/agent-cli/src/startup/workspace-project-composition.ts',
+      'packages/agent-cli/scripts/build-bun.mjs',
+      'packages/agent-cli/scripts/e2e-native-file-authority.mjs',
+      'scripts/artifacts/pack.mjs',
+      'packages/agent-cli/package.json',
+      'packages/agent-session/tsdown.config.ts',
+      'packages/agent-file-authority/vitest.config.ts',
+      'scripts/artifacts/koffi-bun-plugin.mjs',
+      '.github/workflows/release-bun-binaries.yml',
+    ]) {
+      expect(isPayloadNativePath(file), file).toBe(true);
+      expect(classifyFiles([file], { capabilities: {} }).payloadNative, file).toBe(true);
+    }
+    expect(classifyFiles(['apps/blog/src/page.tsx'], { capabilities: {} }).payloadNative).toBe(
+      false,
+    );
+    expect(classifyFiles(['packages/agent-session/docs/SPEC.md']).payloadNative).toBe(false);
+    expect(classifyFiles(['pnpm-lock.yaml'], { capabilities: {} }).payloadNative).toBe(true);
+  });
+
+  it('does not dispatch five native hosts for unrelated package source edits', () => {
+    for (const file of [
+      'packages/agent-cli/src/remote-control/remote-control-controller.ts',
+      'packages/agent-framework/src/evals/runner.ts',
+      'packages/agent-session/src/context-window-tracker.ts',
+    ]) {
+      expect(classifyFiles([file], { capabilities: {} }).payloadNative, file).toBe(false);
+    }
   });
 
   it('routes expensive capabilities by direct owner instead of dependency fanout', () => {
@@ -395,6 +437,7 @@ describe('classifyFiles', () => {
       examples: true,
       windows: true,
       cli: true,
+      payloadNative: true,
       harness: true,
       hermetic: true,
       full: true,
@@ -655,6 +698,7 @@ describe('CLI (the shape both workflows call)', () => {
     expect(result.stdout).toMatch(/^examples=(true|false)$/m);
     expect(result.stdout).toMatch(/^windows=(true|false)$/m);
     expect(result.stdout).toMatch(/^cli=(true|false)$/m);
+    expect(result.stdout).toMatch(/^payload_native=(true|false)$/m);
     expect(result.stdout).toMatch(/^harness=(true|false)$/m);
     expect(result.stdout).toMatch(/^hermetic=(true|false)$/m);
     expect(result.stdout).toMatch(/^build_machinery=(true|false)$/m);
@@ -696,6 +740,9 @@ describe('CI capability wiring', () => {
     for (const output of ['tui', 'examples', 'windows', 'cli', 'build_machinery']) {
       expect(workflow).toContain(`${output}: \${{ steps.filter.outputs.${output} }}`);
     }
+    expect(workflow).toContain(
+      "payload_native: ${{ steps.filter.outputs.payload_native == 'true' || steps.control-plane.outputs.full == 'true' }}",
+    );
     for (const output of ['product', 'harness', 'hermetic', 'workflow', 'dependencies', 'full']) {
       expect(workflow).toContain(`steps.control-plane.outputs.${output}`);
     }

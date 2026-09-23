@@ -1,12 +1,18 @@
 import { sep } from 'node:path';
 
 import {
+  createStableRootedFileReader,
+  StableFileAuthorityError,
+} from '@robota-sdk/agent-file-authority';
+
+import {
   inspectProjectKindFromHandle,
   listProjectDirectoryFromHandle,
-  readProjectBytesFromHandle,
 } from './project-reader-handle.js';
 import {
+  assertCurrentWorkspaceIdentity,
   assertProjectReadPurpose,
+  ProjectReadLimitExceededError,
   refuseProjectRead,
   resolveProjectReadLimit,
   workspacePathSegments,
@@ -14,8 +20,8 @@ import {
 import {
   inspectPortableProjectKind,
   listPortableProjectDirectory,
-  readPortableProjectBytes,
 } from './project-reader-portable.js';
+import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 
 import type {
   IWorkspaceAncestorTextEntry,
@@ -28,6 +34,52 @@ import type {
 } from './types.js';
 
 const projectReaders = new WeakMap<object, () => void>();
+const FIRST_BYTE_OVER_LIMIT = BigInt('1');
+
+function readProjectBytes(
+  identity: IWorkspaceIdentity,
+  identityResolver: IWorkspaceIdentityResolver,
+  segments: readonly string[],
+  maxBytes: number,
+): Uint8Array | undefined {
+  assertCurrentWorkspaceIdentity(identity, identityResolver);
+  try {
+    const reader = createStableRootedFileReader(identity.worktreeRoot);
+    try {
+      return reader.readBytes(segments, maxBytes);
+    } finally {
+      reader.close();
+    }
+  } catch (error) {
+    if (error instanceof StableFileAuthorityError) {
+      if (error.code === 'OVER_BUDGET') {
+        return throwProjectReadLimitExceeded(maxBytes);
+      }
+      const message = stableProjectReadRefusalMessage(error);
+      throw new WorkspaceAuthorityRequiredError(message, error);
+    }
+    if (error instanceof WorkspaceAuthorityRequiredError) throw error;
+    throw new WorkspaceAuthorityRequiredError(
+      'The project file could not be read through a stable root authority.',
+    );
+  } finally {
+    assertCurrentWorkspaceIdentity(identity, identityResolver);
+  }
+}
+
+function stableProjectReadRefusalMessage(error: StableFileAuthorityError): string {
+  if (error.code === 'UNSAFE_ENTRY') {
+    return 'Project file authority rejected an unsafe path entry.';
+  }
+  if (error.code === 'UNSUPPORTED_BACKEND') {
+    return 'This host cannot provide stable root-relative project reads.';
+  }
+  return 'The project file could not be read through a stable root authority.';
+}
+
+function throwProjectReadLimitExceeded(maxBytes: number): never {
+  throw new ProjectReadLimitExceededError(maxBytes, BigInt(maxBytes) + FIRST_BYTE_OVER_LIMIT);
+}
 
 class NodeWorkspaceProjectReader {
   constructor(
@@ -47,9 +99,11 @@ class NodeWorkspaceProjectReader {
     assertProjectReadPurpose(purpose);
     const segments = workspacePathSegments(relativePath);
     const limit = resolveProjectReadLimit(maxBytes);
-    return process.platform === 'linux'
-      ? readProjectBytesFromHandle(this.identity, this.identityResolver, segments, limit)
-      : readPortableProjectBytes(this.identity, this.identityResolver, segments, limit);
+    try {
+      return readProjectBytes(this.identity, this.identityResolver, segments, limit);
+    } finally {
+      this.assertActive();
+    }
   }
 
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[] {

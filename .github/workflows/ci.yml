@@ -232,6 +232,7 @@ jobs:
       examples: ${{ steps.filter.outputs.examples }}
       windows: ${{ steps.filter.outputs.windows }}
       cli: ${{ steps.filter.outputs.cli }}
+      payload_native: ${{ steps.filter.outputs.payload_native == 'true' || steps.control-plane.outputs.full == 'true' }}
       harness: ${{ steps.filter.outputs.harness == 'true' || steps.control-plane.outputs.harness == 'true' }}
       hermetic: ${{ steps.filter.outputs.hermetic == 'true' || steps.control-plane.outputs.hermetic == 'true' }}
       build_machinery: ${{ steps.filter.outputs.build_machinery }}
@@ -1191,6 +1192,166 @@ jobs:
           path: ${{ runner.temp }}/arch-026-windows-shell.json
           if-no-files-found: error
 
+  # PAYLOAD-2153: the root-relative authority is a native capability, so mocked platform names are
+  # not evidence. Each leg installs only its host Koffi addon, runs the contract on Node 22 and the
+  # published Node 20.19 floor, then builds and executes one self-contained Bun qualification binary
+  # from a directory with no node_modules. No matrix leg publishes or mutates repository state.
+  payload-native:
+    name: payload native / ${{ matrix.target }}
+    needs: changes
+    if: ${{ !cancelled() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != 'cancelled' && (needs.changes.result != 'success' || needs.changes.outputs.payload_native == 'true') }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            runner: ubuntu-24.04
+            binary: qualification
+            cli_binary: robota-linux-x64
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+            binary: qualification
+            cli_binary: robota-linux-arm64
+          - target: darwin-x64
+            runner: macos-26-intel
+            binary: qualification
+            cli_binary: robota-darwin-x64
+          - target: darwin-arm64
+            runner: macos-26
+            binary: qualification
+            cli_binary: robota-darwin-arm64
+          - target: windows-x64
+            runner: windows-2025
+            binary: qualification.exe
+            cli_binary: robota-windows-x64.exe
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.4
+
+      - name: Use repository Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.14.0
+          cache: 'pnpm'
+
+      - name: Install the native host dependency
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and test the leaf authority on Node 22
+        run: |
+          pnpm --filter @robota-sdk/agent-file-authority build
+          pnpm --filter @robota-sdk/agent-file-authority test
+          mkdir -p ".qualification-output/${{ matrix.target }}"
+          node packages/agent-file-authority/scripts/qualify-native.mjs \
+            | tee ".qualification-output/${{ matrix.target }}/node22.log"
+        shell: bash
+
+      - name: Use the published Node.js floor
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.0
+
+      - name: Qualify the public surface on Node 20.19
+        run: |
+          node packages/agent-file-authority/scripts/qualify-native.mjs \
+            | tee ".qualification-output/${{ matrix.target }}/node20.log"
+        shell: bash
+
+      - name: Restore repository Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.14.0
+
+      - name: Build the CLI dependency closure for replay verification
+        run: |
+          pnpm --filter @robota-sdk/agent-cli-web... build
+          pnpm --filter @robota-sdk/agent-cli... build
+
+      - name: Verify the public session replay scenario
+        run: |
+          pnpm --filter @robota-sdk/agent-session run scenario:verify:external-payload-replay \
+            | tee ".qualification-output/${{ matrix.target }}/session-replay.log"
+        shell: bash
+
+      - name: Pack, clean-install, and verify the Node CLI
+        run: |
+          set -euo pipefail
+          output_root="$PWD/.qualification-output/${{ matrix.target }}"
+          pack_root="$(mktemp -d "${RUNNER_TEMP}/payload-native-pack-${{ matrix.target }}-XXXXXX")"
+          install_root="$(mktemp -d "${RUNNER_TEMP}/payload-native-install-${{ matrix.target }}-XXXXXX")"
+          pnpm --filter @robota-sdk/agent-cli run pack:verified \
+            --package . \
+            --destination "$pack_root"
+          shopt -s nullglob
+          packages=("$pack_root"/*.tgz)
+          if [[ "${#packages[@]}" -ne 1 ]]; then
+            echo "::error::Expected one packed CLI archive, received ${#packages[@]}."
+            exit 1
+          fi
+          (
+            cd "$install_root"
+            npm init --yes >/dev/null
+            npm install --ignore-scripts --no-audit --no-fund "${packages[0]}"
+          )
+          node packages/agent-cli/scripts/e2e-native-file-authority.mjs \
+            --node \
+            "$install_root/node_modules/@robota-sdk/agent-cli/dist/node/bin.js" \
+            | tee "$output_root/node-cli.log"
+        shell: bash
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Embed and execute the matching native addon without node_modules
+        run: |
+          set -euo pipefail
+          output_root=".qualification-output/${{ matrix.target }}"
+          standalone_root="$(mktemp -d "${RUNNER_TEMP}/payload-native-bun-${{ matrix.target }}-XXXXXX")"
+          qualification_binary="$standalone_root/${{ matrix.binary }}"
+          pnpm --filter @robota-sdk/agent-file-authority qualify:bun:build "$qualification_binary"
+          (cd "$standalone_root" && "$qualification_binary") | tee "$output_root/bun.log"
+
+          bun packages/agent-cli/scripts/build-bun.mjs "${{ matrix.target }}"
+          node scripts/artifacts/generation-image.mjs \
+            packages/agent-cli \
+            dist-bun \
+            "$standalone_root/cli"
+          cli_binary="$standalone_root/cli/${{ matrix.cli_binary }}"
+          (cd "$standalone_root/cli" && "$cli_binary" --version)
+          node packages/agent-cli/scripts/e2e-native-file-authority.mjs "$cli_binary" \
+            | tee "$output_root/bun-cli.log"
+
+          node packages/agent-file-authority/scripts/write-native-evidence.mjs \
+            --target "${{ matrix.target }}" \
+            --output "$output_root/evidence-${{ matrix.target }}.json" \
+            --node20-log "$output_root/node20.log" \
+            --node22-log "$output_root/node22.log" \
+            --bun-log "$output_root/bun.log" \
+            --session-log "$output_root/session-replay.log" \
+            --node-cli-log "$output_root/node-cli.log" \
+            --bun-cli-log "$output_root/bun-cli.log"
+        shell: bash
+
+      - name: Upload one native evidence record
+        uses: actions/upload-artifact@v7
+        with:
+          name: payload-native-${{ matrix.target }}-${{ github.run_id }}
+          path: .qualification-output/${{ matrix.target }}/evidence-${{ matrix.target }}.json
+          if-no-files-found: error
+          retention-days: 7
+
   # TEST-010: run the TUI PTY E2E suite (`*.ptytest.ts`) against the BUILT robota binary on every PR,
   # so the live-TUI behaviours — the SCREEN-013 Ctrl+B drill-in entry point and the existing
   # flag/scrollback/handoff PTY checks — are maintained, not bit-rotting outside CI.
@@ -1283,7 +1444,10 @@ jobs:
       - tui-e2e
       - product-integration
       - external-units
-    if: ${{ always() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != '' && needs.build.result != '' && needs.repo-checks.result != '' && needs.harness-contracts.result != '' && needs.harness-hermetic.result != '' && needs.actionlint.result != '' && needs.examples-typecheck.result != '' && needs.windows-shell.result != '' && needs.tui-e2e.result != '' && needs.product-integration.result != '' && needs.external-units.result != '' }}
+      - payload-native
+    if: ${{ always() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != '' && needs.build.result != '' && needs.repo-checks.result != '' && needs.harness-contracts.result != '' && needs.harness-hermetic.result != '' && needs.actionlint.result != '' && needs.examples-typecheck.result != '' && needs.windows-shell.result != '' && needs.tui-e2e.result != '' && needs.product-integration.result != '' && needs.external-units.result != '' && needs.payload-native.result != '' }}
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate selected verification without rerunning it
@@ -1299,6 +1463,8 @@ jobs:
           TUI_RESULT: ${{ needs.tui-e2e.result }}
           PRODUCT_INTEGRATION_RESULT: ${{ needs.product-integration.result }}
           EXTERNAL_UNITS_RESULT: ${{ needs.external-units.result }}
+          PAYLOAD_NATIVE_RESULT: ${{ needs.payload-native.result }}
+          PAYLOAD_NATIVE_RELEVANCE: ${{ needs.changes.outputs.payload_native }}
           PRODUCT_APPLICABLE: ${{ needs.changes.outputs.product == 'true' || needs.changes.outputs.build_machinery == 'true' || needs.changes.outputs.full == 'true' }}
           HARNESS_APPLICABLE: ${{ needs.changes.outputs.harness == 'true' || needs.changes.outputs.full == 'true' }}
           HERMETIC_APPLICABLE: ${{ needs.changes.outputs.hermetic == 'true' || needs.changes.outputs.full == 'true' }}
@@ -1331,6 +1497,10 @@ jobs:
             echo "::error::repo-checks concluded ${REPO_CHECKS_RESULT}"
             exit 1
           }
+          [[ "$PAYLOAD_NATIVE_RELEVANCE" == true || "$PAYLOAD_NATIVE_RELEVANCE" == false ]] || {
+            echo "::error::payload_native relevance is missing or invalid: '${PAYLOAD_NATIVE_RELEVANCE}'"
+            exit 1
+          }
 
           failed=0
           check build "$BUILD_RESULT" "$PRODUCT_APPLICABLE" || failed=1
@@ -1342,4 +1512,23 @@ jobs:
           check tui-e2e "$TUI_RESULT" "$TUI_APPLICABLE" || failed=1
           check product-integration "$PRODUCT_INTEGRATION_RESULT" "$PRODUCT_INTEGRATION_APPLICABLE" || failed=1
           check external-units "$EXTERNAL_UNITS_RESULT" "$EXTERNAL_UNITS_APPLICABLE" || failed=1
+          check payload-native "$PAYLOAD_NATIVE_RESULT" "$PAYLOAD_NATIVE_RELEVANCE" || failed=1
           exit "$failed"
+
+      - name: Check out native evidence verifier
+        if: needs.changes.outputs.payload_native == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+
+      - name: Download all native evidence records
+        if: needs.changes.outputs.payload_native == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          pattern: payload-native-*-${{ github.run_id }}
+          path: .qualification-evidence
+          merge-multiple: true
+
+      - name: Verify the exact native evidence set
+        if: needs.changes.outputs.payload_native == 'true'
+        run: node scripts/harness/payload-native-evidence.mjs .qualification-evidence

@@ -10,6 +10,7 @@
       "@robota-sdk/agent-command",
       "@robota-sdk/agent-core",
       "@robota-sdk/agent-executor",
+      "@robota-sdk/agent-file-authority",
       "@robota-sdk/agent-framework",
       "@robota-sdk/agent-interface-analytics",
       "@robota-sdk/agent-interface-command",

@@ -4,6 +4,7 @@
 packages/
 ├── agent-core/                  # Foundation contracts, engine, events, hooks, permissions
 ├── agent-executor/               # Reusable background task and subagent lifecycle/state/ports
+├── agent-file-authority/         # Domain-free stable root-relative bounded file reads over retained native handles; zero @robota-sdk deps, leaf. Consumed by agent-session/agent-framework (PAYLOAD-2153)
 ├── agent-session/               # Session lifecycle and persistence
 ├── agent-session-analytics/     # Session-log timing analysis + reporting (pure; depends on agent-interface-transport + agent-core)
 ├── agent-tools/                 # Tool factories (createFunctionTool/createZodFunctionTool → core's FunctionTool), built-ins, sandbox ports/manifests
