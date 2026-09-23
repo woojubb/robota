@@ -1121,17 +1121,22 @@ Scripted provider fixtures are owned by `@robota-sdk/agent-core/testing`.
 | Export                                    | Kind     | Description                                                                                                                                                              |
 | ----------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `TransportRegistry`                       | class    | Base adapter lifecycle registry with configurable-only settings projection                                                                                               |
+| `bindTransportAdapter`                    | function | Bind one raw service/runner adapter to its exact session capability before registry registration; attach occurs after settings delivery on each start                    |
 | `createFileTransportSettingsRepository`   | function | TRANS-010 (issue #2480): an `ITransportSettingsRepository` over the `transports` section of one settings file — the shell composes it, the registry never touches a path |
 | `createMemoryTransportSettingsRepository` | function | TRANS-010: an `ITransportSettingsRepository` held in memory — tests, and hosts with no settings file                                                                     |
 
 ### Extension Points
 
-Register any `ITransportAdapter` into a `TransportRegistry`. A service or runner that also satisfies
-the orthogonal `ITransportSettingsCapability` appears as `TConfigurableTransport` in `getAll()` and
+Bind a raw `ITransportAdapter<TSession>` with `bindTransportAdapter(adapter, sessionCapability)` at the
+composition root, then register the resulting `TBoundTransportAdapter` into a `TransportRegistry`.
+The registry receives no session at `startAll()` and retains no raw adapter or `IInteractiveSession`.
+A service or runner that also satisfies
+the orthogonal `ITransportSettingsCapability` appears as `TBoundConfigurableTransport` in `getAll()` and
 persists enablement/options under `transports` in settings.json; a base-only adapter is
 lifecycle-enabled and absent from settings. The legacy `IConfigurableTransport` name remains the
-source-compatible configurable-service shape. Duplicate names reject. Unknown or non-configurable
-settings mutations reject `TransportConfigurationError`.
+configurable-service shape. A newly constructed session rebinds and replaces the registered adapter
+before restart. Duplicate names reject. Unknown or non-configurable settings mutations reject
+`TransportConfigurationError`.
 
 ### Error Taxonomy
 

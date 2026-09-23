@@ -113,21 +113,22 @@ function requestPermission(
 }
 
 function makeMockTransportRegistry(): {
-  registry: ITransportRegistryView<IInteractiveSession>;
+  registry: ITransportRegistryView;
   startAll: ReturnType<typeof vi.fn>;
   stopAll: ReturnType<typeof vi.fn>;
 } {
   const startAll = vi.fn().mockResolvedValue(undefined);
   const stopAll = vi.fn().mockResolvedValue({ errors: [] });
   return {
-    registry: { startAll, stopAll } as unknown as ITransportRegistryView<IInteractiveSession>,
+    registry: { startAll, stopAll } as unknown as ITransportRegistryView,
     startAll,
     stopAll,
   };
 }
 
 function makeChannel(opts?: {
-  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
+  transportRegistry?: ITransportRegistryView;
+  bindTransports?: (session: IInteractiveSession) => void;
   onSessionEventDeliveryError?: (error: Error, event: TInteractiveEventName) => void;
 }): TuiInteractionChannel {
   return new TuiInteractionChannel({
@@ -225,6 +226,24 @@ describe('Group A — channel.start() / channel.stop() lifecycle', () => {
     await channel.stop();
 
     expect(stopAll).toHaveBeenCalledOnce();
+  });
+
+  it('binds each replacement channel to its own session before transport startup', async () => {
+    const { registry, startAll } = makeMockTransportRegistry();
+    const bindTransports = vi.fn();
+    const first = makeChannel({ transportRegistry: registry, bindTransports });
+    await first.start();
+    await first.stop();
+    const second = makeChannel({ transportRegistry: registry, bindTransports });
+    await second.start();
+
+    expect(bindTransports).toHaveBeenNthCalledWith(1, getMockSession(first));
+    expect(bindTransports).toHaveBeenNthCalledWith(2, getMockSession(second));
+    expect(getMockSession(first)).not.toBe(getMockSession(second));
+    expect(startAll).toHaveBeenCalledTimes(2);
+    expect(startAll).toHaveBeenNthCalledWith(1);
+    expect(startAll).toHaveBeenNthCalledWith(2);
+    await second.stop();
   });
 
   it('A7: rolls back a failed transport start before retrying the real channel', async () => {

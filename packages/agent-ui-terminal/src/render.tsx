@@ -128,7 +128,8 @@ export interface IRenderOptions {
   /** REMOTE-006: optional remote-command policy (allow-by-default; local == remote). */
   remoteCommandPolicy?: IRemoteCommandPolicy;
   startupUpdateNotice?: Promise<string | undefined>;
-  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
+  transportRegistry?: ITransportRegistryView;
+  bindTransports?: ITuiInteractionChannelOptions['bindTransports'];
   cliAdapter: ITuiCliAdapter;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
@@ -234,6 +235,7 @@ export function toChannelOptions(
     shellExec: options.shellExec,
     remoteCommandPolicy: options.remoteCommandPolicy,
     transportRegistry: options.transportRegistry,
+    bindTransports: options.bindTransports,
     language: options.language,
     reloadPluginCommandSource: options.reloadPluginCommandSource,
     agentName: options.agentName,

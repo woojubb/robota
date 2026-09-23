@@ -33,6 +33,9 @@ the CLI. The composition root assigns trusted WS driver identities (`app`, `brow
 turn's persisted usage surface reflects the launch path rather than a client-provided claim. The same host-owned
 usage reporters are passed to paired and reconnecting WebRTC surfaces. `agent-framework` owns the neutral
 build-session + transport-lifecycle seam.
+The shell creates the WS adapter before session construction, then binds and registers it only after
+the serve or TUI host creates the session. A TUI session switch replaces the registry entry with a
+binding to the new session. The registry starts bound adapters without receiving a session argument.
 
 ARCH-011 runner propagation is explicit in serve mode. The host's `waitForFailure()` returns the
 first named nonzero runner outcome without waiting for unrelated runners; serve mode assigns that

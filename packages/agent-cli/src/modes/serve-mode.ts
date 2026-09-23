@@ -79,7 +79,8 @@ export interface IServeModeOptions {
   toolCallHandoff?: IToolCallHandoffPolicy;
   commandModules: readonly ICommandModule[];
   commandHostAdapters: ICommandHostAdapters;
-  transportRegistry: ITransportLifecycleRegistryView<IInteractiveSession>;
+  transportRegistry: ITransportLifecycleRegistryView;
+  bindTransports?: (session: IInteractiveSession) => void;
   remoteCommandPolicy?: IRemoteCommandPolicy;
   resumeSessionId?: string;
   /**
@@ -165,6 +166,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   const host = await startRuntimeHost({
     session: sessionOptions,
     transportRegistry: opts.transportRegistry,
+    ...(opts.bindTransports ? { bindTransports: opts.bindTransports } : {}),
   });
 
   // GUI-007: with `--serve --open`, the CLI serves its OWN monitor SPA over localhost HTTP (a localhost-origin

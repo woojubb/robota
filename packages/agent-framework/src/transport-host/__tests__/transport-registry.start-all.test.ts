@@ -7,9 +7,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
 
 import { TransportRegistry } from '../transport-registry.js';
+import { bindTransportAdapter } from '../bind-transport-adapter.js';
 
 import type {
   ITransportRunnerAdapter,
+  TTransportAdapter,
   TTransportRunOutcome,
 } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
@@ -30,6 +32,14 @@ function registryOverTempSettings(): TransportRegistry {
 
 function registryAtSettings(file: string): TransportRegistry {
   return new TransportRegistry(file);
+}
+
+function register(
+  registry: TransportRegistry,
+  adapter: TTransportAdapter<IInteractiveSession>,
+  session: IInteractiveSession = createTestInteractiveSession(),
+): void {
+  registry.register(bindTransportAdapter(adapter, session));
 }
 
 function restartableRunner(): ITransportRunnerAdapter<IInteractiveSession> & {
@@ -62,8 +72,8 @@ describe('TransportRegistry generation ownership (ARCH-011)', () => {
   it('holds a runner rejection across a macrotask without an unhandled rejection', async () => {
     const registry = registryOverTempSettings();
     const runner = restartableRunner();
-    registry.register(runner);
-    await registry.startAll(createTestInteractiveSession());
+    register(registry, runner);
+    await registry.startAll();
 
     runner.reject(0, new Error('prompt failed'));
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -78,11 +88,11 @@ describe('TransportRegistry generation ownership (ARCH-011)', () => {
   it('ignores a stale settlement after stop and preserves the current generation', async () => {
     const registry = registryOverTempSettings();
     const runner = restartableRunner();
-    registry.register(runner);
+    register(registry, runner);
 
-    await registry.startAll(createTestInteractiveSession());
+    await registry.startAll();
     await registry.stopAll();
-    await registry.startAll(createTestInteractiveSession());
+    await registry.startAll();
 
     runner.reject(0, new Error('stale failure'));
     runner.resolve(1, { status: 'succeeded', exitCode: 0 });
@@ -95,8 +105,8 @@ describe('TransportRegistry generation ownership (ARCH-011)', () => {
   it('treats a rejection without a value as a lifecycle failure', async () => {
     const registry = registryOverTempSettings();
     const runner = restartableRunner();
-    registry.register(runner);
-    await registry.startAll(createTestInteractiveSession());
+    register(registry, runner);
+    await registry.startAll();
 
     runner.reject(0);
 
@@ -109,12 +119,12 @@ describe('TransportRegistry generation ownership (ARCH-011)', () => {
   it('rejects an active second start before attaching or replacing the generation', async () => {
     const registry = registryOverTempSettings();
     const runner = restartableRunner();
-    registry.register(runner);
     const session = createTestInteractiveSession();
-    await registry.startAll(session);
+    register(registry, runner, session);
+    await registry.startAll();
     const completion = registry.waitForCompletion();
 
-    await expect(registry.startAll(session)).rejects.toMatchObject({ code: 'already-started' });
+    await expect(registry.startAll()).rejects.toMatchObject({ code: 'already-started' });
     expect(runner.attach).toHaveBeenCalledTimes(1);
     runner.resolve(0, createTransportFailedOutcome(3));
     await expect(completion).resolves.toEqual([
@@ -128,11 +138,11 @@ describe('TransportRegistry generation ownership (ARCH-011)', () => {
     tempDirs.push(dir);
     writeFileSync(file, '{');
     const registry = registryAtSettings(file);
-    registry.register(restartableRunner());
+    register(registry, restartableRunner());
 
-    await expect(registry.startAll(createTestInteractiveSession())).rejects.toBeDefined();
+    await expect(registry.startAll()).rejects.toBeDefined();
     writeFileSync(file, '{}');
-    await expect(registry.startAll(createTestInteractiveSession())).resolves.toBeUndefined();
+    await expect(registry.startAll()).resolves.toBeUndefined();
   });
 
   it('coalesces concurrent stop calls into one transport stop traversal', async () => {
@@ -145,8 +155,8 @@ describe('TransportRegistry generation ownership (ARCH-011)', () => {
       start: vi.fn().mockResolvedValue(undefined),
       stop: vi.fn(() => new Promise<void>((resolve) => (release = resolve))),
     };
-    registry.register(service);
-    await registry.startAll(createTestInteractiveSession());
+    register(registry, service);
+    await registry.startAll();
 
     const first = registry.stopAll();
     const second = registry.stopAll();
@@ -183,10 +193,10 @@ describe('TransportRegistry generation ownership (ARCH-011)', () => {
         order.push('stop:failing');
       },
     };
-    registry.register(first);
-    registry.register(failing);
+    register(registry, first);
+    register(registry, failing);
 
-    const error = await registry.startAll(createTestInteractiveSession()).catch((cause) => cause);
+    const error = await registry.startAll().catch((cause) => cause);
     expect(error).toMatchObject({
       name: 'TransportStartupError',
       transportName: 'failing',
@@ -229,10 +239,10 @@ describe('TransportRegistry generation ownership (ARCH-011)', () => {
       start: vi.fn().mockResolvedValue(undefined),
       stop: vi.fn().mockResolvedValue(undefined),
     };
-    registry.register(starting);
-    registry.register(later);
+    register(registry, starting);
+    register(registry, later);
 
-    const start = registry.startAll(createTestInteractiveSession());
+    const start = registry.startAll();
     await Promise.resolve();
     const stop = registry.stopAll();
 
@@ -261,8 +271,8 @@ describe('TransportRegistry generation ownership (ARCH-011)', () => {
         }
       }),
     };
-    registry.register(starting);
-    const start = registry.startAll(createTestInteractiveSession());
+    register(registry, starting);
+    const start = registry.startAll();
     await Promise.resolve();
     const stop = registry.stopAll();
 
@@ -292,10 +302,10 @@ describe('TransportRegistry generation ownership (ARCH-011)', () => {
       start: vi.fn(async () => Promise.reject(new Error('boom'))),
       stop: vi.fn().mockResolvedValue(undefined),
     };
-    registry.register(runner);
-    registry.register(failing);
+    register(registry, runner);
+    register(registry, failing);
 
-    await expect(registry.startAll(createTestInteractiveSession())).rejects.toMatchObject({
+    await expect(registry.startAll()).rejects.toMatchObject({
       name: 'TransportStartupError',
     });
     await expect(registry.waitForCompletion()).resolves.toEqual([

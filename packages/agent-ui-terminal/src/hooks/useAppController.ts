@@ -38,7 +38,7 @@ export interface IUseAppControllerOptions {
   initialInput?: string;
   initialInputOrigin?: 'external-link';
   startupUpdateNotice?: Promise<string | undefined>;
-  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
+  transportRegistry?: ITransportRegistryView;
   pluginAdapter?: ICommandPluginAdapter;
   sessionSwitchError?: string;
   sessionSwitchPending?: boolean;

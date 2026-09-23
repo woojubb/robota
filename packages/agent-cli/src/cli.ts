@@ -293,6 +293,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const {
     registry: transportRegistry,
     wsTransport,
+    bindTransports,
     usageReporters,
   } = createCliUsageTransportRegistry(
     workspaceComposition.sessionStore,
@@ -530,6 +531,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       commandModules,
       commandHostAdapters,
       transportRegistry,
+      bindTransports,
       // GUI-007 + SEC-001: point the served monitor at the live WS port AND carry the resolved auth token in
       // the `ws-url` (`?token=`) — zero-config authentication for the CLI's own localhost-origin monitor.
       getMonitorWsUrl: () => {
@@ -597,6 +599,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     shellExec: runShellCommand,
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
+    bindTransports,
     // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
     // host adapter (wired above) — no TUI-prop wiring remains.
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).

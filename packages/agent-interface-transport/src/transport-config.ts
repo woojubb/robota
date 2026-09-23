@@ -6,6 +6,7 @@ import type {
   ITransportCompletionRecord,
   ITransportFailureRecord,
   ITransportServiceAdapter,
+  TBoundTransportAdapter,
   TTransportAdapter,
 } from './transport-adapter.js';
 import type { IDestroyResult } from '@robota-sdk/agent-core';
@@ -50,8 +51,10 @@ export interface IConfigurableTransport<TSession = unknown>
 export type TConfigurableTransport<TSession = unknown> = TTransportAdapter<TSession> &
   ITransportSettingsCapability;
 
-export interface ITransportEntry<TSession = unknown> {
-  transport: TConfigurableTransport<TSession>;
+export type TBoundConfigurableTransport = TBoundTransportAdapter & ITransportSettingsCapability;
+
+export interface ITransportEntry {
+  transport: TBoundConfigurableTransport;
   config: ITransportConfig;
 }
 
@@ -64,20 +67,20 @@ export interface ITransportConfigurationError extends Error {
   readonly transportName: string;
 }
 
-export interface ITransportLifecycleRegistryView<TSession = unknown> {
-  register(transport: TTransportAdapter<TSession>): void;
-  startAll(session: TSession): Promise<void>;
+export interface ITransportLifecycleRegistryView {
+  register(transport: TBoundTransportAdapter): void;
+  startAll(): Promise<void>;
   waitForCompletion(): Promise<ITransportCompletionRecord[]>;
   waitForFailure(): Promise<ITransportFailureRecord | undefined>;
   /** Best-effort: never rejects; per-transport stop failures come back in the result (CORE-013). */
   stopAll(): Promise<IDestroyResult>;
 }
 
-export interface ITransportSettingsRegistryView<TSession = unknown> {
-  getAll(): ITransportEntry<TSession>[];
+export interface ITransportSettingsRegistryView {
+  getAll(): ITransportEntry[];
   setEnabled(name: string, enabled: boolean): Promise<void>;
   setOptions(name: string, options: Record<string, unknown>): Promise<void>;
 }
 
-export interface ITransportRegistryView<TSession = unknown>
-  extends ITransportLifecycleRegistryView<TSession>, ITransportSettingsRegistryView<TSession> {}
+export interface ITransportRegistryView
+  extends ITransportLifecycleRegistryView, ITransportSettingsRegistryView {}

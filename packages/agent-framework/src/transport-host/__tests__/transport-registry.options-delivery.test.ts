@@ -2,6 +2,7 @@ import { createTestInteractiveSession } from '@robota-sdk/agent-interface-sessio
 import { describe, expect, it, vi } from 'vitest';
 
 import { TransportRegistry } from '../transport-registry.js';
+import { bindTransportAdapter } from '../bind-transport-adapter.js';
 import { createMemoryTransportSettingsRepository } from '../transport-settings-repository.js';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
@@ -36,14 +37,21 @@ function configurableTransport(
 // `attach`, but a cast is what the contract-cast ratchet exists to refuse.
 const session = createTestInteractiveSession();
 
+function register(
+  registry: TransportRegistry,
+  transport: IConfigurableTransport<IInteractiveSession>,
+): void {
+  registry.register(bindTransportAdapter(transport, session));
+}
+
 describe('TransportRegistry option delivery (TRANS-002) over an injected repository (TRANS-010)', () => {
-  it('delivers persisted options through configure() before attach/start', async () => {
+  it('delivers persisted options through configure() before bound attach/start', async () => {
     const repository = createMemoryTransportSettingsRepository({ ws: { options: { port: 4321 } } });
     const registry = new TransportRegistry(repository);
     const transport = configurableTransport('ws');
-    registry.register(transport);
+    register(registry, transport);
 
-    await registry.startAll(session);
+    await registry.startAll();
 
     expect(transport.configure).toHaveBeenCalledWith({ port: 4321 });
     expect(transport.configure.mock.invocationCallOrder[0]).toBeLessThan(
@@ -54,16 +62,16 @@ describe('TransportRegistry option delivery (TRANS-002) over an injected reposit
   it('does not call configure() when nothing was saved', async () => {
     const registry = new TransportRegistry(createMemoryTransportSettingsRepository());
     const transport = configurableTransport('ws');
-    registry.register(transport);
-    await registry.startAll(session);
+    register(registry, transport);
+    await registry.startAll();
     expect(transport.configure).not.toHaveBeenCalled();
   });
 
   it('refuses to start with persisted options the transport rejects, naming the code', async () => {
     const repository = createMemoryTransportSettingsRepository({ ws: { options: { port: 'x' } } });
     const registry = new TransportRegistry(repository);
-    registry.register(configurableTransport('ws'));
-    await expect(registry.startAll(session)).rejects.toMatchObject({
+    register(registry, configurableTransport('ws'));
+    await expect(registry.startAll()).rejects.toMatchObject({
       name: 'TransportStartupError',
       transportName: 'ws',
       cause: { name: 'TransportConfigurationError', code: 'invalid-options' },
@@ -75,8 +83,8 @@ describe('TransportRegistry option delivery (TRANS-002) over an injected reposit
     const registry = new TransportRegistry(repository);
     const transport = configurableTransport('ws');
     delete (transport as { configure?: unknown }).configure;
-    registry.register(transport);
-    await expect(registry.startAll(session)).rejects.toMatchObject({
+    register(registry, transport);
+    await expect(registry.startAll()).rejects.toMatchObject({
       cause: { name: 'TransportConfigurationError', code: 'options-not-applicable' },
     });
   });
@@ -84,7 +92,7 @@ describe('TransportRegistry option delivery (TRANS-002) over an injected reposit
   it('setOptions validates before persisting and persists through the repository', async () => {
     const repository = createMemoryTransportSettingsRepository();
     const registry = new TransportRegistry(repository);
-    registry.register(configurableTransport('ws'));
+    register(registry, configurableTransport('ws'));
     await expect(registry.setOptions('ws', { port: 'nope' })).rejects.toMatchObject({
       name: 'TransportConfigurationError',
       code: 'invalid-options',

@@ -84,7 +84,7 @@ export interface IAppPluginViewModel {
 
 export interface IAppTransportViewModel {
   readonly visible: boolean;
-  readonly registry: ITransportRegistryView<IInteractiveSession> | undefined;
+  readonly registry: ITransportRegistryView | undefined;
   readonly close: () => void;
 }
 
