@@ -2,6 +2,8 @@
 
 import { randomUUID } from 'node:crypto';
 
+import { jitterFixedLoop } from './loop-jitter.js';
+
 import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
@@ -22,6 +24,8 @@ const USAGE =
 export interface ILoopCommandOptions {
   /** Product-host-owned maintenance text, used only when the operator omits a prompt. */
   defaultPrompt?: string;
+  /** Re-read the project/user default for each new loop; an explicit prompt never calls this. */
+  resolveDefaultPrompt?: () => string;
   /** Host kill switch; listing and stopping existing loops remain available. */
   disabled?: boolean;
 }
@@ -212,12 +216,21 @@ async function createLoop(
   args: string,
   options: ILoopCommandOptions,
 ): Promise<ICommandResult> {
-  const parsed = parseCreate(args, options.defaultPrompt);
+  const useDefaultPrompt = args === '' || /^\d+(s|m|h|d)$/i.test(args);
+  let defaultPrompt = options.defaultPrompt;
+  if (useDefaultPrompt && options.resolveDefaultPrompt) {
+    try {
+      defaultPrompt = options.resolveDefaultPrompt();
+    } catch (error) {
+      return { success: false, message: `Default loop prompt could not be loaded: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+  const parsed = parseCreate(args, defaultPrompt);
   if (!parsed) {
     if (/^\d+[a-z](?:\s|$)/i.test(args) || TRAILING_INTERVAL.test(args)) {
       return { success: false, message: USAGE };
     }
-    const instruction = (args || options.defaultPrompt || '').trim();
+    const instruction = (args || defaultPrompt || '').trim();
     if (!instruction || (args === '' && instruction.length > MAX_DEFAULT_PROMPT_LENGTH)) {
       return { success: false, message: USAGE };
     }
@@ -230,7 +243,9 @@ async function createLoop(
     }
     pendingCreates.set(host, pending + 1);
     try {
-      const loop = await host.createSelfPacedLoop(instruction);
+      const loop = useDefaultPrompt
+        ? await host.createSelfPacedLoop(instruction, { useDefaultPrompt: true })
+        : await host.createSelfPacedLoop(instruction);
       return {
         success: true,
         message: `Self-paced loop ${loop.loopId} started. It will choose a 1–60 minute delay after each iteration and expires ${loop.expiresAt}. Stop with /loop stop ${loop.loopId}.`,
@@ -252,6 +267,7 @@ async function createLoop(
   const cadence = chooseCadence(parsed.requestedMs);
   const label = `${LOOP_LABEL}${parsed.instruction.slice(0, MAX_LABEL_LENGTH)}`;
   const loopId = `loop_${randomUUID()}`;
+  const jitter = jitterFixedLoop(loopId, cadence);
   const nowMs = Date.now();
   const firstAllowedAt = new Date(nowMs + parsed.requestedMs).toISOString();
   const expiresAt = new Date(nowMs + LOOP_LIFETIME_MS).toISOString();
@@ -260,10 +276,11 @@ async function createLoop(
   try {
     task = await host.spawnScheduledWake({
       label,
-      cronExpression: cadence.cronExpression,
+      cronExpression: jitter.cronExpression,
       agentInstruction: parsed.instruction,
       sessionLoop: true,
       sessionLoopId: loopId,
+      ...(useDefaultPrompt ? { sessionLoopDefaultPrompt: true } : {}),
       sessionLoopFirstAllowedAt: firstAllowedAt,
       sessionLoopExpiresAt: expiresAt,
     });
@@ -277,13 +294,14 @@ async function createLoop(
     task.nextFireAt && task.nextFireAt >= firstAllowedAt ? ` Next fire: ${task.nextFireAt}.` : '';
   return {
     success: true,
-    message: `Loop ${loopId} uses a ${cadence.description}${rounded} local-clock step; elapsed gaps can change with daylight saving. First eligible at or after ${firstAllowedAt}.${nextFire} Expires: ${expiresAt}. Stop with /loop stop ${loopId}.`,
+    message: `Loop ${loopId} uses a ${cadence.description}${rounded} local-clock step with stable offset +${jitter.jitterSeconds}s; elapsed gaps can change with daylight saving. First eligible at or after ${firstAllowedAt}.${nextFire} Expires: ${expiresAt}. Stop with /loop stop ${loopId}.`,
     data: {
       loopId,
       taskId: task.id,
       requestedMs: parsed.requestedMs,
       cadenceLabel: cadence.description,
-      cronExpression: cadence.cronExpression,
+      cronExpression: jitter.cronExpression,
+      jitterSeconds: jitter.jitterSeconds,
       firstAllowedAt,
       expiresAt,
     },

@@ -59,6 +59,8 @@ Self-paced repeats keep their stable identity and lifecycle in the session recor
 disposable scheduled-task id. A waiting loop records its next allowed instant and the reason for
 that choice; a pending or running iteration records enough identity to reject stale wakes after
 resume. Stopped and expired loops remain terminal records rather than silently disappearing.
+An omitted-prompt marker survives alongside the loop so the host can re-read its default before
+future iterations, without changing loops created with explicit instructions.
 
 ### Session capability presence
 

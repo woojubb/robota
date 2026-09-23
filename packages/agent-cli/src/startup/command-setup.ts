@@ -35,7 +35,7 @@ import {
 } from '@robota-sdk/agent-command-workflows';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { buildDoctorInputs } from './doctor-inputs.js';
-import { areSessionLoopsDisabled, DEFAULT_LOOP_MAINTENANCE_PROMPT } from './loop-options.js';
+import { areSessionLoopsDisabled, createLoopDefaultPromptResolver, DEFAULT_LOOP_MAINTENANCE_PROMPT } from './loop-options.js';
 import { createDefaultPluginCommandAdapter } from '../plugins/default-plugin-command-adapter.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
 import type { IOutputStyleRegistry } from '@robota-sdk/agent-preset';
@@ -224,6 +224,7 @@ export function buildCommandSetup(
     doctorInputs,
     loopOptions: {
       defaultPrompt: DEFAULT_LOOP_MAINTENANCE_PROMPT,
+      resolveDefaultPrompt: createLoopDefaultPromptResolver({ projectAccess: workspaceComposition.projectAccess, userHome: homedir() }),
       disabled: areSessionLoopsDisabled(process.env),
     },
     ...(orgPolicy === null ? {} : { orgPolicy }),

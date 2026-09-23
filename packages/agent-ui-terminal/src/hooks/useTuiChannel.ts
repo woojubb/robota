@@ -52,6 +52,7 @@ export interface ITuiChannelState {
   handleSubmit: (input: string) => Promise<void>;
   handleAbort: () => void;
   handleCancelQueue: () => void;
+  handleStopWaitingLoop: () => Promise<void>;
   handleShutdown: (reason?: TSessionEndReason) => Promise<void>;
   sendAgentJob: (taskId: string, input: string) => Promise<void>;
   resolveUserAction: (request: IActionRequest, response: TActionResponse) => void;
@@ -117,6 +118,7 @@ export function useTuiChannel(channel: ITuiAppChannelPort): ITuiChannelState {
     handleSubmit: (input) => channel.handleInput(input),
     handleAbort: () => channel.abort(),
     handleCancelQueue: () => channel.cancelQueue(),
+    handleStopWaitingLoop: () => channel.stopWaitingSelfPacedLoop(),
     handleShutdown: (reason) => channel.shutdown({ reason }),
     sendAgentJob: (taskId, input) => channel.sendAgentJob(taskId, input),
     resolveUserAction: (request, response) => channel.resolveUserAction(request, response),

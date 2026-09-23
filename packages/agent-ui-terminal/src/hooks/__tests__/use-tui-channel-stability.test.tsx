@@ -56,6 +56,7 @@ function makeFakeChannel(): ITuiAppChannelPort & { emitChange: () => void } {
     handleInput: () => Promise.resolve(),
     abort: () => undefined,
     cancelQueue: () => undefined,
+    stopWaitingSelfPacedLoop: () => Promise.resolve(),
     shutdown: () => Promise.resolve(),
     selectExecutionWorkspaceEntry: () => undefined,
     readExecutionWorkspaceDetail: () => Promise.resolve({ entryId: 'x', records: [] }),

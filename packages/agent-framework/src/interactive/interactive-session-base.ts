@@ -341,6 +341,7 @@ export abstract class InteractiveSessionBase {
     agentInstruction: string;
     sessionLoop?: boolean;
     sessionLoopId?: string;
+    sessionLoopDefaultPrompt?: boolean;
     sessionLoopFirstAllowedAt?: string;
     sessionLoopExpiresAt?: string;
   }): Promise<IBackgroundTaskState> {
@@ -359,6 +360,9 @@ export abstract class InteractiveSessionBase {
             metadata: {
               sessionLoop: true,
               ...(input.sessionLoopId ? { sessionLoopId: input.sessionLoopId } : {}),
+              ...(input.sessionLoopDefaultPrompt
+                ? { sessionLoopDefaultPrompt: true, sessionLoopDefaultPromptSeed: input.agentInstruction }
+                : {}),
               ...(input.sessionLoopFirstAllowedAt
                 ? { sessionLoopFirstAllowedAt: input.sessionLoopFirstAllowedAt }
                 : {}),

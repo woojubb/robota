@@ -209,6 +209,7 @@ export class InteractiveSession
   private readonly promptRegistry: SessionPromptRegistry;
   private readonly projectAccess: TWorkspaceProjectAccess;
   private readonly providerErrorGuidance?: IProviderErrorGuidance;
+  private readonly resolveDefaultLoopPrompt?: () => string;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
@@ -227,6 +228,7 @@ export class InteractiveSession
       },
     });
     this.providerErrorGuidance = options.providerErrorGuidance;
+    this.resolveDefaultLoopPrompt = options.resolveDefaultLoopPrompt;
     this.sessionLoopsDisabled = options.disableSessionLoops ?? false;
     this.projectAccess =
       options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable');
@@ -606,8 +608,46 @@ export class InteractiveSession
 
   private async executeAcceptedTurn(entry: IQueuedInput): Promise<void> {
     const identity = this.parseSelfPacedWakeId(entry.options.wakeTaskId);
+    const selfPaced = identity ? this.selfPacedLoops.get(identity.loopId) : undefined;
+    const scheduled = entry.options.wakeTaskId
+      ? this.getBackgroundTaskManager()?.get(entry.options.wakeTaskId)
+      : undefined;
+    // A stale queued wake must not read a default file or stop a newer generation on load failure.
+    if (identity && (!selfPaced || !markSelfPacedLoopRunning(selfPaced, identity.generation, Date.now()) ||
+      this.sessionLoopsDisabled || this.selfPacedLoops.isSuspended())) {
+      this.execCtrl.turns.refuse(entry.turnId, 'cancelled');
+      this.execCtrl.wakeTaskIds.delete(entry.options.wakeTaskId!);
+      return;
+    }
+    let input = entry.input;
+    const liveFixedDefault = scheduled?.metadata?.['sessionLoopDefaultPrompt'] === true &&
+      scheduled.schedule?.agentInstruction === scheduled.metadata['sessionLoopDefaultPromptSeed'];
+    if (selfPaced?.useDefaultPrompt || liveFixedDefault) {
+      try {
+        if (!this.resolveDefaultLoopPrompt) throw new Error('Default loop prompt resolver is unavailable.');
+        const resolved = this.resolveDefaultLoopPrompt().trim();
+        if (!resolved || Buffer.byteLength(resolved, 'utf8') > 4_096) {
+          throw new Error('Default loop prompt must contain 1–4096 UTF-8 bytes.');
+        }
+        input = resolved;
+      } catch (error) {
+        const failure = error instanceof Error ? error : new Error(String(error));
+        if (identity) {
+          try {
+            await this.stopSelfPacedLoop(identity.loopId, 'Default loop prompt could not be loaded');
+          } catch (stopError) {
+            this.reportBackgroundError(stopError instanceof Error ? stopError : new Error(String(stopError)), 'session-loop');
+          }
+        }
+        this.execCtrl.turns.fail(entry.turnId, failure);
+        if (entry.options.wakeTaskId) this.execCtrl.wakeTaskIds.delete(entry.options.wakeTaskId);
+        this.reportBackgroundError(failure, 'session-loop');
+        return;
+      }
+    }
+    const displayInput = selfPaced?.useDefaultPrompt || liveFixedDefault ? input : entry.displayInput;
     if (identity) {
-      const current = this.selfPacedLoops.get(identity.loopId);
+      const current = selfPaced;
       const running = current && markSelfPacedLoopRunning(current, identity.generation, Date.now());
       if (!running || this.sessionLoopsDisabled || this.selfPacedLoops.isSuspended()) {
         this.execCtrl.turns.refuse(entry.turnId, 'cancelled');
@@ -623,8 +663,8 @@ export class InteractiveSession
       }
     }
     await this.execCtrl.executePrompt(
-      entry.input,
-      entry.displayInput,
+      input,
+      displayInput,
       entry.rawInput,
       this.agentsFileEntries,
       this.projectNotesFileEntries,
@@ -774,7 +814,10 @@ export class InteractiveSession
     return this.selfPacedLoops.list();
   }
 
-  async createSelfPacedLoop(instruction: string): Promise<ISessionLoopState> {
+  async createSelfPacedLoop(
+    instruction: string,
+    options: { useDefaultPrompt?: boolean } = {},
+  ): Promise<ISessionLoopState> {
     await this.ensureInitialized();
     if (this.sessionLoopsDisabled) throw new Error('Session loops are disabled by the host.');
     if (!this.sessionStore) throw new Error('A session store is required for a resumable loop.');
@@ -792,7 +835,7 @@ export class InteractiveSession
     if (fixedCount + dynamicCount >= 3) {
       throw new Error('At most 3 active loops are allowed. Stop one before creating another.');
     }
-    const state = createSelfPacedLoopState(`loop_${randomUUID()}`, instruction, Date.now());
+    const state = createSelfPacedLoopState(`loop_${randomUUID()}`, instruction, Date.now(), options);
     this.selfPacedLoops.commit(state);
     this.submitSelfPacedIteration(state);
     return state;
@@ -1033,6 +1076,7 @@ export class InteractiveSession
     agentInstruction: string;
     sessionLoop?: boolean;
     sessionLoopId?: string;
+    sessionLoopDefaultPrompt?: boolean;
     sessionLoopFirstAllowedAt?: string;
     sessionLoopExpiresAt?: string;
   }): Promise<IBackgroundTaskState> {

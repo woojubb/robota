@@ -94,6 +94,7 @@ export interface IScriptedSessionOptions {
   cwd?: string;
   /** Explicit host-issued project authority for contribution-discovery fixtures. */
   projectAccess?: TWorkspaceProjectAccess;
+  resolveDefaultLoopPrompt?: () => string;
   /** Ordered host-owned agent-definition roots for discovery tests. */
   agentDefinitionRoots?: readonly string[];
   /** Resume a persisted session by id (multi-session). Requires `persistence` + the same `cwd`. */
@@ -208,6 +209,7 @@ export class ScriptedSessionHarness {
       cwd: this.cwd,
       provider,
       ...(options.projectAccess ? { projectAccess: options.projectAccess } : {}),
+      ...(options.resolveDefaultLoopPrompt ? { resolveDefaultLoopPrompt: options.resolveDefaultLoopPrompt } : {}),
       ...(options.agentDefinitionRoots !== undefined
         ? { agentDefinitionRoots: options.agentDefinitionRoots }
         : {}),

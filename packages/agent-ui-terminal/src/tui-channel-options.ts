@@ -82,6 +82,7 @@ export interface ITuiInteractionChannelOptions {
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
   disableSessionLoops?: boolean;
+  resolveDefaultLoopPrompt?: () => string;
   resumeSessionId?: string;
   forkSession?: boolean;
   sessionName?: string;

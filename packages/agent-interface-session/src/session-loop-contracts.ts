@@ -5,6 +5,8 @@ export type TSessionLoopPhase = 'waiting' | 'pending' | 'running' | 'stopped' | 
 export interface ISessionLoopState {
   loopId: string;
   instruction: string;
+  /** Omitted prompts are re-resolved by the host before each iteration. */
+  useDefaultPrompt?: boolean;
   createdAt: string;
   expiresAt: string;
   /** Monotonic change counter, used to reconcile an ambiguous store write. */

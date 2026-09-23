@@ -25,6 +25,7 @@ const PHASES: readonly TSessionLoopPhase[] = [
 const KEYS = [
   'loopId',
   'instruction',
+  'useDefaultPrompt',
   'createdAt',
   'expiresAt',
   'revision',
@@ -46,6 +47,9 @@ export function decodeSessionLoopState(
   if (!raw) return undefined;
   const loopId = decodeString(raw['loopId'], atKey(path, 'loopId'), issues);
   const instruction = decodeString(raw['instruction'], atKey(path, 'instruction'), issues);
+  const useDefaultPrompt = decodeOptional(
+    raw['useDefaultPrompt'], atKey(path, 'useDefaultPrompt'), issues, decodeBoolean,
+  );
   const createdAt = decodeTimestampString(raw['createdAt'], atKey(path, 'createdAt'), issues);
   const expiresAt = decodeTimestampString(raw['expiresAt'], atKey(path, 'expiresAt'), issues);
   const revision = decodeInteger(raw['revision'], atKey(path, 'revision'), issues);
@@ -112,6 +116,7 @@ export function decodeSessionLoopState(
     phase,
     fallbackUsed,
   };
+  setOptional(state, 'useDefaultPrompt', useDefaultPrompt);
   setOptional(state, 'nextAllowedAt', nextAllowedAt);
   setOptional(state, 'delaySeconds', delaySeconds);
   setOptional(state, 'reason', reason);

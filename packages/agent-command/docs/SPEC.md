@@ -114,8 +114,11 @@ seven-day expiry; an expired loop is terminal and refuses to fire again even aft
 and stop are strictly persisted before they report success; ordinary turn snapshots remain
 best-effort. A host kill switch can block firing/re-arming while preserving paused records for a later
 restart, and separately refuses new-loop creation while still allowing `list`/`stop` so existing loops
-stay manageable. Jitter, Esc handling, and project/user prompt overrides remain outside this
-increment; the historical #2005 checklist in #2726 remains open for those behaviors.
+stay manageable. Fixed loops have a stable, loop-specific offset of at most 30 minutes or half
+their cadence, whichever is shorter, to avoid synchronized wake bursts; self-paced loops retain
+the model-selected delay without jitter. Omitted prompts use the host's live default at each
+iteration; an explicit schedule edit replaces that default for the edited fixed loop. Explicit
+prompts remain unchanged.
 
 **`orgPolicy` in `/provider`.** When an `IOrgPolicy` is supplied: a switch to a profile outside
 `allowedProviders` is rejected before any settings write; a completed provider setup whose API key is
