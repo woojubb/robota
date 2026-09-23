@@ -339,11 +339,21 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
   const externalEventListeners = new Set<TMCPExternalEventListener>();
   registerListChangedHandlers(client, listeners);
 
+  let externalEventsStopped = false;
+  const stopExternalEvents = (): void => {
+    externalEventsStopped = true;
+    externalEventListeners.clear();
+    client.removeNotificationHandler(MCP_EXTERNAL_EVENT_METHOD);
+  };
+  const previousOnClose = client.onclose;
+  client.onclose = () => {
+    stopExternalEvents();
+    previousOnClose?.();
+  };
   let closePromise: Promise<void> | undefined;
   const closeSession = (): Promise<void> => {
     if (!closePromise) {
-      externalEventListeners.clear();
-      client.removeNotificationHandler(MCP_EXTERNAL_EVENT_METHOD);
+      stopExternalEvents();
       closePromise = client.close();
     }
     return closePromise;
@@ -418,7 +428,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
       };
     },
     onExternalEvent(listener: TMCPExternalEventListener): () => void {
-      if (!externalEventsDeclared || closePromise) return () => undefined;
+      if (!externalEventsDeclared || externalEventsStopped) return () => undefined;
       externalEventListeners.add(listener);
       if (externalEventListeners.size === 1) {
         client.setNotificationHandler(ExternalEventNotificationSchema, (notification) => {

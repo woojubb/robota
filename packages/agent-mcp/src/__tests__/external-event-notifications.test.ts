@@ -114,4 +114,24 @@ describe('external event MCP notifications', () => {
     await Promise.resolve();
     expect(received).toEqual([EVENT]);
   });
+
+  it('ends subscriptions when the transport closes unexpectedly', async () => {
+    server = await startMockMcpServer({
+      capabilities: { tools: {}, experimental: { [MCP_EXTERNAL_EVENT_CAPABILITY]: { version: 1 } } },
+    });
+    let transport: Transport | undefined;
+    session = await openSession(server, (opened) => { transport = opened; });
+    const received: unknown[] = [];
+    session.onExternalEvent((event) => received.push(event));
+    await send(server, session, EVENT);
+    expect(received).toEqual([EVENT]);
+
+    const lateMessage = transport?.onmessage;
+    transport?.onclose?.();
+    session.onExternalEvent((event) => received.push(event));
+    lateMessage?.({ jsonrpc: '2.0', method: MCP_EXTERNAL_EVENT_METHOD, params: EVENT });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(received).toEqual([EVENT]);
+  });
 });
