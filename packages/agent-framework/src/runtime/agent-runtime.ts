@@ -5,7 +5,6 @@ import {
   type IBackgroundTaskRunner,
 } from '@robota-sdk/agent-executor';
 
-import { getUserSettingsPath, readSettings, writeSettings } from '../config/settings-io.js';
 import { InteractiveSession } from '../interactive/interactive-session.js';
 import {
   WorkspaceAuthorityRequiredError,
@@ -86,22 +85,11 @@ export interface IAgentRuntime {
   createSession(opts: IHeadlessSessionOptions): InteractiveSession;
 }
 
-function createDefaultRuntimeCommandHostAdapters(): ICommandHostAdapters {
-  const settingsPath = getUserSettingsPath();
-  return {
-    settings: {
-      read: () => readSettings(settingsPath),
-      write: (settings) => writeSettings(settingsPath, settings),
-    },
-  };
-}
-
 export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
   const backgroundTaskRunners =
     config.backgroundTaskRunners ?? createDefaultBackgroundTaskRunners();
   const commandModules = config.commandModules ?? [];
-  const commandHostAdapters =
-    config.commandHostAdapters ?? createDefaultRuntimeCommandHostAdapters();
+  const commandHostAdapters = config.commandHostAdapters ?? {};
   const sessionStore = 'sessionStore' in config ? config.sessionStore : undefined;
   const projectAccess =
     config.projectAccess ??

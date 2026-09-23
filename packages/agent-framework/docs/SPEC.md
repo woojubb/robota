@@ -50,7 +50,8 @@ React/Ink UI.
 - **Interactive user settings are explicit.** A session reads only the host-supplied user settings
   sources, and a provider switch reuses those same sources; an absent list never discovers an ambient
   home-directory settings file. SDK runtime, query, and programmatic-agent creators forward the
-  same optional sources to their sessions.
+  same optional sources to their sessions. A runtime without host command adapters does not attach
+  an ambient settings-file reader or writer; settings actions require a host-supplied adapter.
 - **Agent definition discovery is host-directed.** The framework searches only the ordered relative
   directories supplied by the host; absent roots mean no file discovery. Discovered definitions keep
   precedence over injected and built-in definitions, without selecting a product's directory names.
