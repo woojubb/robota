@@ -58,6 +58,7 @@ export interface IHeadlessInteractionChannelOptions {
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
+  disableSessionLoops?: boolean;
   /** Continue/resume an existing session by id (print-mode parity with TUI). */
   resumeSessionId?: string;
   /** Fork the resumed session into a new independent session instead of appending. */
@@ -182,6 +183,7 @@ export class HeadlessInteractionChannel {
         ? { responseFormat: this.opts.responseFormat }
         : {}),
       sessionStore: this.opts.sessionStore,
+      disableSessionLoops: this.opts.disableSessionLoops,
       resumeSessionId: this.opts.resumeSessionId,
       forkSession: this.opts.forkSession,
       sessionName: this.opts.sessionName,

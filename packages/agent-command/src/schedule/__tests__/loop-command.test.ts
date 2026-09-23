@@ -5,6 +5,62 @@ import { executeLoopCommand } from '../loop-command.js';
 import { createTestAgentJobHost } from '@robota-sdk/agent-framework/testing';
 
 describe('fixed in-session loop', () => {
+  it('uses the host maintenance prompt for bare and interval-only forms', async () => {
+    const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'loop_default' });
+    const host = createTestAgentJobHost({ spawnScheduledWake });
+    const options = { defaultPrompt: 'Tend only the current task and its PR.' };
+
+    expect((await executeLoopCommand(host, vi.fn(), '', options)).success).toBe(true);
+    expect(spawnScheduledWake).toHaveBeenCalledWith(
+      expect.objectContaining({ agentInstruction: options.defaultPrompt }),
+    );
+    expect((await executeLoopCommand(host, vi.fn(), '5m', options)).success).toBe(true);
+    expect(spawnScheduledWake).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        cronExpression: '0 */5 * * * *',
+        agentInstruction: options.defaultPrompt,
+      }),
+    );
+  });
+
+  it('assigns every new loop a seven-day expiry', async () => {
+    const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'loop_expiring' });
+    const host = createTestAgentJobHost({ spawnScheduledWake });
+    const before = Date.now();
+    const result = await executeLoopCommand(host, vi.fn(), '5m check');
+    const after = Date.now();
+    const expiresAt = spawnScheduledWake.mock.calls[0]?.[0].sessionLoopExpiresAt as string;
+
+    expect(result.success).toBe(true);
+    expect(Date.parse(expiresAt)).toBeGreaterThanOrEqual(before + 7 * 24 * 60 * 60_000);
+    expect(Date.parse(expiresAt)).toBeLessThanOrEqual(after + 7 * 24 * 60 * 60_000);
+    expect(result.message).toContain(expiresAt);
+  });
+
+  it('refuses loop creation when the host kill switch is on, but still permits list', async () => {
+    const spawnScheduledWake = vi.fn();
+    const host = createTestAgentJobHost({
+      spawnScheduledWake,
+      listSchedules: vi.fn().mockReturnValue([
+        {
+          id: 'loop_existing',
+          kind: 'scheduled',
+          status: 'sleeping',
+          label: 'Loop: existing',
+          metadata: { sessionLoop: true },
+        },
+      ]),
+    });
+    const options = { disabled: true, defaultPrompt: 'Tend current task.' };
+
+    expect((await executeLoopCommand(host, vi.fn(), '5m check', options)).success).toBe(false);
+    const listed = await executeLoopCommand(host, vi.fn(), 'list', options);
+    expect(listed.success).toBe(true);
+    expect(listed.message).toContain('loop_existing');
+    expect(listed.message).toContain('disabled');
+    expect(spawnScheduledWake).not.toHaveBeenCalled();
+  });
+
   it('uses a stable loop id to find a re-armed task after its runtime id changes', async () => {
     const spawnScheduledWake = vi
       .fn()
@@ -190,7 +246,7 @@ describe('fixed in-session loop', () => {
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 
-  it.each(['', 'check the build', '0m check', '2d check', '5x check', '5m check every 2m'])(
+  it.each(['', '0m check', '2d check', '5x check', '5m check every 2m'])(
     'rejects an unsupported or ambiguous loop form: %s',
     async (args) => {
       const spawnScheduledWake = vi.fn();

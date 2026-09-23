@@ -6,6 +6,7 @@
 import { executeLoopCommand } from './loop-command.js';
 import { executeMonitorCommand, executeScheduleCommand } from './schedule-command.js';
 
+import type { ILoopCommandOptions } from './loop-command.js';
 import type {
   IAgentJobHostContext,
   ICommandHostAgentJobs,
@@ -93,7 +94,7 @@ function createMonitorSystemCommand(): ISystemCommand {
   };
 }
 
-function createLoopSystemCommand(): ISystemCommand {
+function createLoopSystemCommand(options: ILoopCommandOptions): ISystemCommand {
   const entry = createLoopCommandEntry();
   return {
     name: entry.name,
@@ -111,6 +112,7 @@ function createLoopSystemCommand(): ISystemCommand {
         getAgentHostContext(context),
         (taskId, reason) => context.cancelBackgroundTask(taskId, reason),
         args,
+        options,
       ),
   };
 }
@@ -123,14 +125,14 @@ export class ScheduleCommandSource implements ICommandSource {
   }
 }
 
-export function createScheduleCommandModule(): ICommandModule {
+export function createScheduleCommandModule(options: ILoopCommandOptions = {}): ICommandModule {
   return {
     name: 'agent-command-schedule',
     commandSources: [new ScheduleCommandSource()],
     systemCommands: [
       createScheduleSystemCommand(),
       createMonitorSystemCommand(),
-      createLoopSystemCommand(),
+      createLoopSystemCommand(options),
     ],
     sessionRequirements: ['agent-runtime'],
   };

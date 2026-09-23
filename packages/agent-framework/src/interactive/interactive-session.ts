@@ -27,6 +27,7 @@ import {
   publicTurnOptions,
   submitNewTurn,
 } from './interactive-session-turn-submission.js';
+import { sessionLoopBlockReason, validatedSessionLoopExpiry } from './session-loop-lifecycle.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
@@ -116,6 +117,7 @@ export class InteractiveSession
   private initialized = false;
   private initPromise: Promise<void> | null = null;
   private sessionStore?: IInteractiveSessionStore;
+  private readonly sessionLoopsDisabled: boolean;
   /** Do not let best-effort event snapshots publish a loop before its strict creation write. */
   private readonly pendingLoopCreations = new Set<string>();
   /** Persist a loop stop before cancelling its timer so resume cannot re-arm a stale snapshot. */
@@ -188,6 +190,7 @@ export class InteractiveSession
     super();
     this.sessionStore = options.sessionStore;
     this.providerErrorGuidance = options.providerErrorGuidance;
+    this.sessionLoopsDisabled = options.disableSessionLoops ?? false;
     this.projectAccess =
       options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable');
     this.sessionName = options.sessionName;
@@ -249,6 +252,7 @@ export class InteractiveSession
       (instruction, taskId) => this.requestWakeup(instruction, taskId),
       (message) => this.histTracker.append(messageToHistoryEntry(createSystemMessage(message))),
       (entry) => this.histTracker.append(entry),
+      this.sessionLoopsDisabled,
     );
 
     this.histTracker = new SessionHistoryTracker(
@@ -594,6 +598,21 @@ export class InteractiveSession
    */
   requestWakeup(instruction: string, sourceTaskId: string): boolean {
     if (this.execCtrl.shuttingDown) return false;
+    const blocked = sessionLoopBlockReason(
+      this.getBackgroundTaskManager()?.get(sourceTaskId),
+      Date.now(),
+      this.sessionLoopsDisabled,
+    );
+    if (blocked) {
+      this.stoppedWakeTaskIds.add(sourceTaskId);
+      void this.cancelBackgroundTask(sourceTaskId, `Session loop ${blocked}`).catch((error) =>
+        this.reportBackgroundError(
+          error instanceof Error ? error : new Error(String(error)),
+          'session-loop',
+        ),
+      );
+      return false;
+    }
     if (this.stoppedWakeTaskIds.has(sourceTaskId)) return false;
     if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return false;
     this.execCtrl.wakeTaskIds.add(sourceTaskId);
@@ -613,6 +632,13 @@ export class InteractiveSession
     return true;
   }
 
+  override listSchedules(): IBackgroundTaskState[] {
+    return [
+      ...super.listSchedules(),
+      ...this.bgTracker.listHeldSessionLoops().filter((task) => task.kind === 'scheduled'),
+    ];
+  }
+
   override async cancelBackgroundTask(taskId: string, reason?: string): Promise<void> {
     // Admission must stop before any await: an already-fired wake may still be awaiting initialization.
     this.stoppedWakeTaskIds.add(taskId);
@@ -621,7 +647,8 @@ export class InteractiveSession
       // An accepted loop already initialized this session. Do not yield before its synchronous
       // stop write and queue removal: an active turn could drain the queued wake in that gap.
       if (!this.initialized) await this.ensureInitialized();
-      const task = this.bgTracker.getTask(taskId);
+      const heldTask = this.bgTracker.getHeldSessionLoop(taskId);
+      const task = this.bgTracker.getTask(taskId) ?? heldTask;
       const loopId = task?.metadata?.['sessionLoopId'];
       if (
         task?.metadata?.['sessionLoop'] === true &&
@@ -633,14 +660,19 @@ export class InteractiveSession
       }
       this.execCtrl.removePendingWake(taskId);
       this.execCtrl.wakeTaskIds.delete(taskId);
-      await this.bgTracker.cancelTask(taskId, reason);
+      if (heldTask) this.bgTracker.markHeldSessionLoopCancelled(taskId);
+      else await this.bgTracker.cancelTask(taskId, reason);
     } catch (error) {
       if (!durableStop) this.stoppedWakeTaskIds.delete(taskId);
       throw error;
     } finally {
       // If cancellation failed after the durable tombstone, keep both guards so a later snapshot
       // cannot revive the loop and a stray timer cannot submit another turn.
-      if (!durableStop || this.bgTracker.getTask(taskId)?.status === 'cancelled') {
+      if (
+        !durableStop ||
+        this.bgTracker.getTask(taskId)?.status === 'cancelled' ||
+        this.bgTracker.getHeldSessionLoop(taskId)?.status === 'cancelled'
+      ) {
         this.pendingLoopStops.delete(taskId);
       }
     }
@@ -652,15 +684,18 @@ export class InteractiveSession
     agentInstruction: string;
     sessionLoop?: boolean;
     sessionLoopId?: string;
+    sessionLoopExpiresAt?: string;
   }): Promise<IBackgroundTaskState> {
     await this.ensureInitialized();
     if (!input.sessionLoop) return super.spawnScheduledWake(input);
+    if (this.sessionLoopsDisabled) throw new Error('Session loops are disabled by the host.');
     if (!this.sessionStore) throw new Error('A session store is required for a resumable loop.');
     if (!input.sessionLoopId) throw new Error('A stable loop ID is required for a resumable loop.');
+    const sessionLoopExpiresAt = validatedSessionLoopExpiry(input.sessionLoopExpiresAt, Date.now());
     this.pendingLoopCreations.add(input.sessionLoopId);
     let task: IBackgroundTaskState | undefined;
     try {
-      task = await super.spawnScheduledWake(input);
+      task = await super.spawnScheduledWake({ ...input, sessionLoopExpiresAt });
       if (task.status !== 'sleeping' && task.status !== 'paused') {
         throw new Error(
           'Loop could not start a resumable timer; retry after capacity is available.',

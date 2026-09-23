@@ -11,11 +11,21 @@ const SECONDS_PER_MINUTE = 60;
 const HOURS_PER_DAY = 24;
 const MAX_LABEL_LENGTH = 48;
 const MAX_ACTIVE_LOOPS = 3;
+const DEFAULT_INTERVAL_MS = 10 * 60_000;
+const LOOP_LIFETIME_MS = 7 * 24 * 60 * 60_000;
+const MAX_DEFAULT_PROMPT_LENGTH = 4_096;
 const pendingCreates = new WeakMap<object, number>();
 const TRAILING_INTERVAL =
   /^([\s\S]+?)\s+every\s+(\d+)\s*(seconds?|minutes?|hours?|days?|s|m|h|d)$/i;
 const USAGE =
-  'Usage: /loop <N><s|m|h|d> <prompt> | /loop <prompt> every <N> <seconds|minutes|hours|days> | /loop list | /loop stop <id>. Fixed intervals up to one day are supported.';
+  'Usage: /loop [<N><s|m|h|d>] [<prompt>] | /loop <prompt> every <N> <seconds|minutes|hours|days> | /loop list | /loop stop <id>. Bare and interval-only forms require a host maintenance prompt.';
+
+export interface ILoopCommandOptions {
+  /** Product-host-owned maintenance text, used only when the operator omits a prompt. */
+  defaultPrompt?: string;
+  /** Host kill switch; listing and stopping existing loops remain available. */
+  disabled?: boolean;
+}
 
 const UNIT_MS: Record<string, number> = {
   s: 1_000,
@@ -66,7 +76,24 @@ function parseDuration(amountText: string, unit: string): number | undefined {
   return Number.isSafeInteger(milliseconds) && milliseconds <= UNIT_MS.d ? milliseconds : undefined;
 }
 
-function parseCreate(args: string): { instruction: string; requestedMs: number } | undefined {
+function parseCreate(
+  args: string,
+  defaultPrompt: string | undefined,
+): { instruction: string; requestedMs: number } | undefined {
+  const boundedDefault =
+    defaultPrompt && defaultPrompt.length <= MAX_DEFAULT_PROMPT_LENGTH
+      ? defaultPrompt.trim()
+      : undefined;
+  if (args === '') {
+    return boundedDefault
+      ? { instruction: boundedDefault, requestedMs: DEFAULT_INTERVAL_MS }
+      : undefined;
+  }
+  const intervalOnly = /^(\d+)(s|m|h|d)$/i.exec(args);
+  if (intervalOnly && boundedDefault) {
+    const requestedMs = parseDuration(intervalOnly[1]!, intervalOnly[2]!.toLowerCase());
+    return requestedMs === undefined ? undefined : { instruction: boundedDefault, requestedMs };
+  }
   const leading = /^(\d+)(s|m|h|d)\s+([\s\S]+)$/i.exec(args);
   if (leading) {
     const instruction = leading[3]!.trim();
@@ -113,22 +140,31 @@ export async function executeLoopCommand(
   host: Pick<IAgentJobHostContext, 'spawnScheduledWake' | 'listSchedules'>,
   cancelBackgroundTask: (taskId: string, reason: string) => Promise<void>,
   args: string,
+  options: ILoopCommandOptions = {},
 ): Promise<ICommandResult> {
   const trimmed = args.trim();
-  if (trimmed === 'list') return listLoops(host);
+  if (trimmed === 'list') return listLoops(host, options);
   if (/^stop(?:\s|$)/.test(trimmed)) return stopLoop(host, cancelBackgroundTask, trimmed);
 
-  return createLoop(host, trimmed);
+  if (options.disabled) {
+    return { success: false, message: 'Session loops are disabled by the host.' };
+  }
+  return createLoop(host, trimmed, options);
 }
 
-function listLoops(host: Pick<IAgentJobHostContext, 'listSchedules'>): ICommandResult {
+function listLoops(
+  host: Pick<IAgentJobHostContext, 'listSchedules'>,
+  options: ILoopCommandOptions,
+): ICommandResult {
   const loops = activeLoops(host);
+  const header = options.disabled ? 'Session loops are disabled by the host.\n' : '';
   return {
     success: true,
     message:
-      loops.length === 0
+      header +
+      (loops.length === 0
         ? 'No active loops.'
-        : loops.map((task) => `- ${loopIdOf(task)} [${task.status}] ${task.label}`).join('\n'),
+        : loops.map((task) => `- ${loopIdOf(task)} [${task.status}] ${task.label}`).join('\n')),
     data: { count: loops.length },
   };
 }
@@ -153,8 +189,9 @@ async function stopLoop(
 async function createLoop(
   host: Pick<IAgentJobHostContext, 'spawnScheduledWake' | 'listSchedules'>,
   args: string,
+  options: ILoopCommandOptions,
 ): Promise<ICommandResult> {
-  const parsed = parseCreate(args);
+  const parsed = parseCreate(args, options.defaultPrompt);
   if (!parsed) return { success: false, message: USAGE };
   const pending = pendingCreates.get(host) ?? 0;
   if (activeLoops(host).length + pending >= MAX_ACTIVE_LOOPS) {
@@ -166,6 +203,7 @@ async function createLoop(
   const cadence = chooseCadence(parsed.requestedMs);
   const label = `${LOOP_LABEL}${parsed.instruction.slice(0, MAX_LABEL_LENGTH)}`;
   const loopId = `loop_${randomUUID()}`;
+  const expiresAt = new Date(Date.now() + LOOP_LIFETIME_MS).toISOString();
   pendingCreates.set(host, pending + 1);
   let task: IBackgroundTaskState;
   try {
@@ -175,6 +213,7 @@ async function createLoop(
       agentInstruction: parsed.instruction,
       sessionLoop: true,
       sessionLoopId: loopId,
+      sessionLoopExpiresAt: expiresAt,
     });
   } finally {
     const remaining = (pendingCreates.get(host) ?? 1) - 1;
@@ -185,13 +224,14 @@ async function createLoop(
   const nextFire = task.nextFireAt ? ` Next fire: ${task.nextFireAt}.` : '';
   return {
     success: true,
-    message: `Loop ${loopId} uses a ${cadence.description}${rounded} local-clock step; elapsed gaps can change with daylight saving.${nextFire} Stop with /loop stop ${loopId}.`,
+    message: `Loop ${loopId} uses a ${cadence.description}${rounded} local-clock step; elapsed gaps can change with daylight saving.${nextFire} Expires: ${expiresAt}. Stop with /loop stop ${loopId}.`,
     data: {
       loopId,
       taskId: task.id,
       requestedMs: parsed.requestedMs,
       cadenceLabel: cadence.description,
       cronExpression: cadence.cronExpression,
+      expiresAt,
     },
   };
 }

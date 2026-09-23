@@ -40,6 +40,7 @@ interface ITestRecord {
 function setup(
   save: (record: ITestRecord) => void,
   maxConcurrent?: number,
+  disableSessionLoops = false,
 ) {
   const cancel = vi.fn().mockResolvedValue(undefined);
   const runner: IBackgroundTaskRunner = {
@@ -69,6 +70,7 @@ function setup(
     session,
     sessionStore: store as never,
     cwd: '/workspace',
+    disableSessionLoops,
   });
   return { interactive, manager, store, cancel, records };
 }
@@ -82,6 +84,47 @@ const loop = {
 };
 
 describe('session-loop creation durability', () => {
+  it('refuses loop creation while the host kill switch is on', async () => {
+    const { interactive, manager } = setup(() => undefined, undefined, true);
+    await expect(interactive.spawnScheduledWake(loop)).rejects.toThrow('disabled');
+    expect(manager.list()).toHaveLength(0);
+  });
+
+  it('refuses a loop that has already expired before a timer is spawned', async () => {
+    const { interactive, manager } = setup(() => undefined);
+    await expect(
+      interactive.spawnScheduledWake({
+        ...loop,
+        sessionLoopExpiresAt: '2000-01-01T00:00:00.000Z',
+      }),
+    ).rejects.toThrow('expired');
+    expect(manager.list()).toHaveLength(0);
+  });
+
+  it('rejects an expiry later than seven days instead of accepting an unbounded timer', async () => {
+    const { interactive, manager } = setup(() => undefined);
+    await expect(
+      interactive.spawnScheduledWake({
+        ...loop,
+        sessionLoopExpiresAt: new Date(Date.now() + 8 * 24 * 60 * 60_000).toISOString(),
+      }),
+    ).rejects.toThrow('seven days');
+    expect(manager.list()).toHaveLength(0);
+  });
+
+  it('refuses and cancels a loop wake after its seven-day expiry', async () => {
+    const { interactive, manager } = setup(() => undefined);
+    const expiresAt = new Date(Date.now() + 1_000).toISOString();
+    const task = await interactive.spawnScheduledWake({ ...loop, sessionLoopExpiresAt: expiresAt });
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse(expiresAt) + 1);
+    try {
+      expect(interactive.requestWakeup('check', task.id)).toBe(false);
+      await vi.waitFor(() => expect(manager.get(task.id)?.status).toBe('cancelled'));
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it('does not acknowledge a loop when its session record cannot be saved', async () => {
     const { interactive, manager, cancel } = setup(() => {
       throw new Error('disk full');
@@ -117,7 +160,9 @@ describe('session-loop creation durability', () => {
 
     await expect(interactive.spawnScheduledWake(loop)).rejects.toThrow('store disconnected');
     expect(
-      durable.at(-1)?.backgroundTasks?.some((task) => task.metadata?.['sessionLoopId'] === 'loop_stable'),
+      durable
+        .at(-1)
+        ?.backgroundTasks?.some((task) => task.metadata?.['sessionLoopId'] === 'loop_stable'),
     ).not.toBe(true);
   });
 
@@ -127,7 +172,10 @@ describe('session-loop creation durability', () => {
     }> = [];
     let unavailable = false;
     const { interactive } = setup((record) => {
-      if (unavailable || record.backgroundTasks?.some((task) => task.metadata?.['sessionLoopId'] === 'loop_b')) {
+      if (
+        unavailable ||
+        record.backgroundTasks?.some((task) => task.metadata?.['sessionLoopId'] === 'loop_b')
+      ) {
         unavailable = true;
         throw new Error('store disconnected');
       }
@@ -138,8 +186,14 @@ describe('session-loop creation durability', () => {
     const second = interactive.spawnScheduledWake({ ...loop, sessionLoopId: 'loop_b' });
     await expect(first).resolves.toMatchObject({ metadata: { sessionLoopId: 'loop_a' } });
     await expect(second).rejects.toThrow('store disconnected');
-    expect(durable.at(-1)?.backgroundTasks?.map((task) => task.metadata?.['sessionLoopId'])).toContain('loop_a');
-    expect(durable.at(-1)?.backgroundTasks?.some((task) => task.metadata?.['sessionLoopId'] === 'loop_b')).not.toBe(true);
+    expect(
+      durable.at(-1)?.backgroundTasks?.map((task) => task.metadata?.['sessionLoopId']),
+    ).toContain('loop_a');
+    expect(
+      durable
+        .at(-1)
+        ?.backgroundTasks?.some((task) => task.metadata?.['sessionLoopId'] === 'loop_b'),
+    ).not.toBe(true);
   });
 
   it('refuses a queued loop that could not be re-armed after restart', async () => {
@@ -213,9 +267,9 @@ describe('session-loop stop durability', () => {
       'disk full',
     );
     expect(manager.get(task.id)?.status).toBe('sleeping');
-    expect(records.get('loop_durable')?.backgroundTasks?.find((entry) => entry.id === task.id)?.status).toBe(
-      'sleeping',
-    );
+    expect(
+      records.get('loop_durable')?.backgroundTasks?.find((entry) => entry.id === task.id)?.status,
+    ).toBe('sleeping');
     expect(cancel).not.toHaveBeenCalled();
   });
 
@@ -225,9 +279,12 @@ describe('session-loop stop durability', () => {
     const { interactive, manager, records } = setup((record) => {
       if (
         observation.stoppedId &&
-        record.backgroundTasks?.some((entry) => entry.id === observation.stoppedId && entry.status === 'cancelled')
+        record.backgroundTasks?.some(
+          (entry) => entry.id === observation.stoppedId && entry.status === 'cancelled',
+        )
       ) {
-        beforeRuntimeCancellation ||= observation.manager?.get(observation.stoppedId)?.status === 'sleeping';
+        beforeRuntimeCancellation ||=
+          observation.manager?.get(observation.stoppedId)?.status === 'sleeping';
       }
     });
     observation.manager = manager;
@@ -237,8 +294,8 @@ describe('session-loop stop durability', () => {
     await interactive.cancelBackgroundTask(task.id, 'Loop stopped by user');
     expect(beforeRuntimeCancellation).toBe(true);
     expect(manager.get(task.id)?.status).toBe('cancelled');
-    expect(records.get('loop_durable')?.backgroundTasks?.find((entry) => entry.id === task.id)?.status).toBe(
-      'cancelled',
-    );
+    expect(
+      records.get('loop_durable')?.backgroundTasks?.find((entry) => entry.id === task.id)?.status,
+    ).toBe('cancelled');
   });
 });

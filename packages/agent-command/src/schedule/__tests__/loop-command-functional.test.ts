@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '@robota-sdk/agent-framework/testing';
 
@@ -11,6 +11,36 @@ afterEach(async () => {
 });
 
 describe('/loop command in a real interactive session', () => {
+  it('uses the host maintenance prompt, persists expiry, and refuses a wake after expiry', async () => {
+    const maintenancePrompt = 'Check the current work only.';
+    harness = scriptedSession({
+      turns: [{ text: 'unused' }],
+      commandModules: [createScheduleCommandModule({ defaultPrompt: maintenancePrompt })],
+      backgroundTasks: true,
+      persistence: true,
+    });
+
+    const created = await harness.command('loop', '');
+    expect(created?.success).toBe(true);
+    const { taskId, expiresAt } = created?.data as { taskId: string; expiresAt: string };
+    const scheduled = harness.session.listSchedules().find((task) => task.id === taskId);
+    expect(scheduled?.schedule?.agentInstruction).toBe(maintenancePrompt);
+    expect(scheduled?.metadata?.['sessionLoopExpiresAt']).toBe(expiresAt);
+
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse(expiresAt) + 1);
+    try {
+      expect(await harness.wake(maintenancePrompt, taskId)).toBeNull();
+      await vi.waitFor(() =>
+        expect(harness?.session.listSchedules().find((task) => task.id === taskId)?.status).toBe(
+          'cancelled',
+        ),
+      );
+      expect(harness.requests).toHaveLength(0);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it('creates, lists, and stops one scheduled wake without cancelling another schedule', async () => {
     harness = scriptedSession({
       turns: [{ text: 'unused' }],

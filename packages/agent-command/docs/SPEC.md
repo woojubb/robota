@@ -74,6 +74,7 @@ Types defined (SSOT) in this package:
 | `TDoctorCheckStatus`             | `src/doctor/doctor-types.ts`                    | `ok \| warn \| fail \| not-configured \| not-probed`; `not-probed` is the closed list `TDoctorNotProbed`                                              |
 | `IDoctorRepairPlan`              | `src/doctor/doctor-repair.ts`                   | An allowlisted repair the current state admits: id, description, target path                                                                          |
 | `IKeybindingsFilePort`           | `src/keybindings/keybindings-command-module.ts` | Minimal consumer-owned capability that ensures and returns the user keybindings path                                                                  |
+| `ILoopCommandOptions`            | `src/schedule/loop-command.ts`                  | Host-supplied maintenance prompt and loop kill-switch input                                                                                           |
 | `IProviderStartupContext`        | `src/provider/provider-startup.ts`              | Context passed to `runProviderStartupSetup`                                                                                                           |
 | `IEnsureProviderConfigOptions`   | `src/provider/provider-startup.ts`              | Options for `ensureProviderConfig`                                                                                                                    |
 | `IUserLocalDirectCommandOptions` | `src/user-local/user-local-command.ts`          | Options for `executeUserLocalDirectCommand`                                                                                                           |
@@ -200,8 +201,12 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 ### Fixed in-session repeat (`/loop`, #2726 / historical #2005)
 
 The schedule module also registers a provider-neutral `/loop` command over the existing
-`spawnScheduledWake` and session turn queue. This first slice accepts either
+`spawnScheduledWake` and session turn queue. Fixed repeat accepts
 `/loop <N><s|m|h|d> <prompt>` or `/loop <prompt> every <N> <unit>` (unit names may be written out).
+With a host-supplied bounded maintenance prompt, bare `/loop` uses a reported ten-minute step and
+`/loop <N><s|m|h|d>` uses that prompt at the requested step. The product CLI owns the fallback
+text; the generic command and scheduler do not invent it. A host kill switch refuses creation
+while preserving `list` and `stop` so existing loops remain manageable.
 The prompt is submitted as an ordinary `agent-wakeup` turn under the session's existing permission
 policy. The command is conservatively classified as permission-requiring for remote command policy,
 including its read-only `list` form. `/loop list` shows active loop schedules;
@@ -222,10 +227,12 @@ display label. Editing a loop through `/schedule edit` cannot hide it from `/loo
 `/loop stop`. The session has at most three active loops (including paused loops); a fourth creation
 is refused. `/loop list` and `/loop stop` use the stable ID, and stop resolves it to the current
 runtime task ID. A successful schedule restore may remap that runtime ID but retains the loop ID;
-older loops without a stable ID keep their runtime ID as a compatibility stop handle.
-Persistence itself is still best-effort rather than a durable success guarantee. Seven-day expiry,
-jitter, Esc handling, self-paced/default-prompt modes, and prompt overrides are **not yet
-delivered**. This slice does not complete the historical #2005 checklist or #2726.
+older loops without a stable ID keep their runtime ID as a compatibility stop handle. New loops
+persist an absolute seven-day expiry. Creation and stop are strictly persisted before success;
+ordinary turn snapshots remain best-effort. Expired loops refuse firing and are terminal on restore.
+The host kill switch blocks firing/re-arming but retains paused records for a later restart with
+the switch off. Jitter, Esc handling, self-paced/prompt-only mode, and project/user prompt overrides
+are **not yet delivered**. This slice does not complete the historical #2005 checklist or #2726.
 
 ### Provider setup flow (interactive UI helpers)
 

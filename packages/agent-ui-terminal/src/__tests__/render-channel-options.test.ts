@@ -7,6 +7,17 @@ import { buildTuiSessionOptions } from '../tui-session-options.js';
 import type { IRenderOptions } from '../render.js';
 
 describe('toChannelOptions', () => {
+  it('forwards the loop kill switch through the channel to the session', () => {
+    const options = toChannelOptions({
+      cwd: '/tmp/project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      disableSessionLoops: true,
+    });
+    expect(options.disableSessionLoops).toBe(true);
+    expect(buildTuiSessionOptions(options).disableSessionLoops).toBe(true);
+  });
+
   it('TC-02: threads allowedTools and deniedTools into the channel options', () => {
     const renderOptions: IRenderOptions = {
       cwd: '/tmp/project',

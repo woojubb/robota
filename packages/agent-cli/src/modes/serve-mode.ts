@@ -21,6 +21,7 @@ import type { ICreateSessionOptions, IOrgPolicy } from '@robota-sdk/agent-framew
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
+import { areSessionLoopsDisabled } from '../startup/loop-options.js';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
@@ -131,6 +132,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     // was built at print mode only, so these flags did nothing in a served session.
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : opts.sessionStore,
+    disableSessionLoops: areSessionLoopsDisabled(process.env),
     resumeSessionId: opts.resumeSessionId,
     forkSession: args.forkSession,
     sessionName: args.sessionName,

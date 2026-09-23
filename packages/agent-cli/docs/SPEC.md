@@ -1407,26 +1407,32 @@ report is re-run after a repair.
 
 ### Slash Commands
 
-| Command                        | Description                                                                                                                        |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `/help`                        | Show available commands                                                                                                            |
-| `/clear`                       | Clear conversation history through the session module                                                                              |
-| `/language [lang]`             | Set response language (ko, en, ja, zh), saves and restarts                                                                         |
-| `/compact [instructions]`      | Compress context window                                                                                                            |
-| `/cost`                        | Show session info through the session command module                                                                               |
-| `/context`                     | Context window info, reference inventory, and `/context auto ...` controls                                                         |
-| `/agent`                       | Run and manage background subagent jobs                                                                                            |
-| `/permissions [mode]`          | Permission rules and permission mode changes                                                                                       |
-| `/memory`                      | Route project memory commands to the memory command module                                                                         |
-| `/rewind`                      | Route edit checkpoint list/restore commands to SDK                                                                                 |
-| `/background`                  | Route background task controls to the background command module                                                                    |
-| `/schedule <when> <…>`         | Schedule an agent wake (relative delay or cron) via the schedule command module                                                    |
-| `/loop <interval> <prompt>`    | Repeat a prompt on a reported, local-clock cadence; `list` and `stop <id>` manage live loops. Other loop modes remain unsupported. |
-| `/monitor "<cmd>" "<pat>" <…>` | Watch a process's output and wake the agent on a matching line                                                                     |
-| `/plugin [subcommand]`         | Plugin management through the injected plugin command module                                                                       |
-| `/resume`                      | Show session picker to resume a saved session                                                                                      |
-| `/rename <name>`               | Rename the current session (name displayed in StatusBar)                                                                           |
-| `/exit`                        | Exit through the injected exit command module                                                                                      |
+| Command                         | Description                                                                                                                                                                         |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/help`                         | Show available commands                                                                                                                                                             |
+| `/clear`                        | Clear conversation history through the session module                                                                                                                               |
+| `/language [lang]`              | Set response language (ko, en, ja, zh), saves and restarts                                                                                                                          |
+| `/compact [instructions]`       | Compress context window                                                                                                                                                             |
+| `/cost`                         | Show session info through the session command module                                                                                                                                |
+| `/context`                      | Context window info, reference inventory, and `/context auto ...` controls                                                                                                          |
+| `/agent`                        | Run and manage background subagent jobs                                                                                                                                             |
+| `/permissions [mode]`           | Permission rules and permission mode changes                                                                                                                                        |
+| `/memory`                       | Route project memory commands to the memory command module                                                                                                                          |
+| `/rewind`                       | Route edit checkpoint list/restore commands to SDK                                                                                                                                  |
+| `/background`                   | Route background task controls to the background command module                                                                                                                     |
+| `/schedule <when> <…>`          | Schedule an agent wake (relative delay or cron) via the schedule command module                                                                                                     |
+| `/loop [<interval>] [<prompt>]` | Fixed repeat on a reported local-clock cadence; bare/interval-only forms use the host maintenance prompt, and `list`/`stop <id>` manage loops. Self-paced mode remains unsupported. |
+| `/monitor "<cmd>" "<pat>" <…>`  | Watch a process's output and wake the agent on a matching line                                                                                                                      |
+| `/plugin [subcommand]`          | Plugin management through the injected plugin command module                                                                                                                        |
+| `/resume`                       | Show session picker to resume a saved session                                                                                                                                       |
+| `/rename <name>`                | Rename the current session (name displayed in StatusBar)                                                                                                                            |
+| `/exit`                         | Exit through the injected exit command module                                                                                                                                       |
+
+The product-owned `ROBOTA_DISABLE_SESSION_LOOPS=1` switch is resolved once at startup and forwarded
+to the command module and session in TUI, print, and serve modes. It blocks loop creation and
+firing/re-arm, but leaves listing and targeted stop available. The default maintenance prompt is
+scope-bound and grants no permission beyond the existing session policy. Newly created loops
+expire after seven days; prompt-only self-paced loops and project/user prompt overrides remain open.
 
 #### Slash Command Autocomplete
 

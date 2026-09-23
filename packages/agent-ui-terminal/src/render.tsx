@@ -107,6 +107,7 @@ export interface IRenderOptions {
   deniedTools?: readonly string[];
   version?: string;
   sessionStore?: IInteractiveSessionStore;
+  disableSessionLoops?: boolean;
   resumeSessionId?: string;
   showSessionPickerOnStart?: boolean;
   /** FLOW-2006: text a deep link prefilled into the composer. Never submitted on its own. */
@@ -238,6 +239,7 @@ export function toChannelOptions(
     allowedTools: options.allowedTools,
     deniedTools: options.deniedTools,
     sessionStore: options.sessionStore,
+    disableSessionLoops: options.disableSessionLoops,
     resumeSessionId,
     forkSession: options.forkSession,
     sessionName: options.sessionName,

@@ -79,6 +79,7 @@ export interface ITuiInteractionChannelOptions {
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
+  disableSessionLoops?: boolean;
   resumeSessionId?: string;
   forkSession?: boolean;
   sessionName?: string;

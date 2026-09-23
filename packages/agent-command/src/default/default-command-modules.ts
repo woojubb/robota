@@ -73,6 +73,8 @@ export interface IDefaultCommandModulesOptions {
   themeCataloguePort?: IThemeCataloguePort;
   /** OBSERVABILITY-1991: host-composed doctor inputs; absence means `/doctor` is not registered. */
   doctorInputs?: IDoctorInputs;
+  /** Host-owned fallback text and kill switch for session-local repeat. */
+  loopOptions?: { defaultPrompt?: string; disabled?: boolean };
   /**
    * Whitelist of module `name`s to keep. When provided, only modules whose `name`
    * appears here survive. Omitted → all modules kept (no-regression).
@@ -122,6 +124,7 @@ export function createDefaultCommandModules({
   keybindingsFilePort,
   themeCataloguePort,
   doctorInputs,
+  loopOptions,
   enabledCommandModules,
   disabledCommandModules,
 }: IDefaultCommandModulesOptions): IDefaultCommandModulesResult {
@@ -158,7 +161,7 @@ export function createDefaultCommandModules({
     createSessionCommandModule(),
     createResetCommandModule(),
     createRewindCommandModule(),
-    createScheduleCommandModule(),
+    createScheduleCommandModule(loopOptions),
     createStatusLineCommandModule(),
     createPluginCommandModule(),
     createSettingsCommandModule(),
