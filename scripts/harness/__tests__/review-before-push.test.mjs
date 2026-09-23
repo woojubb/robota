@@ -832,7 +832,7 @@ describe('the recorder refuses to guess which checkout it is in', () => {
   });
 });
 
-describe('a foundational finding must name a root item that exists', () => {
+describe('the optional Task-backed review record requires a real root item', () => {
   const RECORDER = path.join(WORKSPACE_ROOT, 'scripts/harness/record-local-review.mjs');
 
   function repoWithBacklog(items = []) {
@@ -853,9 +853,9 @@ describe('a foundational finding must name a root item that exists', () => {
   }
 
   it('refuses an ID that resolves to no backlog item', () => {
-    // The whole value of the depth verdict is that the root gets filed. An ID naming nothing is the
-    // same as not having filed it — and it is worse than silence, because the record then claims a
-    // root item exists. So the recorder refuses rather than storing an unresolvable promise.
+    // This optional Task-backed record claims a root item exists. An ID naming nothing would make
+    // that specific claim false, so the recorder refuses rather than storing it. General
+    // foundational findings can instead be recorded on an existing GitHub issue.
     const dir = repoWithBacklog(['INFRA-073']);
 
     const verdict = recordIn(dir, ['--findings', '0', '--foundational', 'INFRA-999']);
@@ -941,8 +941,8 @@ describe('a foundational finding must name a root item that exists', () => {
 
   it('refuses when the backlog tree it must read is not there', () => {
     // The sibling that owns `idOf` uses `requireGovernedTree` for exactly this: a governed tree that
-    // is absent must not read as "no results". Here it would produce the most misleading message the
-    // tool can emit — "no backlog item for X" — when the truth is that nothing was examined.
+    // is absent must not read as "no results". This optional Task-backed mode must distinguish an
+    // unexamined tree from a missing Task ID.
     const dir = scratchRepo('feat/probe');
 
     const verdict = spawnSync(

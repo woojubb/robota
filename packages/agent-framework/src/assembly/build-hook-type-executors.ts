@@ -31,8 +31,8 @@ import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
  * can still override one. Seeding last would make the built-ins unoverridable, trading a fail-open
  * for a different loss of caller control.
  *
- * The contract defect itself — an option that can only be supplied in full while reading as one
- * that can be supplied in part — is filed as issue #2238 and is not fixed here.
+ * Seeding fixes the default-dropping failure filed as issue #2238. A separate opt-out from these
+ * built-ins is not exposed at this internal seam; issue #2423 retains that design concern.
  */
 export function buildHookTypeExecutors(options: ICreateSessionOptions): IHookTypeExecutor[] {
   const executors: IHookTypeExecutor[] = [new CommandExecutor(), new HttpExecutor()];

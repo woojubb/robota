@@ -29,15 +29,14 @@
  *
  * ## The depth half
  *
- * `finding-depth.md` requires every review finding to be classified by DEPTH before it
- * is fixed, and a foundational one to be FILED rather than patched in place. That rule is worth what
- * it causes, so the record carries the root items the round produced and refuses an ID that names
- * none — `pre-push-check` already forces a record on every push, which makes this the one place the
- * requirement is reached by the real invocation rather than when remembered.
+ * `finding-depth.md` lets the responsible author classify a foundational finding against the best
+ * existing GitHub issue and contain or defer it explicitly. This recorder's `--foundational` option
+ * is an additional, Task-backed disposition path; when chosen, it refuses an ID that names no Task.
+ * The ordinary pre-push review record does not require a Task or a containment label.
  *
  * ## The disposition half, and why it does not stay here
  *
- * A foundational finding takes one of two dispositions: `re-plan` WITHDRAWS the change, `containment`
+ * In this optional Task-backed path, `re-plan` WITHDRAWS the change and `containment`
  * lets it land under a labelled hold. Both are decisions about a PULL REQUEST, and this file's store
  * is the wrong home for one — `.agents/local-reviews/` is gitignored and per-working-tree, keyed by
  * the local branch and HEAD, while a merge is keyed by a PR number. `worktree-parallel-orchestration`
@@ -105,7 +104,7 @@ function gh(args, cwd) {
 }
 
 /**
- * The two dispositions `finding-depth.md` permits, and the PR label that carries each.
+ * The two optional Task-backed dispositions this recorder publishes, and their PR labels.
  *
  * The label IS the machine-readable home of the decision — atomic, keyed to the PR, readable from
  * any checkout by number. The same two strings are spelled in `.claude/hooks/merge-gate.sh` and
@@ -217,8 +216,8 @@ function publishDisposition({ root, pr, disposition, foundational, branch, headS
     `**Finding depth — disposition: \`${disposition}\`**`,
     '',
     disposition === 're-plan'
-      ? 'A foundational finding was judged on this PR. Per `.agents/rules/finding-depth.md` a ' +
-        're-plan disposition WITHDRAWS this change rather than patching it, so it is not to be ' +
+      ? 'A foundational finding was judged on this PR. This Task-backed re-plan disposition ' +
+        'WITHDRAWS this change rather than patching it, so it is not to be ' +
         'merged: close it and work the root item.'
       : 'A foundational finding was judged on this PR. It lands under a labelled containment hold ' +
         'naming the root item below; the root item is what resolves it.',
@@ -319,9 +318,9 @@ export function isReviewed(branch, headSha, dir = RECORD_DIR) {
 /**
  * Which of `ids` name a real backlog item, and which name nothing.
  *
- * A FOUNDATIONAL verdict (`finding-depth.md`) is worth only what it causes: the root gets filed
- * instead of patched over. An ID that resolves to no item is worse than silence, because the record
- * then asserts a root item exists — so the recorder refuses rather than storing the promise.
+ * In the optional Task-backed path, a named root item must exist. An ID that resolves to no item
+ * is worse than silence, because this record then asserts a Task exists — so the recorder refuses
+ * rather than storing that false claim. General foundational findings can use an existing issue.
  */
 export function resolveRootItems(ids, backlogDir) {
   const present = new Set();
@@ -407,14 +406,14 @@ function main() {
     process.exit(verdict.ok ? 0 : 1);
   }
 
-  // The disposition is validated BEFORE anything is published or written. A value the rule does not
-  // define, or one with no root item behind it, must not reach the pull request — a label is read by
-  // a merge gate, and one nobody can act on is worse than none.
+  // The disposition is validated BEFORE anything is published or written. A value this optional
+  // Task-backed recorder does not accept, or one with no Task behind it, must not reach the PR.
+  // A label is read by a merge gate, and one nobody can act on is worse than none.
   if (args.disposition !== null) {
     if (!Object.hasOwn(DISPOSITION_LABELS, args.disposition)) {
       console.error(
-        `record-local-review: '${args.disposition}' is not a disposition. finding-depth.md ` +
-          'defines two: re-plan | containment.',
+        `record-local-review: '${args.disposition}' is not a PR disposition in this optional ` +
+          'Task-backed path. Use re-plan | containment.',
       );
       console.error('A third option is how "foundational" becomes a way to defer work.');
       process.exit(1);
@@ -451,9 +450,9 @@ function main() {
     process.exit(1);
   }
 
-  // A FOUNDATIONAL verdict is worth what it causes, and what it must cause is a filed root item
-  // (`finding-depth.md`). An ID naming nothing asserts one exists, so it is refused here rather
-  // than stored — this is the floor that keeps the depth verdict from becoming a way to defer.
+  // In this optional Task-backed path, each --foundational ID must name a filed Task. An ID
+  // naming nothing asserts one exists, so it is refused here rather than stored. The ordinary
+  // finding-depth route records a foundational concern on the best existing GitHub issue.
   if (args.foundational.length > 0) {
     // The sibling that owns `idOf` uses this for the same reason (HARNESS-052): a governed tree that
     // is absent must not read as "no results". Without it, the message here would be the most
@@ -462,7 +461,7 @@ function main() {
     try {
       requireGovernedTree(root, ['.agents/tasks'], {
         scan: 'record-local-review',
-        why: 'A foundational finding is verified against the filed items.',
+        why: 'This optional Task-backed finding is verified against the filed items.',
       });
     } catch (err) {
       console.error(`record-local-review: ${err.message}`);
@@ -473,10 +472,10 @@ function main() {
   const { missing } = resolveRootItems(args.foundational, path.join(root, '.agents/tasks'));
   if (missing.length > 0) {
     console.error(
-      `record-local-review: no backlog item for ${missing.join(', ')} — file the root item first.`,
+      `record-local-review: no Task for ${missing.join(', ')} in this optional --foundational path.`,
     );
     console.error(
-      'A foundational finding whose root item does not exist is the same as not having filed it.',
+      'Use a resolvable Task ID here, or record the general foundational concern on its existing issue.',
     );
     process.exit(1);
   }

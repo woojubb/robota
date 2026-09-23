@@ -14,8 +14,10 @@ const RECORDER = path.join(WORKSPACE_ROOT, 'scripts/harness/record-local-review.
 /**
  * Recording a disposition PUBLISHES it to the pull request (PROC-007).
  *
- * `finding-depth.md` gives a foundational finding two dispositions: `re-plan` withdraws the change,
- * `containment` lets it land under a labelled hold. Both are decisions about a PULL REQUEST, and
+ * The optional Task-backed recorder gives a foundational finding two PR dispositions: `re-plan`
+ * withdraws the change, while `containment` lets it land under a labelled hold. These are
+ * additional to `finding-depth.md`'s direct classification against an existing GitHub issue. Both
+ * recorder dispositions are decisions about a PULL REQUEST, and
  * #1557 stored them in `.agents/local-reviews/` — gitignored, per-working-tree, keyed by the local
  * branch and HEAD. The merge is run by the orchestrator's checkout, which holds no such file, so
  * the decision never reached the thing it was about.
