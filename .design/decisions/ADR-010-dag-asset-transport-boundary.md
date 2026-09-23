@@ -6,7 +6,7 @@ accepted
 
 ## Context
 
-Issue #2163 retains historical #2156's domain/transport boundary. Three asset methods on
+Issue #2163 retains historical issue #2156's domain/transport boundary. Three asset methods on
 `IDagOrchestrationPort` force the in-process framework to decode base64, produce HTTP envelopes,
 and invent an `inproc://` download URL. The runtime server forwards that URL as JSON from its
 content endpoint, although CLI clients expect binary bytes there.
@@ -30,11 +30,11 @@ explicit 400/404/500/501 mapping.
 
 - In-process callers use bytes and metadata directly, without HTTP status or URLs.
 - The content endpoint now returns bytes rather than a JSON descriptor, matching its client.
-- Other HTTP-shaped orchestration methods remain for later #2163 slices; this does not close #2163.
+- Other HTTP-shaped orchestration methods remain for later issue #2163 slices; this does not close issue #2163.
 
 ## References
 
-- Issue #2163, historical #2156, and ADR-009.
+- Issue #2163, historical issue #2156, and ADR-009.
 - `packages/dag-core/docs/SPEC.md`
 - `packages/dag-framework/docs/SPEC.md`
 - `packages/dag-orchestration-client/docs/SPEC.md`

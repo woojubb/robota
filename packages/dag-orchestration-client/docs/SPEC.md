@@ -93,6 +93,10 @@ Imported from other packages:
 
 ## Public API Surface
 
+| Export | Contract |
+| --- | --- |
+| `IDagAssetHttpPort` | Transport-specific asset upload, metadata, and content-download location methods. |
+
 - `DagOrchestrationHttpClient` -- shared HTTP client for definition, node catalog, run lifecycle, and run draft endpoints.
 - `buildDag(input)` -- `POST /v1/dag/build`.
 - `validateDag(definition)` -- `POST /v1/dag/validate`.
