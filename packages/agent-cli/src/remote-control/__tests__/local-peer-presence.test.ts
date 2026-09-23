@@ -10,7 +10,7 @@ import { mkdtempSync, readdirSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import { announceLocalPeerPresence } from '../local-peer-presence.js';
 
@@ -97,6 +97,61 @@ describe('announcing makes this session discoverable', () => {
       off: bus.off,
     });
     expect(presence.list()[0]?.liveness).toBe('unknown');
+  });
+
+  it('certifies a whole-second birth time only after the original process reannounces', () => {
+    const birth = 'Wed Sep 23 13:40:17 2026';
+    const birthMs = Date.parse(`${birth} UTC`);
+    vi.useFakeTimers();
+    vi.setSystemTime(birthMs + 100);
+    try {
+      const bus = exitBus();
+      const presence = announceLocalPeerPresence({
+        sessionId: 'session-one',
+        guardedDirectory: guardedDirectory(),
+        registry: {
+          readStartTime: () => birth,
+          startTimePrecision: 'seconds',
+          now: () => Date.now(),
+        },
+        on: bus.on,
+        off: bus.off,
+      });
+      expect(presence.list()[0]?.liveness).toBe('unknown');
+
+      vi.advanceTimersByTime(901);
+      expect(presence.list()[0]?.liveness).toBe('alive');
+      presence.withdraw();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not reannounce after withdrawal while certification is pending', () => {
+    const birth = 'Wed Sep 23 13:40:17 2026';
+    const birthMs = Date.parse(`${birth} UTC`);
+    vi.useFakeTimers();
+    vi.setSystemTime(birthMs + 100);
+    try {
+      const dir = guardedDirectory();
+      const bus = exitBus();
+      const presence = announceLocalPeerPresence({
+        sessionId: 'session-one',
+        guardedDirectory: dir,
+        registry: {
+          readStartTime: () => birth,
+          startTimePrecision: 'seconds',
+          now: () => Date.now(),
+        },
+        on: bus.on,
+        off: bus.off,
+      });
+      presence.withdraw();
+      vi.advanceTimersByTime(901);
+      expect(readdirSync(dir)).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

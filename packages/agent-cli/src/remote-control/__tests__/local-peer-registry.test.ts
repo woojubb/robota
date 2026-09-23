@@ -8,6 +8,8 @@ import {
   announcePeer,
   listPeers,
   listReachablePeers,
+  readDarwinStartTime,
+  readProcessStartTime,
   withdrawPeer,
 } from '../local-peer-registry.js';
 
@@ -84,7 +86,13 @@ describe('#1863 — announcing and withdrawing', () => {
 describe('#1863 — telling a live session from a crashed one', () => {
   it.skipIf(process.platform !== 'darwin' && process.platform !== 'linux')(
     'recognizes this running process with the platform default start-time reader',
-    () => {
+    async () => {
+      // macOS reports a birth second, so wait until this process can safely certify it.
+      if (process.platform === 'darwin') {
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.max(0, 1_100 - process.uptime() * 1_000)),
+        );
+      }
       const guardedDirectory = scratch();
       announcePeer({ guardedDirectory }, { sessionId: 'self', pid: process.pid });
 
@@ -95,6 +103,17 @@ describe('#1863 — telling a live session from a crashed one', () => {
     },
   );
 
+  it('exercises the Darwin reader and platform selection on every CI host', () => {
+    const birth = 'Wed Sep 23 13:40:17 2026';
+    expect(readDarwinStartTime(123, (pid) => (pid === 123 ? `${birth}\n` : ''))).toBe(birth);
+    expect(readProcessStartTime(123, 'darwin', () => birth)).toBe(birth);
+    expect(
+      readDarwinStartTime(123, () => {
+        throw new Error('ps unavailable');
+      }),
+    ).toBeUndefined();
+  });
+
   it('a pid that is gone is dead', () => {
     const guardedDirectory = scratch();
     announcePeer(
@@ -102,7 +121,11 @@ describe('#1863 — telling a live session from a crashed one', () => {
       { sessionId: 'session_a', pid: 100 },
     );
 
-    const [found] = listPeers({ guardedDirectory, readStartTime: starts({}) });
+    const [found] = listPeers({
+      guardedDirectory,
+      readStartTime: starts({}),
+      probePid: () => 'absent',
+    });
 
     expect(found?.liveness).toBe('dead');
   });
@@ -132,6 +155,21 @@ describe('#1863 — telling a live session from a crashed one', () => {
 
     const [found] = listPeers({ guardedDirectory, readStartTime: starts({}) });
 
+    expect(found?.liveness).toBe('unknown');
+  });
+
+  it('reports an inspection failure as unknown while the process still exists', () => {
+    const guardedDirectory = scratch();
+    announcePeer(
+      { guardedDirectory, readStartTime: starts({ 100: 'T1' }) },
+      { sessionId: 'session_a', pid: 100 },
+    );
+
+    const [found] = listPeers({
+      guardedDirectory,
+      readStartTime: () => undefined,
+      probePid: () => 'present',
+    });
     expect(found?.liveness).toBe('unknown');
   });
 
