@@ -1921,8 +1921,6 @@ When the execution loop starts round 2+ (after tool execution), `execution-round
 | `IPluginContract`, `IPluginHooks` | `AbstractPlugin`              | abstract base            | `src/abstracts/abstract-plugin.ts`             |
 | `IToolWithEventService`           | `AbstractTool`                | abstract base            | `src/abstracts/abstract-tool.ts`               |
 | `IModule`, `IModuleHooks`         | `AbstractModule`              | abstract base            | `src/abstracts/abstract-module.ts`             |
-| `IWorkflowConverter`              | `AbstractWorkflowConverter`   | abstract base            | `src/abstracts/abstract-workflow-converter.ts` |
-| `IWorkflowValidator`              | `AbstractWorkflowValidator`   | abstract base            | `src/abstracts/abstract-workflow-validator.ts` |
 | `IEventService`                   | `AbstractEventService`        | abstract base            | `src/event-service/event-service.ts`           |
 | `IEventService`                   | `DefaultEventService`         | production (null object) | `src/event-service/event-service.ts`           |
 | `IEventService`                   | `StructuredEventService`      | production               | `src/event-service/event-service.ts`           |
