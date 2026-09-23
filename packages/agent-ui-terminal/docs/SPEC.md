@@ -56,6 +56,8 @@ new channel binds adapters to its own session before calling the registry's argu
 Both `IRenderOptions` and `ITuiInteractionChannelOptions` carry the composition root's optional
 `TWorkspaceProjectAccess` decision unchanged. A bare `cwd` is provenance only; omission produces the
 framework's explicit Restricted decision and cannot enable project contribution discovery.
+They also forward `disableSessionLoops` unchanged to the session; the terminal UI does not decide
+whether a persisted loop may re-arm or fire.
 The same render-to-channel-to-session path forwards the resolved organization policy unchanged, so
 the session enforces `blockedCommands` in the default TUI. Session-capability projections declare
 every field's forwarding, rename (for example `modelId` to `model`), or presentation-only disposition;

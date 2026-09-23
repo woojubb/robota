@@ -91,10 +91,14 @@ function pausedScheduledRecord(): Record<string, unknown> {
   };
 }
 
-function setupWithRecord(record: Record<string, unknown>): {
+function setupWithRecord(
+  record: Record<string, unknown>,
+  disableSessionLoops = false,
+): {
   started: string[];
   manager: BackgroundTaskManager;
   session: InteractiveSession;
+  store: ReturnType<typeof createStore>;
 } {
   const { runner, started } = createFakeScheduledRunner();
   const manager = new BackgroundTaskManager({ runners: [runner] });
@@ -105,8 +109,9 @@ function setupWithRecord(record: Record<string, unknown>): {
     session: sessionStub,
     sessionStore: store as never,
     resumeSessionId: 'session_resumed',
+    disableSessionLoops,
   });
-  return { started, manager, session };
+  return { started, manager, session, store };
 }
 
 function sleepingScheduledRecord(nextFireAt: string): Record<string, unknown> {
@@ -194,12 +199,161 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
   it('retains a loop identity marker when a restored schedule receives a new runtime id', () => {
     const record = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
     const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
-    tasks[0]!['metadata'] = { sessionLoop: true, sessionLoopId: 'loop_stable' };
+    tasks[0]!['metadata'] = {
+      sessionLoop: true,
+      sessionLoopId: 'loop_stable',
+      sessionLoopExpiresAt: new Date(Date.now() + 5 * 24 * 60 * 60_000).toISOString(),
+    };
     const { manager } = setupWithRecord(record);
     const rearmed = manager.list().find((task) => task.kind === 'scheduled');
     expect(rearmed?.id).not.toBe('sched_old');
     expect(rearmed?.metadata?.['sessionLoop']).toBe(true);
     expect(rearmed?.metadata?.['sessionLoopId']).toBe('loop_stable');
+  });
+
+  it('expires a restored paused loop without a scheduled wake', async () => {
+    vi.useFakeTimers();
+    try {
+      const record = pausedScheduledRecord();
+      const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
+      tasks[0]!['metadata'] = {
+        sessionLoop: true,
+        sessionLoopId: 'loop_restored',
+        sessionLoopExpiresAt: new Date(Date.now() + 1_000).toISOString(),
+      };
+      const { manager, store } = setupWithRecord(record);
+      await vi.advanceTimersByTimeAsync(0);
+      const rearmed = manager
+        .list()
+        .find((task) => task.metadata?.['sessionLoopId'] === 'loop_restored');
+      expect(rearmed?.status).toBe('paused');
+
+      await vi.advanceTimersByTimeAsync(1_001);
+
+      expect(manager.get(rearmed!.id)?.status).toBe('cancelled');
+      expect(store.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          backgroundTasks: expect.arrayContaining([
+            expect.objectContaining({ id: rearmed!.id, status: 'cancelled' }),
+          ]),
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not re-arm an expired session loop while restoring unrelated schedules normally', () => {
+    const record = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
+    tasks[0]!['metadata'] = {
+      sessionLoop: true,
+      sessionLoopId: 'loop_expired',
+      sessionLoopExpiresAt: '2000-01-01T00:00:00.000Z',
+    };
+    tasks.push({
+      ...tasks[0]!,
+      id: 'sched_unrelated',
+      label: 'ordinary schedule',
+      metadata: undefined,
+    });
+    const { started, manager, session, store } = setupWithRecord(record);
+
+    expect(started).toHaveLength(1);
+    expect(manager.list()).toHaveLength(1);
+    expect(manager.list()[0]?.label).toBe('ordinary schedule');
+    expect(history(session).some((entry) => JSON.stringify(entry).includes('expired'))).toBe(true);
+    const saved = store.load('session_resumed').record as Record<string, unknown>;
+    const savedTasks = saved['backgroundTasks'] as Array<Record<string, unknown>>;
+    expect(
+      savedTasks.find(
+        (task) =>
+          task['metadata'] &&
+          (task['metadata'] as Record<string, unknown>)['sessionLoopId'] === 'loop_expired',
+      )?.['status'],
+    ).toBe('cancelled');
+  });
+
+  it('keeps a disabled loop visible and stoppable without re-arming it', async () => {
+    const record = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
+    tasks[0]!['metadata'] = {
+      sessionLoop: true,
+      sessionLoopId: 'loop_disabled',
+      sessionLoopExpiresAt: new Date(Date.now() + 5 * 24 * 60 * 60_000).toISOString(),
+    };
+    const { started, manager, session, store } = setupWithRecord(record, true);
+
+    expect(started).toHaveLength(0);
+    expect(manager.list()).toHaveLength(0);
+    expect(history(session).some((entry) => JSON.stringify(entry).includes('disabled'))).toBe(true);
+    const saved = store.load('session_resumed').record as Record<string, unknown>;
+    const savedTasks = saved['backgroundTasks'] as Array<Record<string, unknown>>;
+    expect(
+      savedTasks.some(
+        (task) =>
+          (task['metadata'] as Record<string, unknown> | undefined)?.['sessionLoopId'] ===
+          'loop_disabled',
+      ),
+    ).toBe(true);
+    expect(session.listSchedules().some((task) => task.id === 'sched_old')).toBe(true);
+    await session.cancelBackgroundTask('sched_old', 'Loop stopped by user');
+    const stopped = store.load('session_resumed').record as Record<string, unknown>;
+    expect(
+      (stopped['backgroundTasks'] as Array<Record<string, unknown>>).find(
+        (task) => task['id'] === 'sched_old',
+      )?.['status'],
+    ).toBe('cancelled');
+
+    const enabledAfterStop = setupWithRecord(stopped, false);
+    expect(enabledAfterStop.started).toHaveLength(0);
+  });
+
+  it('re-arms a disabled loop after a later restart with the switch off', () => {
+    const record = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
+    tasks[0]!['metadata'] = {
+      sessionLoop: true,
+      sessionLoopId: 'loop_reenabled',
+      sessionLoopExpiresAt: new Date(Date.now() + 5 * 24 * 60 * 60_000).toISOString(),
+    };
+    const disabled = setupWithRecord(record, true);
+    const saved = disabled.store.load('session_resumed').record as Record<string, unknown>;
+
+    const enabled = setupWithRecord(saved, false);
+    expect(enabled.started).toHaveLength(1);
+    expect(enabled.manager.list()[0]?.metadata?.['sessionLoopId']).toBe('loop_reenabled');
+  });
+
+  it('preserves a disabled loop in every re-arm event snapshot even when another schedule starts first', () => {
+    const record = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
+    tasks.push({
+      ...tasks[0]!,
+      id: 'sched_held',
+      label: 'Loop: held',
+      metadata: {
+        sessionLoop: true,
+        sessionLoopId: 'loop_held',
+        sessionLoopExpiresAt: new Date(Date.now() + 5 * 24 * 60 * 60_000).toISOString(),
+      },
+    });
+
+    const { started, store } = setupWithRecord(record, true);
+    expect(started).toHaveLength(1);
+    expect(store.save).toHaveBeenCalled();
+    for (const [saved] of store.save.mock.calls) {
+      const savedTasks = (saved as Record<string, unknown>)['backgroundTasks'] as Array<
+        Record<string, unknown>
+      >;
+      expect(
+        savedTasks.some(
+          (task) =>
+            (task['metadata'] as Record<string, unknown> | undefined)?.['sessionLoopId'] ===
+            'loop_held',
+        ),
+      ).toBe(true);
+    }
   });
 
   // SELFHOST-012 TC-06: a persisted PAUSED schedule re-arms as paused (not failed, not firing) on restart.

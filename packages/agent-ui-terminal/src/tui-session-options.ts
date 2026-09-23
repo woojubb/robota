@@ -42,6 +42,7 @@ export function buildTuiSessionOptions(
     // transport-neutral `permission_request`/`ask_request` events (wireSessionEvents) and answers via
     // `resolvePermission`/`resolveAsk`. The local Ink queues + rendering are unchanged.
     sessionStore: opts.sessionStore,
+    disableSessionLoops: opts.disableSessionLoops,
     resumeSessionId: opts.resumeSessionId,
     forkSession: opts.forkSession,
     sessionName: opts.sessionName,

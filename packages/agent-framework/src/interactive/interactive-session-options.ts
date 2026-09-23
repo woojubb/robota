@@ -55,6 +55,8 @@ export interface IInteractiveSessionStandardOptions {
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
+  /** Host kill switch: existing loops remain stored but cannot create, re-arm, or fire. */
+  disableSessionLoops?: boolean;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
   /** Trusted host-only path projection for hook compatibility. */
@@ -203,6 +205,8 @@ export interface IInteractiveSessionInjectedOptions {
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
+  /** Host kill switch: existing loops remain stored but cannot create, re-arm, or fire. */
+  disableSessionLoops?: boolean;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
   /** Trusted host-only path projection for hook compatibility. */

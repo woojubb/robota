@@ -6,6 +6,7 @@
 
 import { createSourceUsageSummaryEntry } from './interactive-session-execution.js';
 import { isReArmableScheduledTask } from './schedule-rearm.js';
+import { sessionLoopBlockReason, sessionLoopExpiry } from './session-loop-lifecycle.js';
 import {
   BackgroundJobOrchestrator,
   createBackgroundGroupExecutionEntryId,
@@ -45,6 +46,8 @@ export interface IBackgroundTrackerState {
 
 export class SessionBackgroundTaskTracker {
   private backgroundTasks: IBackgroundTaskState[] = [];
+  /** Restored loops held by the host switch, or terminally expired before re-arm. */
+  private heldSessionLoops: IBackgroundTaskState[] = [];
   private backgroundTaskEvents: TBackgroundTaskEvent[] = [];
   private backgroundJobGroups: IBackgroundJobGroupState[] = [];
   private backgroundJobGroupEvents: TBackgroundJobGroupEvent[] = [];
@@ -64,6 +67,8 @@ export class SessionBackgroundTaskTracker {
     private readonly appendSystemNote?: (message: string) => void,
     // ANALYTICS-001 (Phase 2): append a structured history entry (a source-attributed usage summary).
     private readonly appendHistoryEntry?: (entry: IHistoryEntry) => void,
+    private readonly sessionLoopsDisabled = false,
+    private readonly onSessionLoopRearmed?: (task: IBackgroundTaskState) => void,
   ) {}
 
   subscribe(session: Session): void {
@@ -89,11 +94,28 @@ export class SessionBackgroundTaskTracker {
    */
   private reArmRestoredSchedules(manager: IBackgroundTaskManager): void {
     const nowMs = Date.now();
-    for (const task of this.backgroundTasks) {
+    const restoredTasks = [...this.backgroundTasks];
+    const blockedIds = new Set<string>();
+    // Classify every held loop before spawning any timer. A runner may synchronously emit a
+    // sleeping event and persist its snapshot while this method is still iterating.
+    for (const task of restoredTasks) {
+      if (!isReArmableScheduledTask(task) || !task.schedule) continue;
+      const blocked = sessionLoopBlockReason(task, nowMs, this.sessionLoopsDisabled);
+      if (!blocked) continue;
+      blockedIds.add(task.id);
+      this.heldSessionLoops.push(
+        blocked === 'expired'
+          ? { ...task, status: 'cancelled', completedAt: new Date(nowMs).toISOString() }
+          : task,
+      );
+      this.appendSystemNote?.(`Session loop "${task.label}" ${blocked}; it was not re-armed.`);
+    }
+    for (const task of restoredTasks) {
       // SELFHOST-012: re-arm both `sleeping` and `paused` scheduled tasks (shared predicate — must agree with
       // the restore reconciliation). A paused one is re-spawned then immediately paused again so a restart keeps
       // it paused (not silently running).
       if (!isReArmableScheduledTask(task) || !task.schedule) continue;
+      if (blockedIds.has(task.id)) continue;
       // A paused schedule carries no pending fire time, so the missed-wake note applies only to sleeping ones.
       if (
         task.status === 'sleeping' &&
@@ -113,7 +135,17 @@ export class SessionBackgroundTaskTracker {
         parentSessionId: task.parentSessionId,
         depth: task.depth,
         cwd: task.cwd,
-        ...(task.metadata ? { metadata: { ...task.metadata } } : {}),
+        ...(task.metadata
+          ? {
+              metadata: {
+                ...task.metadata,
+                ...(task.metadata['sessionLoop'] === true &&
+                task.metadata['sessionLoopExpiresAt'] === undefined
+                  ? { sessionLoopExpiresAt: new Date(sessionLoopExpiry(task)!).toISOString() }
+                  : {}),
+              },
+            }
+          : {}),
         ...(task.schedule.agentInstruction !== undefined
           ? { agentInstruction: task.schedule.agentInstruction }
           : {}),
@@ -121,11 +153,15 @@ export class SessionBackgroundTaskTracker {
         ...(task.schedule.shell !== undefined ? { shell: task.schedule.shell } : {}),
         ...(task.schedule.env !== undefined ? { env: { ...task.schedule.env } } : {}),
       });
+      const ready = spawned.then((state) => {
+        if (state.metadata?.['sessionLoop'] === true) this.onSessionLoopRearmed?.(state);
+        return state;
+      });
       if (wasPaused) {
         // Re-arm-then-pause: keep the restored schedule paused across restart. A pause failure is surfaced as a
         // system note rather than silently swallowed (a paused schedule that resumed firing would be a surprise).
         const label = task.label;
-        void spawned
+        void ready
           .then((state) => manager.pauseScheduledTask(state.id))
           .catch((error) => {
             this.appendSystemNote?.(
@@ -135,7 +171,7 @@ export class SessionBackgroundTaskTracker {
             );
           });
       } else {
-        void spawned;
+        void ready;
       }
     }
   }
@@ -151,6 +187,7 @@ export class SessionBackgroundTaskTracker {
 
   restoreState(state: IBackgroundTrackerState): void {
     this.backgroundTasks = state.tasks;
+    this.heldSessionLoops = [];
     this.backgroundTaskEvents = state.taskEvents;
     this.backgroundJobGroups = state.groups;
     this.backgroundJobGroupEvents = state.groupEvents;
@@ -209,6 +246,22 @@ export class SessionBackgroundTaskTracker {
 
   getTask(taskId: string): IBackgroundTaskState | undefined {
     return this.getManagerOrThrow().get(taskId);
+  }
+
+  listHeldSessionLoops(): IBackgroundTaskState[] {
+    return this.heldSessionLoops.map((task) => ({ ...task }));
+  }
+
+  getHeldSessionLoop(taskId: string): IBackgroundTaskState | undefined {
+    return this.heldSessionLoops.find((task) => task.id === taskId);
+  }
+
+  markHeldSessionLoopCancelled(taskId: string): void {
+    this.heldSessionLoops = this.heldSessionLoops.map((task) =>
+      task.id === taskId
+        ? { ...task, status: 'cancelled', completedAt: new Date().toISOString() }
+        : task,
+    );
   }
 
   createGroup(
@@ -271,7 +324,7 @@ export class SessionBackgroundTaskTracker {
 
   getTaskSnapshots(): IBackgroundTaskState[] {
     try {
-      return this.getManagerOrThrow().list();
+      return [...this.getManagerOrThrow().list(), ...this.heldSessionLoops];
     } catch {
       return this.backgroundTasks;
     }
