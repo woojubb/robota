@@ -70,7 +70,7 @@ The most-hit refusals, in imperative form. Reasoning lives in [git-branch.md](.a
 
 - **Never** `gh pr merge --delete-branch`. Merge, confirm merged, then delete the branch explicitly.
 - **Record a local review before the first push**: `pnpm harness:review:record --findings <n>`.
-- **A merge needs**: CI green, a reviewer verdict quoting the _exact_ current head and its historical base, `ACTIONABLE FINDINGS: 0`, every review thread **answered and resolved**, and no merge conflict. A conflict-free target advance does not invalidate that verdict.
+- **A merge needs**: applicable CI green (only the narrowly delegated, recorded provenance exception in [git-branch.md](.agents/rules/git-branch.md) may differ), a reviewer verdict quoting the _exact_ current head and its historical base, `ACTIONABLE FINDINGS: 0`, every review thread **answered and resolved**, and no merge conflict. A conflict-free target advance does not invalidate that verdict.
 - **Cut branches from a freshly-fetched `origin/develop`**, one at a time.
 - **A push into an open PR needs a NAMED GROUND — a published finding, a red check, or a verified real conflict requiring a resolution push.** A conflict-free target advance is not a ground. Nothing else, including your own re-reading and advice attached to a passing verdict. If you cannot name which one, the push does not happen. A verdict you never published is the input to no gate ([git-branch.md](.agents/rules/git-branch.md)).
 - **Never enumerate files in a way that follows symlinks** (`find -L`, `grep -R`, `rg --follow`): in a pnpm workspace it reaches the dependency store, where a write is invisible to `git status` and to every scan.

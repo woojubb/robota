@@ -128,7 +128,7 @@ Imports, comments and checks left behind by the change that removed their subjec
 
 ## L7 — Fragmenting one approved outcome into repeated process gates
 
-**Count: 5** · First seen 2026-09-05 · Last seen 2026-09-13 · Mechanism: open — next consolidated
+**Count: 9** · First seen 2026-09-05 · Last seen 2026-09-23 · Mechanism: open — next consolidated
 harness cycle, tracked by this open entry after the PROC-034 cadence amendment · Rule: `execution-cadence.md`
 
 - 2026-09-05 — a second continuation checkpoint was added to the same S2 branch after a local
@@ -161,6 +161,13 @@ harness cycle, tracked by this open entry after the PROC-034 cadence amendment �
   delegated-merge qualifier, landing-verifier route and permission memory; it retains actual
   agent attribution and all other CI/review requirements. No new mechanism or issue is created;
   this class remains OPEN for the existing consolidated cycle, not mechanized by documentation.
+
+- 2026-09-23 — #2834, #2837, #2846 and #2847 each prompted a new approval request for the same missing
+  integration-child provenance dispatch despite prior conditional preapproval and a delegated
+  control-plane route. The owner rejected repeated per-PR questions as incompatible with automated
+  development. The Git rule, merge-verifier route, entry card and permission memory now include
+  justified `integration/**` decisions with the same exact-head safeguards. These four requests are
+  four instances; the class remains OPEN for the existing consolidated mechanism cycle.
 
 ## Retired
 
