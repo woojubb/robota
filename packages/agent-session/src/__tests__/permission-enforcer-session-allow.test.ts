@@ -115,6 +115,29 @@ describe('PermissionEnforcer — permissionHandler session-allow', () => {
     expect(enforcer.getSessionAllowedTools()).toContain('Bash');
   });
 
+  it('rejects project-wide approval when no persistence capability is installed', async () => {
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue('allow-project');
+    const enforcer = makeEnforcer({ permissionHandler: handler });
+
+    await expect(enforcer.checkPermission('Bash', BASH_ARGS)).rejects.toThrow(
+      'Project-wide permission persistence is unavailable',
+    );
+    expect(enforcer.getSessionAllowedTools()).toEqual([]);
+  });
+
+  it('does not grant a session scope when project persistence fails', async () => {
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue('allow-project');
+    const onProjectAllowTool = vi.fn(() => {
+      throw new Error('Project settings write failed');
+    });
+    const enforcer = makeEnforcer({ permissionHandler: handler, onProjectAllowTool });
+
+    await expect(enforcer.checkPermission('Bash', BASH_ARGS)).rejects.toThrow(
+      'Project settings write failed',
+    );
+    expect(enforcer.getSessionAllowedTools()).toEqual([]);
+  });
+
   it('Given deny response When called Then returns false', async () => {
     const handler = vi.fn<TPermissionHandler>().mockResolvedValue(false);
     const enforcer = makeEnforcer({ permissionHandler: handler });

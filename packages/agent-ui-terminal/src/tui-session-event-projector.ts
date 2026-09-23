@@ -22,6 +22,7 @@ export interface ITuiSessionEventProjectorOptions {
     toolName: string,
     toolArgs: TToolArgs,
     id: string,
+    canPersistProjectPermission?: boolean,
   ) => Promise<TPermissionResultValue>;
   askUser: (request: IActionRequest, id: string) => Promise<TActionResponse>;
   dismissPrompt: (id: string) => void;
@@ -82,10 +83,11 @@ export class TuiSessionEventProjector {
       id,
       toolName,
       toolArgs,
+      canPersistProjectPermission,
     }) => {
       attention?.onNeedsInput();
       void this.options
-        .requestPermission(toolName, toolArgs, id)
+        .requestPermission(toolName, toolArgs, id, canPersistProjectPermission)
         .then((result) => session.resolvePermission(id, result))
         .catch(() => session.resolvePermission(id, false));
     };

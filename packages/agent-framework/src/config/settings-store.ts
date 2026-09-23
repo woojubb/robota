@@ -1,12 +1,9 @@
-import { join } from 'node:path';
-
 import { createNodeHostSettingsStore } from './node-host-settings-store.js';
 import { SettingsParseError } from './settings-parse-error.js';
 import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
 import { assertWorkspaceProjectSettingsWriterForAuthority } from '../workspace-trust/project-settings-writer.js';
 
 import type { TSettingsData } from './settings-io.js';
-import type { TProjectSettingsScope } from './settings-source.js';
 import type {
   IWorkspaceProjectAuthority,
   IWorkspaceProjectSettingsWriter,
@@ -14,11 +11,6 @@ import type {
 import type { ISettingsDocumentStore } from './settings-store-types.js';
 
 export type { ISettingsDocumentStore } from './settings-store-types.js';
-
-const ROBOTA_SETTINGS_PATHS: Readonly<Record<TProjectSettingsScope, string>> = {
-  project: join('.robota', 'settings.json'),
-  'project-local': join('.robota', 'settings.local.json'),
-};
 
 export { createNodeHostSettingsStore };
 
@@ -29,7 +21,7 @@ export function createWorkspaceProjectSettingsStore(
   const acceptedWriter = assertWorkspaceProjectSettingsWriterForAuthority(writer, authority);
   const reader = getWorkspaceProjectReader(authority);
   const scope = acceptedWriter.target;
-  const relativePath = ROBOTA_SETTINGS_PATHS[scope];
+  const relativePath = acceptedWriter.relativePath;
   const source = Object.freeze({
     kind: 'project' as const,
     scope,

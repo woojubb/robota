@@ -17,6 +17,7 @@ import {
 import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
 import { persistSession } from './interactive-session-persistence.js';
 import { createPromptHistoryRecorder } from './interactive-session-prompt-history.js';
+import { createProjectPermissionPersistence } from './project-permission-persistence.js';
 import { resolveUserSettingsProviderSwitch } from './interactive-session-provider-switch.js';
 import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
@@ -481,13 +482,16 @@ export class InteractiveSession
     this.initPromise = this.initializeAsync(stdOpts);
   }
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
+    const canPersistProjectPermission =
+      createProjectPermissionPersistence(options.projectAccess, options.projectSettingsPaths) !==
+      undefined;
     const result = await initializeInteractiveSessionAsync(options, {
       sandboxSnapshotId: this.sandboxSnapshotId,
       resumeSessionId: this.resumeSessionId,
       pendingRestoreMessages: this.pendingRestoreMessages,
       restoredSystemPrompt: this.restoredSystemPrompt,
       permissionHandler: (toolName, toolArgs) =>
-        this.promptRegistry.requestPermission(toolName, toolArgs),
+        this.promptRegistry.requestPermission(toolName, toolArgs, canPersistProjectPermission),
       askHandler: this.askHandler,
       onTextDelta: (delta) => this.execCtrl.handleTextDelta(delta),
       onContextUpdate: (state) => this.emit('context_update', state),

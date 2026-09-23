@@ -108,6 +108,42 @@ describe('createSession — generated session id', () => {
   });
 });
 
+describe('createSession — project permission persistence', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('does not install a project settings writer without a host persistence capability', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    await createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', projectNotesMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+    });
+
+    expect(sessionCtorCalls[0]?.onProjectAllowTool).toBeUndefined();
+  });
+
+  it('passes only the approved scope to the host persistence capability', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const persistProjectPermission = vi.fn();
+    await createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', projectNotesMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      persistProjectPermission,
+    });
+
+    const onProjectAllowTool = sessionCtorCalls[0]?.onProjectAllowTool as (scope: string) => void;
+    onProjectAllowTool('Bash(git *)');
+    onProjectAllowTool('Read');
+    expect(persistProjectPermission).toHaveBeenNthCalledWith(1, 'Bash(git *)');
+    expect(persistProjectPermission).toHaveBeenNthCalledWith(2, 'Read(*)');
+  });
+});
+
 describe('createSession — allowedTools option', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;

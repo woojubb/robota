@@ -246,8 +246,13 @@ export class PermissionEnforcer {
       toolArgs,
       ...(signal ? { signal } : {}),
     });
+    if (outcome.rememberForProject) {
+      if (this.onProjectAllowTool === undefined) {
+        throw new Error('Project-wide permission persistence is unavailable for this session.');
+      }
+      this.onProjectAllowTool(scope);
+    }
     if (outcome.rememberForSession) this.sessionAllowedTools.add(scope);
-    if (outcome.rememberForProject) this.onProjectAllowTool?.(scope);
     return outcome.allowed;
   }
 

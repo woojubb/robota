@@ -160,6 +160,7 @@ describe('WorkspaceTrustService project authority', () => {
     const settingsWriter = createWorkspaceProjectSettingsWriter(authority, {
       status: 'approved',
       target: 'project-local',
+      relativePath: '.robota/settings.local.json',
       purpose: 'test settings revocation',
     });
     const mutation = createWorkspaceProjectMutation(authority, {
@@ -292,13 +293,15 @@ describe('WorkspaceTrustService project authority', () => {
       const writer = createWorkspaceProjectSettingsWriter(granted.authority, {
         status: 'approved',
         target: 'project-local',
+        relativePath: '.acme/settings.local.json',
         purpose: 'test settings update',
       });
       writer.writeText('{"permission":"allow"}\n');
 
+      expect(writer.relativePath).toBe('.acme/settings.local.json');
       expect(
         getWorkspaceProjectReader(granted.authority).readText(
-          '.robota/settings.local.json',
+          '.acme/settings.local.json',
           'verify settings update',
         ),
       ).toBe('{"permission":"allow"}\n');
@@ -310,6 +313,23 @@ describe('WorkspaceTrustService project authority', () => {
       ).toBeUndefined();
     },
   );
+
+  it('rejects settings writer paths that are not safe root-relative files', async () => {
+    const { root, service } = fixture();
+    const granted = await service.grant(root);
+    if (granted.status !== 'trusted') throw new Error('expected trusted access');
+
+    for (const relativePath of ['../outside.json', '/tmp/settings.json', 'C:\\outside.json']) {
+      expect(() =>
+        createWorkspaceProjectSettingsWriter(granted.authority, {
+          status: 'approved',
+          target: 'project-local',
+          relativePath,
+          purpose: 'test invalid settings path',
+        }),
+      ).toThrowError(WorkspaceAuthorityRequiredError);
+    }
+  });
 
   // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(

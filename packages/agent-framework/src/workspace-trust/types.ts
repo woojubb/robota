@@ -125,6 +125,8 @@ export type TWorkspaceProjectSettingsWriteDecision =
   | {
       readonly status: 'approved';
       readonly target: TWorkspaceProjectSettingsTarget;
+      /** Host-selected root-relative path for the project settings document. */
+      readonly relativePath: string;
       readonly purpose: string;
     }
   | { readonly status: 'denied'; readonly reason: string };
@@ -132,6 +134,7 @@ export type TWorkspaceProjectSettingsWriteDecision =
 export interface IWorkspaceProjectSettingsWriter {
   readonly [workspaceProjectSettingsWriterType]: true;
   readonly target: TWorkspaceProjectSettingsTarget;
+  readonly relativePath: string;
   writeText(content: string): void;
 }
 

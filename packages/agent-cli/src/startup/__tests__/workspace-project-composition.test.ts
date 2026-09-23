@@ -149,6 +149,7 @@ describe('CLI workspace project composition', () => {
     const writer = createWorkspaceProjectSettingsWriter(access.authority, {
       status: 'approved',
       target: 'project-local',
+      relativePath: join('.robota', 'settings.local.json'),
       purpose: 'CLI provider configuration test',
     });
 

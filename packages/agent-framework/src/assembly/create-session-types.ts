@@ -99,6 +99,8 @@ export interface ICreateSessionOptions {
   provider?: IAIProvider;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
   permissionHandler?: TPermissionHandler;
+  /** Host-authorized persistence for a project permission approved by the user. */
+  persistProjectPermission?: (scope: string) => void;
   /**
    * Injected "ask the user" port (CMD-005): forwarded into the session/agent so model-invoked tools
    * (AskUserQuestion) can solicit a structured answer. Absent headless.

@@ -42,6 +42,8 @@ a missing mapping is rejected rather than silently dropped.
 Host-selected user settings sources pass through the same render-to-channel-to-session projection;
 the terminal does not choose a settings file for session startup or provider switching. Its CLI
 adapter uses the host-selected write target and read sources for an active-model change.
+The permission prompt labels project-wide approval unavailable when the session cannot persist it,
+and never resolves the disabled choice as an approval.
 
 When a self-paced loop is waiting, Esc stops that loop through the session's durable stop path.
 If several are waiting, Esc names the explicit stop command instead of choosing one silently.

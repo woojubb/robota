@@ -183,6 +183,8 @@ that session actually uses instead of re-deriving one that could disagree.
   projected from the invocation's argument — not the bare tool name. Approving one path, URL, or
   command family does not implicitly approve every other invocation of the same tool; a
   materially different argument prompts again.
+- Project-scoped consent requires an installed persistence callback. If it is unavailable or the
+  write fails, the approval is rejected without remembering a session-scoped grant.
 - A relative `path`-kind argument is canonicalised against the session's working directory before
   the permission gate, the hooks, the log, and the tool itself see it, so an absolute allow/deny
   pattern judges the argument correctly instead of being reported unevaluable.

@@ -49,6 +49,7 @@ function formatArgs(args: TToolArgs): string {
 
 export default function PermissionPrompt({ request }: IProps): React.ReactElement {
   const palette = usePalette();
+  const canPersistProjectPermission = request.canPersistProjectPermission !== false;
   const [state, setState] = React.useState<ISelectionFlowState>(() => createSelectionFlowState());
   const stateRef = React.useRef(state);
   const prevRequestRef = React.useRef(request);
@@ -62,26 +63,37 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
 
   const applyAction = React.useCallback(
     (action: TPermissionPromptInputAction): void => {
-      const result = applyPermissionPromptInput(stateRef.current, action);
+      const result = applyPermissionPromptInput(
+        stateRef.current,
+        action,
+        canPersistProjectPermission,
+      );
       stateRef.current = result.state;
       setState(result.state);
       if (result.effect.type === 'resolve') {
         request.resolve(result.effect.decision);
       }
     },
-    [request],
+    [request, canPersistProjectPermission],
   );
 
   const screenReader = useScreenReader();
-  const options = permissionPromptOptionsFor(consentScopeFor(request.toolName, request.toolArgs));
+  const options = permissionPromptOptionsFor(
+    consentScopeFor(request.toolName, request.toolArgs),
+    canPersistProjectPermission,
+  );
   const numbered = useNumberedSelection({
     enabled: screenReader,
     itemCount: options.length,
     onSelect: (index) => {
-      const result = applyPermissionPromptInput(stateRef.current, {
-        type: 'shortcut',
-        index,
-      });
+      const result = applyPermissionPromptInput(
+        stateRef.current,
+        {
+          type: 'shortcut',
+          index,
+        },
+        canPersistProjectPermission,
+      );
       stateRef.current = result.state;
       setState(result.state);
       if (result.effect.type === 'resolve') request.resolve(result.effect.decision);
@@ -147,19 +159,17 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
       {/* Issue #2351: the "always" options carry the consent scope, so they no longer fit one row
           of the prompt box — a row wrapped `Allow [y]` across two lines. One option per line. */}
       <Box marginTop={1} flexDirection="column">
-        {permissionPromptOptionsFor(consentScopeFor(request.toolName, request.toolArgs)).map(
-          (opt, i) => (
-            <Box key={opt}>
-              <Text
-                color={i === state.selectedIndex ? palette.text.accent : undefined}
-                bold={i === state.selectedIndex}
-              >
-                {i === state.selectedIndex ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
-                {opt}
-              </Text>
-            </Box>
-          ),
-        )}
+        {options.map((opt, i) => (
+          <Box key={opt}>
+            <Text
+              color={i === state.selectedIndex ? palette.text.accent : undefined}
+              bold={i === state.selectedIndex}
+            >
+              {i === state.selectedIndex ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
+              {opt}
+            </Text>
+          </Box>
+        ))}
       </Box>
       <KeyHintFooter hints={footerHints} />
     </Box>

@@ -96,6 +96,7 @@ async function main(): Promise<void> {
     const settings = createWorkspaceProjectSettingsWriter(access.authority, {
       status: 'approved',
       target: 'project-local',
+      relativePath: '.robota/settings.local.json',
       purpose: 'ARCH-2151 public settings scenario',
     });
     const sessions = getWorkspaceProjectStateStorage(access.authority, 'sessions');
