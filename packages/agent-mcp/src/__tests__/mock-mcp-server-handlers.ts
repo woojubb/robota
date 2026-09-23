@@ -23,6 +23,7 @@ export interface IMockServerRuntimeState {
   toolCallFailures: number;
   unauthorizedSeen: number;
   pendingListChanged: IMockListChangedDomain[];
+  pendingNotifications: Record<string, unknown>[];
 }
 
 export function sendJson(res: ServerResponse, status: number, payload: unknown): void {
@@ -54,7 +55,7 @@ export function handleInitialize(
   res: ServerResponse,
   id: string | number | undefined,
   options: IMockMcpServerOptions,
-  declaredCapabilities: Record<string, { listChanged?: boolean }>,
+  declaredCapabilities: Record<string, object>,
 ): void {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (options.sessionId) headers['Mcp-Session-Id'] = options.sessionId;
@@ -153,6 +154,8 @@ function emitListChangedThenResult(
 ): void {
   const domains = state.pendingListChanged;
   state.pendingListChanged = [];
+  const notifications = state.pendingNotifications;
+  state.pendingNotifications = [];
   res.writeHead(HTTP_OK, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -161,6 +164,9 @@ function emitListChangedThenResult(
   for (const domain of domains) {
     const notification = { jsonrpc: '2.0', method: `notifications/${domain}/list_changed` };
     res.write(`event: message\ndata: ${JSON.stringify(notification)}\n\n`);
+  }
+  for (const notification of notifications) {
+    res.write(`event: message\ndata: ${JSON.stringify({ jsonrpc: '2.0', ...notification })}\n\n`);
   }
   res.write(`event: message\ndata: ${JSON.stringify(rpcResponse)}\n\n`);
   res.end();
@@ -194,7 +200,7 @@ export function handleToolsCall(
 
   const respond = (): void => {
     const rpcResponse = buildToolCallResponse(id, options, params, toolName);
-    if (state.pendingListChanged.length > 0) {
+    if (state.pendingListChanged.length > 0 || state.pendingNotifications.length > 0) {
       emitListChangedThenResult(res, state, rpcResponse);
       return;
     }

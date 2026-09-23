@@ -109,14 +109,18 @@ export {
 export { MCPStdioError } from './client/stdio-transport.js';
 export {
   MCPSessionError,
+  MCP_EXTERNAL_EVENT_CAPABILITY,
+  MCP_EXTERNAL_EVENT_METHOD,
   SUPPORTED_MCP_PROTOCOL_VERSIONS,
   openMcpSession,
   type IMCPDiscoverOptions,
   type IMCPOpenSessionOptions,
   type IMCPSession,
   type IMCPSessionTimeouts,
+  type IMCPExternalEvent,
   type IMCPToolCallResult,
   type TMCPListChangedListener,
+  type TMCPExternalEventListener,
 } from './client/session.js';
 
 // MCP-002: the canonical catalog — what a server disclosed, and what this package decided to expose,

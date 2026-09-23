@@ -83,6 +83,7 @@ export class FakeMcpSession implements IMCPSession {
   readonly identity: IMCPServerIdentity;
   readonly instructions?: string;
   readonly declaredCapabilities: IMCPSession['declaredCapabilities'];
+  readonly externalEventsDeclared = false;
 
   readonly discoverCalls: IMCPDiscoverOptions[] = [];
   readonly callToolCalls: {
@@ -129,6 +130,10 @@ export class FakeMcpSession implements IMCPSession {
   onListChanged(listener: TMCPListChangedListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  onExternalEvent(_listener: Parameters<IMCPSession['onExternalEvent']>[0]): () => void {
+    return () => undefined;
   }
 
   async close(): Promise<void> {

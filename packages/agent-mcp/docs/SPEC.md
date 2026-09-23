@@ -58,6 +58,12 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
   acknowledgment, so an abort or timeout of an active stdio request closes the direct child rather
   than pretending the in-flight call can be cancelled cleanly; a failed tool call is never replayed
   by the supervisor.
+- **External event notifications are opt-in protocol facts, not turn authority.** The client only
+  exposes the version-1 `com.robota.external-event` experimental notification from a server that
+  declared that exact capability during initialization; it validates sender, conversation and
+  bounded content before delivery. A subscribing host must separately authenticate/admit that
+  server and its senders before submitting any session turn. An undeclared or unsupported server
+  cannot deliver through this port, and subscriptions end with the MCP session.
 - **Discovery is bounded and honest**: an unsupported capability's list method is never called; a
   declared one is drained page by page until pagination ends, bounded by a page count and a
   per-request timeout; a partial catalog is never reported as complete.
