@@ -26,8 +26,8 @@ export interface ILoadedContext {
   projectNotesFileEntries?: IContextFileEntry[];
 }
 
-const AGENTS_FILENAME = 'AGENTS.md';
-const CLAUDE_FILENAME = 'CLAUDE.md';
+export const AGENTS_FILENAME = 'AGENTS.md';
+export const CLAUDE_FILENAME = 'CLAUDE.md';
 
 /** NEUT-004: context-load behavior toggles (settings-driven at the composition root). */
 export interface ILoadContextOptions {

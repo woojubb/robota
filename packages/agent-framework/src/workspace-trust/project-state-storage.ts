@@ -22,7 +22,7 @@ import type {
 
 const projectStateStorages = new WeakMap<object, IWorkspaceProjectAuthority>();
 
-const NAMESPACE_DIRECTORIES: Readonly<Record<TWorkspaceProjectStateNamespace, string>> = {
+export const NAMESPACE_DIRECTORIES: Readonly<Record<TWorkspaceProjectStateNamespace, string>> = {
   sessions: join('.robota', 'sessions'),
   'session-logs': join('.robota', 'logs'),
   memory: join('.robota', 'memory'),

@@ -6,6 +6,21 @@ import { assertWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 import type { IWorkspaceProjectReader } from '../workspace-trust/index.js';
 
+/** Fixed paths inspected by automatic project detection after workspace access is granted. */
+export const PROJECT_DETECTOR_PATHS = {
+  packageJson: 'package.json',
+  tsconfig: 'tsconfig.json',
+  pnpmWorkspace: 'pnpm-workspace.yaml',
+  pnpmLock: 'pnpm-lock.yaml',
+  yarnLock: 'yarn.lock',
+  bunLock: 'bun.lockb',
+  npmLock: 'package-lock.json',
+  pyproject: 'pyproject.toml',
+  setup: 'setup.py',
+  cargo: 'Cargo.toml',
+  goMod: 'go.mod',
+} as const;
+
 export type TProjectType = 'node' | 'python' | 'rust' | 'go' | 'unknown';
 export type TPackageManager = 'pnpm' | 'yarn' | 'npm' | 'bun';
 export type TLanguage = 'typescript' | 'javascript' | 'python' | 'rust' | 'go' | 'unknown';
@@ -41,16 +56,19 @@ function hasFile(reader: IWorkspaceProjectReader, relativePath: string): boolean
 }
 
 function detectPackageManager(reader: IWorkspaceProjectReader): TPackageManager | undefined {
-  if (hasFile(reader, 'pnpm-workspace.yaml') || hasFile(reader, 'pnpm-lock.yaml')) {
+  if (
+    hasFile(reader, PROJECT_DETECTOR_PATHS.pnpmWorkspace) ||
+    hasFile(reader, PROJECT_DETECTOR_PATHS.pnpmLock)
+  ) {
     return 'pnpm';
   }
-  if (hasFile(reader, 'yarn.lock')) {
+  if (hasFile(reader, PROJECT_DETECTOR_PATHS.yarnLock)) {
     return 'yarn';
   }
-  if (hasFile(reader, 'bun.lockb')) {
+  if (hasFile(reader, PROJECT_DETECTOR_PATHS.bunLock)) {
     return 'bun';
   }
-  if (hasFile(reader, 'package-lock.json')) {
+  if (hasFile(reader, PROJECT_DETECTOR_PATHS.npmLock)) {
     return 'npm';
   }
   return undefined;
@@ -63,9 +81,11 @@ export async function detectProject(reader: IWorkspaceProjectReader): Promise<IP
   const accepted = assertWorkspaceProjectReader(reader);
 
   // Node.js project
-  if (hasFile(accepted, 'package.json')) {
-    const pkgJson = tryReadJson(accepted, 'package.json');
-    const language: TLanguage = hasFile(accepted, 'tsconfig.json') ? 'typescript' : 'javascript';
+  if (hasFile(accepted, PROJECT_DETECTOR_PATHS.packageJson)) {
+    const pkgJson = tryReadJson(accepted, PROJECT_DETECTOR_PATHS.packageJson);
+    const language: TLanguage = hasFile(accepted, PROJECT_DETECTOR_PATHS.tsconfig)
+      ? 'typescript'
+      : 'javascript';
     const packageManager = detectPackageManager(accepted);
     return {
       type: 'node',
@@ -76,7 +96,10 @@ export async function detectProject(reader: IWorkspaceProjectReader): Promise<IP
   }
 
   // Python project
-  if (hasFile(accepted, 'pyproject.toml') || hasFile(accepted, 'setup.py')) {
+  if (
+    hasFile(accepted, PROJECT_DETECTOR_PATHS.pyproject) ||
+    hasFile(accepted, PROJECT_DETECTOR_PATHS.setup)
+  ) {
     return {
       type: 'python',
       language: 'python',
@@ -84,7 +107,7 @@ export async function detectProject(reader: IWorkspaceProjectReader): Promise<IP
   }
 
   // Rust project
-  if (hasFile(accepted, 'Cargo.toml')) {
+  if (hasFile(accepted, PROJECT_DETECTOR_PATHS.cargo)) {
     return {
       type: 'rust',
       language: 'rust',
@@ -92,7 +115,7 @@ export async function detectProject(reader: IWorkspaceProjectReader): Promise<IP
   }
 
   // Go project
-  if (hasFile(accepted, 'go.mod')) {
+  if (hasFile(accepted, PROJECT_DETECTOR_PATHS.goMod)) {
     return {
       type: 'go',
       language: 'go',

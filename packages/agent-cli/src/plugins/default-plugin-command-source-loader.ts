@@ -6,6 +6,7 @@ import {
   getWorkspaceProjectIdentity,
   loadHostBundlePluginsFromScopes,
   PluginCommandSource,
+  PROJECT_PLUGIN_RELATIVE_DIRECTORY,
 } from '@robota-sdk/agent-framework';
 
 import type { CommandRegistry, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
@@ -23,7 +24,7 @@ function getHomeDir(): string {
  * plugin is present in both.
  */
 function pluginsDirUnder(base: string): string {
-  return join(base, '.robota', 'plugins');
+  return join(base, PROJECT_PLUGIN_RELATIVE_DIRECTORY);
 }
 
 /**

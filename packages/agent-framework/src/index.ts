@@ -33,6 +33,7 @@ export {
   createNodeWorkspaceIdentityResolver,
   createNodeWorkspaceTrustService,
   createNodeWorkspaceTrustStore,
+  inspectPreTrustProjectPaths,
   getWorkspaceTrustStorePath,
   assertWorkspaceProjectAuthority,
   assertWorkspaceProjectReader,
@@ -49,6 +50,7 @@ export {
 export type {
   IRestrictedWorkspaceProjectAccess,
   IWorkspaceTrustCause,
+  IPreTrustProjectPathInspection,
   ITrustedWorkspaceProjectAccess,
   IWorkspaceAncestorTextEntry,
   IWorkspaceDirectoryEntry,
@@ -664,6 +666,7 @@ export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './ho
 
 // ── User-owned host paths ───────────────────────────────────
 export { userPaths } from './paths.js';
+export { PROJECT_PLUGIN_RELATIVE_DIRECTORY } from './plugins/plugin-scope-paths.js';
 
 // ── Explicit project/host contribution sources ─────────────
 export {
@@ -671,8 +674,9 @@ export {
   createDefaultUserContributionSources,
   createNodeHostContributionSource,
   createWorkspaceProjectContributionSource,
+  listFrameworkProjectContributionPaths,
 } from './contributions/index.js';
-export type { IContributionSource } from './contributions/index.js';
+export type { IContributionSource, IProjectContributionPath } from './contributions/index.js';
 
 // ── Task context ───────────────────────────────────────────
 export {

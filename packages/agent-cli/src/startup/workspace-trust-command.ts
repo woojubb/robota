@@ -4,6 +4,8 @@ import {
   type WorkspaceTrustService,
 } from '@robota-sdk/agent-framework';
 
+import { formatProjectContributionPreview } from './project-contribution-preview.js';
+
 type TWorkspaceTrustAction = 'status' | 'grant' | 'revoke';
 
 function accessState(access: TWorkspaceProjectAccess): string {
@@ -52,6 +54,9 @@ export async function runWorkspaceTrustCommand(
           ? await service.revoke(cwd)
           : await service.inspect(cwd);
     printAccess(access);
+    if (action === 'status' && access.status !== 'trusted') {
+      process.stdout.write(formatProjectContributionPreview(access.identity, cwd));
+    }
     return access.status === 'trusted' || action === 'status' ? 0 : 1;
   } catch (error) {
     process.stderr.write(
