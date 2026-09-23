@@ -155,5 +155,5 @@ jobs:
         run: |
           set -euo pipefail
           short_sha="${GITHUB_SHA:0:7}"
-          printf -v body 'The full repository, contract, or hermetic harness responsibility is red at `%s`. Run: %s' "$short_sha" "$RUN_URL"
+          printf -v body "The full repository, contract, or hermetic harness responsibility is red at \`%s\`. Run: %s" "$short_sha" "$RUN_URL"
           gh issue comment 2423 --repo "$GITHUB_REPOSITORY" --body "$body"
