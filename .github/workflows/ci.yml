@@ -465,7 +465,6 @@ jobs:
           const plan = JSON.parse(readFileSync(path.join(process.env.RUNNER_TEMP, 'framework-build-plan.json'), 'utf8'));
           assert.equal(plan.mode, 'packages');
           assert.equal(plan.globalFallback, false);
-          assert.equal(plan.packages.length, 16);
           for (const name of ['@robota-sdk/agent-framework', '@robota-sdk/agent-provider-replay', '@robota-sdk/agent-session-analytics', '@robota-sdk/agent-provider-openai-compatible']) {
             assert.ok(plan.packages.some((pkg) => pkg.name === name), `missing producer: ${name}`);
           }

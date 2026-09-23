@@ -4,18 +4,9 @@ import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { makeTemp } from './make-temp.mjs';
-import {
-  formatWorkspaceAffectedPlan,
-  parseCliArgs,
-} from '../workspace-affected.mjs';
-import {
-  parseNameStatusDiff,
-  resolveChangedFiles,
-} from '../workspace-affected-git.mjs';
-import {
-  createWorkspaceAffectedPlan,
-  planWorkspaceAffected,
-} from '../workspace-affected-plan.mjs';
+import { formatWorkspaceAffectedPlan, parseCliArgs } from '../workspace-affected.mjs';
+import { parseNameStatusDiff, resolveChangedFiles } from '../workspace-affected-git.mjs';
+import { createWorkspaceAffectedPlan, planWorkspaceAffected } from '../workspace-affected-plan.mjs';
 import {
   parseWorkspacePatterns,
   readWorkspaceGraph,
@@ -950,7 +941,8 @@ describe('workspace affected planner', () => {
     });
     expect(providerTypecheck.packages).toHaveLength(1);
     expect(providerBuild.packages.length).toBeLessThanOrEqual(3);
-    expect(cliBuild.packages.length).toBeLessThanOrEqual(67);
+    // MCP-006 adds the MCP transport as a framework test prerequisite.
+    expect(cliBuild.packages.length).toBeLessThanOrEqual(68);
     // ARTIFACT-2655: CLI assembly now owns the previously omitted web producer + GUI prerequisite.
     const copiedPrerequisites = ['@robota-sdk/agent-cli-web', '@robota-sdk/agent-ui-web'];
     expect(tuiBuild.packages.map((entry) => entry.name)).toEqual(
@@ -958,6 +950,6 @@ describe('workspace affected planner', () => {
     );
     expect(
       tuiBuild.packages.filter((entry) => !copiedPrerequisites.includes(entry.name)).length,
-    ).toBeLessThanOrEqual(65);
+    ).toBeLessThanOrEqual(66);
   });
 });
