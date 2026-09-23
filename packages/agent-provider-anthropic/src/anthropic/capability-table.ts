@@ -9,7 +9,7 @@
  * The claim and the date are the ones this repository already made.
  */
 
-import { ANTHROPIC_MODEL_LAST_VERIFIED_AT } from './provider-definition';
+import { ANTHROPIC_MODEL_LAST_VERIFIED_AT } from './model-catalog-metadata.js';
 
 import type { IProviderCapabilityTable } from '@robota-sdk/agent-core';
 
