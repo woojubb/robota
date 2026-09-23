@@ -11,10 +11,7 @@ import type {
 } from '../app-view-model.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
-import type {
-  IInteractiveSession,
-  IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 interface IOptions {

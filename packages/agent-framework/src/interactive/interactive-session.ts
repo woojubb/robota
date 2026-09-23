@@ -61,8 +61,10 @@ import type {
 } from './types.js';
 import type { TLivePromptOverrides } from '../assembly/create-session-runtime.js';
 import type { ICommandHostContext } from '../command-api/index.js';
+import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type {
   IAgentJobHostContext,
+  ICommandResult,
   IUnknownCommandModuleName,
   TAutoCompactThresholdSource,
   TAutoCompactThreshold,
@@ -73,6 +75,7 @@ import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
+import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type {
   TUniversalMessage,
@@ -163,8 +166,7 @@ export class InteractiveSession
   private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
   private providerDefinitions: readonly IProviderDefinition[] = [];
   private activeOutputStyleId = 'default';
-  private orgPolicy: import('../command-api/org-policy/org-policy-types.js').IOrgPolicy | null =
-    null;
+  private orgPolicy: IOrgPolicy | null = null;
   protected readonly bgTracker: SessionBackgroundTaskTracker;
   protected readonly histTracker: SessionHistoryTracker;
   protected readonly skillRouter: SessionSkillRouter;
@@ -189,7 +191,7 @@ export class InteractiveSession
   /** REMOTE-007: transport-neutral pending permission/ask registry (parking + fail-closed + drain). */
   private readonly promptRegistry: SessionPromptRegistry;
   private readonly projectAccess: TWorkspaceProjectAccess;
-  private readonly providerErrorGuidance?: import('../utils/error-humanizer.js').IProviderErrorGuidance;
+  private readonly providerErrorGuidance?: IProviderErrorGuidance;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
@@ -1195,7 +1197,7 @@ export class InteractiveSession
     args: string,
     source: TCommandInvocationSource = 'user',
     originDriverId?: TDriverId,
-  ): Promise<import('../commands/index.js').ICommandResult | null> {
+  ): Promise<ICommandResult | null> {
     if (this.orgPolicy?.blockedCommands?.includes(name)) {
       return {
         message: formatOrgPolicyViolationMessage(

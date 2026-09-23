@@ -1,5 +1,3 @@
-import stringWidth from 'string-width';
-
 import { moveCursorHorizontally, moveCursorVertically } from './cjk-cursor-motion.js';
 import {
   deleteCharBeforeCursor,

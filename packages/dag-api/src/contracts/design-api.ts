@@ -1,5 +1,5 @@
 import type { IDagDefinition, IDagError } from '@robota-sdk/dag-core';
-import type { IApiFailure, IApiSuccess, TApiResponse } from './common-api.js';
+import type { IApiFailure, TApiResponse } from './common-api.js';
 
 /** RFC 7807-style problem details for DAG API error responses. */
 export interface IProblemDetails {

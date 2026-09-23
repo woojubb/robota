@@ -1,4 +1,3 @@
-import { sweepStaleTaskRuns } from './stale-task-sweeper.js';
 import { failAfterAck, handleTerminalFailure } from './worker-failure-handler.js';
 
 import type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-service.js';

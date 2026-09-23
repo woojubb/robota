@@ -21,7 +21,6 @@ import type {
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
 import type {
-  IInteractiveSession,
   IResumableSessionSummary,
   IToolState,
 } from '@robota-sdk/agent-interface-session';

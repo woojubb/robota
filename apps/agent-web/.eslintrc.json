@@ -9,7 +9,7 @@
     "no-restricted-syntax": "off",
     "no-console": "off",
     "import/order": [
-      "warn",
+      "error",
       {
         "groups": ["builtin", "external", "internal", ["parent", "sibling", "index"], "type"],
         "newlines-between": "always",
@@ -20,14 +20,14 @@
       }
     ],
     "@typescript-eslint/consistent-type-imports": [
-      "warn",
+      "error",
       {
         "prefer": "type-imports",
         "fixStyle": "separate-type-imports"
       }
     ],
     "@typescript-eslint/explicit-function-return-type": [
-      "warn",
+      "error",
       {
         "allowExpressions": true,
         "allowTypedFunctionExpressions": true,

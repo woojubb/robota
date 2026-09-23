@@ -47,9 +47,6 @@ function presetRegistry(context: ICommandHostAdapterAccess): IPresetDiscovery {
   return context.getCommandHostAdapters?.().presetRegistry ?? createPresetRegistry();
 }
 
-/** Default active preset id reported when the runtime has no recorded active preset. */
-const DEFAULT_ACTIVE_PRESET_ID = 'default';
-
 /** Read the active preset id from the session, defaulting when the optional seam is absent. */
 function readActivePresetId(context: ICommandHostSessionAccess): string {
   return context.getSession().getActivePresetId();

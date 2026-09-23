@@ -211,7 +211,7 @@ export class BundlePluginLoader {
   }
 
   /** Load skills from the plugin's skills/ directory. */
-  private loadSkills(pluginDir: string, pluginName: string): IBundleSkill[] {
+  private loadSkills(pluginDir: string, _pluginName: string): IBundleSkill[] {
     const skillsDir = join(pluginDir, 'skills');
     if (!this.fs.existsSync(skillsDir)) return [];
 

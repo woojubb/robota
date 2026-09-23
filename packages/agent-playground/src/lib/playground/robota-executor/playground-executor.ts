@@ -26,7 +26,6 @@ import type {
   IPlaygroundAgentConfig,
   IPlaygroundExecutorResult,
   IPlaygroundTool,
-  TPlaygroundMode,
 } from '../robota-executor-types';
 import type { IPlaygroundAction, IPlaygroundMetrics } from '../../../types/playground-statistics';
 

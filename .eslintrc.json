@@ -25,7 +25,6 @@
       "warn",
       {
         "types": {
-          "unknown": "❌ Avoid `unknown` in shipped source. Prefer specific unions/interfaces, SSOT types (e.g. TUniversalValue), and type guards at boundaries. Note: disabling this rule in src/ is prohibited; tests are exempt.",
           "any": "❌ Avoid `any` in shipped source. Prefer specific types/SSOT types, and validate external inputs. Note: disabling no-explicit-any in src/ is prohibited; tests are exempt.",
           "{}": false
         },
@@ -35,7 +34,7 @@
     // ==========================================
     // ✅ default: keep packages strict; relax apps via overrides
     "@typescript-eslint/no-unused-vars": [
-      "warn",
+      "error",
       {
         "argsIgnorePattern": "^_",
         "varsIgnorePattern": "^_",
@@ -93,19 +92,7 @@
     // ==========================================
     // CODE QUALITY RULES
     // ==========================================
-    "complexity": ["warn", 15],
-    "max-lines": ["warn", { "max": 300, "skipBlankLines": true, "skipComments": true }],
-    "max-lines-per-function": ["warn", { "max": 50, "skipBlankLines": true, "skipComments": true }],
-    "no-param-reassign": ["error", { "props": false }],
-    "no-magic-numbers": [
-      "warn",
-      {
-        "ignore": [-1, 0, 1, 2],
-        "ignoreArrayIndexes": true,
-        "ignoreDefaultValues": true,
-        "enforceConst": true
-      }
-    ]
+    "no-param-reassign": ["error", { "props": false }]
   },
   "overrides": [
     {

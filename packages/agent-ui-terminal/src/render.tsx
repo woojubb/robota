@@ -54,7 +54,6 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type {
-  IInteractiveSession,
   IInteractiveSessionStore,
   IPromptHistorySource,
 } from '@robota-sdk/agent-interface-session';

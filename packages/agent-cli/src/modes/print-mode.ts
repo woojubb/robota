@@ -1,10 +1,9 @@
-import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
+import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type {
   IAgentDefinition,
   ICommandHostAdapters,
   ICommandModule,
-  ICreateSessionOptions,
   IOrgPolicy,
   IProviderErrorGuidance,
   TWorkspaceProjectAccess,
