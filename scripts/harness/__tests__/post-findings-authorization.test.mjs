@@ -655,6 +655,9 @@ describe('single-pass remote closeout receipts', () => {
         };
       }
       if (args[0] === 'api' && args[1] === `repos/woojubb/robota/commits/${mergeCommit}`) {
+        return { status: null, error: new Error('spawnSync gh ENOBUFS'), stderr: '' };
+      }
+      if (args[0] === 'api' && args[1] === `repos/woojubb/robota/git/commits/${mergeCommit}`) {
         return {
           status: 0,
           stdout: JSON.stringify({ sha: mergeCommit, parents: [{ sha: 'f'.repeat(40) }] }),
