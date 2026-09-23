@@ -8,6 +8,7 @@ export function userPaths(home: string = homedir()): {
   onboarded: string;
   history: string;
   workspaceTrust: string;
+  orgPolicy: string;
 } {
   const base = join(home, '.robota');
   return {
@@ -16,5 +17,6 @@ export function userPaths(home: string = homedir()): {
     onboarded: join(base, 'onboarded'),
     history: join(base, 'history.jsonl'),
     workspaceTrust: join(base, 'workspace-trust.json'),
+    orgPolicy: join(base, 'org-policy.json'),
   };
 }

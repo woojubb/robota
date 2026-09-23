@@ -15,6 +15,7 @@ describe('Robota user paths', () => {
       onboarded: join('/first-home', '.robota', 'onboarded'),
       history: join('/first-home', '.robota', 'history.jsonl'),
       workspaceTrust: join('/first-home', '.robota', 'workspace-trust.json'),
+      orgPolicy: join('/first-home', '.robota', 'org-policy.json'),
     });
     expect(second.sessions).toBe(join('/second-home', '.robota', 'sessions'));
   });

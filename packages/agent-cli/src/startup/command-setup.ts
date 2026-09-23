@@ -37,6 +37,7 @@ import { buildDoctorInputs } from './doctor-inputs.js';
 import { areSessionLoopsDisabled, createLoopDefaultPromptResolver, DEFAULT_LOOP_MAINTENANCE_PROMPT } from './loop-options.js';
 import { createDefaultPluginCommandAdapter } from '../plugins/default-plugin-command-adapter.js';
 import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
+import { userPaths } from '../product/user-paths.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
 import type { IOutputStyleRegistry } from '@robota-sdk/agent-preset';
 import {
@@ -203,7 +204,7 @@ export function buildCommandSetup(
   // `92596bc6f` removed it two days later while slimming this file, and four implemented enforcement
   // sites have been unreachable since. Nothing failed, because the parameter is optional and its
   // consumers read absence as "no policy configured".
-  const orgPolicy = loadOrgPolicy();
+  const orgPolicy = loadOrgPolicy(userPaths().orgPolicy);
   // OBSERVABILITY-1991: `/doctor` runs the same runner as `robota doctor`, over the inputs this host
   // composed; the shell supplies them, the command package owns the behaviour.
   const doctorInputs = buildDoctorInputs({
