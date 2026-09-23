@@ -1,11 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 import { classifyFiles } from '../classify-changed-paths.mjs';
+import { makeTemp } from './make-temp.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '../../..');
 const WORKFLOW_FILE = path.join(ROOT, '.github/workflows/ci.yml');
@@ -197,17 +197,13 @@ describe('PAYLOAD-2153 native acceptance topology', () => {
     expect(run('false', 'skipped').status).toBe(0);
     expect(run('', 'skipped').status).not.toBe(0);
 
-    const emptyEvidence = mkdtempSync(path.join(tmpdir(), 'payload-native-fanin-'));
-    try {
-      const missing = spawnSync(
-        process.execPath,
-        [path.join(ROOT, 'scripts/harness/payload-native-evidence.mjs'), emptyEvidence],
-        { encoding: 'utf8' },
-      );
-      expect(missing.status).not.toBe(0);
-      expect(missing.stderr).toMatch(/missing|expected|evidence/iu);
-    } finally {
-      rmSync(emptyEvidence, { recursive: true, force: true });
-    }
+    const emptyEvidence = makeTemp('robota-payload-native-fanin-');
+    const missing = spawnSync(
+      process.execPath,
+      [path.join(ROOT, 'scripts/harness/payload-native-evidence.mjs'), emptyEvidence],
+      { encoding: 'utf8' },
+    );
+    expect(missing.status).not.toBe(0);
+    expect(missing.stderr).toMatch(/missing|expected|evidence/iu);
   });
 });

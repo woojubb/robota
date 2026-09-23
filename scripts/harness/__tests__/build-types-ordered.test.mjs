@@ -117,8 +117,9 @@ describe('createBuildTypeTiers', () => {
     // STRUCT-012 S3 absorbed the protocol substrate into agent-transport and left the old package as
     // a dependency-free tombstone. Removing that redundant build edge shortened the deepest path by
     // one tier, so agent-cli now sits at tier 9 of 10. PR #2831 removes dag-mcp-server and
-    // dag-nodes/mcp-tool, leaving 78 producers without changing the tier count.
-    expect(packages).toHaveLength(78);
+    // dag-nodes/mcp-tool, leaving 78 producers without changing the tier count. PAYLOAD-2153
+    // adds the file-authority producer.
+    expect(packages).toHaveLength(79);
     expect(tierByName.has('@robota-sdk/agent-testing')).toBe(false);
     expect(tierByName.has('@robota-sdk/agent-ui-terminal')).toBe(true);
     expect(tiers).toHaveLength(10);
