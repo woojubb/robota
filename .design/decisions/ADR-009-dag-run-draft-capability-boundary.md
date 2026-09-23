@@ -9,7 +9,7 @@ accepted
 The five run-draft methods on `IDagOrchestrationPort` return HTTP envelopes even for the
 in-process framework. The framework therefore manufactures status codes and route URIs while
 editing `IRunDraft` through `IRunDraftStore`. The HTTP client also sends `PUT` to the reset route
-that the server exposes as `POST`. This is a remaining part of #2163's historical #2156 boundary.
+that the server exposes as `POST`. This is a remaining part of issue #2163's historical issue #2156 boundary.
 
 ## Alternatives Considered
 
@@ -32,11 +32,11 @@ Creating a caller-specified ID and replacing a missing draft retain their existi
   build, and validation methods still require their own boundary correction.
 - No storage or clock implementation moves into `dag-core`; they remain injected adapters.
 - Invalid request and malformed response data are rejected at their respective trust boundaries.
-- This is a partial delivery of #2163, not its closure.
+- This is a partial delivery of issue #2163, not its closure.
 
 ## References
 
-- #2163 and historical #2156.
+- Issue #2163 and historical issue #2156.
 - `packages/dag-core/docs/SPEC.md`
 - `packages/dag-framework/docs/SPEC.md`
 - `packages/dag-orchestration-client/docs/SPEC.md`

@@ -68,7 +68,7 @@ export function runDraftTransportFailure(_cause: unknown): TResult<never, IDagEr
   };
 }
 
-export function runDraftInvalidResponse(): TResult<never, IDagError> {
+function runDraftInvalidResponse(): TResult<never, IDagError> {
   return {
     ok: false,
     error: buildDagError(
