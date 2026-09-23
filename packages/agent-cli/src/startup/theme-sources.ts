@@ -16,7 +16,7 @@
  */
 import { join } from 'node:path';
 
-import { pluginScopeDirs } from '@robota-sdk/agent-command';
+import { pluginScopeDirs } from '../plugins/default-plugin-command-source-loader.js';
 import {
   createNodeHostContributionSource,
   loadHostBundlePluginsFromScopes,
@@ -60,7 +60,7 @@ export interface IThemeSourcesOptions {
   readonly userHome: string;
   /**
    * The installed plugins. Injected so a test can hand over two directories without installing a
-   * marketplace; the default asks the same loader the command layer asks.
+   * marketplace; the default asks the same host loader used for CLI plugin commands.
    */
   readonly plugins?: readonly IThemePluginDirectory[];
 }

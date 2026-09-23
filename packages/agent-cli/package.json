@@ -125,6 +125,7 @@
     "@robota-sdk/agent-executor": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-interface-analytics": "workspace:*",
+    "@robota-sdk/agent-interface-command": "workspace:*",
     "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-session-mobility": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",

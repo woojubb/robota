@@ -825,7 +825,8 @@ already uses, for the same reason.
 `~/.robota/themes`, read through the same root-bounded host contribution source
 `~/.robota/output-styles` is read through — home-only, because a theme is a preference of the person
 at the terminal rather than of the checkout. Plugin themes come from `<pluginDir>/themes` for each
-installed plugin, via `pluginScopeDirs`, which INCLUDES the project scope; that asymmetry is
+installed plugin, via the CLI-owned `src/plugins/default-plugin-command-source-loader.ts` scope helper,
+which INCLUDES the project scope; that asymmetry is
 deliberate. Ids are minted here from where the file was found (`custom:<slug>`,
 `custom:<plugin>:<slug>`), so no file can claim a built-in's id whatever it is called, and the first
 file to claim an id keeps it while a later claimant is skipped rather than silently replacing it.
@@ -1466,7 +1467,7 @@ The `/reset` command is provided by `@robota-sdk/agent-command`. The command mod
 
 The `/exit` command is provided by `@robota-sdk/agent-command`. The command module returns the `session-exit` host action; the SESSION requests exit via the per-mode process adapter (TUI: deferred SIGTERM through the App's graceful signal flow).
 
-The `/plugin` command is provided by `@robota-sdk/agent-command`. The command module returns the `show-plugin-manager` UI intent for `/plugin` and `/plugin manage`, and uses the CLI-provided `ICommandPluginAdapter` for install/uninstall/enable/disable/marketplace subcommands; `/reload-plugins` reloads host-side and carries the requester-local `data.pluginRegistryReloaded` hint for the autocomplete refresh.
+The `/plugin` command is provided by `@robota-sdk/agent-command`. The command module returns the `show-plugin-manager` UI intent for `/plugin` and `/plugin manage`, and uses the CLI-provided `ICommandPluginAdapter` for install/uninstall/enable/disable/marketplace subcommands. The CLI composes that adapter in `src/plugins/default-plugin-command-adapter.ts` and reloads the command source through `src/plugins/default-plugin-command-source-loader.ts`; `/reload-plugins` carries the requester-local `data.pluginRegistryReloaded` hint for the autocomplete refresh.
 
 The `/rewind` command is provided by `@robota-sdk/agent-command`. The CLI slash router only routes it into `session.executeCommand()` and renders the returned command result; checkpoint storage, restore, rollback ordering, and command output formatting live outside the CLI.
 
@@ -1501,7 +1502,7 @@ A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). U
 
 #### `/plugin` — Plugin Management
 
-The `/plugin` command is owned by `@robota-sdk/agent-command`. The CLI supplies a local `ICommandPluginAdapter` that connects the command package and `PluginTUI` to `NodeHostPluginSettingsStore`, `BundlePluginLoader`, `BundlePluginInstaller`, and `MarketplaceClient`.
+The `/plugin` command is owned by `@robota-sdk/agent-command`. The CLI supplies a local `ICommandPluginAdapter` that connects the command package and `PluginTUI` to `NodeHostPluginSettingsStore`, `BundlePluginLoader`, `BundlePluginInstaller`, and `MarketplaceClient`. Project plugin directories precede user directories, and each adapter reload takes a fresh enablement snapshot.
 
 Subcommands:
 
