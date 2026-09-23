@@ -148,7 +148,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
       this.startInitCheck();
       if (this.opts.transportRegistry) {
         transportStartAttempted = true;
-        this.opts.bindTransports?.(this.interactiveSession);
+        await this.opts.bindTransports?.(this.interactiveSession);
         await this.opts.transportRegistry.startAll();
       }
     } catch (startError) {

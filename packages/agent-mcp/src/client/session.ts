@@ -105,6 +105,8 @@ export interface IMCPSession {
   onListChanged(listener: TMCPListChangedListener): () => void;
   /** Delivery is gated by the exact experimental capability and a live subscription. */
   onExternalEvent(listener: TMCPExternalEventListener): () => void;
+  /** Fired once when the SDK client or its transport closes, including unexpected closure. */
+  onClose(listener: () => void): () => void;
   /** Closes the SDK client and its transport. Idempotent. */
   close(): Promise<void>;
 }
@@ -337,24 +339,37 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
 
   const listeners = new Set<TMCPListChangedListener>();
   const externalEventListeners = new Set<TMCPExternalEventListener>();
+  const closeListeners = new Set<() => void>();
   registerListChangedHandlers(client, listeners);
 
   let externalEventsStopped = false;
+  let closed = false;
+  let closingExplicitly = false;
   const stopExternalEvents = (): void => {
     externalEventsStopped = true;
     externalEventListeners.clear();
     client.removeNotificationHandler(MCP_EXTERNAL_EVENT_METHOD);
   };
+  const notifyClose = (): void => {
+    stopExternalEvents();
+    if (!closed) {
+      closed = true;
+      for (const listener of closeListeners) listener();
+      closeListeners.clear();
+    }
+  };
   const previousOnClose = client.onclose;
   client.onclose = () => {
-    stopExternalEvents();
+    if (closingExplicitly) stopExternalEvents();
+    else notifyClose();
     previousOnClose?.();
   };
   let closePromise: Promise<void> | undefined;
   const closeSession = (): Promise<void> => {
     if (!closePromise) {
+      closingExplicitly = true;
       stopExternalEvents();
-      closePromise = client.close();
+      closePromise = client.close().then(() => notifyClose());
     }
     return closePromise;
   };
@@ -442,6 +457,14 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
           client.removeNotificationHandler(MCP_EXTERNAL_EVENT_METHOD);
         }
       };
+    },
+    onClose(listener: () => void): () => void {
+      if (closed) {
+        listener();
+        return () => undefined;
+      }
+      closeListeners.add(listener);
+      return () => { closeListeners.delete(listener); };
     },
     async close(): Promise<void> {
       await closeSession();

@@ -63,7 +63,11 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
   declared that exact capability during initialization; it validates sender, conversation and
   bounded content before delivery. A subscribing host must separately authenticate/admit that
   server and its senders before submitting any session turn. An undeclared or unsupported server
-  cannot deliver through this port, and subscriptions end with the MCP session.
+  cannot deliver through this port, and subscriptions end with the MCP session. A supervisor-level
+  subscriber pins the live connection against idle close, survives bounded reconnection after an
+  unexpected transport close, and fails closed if a reconnected server drops the declaration.
+  Recovery is bounded; repeated disconnects eventually require explicit retry rather than loop
+  forever. Unsubscribing the last host listener cancels queued channel-only recovery.
 - **Discovery is bounded and honest**: an unsupported capability's list method is never called; a
   declared one is drained page by page until pagination ends, bounded by a page count and a
   per-request timeout; a partial catalog is never reported as complete.

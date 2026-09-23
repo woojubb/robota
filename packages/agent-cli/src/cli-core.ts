@@ -4,6 +4,7 @@ import { PrintTerminal } from './print-terminal.js';
 import {
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
+  InteractiveSession,
   readProviderSettings,
   readMergedProviderSettings,
   type IBackgroundTaskRunner,
@@ -68,7 +69,9 @@ import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
 import { composeMcpClientForStartup } from './startup/mcp-startup.js';
+import { createMcpExternalEventHost } from './startup/mcp-external-event-host.js';
 import type { TMcpStartupMode } from './startup/mcp-startup.js';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { Writable } from 'node:stream';
 import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
 import { resolveFocusReportingOverride } from './startup/focus-reporting-enablement.js';
@@ -318,6 +321,9 @@ async function runCliCore(
           reportDiagnostic: (message) => terminal.writeError(message),
         })
       : undefined;
+  if ((args.externalEventAllow?.length ?? 0) > 0 && mcp === undefined) {
+    throw new Error('--external-event-allow requires the CLI-owned MCP client');
+  }
   if (mcp !== undefined) startupOptions.mcpActivationAdapter = mcp.activationAdapter;
   const {
     commandHostAdapters,
@@ -377,6 +383,17 @@ async function runCliCore(
     workspaceComposition.projectAccess.status === 'trusted',
     args.open,
   );
+  const externalEventHost = mcp && args.externalEventAllow?.length
+    ? createMcpExternalEventHost(args.externalEventAllow, mcp, (message) => terminal.writeLine(message))
+    : undefined;
+  const bindTuiTransports = async (session: IInteractiveSession): Promise<void> => {
+    bindTransports(session);
+    if (!externalEventHost) return;
+    if (!(session instanceof InteractiveSession)) {
+      throw new Error('External event host requires an InteractiveSession runtime');
+    }
+    await externalEventHost.bind(session);
+  };
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry, usageReporters);
   // CMD-007: this product stores `/cost budget` in `.robota/budget.json`; commands see only its port.
@@ -728,7 +745,7 @@ async function runCliCore(
     shellExec: runShellCommand,
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
-    bindTransports,
+    bindTransports: bindTuiTransports,
     // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
     // host adapter (wired above) — no TUI-prop wiring remains.
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
@@ -762,6 +779,7 @@ async function runCliCore(
   try {
     await tuiRun;
   } finally {
+    externalEventHost?.close();
     if (mcp !== undefined) await mcp.shutdown();
   }
   process.exit(0);

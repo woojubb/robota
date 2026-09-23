@@ -31,6 +31,8 @@ export interface IParsedCliArgs {
   /** MCP-2533: selecting HTTP also requires an exclusive owner-only token file. */
   mcpHttpTokenFile?: string;
   mcpHttpPort?: number;
+  /** Explicit TUI-only MCP source/sender grants; each value is serverId:senderId. */
+  externalEventAllow?: string[];
   /** GUI-007: with `--serve --open`, also serve the CLI's web monitor SPA over localhost and open it. */
   open: boolean;
   continueMode: boolean;
@@ -157,6 +159,7 @@ const PARSE_ARGS_CONFIG = {
     serve: { type: 'boolean', default: false },
     'http-token-file': { type: 'string' },
     'http-port': { type: 'string' },
+    'external-event-allow': { type: 'string', multiple: true },
     open: { type: 'boolean', default: false },
     name: { type: 'string', short: 'n' },
     'output-format': { type: 'string' },
@@ -260,6 +263,7 @@ function mapParsedValues(
     serve: values['serve'] ?? false,
     mcpHttpTokenFile: values['http-token-file'],
     mcpHttpPort: values['http-port'] === undefined ? undefined : Number(values['http-port']),
+    externalEventAllow: values['external-event-allow'] ?? [],
     open: values['open'] ?? false,
     continueMode: values['continue'] ?? false,
     resumeId: values['resume'],
@@ -318,6 +322,32 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     (!Number.isInteger(args.mcpHttpPort) || args.mcpHttpPort < 1 || args.mcpHttpPort > 65535)
   ) {
     throw new Error('--http-port must be an integer in 1..65535');
+  }
+  const externalEventAllow = args.externalEventAllow ?? [];
+  for (const grant of externalEventAllow) {
+    const separator = grant.indexOf(':');
+    const serverId = grant.slice(0, separator);
+    const senderId = grant.slice(separator + 1);
+    if (separator < 1 || !/^[a-zA-Z0-9_-]{1,64}$/u.test(serverId) || senderId.length === 0 || senderId.length > 128) {
+      throw new Error('--external-event-allow requires serverId:senderId (bounded, non-empty identities)');
+    }
+    for (const character of senderId) {
+      const code = character.codePointAt(0)!;
+      if (code < 32 || code === 127 || (code >= 0xd800 && code <= 0xdfff)) {
+        throw new Error('--external-event-allow senderId contains a control character');
+      }
+    }
+  }
+  if (externalEventAllow.length > 0 && (
+    args.printMode || args.goal !== undefined || args.serve || args.reset ||
+    args.configure || args.configureProvider !== undefined || args.version ||
+    args.checkUpdate || args.help ||
+    ['mcp', 'eval', 'session', 'user-local'].includes(args.positional[0] ?? '')
+  )) {
+    throw new Error('--external-event-allow is currently available only in interactive TUI mode');
+  }
+  if (externalEventAllow.length > 0 && args.permissionMode === 'bypassPermissions') {
+    throw new Error('--external-event-allow cannot run with bypassPermissions');
   }
   if (args.printMode) {
     if (args.resumeId === '') {

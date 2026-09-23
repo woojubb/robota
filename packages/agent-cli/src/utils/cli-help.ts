@@ -18,6 +18,9 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --language <lang>          Language preference (e.g. ko, en)
   --no-session-persistence   Disable session persistence for this run
   --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions
+  --external-event-allow <server:sender>
+                             TUI only: permit this sender from an approved MCP event server;
+                             repeat for each sender (off by default, no remote tool approvals)
   --max-turns <n>            Maximum agent turns before stopping
   -c, --continue             Continue the most recent session
   -r, --resume <id>          Resume a session by ID or name

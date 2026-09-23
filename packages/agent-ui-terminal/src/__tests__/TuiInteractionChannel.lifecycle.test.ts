@@ -128,7 +128,7 @@ function makeMockTransportRegistry(): {
 
 function makeChannel(opts?: {
   transportRegistry?: ITransportRegistryView;
-  bindTransports?: (session: IInteractiveSession) => void;
+  bindTransports?: (session: IInteractiveSession) => void | Promise<void>;
   onSessionEventDeliveryError?: (error: Error, event: TInteractiveEventName) => void;
 }): TuiInteractionChannel {
   return new TuiInteractionChannel({
@@ -244,6 +244,20 @@ describe('Group A — channel.start() / channel.stop() lifecycle', () => {
     expect(startAll).toHaveBeenNthCalledWith(1);
     expect(startAll).toHaveBeenNthCalledWith(2);
     await second.stop();
+  });
+
+  it('waits for asynchronous source binding before starting transports', async () => {
+    const { registry, startAll } = makeMockTransportRegistry();
+    let release: (() => void) | undefined;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    const channel = makeChannel({ transportRegistry: registry, bindTransports: () => pending });
+    const starting = channel.start();
+    await Promise.resolve();
+    expect(startAll).not.toHaveBeenCalled();
+    release?.();
+    await starting;
+    expect(startAll).toHaveBeenCalledOnce();
+    await channel.stop();
   });
 
   it('A7: rolls back a failed transport start before retrying the real channel', async () => {
