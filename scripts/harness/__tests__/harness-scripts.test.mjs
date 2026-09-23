@@ -247,6 +247,7 @@ describe('CI build workflow', () => {
   // verifies is a lie encoded in YAML.
   it('excludes the develop-side duplicate jobs on a main PR at the job level, not as echo steps', () => {
     const content = readFileSync('.github/workflows/ci.yml', 'utf8');
+    const { jobs } = parse(content);
 
     expect(content).not.toContain('covered by release-grade verification');
     expect(content).not.toMatch(/name: Skip duplicate/);
@@ -260,11 +261,9 @@ describe('CI build workflow', () => {
       'dependency-policy',
       'secret-scan',
     ]) {
-      const jobIndex = content.indexOf(`\n  ${jobId}:\n`);
-      expect(jobIndex, `${jobId} job must exist`).toBeGreaterThanOrEqual(0);
-      const header = content.slice(jobIndex, content.indexOf('steps:', jobIndex));
-      expect(header, `${jobId} must be excluded on a main PR at the job level`).toContain(
-        "(github.base_ref || inputs.base_ref) != 'main'",
+      expect(jobs[jobId], `${jobId} job must exist`).toBeDefined();
+      expect(jobs[jobId].if, `${jobId} must be excluded on a main PR at the job level`).toContain(
+        "github.base_ref != 'main'",
       );
     }
   });

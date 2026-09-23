@@ -226,6 +226,8 @@ jobs:
     name: changes
     runs-on: ubuntu-latest
     outputs:
+      base_oid: ${{ steps.resolve.outputs.base_oid }}
+      head_oid: ${{ steps.resolve.outputs.head_oid }}
       code: ${{ steps.filter.outputs.code }}
       product: ${{ steps.filter.outputs.product == 'true' || steps.control-plane.outputs.product == 'true' }}
       tui: ${{ steps.filter.outputs.tui }}
@@ -241,17 +243,48 @@ jobs:
       product_integration: ${{ steps.product-integration.outputs.applicable == 'true' || steps.control-plane.outputs.product_integration == 'true' }}
       external_units: ${{ steps.external-units.outputs.applicable }}
     steps:
+      - name: Refuse unsafe manual check attachment
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          WORKFLOW_REF: ${{ github.ref }}
+        run: |
+          if [[ "$WORKFLOW_REF" != refs/heads/develop ]]; then
+            echo '::error::PR-free checks must run with workflow ref develop.'
+            exit 1
+          fi
       # Full history is required to compute every merge base. `pr-validation` fails when this
       # selector fails or when any selected child is missing, skipped, cancelled, or failed.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || '' }}
           fetch-depth: 0
+          fetch-tags: true
+      - id: resolve
+        name: Resolve manual base and head to immutable commits
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          BASE_REF: ${{ inputs.base_ref }}
+          HEAD_REF: ${{ inputs.head_ref }}
+        run: node scripts/harness/workflow-dispatch-refs.mjs
+      - name: Checkout the resolved manual head
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.resolve.outputs.head_oid }}
+          fetch-depth: 0
+      - name: Verify the resolved manual checkout
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          EXPECTED_HEAD: ${{ steps.resolve.outputs.head_oid }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPECTED_HEAD"
+          test "$(git rev-parse --verify 'HEAD^{commit}')" = "$EXPECTED_HEAD"
       - id: control-plane
         name: Force owner jobs for verification control-plane edits
         shell: bash
         env:
-          BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          BASE_REF: ${{ github.event_name == 'workflow_dispatch' && steps.resolve.outputs.base_oid || format('origin/{0}', github.base_ref) }}
         run: |
           set -euo pipefail
           harness=false
@@ -261,6 +294,8 @@ jobs:
           full=false
           product=false
           product_integration=false
+          changed_paths="$RUNNER_TEMP/changed-paths"
+          git diff --name-only --no-renames "${BASE_REF}"...HEAD > "$changed_paths"
           while IFS= read -r file; do
             case "$file" in
               scripts/harness/*)
@@ -289,7 +324,7 @@ jobs:
                 dependencies=true
                 ;;
             esac
-          done < <(git diff --name-only --no-renames "${BASE_REF}"...HEAD)
+          done < "$changed_paths"
           {
             echo "harness=${harness}"
             echo "hermetic=${hermetic}"
@@ -302,7 +337,7 @@ jobs:
       - id: filter
         name: Classify changed paths and affected capabilities
         env:
-          BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          BASE_REF: ${{ github.event_name == 'workflow_dispatch' && steps.resolve.outputs.base_oid || format('origin/{0}', github.base_ref) }}
         run: |
           # The classification lives in scripts/harness/classify-changed-paths.mjs and feeds every
           # selected child plus the `pr-validation` aggregate.
@@ -322,7 +357,7 @@ jobs:
         name: Select affected product integration and consumer-contract tests
         if: steps.filter.outputs.product == 'true' || steps.filter.outputs.full == 'true' || steps.control-plane.outputs.product == 'true' || steps.control-plane.outputs.full == 'true'
         env:
-          BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          BASE_REF: ${{ github.event_name == 'workflow_dispatch' && steps.resolve.outputs.base_oid || format('origin/{0}', github.base_ref) }}
         run: node scripts/harness/product-integration-tests.mjs --base-ref "${BASE_REF}" --github-output
 
       - id: external-units
@@ -340,7 +375,7 @@ jobs:
   # direction (nothing vacuous may be required).
   build:
     name: build
-    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && (needs.changes.outputs.product == 'true' || needs.changes.outputs.build_machinery == 'true' || needs.changes.outputs.full == 'true') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result == 'success' && (needs.changes.outputs.product == 'true' || needs.changes.outputs.build_machinery == 'true' || needs.changes.outputs.full == 'true') }}
     runs-on: ubuntu-latest
     needs: changes
     env:
@@ -365,7 +400,7 @@ jobs:
       - uses: actions/checkout@v7
         if: env.PRODUCT_APPLICABLE == 'true'
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.head_oid || '' }}
           fetch-depth: 0
 
       - name: Install pnpm
@@ -388,7 +423,7 @@ jobs:
       - name: Plan package-dist artifact membership
         if: env.PRODUCT_APPLICABLE == 'true'
         env:
-          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.base_oid || format('origin/{0}', github.base_ref) }}
         run: |
           mkdir -p .agents/evals/local-metrics
           if [[ "$FULL_VERIFICATION" == "true" ]]; then
@@ -400,7 +435,7 @@ jobs:
       - name: Show verification plan
         if: env.PRODUCT_APPLICABLE == 'true'
         env:
-          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.base_oid || format('origin/{0}', github.base_ref) }}
         run: pnpm harness:plan -- --base-ref "$HARNESS_BASE_REF" --report-file .agents/evals/local-metrics/ci-plan.json
 
       - name: Upload verification plan
@@ -488,7 +523,7 @@ jobs:
       - name: Build full or affected workspace
         if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'
         env:
-          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.base_oid || format('origin/{0}', github.base_ref) }}
         run: |
           if [[ "$FULL_VERIFICATION" == "true" ]]; then
             pnpm build
@@ -544,13 +579,13 @@ jobs:
   product-integration:
     name: product-integration
     needs: [changes, build]
-    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && needs.build.result == 'success' && needs.changes.outputs.product_integration == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result == 'success' && needs.build.result == 'success' && needs.changes.outputs.product_integration == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.head_oid || '' }}
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v6
@@ -577,7 +612,7 @@ jobs:
 
       - name: Guarantee selected integration consumer dist
         env:
-          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.base_oid || format('origin/{0}', github.base_ref) }}
         shell: bash
         run: |
           mapfile -t targets < <(node scripts/harness/product-integration-tests.mjs --base-ref "$HARNESS_BASE_REF" --build-targets)
@@ -588,7 +623,7 @@ jobs:
 
       - name: Run affected integration and consumer-contract tests
         env:
-          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.base_oid || format('origin/{0}', github.base_ref) }}
         run: node scripts/harness/product-integration-tests.mjs --base-ref "$HARNESS_BASE_REF"
 
   # External contributors cannot supply trusted local review evidence, so fork PRs get a bounded
@@ -596,7 +631,7 @@ jobs:
   external-units:
     name: external-units
     needs: [changes, build]
-    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && needs.build.result == 'success' && needs.changes.outputs.external_units == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result == 'success' && needs.build.result == 'success' && needs.changes.outputs.external_units == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -646,7 +681,7 @@ jobs:
   repo-checks:
     name: repo-checks
     needs: changes
-    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -664,7 +699,7 @@ jobs:
       # still exited 0. A complete checkout makes the ref resolve directly and the gate enforce.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.head_oid || '' }}
           fetch-depth: 0
 
       - name: Install pnpm
@@ -697,7 +732,7 @@ jobs:
       - name: Run affected repository checks
         env:
           GH_TOKEN: ${{ github.token }}
-          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.base_oid || format('origin/{0}', github.base_ref) }}
           # Issue #2412: the head the per-commit history scans end at (on pull_request, HEAD is the
           # synthetic merge ref); `scan-ci-base-history` refuses a per-commit job without it.
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -716,13 +751,13 @@ jobs:
   harness-contracts:
     name: harness-contracts
     needs: changes
-    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && (needs.changes.outputs.harness == 'true' || needs.changes.outputs.full == 'true') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result == 'success' && (needs.changes.outputs.harness == 'true' || needs.changes.outputs.full == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.head_oid || '' }}
           fetch-depth: 0
       - uses: pnpm/action-setup@v6
         with:
@@ -742,7 +777,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Run affected harness contracts
         env:
-          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.base_oid || format('origin/{0}', github.base_ref) }}
         run: pnpm harness:test:contracts:affected -- --base-ref "${HARNESS_BASE_REF}" --head-ref HEAD
       - name: Persist independently proven contract successes
         if: ${{ always() }}
@@ -754,13 +789,13 @@ jobs:
   harness-hermetic:
     name: harness-hermetic
     needs: changes
-    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && (needs.changes.outputs.hermetic == 'true' || needs.changes.outputs.full == 'true') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result == 'success' && (needs.changes.outputs.hermetic == 'true' || needs.changes.outputs.full == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.head_oid || '' }}
           fetch-depth: 0
       - uses: pnpm/action-setup@v6
         with:
@@ -776,7 +811,7 @@ jobs:
   dependency-security:
     name: dependency-security
     needs: changes
-    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && needs.changes.outputs.dependencies == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result == 'success' && needs.changes.outputs.dependencies == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -791,7 +826,7 @@ jobs:
       # vulnerability scan off a wrong file list and pass in seconds having scanned nothing.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.head_oid || '' }}
           fetch-depth: 0
 
       # INFRA-038: npm retired the legacy audit endpoint (pnpm audit → 410). osv-scanner reads the pnpm lockfile
@@ -818,18 +853,19 @@ jobs:
 
   secret-scan:
     name: secret-scan
-    if: ${{ (github.base_ref || inputs.base_ref) != 'main' }}
+    needs: changes
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result == 'success' }}
     permissions:
       contents: read
     uses: ./.github/workflows/gitleaks.yml
     with:
-      base_ref: ${{ github.base_ref || inputs.base_ref }}
-      head_ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+      base_ref: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.base_oid || format('origin/{0}', github.base_ref) }}
+      head_ref: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.head_oid || '' }}
 
   security:
     name: security
     needs: [changes, dependency-security, dependency-policy, secret-scan]
-    if: ${{ always() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != '' && needs.dependency-security.result != '' && needs.dependency-policy.result != '' && needs.secret-scan.result != '' }}
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result != '' && needs.dependency-security.result != '' && needs.dependency-policy.result != '' && needs.secret-scan.result != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Publish the selected security decision
@@ -946,12 +982,12 @@ jobs:
     name: actionlint
     runs-on: ubuntu-latest
     needs: changes
-    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && needs.changes.outputs.workflow == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result == 'success' && needs.changes.outputs.workflow == 'true' }}
 
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.head_oid || '' }}
 
       - name: Lint workflow files
         run: |
@@ -982,7 +1018,7 @@ jobs:
       FULL_VERIFICATION: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' }}
       EXAMPLES_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.examples == 'true' }}
     # A failed selector/build skips this child; `pr-validation` sees that result and fails closed.
-    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && (needs.changes.outputs.examples == 'true' || needs.changes.outputs.full == 'true') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result == 'success' && (needs.changes.outputs.examples == 'true' || needs.changes.outputs.full == 'true') }}
 
     steps:
       - name: Refuse unsafe benchmark check attachment
@@ -994,7 +1030,7 @@ jobs:
       - uses: actions/checkout@v7
         if: env.EXAMPLES_APPLICABLE == 'true'
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.head_oid || '' }}
           fetch-depth: 0
 
       - name: Install pnpm
@@ -1044,7 +1080,7 @@ jobs:
       - name: Guarantee affected example consumer dist
         if: env.EXAMPLES_APPLICABLE == 'true' && (steps.restore.outputs.restored != 'true' || needs.build.outputs.package_dist_complete != 'true')
         env:
-          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.base_oid || format('origin/{0}', github.base_ref) }}
         shell: bash
         run: |
           if [[ "$FULL_VERIFICATION" == "true" ]]; then
@@ -1081,7 +1117,7 @@ jobs:
       - name: Typecheck examples
         if: env.EXAMPLES_APPLICABLE == 'true'
         env:
-          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          HARNESS_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.base_oid || format('origin/{0}', github.base_ref) }}
         run: |
           if [[ "$FULL_VERIFICATION" == "true" ]]; then
             pnpm examples:typecheck
@@ -1101,7 +1137,7 @@ jobs:
     env:
       WINDOWS_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.windows == 'true' }}
     # A failed selector skips this child; `pr-validation` sees that result and fails closed.
-    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && (needs.changes.outputs.windows == 'true' || needs.changes.outputs.full == 'true') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result == 'success' && (needs.changes.outputs.windows == 'true' || needs.changes.outputs.full == 'true') }}
 
     steps:
       - name: Refuse unsafe benchmark check attachment
@@ -1113,7 +1149,7 @@ jobs:
       - uses: actions/checkout@v7
         if: env.WINDOWS_APPLICABLE == 'true'
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.head_oid || '' }}
           fetch-depth: 50
 
       - name: Install pnpm
@@ -1204,7 +1240,7 @@ jobs:
       FULL_VERIFICATION: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' }}
       TUI_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.full == 'true' || needs.changes.outputs.tui == 'true' }}
     # A failed selector/build skips this child; `pr-validation` sees that result and fails closed.
-    if: ${{ (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result == 'success' && (needs.changes.outputs.tui == 'true' || needs.changes.outputs.full == 'true') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result == 'success' && (needs.changes.outputs.tui == 'true' || needs.changes.outputs.full == 'true') }}
 
     steps:
       - name: Refuse unsafe benchmark check attachment
@@ -1216,7 +1252,7 @@ jobs:
       - uses: actions/checkout@v7
         if: env.TUI_APPLICABLE == 'true'
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.head_oid || '' }}
           fetch-depth: 0
 
       - name: Install pnpm
@@ -1284,7 +1320,7 @@ jobs:
       - tui-e2e
       - product-integration
       - external-units
-    if: ${{ always() && (github.base_ref || inputs.base_ref) != 'main' && needs.changes.result != '' && needs.build.result != '' && needs.repo-checks.result != '' && needs.harness-contracts.result != '' && needs.harness-hermetic.result != '' && needs.actionlint.result != '' && needs.examples-typecheck.result != '' && needs.windows-shell.result != '' && needs.tui-e2e.result != '' && needs.product-integration.result != '' && needs.external-units.result != '' }}
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.base_ref != 'main') && needs.changes.result != '' && needs.build.result != '' && needs.repo-checks.result != '' && needs.harness-contracts.result != '' && needs.harness-hermetic.result != '' && needs.actionlint.result != '' && needs.examples-typecheck.result != '' && needs.windows-shell.result != '' && needs.tui-e2e.result != '' && needs.product-integration.result != '' && needs.external-units.result != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate selected verification without rerunning it

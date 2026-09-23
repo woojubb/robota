@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
@@ -33,7 +33,7 @@ describe('issue #2826 delivery simplification', () => {
       jobs.build.steps.find((step) => step.name?.startsWith('Verify artifact generation')).if,
     ).toContain('artifact_tests_required');
     expect(jobs.actionlint.if).not.toContain("github.event_name == 'pull_request'");
-    expect(jobs.actionlint.steps[0].with.ref).toContain('inputs.head_ref');
+    expect(jobs.actionlint.steps[0].with.ref).toContain('needs.changes.outputs.head_oid');
     expect(jobs['pr-validation'].needs).toEqual(
       expect.arrayContaining([
         'repo-checks',
@@ -64,6 +64,7 @@ describe('issue #2826 delivery simplification', () => {
     );
 
     const root = makeTemp('robota-ci-control-plane-');
+    const runnerTemp = makeTemp('robota-ci-runner-');
     spawnSync('git', ['init', '--quiet', '--initial-branch=base', root]);
     spawnSync('git', ['-C', root, 'config', 'user.email', 'harness@example.test']);
     spawnSync('git', ['-C', root, 'config', 'user.name', 'Harness']);
@@ -99,7 +100,7 @@ describe('issue #2826 delivery simplification', () => {
       const result = spawnSync('bash', ['-c', outer.run], {
         cwd: root,
         encoding: 'utf8',
-        env: { ...process.env, BASE_REF: 'base', GITHUB_OUTPUT: output },
+        env: { ...process.env, BASE_REF: 'base', GITHUB_OUTPUT: output, RUNNER_TEMP: runnerTemp },
       });
       expect(result.status, `${file}: ${result.stderr}`).toBe(0);
       const decisions = readFileSync(output, 'utf8');
@@ -117,12 +118,27 @@ describe('issue #2826 delivery simplification', () => {
     const result = spawnSync('bash', ['-c', outer.run], {
       cwd: root,
       encoding: 'utf8',
-      env: { ...process.env, BASE_REF: 'base', GITHUB_OUTPUT: output },
+      env: { ...process.env, BASE_REF: 'base', GITHUB_OUTPUT: output, RUNNER_TEMP: runnerTemp },
     });
     expect(result.status, result.stderr).toBe(0);
     const decisions = readFileSync(output, 'utf8');
     expect(decisions).toContain('product=true');
     expect(decisions).toContain('product_integration=true');
+
+    const failedOutput = path.join(runnerTemp, 'failed-selector-output');
+    const failed = spawnSync('bash', ['-c', outer.run], {
+      cwd: root,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        BASE_REF: 'missing-base',
+        GITHUB_OUTPUT: failedOutput,
+        RUNNER_TEMP: runnerTemp,
+      },
+    });
+    expect(failed.status).not.toBe(0);
+    expect(failed.stderr).toContain('missing-base');
+    expect(existsSync(failedOutput)).toBe(false);
   });
 
   it('runs dependency and license checks only for semantic dependency or policy changes', () => {
