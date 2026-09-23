@@ -85,6 +85,22 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     expect(runtime.createSession({ bare: true }).getProjectAccess()).toBe(projectAccess);
   });
 
+  it('does not attach ambient user settings to an SDK runtime', () => {
+    const cwd = scratchDir();
+    const scripted = createScriptedProvider([]);
+    const runtime = createAgentRuntime({ cwd, provider: scripted.provider });
+
+    expect(runtime.commandHostAdapters.settings).toBeUndefined();
+
+    const settings = { read: () => ({}), write: () => {} };
+    const explicit = createAgentRuntime({
+      cwd,
+      provider: scripted.provider,
+      commandHostAdapters: { settings },
+    });
+    expect(explicit.commandHostAdapters.settings).toBe(settings);
+  });
+
   it('refuses trusted project access minted for a different runtime root', async () => {
     const trustedRoot = scratchDir();
     const runtimeRoot = scratchDir();
