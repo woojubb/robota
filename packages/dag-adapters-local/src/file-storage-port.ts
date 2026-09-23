@@ -1,3 +1,8 @@
+import {
+  decideExecutionCommit,
+  type TExecutionCommit,
+  type IExecutionCommitResult,
+} from '@robota-sdk/dag-core';
 import { readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -40,6 +45,8 @@ export class FileStoragePort implements IStoragePort {
   private readonly hydration: HydrationGate;
   private readonly dagRuns = new Map<string, IDagRun>();
   private readonly taskRuns = new Map<string, ITaskRun>();
+  private executionCommitTail: Promise<IExecutionCommitResult | undefined> =
+    Promise.resolve(undefined);
 
   public constructor(private readonly storageRootPath: string) {
     this.definitionsRootPath = path.join(this.storageRootPath, 'definitions');
@@ -79,6 +86,35 @@ export class FileStoragePort implements IStoragePort {
 
   private async persistTaskRuns(): Promise<void> {
     await persistCollection(this.taskRunsFilePath, this.taskRuns.values());
+  }
+
+  public commitExecution(
+    dagRunId: string,
+    mutation: TExecutionCommit,
+  ): Promise<IExecutionCommitResult> {
+    // An execution decision cannot consume another decision's cached state before it is durable.
+    // Retain rejection: after a failed write, recovery must reopen the persisted state rather than
+    // acknowledge subsequent decisions based on an outcome that may never have reached disk.
+    const pending = this.executionCommitTail.then(() =>
+      this.persistExecutionCommit(dagRunId, mutation),
+    );
+    this.executionCommitTail = pending;
+    return pending;
+  }
+
+  private async persistExecutionCommit(
+    dagRunId: string,
+    mutation: TExecutionCommit,
+  ): Promise<IExecutionCommitResult> {
+    await this.ensureInitialized();
+    const tasks = [...this.taskRuns.values()].filter((task) => task.dagRunId === dagRunId);
+    const decision = decideExecutionCommit(this.dagRuns.get(dagRunId), tasks, mutation);
+    if (decision.dagRun) this.dagRuns.set(dagRunId, decision.dagRun);
+    if (decision.taskRun)
+      this.taskRuns.set(buildTaskRunKey(dagRunId, decision.taskRun.taskRunId), decision.taskRun);
+    if (decision.dagRun) await this.persistDagRuns();
+    if (decision.taskRun) await this.persistTaskRuns();
+    return decision.result;
   }
 
   public async saveDefinition(definition: IDagDefinition): Promise<void> {

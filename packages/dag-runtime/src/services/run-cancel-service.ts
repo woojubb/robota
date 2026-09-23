@@ -45,11 +45,29 @@ export class RunCancelService {
       return transition;
     }
 
-    await this.storage.updateDagRunStatus(
-      dagRunId,
-      transition.value.nextStatus,
-      this.clock.nowIso(),
-    );
+    const committed = await this.storage.commitExecution(dagRunId, {
+      kind: 'transition-run',
+      expectedStatus: dagRun.status,
+      event: 'CANCEL',
+      endedAt: this.clock.nowIso(),
+    });
+    if (!committed.applied) {
+      // Cancellation must arbitrate against the current state, never overwrite a terminal winner.
+      if (committed.runStatus === 'cancelled')
+        return { ok: true, value: { dagRunId, status: 'cancelled' } };
+      if (committed.runStatus !== undefined) {
+        const current = DagRunStateMachine.transition(committed.runStatus, 'CANCEL');
+        if (!current.ok) return current;
+        // A nonterminal transition won; retry against that new state.
+        return this.cancelRun(dagRunId);
+      }
+      return {
+        ok: false,
+        error: buildValidationError('DAG_VALIDATION_DAG_RUN_NOT_FOUND', 'DagRun was not found', {
+          dagRunId,
+        }),
+      };
+    }
 
     return {
       ok: true,

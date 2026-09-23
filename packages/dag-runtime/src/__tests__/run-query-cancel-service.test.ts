@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { IDagRun, ITaskRun } from '@robota-sdk/dag-core';
 import { InMemoryStoragePort } from '@robota-sdk/dag-adapters-local';
 import { ManualClockPort } from '@robota-sdk/dag-adapters-local/testing';
@@ -61,5 +61,19 @@ describe('RunQueryService and RunCancelService', () => {
     const run = await storage.getDagRun('run-1');
     expect(run?.status).toBe('cancelled');
     expect(run?.endedAt).toBe('2026-02-14T04:00:00.000Z');
+  });
+  it('does not overwrite finalization that commits after cancellation reads the run', async () => {
+    const storage = new InMemoryStoragePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14));
+    await storage.createDagRun(createRun());
+    const getRun = storage.getDagRun.bind(storage);
+    vi.spyOn(storage, 'getDagRun').mockImplementationOnce(async (runId) => {
+      const observed = await getRun(runId);
+      await storage.updateDagRunStatus(runId, 'success', clock.nowIso());
+      return observed;
+    });
+    const cancelled = await new RunCancelService(storage, clock).cancelRun('run-1');
+    expect(cancelled).toMatchObject({ ok: false, error: { code: 'DAG_STATE_TRANSITION_INVALID' } });
+    expect((await storage.getDagRun('run-1'))?.status).toBe('success');
   });
 });

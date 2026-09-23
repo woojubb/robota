@@ -96,13 +96,18 @@ async function dispatchSingleDownstreamNode(
   }
 
   const nextTaskRunId = `${dagRun.dagRunId}:${downstreamNode.nodeId}:attempt:1`;
-  await storage.createTaskRun({
-    taskRunId: nextTaskRunId,
-    dagRunId: dagRun.dagRunId,
-    nodeId: downstreamNode.nodeId,
-    status: 'queued',
-    attempt: 1,
+  const admitted = await storage.commitExecution(dagRun.dagRunId, {
+    kind: 'admit',
+    dependsOn: downstreamNode.dependsOn,
+    taskRun: {
+      taskRunId: nextTaskRunId,
+      dagRunId: dagRun.dagRunId,
+      nodeId: downstreamNode.nodeId,
+      status: 'queued',
+      attempt: 1,
+    },
   });
+  if (!admitted.applied) return { ok: true, value: undefined };
 
   const nextPayloadResult = buildDownstreamPayload(definition, allTaskRuns, downstreamNode.nodeId);
   if (!nextPayloadResult.ok) {

@@ -1,5 +1,4 @@
 import {
-  TaskRunStateMachine,
   buildDispatchError,
   buildValidationError,
   type IClockPort,
@@ -60,14 +59,15 @@ export async function handleRetry(
   storage: IStoragePort,
   queue: IQueuePort,
   clock: IClockPort,
+  leaseOwner: string,
 ): Promise<TResult<IWorkerLoopResult, IDagError>> {
-  const retryTransition = TaskRunStateMachine.transition('failed', 'RETRY');
-  if (!retryTransition.ok) {
-    return failAfterAck(queue, message.messageId, retryTransition.error);
-  }
-
-  await storage.incrementTaskAttempt(taskRunId);
-  await storage.updateTaskRunStatus(taskRunId, retryTransition.value.nextStatus);
+  const committed = await storage.commitExecution(message.dagRunId, {
+    kind: 'retry',
+    taskRunId,
+    attempt: message.attempt,
+    leaseOwner,
+  });
+  if (!committed.applied) return successAfterAck(queue, message.messageId, taskRunId, false);
 
   const nextAttempt = message.attempt + 1;
   const nextMessage: IQueueMessage = {

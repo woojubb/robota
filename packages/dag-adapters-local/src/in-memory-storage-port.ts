@@ -1,3 +1,8 @@
+import {
+  decideExecutionCommit,
+  type TExecutionCommit,
+  type IExecutionCommitResult,
+} from '@robota-sdk/dag-core';
 import { applyTaskRunLease, selectStaleRunningTaskRuns } from './task-run-recovery.js';
 
 import type {
@@ -19,6 +24,18 @@ export class InMemoryStoragePort implements IStoragePort {
   private readonly latestPublishedVersionByDagId = new Map<string, number>();
   private readonly dagRuns = new Map<string, IDagRun>();
   private readonly taskRuns = new Map<string, ITaskRun>();
+
+  public async commitExecution(
+    dagRunId: string,
+    mutation: TExecutionCommit,
+  ): Promise<IExecutionCommitResult> {
+    const tasks = [...this.taskRuns.values()].filter((task) => task.dagRunId === dagRunId);
+    const decision = decideExecutionCommit(this.dagRuns.get(dagRunId), tasks, mutation);
+    if (decision.dagRun) this.dagRuns.set(dagRunId, decision.dagRun);
+    if (decision.taskRun)
+      this.taskRuns.set(buildTaskRunKey(dagRunId, decision.taskRun.taskRunId), decision.taskRun);
+    return decision.result;
+  }
 
   public async saveDefinition(definition: IDagDefinition): Promise<void> {
     const definitionKey = `${definition.dagId}:${definition.version}`;

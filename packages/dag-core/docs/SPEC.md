@@ -130,3 +130,18 @@ backend adapters.
 
 `dag-core` defines event name prefixes (`run`, `task`, `worker`, `scheduler`, `execution`) but does
 not own an event bus or emitter — publishing is a consumer concern.
+
+## Execution mutation arbitration
+
+Execution state changes arbitrate against current persisted run/task state in one adapter-owned
+commit. Cancellation and terminal finalization have a single winner; a terminal run cannot be
+resurrected by a delayed execution result. Task settlement checks both the attempt and lease owner,
+so a replaced worker cannot overwrite its successor. An accepted success includes its output
+snapshot and credit fields in the same mutation. A rejected result emits no task outcome or retry.
+
+Retry and downstream admission have their own commit points. Cancellation committed before
+admission prevents the new attempt or child record. Admission committed first may still deliver a
+queue message afterwards: queue delivery is not a storage transaction, and worker admission must
+reject that message if the run has since been cancelled. Run finalization evaluates pending tasks
+and commits its terminal status together. Raw persistence setters do not provide these execution
+preconditions; execution owners must use the arbitration contract.

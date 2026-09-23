@@ -392,4 +392,30 @@ describe('RunOrchestratorService', () => {
     }
     expect(created.error.code).toBe('DAG_DISPATCH_DAG_RUN_CREATE_FAILED');
   });
+  it('does not admit entry tasks after cancellation from the start notification', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14));
+    const definition = createPublishedDefinition();
+    await storage.saveDefinition(definition);
+    const service = new RunOrchestratorService(storage, queue, clock, {
+      publish(event) {
+        if (event.eventType === 'execution.started') {
+          void storage.updateDagRunStatus(event.dagRunId, 'cancelled', clock.nowIso());
+        }
+      },
+    });
+    const started = await service.startRun({
+      dagId: definition.dagId,
+      version: 1,
+      trigger: 'manual',
+      input: {},
+    });
+    expect(started.ok).toBe(true);
+    if (!started.ok) return;
+    expect(started.value.taskRunIds).toEqual([]);
+    expect((await storage.getDagRun(started.value.dagRunId))?.status).toBe('cancelled');
+    expect(await storage.listTaskRunsByDagRunId(started.value.dagRunId)).toEqual([]);
+    expect(await queue.dequeue('worker', 1000)).toBeUndefined();
+  });
 });

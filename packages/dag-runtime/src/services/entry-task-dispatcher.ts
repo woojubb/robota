@@ -57,13 +57,23 @@ export async function dispatchEntryTasks(
   if (!queuedTransition.ok) {
     return queuedTransition;
   }
-  await storage.updateDagRunStatus(dagRunId, queuedTransition.value.nextStatus);
+  const queued = await storage.commitExecution(dagRunId, {
+    kind: 'transition-run',
+    expectedStatus: 'created',
+    event: 'QUEUE',
+  });
+  if (!queued.applied) return { ok: true, value: { taskRunIds: [] } };
 
   const runningTransition = DagRunStateMachine.transition('queued', 'START');
   if (!runningTransition.ok) {
     return runningTransition;
   }
-  await storage.updateDagRunStatus(dagRunId, runningTransition.value.nextStatus);
+  const started = await storage.commitExecution(dagRunId, {
+    kind: 'transition-run',
+    expectedStatus: 'queued',
+    event: 'START',
+  });
+  if (!started.applied) return { ok: true, value: { taskRunIds: [] } };
   runProgressEventReporter?.publish({
     dagRunId,
     eventType: EXECUTION_PROGRESS_EVENTS.STARTED,
@@ -75,15 +85,19 @@ export async function dispatchEntryTasks(
   const taskRunIds: string[] = [];
   for (const node of entryNodes) {
     const taskRunId = `${dagRunId}:${node.nodeId}:attempt:1`;
-    taskRunIds.push(taskRunId);
-
-    await storage.createTaskRun({
-      taskRunId,
-      dagRunId,
-      nodeId: node.nodeId,
-      status: 'queued',
-      attempt: 1,
+    const admitted = await storage.commitExecution(dagRunId, {
+      kind: 'admit',
+      dependsOn: [],
+      taskRun: {
+        taskRunId,
+        dagRunId,
+        nodeId: node.nodeId,
+        status: 'queued',
+        attempt: 1,
+      },
     });
+    if (!admitted.applied) continue;
+    taskRunIds.push(taskRunId);
 
     const message: IQueueMessage = {
       messageId: `${taskRunId}:message`,
@@ -158,17 +172,19 @@ async function handleEnqueueFailure(
   }
   const failedRunTransition = DagRunStateMachine.transition('running', 'COMPLETE_FAILURE');
   if (failedRunTransition.ok) {
-    await storage.updateDagRunStatus(
-      dagRunId,
-      failedRunTransition.value.nextStatus,
-      clock.nowIso(),
-    );
-    runProgressEventReporter?.publish({
-      dagRunId,
-      eventType: EXECUTION_PROGRESS_EVENTS.FAILED,
-      occurredAt: clock.nowIso(),
-      error: dispatchError,
+    const committed = await storage.commitExecution(dagRunId, {
+      kind: 'transition-run',
+      expectedStatus: 'running',
+      event: 'COMPLETE_FAILURE',
+      endedAt: clock.nowIso(),
     });
+    if (committed.applied)
+      runProgressEventReporter?.publish({
+        dagRunId,
+        eventType: EXECUTION_PROGRESS_EVENTS.FAILED,
+        occurredAt: clock.nowIso(),
+        error: dispatchError,
+      });
   }
   return { ok: false, error: dispatchError };
 }

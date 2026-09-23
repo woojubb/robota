@@ -55,3 +55,18 @@ node-state and run-result data that adapters must not write back into a DAG defi
 - The in-memory draft store is test-only/local state and loses drafts on restart.
 - The file-based draft store writes one JSON file per draft under its configured root and uses atomic temp-file rename for writes.
 - Draft listing order is deterministic by last-updated time descending, then draft ID ascending.
+
+## Execution mutation arbitration
+
+Execution preconditions and their state edits are indivisible within one live adapter instance.
+The file adapter hydrates before adjudication and persists the changed collection before resolving;
+task success and its snapshot share one collection write. A storage root has one live file-adapter
+owner: independent instances do not coordinate their cached state. This is not a cross-process or
+multi-file transaction guarantee. Queue delivery remains separate from storage admission.
+
+File execution commits are serialized through persistence completion, so a later finalization cannot
+acknowledge success using an earlier outcome whose write is still pending. If an execution commit's
+persistence fails, subsequent execution commits on that instance reject with that failure; recovery
+must reopen durable state. Cached changes after a failed write are not a basis for continued
+execution. This does not make independent collection files a crash-atomic unit, or change raw
+persistence setters into execution transactions.

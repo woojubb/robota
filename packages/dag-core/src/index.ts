@@ -89,3 +89,5 @@ export type {
 } from './types/runtime-provider.js';
 
 export const DAG_CORE_PACKAGE_NAME = '@robota-sdk/dag-core';
+
+export * from './services/execution-commit.js';

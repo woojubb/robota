@@ -139,3 +139,16 @@ Execution root is treated as required execution authority, not ordinary worker p
 validated and canonicalized to an absolute real directory at construction and copied into every
 task execution input; it is never read from `process.cwd()` or accepted from a queue message or DAG
 definition.
+
+## Cancellation and result precedence
+
+An executor result settles only while its run is running and its task still belongs to that exact
+attempt and worker. A prior cancellation cancels that matching task instead, without output/credit
+persistence, completion/failure publication, retry or downstream admission. A stale attempt cannot
+settle or cancel its replacement. If task settlement wins first, its outcome remains valid; later
+cancellation still closes retry and downstream admission. Already admitted messages may arrive
+later and are handled by the existing cancelled-run admission checks.
+
+Finalization and cancellation arbitrate atomically, so an awaited read cannot resurrect a cancelled
+run. This contract concerns durable outcome precedence, not preemption: active executor abort,
+nested cancellation and root aggregate budgets remain separate work.

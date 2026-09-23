@@ -37,3 +37,8 @@ run status, cancelling runs, and publishing execution progress events.
   by re-querying the existing run rather than failing.
 - All service methods return `TResult<T, IDagError>` — no fallback paths, no silent error
   swallowing.
+
+Cancellation commits against current run state. A terminal result that wins first remains terminal;
+a cancellation that wins first cannot be overwritten by a stale start or dispatch-failure result.
+Entry tasks are admitted only while the run remains running. This acknowledges stored cancellation,
+not completion of active executor cleanup or descendant cancellation.
