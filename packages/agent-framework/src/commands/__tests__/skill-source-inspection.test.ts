@@ -28,7 +28,7 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
     const inspection = inspectSkillSources([createNodeHostContributionSource(home)]);
     const robota = inspection.roots.find((root) => root.root === join('.robota', 'skills'));
     expect(robota?.present).toBe(true);
-    expect(robota?.discovered).toEqual(['good', 'no-frontmatter', 'open-frontmatter']);
+    expect(robota?.discovered).toEqual(['good', 'no-frontmatter']);
     expect(robota?.skipped).toEqual([
       { path: join('.robota', 'skills', 'no-file'), reason: 'missing-skill-file' },
       {
@@ -38,6 +38,7 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
       {
         path: join('.robota', 'skills', 'open-frontmatter', 'SKILL.md'),
         reason: 'frontmatter-unterminated',
+        detail: expect.stringContaining('[unterminated]'),
       },
     ]);
     const absent = inspection.roots.find((root) => root.root === join('.agents', 'skills'));
@@ -55,7 +56,7 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
       join(skills, 'bad-effort', 'SKILL.md'),
       '---\nname: bad\neffort: extreme\n---\nbody\n',
     );
-    // No closing fence: the parser still reads the refused value, so the session still throws.
+    // No closing fence: the strict decoder reports the structural failure first.
     mkdirSync(join(skills, 'bad-effort-open'), { recursive: true });
     writeFileSync(
       join(skills, 'bad-effort-open', 'SKILL.md'),
@@ -74,12 +75,12 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
       {
         path: join('.robota', 'skills', 'bad-effort', 'SKILL.md'),
         reason: 'frontmatter-invalid',
-        detail: expect.stringContaining('received "extreme"'),
+        detail: expect.stringContaining('[invalid-value] effort:'),
       },
       {
         path: join('.robota', 'skills', 'bad-effort-open', 'SKILL.md'),
-        reason: 'frontmatter-invalid',
-        detail: expect.stringContaining('received "extreme"'),
+        reason: 'frontmatter-unterminated',
+        detail: expect.stringContaining('[unterminated]'),
       },
     ]);
   });

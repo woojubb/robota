@@ -1,7 +1,7 @@
 /**
  * Utility functions for bundle plugin loading.
  *
- * Provides frontmatter parsing, manifest validation, and filesystem helpers
+ * Provides manifest validation and filesystem helpers
  * used by BundlePluginLoader.
  */
 
@@ -9,54 +9,6 @@ import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 import type { IBundlePluginManifest } from './bundle-plugin-types.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
-
-/**
- * Parse simple YAML-like frontmatter from a skill markdown file.
- *
- * Handles `key: value` and `key: [item1, item2]` patterns.
- * Returns the parsed metadata and the remaining content after the frontmatter block.
- */
-export function parseSkillFrontmatter(raw: string): {
-  metadata: Record<string, unknown>;
-  content: string;
-} {
-  const trimmed = raw.trimStart();
-  if (!trimmed.startsWith('---')) {
-    return { metadata: {}, content: raw };
-  }
-
-  const endIndex = trimmed.indexOf('---', 3);
-  if (endIndex === -1) {
-    return { metadata: {}, content: raw };
-  }
-
-  const frontmatterBlock = trimmed.slice(3, endIndex).trim();
-  const content = trimmed.slice(endIndex + 3).trimStart();
-  const metadata: Record<string, unknown> = {};
-
-  for (const line of frontmatterBlock.split('\n')) {
-    const colonIndex = line.indexOf(':');
-    if (colonIndex === -1) continue;
-
-    const key = line.slice(0, colonIndex).trim();
-    let value: unknown = line.slice(colonIndex + 1).trim();
-
-    // Parse inline array: [item1, item2]
-    if (typeof value === 'string' && value.startsWith('[') && value.endsWith(']')) {
-      const inner = value.slice(1, -1);
-      value = inner
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-    }
-
-    if (key) {
-      metadata[key] = value;
-    }
-  }
-
-  return { metadata, content };
-}
 
 /**
  * Validate that a parsed JSON object has the required manifest fields.

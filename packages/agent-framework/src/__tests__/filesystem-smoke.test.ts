@@ -172,7 +172,7 @@ describe('Filesystem smoke: skill discovery', () => {
         'allowed-tools: Read,Edit,Grep',
         'model: claude-opus-4-6',
         'effort: high',
-        'context: project',
+        'context: fork',
         'agent: researcher',
         '---',
         '# Full Meta Skill',
@@ -194,7 +194,7 @@ describe('Filesystem smoke: skill discovery', () => {
     expect(cmd!.allowedTools).toEqual(['Read', 'Edit', 'Grep']);
     expect(cmd!.model).toBe('claude-opus-4-6');
     expect(cmd!.effort).toBe('high');
-    expect(cmd!.context).toBe('project');
+    expect(cmd!.context).toBe('fork');
     expect(cmd!.agent).toBe('researcher');
   });
 

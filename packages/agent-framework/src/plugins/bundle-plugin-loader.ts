@@ -18,12 +18,10 @@ import {
   SKIP_MESSAGES,
   skipDetail,
 } from './bundle-plugin-inspection.js';
-import {
-  parseSkillFrontmatter,
-  validateManifest,
-  getSortedSubdirs,
-} from './bundle-plugin-utils.js';
+import { validateManifest, getSortedSubdirs } from './bundle-plugin-utils.js';
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
+import { FrontmatterDecodeError } from '../frontmatter/frontmatter-error.js';
 
 import type { IInspectionSink } from './bundle-plugin-inspection.js';
 import type {
@@ -33,9 +31,21 @@ import type {
   ILoadedBundlePlugin,
   TEnabledPlugins,
 } from './bundle-plugin-types.js';
+import type { IBundleSkillFrontmatter } from '../frontmatter/frontmatter-types.js';
 import type { IFileSystem, TUniversalValue } from '@robota-sdk/agent-core';
 
 const logger = createLogger('BundlePluginLoader');
+
+interface IDecodedBundleSkill {
+  metadata: IBundleSkillFrontmatter;
+  body: string;
+}
+
+function decodeBundleSkill(source: string, raw: string): IDecodedBundleSkill {
+  const result = decodeFrontmatter({ source, content: raw, profile: 'bundle-skill' });
+  if (!result.ok) throw new FrontmatterDecodeError(result.diagnostics);
+  return result;
+}
 
 /** Loader for directory-based bundle plugins from the cache directory. */
 export class BundlePluginLoader {
@@ -215,14 +225,14 @@ export class BundlePluginLoader {
       if (!this.fs.existsSync(skillFile)) continue;
 
       const raw = this.fs.readFileSync(skillFile, 'utf-8');
-      const { metadata, content } = parseSkillFrontmatter(raw);
+      const { metadata, body } = decodeBundleSkill(skillFile, raw);
 
       const description = typeof metadata.description === 'string' ? metadata.description : '';
 
       const skill: IBundleSkill = {
         name: entry.name,
         description,
-        skillContent: content,
+        skillContent: body === raw ? body : body.trimStart(),
         ...metadata,
       };
 
@@ -243,8 +253,9 @@ export class BundlePluginLoader {
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
 
-      const raw = this.fs.readFileSync(join(commandsDir, entry.name), 'utf-8');
-      const { metadata, content } = parseSkillFrontmatter(raw);
+      const commandFile = join(commandsDir, entry.name);
+      const raw = this.fs.readFileSync(commandFile, 'utf-8');
+      const { metadata, body } = decodeBundleSkill(commandFile, raw);
 
       const name =
         typeof metadata.name === 'string' ? metadata.name : entry.name.replace(/\.md$/, '');
@@ -254,7 +265,7 @@ export class BundlePluginLoader {
         ...metadata,
         name: `${pluginName}:${name}`,
         description,
-        skillContent: content,
+        skillContent: body === raw ? body : body.trimStart(),
       });
     }
 

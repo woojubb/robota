@@ -4,6 +4,7 @@
  * A BundlePlugin is a directory-based plugin package that bundles
  * skills, hooks, agents, and MCP server configurations.
  */
+import type { IBundleSkillFrontmatter } from '../frontmatter/frontmatter-types.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 /** Feature flags indicating what a bundle plugin provides. */
@@ -24,11 +25,10 @@ export interface IBundlePluginManifest {
 }
 
 /** A skill loaded from a bundle plugin's `skills/` directory. */
-export interface IBundleSkill {
+export interface IBundleSkill extends IBundleSkillFrontmatter {
   name: string;
   description: string;
   skillContent: string;
-  [key: string]: unknown;
 }
 
 /** A fully loaded bundle plugin with all its assets. */

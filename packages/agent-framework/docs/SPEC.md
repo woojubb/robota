@@ -326,7 +326,6 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `createSystemCommands`                       | function  | SDK core command factory (returns empty list; built-ins are in command modules)                                                                                                                                                                                                                                                                                                                                                               |
 | `createBuiltinCommandModule`                 | function  | SDK core compatibility module factory                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `applyPresetToSession`                       | function  | Live preset-switching engine: re-applies a resolved preset's option groups to a running session, records the active preset id, returns `{ applied, skipped }` (PRESET-011~017)                                                                                                                                                                                                                                                                |
-| `parseFrontmatter`                           | function  | YAML frontmatter parser for skill/agent definition files                                                                                                                                                                                                                                                                                                                                                                                      |
 | `executeSkill`                               | function  | Internal skill execution helper                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `createSkillExecutionPort`                   | function  | Build the concrete `ISkillExecutionPort` (skill discovery + resolution) for injection at a composition root (ARCH-PROVIDER-005)                                                                                                                                                                                                                                                                                                               |
 | `createDefaultRemoteCommandPolicy`           | function  | Build the **allow-by-default** `IRemoteCommandPolicy` for remote-origin commands (local == remote; an optional custom policy may restrict; REMOTE-006)                                                                                                                                                                                                                                                                                        |
@@ -925,10 +924,12 @@ The `./testing` subpath (kept out of the runtime bundle) is the agent's standard
 verify a feature at the framework level** — the CLI is a thin wrapper and must not be where feature
 behaviour is verified.
 
-- `scriptedSession({ turns | cassette | record, files?, persistence?, cwd?, resumeSessionId?,
-forkSession?, model?, commandModules?, ... })` / `ScriptedSessionHarness` builds a **real**
+- `scriptedSession({ turns | cassette | record, files?, persistence?, cwd?, projectAccess?,
+resumeSessionId?, forkSession?, model?, commandModules?, ... })` / `ScriptedSessionHarness` builds a **real**
   `InteractiveSession` (real agent loop, builtin tools, persistence, events) in an isolated temp
-  workspace. Provider modes (exactly one): **scripted** (`turns`, hand-written, SSOT
+  workspace. `projectAccess` is an optional test-only trusted workspace authority forwarded to
+  that real session; it lets functional fixtures exercise project skill discovery without changing
+  the production API. Provider modes (exactly one): **scripted** (`turns`, hand-written, SSOT
   `createScriptedProvider`), **cassette** (`cassette: path`, a recorded real-model run replayed
   deterministically — TEST-005; a committed real Qwen goal run is at
   `__fixtures__/goal-satisfied.cassette.json`, recorded by
@@ -2376,6 +2377,28 @@ registry.getSubcommands('mode'); // ICommand[] — subcommands
 2. `.claude/skills/*/SKILL.md`
 3. `.claude/commands/*.md` (Claude Code compatible)
 4. `.agents/skills/*/SKILL.md`
+
+Skill and command files at every root use the same private strict `skill` frontmatter decoder. Plugin
+`skills/*/SKILL.md` and `commands/*.md` use its `bundle-skill` profile, which additionally accepts
+`tags`. Accepted metadata retains typed invocation, tool, model, effort, and `context: fork` fields
+through command projection. A malformed disabling flag, unsupported context, unknown field,
+duplicate key, invalid YAML shape, or unterminated block is a refusal, never a partially registered
+command. A file with no frontmatter retains its filename fallback and original content bytes; plugin
+files with frontmatter retain the previous body-leading-whitespace trim. The read-only skill inspection
+uses the same decoder and cannot count a refused file as discovered; plugin inspection records a
+malformed plugin as `load-failed` while continuing to inspect other plugins. Loader failures carry a
+private `FrontmatterDecodeError` with the decoder's nonempty structured diagnostics. Its message
+reports source path, location, code, field, and expected shape without repeating untrusted received
+values. The decoder and error class are not public exports. The
+[decoder design](design/frontmatter-decoder.md) owns the schema.
+
+Custom agent definitions from project and user contribution sources (`.robota/agents`,
+`.agents/agents`, and `.claude/agents`) use the same private decoder's `agent` profile. The loader
+accepts positive safe integer `maxTurns` and typed tool lists, and rejects numeric prefixes,
+`NaN`, zero/negative values, wrong types, unknown fields, and invalid or unterminated frontmatter
+with source-file diagnostics. All roots apply the same rules. A file without frontmatter retains its
+filename fallback and existing built-in precedence. No legacy parser or partial-value fallback is
+part of either loader contract.
 
 ### createQuery() — Convenience Factory
 
