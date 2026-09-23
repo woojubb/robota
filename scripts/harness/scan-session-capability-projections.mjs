@@ -448,6 +448,7 @@ export function findSessionCapabilityProjectionFindings(sources) {
   });
   check('print→headless', headless, printProjection, findings, {
     special: {
+      orgPolicy: { exact: 'orgPolicy' },
       appendSystemPrompt: { spread: /^presetSessionFields\(presetOptions\)$/ },
       allowedTools: { spread: /^presetSessionFields\(presetOptions\)$/ },
       deniedTools: { spread: /^presetSessionFields\(presetOptions\)$/ },

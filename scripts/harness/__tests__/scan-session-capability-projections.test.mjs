@@ -289,6 +289,17 @@ describe('session capability projections', () => {
     );
   });
 
+  it('rejects a conditional policy drop from print/goal to the headless channel', () => {
+    const findings = findingsWithMutation(
+      SOURCE_FILES.print,
+      '{ orgPolicy }',
+      '{ orgPolicy: projectAccess ? orgPolicy : undefined }',
+    );
+    expect(findings).toEqual(
+      expect.arrayContaining([expect.stringContaining('print→headless orgPolicy')]),
+    );
+  });
+
   it('rejects a preset field removed from the same-name render spread', () => {
     const file = SOURCE_FILES.presetSurface;
     const mutated = source[file].replace(
