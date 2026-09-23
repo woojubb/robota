@@ -82,6 +82,7 @@ describe('workflow dispatch immutable ref wiring', () => {
       'harness-contracts',
       'harness-hermetic',
       'dependency-security',
+      'dependency-policy',
       'secret-scan',
       'security',
       'actionlint',
@@ -104,7 +105,10 @@ describe('workflow dispatch immutable ref wiring', () => {
     };
     for (const name of selected) {
       for (const base of ['main', 'refs/heads/main', 'snapshot-main', 'a'.repeat(40)]) {
-        expect(evaluate(jobs[name].if, 'workflow_dispatch', '', base), name).toBe(true);
+        // Dependency review compares a PR's changes and intentionally has no manual mode.
+        expect(evaluate(jobs[name].if, 'workflow_dispatch', '', base), name).toBe(
+          name !== 'dependency-policy',
+        );
       }
       expect(evaluate(jobs[name].if, 'pull_request', 'main', ''), name).toBe(false);
       expect(evaluate(jobs[name].if, 'pull_request', 'develop', ''), name).toBe(true);
