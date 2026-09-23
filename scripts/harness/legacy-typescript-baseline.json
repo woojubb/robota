@@ -77,7 +77,6 @@
     "packages/dag-nodes/input/package.json",
     "packages/dag-nodes/instant-node/package.json",
     "packages/dag-nodes/llm-text/package.json",
-    "packages/dag-nodes/mcp-tool/package.json",
     "packages/dag-nodes/multi-input/package.json",
     "packages/dag-nodes/ok-emitter/package.json",
     "packages/dag-nodes/seedance-video/package.json",

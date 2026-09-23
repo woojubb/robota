@@ -301,12 +301,6 @@
       "reason": "Artifact verification checks the owning compiler configuration for the ESM-only binary entry; it does not import runtime-private implementation."
     },
     {
-      "source": "scripts/artifacts/__tests__/dag-entry-config.test.mjs",
-      "target": "packages/dag-mcp-server/tsdown.config.ts",
-      "kind": "module",
-      "reason": "Artifact verification checks the owning compiler configuration for the ESM-only binary entry; it does not import runtime-private implementation."
-    },
-    {
       "source": "apps/action/tsconfig.eslint.json",
       "target": "tsconfig.eslint.json",
       "kind": "config",
@@ -979,12 +973,6 @@
       "reason": "Repository-owned strict TypeScript baseline; this exact package configuration inherits the shared root contract."
     },
     {
-      "source": "packages/dag-mcp-server/tsconfig.json",
-      "target": "tsconfig.json",
-      "kind": "config",
-      "reason": "DAG MCP configuration explicitly inherits repository compiler defaults and overrides its own build settings."
-    },
-    {
       "source": "packages/dag-node/tsconfig.eslint.json",
       "target": "tsconfig.eslint.json",
       "kind": "config",
@@ -1112,18 +1100,6 @@
     },
     {
       "source": "packages/dag-nodes/llm-text/tsconfig.json",
-      "target": "tsconfig.base.json",
-      "kind": "config",
-      "reason": "Repository-owned strict TypeScript baseline; this exact package configuration inherits the shared root contract."
-    },
-    {
-      "source": "packages/dag-nodes/mcp-tool/tsconfig.eslint.json",
-      "target": "tsconfig.eslint.json",
-      "kind": "config",
-      "reason": "Repository-owned lint compiler settings; this exact package configuration inherits the shared root contract."
-    },
-    {
-      "source": "packages/dag-nodes/mcp-tool/tsconfig.json",
       "target": "tsconfig.base.json",
       "kind": "config",
       "reason": "Repository-owned strict TypeScript baseline; this exact package configuration inherits the shared root contract."

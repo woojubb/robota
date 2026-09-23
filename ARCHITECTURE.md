@@ -73,6 +73,8 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 > not published on their own. They are bundled into `@robota-sdk/agent-cli` (INFRA-028) and surfaced
 > to users through the `/workflows` command (e.g. `/workflows create "<natural language>"`). The
 > diagram above stays agent-SDK-focused; the workflow engine ships as part of the CLI bundle.
+> DAG-specific MCP servers and the external-MCP workflow node are removed by issue #2817;
+> the default `/workflows` node catalog is unchanged. See [ADR-006](.design/decisions/ADR-006-dag-command-only-boundary.md).
 
 ## Key Architectural Decisions
 
