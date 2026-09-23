@@ -27,7 +27,15 @@ import { scanWorkspaceCatalog } from '@robota-sdk/dag-framework';
 import { LocalDagRunner, createCliNodeRegistry } from '../index.js';
 import { parseCodeManifest, reconstructCodeNode } from '../code-node-adapter.js';
 import { NODE_MANIFEST_EXT, nodesDir, workflowsDir } from './paths.js';
-import { safeParseJson } from '../../mcp/utils.js';
+
+function safeParseJson(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    // allow-fallback: malformed task output snapshots are skipped when collecting composite outputs
+    return undefined;
+  }
+}
 
 /**
  * Persist a node from its own serializable manifest view. Prompt AND composite nodes; the composite

@@ -19,7 +19,6 @@ interface IInitArgs {
   directory: string;
   template: TTemplate;
   provider: TProvider;
-  claude: boolean;
   noCta: boolean;
   team: boolean;
 }
@@ -30,7 +29,6 @@ function parseArgs(
   let directory = '.';
   let template: TTemplate = 'hello-world';
   let provider: TProvider = 'anthropic';
-  let claude = false;
   let noCta = false;
   let team = false;
 
@@ -66,13 +64,13 @@ function parseArgs(
       }
       provider = val as TProvider;
     } else if (arg === '--claude') {
-      claude = true;
+      return { ok: false, message: '--claude is no longer supported' };
     } else if (!arg.startsWith('-')) {
       directory = arg;
     }
   }
 
-  return { ok: true, value: { directory, template, provider, claude, noCta, team } };
+  return { ok: true, value: { directory, template, provider, noCta, team } };
 }
 
 async function pathExists(p: string): Promise<boolean> {
@@ -230,65 +228,6 @@ const GITIGNORE_ADDITION = `
 .dag/.env
 .dag-storage/
 `;
-
-const MCP_SERVER_ENTRY = {
-  command: 'npx',
-  args: ['@robota-sdk/dag-cli', 'mcp'],
-} as const;
-
-interface IMcpServerEntry {
-  command: string;
-  args: string[];
-}
-
-interface IMcpJson {
-  mcpServers: Record<string, IMcpServerEntry>;
-  [key: string]: unknown;
-}
-
-async function writeMcpJson(directory: string, io: IDagCliIo): Promise<void> {
-  const claudeDir = join(directory, '.claude');
-  const mcpJsonPath = join(claudeDir, 'mcp.json');
-
-  await mkdir(claudeDir, { recursive: true });
-
-  let existing: IMcpJson = { mcpServers: {} };
-  const exists = await pathExists(mcpJsonPath);
-  if (exists) {
-    const raw = await readFile(mcpJsonPath, 'utf8');
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (_parseError) {
-      // allow-fallback: malformed mcp.json is reset to a valid config
-      parsed = null;
-    }
-    if (parsed !== null && typeof parsed === 'object') {
-      const parsedObj = parsed as Record<string, unknown>;
-      existing = {
-        ...parsedObj,
-        mcpServers:
-          parsedObj['mcpServers'] !== null &&
-          typeof parsedObj['mcpServers'] === 'object' &&
-          !Array.isArray(parsedObj['mcpServers'])
-            ? (parsedObj['mcpServers'] as Record<string, IMcpServerEntry>)
-            : {},
-      };
-    }
-  }
-
-  existing.mcpServers['robota-dag'] = {
-    command: MCP_SERVER_ENTRY.command,
-    args: [...MCP_SERVER_ENTRY.args],
-  };
-  await writeFile(mcpJsonPath, JSON.stringify(existing, null, 2) + '\n', 'utf8');
-
-  io.write(`\n✓ .claude/mcp.json configured\n`);
-  io.write(`\n  MCP server: robota-dag\n`);
-  io.write(`  Command: npx @robota-sdk/dag-cli mcp\n`);
-  io.write(`\nRestart Claude Code to activate MCP tools.\n`);
-  io.write(`Next: Ask Claude — "Build me an AI pipeline that summarizes text"\n`);
-}
 
 const DEFAULT_LINT_JSON =
   JSON.stringify(
@@ -504,7 +443,6 @@ const INIT_HELP_TEXT = [
   'Options:',
   '  --template <name>        Workflow template: hello-world (default), code-review, summarize',
   '  --provider <name>        LLM provider: anthropic (default), openai, gemini',
-  '  --claude                 Add .claude/mcp.json for Claude Code integration',
   '  --team                   Add team files: lint.json, dag-ci.yml, DAG.md',
   '  --no-cta                 Suppress the next-steps call-to-action',
   '  --help                   Show this help message',
@@ -530,7 +468,7 @@ export async function initCommand(
     return USAGE_ERROR_EXIT_CODE;
   }
 
-  const { directory, template, provider, claude, noCta, team } = parsed.value;
+  const { directory, template, provider, noCta, team } = parsed.value;
   const dagDir = join(directory, '.dag');
   const workflowsDir = join(dagDir, 'workflows');
 
@@ -592,10 +530,6 @@ export async function initCommand(
 
   if (template !== 'hello-world') {
     io.write(`\nNote: template "${template}" is not yet implemented. hello-world was used.\n`);
-  }
-
-  if (claude) {
-    await writeMcpJson(directory, io);
   }
 
   if (team) {

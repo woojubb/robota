@@ -2,7 +2,7 @@
 
 ## Scope
 
-Local-first command-line workflow tool for building, running, and inspecting Robota DAG workflows. This package is an operational tool for humans and AI agents that author, validate, execute, and inspect DAG workflows locally (no server required) via an in-process runner, plus supporting commands for cost estimation, MCP serving, node inspection, cataloging, sharing, and diagnostics. When a server URL is configured it can additionally delegate the orchestration command groups (definitions, runs, run-drafts, cost metadata, assets, published workflows) to a compatible DAG orchestration HTTP server (e.g. `@robota-sdk/dag-runtime-server`) over HTTP.
+Local-first command-line workflow tool for building, running, and inspecting Robota DAG workflows. This package is an operational tool for humans and AI agents that author, validate, execute, and inspect DAG workflows locally (no server required) via an in-process runner, plus supporting commands for cost estimation, node inspection, cataloging, sharing, and diagnostics. When a server URL is configured it can additionally delegate the orchestration command groups (definitions, runs, run-drafts, cost metadata, assets, published workflows) to a compatible DAG orchestration HTTP server (e.g. `@robota-sdk/dag-runtime-server`) over HTTP.
 
 ## Boundaries
 
@@ -55,7 +55,6 @@ Local-first top-level commands (`src/commands/`):
 - `validate <file>` — validate a DAG without executing
 - `node <subcommand>` — inspect the local node registry
 - `init` — scaffold a new DAG project
-- `mcp` — start the local MCP server (also `mcp schema`, `--inspect`)
 - `catalog <subcommand>` — manage the local workflow catalog
 - `template <subcommand>` — built-in topology templates
 - `migrate` — migrate DAG file formats
@@ -89,7 +88,6 @@ Local-first top-level commands (`src/commands/`):
 - `fix <file>` — analyze and repair a broken DAG
 - `studio` — start the local web UI server
 - `view <file>` — ASCII flow diagram viewer
-- `session <subcommand>` — bounded agent session management
 
 ### HTTP server mode
 

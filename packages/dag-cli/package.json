@@ -2,7 +2,7 @@
   "name": "@robota-sdk/dag-cli",
   "version": "3.0.0-beta.63",
   "private": true,
-  "description": "DAG for AI agents \u2014 build and run AI pipelines via MCP or CLI",
+  "description": "DAG for AI agents \u2014 build and run AI pipelines locally",
   "type": "module",
   "bin": {
     "robota-dag": "./dist/node/bin.js"
@@ -48,8 +48,6 @@
     "dag",
     "cli",
     "orchestration",
-    "mcp",
-    "model-context-protocol",
     "ai-agent",
     "agent-workflow",
     "workflow-orchestration",
@@ -68,7 +66,6 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.114.0",
     "@google/genai": "^1.52.0",
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-builtin-providers": "workspace:*",
     "@robota-sdk/dag-adapters-local": "workspace:*",
@@ -82,7 +79,6 @@
     "@robota-sdk/dag-node-http-request": "workspace:*",
     "@robota-sdk/dag-node-instant-node": "workspace:*",
     "@robota-sdk/dag-node-llm-text": "workspace:*",
-    "@robota-sdk/dag-node-mcp-tool": "workspace:*",
     "@robota-sdk/dag-nodes-default": "workspace:*",
     "@robota-sdk/dag-orchestration-client": "workspace:*",
     "openai": "^4.104.0",

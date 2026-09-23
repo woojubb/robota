@@ -155,7 +155,7 @@ export async function runsCommand(
     if (outputFormat === 'json') {
       io.write(`${JSON.stringify(runs, null, JSON_INDENT)}\n`);
     } else if (runs.length === 0) {
-      io.write('No runs found. Run a DAG via `dag mcp` to populate history.\n');
+      io.write('No runs found. Run a DAG via `dag run` to populate history.\n');
     } else {
       io.write(`RUN_ID                                STATUS       COMPLETED_AT\n`);
       for (const run of runs) {
@@ -199,7 +199,7 @@ export async function runsCommand(
         return SUCCESS_EXIT_CODE;
       }
       if (runs.length === 0) {
-        io.write('No local run history found. Run a DAG via MCP or `dag run` to create records.\n');
+        io.write('No local run history found. Run a DAG via `dag run` to create records.\n');
         return SUCCESS_EXIT_CODE;
       }
       const COL_RUN = 26;

@@ -322,7 +322,6 @@ const GUARDED_AGGREGATORS = {
   '@robota-sdk/dag-nodes-default': new Set([
     '@robota-sdk/agent-command-workflows',
     '@robota-sdk/dag-cli',
-    '@robota-sdk/dag-mcp-server',
   ]),
 };
 

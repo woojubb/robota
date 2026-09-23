@@ -57,15 +57,6 @@ robota-dag catalog history              # show recent run history
 Operates on the workspace layout (default `.workflows/`), the FLOW-007 on-disk format for
 authored workflows.
 
-### `mcp` — Start an MCP server
-
-```bash
-robota-dag mcp [--transport stdio]
-```
-
-Starts a local MCP server exposing DAG tools to AI agents:
-`dag_nodes_list`, `dag_nodes_info`, `dag_run_definition`, `dag_run_file`, `dag_validate`.
-
 ### Server mode — Connect to a remote orchestrator
 
 ```bash

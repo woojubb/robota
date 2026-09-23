@@ -23,7 +23,6 @@ export default mergeConfig(
           'tsdown.config.ts',
           // Pure re-export barrel files — no logic
           'src/index.ts',
-          'src/mcp/index.ts',
         ],
       },
     },

@@ -5,7 +5,7 @@
   "check-capability-placement.mjs": 11,
   "check-command-layering.mjs": 8,
   "check-dep-kind.mjs": 4,
-  "check-dependency-direction.mjs": 4,
+  "check-dependency-direction.mjs": 3,
   "check-doc-examples.mjs": 6,
   "check-ghost-package-refs.mjs": 1,
   "check-interface-imports.mjs": 3,
