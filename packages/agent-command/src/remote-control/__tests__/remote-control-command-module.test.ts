@@ -10,6 +10,7 @@ describe('createRemoteControlCommandModule metadata', () => {
 
     expect(palette).toBeDefined();
     expect(executable).toBeDefined();
+    expect(palette?.argumentHint).toBe('[enable|stop|status|devices|revoke <device-id>]');
     expect(palette?.description).toBe(executable?.description);
     expect(palette?.modelInvocable).toBe(executable?.modelInvocable);
     expect(palette?.argumentHint).toBe(executable?.argumentHint);
