@@ -279,23 +279,6 @@ export {
   type IOrchestrationEventData,
 } from './orchestration';
 
-// Workflow converter interfaces
-export type {
-  IWorkflowConverter,
-  IWorkflowConversionOptions,
-  IWorkflowConversionResult,
-  IWorkflowData,
-  IWorkflowConfig,
-  IWorkflowMetadata,
-} from './interfaces/workflow-converter';
-export type {
-  IWorkflowValidator,
-  IValidationOptions,
-  IValidationResult,
-  IValidationIssue,
-  ValidationSeverity,
-} from './interfaces/workflow-validator';
-
 export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy'; // #1851
 export type { IExecutionProxyConfig } from './utils/execution-proxy-types';
 
