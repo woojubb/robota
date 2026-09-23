@@ -551,9 +551,11 @@ guardrails, so the schema is not the place to refuse). `createSession()` therefo
 `assertConfiguredHookTypesExecutable` (`src/assembly/hook-type-reachability.ts`) over the resolved
 hooks and the executors it built, and throws before any turn, naming every unrunnable type and the
 option it needs — instead of validating the config and then denying every tool call under SEC-016.
-For file-loaded settings, the same refusal reports the source path(s) that contributed each
-unrunnable type; source facts follow the settings merge, including per-event accumulation and
-`disabledHooks` filtering. A programmatically supplied config with no settings-file provenance still
+For file-loaded settings and enabled bundle plugins, the same refusal reports the source path(s)
+that contributed each unrunnable type, including the plugin's `hooks/hooks.json`. Source facts follow
+the effective hook merge, including settings per-event accumulation and `disabledHooks` filtering;
+disabled plugins contribute neither hooks nor sources. When settings and plugins contribute the
+same unrunnable type, the diagnostic includes both sources. A programmatically supplied config with no file provenance still
 fails closed and reports its type and required option without inventing a path.
 
 **Seeding order is load-bearing.** `runHooks` builds its lookup with `Map.set` in array order, so

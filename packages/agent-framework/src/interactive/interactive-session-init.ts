@@ -27,7 +27,10 @@ import { injectSavedMessage } from './interactive-session-restore.js';
 import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js';
 import { createSession } from '../assembly/index.js';
 import { loadHostBundlePluginsFromScopes } from '../plugins/index.js';
-import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
+import {
+  mergePluginHooksWithSources,
+  mergeHooksIntoConfig,
+} from '../plugins/plugin-hooks-merger.js';
 
 import type {
   IInteractiveSessionStandardOptions,
@@ -88,6 +91,7 @@ export async function createInteractiveSession(
   let mergedConfig: IResolvedConfig = options.language
     ? { ...config, language: options.language }
     : config;
+  const effectiveHookSources = [...hookSources];
 
   // Issue #2487: a project-scope install lives under the project's own plugin directory; both
   // scopes load, the project copy winning by manifest name when a plugin is present in both.
@@ -101,14 +105,15 @@ export async function createInteractiveSession(
     try {
       const plugins = loadHostBundlePluginsFromScopes(pluginsDirs);
       if (plugins.length > 0) {
-        const pluginHooks = mergePluginHooks(plugins);
+        const pluginHooks = mergePluginHooksWithSources(plugins);
         mergedConfig = {
           ...mergedConfig,
           hooks: mergeHooksIntoConfig(
             mergedConfig.hooks as Record<string, Array<Record<string, unknown>>> | undefined,
-            pluginHooks as Record<string, Array<Record<string, unknown>>>,
+            pluginHooks.hooks as Record<string, Array<Record<string, unknown>>>,
           ),
         };
+        effectiveHookSources.push(...pluginHooks.hookSources);
       }
     } catch (error) {
       // allow-fallback: a plugin problem must not stop the session from starting. CORE-029: what it
@@ -148,7 +153,7 @@ export async function createInteractiveSession(
       contextCapacityHint,
       contributionSources,
     }),
-    hookSources,
+    effectiveHookSources,
   );
 
   return {
