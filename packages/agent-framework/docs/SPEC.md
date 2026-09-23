@@ -931,7 +931,7 @@ verify a feature at the framework level** — the CLI is a thin wrapper and must
 behaviour is verified.
 
 - `scriptedSession({ turns | cassette | record, files?, persistence?, cwd?, projectAccess?,
-resumeSessionId?, forkSession?, model?, commandModules?, ... })` / `ScriptedSessionHarness` builds a **real**
+resumeSessionId?, forkSession?, model?, commandModules?, backgroundTasks?, ... })` / `ScriptedSessionHarness` builds a **real**
   `InteractiveSession` (real agent loop, builtin tools, persistence, events) in an isolated temp
   workspace. `projectAccess` is an optional test-only trusted workspace authority forwarded to
   that real session; it lets functional fixtures exercise project skill discovery without changing
@@ -944,6 +944,8 @@ resumeSessionId?, forkSession?, model?, commandModules?, ... })` / `ScriptedSess
   `resumeSessionId` (+ `forkSession`) open a second harness over the same workspace store to
   resume/fork a persisted session; the harness only deletes a workspace it created. No CLI, no
   network, no live LLM (replay/scripted).
+  `backgroundTasks: true` opts into the real default background-task runners for timer/monitor
+  functional tests; the default fixture remains runner-free.
 - Drivers: `submit(prompt)` → awaits the completed turn; `runGoal(objective, opts)` → awaits the
   stopped goal; `awaitEvent(name, predicate?)`.
 - Inspectors — in-memory: `history()`, `toolCalls()`, `emittedEvents(name)`, `requests`. Durable

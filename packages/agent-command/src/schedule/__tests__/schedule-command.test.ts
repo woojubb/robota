@@ -7,10 +7,23 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { executeMonitorCommand, executeScheduleCommand } from '../schedule-command.js';
+import { createScheduleCommandModule } from '../schedule-command-module.js';
 import { parseScheduleSpec } from '../schedule-spec-parser.js';
 
 import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
 import { createTestAgentJobHost } from '@robota-sdk/agent-framework/testing';
+
+describe('in-session repeat command', () => {
+  it('exposes a user-visible loop command through the default schedule module', () => {
+    const module = createScheduleCommandModule();
+    expect(module.systemCommands?.map((command) => command.name)).toContain('loop');
+    expect(
+      module.commandSources?.flatMap((source) =>
+        source.getCommands().map((command) => command.name),
+      ),
+    ).toContain('loop');
+  });
+});
 
 function mockHost(): {
   host: IAgentJobHostContext;
