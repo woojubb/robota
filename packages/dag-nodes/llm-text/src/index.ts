@@ -1,6 +1,7 @@
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
   buildTaskExecutionError,
+  buildTaskCancellationError,
   buildValidationError,
   type ICostEstimate,
   type IDagError,
@@ -139,6 +140,7 @@ export class LlmTextNodeDefinition extends AbstractNodeDefinition<typeof LlmText
     providerConfig: IProviderDefinitionConfig,
     config: TLlmTextConfig,
     prompt: string,
+    signal?: AbortSignal,
   ): Promise<string> {
     const provider = createProviderFromConfig(providerConfig, this.providers);
     const agent = new Robota({
@@ -151,7 +153,7 @@ export class LlmTextNodeDefinition extends AbstractNodeDefinition<typeof LlmText
         ...(typeof config.maxTokens === 'number' && { maxTokens: config.maxTokens }),
       },
     });
-    return agent.run(prompt);
+    return agent.run(prompt, { signal });
   }
 
   protected override async validateInputWithConfig(
@@ -215,6 +217,9 @@ export class LlmTextNodeDefinition extends AbstractNodeDefinition<typeof LlmText
     let lastError: IDagError | undefined;
 
     for (const entry of entriesResult.value) {
+      if (context.signal?.aborted) {
+        return { ok: false, error: buildTaskCancellationError(context.taskRunId) };
+      }
       const definition = findProviderDefinition(this.providers, entry.provider);
       if (definition === undefined) {
         skipped.push({ provider: entry.provider, reason: 'unknown-provider' });
@@ -228,7 +233,15 @@ export class LlmTextNodeDefinition extends AbstractNodeDefinition<typeof LlmText
 
       attempted.push(entry.provider);
       try {
-        const completion = await this.runProvider(prep.config, config, textResult.value);
+        const completion = await this.runProvider(
+          prep.config,
+          config,
+          textResult.value,
+          context.signal,
+        );
+        if (context.signal?.aborted) {
+          return { ok: false, error: buildTaskCancellationError(context.taskRunId) };
+        }
         io.setOutput('text', completion);
         const wordCount = typeof completion === 'string' ? completion.split(' ').length : 0;
         io.setOutput(
@@ -237,6 +250,9 @@ export class LlmTextNodeDefinition extends AbstractNodeDefinition<typeof LlmText
         );
         return { ok: true, value: io.toOutput() };
       } catch (error) {
+        if (context.signal?.aborted) {
+          return { ok: false, error: buildTaskCancellationError(context.taskRunId) };
+        }
         // allow-fallback: provider API errors are captured and the next provider is tried.
         const { code, retryable } = classifyLlmError(error);
         const rawMessage = error instanceof Error ? error.message : 'LLM generation failed';

@@ -65,3 +65,10 @@ callers can distinguish transient from configuration failures without inspecting
 - Only string input/output ports are supported (no binary) in Phase A.
 - Nodes are held in-memory only; no persistent storage backs them beyond the process lifetime.
 - Promotion to a permanent registry (Phase B) and code-evaluated nodes (Phase C) are out of scope.
+
+## Prompt attempt cancellation
+
+Prompt-backed nodes forward the trusted node-context signal to the agent run, refuse provider
+entry after abort, and discard a late completion. Cancellation is a non-retryable
+`DAG_TASK_EXECUTION_CANCELLED`, rather than a retryable LLM failure. This contract does not yet
+forward cancellation through composite child runners or guarantee provider transport shutdown.

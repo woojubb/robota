@@ -60,6 +60,7 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
       input: input.input,
       context: {
         executionRoot: input.executionRoot,
+        ...(input.signal === undefined ? {} : { signal: input.signal }),
         dagId: input.dagId,
         dagRunId: input.dagRunId,
         taskRunId: input.taskRunId,

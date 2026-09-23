@@ -1,6 +1,7 @@
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
   buildTaskExecutionError,
+  buildTaskCancellationError,
   buildValidationError,
   type ICostEstimate,
   type IDagDefinition,
@@ -185,6 +186,10 @@ export class PromptBackedNodeDefinition
       vars[portDef.key] = result.value;
     }
 
+    if (context.signal?.aborted) {
+      return { ok: false, error: buildTaskCancellationError(context.taskRunId) };
+    }
+
     const provider = this.spec.provider ?? 'anthropic';
     const model = config.model ?? this.spec.model;
 
@@ -197,12 +202,18 @@ export class PromptBackedNodeDefinition
 
     try {
       // allow-fallback: catches provider API errors and converts to structured Result
-      const completion = await providerResult.agent.run(renderedPrompt);
+      const completion = await providerResult.agent.run(renderedPrompt, { signal: context.signal });
+      if (context.signal?.aborted) {
+        return { ok: false, error: buildTaskCancellationError(context.taskRunId) };
+      }
       io.setOutput(this.spec.outputPort.key, completion);
       const wordCount = typeof completion === 'string' ? completion.split(' ').length : 0;
       io.setOutput('_agentSummary', `Generated ${wordCount} words. Model: ${model ?? 'default'}.`);
       return { ok: true, value: io.toOutput() };
     } catch (error) {
+      if (context.signal?.aborted) {
+        return { ok: false, error: buildTaskCancellationError(context.taskRunId) };
+      }
       // allow-fallback: catches provider API errors and converts to structured Result
       return {
         ok: false,

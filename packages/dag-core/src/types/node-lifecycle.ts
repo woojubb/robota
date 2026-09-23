@@ -22,6 +22,8 @@ export interface IDagExecutionLineage {
 
 /** Runtime context passed to every node lifecycle method during execution. */
 export interface INodeExecutionContext {
+  /** Trusted in-process attempt cancellation; never supplied by serialized node or queue data. */
+  signal?: AbortSignal;
   /** Trusted canonical absolute directory used as filesystem containment authority. */
   executionRoot: string;
   dagId: string;

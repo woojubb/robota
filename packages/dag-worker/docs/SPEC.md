@@ -109,9 +109,17 @@ this over an external fixed sleep interval so downstream tasks start promptly.
 
 ### Timeout enforcement scope
 
-Task timeout is enforced via an abort signal during execution. If the executor does not respect the
-signal, the timeout has no effect — node implementations must cooperate with the abort signal for
-timeout to be effective.
+Each task attempt receives a trusted in-process abort signal. A timeout settles the attempt with
+`DAG_TASK_EXECUTION_TIMEOUT` and aborts that signal before the caller resumes; a late executor
+result cannot replace that outcome. An upstream attempt signal, when supplied, also aborts the
+attempt and returns non-retryable `DAG_TASK_EXECUTION_CANCELLED`. Pre-aborted inputs never enter
+the executor. Attempt timers and upstream listeners are removed on settlement.
+
+This is cooperative interruption, not CPU preemption or a guarantee that executor cleanup has
+finished. An executor ignoring its signal can continue side effects after timeout, including while
+an eligible retry runs. Synchronous work can still block the timer. Run cancellation is not yet
+connected to active attempt signals; root-owned descendant cancellation and shared budgets remain
+unfinished work under #2875.
 
 ### Queue-scoped advancement ownership (RUNTIME-003)
 
