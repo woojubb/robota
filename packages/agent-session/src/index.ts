@@ -40,7 +40,16 @@ export {
   NodeSessionLogSink,
 } from './session-log-sinks.js';
 export type { IExternalPayloadSink, ISessionLogSink } from './session-log-sinks.js';
-export { SESSION_LOG_EVENT, isSessionLogEvent } from './session-log-events.js';
+export {
+  SESSION_LOG_EVENT,
+  SESSION_LOG_SCHEMA_VERSION,
+  isSessionLogEvent,
+} from './session-log-events.js';
+export { decodeSessionLogEntries, SessionLogDecodeError } from './session-log-codec/index.js';
+export type {
+  TDecodedSessionLogEntry,
+  TSessionLogDecodeErrorCode,
+} from './session-log-codec/index.js';
 export type {
   TSessionLogEventName,
   ISessionLogLine,

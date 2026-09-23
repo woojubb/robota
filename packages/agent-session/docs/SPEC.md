@@ -109,6 +109,10 @@ session-store.ts          -- NodeSessionStore: explicit host JSON persistence ad
 
 Types owned by this package (SSOT):
 
+`TDecodedSessionLogEntry` and `TSessionLogDecodeErrorCode` are owned and exported by
+`session-log-codec/index.ts`. Located log failures reuse `ISessionRecordDecodeIssue` from
+`agent-interface-session`; the log codec does not define another issue shape.
+
 | Type                                        | Kind      | File                                       | Description                                                                                                   |
 | ------------------------------------------- | --------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | `ISessionRecordDecodeIssue`                 | Interface | `session-record-codec/decode-outcome.ts`   | TRANS-005: one decode failure, located — a machine-readable `path` plus a human `message`                     |
@@ -220,6 +224,11 @@ Types consumed from other packages (not owned here):
 | `ISessionLogEntry`                          | Interface            | One parsed session log entry (`session-log-replay.ts`)                                                                                                                                                                                                                  |
 | `consentScopeFor`                           | Function             | Issue #2351: the permission pattern a "don't ask again" answer for this invocation grants — the tool name, or the tool's argument-scoped pattern when its permission profile names an argument; the ONE owner of the scope the enforcer remembers and the prompt prints |
 | `ISessionReplayValidationResult`            | Interface            | Result of validating a session replay log for integrity                                                                                                                                                                                                                 |
+| `SESSION_LOG_SCHEMA_VERSION`                | Constant             | The single supported persisted session-log envelope version                                                                                                                                                                                                             |
+| `decodeSessionLogEntries`                   | Function             | Decode every event before projection; reject a malformed or unsupported input without partial recovery                                                                                                                                                                  |
+| `SessionLogDecodeError`                     | Class                | Typed replay decode failure carrying a code and safe located issues                                                                                                                                                                                                     |
+| `TDecodedSessionLogEntry`                   | Type                 | Event-name-discriminated output of the total log decoder                                                                                                                                                                                                                |
+| `TSessionLogDecodeErrorCode`                | Type                 | Stable invalid-JSON, invalid-event, and unsupported-version decode codes                                                                                                                                                                                                |
 
 `ICompactEvent` and `TCompactTrigger` are **not** part of the public API surface. Their SSOT is
 `@robota-sdk/agent-interface-transport` (INFRA-025); `src/session-types.ts` re-exports them
@@ -426,6 +435,25 @@ logger calls, `onExecutionEvent` literals emitted by agent-core, and replay-read
 events must all be members; adding a production literal without adding it to this vocabulary is a
 contract violation. The event-name coverage test mechanically scans all three sources.
 
+Every persisted line carries `schemaVersion: 1`, `timestamp`, `sessionId`, and a declared `event`,
+followed by that event's payload fields. The logger owns these envelope fields; payload data cannot
+override them. There is no legacy/unversioned replay mode. `SESSION_LOG_SCHEMA_VERSION` owns the
+version. `decodeSessionLogEntries` validates the envelope and dispatches every declared event to its
+payload decoder before replay or correlation checks. It reuses the record codec's nested message,
+history, background-event, and memory-event decoders rather than inventing missing IDs or dates.
+Provider-native diagnostic payloads remain JSON-compatible opaque values, not a second provider schema.
+
+Unknown names, malformed envelopes or payloads, and unsupported versions fail the whole decode;
+valid siblings are never silently retained as a partial recovery. `SessionLogDecodeError` carries
+`INVALID_JSON`, `INVALID_EVENT`, or `UNSUPPORTED_VERSION`, located `issues` (`path` and a safe
+expected/received-kind message), and the unsupported `schemaVersion` when applicable. Locations name
+the physical one-based JSONL line (including blank lines) or direct-input array index and nested field;
+diagnostics never echo prompt, credential, or payload contents. Invalid JSON retains its cause.
+`loadSessionLogEntries` hydrates with the existing shared sidecar budget, then decodes; resolver
+integrity/containment errors retain their existing class and codes. Direct replay and validation entry
+points apply the same codec to supplied entries before projection or completeness checks. No event is
+discarded because its role or auxiliary payload cannot be interpreted.
+
 - **`session_init` event** -- Recorded when a session is constructed. Includes `systemPrompt`, `systemPromptLength`, provider/model, cwd, and registered `toolSchemas`.
 - **`server_tool` event** -- Recorded when a server-managed tool (e.g., web search) executes during streaming. Includes the tool name and query.
 - **`pre_run` event** -- Recorded at the start of each `run()` call. Includes the provider name, provider-native web capability/enabled state, full enriched input, and current message history before the model call.
@@ -497,6 +525,8 @@ reads only through an explicit `ISessionLogSource`; its attached payload source 
 hydrates every JSONL line with one shared depth and aggregate-byte state before returning it. The neutral
 loader never turns a path into I/O authority. `replaySessionLogEntries()` reconstructs provider messages
 and chat history from already-hydrated `history_mutation` events.
+These entries must satisfy the versioned event codec, including diagnostic events that do not add
+messages. A missing source remains an empty input; malformed nonempty input is never an empty replay.
 `validateSessionReplayLogEntries()` reports missing provider-native raw payloads, missing provider-normalized
 raw responses, missing normalized responses, unmatched tool requests/results, malformed references, and
 `UNRESOLVED_REPLAY_PAYLOAD` when an unresolved reference remains recursively inside
@@ -771,9 +801,9 @@ Auto-compaction triggers at the **start** of `run()` (before processing the user
 
 ## Error Taxonomy
 
-This package defines one custom error class: `CompactionError` (thrown when a compaction summary
-is invalid — see Compaction Failure Contract). All other errors are thrown as standard `Error`
-instances. Error scenarios include:
+`CompactionError` preserves the compaction failure contract. `SessionLogDecodeError` reports invalid
+or unsupported replay input as specified in Session Logging; `SessionLogPayloadResolutionError`
+preserves sidecar integrity and containment failures. Other error scenarios include:
 
 | Error Condition                         | Thrown By                | Message Pattern                                                                                                                                                                                                |
 | --------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -824,6 +854,11 @@ standalone.
 ## Test Strategy
 
 ### Current Test Coverage
+
+- **Versioned session log codec** -- positive and malformed cases for every declared event, nested
+  persisted variants, unknown names, missing/unsupported versions, located syntax errors, and mixed
+  valid/invalid logs. Real logger-to-loader replay verifies version ownership, hydration, message
+  preservation, and rejection before partial reconstruction.
 
 - **Legacy history migration** -- `src/__tests__/migrate-session-history.test.ts` preserves the
   five migration/skip/idempotence cases and covers explicit CLI storage, invalid arguments,

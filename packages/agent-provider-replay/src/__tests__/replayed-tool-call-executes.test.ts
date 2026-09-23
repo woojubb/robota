@@ -15,15 +15,15 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ReplayProvider } from '../replay-provider.js';
 
-import type { ISessionLogEntry } from '@robota-sdk/agent-session';
-
-function line(event: string, data: Record<string, unknown>): ISessionLogEntry {
+// Raw versioned producer data must pass through the provider's shared decoder.
+function line(event: string, data: Record<string, unknown>): unknown {
   return {
+    ...data,
+    schemaVersion: 1,
     timestamp: '2026-06-28T00:00:00.000Z',
     sessionId: 's1',
     event,
-    ...data,
-  } as ISessionLogEntry;
+  };
 }
 
 const TERMINAL = {
@@ -53,24 +53,32 @@ describe('a replayed tool call executes against the live tool set (issue #2302)'
     const provider = new ReplayProvider({
       entries: [
         line('provider_response_normalized', {
+          executionId: 'e1',
+          conversationId: 'c1',
           round: 0,
+          toolCallsCount: 1,
           response: {
             role: 'assistant',
             content: '',
             id: 'a1',
             timestamp: '2026-06-28T00:00:01.000Z',
+            state: 'complete',
             toolCalls: [
               { id: 't1', type: 'function', function: { name: 'Probe', arguments: '{"x":1}' } },
             ],
           },
         }),
         line('provider_response_normalized', {
+          executionId: 'e1',
+          conversationId: 'c1',
           round: 1,
+          toolCallsCount: 0,
           response: {
             role: 'assistant',
             content: 'two',
             id: 'a2',
             timestamp: '2026-06-28T00:00:02.000Z',
+            state: 'complete',
           },
         }),
       ],

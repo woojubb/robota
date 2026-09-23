@@ -1,12 +1,14 @@
 import { messageToHistoryEntry } from '@robota-sdk/agent-core';
 
 import { resolveSessionLogExternalPayloads } from './external-payload-resolver.js';
+import { decodeSessionLogEntries, SessionLogDecodeError } from './session-log-codec/index.js';
 
 import type { ISessionLogPayloadResolutionOptions } from './external-payload-resolver.js';
 import type { IExternalPayloadSource, ISessionLogSource } from './session-log-sources.js';
 import type { IHistoryEntry, TUniversalMessage, TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface ISessionLogEntry extends Record<string, TUniversalValue> {
+  schemaVersion?: number;
   timestamp: string;
   sessionId: string;
   event: string;
@@ -39,18 +41,31 @@ export function loadSessionLogEntries(
   options: ISessionLogLoadOptions = {},
 ): ISessionLogEntry[] {
   const text = source.readText();
-  const entries =
-    text === undefined
-      ? []
-      : text
-          .split('\n')
-          .map((line) => line.trim())
-          .filter((line) => line.length > 0)
-          .map((line) => JSON.parse(line) as unknown);
-  return resolveSessionLogExternalPayloads(entries, {
-    source: options.externalPayloadSource ?? source.externalPayloadSource,
-    ...options,
-  }) as ISessionLogEntry[];
+  const parsedLines: { value: unknown; lineNumber: number }[] = [];
+  if (text !== undefined) {
+    text.split('\n').forEach((line, index) => {
+      if (line.trim().length === 0) return;
+      try {
+        parsedLines.push({ value: JSON.parse(line) as unknown, lineNumber: index + 1 });
+      } catch (cause) {
+        throw new SessionLogDecodeError(
+          'INVALID_JSON',
+          [{ path: `line ${index + 1}`, message: 'expected valid JSON' }],
+          { cause },
+        );
+      }
+    });
+  }
+  const hydrated = resolveSessionLogExternalPayloads(
+    parsedLines.map(({ value }) => value),
+    {
+      source: options.externalPayloadSource ?? source.externalPayloadSource,
+      ...options,
+    },
+  );
+  return decodeSessionLogEntries(hydrated, {
+    lineNumbers: parsedLines.map(({ lineNumber }) => lineNumber),
+  });
 }
 
 export function replaySessionLogEntries(
@@ -68,7 +83,7 @@ export function replaySessionLogEntries(
   let createdAt: string | undefined;
   let updatedAt: string | undefined;
 
-  for (const entry of entries) {
+  for (const entry of decodeSessionLogEntries(entries)) {
     sessionId = sessionId ?? entry.sessionId;
     createdAt = createdAt ?? entry.timestamp;
     updatedAt = entry.timestamp;
@@ -78,11 +93,8 @@ export function replaySessionLogEntries(
     }
 
     if (entry.event === 'history_mutation' && entry.mutation === 'append_message') {
-      const message = normalizeLogMessage(entry.message);
-      if (message) {
-        messages.push(message);
-        history.push(messageToHistoryEntry(message));
-      }
+      messages.push(entry.message);
+      history.push(messageToHistoryEntry(entry.message));
     }
 
     collectAuxiliaryReplayEvent(entry, auxiliaryEvents);
@@ -127,29 +139,6 @@ function collectAuxiliaryReplayEvent(
   if (entry.event === 'memory_event') {
     pushObjectPayload(auxiliaryEvents.memoryEvents, entry, 'memoryEvent', 'data');
   }
-}
-
-function normalizeLogMessage(value: TUniversalValue): TUniversalMessage | undefined {
-  if (!isRecord(value)) return undefined;
-  const role = value.role;
-  if (role !== 'user' && role !== 'assistant' && role !== 'system' && role !== 'tool') {
-    return undefined;
-  }
-  const id = typeof value.id === 'string' ? value.id : `${role}-${Date.now()}`;
-  const timestamp =
-    value.timestamp instanceof Date
-      ? value.timestamp
-      : new Date(typeof value.timestamp === 'string' ? value.timestamp : Date.now());
-  return {
-    ...value,
-    id,
-    role,
-    timestamp,
-  } as TUniversalMessage;
-}
-
-function isRecord(value: TUniversalValue): value is Record<string, TUniversalValue> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function getObjectPayload(entry: ISessionLogEntry, key: string): object | undefined {

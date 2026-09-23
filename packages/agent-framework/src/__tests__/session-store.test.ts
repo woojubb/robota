@@ -202,16 +202,24 @@ describe('SessionStore', () => {
           'log-only-session',
           [
             JSON.stringify({
+              schemaVersion: 1,
               timestamp: '2026-05-05T00:00:00.000Z',
               sessionId: 'log-only-session',
               event: 'session_init',
               cwd,
+              provider: 'scripted',
+              model: 'scripted',
+              systemPrompt: '',
+              systemPromptLength: 0,
+              toolSchemas: [],
             }),
             JSON.stringify({
+              schemaVersion: 1,
               timestamp: '2026-05-05T00:00:01.000Z',
               sessionId: 'log-only-session',
               event: 'history_mutation',
               mutation: 'append_message',
+              index: 0,
               message: {
                 id: 'u1',
                 role: 'user',
@@ -221,10 +229,12 @@ describe('SessionStore', () => {
               },
             }),
             JSON.stringify({
+              schemaVersion: 1,
               timestamp: '2026-05-05T00:00:02.000Z',
               sessionId: 'log-only-session',
               event: 'history_mutation',
               mutation: 'append_message',
+              index: 1,
               message: {
                 id: 'a1',
                 role: 'assistant',

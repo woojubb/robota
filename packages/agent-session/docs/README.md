@@ -5,7 +5,8 @@
 ## Current Capabilities
 
 - Session execution emits provider usage and execution-boundary callbacks to SDK consumers.
-- Session logs can include replay-oriented events, while deterministic `/resume` replay remains follow-up work.
+- Versioned session logs are decoded by event name before replay. Malformed or unknown events fail
+  explicitly, including nested messages; unversioned logs are not treated as valid recovery data.
 - System prompt composition includes session-owned context sections supplied by the SDK.
 
 ## Documents
