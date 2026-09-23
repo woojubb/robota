@@ -16,7 +16,7 @@ import type {
 } from '@robota-sdk/agent-interface-session';
 import { userPaths } from '../product/user-paths.js';
 
-interface IUsageCommandDependencies {
+export interface IUsageCommandDependencies {
   readonly userSessionStore: IInteractiveSessionStore;
   readonly projectSessionStore?: IInteractiveSessionStore;
   readonly now?: Date;
@@ -30,6 +30,9 @@ interface IUsageCommandResult {
 
 const USAGE_HELP = `Usage: robota usage [options]
 
+To export a content-free metric snapshot to a local OTLP collector:
+  robota usage export --endpoint http://127.0.0.1:4318
+
 Options:
   --period <7d|30d>       Calendar period including the current partial day (default: 7d)
   --timezone <IANA>       Calendar timezone (default: system timezone)
@@ -41,7 +44,7 @@ interface IUsageCommandArgs extends IPersonalUsageRequest {
   readonly format: 'text' | 'json';
 }
 
-interface IEnumeratedUsageSnapshot {
+export interface IEnumeratedUsageSnapshot {
   readonly records: readonly IInteractiveSessionRecord[];
   readonly corruptSessionIds: readonly string[];
   readonly unsupportedSessionIds: readonly string[];
@@ -126,7 +129,9 @@ function createPersonalUsageReport(
   });
 }
 
-function enumerateUsageSnapshot(dependencies: IUsageCommandDependencies): IEnumeratedUsageSnapshot {
+export function enumerateUsageSnapshot(
+  dependencies: IUsageCommandDependencies,
+): IEnumeratedUsageSnapshot {
   const records = new Map<string, IInteractiveSessionRecord>();
   const corrupt = new Set<string>();
   const unsupported = new Set<string>();

@@ -56,6 +56,13 @@ observation is separate from PID/start-time liveness: stale observations or unve
 remain `unknown`. A TUI session switch clears the previous observation and detaches its listeners;
 neither conversation content nor stored-session identity is inferred from the peer entry.
 
+**Explicit OTLP usage snapshot (#2726).** `robota usage export` reads the same authorized user and
+project session stores as local usage reporting and sends only aggregate, non-additive Gauge values
+to a loopback OTLP/HTTP JSON collector named by the caller. The command never auto-exports, sends
+no transcript, tool name, session identity, or provider/model label, and refuses an incomplete
+store or a partial collector rejection. It is a local collector bridge, not a managed remote
+telemetry destination or a distributed trace exporter.
+
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.
 

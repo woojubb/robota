@@ -18,6 +18,7 @@ export { formatSingleSession, formatAggregateReport, formatUsageReport } from '.
 // ANALYTICS-001: source-attributed token-usage analysis.
 export { summarizeUsageBySource } from './usage.js';
 export { summarizePersonalUsage } from './personal-usage.js';
+export { createOtlpUsageSnapshot } from './otlp-usage-snapshot.js';
 export { formatPersonalUsageReport } from './personal-usage-format.js';
 export type { IPersonalUsageSnapshot } from './personal-usage.js';
 export type {
