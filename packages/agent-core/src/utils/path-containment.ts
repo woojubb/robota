@@ -12,9 +12,8 @@
  * their own defect.
  *
  * Every security-boundary containment check in the repo routes through here — the `agent-*` family
- * and the `dag-*` family alike. The dag side is not a cross-family exception: `dag-framework` already
- * declares `@robota-sdk/agent-core` in its runtime `dependencies`, so agent-core is in `dag-cli`'s
- * closure regardless, and a direct edge only makes that explicit.
+ * and the `dag-*` family alike. The DAG side is not a cross-family exception: `dag-framework`
+ * declares `@robota-sdk/agent-core` in its runtime dependencies.
  */
 import { accessSync, constants, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';

@@ -55,8 +55,8 @@ const TEST_PROVIDERS: readonly IProviderDefinition[] = [
 
 /**
  * A pure inner DAG: a single `input` node emitting a fixed `text` from its config. No LLM/provider —
- * deterministic — so the reloaded composite can run end-to-end without credentials. Mirrors the
- * dag-cli `composite-reload-real` fixture on the agent `/workflows` persistence path.
+ * deterministic — so the reloaded composite can run end-to-end without credentials on the
+ * agent `/workflows` persistence path.
  */
 const INNER_DAG = {
   dagId: 'inner',

@@ -2715,79 +2715,6 @@ importers:
         specifier: ^0.22.14
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
 
-  packages/dag-cli:
-    dependencies:
-      '@anthropic-ai/sdk':
-        specifier: ^0.114.0
-        version: 0.114.0(zod@3.25.76)
-      '@google/genai':
-        specifier: ^1.52.0
-        version: 1.52.0(@modelcontextprotocol/sdk@1.29.0)
-      '@robota-sdk/agent-builtin-providers':
-        specifier: workspace:*
-        version: link:../agent-builtin-providers
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/dag-adapters-local':
-        specifier: workspace:*
-        version: link:../dag-adapters-local
-      '@robota-sdk/dag-builder':
-        specifier: workspace:*
-        version: link:../dag-builder
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-      '@robota-sdk/dag-cost':
-        specifier: workspace:*
-        version: link:../dag-cost
-      '@robota-sdk/dag-framework':
-        specifier: workspace:*
-        version: link:../dag-framework
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../dag-node
-      '@robota-sdk/dag-node-file-read':
-        specifier: workspace:*
-        version: link:../dag-nodes/file-read
-      '@robota-sdk/dag-node-file-write':
-        specifier: workspace:*
-        version: link:../dag-nodes/file-write
-      '@robota-sdk/dag-node-gemini-image-edit':
-        specifier: workspace:*
-        version: link:../dag-nodes/gemini-image-edit
-      '@robota-sdk/dag-node-http-request':
-        specifier: workspace:*
-        version: link:../dag-nodes/http-request
-      '@robota-sdk/dag-node-instant-node':
-        specifier: workspace:*
-        version: link:../dag-nodes/instant-node
-      '@robota-sdk/dag-node-llm-text':
-        specifier: workspace:*
-        version: link:../dag-nodes/llm-text
-      '@robota-sdk/dag-nodes-default':
-        specifier: workspace:*
-        version: link:../dag-nodes-default
-      '@robota-sdk/dag-orchestration-client':
-        specifier: workspace:*
-        version: link:../dag-orchestration-client
-      openai:
-        specifier: ^4.104.0
-        version: 4.104.0(ws@8.21.1)(zod@3.25.76)
-      zod:
-        specifier: ^3.24.4
-        version: 3.25.76
-    devDependencies:
-      '@robota-sdk/dag-api':
-        specifier: workspace:*
-        version: link:../dag-api
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      tsx:
-        specifier: ^4.23.1
-        version: 4.23.1
-
   packages/dag-core:
     dependencies:
       zod:
@@ -2878,7 +2805,6 @@ importers:
       tsdown:
         specifier: ^0.22.14
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-
 
   packages/dag-node:
     dependencies:
@@ -3287,7 +3213,6 @@ importers:
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
 
   packages/dag-nodes/multi-input:
     dependencies:

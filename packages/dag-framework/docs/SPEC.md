@@ -13,8 +13,8 @@
 factory call. Consumers get a fully wired `IDagFramework` without managing individual
 infrastructure objects.
 
-Primary use case: local workflow execution composed by `dag-cli` and the agent CLI
-`/workflows` command, with zero external runtime-server process dependencies.
+Primary use case: local workflow execution composed by the agent CLI `/workflows` command,
+with zero external runtime-server process dependencies.
 
 ---
 

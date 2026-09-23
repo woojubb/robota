@@ -19,7 +19,7 @@ the same change when a package's public contract changes.
 
 ## Non-obvious facts
 
-- The product DAG path is composed in `agent-command-workflows`; `dag-cli` is a private shell nothing consumes.
+- The product DAG path is composed in `agent-command-workflows`; there is no standalone DAG CLI.
 - Running the CLI writes to `~/.robota/`. When exercising the product from a script or test, point `HOME` at a
   temporary directory.
 - The owner works on both macOS and Linux; shell commands must be portable or check `uname -s`.

@@ -10,7 +10,7 @@ import type { IWorkflowProject } from './workflow-project.js';
  * `/workflows list` — list the workflow nodes available to the in-process DAG runtime: the built-in
  * catalog PLUS the instant nodes saved in this workspace under `<root>/nodes/` (WORKFLOW-005 P3),
  * which are marked so the nodes `create`/`build` authored here are distinguishable from built-ins.
- * Composes `dag-framework`'s local provider; no dependency on the `dag-cli` product.
+ * Composes `dag-framework`'s local provider.
  */
 export async function executeWorkflowsList(
   project: IWorkflowProject,

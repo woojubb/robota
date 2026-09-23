@@ -84,7 +84,7 @@ function parseEvalArgs(argv: string[]): IEvalCommandArgs {
 }
 
 async function loadEvalDefinition(absPath: string): Promise<IEvalDefinition> {
-  // eslint-disable-next-line no-restricted-syntax -- consumer-supplied definition path, unknown at compile time (mirrors dag-cli local-node-loader)
+  // eslint-disable-next-line no-restricted-syntax -- consumer-supplied definition path is unknown at compile time
   const mod = (await import(pathToFileURL(absPath).href)) as IEvalDefinitionModule;
   const candidate = mod.default ?? mod.evalDefinition;
   if (!candidate) {

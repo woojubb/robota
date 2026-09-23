@@ -16,8 +16,8 @@ async function executeWorkflowsValidate(file: string, root: string) {
  *
  * `/workflows validate` open-coded the format branch and assigned a legacy-format object straight
  * through as `IDagDefinition` with no check, so a file carrying `status: 'active'` — the value
- * DAG-002 exists to eliminate, and one `dag-cli node`'s example generator emitted until this same
- * change fixed it — was reported as valid by the surface whose entire job is answering that question.
+ * DAG-002 exists to eliminate — was reported as valid by the surface whose entire job is answering
+ * that question.
  */
 const dirs: string[] = [];
 

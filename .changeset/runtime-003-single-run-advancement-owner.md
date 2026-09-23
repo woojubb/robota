@@ -2,7 +2,6 @@
 '@robota-sdk/dag-api': major
 '@robota-sdk/dag-framework': major
 '@robota-sdk/dag-worker': minor
-'@robota-sdk/dag-cli': patch
 ---
 
 **BREAKING — RUNTIME-003: make one queue-scoped coordinator the sole owner of DAG run
