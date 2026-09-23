@@ -3,7 +3,7 @@
  *
  * Owns open / reuse / close, ALL retry state, the four typed timeouts, `list_changed` refresh without
  * reconnecting, the last-known-good catalog with explicit identity, and — the SSOT the package
- * asserts at package scope (TC-23, TC-24) — the ONE connection-state union, `TMCPConnectionState`.
+ * asserts at package scope (TC-23) — the ONE connection-state union, `TMCPConnectionState`.
  * `../client/session.ts` is stateless about liveness by contract.
  *
  * Contract file: the types below are authoritative; `MCPConnectionSupervisor` is completed against
@@ -304,7 +304,7 @@ export function classifyMcpFailure(error: unknown): TMCPFailureClass {
 /**
  * Thrown by `callTool` (and internally by `discover`/`refresh`) so the caller reads the classification
  * off the thrown value itself rather than re-deriving it (TC-10). A class, not a union member — it is
- * not a second connection-state model and is out of TC-24's scope.
+ * not a second connection-state model.
  */
 export class MCPSupervisorError extends Error {
   constructor(

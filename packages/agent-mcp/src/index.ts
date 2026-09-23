@@ -162,8 +162,7 @@ export {
 } from './catalog/discovered-tool.js';
 
 // MCP-002 (absorbing MCP-003): connection and catalog lifecycle. `TMCPConnectionState` is the ONE
-// connection-state union under `src/**`, asserted at package scope by
-// `src/__tests__/single-connection-state-union.test.ts`.
+// connection-state union under `src/**`.
 export {
   DEFAULT_MCP_BACKOFF,
   MCPConnectionSupervisor,
