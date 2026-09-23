@@ -16,7 +16,6 @@ import type {
   IDagOrchestrationUpdateDraftInput,
   IOrchestrationProblemDetails,
 } from '@robota-sdk/dag-orchestration-client';
-import { buildDagFromPipeline, type IDagBuildInput } from '@robota-sdk/dag-builder';
 
 /** Dependencies for constructing the in-process orchestration adapter. */
 export interface IDagFrameworkOrchestrationAdapterDependencies {
@@ -196,29 +195,6 @@ export class DagFrameworkOrchestrationAdapter implements IDagOrchestrationPort {
     return this.successResponse(200, {
       dagRun: result.value.dagRun,
       taskRuns: result.value.taskRuns,
-    });
-  }
-
-  public async buildDag(input: IDagBuildInput): Promise<IDagOrchestrationHttpResponse> {
-    const result = buildDagFromPipeline(input, this.manifests as INodeManifest[]);
-    if (!result.ok) {
-      const problem: IOrchestrationProblemDetails = {
-        type: 'urn:robota:problems:dag:validation',
-        title: 'DAG build failed',
-        status: 400,
-        detail: result.error.message,
-        instance: 'inproc://dag-framework/build',
-        code: result.error.code,
-        retryable: false,
-      };
-      const payload: IDagOrchestrationHttpPayload = { ok: false, status: 400, errors: [problem] };
-      return { ok: false, status: 400, payload };
-    }
-    return this.successResponse(200, {
-      definition: result.definition,
-      nodeCount: result.nodeCount,
-      edgeCount: result.edgeCount,
-      warnings: result.warnings,
     });
   }
 

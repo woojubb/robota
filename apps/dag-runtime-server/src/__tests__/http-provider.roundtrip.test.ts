@@ -29,6 +29,7 @@ describe('HttpDagRuntimeProvider round-trip against the in-process server', () =
       framework.client,
       framework.costMeta,
       framework.runDrafts,
+      framework.build,
       framework.internals.execution.runProgressEventBus,
     );
     // Route the provider's HTTP + SSE traffic into the in-process Hono app instead of a real socket.

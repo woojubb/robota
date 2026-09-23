@@ -22,6 +22,7 @@ describe('dag-runtime-server contract', () => {
       framework.client,
       framework.costMeta,
       framework.runDrafts,
+      framework.build,
       undefined,
       framework.assets,
     );
@@ -43,6 +44,41 @@ describe('dag-runtime-server contract', () => {
     expect(res.status).toBeLessThan(500);
     const payload: unknown = await res.json();
     expect(payload).toBeDefined();
+  });
+
+  it('maps domain build results to the existing HTTP route envelope', async () => {
+    const success = await app.request('/v1/dag/build', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pipeline: [{ nodeType: 'input', config: { text: 'hello' } }] }),
+    });
+    expect(success.status).toBe(200);
+    expect(await success.json()).toMatchObject({
+      ok: true,
+      data: { nodeCount: 1, definition: { nodes: [{ nodeType: 'input' }] } },
+    });
+
+    const invalid = await app.request('/v1/dag/build', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pipeline: [{ nodeType: 'missing-node' }] }),
+    });
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({
+      ok: false,
+      status: 400,
+      errors: [
+        {
+          type: 'urn:robota:problems:dag:validation',
+          title: 'DAG build failed',
+          status: 400,
+          detail: 'Node type "missing-node" is not registered',
+          instance: 'inproc://dag-framework/build',
+          code: 'UNKNOWN_NODE_TYPE',
+          retryable: false,
+        },
+      ],
+    });
   });
 
   it('GET /v1/dag/cost-meta maps explicit unsupported capability to 501', async () => {
@@ -68,7 +104,12 @@ describe('dag-runtime-server contract', () => {
   it('maps a supported cost capability result to the existing HTTP response shape', async () => {
     const costMeta = Object.create(framework.costMeta) as ICostMetaOperationsPort;
     costMeta.listCostMeta = async () => ({ ok: true, value: [] });
-    const supportedApp = createDagRuntimeServer(framework.client, costMeta, framework.runDrafts);
+    const supportedApp = createDagRuntimeServer(
+      framework.client,
+      costMeta,
+      framework.runDrafts,
+      framework.build,
+    );
 
     const res = await supportedApp.request('/v1/dag/cost-meta');
     expect(res.status).toBe(200);
@@ -86,7 +127,12 @@ describe('dag-runtime-server contract', () => {
         retryable: false,
       },
     });
-    const failingApp = createDagRuntimeServer(framework.client, costMeta, framework.runDrafts);
+    const failingApp = createDagRuntimeServer(
+      framework.client,
+      costMeta,
+      framework.runDrafts,
+      framework.build,
+    );
 
     const res = await failingApp.request('/v1/dag/cost-meta');
     expect(res.status).toBe(500);
@@ -146,7 +192,12 @@ describe('dag-runtime-server contract', () => {
         retryable: true,
       },
     });
-    const failingApp = createDagRuntimeServer(framework.client, framework.costMeta, drafts);
+    const failingApp = createDagRuntimeServer(
+      framework.client,
+      framework.costMeta,
+      drafts,
+      framework.build,
+    );
     const res = await failingApp.request('/v1/dag/run-drafts/draft-1');
     expect(res.status).toBe(500);
     expect(JSON.stringify(await res.json())).not.toContain('/private/drafts.json');
@@ -205,8 +256,11 @@ describe('dag-runtime-server contract', () => {
     const referenceStore = Object.create(framework.assets) as IAssetStore;
     let contentCalled = false;
     referenceStore.getMetadata = async () => ({
-      assetId: 'reference', fileName: 'remote.bin', mediaType: 'application/octet-stream',
-      sizeBytes: 0, createdAt: '2026-01-01T00:00:00.000Z',
+      assetId: 'reference',
+      fileName: 'remote.bin',
+      mediaType: 'application/octet-stream',
+      sizeBytes: 0,
+      createdAt: '2026-01-01T00:00:00.000Z',
       sourceUri: 'https://public.example.test/remote.bin',
     });
     referenceStore.getContent = async () => {
@@ -214,7 +268,12 @@ describe('dag-runtime-server contract', () => {
       throw new Error('Reference source must not be fetched.');
     };
     const referenceApp = createDagRuntimeServer(
-      framework.client, framework.costMeta, framework.runDrafts, undefined, referenceStore,
+      framework.client,
+      framework.costMeta,
+      framework.runDrafts,
+      framework.build,
+      undefined,
+      referenceStore,
     );
     const response = await referenceApp.request('/v1/dag/assets/reference/content');
     expect(response.status).toBe(501);
@@ -229,13 +288,17 @@ describe('dag-runtime-server contract', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        fileName: 'bad.txt', mediaType: 'text/plain\u0000bad', base64Data: 'YQ==',
+        fileName: 'bad.txt',
+        mediaType: 'text/plain\u0000bad',
+        base64Data: 'YQ==',
       }),
     });
     expect(invalid.status).toBe(400);
 
     const legacy = await framework.assets.save({
-      fileName: 'legacy.txt', mediaType: 'text/plain\u0000bad', content: Uint8Array.from([97]),
+      fileName: 'legacy.txt',
+      mediaType: 'text/plain\u0000bad',
+      content: Uint8Array.from([97]),
     });
     const downloaded = await app.request(`/v1/dag/assets/${legacy.assetId}/content`);
     expect(downloaded.status).toBe(200);
@@ -288,6 +351,7 @@ describe('dag-runtime-server contract', () => {
       framework.client,
       framework.costMeta,
       framework.runDrafts,
+      framework.build,
     );
     const unwired = await unwiredApp.request('/v1/dag/assets/missing');
     expect(unwired.status).toBe(501);
@@ -300,6 +364,7 @@ describe('dag-runtime-server contract', () => {
       framework.client,
       framework.costMeta,
       framework.runDrafts,
+      framework.build,
       undefined,
       broken,
     );
@@ -311,20 +376,33 @@ describe('dag-runtime-server contract', () => {
   it('does not complete a successful download when its source stream fails', async () => {
     const broken = Object.create(framework.assets) as IAssetStore;
     broken.getMetadata = async () => ({
-      assetId: 'broken', fileName: 'broken.bin', mediaType: 'application/octet-stream',
-      sizeBytes: 2, createdAt: '2026-01-01T00:00:00.000Z',
+      assetId: 'broken',
+      fileName: 'broken.bin',
+      mediaType: 'application/octet-stream',
+      sizeBytes: 2,
+      createdAt: '2026-01-01T00:00:00.000Z',
     });
     broken.getContent = async () => ({
       metadata: {
-        assetId: 'broken', fileName: 'broken.bin', mediaType: 'application/octet-stream',
-        sizeBytes: 2, createdAt: '2026-01-01T00:00:00.000Z',
+        assetId: 'broken',
+        fileName: 'broken.bin',
+        mediaType: 'application/octet-stream',
+        sizeBytes: 2,
+        createdAt: '2026-01-01T00:00:00.000Z',
       },
       stream: (async function* () {
         yield Uint8Array.from([1]);
         throw new Error('/private/source.bin');
       })(),
     });
-    const failingApp = createDagRuntimeServer(framework.client, framework.costMeta, framework.runDrafts, undefined, broken);
+    const failingApp = createDagRuntimeServer(
+      framework.client,
+      framework.costMeta,
+      framework.runDrafts,
+      framework.build,
+      undefined,
+      broken,
+    );
     const response = await failingApp.request('/v1/dag/assets/broken/content');
     await expect(response.arrayBuffer()).rejects.toThrow('Asset stream failed.');
   });
@@ -365,7 +443,7 @@ describe('dag-runtime-server SSE progress stream', () => {
         return () => undefined;
       },
     };
-    const app = createDagRuntimeServer({} as never, {} as never, {} as never, source);
+    const app = createDagRuntimeServer({} as never, {} as never, {} as never, {} as never, source);
 
     const res = await app.request('/v1/dag/runs/run-1/events');
     expect(res.status).toBe(200);
@@ -396,7 +474,7 @@ describe('dag-runtime-server SSE progress stream', () => {
         return () => undefined;
       },
     };
-    const app = createDagRuntimeServer({} as never, {} as never, {} as never, source);
+    const app = createDagRuntimeServer({} as never, {} as never, {} as never, {} as never, source);
     const body = await (await app.request('/v1/dag/runs/run-1/events')).text();
     expect(body).not.toContain('other-run');
     expect(body).toContain('event: execution.completed');

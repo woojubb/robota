@@ -16,6 +16,7 @@ This package is consumed by command-line and MCP clients that call a DAG orchest
 
 - The client is intentionally thin: it forwards server response payloads without converting them into CLI or MCP-specific output. Consumers own their own command, tool, and output formatting layers.
 - Cost metadata and run drafts are implemented as separate domain capability ports: the client validates HTTP payloads and maps successes/problems to typed domain results, but neither group's methods belong to the general orchestration port.
+- Pipeline building has an independent domain capability owned by `dag-builder`; the concrete HTTP client retains its transport-facing build request, but the general orchestration port does not require an HTTP-shaped build result.
 - Asset upload, metadata, and content-download URL methods belong to a transport-specific asset port, not the general orchestration port. In-process consumers use `IAssetStore` from `dag-core` instead.
 - Binary asset content is intentionally not fetched or buffered by this client. Consumers locate the streaming endpoint via the client and own their transport-specific byte handling and output formatting.
 - The fetch implementation is injectable, so tests, CLIs, MCP servers, and alternate runtimes can supply their own fetch-compatible implementation.

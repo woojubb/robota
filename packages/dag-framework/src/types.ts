@@ -21,6 +21,7 @@ import type {
 } from '@robota-sdk/dag-api';
 import type { IDagOrchestrationPort } from '@robota-sdk/dag-orchestration-client';
 import type { ICostMetaOperationsPort } from '@robota-sdk/dag-cost';
+import type { IDagBuildPort } from '@robota-sdk/dag-builder';
 
 /** Framework-owned assembly result for one in-process execution composition. */
 export interface IDagExecutionComposition {
@@ -35,6 +36,9 @@ export interface IDagExecutionComposition {
 export interface IDagFramework {
   /** In-process implementation of the orchestration port surface. */
   readonly client: IDagOrchestrationPort;
+
+  /** Pipeline authoring returns a domain result without an HTTP envelope. */
+  readonly build: IDagBuildPort;
 
   /** Cost metadata management is an independent domain capability. */
   readonly costMeta: ICostMetaOperationsPort;

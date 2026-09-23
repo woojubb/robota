@@ -5,7 +5,6 @@ import type {
   TPortPayload,
 } from '@robota-sdk/dag-core';
 import type { ICostMeta } from '@robota-sdk/dag-cost';
-import type { IDagBuildInput } from '@robota-sdk/dag-builder';
 
 export type TDagOrchestrationPayloadValue =
   string | number | boolean | null | undefined | object | readonly object[];
@@ -207,6 +206,5 @@ export interface IDagOrchestrationPort {
     input?: IDagOrchestrationPublishedWorkflowRunRequest,
     version?: number,
   ): Promise<IDagOrchestrationHttpResponse>;
-  buildDag(input: IDagBuildInput): Promise<IDagOrchestrationHttpResponse>;
   validateDag(definition: IDagDefinition): Promise<IDagOrchestrationHttpResponse>;
 }

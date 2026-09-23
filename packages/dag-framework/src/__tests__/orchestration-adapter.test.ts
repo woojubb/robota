@@ -296,25 +296,32 @@ describe('overwriteRunDraftNodeResult', () => {
 });
 
 describe('buildDag', () => {
+  it('exposes build as a domain capability separate from the HTTP-shaped orchestration port', async () => {
+    expect('buildDag' in framework.client).toBe(false);
+    const result = await framework.build.buildDag({
+      pipeline: [{ nodeType: 'input', config: { text: 'hello' } }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.definition.nodes).toHaveLength(1);
+  });
+
   it('builds a DAG from a valid pipeline spec', async () => {
-    const res = await framework.client.buildDag({
+    const res = await framework.build.buildDag({
       pipeline: [
         { nodeType: 'input', config: { text: 'hello' } },
         { nodeType: 'text-output', config: {} },
       ],
     });
     expect(res.ok).toBe(true);
-    expect(res.status).toBe(200);
-    const payload = res.payload as { data: { definition: IDagDefinition } };
-    expect(payload.data.definition.nodes.length).toBe(2);
+    if (res.ok) expect(res.definition.nodes.length).toBe(2);
   });
 
-  it('returns 400 for an invalid pipeline spec (unknown node type)', async () => {
-    const res = await framework.client.buildDag({
+  it('returns a domain validation error for an unknown node type', async () => {
+    const res = await framework.build.buildDag({
       pipeline: [{ nodeType: 'no-such-node-type-xyz', config: {} }],
     });
     expect(res.ok).toBe(false);
-    expect(res.status).toBe(400);
+    if (!res.ok) expect(res.error.code).toBe('UNKNOWN_NODE_TYPE');
   });
 });
 
