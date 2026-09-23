@@ -22,8 +22,8 @@
  * that is mechanically decidable and that carries the rule's operative requirement — "report both
  * the count and the percentage":
  *
- *   a narrative line that already states a PARTIAL completion ratio (N/M with N < M) in a
- *   completion context, and omits the percentage, is a violation.
+ *   a narrative line that already states a PARTIAL completion ratio (N/M with N < M) near
+ *   completion wording, and omits the percentage, is a violation.
  *
  * A bare "making progress" with no numbers at all stays prose-governed (classifying it needs the
  * semantic judgment above). Measured against a real multi-day session transcript, the partial-ratio
@@ -75,6 +75,7 @@ import { ADVISORY_MARKER } from './output-markers.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
+const COMPLETION_CONTEXT_TOKENS = 3;
 /**
  * What an acknowledgment entry can assert. Both are true statements about a finding; they differ in
  * what is true. `violation` — it happened, the transcript is append-only, it is recorded rather than
@@ -200,7 +201,6 @@ export function findBareRatioProgressStatements(messageText, policy) {
   const lines = stripCode(messageText).split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (!completionPattern.test(line)) continue;
     // The percentage may be anywhere in the same statement — its presence satisfies the rule.
     if (line.includes('%')) continue;
 
@@ -208,6 +208,25 @@ export function findBareRatioProgressStatements(messageText, policy) {
       const [matched, completedRaw, totalRaw] = match;
       const before = line.slice(Math.max(0, match.index - 24), match.index);
       const after = line.slice(match.index + matched.length, match.index + matched.length + 10);
+      // Completion vocabulary must describe this ratio locally. A keyword elsewhere in the line
+      // can belong to a separate clause (notably Korean M/D dates followed by a progress update).
+      // Use three complete whitespace tokens on each side: bounded to nearby prose, but never cut
+      // a long completion word at a character boundary (which hid `remaining` and `completing`).
+      const ratioEnd = match.index + matched.length;
+      const tokens = [...line.matchAll(/\S+/g)];
+      const firstRatioToken = tokens.findIndex(
+        (token) => token.index + token[0].length > match.index,
+      );
+      const lastRatioToken = tokens.findIndex((token) => token.index >= ratioEnd);
+      const finalRatioToken = lastRatioToken === -1 ? tokens.length - 1 : lastRatioToken - 1;
+      const completionContext = tokens
+        .slice(
+          Math.max(0, firstRatioToken - COMPLETION_CONTEXT_TOKENS),
+          Math.min(tokens.length, finalRatioToken + COMPLETION_CONTEXT_TOKENS + 1),
+        )
+        .map((token) => token[0])
+        .join(' ');
+      if (!completionPattern.test(completionContext)) continue;
       const completed = Number(completedRaw);
       const total = Number(totalRaw);
 

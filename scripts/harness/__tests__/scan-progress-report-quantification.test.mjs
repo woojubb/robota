@@ -61,6 +61,25 @@ describe('findBareRatioProgressStatements — the rule', () => {
     );
   });
 
+  it('does not let a distant progress clause turn a migration date into a ratio', () => {
+    const reported =
+      '확인해 보니 20개는 9/12 RULE-023 마이그레이션으로 issue 만 NOT_PLANNED 종료된 것이라 별도 진행률을 집계했습니다.';
+    expect(findBareRatioProgressStatements(reported, POLICY)).toHaveLength(0);
+  });
+
+  it('still catches an explicitly ambiguous Korean completion ratio', () => {
+    expect(findBareRatioProgressStatements('작업은 완료(3/20)입니다.', POLICY)).toHaveLength(1);
+  });
+
+  it('keeps full completion tokens near a ratio even after a long descriptive word', () => {
+    expect(
+      findBareRatioProgressStatements(
+        'Audit 3/7 extraordinarily-long-descriptive-workstream remaining for now.',
+        POLICY,
+      ),
+    ).toHaveLength(1);
+  });
+
   it('reports the offending line number and an excerpt to act on', () => {
     const [finding] = findBareRatioProgressStatements(
       'Kicking off.\nMigration 4/9 complete so far.',
