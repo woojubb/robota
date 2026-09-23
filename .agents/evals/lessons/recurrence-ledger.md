@@ -162,7 +162,7 @@ harness cycle, tracked by this open entry after the PROC-034 cadence amendment �
   agent attribution and all other CI/review requirements. No new mechanism or issue is created;
   this class remains OPEN for the existing consolidated cycle, not mechanized by documentation.
 
-- 2026-09-23 — #2834, #2837, #2846 and #2847 each prompted a new approval request for the same missing
+- 2026-09-23 — PR #2834, PR #2837, PR #2846 and PR #2847 each prompted a new approval request for the same missing
   integration-child provenance dispatch despite prior conditional preapproval and a delegated
   control-plane route. The owner rejected repeated per-PR questions as incompatible with automated
   development. The Git rule, merge-verifier route, entry card and permission memory now include
