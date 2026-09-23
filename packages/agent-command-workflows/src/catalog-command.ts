@@ -53,8 +53,8 @@ function readWorkflowCatalog(
 
 /**
  * `/workflows catalog` — list the workflow definitions flat under the injected workspace root (default
- * `.workflows/`, `<name>.json`) via the shared `scanWorkspaceCatalog` reader (FLOW-007 C3 — one reader
- * across dag-cli's `catalog` and this command). Node manifests + non-DAG JSON are skipped.
+ * `.workflows/`, `<name>.json`) via the shared `scanWorkspaceCatalog` reader (FLOW-007 C3).
+ * Node manifests + non-DAG JSON are skipped.
  */
 export async function executeWorkflowsCatalog(
   project: IWorkflowProject,

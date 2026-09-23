@@ -8,6 +8,10 @@
  * (never filtered by the preset delta). The preset delta + its unknown-name diagnostics moved to the shell,
  * where they apply to the base ⊕ pack superset; they are covered in `robota-assembly-equivalence.test.ts`.
  */
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, it, expect } from 'vitest';
 
 import { createRobotaPacks, packCommandModuleNames } from '../product/robota-profile.js';
@@ -34,6 +38,25 @@ describe('buildCommandSetup — bundled /workflows (INFRA-028)', () => {
     const workflows = setup.fixedCommandModules.filter((m) => m.name === 'agent-command-workflows');
     expect(workflows).toHaveLength(1);
     expect(workflows[0]?.systemCommands?.some((c) => c.name === 'workflows')).toBe(true);
+  });
+
+  it('does not expose a second robota-dag executable from a workspace package', () => {
+    const packagesRoot = fileURLToPath(new URL('../../../', import.meta.url));
+    const binOwners = readdirSync(packagesRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .flatMap((entry) => {
+        const manifestPath = join(packagesRoot, entry.name, 'package.json');
+        if (!existsSync(manifestPath)) return [];
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+          bin?: Record<string, string> | string;
+        };
+        return typeof manifest.bin === 'object' && manifest.bin !== null &&
+          'robota-dag' in manifest.bin
+          ? [entry.name]
+          : [];
+      });
+
+    expect(binOwners).toEqual([]);
   });
 
   it('forwards the optional MCP activation adapter without interpreting its policy', () => {

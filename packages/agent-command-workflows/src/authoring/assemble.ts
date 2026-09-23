@@ -1,6 +1,6 @@
 /**
  * Deterministically assembles an `IDagDefinition` from a validated authoring spec, reusing
- * `dag-builder`'s pipeline builder (shared, exported machinery — never dag-cli's private copy).
+ * `dag-builder`'s shared pipeline builder.
  */
 import type { IDagDefinition, INodeManifest } from '@robota-sdk/dag-core';
 import { buildDagFromPipeline, type IPipelineNodeSpec } from '@robota-sdk/dag-builder';

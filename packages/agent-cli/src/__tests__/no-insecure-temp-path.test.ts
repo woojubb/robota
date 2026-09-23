@@ -16,8 +16,8 @@ const SRC_ROOT = fileURLToPath(new URL('..', import.meta.url));
  * So the one pattern that must not come back is a path built by string-joining a name onto
  * `os.tmpdir()`. `mkdtemp(join(tmpdir(), 'prefix-'))` is the sanctioned form and is allowed.
  *
- * Mirrors the floor slice 1 added for `dag-cli`; both are scoped to their own package until a
- * repo-wide harness scan takes over (SEC-003 follow-up).
+ * This floor is scoped to the CLI package until a repo-wide harness scan takes over
+ * (SEC-003 follow-up).
  */
 function walk(dir: string): string[] {
   const out: string[] = [];

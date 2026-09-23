@@ -11,8 +11,7 @@ inside the agent CLI by composing `@robota-sdk/dag-framework` in-process. Owns t
 ## Boundaries
 
 - Does NOT own DAG execution — that belongs to `@robota-sdk/dag-framework` (and the DAG subsystem).
-- Does NOT depend on `@robota-sdk/dag-cli` (a sibling product shell); it composes the reusable DAG
-  framework material directly.
+- Composes the reusable DAG framework directly; this command is the product's DAG entry point.
 - Does NOT own command contracts — those belong to `@robota-sdk/agent-framework` /
   `@robota-sdk/agent-interface-transport`.
 - Does NOT own CLI composition — `@robota-sdk/agent-cli` registers this module in its default set.
@@ -142,14 +141,12 @@ not the public API. Only `create`/`build`/`list`/`run` executors are root-export
 **Not exposed as a subcommand: a standalone `save`.** Persisting is not a user-facing verb on this
 surface — `create` and `build` both end in a save (`persistence/workspace-writer.ts`), and
 `list`/`catalog` read back what they wrote. A separate `save <json>` verb would be an _import_ of
-externally-supplied graph/node data, i.e. a new capability (and the dag-cli MCP toolset's
-`dag_import` / `dag_instant_node_save` already cover the MCP-side need), not part of P3's
-surface-unification intent.
+externally-supplied graph/node data, i.e. a new capability outside P3's surface-unification intent.
 
 ## Extension Points
 
 New subcommands are added by extending the dispatch in `workflows-command-module.ts` and adding an
-executor module. Subcommands compose `dag-framework` (and other DAG packages) — never `dag-cli`.
+executor module. Subcommands compose `dag-framework` and other reusable DAG packages.
 
 ## Error Taxonomy
 

@@ -305,8 +305,8 @@ The SSOT for "is this path inside that root?" whenever the answer is a SECURITY 
 cannot see a symlink: a link sitting inside a root but pointing outside it satisfies a
 `startsWith(root + sep)` check while the syscall that follows escapes the boundary. Every
 security-boundary containment check in the monorepo routes through these functions — the file-tool
-sandbox (`agent-tools`), the CLI monitor asset server (`agent-cli`) and the studio HTTP API
-(`dag-cli`) — because two containment checks that can disagree are their own defect.
+sandbox (`agent-tools`) and the CLI monitor asset server (`agent-cli`) — because two containment
+checks that can disagree are their own defect.
 
 Both are exported from **`@robota-sdk/agent-core/node`** (CORE-028), not from the main barrel: they
 read the filesystem, and a barrel carrying them puts `node:fs` in every consumer's static import

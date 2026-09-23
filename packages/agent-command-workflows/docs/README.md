@@ -1,7 +1,7 @@
 # @robota-sdk/agent-command-workflows
 
 The agent-cli `/workflows` command module. Surfaces the DAG workflow engine inside the agent CLI by
-composing `@robota-sdk/dag-framework` in-process — no dependency on the `dag-cli` product.
+composing `@robota-sdk/dag-framework` in-process.
 
 See [SPEC.md](./SPEC.md) for the package contract.
 

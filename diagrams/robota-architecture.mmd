@@ -35,7 +35,6 @@ graph TD
     DAGCORE[dag-core] --> DAGFW[dag-framework]
     DAGFW --> DAGRT[dag-runtime · dag-worker]
     DAGFW --> DAGNODES[dag-nodes-default → dag-node-*]
-    DAGCLI[dag-cli robota-dag]
   end
 
   subgraph Surfaces["Product surfaces (composition roots)"]
@@ -60,9 +59,7 @@ graph TD
   CMD --> CLI
   TTUI --> CLI
   TCORE --> CLI
-  DAGFW --> DAGCLI
   CMD --> DAGFW
   CLI -. spawns robota --serve loopback+nonce .-> APP
   TGUI --> APP & WEB
   TWS --> APP
-  DAGCLI --> SRV
