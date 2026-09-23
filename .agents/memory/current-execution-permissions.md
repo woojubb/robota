@@ -63,3 +63,23 @@ truthful agent-approver record and exclusions are owned by
 Provenance: the current Issue #2655 conversation following PR #2718's owner merge; no public
 comment URL for this instruction has been supplied. Quote this instruction and identify that
 conversation provenance in each delegated decision rather than inventing a public approval link.
+
+## Integration-branch delegation
+
+Owner instructions in the current AGREEMENT-014 conversation, 2026-09-23 (verbatim):
+
+> 앞으로 너가 나에게 선택하라고 할 때 타당한 근거와 함께 추천안을 제시하면 타당할 경우 승인합니다. 모든걸 나에게 물어보려고 하지마
+
+> #2847 승인함. 내가 이렇게 명시적으로 승인해야하는 것은 잘못된 방향이다.
+
+> 앞으로 자동화 개발을 해야하는데 이렇게 물어보면 어떻게 자동개발이 가능한가
+
+These instructions extend the standing justified-merge and narrow control-plane provenance
+delegations to an owned `integration/**` PR. When exact-head applicable CI and independent review
+are satisfactory, no conflict or unresolved thread remains, and the only exception is an intentional
+guarded control-plane edit or a verified default-branch provenance dispatch gap, the owning agent
+makes and records the decision and merges without another per-PR question. The agent must identify
+the actual exception and its evidence, never report a missing or red provenance check as green, and
+never imply the owner separately reviewed that PR. Unknown check absence, other failed checks,
+`main`, release/promotion, publication, deployment and protection changes are outside this
+delegation. The authoritative conditions live in [git-branch.md](../rules/git-branch.md#landing-a-control-plane-change).

@@ -41,7 +41,8 @@ verify the git graph directly.
    `gh pr checks <n> --required` as the canonical CI verdict for that head. Apply
    [Git rules — Merge Landing Verification](../../.agents/rules/git-branch.md#merge-landing-verification-mandatory)
    for a completed merge with a confirmed empty provider projection, and separately for the
-   documented control-plane exception, including its explicitly owner-delegated `develop` route.
+   documented control-plane exception, including its explicitly owner-delegated `develop` and
+   `integration/**` routes and the verified integration dispatch-gap case.
    Never report an owner-exempted failure as green. A landing verdict verifies a completed merge,
    not permission to perform another merge.
 
