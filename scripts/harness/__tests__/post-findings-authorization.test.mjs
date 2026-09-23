@@ -7,6 +7,7 @@ import {
   fetchCloseoutAudit,
   fetchPostFindingsAuthorizations,
   fetchPostFindingsAuthorization,
+  hasCurrentFailedCheck,
   parseDeliveryCompletionReceipt,
   parseMergeDecisionReceipt,
   parsePostFindingsAuthorizationEnvelope,
@@ -26,6 +27,9 @@ EVIDENCE: https://example.test/check
 SCOPE: scripts/harness
 APPROVED: yes
 APPROVED-BY: @woojubb`;
+const delegatedBody = `${body.replace('APPROVED-BY: @woojubb', 'APPROVED-BY: agent:Codex (owner-delegated)')}
+AUTHORITY: owner-delegated
+AUTHORITY-EVIDENCE: https://github.com/woojubb/robota/pull/2848#issuecomment-5790563197`;
 
 const envelope = {
   id: 7,
@@ -80,6 +84,103 @@ function closeoutEnvelope(id, number, body, createdAt) {
 }
 
 describe('post-findings authorization', () => {
+  it('accepts a scoped agent decision under recorded owner delegation', () => {
+    expect(
+      parsePostFindingsAuthorizationEnvelope({ ...envelope, body: delegatedBody }),
+    ).toMatchObject({
+      action: 'push',
+      ground: 'red-check',
+      authority: 'owner-delegated',
+      authorityEvidence: 'https://github.com/woojubb/robota/pull/2848#issuecomment-5790563197',
+      approvedBy: 'agent:Codex (owner-delegated)',
+    });
+    expect(
+      parsePostFindingsAuthorizationEnvelope({
+        ...envelope,
+        body: delegatedBody.replace(/\nAUTHORITY-EVIDENCE:.*$/m, ''),
+      }),
+    ).toBeNull();
+    expect(
+      parsePostFindingsAuthorizationEnvelope({
+        ...envelope,
+        body: delegatedBody.replace(/\nAUTHORITY:.*$/m, ''),
+      }),
+    ).toBeNull();
+    expect(
+      parsePostFindingsAuthorizationEnvelope({
+        ...envelope,
+        author: { login: 'attacker', association: 'CONTRIBUTOR' },
+        body: delegatedBody,
+      }),
+    ).toBeNull();
+  });
+
+  it('limits delegated push decisions to develop and integration branches', () => {
+    const delegated = { ...envelope, body: delegatedBody };
+    const subject = { comments: [delegated], prNumber: 42, head, verdict: 0, action: 'push' };
+    expect(selectPostFindingsAuthorization({ ...subject, base: 'main' }).ok).toBe(false);
+    expect(
+      selectPostFindingsAuthorization({ ...subject, base: 'integration/agreement-014' }).ok,
+    ).toBe(true);
+    expect(selectPostFindingsAuthorization({ ...subject, base: 'develop' }).ok).toBe(true);
+  });
+
+  it('requires the cited CI failure to be the latest result for that check', () => {
+    const failed = {
+      name: 'repo-checks',
+      workflow: 'CI',
+      event: 'pull_request',
+      bucket: 'fail',
+      startedAt: '2026-09-23T07:00:00Z',
+      link: 'https://github.com/woojubb/robota/actions/runs/1/job/1',
+    };
+    expect(hasCurrentFailedCheck([failed], failed.link)).toBe(true);
+    expect(hasCurrentFailedCheck([{ ...failed, event: 'push' }], failed.link)).toBe(false);
+    expect(
+      hasCurrentFailedCheck(
+        [{ ...failed, workflow: 'Review Gate', event: 'pull_request_review' }],
+        failed.link,
+      ),
+    ).toBe(true);
+    expect(
+      hasCurrentFailedCheck([{ ...failed, workflow: 'scans-full', event: 'push' }], failed.link),
+    ).toBe(false);
+    expect(
+      hasCurrentFailedCheck([{ ...failed, workflow: 'Unrelated optional workflow' }], failed.link),
+    ).toBe(false);
+    expect(
+      hasCurrentFailedCheck(
+        [
+          failed,
+          {
+            ...failed,
+            bucket: 'pass',
+            startedAt: '2026-09-23T07:10:00Z',
+            link: 'https://github.com/woojubb/robota/actions/runs/2/job/2',
+          },
+        ],
+        failed.link,
+      ),
+    ).toBe(false);
+    expect(
+      hasCurrentFailedCheck(
+        [
+          { ...failed, name: 'review-policy', workflow: 'Review Gate' },
+          {
+            ...failed,
+            name: 'review-policy',
+            workflow: 'Review Gate',
+            event: 'pull_request_review',
+            bucket: 'pass',
+            startedAt: '2026-09-23T07:10:00Z',
+            link: 'https://github.com/woojubb/robota/actions/runs/2/job/2',
+          },
+        ],
+        failed.link,
+      ),
+    ).toBe(false);
+    expect(hasCurrentFailedCheck([failed], 'https://example.test/another-check')).toBe(false);
+  });
   it('fetches up to one hundred authorization comments in one bounded GraphQL page', () => {
     const requests = Array.from({ length: 100 }, (_, index) => ({
       commentId: index + 1,

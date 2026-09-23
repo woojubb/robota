@@ -655,19 +655,23 @@ Case: [PROC-013](https://github.com/woojubb/robota/issues/2283).
 Enforced mechanically for pushes by `.claude/hooks/pre-push-check.sh`; a conflict-resolution push
 must use the same published request and live conflict evidence as an operator gate.
 
-**Any published findings verdict obliges exactly one thing: STOP EDITING.** This includes both
-`ACTIONABLE FINDINGS: 0` and a non-zero count. It is not a signal to merge, not a deadline, and not a
-reason to hurry.
+**Any published findings verdict freezes the diff until a named ground is recorded.** This includes
+both `ACTIONABLE FINDINGS: 0` and a non-zero count. The verdict is not itself a signal to merge or
+permission to add unrelated work.
 
 Before every next action (edit/push or merge), the owning session must read the latest verdict. For
-a push, publish a head- and verdict-bound `POST_FINDINGS_ACTION_REQUEST` comment on the PR with
-maintainer approval and exactly these auditable fields. A conflict-resolution push additionally
+a push, publish a head- and verdict-bound `POST_FINDINGS_ACTION_REQUEST` comment on the PR. The
+maintainer can approve it directly, or the owning agent can decide under the owner's standing
+delegation for `develop` and `integration/**` after verifying a current actionable finding, a
+failed applicable PR gate or selected child, or a real conflict. Record the agent as decision maker and link the standing authority; do
+not label that decision as fresh owner approval. A conflict-resolution push additionally
 requires the live pull request to report `mergeStateStatus: DIRTY`; conflict-free target advance is
 not a rebase or push ground. Merge decisions use the separate operator-owned record below, not this
 push format:
 
 ```
 POST_FINDINGS_ACTION_REQUEST
+PR: <number>
 HEAD: <exact current PR head SHA>
 VERDICT: <latest ACTIONABLE FINDINGS count>
 ACTION: push
@@ -675,8 +679,18 @@ GROUND: finding | red-check | conflict
 EVIDENCE: <link or command output another person can inspect>
 SCOPE: <the files/operation the request permits>
 APPROVED: yes
-APPROVED-BY: @<maintainer>
+APPROVED-BY: @<maintainer> | agent:<name> (owner-delegated)
 ```
+
+An agent decision adds exactly `AUTHORITY: owner-delegated` and
+`AUTHORITY-EVIDENCE: <inspectable URL>` to that record. For a delegated `red-check` decision,
+`EVIDENCE` must be the URL of the latest failed check from an applicable PR gate workflow running
+on a PR or review event; the hook verifies that result is still failed and has not been
+superseded, including across Review Gate's PR and review events. A push or on-demand workflow run
+is not a PR repair ground. For `finding`, the latest
+canonical verdict must have a nonzero count. The delegated route applies only to PRs
+targeting `develop` or `integration/**`; it does not authorize `main`, release or publication work.
+The recorded ground must actually exist and the repair must stay within the recorded scope.
 
 For a merge, publish exactly one `PR_MERGE_DECISION` using the owner/form below. It names the
 current PR, exact head and reviewed base, latest verdict, inspected CI/review evidence, bounded
@@ -687,7 +701,7 @@ A maintainer approves unless an explicit, unrevoked owner delegation covers that
 approval. Include the deciding agent and owner's delegation provenance, and use
 `APPROVED-BY: agent:<name> (owner-delegated)` for that decision; do not
 present it as a new direct owner approval or an independent code review. Re-evaluate changed
-evidence for each merge. Delegation does not waive the merge gate, expand push authority,
+evidence for each merge. Merge delegation does not waive the merge gate or itself expand push authority,
 authorize `main` or release merges, or permit protection changes. Provenance exceptions require the
 separate, explicitly delegated `develop` or `integration/**` provenance exception above; ordinary
 merge delegation does not grant it, and no other red check is waived.
@@ -722,12 +736,13 @@ This one comment is the merge decision, the clean Round B terminal record, and t
 receipt. Do not create parallel comments for those same facts.
 
 The next-action guard checks push requests: marker, latest verdict count, exact head,
-action, explicit ground, evidence, scope, and maintainer approval. Its parser does not accept
-merge actions or delegated-agent approver values. The separate merge-decision selector validates
+action, explicit ground, evidence, scope, and either a trusted maintainer approval or a recorded
+owner-delegated agent decision on an eligible base. Its parser does not accept merge actions. The
+separate merge-decision selector validates
 the exact immutable receipt, current head, named base, and historical base identity; the merge gate
 then verifies historical ancestry and live conflict-free mergeability. The operator still owns whether
-the cited authority evidence actually covers that merge. A local review record, private judgement, advice attached to a passing
-verdict, or an override token is not approval. After an approved action, a new head or verdict requires
+the cited authority evidence actually covers that merge or push. A local review record, private judgement, advice attached to a passing
+verdict, or an override token is not approval. After an authorized action, a new head or verdict requires
 a new decision comment.
 
 **A push into an open pull request requires a NAMED GROUND, and there are exactly three.** This is not
@@ -737,7 +752,8 @@ get started.**
 1. **A finding published on that pull request.** Published means posted where the next reader sees it:
    a reviewer verdict, or a review you posted yourself through the writer. A finding held in one
    session is not a ground — see below.
-2. **A required check that is red.** The check names what is wrong; fixing it is the resolution.
+2. **An applicable PR gate or selected child that is red.** The check names what is wrong; fixing it
+   is the resolution. The owning agent cannot use an old failed run after a newer result passed.
 3. **A real merge conflict requires a resolution commit.** The push guard requires an approved
    `GROUND: conflict` request and verifies that GitHub currently reports `mergeStateStatus: DIRTY`.
    A conflict-free target advance is not a ground for a rebase, push, retest, or new review.

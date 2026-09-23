@@ -26,7 +26,15 @@ const REQUIRED = Object.freeze([
   'APPROVED',
   'APPROVED-BY',
 ]);
-const ALLOWED_FIELDS = new Set(REQUIRED);
+const ALLOWED_FIELDS = new Set([...REQUIRED, 'AUTHORITY', 'AUTHORITY-EVIDENCE']);
+const PR_GATE_WORKFLOWS = new Set(['CI', 'Review Gate', 'Workflow Provenance Gate']);
+function isPrGateEvent(check) {
+  return (
+    check?.event === 'pull_request' ||
+    check?.event === 'pull_request_target' ||
+    (check?.workflow === 'Review Gate' && check?.event === 'pull_request_review')
+  );
+}
 function validHttpUrl(value) {
   try {
     return ['http:', 'https:'].includes(new URL(value).protocol);
@@ -48,7 +56,7 @@ export function parsePostFindingsAuthorization(body) {
     if (!match || !ALLOWED_FIELDS.has(match[1]) || fields.has(match[1])) return null;
     fields.set(match[1], match[2]);
   }
-  if (fields.size !== REQUIRED.length || REQUIRED.some((field) => !fields.has(field))) return null;
+  if (REQUIRED.some((field) => !fields.has(field))) return null;
   const prNumber = Number(fields.get('PR'));
   const verdict = Number(fields.get('VERDICT'));
   const action = fields.get('ACTION').toLowerCase();
@@ -65,11 +73,21 @@ export function parsePostFindingsAuthorization(body) {
   const actionMatchesGround =
     action === 'push' && ['finding', 'red-check', 'conflict'].includes(ground);
   if (!actionMatchesGround) return null;
-  if (
-    fields.get('APPROVED').toLowerCase() !== 'yes' ||
+  if (fields.get('APPROVED').toLowerCase() !== 'yes') return null;
+  const delegated = fields.get('AUTHORITY') === 'owner-delegated';
+  if (delegated) {
+    if (
+      fields.size !== REQUIRED.length + 2 ||
+      !validHttpUrl(fields.get('AUTHORITY-EVIDENCE')) ||
+      !/^agent:[A-Za-z][A-Za-z\d-]* \(owner-delegated\)$/.test(fields.get('APPROVED-BY'))
+    )
+      return null;
+  } else if (
+    fields.size !== REQUIRED.length ||
     !/^@[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i.test(fields.get('APPROVED-BY'))
-  )
+  ) {
     return null;
+  }
   return {
     prNumber,
     head: fields.get('HEAD'),
@@ -79,6 +97,10 @@ export function parsePostFindingsAuthorization(body) {
     evidence: fields.get('EVIDENCE'),
     scope: fields.get('SCOPE'),
     approvedBy: fields.get('APPROVED-BY'),
+    ...(delegated && {
+      authority: 'owner-delegated',
+      authorityEvidence: fields.get('AUTHORITY-EVIDENCE'),
+    }),
   };
 }
 
@@ -96,7 +118,11 @@ export function parsePostFindingsAuthorizationEnvelope(envelope) {
   )
     return null;
   const projection = parsePostFindingsAuthorization(body);
-  if (!projection || projection.approvedBy.toLowerCase() !== `@${author.login}`.toLowerCase())
+  if (
+    !projection ||
+    (!projection.authority &&
+      projection.approvedBy.toLowerCase() !== `@${author.login}`.toLowerCase())
+  )
     return null;
   const urlIdentity = /\/(?:issues|pull)\/(\d+)#issuecomment-(\d+)$/.exec(
     new URL(url).pathname + new URL(url).hash,
@@ -174,6 +200,7 @@ export function selectPostFindingsAuthorization({
   verdict,
   action,
   ground = null,
+  base = null,
 }) {
   const matches = comments
     .map((comment) => parsePostFindingsAuthorizationEnvelope(comment))
@@ -184,6 +211,9 @@ export function selectPostFindingsAuthorization({
         projection.head === head &&
         projection.verdict === verdict &&
         projection.action === action &&
+        (!projection.authority ||
+          base === 'develop' ||
+          /^integration\/[^/]+(?:\/.*)?$/.test(base ?? '')) &&
         (ground === null || projection.ground === ground),
     );
   if (matches.length !== 1)
@@ -195,6 +225,31 @@ export function selectPostFindingsAuthorization({
     ok: true,
     ...matches[0],
   };
+}
+
+export function hasCurrentFailedCheck(checks, evidence) {
+  if (!Array.isArray(checks) || !validHttpUrl(evidence)) return false;
+  const cited = checks.filter(
+    (check) =>
+      check?.link === evidence &&
+      PR_GATE_WORKFLOWS.has(check.workflow) &&
+      isPrGateEvent(check) &&
+      typeof check.name === 'string' &&
+      typeof check.startedAt === 'string' &&
+      Number.isFinite(Date.parse(check.startedAt)),
+  );
+  if (cited.length !== 1 || cited[0].bucket !== 'fail') return false;
+  const check = cited[0];
+  const peers = checks.filter(
+    (other) =>
+      other?.workflow === check.workflow && other?.name === check.name && isPrGateEvent(other),
+  );
+  const latest = Math.max(...peers.map((peer) => Date.parse(peer.startedAt)));
+  return (
+    Number.isFinite(latest) &&
+    Date.parse(check.startedAt) === latest &&
+    peers.filter((peer) => Date.parse(peer.startedAt) === latest).length === 1
+  );
 }
 
 function parseStrictRecord(body, marker, required) {
@@ -656,6 +711,15 @@ function option(argv, name) {
 }
 
 export async function main(argv = process.argv.slice(2)) {
+  if (argv.includes('--verify-red-check')) {
+    const chunks = [];
+    for await (const chunk of process.stdin) chunks.push(chunk);
+    const checks = JSON.parse(chunks.join(''));
+    process.stdout.write(
+      hasCurrentFailedCheck(checks, option(argv, '--evidence')) ? 'yes\n' : 'no\n',
+    );
+    return;
+  }
   if (argv.includes('--select-merge-decision')) {
     const chunks = [];
     for await (const chunk of process.stdin) chunks.push(chunk);
@@ -697,10 +761,20 @@ export async function main(argv = process.argv.slice(2)) {
       head: option(argv, '--head'),
       verdict: Number(option(argv, '--verdict')),
       action,
+      base: option(argv, '--base'),
     }),
   );
   const matches = results.filter((result) => result.ok);
-  process.stdout.write(matches.length === 1 ? `${matches[0].ground}\n` : '0\n');
+  if (matches.length !== 1) {
+    process.stdout.write('0\n');
+    return;
+  }
+  const selected = matches[0];
+  process.stdout.write(
+    argv.includes('--details')
+      ? `${selected.ground}\t${selected.authority ?? 'direct'}\t${selected.evidence}\n`
+      : `${selected.ground}\n`,
+  );
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {

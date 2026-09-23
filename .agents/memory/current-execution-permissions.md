@@ -39,8 +39,9 @@ delegated authority, and merge without requesting the same owner approval again.
 agent's decision honestly; do not claim the owner clicked a GitHub review or reviewed future code.
 This original delegation does not itself authorize a red-check bypass; the subsequent narrow
 control-plane delegation below is separate. It does not waive verification, permit protection
-changes, or extend authority to `main`, release promotion, publication or deployment. Existing
-post-verdict push constraints and the worktree prohibition remain unchanged.
+changes, or extend authority to `main`, release promotion, publication or deployment. The
+post-verdict push constraint was unchanged at the time; the later delegated-push instruction
+below extends it. The worktree prohibition remains unchanged.
 
 Published approval provenance: [PR #2716 decision](https://github.com/woojubb/robota/pull/2716#issuecomment-5649757760).
 The general next-action policy remains owned by [git-branch.md](../rules/git-branch.md).
@@ -83,3 +84,18 @@ the actual exception and its evidence, never report a missing or red provenance 
 never imply the owner separately reviewed that PR. Unknown check absence, other failed checks,
 `main`, release/promotion, publication, deployment and protection changes are outside this
 delegation. The authoritative conditions live in [git-branch.md](../rules/git-branch.md#landing-a-control-plane-change).
+
+## Delegated grounded repair pushes
+
+Owner instruction in the current AGREEMENT-014 conversation, 2026-09-23 (verbatim):
+
+> 너가 자동승인하는 것도 어느정도 가능성을 열어놨는데 나에게 집요하게 물어보는데 이게 그렇게 어려운 선택을 담고있는 상황인지 되물어보고 싶다. 앞으로 자동화 개발을 해야하는데 이렇게 물어보면 어떻게 자동개발이 가능한가
+
+The owner objected to repeated approval requests for routine, evidence-backed development
+decisions. The owning agent may authorize a post-verdict repair push into `develop` or
+`integration/**` when it can identify a current actionable finding, failed applicable PR gate or
+selected child, or verified real
+conflict, and records the exact current head, verdict, evidence, scope, agent identity, and this
+standing delegation. This does not authorize unrelated additions, a conflict-free base sync, a
+`main` or release push, or bypassing the next exact-head CI and review. The rule and parser are
+owned by [git-branch.md](../rules/git-branch.md#actionable-findings-0-ends-the-loop--it-does-not-start-a-merge).

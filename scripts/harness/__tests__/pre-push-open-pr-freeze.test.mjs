@@ -57,11 +57,11 @@ beforeAll(() => {
       'fi',
       "# Run the caller's own --jq over the per-case fixture payload, the way gh does.",
       'if [[ "$*" == *"pr checks"* ]]; then',
-      '  printf \'%s\\n\' "$STUB_FAILING_CHECKS"',
+      '  cat "$STUB_CHECKS_PAYLOAD"',
       '  exit 0',
       'fi',
       'if [[ "$*" == *"headRefOid"* ]]; then',
-      '  printf \'%s\\t%s\\n\' "$STUB_REMOTE_HEAD" "$STUB_PR_AUTHOR"',
+      '  printf \'%s\\t%s\\t%s\\n\' "$STUB_REMOTE_HEAD" "$STUB_PR_AUTHOR" "$STUB_PR_BASE"',
       '  exit 0',
       'fi',
       'if [[ "$*" == *"mergeStateStatus"* ]]; then',
@@ -134,6 +134,8 @@ function stubGh({
   approvalAssociation = 'OWNER',
   approvedBy = approvalAuthor,
   approvalGround = 'finding',
+  delegated = false,
+  base = 'integration/agreement-014',
   mergeStateStatus = 'CLEAN',
   remoteHead = 'a'.repeat(40),
   ghFailure = false,
@@ -167,21 +169,37 @@ function stubGh({
       url: `https://github.com/example/repo/pull/${prNumber}#issuecomment-9001`,
       author: { login: approvalAuthor },
       authorAssociation: approvalAssociation,
-      body: `POST_FINDINGS_ACTION_REQUEST\nPR: ${prNumber}\nHEAD: ${remoteHead}\nVERDICT: ${findings}\nACTION: push\nGROUND: ${approvalGround}\nEVIDENCE: https://github.com/example/evidence\nSCOPE: test fixture\nAPPROVED: yes\nAPPROVED-BY: @${approvedBy}`,
+      body: `POST_FINDINGS_ACTION_REQUEST\nPR: ${prNumber}\nHEAD: ${remoteHead}\nVERDICT: ${findings}\nACTION: push\nGROUND: ${approvalGround}\nEVIDENCE: https://github.com/example/evidence\nSCOPE: test fixture\nAPPROVED: yes\nAPPROVED-BY: ${delegated ? 'agent:Codex (owner-delegated)' : `@${approvedBy}`}${delegated ? '\nAUTHORITY: owner-delegated\nAUTHORITY-EVIDENCE: https://github.com/example/delegation' : ''}`,
       createdAt: '2020-01-03T00:00:00Z',
     });
   }
   const payloadPath = path.join(fixtureDir, '.git', 'stub-gh-payload.json');
   const reviewsPath = path.join(fixtureDir, '.git', 'stub-gh-reviews.json');
+  const checksPath = path.join(fixtureDir, '.git', 'stub-gh-checks.json');
   writeFileSync(payloadPath, JSON.stringify(payload));
   writeFileSync(reviewsPath, JSON.stringify([reviews]));
+  writeFileSync(
+    checksPath,
+    JSON.stringify([
+      {
+        name: 'repo-checks',
+        workflow: 'CI',
+        event: 'pull_request',
+        link: 'https://github.com/example/evidence',
+        bucket: failingChecks === 1 ? 'fail' : 'pass',
+        startedAt: '2026-09-23T07:00:00Z',
+      },
+    ]),
+  );
   return {
     STUB_FAILING_CHECKS: String(failingChecks),
+    STUB_CHECKS_PAYLOAD: checksPath,
     STUB_GH_PAYLOAD: payloadPath,
     STUB_REVIEWS_PAYLOAD: reviewsPath,
     STUB_PR_NUMBER: String(prNumber),
     STUB_REMOTE_HEAD: remoteHead,
     STUB_PR_AUTHOR: 'pr-author',
+    STUB_PR_BASE: base,
     STUB_MERGE_STATE: mergeStateStatus,
     STUB_GH_FAIL: ghFailure ? '1' : '0',
   };
@@ -200,6 +218,8 @@ function push({
   approvalAssociation,
   approvedBy,
   approvalGround,
+  delegated,
+  base,
   mergeStateStatus,
   remoteHead,
   ghFailure,
@@ -218,6 +238,8 @@ function push({
     approvalAssociation,
     approvedBy,
     approvalGround,
+    delegated,
+    base,
     mergeStateStatus,
     remoteHead,
     ghFailure,
@@ -327,10 +349,44 @@ describe('pre-push open-PR freeze — a RED REQUIRED CHECK is ground #2 (issue #
 });
 
 describe('pre-push open-PR freeze — GREEN direction', () => {
+  it('allows a grounded push under recorded owner delegation without a fresh maintainer approval', () => {
+    const res = push({
+      findings: 0,
+      approved: true,
+      approvalGround: 'red-check',
+      delegated: true,
+      failingChecks: 1,
+    });
+    expect(res.status).toBe(0);
+    expect(res.output).toMatch(/Authorized post-verdict change request/);
+  });
+
+  it('rejects a delegated red-check decision when the cited check is green', () => {
+    const res = push({ findings: 0, approved: true, approvalGround: 'red-check', delegated: true });
+    expect(res.status).toBe(2);
+    expect(res.output).toMatch(/cited CI failure is absent or superseded/);
+  });
+
+  it('rejects a delegated finding decision after the latest review has zero findings', () => {
+    const res = push({ findings: 0, approved: true, approvalGround: 'finding', delegated: true });
+    expect(res.status).toBe(2);
+    expect(res.output).toMatch(/no current actionable finding/);
+  });
+
+  it('refuses the same delegated push record when the PR targets main', () => {
+    const res = push({
+      findings: 0,
+      approved: true,
+      approvalGround: 'red-check',
+      delegated: true,
+      base: 'main',
+    });
+    expect(res.status).toBe(2);
+  });
   it('allows a post-verdict push only with an approved head-bound request', () => {
     const res = push({ findings: 2, approved: true, remoteHead: 'a'.repeat(40) });
     expect(res.status).toBe(0);
-    expect(res.output).toMatch(/Approved post-verdict change request/);
+    expect(res.output).toMatch(/Authorized post-verdict change request/);
   });
 
   it('allows conflict resolution only while GitHub reports an actual conflict', () => {
@@ -341,7 +397,7 @@ describe('pre-push open-PR freeze — GREEN direction', () => {
       mergeStateStatus: 'DIRTY',
     });
     expect(res.status).toBe(0);
-    expect(res.output).toMatch(/Approved post-verdict change request/);
+    expect(res.output).toMatch(/Authorized post-verdict change request/);
   });
 
   it('rejects conflict ground when the target advance is conflict-free', () => {
