@@ -9,6 +9,8 @@ Converts a declarative pipeline spec, or a `.dag.json` workflow file, into a ful
 
 - Does not own node manifests: callers supply `INodeManifest[]` to control which node types are
   valid.
+- The build capability returns the same typed domain success or validation failure to local callers;
+  an HTTP host decides how to present that result.
 - Sequential stages wire in order; parallel stages fan out from and back into sequential nodes via
   `defaultOutputPort`/`defaultInputPort` matching, with optional per-stage port overrides.
 - `dagDefinitionFromParsedFile` is where the on-disk workflow-file format should be read. Since

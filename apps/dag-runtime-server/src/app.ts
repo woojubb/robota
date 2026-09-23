@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
-import type { IDagBuildInput } from '@robota-sdk/dag-builder';
+import type { IDagBuildInput, IDagBuildPort } from '@robota-sdk/dag-builder';
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import {
@@ -208,6 +208,7 @@ export function createDagRuntimeServer(
   port: IDagOrchestrationPort,
   costMeta: ICostMetaOperationsPort,
   runDrafts: IRunDraftOperationsPort,
+  build: IDagBuildPort,
   progressSource?: IRunProgressSource,
   assets?: IAssetStore,
 ): Hono {
@@ -317,7 +318,40 @@ export function createDagRuntimeServer(
   // --- Build / validate (definition authoring) ---
   app.post('/v1/dag/build', async (c) => {
     const body = await c.req.json<IDagBuildInput>();
-    return reply(c, await port.buildDag(body));
+    const result = await build.buildDag(body);
+    if (!result.ok) {
+      return c.json(
+        {
+          ok: false,
+          status: 400,
+          errors: [
+            {
+              type: 'urn:robota:problems:dag:validation',
+              title: 'DAG build failed',
+              status: 400,
+              detail: result.error.message,
+              instance: 'inproc://dag-framework/build',
+              code: result.error.code,
+              retryable: false,
+            },
+          ],
+        },
+        400,
+      );
+    }
+    return c.json(
+      {
+        ok: true,
+        status: 200,
+        data: {
+          definition: result.definition,
+          nodeCount: result.nodeCount,
+          edgeCount: result.edgeCount,
+          warnings: result.warnings,
+        },
+      },
+      200,
+    );
   });
   app.post('/v1/dag/validate', async (c) => {
     const body = await c.req.json<{ definition: IDagDefinition }>();

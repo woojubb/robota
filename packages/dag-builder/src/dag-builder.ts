@@ -50,6 +50,11 @@ export type TDagBuildResult =
       readonly warnings: IDagBuildWarning[];
     };
 
+/** Domain build capability; transports map the result at their own boundary. */
+export interface IDagBuildPort {
+  buildDag(input: IDagBuildInput): Promise<TDagBuildResult>;
+}
+
 function isParallelSpec(stage: TPipelineStage): stage is IParallelSpec {
   return 'parallel' in stage;
 }

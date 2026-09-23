@@ -46,6 +46,7 @@ import { AssetAwareTaskExecutorPort } from './adapters/asset-aware-executor.js';
 import { LocalFsAssetStore } from './adapters/local-fs-asset-store.js';
 import { DagPromptBackend } from './adapters/prompt-backend.js';
 import { DagFrameworkOrchestrationAdapter } from './adapters/orchestration-adapter.js';
+import { DagFrameworkBuildOperations } from './adapters/dag-build-operations.js';
 import { UnsupportedCostMetaOperations } from './adapters/unsupported-cost-meta.js';
 import { DagFrameworkRunDraftOperations } from './adapters/run-draft-operations.js';
 import { loadDefaultNodeRegistry } from './load-default-node-registry.js';
@@ -184,6 +185,7 @@ export async function createDagFramework(
   // 11. Framework instance
   const framework: IDagFramework = {
     client,
+    build: new DagFrameworkBuildOperations(assembly.manifests),
     costMeta: new UnsupportedCostMetaOperations(),
     runDrafts: new DagFrameworkRunDraftOperations(runDraftStore, clock),
     assets: assetStore,

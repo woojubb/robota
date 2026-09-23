@@ -3,7 +3,7 @@
 ## Scope
 
 Native DAG runtime HTTP server (WORKFLOW-002). Serves an in-process DAG framework's
-`IDagOrchestrationPort` and a separate cost capability over the `/v1/dag/*` route surface using Hono. Owns the route → port-method
+`IDagOrchestrationPort` and separate build and cost capabilities over the `/v1/dag/*` route surface using Hono. Owns the route → port-method
 mapping and the server entrypoint.
 
 ## Boundaries
@@ -16,11 +16,12 @@ mapping and the server entrypoint.
 
 ## Architecture Overview
 
-`createDagRuntimeServer(port, costMeta, runDrafts, progressSource?, assets?)` returns a Hono app. Legacy orchestration `/v1/dag/*` handlers map:
+`createDagRuntimeServer(port, costMeta, runDrafts, build, progressSource?, assets?)` returns a Hono app. Legacy orchestration `/v1/dag/*` handlers map:
 parse path/query/body → call the matching `IDagOrchestrationPort` method → return
 `c.json(response.payload, response.status)` (every port method returns a uniform
-`IDagOrchestrationHttpResponse`). Cost metadata and run-draft routes instead map separate
-domain capabilities to the same HTTP envelope. Run-draft request JSON is decoded before calling
+`IDagOrchestrationHttpResponse`). Build, cost metadata, and run-draft routes instead map separate
+domain capabilities to the same HTTP envelope. Build validation failures answer 400;
+the build capability is required at server construction. Run-draft request JSON is decoded before calling
 `IRunDraftOperationsPort`; an invalid field returns 400, a missing draft 404, a storage failure 500
 without internal details, and create returns 201. The reset route is `POST`.
 Cost metadata routes map a separate
@@ -59,7 +60,7 @@ the worker loop, and serves the app via `@hono/node-server`.
 | `GET /v1/dag/runs/:id`                                 | `getRunStatus`                      |
 | `GET /v1/dag/runs/:id/result`                          | `getRunResult`                      |
 | `POST /v1/dag/definitions/:dagId/start`                | `startPublishedWorkflowRun`         |
-| `POST /v1/dag/build`                                   | `buildDag`                          |
+| `POST /v1/dag/build`                                   | build capability `buildDag`         |
 | `POST /v1/dag/validate`                                | `validateDag`                       |
 | `POST /v1/dag/assets`                                  | `assets.save`                       |
 | `GET /v1/dag/assets/:assetId`                          | `assets.getMetadata`                |
@@ -103,7 +104,7 @@ New routes are added by mapping a path to a port method in `createDagRuntimeServ
 
 ## Error Taxonomy
 
-Non-cost port methods return `IDagOrchestrationHttpResponse` with an HTTP `status`; the handler
+Remaining general orchestration methods return `IDagOrchestrationHttpResponse` with an HTTP `status`; the handler
 forwards `status` + `payload` verbatim. Cost handlers validate their input and map typed domain
 results: unsupported → 501, missing → 404, invalid → 400, success → 200/201.
 Unexpected cost failures map to 500 with a generic detail so internal paths and storage errors
