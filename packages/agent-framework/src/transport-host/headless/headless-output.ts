@@ -1,4 +1,4 @@
-import type { TOutputFormat } from './headless-runner.js';
+import type { TOutputFormat } from './headless-output-format.js';
 import type { IHeadlessSession } from './headless-session.js';
 import type { IModelEffortResolution } from '../../effort/effort-resolution.js';
 import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface-session';

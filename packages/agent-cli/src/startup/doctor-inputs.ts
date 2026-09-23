@@ -20,7 +20,7 @@ import {
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
 
-import type { IStartCliOptions } from './command-setup.js';
+import type { IStartCliOptions } from './cli-options-types.js';
 import type { IDoctorCheck, IDoctorInputs } from '@robota-sdk/agent-command';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {

@@ -12,7 +12,7 @@ import {
 } from '@robota-sdk/dag-core';
 import { replaceAttemptSegment } from '../utils/execution-path.js';
 import { finalizeDagRunIfTerminal } from './dag-run-finalizer.js';
-import type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-service.js';
+import type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-types.js';
 
 /** Resolves an error message from an unknown error value. */
 function resolveErrorMessage(error: unknown): string {

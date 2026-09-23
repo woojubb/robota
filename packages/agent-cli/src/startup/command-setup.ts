@@ -1,11 +1,6 @@
 import { homedir } from 'node:os';
 
-import type { IProviderDefinition, IToolResultAdmissionOptions } from '@robota-sdk/agent-core';
-import type {
-  IMCPActivationApprovalStore,
-  IMCPHttpTransportDeps,
-  IMCPStdioAuthority,
-} from '@robota-sdk/agent-mcp';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
   deleteSettings,
   getStartupCliUpdateNotice,
@@ -24,10 +19,7 @@ import type {
   ICommandHostAdapters,
   ICommandModule,
   IWorkspaceProjectMutation,
-  IWorkspaceProjectSettingsWriter,
   TProviderSettingsDocument,
-  TWorkspaceProjectAccess,
-  ICommandMCPActivationAdapter,
 } from '@robota-sdk/agent-framework';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
@@ -44,11 +36,14 @@ import { buildDoctorInputs } from './doctor-inputs.js';
 import { areSessionLoopsDisabled, DEFAULT_LOOP_MAINTENANCE_PROMPT } from './loop-options.js';
 import { createDefaultPluginCommandAdapter } from '../plugins/default-plugin-command-adapter.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
-import type { IOutputStyleRegistry, IOutputStyleSource } from '@robota-sdk/agent-preset';
+import type { IOutputStyleRegistry } from '@robota-sdk/agent-preset';
 import {
   createCliWorkspaceComposition,
   type ICliWorkspaceComposition,
 } from './workspace-project-composition.js';
+import type { IStartCliOptions } from './cli-options-types.js';
+
+export type { IStartCliOptions } from './cli-options-types.js';
 
 /**
  * Build the `/workflows` command module (WORKFLOW-003). INFRA-028: the DAG/workflow subsystem is
@@ -75,32 +70,6 @@ function loadWorkflowsCommandModule(
     settingsSources: workspaceComposition.settingsSources,
     ...(project === undefined ? {} : { project }),
   });
-}
-
-export interface IStartCliOptions {
-  commandModules?: readonly ICommandModule[];
-  providerDefinitions?: readonly IProviderDefinition[];
-  /** Initial trusted-or-restricted workspace decision. Absence is Restricted. */
-  projectAccess?: TWorkspaceProjectAccess;
-  /** Separately approved project-settings write capability. */
-  projectSettingsWriter?: IWorkspaceProjectSettingsWriter;
-  /** Separately approved bounded project mutation capability. */
-  projectMutation?: IWorkspaceProjectMutation;
-  /** Host-composed MCP definition registry and trust-admission controller. */
-  mcpActivationAdapter?: ICommandMCPActivationAdapter;
-  /** Host-owned per-server subprocess capabilities; never inferred from settings. */
-  mcpStdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
-  /** Host-owned approval state, shared with the canonical MCP activation controller. */
-  mcpApprovalStore?: IMCPActivationApprovalStore;
-  /** Host-owned HTTP transport policy; never supplied by MCP settings or a remote caller. */
-  mcpHttpTransportDeps?: IMCPHttpTransportDeps;
-  /** Host-configured character limits; generic admission validates the ordering and ceiling. */
-  mcpResultAdmissionLimits?: Pick<
-    IToolResultAdmissionOptions,
-    'warningChars' | 'hardChars' | 'repositoryMaxChars'
-  >;
-  /** Host-composed managed output styles, applied above user/project style sources. */
-  managedOutputStyleSources?: readonly IOutputStyleSource[];
 }
 
 export interface ICliSetup {

@@ -1,4 +1,4 @@
-import type { IAgentToolDeps } from './agent-tool.js';
+import type { IAgentToolDeps } from './agent-tool-deps-types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TModelEffort } from '@robota-sdk/agent-core';
 import type { ISubagentManager } from '@robota-sdk/agent-executor';

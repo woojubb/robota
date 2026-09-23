@@ -7,7 +7,7 @@
  * `--serve`.
  */
 
-import type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
+import type { ITuiInteractionChannelOptions } from './tui-channel-options.js';
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 
 /** Map the channel's resolved options onto the framework session-construction options. */

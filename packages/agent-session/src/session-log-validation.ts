@@ -1,7 +1,7 @@
 import { isValidSessionLogExternalPayloadReference } from './external-payload-file-reader.js';
 import { decodeSessionLogEntries } from './session-log-codec/index.js';
 
-import type { ISessionLogEntry } from './session-log-replay.js';
+import type { ISessionLogEntry } from './session-log-entry-types.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface ISessionReplayValidationIssue {

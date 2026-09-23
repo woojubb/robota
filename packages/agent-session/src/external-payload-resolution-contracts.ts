@@ -1,4 +1,4 @@
-import type { IExternalPayloadSource } from './session-log-sources.js';
+import type { IExternalPayloadSource } from './external-payload-source-types.js';
 
 export type TSessionLogPayloadResolutionErrorCode =
   | 'INVALID_LIMIT'

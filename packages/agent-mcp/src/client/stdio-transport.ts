@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { DEFAULT_INHERITED_ENV_VARS } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { deserializeMessage, serializeMessage } from '@modelcontextprotocol/sdk/shared/stdio.js';
 
-import type { IMCPStdioSnapshot } from './stdio.js';
+import type { IMCPStdioSnapshot } from './stdio-types.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';

@@ -43,8 +43,9 @@ import { CodeExportPanel } from '../../components/playground/code-export/code-ex
 import { useProviderConfig } from '../../hooks/use-provider-config';
 import type { IPlaygroundProviderConfig } from '../../hooks/use-provider-config';
 import { ProviderSetupScreen } from './ProviderSetupScreen';
+import type { TToolDraft } from './playground-modal-types';
 
-export type TToolDraft = { name: string; description: string };
+export type { TToolDraft } from './playground-modal-types';
 
 function slugifyKebab(input: string): string {
   const raw = input.trim().toLowerCase();

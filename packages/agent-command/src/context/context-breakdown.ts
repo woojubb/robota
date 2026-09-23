@@ -14,7 +14,7 @@ import {
   readCommandContextState,
 } from '@robota-sdk/agent-framework';
 
-import { formatAutoCompactLine } from './context-command.js';
+import { formatAutoCompactLine } from './auto-compact-format.js';
 
 import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
 import type {

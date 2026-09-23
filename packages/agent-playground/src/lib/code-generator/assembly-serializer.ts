@@ -1,4 +1,4 @@
-import type { IAssemblyState } from './index';
+import type { IAssemblyState } from './assembly-state';
 import { getProviderTemplate } from './provider-templates';
 import { getSkillById } from '../../skills/catalog';
 

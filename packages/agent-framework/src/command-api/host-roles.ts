@@ -13,7 +13,7 @@ import type {
   ICommandSessionReplayValidationReport,
   IUnknownCommandModuleName,
   TAutoCompactThresholdSource,
-} from './host-context.js';
+} from './host-context-types.js';
 import type { ICommandSessionRuntime } from './session-roles.js';
 import type {
   IEditCheckpointInspection,
@@ -29,7 +29,7 @@ import type {
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore } from '../memory/types.js';
-import type { TAutoCompactThreshold } from './context/context-command-api.js';
+import type { TAutoCompactThreshold } from '@robota-sdk/agent-session';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IContextWindowState, IUserInteraction } from '@robota-sdk/agent-core';
 import type {

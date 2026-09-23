@@ -6,24 +6,14 @@ import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
 import { assertWorkspaceProjectSettingsWriterForAuthority } from '../workspace-trust/project-settings-writer.js';
 
 import type { TSettingsData } from './settings-io.js';
-import type {
-  TSettingsSource,
-  THostSettingsScope,
-  TProjectSettingsScope,
-} from './settings-source.js';
+import type { TProjectSettingsScope } from './settings-source.js';
 import type {
   IWorkspaceProjectAuthority,
   IWorkspaceProjectSettingsWriter,
 } from '../workspace-trust/index.js';
+import type { ISettingsDocumentStore } from './settings-store-types.js';
 
-export interface ISettingsDocumentStore {
-  readonly kind: 'host' | 'project';
-  readonly scope: THostSettingsScope | TProjectSettingsScope;
-  readonly displayName: string;
-  readonly source: TSettingsSource;
-  read(): TSettingsData;
-  write(settings: TSettingsData): void;
-}
+export type { ISettingsDocumentStore } from './settings-store-types.js';
 
 const ROBOTA_SETTINGS_PATHS: Readonly<Record<TProjectSettingsScope, string>> = {
   project: join('.robota', 'settings.json'),

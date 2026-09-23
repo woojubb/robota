@@ -1,4 +1,4 @@
-import type { IPairingChannel } from './pairing-gate.js';
+import type { IPairingChannel } from './pairing-gate-options.js';
 
 function send(channel: IPairingChannel, data: string): void {
   try {
