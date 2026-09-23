@@ -70,6 +70,8 @@ describe('findBackgroundWorkspaceConformanceFindings', () => {
       ...baselineFiles,
       'packages/agent-cli/src/cli.ts':
         'import { createDefaultBackgroundTaskRunners } from "@robota-sdk/agent-executor";\n',
+      'packages/agent-cli/src/headless-bin.ts':
+        'import { createDefaultBackgroundTaskRunners } from "@robota-sdk/agent-executor";\n',
       'packages/agent-cli/src/modes/print-mode.ts':
         'import type { IBackgroundTaskRunner } from "@robota-sdk/agent-executor";\n',
     });
@@ -78,12 +80,13 @@ describe('findBackgroundWorkspaceConformanceFindings', () => {
     expect(findings).toEqual([]);
 
     const exemptions = await findUsedExemptions(root);
-    expect(exemptions).toHaveLength(2);
+    expect(exemptions).toHaveLength(3);
     for (const exemption of exemptions) {
       expect(exemption.type).toBe('cli-agent-executor-import');
       expect(exemption.reason).toContain('composition root');
     }
     expect(exemptions.map((exemption) => exemption.category).sort()).toEqual([
+      'entrypoint',
       'entrypoint',
       'type-only-contract',
     ]);

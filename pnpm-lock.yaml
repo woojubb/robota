@@ -8,6 +8,7 @@ overrides:
   fast-xml-parser: '>=4.5.5'
   fast-xml-builder: 1.2.0
   '@xmldom/xmldom': '>=0.9.12 <1.0.0'
+  plist: 3.1.1
   browserslist: '>=4.28.7 <5.0.0'
   fast-uri: '>=3.1.6 <4.0.0'
   node-forge: '>=1.4.0'
@@ -11828,7 +11829,7 @@ packages:
       lazy-val: 1.0.5
       minimatch: 10.2.5
       pkijs: 3.4.0
-      plist: 3.1.0
+      plist: 3.1.1
       proper-lockfile: 4.1.2
       resedit: 1.7.2
       semver: 7.7.4
@@ -19839,15 +19840,6 @@ packages:
       playwright-core: 1.61.1
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
-
-  /plist@3.1.0:
-    resolution: {integrity: sha512-uysumyrvkUX0rX/dEVqt8gC3sTBzd4zoWfLeS29nb53imdaXVvLINYXTI2GNqzaMuvacNx4uJQ8+b3zXR0pkgQ==}
-    engines: {node: '>=10.4.0'}
-    dependencies:
-      '@xmldom/xmldom': 0.9.12
-      base64-js: 1.5.1
-      xmlbuilder: 15.1.1
     dev: true
 
   /plist@3.1.1:

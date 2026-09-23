@@ -6,6 +6,7 @@ node_modules/.pnpm
 out
 dist
 dist-bun
+dist-bun-headless
 dist-ssr
 *.tgz
 # ARTIFACT-2655: immutable outputs, recovery records and temporary publication links.
