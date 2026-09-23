@@ -1059,6 +1059,12 @@ the SHARED host serving all surfaces — local == remote, REMOTE-006).
 `createHeadlessRunner`, and exposes `getExitCode()`. Output format (`text` / `json` / `stream-json`)
 is selected by the runner options. When supplied, the startup `IModelEffortResolution` is projected
 into ordinary text and structured result output; slash-command results retain their own command data.
+The headless channel accepts the resolved organization policy from print or goal mode and forwards
+it unchanged into the session, where blocked commands are enforced. Its declared session-capability
+options have an explicit projection disposition so optional fields cannot silently disappear between
+the channel and session constructor. The same projection preserves preset `temperature`,
+`maxOutputTokens`, `language`, `presetSystemPrompt` (a seed, not a replacement), and structured
+`responseFormat` including JSON-schema requests.
 
 ### Type Ownership
 

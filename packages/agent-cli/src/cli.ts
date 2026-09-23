@@ -463,6 +463,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       { model: modelId, ...presetSurface },
       memorySessionOptions,
       workspaceComposition.projectAccess,
+      orgPolicy,
     );
     return;
   }

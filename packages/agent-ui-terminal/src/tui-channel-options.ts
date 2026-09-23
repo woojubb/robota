@@ -12,6 +12,7 @@ import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   IOutputStylePrompt,
+  IOrgPolicy,
   ICommandModule,
   ICreateSessionOptions,
   EditCheckpointStore,
@@ -52,6 +53,8 @@ export interface ITuiInteractionChannelOptions {
   providerDefinitions?: readonly IProviderDefinition[];
   cwd: string;
   provider: IAIProvider;
+  /** Resolved organization policy forwarded to the interactive session. */
+  orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;
@@ -65,6 +68,11 @@ export interface ITuiInteractionChannelOptions {
   outputStyle?: IOutputStylePrompt;
   /** ARCH-013: resolved preset effort, threaded to the session's `effort` seam. */
   effort?: ICreateSessionOptions['effort'];
+  temperature?: number;
+  maxOutputTokens?: number;
+  /** Preset prompt seed, distinct from the replacing `systemPrompt` option. */
+  presetSystemPrompt?: string;
+  responseFormat?: ICreateSessionOptions['responseFormat'];
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;

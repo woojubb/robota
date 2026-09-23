@@ -883,6 +883,12 @@ export const SCAN_COMMANDS = [
     examines: [HARNESS_CONFIG, 'scripts/harness/option-reachability-baseline.json', PACKAGES, APPS],
   },
   {
+    // #2726: each declared TUI, print/goal and serve capability must cross its session path.
+    name: 'session-capability-projections',
+    command: ['node', 'scripts/harness/scan-session-capability-projections.mjs'],
+    examines: [PACKAGES, 'scripts/harness/scan-session-capability-projections.mjs'],
+  },
+  {
     name: 'publish-registry',
     command: ['node', 'scripts/harness/scan-publish-registry.mjs'],
     examines: ['.agents/publish-registry.md', '.agents/project-structure.md', ...WORKSPACE],
