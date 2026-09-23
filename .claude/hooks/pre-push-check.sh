@@ -966,6 +966,7 @@ esac
 # override's own message never claimed to excuse this one.
 frozen_diff_refusal() {
   local branch="$1" open_pr latest_count projection verdict_kind verdict_author
+  local reviews_json projection_status
   local remote_head pr_author approved_ground conflict_state
   [[ -n "$branch" ]] || return 1
   # `gh pr list --head`, not `pr view`: `pr view` takes a number, a URL or a branch and decides by
@@ -990,11 +991,26 @@ frozen_diff_refusal() {
   # The required review-policy check and this push freeze consume one owner. It projects trusted,
   # exact-head reviews latest-per-reviewer, including delegated COMMENTED verdicts, independent
   # APPROVED reviews, and active blockers. Unknown is not a verdict and does not invent a freeze.
-  if ! projection=$(cd "$PROJECT_DIR" &&
-    bounded_gh api --paginate --slurp \
-      "repos/{owner}/{repo}/pulls/${open_pr}/reviews?per_page=100" \
-      | node "$REVIEW_PROJECTION" --reviews-file - --head "$remote_head" \
-          --author "$pr_author" --project 2>/dev/null); then
+  if reviews_json=$(cd "$PROJECT_DIR" && bounded_gh api --paginate --slurp \
+    "repos/{owner}/{repo}/pulls/${open_pr}/reviews?per_page=100" 2>/dev/null); then
+    :
+  else
+    echo "[pre-push-check] Frozen-diff check unavailable: could not read PR reviews; no freeze verdict was established." >&2
+    return 1
+  fi
+  if projection=$(printf '%s' "$reviews_json" \
+    | node "$REVIEW_PROJECTION" --reviews-file - --head "$remote_head" \
+        --author "$pr_author" --project 2>/dev/null); then
+    :
+  else
+    projection_status=$?
+    # The projector's documented exit 2 means a valid response with no trusted exact-head review.
+    # It is a real absent verdict, not a read or parsing failure. Preserve the permissive open-PR
+    # policy below without claiming that review inspection was unavailable.
+    if (( projection_status == 2 )); then
+      return 1
+    fi
+    echo "[pre-push-check] Frozen-diff check unavailable: canonical review projection failed; no freeze verdict was established." >&2
     return 1
   fi
   IFS=$'\t' read -r remote_head latest_count verdict_kind verdict_author <<< "$projection"
