@@ -1,5 +1,8 @@
 import { createUserSessionStore } from '@robota-sdk/agent-framework';
-import { createOtlpUsageSnapshot } from '@robota-sdk/agent-session-analytics';
+import {
+  createOtlpPromptRootTraces,
+  createOtlpUsageSnapshot,
+} from '@robota-sdk/agent-session-analytics';
 
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 import { userPaths } from '../product/user-paths.js';
@@ -21,27 +24,55 @@ interface IUsageExportResult {
 }
 
 const MAX_RESPONSE_BYTES = 64 * 1024;
+const MAX_TRACE_REQUEST_BYTES = 8 * 1024 * 1024;
 const EXPORT_TIMEOUT_MS = 5_000;
+const PROTOJSON_INTEGER_STRING = /^-?(\d+)(?:\.(\d+))?(?:[eE][+-]?\d+)?$/;
+type TExportSignal = 'metrics' | 'traces';
 
 function invalid(message: string): IUsageExportResult {
   return { exitCode: 1, stdout: '', stderr: `${message}\n` };
 }
 
-function endpointFrom(argv: readonly string[]): URL | IUsageExportResult {
+function endpointFrom(
+  argv: readonly string[],
+): { readonly endpoint: URL; readonly signal: TExportSignal } | IUsageExportResult {
   if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {
     return {
       exitCode: 0,
       stdout:
-        'Usage: robota usage export --endpoint http://127.0.0.1:4318\nExports a non-additive, content-free OTLP/HTTP JSON metric snapshot to a loopback collector.\n',
+        'Usage: robota usage export [--signal traces] --endpoint http://127.0.0.1:4318\nExports a content-free OTLP/HTTP JSON metric snapshot or prompt root traces to a loopback collector.\n',
       stderr: '',
     };
   }
-  if (argv.length !== 2 || argv[0] !== '--endpoint' || !argv[1]) {
-    return invalid('Usage: robota usage export --endpoint http://127.0.0.1:4318');
+  let endpointValue: string | undefined;
+  let signal: TExportSignal = 'metrics';
+  let signalSpecified = false;
+  for (let index = 0; index < argv.length; index += 2) {
+    const flag = argv[index];
+    const value = argv[index + 1];
+    if (!value)
+      return invalid(
+        'Usage: robota usage export [--signal traces] --endpoint http://127.0.0.1:4318',
+      );
+    if (flag === '--endpoint' && endpointValue === undefined) endpointValue = value;
+    else if (
+      flag === '--signal' &&
+      !signalSpecified &&
+      (value === 'metrics' || value === 'traces')
+    ) {
+      signal = value;
+      signalSpecified = true;
+    } else {
+      return invalid(
+        'Usage: robota usage export [--signal traces] --endpoint http://127.0.0.1:4318',
+      );
+    }
   }
+  if (!endpointValue)
+    return invalid('Usage: robota usage export [--signal traces] --endpoint http://127.0.0.1:4318');
   let url: URL;
   try {
-    url = new URL(argv[1]);
+    url = new URL(endpointValue);
   } catch {
     return invalid('Invalid OTLP endpoint URL.');
   }
@@ -58,7 +89,7 @@ function endpointFrom(argv: readonly string[]): URL | IUsageExportResult {
       'OTLP endpoint must be a loopback HTTP(S) origin without credentials or a path.',
     );
   }
-  return url;
+  return { endpoint: url, signal };
 }
 
 async function readBoundedResponse(response: Response): Promise<string> {
@@ -85,28 +116,37 @@ async function readBoundedResponse(response: Response): Promise<string> {
   return new TextDecoder().decode(all);
 }
 
-function rejectedByCollector(body: string): boolean {
+function rejectedByCollector(body: string, signal: TExportSignal): boolean {
   if (!body) return true;
   const parsed: unknown = JSON.parse(body);
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return true;
   const partial = (parsed as { partialSuccess?: unknown }).partialSuccess;
   if (partial === undefined) return false;
   if (typeof partial !== 'object' || partial === null || Array.isArray(partial)) return true;
-  const { rejectedDataPoints, errorMessage } = partial as {
+  const { rejectedDataPoints, rejectedSpans, errorMessage } = partial as {
     rejectedDataPoints?: unknown;
+    rejectedSpans?: unknown;
     errorMessage?: unknown;
   };
+  const rejectedCount = signal === 'traces' ? rejectedSpans : rejectedDataPoints;
   if (
-    rejectedDataPoints !== undefined &&
-    typeof rejectedDataPoints !== 'string' &&
-    typeof rejectedDataPoints !== 'number'
+    rejectedCount !== undefined &&
+    typeof rejectedCount !== 'string' &&
+    typeof rejectedCount !== 'number'
   )
     return true;
-  const rejected = rejectedDataPoints === undefined ? 0 : Number(rejectedDataPoints);
+  let rejected = false;
+  if (typeof rejectedCount === 'number') {
+    if (!Number.isSafeInteger(rejectedCount) || rejectedCount < 0) return true;
+    rejected = rejectedCount > 0;
+  } else if (typeof rejectedCount === 'string') {
+    const match = PROTOJSON_INTEGER_STRING.exec(rejectedCount);
+    if (!match) return true;
+    // A nonzero mantissa must never underflow to an apparently accepted zero via Number().
+    rejected = /[1-9]/.test(`${match[1]}${match[2] ?? ''}`);
+  }
   return (
-    !Number.isSafeInteger(rejected) ||
-    rejected < 0 ||
-    rejected > 0 ||
+    rejected ||
     (errorMessage !== undefined && typeof errorMessage !== 'string') ||
     (typeof errorMessage === 'string' && errorMessage.length > 0)
   );
@@ -116,8 +156,9 @@ export async function executeUsageExportCommand(
   argv: readonly string[],
   dependencies: IUsageExportDependencies,
 ): Promise<IUsageExportResult> {
-  const endpoint = endpointFrom(argv);
-  if ('exitCode' in endpoint) return endpoint;
+  const args = endpointFrom(argv);
+  if ('exitCode' in args) return args;
+  const { endpoint, signal } = args;
 
   let snapshot: ReturnType<typeof enumerateUsageSnapshot>;
   try {
@@ -132,16 +173,26 @@ export async function executeUsageExportCommand(
   }
   if (snapshot.records.length === 0) return invalid('No readable sessions to export.');
 
-  const payload = createOtlpUsageSnapshot(
-    snapshot.records,
-    dependencies.now ?? new Date(),
-    dependencies.version ?? readVersion(),
-  );
+  const version = dependencies.version ?? readVersion();
+  const traces =
+    signal === 'traces' ? createOtlpPromptRootTraces(snapshot.records, version) : undefined;
+  if (traces && traces.coverage.exported === 0) {
+    return invalid(
+      `No valid prompt root traces to export (missing ${traces.coverage.missing}, invalid ${traces.coverage.invalid}, duplicate ${traces.coverage.duplicate}).`,
+    );
+  }
+  const payload =
+    traces?.payload ??
+    createOtlpUsageSnapshot(snapshot.records, dependencies.now ?? new Date(), version);
+  const body = JSON.stringify(payload);
+  if (traces && Buffer.byteLength(body, 'utf8') > MAX_TRACE_REQUEST_BYTES) {
+    return invalid('OTLP trace request exceeded the size limit; nothing was sent.');
+  }
   try {
-    const response = await (dependencies.fetcher ?? fetch)(new URL('/v1/metrics', endpoint), {
+    const response = await (dependencies.fetcher ?? fetch)(new URL(`/v1/${signal}`, endpoint), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
+      body,
       redirect: 'error',
       signal: AbortSignal.timeout(EXPORT_TIMEOUT_MS),
     });
@@ -152,14 +203,17 @@ export async function executeUsageExportCommand(
     ) {
       return invalid('OTLP collector returned a non-JSON response.');
     }
-    const body = await readBoundedResponse(response);
-    if (rejectedByCollector(body)) return invalid('OTLP collector rejected part of the snapshot.');
+    const responseBody = await readBoundedResponse(response);
+    if (rejectedByCollector(responseBody, signal))
+      return invalid('OTLP collector rejected part of the export.');
   } catch {
     return invalid('OTLP export failed; check the loopback collector and response format.');
   }
   return {
     exitCode: 0,
-    stdout: 'Exported OTLP usage snapshot to loopback collector.\n',
+    stdout: traces
+      ? `Exported ${traces.coverage.exported} prompt root trace(s) to loopback collector (missing ${traces.coverage.missing}, invalid ${traces.coverage.invalid}, duplicate ${traces.coverage.duplicate}).\n`
+      : 'Exported OTLP usage snapshot to loopback collector.\n',
     stderr: '',
   };
 }

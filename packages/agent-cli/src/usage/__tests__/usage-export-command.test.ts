@@ -36,6 +36,11 @@ function record(): IInteractiveSessionRecord {
           usageObservationId: 'turn-1',
           turnId: 'turn-1',
           outcome: 'success',
+          promptExecutionStartedAt: '2026-09-24T00:00:59.000Z',
+          promptExecutionEndedAt: '2026-09-24T00:01:00.000Z',
+          promptExecutionOutcome: 'success',
+          promptExecutionTraceId: '1234567890abcdef1234567890abcdef',
+          promptExecutionSpanId: '1234567890abcdef',
           providerId: 'openai',
           source: { scope: 'background', label: 'secret task title' },
           usage,
@@ -62,6 +67,166 @@ function store(): IInteractiveSessionStore {
 }
 
 describe('explicit OTLP usage snapshot export', () => {
+  it('sends only a content-free prompt root span when traces are explicitly selected', async () => {
+    const fetcher = vi.fn(
+      async (_input: Parameters<typeof fetch>[0], _init?: RequestInit) =>
+        new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),
+    );
+    const result = await executeUsageExportCommand(
+      ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
+      { userSessionStore: store(), fetcher, version: 'test-version' },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(String(url)).toBe('http://127.0.0.1:4318/v1/traces');
+    const payload = JSON.parse(init!.body as string);
+    const span = payload.resourceSpans[0].scopeSpans[0].spans[0];
+    expect(span).toMatchObject({
+      name: 'robota.prompt_execution',
+      kind: 1,
+      traceId: '1234567890abcdef1234567890abcdef',
+      spanId: '1234567890abcdef',
+      startTimeUnixNano: '1790208059000000000',
+      endTimeUnixNano: '1790208060000000000',
+      status: { code: 1 },
+    });
+    expect(JSON.stringify(payload)).not.toMatch(/secret|sess-1|turn-1|openai/);
+    expect(result.stdout).toMatch(/1 prompt root trace/);
+  });
+
+  it('refuses trace export without any valid root before contacting the collector', async () => {
+    const old = record();
+    const data = old.history![0]!.data as Record<string, unknown>;
+    for (const key of [
+      'promptExecutionStartedAt',
+      'promptExecutionEndedAt',
+      'promptExecutionOutcome',
+      'promptExecutionTraceId',
+      'promptExecutionSpanId',
+    ]) {
+      delete data[key];
+    }
+    const fetcher = vi.fn();
+    const result = await executeUsageExportCommand(
+      ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
+      {
+        userSessionStore: {
+          ...store(),
+          list: () => [{ id: old.id, outcome: { status: 'valid', record: old } }],
+        },
+        fetcher,
+      },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/No valid prompt root traces.*missing 1, invalid 0, duplicate 0/);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { partialSuccess: { rejectedSpans: '1' } },
+    { partialSuccess: { rejectedSpans: '0', errorMessage: 'warning' } },
+    { partialSuccess: { rejectedSpans: '' } },
+    { partialSuccess: { rejectedSpans: '   ' } },
+    { partialSuccess: { rejectedSpans: '0x0' } },
+    { partialSuccess: { rejectedSpans: '1e-9999' } },
+    { partialSuccess: { rejectedSpans: '-1e-9999' } },
+  ])('fails a partial or malformed trace response %j', async (body) => {
+    const result = await executeUsageExportCommand(
+      ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
+      {
+        userSessionStore: store(),
+        fetcher: vi.fn(
+          async () =>
+            new Response(JSON.stringify(body), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            }),
+        ),
+      },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/reject/i);
+  });
+
+  it('ignores unknown response fields while validating the selected signal count', async () => {
+    const response = new Response(
+      JSON.stringify({ partialSuccess: { rejectedSpans: '0.0e+20', rejectedDataPoints: '1' } }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+    const traces = await executeUsageExportCommand(
+      ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
+      { userSessionStore: store(), fetcher: vi.fn(async () => response) },
+    );
+    expect(traces.exitCode).toBe(0);
+
+    const metrics = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {
+      userSessionStore: store(),
+      fetcher: vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ partialSuccess: { rejectedDataPoints: '0.0e+20', rejectedSpans: '1' } }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+      ),
+    });
+    expect(metrics.exitCode).toBe(0);
+  });
+
+  it.each([
+    new Response('failure', { status: 500 }),
+    new Response('', { status: 302 }),
+    new Response('not-json', { status: 200, headers: { 'content-type': 'application/json' } }),
+    new Response('{}', { status: 200, headers: { 'content-type': 'text/plain' } }),
+    new Response('x'.repeat(64 * 1024 + 1), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }),
+  ])('fails a bad or oversized trace collector response', async (response) => {
+    const result = await executeUsageExportCommand(
+      ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
+      {
+        userSessionStore: store(),
+        fetcher: vi.fn(async (_input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+          expect(init?.redirect).toBe('error');
+          expect(init?.signal).toBeDefined();
+          return response;
+        }),
+      },
+    );
+    expect(result.exitCode).toBe(1);
+  });
+
+  it('blocks an oversized trace request before network I/O', async () => {
+    const fetcher = vi.fn();
+    const result = await executeUsageExportCommand(
+      ['--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
+      { userSessionStore: store(), fetcher, version: 'x'.repeat(8 * 1024 * 1024) },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/size limit/);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsafe trace destinations and malformed signal arguments before reading records', async () => {
+    const list = vi.fn(() => []);
+    const fetcher = vi.fn();
+    for (const argv of [
+      ['--signal', 'traces', '--endpoint', 'https://example.com'],
+      ['--signal', 'logs', '--endpoint', 'http://127.0.0.1:4318'],
+      ['--signal', 'traces', '--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
+    ]) {
+      const result = await executeUsageExportCommand(argv, {
+        userSessionStore: { ...store(), list },
+        fetcher,
+      });
+      expect(result.exitCode).toBe(1);
+    }
+    expect(list).not.toHaveBeenCalled();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it('posts one content-free gauge snapshot and never double-counts mirrored usage', async () => {
     const fetcher = vi.fn(
       async (_input: Parameters<typeof fetch>[0], _init?: RequestInit) =>
@@ -138,6 +303,23 @@ describe('explicit OTLP usage snapshot export', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/reject/i);
   });
+
+  it.each(['1e-9999', '-1e-9999'])(
+    'rejects an underflowed metric rejection count %s',
+    async (rejectedDataPoints) => {
+      const result = await executeUsageExportCommand(['--endpoint', 'http://127.0.0.1:4318'], {
+        userSessionStore: store(),
+        fetcher: vi.fn(
+          async () =>
+            new Response(JSON.stringify({ partialSuccess: { rejectedDataPoints } }), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            }),
+        ),
+      });
+      expect(result.exitCode).toBe(1);
+    },
+  );
 
   it('fails closed on redirects and an invalid OTLP response', async () => {
     const redirect = vi.fn(async (_input: Parameters<typeof fetch>[0], init?: RequestInit) => {

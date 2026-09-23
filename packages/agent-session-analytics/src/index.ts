@@ -19,6 +19,7 @@ export { formatSingleSession, formatAggregateReport, formatUsageReport } from '.
 export { summarizeUsageBySource } from './usage.js';
 export { summarizePersonalUsage } from './personal-usage.js';
 export { createOtlpUsageSnapshot } from './otlp-usage-snapshot.js';
+export { createOtlpPromptRootTraces } from './otlp-prompt-root-traces.js';
 export { formatPersonalUsageReport } from './personal-usage-format.js';
 export type { IPersonalUsageSnapshot } from './personal-usage.js';
 export type {
