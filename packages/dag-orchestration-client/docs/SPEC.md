@@ -18,7 +18,7 @@ This package is consumed by command-line and MCP clients that call a DAG orchest
 - `orchestration-http-contracts.ts` owns exported request, response, payload, fetch, and HTTP client interface contracts.
 - `orchestration-http-client.ts` owns concrete endpoint path construction, request serialization, response parsing, and fetch execution.
 - The client is intentionally thin: it forwards server response payloads without converting them into CLI or MCP-specific output.
-- For cost metadata only, the client implements `ICostMetaOperationsPort` from `dag-cost`: it validates the HTTP payload and maps success/problem responses to typed domain results. The seven cost methods are not part of `IDagOrchestrationPort`.
+- For cost metadata and run drafts, the client implements their separate domain capability ports: it validates HTTP payloads and maps successes/problems to typed domain results. Neither group's methods belong to `IDagOrchestrationPort`.
 - Endpoint inventory remains intentionally limited to routes with package-owned request/response contracts.
 
 ## Endpoint Coverage Policy
@@ -32,7 +32,7 @@ contracts are already package-owned.
 | DAG build/validate               | active  | `dag-builder` + `dag-core` + this package   | Build from `IDagBuildInput` / validate `IDagDefinition`. |
 | Node catalog list                | active  | `dag-api` + this package                    | Current CLI/MCP surface.                                 |
 | Run create/start/status/result   | active  | `dag-runtime-server` + this package         | Current CLI/MCP surface.                                 |
-| Run drafts                       | active  | `dag-core` domain types + this package      | Current package contract surface.                        |
+| Run drafts                       | active  | `dag-core` domain capability + this package | Five result-typed operations; HTTP mapping stays here.   |
 | Published workflow runs          | active  | `dag-core` definition types + this package  | Current package contract surface.                        |
 | Asset upload/metadata/content    | active  | `dag-core` asset store types + this package | Binary content remains transport-specific.               |
 | Cost metadata                    | active  | `dag-cost` domain types + this package      | Current package contract surface.                        |
@@ -75,11 +75,6 @@ This package is SSOT for:
 - `IDagOrchestrationCostMetaDeleteSuccessPayload`
 - `IDagOrchestrationCostMetaValidationSuccessPayload`
 - `IDagOrchestrationCostMetaPreviewSuccessPayload`
-- `TDagOrchestrationCreateRunDraftRequest`
-- `TDagOrchestrationReplaceRunDraftRequest`
-- `IDagOrchestrationOverwriteRunDraftNodeResultRequest`
-- `IDagOrchestrationRunDraftData`
-- `IDagOrchestrationRunDraftSuccessPayload`
 - `IDagOrchestrationWorkflowOverrideMap`
 - `IDagOrchestrationPublishedWorkflowRunRequest`
 - `IDagOrchestrationPublishedWorkflowRunData`
@@ -91,6 +86,7 @@ Imported from other packages:
 - `IDagDefinition`, `IPartialRunRequest`, `IRunDraft`, `ISaveRunDraftInput`, `TNodeConfigRecord`, and `TPortPayload` from `@robota-sdk/dag-core`
 - `ICostMeta` from `@robota-sdk/dag-cost`
 - `ICostMetaOperationsPort` and formula input/result types from `@robota-sdk/dag-cost`
+- `IRunDraftOperationsPort`, `IOverwriteRunDraftNodeResultInput`, `IRunDraft`, and `ISaveRunDraftInput` from `@robota-sdk/dag-core`
 - `IDagBuildInput` from `@robota-sdk/dag-builder`
 
 ## Public API Surface
@@ -101,7 +97,7 @@ Imported from other packages:
 - `createRunDraft(input)` -- `POST /v1/dag/run-drafts`.
 - `getRunDraft(draftId)` -- `GET /v1/dag/run-drafts/:draftId`.
 - `replaceRunDraft(draftId, input)` -- `PUT /v1/dag/run-drafts/:draftId`.
-- `resetRunDraftNodeResult(draftId, nodeId)` -- `PUT /v1/dag/run-drafts/:draftId/nodes/:nodeId/reset`.
+- `resetRunDraftNodeResult(draftId, nodeId)` -- `POST /v1/dag/run-drafts/:draftId/nodes/:nodeId/reset`.
 - `overwriteRunDraftNodeResult(draftId, nodeId, input)` -- `PUT /v1/dag/run-drafts/:draftId/nodes/:nodeId/result`.
 - `startPublishedWorkflowRun(dagId, input?, version?)` -- `POST /v1/dag/workflows/:dagId/runs`.
 - `uploadAsset(input)` -- `POST /v1/dag/assets`.
@@ -131,6 +127,9 @@ Cost metadata responses are decoded at the HTTP boundary. Malformed success data
 `DAG_COST_META_INVALID_RESPONSE`; recognized `DAG_COST_META_*` and `CEL_*` problem codes are
 preserved, and missing/invalid/unsupported HTTP statuses map to domain codes when the problem
 has no recognized code. An unsupported capability is non-retryable.
+Run-draft responses are decoded at the HTTP boundary. Malformed successful drafts return
+`DAG_RUN_DRAFT_INVALID_RESPONSE`; known run-draft problem codes are preserved, missing drafts
+return `DAG_RUN_DRAFT_NOT_FOUND`, and transport failures return a typed retryable error.
 
 ## Class Contract Registry
 

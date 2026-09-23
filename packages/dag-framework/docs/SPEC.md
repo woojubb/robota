@@ -37,6 +37,7 @@ await framework.stop();
 interface IDagFramework {
   client: IDagOrchestrationPort; // orchestration operations (cost capability is separate)
   costMeta: ICostMetaOperationsPort; // typed cost capability
+  runDrafts: IRunDraftOperationsPort; // typed create/get/replace/reset/overwrite capability
   internals: {
     controllers: IDagControllerComposition;
     execution: IDagExecutionComposition;
@@ -228,12 +229,14 @@ run waiter itself creates advancement demand.
 
 ### `DagFrameworkOrchestrationAdapter`
 
-In-process implementation of the non-cost `IDagOrchestrationPort` methods. The separate
+In-process implementation of the remaining `IDagOrchestrationPort` methods. The separate
 `costMeta` capability is implemented by `UnsupportedCostMetaOperations` and returns `TResult` domain values. Until cost persistence and formula
 execution are wired with an explicit policy, all seven cost operations return
 `DAG_COST_META_UNSUPPORTED`; they do not manufacture HTTP 501 responses or URIs.
 
-Uses `IClockPort.nowIso()` for all timestamp generation (deterministic in tests).
+The separate `runDrafts` capability implements the five draft editing operations through the
+injected `IRunDraftStore` and `IClockPort`, returns `TResult<IRunDraft, IDagError>`, and never
+manufactures HTTP status codes or route URIs. Missing drafts return `DAG_RUN_DRAFT_NOT_FOUND`.
 
 Remaining orchestration methods still use their existing HTTP-shaped response contract.
 

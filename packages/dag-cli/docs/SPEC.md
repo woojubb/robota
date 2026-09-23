@@ -117,8 +117,8 @@ proxies the orchestration command groups to a compatible DAG orchestration HTTP 
 - `run-drafts create|get|replace|reset|overwrite`
 - `workflows start <dagId> [--version <version>] [--json <json|@file>]`
 
-Output is JSON. Non-cost success responses are printed as returned by the server. Cost metadata
-commands consume the typed `ICostMetaOperationsPort` result and render a consistent JSON success
+Output is JSON. Legacy orchestration success responses are printed as returned by the server. Cost metadata
+and run-draft commands consume their typed domain results and render a consistent JSON success
 or failure envelope; they do not inspect transport envelopes. CLI argument validation failures
 use `ok: false`, `status: 2`, and one problem entry.
 
@@ -159,7 +159,8 @@ Imported from other packages:
 
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload`, `IDagNodeDefinition`, `LifecycleTaskExecutorPort`, `IWorkspaceLayout` from `@robota-sdk/dag-core`
 - `parsePersistedInstantNode`, `rehydrateInstantNode` from `@robota-sdk/dag-node-instant-node` (instant-node reload, DATA-004)
-- `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, asset request aliases, cost metadata request aliases, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
+- `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, asset request aliases, cost metadata request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
+- `IRunDraftOperationsPort`, `ISaveRunDraftInput`, and `IOverwriteRunDraftNodeResultInput` from `@robota-sdk/dag-core`
 - `ICostMetaOperationsPort`, `ICostMeta`, and formula input types from `@robota-sdk/dag-cost`
 - `IDagExecutionComposition`, `IRuntimeRunProgressEventBusPort` from `@robota-sdk/dag-api`
 - `createExecutionComposition` (in-process run composition), `scanWorkspaceCatalog`, `HttpDagRuntimeProvider`, `LocalDagRuntimeProvider` from `@robota-sdk/dag-framework`

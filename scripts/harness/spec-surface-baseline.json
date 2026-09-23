@@ -113,7 +113,7 @@
   },
   "@robota-sdk/dag-orchestration-client": {
     "runtime": 2,
-    "type": 38
+    "type": 33
   },
   "@robota-sdk/dag-projection": {
     "runtime": 2,

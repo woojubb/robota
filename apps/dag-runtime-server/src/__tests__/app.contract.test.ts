@@ -7,7 +7,7 @@ import type { ICostMetaOperationsPort } from '@robota-sdk/dag-cost';
 import { createDagRuntimeServer } from '../app.js';
 
 import type { IRunProgressSource } from '../app.js';
-import type { TRunProgressEvent } from '@robota-sdk/dag-core';
+import type { IRunDraftOperationsPort, TRunProgressEvent } from '@robota-sdk/dag-core';
 import type { IDagFramework } from '@robota-sdk/dag-framework';
 import type { Hono } from 'hono';
 
@@ -18,7 +18,7 @@ describe('dag-runtime-server contract', () => {
   beforeEach(async () => {
     framework = await createDagFramework();
     await framework.start();
-    app = createDagRuntimeServer(framework.client, framework.costMeta);
+    app = createDagRuntimeServer(framework.client, framework.costMeta, framework.runDrafts);
   });
 
   afterEach(async () => {
@@ -62,7 +62,7 @@ describe('dag-runtime-server contract', () => {
   it('maps a supported cost capability result to the existing HTTP response shape', async () => {
     const costMeta = Object.create(framework.costMeta) as ICostMetaOperationsPort;
     costMeta.listCostMeta = async () => ({ ok: true, value: [] });
-    const supportedApp = createDagRuntimeServer(framework.client, costMeta);
+    const supportedApp = createDagRuntimeServer(framework.client, costMeta, framework.runDrafts);
 
     const res = await supportedApp.request('/v1/dag/cost-meta');
     expect(res.status).toBe(200);
@@ -80,11 +80,70 @@ describe('dag-runtime-server contract', () => {
         retryable: false,
       },
     });
-    const failingApp = createDagRuntimeServer(framework.client, costMeta);
+    const failingApp = createDagRuntimeServer(framework.client, costMeta, framework.runDrafts);
 
     const res = await failingApp.request('/v1/dag/cost-meta');
     expect(res.status).toBe(500);
     expect(JSON.stringify(await res.json())).not.toContain('/private/secret.json');
+  });
+
+  it('round-trips run drafts through the separate domain capability', async () => {
+    const client = new DagOrchestrationHttpClient({
+      baseUrl: 'http://dag.test',
+      fetch: async (url, init) => app.request(url, init),
+    });
+    const created = await client.createRunDraft({
+      definition: { dagId: 'draft-test', version: 1, status: 'draft', nodes: [], edges: [] },
+      input: { text: 'hello' },
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const draftId = created.value.draftId;
+    expect(await client.getRunDraft(draftId)).toEqual(created);
+
+    const overwritten = await client.overwriteRunDraftNodeResult(draftId, 'node-1', {
+      output: { text: 'done' },
+    });
+    expect(overwritten).toMatchObject({
+      ok: true,
+      value: { nodeStateMap: { 'node-1': { executionStatus: 'success' } } },
+    });
+    const reset = await client.resetRunDraftNodeResult(draftId, 'node-1');
+    expect(reset).toMatchObject({ ok: true, value: { nodeStateMap: {} } });
+  });
+
+  it('rejects invalid run-draft input before the capability call', async () => {
+    const res = await app.request('/v1/dag/run-drafts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        definition: { dagId: 'draft', version: 1, status: 'secret-123', nodes: [], edges: [] },
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body: unknown = await res.json();
+    expect(body).toMatchObject({
+      ok: false,
+      errors: [{ code: 'DAG_RUN_DRAFT_INVALID_INPUT' }],
+    });
+    expect(JSON.stringify(body)).not.toContain('secret-123');
+  });
+
+  it('redacts storage details in a run-draft HTTP failure', async () => {
+    const drafts = Object.create(framework.runDrafts) as IRunDraftOperationsPort;
+    drafts.getRunDraft = async () => ({
+      ok: false,
+      error: {
+        code: 'DAG_RUN_DRAFT_STORAGE_ERROR',
+        category: 'dispatch',
+        message: 'storage failed at /private/drafts.json',
+        retryable: true,
+      },
+    });
+    const failingApp = createDagRuntimeServer(framework.client, framework.costMeta, drafts);
+    const res = await failingApp.request('/v1/dag/run-drafts/draft-1');
+    expect(res.status).toBe(500);
+    expect(JSON.stringify(await res.json())).not.toContain('/private/drafts.json');
   });
 
   it('rejects invalid cost metadata JSON before invoking the capability', async () => {
@@ -159,7 +218,7 @@ describe('dag-runtime-server SSE progress stream', () => {
         return () => undefined;
       },
     };
-    const app = createDagRuntimeServer({} as never, {} as never, source);
+    const app = createDagRuntimeServer({} as never, {} as never, {} as never, source);
 
     const res = await app.request('/v1/dag/runs/run-1/events');
     expect(res.status).toBe(200);
@@ -190,7 +249,7 @@ describe('dag-runtime-server SSE progress stream', () => {
         return () => undefined;
       },
     };
-    const app = createDagRuntimeServer({} as never, {} as never, source);
+    const app = createDagRuntimeServer({} as never, {} as never, {} as never, source);
     const body = await (await app.request('/v1/dag/runs/run-1/events')).text();
     expect(body).not.toContain('other-run');
     expect(body).toContain('event: execution.completed');

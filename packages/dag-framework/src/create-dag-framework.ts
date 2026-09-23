@@ -47,6 +47,7 @@ import { LocalFsAssetStore } from './adapters/local-fs-asset-store.js';
 import { DagPromptBackend } from './adapters/prompt-backend.js';
 import { DagFrameworkOrchestrationAdapter } from './adapters/orchestration-adapter.js';
 import { UnsupportedCostMetaOperations } from './adapters/unsupported-cost-meta.js';
+import { DagFrameworkRunDraftOperations } from './adapters/run-draft-operations.js';
 import { loadDefaultNodeRegistry } from './load-default-node-registry.js';
 import type { IDagFramework, IDagFrameworkOptions } from './types.js';
 
@@ -179,14 +180,13 @@ export async function createDagFramework(
     execution,
     manifests: assembly.manifests,
     assetStore,
-    runDraftStore,
-    clock,
   });
 
   // 11. Framework instance
   const framework: IDagFramework = {
     client,
     costMeta: new UnsupportedCostMetaOperations(),
+    runDrafts: new DagFrameworkRunDraftOperations(runDraftStore, clock),
     internals: { controllers, execution, storage, promptBackend, assetStore },
     async start(): Promise<void> {
       await execution.runAdvancement.start();

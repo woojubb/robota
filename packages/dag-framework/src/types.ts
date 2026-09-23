@@ -5,6 +5,7 @@ import type {
   IPromptBackendPort,
   IQueuePort,
   IRunDraftStore,
+  IRunDraftOperationsPort,
   IStoragePort,
   ITaskExecutorPort,
   IAssetStore,
@@ -37,6 +38,9 @@ export interface IDagFramework {
 
   /** Cost metadata management is an independent domain capability. */
   readonly costMeta: ICostMetaOperationsPort;
+
+  /** Run-draft editing is an independent domain capability. */
+  readonly runDrafts: IRunDraftOperationsPort;
 
   /** Direct access to inner services for embedders that need progress streams, etc. */
   readonly internals: {

@@ -1,12 +1,8 @@
-import { randomUUID } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import {
   DagDefinitionService,
-  type IClockPort,
   type IDagDefinition,
   type INodeManifest,
-  type IRunDraft,
-  type IRunDraftStore,
   type IStoragePort,
   type IAssetStore,
 } from '@robota-sdk/dag-core';
@@ -19,13 +15,10 @@ import type {
   IDagOrchestrationHttpPayload,
   IDagOrchestrationHttpResponse,
   IDagOrchestrationListDefinitionsInput,
-  IDagOrchestrationOverwriteRunDraftNodeResultRequest,
   IDagOrchestrationPort,
   IDagOrchestrationPublishedWorkflowRunRequest,
   IDagOrchestrationUpdateDraftInput,
   IOrchestrationProblemDetails,
-  TDagOrchestrationCreateRunDraftRequest,
-  TDagOrchestrationReplaceRunDraftRequest,
 } from '@robota-sdk/dag-orchestration-client';
 import { buildDagFromPipeline, type IDagBuildInput } from '@robota-sdk/dag-builder';
 
@@ -36,8 +29,6 @@ export interface IDagFrameworkOrchestrationAdapterDependencies {
   readonly execution: IDagExecutionComposition;
   readonly manifests: readonly INodeManifest[];
   readonly assetStore: IAssetStore;
-  readonly runDraftStore: IRunDraftStore;
-  readonly clock: IClockPort;
 }
 
 function problemDetailsToOrchestration(p: IProblemDetails): IOrchestrationProblemDetails {
@@ -68,8 +59,6 @@ export class DagFrameworkOrchestrationAdapter implements IDagOrchestrationPort {
   private readonly execution: IDagExecutionComposition;
   private readonly manifests: readonly INodeManifest[];
   private readonly assetStore: IAssetStore;
-  private readonly runDraftStore: IRunDraftStore;
-  private readonly clock: IClockPort;
   private readonly definitionService: DagDefinitionService;
 
   public constructor(deps: IDagFrameworkOrchestrationAdapterDependencies) {
@@ -78,8 +67,6 @@ export class DagFrameworkOrchestrationAdapter implements IDagOrchestrationPort {
     this.execution = deps.execution;
     this.manifests = deps.manifests;
     this.assetStore = deps.assetStore;
-    this.runDraftStore = deps.runDraftStore;
-    this.clock = deps.clock;
     this.definitionService = new DagDefinitionService(deps.storage);
   }
 
@@ -268,110 +255,6 @@ export class DagFrameworkOrchestrationAdapter implements IDagOrchestrationPort {
       contentTypeHeader: 'Content-Type',
       contentDispositionHeader: 'Content-Disposition',
     };
-  }
-
-  public async createRunDraft(
-    input: TDagOrchestrationCreateRunDraftRequest,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    const now = this.clock.nowIso();
-    const draftId = input.draftId ?? randomUUID();
-    const draft: IRunDraft = {
-      draftId,
-      definition: input.definition,
-      input: input.input ?? {},
-      nodeStateMap: input.nodeStateMap ?? {},
-      ...(input.runResult ? { runResult: input.runResult } : {}),
-      createdAt: now,
-      updatedAt: now,
-    };
-    await this.runDraftStore.saveRunDraft(draft);
-    return this.successResponse(201, { draft });
-  }
-
-  public async getRunDraft(draftId: string): Promise<IDagOrchestrationHttpResponse> {
-    const draft = await this.runDraftStore.getRunDraft(draftId);
-    if (!draft) {
-      return this.notFoundResponse(`/v1/dag/run-drafts/${draftId}`, 'Run draft not found');
-    }
-    return this.successResponse(200, { draft });
-  }
-
-  public async replaceRunDraft(
-    draftId: string,
-    input: TDagOrchestrationReplaceRunDraftRequest,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    const existing = await this.runDraftStore.getRunDraft(draftId);
-    const now = this.clock.nowIso();
-    const next: IRunDraft = {
-      draftId,
-      definition: input.definition,
-      input: input.input ?? {},
-      nodeStateMap: input.nodeStateMap ?? {},
-      ...(input.runResult ? { runResult: input.runResult } : {}),
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    };
-    await this.runDraftStore.saveRunDraft(next);
-    return this.successResponse(200, { draft: next });
-  }
-
-  public async resetRunDraftNodeResult(
-    draftId: string,
-    nodeId: string,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    const existing = await this.runDraftStore.getRunDraft(draftId);
-    if (!existing) {
-      return this.notFoundResponse(
-        `/v1/dag/run-drafts/${draftId}/nodes/${nodeId}/reset`,
-        'Run draft not found',
-      );
-    }
-    const nextNodeStateMap = { ...existing.nodeStateMap };
-    delete nextNodeStateMap[nodeId];
-    const next: IRunDraft = {
-      ...existing,
-      nodeStateMap: nextNodeStateMap,
-      updatedAt: this.clock.nowIso(),
-    };
-    await this.runDraftStore.saveRunDraft(next);
-    return this.successResponse(200, { draft: next });
-  }
-
-  public async overwriteRunDraftNodeResult(
-    draftId: string,
-    nodeId: string,
-    input: IDagOrchestrationOverwriteRunDraftNodeResultRequest,
-  ): Promise<IDagOrchestrationHttpResponse> {
-    const existing = await this.runDraftStore.getRunDraft(draftId);
-    if (!existing) {
-      return this.notFoundResponse(
-        `/v1/dag/run-drafts/${draftId}/nodes/${nodeId}/result`,
-        'Run draft not found',
-      );
-    }
-    const previousNodeState = existing.nodeStateMap[nodeId];
-    const nextNodeStateMap = {
-      ...existing.nodeStateMap,
-      [nodeId]: {
-        operationStatus: previousNodeState?.operationStatus ?? 'idle',
-        executionStatus: 'success' as const,
-        ...(previousNodeState?.pendingDescription !== undefined
-          ? { pendingDescription: previousNodeState.pendingDescription }
-          : {}),
-        trace: {
-          nodeId,
-          ...(input.input ? { input: input.input } : {}),
-          output: input.output,
-        },
-      },
-    };
-    const next: IRunDraft = {
-      ...existing,
-      nodeStateMap: nextNodeStateMap,
-      updatedAt: this.clock.nowIso(),
-    };
-    await this.runDraftStore.saveRunDraft(next);
-    return this.successResponse(200, { draft: next });
   }
 
   public async buildDag(input: IDagBuildInput): Promise<IDagOrchestrationHttpResponse> {

@@ -23,7 +23,6 @@ function createDefinition() {
     status: 'draft' as const,
     nodes: [],
     edges: [],
-    metadata: {},
   };
 }
 
@@ -248,12 +247,18 @@ describe('runDagCli', () => {
   });
 
   it('routes run draft commands through shared HTTP contracts', async () => {
+    const draft = {
+      ...createRunDraftInput(),
+      nodeStateMap: {},
+      createdAt: '2026-09-23T00:00:00.000Z',
+      updatedAt: '2026-09-23T00:00:00.000Z',
+    };
     const options = createOptions([
-      { ok: true, status: 201, data: { draft: createRunDraftInput() } },
-      { ok: true, status: 200, data: { draft: createRunDraftInput() } },
-      { ok: true, status: 200, data: { draft: createRunDraftInput() } },
-      { ok: true, status: 200, data: { draft: createRunDraftInput() } },
-      { ok: true, status: 200, data: { draft: createRunDraftInput() } },
+      { ok: true, status: 201, data: { draft } },
+      { ok: true, status: 200, data: { draft } },
+      { ok: true, status: 200, data: { draft } },
+      { ok: true, status: 200, data: { draft } },
+      { ok: true, status: 200, data: { draft } },
     ]);
 
     const createExit = await runDagCli(['run-drafts', 'create', '--json', '@draft.json'], options);
@@ -273,12 +278,45 @@ describe('runDagCli', () => {
       ['POST', `${TEST_SERVER_URL}/v1/dag/run-drafts`],
       ['GET', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201`],
       ['PUT', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201`],
-      ['PUT', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201/nodes/source%20node/reset`],
+      ['POST', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201/nodes/source%20node/reset`],
       ['PUT', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201/nodes/source%20node/result`],
     ]);
     expect(JSON.parse(String(options.requests[0]?.init.body))).toEqual(createRunDraftInput());
     expect(JSON.parse(String(options.requests[2]?.init.body))).toEqual(createRunDraftInput());
     expect(JSON.parse(String(options.requests[4]?.init.body))).toEqual(createNodeResultInput());
+  });
+
+  it('reports run-draft storage failures as internal failures', async () => {
+    const options = createOptions([
+      {
+        ok: false,
+        status: 500,
+        errors: [
+          {
+            code: 'DAG_RUN_DRAFT_STORAGE_ERROR',
+            detail: 'Run draft storage operation failed.',
+          },
+        ],
+      },
+    ]);
+    const exitCode = await runDagCli(['run-drafts', 'get', 'draft-1'], options);
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(options.output.join(''))).toMatchObject({
+      ok: false,
+      status: 500,
+      errors: [{ code: 'DAG_RUN_DRAFT_STORAGE_ERROR', status: 500 }],
+    });
+  });
+
+  it('reports unclassified run-draft server failures as internal failures', async () => {
+    const options = createOptions([{ ok: false, status: 503, errors: [] }]);
+    const exitCode = await runDagCli(['run-drafts', 'get', 'draft-1'], options);
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(options.output.join(''))).toMatchObject({
+      ok: false,
+      status: 500,
+      errors: [{ code: 'DAG_RUN_DRAFT_SERVER_ERROR', status: 500 }],
+    });
   });
 
   it('starts published workflows with version and override JSON through shared HTTP contracts', async () => {

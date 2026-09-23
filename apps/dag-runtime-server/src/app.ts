@@ -4,7 +4,14 @@ import { streamSSE } from 'hono/streaming';
 import type { IDagBuildInput } from '@robota-sdk/dag-builder';
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import type { IDagDefinition, TRunProgressEvent } from '@robota-sdk/dag-core';
+import {
+  buildValidationError,
+  decodeOverwriteRunDraftNodeResultInput,
+  decodeSaveRunDraftInput,
+  type IDagDefinition,
+  type IRunDraftOperationsPort,
+  type TRunProgressEvent,
+} from '@robota-sdk/dag-core';
 import type { IDagError, TResult } from '@robota-sdk/dag-core';
 import type {
   ICostMeta,
@@ -16,12 +23,9 @@ import type {
   IDagOrchestrationAssetUploadRequest,
   IDagOrchestrationCreateRunInput,
   IDagOrchestrationHttpResponse,
-  IDagOrchestrationOverwriteRunDraftNodeResultRequest,
   IDagOrchestrationPort,
   IDagOrchestrationPublishedWorkflowRunRequest,
   IDagOrchestrationUpdateDraftInput,
-  TDagOrchestrationCreateRunDraftRequest,
-  TDagOrchestrationReplaceRunDraftRequest,
 } from '@robota-sdk/dag-orchestration-client';
 
 function reply(c: Context, response: IDagOrchestrationHttpResponse): Response {
@@ -68,6 +72,53 @@ function costErrorStatus(code: string): number {
   if (code === 'DAG_COST_META_NOT_FOUND') return 404;
   if (code === 'DAG_COST_META_INVALID' || code.startsWith('CEL_')) return 400;
   return 500;
+}
+
+function runDraftReply<T>(
+  c: Context,
+  result: TResult<T, IDagError>,
+  successStatus = 200,
+): Response {
+  if (result.ok) {
+    return c.json(
+      { ok: true, status: successStatus, data: { draft: result.value } },
+      successStatus as ContentfulStatusCode,
+    );
+  }
+  const status =
+    result.error.code === 'DAG_RUN_DRAFT_NOT_FOUND'
+      ? 404
+      : result.error.code === 'DAG_RUN_DRAFT_INVALID_INPUT'
+        ? 400
+        : 500;
+  return c.json(
+    {
+      ok: false,
+      status,
+      errors: [
+        {
+          type: `urn:robota:problems:dag:${result.error.code.toLowerCase()}`,
+          title: 'Run draft operation failed',
+          status,
+          detail: status >= 500 ? 'Run draft operation failed.' : result.error.message,
+          instance: c.req.path,
+          code: result.error.code,
+          retryable: result.error.retryable,
+        },
+      ],
+    },
+    status as ContentfulStatusCode,
+  );
+}
+
+function invalidRunDraftJson(c: Context): Response {
+  return runDraftReply(c, {
+    ok: false,
+    error: buildValidationError(
+      'DAG_RUN_DRAFT_INVALID_INPUT',
+      'root: expected JSON object; received invalid JSON.',
+    ),
+  });
 }
 
 function invalidCostInput(c: Context, detail: string): Response {
@@ -154,6 +205,7 @@ function isTerminalProgressEvent(event: TRunProgressEvent): boolean {
 export function createDagRuntimeServer(
   port: IDagOrchestrationPort,
   costMeta: ICostMetaOperationsPort,
+  runDrafts: IRunDraftOperationsPort,
   progressSource?: IRunProgressSource,
 ): Hono {
   const app = new Hono();
@@ -319,24 +371,40 @@ export function createDagRuntimeServer(
 
   // --- Run drafts (partial-run editing) ---
   app.post('/v1/dag/run-drafts', async (c) => {
-    const body = await c.req.json<TDagOrchestrationCreateRunDraftRequest>();
-    return reply(c, await port.createRunDraft(body));
+    const body = await c.req.json<unknown>().catch(() => undefined);
+    if (body === undefined) return invalidRunDraftJson(c);
+    const input = decodeSaveRunDraftInput(body);
+    if (!input.ok) return runDraftReply(c, input);
+    return runDraftReply(c, await runDrafts.createRunDraft(input.value), 201);
   });
   app.get('/v1/dag/run-drafts/:draftId', async (c) =>
-    reply(c, await port.getRunDraft(c.req.param('draftId'))),
+    runDraftReply(c, await runDrafts.getRunDraft(c.req.param('draftId'))),
   );
   app.put('/v1/dag/run-drafts/:draftId', async (c) => {
-    const body = await c.req.json<TDagOrchestrationReplaceRunDraftRequest>();
-    return reply(c, await port.replaceRunDraft(c.req.param('draftId'), body));
+    const body = await c.req.json<unknown>().catch(() => undefined);
+    if (body === undefined) return invalidRunDraftJson(c);
+    const input = decodeSaveRunDraftInput(body);
+    if (!input.ok) return runDraftReply(c, input);
+    return runDraftReply(c, await runDrafts.replaceRunDraft(c.req.param('draftId'), input.value));
   });
   app.post('/v1/dag/run-drafts/:draftId/nodes/:nodeId/reset', async (c) =>
-    reply(c, await port.resetRunDraftNodeResult(c.req.param('draftId'), c.req.param('nodeId'))),
+    runDraftReply(
+      c,
+      await runDrafts.resetRunDraftNodeResult(c.req.param('draftId'), c.req.param('nodeId')),
+    ),
   );
   app.put('/v1/dag/run-drafts/:draftId/nodes/:nodeId/result', async (c) => {
-    const body = await c.req.json<IDagOrchestrationOverwriteRunDraftNodeResultRequest>();
-    return reply(
+    const body = await c.req.json<unknown>().catch(() => undefined);
+    if (body === undefined) return invalidRunDraftJson(c);
+    const input = decodeOverwriteRunDraftNodeResultInput(body);
+    if (!input.ok) return runDraftReply(c, input);
+    return runDraftReply(
       c,
-      await port.overwriteRunDraftNodeResult(c.req.param('draftId'), c.req.param('nodeId'), body),
+      await runDrafts.overwriteRunDraftNodeResult(
+        c.req.param('draftId'),
+        c.req.param('nodeId'),
+        input.value,
+      ),
     );
   });
 
