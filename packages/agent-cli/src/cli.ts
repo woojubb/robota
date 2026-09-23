@@ -96,7 +96,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
         parsedMcpArgs = parsed;
       }
     } catch {
-      // The normal parser below reports invalid arguments through the existing error boundary.
+      // allow-fallback: the normal parser below reports the same invalid invocation after workspace setup.
     }
   }
   const mcpOutput = parsedMcpArgs === undefined ? undefined : reserveMcpStdout();

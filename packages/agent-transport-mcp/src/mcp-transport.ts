@@ -55,6 +55,7 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
       rejectClose = reject;
     });
     // A carrier may fail between connect and the process owner awaiting this promise.
+    // allow-fallback: waitForClose retains the rejection for the process owner; this observer only prevents an early unhandled-rejection warning.
     void closePromise.catch(() => undefined);
   };
   const onInputClose = (): void => {
@@ -134,6 +135,7 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
           candidate = null;
         } catch (error) {
           removeInputListeners();
+          // allow-fallback: the startup error is already being thrown; a failed best-effort close must not replace it.
           if (candidate) await candidate.close().catch(() => undefined);
           throw error;
         } finally {
@@ -152,6 +154,7 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
       stopping = (async () => {
         try {
           cancelStart?.(new Error('MCP carrier startup stopped'));
+          // allow-fallback: stop explicitly cancels startup, so its expected rejection is consumed before carrier teardown.
           if (starting) await starting.catch(() => undefined);
           if (server) await server.close();
         } finally {

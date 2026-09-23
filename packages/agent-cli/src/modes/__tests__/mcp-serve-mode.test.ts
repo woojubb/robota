@@ -9,10 +9,12 @@ const mock = vi.hoisted(() => ({
   shutdown: vi.fn(),
 }));
 
-vi.mock('@robota-sdk/agent-framework', () => ({
+vi.mock('@robota-sdk/agent-framework', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-framework')>()),
   buildRuntimeSession: () => ({ shutdown: mock.shutdown }),
 }));
-vi.mock('@robota-sdk/agent-transport-mcp', () => ({
+vi.mock('@robota-sdk/agent-transport-mcp', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-transport-mcp')>()),
   createMcpTransport: () => ({
     attach: mock.attach,
     start: mock.start,
