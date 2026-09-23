@@ -11,4 +11,4 @@ export * from './error-utils';
 export * from './errors';
 export * from './periodic-task';
 export * from './platform-shell';
-export * from './timer-types';
+export type { TTimerId } from './timer-types';
