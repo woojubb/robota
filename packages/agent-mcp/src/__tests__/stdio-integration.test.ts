@@ -317,6 +317,8 @@ describe('official SDK stdio lifecycle', () => {
       backoff: { maxAttempts: 1 },
     });
     try {
+      // Establish the session outside the 100ms call budget; this case exercises a post-startup close.
+      await supervisor.ensureConnected();
       await expect(supervisor.callTool('ping', {})).rejects.toThrow();
       expect(fixture.transport.closedDirectChild).toBe(true);
       expect(supervisor.getState().kind).toBe('idle');
