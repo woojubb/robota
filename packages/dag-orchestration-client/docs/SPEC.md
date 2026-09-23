@@ -18,6 +18,7 @@ This package is consumed by command-line and MCP clients that call a DAG orchest
 - `orchestration-http-contracts.ts` owns exported request, response, payload, fetch, and HTTP client interface contracts.
 - `orchestration-http-client.ts` owns concrete endpoint path construction, request serialization, response parsing, and fetch execution.
 - The client is intentionally thin: it forwards server response payloads without converting them into CLI or MCP-specific output.
+- For cost metadata only, the client implements `ICostMetaOperationsPort` from `dag-cost`: it validates the HTTP payload and maps success/problem responses to typed domain results. The seven cost methods are not part of `IDagOrchestrationPort`.
 - Endpoint inventory remains intentionally limited to routes with package-owned request/response contracts.
 
 ## Endpoint Coverage Policy
@@ -89,6 +90,7 @@ Imported from other packages:
 
 - `IDagDefinition`, `IPartialRunRequest`, `IRunDraft`, `ISaveRunDraftInput`, `TNodeConfigRecord`, and `TPortPayload` from `@robota-sdk/dag-core`
 - `ICostMeta` from `@robota-sdk/dag-cost`
+- `ICostMetaOperationsPort` and formula input/result types from `@robota-sdk/dag-cost`
 - `IDagBuildInput` from `@robota-sdk/dag-builder`
 
 ## Public API Surface
@@ -105,13 +107,13 @@ Imported from other packages:
 - `uploadAsset(input)` -- `POST /v1/dag/assets`.
 - `getAssetMetadata(assetId)` -- `GET /v1/dag/assets/:assetId`.
 - `getAssetContentDownloadInfo(assetId)` -- encoded `GET /v1/dag/assets/:assetId/content` URL and response header names for transport-specific binary download.
-- `listCostMeta()` -- `GET /v1/cost-meta`.
-- `getCostMeta(nodeType)` -- `GET /v1/cost-meta/:nodeType`.
-- `createCostMeta(input)` -- `POST /v1/cost-meta`.
-- `updateCostMeta(nodeType, input)` -- `PUT /v1/cost-meta/:nodeType`.
-- `deleteCostMeta(nodeType)` -- `DELETE /v1/cost-meta/:nodeType`.
-- `validateCostMetaFormula(input)` -- `POST /v1/cost-meta/validate`.
-- `previewCostMetaFormula(input)` -- `POST /v1/cost-meta/preview`.
+- `listCostMeta()` -- `GET /v1/dag/cost-meta`, returning a domain result.
+- `getCostMeta(nodeType)` -- `GET /v1/dag/cost-meta/:nodeType`.
+- `createCostMeta(input)` -- `POST /v1/dag/cost-meta`.
+- `updateCostMeta(nodeType, input)` -- `PUT /v1/dag/cost-meta/:nodeType`.
+- `deleteCostMeta(nodeType)` -- `DELETE /v1/dag/cost-meta/:nodeType`.
+- `validateCostMetaFormula(input)` -- `POST /v1/dag/cost-meta/validate`.
+- `previewCostMetaFormula(input)` -- `POST /v1/dag/cost-meta/preview`.
 
 Binary asset content is intentionally not fetched or buffered by `DagOrchestrationHttpClient`.
 CLI/MCP consumers may use `getAssetContentDownloadInfo()` to locate the streaming endpoint, then
@@ -125,14 +127,19 @@ own their transport-specific byte handling and output formatting.
 ## Error Taxonomy
 
 Server-originated errors are represented structurally as `IOrchestrationProblemDetails`. The canonical server-side `IProblemDetails` mapping remains owned by `@robota-sdk/dag-api`; this package keeps only the structural client-facing payload shape needed by operational clients.
+Cost metadata responses are decoded at the HTTP boundary. Malformed success data returns
+`DAG_COST_META_INVALID_RESPONSE`; recognized `DAG_COST_META_*` and `CEL_*` problem codes are
+preserved, and missing/invalid/unsupported HTTP statuses map to domain codes when the problem
+has no recognized code. An unsupported capability is non-retryable.
 
 ## Class Contract Registry
 
 ### Interface Implementations
 
-| Interface               | Implementor                  | Kind       | Location                           |
-| ----------------------- | ---------------------------- | ---------- | ---------------------------------- |
-| `IDagOrchestrationPort` | `DagOrchestrationHttpClient` | production | `src/orchestration-http-client.ts` |
+| Interface                 | Implementor                  | Kind       | Location                           |
+| ------------------------- | ---------------------------- | ---------- | ---------------------------------- |
+| `IDagOrchestrationPort`   | `DagOrchestrationHttpClient` | production | `src/orchestration-http-client.ts` |
+| `ICostMetaOperationsPort` | `DagOrchestrationHttpClient` | production | `src/orchestration-http-client.ts` |
 
 ### Inheritance Chains
 

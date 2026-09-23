@@ -87,15 +87,15 @@ describe('listNodes', () => {
   });
 });
 
-describe('cost-meta (not implemented)', () => {
-  it('listCostMeta returns 501', async () => {
-    const res = await framework.client.listCostMeta();
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+describe('cost-meta capability', () => {
+  it('reports unsupported as a domain result, not an HTTP envelope', async () => {
+    const res = await framework.costMeta.listCostMeta();
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
+    expect(res).not.toHaveProperty('status');
   });
 
   it('createCostMeta returns 501', async () => {
-    const res = await framework.client.createCostMeta({
+    const res = await framework.costMeta.createCostMeta({
       nodeType: 'input',
       displayName: 'Input',
       category: 'transform',
@@ -104,8 +104,7 @@ describe('cost-meta (not implemented)', () => {
       enabled: true,
       updatedAt: new Date().toISOString(),
     });
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
   });
 });
 
@@ -172,15 +171,14 @@ describe('validateDefinition', () => {
   });
 });
 
-describe('cost-meta not-implemented stubs', () => {
-  it('getCostMeta returns 501', async () => {
-    const res = await framework.client.getCostMeta('input');
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+describe('cost-meta unsupported operations', () => {
+  it('getCostMeta reports an unsupported domain result', async () => {
+    const res = await framework.costMeta.getCostMeta('input');
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
   });
 
-  it('updateCostMeta returns 501', async () => {
-    const res = await framework.client.updateCostMeta('input', {
+  it('updateCostMeta reports an unsupported domain result', async () => {
+    const res = await framework.costMeta.updateCostMeta('input', {
       nodeType: 'input',
       displayName: 'Input',
       category: 'transform',
@@ -189,31 +187,27 @@ describe('cost-meta not-implemented stubs', () => {
       enabled: true,
       updatedAt: new Date().toISOString(),
     });
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
   });
 
-  it('deleteCostMeta returns 501', async () => {
-    const res = await framework.client.deleteCostMeta('input');
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+  it('deleteCostMeta reports an unsupported domain result', async () => {
+    const res = await framework.costMeta.deleteCostMeta('input');
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
   });
 
-  it('validateCostMetaFormula returns 501', async () => {
-    const res = await framework.client.validateCostMetaFormula({
+  it('validateCostMetaFormula reports an unsupported domain result', async () => {
+    const res = await framework.costMeta.validateCostMetaFormula({
       formula: '0',
     });
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
   });
 
-  it('previewCostMetaFormula returns 501', async () => {
-    const res = await framework.client.previewCostMetaFormula({
+  it('previewCostMetaFormula reports an unsupported domain result', async () => {
+    const res = await framework.costMeta.previewCostMetaFormula({
       formula: '0',
       testContext: {},
     });
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(501);
+    expect(res).toMatchObject({ ok: false, error: { code: 'DAG_COST_META_UNSUPPORTED' } });
   });
 });
 

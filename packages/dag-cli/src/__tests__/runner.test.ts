@@ -152,7 +152,7 @@ function createOptions(responses: readonly IFakeResponsePayload[]): IDagCliRunOp
       const response = responses[responseIndex] ?? { ok: true, status: 200 };
       responseIndex += 1;
       return new Response(JSON.stringify(response), {
-        status: typeof response.ok === 'boolean' && response.ok ? 200 : 400,
+        status: response.status ?? (response.ok ? 200 : 400),
         headers: { 'content-type': 'application/json' },
       });
     },
@@ -390,13 +390,13 @@ describe('runDagCli', () => {
       previewExit,
     ]).toEqual([0, 0, 0, 0, 0, 0, 0]);
     expect(options.requests.map((request) => [request.init.method, request.url])).toEqual([
-      ['GET', `${TEST_SERVER_URL}/v1/cost-meta`],
-      ['GET', `${TEST_SERVER_URL}/v1/cost-meta/llm%20text%20openai`],
-      ['POST', `${TEST_SERVER_URL}/v1/cost-meta`],
-      ['PUT', `${TEST_SERVER_URL}/v1/cost-meta/llm%20text%20openai`],
-      ['DELETE', `${TEST_SERVER_URL}/v1/cost-meta/llm%20text%20openai`],
-      ['POST', `${TEST_SERVER_URL}/v1/cost-meta/validate`],
-      ['POST', `${TEST_SERVER_URL}/v1/cost-meta/preview`],
+      ['GET', `${TEST_SERVER_URL}/v1/dag/cost-meta`],
+      ['GET', `${TEST_SERVER_URL}/v1/dag/cost-meta/llm%20text%20openai`],
+      ['POST', `${TEST_SERVER_URL}/v1/dag/cost-meta`],
+      ['PUT', `${TEST_SERVER_URL}/v1/dag/cost-meta/llm%20text%20openai`],
+      ['DELETE', `${TEST_SERVER_URL}/v1/dag/cost-meta/llm%20text%20openai`],
+      ['POST', `${TEST_SERVER_URL}/v1/dag/cost-meta/validate`],
+      ['POST', `${TEST_SERVER_URL}/v1/dag/cost-meta/preview`],
     ]);
     expect(JSON.parse(String(options.requests[2]?.init.body))).toEqual(meta);
     expect(JSON.parse(String(options.requests[3]?.init.body))).toEqual(meta);
@@ -419,6 +419,25 @@ describe('runDagCli', () => {
       ok: false,
       status: 2,
       errors: [{ code: 'DAG_CLI_USAGE_ERROR' }],
+    });
+  });
+
+  it('reports an unavailable cost capability without a successful output envelope', async () => {
+    const options = createOptions([
+      {
+        ok: false,
+        status: 501,
+        errors: [{ detail: 'Cost metadata is not wired.' }],
+      },
+    ]);
+
+    const exitCode = await runDagCli(['cost-meta', 'list'], options);
+
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(options.output.join(''))).toMatchObject({
+      ok: false,
+      status: 501,
+      errors: [{ code: 'DAG_COST_META_UNSUPPORTED' }],
     });
   });
 });

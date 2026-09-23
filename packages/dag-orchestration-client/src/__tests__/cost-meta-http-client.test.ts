@@ -13,6 +13,7 @@ interface IFakePayload {
   readonly ok?: boolean;
   readonly status?: number;
   readonly data?: object;
+  readonly errors?: readonly { readonly detail: string; readonly code?: string }[];
 }
 
 function createClient(responses: readonly IFakePayload[]): {
@@ -59,18 +60,18 @@ describe('DagOrchestrationHttpClient cost meta endpoints', () => {
       { ok: true, status: 200, data: { nodeType: meta.nodeType } },
     ]);
 
-    await client.listCostMeta();
-    await client.getCostMeta(meta.nodeType);
+    expect(await client.listCostMeta()).toEqual({ ok: true, value: [meta] });
+    expect(await client.getCostMeta(meta.nodeType)).toEqual({ ok: true, value: meta });
     await client.createCostMeta(meta);
     await client.updateCostMeta(meta.nodeType, meta);
     await client.deleteCostMeta(meta.nodeType);
 
     expect(requests.map((request) => request.url)).toEqual([
-      `${TEST_SERVER_URL}/v1/cost-meta`,
-      `${TEST_SERVER_URL}/v1/cost-meta/llm%20text%20openai`,
-      `${TEST_SERVER_URL}/v1/cost-meta`,
-      `${TEST_SERVER_URL}/v1/cost-meta/llm%20text%20openai`,
-      `${TEST_SERVER_URL}/v1/cost-meta/llm%20text%20openai`,
+      `${TEST_SERVER_URL}/v1/dag/cost-meta`,
+      `${TEST_SERVER_URL}/v1/dag/cost-meta/llm%20text%20openai`,
+      `${TEST_SERVER_URL}/v1/dag/cost-meta`,
+      `${TEST_SERVER_URL}/v1/dag/cost-meta/llm%20text%20openai`,
+      `${TEST_SERVER_URL}/v1/dag/cost-meta/llm%20text%20openai`,
     ]);
     expect(requests.map((request) => request.init.method)).toEqual([
       'GET',
@@ -96,10 +97,10 @@ describe('DagOrchestrationHttpClient cost meta endpoints', () => {
       testContext: { duration: 10 },
     });
 
-    expect(previewResult.ok).toBe(true);
+    expect(previewResult).toEqual({ ok: true, value: 18 });
     expect(requests.map((request) => request.url)).toEqual([
-      `${TEST_SERVER_URL}/v1/cost-meta/validate`,
-      `${TEST_SERVER_URL}/v1/cost-meta/preview`,
+      `${TEST_SERVER_URL}/v1/dag/cost-meta/validate`,
+      `${TEST_SERVER_URL}/v1/dag/cost-meta/preview`,
     ]);
     expect(requests.map((request) => request.init.method)).toEqual(['POST', 'POST']);
     expect(JSON.parse(String(requests[0]?.init.body))).toEqual({ formula: 'a + b' });
@@ -107,6 +108,60 @@ describe('DagOrchestrationHttpClient cost meta endpoints', () => {
       formula: 'baseCost + duration * perSec',
       variables: { baseCost: 8, perSec: 1 },
       testContext: { duration: 10 },
+    });
+  });
+
+  it('rejects malformed successful payloads at the HTTP boundary', async () => {
+    const { client } = createClient([{ ok: true, status: 200, data: { items: [null] } }]);
+    expect(await client.listCostMeta()).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_COST_META_INVALID_RESPONSE' },
+    });
+  });
+
+  it('maps an unavailable server capability to a typed domain error', async () => {
+    const { client } = createClient([
+      {
+        ok: false,
+        status: 501,
+        errors: [{ detail: 'Cost metadata is not wired.' }],
+      },
+    ]);
+    expect(await client.listCostMeta()).toMatchObject({
+      ok: false,
+      error: {
+        code: 'DAG_COST_META_UNSUPPORTED',
+        message: 'Cost metadata is not wired.',
+        retryable: false,
+      },
+    });
+  });
+
+  it('preserves a cost-domain problem code from the server', async () => {
+    const { client } = createClient([
+      {
+        ok: false,
+        status: 400,
+        errors: [{ code: 'CEL_EVAL_ERROR', detail: 'Unknown variable.' }],
+      },
+    ]);
+    expect(await client.previewCostMetaFormula({ formula: 'missing + 1' })).toMatchObject({
+      ok: false,
+      error: { code: 'CEL_EVAL_ERROR', message: 'Unknown variable.' },
+    });
+  });
+
+  it('rejects empty required cost metadata fields from an untrusted response', async () => {
+    const { client } = createClient([
+      {
+        ok: true,
+        status: 200,
+        data: { meta: { ...createCostMeta(), nodeType: '' } },
+      },
+    ]);
+    expect(await client.getCostMeta('input')).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_COST_META_INVALID_RESPONSE' },
     });
   });
 });

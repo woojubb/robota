@@ -450,6 +450,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../packages/dag-core
+      '@robota-sdk/dag-cost':
+        specifier: workspace:*
+        version: link:../../packages/dag-cost
       '@robota-sdk/dag-framework':
         specifier: workspace:*
         version: link:../../packages/dag-framework
@@ -2685,6 +2688,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../dag-core
+      '@robota-sdk/dag-cost':
+        specifier: workspace:*
+        version: link:../dag-cost
       '@robota-sdk/dag-framework':
         specifier: workspace:*
         version: link:../dag-framework

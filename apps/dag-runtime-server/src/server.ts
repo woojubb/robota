@@ -27,6 +27,7 @@ export async function startDagRuntimeServer(
   await framework.start();
   const app = createDagRuntimeServer(
     framework.client,
+    framework.costMeta,
     framework.internals.execution.runProgressEventBus,
   );
   const server = serve({ fetch: app.fetch, port });

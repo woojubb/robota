@@ -8,7 +8,7 @@ Local-first command-line workflow tool for building, running, and inspecting Rob
 
 The private internal CLI requires Node.js 22.14 or later for its `node:sqlite` local run history.
 
-- Does not own DAG domain contracts. Those belong to `@robota-sdk/dag-core`.
+- Does not own DAG domain contracts. Cost management is owned by `@robota-sdk/dag-cost`; other domain contracts belong to `@robota-sdk/dag-core`.
 - Does not own operational HTTP client contracts. Those belong to `@robota-sdk/dag-orchestration-client`.
 - Does not own server-side API problem detail mapping. That belongs to `@robota-sdk/dag-api`.
 - Does not import or extend `@robota-sdk/agent-cli`; the agent TUI remains a separate thin UI.
@@ -117,7 +117,10 @@ proxies the orchestration command groups to a compatible DAG orchestration HTTP 
 - `run-drafts create|get|replace|reset|overwrite`
 - `workflows start <dagId> [--version <version>] [--json <json|@file>]`
 
-Output is JSON. Success responses are printed as returned by the server. CLI validation failures use a JSON envelope with `ok: false`, `status: 2`, and a single problem entry.
+Output is JSON. Non-cost success responses are printed as returned by the server. Cost metadata
+commands consume the typed `ICostMetaOperationsPort` result and render a consistent JSON success
+or failure envelope; they do not inspect transport envelopes. CLI argument validation failures
+use `ok: false`, `status: 2`, and one problem entry.
 
 ## Workspace (FLOW-007)
 
@@ -157,6 +160,7 @@ Imported from other packages:
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload`, `IDagNodeDefinition`, `LifecycleTaskExecutorPort`, `IWorkspaceLayout` from `@robota-sdk/dag-core`
 - `parsePersistedInstantNode`, `rehydrateInstantNode` from `@robota-sdk/dag-node-instant-node` (instant-node reload, DATA-004)
 - `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, asset request aliases, cost metadata request aliases, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
+- `ICostMetaOperationsPort`, `ICostMeta`, and formula input types from `@robota-sdk/dag-cost`
 - `IDagExecutionComposition`, `IRuntimeRunProgressEventBusPort` from `@robota-sdk/dag-api`
 - `createExecutionComposition` (in-process run composition), `scanWorkspaceCatalog`, `HttpDagRuntimeProvider`, `LocalDagRuntimeProvider` from `@robota-sdk/dag-framework`
 - `createDefaultNodeRegistrySync` (default node catalog) from `@robota-sdk/dag-nodes-default`

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createDagFramework } from '@robota-sdk/dag-framework';
+import { DagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
+import type { ICostMetaOperationsPort } from '@robota-sdk/dag-cost';
 
 import { createDagRuntimeServer } from '../app.js';
 
@@ -16,7 +18,7 @@ describe('dag-runtime-server contract', () => {
   beforeEach(async () => {
     framework = await createDagFramework();
     await framework.start();
-    app = createDagRuntimeServer(framework.client);
+    app = createDagRuntimeServer(framework.client, framework.costMeta);
   });
 
   afterEach(async () => {
@@ -37,11 +39,80 @@ describe('dag-runtime-server contract', () => {
     expect(payload).toBeDefined();
   });
 
-  it('GET /v1/dag/cost-meta is wired to the port (route exists; port may return 501)', async () => {
+  it('GET /v1/dag/cost-meta maps explicit unsupported capability to 501', async () => {
     const res = await app.request('/v1/dag/cost-meta');
-    // The route reaches the port (not a 404). The in-process framework may not
-    // implement cost-meta and can answer 501 — that is the port's response, forwarded verbatim.
-    expect(res.status).not.toBe(404);
+    expect(res.status).toBe(501);
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      errors: [{ code: 'DAG_COST_META_UNSUPPORTED' }],
+    });
+  });
+
+  it('round-trips cost capability unavailability through the HTTP client', async () => {
+    const client = new DagOrchestrationHttpClient({
+      baseUrl: 'http://dag.test',
+      fetch: async (url, init) => app.request(url, init),
+    });
+    expect(await client.listCostMeta()).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_COST_META_UNSUPPORTED' },
+    });
+  });
+
+  it('maps a supported cost capability result to the existing HTTP response shape', async () => {
+    const costMeta = Object.create(framework.costMeta) as ICostMetaOperationsPort;
+    costMeta.listCostMeta = async () => ({ ok: true, value: [] });
+    const supportedApp = createDagRuntimeServer(framework.client, costMeta);
+
+    const res = await supportedApp.request('/v1/dag/cost-meta');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, status: 200, data: { items: [] } });
+  });
+
+  it('does not expose internal cost failures in a 500 response', async () => {
+    const costMeta = Object.create(framework.costMeta) as ICostMetaOperationsPort;
+    costMeta.listCostMeta = async () => ({
+      ok: false,
+      error: {
+        code: 'DAG_COST_META_INTERNAL',
+        category: 'task_execution',
+        message: 'storage failed at /private/secret.json',
+        retryable: false,
+      },
+    });
+    const failingApp = createDagRuntimeServer(framework.client, costMeta);
+
+    const res = await failingApp.request('/v1/dag/cost-meta');
+    expect(res.status).toBe(500);
+    expect(JSON.stringify(await res.json())).not.toContain('/private/secret.json');
+  });
+
+  it('rejects invalid cost metadata JSON before invoking the capability', async () => {
+    const res = await app.request('/v1/dag/cost-meta', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{bad',
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ errors: [{ code: 'DAG_COST_META_INVALID' }] });
+  });
+
+  it('rejects a cost metadata update whose body node type disagrees with the path', async () => {
+    const res = await app.request('/v1/dag/cost-meta/input', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        nodeType: 'output',
+        displayName: 'Output',
+        category: 'transform',
+        estimateFormula: '0',
+        variables: {},
+        enabled: true,
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ errors: [{ code: 'DAG_COST_META_INVALID' }] });
   });
 
   it('GET /v1/dag/assets/:id/content returns a download descriptor (no binary in the port)', async () => {
@@ -88,7 +159,7 @@ describe('dag-runtime-server SSE progress stream', () => {
         return () => undefined;
       },
     };
-    const app = createDagRuntimeServer({} as never, source);
+    const app = createDagRuntimeServer({} as never, {} as never, source);
 
     const res = await app.request('/v1/dag/runs/run-1/events');
     expect(res.status).toBe(200);
@@ -119,7 +190,7 @@ describe('dag-runtime-server SSE progress stream', () => {
         return () => undefined;
       },
     };
-    const app = createDagRuntimeServer({} as never, source);
+    const app = createDagRuntimeServer({} as never, {} as never, source);
     const body = await (await app.request('/v1/dag/runs/run-1/events')).text();
     expect(body).not.toContain('other-run');
     expect(body).toContain('event: execution.completed');

@@ -3,23 +3,26 @@
 ## Scope
 
 Native DAG runtime HTTP server (WORKFLOW-002). Serves an in-process DAG framework's
-`IDagOrchestrationPort` over the `/v1/dag/*` route surface using Hono. Owns the route → port-method
+`IDagOrchestrationPort` and a separate cost capability over the `/v1/dag/*` route surface using Hono. Owns the route → port-method
 mapping and the server entrypoint.
 
 ## Boundaries
 
 - Does NOT own DAG domain logic — that belongs to `@robota-sdk/dag-framework` / the DAG subsystem.
-- Does NOT own the orchestration contract — that is `IDagOrchestrationPort`
-  (`@robota-sdk/dag-orchestration-client`); this app exposes it over HTTP.
+- Does NOT own the orchestration or cost contracts — they belong to
+  `@robota-sdk/dag-orchestration-client` and `@robota-sdk/dag-cost`; this app exposes them over HTTP.
 - Carries NO external-runtime API surface or compatibility layer/wrapper. External-runtime
   compatibility is out of scope here; any such adapter lives in a separate source repository.
 
 ## Architecture Overview
 
-`createDagRuntimeServer(port)` returns a Hono app. Every `/v1/dag/*` handler is a uniform mapping:
+`createDagRuntimeServer(port, costMeta, progressSource?)` returns a Hono app. Non-cost `/v1/dag/*` handlers map:
 parse path/query/body → call the matching `IDagOrchestrationPort` method → return
 `c.json(response.payload, response.status)` (every port method returns a uniform
-`IDagOrchestrationHttpResponse`). `startDagRuntimeServer()` captures the server process working
+`IDagOrchestrationHttpResponse`). Cost metadata routes instead map a separate
+`ICostMetaOperationsPort` domain result to HTTP success/problem responses; an unwired cost
+capability maps to 501 and never masquerades as a successful operation.
+`startDagRuntimeServer()` captures the server process working
 directory as the trusted DAG execution root, passes it explicitly to `createDagFramework()`, starts
 the worker loop, and serves the app via `@hono/node-server`.
 
@@ -83,8 +86,14 @@ New routes are added by mapping a path to a port method in `createDagRuntimeServ
 
 ## Error Taxonomy
 
-Port methods return `IDagOrchestrationHttpResponse` with an HTTP `status`; the handler forwards
-`status` + `payload` verbatim. The server adds no fallback behavior.
+Non-cost port methods return `IDagOrchestrationHttpResponse` with an HTTP `status`; the handler
+forwards `status` + `payload` verbatim. Cost handlers validate their input and map typed domain
+results: unsupported → 501, missing → 404, invalid → 400, success → 200/201.
+Unexpected cost failures map to 500 with a generic detail so internal paths and storage errors
+are not exposed. Problem details remain inside the API's existing `errors` envelope.
+The current in-process composition returns `DAG_COST_META_UNSUPPORTED` for all seven cost routes;
+this is an explicit 501, not a fabricated successful response. The other 4xx cost codes are
+`DAG_COST_META_NOT_FOUND` and `DAG_COST_META_INVALID`; recognized `CEL_*` failures map to 400.
 
 ## Test Strategy
 
@@ -110,4 +119,5 @@ None.
 | Owner                                              | Consumer       | Location        |
 | -------------------------------------------------- | -------------- | --------------- |
 | `dag-orchestration-client` `IDagOrchestrationPort` | route handlers | `src/app.ts`    |
+| `dag-cost` `ICostMetaOperationsPort`               | cost routes    | `src/app.ts`    |
 | `dag-framework` `createDagFramework`               | server entry   | `src/server.ts` |
