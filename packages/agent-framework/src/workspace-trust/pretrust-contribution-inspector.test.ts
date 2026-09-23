@@ -5,10 +5,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  createNodeWorkspaceIdentityResolver,
-  inspectPreTrustProjectPaths,
-} from './index.js';
+import { createNodeWorkspaceIdentityResolver, inspectPreTrustProjectPaths } from './index.js';
 
 const roots: string[] = [];
 
@@ -42,9 +39,18 @@ describe('pre-trust project contribution inspection', () => {
         '.agents/agents',
       ]),
     ).toEqual([
-      { relativePath: '.robota/settings.json', kind: 'file' },
-      { relativePath: '.robota/skills', kind: 'absent' },
-      { relativePath: '.robota/plugins', kind: 'link' },
+      {
+        relativePath: '.robota/settings.json',
+        kind: process.platform === 'linux' ? 'file' : 'unavailable',
+      },
+      {
+        relativePath: '.robota/skills',
+        kind: process.platform === 'linux' ? 'absent' : 'unavailable',
+      },
+      {
+        relativePath: '.robota/plugins',
+        kind: process.platform === 'linux' ? 'link' : 'unavailable',
+      },
       { relativePath: '.agents/agents', kind: 'unavailable' },
     ]);
   });
@@ -55,10 +61,25 @@ describe('pre-trust project contribution inspection', () => {
     const identity = createNodeWorkspaceIdentityResolver().resolve(project);
 
     expect(
-      inspectPreTrustProjectPaths(
-        { ...identity, repositoryKey: 'different-repository' },
-        ['.robota/settings.json'],
-      ),
+      inspectPreTrustProjectPaths({ ...identity, repositoryKey: 'different-repository' }, [
+        '.robota/settings.json',
+      ]),
     ).toEqual([{ relativePath: '.robota/settings.json', kind: 'unavailable' }]);
+  });
+
+  it('does not inspect project path metadata on platforms without a stable no-follow walk', () => {
+    const project = temporaryDirectory();
+    execFileSync('git', ['init', '--quiet', project]);
+    writeFileSync(join(project, 'package.json'), '{}');
+    const identity = createNodeWorkspaceIdentityResolver().resolve(project);
+    const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
+    Object.defineProperty(process, 'platform', { ...original, value: 'darwin' });
+    try {
+      expect(inspectPreTrustProjectPaths(identity, ['package.json'])).toEqual([
+        { relativePath: 'package.json', kind: 'unavailable' },
+      ]);
+    } finally {
+      Object.defineProperty(process, 'platform', original);
+    }
   });
 });

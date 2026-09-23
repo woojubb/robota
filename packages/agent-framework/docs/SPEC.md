@@ -123,12 +123,13 @@ generation, grantedAt }` in the user's owner-only `~/.robota/workspace-trust.jso
   Non-Git or unavailable identities remain
   Restricted. Store parse/I/O failures fail closed rather than falling back to project bytes.
 - **Owner-derived pre-trust source preview (ARCH-046)**: `listFrameworkProjectContributionPaths()`
-  derives candidate settings, skills, agents, context, task, state, and plugin paths from constants
+  derives candidate settings, skills, agents, project-detection metadata, context, task, state, and plugin paths from constants
   their owners use to load or store those sources. `inspectPreTrustProjectPaths()` checks only
-  metadata under a revalidated Git identity, using no-follow path walks without issuing a project
-  content reader or granting authority. A linked ancestor or changed identity is reported as
-  unavailable; a linked final entry is reported as a link. Product-owned paths extend the list at
-  the CLI boundary.
+  metadata under a revalidated Git identity, using a stable no-follow handle walk on Linux without
+  issuing a project content reader or granting authority. A linked ancestor or changed identity is
+  reported as unavailable; a linked final entry is reported as a link. Other platforms report
+  candidate names with unavailable metadata because a safe stable path walk is not available.
+  Product-owned paths extend the list at the CLI boundary.
 - **Provider endpoint/credential ownership (SECURITY-2465)**: settings-layer merges preserve the most
   restrictive `defaultTrustLevel`, union `permissions.deny`, and remove inherited `apiKey`/`apiKeyEnv`
   fields when a later layer changes `baseURL` without supplying its own credential. Provider profiles

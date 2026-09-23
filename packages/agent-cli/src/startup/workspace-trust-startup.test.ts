@@ -119,6 +119,12 @@ describe('CLI workspace trust admission', () => {
     expect(output).toContain('CLAUDE.md');
     expect(output).toContain('.robota/output-styles');
     expect(output).toContain('.robota/budget.json');
+    expect(output).toContain('package.json');
+    expect(output).toContain('tsconfig.json');
+    expect(output).toContain('pnpm-lock.yaml');
+    expect(output).toContain('pyproject.toml');
+    expect(output).toContain('Cargo.toml');
+    expect(output).toContain('go.mod');
     expect(output).not.toContain('secret-value-never-print');
   });
 

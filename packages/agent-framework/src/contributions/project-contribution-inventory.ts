@@ -4,6 +4,7 @@ import { AGENT_ROOTS } from '../agents/agent-definition-loader.js';
 import { SKILL_ROOTS } from '../commands/skill-source.js';
 import { PROJECT_SETTINGS } from '../config/settings-source.js';
 import { AGENTS_FILENAME, CLAUDE_FILENAME } from '../context/context-loader.js';
+import { PROJECT_DETECTOR_PATHS } from '../context/project-detector.js';
 import { TASKS_DIR } from '../context/task-context.js';
 import { PROJECT_PLUGIN_RELATIVE_DIRECTORY } from '../plugins/plugin-scope-paths.js';
 import { NAMESPACE_DIRECTORIES } from '../workspace-trust/project-state-storage.js';
@@ -51,6 +52,12 @@ export function listFrameworkProjectContributionPaths(
     ...PROJECT_SETTINGS.map(({ relativePath }) => ({
       id: `settings:${relativePath}`,
       label: 'Project settings and hooks',
+      relativePath,
+      expectedKind: 'file' as const,
+    })),
+    ...Object.values(PROJECT_DETECTOR_PATHS).map((relativePath) => ({
+      id: `project-detection:${relativePath}`,
+      label: 'Project detection metadata',
       relativePath,
       expectedKind: 'file' as const,
     })),

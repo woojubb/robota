@@ -1,7 +1,6 @@
 import { createNodeWorkspaceIdentityResolver } from './node-host-workspace-trust.js';
 import { inspectProjectKindFromHandle } from './project-reader-handle.js';
 import { workspacePathSegments } from './project-reader-path.js';
-import { inspectPortableProjectKind } from './project-reader-portable.js';
 
 import type { IWorkspaceIdentity, TWorkspaceContributionKind } from './types.js';
 
@@ -21,14 +20,16 @@ export function inspectPreTrustProjectPaths(
   identity: IWorkspaceIdentity,
   relativePaths: readonly string[],
 ): readonly IPreTrustProjectPathInspection[] {
+  // Portable path inspection cannot pin ancestors during a metadata lookup. Keep the
+  // candidate names visible, but make no metadata claim without Linux's handle walk.
+  if (process.platform !== 'linux') {
+    return relativePaths.map((relativePath) => ({ relativePath, kind: 'unavailable' }));
+  }
   const identityResolver = createNodeWorkspaceIdentityResolver();
   return relativePaths.map((relativePath) => {
     try {
       const segments = workspacePathSegments(relativePath);
-      const kind =
-        process.platform === 'linux'
-          ? inspectProjectKindFromHandle(identity, identityResolver, segments)
-          : inspectPortableProjectKind(identity, identityResolver, segments);
+      const kind = inspectProjectKindFromHandle(identity, identityResolver, segments);
       return { relativePath, kind: kind ?? 'absent' };
     } catch {
       // A symlinked ancestor, changed identity, or inaccessible path cannot be described safely.

@@ -519,8 +519,10 @@ settings, hooks, plugins, skills, context, provider overrides, or project state.
 
 - `robota trust status` inspects the canonical current workspace and previews candidate project
   sources using metadata only. Each path comes from the loader or state owner's path definition;
-  inspection never follows links or reads file content. Absent and unsafe paths remain visible as
-  such. Ancestor instruction and output-style paths reflect the current directory; task context
+  inspection never follows links or reads file content. Linux reports safe metadata; other platforms
+  list candidate names with unavailable metadata. Absent and unsafe paths remain visible as
+  such where safely distinguishable. Automatic project-detection inputs include package manifests,
+  lockfiles, and language configuration. Ancestor instruction and output-style paths reflect the current directory; task context
   shows its default path because trusted settings can replace it later.
 - `robota trust --yes` (equivalent to `robota trust grant --yes`) records an explicit grant.
 - `robota trust revoke --yes` increments the identity generation and invalidates previously issued
