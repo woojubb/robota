@@ -196,6 +196,24 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
     expect(notes).toHaveLength(0);
   });
 
+  it('does not report a skipped pre-eligibility slot as a missed loop wake on resume', () => {
+    const nowMs = Date.now();
+    const record = sleepingScheduledRecord(new Date(nowMs - 60_000).toISOString());
+    const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
+    tasks[0]!['metadata'] = {
+      sessionLoop: true,
+      sessionLoopId: 'loop_first_window',
+      sessionLoopFirstAllowedAt: new Date(nowMs + 5 * 60_000).toISOString(),
+      sessionLoopExpiresAt: new Date(nowMs + 5 * 24 * 60 * 60_000).toISOString(),
+    };
+
+    const { session } = setupWithRecord(record);
+    const notes = history(session).filter((entry) =>
+      JSON.stringify(entry).includes('Missed scheduled wake'),
+    );
+    expect(notes).toHaveLength(0);
+  });
+
   it('retains a loop identity marker when a restored schedule receives a new runtime id', () => {
     const record = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
     const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;

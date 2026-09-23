@@ -30,6 +30,7 @@ import {
 import {
   sessionLoopBlockReason,
   sessionLoopExpiry,
+  sessionLoopFirstWakeEligibility,
   validatedSessionLoopExpiry,
 } from './session-loop-lifecycle.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
@@ -616,27 +617,21 @@ export class InteractiveSession
       );
       return false;
     }
-    if (task?.metadata?.['sessionLoop'] === true) {
-      const firstAllowedAt = task.metadata['sessionLoopFirstAllowedAt'];
-      if (firstAllowedAt !== undefined) {
-        const firstAllowedMs =
-          typeof firstAllowedAt === 'string' ? Date.parse(firstAllowedAt) : NaN;
-        if (!Number.isFinite(firstAllowedMs)) {
-          this.stoppedWakeTaskIds.add(sourceTaskId);
-          void this.cancelBackgroundTask(
-            sourceTaskId,
-            'Invalid session loop first-fire boundary',
-          ).catch((error) =>
-            this.reportBackgroundError(
-              error instanceof Error ? error : new Error(String(error)),
-              'session-loop',
-            ),
-          );
-          return false;
-        }
-        if (Date.now() < firstAllowedMs) return false;
-      }
+    const firstWakeEligibility = sessionLoopFirstWakeEligibility(task, Date.now());
+    if (firstWakeEligibility === 'invalid') {
+      this.stoppedWakeTaskIds.add(sourceTaskId);
+      void this.cancelBackgroundTask(
+        sourceTaskId,
+        'Invalid session loop first-fire boundary',
+      ).catch((error) =>
+        this.reportBackgroundError(
+          error instanceof Error ? error : new Error(String(error)),
+          'session-loop',
+        ),
+      );
+      return false;
     }
+    if (firstWakeEligibility === 'early') return false;
     if (this.stoppedWakeTaskIds.has(sourceTaskId)) return false;
     if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return false;
     this.execCtrl.wakeTaskIds.add(sourceTaskId);

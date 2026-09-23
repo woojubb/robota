@@ -6,7 +6,11 @@
 
 import { createSourceUsageSummaryEntry } from './interactive-session-execution.js';
 import { isReArmableScheduledTask } from './schedule-rearm.js';
-import { sessionLoopBlockReason, sessionLoopExpiry } from './session-loop-lifecycle.js';
+import {
+  sessionLoopBlockReason,
+  sessionLoopExpiry,
+  sessionLoopFirstWakeEligibility,
+} from './session-loop-lifecycle.js';
 import {
   BackgroundJobOrchestrator,
   createBackgroundGroupExecutionEntryId,
@@ -120,7 +124,8 @@ export class SessionBackgroundTaskTracker {
       if (
         task.status === 'sleeping' &&
         task.nextFireAt !== undefined &&
-        new Date(task.nextFireAt).getTime() < nowMs
+        new Date(task.nextFireAt).getTime() < nowMs &&
+        sessionLoopFirstWakeEligibility(task, new Date(task.nextFireAt).getTime()) === 'eligible'
       ) {
         this.appendSystemNote?.(
           `Missed scheduled wake "${task.label}" (was due ${task.nextFireAt} while the session was closed); re-arming.`,
