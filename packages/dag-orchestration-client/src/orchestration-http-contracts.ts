@@ -196,7 +196,6 @@ export interface IDagOrchestrationPort {
   updateDraft(input: IDagOrchestrationUpdateDraftInput): Promise<IDagOrchestrationHttpResponse>;
   validateDefinition(dagId: string, version: number): Promise<IDagOrchestrationHttpResponse>;
   publishDefinition(dagId: string, version?: number): Promise<IDagOrchestrationHttpResponse>;
-  listNodes(): Promise<IDagOrchestrationHttpResponse>;
   createRun(input: IDagOrchestrationCreateRunInput): Promise<IDagOrchestrationHttpResponse>;
   startRun(preparationId: string): Promise<IDagOrchestrationHttpResponse>;
   getRunStatus(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
