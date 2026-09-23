@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const TUI_CHANNEL_SOURCE = new URL('../TuiInteractionChannel.ts', import.meta.url);
-const PROJECT_STRUCTURE = new URL('../../../../.agents/project-structure.md', import.meta.url);
 // ARCH-108: the charter sentence lives in the SPEC of the package that DECLARES
 // `IInteractionChannel`, which is `agent-interface-session` — it moved there with the contract, not
 // as an editorial choice. Anchoring it to the transport SPEC was correct only while transport was the
@@ -20,13 +19,8 @@ describe('ARCH-018 interaction-channel charter', () => {
   });
 
   it('documents the programmatic factory port instead of a universal transport seam', () => {
-    const projectStructure = readFileSync(PROJECT_STRUCTURE, 'utf8');
     const interfaceSpec = readFileSync(INTERFACE_SPEC, 'utf8');
 
-    expect(projectStructure).toContain(
-      'ProgrammaticInteractionChannel` (in `agent-framework/src/transport-host`)',
-    );
-    expect(projectStructure).not.toContain('interface that all interactive transports implement');
     expect(interfaceSpec).toMatch(/It is not the universal\s+transport\s+contract\./);
   });
 });

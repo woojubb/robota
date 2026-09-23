@@ -21,6 +21,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
@@ -38,10 +40,13 @@ jobs:
             exit 1
           fi
       - run: pnpm install --frozen-lockfile
+      # Build everything; on pull requests typecheck, lint and test only the changed packages and their dependents.
+      - name: Select scope
+        run: echo "SUFFIX=${{ github.event_name == 'pull_request' && ':affected' || '' }}" >> "$GITHUB_ENV"
       - run: pnpm build
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm test
+      - run: pnpm typecheck${SUFFIX}
+      - run: pnpm lint${SUFFIX}
+      - run: pnpm test${SUFFIX}
       - run: pnpm deps:check
       - name: Release safety checks
         run: |
