@@ -31,8 +31,9 @@ Preserve and deliver the independently verifiable outcome of [issue #2532](https
       composition. No second resolver, catalog, trust engine, client, or served runtime was added.
 - [x] Add a deterministic headless scenario: an embedding host approves a user MCP definition through
       the canonical control plane, then starts the normal CLI product session. The external MCP host
-      invokes `robota_submit`, its agent turn invokes discovered `probe__echo`, and `Read` still works
-      after the outbound MCP server disconnects. Existing stdio cases cover denied tools, untrusted
+      invokes `robota_submit`, its agent turn invokes discovered `probe__echo`, the tool arguments
+      and returned value are checked, a later outbound failure is surfaced, and `Read` still works.
+      Closing the host carrier also closes the outbound event stream. Existing stdio cases cover denied tools, untrusted
       workspaces, invalid startup and signal shutdown.
 - [x] Update the CLI SPEC and README. Focused typecheck, 24 MCP startup/composition tests, five
       MCP stdio execution cases, dependency direction and agent-server boundary scans passed.
@@ -49,6 +50,7 @@ Execute the source Issue's operator-observable workflow from a clean fixture wit
 `pnpm --filter @robota-sdk/agent-cli exec vitest run --config vitest.bin.config.ts src/__tests__/e2e/mcp-stdio.bintest.ts`.
 The `serves and consumes MCP tools through one admitted product session` case creates an isolated
 home and workspace, runs the normal CLI product assembly, observes the served catalog and outbound
-`tools/call`, then closes the external server and verifies a served `Read` still succeeds.
+`tools/call` name, arguments and result, then injects an outbound failure and verifies served `Read`
+still succeeds. Closing the host carrier ends the outbound event stream.
 
 **Author verdict:** `SCENARIO EXECUTED: pass | 5`

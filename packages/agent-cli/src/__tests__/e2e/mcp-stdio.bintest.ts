@@ -24,17 +24,52 @@ const TSX = fileURLToPath(new URL('../../../node_modules/.bin/tsx', import.meta.
 
 async function startExternalMcpProbe(): Promise<{
   url: string;
-  calls: string[];
+  calls: { method: string; params?: Record<string, unknown> }[];
+  failCalls: () => void;
+  streamOpened: Promise<void>;
+  streamClosed: Promise<void>;
   close: () => Promise<void>;
 }> {
-  const calls: string[] = [];
+  const calls: { method: string; params?: Record<string, unknown> }[] = [];
+  let failToolCalls = false;
+  let markStreamOpened: () => void = () => {};
+  let markStreamClosed: () => void = () => {};
+  const streamOpened = new Promise<void>((resolve) => (markStreamOpened = resolve));
+  const streamClosed = new Promise<void>((resolve) => (markStreamClosed = resolve));
   const server = createServer(async (request, response) => {
+    if (request.method === 'GET') {
+      response.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+      });
+      response.write(': ready\n\n');
+      markStreamOpened();
+      request.once('close', markStreamClosed);
+      return;
+    }
     let raw = '';
     for await (const chunk of request) raw += String(chunk);
-    const message = raw ? (JSON.parse(raw) as { id?: string | number; method?: string }) : {};
-    if (message.method) calls.push(message.method);
+    const message = raw
+      ? (JSON.parse(raw) as {
+          id?: string | number;
+          method?: string;
+          params?: Record<string, unknown>;
+        })
+      : {};
+    if (message.method) calls.push({ method: message.method, params: message.params });
     if (message.id === undefined) {
       response.writeHead(202).end();
+      return;
+    }
+    if (message.method === 'tools/call' && failToolCalls) {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: message.id,
+          result: { isError: true, content: [{ type: 'text', text: 'EXTERNAL_MCP_FAILURE' }] },
+        }),
+      );
       return;
     }
     const result =
@@ -68,6 +103,11 @@ async function startExternalMcpProbe(): Promise<{
   return {
     url: `http://127.0.0.1:${address.port}/mcp`,
     calls,
+    failCalls: () => {
+      failToolCalls = true;
+    },
+    streamOpened,
+    streamClosed,
     close: () => {
       server.closeAllConnections();
       return new Promise<void>((resolve) => server.close(() => resolve()));
@@ -111,7 +151,7 @@ describe('robota mcp serve built binary', () => {
     });
     const client = new Client({ name: 'bidirectional-test', version: '1' });
     let diagnostics = '';
-    let externalClosed = false;
+    let carrierClosed = false;
     transport.stderr?.on('data', (chunk: Buffer) => {
       diagnostics += chunk.toString();
     });
@@ -128,18 +168,38 @@ describe('robota mcp serve built binary', () => {
       });
       expect(turn.isError, diagnostics).not.toBe(true);
       expect(JSON.stringify(turn)).toContain('BIDIRECTIONAL_COMPLETE');
-      expect(server.calls).toContain('tools/call');
-      await server.close();
-      externalClosed = true;
+      const turnCall = server.calls.find((call) => call.method === 'tools/call');
+      expect(turnCall?.params).toEqual({ name: 'echo', arguments: { text: 'BIDIRECTIONAL_CALL' } });
+      const directResult = await client.callTool({
+        name: 'probe__echo',
+        arguments: { text: 'DIRECT_CALL' },
+      });
+      expect(directResult.isError).not.toBe(true);
+      expect(JSON.stringify(directResult)).toContain('EXTERNAL_MCP_OK');
+      expect(server.calls.filter((call) => call.method === 'tools/call').at(-1)?.params).toEqual({
+        name: 'echo',
+        arguments: { text: 'DIRECT_CALL' },
+      });
+      await server.streamOpened;
+      server.failCalls();
+      const failedOutbound = await client.callTool({
+        name: 'probe__echo',
+        arguments: { text: 'FAIL_CALL' },
+      });
+      expect(failedOutbound.isError).toBe(true);
+      expect(JSON.stringify(failedOutbound)).toContain('EXTERNAL_MCP_FAILURE');
       const servedAfterClientClose = await client.callTool({
         name: 'Read',
         arguments: { filePath: join(cwd, 'served-after-client-close.txt') },
       });
       expect(servedAfterClientClose.isError).not.toBe(true);
       expect(JSON.stringify(servedAfterClientClose)).toContain('SERVED_STILL_READY');
-    } finally {
       await client.close();
-      if (!externalClosed) await server.close();
+      carrierClosed = true;
+      await server.streamClosed;
+    } finally {
+      if (!carrierClosed) await client.close();
+      await server.close();
       rmSync(cwd, { recursive: true, force: true });
       rmSync(home, { recursive: true, force: true });
     }
