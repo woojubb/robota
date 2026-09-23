@@ -78,17 +78,36 @@ describe('session-loop creation durability', () => {
     let writes = 0;
     const { interactive } = setup((record) => {
       writes += 1;
-      if (writes >= 3) throw new Error('store disconnected');
+      if (writes >= 4) throw new Error('store disconnected');
       durable.push(record);
     });
     writes = 0; // Ignore the session's initial empty snapshot.
 
     await expect(interactive.spawnScheduledWake(loop)).rejects.toThrow('store disconnected');
     expect(
-      durable.at(-1)?.backgroundTasks?.some(
-        (task) => task.metadata?.['sessionLoopId'] === 'loop_stable' && task.status === 'sleeping',
-      ),
+      durable.at(-1)?.backgroundTasks?.some((task) => task.metadata?.['sessionLoopId'] === 'loop_stable'),
     ).not.toBe(true);
+  });
+
+  it('does not publish a concurrent loop that has not passed its own strict write', async () => {
+    const durable: Array<{
+      backgroundTasks?: Array<{ metadata?: Record<string, unknown> }>;
+    }> = [];
+    let unavailable = false;
+    const { interactive } = setup((record) => {
+      if (unavailable || record.backgroundTasks?.some((task) => task.metadata?.['sessionLoopId'] === 'loop_b')) {
+        unavailable = true;
+        throw new Error('store disconnected');
+      }
+      durable.push(record);
+    });
+
+    const first = interactive.spawnScheduledWake({ ...loop, sessionLoopId: 'loop_a' });
+    const second = interactive.spawnScheduledWake({ ...loop, sessionLoopId: 'loop_b' });
+    await expect(first).resolves.toMatchObject({ metadata: { sessionLoopId: 'loop_a' } });
+    await expect(second).rejects.toThrow('store disconnected');
+    expect(durable.at(-1)?.backgroundTasks?.map((task) => task.metadata?.['sessionLoopId'])).toContain('loop_a');
+    expect(durable.at(-1)?.backgroundTasks?.some((task) => task.metadata?.['sessionLoopId'] === 'loop_b')).not.toBe(true);
   });
 
   it('refuses a queued loop that could not be re-armed after restart', async () => {

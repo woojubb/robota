@@ -640,7 +640,7 @@ export class InteractiveSession
       if (task.status !== 'sleeping' && task.status !== 'paused') {
         throw new Error('Loop could not start a resumable timer; retry after capacity is available.');
       }
-      this.persistCurrentSession(true);
+      this.persistCurrentSession(true, input.sessionLoopId);
       return task;
     } catch (error) {
       // A loop whose creation was not durably acknowledged must not keep firing in this process.
@@ -915,7 +915,7 @@ export class InteractiveSession
     }
   }
 
-  private persistCurrentSession(strict = false): void {
+  private persistCurrentSession(strict = false, acceptedLoopId?: string): void {
     if (!this.sessionStore || !this.session) {
       if (strict) throw new Error('A session store is required for a resumable loop.');
       return;
@@ -929,12 +929,14 @@ export class InteractiveSession
       this.cwd ?? '',
       histState.history,
       {
-        tasks: strict
-          ? bgState.tasks
-          : bgState.tasks.filter((task) => {
-              const loopId = task.metadata?.['sessionLoopId'];
-              return typeof loopId !== 'string' || !this.pendingLoopCreations.has(loopId);
-            }),
+        tasks: bgState.tasks.filter((task) => {
+          const loopId = task.metadata?.['sessionLoopId'];
+          return (
+            typeof loopId !== 'string' ||
+            !this.pendingLoopCreations.has(loopId) ||
+            (strict && loopId === acceptedLoopId)
+          );
+        }),
         events: bgState.taskEvents,
         groups: bgState.groups,
         groupEvents: bgState.groupEvents,
