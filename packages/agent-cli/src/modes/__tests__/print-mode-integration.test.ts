@@ -25,6 +25,15 @@ import type { IParsedCliArgs } from '../../utils/cli-args.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IOrgPolicy } from '@robota-sdk/agent-framework';
 
+const policyHome = vi.hoisted(() => ({ value: '' }));
+
+// Linux can cache homedir() before a test stubs HOME. Point the real policy loader at this
+// test's temporary home without relying on that platform-dependent cache behavior.
+vi.mock('node:os', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:os')>();
+  return { ...actual, homedir: (): string => policyHome.value || actual.homedir() };
+});
+
 class ExitSentinel extends Error {
   constructor(public readonly code: number) {
     super(`process.exit(${code})`);
@@ -272,7 +281,7 @@ describe('print mode session resume integration (CLI-063)', () => {
         join(home, '.robota', 'org-policy.json'),
         JSON.stringify({ blockedCommands: ['clear'], adminContact: 'ops@example.test' }),
       );
-      vi.stubEnv('HOME', home);
+      policyHome.value = home;
       const orgPolicy = loadOrgPolicy();
       expect(orgPolicy).not.toBeNull();
 
@@ -284,7 +293,7 @@ describe('print mode session resume integration (CLI-063)', () => {
       expect(stdoutChunks.join('')).toContain('ops@example.test');
       expect(lastMessages()).toEqual([]);
     } finally {
-      vi.unstubAllEnvs();
+      policyHome.value = '';
       rmSync(home, { recursive: true, force: true });
     }
   });
