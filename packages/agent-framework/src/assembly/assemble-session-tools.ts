@@ -13,6 +13,7 @@ import { createToolSearchTool } from '@robota-sdk/agent-tools';
 
 import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
 import { createGoalStatusTool } from '../goal/index.js';
+import { createSessionLoopDecisionTool } from '../interactive/session-loop-decision-tool.js';
 import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
 
 import type { ICreateSessionOptions } from './create-session-types.js';
@@ -101,6 +102,7 @@ export async function assembleSessionTools(
     ...defaultTools,
     ...(options.additionalTools ?? []),
     ...(options.includeGoalTool ? [createGoalStatusTool()] : []),
+    ...(options.includeSessionLoopDecisionTool ? [createSessionLoopDecisionTool()] : []),
   ]);
   // Asserted over the DECLARED set, before the search tool is added. Adding a resident tool first
   // would make the invariant unfailable — an all-deferred configuration would silently acquire the

@@ -23,6 +23,7 @@ import {
   decodePlanArtifact,
 } from './goal-plan-branch-decoders.js';
 import { decodeHistoryEntry } from './message-decoders.js';
+import { decodeSessionLoopState } from './session-loop-decoders.js';
 import { decodeArray, decodeOptional, decodeString } from './scalars.js';
 import { decodeToolSchema } from './tool-schema-decoders.js';
 
@@ -78,6 +79,11 @@ export function applyOptionalRecordMembers(
     record,
     'backgroundJobGroupEvents',
     optionalArray(raw, 'backgroundJobGroupEvents', path, issues, decodeBackgroundJobGroupEvent),
+  );
+  setOptional(
+    record,
+    'sessionLoops',
+    optionalArray(raw, 'sessionLoops', path, issues, decodeSessionLoopState),
   );
   setOptional(
     record,

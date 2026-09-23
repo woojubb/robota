@@ -5,15 +5,11 @@ import { executeLoopCommand } from '../loop-command.js';
 import { createTestAgentJobHost } from '@robota-sdk/agent-framework/testing';
 
 describe('fixed in-session loop', () => {
-  it('uses the host maintenance prompt for bare and interval-only forms', async () => {
+  it('uses the host maintenance prompt for interval-only forms', async () => {
     const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'loop_default' });
     const host = createTestAgentJobHost({ spawnScheduledWake });
     const options = { defaultPrompt: 'Tend only the current task and its PR.' };
 
-    expect((await executeLoopCommand(host, vi.fn(), '', options)).success).toBe(true);
-    expect(spawnScheduledWake).toHaveBeenCalledWith(
-      expect.objectContaining({ agentInstruction: options.defaultPrompt }),
-    );
     expect((await executeLoopCommand(host, vi.fn(), '5m', options)).success).toBe(true);
     expect(spawnScheduledWake).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -21,6 +17,39 @@ describe('fixed in-session loop', () => {
         agentInstruction: options.defaultPrompt,
       }),
     );
+  });
+
+  it('routes bare and prompt-only forms to the durable self-paced controller', async () => {
+    const createSelfPacedLoop = vi.fn().mockImplementation(async (instruction: string) => ({
+      loopId: 'loop_self', instruction, phase: 'pending', expiresAt: '2030-01-01T00:00:00.000Z',
+    }));
+    const spawnScheduledWake = vi.fn();
+    const host = createTestAgentJobHost({ spawnScheduledWake, createSelfPacedLoop });
+    const options = { defaultPrompt: 'Tend the current task.' };
+
+    expect((await executeLoopCommand(host, vi.fn(), '', options)).success).toBe(true);
+    expect((await executeLoopCommand(host, vi.fn(), 'check the build')).success).toBe(true);
+    expect(createSelfPacedLoop.mock.calls.map(([prompt]) => prompt)).toEqual([
+      options.defaultPrompt,
+      'check the build',
+    ]);
+    expect(spawnScheduledWake).not.toHaveBeenCalled();
+  });
+
+  it('lists and stops a self-paced loop by stable identity without touching schedules', async () => {
+    const stopSelfPacedLoop = vi.fn().mockResolvedValue(undefined);
+    const host = createTestAgentJobHost({
+      listSelfPacedLoops: () => [{
+        loopId: 'loop_self', instruction: 'check', phase: 'waiting',
+        createdAt: '2026-09-24T00:00:00.000Z', expiresAt: '2026-10-01T00:00:00.000Z',
+        revision: 1, generation: 1, fallbackUsed: false,
+        nextAllowedAt: '2026-09-24T00:20:00.000Z',
+      }],
+      stopSelfPacedLoop,
+    });
+    expect((await executeLoopCommand(host, vi.fn(), 'list')).message).toContain('loop_self');
+    expect((await executeLoopCommand(host, vi.fn(), 'stop loop_self')).success).toBe(true);
+    expect(stopSelfPacedLoop).toHaveBeenCalledExactlyOnceWith('loop_self', 'Loop stopped by user');
   });
 
   it('assigns every new loop a seven-day expiry', async () => {

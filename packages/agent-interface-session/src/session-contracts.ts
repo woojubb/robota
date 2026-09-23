@@ -7,6 +7,7 @@
  */
 
 import type { ICompactEvent } from './compact-contracts';
+import type { ISessionLoopState } from './session-loop-contracts.js';
 import type { ISessionRenamedEvent, IUiIntentEvent, TDriverId } from './driver-contracts.js';
 import type {
   IContextReferenceItem,
@@ -340,6 +341,7 @@ export interface IInteractiveSessionRecord {
   backgroundTaskEvents?: TBackgroundTaskEvent[];
   backgroundJobGroups?: IBackgroundJobGroupState[];
   backgroundJobGroupEvents?: TBackgroundJobGroupEvent[];
+  sessionLoops?: ISessionLoopState[];
   skillActivationEvents?: ISkillActivationEvent[];
   memoryEvents?: IMemoryEvent[];
   usedMemoryReferences?: IMemoryReference[];

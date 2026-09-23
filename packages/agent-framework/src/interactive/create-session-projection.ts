@@ -147,6 +147,7 @@ export function buildCreateSessionOptions(
     // GOAL-001: every interactive session exposes the goal completion-signal tool so /goal and
     // --goal can drive autonomous pursuit. It is inert unless a goal is active.
     includeGoalTool: true,
+    includeSessionLoopDecisionTool: true,
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     ...(contextCapacityHint !== undefined ? { contextCapacityHint } : {}),
   };
