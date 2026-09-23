@@ -81,7 +81,10 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { ISession } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
-import type { IExecutionPendingRequest } from '@robota-sdk/agent-interface-execution';
+import type {
+  IBackgroundTaskState,
+  IExecutionPendingRequest,
+} from '@robota-sdk/agent-interface-execution';
 import type {
   IGoalState,
   ITurnHandle,
@@ -617,6 +620,29 @@ export class InteractiveSession
     }
   }
 
+  override async spawnScheduledWake(input: {
+    label: string;
+    cronExpression: string;
+    agentInstruction: string;
+    sessionLoop?: boolean;
+    sessionLoopId?: string;
+  }): Promise<IBackgroundTaskState> {
+    await this.ensureInitialized();
+    if (input.sessionLoop && !this.sessionStore) {
+      throw new Error('A session store is required for a resumable loop.');
+    }
+    const task = await super.spawnScheduledWake(input);
+    if (!input.sessionLoop) return task;
+    try {
+      this.persistCurrentSession(true);
+      return task;
+    } catch (error) {
+      // A loop whose creation was not durably acknowledged must not keep firing in this process.
+      await this.cancelBackgroundTask(task.id, 'Loop persistence failed');
+      throw error;
+    }
+  }
+
   abort(): void {
     // REMOTE-014 E5: clearing the WHOLE shared queue is an OWNER-PRINCIPLE-legit cross-driver effect — emit an
     // attributed notice so a co-driver whose queued input was cleared sees why (and every wakeTaskId is freed).
@@ -881,8 +907,11 @@ export class InteractiveSession
     }
   }
 
-  private persistCurrentSession(): void {
-    if (!this.sessionStore || !this.session) return;
+  private persistCurrentSession(strict = false): void {
+    if (!this.sessionStore || !this.session) {
+      if (strict) throw new Error('A session store is required for a resumable loop.');
+      return;
+    }
     const bgState = this.bgTracker.getState();
     const histState = this.histTracker.getState();
     persistSession(
@@ -905,6 +934,7 @@ export class InteractiveSession
       this.planController.getState() ?? undefined,
       // SELFHOST-007: persist the active branch pointer so a branch survives --resume.
       this.histTracker.getActiveBranchPointer(),
+      strict,
     );
   }
 
