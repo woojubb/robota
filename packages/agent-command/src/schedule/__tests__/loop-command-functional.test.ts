@@ -16,6 +16,7 @@ describe('/loop command in a real interactive session', () => {
       turns: [{ text: 'unused' }],
       commandModules: [createScheduleCommandModule()],
       backgroundTasks: true,
+      persistence: true,
     });
 
     const other = await harness.command('schedule', 'cron "0 0 * * *" unrelated check');
