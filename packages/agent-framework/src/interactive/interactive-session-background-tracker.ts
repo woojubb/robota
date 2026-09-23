@@ -4,6 +4,8 @@
  * integration without owning the session or store directly.
  */
 
+import { nextScheduledFireOnOrAfter } from '@robota-sdk/agent-executor';
+
 import { createSourceUsageSummaryEntry } from './interactive-session-execution.js';
 import { isReArmableScheduledTask } from './schedule-rearm.js';
 import {
@@ -121,14 +123,26 @@ export class SessionBackgroundTaskTracker {
       if (!isReArmableScheduledTask(task) || !task.schedule) continue;
       if (blockedIds.has(task.id)) continue;
       // A paused schedule carries no pending fire time, so the missed-wake note applies only to sleeping ones.
-      if (
-        task.status === 'sleeping' &&
-        task.nextFireAt !== undefined &&
-        new Date(task.nextFireAt).getTime() < nowMs &&
-        sessionLoopFirstWakeEligibility(task, new Date(task.nextFireAt).getTime()) === 'eligible'
-      ) {
+      let missedFireAt: number | undefined;
+      if (task.status === 'sleeping' && task.nextFireAt !== undefined) {
+        const storedFireAt = Date.parse(task.nextFireAt);
+        const eligibility = sessionLoopFirstWakeEligibility(task, storedFireAt);
+        if (eligibility === 'eligible') {
+          missedFireAt = storedFireAt;
+        } else if (eligibility === 'early') {
+          const firstAllowedAt = task.metadata?.['sessionLoopFirstAllowedAt'];
+          if (typeof firstAllowedAt === 'string') {
+            missedFireAt =
+              nextScheduledFireOnOrAfter(
+                task.schedule.cronExpression,
+                new Date(firstAllowedAt),
+              )?.getTime() ?? undefined;
+          }
+        }
+      }
+      if (missedFireAt !== undefined && missedFireAt < nowMs) {
         this.appendSystemNote?.(
-          `Missed scheduled wake "${task.label}" (was due ${task.nextFireAt} while the session was closed); re-arming.`,
+          `Missed scheduled wake "${task.label}" (was due ${new Date(missedFireAt).toISOString()} while the session was closed); re-arming.`,
         );
       }
       const wasPaused = task.status === 'paused';

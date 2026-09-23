@@ -214,6 +214,39 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
     expect(notes).toHaveLength(0);
   });
 
+  it.each([
+    ['before', '2026-09-24T00:17:00.000Z', 0],
+    ['after', '2026-09-24T00:21:00.000Z', 1],
+  ])(
+    'reports a missed loop wake only %s the first eligible cron slot',
+    (_position, resumedAt, expectedNotes) => {
+      const now = vi.spyOn(Date, 'now').mockReturnValue(Date.parse(resumedAt));
+      try {
+        const record = sleepingScheduledRecord('2026-09-24T00:10:00.000Z');
+        const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
+        tasks[0]!['schedule'] = {
+          cronExpression: '0 */10 * * * *',
+          agentInstruction: 'check',
+        };
+        tasks[0]!['metadata'] = {
+          sessionLoop: true,
+          sessionLoopId: 'loop_missed_first_eligible_slot',
+          sessionLoopFirstAllowedAt: '2026-09-24T00:16:00.000Z',
+          sessionLoopExpiresAt: '2026-09-30T00:00:00.000Z',
+        };
+
+        const { session } = setupWithRecord(record);
+        const notes = history(session).filter((entry) =>
+          JSON.stringify(entry).includes('Missed scheduled wake'),
+        );
+        expect(notes).toHaveLength(expectedNotes);
+        if (expectedNotes) expect(JSON.stringify(notes[0])).toContain('2026-09-24T00:20:00.000Z');
+      } finally {
+        now.mockRestore();
+      }
+    },
+  );
+
   it('retains a loop identity marker when a restored schedule receives a new runtime id', () => {
     const record = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
     const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
