@@ -226,7 +226,10 @@ bindings and is safe for any Node.js runtime target.
 `nextScheduledFireOnOrAfter(cronExpression, firstAllowedAt, options?)` exposes the same Croner
 slot calculation without arming a timer; the boundary is inclusive and `options.timezone`
 matches the runner option. A session restore can use it to distinguish a skipped early slot
-from a genuinely missed eligible wake.
+from a genuinely missed eligible wake. The built-in scheduled runner exposes that calculation
+through the optional runner port; `BackgroundTaskManager.nextScheduledFireOnOrAfter` delegates
+to the configured runner, retaining its timezone. A custom runner without the calculation
+uses the default Croner timezone semantics.
 
 **SELFHOST-012 — non-destructive schedule lifecycle.** `IBackgroundTaskManager` exposes
 `pauseScheduledTask`/`resumeScheduledTask`/`editScheduledTask(taskId, patch)` for `kind: 'scheduled'` tasks,

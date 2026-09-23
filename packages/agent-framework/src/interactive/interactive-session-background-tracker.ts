@@ -132,8 +132,10 @@ export class SessionBackgroundTaskTracker {
         } else if (eligibility === 'early') {
           const firstAllowedAt = task.metadata?.['sessionLoopFirstAllowedAt'];
           if (typeof firstAllowedAt === 'string') {
+            const calculateNextFire =
+              manager.nextScheduledFireOnOrAfter?.bind(manager) ?? nextScheduledFireOnOrAfter;
             missedFireAt =
-              nextScheduledFireOnOrAfter(
+              calculateNextFire(
                 task.schedule.cronExpression,
                 new Date(firstAllowedAt),
               )?.getTime() ?? undefined;

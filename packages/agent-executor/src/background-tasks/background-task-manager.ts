@@ -24,6 +24,7 @@ import {
   reportObserverFailureAsWarning,
   type TObserverFailureReporter,
 } from './observer-delivery.js';
+import { nextScheduledFireOnOrAfter } from './runners/scheduled-task-runner.js';
 import { isTerminalBackgroundTaskStatus } from './state-machine.js';
 import {
   BackgroundTaskError,
@@ -153,6 +154,13 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   get(taskId: string): IBackgroundTaskState | undefined {
     const task = this.tasks.get(taskId);
     return task ? cloneBackgroundTaskState(task.state) : undefined;
+  }
+
+  nextScheduledFireOnOrAfter(cronExpression: string, firstAllowedAt: Date): Date | null {
+    const runner = this.runners.get('scheduled');
+    return runner?.nextScheduledFireOnOrAfter
+      ? runner.nextScheduledFireOnOrAfter(cronExpression, firstAllowedAt)
+      : nextScheduledFireOnOrAfter(cronExpression, firstAllowedAt);
   }
 
   async cancel(taskId: string, reason?: string): Promise<void> {

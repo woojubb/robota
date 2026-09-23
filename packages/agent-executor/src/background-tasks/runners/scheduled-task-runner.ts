@@ -69,6 +69,8 @@ export function createScheduledTaskRunner(
 ): IBackgroundTaskRunner {
   return {
     kind: 'scheduled',
+    nextScheduledFireOnOrAfter: (cronExpression, firstAllowedAt) =>
+      nextScheduledFireOnOrAfter(cronExpression, firstAllowedAt, options),
     start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
       if (task.request.kind !== 'scheduled') {
         throw new BackgroundTaskError(
