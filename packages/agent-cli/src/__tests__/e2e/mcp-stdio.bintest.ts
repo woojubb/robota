@@ -28,10 +28,12 @@ async function startExternalMcpProbe(): Promise<{
   failCalls: () => void;
   streamOpened: Promise<void>;
   streamClosed: Promise<void>;
+  isStreamClosed: () => boolean;
   close: () => Promise<void>;
 }> {
   const calls: { method: string; params?: Record<string, unknown> }[] = [];
   let failToolCalls = false;
+  let streamIsClosed = false;
   let markStreamOpened: () => void = () => {};
   let markStreamClosed: () => void = () => {};
   const streamOpened = new Promise<void>((resolve) => (markStreamOpened = resolve));
@@ -44,7 +46,10 @@ async function startExternalMcpProbe(): Promise<{
       });
       response.write(': ready\n\n');
       markStreamOpened();
-      request.once('close', markStreamClosed);
+      response.once('close', () => {
+        streamIsClosed = true;
+        markStreamClosed();
+      });
       return;
     }
     let raw = '';
@@ -108,6 +113,7 @@ async function startExternalMcpProbe(): Promise<{
     },
     streamOpened,
     streamClosed,
+    isStreamClosed: () => streamIsClosed,
     close: () => {
       server.closeAllConnections();
       return new Promise<void>((resolve) => server.close(() => resolve()));
@@ -181,6 +187,7 @@ describe('robota mcp serve built binary', () => {
         arguments: { text: 'DIRECT_CALL' },
       });
       await server.streamOpened;
+      expect(server.isStreamClosed()).toBe(false);
       server.failCalls();
       const failedOutbound = await client.callTool({
         name: 'probe__echo',
@@ -197,6 +204,7 @@ describe('robota mcp serve built binary', () => {
       await client.close();
       carrierClosed = true;
       await server.streamClosed;
+      expect(server.isStreamClosed()).toBe(true);
     } finally {
       if (!carrierClosed) await client.close();
       await server.close();
