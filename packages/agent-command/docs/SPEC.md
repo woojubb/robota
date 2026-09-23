@@ -209,7 +209,7 @@ The schedule module also registers a provider-neutral `/loop` command over the e
 The prompt is submitted as an ordinary `agent-wakeup` turn under the session's existing permission
 policy. The command is conservatively classified as permission-requiring for remote command policy,
 including its read-only `list` form. `/loop list` shows active loop schedules;
-`/loop stop <task-id>` cancels only the selected
+`/loop stop <loop-id>` cancels only the selected
 loop's timer and queued wake through the session's targeted cancellation path. A turn already running
 may finish. Non-loop schedules cannot be stopped through `/loop`.
 
@@ -221,12 +221,15 @@ the command does not claim an exact elapsed-time `cadenceMs`.
 The first clock-aligned fire may occur sooner than one full requested interval after creation.
 Distinct loop wake sources do not replace one another in the bounded session queue; repeated
 in-flight wakes from the same scheduled task coalesce, so missed fires do not form a catch-up burst.
-The loop marker lives in persisted task metadata, not the editable display label; editing a loop
-through `/schedule edit` cannot hide it from `/loop list` or `/loop stop`. The task ID is the live
-session's stop handle. Existing schedule restoration can create a new task
-ID on resume; `/loop list` reveals that new ID. A durable loop ID, persistence guarantees, a
-seven-day expiry, jitter, Esc handling, self-paced/default-prompt modes, and prompt overrides are
-**not yet delivered**. This slice does not complete the historical #2005 checklist or #2726.
+The loop marker and a UUID-backed stable loop ID live in persisted task metadata, not the editable
+display label. Editing a loop through `/schedule edit` cannot hide it from `/loop list` or
+`/loop stop`. The session has at most three active loops (including paused loops); a fourth creation
+is refused. `/loop list` and `/loop stop` use the stable ID, and stop resolves it to the current
+runtime task ID. A successful schedule restore may remap that runtime ID but retains the loop ID;
+older loops without a stable ID keep their runtime ID as a compatibility stop handle.
+Persistence itself is still best-effort rather than a durable success guarantee. Seven-day expiry,
+jitter, Esc handling, self-paced/default-prompt modes, and prompt overrides are **not yet
+delivered**. This slice does not complete the historical #2005 checklist or #2726.
 
 ### Provider setup flow (interactive UI helpers)
 
