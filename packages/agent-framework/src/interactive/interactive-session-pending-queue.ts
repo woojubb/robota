@@ -73,7 +73,11 @@ export class PendingInputQueue {
       );
     }
     const tail = this.entries[this.entries.length - 1];
-    if (tail && tail.options.driverId === entry.options.driverId) {
+    if (
+      tail &&
+      tail.options.driverId === entry.options.driverId &&
+      tail.options.wakeTaskId === entry.options.wakeTaskId
+    ) {
       if (
         tail.options.wakeTaskId !== undefined &&
         tail.options.wakeTaskId !== entry.options.wakeTaskId
@@ -111,6 +115,16 @@ export class PendingInputQueue {
     }
     this.entries = [];
     return drivers;
+  }
+
+  /** Remove one queued background wake without touching another source or a human submission. */
+  removeWake(wakeTaskId: string): boolean {
+    const index = this.entries.findIndex((entry) => entry.options.wakeTaskId === wakeTaskId);
+    if (index === -1) return false;
+    const [entry] = this.entries.splice(index, 1);
+    this.settlers.releaseWake(wakeTaskId);
+    this.settlers.refuse(entry!.turnId, 'cancelled');
+    return true;
   }
 
   /** Take the HEAD entry (submission order), or undefined when the queue is empty. */

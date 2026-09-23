@@ -191,4 +191,40 @@ describe('FLOW-002 session wake injection', () => {
     await Promise.resolve();
     expect(session.requestWakeup('later', created.id)).toBe(true);
   });
+
+  it('cancelling a scheduled task removes only its pending wake', async () => {
+    const { session, manager, started } = await setupSession();
+    const execCtrl = getExecCtrl(session);
+    holdExecution(execCtrl);
+
+    const first = await manager.spawn(scheduledWakeRequest('first'));
+    const second = await manager.spawn(scheduledWakeRequest('second'));
+    await Promise.resolve();
+    fire(started[0]?.emit, { type: 'background_task_waking', instruction: 'first' });
+    fire(started[1]?.emit, { type: 'background_task_waking', instruction: 'second' });
+    await Promise.resolve();
+    expect(execCtrl.pending.contents.map((queued) => queued.input)).toEqual(['first', 'second']);
+
+    await session.cancelBackgroundTask(first.id);
+    expect(execCtrl.pending.contents.map((queued) => queued.input)).toEqual(['second']);
+    expect(execCtrl.wakeTaskIds.has(first.id)).toBe(false);
+    expect(execCtrl.wakeTaskIds.has(second.id)).toBe(true);
+  });
+
+  it('rejects a wake emitted in the same tick as cancellation before it can queue', async () => {
+    const { session, manager, started } = await setupSession();
+    const execCtrl = getExecCtrl(session);
+    holdExecution(execCtrl);
+    const created = await manager.spawn(scheduledWakeRequest('too late'));
+    await Promise.resolve();
+
+    fire(started[0]?.emit, { type: 'background_task_waking', instruction: 'too late' });
+    const cancellation = session.cancelBackgroundTask(created.id);
+    fire(started[0]?.emit, { type: 'background_task_waking', instruction: 'too late again' });
+    await cancellation;
+    await Promise.resolve();
+
+    expect(execCtrl.pending.contents).toHaveLength(0);
+    expect(execCtrl.wakeTaskIds.has(created.id)).toBe(false);
+  });
 });

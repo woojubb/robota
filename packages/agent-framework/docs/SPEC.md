@@ -1538,8 +1538,11 @@ agent-cli (Ink TUI — CLI-specific)
 - **listCommands()**: `listCommands()` — returns `Array<{ name, description }>` of all registered system commands. Used by transport adapters (e.g., MCP) to expose commands as tools.
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued and auto-executes after
   the current one completes. The co-drive queue is bounded at 32 entries: a same-driver submission
-  replaces that driver's tail entry, a different driver appends in submission order, and a new
-  entry is refused when the queue is full. Execution ownership remains claimed through awaited
+  replaces that driver's tail entry only when both submissions have the same wake source (or neither
+  has one); different wake sources append in submission order even when they share the agent driver.
+  A new entry is refused when the queue is full. A queued wake can be removed by its source task ID
+  without cancelling unrelated queued input; removal settles its turn as cancelled and frees its
+  duplicate-wake gate. Execution ownership remains claimed through awaited
   post-turn capture and persistence; releasing `executing` and draining the queued head are one
   synchronous handoff with no intervening `await`, so a public submission cannot start in between.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
@@ -2850,9 +2853,12 @@ runs to a completed turn:
 
 - The id is removed when its wake turn completes (the normal path).
 - It is **also** removed when the wake is evicted before completing — session `abort()`,
-  `shutdown()`, or a pending-queue drop. Otherwise the `sourceTaskId` lingers in the set and every
+  `shutdown()`, a pending-queue drop, or targeted cancellation. Otherwise the `sourceTaskId` lingers in the set and every
   future wake for that task is silently rejected forever (RUNTIME-19). Clearing the pending queue
   clears the corresponding wake-tracking ids.
+
+Distinct scheduled wake sources sharing the agent driver never coalesce with each other. Cancelling
+one queued source settles only that source's accepted turn; a turn already executing is not aborted.
 
 `InteractiveSession` exposes background task controls:
 

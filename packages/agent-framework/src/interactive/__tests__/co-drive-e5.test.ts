@@ -52,6 +52,29 @@ describe('co-drive queue (REMOTE-014 TC-01)', () => {
     expect(c.pending.contents.map((e) => e.input)).toEqual(['a2', 'b1']); // submission order preserved
   });
 
+  it('keeps wakes from distinct task sources even when both use the agent driver', () => {
+    const c = controller();
+    expect(c.enqueuePending(entry('wake A', AGENT_DRIVER_ID, 'task-a'))).toBe('queued');
+    expect(c.enqueuePending(entry('wake B', AGENT_DRIVER_ID, 'task-b'))).toBe('queued');
+    expect(c.pending.contents.map((queued) => queued.input)).toEqual(['wake A', 'wake B']);
+  });
+
+  it('cancels only the selected queued wake and settles its handle', async () => {
+    const c = controller();
+    const first = c.turns.begin();
+    const second = c.turns.begin();
+    c.wakeTaskIds.add('task-a');
+    c.wakeTaskIds.add('task-b');
+    c.enqueuePending({ input: 'wake A', turnId: first.turnId, options: { driverId: AGENT_DRIVER_ID, wakeTaskId: 'task-a' } });
+    c.enqueuePending({ input: 'wake B', turnId: second.turnId, options: { driverId: AGENT_DRIVER_ID, wakeTaskId: 'task-b' } });
+
+    expect(c.removePendingWake('task-a')).toBe(true);
+    await expect(first.completed).rejects.toMatchObject({ reason: 'cancelled' });
+    expect(c.pending.contents.map((queued) => queued.input)).toEqual(['wake B']);
+    expect(c.wakeTaskIds.has('task-a')).toBe(false);
+    expect(c.wakeTaskIds.has('task-b')).toBe(true);
+  });
+
   it('drops-newest at MAX_PENDING_QUEUE_DEPTH (attributed notice is the caller’s job)', () => {
     const c = controller();
     for (let i = 0; i < MAX_PENDING_QUEUE_DEPTH; i += 1) {
