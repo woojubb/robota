@@ -1,4 +1,4 @@
-/** Runtime observation for the checked-in hook diagnostic migration inventory. */
+/** Runtime observation for the checked-in registration inventory. */
 
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -18,7 +18,7 @@ const SUBJECT = {
 function errorDetail(error) {
   if (error instanceof Error && error.message.trim().length > 0) return error.message;
   const detail = String(error);
-  return detail.trim().length > 0 ? detail : 'unknown migration inventory failure';
+  return detail.trim().length > 0 ? detail : 'unknown registration inventory failure';
 }
 
 function sameJson(left, right) {
@@ -45,7 +45,7 @@ function unavailable(correlationId, detail) {
     examined: [SUBJECT],
     severity: 'error',
     evidence: [detail],
-    recommendation: 'Restore the migration inventory inputs and run the harness scans again.',
+    recommendation: 'Restore the registration inventory inputs and run the harness scans again.',
     unavailable: { code: 'hook-migration-inventory-unavailable', detail },
   };
 }
@@ -71,7 +71,7 @@ export function collectHookDiagnosticInventoryResults({
     const evidence = [];
     const registeredScans = manifest.scanRegistrations.map((record) => record.subject.value);
     if (!sameJson(registeredScans, scanNames)) {
-      evidence.push('scan registrations differ from the checked-in migration manifest');
+      evidence.push('scan registrations differ from the checked-in inventory');
     }
 
     const preToolRegistrations = collectHookRegistrationFacts(settings).filter(
@@ -83,7 +83,7 @@ export function collectHookDiagnosticInventoryResults({
         preToolRegistrations,
       )
     ) {
-      evidence.push('PreToolUse registrations differ from the checked-in migration manifest');
+      evidence.push('PreToolUse registrations differ from the checked-in inventory');
     }
 
     for (const { vetoPath } of manifest.huskyVetoPaths) {
@@ -98,7 +98,7 @@ export function collectHookDiagnosticInventoryResults({
         requiredStatusContexts(root),
       )
     ) {
-      evidence.push('required status contexts differ from the checked-in migration manifest');
+      evidence.push('required status contexts differ from the checked-in inventory');
     }
 
     if (evidence.length === 0) {
@@ -112,7 +112,7 @@ export function collectHookDiagnosticInventoryResults({
           subject: SUBJECT,
           examined: [SUBJECT],
           summary:
-            'Hook diagnostic migration inventory matches scans, PreToolUse registrations, Husky entrypoints, and required status contexts.',
+            'Registration inventory matches scans, PreToolUse registrations, Husky entrypoint presence, and required status contexts. Husky predicates and exit behavior are not verified here.',
         },
       ];
     }
@@ -128,7 +128,7 @@ export function collectHookDiagnosticInventoryResults({
         severity: 'warning',
         evidence,
         recommendation:
-          'Update the checked-in migration manifest before changing hook, Husky, scan, or required-context registration.',
+          'Update the checked-in registration inventory when hook, Husky, scan, or required-context registrations change.',
       },
     ];
   } catch (error) {

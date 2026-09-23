@@ -1,11 +1,22 @@
 ---
-status: in-progress
+status: rejected
 type: RULE
 tags: [harness, workflow]
 lane: L2
 ---
 
 # RULE-2698: Establish hook and Husky diagnostic migration inventory
+
+## Current disposition — 2026-09-23
+
+This historical B1 design delivered a live registration diagnostic. Its later B2/B3 migration design
+is rejected as an active implementation plan after
+[issue #2826](https://github.com/woojubb/robota/issues/2826) and
+[PR #2827](https://github.com/woojubb/robota/pull/2827) retired the older harness lifecycle.
+The corresponding Task records the current inventory scope and the unresolved
+[issue #2423](https://github.com/woojubb/robota/issues/2423) hook-policy
+decisions. Historical counts, paths, and proposed dispositions below describe the original design,
+not today's registrations or proof of a completed hook migration.
 
 Paired with `.agents/tasks/RULE-2698-migrate-hooks-and-husky-process-vetoes-to-diagnostics.md`. Arising from [issue #2698](https://github.com/woojubb/robota/issues/2698).
 

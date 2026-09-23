@@ -1,5 +1,5 @@
 /**
- * Pure delivery adapter for hook-migration diagnostics.
+ * Pure delivery adapter for hook registration diagnostics.
  *
  * The publisher is an injected port. This module owns report construction and
  * presentation, while the caller owns filesystem discovery and process I/O.
@@ -26,7 +26,8 @@ function publicationUnavailableDiagnostic(correlationId, detail) {
     examined: [subject],
     severity: 'error',
     evidence: [detail],
-    recommendation: 'Inspect the hook diagnostic publisher and run the migration inventory again.',
+    recommendation:
+      'Inspect the hook diagnostic publisher and run the registration inventory again.',
     publication: { target: 'hook diagnostic publisher', detail },
   };
 }
