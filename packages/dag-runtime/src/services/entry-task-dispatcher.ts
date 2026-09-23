@@ -1,7 +1,6 @@
 import {
   EXECUTION_PROGRESS_EVENTS,
   DagRunStateMachine,
-  TaskRunStateMachine,
   buildDispatchError,
   buildValidationError,
   type IClockPort,
@@ -57,13 +56,23 @@ export async function dispatchEntryTasks(
   if (!queuedTransition.ok) {
     return queuedTransition;
   }
-  await storage.updateDagRunStatus(dagRunId, queuedTransition.value.nextStatus);
+  const queued = await storage.commitExecution(dagRunId, {
+    kind: 'transition-run',
+    expectedStatus: 'created',
+    event: 'QUEUE',
+  });
+  if (!queued.applied) return { ok: true, value: { taskRunIds: [] } };
 
   const runningTransition = DagRunStateMachine.transition('queued', 'START');
   if (!runningTransition.ok) {
     return runningTransition;
   }
-  await storage.updateDagRunStatus(dagRunId, runningTransition.value.nextStatus);
+  const started = await storage.commitExecution(dagRunId, {
+    kind: 'transition-run',
+    expectedStatus: 'queued',
+    event: 'START',
+  });
+  if (!started.applied) return { ok: true, value: { taskRunIds: [] } };
   runProgressEventReporter?.publish({
     dagRunId,
     eventType: EXECUTION_PROGRESS_EVENTS.STARTED,
@@ -73,19 +82,24 @@ export async function dispatchEntryTasks(
   });
 
   const taskRunIds: string[] = [];
+  const messages: IQueueMessage[] = [];
   for (const node of entryNodes) {
     const taskRunId = `${dagRunId}:${node.nodeId}:attempt:1`;
+    const admitted = await storage.commitExecution(dagRunId, {
+      kind: 'admit',
+      dependsOn: [],
+      taskRun: {
+        taskRunId,
+        dagRunId,
+        nodeId: node.nodeId,
+        status: 'queued',
+        attempt: 1,
+      },
+    });
+    if (!admitted.applied) continue;
     taskRunIds.push(taskRunId);
 
-    await storage.createTaskRun({
-      taskRunId,
-      dagRunId,
-      nodeId: node.nodeId,
-      status: 'queued',
-      attempt: 1,
-    });
-
-    const message: IQueueMessage = {
+    messages.push({
       messageId: `${taskRunId}:message`,
       dagRunId,
       taskRunId,
@@ -100,15 +114,18 @@ export async function dispatchEntryTasks(
       ],
       payload: input,
       createdAt: clock.nowIso(),
-    };
+    });
+  }
 
+  // No entry can complete before every sibling is visible to finalization.
+  for (const message of messages) {
     try {
       await queue.enqueue(message);
     } catch (error) {
       return handleEnqueueFailure(
         dagRunId,
-        taskRunId,
-        node.nodeId,
+        message.taskRunId,
+        message.nodeId,
         taskRunIds,
         error,
         storage,
@@ -138,35 +155,26 @@ async function handleEnqueueFailure(
     'Failed to enqueue entry task',
     { dagRunId, taskRunId, nodeId, errorMessage },
   );
-  const cancelledTaskTransition = TaskRunStateMachine.transition('queued', 'CANCEL');
-  if (cancelledTaskTransition.ok) {
-    await storage.updateTaskRunStatus(
-      taskRunId,
-      cancelledTaskTransition.value.nextStatus,
-      dispatchError,
-    );
-    for (const previousTaskRunId of taskRunIds) {
-      if (previousTaskRunId === taskRunId) {
-        continue;
-      }
-      await storage.updateTaskRunStatus(
-        previousTaskRunId,
-        cancelledTaskTransition.value.nextStatus,
-        dispatchError,
-      );
-    }
-  }
   const failedRunTransition = DagRunStateMachine.transition('running', 'COMPLETE_FAILURE');
   if (failedRunTransition.ok) {
-    await storage.updateDagRunStatus(
-      dagRunId,
-      failedRunTransition.value.nextStatus,
-      clock.nowIso(),
-    );
-    runProgressEventReporter?.publish({
-      dagRunId,
-      eventType: EXECUTION_PROGRESS_EVENTS.FAILED,
-      occurredAt: clock.nowIso(),
+    const committed = await storage.commitExecution(dagRunId, {
+      kind: 'transition-run',
+      expectedStatus: 'running',
+      event: 'COMPLETE_FAILURE',
+      endedAt: clock.nowIso(),
+    });
+    if (committed.applied)
+      runProgressEventReporter?.publish({
+        dagRunId,
+        eventType: EXECUTION_PROGRESS_EVENTS.FAILED,
+        occurredAt: clock.nowIso(),
+        error: dispatchError,
+      });
+  }
+  for (const admittedTaskRunId of taskRunIds) {
+    await storage.commitExecution(dagRunId, {
+      kind: 'cancel-task',
+      taskRunId: admittedTaskRunId,
       error: dispatchError,
     });
   }

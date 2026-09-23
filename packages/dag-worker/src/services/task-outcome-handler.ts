@@ -1,6 +1,5 @@
 import {
   TASK_PROGRESS_EVENTS,
-  TaskRunStateMachine,
   type IClockPort,
   type IDagDefinition,
   type IDagError,
@@ -9,7 +8,6 @@ import {
   type IQueuePort,
   type IRunProgressEventReporter,
   type IStoragePort,
-  type ITaskRun,
   type TPortPayload,
   type TResult,
 } from '@robota-sdk/dag-core';
@@ -54,19 +52,26 @@ export class TaskOutcomeHandler {
     estimatedCredits?: number,
     totalCredits?: number,
   ): Promise<TResult<IWorkerLoopResult, IDagError>> {
-    const completeTransition = TaskRunStateMachine.transition('running', 'COMPLETE_SUCCESS');
-    if (!completeTransition.ok) {
-      return failAfterAck(this.queue, message.messageId, completeTransition.error);
-    }
-
-    await this.completeTaskRun(
-      message,
+    const committed = await this.storage.commitExecution(message.dagRunId, {
+      kind: 'settle',
       taskRunId,
-      completeTransition.value.nextStatus,
-      output,
+      attempt: message.attempt,
+      leaseOwner: this.options.workerId,
+      status: 'success',
+      outputSnapshot: JSON.stringify(output),
       estimatedCredits,
       totalCredits,
-    );
+    });
+    if (!committed.applied) return successAfterAck(this.queue, message.messageId, taskRunId, false);
+    this.runProgressEventReporter?.publish({
+      dagRunId: message.dagRunId,
+      eventType: TASK_PROGRESS_EVENTS.COMPLETED,
+      occurredAt: this.clock.nowIso(),
+      taskRunId,
+      nodeId: message.nodeId,
+      input: message.payload,
+      output,
+    });
 
     const dispatched = await dispatchDownstreamReadyTasks(
       dagRun,
@@ -99,12 +104,18 @@ export class TaskOutcomeHandler {
     taskRunId: string,
     error: IDagError,
   ): Promise<TResult<IWorkerLoopResult, IDagError>> {
-    const failTransition = TaskRunStateMachine.transition('running', 'COMPLETE_FAILURE');
-    if (!failTransition.ok) {
-      return failAfterAck(this.queue, message.messageId, failTransition.error);
-    }
-
-    await this.storage.updateTaskRunStatus(taskRunId, failTransition.value.nextStatus, error);
+    const shouldRetry =
+      this.options.retryEnabled && error.retryable && message.attempt < this.options.maxAttempts;
+    const committed = await this.storage.commitExecution(message.dagRunId, {
+      kind: 'settle',
+      taskRunId,
+      attempt: message.attempt,
+      leaseOwner: this.options.workerId,
+      status: 'failed',
+      reserveRetry: shouldRetry,
+      error,
+    });
+    if (!committed.applied) return successAfterAck(this.queue, message.messageId, taskRunId, false);
     this.runProgressEventReporter?.publish({
       dagRunId: message.dagRunId,
       eventType: TASK_PROGRESS_EVENTS.FAILED,
@@ -115,8 +126,6 @@ export class TaskOutcomeHandler {
       error,
     });
 
-    const shouldRetry =
-      this.options.retryEnabled && error.retryable && message.attempt < this.options.maxAttempts;
     if (!shouldRetry) {
       return handleTerminalFailure(
         message,
@@ -130,33 +139,6 @@ export class TaskOutcomeHandler {
       );
     }
 
-    return handleRetry(message, taskRunId, this.storage, this.queue, this.clock);
-  }
-
-  private async completeTaskRun(
-    message: IQueueMessage,
-    taskRunId: string,
-    status: ITaskRun['status'],
-    output: TPortPayload,
-    estimatedCredits?: number,
-    totalCredits?: number,
-  ): Promise<void> {
-    await this.storage.updateTaskRunStatus(taskRunId, status);
-    await this.storage.saveTaskRunSnapshots(
-      taskRunId,
-      undefined,
-      JSON.stringify(output),
-      estimatedCredits,
-      totalCredits,
-    );
-    this.runProgressEventReporter?.publish({
-      dagRunId: message.dagRunId,
-      eventType: TASK_PROGRESS_EVENTS.COMPLETED,
-      occurredAt: this.clock.nowIso(),
-      taskRunId,
-      nodeId: message.nodeId,
-      input: message.payload,
-      output,
-    });
+    return handleRetry(message, taskRunId, this.queue, this.clock);
   }
 }

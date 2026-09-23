@@ -27,3 +27,8 @@ upgrade path to PostgreSQL by swapping the adapter.
 
 - WAL journal mode is used by both adapters for concurrent read performance, since the queue is
   read far more often than it is written.
+
+Execution arbitration reads the current run and tasks and applies its decision under one immediate
+SQLite transaction. Task outcome status, output snapshot and credits commit together. Attempt and
+lease-owner predicates reject stale workers, and run-state predicates prevent post-cancellation
+retry, child admission or terminal overwrite. Queue delivery is outside this storage transaction.

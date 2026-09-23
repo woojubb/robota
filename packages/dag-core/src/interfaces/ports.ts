@@ -1,3 +1,4 @@
+import type { TExecutionCommit, IExecutionCommitResult } from '../services/execution-commit.js';
 import type {
   ICostPolicy,
   IDagNode,
@@ -92,6 +93,8 @@ export interface ILeasePort {
 
 /** Primary persistence port for DAG definitions, runs, and task runs. */
 export interface IStoragePort {
+  /** Atomically arbitrate execution mutations against current run and task state. */
+  commitExecution(dagRunId: string, mutation: TExecutionCommit): Promise<IExecutionCommitResult>;
   saveDefinition(definition: IDagDefinition): Promise<void>;
   getDefinition(dagId: string, version: number): Promise<IDagDefinition | undefined>;
   listDefinitions(): Promise<IDagDefinition[]>;
