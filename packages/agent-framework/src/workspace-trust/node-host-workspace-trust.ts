@@ -146,7 +146,8 @@ export function createNodeWorkspaceIdentityResolver(): IWorkspaceIdentityResolve
       const worktreeRoot = canonicalPath(runGit(canonicalCwd, ['rev-parse', '--show-toplevel']));
       const commonDirValue = runGit(canonicalCwd, ['rev-parse', '--git-common-dir']);
       const commonDir = canonicalPath(
-        isAbsolute(commonDirValue) ? commonDirValue : join(worktreeRoot, commonDirValue),
+        // Git returns a relative common-dir from the command's cwd, which may be below the root.
+        isAbsolute(commonDirValue) ? commonDirValue : join(canonicalCwd, commonDirValue),
       );
       const repositoryKey = repositoryIdentityKey(commonDir);
       return Object.freeze({

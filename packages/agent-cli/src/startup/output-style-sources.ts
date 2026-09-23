@@ -10,10 +10,18 @@ import {
 import type { IContributionSource, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import type { IOutputStyleFile, IOutputStyleSource } from '@robota-sdk/agent-preset';
 
-const OUTPUT_STYLE_DIRECTORY = join('.robota', 'output-styles');
+export const OUTPUT_STYLE_DIRECTORY = join('.robota', 'output-styles');
 const USER_OUTPUT_STYLE_PRECEDENCE = 10;
 const PROJECT_OUTPUT_STYLE_PRECEDENCE = 20;
 const MANAGED_OUTPUT_STYLE_PRECEDENCE = 1000;
+
+/** Project output-style directories are searched at every ancestor from the root to cwd. */
+export function projectOutputStyleDirectories(cwdRelative: string): readonly string[] {
+  const segments = cwdRelative.length === 0 ? [] : cwdRelative.split(sep);
+  return Array.from({ length: segments.length + 1 }, (_, depth) =>
+    join(...segments.slice(0, depth), OUTPUT_STYLE_DIRECTORY),
+  );
+}
 
 interface IStyleFileSource {
   readonly listDirectory: IContributionSource['listDirectory'];
@@ -49,11 +57,9 @@ function projectOutputStyleSources(
   const reader = getWorkspaceProjectReader(projectAccess.authority);
   const resolvedCwd = realpathSync(cwd);
   const cwdRelative = relative(identity.worktreeRoot, resolvedCwd);
-  const segments = cwdRelative.length === 0 ? [] : cwdRelative.split(sep);
   const sources: IOutputStyleSource[] = [];
 
-  for (let depth = 0; depth <= segments.length; depth += 1) {
-    const directory = join(...segments.slice(0, depth), OUTPUT_STYLE_DIRECTORY);
+  for (const [depth, directory] of projectOutputStyleDirectories(cwdRelative).entries()) {
     const files = readStyleFiles(reader, directory);
     if (files.length === 0) continue;
     sources.push({

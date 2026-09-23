@@ -7,3 +7,5 @@ export {
   createContributionSourcesForProjectAccess,
   createDefaultUserContributionSources,
 } from './initial-contribution-sources.js';
+export { listFrameworkProjectContributionPaths } from './project-contribution-inventory.js';
+export type { IProjectContributionPath } from './project-contribution-inventory.js';

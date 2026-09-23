@@ -7,6 +7,7 @@ import {
   BundlePluginInstaller,
   MarketplaceClient,
   NodeHostPluginSettingsStore,
+  PROJECT_PLUGIN_RELATIVE_DIRECTORY,
 } from '@robota-sdk/agent-framework';
 
 // `BundlePluginLoader` is now a TYPE here and nothing more: this module names it in
@@ -97,7 +98,7 @@ export function runGit(
 
 function createPluginServices(cwd: string): IPluginServices {
   const home = homedir();
-  const pluginsDir = join(home, '.robota', 'plugins');
+  const pluginsDir = join(home, PROJECT_PLUGIN_RELATIVE_DIRECTORY);
   const userSettingsPath = join(home, '.robota', 'settings.json');
 
   const settingsStore = new NodeHostPluginSettingsStore(userSettingsPath);
@@ -177,7 +178,7 @@ async function installPlugin(
     throw new Error('Plugin ID must be in format: name@marketplace');
   }
   if (scope === 'project') {
-    const projectPluginsDir = join(services.cwd, '.robota', 'plugins');
+    const projectPluginsDir = join(services.cwd, PROJECT_PLUGIN_RELATIVE_DIRECTORY);
     const projectInstaller = new BundlePluginInstaller({
       pluginsDir: projectPluginsDir,
       settingsStore: services.settingsStore,

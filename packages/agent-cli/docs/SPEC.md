@@ -517,7 +517,11 @@ composition. Restricted composition contains only host-owned user sources and ca
 settings, hooks, plugins, skills, context, provider overrides, or project state. The pre-parse
 `robota trust` command is the lifecycle surface:
 
-- `robota trust status` inspects the canonical current workspace without loading project settings.
+- `robota trust status` inspects the canonical current workspace and previews candidate project
+  sources using metadata only. Each path comes from the loader or state owner's path definition;
+  inspection never follows links or reads file content. Absent and unsafe paths remain visible as
+  such. Ancestor instruction and output-style paths reflect the current directory; task context
+  shows its default path because trusted settings can replace it later.
 - `robota trust --yes` (equivalent to `robota trust grant --yes`) records an explicit grant.
 - `robota trust revoke --yes` increments the identity generation and invalidates previously issued
   project capabilities.
@@ -525,8 +529,9 @@ settings, hooks, plugins, skills, context, provider overrides, or project state.
 Interactive startup may continue in Restricted mode with project contributions disabled. Print mode,
 `--goal`, and `--serve` fail closed for `untrusted`, `revoked`, `stale/replaced`, and
 `store-unavailable` decisions before provider construction, with a safe recovery message. All trust
-diagnostics expose only state and canonical display path; credentials and project-controlled content are
-never printed. `robota doctor` additionally reports a redacted provider-endpoint quarantine when a
+diagnostics expose state, canonical display path, and the owner-declared relative source paths with
+metadata kinds; credentials and project-controlled content are never printed. `robota doctor`
+additionally reports a redacted provider-endpoint quarantine when a
 lower settings layer changes an endpoint without supplying its own credential.
 
 > **Contained — [ARCH-048 historical record](https://github.com/woojubb/robota/blob/harness-archive-2026-09/.agents/tasks/completed/ARCH-048-canonical-project-root-binding.md).**

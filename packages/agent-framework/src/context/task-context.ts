@@ -29,7 +29,7 @@ export interface ITaskSelectionOptions {
   dir?: string;
 }
 
-const TASKS_DIR = join('.agents', 'tasks');
+export const TASKS_DIR = join('.agents', 'tasks');
 const README_FILENAME = 'README.md';
 const MARKDOWN_EXTENSION = '.md';
 const DEFAULT_MAX_TASKS = Number('3');
