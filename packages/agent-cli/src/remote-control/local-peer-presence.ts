@@ -37,6 +37,7 @@ import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
  */
 type TPeerSummary = ReturnType<NonNullable<ICommandHostAdapters['localPeers']>['list']>[number];
 const SECOND_MS = 1_000;
+const CERTIFICATION_RETRY_MS = 5_000;
 
 export interface ILocalPeerPresence {
   readonly sessionId: string;
@@ -94,30 +95,38 @@ function scheduleBirthSecondCertification(
   isWithdrawn: () => boolean,
 ): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let warned = false;
+  const warnOnce = (reason: string): void => {
+    if (warned) return;
+    warned = true;
+    process.emitWarning(`Local peer liveness certification delayed: ${reason}`);
+  };
+  const schedule = (delay: number): void => {
+    timer = setTimeout(() => {
+      if (isWithdrawn()) return;
+      try {
+        certify(announcePeer(registry, { ...announcement, requireStartTime: true }));
+      } catch (error) {
+        warnOnce(error instanceof Error ? error.message : String(error));
+        schedule(CERTIFICATION_RETRY_MS);
+      }
+    }, delay);
+    timer.unref?.();
+  };
   const certify = (entry: IPeerEntry): void => {
+    if (entry.startTimePrecision !== 'seconds') return;
     const birth = entry.startSecondMs;
-    if (
-      entry.startTimePrecision !== 'seconds' ||
-      typeof birth !== 'number' ||
-      entry.announcedAt >= birth + SECOND_MS
-    ) {
+    if (typeof birth !== 'number') {
+      warnOnce('The process birth second is unavailable.');
+      schedule(CERTIFICATION_RETRY_MS);
       return;
     }
+    if (entry.announcedAt >= birth + SECOND_MS) return;
     const delay = Math.max(
       1,
       Math.min(SECOND_MS, birth + SECOND_MS + 1 - (registry.now ?? Date.now)()),
     );
-    timer = setTimeout(() => {
-      if (isWithdrawn()) return;
-      try {
-        certify(announcePeer(registry, announcement));
-      } catch (error) {
-        process.emitWarning(
-          `Local peer liveness certification failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    }, delay);
-    timer.unref?.();
+    schedule(delay);
   };
   certify(initial);
   return () => {

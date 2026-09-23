@@ -6,7 +6,7 @@
  * clean exit removes it, and that a refused rendezvous is not quietly announced anyway.
  */
 
-import { mkdtempSync, readdirSync, rmSync, realpathSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -150,6 +150,76 @@ describe('announcing makes this session discoverable', () => {
       vi.advanceTimersByTime(901);
       expect(readdirSync(dir)).toEqual([]);
     } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('recovers when the initial birth-time inspection fails', () => {
+    const birth = 'Wed Sep 23 13:40:17 2026';
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse(`${birth} UTC`) + 100);
+    const warning = vi.spyOn(process, 'emitWarning').mockImplementation(() => {});
+    try {
+      let available = false;
+      const bus = exitBus();
+      const presence = announceLocalPeerPresence({
+        sessionId: 'session-one',
+        guardedDirectory: guardedDirectory(),
+        registry: {
+          readStartTime: () => (available ? birth : undefined),
+          startTimePrecision: 'seconds',
+          now: () => Date.now(),
+        },
+        on: bus.on,
+        off: bus.off,
+      });
+      expect(presence.list()[0]?.liveness).toBe('unknown');
+      expect(warning).toHaveBeenCalledTimes(1);
+
+      available = true;
+      vi.advanceTimersByTime(5_000);
+      expect(presence.list()[0]?.liveness).toBe('alive');
+      presence.withdraw();
+    } finally {
+      warning.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('preserves a valid birth time when a timed reannouncement fails, then recovers', () => {
+    const birth = 'Wed Sep 23 13:40:17 2026';
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse(`${birth} UTC`) + 100);
+    const warning = vi.spyOn(process, 'emitWarning').mockImplementation(() => {});
+    try {
+      let available = true;
+      const dir = guardedDirectory();
+      const bus = exitBus();
+      const presence = announceLocalPeerPresence({
+        sessionId: 'session-one',
+        guardedDirectory: dir,
+        registry: {
+          readStartTime: () => (available ? birth : undefined),
+          startTimePrecision: 'seconds',
+          now: () => Date.now(),
+        },
+        on: bus.on,
+        off: bus.off,
+      });
+      available = false;
+      vi.advanceTimersByTime(901);
+      const entry = JSON.parse(readFileSync(path.join(dir, readdirSync(dir)[0]!), 'utf8')) as {
+        startedAt: string;
+      };
+      expect(entry.startedAt).toBe(birth);
+      expect(warning).toHaveBeenCalledTimes(1);
+
+      available = true;
+      vi.advanceTimersByTime(5_000);
+      expect(presence.list()[0]?.liveness).toBe('alive');
+      presence.withdraw();
+    } finally {
+      warning.mockRestore();
       vi.useRealTimers();
     }
   });

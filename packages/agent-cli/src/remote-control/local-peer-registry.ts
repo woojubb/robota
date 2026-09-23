@@ -129,26 +129,43 @@ export function readProcessStartTime(
   return platform === 'darwin' ? readDarwin(pid) : readProcStartTime(pid);
 }
 
-/** Announce this session, atomically. Returns the entry as published. */
-export function announcePeer(
+function readAnnouncedStartMetadata(
   options: IRegistryOptions,
-  input: { sessionId: string; name?: string; pid?: number },
-): IPeerEntry {
-  const pid = input.pid ?? process.pid;
-  const readStartTime = options.readStartTime ?? readProcessStartTime;
-  const startedAt = readStartTime(pid) ?? '';
+  pid: number,
+  requireStartTime: boolean,
+): Pick<IPeerEntry, 'startedAt' | 'startTimePrecision' | 'startSecondMs'> {
+  const startedAt = (options.readStartTime ?? readProcessStartTime)(pid) ?? '';
+  // A certification retry must never replace a previously valid birth time with an empty one.
+  if (requireStartTime && startedAt === '') {
+    throw new Error('The process start time could not be read for peer certification.');
+  }
   const secondPrecision =
     options.startTimePrecision === 'seconds' ||
     (options.readStartTime === undefined && process.platform === 'darwin');
   const startSecondMs = secondPrecision ? Date.parse(`${startedAt} UTC`) : NaN;
+  if (requireStartTime && secondPrecision && !Number.isFinite(startSecondMs)) {
+    throw new Error('The process birth second could not be decoded for peer certification.');
+  }
+  return {
+    startedAt,
+    ...(secondPrecision ? { startTimePrecision: 'seconds' as const } : {}),
+    ...(Number.isFinite(startSecondMs) ? { startSecondMs } : {}),
+  };
+}
+
+/** Announce this session, atomically. Returns the entry as published. */
+export function announcePeer(
+  options: IRegistryOptions,
+  input: { sessionId: string; name?: string; pid?: number; requireStartTime?: boolean },
+): IPeerEntry {
+  const pid = input.pid ?? process.pid;
+  const start = readAnnouncedStartMetadata(options, pid, input.requireStartTime === true);
   const entry: IPeerEntry = {
     sessionId: input.sessionId,
     ...(input.name !== undefined ? { name: input.name } : {}),
     pid,
-    startedAt,
+    ...start,
     announcedAt: (options.now ?? Date.now)(),
-    ...(secondPrecision ? { startTimePrecision: 'seconds' as const } : {}),
-    ...(Number.isFinite(startSecondMs) ? { startSecondMs } : {}),
   };
   const target = join(options.guardedDirectory, `${input.sessionId}${ENTRY_SUFFIX}`);
   const temporary = `${target}.${pid}.tmp`;
