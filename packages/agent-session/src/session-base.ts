@@ -40,6 +40,7 @@ export abstract class SessionBase {
    * was not the one in flight. See `turn-claim.ts`.
    */
   protected readonly turnClaim = new TurnClaim();
+  private readonly permissionModeGuards = new Set<(next: TPermissionMode) => void>();
 
   getPermissionMode(): TPermissionMode {
     return this.permissionMode;
@@ -47,7 +48,14 @@ export abstract class SessionBase {
 
   /** Change the active permission mode — future tool calls will use the new mode. */
   setPermissionMode(mode: TPermissionMode): void {
+    for (const guard of this.permissionModeGuards) guard(mode);
     this.permissionMode = mode;
+  }
+
+  /** Register a synchronous policy check at the single session-mode mutation boundary. */
+  addPermissionModeGuard(guard: (next: TPermissionMode) => void): () => void {
+    this.permissionModeGuards.add(guard);
+    return () => this.permissionModeGuards.delete(guard);
   }
 
   /** Read the active preset id (PRESET-011 runtime state). */

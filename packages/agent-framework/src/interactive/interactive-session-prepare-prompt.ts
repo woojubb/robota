@@ -34,7 +34,13 @@ export async function preparePromptInput(
   cwd: string,
   rawInput?: string,
   contextReferences: readonly IContextReferenceItem[] = [],
+  allowFileReferences = true,
 ): Promise<IPreparedPromptInput> {
+  // External event text is data, not an operator prompt. In particular, an @path in a webhook
+  // must not read local files or fail solely because the session lacks project authority.
+  if (!allowFileReferences) {
+    return { modelInput: input, activeContextReferenceRecords: [], promptFileReferenceRecords: [] };
+  }
   const activePaths = listActiveContextReferences(contextReferences).map(
     (reference) => reference.sourcePath,
   );

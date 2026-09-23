@@ -75,7 +75,14 @@ export type {
 } from './workspace-trust/index.js';
 
 // ── InteractiveSession (primary API) ────────────────────────
-export { InteractiveSession, PeerMessageIngress } from './interactive/index.js';
+export { InteractiveSession, PeerMessageIngress, ExternalEventIngress } from './interactive/index.js';
+export type {
+  IAuthenticatedExternalEvent,
+  IExternalEventSourceOptions,
+  IExternalEventSource,
+  IExternalEventReceipt,
+  TExternalEventSettlement,
+} from './interactive/index.js';
 
 // ── Autonomous goal pursuit (GOAL-001) ──────────────────────
 export {

@@ -172,6 +172,9 @@ that session actually uses instead of re-deriving one that could disagree.
 
 ### Permission and consent semantics
 
+- A caller may attach a synchronous guard to the session's permission-mode transition boundary.
+  A denied transition leaves the current mode intact, regardless of whether the caller was a
+  command, preset, or SDK client; removing the guard restores ordinary transitions.
 - Malformed permission patterns (an unparseable URL pattern, an argument-scoped pattern for a
   tool with no argument key, syntactic junk) are refused at construction, before any turn runs —
   not discovered lazily at the moment a matching tool call arrives. A pattern naming a tool with

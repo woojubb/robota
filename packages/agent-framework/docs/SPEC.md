@@ -100,6 +100,17 @@ These are behaviors a caller cannot infer from a type signature alone.
   events, and any attached surface settles them through one shared registry. The first settlement
   wins and emits exactly one resolution event — there is no second settlement path. A callback that
   rejects must resolve to deny/cancel, never leave the request open.
+- **External events require separate source and sender admission.** A host must explicitly open a
+  source; merely configuring a transport does not authorize turns. A trusted adapter authenticates
+  the sender, and the session checks that sender against its source-specific allowlist before using
+  the ordinary bounded turn queue. The host assigns source/sender/conversation attribution, so one
+  conversation may coalesce only its own pending input; an untrusted public submission cannot claim
+  that reserved identity. The model receives an escaped, bounded source envelope; file-reference
+  shorthand in external text remains literal and never reads operator-selected local context.
+  Each accepted event settles from its own turn handle, and an interrupted result never becomes a
+  successful reply. External admission and `bypassPermissions` are
+  mutually exclusive throughout active and already-admitted work, not only at startup. This SDK
+  ingress is not yet an MCP adapter or a remote permission-approval channel.
 - **Hook executor registration is replace-vs-extend, and the built-ins are seeded first.** The core
   hook runner resolves `executors ?? createDefaultExecutors()` — an _undefined-only_ fallback, so
   supplying any executor array at all replaces the built-in `command`/`http` executors rather than
