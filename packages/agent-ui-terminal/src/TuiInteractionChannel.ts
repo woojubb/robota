@@ -314,6 +314,26 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
     this.stateManager.setPendingPrompt(null);
   }
 
+  async stopWaitingSelfPacedLoop(): Promise<void> {
+    const waiting = this.interactiveSession.listSelfPacedLoops().filter((loop) => loop.phase === 'waiting');
+    if (waiting.length === 0) return;
+    if (waiting.length > 1) {
+      this.addEntry(messageToHistoryEntry(createSystemMessage(
+        'Several self-paced loops are waiting. Use /loop list and /loop stop <id> to choose one.',
+      )));
+      return;
+    }
+    const loopId = waiting[0]!.loopId;
+    try {
+      await this.interactiveSession.stopSelfPacedLoop(loopId, 'Loop stopped by Esc');
+      this.addEntry(messageToHistoryEntry(createSystemMessage(`Loop ${loopId} stopped by Esc.`)));
+    } catch (error) {
+      this.addEntry(messageToHistoryEntry(createSystemMessage(
+        `Could not stop loop ${loopId}: ${error instanceof Error ? error.message : String(error)}`,
+      )));
+    }
+  }
+
   async shutdown(options?: { reason?: TSessionEndReason; timeoutMs?: number }): Promise<void> {
     await this.lifecycle.shutdown(options);
   }

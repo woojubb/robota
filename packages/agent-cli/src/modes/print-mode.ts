@@ -1,4 +1,5 @@
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import { homedir } from 'node:os';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type {
   IAgentDefinition,
@@ -15,7 +16,7 @@ import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
-import { areSessionLoopsDisabled } from '../startup/loop-options.js';
+import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../startup/loop-options.js';
 
 /**
  * ARCH-006: the tool surface the kernel overlay resolved. `additionalTools` carries the capability packs'
@@ -114,6 +115,7 @@ export async function runPrintMode(
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     disableSessionLoops: areSessionLoopsDisabled(process.env),
+    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({ projectAccess, userHome: homedir() }),
     resumeSessionId: sessionResolution.resumeSessionId,
     forkSession: sessionResolution.forkSession,
     sessionName: args.sessionName,

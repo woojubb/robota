@@ -14,6 +14,7 @@ export function createSelfPacedLoopState(
   loopId: string,
   instruction: string,
   nowMs: number,
+  options: { useDefaultPrompt?: boolean } = {},
 ): ISessionLoopState {
   if (!loopId.trim() || !instruction.trim() || !Number.isFinite(nowMs)) {
     throw new Error('A self-paced loop requires an ID, a prompt, and a valid creation time.');
@@ -21,6 +22,7 @@ export function createSelfPacedLoopState(
   return {
     loopId,
     instruction: instruction.trim(),
+    ...(options.useDefaultPrompt ? { useDefaultPrompt: true } : {}),
     createdAt: new Date(nowMs).toISOString(),
     expiresAt: new Date(nowMs + LIFETIME_MS).toISOString(),
     revision: 0,

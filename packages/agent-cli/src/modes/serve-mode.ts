@@ -21,7 +21,8 @@ import type { IOrgPolicy } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
-import { areSessionLoopsDisabled } from '../startup/loop-options.js';
+import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../startup/loop-options.js';
+import { homedir } from 'node:os';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
@@ -134,6 +135,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : opts.sessionStore,
     disableSessionLoops: areSessionLoopsDisabled(process.env),
+    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({ projectAccess: opts.projectAccess, userHome: homedir() }),
     resumeSessionId: opts.resumeSessionId,
     forkSession: args.forkSession,
     sessionName: args.sessionName,

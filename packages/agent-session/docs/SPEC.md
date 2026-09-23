@@ -80,6 +80,8 @@ set it, optional would mean "absent is acceptable," which is the permissive read
 replaces. The version is read first; a version this build does not implement is reported as
 `unsupported` without nested field issues, because field defects measured against another
 version's shape describe the reader's expectations, not the data's condition.
+An optional omitted-prompt marker on a self-paced loop survives strict decoding and re-encoding;
+absence continues to mean an explicit or legacy instruction.
 
 ### Session artifact (share/export)
 

@@ -49,7 +49,7 @@ import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetupOrExit } from './startup/command-setup.js';
-import { areSessionLoopsDisabled } from './startup/loop-options.js';
+import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from './startup/loop-options.js';
 import {
   createInitialCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
@@ -699,6 +699,7 @@ async function runCliCore(
     version,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     disableSessionLoops: areSessionLoopsDisabled(process.env),
+    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({ projectAccess: workspaceComposition.projectAccess, userHome: homedir() }),
     resumeSessionId,
     showSessionPickerOnStart,
     forkSession: args.forkSession,

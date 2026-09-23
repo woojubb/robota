@@ -133,6 +133,10 @@ These are behaviors a caller cannot infer from a type signature alone.
   one-minute to one-hour delay or stop; an omitted or denied decision permits one 20-minute fallback
   and then terminates. A stop removes only
   that loop's queued wake, and a running iteration may finish without arming a successor.
+- **Default loop prompts are live host content, not stored authority.** A loop created without an
+  explicit prompt retains that intent across resume. The host resolves the current default before
+  each admitted iteration; a missing or invalid resolver fails visibly and cannot run a stale
+  self-paced iteration. Explicit prompts never invoke this resolver.
 - **Tool composition is asymmetric on purpose: replace and append are not interchangeable.**
   `defaultTools` replaces the framework's default tool tier outright; `additionalTools` only appends
   and, on a name collision with an already-assembled tool, the earlier entry silently wins and the

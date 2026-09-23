@@ -43,6 +43,7 @@ export function buildTuiSessionOptions(
     // `resolvePermission`/`resolveAsk`. The local Ink queues + rendering are unchanged.
     sessionStore: opts.sessionStore,
     disableSessionLoops: opts.disableSessionLoops,
+    resolveDefaultLoopPrompt: opts.resolveDefaultLoopPrompt,
     resumeSessionId: opts.resumeSessionId,
     forkSession: opts.forkSession,
     sessionName: opts.sessionName,

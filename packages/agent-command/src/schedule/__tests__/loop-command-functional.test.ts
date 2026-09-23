@@ -11,6 +11,126 @@ afterEach(async () => {
 });
 
 describe('/loop command in a real interactive session', () => {
+  it('re-reads an omitted self-paced prompt before each iteration without changing explicit prompts', async () => {
+    let prompt = 'project first';
+    const resolveDefaultPrompt = () => prompt;
+    harness = scriptedSession({
+      turns: [{ text: 'first' }, { text: 'second' }],
+      commandModules: [createScheduleCommandModule({ defaultPrompt: 'fallback', resolveDefaultPrompt })],
+      resolveDefaultLoopPrompt: resolveDefaultPrompt,
+      backgroundTasks: true,
+      persistence: true,
+    });
+    const created = await harness.command('loop', '');
+    expect(created?.success).toBe(true);
+    const loopId = (created?.data as { loopId: string }).loopId;
+    await vi.waitFor(() => expect(harness?.session.listSelfPacedLoops()[0]?.phase).toBe('waiting'));
+    expect(JSON.stringify(harness.requests[0])).toContain('project first');
+
+    prompt = 'project second';
+    const timer = harness.session.listSchedules().find((task) => task.metadata?.['sessionLoopId'] === loopId)!;
+    const nextAllowedAt = harness.session.listSelfPacedLoops()[0]!.nextAllowedAt!;
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse(nextAllowedAt) + 1);
+    try {
+      expect(await harness.wake('project first', timer.id)).not.toBeNull();
+    } finally {
+      clock.mockRestore();
+    }
+    expect(harness.requests[1]?.filter((message) => message.role === 'user').at(-1)?.content)
+      .toBe('project second');
+    expect(harness.session.getFullHistory().filter((entry) => entry.type === 'user').at(-1))
+      .toMatchObject({ data: { content: 'project second' } });
+    expect(harness.session.listSelfPacedLoops().find((loop) => loop.loopId === loopId)?.phase)
+      .toBe('stopped');
+  });
+
+  it('re-reads an interval-only fixed-loop prompt before each wake', async () => {
+    let prompt = 'user first';
+    const resolveDefaultPrompt = () => prompt;
+    harness = scriptedSession({
+      turns: [{ text: 'first' }, { text: 'second' }],
+      commandModules: [createScheduleCommandModule({ defaultPrompt: 'fallback', resolveDefaultPrompt })],
+      resolveDefaultLoopPrompt: resolveDefaultPrompt,
+      backgroundTasks: true,
+      persistence: true,
+    });
+    const created = await harness.command('loop', '5m');
+    expect(created?.success).toBe(true);
+    const { loopId, taskId, firstAllowedAt } = created?.data as {
+      loopId: string; taskId: string; firstAllowedAt: string;
+    };
+    const eligibleClock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse(firstAllowedAt) + 1);
+    try {
+      expect(await harness.wake('user first', taskId)).not.toBeNull();
+      prompt = 'user second';
+      expect(await harness.wake('user first', taskId)).not.toBeNull();
+    } finally {
+      eligibleClock.mockRestore();
+    }
+    expect(JSON.stringify(harness.requests[0])).toContain('user first');
+    expect(harness.requests[1]?.filter((message) => message.role === 'user').at(-1)?.content)
+      .toBe('user second');
+    expect(harness.session.getFullHistory().filter((entry) => entry.type === 'user').at(-1))
+      .toMatchObject({ data: { content: 'user second' } });
+    expect((await harness.command('loop', `stop ${loopId}`))?.success).toBe(true);
+  });
+
+  it('does not consult the default resolver for an explicit fixed-loop prompt', async () => {
+    harness = scriptedSession({
+      turns: [{ text: 'done' }],
+      commandModules: [createScheduleCommandModule({
+        defaultPrompt: 'fallback',
+        resolveDefaultPrompt: () => { throw new Error('must not read default'); },
+      })],
+      resolveDefaultLoopPrompt: () => { throw new Error('must not read default'); },
+      backgroundTasks: true,
+      persistence: true,
+    });
+    const created = await harness.command('loop', '5m explicit check');
+    expect(created?.success).toBe(true);
+    const { loopId, taskId, firstAllowedAt } = created?.data as {
+      loopId: string; taskId: string; firstAllowedAt: string;
+    };
+    const eligibleClock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse(firstAllowedAt) + 1);
+    try {
+      expect(await harness.wake('explicit check', taskId)).not.toBeNull();
+    } finally {
+      eligibleClock.mockRestore();
+    }
+    expect(harness.requests[0]?.filter((message) => message.role === 'user').at(-1)?.content)
+      .toBe('explicit check');
+    expect((await harness.command('loop', `stop ${loopId}`))?.success).toBe(true);
+  });
+
+  it('honors an explicit schedule edit to a fixed loop that originally used the default', async () => {
+    let prompt = 'default first';
+    const resolveDefaultPrompt = () => prompt;
+    harness = scriptedSession({
+      turns: [{ text: 'done' }],
+      commandModules: [createScheduleCommandModule({ defaultPrompt: 'fallback', resolveDefaultPrompt })],
+      resolveDefaultLoopPrompt: resolveDefaultPrompt,
+      backgroundTasks: true,
+      persistence: true,
+    });
+    const created = await harness.command('loop', '5m');
+    expect(created?.success).toBe(true);
+    const { loopId, taskId, firstAllowedAt } = created?.data as {
+      loopId: string; taskId: string; firstAllowedAt: string;
+    };
+    expect((await harness.command('schedule', `edit ${taskId} cron "*/5 * * * *" explicit edit`))?.success)
+      .toBe(true);
+    prompt = 'default changed';
+    const eligibleClock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse(firstAllowedAt) + 1);
+    try {
+      expect(await harness.wake('explicit edit', taskId)).not.toBeNull();
+    } finally {
+      eligibleClock.mockRestore();
+    }
+    expect(harness.requests[0]?.filter((message) => message.role === 'user').at(-1)?.content)
+      .toBe('explicit edit');
+    expect((await harness.command('loop', `stop ${loopId}`))?.success).toBe(true);
+  });
+
   it('runs a prompt-only iteration, records the model delay, and stops its one-shot timer', async () => {
     harness = scriptedSession({
       turns: [

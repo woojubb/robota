@@ -293,6 +293,14 @@ overwrites existing files even with `--yes`.
 
 A provider API failure during a model call must never exit 0.
 
+### Default loop prompt
+
+The default `/loop` prompt comes from a trusted project's `.robota/loop.md`, then the user's
+`~/.robota/loop.md`, then the built-in maintenance prompt. The chosen file is re-read for each
+iteration, so edits take effect without restarting the session. A present but invalid file fails
+visibly instead of falling through; project content is considered only with explicit workspace
+trust. File prompts are bounded to 4096 UTF-8 bytes and convey no new permissions.
+
 ### CLI update check
 
 The CLI owns its package identity, install guidance, and user-local update-check cache. The

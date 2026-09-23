@@ -74,7 +74,7 @@ export interface IDefaultCommandModulesOptions {
   /** OBSERVABILITY-1991: host-composed doctor inputs; absence means `/doctor` is not registered. */
   doctorInputs?: IDoctorInputs;
   /** Host-owned fallback text and kill switch for session-local repeat. */
-  loopOptions?: { defaultPrompt?: string; disabled?: boolean };
+  loopOptions?: { defaultPrompt?: string; resolveDefaultPrompt?: () => string; disabled?: boolean };
   /**
    * Whitelist of module `name`s to keep. When provided, only modules whose `name`
    * appears here survive. Omitted → all modules kept (no-regression).

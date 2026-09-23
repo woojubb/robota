@@ -57,6 +57,8 @@ export interface IInteractiveSessionStandardOptions {
   sessionStore?: IInteractiveSessionStore;
   /** Host kill switch: existing loops remain stored but cannot create, re-arm, or fire. */
   disableSessionLoops?: boolean;
+  /** Host-owned live resolver for omitted `/loop` prompts; never needed for explicit prompts. */
+  resolveDefaultLoopPrompt?: () => string;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
   /** Trusted host-only path projection for hook compatibility. */
@@ -209,6 +211,7 @@ export interface IInteractiveSessionInjectedOptions {
   sessionStore?: IInteractiveSessionStore;
   /** Host kill switch: existing loops remain stored but cannot create, re-arm, or fire. */
   disableSessionLoops?: boolean;
+  resolveDefaultLoopPrompt?: () => string;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
   /** Trusted host-only path projection for hook compatibility. */

@@ -40,6 +40,10 @@ is enabled from a bare `cwd`, or which commands an org policy blocks. Session-ca
 projections declare every field's forwarding, rename, or presentation-only disposition explicitly;
 a missing mapping is rejected rather than silently dropped.
 
+When a self-paced loop is waiting, Esc stops that loop through the session's durable stop path.
+If several are waiting, Esc names the explicit stop command instead of choosing one silently.
+Esc retains its existing overlay and active-turn behavior.
+
 ### Channel lifecycle and teardown
 
 The interaction channel owns the interactive session and its render state, and its teardown

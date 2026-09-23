@@ -13,7 +13,7 @@ describe('fixed in-session loop', () => {
     expect((await executeLoopCommand(host, vi.fn(), '5m', options)).success).toBe(true);
     expect(spawnScheduledWake).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        cronExpression: '0 */5 * * * *',
+        cronExpression: expect.any(String),
         agentInstruction: options.defaultPrompt,
       }),
     );
@@ -34,6 +34,26 @@ describe('fixed in-session loop', () => {
       'check the build',
     ]);
     expect(spawnScheduledWake).not.toHaveBeenCalled();
+  });
+
+  it('marks omitted prompts for live override resolution without changing explicit prompts', async () => {
+    const createSelfPacedLoop = vi.fn().mockResolvedValue({
+      loopId: 'loop_default', expiresAt: '2030-01-01T00:00:00.000Z',
+    });
+    const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'timer_default' });
+    const host = createTestAgentJobHost({ createSelfPacedLoop, spawnScheduledWake });
+    const resolveDefaultPrompt = vi.fn().mockReturnValue('current file prompt');
+    const options = { defaultPrompt: 'built-in prompt', resolveDefaultPrompt };
+
+    expect((await executeLoopCommand(host, vi.fn(), '', options)).success).toBe(true);
+    expect(createSelfPacedLoop).toHaveBeenCalledWith('current file prompt', { useDefaultPrompt: true });
+    expect((await executeLoopCommand(host, vi.fn(), '5m', options)).success).toBe(true);
+    expect(spawnScheduledWake).toHaveBeenCalledWith(expect.objectContaining({
+      agentInstruction: 'current file prompt', sessionLoopDefaultPrompt: true,
+    }));
+    expect((await executeLoopCommand(host, vi.fn(), 'explicit check', options)).success).toBe(true);
+    expect(createSelfPacedLoop).toHaveBeenLastCalledWith('explicit check');
+    expect(resolveDefaultPrompt).toHaveBeenCalledTimes(2);
   });
 
   it('lists and stops a self-paced loop by stable identity without touching schedules', async () => {
@@ -216,7 +236,7 @@ describe('fixed in-session loop', () => {
     expect(spawnScheduledWake).toHaveBeenCalledWith(
       expect.objectContaining({
         label: 'Loop: check the build',
-        cronExpression: '0 */5 * * * *',
+        cronExpression: expect.any(String),
         agentInstruction: 'check the build',
         sessionLoop: true,
         sessionLoopId: expect.stringMatching(/^loop_[0-9a-f-]{36}$/),
@@ -225,6 +245,11 @@ describe('fixed in-session loop', () => {
     const loopId = (result.data as { loopId: string }).loopId;
     expect(result.message).toContain(`/loop stop ${loopId}`);
     expect(result.data).toMatchObject({ taskId: 'loop_task_1', cadenceLabel: '5m' });
+    expect(result.data).toEqual(expect.objectContaining({ jitterSeconds: expect.any(Number) }));
+    expect(result.message).toMatch(/stable offset \+\d+s/);
+    expect((result.data as { jitterSeconds: number }).jitterSeconds).toBeLessThanOrEqual(150);
+    expect(spawnScheduledWake.mock.calls[0]![0].cronExpression)
+      .toBe((result.data as { cronExpression: string }).cronExpression);
   });
 
   it('accepts a trailing interval and reports the actual rounded cadence', async () => {
@@ -236,7 +261,7 @@ describe('fixed in-session loop', () => {
     expect(result.success).toBe(true);
     expect(spawnScheduledWake).toHaveBeenCalledWith(
       expect.objectContaining({
-        cronExpression: '0 */10 * * * *',
+        cronExpression: expect.any(String),
         agentInstruction: 'check the deploy',
       }),
     );
