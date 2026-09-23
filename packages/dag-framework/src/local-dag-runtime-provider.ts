@@ -50,8 +50,8 @@ export interface ILocalDagRuntimeProviderOptions {
   executionRoot: string;
   /**
    * Base node registry. Defaults to the lazily-loaded `createDefaultNodeRegistrySync` from
-   * `@robota-sdk/dag-nodes-default` (ARCH-PROVIDER-004). The CLI layer typically passes
-   * `createCliNodeRegistry()` to include LLM and provider-backed nodes.
+   * `@robota-sdk/dag-nodes-default` (ARCH-PROVIDER-004). The CLI uses this 23-node default
+   * and supplies saved instant nodes separately; callers needing other nodes inject a registry.
    */
   nodeRegistry?: IDagNodeDefinition[];
   projectDir?: string;
