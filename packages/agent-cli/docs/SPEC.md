@@ -58,6 +58,15 @@ generation and prompt fields (`temperature`, `maxOutputTokens`, `language`, pres
 The TUI preserves the same generation, prompt-seed, and response-format fields through its render
 and channel options; serve projects `responseFormat` with the other preset fields.
 
+`robota mcp serve --http-token-file <absolute-path> [--http-port <port>]` selects the same
+session assembly with the MCP package's loopback Streamable HTTP carrier instead of stdio. The
+CLI creates the token file exclusively with owner-only permissions, writes the per-launch bearer
+there, and reports only the loopback endpoint and token-file path on stderr. It removes its own
+token file during shutdown. The default port is assigned by the OS; a requested port is validated
+as an integer in the TCP port range. The mode refuses a relative token path or an existing file,
+never puts the bearer in command arguments or stdout, and shares the existing signal/session
+cleanup path. HTTP requests do not cause the process to exit when one client disconnects.
+
 ARCH-011 runner propagation is explicit in serve mode. The host's `waitForFailure()` returns the
 first named nonzero runner outcome without waiting for unrelated runners; serve mode assigns that
 exact exit code and enters its existing owned shutdown path. A rejected runner wait assigns exit 1.

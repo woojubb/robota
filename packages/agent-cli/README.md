@@ -176,6 +176,8 @@ robota --no-screen-reader           # Force it off for this run, whatever the en
 # Pacing (ms): ROBOTA_SCREEN_READER_STARTUP_QUIET_MS=900  ROBOTA_SCREEN_READER_PREPARK_MS=50  (0 disables either)
 robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
 robota mcp serve                   # Serve one session to a local MCP client over stdio
+robota mcp serve --http-token-file /absolute/private/path/mcp-token --http-port 8765
+                                  # Serve Streamable HTTP on 127.0.0.1; the token file must not exist
 robota trust status                 # Inspect canonical workspace trust
 robota trust --yes                  # Grant trust for the current Git workspace
 robota trust revoke --yes           # Revoke the current workspace grant
