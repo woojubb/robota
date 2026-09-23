@@ -23,7 +23,6 @@ import React from 'react';
 import { useTerminalHandoffSuspension } from '../../hooks/useTerminalHandoffSuspension.js';
 import { TerminalHandoffController } from '../../terminal-handoff-controller.js';
 
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
 import type {
   ICommandHostTerminalHandoff,
   ICommandHostWorkspace,

@@ -12,7 +12,6 @@ import { HttpClient, type IHttpClientConfig } from './http-client';
 
 import type { IBasicMessage } from '../types/message-types';
 import type {
-  TUniversalMessage,
   IAssistantMessage,
   IStreamExecutionRequest,
   IChatExecutionRequest,

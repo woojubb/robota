@@ -117,6 +117,21 @@ describe('session-loop creation durability', () => {
     expect(manager.list()).toHaveLength(0);
   });
 
+  it.each(['not-a-date', new Date(Date.now() + 2 * 60 * 60_000).toISOString()])(
+    'rejects a first-fire boundary %s before creating a timer',
+    async (firstAllowedAt) => {
+      const { interactive, manager } = setup(() => undefined);
+      await expect(
+        interactive.spawnScheduledWake({
+          ...loop,
+          sessionLoopFirstAllowedAt: firstAllowedAt,
+          sessionLoopExpiresAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+        }),
+      ).rejects.toThrow('first-fire boundary');
+      expect(manager.list()).toHaveLength(0);
+    },
+  );
+
   it('refuses and cancels a loop wake after its seven-day expiry', async () => {
     const { interactive, manager } = setup(() => undefined);
     const expiresAt = new Date(Date.now() + 1_000).toISOString();
@@ -128,6 +143,19 @@ describe('session-loop creation durability', () => {
     } finally {
       clock.mockRestore();
     }
+  });
+
+  it('skips an aligned cron slot before the requested first-fire window', async () => {
+    const { interactive, manager } = setup(() => undefined);
+    const firstAllowedAt = new Date(Date.now() + 7 * 60_000).toISOString();
+    const task = await interactive.spawnScheduledWake({
+      ...loop,
+      sessionLoopFirstAllowedAt: firstAllowedAt,
+    });
+
+    expect(interactive.requestWakeup('check', task.id)).toBe(false);
+    expect(manager.get(task.id)?.status).toBe('sleeping');
+    expect(manager.get(task.id)?.metadata?.['sessionLoopFirstAllowedAt']).toBe(firstAllowedAt);
   });
 
   it('expires a paused live loop without waiting for another wake', async () => {

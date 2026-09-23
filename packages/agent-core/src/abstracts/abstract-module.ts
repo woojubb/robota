@@ -32,7 +32,6 @@ import type {
 import type {
   IModuleExecutionContext,
   IModuleExecutionResult,
-  IModuleResultData,
   IBaseModuleOptions,
   IModuleCapabilities,
   IModuleDescriptor,

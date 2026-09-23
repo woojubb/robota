@@ -1,4 +1,4 @@
-import type { IPortDefinition, TBinaryKind, TPortValueType } from '@robota-sdk/dag-core';
+import type { IPortDefinition, TBinaryKind } from '@robota-sdk/dag-core';
 
 /** Pre-configured binary kind and MIME type combination for port definitions. */
 export interface IBinaryPortPreset {

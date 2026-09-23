@@ -7,7 +7,7 @@ import type { IBackgroundTaskRunner } from '../types.js';
 export { createManagedShellProcessRunner } from './managed-shell-process-runner.js';
 export type { IManagedShellProcessRunnerOptions } from './managed-shell-process-runner.js';
 
-export { createScheduledTaskRunner } from './scheduled-task-runner.js';
+export { createScheduledTaskRunner, nextScheduledFireOnOrAfter } from './scheduled-task-runner.js';
 export type { IScheduledTaskRunnerOptions } from './scheduled-task-runner.js';
 export { resolveBackgroundTaskShellCommand } from './shell-command-resolution.js';
 export type {

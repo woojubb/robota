@@ -294,6 +294,11 @@ failure must never prevent startup. Print/headless execution never schedules or 
 keeping automation and structured stdout/stderr contracts deterministic. The CLI may print the install
 command but must never execute install/update commands without explicit user confirmation.
 
+- `robota trust status` previews the project sources that trusting the current workspace would enable,
+  using metadata only: it never follows links, never reads file content and never prints credentials
+  or project-controlled content. Where safe metadata is unavailable it lists candidate names with
+  metadata marked unavailable.
+
 ## Known limitations
 
 - Korean IME on macOS Terminal.app can crash the terminal (SIGSEGV) during IME composition; use

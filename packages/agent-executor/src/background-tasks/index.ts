@@ -3,6 +3,7 @@ export {
   createDefaultBackgroundTaskRunners,
   createManagedShellProcessRunner,
   createScheduledTaskRunner,
+  nextScheduledFireOnOrAfter,
   createToolInvocationBackgroundTaskRunner,
   resolveBackgroundTaskShellCommand,
 } from './runners/index.js';

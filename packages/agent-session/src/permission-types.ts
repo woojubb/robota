@@ -8,6 +8,7 @@ import type {
   IHookTypeExecutor,
   ISpinner,
   ITerminalOutput,
+  IToolResult,
   TBackgroundPermissionPolicy,
 } from '@robota-sdk/agent-core';
 import type { TPermissionResultValue } from '@robota-sdk/agent-interface-session';
@@ -110,6 +111,14 @@ export type TToolFailureOutcome = 'threw' | 'denied' | 'hook-blocked';
  * `data` keeps the JSON string it always carried, because the model is shown that text and changing
  * what it sees is a separate decision from making the envelope honest.
  */
+export interface IToolFailureResult extends IToolResult {
+  success: false;
+  outcome: TToolFailureOutcome;
+  error: string;
+  data: string;
+  metadata: Record<string, never>;
+}
+
 export function toolFailure(
   outcome: TToolFailureOutcome,
   error: string,
@@ -129,7 +138,7 @@ export function toolFailure(
    * The reason travels in `error`, so nothing is lost.
    */
   data?: unknown,
-) {
+): IToolFailureResult {
   return {
     success: false as const,
     outcome,
@@ -167,7 +176,7 @@ export function reportToolCrash(
   error: unknown,
   announce: ((event: IToolCrashAnnouncement) => void) | undefined,
   where: { toolName: string; toolArgs: TToolArgs; executionId?: string },
-) {
+): IToolFailureResult {
   const message = error instanceof Error ? error.message : String(error);
   announce?.({
     type: 'end',

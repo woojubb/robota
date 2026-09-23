@@ -1,8 +1,28 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createScheduledTaskRunner } from '../scheduled-task-runner.js';
+import { createScheduledTaskRunner, nextScheduledFireOnOrAfter } from '../scheduled-task-runner.js';
 import type { IBackgroundTaskStart, TBackgroundTaskRunnerEvent } from '../../types.js';
 
 const TEST_TIMEOUT_MS = 15_000;
+
+describe('nextScheduledFireOnOrAfter', () => {
+  it('selects the first cron slot after a boundary between slots', () => {
+    expect(
+      nextScheduledFireOnOrAfter(
+        '0 */10 * * * *',
+        new Date('2026-09-24T00:16:00.000Z'),
+      )?.toISOString(),
+    ).toBe('2026-09-24T00:20:00.000Z');
+  });
+
+  it('includes a cron slot exactly at the allowed boundary', () => {
+    expect(
+      nextScheduledFireOnOrAfter(
+        '0 */10 * * * *',
+        new Date('2026-09-24T00:20:00.000Z'),
+      )?.toISOString(),
+    ).toBe('2026-09-24T00:20:00.000Z');
+  });
+});
 
 function nodeCommand(script: string): string {
   return `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;

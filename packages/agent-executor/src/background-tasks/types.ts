@@ -9,6 +9,7 @@
 // ARCH-037: sourced from the `agent-core` SSOT, not from `agent-interface-transport`'s
 // pass-through re-export, which is deleted. Re-exported at the end of this file for the package's
 // own barrel chain — a type this file genuinely consumes, not a second name for someone else's.
+import type { TObserverFailureReporter } from './observer-delivery.js';
 import type { IToolResult, TBackgroundPermissionPolicy } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskError,
@@ -53,7 +54,6 @@ export type {
   TBackgroundTaskEvent,
   TBackgroundTaskEventListener,
 } from '@robota-sdk/agent-interface-execution';
-import type { TObserverFailureReporter } from './observer-delivery.js';
 
 export class BackgroundTaskError extends Error implements IBackgroundTaskError {
   readonly category: TBackgroundTaskErrorCategory;
@@ -120,6 +120,8 @@ export interface IScheduleEditPatch {
 
 export interface IBackgroundTaskRunner {
   readonly kind: TBackgroundTaskKind;
+  /** Optional scheduler calculation using the runner's own timezone and cron semantics. */
+  nextScheduledFireOnOrAfter?(cronExpression: string, firstAllowedAt: Date): Date | null;
   /**
    * MCP-004 §S1: how the manager admits a spawned task of this runner's kind. `'queued'` (the
    * default when absent) enqueues and waits for a concurrency slot, as every runner did before this
@@ -158,6 +160,8 @@ export interface IBackgroundTaskManager {
   wait(taskId: string): Promise<IBackgroundTaskResult>;
   list(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[];
   get(taskId: string): IBackgroundTaskState | undefined;
+  /** Available on the built-in manager; custom manager ports may omit it. */
+  nextScheduledFireOnOrAfter?(cronExpression: string, firstAllowedAt: Date): Date | null;
   cancel(taskId: string, reason?: string): Promise<void>;
   close(taskId: string): Promise<void>;
   // SELFHOST-012: non-destructive schedule lifecycle (scheduled tasks only).

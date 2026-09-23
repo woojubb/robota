@@ -18,7 +18,6 @@ import {
   formatFullContextBreakdown,
 } from './context-breakdown.js';
 
-import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
   ICommandHostAdapterAccess,
   ICommandHostContextReferences,

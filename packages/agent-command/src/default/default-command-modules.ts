@@ -116,7 +116,7 @@ export interface IDefaultCommandModulesResult {
 }
 
 export function createDefaultCommandModules({
-  cwd,
+  cwd: _cwd,
   contributionSources,
   providerDefinitions,
   providerSettingsAdapter,

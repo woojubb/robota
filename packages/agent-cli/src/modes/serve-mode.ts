@@ -17,7 +17,7 @@ import { settleOnServeTransportFailure } from './serve-transport-failure.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
-import type { ICreateSessionOptions, IOrgPolicy } from '@robota-sdk/agent-framework';
+import type { IOrgPolicy } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';

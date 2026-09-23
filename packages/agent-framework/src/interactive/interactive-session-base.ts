@@ -341,6 +341,7 @@ export abstract class InteractiveSessionBase {
     agentInstruction: string;
     sessionLoop?: boolean;
     sessionLoopId?: string;
+    sessionLoopFirstAllowedAt?: string;
     sessionLoopExpiresAt?: string;
   }): Promise<IBackgroundTaskState> {
     await this.ensureInitialized();
@@ -358,6 +359,9 @@ export abstract class InteractiveSessionBase {
             metadata: {
               sessionLoop: true,
               ...(input.sessionLoopId ? { sessionLoopId: input.sessionLoopId } : {}),
+              ...(input.sessionLoopFirstAllowedAt
+                ? { sessionLoopFirstAllowedAt: input.sessionLoopFirstAllowedAt }
+                : {}),
               ...(input.sessionLoopExpiresAt
                 ? { sessionLoopExpiresAt: input.sessionLoopExpiresAt }
                 : {}),

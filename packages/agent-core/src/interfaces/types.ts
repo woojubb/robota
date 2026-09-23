@@ -4,6 +4,7 @@
  */
 
 import type { TUniversalMessage } from './messages';
+import type { IPluginExecutionResult } from '../abstracts/abstract-plugin-types';
 
 /**
  * Primitive value types - foundation for all other types
@@ -78,8 +79,6 @@ export type TToolParameters = Record<string, TUniversalValue>;
 /**
  * Plugin context type - for plugin execution contexts
  */
-import type { IPluginExecutionResult } from '../abstracts/abstract-plugin-types';
-
 export interface IPluginContext {
   input?: string;
   response?: string;

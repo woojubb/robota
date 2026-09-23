@@ -14,11 +14,10 @@
 import { DEFAULT_BACKGROUND_PERMISSION_POLICY, MODEL_EFFORT_VALUES } from '@robota-sdk/agent-core';
 import { SubagentManager } from '@robota-sdk/agent-executor';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
+import { z } from 'zod';
 
 // CORE-030: defining a tool and telling the permission system what it does arrive together.
 import './tool-permission-profiles.js';
-import { z } from 'zod';
-
 import { runManagedAgentBatch } from './agent-tool-batch.js';
 import {
   stringifyAgentError,
@@ -87,7 +86,16 @@ function createSubagentTypeDescription(agentTypeNames: readonly string[]): strin
     : 'Agent type: a custom agent name from the configured agent registry';
 }
 
-function createAgentSchema(agentTypeNames: readonly string[]) {
+// Return type is intentionally inferred (not spelled out): the schema shape is derived by zod, and
+// this generic identity wrapper gives `createAgentSchema` an explicit annotation without hand-writing
+// the large inferred zod type.
+function identityAgentSchemaFactory<T>(
+  factory: (agentTypeNames: readonly string[]) => T,
+): (agentTypeNames: readonly string[]) => T {
+  return factory;
+}
+
+const createAgentSchema = identityAgentSchemaFactory((agentTypeNames: readonly string[]) => {
   return z
     .object({
       prompt: z
@@ -121,7 +129,7 @@ function createAgentSchema(agentTypeNames: readonly string[]) {
         .describe('Batch of subagent jobs to start in one Agent tool call'),
     })
     .passthrough();
-}
+});
 
 type TAgentArgs = z.infer<ReturnType<typeof createAgentSchema>>;
 type TAgentJobArgs = IAgentToolBatchJobArgs;

@@ -5,8 +5,15 @@ import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
 import { FrontmatterDecodeError } from '../frontmatter/frontmatter-error.js';
 
 import type { IAgentDefinition } from './agent-definition-types.js';
-import type { IContributionSource } from '../contributions/index.js';
+import type { IContributionSource } from '../contributions/contribution-source.js';
 import type { IWorkspaceDirectoryEntry } from '../workspace-trust/index.js';
+
+/** Agent definition roots shared by discovery and the pre-trust path inventory. */
+export const AGENT_ROOTS: readonly string[] = [
+  join('.robota', 'agents'),
+  join('.agents', 'agents'),
+  join('.claude', 'agents'),
+];
 
 /** Scan a directory for .md files and return parsed agent definitions. */
 function scanAgentsDir(dir: string, source: IContributionSource): IAgentDefinition[] {
@@ -82,11 +89,9 @@ export class AgentDefinitionLoader {
 
   /** Load all agent definitions, merged with built-in agents. Custom overrides built-in on name collision. */
   loadAll(): IAgentDefinition[] {
-    const discovered = this.sources.flatMap((source) => [
-      scanAgentsDir(join('.robota', 'agents'), source),
-      scanAgentsDir(join('.agents', 'agents'), source),
-      scanAgentsDir(join('.claude', 'agents'), source),
-    ]);
+    const discovered = this.sources.flatMap((source) =>
+      AGENT_ROOTS.map((root) => scanAgentsDir(root, source)),
+    );
 
     // Deduplicate custom agents: higher-priority source wins
     const seen = new Set<string>();

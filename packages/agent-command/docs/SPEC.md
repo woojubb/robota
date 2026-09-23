@@ -134,6 +134,11 @@ confirmation) asks for it inline at the top of `execute` via the host-supplied
 that accessor is `undefined` and the command takes its explicit no-human path rather than blocking or
 guessing. The CLI does not hard-code command-specific dialog logic.
 
+- `/loop` never wakes the agent before the requested interval has elapsed: a persisted first-fire
+  boundary skips earlier clock-aligned slots, and the creation receipt names the earliest eligible
+  instant. Because slots are calendar-aligned, daylight-saving changes can lengthen or shorten later
+  gaps; the command does not promise an exact elapsed cadence.
+
 ## Error taxonomy
 
 This package does not define custom error classes. All execution errors surface as `ICommandResult`

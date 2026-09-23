@@ -30,6 +30,7 @@ import {
 import {
   sessionLoopBlockReason,
   sessionLoopExpiry,
+  sessionLoopFirstWakeEligibility,
   validatedSessionLoopExpiry,
 } from './session-loop-lifecycle.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
@@ -61,8 +62,10 @@ import type {
 } from './types.js';
 import type { TLivePromptOverrides } from '../assembly/create-session-runtime.js';
 import type { ICommandHostContext } from '../command-api/index.js';
+import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type {
   IAgentJobHostContext,
+  ICommandResult,
   IUnknownCommandModuleName,
   TAutoCompactThresholdSource,
   TAutoCompactThreshold,
@@ -73,6 +76,7 @@ import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
+import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type {
   TUniversalMessage,
@@ -163,8 +167,7 @@ export class InteractiveSession
   private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
   private providerDefinitions: readonly IProviderDefinition[] = [];
   private activeOutputStyleId = 'default';
-  private orgPolicy: import('../command-api/org-policy/org-policy-types.js').IOrgPolicy | null =
-    null;
+  private orgPolicy: IOrgPolicy | null = null;
   protected readonly bgTracker: SessionBackgroundTaskTracker;
   protected readonly histTracker: SessionHistoryTracker;
   protected readonly skillRouter: SessionSkillRouter;
@@ -189,7 +192,7 @@ export class InteractiveSession
   /** REMOTE-007: transport-neutral pending permission/ask registry (parking + fail-closed + drain). */
   private readonly promptRegistry: SessionPromptRegistry;
   private readonly projectAccess: TWorkspaceProjectAccess;
-  private readonly providerErrorGuidance?: import('../utils/error-humanizer.js').IProviderErrorGuidance;
+  private readonly providerErrorGuidance?: IProviderErrorGuidance;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
@@ -604,11 +607,8 @@ export class InteractiveSession
    */
   requestWakeup(instruction: string, sourceTaskId: string): boolean {
     if (this.execCtrl.shuttingDown) return false;
-    const blocked = sessionLoopBlockReason(
-      this.getBackgroundTaskManager()?.get(sourceTaskId),
-      Date.now(),
-      this.sessionLoopsDisabled,
-    );
+    const task = this.getBackgroundTaskManager()?.get(sourceTaskId);
+    const blocked = sessionLoopBlockReason(task, Date.now(), this.sessionLoopsDisabled);
     if (blocked) {
       this.stoppedWakeTaskIds.add(sourceTaskId);
       void this.cancelBackgroundTask(sourceTaskId, `Session loop ${blocked}`).catch((error) =>
@@ -619,6 +619,21 @@ export class InteractiveSession
       );
       return false;
     }
+    const firstWakeEligibility = sessionLoopFirstWakeEligibility(task, Date.now());
+    if (firstWakeEligibility === 'invalid') {
+      this.stoppedWakeTaskIds.add(sourceTaskId);
+      void this.cancelBackgroundTask(
+        sourceTaskId,
+        'Invalid session loop first-fire boundary',
+      ).catch((error) =>
+        this.reportBackgroundError(
+          error instanceof Error ? error : new Error(String(error)),
+          'session-loop',
+        ),
+      );
+      return false;
+    }
+    if (firstWakeEligibility === 'early') return false;
     if (this.stoppedWakeTaskIds.has(sourceTaskId)) return false;
     if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return false;
     this.execCtrl.wakeTaskIds.add(sourceTaskId);
@@ -722,6 +737,7 @@ export class InteractiveSession
     agentInstruction: string;
     sessionLoop?: boolean;
     sessionLoopId?: string;
+    sessionLoopFirstAllowedAt?: string;
     sessionLoopExpiresAt?: string;
   }): Promise<IBackgroundTaskState> {
     await this.ensureInitialized();
@@ -730,6 +746,12 @@ export class InteractiveSession
     if (!this.sessionStore) throw new Error('A session store is required for a resumable loop.');
     if (!input.sessionLoopId) throw new Error('A stable loop ID is required for a resumable loop.');
     const sessionLoopExpiresAt = validatedSessionLoopExpiry(input.sessionLoopExpiresAt, Date.now());
+    if (input.sessionLoopFirstAllowedAt !== undefined) {
+      const firstAllowedMs = Date.parse(input.sessionLoopFirstAllowedAt);
+      if (!Number.isFinite(firstAllowedMs) || firstAllowedMs >= Date.parse(sessionLoopExpiresAt)) {
+        throw new Error('Session loop first-fire boundary is invalid or beyond its expiry.');
+      }
+    }
     this.pendingLoopCreations.add(input.sessionLoopId);
     let task: IBackgroundTaskState | undefined;
     try {
@@ -1195,7 +1217,7 @@ export class InteractiveSession
     args: string,
     source: TCommandInvocationSource = 'user',
     originDriverId?: TDriverId,
-  ): Promise<import('../commands/index.js').ICommandResult | null> {
+  ): Promise<ICommandResult | null> {
     if (this.orgPolicy?.blockedCommands?.includes(name)) {
       return {
         message: formatOrgPolicyViolationMessage(

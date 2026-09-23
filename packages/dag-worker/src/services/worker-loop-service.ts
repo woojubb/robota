@@ -1,5 +1,4 @@
 import {
-  TASK_PROGRESS_EVENTS,
   TaskRunStateMachine,
   buildValidationError,
   type IClockPort,
@@ -14,12 +13,9 @@ import {
   type ITaskExecutionInput,
   type ITaskExecutorPort,
   type IRunProgressEventReporter,
-  type TPortPayload,
   type TResult,
 } from '@robota-sdk/dag-core';
 import { resolveTrustedExecutionRoot } from '@robota-sdk/agent-core/node';
-import { dispatchDownstreamReadyTasks } from './downstream-task-dispatcher.js';
-import { finalizeDagRunIfTerminal } from './dag-run-finalizer.js';
 import { StaleTaskSweepThrottle } from './stale-task-sweep-throttle.js';
 import {
   claimTaskForExecution,
@@ -32,12 +28,7 @@ import { TaskOutcomeHandler } from './task-outcome-handler.js';
 import { executeWithTimeout } from './task-timeout-executor.js';
 import { resolveCurrentTotalCredits } from './worker-cost-progress.js';
 import { loadWorkerExecutionContext } from './worker-execution-context.js';
-import {
-  handleTerminalFailure,
-  handleRetry,
-  failAfterAck,
-  successAfterAck,
-} from './worker-failure-handler.js';
+import { failAfterAck, successAfterAck } from './worker-failure-handler.js';
 
 /** Configuration options for the worker loop, including retry and dead-letter policies. */
 export interface IWorkerLoopOptions {

@@ -21,6 +21,7 @@ import type { InteractiveSession } from '../../interactive/interactive-session.j
 import type { IAutomaticMemoryConfig } from '../../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../../memory/types.js';
 import type { TSubagentRunnerFactory } from '../../subagents/in-process-subagent-runner.js';
+import type { IProviderErrorGuidance } from '../../utils/error-humanizer.js';
 import type { TShellExecFn } from '../../utils/skill-prompt.js';
 import type { TWorkspaceProjectAccess } from '../../workspace-trust/types.js';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
@@ -30,7 +31,7 @@ import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-sessi
 export interface IHeadlessInteractionChannelOptions {
   cwd: string;
   provider: IAIProvider;
-  providerErrorGuidance?: import('../../utils/error-humanizer.js').IProviderErrorGuidance;
+  providerErrorGuidance?: IProviderErrorGuidance;
   /** Resolved organization policy enforced by the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;

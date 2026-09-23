@@ -1,7 +1,6 @@
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IActionRequest, IUserInteraction, TActionResponse } from '@robota-sdk/agent-core';
-import type { ICommandHostContext } from '@robota-sdk/agent-framework';
 
 /**
  * Build a command host context whose `getUserInteraction().ask` replays a scripted sequence of

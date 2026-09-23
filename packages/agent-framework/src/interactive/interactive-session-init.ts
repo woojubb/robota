@@ -7,7 +7,6 @@
  */
 
 import { homedir } from 'node:os';
-import { join } from 'node:path';
 
 import { createLogger } from '@robota-sdk/agent-core';
 
@@ -31,6 +30,7 @@ import {
   mergePluginHooksWithSources,
   mergeHooksIntoConfig,
 } from '../plugins/plugin-hooks-merger.js';
+import { pluginsDirUnder } from '../plugins/plugin-scope-paths.js';
 
 import type {
   IInteractiveSessionStandardOptions,
@@ -95,7 +95,6 @@ export async function createInteractiveSession(
 
   // Project plugins may contain executable hooks. Include that scope only after the host has
   // granted workspace trust; a restricted session still sees user-installed plugins.
-  const pluginsDirUnder = (base: string): string => join(base, '.robota', 'plugins');
   const pluginsDirs = [
     ...(options.projectAccess?.status === 'trusted' ? [pluginsDirUnder(cwd)] : []),
     pluginsDirUnder(homedir()),

@@ -21,8 +21,6 @@ import type {
   IExecutionDetailPage,
   IExecutionOrigin,
   IExecutionPendingRequest,
-  IExecutionWorkspaceEntry,
-  IExecutionWorkspaceFilter,
   IExecutionWorkspaceSnapshot,
   IExecutionWorkspaceSnapshotOptions,
   IExecutionWorkspaceTaskSpawner,

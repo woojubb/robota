@@ -89,7 +89,7 @@ function loadExactSessionRecord(
 
 export async function runSessionAnalyze(
   argv: string[],
-  cwd: string = process.cwd(),
+  _cwd: string = process.cwd(),
   projectSessionStore?: IInteractiveSessionStore,
   userSessionStore: IInteractiveSessionStore = createUserSessionStore(),
 ): Promise<void> {

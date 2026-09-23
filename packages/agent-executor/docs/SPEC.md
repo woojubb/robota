@@ -79,6 +79,10 @@ A one-shot schedule that has no next run after firing (and is neither paused nor
 completes through the ordinary running → completed transition instead of being left running
 forever with no next fire time — only a recurring schedule re-arms to sleeping.
 
+The scheduled runner can compute the next eligible fire on or after a boundary without arming a timer,
+using the same timezone semantics as the running schedule, so a restored session can tell a skipped
+early slot from a genuinely missed wake.
+
 ## Shell command resolution
 
 Both concrete shell-backed runners resolve the executable and its matching argument list through a

@@ -17,6 +17,11 @@ export {
   createWorkspaceProjectMutation,
 } from './project-mutation.js';
 export { assertWorkspaceProjectReader } from './project-reader.js';
+export { inspectPreTrustProjectPaths } from './pretrust-contribution-inspector.js';
+export type {
+  IPreTrustProjectPathInspection,
+  TPreTrustProjectPathKind,
+} from './pretrust-contribution-inspector.js';
 export { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 export {
   WorkspaceTrustService,

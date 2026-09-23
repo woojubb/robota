@@ -34,7 +34,7 @@ export class UniversalToolFactory {
   createFunctionTool(
     schema: IToolSchema,
     executor: TToolExecutor,
-    options: {
+    _options: {
       parentBlockId?: string;
       level?: number;
       logger?: ILogger;
@@ -51,7 +51,7 @@ export class UniversalToolFactory {
    */
   createOpenAPITool(
     _config: Record<string, TUniversalValue>,
-    options: {
+    _options: {
       parentBlockId?: string;
       level?: number;
       logger?: ILogger;
@@ -69,7 +69,7 @@ export class UniversalToolFactory {
   createDelegationTool(
     _teamContainer: Record<string, TUniversalValue>,
     _availableTemplates: Array<Record<string, TUniversalValue>>,
-    options: {
+    _options: {
       parentBlockId?: string;
       level?: number;
       logger?: ILogger;

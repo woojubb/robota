@@ -9,7 +9,7 @@ import { ConfigurationError } from '../utils/errors';
 
 import type { IToolWithEventService } from '../abstracts/abstract-tool';
 import type { AbstractTool } from '../abstracts/abstract-tool';
-import type { IAgentConfig, IExecutionContextInjection } from '../interfaces/agent';
+import type { IAgentConfig } from '../interfaces/agent';
 import type { IEventService } from '../interfaces/event-service';
 import type { TModelEffortSelection } from '../interfaces/provider';
 import type { IToolExecutionContext, TToolParameters } from '../interfaces/tool';

@@ -25,6 +25,19 @@ export function sessionLoopBlockReason(
   return disabled ? 'disabled' : null;
 }
 
+/** An aligned slot is neither a missed nor a runnable loop wake before its first eligible instant. */
+export function sessionLoopFirstWakeEligibility(
+  task: Pick<IBackgroundTaskState, 'metadata'> | undefined,
+  atMs: number,
+): 'eligible' | 'early' | 'invalid' {
+  if (task?.metadata?.['sessionLoop'] !== true) return 'eligible';
+  const value = task.metadata['sessionLoopFirstAllowedAt'];
+  if (value === undefined) return 'eligible';
+  const firstAllowedMs = typeof value === 'string' ? Date.parse(value) : NaN;
+  if (!Number.isFinite(firstAllowedMs)) return 'invalid';
+  return atMs < firstAllowedMs ? 'early' : 'eligible';
+}
+
 export function validatedSessionLoopExpiry(value: string | undefined, nowMs: number): string {
   if (value === undefined) return new Date(nowMs + LOOP_LIFETIME_MS).toISOString();
   const expiry = Date.parse(value);

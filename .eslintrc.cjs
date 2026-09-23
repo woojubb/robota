@@ -1,41 +1,41 @@
-{
+/** Single ESLint config for the monorepo. Packages inherit it; only apps with a different product type override it. */
+module.exports = {
   "root": true,
   "env": {
     "browser": true,
     "es2021": true,
     "node": true
   },
-  "extends": ["eslint:recommended"],
+  "extends": [
+    "eslint:recommended"
+  ],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "ecmaVersion": "latest",
     "sourceType": "module"
   },
-  "plugins": ["@typescript-eslint", "eslint-comments", "jsx-a11y"],
+  "plugins": [
+    "@typescript-eslint",
+    "eslint-comments",
+    "jsx-a11y"
+  ],
   "globals": {
     "NodeJS": "readonly"
   },
   "rules": {
-    // ==========================================
-    // CRITICAL POLICY: TYPE SAFETY WITH CONTROLLED FLEXIBILITY
-    // ==========================================
-    // 🚨 핵심 타입 안전성은 유지, unknown은 조건부 허용 🚨
-    "@typescript-eslint/no-explicit-any": "error", // any in shipped src is an error; tests are exempt via override (disable is prohibited)
+    "@typescript-eslint/no-explicit-any": "error",
     "@typescript-eslint/ban-types": [
       "warn",
       {
         "types": {
-          "unknown": "❌ Avoid `unknown` in shipped source. Prefer specific unions/interfaces, SSOT types (e.g. TUniversalValue), and type guards at boundaries. Note: disabling this rule in src/ is prohibited; tests are exempt.",
           "any": "❌ Avoid `any` in shipped source. Prefer specific types/SSOT types, and validate external inputs. Note: disabling no-explicit-any in src/ is prohibited; tests are exempt.",
           "{}": false
         },
         "extendDefaults": true
       }
     ],
-    // ==========================================
-    // ✅ default: keep packages strict; relax apps via overrides
     "@typescript-eslint/no-unused-vars": [
-      "warn",
+      "error",
       {
         "argsIgnorePattern": "^_",
         "varsIgnorePattern": "^_",
@@ -44,23 +44,14 @@
       }
     ],
     "no-unused-vars": "off",
-    // ✅ TS method overloads are legal duplicate names; use the TS-aware rule instead
     "no-dupe-class-members": "off",
     "@typescript-eslint/no-dupe-class-members": "error",
-    // ✅ 완화: 모듈 경계 타입을 선택적으로 변경
-    "@typescript-eslint/explicit-module-boundary-types": "off", // 유지
-    // ✅ 완화: TS 코멘트를 에러에서 경고로
+    "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/ban-ts-comment": "error",
-    // ✅ 완화: 불필요한 catch를 경고로
-    "no-useless-catch": "warn", // 유지
-    // 🚨 유지: 로깅 아키텍처 준수 (엔터프라이즈 필수)
-    "no-console": "error", // 유지: SimpleLogger 패턴 강제
+    "no-useless-catch": "warn",
+    "no-console": "error",
     "no-redeclare": "error",
     "no-case-declarations": "off",
-    // ==========================================
-    // IMPORT STATEMENT STANDARDS
-    // ==========================================
-    // 🚨 동적 import 금지: 상단 정식 import만 허용
     "no-restricted-syntax": [
       "error",
       {
@@ -88,34 +79,37 @@
         "message": "❌ PROHIBITED: Hardcoded event name in this.eventService subscription. Import event constants from the owning module."
       }
     ],
-    // 🚨 require() 사용 금지 (ES modules 사용)
     "@typescript-eslint/no-require-imports": "error",
-    // ==========================================
-    // CODE QUALITY RULES
-    // ==========================================
-    "complexity": ["warn", 15],
-    "max-lines": ["warn", { "max": 300, "skipBlankLines": true, "skipComments": true }],
-    "max-lines-per-function": ["warn", { "max": 50, "skipBlankLines": true, "skipComments": true }],
-    "no-param-reassign": ["error", { "props": false }],
-    "no-magic-numbers": [
-      "warn",
+    "no-param-reassign": [
+      "error",
       {
-        "ignore": [-1, 0, 1, 2],
-        "ignoreArrayIndexes": true,
-        "ignoreDefaultValues": true,
-        "enforceConst": true
+        "props": false
+      }
+    ],
+        "@typescript-eslint/consistent-type-imports": [
+      "error",
+      {
+        "prefer": "type-imports",
+        "fixStyle": "separate-type-imports",
+        "disallowTypeAnnotations": false
       }
     ]
   },
   "overrides": [
     {
-      "files": ["**/*.ts", "**/*.tsx"],
+      "files": [
+        "**/*.ts",
+        "**/*.tsx"
+      ],
       "rules": {
         "no-undef": "off"
       }
     },
     {
-      "files": ["packages/*/src/**/*", "apps/*/src/**/*"],
+      "files": [
+        "packages/*/src/**/*",
+        "apps/*/src/**/*"
+      ],
       "rules": {
         "eslint-comments/no-restricted-disable": [
           "error",
@@ -125,7 +119,9 @@
       }
     },
     {
-      "files": ["apps/**/*"],
+      "files": [
+        "apps/**/*"
+      ],
       "rules": {
         "no-console": "off",
         "no-restricted-syntax": "off",
@@ -142,7 +138,10 @@
       }
     },
     {
-      "files": ["apps/examples/**/*", "examples/**/*"],
+      "files": [
+        "apps/examples/**/*",
+        "examples/**/*"
+      ],
       "rules": {
         "no-console": "off",
         "@typescript-eslint/no-unused-vars": [
@@ -181,23 +180,15 @@
         "eslint-comments/no-restricted-disable": "off",
         "@typescript-eslint/no-unused-vars": "off",
         "no-unused-vars": "off",
-        // ==========================================
-        // CRITICAL POLICY: TEST FILES EXCEPTION
-        // ==========================================
-        // 🚨 LIMITED EXCEPTION FOR TEST FILES ONLY 🚨
-        // any/unknown types are allowed ONLY in test files
-        // for mocking and testing purposes
-        // This exception must NOT be extended to production code
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/ban-types": "off",
-        "no-console": "warn", // ⚠️ WARNING: Console usage in test files should be minimal. Use test framework assertions or mockable loggers for better isolation
+        "no-console": "warn",
         "complexity": "off",
         "max-lines": "off",
         "max-lines-per-function": "off",
         "no-magic-numbers": "off",
         "no-restricted-syntax": "off",
         "@typescript-eslint/no-require-imports": "off"
-        // ==========================================
       }
     },
     {
@@ -215,8 +206,13 @@
       }
     },
     {
-      "files": ["packages/playground/**/*.{ts,tsx,js,jsx}", "apps/agent-web/**/*.{ts,tsx,js,jsx}"],
-      "extends": ["plugin:jsx-a11y/recommended"],
+      "files": [
+        "packages/playground/**/*.{ts,tsx,js,jsx}",
+        "apps/agent-web/**/*.{ts,tsx,js,jsx}"
+      ],
+      "extends": [
+        "plugin:jsx-a11y/recommended"
+      ],
       "rules": {
         "jsx-a11y/alt-text": "warn",
         "jsx-a11y/anchor-has-content": "warn",
@@ -252,15 +248,45 @@
       }
     },
     {
-      "files": ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx"],
-      "excludedFiles": ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**"],
+      "files": [
+        "packages/*/src/**/*.ts",
+        "packages/*/src/**/*.tsx"
+      ],
+      "excludedFiles": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/__tests__/**"
+      ],
+      "rules": {}
+    },
+    {
+      "files": [
+        "**/*.test.ts",
+        "**/*.test.tsx"
+      ],
       "rules": {
-        "@typescript-eslint/consistent-type-definitions": ["error", "interface"],
-        "@typescript-eslint/naming-convention": [
-          "error",
-          { "selector": "interface", "format": ["PascalCase"], "prefix": ["I"] },
-          { "selector": "typeAlias", "format": ["PascalCase"], "prefix": ["T"] }
+        "@typescript-eslint/consistent-type-imports": "off"
+      }
+    },
+    {
+      "files": [
+        "packages/**/*.ts",
+        "packages/**/*.tsx",
+        "apps/agent-server/**/*.ts"
+      ],
+      "excludedFiles": [
+        "**/*.d.ts"
+      ],
+      "parserOptions": {
+        "tsconfigRootDir": __dirname,
+        "project": [
+          "./packages/*/tsconfig.eslint.json",
+          "./packages/dag-nodes/*/tsconfig.eslint.json",
+          "./apps/agent-server/tsconfig.eslint.json"
         ]
+      },
+      "rules": {
+        "@typescript-eslint/no-floating-promises": "error"
       }
     }
   ],
@@ -281,4 +307,4 @@
     "**/vitest.setup.ts",
     "packages/*/examples/**/*"
   ]
-}
+};

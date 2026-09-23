@@ -177,6 +177,16 @@ These are behaviors a caller cannot infer from a type signature alone.
   collision) has repeatedly been the source of a real regression in this codebase, so every such seam
   now requires an explicit, separately-named option rather than inferring intent from omission.
 
+- **Workspace identity**: linked worktrees stay distinct by worktree root, while a nested working
+  directory inside one worktree resolves to the same identity.
+- **Pre-trust source preview**: candidate project sources (settings, skills, agents, detection
+  metadata, context, tasks, state, plugins) are listed from the paths their owners actually load, so
+  the preview cannot drift from what trust would enable. Inspection reads metadata only under a
+  revalidated Git identity, never follows links, never issues a content reader and grants no
+  authority; where a stable no-follow walk is unavailable, names are listed with metadata unavailable.
+- **Session-loop first fire**: a persisted first-allowed boundary skips earlier calendar-aligned slots
+  without cancelling the loop; a boundary that is invalid or later than the loop's expiry is refused.
+
 ## Error taxonomy (shape, not enumeration)
 
 The package defines two named error classes at the SDK boundary: one for a provider that cannot be
