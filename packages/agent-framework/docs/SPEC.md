@@ -2835,8 +2835,9 @@ Ordinary turn snapshots remain best-effort.
 Stopping a loop durably records its terminal state before cancelling the runtime timer or
 acknowledging `/loop stop`. A failed record write leaves the timer running and reports failure.
 The session normalizes missing expiry to at most seven days and refuses an invalid, elapsed, or
-overlong expiry. A loop wake at or after expiry is refused and the timer is cancelled; an expired
-restored loop is retained as terminal rather than re-armed. `disableSessionLoops` blocks creation,
+overlong expiry. A live loop is durably stopped at expiry even while paused, without waiting for
+another wake; a wake racing expiry is refused. An expired restored loop is retained as terminal
+rather than re-armed. `disableSessionLoops` blocks creation,
 firing, and restore re-arm without blocking unrelated schedules. Disabled restored loops remain in
 the session record and can still be listed and stopped; a later restart with the switch off can
 re-arm them. Headless, TUI, and served hosts forward this option into the same session boundary.

@@ -68,6 +68,7 @@ export class SessionBackgroundTaskTracker {
     // ANALYTICS-001 (Phase 2): append a structured history entry (a source-attributed usage summary).
     private readonly appendHistoryEntry?: (entry: IHistoryEntry) => void,
     private readonly sessionLoopsDisabled = false,
+    private readonly onSessionLoopRearmed?: (task: IBackgroundTaskState) => void,
   ) {}
 
   subscribe(session: Session): void {
@@ -152,11 +153,15 @@ export class SessionBackgroundTaskTracker {
         ...(task.schedule.shell !== undefined ? { shell: task.schedule.shell } : {}),
         ...(task.schedule.env !== undefined ? { env: { ...task.schedule.env } } : {}),
       });
+      const ready = spawned.then((state) => {
+        if (state.metadata?.['sessionLoop'] === true) this.onSessionLoopRearmed?.(state);
+        return state;
+      });
       if (wasPaused) {
         // Re-arm-then-pause: keep the restored schedule paused across restart. A pause failure is surfaced as a
         // system note rather than silently swallowed (a paused schedule that resumed firing would be a surprise).
         const label = task.label;
-        void spawned
+        void ready
           .then((state) => manager.pauseScheduledTask(state.id))
           .catch((error) => {
             this.appendSystemNote?.(
@@ -166,7 +171,7 @@ export class SessionBackgroundTaskTracker {
             );
           });
       } else {
-        void spawned;
+        void ready;
       }
     }
   }

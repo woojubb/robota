@@ -47,7 +47,12 @@ function setup(
     kind: 'scheduled',
     start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
       task.emit?.({ type: 'background_task_sleeping', nextFireAt: '2999-01-01T00:00:00.000Z' });
-      return { taskId: task.taskId, result: new Promise<never>(() => {}), cancel };
+      return {
+        taskId: task.taskId,
+        result: new Promise<never>(() => {}),
+        cancel,
+        pause: vi.fn().mockResolvedValue(undefined),
+      };
     },
   };
   const manager = new BackgroundTaskManager({ runners: [runner], maxConcurrent });
@@ -122,6 +127,29 @@ describe('session-loop creation durability', () => {
       await vi.waitFor(() => expect(manager.get(task.id)?.status).toBe('cancelled'));
     } finally {
       clock.mockRestore();
+    }
+  });
+
+  it('expires a paused live loop without waiting for another wake', async () => {
+    vi.useFakeTimers();
+    try {
+      const { interactive, manager, records } = setup(() => undefined);
+      const expiresAt = new Date(Date.now() + 1_000).toISOString();
+      const task = await interactive.spawnScheduledWake({
+        ...loop,
+        sessionLoopExpiresAt: expiresAt,
+      });
+      await manager.pauseScheduledTask(task.id);
+      expect(manager.get(task.id)?.status).toBe('paused');
+
+      await vi.advanceTimersByTimeAsync(1_001);
+
+      expect(manager.get(task.id)?.status).toBe('cancelled');
+      expect(
+        records.get('loop_durable')?.backgroundTasks?.find((entry) => entry.id === task.id)?.status,
+      ).toBe('cancelled');
+    } finally {
+      vi.useRealTimers();
     }
   });
 

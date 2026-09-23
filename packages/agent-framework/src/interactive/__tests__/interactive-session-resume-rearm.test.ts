@@ -211,6 +211,38 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
     expect(rearmed?.metadata?.['sessionLoopId']).toBe('loop_stable');
   });
 
+  it('expires a restored paused loop without a scheduled wake', async () => {
+    vi.useFakeTimers();
+    try {
+      const record = pausedScheduledRecord();
+      const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
+      tasks[0]!['metadata'] = {
+        sessionLoop: true,
+        sessionLoopId: 'loop_restored',
+        sessionLoopExpiresAt: new Date(Date.now() + 1_000).toISOString(),
+      };
+      const { manager, store } = setupWithRecord(record);
+      await vi.advanceTimersByTimeAsync(0);
+      const rearmed = manager
+        .list()
+        .find((task) => task.metadata?.['sessionLoopId'] === 'loop_restored');
+      expect(rearmed?.status).toBe('paused');
+
+      await vi.advanceTimersByTimeAsync(1_001);
+
+      expect(manager.get(rearmed!.id)?.status).toBe('cancelled');
+      expect(store.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          backgroundTasks: expect.arrayContaining([
+            expect.objectContaining({ id: rearmed!.id, status: 'cancelled' }),
+          ]),
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('does not re-arm an expired session loop while restoring unrelated schedules normally', () => {
     const record = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
     const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;

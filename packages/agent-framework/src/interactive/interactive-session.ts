@@ -27,7 +27,11 @@ import {
   publicTurnOptions,
   submitNewTurn,
 } from './interactive-session-turn-submission.js';
-import { sessionLoopBlockReason, validatedSessionLoopExpiry } from './session-loop-lifecycle.js';
+import {
+  sessionLoopBlockReason,
+  sessionLoopExpiry,
+  validatedSessionLoopExpiry,
+} from './session-loop-lifecycle.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
@@ -166,6 +170,7 @@ export class InteractiveSession
   protected readonly skillRouter: SessionSkillRouter;
   protected readonly execCtrl: SessionExecutionController;
   private readonly stoppedWakeTaskIds = new Set<string>();
+  private readonly sessionLoopExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
   /** GOAL-001: autonomous objective-pursuit controller (inert until a goal is set). */
   private readonly goalController = new GoalController();
   /** SELFHOST-002: plan-mode phase controller (inert until a plan is started). */
@@ -253,6 +258,7 @@ export class InteractiveSession
       (message) => this.histTracker.append(messageToHistoryEntry(createSystemMessage(message))),
       (entry) => this.histTracker.append(entry),
       this.sessionLoopsDisabled,
+      (task) => this.armSessionLoopExpiry(task),
     );
 
     this.histTracker = new SessionHistoryTracker(
@@ -632,6 +638,35 @@ export class InteractiveSession
     return true;
   }
 
+  private armSessionLoopExpiry(task: IBackgroundTaskState, retryDelayMs?: number): void {
+    const expiry = sessionLoopExpiry(task);
+    if (expiry === undefined) return;
+    const previous = this.sessionLoopExpiryTimers.get(task.id);
+    if (previous) clearTimeout(previous);
+    const delay = retryDelayMs ?? Math.max(0, Number.isFinite(expiry) ? expiry - Date.now() : 0);
+    const timer = setTimeout(() => {
+      this.sessionLoopExpiryTimers.delete(task.id);
+      const live = this.getBackgroundTaskManager()?.get(task.id);
+      if (
+        !live ||
+        live.status === 'cancelled' ||
+        live.status === 'completed' ||
+        live.status === 'failed'
+      ) {
+        return;
+      }
+      void this.cancelBackgroundTask(task.id, 'Session loop expired').catch((error) => {
+        this.reportBackgroundError(
+          error instanceof Error ? error : new Error(String(error)),
+          'session-loop',
+        );
+        if (!this.execCtrl.shuttingDown) this.armSessionLoopExpiry(live, 60_000);
+      });
+    }, delay);
+    if (typeof timer === 'object' && 'unref' in timer) timer.unref();
+    this.sessionLoopExpiryTimers.set(task.id, timer);
+  }
+
   override listSchedules(): IBackgroundTaskState[] {
     return [
       ...super.listSchedules(),
@@ -662,6 +697,9 @@ export class InteractiveSession
       this.execCtrl.wakeTaskIds.delete(taskId);
       if (heldTask) this.bgTracker.markHeldSessionLoopCancelled(taskId);
       else await this.bgTracker.cancelTask(taskId, reason);
+      const expiryTimer = this.sessionLoopExpiryTimers.get(taskId);
+      if (expiryTimer) clearTimeout(expiryTimer);
+      this.sessionLoopExpiryTimers.delete(taskId);
     } catch (error) {
       if (!durableStop) this.stoppedWakeTaskIds.delete(taskId);
       throw error;
@@ -702,6 +740,7 @@ export class InteractiveSession
         );
       }
       this.persistCurrentSession(true, input.sessionLoopId);
+      this.armSessionLoopExpiry(task);
       return task;
     } catch (error) {
       // A loop whose creation was not durably acknowledged must not keep firing in this process.
@@ -741,6 +780,8 @@ export class InteractiveSession
   shutdown(options: IInteractiveSessionShutdownOptions = {}): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
     this.execCtrl.shuttingDown = true;
+    for (const timer of this.sessionLoopExpiryTimers.values()) clearTimeout(timer);
+    this.sessionLoopExpiryTimers.clear();
     this.shutdownPromise = (async () => {
       await this.ensureInitialized();
       this.execCtrl.clearPendingQueue();
