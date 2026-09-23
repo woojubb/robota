@@ -23,6 +23,12 @@ export — there is no vocabulary or discriminators at runtime.
 **This package declares the SHAPE of a measurement. It measures nothing and decides no policy** — not
 what counts as a turn, not how cost is derived, not what a report should contain.
 
+A canonical usage observation may also carry an optional prompt-execution root identity, UTC
+start/end times, and first-callback outcome. These describe only the prompt call through its first
+terminal callback, not final turn settlement or a parent/child distributed trace. The first-callback
+outcome may differ from the observation's later turn outcome. Older observations without them remain valid;
+the identity carries no prompt, response, tool, user, or session content.
+
 **Zero dependencies by design.** Every field of every declaration here is a primitive or another
 declaration in this package, so it depends on nothing at all — not even `agent-core`. It is the only
 contract package in this family with no dependencies, and that is a property worth keeping: the

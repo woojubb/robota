@@ -90,6 +90,13 @@ factory; `config/`, `context/`, `memory/`, `checkpoints/`, `self-hosting/`, `sub
 
 These are behaviors a caller cannot infer from a type signature alone.
 
+- **Prompt trace identity has a narrow execution boundary.** A started prompt records a fresh,
+  content-free OpenTelemetry-compatible root identity and actual start/end times in its canonical
+  usage observation, even if it has no token usage or ends in failure/interruption. The root ends
+  at the first terminal prompt callback, recording that callback's outcome independently; later
+  context refresh, wake finalization, notification, and handle settlement are outside it. A
+  failure before prompt execution begins has no root.
+  This is not a distributed trace, a tool-call trace, or proof that the final turn settled successfully.
 - **Session persistence is explicit, never implicit.** `InteractiveSession`/`createAgentRuntime`
   never construct a project session store from a bare `cwd`. A host wanting persistence supplies an
   explicit store (optionally composed from same-authority `sessions`/`session-logs` state facets); an

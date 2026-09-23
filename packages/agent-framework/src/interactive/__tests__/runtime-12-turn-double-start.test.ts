@@ -18,7 +18,11 @@ import {
  * code the flag is not yet set at that point, so both submits pass the gate and double-start (pending stays 0).
  */
 const refreshCtl = vi.hoisted(() => {
-  return { blocking: false, release: undefined as (() => void) | undefined };
+  return {
+    blocking: false,
+    rejectNext: false,
+    release: undefined as (() => void) | undefined,
+  };
 });
 
 const captureCtl = vi.hoisted(() => {
@@ -26,12 +30,16 @@ const captureCtl = vi.hoisted(() => {
 });
 
 vi.mock('../interactive-session-context-refresh.js', () => ({
-  checkAndRefreshContextIfStale: (): Promise<void> =>
-    refreshCtl.blocking
-      ? new Promise<void>((resolve) => {
-          refreshCtl.release = resolve;
-        })
-      : Promise.resolve(),
+  checkAndRefreshContextIfStale: (): Promise<void> => {
+    if (refreshCtl.rejectNext) {
+      refreshCtl.rejectNext = false;
+      return Promise.reject(new Error('context refresh failed'));
+    }
+    if (!refreshCtl.blocking) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      refreshCtl.release = resolve;
+    });
+  },
 }));
 
 vi.mock('../interactive-session-post-turn-memory.js', () => ({
@@ -49,6 +57,7 @@ describe('CORE-026 RUNTIME-12 — no turn double-start', () => {
 
   afterEach(async () => {
     refreshCtl.blocking = false;
+    refreshCtl.rejectNext = false;
     refreshCtl.release?.();
     captureCtl.blockNext = false;
     captureCtl.release?.();
@@ -90,6 +99,19 @@ describe('CORE-026 RUNTIME-12 — no turn double-start', () => {
     for (let i = 0; i < 200 && (session.isExecuting() || session.getPendingCount() > 0); i++) {
       await new Promise((r) => setTimeout(r, 0));
     }
+  });
+
+  it('does not invent prompt timing when context refresh fails before execution', async () => {
+    harness = scriptedSession({ turns: [{ text: 'unused' }] });
+    refreshCtl.rejectNext = true;
+    await harness.session.submit('test').catch(() => undefined);
+    const observations = harness.session
+      .getFullHistory()
+      .filter((entry) => entry.type === 'usage-observation');
+    expect(observations).toHaveLength(1);
+    expect(observations[0]!.data).toMatchObject({ outcome: 'failure' });
+    expect(observations[0]!.data).not.toHaveProperty('promptExecutionStartedAt');
+    expect(observations[0]!.data).not.toHaveProperty('promptExecutionTraceId');
   });
 
   it('keeps execution ownership while awaited post-turn capture is in flight', async () => {

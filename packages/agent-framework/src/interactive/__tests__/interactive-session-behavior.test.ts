@@ -12,6 +12,24 @@ import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js'
 import { InteractiveSession } from '../interactive-session.js';
 
 import type { IExecutionResult, IToolState } from '../types.js';
+import type { IUsageObservation } from '@robota-sdk/agent-interface-analytics';
+
+function recordedObservation(session: InteractiveSession): IUsageObservation {
+  const entries = session.getFullHistory().filter((entry) => entry.type === 'usage-observation');
+  expect(entries).toHaveLength(1);
+  return entries[0]!.data as unknown as IUsageObservation;
+}
+
+function expectPromptRoot(observation: IUsageObservation): void {
+  expect(observation.promptExecutionStartedAt).toMatch(/^\d{4}-\d\d-\d\dT.*Z$/);
+  expect(observation.promptExecutionEndedAt).toMatch(/^\d{4}-\d\d-\d\dT.*Z$/);
+  expect(new Date(observation.promptExecutionStartedAt!).getTime()).toBeLessThanOrEqual(
+    new Date(observation.promptExecutionEndedAt!).getTime(),
+  );
+  expect(observation.promptExecutionTraceId).toMatch(/^(?!0{32}$)[0-9a-f]{32}$/);
+  expect(observation.promptExecutionSpanId).toMatch(/^(?!0{16}$)[0-9a-f]{16}$/);
+  expect(['success', 'failure', 'interrupted']).toContain(observation.promptExecutionOutcome);
+}
 
 function createMockSession(options?: {
   runResult?: string;
@@ -116,6 +134,10 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         }),
       }),
     );
+    const observation = recordedObservation(session);
+    expectPromptRoot(observation);
+    expect(observation.promptExecutionOutcome).toBe('success');
+    expect(JSON.stringify(observation)).not.toContain('Hello back!');
   });
 
   // ── Scenario: Streaming text accumulation ─────────────────────
@@ -274,6 +296,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         data: expect.objectContaining({ outcome: 'interrupted' }),
       }),
     );
+    expectPromptRoot(recordedObservation(session));
   });
 
   // ── Scenario: Error handling ──────────────────────────────────
@@ -303,6 +326,10 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         data: expect.objectContaining({ outcome: 'failure' }),
       }),
     );
+    const observation = recordedObservation(session);
+    expectPromptRoot(observation);
+    expect(observation.promptExecutionOutcome).toBe('failure');
+    expect(JSON.stringify(observation)).not.toContain('API rate limit exceeded');
   });
 
   // ── Scenario: ERR-001 — mid-stream failure surfacing + liveness ─
@@ -487,6 +514,43 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     await session.submit('test');
     expect(contextUsedTokens).toBe(1000);
+  });
+
+  it('keeps the prompt root successful when a later context update fails', async () => {
+    const session = new InteractiveSession({
+      session: createMockSession({ runResult: 'completed response' }) as never,
+      cwd: '/tmp',
+    });
+    session.on('context_update', () => {
+      throw new Error('late context update failed');
+    });
+    session.on('error', () => undefined);
+
+    await session.submit('test');
+
+    const observation = recordedObservation(session);
+    expect(observation.outcome).toBe('success');
+    expectPromptRoot(observation);
+    expect(observation.promptExecutionOutcome).toBe('success');
+    expect(JSON.stringify(observation)).not.toContain('late context update failed');
+  });
+
+  it('keeps the first prompt outcome when a later context update aborts', async () => {
+    const session = new InteractiveSession({
+      session: createMockSession({ runResult: 'completed response' }) as never,
+      cwd: '/tmp',
+    });
+    session.on('context_update', () => {
+      throw new DOMException('late abort', 'AbortError');
+    });
+    session.on('error', () => undefined);
+
+    await session.submit('test');
+
+    const observation = recordedObservation(session);
+    expect(observation.outcome).toBe('interrupted');
+    expect(observation.promptExecutionOutcome).toBe('success');
+    expectPromptRoot(observation);
   });
 
   it('injected sessions without cwd emit error on submit', async () => {
