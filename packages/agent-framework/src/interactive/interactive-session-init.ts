@@ -82,7 +82,7 @@ export async function createInteractiveSession(
   options: IInitOptions,
 ): Promise<ICreatedInteractiveSession> {
   const cwd = options.cwd;
-  const { config, context, projectInfo, contributionSources } =
+  const { config, context, projectInfo, contributionSources, hookSources } =
     await loadInteractiveProjectContext(options);
 
   let mergedConfig: IResolvedConfig = options.language
@@ -148,6 +148,7 @@ export async function createInteractiveSession(
       contextCapacityHint,
       contributionSources,
     }),
+    hookSources,
   );
 
   return {
@@ -210,7 +211,8 @@ export async function initializeInteractiveSessionAsync(
   options: IInteractiveSessionStandardOptions,
   deps: IAsyncInitDeps,
 ): Promise<IAsyncInitResult> {
-  const config = await loadInteractiveProjectConfig(options.config, options.projectAccess);
+  const loadedConfig = await loadInteractiveProjectConfig(options.config, options.projectAccess);
+  const { config, hookSources } = loadedConfig;
   const autoCompactThresholdSource =
     config.autoCompactThreshold === undefined ? 'default' : 'settings';
   const checkpointStore = options.editCheckpointStore;
@@ -221,6 +223,7 @@ export async function initializeInteractiveSessionAsync(
     provider: options.provider,
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     config,
+    hookSources,
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
     permissionHandler: deps.permissionHandler,

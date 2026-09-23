@@ -1,6 +1,6 @@
 import { relative, resolve } from 'node:path';
 
-import { loadConfig } from '../config/config-loader.js';
+import { loadConfigWithHookSources } from '../config/config-loader.js';
 import {
   createDefaultUserSettingsSources,
   createWorkspaceProjectSettingsSources,
@@ -14,6 +14,7 @@ import {
 } from '../workspace-trust/index.js';
 
 import type { IInitOptions } from './interactive-session-options.js';
+import type { IHookDefinitionSource } from '../config/config-merge.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import type { IProjectInfo } from '../context/project-detector.js';
@@ -26,21 +27,30 @@ interface IInteractiveProjectContext {
   context: ILoadedContext;
   projectInfo: IProjectInfo;
   contributionSources: readonly IContributionSource[];
+  hookSources: readonly IHookDefinitionSource[];
 }
 
 export async function loadInteractiveProjectConfig(
   supplied: IResolvedConfig | undefined,
   projectAccess: TWorkspaceProjectAccess | undefined,
-): Promise<IResolvedConfig> {
-  if (supplied !== undefined) return supplied;
+): Promise<{ config: IResolvedConfig; hookSources: readonly IHookDefinitionSource[] }> {
+  if (supplied !== undefined) return { config: supplied, hookSources: [] };
   const projectReader =
     projectAccess?.status === 'trusted'
       ? getWorkspaceProjectReader(projectAccess.authority)
       : undefined;
-  return loadConfig([
+  return loadConfigWithHookSources([
     ...createDefaultUserSettingsSources(),
     ...(projectReader === undefined ? [] : createWorkspaceProjectSettingsSources(projectReader)),
   ]);
+}
+
+async function resolveInteractiveProjectConfig(
+  options: IInitOptions,
+  projectAccess: TWorkspaceProjectAccess,
+): Promise<{ config: IResolvedConfig; hookSources: readonly IHookDefinitionSource[] }> {
+  if (options.config === undefined) return loadInteractiveProjectConfig(undefined, projectAccess);
+  return { config: options.config, hookSources: options.hookSources ?? [] };
 }
 
 export async function loadInteractiveProjectContext(
@@ -63,7 +73,8 @@ export async function loadInteractiveProjectContext(
             resolve(options.cwd),
           ),
         };
-  const config = await loadInteractiveProjectConfig(options.config, projectAccess);
+  const loadedConfig = await resolveInteractiveProjectConfig(options, projectAccess);
+  const { config, hookSources } = loadedConfig;
   const [context, projectInfo] = await Promise.all([
     options.bare
       ? Promise.resolve({
@@ -87,5 +98,6 @@ export async function loadInteractiveProjectContext(
     context,
     projectInfo,
     contributionSources: createContributionSourcesForProjectAccess(projectAccess),
+    hookSources,
   };
 }

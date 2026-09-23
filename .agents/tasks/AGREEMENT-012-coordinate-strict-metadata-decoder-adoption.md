@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-012: coordinate strict metadata decoder adoption'
 issue: https://github.com/woojubb/robota/issues/2066
-status: in-progress
+status: done
 created: 2026-09-03
 priority: high
 urgency: soon
@@ -18,10 +18,12 @@ Coordinate skill, plugin, and agent-definition metadata trust as one exact Issue
 
 ## Children
 
-- [ ] SECURITY-003 — todo — `.agents/tasks/SECURITY-003-migrate-skill-and-plugin-discovery-to-the-strict-decoder.md`
-- [ ] SECURITY-004 — todo — `.agents/tasks/SECURITY-004-migrate-agent-definition-loading-to-the-strict-decoder.md`
+- [x] SECURITY-003 — done — `.agents/tasks/SECURITY-003-migrate-skill-and-plugin-discovery-to-the-strict-decoder.md`
+- [x] SECURITY-004 — done — `.agents/tasks/SECURITY-004-migrate-agent-definition-loading-to-the-strict-decoder.md`
 
-## Plan
+## Historical migration plan
+
+The administrative plan below records the original queue migration. PR #2827 retired that procedure; its unchecked steps are historical and are not prerequisites for the retained product outcome.
 
 - [ ] TC-01 — Land every declared child Task atomically with exact source Issue identity.
 - [ ] TC-02 — Preserve native dependency order and every external prerequisite.
@@ -43,3 +45,9 @@ Not applicable — this AGREEMENT changes planning and GitHub ownership only. Ea
 **Author verdict:** `SCENARIO DRAFTED: not-applicable | 0`
 
 **Reason:** No runtime, public API, CLI, TUI, or end-user interaction changes in this coordination record.
+
+## Retained security outcome
+
+PR #2832 delivered both discovery leaves and removed the permissive public parser. The strict decoder rejects malformed authority flags, context, positive-integer limits, wrong types, and unknown fields across native, `.agents`, Claude-compatible, and bundle-plugin metadata. Its repository-corpus regression verifies checked-in definitions remain loadable.
+
+The remaining model field now selects the forked child request model, with the selected agent's model retained when the skill omits an override. Specifying a model without `context: fork` is rejected at discovery and at the programmatic command boundary. A real scripted session discovers both agent and skill files, assembles the agent runtime, and verifies model override, child failure, default reuse, and unchanged parent state. Existing scoped effort behavior from BEHAVIOR-009 remains covered. The implementation's owning PR and issue #2664 delivery record own final remote landing evidence; this record remains at its fixed path.

@@ -14,6 +14,7 @@
  * here, at startup, before any turn runs — with the type and the option it needs in the message.
  */
 
+import type { IHookDefinitionSource } from '../config/config-merge.js';
 import type { IHookTypeExecutor, THooksConfig } from '@robota-sdk/agent-core';
 
 /** Why each embedder-constructed type cannot run without its `createSession` option. */
@@ -52,13 +53,22 @@ export function unrunnableHookTypes(
 export function assertConfiguredHookTypesExecutable(
   hooks: THooksConfig | undefined,
   executors: readonly IHookTypeExecutor[],
+  hookSources: readonly IHookDefinitionSource[] = [],
 ): void {
   const unrunnable = unrunnableHookTypes(hooks, executors);
   if (unrunnable.length === 0) return;
-  const listed = unrunnable.map(({ type, reason }) => `"${type}" (${reason})`).join(', ');
+  const listed = unrunnable
+    .map(({ type, reason }) => {
+      const sources = [
+        ...new Set(hookSources.filter((entry) => entry.type === type).map((entry) => entry.source)),
+      ];
+      const sourceDetail = sources.length === 0 ? '' : `; source: ${sources.join(', ')}`;
+      return `"${type}" (${reason}${sourceDetail})`;
+    })
+    .join(', ');
   throw new Error(
     `Hook configuration declares hook type(s) this session cannot execute: ${listed}. ` +
-      'These types are constructed by an embedder, not by a settings file; remove them from the ' +
+      'These types require an embedder-provided executor; remove them from the ' +
       'hooks configuration or supply the option their executor needs (issue #2245).',
   );
 }

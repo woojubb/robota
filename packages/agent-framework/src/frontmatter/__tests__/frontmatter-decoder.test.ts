@@ -360,7 +360,7 @@ describe('decodeFrontmatter', () => {
     const skill = decodeFrontmatter({
       source: SOURCE,
       profile: 'skill',
-      content: '---\nmodel: owned-skill-model\n---\n',
+      content: '---\nmodel: owned-skill-model\ncontext: fork\n---\n',
     });
 
     expect(agent).toEqual({
@@ -370,10 +370,28 @@ describe('decodeFrontmatter', () => {
     });
     expect(skill).toEqual({
       ok: true,
-      metadata: { model: 'owned-skill-model' },
+      metadata: { model: 'owned-skill-model', context: 'fork' },
       body: '',
     });
   });
+
+  it.each(['skill', 'bundle-skill'] as const)(
+    'rejects %s model metadata without a fork context at the model field',
+    (profile) => {
+      const diagnostics = decodeFailure(profile, '---\nmodel: child-model\n---\n');
+      expect(diagnostics).toHaveLength(1);
+      expect(diagnostics[0]).toMatchObject({
+        code: 'invalid-value',
+        source: SOURCE,
+        field: 'model',
+        line: 2,
+        expected: 'context: fork when model is set',
+      });
+      expect(decodeFailure(profile, '---\ncontext: project\nmodel: child-model\n---\n')).toEqual(
+        expect.arrayContaining([expect.objectContaining({ field: 'context' })]),
+      );
+    },
+  );
 
   // Contained — HARNESS-132. Literal titles keep the enforcing red-proof gate honest until it
   // recognizes multiline table-driven cases and their runtime-expanded titles.

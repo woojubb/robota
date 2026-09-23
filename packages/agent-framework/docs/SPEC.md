@@ -551,6 +551,10 @@ guardrails, so the schema is not the place to refuse). `createSession()` therefo
 `assertConfiguredHookTypesExecutable` (`src/assembly/hook-type-reachability.ts`) over the resolved
 hooks and the executors it built, and throws before any turn, naming every unrunnable type and the
 option it needs — instead of validating the config and then denying every tool call under SEC-016.
+For file-loaded settings, the same refusal reports the source path(s) that contributed each
+unrunnable type; source facts follow the settings merge, including per-event accumulation and
+`disabledHooks` filtering. A programmatically supplied config with no settings-file provenance still
+fails closed and reports its type and required option without inventing a path.
 
 **Seeding order is load-bearing.** `runHooks` builds its lookup with `Map.set` in array order, so
 the LAST executor of a given type wins. Built-ins are therefore seeded **first**, so a
@@ -2752,10 +2756,17 @@ user-sourced calls submit the rendered prompt or fork execution into the active 
 | `context: fork`            | Run rendered skill content in an isolated subagent session using `skill.agent` or `general-purpose`   |
 | `allowed-tools`            | Restrict fork-session tools to the listed names, after the selected agent definition denylist applies |
 | `effort`                   | Set the fork effort using the core `TModelEffort` vocabulary; absent values inherit the parent        |
+| `model`                    | Select the fork child model; requires `context: fork`                                                 |
 | `disable-model-invocation` | Hide from model-visible skill metadata; user slash invocation still works                             |
 | `user-invocable: false`    | Hide from user slash menus; model metadata remains available unless model invocation is disabled      |
 
 Fork skill execution must not rely on prompting the parent model to call the `Agent` tool. It must call `createSubagentSession()` directly through the per-session agent tool dependencies so the behavior is deterministic and unit-testable.
+
+The fork model applies to that child invocation only. It overrides the selected agent definition's
+model; if absent, existing assembly precedence uses the agent model, an available same-provider role
+model, then the parent's configured model. The parent session and provider identity do not change.
+Skill metadata that declares `model` without `context: fork` fails decoding at the `model` field;
+programmatic inject commands with a model are refused by the skill executor as well.
 
 Every activation records an `ISkillActivationEvent`:
 
