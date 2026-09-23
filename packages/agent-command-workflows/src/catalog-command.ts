@@ -67,13 +67,13 @@ export async function executeWorkflowsCatalog(
     return { success: true, message: `No workflow files (*${ext}) in ${dir}.` };
   }
   const lines = entries.map((e) => {
-    const raw = e.definition as unknown as {
-      nodes?: unknown[];
-      edges?: unknown[];
-      links?: unknown[];
-    };
-    const nodeCount = raw.nodes?.length ?? 0;
-    const linkCount = raw.edges?.length ?? raw.links?.length ?? 0;
+    const raw = e.definition;
+    const nodeCount = Array.isArray(raw.nodes) ? raw.nodes.length : 0;
+    const linkCount = Array.isArray(raw.edges)
+      ? raw.edges.length
+      : 'links' in raw && Array.isArray(raw.links)
+        ? raw.links.length
+        : 0;
     return `  ${e.id}${ext} — ${nodeCount} node(s), ${linkCount} link(s)`;
   });
   return {

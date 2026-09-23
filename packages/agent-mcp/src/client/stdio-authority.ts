@@ -62,6 +62,7 @@ async function canonicalDirectory(path: string): Promise<string | undefined> {
     const canonical = await realpath(path);
     return (await stat(canonical)).isDirectory() ? canonical : undefined;
   } catch {
+    // allow-fallback: failed directory canonicalization denies subprocess authority before spawn.
     return undefined;
   }
 }
@@ -71,6 +72,7 @@ async function canonicalFile(path: string): Promise<string | undefined> {
     const canonical = await realpath(path);
     return (await stat(canonical)).isFile() ? canonical : undefined;
   } catch {
+    // allow-fallback: failed executable canonicalization denies subprocess authority before spawn.
     return undefined;
   }
 }
@@ -209,6 +211,7 @@ export async function revalidateSnapshot(
       keysAllowed
     );
   } catch {
+    // allow-fallback: any revalidation error denies subprocess authority before spawn.
     return false;
   }
 }

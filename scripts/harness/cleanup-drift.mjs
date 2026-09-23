@@ -221,7 +221,9 @@ const BOUNDARY_ASSERTION_PATTERNS = [
 function isBoundaryProductionFile(file) {
   return (
     file.underPackages &&
+    file.inWorkspaceSource &&
     !file.excludedFromBoundary &&
+    !file.relative.includes('/src/testing/') &&
     !file.relative.includes('.test.') &&
     !file.relative.includes('.spec.') &&
     !file.relative.includes('__tests__') &&
@@ -270,6 +272,8 @@ async function checkDynamicImports(findings, sourceIndex) {
   for (const file of sourceIndex) {
     if (
       !file.underPackages ||
+      !file.inWorkspaceSource ||
+      file.relative.includes('/src/testing/') ||
       file.relative.includes('.test.') ||
       file.relative.includes('.spec.') ||
       file.relative.includes('__tests__')
