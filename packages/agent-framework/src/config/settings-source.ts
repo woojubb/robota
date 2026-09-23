@@ -22,14 +22,10 @@ export interface IWorkspaceProjectSettingsSource {
 
 export type TSettingsSource = INodeHostSettingsSource | IWorkspaceProjectSettingsSource;
 
-export const PROJECT_SETTINGS: ReadonlyArray<
-  Readonly<{ scope: TProjectSettingsScope; relativePath: string }>
-> = [
-  { scope: 'project', relativePath: join('.robota', 'settings.json') },
-  { scope: 'project-local', relativePath: join('.robota', 'settings.local.json') },
-  { scope: 'project', relativePath: join('.claude', 'settings.json') },
-  { scope: 'project-local', relativePath: join('.claude', 'settings.local.json') },
-];
+export interface IProjectSettingsPath {
+  readonly scope: TProjectSettingsScope;
+  readonly relativePath: string;
+}
 
 export { createNodeHostSettingsSource };
 
@@ -46,9 +42,10 @@ export function createDefaultUserSettingsSources(
 /** Project layers bound to a runtime-accepted root-relative reader. */
 export function createWorkspaceProjectSettingsSources(
   reader: IWorkspaceProjectReader,
+  paths: readonly IProjectSettingsPath[],
 ): readonly IWorkspaceProjectSettingsSource[] {
   const accepted = assertWorkspaceProjectReader(reader);
-  return PROJECT_SETTINGS.map(({ scope, relativePath }) =>
+  return paths.map(({ scope, relativePath }) =>
     Object.freeze({
       kind: 'project' as const,
       scope,

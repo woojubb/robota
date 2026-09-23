@@ -30,6 +30,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 import { userPaths } from '../product/user-paths.js';
+import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
 
 export interface ICreateCliWorkspaceCompositionOptions {
   readonly cwd: string;
@@ -79,7 +80,10 @@ function createTrustedCliWorkspaceComposition(
     contributionSources: createContributionSourcesForProjectAccess(projectAccess, options.userHome),
     settingsSources: [
       ...createDefaultUserSettingsSources(options.userHome),
-      ...createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(authority)),
+      ...createWorkspaceProjectSettingsSources(
+        getWorkspaceProjectReader(authority),
+        ROBOTA_PROJECT_SETTINGS,
+      ),
     ],
     settingsStores,
     sessionStore: createProjectSessionStore(

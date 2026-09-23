@@ -218,7 +218,11 @@ export async function initializeInteractiveSessionAsync(
   options: IInteractiveSessionStandardOptions,
   deps: IAsyncInitDeps,
 ): Promise<IAsyncInitResult> {
-  const loadedConfig = await loadInteractiveProjectConfig(options.config, options.projectAccess);
+  const loadedConfig = await loadInteractiveProjectConfig(
+    options.config,
+    options.projectAccess,
+    options.projectSettingsPaths,
+  );
   const { config, hookSources } = loadedConfig;
   const autoCompactThresholdSource =
     config.autoCompactThreshold === undefined ? 'default' : 'settings';
@@ -229,6 +233,9 @@ export async function initializeInteractiveSessionAsync(
     cwd: options.cwd,
     provider: options.provider,
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
+    ...(options.projectSettingsPaths !== undefined
+      ? { projectSettingsPaths: options.projectSettingsPaths }
+      : {}),
     config,
     hookSources,
     permissionMode: options.permissionMode,

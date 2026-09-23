@@ -131,7 +131,9 @@ function observeCanaries(projectAccess: TWorkspaceProjectAccess, userHome: strin
   }
   if (projectAccess.status === 'trusted') {
     const reader = getWorkspaceProjectReader(projectAccess.authority);
-    for (const source of createWorkspaceProjectSettingsSources(reader)) {
+    for (const source of createWorkspaceProjectSettingsSources(reader, [
+      { scope: 'project', relativePath: '.robota/settings.json' },
+    ])) {
       const text = readSettingsSourceText(source, 'run ARCH-042 public authority scenario');
       if (text?.includes(SETTINGS_CANARY) === true) observed.push(SETTINGS_CANARY);
     }

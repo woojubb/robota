@@ -22,6 +22,9 @@ export function buildTuiSessionOptions(
       : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
+    ...(opts.projectSettingsPaths !== undefined
+      ? { projectSettingsPaths: opts.projectSettingsPaths }
+      : {}),
     ...(opts.editCheckpointStore !== undefined
       ? { editCheckpointStore: opts.editCheckpointStore }
       : {}),

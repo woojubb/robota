@@ -21,6 +21,7 @@ import type {
   IRemoteCommandPolicy,
 } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
+import type { IProjectSettingsPath } from '../config/settings-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
@@ -52,6 +53,8 @@ export interface IInteractiveSessionStandardOptions {
   providerErrorGuidance?: IProviderErrorGuidance;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
+  /** Host-selected project settings layers, admitted only through the current project authority. */
+  projectSettingsPaths?: readonly IProjectSettingsPath[];
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
