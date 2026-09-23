@@ -287,7 +287,7 @@ describe('workspace-wide build tooling (INFRA-060 D4)', () => {
       changedFiles: ['package.json'],
       rootManifestChange: {
         kind: 'developer-quality-only',
-        changedScriptKeys: ['harness:work-run'],
+        changedScriptKeys: ['harness:review'],
         workspaceWide: false,
       },
     });

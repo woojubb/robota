@@ -33,7 +33,8 @@ defines the loop around them.
 1. Confirm the change belongs to a general workflow capability, not a scenario-only shortcut.
 2. Check ownership modeling: no duplicate declarations, no side-channel identity fields when an
    existing ownership field already encodes the relation, no inferred linkage or fallback path.
-3. If package source changed, build the affected package before verification.
+3. Build the affected package before verification only when the package-owned scenario command
+   reads generated output; otherwise PR CI owns the clean affected build.
 4. Run the package-owned scenario verification command and compare its output with the canonical
    scenario record artifact.
 5. If expected behavior changed intentionally, re-record the scenario using the package-owned record
@@ -57,7 +58,7 @@ defines the loop around them.
 
 - [ ] Scenario change is justified by owned product behavior.
 - [ ] Ownership modeling remains canonical.
-- [ ] Affected package is built before verification when source changed.
+- [ ] Any package build required by the scenario executable is run; otherwise PR CI owns it.
 - [ ] Verification is run after any re-record.
 - [ ] Scenario artifacts are overwritten authoritatively when re-recording.
 - [ ] Policy-violation and missing-output failures stop the loop.
@@ -66,6 +67,7 @@ defines the loop around them.
 
 ```bash
 pnpm --filter <owner-package> build
+# Run the build only when scenario:verify consumes generated output.
 pnpm --filter <owner-package> scenario:verify -- <example-file> <scenario-id>
 pnpm --filter <owner-package> scenario:record -- <example-file> <scenario-id>
 ```

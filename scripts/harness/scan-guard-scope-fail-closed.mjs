@@ -96,20 +96,6 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the normalization modules are the whole subject; over a root without them there is no environment read to refuse, and an empty pass would certify the #2347 bypass as absent',
   },
   {
-    file: 'scan-task-merged-citation.mjs',
-    finder: 'findTaskMergedCitationFindings',
-    tree: '.agents/tasks',
-    why: 'the open task records are the population; over a root without them no merged citation can be matched, and "nothing to reconcile" would read exactly like "every record is reconciled"',
-  },
-  {
-    // Returned `[]` over a bare root when first measured; `taskFiles` now throws
-    // `task-plan-items: .agents/tasks missing` instead, re-measured the same day.
-    file: 'scan-task-plan-items.mjs',
-    finder: 'findTaskPlanItemFindings',
-    tree: '.agents/tasks',
-    why: 'the task corpus is the population; over a root without it there is no `## Plan` to judge, and "no findings" would read exactly like "every plan is well-formed"',
-  },
-  {
     file: 'scan-tui-safe-text-boundary.mjs',
     finder: 'findBoundaryViolations',
     tree: 'packages/agent-ui-terminal/src',
@@ -128,16 +114,6 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the boundary policy declares shared candidates and tooling dispositions; without it the finder cannot distinguish an owned boundary from an unclassified one and must not report an empty pass',
   },
   {
-    // RULE-012. Measured as `findEvidenceFindings(bare)` over a root carrying the rule but no
-    // spec-doc tree: throws `.agents/spec-docs/done missing from <root>` before a single approval is
-    // read. Without that, "no findings" would claim every approval names a valid route when none was
-    // opened — and the population is exactly what the three-way 27/43/52 disagreement was about.
-    file: 'scan-standing-delegation-evidence.mjs',
-    finder: 'findEvidenceFindings',
-    tree: '.agents/spec-docs/done',
-    why: 'the spec-document corpus IS the population this guard governs — over a root without it there is no GATE-APPROVAL entry to judge, and a silent empty pass would restate the defect the guard exists to end: a count nobody can check',
-  },
-  {
     // Issue #2660. Resolution is relative to the workspace package set. Over a root without
     // `packages`, every filter token is unresolvable, the scan's one reported condition can never
     // hold, and the empty result would certify the corpus rather than admit it read nothing.
@@ -145,14 +121,6 @@ export const MANDATORY_TREE_GUARDS = [
     finder: 'findFilterScriptFindings',
     tree: 'packages',
     why: 'the workspace package set is what a filter is resolved against; without it no filter can be judged and an empty pass would certify every command in the corpus',
-  },
-  {
-    // Issue #2269. The evidence-log tree is the population; a bare root has no entries to count and
-    // must not be mistaken for a clean attribution result.
-    file: 'scan-gate-verdict-attribution.mjs',
-    finder: 'collectEntries',
-    tree: '.agents/spec-docs/done',
-    why: 'gate evidence entries are the governed population; without the done spec tree an empty count would certify attribution over nothing',
   },
   {
     // PROC-016. This finder was INVISIBLE to the previous comment stripper — the string
@@ -191,16 +159,6 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the harness test directory IS the population this floor governs — over a root without it there is no call site to judge, and "no findings" would mean "nobody creates a temp directory directly" when nothing was read',
   },
   {
-    // INFRA-127. Measured as `findTaskFrontmatterFindings(bare)`: throws `.agents/tasks missing from
-    // <root>` from `activeTaskFiles`, before a single record is read. The first cut returned an empty
-    // list there and this classification is what caught it — `main()` had a fail-closed branch while
-    // the exported finder did not, and the finder is what another caller reaches.
-    file: 'scan-task-frontmatter-fields.mjs',
-    finder: 'findTaskFrontmatterFindings',
-    tree: '.agents/tasks',
-    why: 'the active task tree IS the population this floor governs — over a root without it there is no record to judge, and "no findings" would mean "every record carries the seven declared fields" when nothing was read',
-  },
-  {
     // INFRA-127. Measured as `findRuleTableShapeFindings(bare)`: returns one finding per named
     // catalogue that is absent, so a renamed or deleted rule table is reported rather than skipped.
     file: 'scan-rule-table-shape.mjs',
@@ -218,30 +176,6 @@ export const MANDATORY_TREE_GUARDS = [
     finder: 'findPromotionLagAt',
     tree: '.github/workflows',
     why: 'the comparison IS the check — over a root without the promotion ref there is nothing to compare against, and "0 do not match" would read as "every gate is promoted" when neither side was ever read',
-  },
-  {
-    // Measured as `findLoopProofFindings(bare)`: throws `.agents/skills missing from <root>` before it
-    // reads a baseline or a ledger.
-    file: 'scan-loop-proof.mjs',
-    finder: 'findLoopProofFindings',
-    tree: '.agents/skills',
-    why: 'the skills tree IS the population this floor governs — over a root without it there is no skill to prove, and "no findings" would mean "every loop is proven" when nothing was examined',
-  },
-  {
-    // Measured as `findLoopRunRecordFindings(bare)`: throws `.agents/skills missing from <root>`
-    // before it reads a single ledger.
-    file: 'scan-loop-run-records.mjs',
-    finder: 'findLoopRunRecordFindings',
-    tree: '.agents/skills',
-    why: 'the skills tree is the population these ledgers belong to — over a root missing it, every ledger is unattributable and the skill-wiring half examines nothing, so "no findings" would mean "nothing was examined". The LEDGER directory is deliberately not governed: its absence is a legitimate state, because it is created by the first recorded run',
-  },
-  {
-    // INFRA-131. The skills tree declares whether either architecture loop belongs to the governed
-    // population; the ledger directory remains optional because a loop may not have run yet.
-    file: 'scan-architecture-refresh-signals.mjs',
-    finder: 'findArchitectureRefreshSignalFindings',
-    tree: '.agents/skills',
-    why: 'the skills tree declares the architecture loops whose runtime signals this floor judges — without it an empty ledger result cannot distinguish “no run yet” from “no governed loop population”',
   },
   {
     // INFRA-131. Retirement is a whole-live-instruction-tree claim. Every named path is required so
@@ -281,47 +215,6 @@ export const MANDATORY_TREE_GUARDS = [
     finder: 'findMeasuredRuntimeFindings',
     tree: 'packages',
     why: 'it probes the runtime a WORKSPACE script actually receives; with no workspace tree there is no such script, so a pass would report agreement between a declaration and a measurement that was never taken',
-  },
-  {
-    // Measured as `findMissingSectionFindings(bare)`: throws `governed tree(s) absent under <root>`.
-    file: 'scan-spec-user-execution-section.mjs',
-    finder: 'findMissingSectionFindings',
-    tree: 'done',
-    why: 'it judges spec documents that reached implementation without a user-execution gate section; over a root with no spec tree there is no document to judge, and "zero documents are missing the section" reads exactly like "every document carries it" — while the defect it exists to catch is seven documents implemented and reported complete with no section at all',
-  },
-  {
-    // HARNESS-121. Measured as `findHistoryFindings(bare)`: returns a fail-closed history-query
-    // finding because no repository/base ancestry can be resolved.
-    file: 'scan-user-execution-plan-order.mjs',
-    finder: 'findHistoryFindings',
-    tree: '.git + topic merge-base',
-    why: 'Git ancestry is the governed population — without a repository and merge base, "no implementation preceded PLAN" cannot be evaluated, so an empty result would certify ordering over no history',
-  },
-  {
-    file: 'scan-recommendation-endorsement.mjs',
-    finder: 'findRecommendationEndorsementFindings',
-    tree: '.agents/spec-docs + recommendation baseline + backlog-execution ledger',
-    why: 'the spec tree, immutable adoption anchor, and canonical ledger are the persisted endorsement population; without any one of them a pass would certify evidence that was never read',
-  },
-  {
-    file: 'scan-recommendation-endorsement.mjs',
-    finder: 'findRecommendationTopicFindings',
-    tree: 'recommendation baseline + .git topic history',
-    why: 'topic history is the causal population that distinguishes a prior endorsement checkpoint from retrospective prose; absent history cannot prove ordering',
-  },
-  {
-    file: 'scan-recommendation-endorsement.mjs',
-    finder: 'findRecommendationStagedFindings',
-    tree: 'recommendation baseline + .git index + topic history',
-    why: 'the proposed index is where mixed endorsement and implementation must be refused; absent index state cannot authorize a proposed transaction',
-  },
-  {
-    // HARNESS-121. Measured as `findStagedFindings(bare)`: returns a fail-closed staged-query finding
-    // because there is no index whose proposed transaction can be judged.
-    file: 'scan-user-execution-plan-order.mjs',
-    finder: 'findStagedFindings',
-    tree: '.git index + topic merge-base',
-    why: 'the Git index and its checkpoint ancestor are the governed population — without them, "this proposed implementation is authorized" would be a pass over no proposed commit or causal boundary',
   },
   {
     // Measured: `collectAggregateNaming(bare, …)` throws `aggregate-naming: packages missing from
@@ -402,14 +295,6 @@ export const MANDATORY_TREE_GUARDS = [
     finder: 'findMeasurementProvenanceFindings',
     tree: 'scripts/harness',
     why: 'it asks every size reader whether anything checks the number it publishes; over a root with no harness modules there is no reader to ask, and "no unchecked counter" reads exactly like "every counter is checked" — the reported-size-nobody-verifies shape this guard exists to fence',
-  },
-  {
-    // Measured the way this harness calls it — `collectFindings(bare)`: throws
-    // `orchestration-map.md is missing`.
-    file: 'scan-loopback-bound-ownership.mjs',
-    finder: 'collectFindings',
-    tree: '.agents/specs',
-    why: 'it keeps the orchestration map from restating the bounds the skills own; over a root with no map there is nothing to keep honest, and "no restatements" would read as "the map defers correctly"',
   },
   {
     // Measured the way this harness calls it — `finder(bare)`: throws
@@ -634,18 +519,6 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'MEASURED vacuous on a bare root before the repair: the map corpus IS the subject, so "every cited path exists" over no map is a claim about nothing',
   },
   {
-    file: 'check-backlog-placement.mjs',
-    finder: 'findBacklogPlacementFindings',
-    tree: '.agents/tasks and .agents/tasks/completed',
-    why: 'placement is a claim about the backlog tree; with no tree there are no misplaced items and no correctly-placed ones either',
-  },
-  {
-    file: 'check-backlog-placement.mjs',
-    finder: 'findDuplicateIdFindings',
-    tree: '.agents/tasks and .agents/tasks/completed',
-    why: 'an ID collision is a relation between two directories — reading neither cannot establish that neither collides, and eight collisions landed in one week',
-  },
-  {
     file: 'check-command-layering.mjs',
     finder: 'findCommandLayeringFindings',
     tree: 'packages',
@@ -656,12 +529,6 @@ export const MANDATORY_TREE_GUARDS = [
     finder: 'findDevDepOnlyRuntimeImports',
     tree: 'packages and apps',
     why: 'it quantifies over every workspace package; over none, "no devDependency is imported at runtime" is vacuously true',
-  },
-  {
-    file: 'check-done-evidence.mjs',
-    finder: 'findDoneEvidenceFindings',
-    tree: '.agents/tasks/completed',
-    why: 'the completed-backlog tree is the evidence corpus, and a readdir failure was CAUGHT and returned as "no unearned done claims" — a swallowed error wearing a verdict',
   },
   {
     file: 'check-ghost-package-refs.mjs',
@@ -716,12 +583,6 @@ export const MANDATORY_TREE_GUARDS = [
     finder: 'findStubMarkerFindings',
     tree: 'packages',
     why: 'stub markers are searched in shipped package source; no packages/ means no search, not a clean search',
-  },
-  {
-    file: 'check-task-archival.mjs',
-    finder: 'findTaskArchivalFindings',
-    tree: '.agents/tasks',
-    why: 'the task tree is the subject, and a readdir failure was CAUGHT and returned as "nothing to archive"',
   },
   {
     file: 'check-temp-script-placement.mjs',
@@ -787,12 +648,6 @@ export const MANDATORY_TREE_GUARDS = [
     tree: '.claude/hooks and .claude/settings.json',
     why: 'it compares the hook files against the matchers that call them; over a root with neither, "every hook is registered" is a claim about no hooks — which is the exact green this scan was written to end one level down',
   },
-  {
-    file: 'scan-spec-research.mjs',
-    finder: 'collectSpecResearchFindings',
-    tree: '.agents/spec-docs',
-    why: 'the spec-doc pipeline is the corpus and every stage directory was optional, so a root with none of them printed a pass over nothing',
-  },
 ];
 /**
  * Registered finders NOT behaviourally pinned by this scan, each carrying the verdict actually
@@ -801,7 +656,7 @@ export const MANDATORY_TREE_GUARDS = [
  * This is a ledger, not an allowlist — and it is deliberately not uniform, because the measurements
  * were not. `vacuous` entries are live instances of the audited defect, recorded unfixed in
  * HARNESS-052. `fail-closed` entries already behave correctly but are not pinned here: pinning them
- * needs their governed tree named accurately, and some (e.g. `scan-unearned-done-claims`) fail
+ * needs their governed tree named accurately, and some guards fail
  * closed only INCIDENTALLY — via a stale-allowlist assertion rather than a deliberate check — so
  * pinning them as-is would certify a property they do not actually hold. Entries leave this list by
  * being fixed or accurately pinned, never by being deleted.
@@ -914,35 +769,15 @@ export const PENDING_CLASSIFICATION = [
     finder: 'findRequiredCheckFindings',
     measured: 'fail-closed',
   },
-  {
-    file: 'scan-review-findings.mjs',
-    finder: 'collectReviewFindingsFindings',
-    measured: 'fail-closed',
-  },
-  {
-    file: 'scan-unearned-done-claims.mjs',
-    finder: 'findUnearnedDoneClaimFindings',
-    measured: 'fail-closed',
-  },
 ];
 /** Ledger entries measured to report a pass over an absent governed tree. */
 export const measuredVacuous = () =>
   PENDING_CLASSIFICATION.filter((entry) => entry.measured === 'vacuous');
-/** Scan scripts registered in the runner or declared for discovery, as bare filenames. */
+/** Scan scripts registered in the runner, as bare filenames. */
 export function registeredScanFiles(root = WORKSPACE_ROOT) {
   // Strip comments before parsing the runner; structure lives in the array, comments are prose.
   const source = stripJsComments(readFileSync(path.join(root, REGISTRATION_FILE), 'utf8'));
   const files = [...source.matchAll(/scripts\/harness\/([a-z0-9-]+\.mjs)/g)].map((m) => m[1]);
-  const harnessDir = path.join(root, HARNESS_DIR);
-  for (const entry of readdirSync(harnessDir, { withFileTypes: true }))
-    if (
-      entry.isFile() &&
-      /^(?:scan|check)-.+\.mjs$/.test(entry.name) &&
-      /export\s+const\s+scanDefinition\s*=/.test(
-        readFileSync(path.join(harnessDir, entry.name), 'utf8'),
-      )
-    )
-      files.push(entry.name);
   if (files.length === 0)
     throw new Error(
       `${REGISTRATION_FILE} parsed to zero registered scans. An empty registration list would ` +

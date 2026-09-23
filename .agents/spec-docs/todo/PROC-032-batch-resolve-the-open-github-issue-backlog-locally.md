@@ -1,11 +1,17 @@
 ---
-status: approved
+status: rejected
 type: INFRA
 tags: [process, github, batching]
 lane: L2
 ---
 
 # PROC-032: batch-resolve the open GitHub issue backlog locally
+
+## Disposition
+
+**Superseded by issue #2826.** The proposed backlog-wide batch and deleted
+`harness:verify-like-ci` completion route are not prospective guidance. Historical evidence below is
+retained without recreating the retired command.
 
 Paired with `.agents/tasks/PROC-032-batch-resolve-the-open-github-issue-backlog-locally.md`. Arising from [issue #2512](https://github.com/woojubb/robota/issues/2512).
 

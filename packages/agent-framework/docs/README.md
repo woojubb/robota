@@ -12,7 +12,8 @@
 - Skills, system commands, memory, checkpointing, and rewind behavior are SDK-level capabilities.
 - Session assembly includes local `WebSearch`/`WebFetch` tools separately from provider-native hosted web capabilities.
 - Model-invocable built-in commands are exposed through SDK-projected `robota_command_*` tools.
-- Session event hooks expose execution-boundary events used by session logs and future replay validation.
+- Session event hooks expose execution-boundary events used by versioned session logs. Replay-only
+  recovery reports malformed and unsupported logs explicitly in load and listing outcomes.
 
 ## Documents
 

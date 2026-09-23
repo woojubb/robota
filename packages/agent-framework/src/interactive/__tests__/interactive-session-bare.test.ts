@@ -21,16 +21,19 @@ vi.mock('../../context/project-detector.js', () => ({
   detectProject: mockDetectProject,
 }));
 
-// Mock loadConfig — always returns a minimal valid config
-const mockLoadConfig = vi.fn().mockResolvedValue({
-  defaultTrustLevel: 'moderate',
-  provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
-  permissions: { allow: [], deny: [] },
-  language: 'en',
-  env: {},
+// Mock loadConfigWithHookSources — always returns a minimal valid config plus empty provenance.
+const mockLoadConfigWithHookSources = vi.fn().mockResolvedValue({
+  config: {
+    defaultTrustLevel: 'moderate',
+    provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
+    permissions: { allow: [], deny: [] },
+    language: 'en',
+    env: {},
+  },
+  hookSources: [],
 });
 vi.mock('../../config/config-loader.js', () => ({
-  loadConfig: mockLoadConfig,
+  loadConfigWithHookSources: mockLoadConfigWithHookSources,
 }));
 
 // Mock the plugin loader — bare mode must skip plugin loading.
@@ -97,7 +100,7 @@ describe('createInteractiveSession — bare mode', () => {
   beforeEach(() => {
     mockLoadContext.mockClear();
     mockDetectProject.mockClear();
-    mockLoadConfig.mockClear();
+    mockLoadConfigWithHookSources.mockClear();
     mockLoadPluginsSync.mockClear();
   });
 
@@ -204,7 +207,7 @@ describe('createInteractiveSession — bare mode', () => {
     expect(typeof session.session.getSessionId).toBe('function');
   });
 
-  it('bare=true: loadConfig IS still called (config loading is not skipped)', async () => {
+  it('bare=true: loadConfigWithHookSources IS still called (config loading is not skipped)', async () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
@@ -216,8 +219,8 @@ describe('createInteractiveSession — bare mode', () => {
     });
 
     // Config loading is always needed even in bare mode
-    expect(mockLoadConfig).toHaveBeenCalledTimes(1);
-    expect(mockLoadConfig).toHaveBeenCalledWith([
+    expect(mockLoadConfigWithHookSources).toHaveBeenCalledTimes(1);
+    expect(mockLoadConfigWithHookSources).toHaveBeenCalledWith([
       expect.objectContaining({ kind: 'host', scope: 'user' }),
       expect.objectContaining({ kind: 'host', scope: 'user' }),
     ]);

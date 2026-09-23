@@ -2,7 +2,7 @@ import { createServer, type Server, type IncomingMessage, type ServerResponse } 
 import { readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import type { IDagDefinition, TRunProgressEvent } from '@robota-sdk/dag-core';
-import { isWorkflowFileFormat, fromDagWorkflowFile } from '@robota-sdk/dag-builder';
+import { decodeDagInput } from '../commands/decode-dag-input.js';
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
 import {
   LocalDagRunner,
@@ -54,9 +54,7 @@ async function parseDagFile(
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     return { ok: false, message: 'DAG file must be a JSON object.' };
   }
-  if (isWorkflowFileFormat(parsed))
-    return { ok: true, value: fromDagWorkflowFile(parsed, undefined) };
-  return { ok: true, value: parsed as IDagDefinition };
+  return decodeDagInput(parsed);
 }
 
 async function routeDag(req: IncomingMessage, res: ServerResponse, cwd: string): Promise<void> {

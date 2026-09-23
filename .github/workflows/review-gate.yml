@@ -5,47 +5,23 @@ name: Review Gate
 # plane itself trusted. INFRA-097 owns the required-workflow/ruleset provenance fix; this item changes
 # ordering only and must not claim that a PR cannot rewrite its own workflow.
 
-# INFRA-048. The checks that gate a merge on `develop` produce no review feedback, and the two jobs
-# that do (`Claude review`, CodeQL `Analyze`) report `success` whether or not they found anything —
-# so an armed auto-merge carries the findings straight into the integration branch (#1409). This
-# job is the missing half: a DISTINCT check that READS the review output and reports the truth.
-#
-# It is deliberately NOT the reviewer itself. A reviewer's own pass/fail is model judgment and, as
-# INFRA-048 measured, a reviewer can report `success` without having run at all; a gate must be
-# something whose execution is verifiable.
-#
-# Severity split (see check-review-gate.mjs for the full rationale): only findings this PR
-# INTRODUCES at severity `error` / security-severity high|critical can block. Everything else is
-# printed and counted but never blocking, because a gate that went red on the standing backlog would
-# be bypassed within a day.
-#
-# The original note here claimed that backlog was "~100 alerts, all severity `note`". That was
-# measured without `--paginate`, so it read only the first page — which happened to be entirely
-# notes while 40 `high` alerts sat on page two. Corrected 2026-07-26: `develop` carries 84 open
-# alerts, 40 of them security-severity `high` (SEC-006 is triaging them). The severity split is
-# still the right design, but its justification is "a standing backlog exists", not "the backlog is
-# harmless". Re-measure with `--paginate` before citing a count here.
-#
-# Not-applicable (the #1436 correction). A docs-only PR does not run the analyzer job, so no
-# analysis record is written for it. The first version of this gate read
-# that absence as "unreadable" and blocked #1436 — one backlog markdown file, zero code — for
-# 15 m 23 s, which is why the required-check entry had to be rolled back. The classification is NOT
-# re-derived here: it comes from `scripts/harness/classify-changed-paths.mjs`, the same module whose
-# verdict decides whether ci.yml's required build/test matrix runs. A PR can only be treated as
-# not-applicable by the rule that also skipped its entire code pipeline, and if that rule cannot
-# reach a verdict it answers `code=true` — so an undeterminable classification still fails closed.
+# `review-policy` owns fast pull-request policy and the current-head independent-review receipt.
+# CodeQL remains on pushes to develop/main in `codeql.yml`; it is deliberately outside the required
+# PR critical path.
 
 on:
   pull_request:
-    branches: [main, develop]
-    # `labeled`/`unlabeled` are included so applying the acknowledge label re-runs the gate rather
-    # than requiring a push.
+    branches: [main, develop, integration/**]
+    # Label changes re-run disposition policy without requiring a push.
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+  # A submitted/edited/dismissed GitHub review rechecks the exact-head review receipt without a
+  # source push. A delegated agent verdict is published as a COMMENTED review with the strict
+  # INDEPENDENT_REVIEW body below, so it takes this same event path.
+  pull_request_review:
+    types: [submitted, edited, dismissed]
 
 concurrency:
-  # Label reevaluation must not cancel an in-flight analysis for the same PR. Head-changing events
-  # share the `head` lane; label-only events share the independent `labels` lane.
-  group: review-gate-${{ github.event.pull_request.number }}-${{ (github.event.action == 'labeled' || github.event.action == 'unlabeled') && 'labels' || 'head' }}
+  group: review-policy-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 # Every job declares its own minimum capability. This empty workflow default prevents a new job
@@ -53,74 +29,40 @@ concurrency:
 permissions: {}
 
 jobs:
-  classify:
-    name: classify review applicability
+  review-policy:
+    name: review-policy
+    # A post-merge body edit can redispatch the workflow. A merged PR has nothing left to decide.
+    if: ${{ github.event.pull_request.merged != true }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    outputs:
-      code: ${{ steps.classify.outputs.code }}
+      pull-requests: read
     steps:
+      # The workflow itself is PR-controlled until required-workflow provenance lands. Load the
+      # shared review projection from the same PR revision so this first landing remains runnable;
+      # workflow-provenance is the explicit containment check for that control-plane boundary.
       - uses: actions/checkout@v7
         with:
-          # Defense in depth: load the classifier implementation from the base revision. INFRA-097
-          # owns the larger fact that the pull_request workflow YAML itself is PR-controlled.
-          ref: ${{ github.event.pull_request.base.sha }}
-          fetch-depth: 0
-      - name: Classify this PR (code vs docs-only)
-        id: classify
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Is there a trusted independent review for the current head?
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEWS_FILE: ${{ runner.temp }}/reviews.json
         run: |
-          # This is the sole docs-only owner. Failure, missing ancestry, and empty diffs all answer
-          # code=true inside the classifier, so the analyzer is skipped only by an explicit false.
-          git fetch --no-tags origin "${HEAD_SHA}"
-          node scripts/harness/classify-changed-paths.mjs --base-ref "${BASE_SHA}" --head "${HEAD_SHA}"
+          set -euo pipefail
+          if ! gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" \
+            > "$REVIEWS_FILE"; then
+            echo "::error::review-policy: could not read reviews for PR #${PR_NUMBER}."
+            exit 1
+          fi
+          node scripts/harness/review-verdict-projection.mjs
 
-  analyze:
-    name: Analyze (javascript-typescript)
-    needs: classify
-    # The measured no-build run still took 271 seconds, exceeding the complete 128-second PR budget
-    # by itself. CodeQL remains on push to develop/main in codeql.yml, outside the merge critical path.
-    if: ${{ false }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - uses: actions/checkout@v7
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: javascript-typescript
-          # JS/TS is interpreted. Explicit no-build mode enables CodeQL's pull-request overlay
-          # database path and avoids spending a step discovering that there is nothing to compile.
-          # The required PR gate uses CodeQL's default security suite. The broader
-          # security-and-quality suite remains on develop in codeql.yml, where it does not extend
-          # every pull request's critical path.
-          build-mode: none
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: '/language:javascript-typescript'
-
-  review-gate:
-    name: review-gate
-    needs: [classify, analyze]
-    # A failed prerequisite must produce a blocking gate verdict. Cancellation is the only state
-    # that must not start new work. `merged != true`: a post-merge body edit re-dispatches this
-    # workflow against the closed PR, where the verdict is unavailable by construction, and the
-    # resulting `BLOCK (verdict-unavailable)` repainted an already-landed head red (issue #2424).
-    # A merged PR has nothing left for this gate to decide; skip rather than fail.
-    if: ${{ !cancelled() && github.event.pull_request.merged != true && needs.classify.result != 'cancelled' && needs.analyze.result != 'cancelled' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: read
-      pull-requests: write
-    steps:
-      # PROC-007. FIRST, and before anything is checked out.
+      # PROC-007. Before anything is checked out, after the remote review receipt is proven.
       #
       # A `re-plan` disposition (`.agents/rules/finding-depth.md`) WITHDRAWS a change rather than
       # patching it. #1557 held that decision in `.agents/local-reviews/<branch>.json` — gitignored,
@@ -137,9 +79,9 @@ jobs:
       # `merge-gate.sh` hook reads the same label, but a hook cannot see an auto-merge that GitHub
       # fires on its own; only this job can.
       #
-      # Deliberately NOT gated on `needs.classify.outputs.code`: a withdrawal is a decision about the
-      # change, and a docs-only change can be withdrawn exactly like a code one. Running before the
-      # checkout also means the withdrawal is decided without ever executing code from the PR.
+      # A withdrawal is a decision about the change, and a docs-only change can be withdrawn exactly
+      # like a code one. Running before the base checkout avoids confusing label policy with the
+      # later base-owned body judge.
       - name: Has this change been withdrawn? (finding-depth disposition)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -173,8 +115,7 @@ jobs:
             echo "PR #${PR_NUMBER} carries 'disposition-containment': it lands under a labelled hold."
           fi
 
-      # Defense in depth: execute decision modules from the exact base revision after withdrawal.
-      # This does not claim trusted workflow provenance; INFRA-097 owns that repository-level gap.
+      # The remaining decision modules already exist on the base and execute from its exact SHA.
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.base.sha }}
@@ -184,10 +125,7 @@ jobs:
       # (`.agents/rules/backlog-execution.md` § PR Unit Rule) a floor rather than a preference: the
       # first heading is `## Background`, and no agent-session link or Claude Code footer. The body
       # reaches the script through `env:` — it is attacker-controlled on a fork PR and must never be
-      # interpolated into `run:`. The refusal goes to the step summary and `::error::` lines; it posts
-      # no comment, because the supersession logic below keys on the `Review gate: BLOCKED` header and
-      # only supersedes it when code changed, so a docs-only PR fixed by `gh pr edit` would keep a
-      # stale BLOCKED comment forever. Local equivalent:
+      # interpolated into `run:`. The refusal goes to the step summary and `::error::` lines. Local equivalent:
       #   gh pr view <n> --json body -q .body | node scripts/harness/check-pr-body.mjs
       # The judge is loaded from the BASE revision. A base that predates PR #2409 (RULE-016 PR 1) —
       # `main` until develop is promoted — has no judge, and a missing module would read as a
@@ -202,318 +140,6 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: node scripts/harness/check-pr-body.mjs
-
-      - name: Resolve the current PR merge commit
-        if: ${{ false }}
-        env:
-          EVENT_ACTION: ${{ github.event.action }}
-          EVENT_MERGE_SHA: ${{ github.sha }}
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          # A head-changing event is permanently bound to the synthetic merge it checked out and
-          # analysed. Only label-only reevaluation asks GitHub for the current synthetic merge;
-          # GitHub may regenerate its SHA without changing its base/head/tree identity.
-          if [ "${EVENT_ACTION}" != 'labeled' ] && [ "${EVENT_ACTION}" != 'unlabeled' ]; then
-            echo "CURRENT_MERGE_SHA=${EVENT_MERGE_SHA}" >> "$GITHUB_ENV"
-            exit 0
-          fi
-          # allow-unpaginated: this is a single pull-request resource by number, not a collection;
-          # the command reads one merge_commit_sha field and derives no count.
-          if ! merge_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.merge_commit_sha // empty')"; then
-            echo "::error::review-gate: could not resolve the current merge commit for PR #${PR_NUMBER}."
-            exit 1
-          fi
-          if ! printf '%s' "${merge_sha}" | grep -Eq '^[0-9a-f]{40}$'; then
-            echo "::error::review-gate: PR #${PR_NUMBER} has no valid current merge commit (${merge_sha:-empty})."
-            exit 1
-          fi
-          echo "CURRENT_MERGE_SHA=${merge_sha}" >> "$GITHUB_ENV"
-
-      - name: Confirm the code-scanning analysis available to this gate
-        if: ${{ false }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ANALYZE_RESULT: ${{ needs.analyze.result }}
-          EVENT_ACTION: ${{ github.event.action }}
-          EVENT_MERGE_SHA: ${{ github.sha }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          # #2508: how long a label-only reevaluation waits for the head lane's analysis record
-          # before it fails closed, and how often it re-reads the inventory meanwhile.
-          LABEL_POLL_TIMEOUT_SECONDS: '900'
-          LABEL_POLL_INTERVAL_SECONDS: '30'
-        run: |
-          # Head-changing events consume the same-workflow prerequisite result. Label-only events
-          # intentionally skip the expensive analyzer. Ordinary events require the processed
-          # CodeQL record for this workflow's immutable merge SHA. Label events may reuse an older
-          # synthetic SHA only when its base parent, head parent, and tree equal the current merge.
-          #
-          # #2508: the `labels` concurrency lane has no `needs:` on the `head` lane, so a label
-          # event can run before the head lane has written the analysis record for the very same
-          # head. Observed on #2507 and #1720: the label run blocked `verdict-unavailable` while the
-          # unchanged head run, minutes later, passed the identical head. A label-only reevaluation
-          # therefore POLLS the inventory for the current merge identity — bounded by
-          # LABEL_POLL_TIMEOUT_SECONDS, one serial read per LABEL_POLL_INTERVAL_SECONDS — before it
-          # fails closed. The bound is what keeps this fail-closed: a head lane that concluded
-          # without writing a record still ends in `verdict-unavailable`, only later. An unreadable
-          # inventory or merge identity is an error, not a reason to wait, and is refused at once.
-          # Head-changing events never wait: their analysis is a same-workflow prerequisite.
-          label_event=false
-          if [ "${EVENT_ACTION}" = 'labeled' ] || [ "${EVENT_ACTION}" = 'unlabeled' ]; then
-            label_event=true
-          fi
-          if [ "${label_event}" != 'true' ]; then
-            if [ "${ANALYZE_RESULT}" != 'success' ]; then
-              echo "::error::review-gate: same-workflow CodeQL prerequisite concluded ${ANALYZE_RESULT}."
-              echo "analysis_complete=false" >> "$GITHUB_ENV"
-              exit 0
-            fi
-          fi
-
-          current_identity=''
-          if [ "${label_event}" = 'true' ]; then
-            # GitHub can regenerate a synthetic merge SHA while preserving the actual merge. For a
-            # label-only reevaluation, compare the two ordered parents and tree. Same-head/old-base
-            # and any malformed non-two-parent commit therefore remain rejected. The identity is
-            # read once, before the poll: it is fixed by the resolver step above.
-            # allow-unpaginated: Git commit-by-SHA is one resource, not a collection; the response
-            # supplies exactly one commit identity and no count is derived.
-            if ! current_commit="$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${CURRENT_MERGE_SHA}")" || \
-               ! current_identity="$(jq -er \
-                 'select((.parents | length) == 2) | [.parents[0].sha, .parents[1].sha, .tree.sha] | @tsv' \
-                 <<<"${current_commit}")"; then
-              echo "::error::review-gate: current PR merge identity is unreadable or malformed."
-              echo "analysis_complete=false" >> "$GITHUB_ENV"
-              exit 0
-            fi
-          fi
-
-          deadline=$(( $(date +%s) + LABEL_POLL_TIMEOUT_SECONDS ))
-          analysis_sha=''
-          # A counted loop, bounded by construction: at most one attempt per poll interval inside
-          # the timeout (plus one), and the deadline check below ends it early.
-          for (( attempt = 0; attempt * LABEL_POLL_INTERVAL_SECONDS <= LABEL_POLL_TIMEOUT_SECONDS; attempt += 1 )); do
-            # Read all analysis pages before selecting. `gh --jq` evaluates once per page, so the
-            # pages are slurped and merged by jq exactly once.
-            if ! analysis_pages="$(gh api --paginate --slurp \
-              "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/pull/${PR_NUMBER}/merge&tool_name=CodeQL&per_page=100")" || \
-               ! analyses="$(jq -ce 'add | map(select(.tool.name == "CodeQL" and .category == "/language:javascript-typescript"))' \
-                 <<<"${analysis_pages}")"; then
-              echo "::error::review-gate: could not read a complete CodeQL analysis inventory."
-              echo "analysis_complete=false" >> "$GITHUB_ENV"
-              exit 0
-            fi
-
-            if [ "${label_event}" != 'true' ]; then
-              analysis_sha="$(jq -r --arg sha "${EVENT_MERGE_SHA}" \
-                '[.[] | select(.commit_sha == $sha)][0].commit_sha // empty' <<<"${analyses}")"
-            else
-              while IFS= read -r candidate_sha; do
-                if ! printf '%s' "${candidate_sha}" | grep -Eq '^[0-9a-f]{40}$'; then
-                  continue
-                fi
-                # allow-unpaginated: Git commit-by-SHA is one resource, not a collection; the response
-                # supplies exactly one commit identity and no count is derived.
-                if candidate_commit="$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${candidate_sha}")" 2>/dev/null && \
-                   candidate_identity="$(jq -er \
-                     'select((.parents | length) == 2) | [.parents[0].sha, .parents[1].sha, .tree.sha] | @tsv' \
-                     <<<"${candidate_commit}")" && \
-                   [ "${candidate_identity}" = "${current_identity}" ]; then
-                  analysis_sha="${candidate_sha}"
-                  break
-                fi
-              done < <(jq -r '.[].commit_sha' <<<"${analyses}")
-            fi
-
-            if printf '%s' "${analysis_sha}" | grep -Eq '^[0-9a-f]{40}$'; then
-              break
-            fi
-            # Only a label event waits, and only until the deadline; everything else falls through
-            # to the fail-closed refusal below.
-            now=$(date +%s)
-            if [ "${label_event}" != 'true' ] || [ "${now}" -ge "${deadline}" ]; then
-              break
-            fi
-            echo "review-gate: no CodeQL analysis record for the current merge yet — the head lane may still be analysing; retrying in ${LABEL_POLL_INTERVAL_SECONDS}s ($(( deadline - now ))s left before failing closed)."
-            sleep "${LABEL_POLL_INTERVAL_SECONDS}"
-          done
-
-          if ! printf '%s' "${analysis_sha}" | grep -Eq '^[0-9a-f]{40}$'; then
-            echo "::error::review-gate: no trustworthy current CodeQL analysis record is available."
-            echo "analysis_complete=false" >> "$GITHUB_ENV"
-            exit 0
-          fi
-          if ! analysis_results_count="$(jq -er --arg sha "${analysis_sha}" \
-            '[.[] | select(.commit_sha == $sha)][0].results_count | select(type == "number" and . >= 0 and floor == .)' \
-            <<<"${analyses}")"; then
-            echo "::error::review-gate: selected CodeQL analysis has no valid results_count."
-            echo "analysis_complete=false" >> "$GITHUB_ENV"
-            exit 0
-          fi
-          echo "trusted CodeQL analysis: ${analysis_sha}"
-          # One redirect for the group (SC2129). The three individual appends were correct; grouping
-          # them also makes it visible that these three facts are written together or not at all.
-          {
-            echo "ANALYSIS_SHA=${analysis_sha}"
-            echo "ANALYSIS_RESULTS_COUNT=${analysis_results_count}"
-            echo "analysis_complete=true"
-          } >> "$GITHUB_ENV"
-
-      - name: Collect the review output
-        if: ${{ false }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BASE_REF: ${{ github.base_ref }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          # `UNAVAILABLE` is the fail-closed sentinel the decision module blocks on. Every failure
-          # path below writes it — none of them writes an empty list, which would read as "clean".
-          #
-          # An empty alert list is only meaningful if an analysis actually produced it. The alerts
-          # endpoint answers `[]` both for "this ref was analysed and is clean" and for "this ref
-          # was never analysed" — the same conflation this whole change exists to remove — so the
-          # analysis RECORD is checked first. (Observed live on #1434: the alerts query returned 0
-          # for the PR ref while `develop` carried 100; the analyses endpoint is what proves the
-          # zero is a real, diff-informed result rather than an absence.)
-          #
-          # The preceding resolver is the single identity proof. Re-querying the mutable current
-          # merge SHA here would recreate the regeneration race that INFRA-096 closes.
-          if [ "${analysis_complete}" != "true" ]; then
-            echo "UNAVAILABLE" > pr-alerts.json
-          else
-            # GitHub's alerts endpoint does not accept a commit SHA as `ref` (it returns an empty
-            # list for a valid SHA), so read the PR ref and then bind EVERY returned current result
-            # to the selected immutable analysis. Open+dismissed must equal the analysis record's
-            # results_count; fixed alerts are absent from the current analysis by definition.
-            if ! node scripts/harness/github-api.mjs \
-              "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&ref=refs/pull/${PR_NUMBER}/merge&per_page=100" \
-              > pr-alerts.json || \
-               ! node scripts/harness/github-api.mjs \
-                 "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=dismissed&ref=refs/pull/${PR_NUMBER}/merge&per_page=100" \
-                 > pr-alerts-dismissed.json || \
-               ! jq -e --arg sha "${ANALYSIS_SHA}" \
-                 'type == "array" and all(.[]; .most_recent_instance.commit_sha == $sha)' \
-                 pr-alerts.json >/dev/null || \
-               ! jq -e --arg sha "${ANALYSIS_SHA}" \
-                 'type == "array" and all(.[]; .most_recent_instance.commit_sha == $sha)' \
-                 pr-alerts-dismissed.json >/dev/null || \
-               ! current_result_count="$(jq -n \
-                 --slurpfile open pr-alerts.json \
-                 --slurpfile dismissed pr-alerts-dismissed.json \
-                 '$open[0] | length + ($dismissed[0] | length)')" || \
-               [ "${current_result_count}" != "${ANALYSIS_RESULTS_COUNT}" ]; then
-              echo "UNAVAILABLE" > pr-alerts.json
-            fi
-            rm -f pr-alerts-dismissed.json
-          fi
-          gh api --paginate \
-            "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&ref=refs/heads/${BASE_REF}&per_page=100" \
-            > base-alerts.json || echo "UNAVAILABLE" > base-alerts.json
-          # SEC-007: `/labels` pages at 30. An acknowledge label that landed on page two would read as
-          # "the label is absent", silently disabling the one documented override this gate has.
-          #
-          # Through `github-api.mjs` rather than `gh api --paginate`, because `--paginate` applies
-          # `--jq` PER PAGE: two pages would emit two `a,b,c` lines, and the decision module splits on
-          # `,` only — so the labels either side of the newline would both be mangled into one token
-          # and lost. This reader merges the pages first and projects once.
-          # Fail closed, with the ACCURATE reason. `|| echo ""` turned "I could not read the labels"
-          # into "there are no labels", and the gate then blocked for the wrong cause — it would tell
-          # an author their findings were unacknowledged when the acknowledge label was there and
-          # unreadable. Stopping for a reason that is not the reason is the shape INFRA-077 measured
-          # on the push gate, and it costs the next person the whole debugging trail.
-          if ! node scripts/harness/github-api.mjs \
-            "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" \
-            --jq '[.[].name] | join(",")' \
-            > pr-labels.txt; then
-            echo "::error::review-gate: could not read the labels on PR #${PR_NUMBER}. The acknowledge override cannot be ruled in or out, so this is not a pass."
-            # The SENTINEL, not `exit 1`. Exiting here still turned the job red — the goal was met —
-            # but it skipped the Decide step, so the PR got no gate report and the reason lived only
-            # in an Actions annotation. Every sibling "could not read X" path writes UNAVAILABLE and
-            # lets the decision module block with the reason ON THE PR. (#1588 review)
-            echo "UNAVAILABLE" > pr-labels.txt
-          fi
-
-      - name: Decide
-        id: decide
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          # CodeQL is enforced post-merge by codeql.yml; this required gate owns PR policy only.
-          CODE_CHANGED: 'false'
-        run: |
-          # This step always runs — a gate that reports nothing when its inputs are missing is the
-          # INFRA-048 defect itself. `--code-changed` carries the classifier's verdict; only the
-          # literal `false` selects the not-applicable path, so an empty or unexpected value (the
-          # classify step having failed, say) takes the normal path and blocks on the missing alert
-          # files. When it IS `false` the alert files are not read, and were never written.
-          # No labels are needed on the not-applicable path: the acknowledge override only exists to
-          # overrule a block, and not-applicable never blocks.
-          labels=''
-          if [ -f pr-labels.txt ]; then labels="$(cat pr-labels.txt)"; fi
-          set +e
-          node scripts/harness/check-review-gate.mjs \
-            --code-changed "${CODE_CHANGED}" \
-            --alerts-file pr-alerts.json \
-            --base-alerts-file base-alerts.json \
-            --labels "$labels" | tee gate-report.txt
-          status=${PIPESTATUS[0]}
-          set -e
-          {
-            echo '### Review gate'
-            echo
-            echo '```'
-            cat gate-report.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-          if [ "$status" -ne 0 ]; then
-            # The auto-merge disarm does NOT live here any more (INFRA-057). It needs
-            # `contents: write`, and this job checks out and executes code from the pull request —
-            # see the `disarm-auto-merge` job below for why those two must not share a token.
-            gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
-          **Review gate: BLOCKED**
-
-          \`\`\`
-          $(cat gate-report.txt)
-          \`\`\`
-          EOF
-            echo "::error::review-gate blocked this PR. See the job summary."
-            exit 1
-          fi
-          # A PASS after a BLOCKED comment says so, or the last word on the PR stays a stale
-          # refusal. This now occurs primarily when a label reevaluation acknowledges a genuine
-          # finding; the former routine CodeQL-ordering failure is removed by the job dependency.
-          # Only posted when a BLOCKED comment exists AND this pass actually judged code.
-          # (#1669 review, three rounds)
-          # Read PAGINATED, oldest→newest, because whether `gh pr view --json comments` returns
-          # the newest or the oldest page on a >100-comment PR is not documented and could not
-          # be measured here (no PR in this repository has crossed 100 yet) — and this repo's
-          # review process is exactly the kind that will cross it. Per REST page, jq keeps the
-          # FIRST LINE of the last matching gate comment (the header is all the test below
-          # reads, and one line per page keeps multiline bodies from breaking the line-based
-          # tail); the last non-empty line across pages is therefore the newest gate header.
-          # Matched on the comment's HEADER, not a substring: the supersession text below quotes
-          # the word BLOCKED, so a substring test would match the supersession itself and every
-          # later green run would re-post it — a self-feeding loop. (#1669 review, two rounds)
-          # The read fails LOUDLY: `|| echo ""` would turn "could not read the comments" into
-          # "there is no BLOCKED comment", the exact silence INFRA-077 forbids and every other
-          # gh api read in this step already avoids. On failure we warn and skip the courtesy
-          # note (its absence is harmless — the gate verdict is on the checks page regardless).
-          # A pipe would mask gh's exit under the trailing grep/tail, so gh's output is captured
-          # first and the line-pick runs only after gh succeeded. (#1669 review)
-          gate_comments_err=$(mktemp)
-          if gate_comments_json=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
-            --jq '[.[] | select(.body | startswith("**Review gate:"))] | last | (.body // "" | split("\n")[0])' 2>"${gate_comments_err}"); then
-            last_gate_comment=$(printf '%s' "${gate_comments_json}" | grep -v '^$' | tail -1 || echo "")
-          else
-            echo "::warning::review-gate supersession: could not read PR comments ($(cat "${gate_comments_err}")). Skipping the superseded-note; the checks page still carries the verdict."
-            last_gate_comment=""
-          fi
-          rm -f "${gate_comments_err}"
-          if [ "${CODE_CHANGED}" = "true" ] && printf '%s' "$last_gate_comment" | head -1 | grep -q '^\*\*Review gate: BLOCKED'; then
-            gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
-          **Review gate: PASS** — the BLOCKED verdict above is superseded; the checks page carries the current verdict and the run log says why this pass passed.
-          EOF
-          fi
 
   # INFRA-057. Disarming an armed auto-merge is INFRA-048's stated lever for the #1409 hole: a red
   # NON-REQUIRED check does not stop an auto-merge by itself. It had never once worked. Measured on
@@ -539,18 +165,17 @@ jobs:
   # `gh` only, so its write scope never meets checked-out content.
   #
   # What this lever is and is not. It is belt-and-braces, not the guarantee:
-  #   - On `develop` it is redundant — `review-gate` is a REQUIRED check on `protect-develop`, so a
+  #   - On `develop` it is redundant — `review-policy` is a REQUIRED check on `protect-develop`, so a
   #     red gate stops the merge on its own.
   #   - On `main` it is the only automatic lever, because `protect-main` requires `promotion
-  #     ancestry` / `main PR source guard` / `release-grade verification` and NOT `review-gate`.
-  #     It is also inherently racy there: those three can go green while this gate is still waiting
-  #     on CodeQL, and auto-merge fires the moment they do. Only a required check is race-free.
+  #     ancestry` / `main PR source guard` / `release-grade verification` and NOT `review-policy`.
+  #     Auto-merge can fire as soon as those required checks pass. Only a required check is race-free.
   #   - On a FORK pull request GitHub issues a read-only token whatever `permissions:` says, so the
   #     disarm cannot work at all. It reports STILL ARMED, loudly, instead of claiming success.
   disarm-auto-merge:
     name: disarm-auto-merge
-    needs: review-gate
-    if: ${{ always() && needs.review-gate.result == 'failure' }}
+    needs: review-policy
+    if: ${{ always() && needs.review-policy.result == 'failure' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -598,12 +223,12 @@ jobs:
 
           # STATE 3 — still armed. Permission denial, fork PR, API failure: the cause differs, the
           # consequence does not, and the consequence is what has to be loud. This job goes RED.
-          echo "::error::review-gate: auto-merge is STILL ARMED on PR #${PR_NUMBER} and could NOT be disarmed (gh exit ${disarm_exit}, state after: ${after}). The review gate is red but the merge is not being held back by this lever — hold the merge by hand, or make review-gate a required status check on this base branch."
+          echo "::error::review-policy: auto-merge is STILL ARMED on PR #${PR_NUMBER} and could NOT be disarmed (gh exit ${disarm_exit}, state after: ${after}). The review policy is red but the merge is not being held back by this lever — hold the merge by hand, or make review-policy a required status check on this base branch."
           gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
           **Review gate: BLOCKED — and auto-merge could NOT be disarmed.**
 
           Auto-merge is **still armed** on this PR (\`gh pr merge --disable-auto\` exited \`${disarm_exit}\`, state after: \`${after}\`).
-          If \`review-gate\` is not a required status check on this base branch, this PR can still merge with the gate red. Disarm it by hand or hold the merge.
+          If \`review-policy\` is not a required status check on this base branch, this PR can still merge with the policy red. Disarm it by hand or hold the merge.
 
           \`\`\`
           ${disarm_output}

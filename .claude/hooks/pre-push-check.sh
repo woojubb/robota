@@ -26,6 +26,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
 # shellcheck source=lib/bounded-gh.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/bounded-gh.sh"
 AUTH_PARSER=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/harness/post-findings-authorization.mjs
+REVIEW_PROJECTION=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/harness/review-verdict-projection.mjs
 
 # Fail closed on an unreadable tool name. Left bare, a non-zero return aborts the assignment
 # under `set -e` and the hook exits 1 with nothing said — which the hook protocol treats as
@@ -738,7 +739,6 @@ if [[ "$ANY_BASE_DECLARATION" == "true" ]]; then
     exit 2
   fi
   TRUSTED_AGREEMENT_SLUG="${BASH_REMATCH[1]}"
-  TRUSTED_AGREEMENT_ID=$(printf '%s' "$TRUSTED_AGREEMENT_SLUG" | tr '[:lower:]' '[:upper:]')
   TRUSTED_REMOTE_BRANCH="${TRUSTED_BASE_REF#origin/}"
 
   if ! TRUSTED_LOCAL_SHA=$(hook_git_in "$PROJECT_DIR" rev-parse --verify "$TRUSTED_BASE_REF^{commit}" 2>/dev/null); then
@@ -774,25 +774,6 @@ if [[ "$ANY_BASE_DECLARATION" == "true" ]]; then
     exit 2
   fi
 
-  TRUSTED_TASK_PATHS=$(hook_git_in "$PROJECT_DIR" ls-tree -r --name-only "$TRUSTED_BASE_REF" -- .agents/tasks 2>/dev/null \
-    | grep -E "^\\.agents/tasks/${TRUSTED_AGREEMENT_ID}(-.*)?\\.md$" || true)
-  TRUSTED_SPEC_PATHS=$(hook_git_in "$PROJECT_DIR" ls-tree -r --name-only "$TRUSTED_BASE_REF" -- .agents/spec-docs 2>/dev/null \
-    | grep -E "^\\.agents/spec-docs/(todo|active)/${TRUSTED_AGREEMENT_ID}(-.*)?\\.md$" || true)
-  if [[ $(printf '%s\n' "$TRUSTED_TASK_PATHS" | grep -c . || true) -ne 1 \
-    || $(printf '%s\n' "$TRUSTED_SPEC_PATHS" | grep -c . || true) -ne 1 ]]; then
-    echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' lacks one matching open $TRUSTED_AGREEMENT_ID Task/spec pair." >&2
-    exit 2
-  fi
-  TRUSTED_TASK_BODY=$(hook_git_in "$PROJECT_DIR" show "$TRUSTED_BASE_REF:$TRUSTED_TASK_PATHS" 2>/dev/null || true)
-  TRUSTED_SPEC_BODY=$(hook_git_in "$PROJECT_DIR" show "$TRUSTED_BASE_REF:$TRUSTED_SPEC_PATHS" 2>/dev/null || true)
-  TRUSTED_TASK_FRONTMATTER=$(printf '%s\n' "$TRUSTED_TASK_BODY" | awk 'NR == 1 && $0 == "---" { in_frontmatter = 1; next } in_frontmatter && $0 == "---" { exit } in_frontmatter { print }')
-  TRUSTED_SPEC_FRONTMATTER=$(printf '%s\n' "$TRUSTED_SPEC_BODY" | awk 'NR == 1 && $0 == "---" { in_frontmatter = 1; next } in_frontmatter && $0 == "---" { exit } in_frontmatter { print }')
-  if ! printf '%s\n' "$TRUSTED_TASK_FRONTMATTER" | grep -qE '^status:[[:space:]]*(todo|in-progress|blocked)[[:space:]]*$' \
-    || ! printf '%s\n' "$TRUSTED_SPEC_FRONTMATTER" | grep -qE '^status:[[:space:]]*(approved|in-progress)[[:space:]]*$' \
-    || ! printf '%s\n' "$TRUSTED_SPEC_FRONTMATTER" | grep -qE '^type:[[:space:]]*AGREEMENT[[:space:]]*$'; then
-    echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' does not contain a matching open $TRUSTED_AGREEMENT_ID Task/spec pair." >&2
-    exit 2
-  fi
   if ! hook_git_in "$PROJECT_DIR" merge-base --is-ancestor "$TRUSTED_BASE_REF" HEAD 2>/dev/null; then
     echo "[pre-push-check] Blocked: trusted integration base '$TRUSTED_BASE_REF' is not an ancestor of this branch." >&2
     exit 2
@@ -984,7 +965,9 @@ esac
 # pull request is clean, stop editing it". One switch must not disarm two unrelated rules, and the
 # override's own message never claimed to excuse this one.
 frozen_diff_refusal() {
-  local branch="$1" open_pr latest_count latest_body
+  local branch="$1" open_pr latest_count projection verdict_kind verdict_author
+  local reviews_json projection_status
+  local remote_head pr_author approved_ground conflict_state
   [[ -n "$branch" ]] || return 1
   # `gh pr list --head`, not `pr view`: `pr view` takes a number, a URL or a branch and decides by
   # shape, so a branch named `42` would be answered with pull request #42's state.
@@ -994,51 +977,76 @@ frozen_diff_refusal() {
     return 1
   fi
   [[ "$open_pr" =~ ^[1-9][0-9]*$ ]] || return 1
-  # The reviewer filter and the unanchored marker are merge-gate.sh's, deliberately: a gate whose
-  # input its own subject can write is not a gate, and jq's regex does not anchor at line
-  # boundaries. Unknown is NOT zero — a refusal on a failed measurement blocks correct work on no
-  # evidence, so an unreadable count returns 1 and the push proceeds to the checks below.
-  if ! latest_body=$(cd "$PROJECT_DIR" &&
-    bounded_gh pr view "$open_pr" --json comments,reviews \
-      --jq "([.comments[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[]? | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"^github-actions(\\\\[bot\\\\])?$\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {} | .body // \"\"" 2>/dev/null); then
-    echo "[pre-push-check] Frozen-diff check unavailable: could not read the PR findings verdict; no freeze verdict was established." >&2
+  if ! projection=$(cd "$PROJECT_DIR" &&
+    bounded_gh pr view "$open_pr" --json headRefOid,author \
+      --jq '[.headRefOid // "", .author.login // ""] | @tsv'); then
+    echo "[pre-push-check] Frozen-diff check unavailable: could not read the PR identity; no freeze verdict was established." >&2
     return 1
   fi
-  latest_count=$(printf '%s\n' "$latest_body" | sed -nE 's/^ACTIONABLE FINDINGS: ([0-9]+)$/\1/p' | tail -1)
-  [[ "$latest_count" =~ ^[0-9]+$ ]] || return 1
-  # The latest findings verdict governs the next action. A push is permitted only when a maintainer
-  # has approved a request bound to that exact verdict count and current remote head.
-  local remote_head actual_remote_head approved
-  remote_head=$(printf '%s\n' "$latest_body" | sed -nE 's/.*REVIEWED HEAD:[[:space:]]*([0-9a-fA-F]{40}).*/\1/p' | tail -1)
-  if ! [[ "$remote_head" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
-    echo "[pre-push-check] Blocked: latest findings verdict has no parseable REVIEWED HEAD; re-read the review before pushing." >&2
-    return 0
+  IFS=$'\t' read -r remote_head pr_author <<< "$projection"
+  if ! [[ "$remote_head" =~ ^[0-9a-fA-F]{40}$ ]] || [[ -z "$pr_author" ]]; then
+    echo "[pre-push-check] Frozen-diff check unavailable: PR identity was malformed; no freeze verdict was established." >&2
+    return 1
   fi
-  if ! actual_remote_head=$(cd "$PROJECT_DIR" && git ls-remote origin "refs/heads/$branch" | awk 'NR==1 {print $1}'); then
-    echo "[pre-push-check] Frozen-diff check unavailable: could not read the remote branch head; no freeze verdict was established." >&2
-    actual_remote_head=""
+  # The required review-policy check and this push freeze consume one owner. It projects trusted,
+  # exact-head reviews latest-per-reviewer, including delegated COMMENTED verdicts, independent
+  # APPROVED reviews, and active blockers. Unknown is not a verdict and does not invent a freeze.
+  if reviews_json=$(cd "$PROJECT_DIR" && bounded_gh api --paginate --slurp \
+    "repos/{owner}/{repo}/pulls/${open_pr}/reviews?per_page=100" 2>/dev/null); then
+    :
+  else
+    echo "[pre-push-check] Frozen-diff check unavailable: could not read PR reviews; no freeze verdict was established." >&2
+    return 1
   fi
-  if [[ -n "$actual_remote_head" && "$actual_remote_head" != "$remote_head" ]]; then
-    echo "[pre-push-check] Blocked: latest findings verdict reviewed $remote_head, but remote head is $actual_remote_head; obtain a fresh verdict before pushing." >&2
-    return 0
+  if projection=$(printf '%s' "$reviews_json" \
+    | node "$REVIEW_PROJECTION" --reviews-file - --head "$remote_head" \
+        --author "$pr_author" --project 2>/dev/null); then
+    :
+  else
+    projection_status=$?
+    # The projector's documented exit 2 means a valid response with no trusted exact-head review.
+    # It is a real absent verdict, not a read or parsing failure. Preserve the permissive open-PR
+    # policy below without claiming that review inspection was unavailable.
+    if (( projection_status == 2 )); then
+      return 1
+    fi
+    echo "[pre-push-check] Frozen-diff check unavailable: canonical review projection failed; no freeze verdict was established." >&2
+    return 1
   fi
+  IFS=$'\t' read -r remote_head latest_count verdict_kind verdict_author <<< "$projection"
+  if ! [[ "$remote_head" =~ ^[0-9a-fA-F]{40}$ ]] || ! [[ "$latest_count" =~ ^[0-9]+$ ]]; then
+    echo "[pre-push-check] Frozen-diff check unavailable: canonical review projection was malformed; no freeze verdict was established." >&2
+    return 1
+  fi
+  # The latest canonical review verdict governs the next action. A push is permitted only when a
+  # maintainer approved a request bound to that exact verdict count and current PR head.
   # `gh pr view --json comments` exposes `id` as a GraphQL node id (`IC_...`), while the
   # authorization envelope deliberately binds the numeric REST issue-comment id. Derive that
   # number from the same canonical URL the parser independently validates.
-  if ! approved=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json comments \
+  if ! approved_ground=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json comments \
     --jq '[.comments[]? | select((.author.login // "") == "woojubb") | {id: ((.url // "") | capture("#issuecomment-(?<id>[0-9]+)$").id | tonumber), url, author: {login: (.author.login // ""), association: (.authorAssociation // "")}, body: (.body // "")}]' \
     | node "$AUTH_PARSER" --pr "$open_pr" --head "$remote_head" \
-      --verdict "$latest_count" --actions push,rebase 2>/dev/null); then
+      --verdict "$latest_count" --actions push 2>/dev/null); then
     echo "[pre-push-check] Frozen-diff check unavailable: could not read post-verdict authorization; no authorization was established." >&2
-    approved=""
+    approved_ground=""
   fi
-  if [[ "$approved" == "1" ]]; then
+  if [[ "$approved_ground" == "conflict" ]]; then
+    if ! conflict_state=$(cd "$PROJECT_DIR" && bounded_gh pr view "$open_pr" --json mergeStateStatus --jq '.mergeStateStatus' 2>/dev/null); then
+      echo "[pre-push-check] Conflict-ground check unavailable: could not read mergeStateStatus." >&2
+      return 0
+    fi
+    if [[ "$conflict_state" != "DIRTY" ]]; then
+      echo "[pre-push-check] Blocked: conflict ground requires GitHub mergeStateStatus DIRTY; observed ${conflict_state:-unknown}." >&2
+      return 0
+    fi
+  fi
+  if [[ "$approved_ground" == "finding" || "$approved_ground" == "red-check" || "$approved_ground" == "conflict" ]]; then
     echo "[pre-push-check] Approved post-verdict change request found for PR #$open_pr at head $remote_head." >&2
     return 1
   fi
-  echo "[pre-push-check] Blocked: PR #$open_pr has a published ACTIONABLE FINDINGS verdict ($latest_count)." >&2
+  echo "[pre-push-check] Blocked: PR #$open_pr has a canonical $verdict_kind review by $verdict_author (ACTIONABLE FINDINGS verdict $latest_count)." >&2
   echo "[pre-push-check] Stop and publish an approved POST_FINDINGS_ACTION_REQUEST for the latest verdict first." >&2
-  echo "[pre-push-check] It must name HEAD $remote_head, VERDICT $latest_count, ACTION push|rebase, GROUND finding|red-check|rebase, EVIDENCE, SCOPE," >&2
+  echo "[pre-push-check] It must name HEAD $remote_head, VERDICT $latest_count, ACTION push, GROUND finding|red-check|conflict, EVIDENCE, SCOPE," >&2
   echo "[pre-push-check] APPROVED: yes, and APPROVED-BY: @<maintainer> in a PR comment." >&2
   echo "[pre-push-check] Local review records and override tokens do not satisfy this requirement." >&2
   return 0

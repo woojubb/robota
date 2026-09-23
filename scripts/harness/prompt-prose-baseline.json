@@ -126,9 +126,5 @@
   "packages/dag-cli/src/commands/init.ts": {
     "count": 2,
     "hashes": ["4af5ec9ab079", "ccdcc4928212"]
-  },
-  "packages/dag-cli/src/mcp/tool-definitions.ts": {
-    "count": 1,
-    "hashes": ["68908ed2b543"]
   }
 }

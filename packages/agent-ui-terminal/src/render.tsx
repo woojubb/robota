@@ -90,6 +90,13 @@ export interface IRenderOptions {
   outputStyle?: IOutputStylePrompt;
   /** ARCH-013: resolved preset effort, forwarded to the session's `effort` seam. */
   effort?: ITuiInteractionChannelOptions['effort'];
+  temperature?: number;
+  maxOutputTokens?: number;
+  /** Preset prompt seed, distinct from the replacing `systemPrompt` option. */
+  presetSystemPrompt?: string;
+  /** CLI-sourced additive prompt text, composed before the TUI is rendered. */
+  appendSystemPrompt?: string;
+  responseFormat?: ITuiInteractionChannelOptions['responseFormat'];
   language?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
@@ -194,8 +201,6 @@ export function toChannelOptions(
   options: IRenderOptions,
   resumeSessionId?: string,
 ): ConstructorParameters<typeof TuiInteractionChannel>[0] {
-  // Contained — ARCH-110. This hand-maintained projection can silently omit optional composition-root
-  // capabilities such as orgPolicy; keep the gap visible until ARCH-110 replaces or mechanically checks it.
   return {
     cwd: options.cwd,
     provider: options.provider,
@@ -209,6 +214,15 @@ export function toChannelOptions(
     // the provider chat call (header/status line == the model actually called).
     ...(options.modelId !== undefined ? { model: options.modelId } : {}),
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
+    ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+    ...(options.maxOutputTokens !== undefined ? { maxOutputTokens: options.maxOutputTokens } : {}),
+    ...(options.presetSystemPrompt !== undefined
+      ? { presetSystemPrompt: options.presetSystemPrompt }
+      : {}),
+    ...(options.appendSystemPrompt !== undefined
+      ? { appendSystemPrompt: options.appendSystemPrompt }
+      : {}),
+    ...(options.responseFormat !== undefined ? { responseFormat: options.responseFormat } : {}),
     ...(options.outputStyle !== undefined ? { outputStyle: options.outputStyle } : {}),
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,

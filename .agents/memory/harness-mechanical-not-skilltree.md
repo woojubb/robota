@@ -10,10 +10,10 @@ one extra indirection hop, and a mandatory middle-orchestrator tier only adds pe
 things that actually make the right process fire are mechanical: `.claude/hooks/` (dispatch/guards) and
 `scripts/harness/` scans (gates), plus measurement to prove it.
 
-**Also:** robota's skills are already lean (≈58 files, avg ~101 lines; common preamble is a short `## Rule
-Anchor` pointer, not duplicated bulk), and the orchestration layer is already the clean thin-sequencer pattern
-(`backlog-pipeline` route-only state machine + `backlog-gate-guard` single-gate validator). So a shared-core
-extraction or a new orchestration spine would be **reorganization without a performance gain**.
+**Also:** the current architecture flow keeps the thin-sequencer pattern where it earns its place:
+`architecture-refresh` converges on `ACTIONABLE FINDINGS: 0`, while scans provide the mechanical floor.
+Deleted legacy gate routers and validators are not retained as compatibility layers. A new orchestration
+spine without a distinct ordering responsibility would be **reorganization without a performance gain**.
 
 **How to apply.** When asked to improve harness "performance," reach first for a mechanical dispatcher/gate/metric
 (hook or scan), not a new skill layer. Adopt orchestration structure only where it does mechanical work. Measure

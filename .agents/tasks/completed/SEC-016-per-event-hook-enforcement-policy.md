@@ -1,8 +1,7 @@
 ---
 title: 'SEC-016: per-event fail-closed and advisory hook policy'
-status: skipped
-completed: 2026-08-29
-returned_to_issue: https://github.com/woojubb/robota/issues/2225#issuecomment-5458301445
+status: done
+completed: 2026-09-05
 created: 2026-08-23
 priority: critical
 urgency: now
@@ -59,8 +58,10 @@ One item per Completion Criterion in the paired spec.
 - [x] TC-08 — everything that blocked before still blocks.
 - [x] TC-09 — `pnpm build && pnpm typecheck` exit 0.
 - [x] TC-10 — `pnpm harness:scan` exits 0 with the new scan present in its output.
-- [ ] TC-11 — the user-execution scenario runs: denied run carries `spawn-failure`/`command`/the
-      hook path, allowed run carries none, both exit 0.
+- [x] TC-11 — the user-execution scenario runs through the CLI: the denied persisted record carries
+      `nonzero-exit`/`command`/the hook path, the allowed record carries no denial markers, both
+      runs exit 0. The original `spawn-failure` expectation was incorrect; see the dated disposition
+      below.
 - [x] TC-12 — the table-internal invariant: `posture: 'enforcing'` with
       `enforcementReachable: false` is rejected, asserted independently of the scan.
 
@@ -165,6 +166,20 @@ Engineering verification. The spec's `## Test Plan` table is the owner; this is 
 - `pnpm harness:scan` (TC-10).
 
 ## User Execution Test Scenarios
+
+### Retained-scope disposition — 2026-09-23
+
+SEC-016 is complete. The open CLI criterion was fulfilled by the merged SEC-022 implementation
+(`develop` merge `3ba741c15`, implementation commit `2e5019ca6`; [issue #2225 closeout](https://github.com/woojubb/robota/issues/2225#issuecomment-5548043712)). Its real-binary test
+`packages/agent-cli/src/__tests__/e2e/sec-022-pretooluse-denial.bintest.ts` reads persisted records
+from both denied and allowed runs. The denied record contains `blocked: true`,
+`nonzero-exit`, `source: command`, and the configured hook path; the allowed record reports tool
+success; both runs exit 0. The binary driver also reports the persisted tool call. This supersedes
+the old failed attempt below and the mistaken expected `spawn-failure` kind: the missing-path
+command is launched through a shell and exits 127, so the observed kind is `nonzero-exit`.
+
+The earlier `spawn-failure` scenario attempt and its SDK-surface output remain historical evidence;
+they describe what ran at that time and are not the basis for checking TC-11.
 
 **The surface is the Robota CLI, unlike SEC-015.** That leaf added a field nothing read, so it had no
 CLI-observable manifestation. This leaf's deliverable IS the observable: a tool call that previously

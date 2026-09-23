@@ -3,7 +3,6 @@ import path from 'node:path';
 
 import {
   ScriptKind,
-  ScriptTarget,
   createSourceFile,
   isExportDeclaration,
   isImportDeclaration,
@@ -36,7 +35,7 @@ function resolveLocalModule(importer, specifier, moduleDir) {
 
 function staticLocalImports(file, moduleDir) {
   const source = readFileSync(file, 'utf8');
-  const tree = createSourceFile(file, source, ScriptTarget.Latest, true, ScriptKind.JS);
+  const tree = createSourceFile(file, source, { scriptKind: ScriptKind.JS });
   const imports = [];
   for (const statement of tree.statements) {
     if (!isImportDeclaration(statement) && !isExportDeclaration(statement)) continue;

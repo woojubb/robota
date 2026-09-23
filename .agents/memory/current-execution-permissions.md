@@ -40,7 +40,7 @@ agent's decision honestly; do not claim the owner clicked a GitHub review or rev
 This original delegation does not itself authorize a red-check bypass; the subsequent narrow
 control-plane delegation below is separate. It does not waive verification, permit protection
 changes, or extend authority to `main`, release promotion, publication or deployment. Existing
-push/rebase constraints and the worktree prohibition remain unchanged.
+post-verdict push constraints and the worktree prohibition remain unchanged.
 
 Published approval provenance: [PR #2716 decision](https://github.com/woojubb/robota/pull/2716#issuecomment-5649757760).
 The general next-action policy remains owned by [git-branch.md](../rules/git-branch.md).
@@ -58,7 +58,7 @@ not a fresh direct owner approval of future code or a claim that the agent perfo
 completed owner merge. Do not ask the owner to repeat this approval or operate that merge when
 the delegation still applies and the required evidence holds. The authoritative safeguards,
 truthful agent-approver record and exclusions are owned by
-[Landing a control-plane change](../rules/git-branch.md#landing-a-control-plane-change-a-workflow-that-provides-a-required-check).
+[Landing a control-plane change](../rules/git-branch.md#landing-a-control-plane-change).
 
 Provenance: the current Issue #2655 conversation following PR #2718's owner merge; no public
 comment URL for this instruction has been supplied. Quote this instruction and identify that

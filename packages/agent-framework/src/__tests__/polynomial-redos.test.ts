@@ -20,7 +20,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import { sanitizeProviderProfileName } from '../command-api/provider/provider-profile-names.js';
-import { parseFrontmatter } from '../commands/skill-source.js';
+import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
 import { parseTaskFile, readCurrentGitBranchFromNodeHost } from '../context/task-context.js';
 import { ProjectMemoryStore } from '../memory/project-memory-store.js';
 import { createNodeHostContributionSourcesFixture } from '../testing/contribution-source-fixture.js';
@@ -162,23 +162,48 @@ describe('SEC-003 alert 43 — npm registry metadata URL', () => {
 });
 
 describe('SEC-003 alert 39 — skill frontmatter list values', () => {
-  const pumped = `---\nallowed-tools: ,x${' '.repeat(PUMP)}y,z\n---\nbody\n`;
+  const pumped = `---\nallowed-tools: "x${' '.repeat(PUMP)}y,z"\n---\nbody\n`;
 
   it(
     'parses a pumped whitespace run in linear time',
     () => {
-      expect(elapsedMs(() => void parseFrontmatter(pumped))).toBeLessThan(BUDGET_MS);
+      expect(
+        elapsedMs(
+          () => void decodeFrontmatter({ source: 'pumped.md', content: pumped, profile: 'skill' }),
+        ),
+      ).toBeLessThan(BUDGET_MS);
     },
     RED_TIMEOUT_MS,
   );
 
-  it('keeps the list split and trimming for ordinary input', () => {
-    expect(parseFrontmatter('---\nallowed-tools: Read , Write ,,Bash\n---\n')).toEqual({
-      allowedTools: ['Read', 'Write', 'Bash'],
+  it('keeps valid list splitting while refusing empty members', () => {
+    expect(
+      decodeFrontmatter({
+        source: 'skill.md',
+        content: '---\nallowed-tools: Read, Write, Bash\n---\n',
+        profile: 'skill',
+      }),
+    ).toMatchObject({
+      ok: true,
+      metadata: { allowedTools: ['Read', 'Write', 'Bash'] },
     });
-    expect(parseFrontmatter('---\nallowed-tools: Read  Write\n---\n')).toEqual({
-      allowedTools: ['Read', 'Write'],
+    expect(
+      decodeFrontmatter({
+        source: 'skill.md',
+        content: '---\nallowed-tools: Read  Write\n---\n',
+        profile: 'skill',
+      }),
+    ).toMatchObject({
+      ok: true,
+      metadata: { allowedTools: ['Read', 'Write'] },
     });
+    expect(
+      decodeFrontmatter({
+        source: 'skill.md',
+        content: '---\nallowed-tools: Read,,Write\n---\n',
+        profile: 'skill',
+      }).ok,
+    ).toBe(false);
   });
 });
 
@@ -197,14 +222,14 @@ describe('SEC-003 sweep — agent definition frontmatter list values (unflagged 
   it(
     'parses a pumped whitespace run in linear time',
     () => {
-      const loader = loaderFor(`---\ntools: ,x${' '.repeat(PUMP)}y,z\n---\nbody\n`);
+      const loader = loaderFor(`---\ntools: "x${' '.repeat(PUMP)}y,z"\n---\nbody\n`);
       expect(elapsedMs(() => void loader.loadAll())).toBeLessThan(BUDGET_MS);
     },
     RED_TIMEOUT_MS,
   );
 
-  it('keeps the list split and trimming for ordinary input', () => {
-    const loader = loaderFor('---\nname: probe\ntools: Read , Write ,,Bash\n---\nbody\n');
+  it('keeps the list split and trimming for valid input', () => {
+    const loader = loaderFor('---\nname: probe\ntools: Read, Write, Bash\n---\nbody\n');
     expect(loader.loadAll()[0]?.tools).toEqual(['Read', 'Write', 'Bash']);
   });
 });

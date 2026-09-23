@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-2664: Normalize workflow-dispatch branch inputs through one resolvable-ref owner'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: done
 created: 2026-09-20
 priority: medium
 urgency: soon
@@ -59,13 +59,25 @@ claim that this defect is fixed.
 
 ## Plan
 
-- [ ] Inventory every `workflow_dispatch` consumer of `base_ref` and `head_ref` and define the
+- [x] Inventory every `workflow_dispatch` consumer of `base_ref` and `head_ref` and define the
       canonical resolution/failure contract in one owner.
-- [ ] Add falsifying tests for branch names that exist only as remote-tracking refs, direct commit
+- [x] Add falsifying tests for branch names that exist only as remote-tracking refs, direct commit
       SHAs, tags if retained by the contract, and unresolvable inputs.
-- [ ] Resolve the input pair once and route all affected CI jobs through the canonical outputs.
-- [ ] Run the workflow with both branch-name and immutable-SHA inputs and show equivalent commit
+- [x] Resolve the input pair once and route all affected CI jobs through the canonical outputs.
+- [x] Run the workflow with both branch-name and immutable-SHA inputs and show equivalent commit
       ranges and green gates.
+
+## Delivery (2026-09-23)
+
+PR [PR #2840](https://github.com/woojubb/robota/pull/2840) landed as
+`c014b9966842550b84dd7474862b619a9bcdfdc9`. The shared resolver normalizes
+manual branch, tag, and full commit-OID inputs to one immutable pair before the
+downstream jobs consume it. The official post-landing branch-name and commit-OID
+dispatches selected the same pair and produced 20/20 matching final job outcomes,
+as recorded in the [issue completion record](https://github.com/woojubb/robota/issues/2664#issuecomment-5788942146).
+
+This Task is an independent issue #2664 owner, not a ninth AGREEMENT historical child.
+The obsolete benchmark and gate pipeline remain superseded by PR #2827.
 
 ## Test Plan
 

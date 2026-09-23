@@ -1,7 +1,7 @@
 ---
 title: 'INFRA-154: reuse final-tree verification receipts and parallelize independent gates'
 issue: https://github.com/woojubb/robota/issues/2518
-status: todo
+status: done
 created: 2026-09-03
 priority: medium
 urgency: soon
@@ -10,6 +10,13 @@ depends_on: []
 ---
 
 # INFRA-154: reuse final-tree verification receipts and parallelize independent gates
+
+## Disposition
+
+**Delivered by issue #2826.** Harness contract successes are keyed by relevant inputs and persisted
+per successful shard; bounded workers continuously fill available slots; PR responsibilities are
+split into independently retriable jobs and reuse the clean build artifact. A commit identifier alone
+does not invalidate those input-bound results.
 
 ## Objective
 

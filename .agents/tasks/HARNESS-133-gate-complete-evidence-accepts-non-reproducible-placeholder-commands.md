@@ -1,7 +1,7 @@
 ---
 title: 'HARNESS-133: GATE-COMPLETE evidence accepts non-reproducible placeholder commands'
 issue: https://github.com/woojubb/robota/issues/2552
-status: in-progress
+status: superseded
 created: 2026-08-30
 priority: medium
 urgency: soon
@@ -10,6 +10,12 @@ depends_on: []
 ---
 
 # HARNESS-133: GATE-COMPLETE evidence accepts non-reproducible placeholder commands
+
+## Disposition
+
+**Superseded by issue #2826.** GATE-COMPLETE, its record path, and the placeholder-command validator
+were deleted with the multi-gate lifecycle. Reintroducing them for compatibility would restore a
+retired completion ceremony; the historical finding remains below.
 
 ## Objective
 

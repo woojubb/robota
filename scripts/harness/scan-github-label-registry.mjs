@@ -34,7 +34,6 @@ export const PROTECTED_CONSUMER_BASELINE = Object.freeze({
     '.claude/hooks/merge-gate.sh',
     'scripts/harness/record-local-review.mjs',
   ]),
-  'review-findings-acknowledged': Object.freeze(['scripts/harness/check-review-gate.mjs']),
 });
 
 const CORE_NAMES = new Set([

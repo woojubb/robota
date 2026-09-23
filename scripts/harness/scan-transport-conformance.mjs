@@ -201,7 +201,7 @@ export function discoverTransportSubjects(root = WORKSPACE_ROOT) {
 
 function countConformanceInvocations(file, subjectId) {
   const source = readFileSync(file, 'utf8');
-  const ast = ts.createSourceFile(file, source, ts.ScriptTarget.ESNext, true, ts.ScriptKind.TS);
+  const ast = ts.createSourceFile(file, source, { scriptKind: ts.ScriptKind.TS });
   let helperLocalName;
   let calls = 0;
   const visit = (node) => {
@@ -242,7 +242,7 @@ function countConformanceInvocations(file, subjectId) {
         }
       }
     }
-    ts.forEachChild(node, visit);
+    node.forEachChild(visit);
   };
   visit(ast);
   return calls;

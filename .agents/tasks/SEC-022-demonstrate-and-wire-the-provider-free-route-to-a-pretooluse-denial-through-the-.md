@@ -1,7 +1,7 @@
 ---
 title: 'SEC-022: demonstrate and wire the provider-free route to a PreToolUse denial through the CLI product surface'
 issue: https://github.com/woojubb/robota/issues/2225
-status: todo
+status: done
 created: 2026-09-04
 priority: critical
 urgency: now
@@ -105,11 +105,29 @@ proves the denial precedes the step that reports it.
 - [x] TC-05 — after the driver change, a binary-driver run over a one-tool-call fixture reports one
       `Read` call, and `cross-fidelity.bintest.ts` still passes.
 - [x] TC-06 — the fixture is referenced by at least one file under `packages/agent-cli/src`.
-- [ ] TC-07 — `pnpm build && pnpm typecheck` exit 0.
-- [ ] TC-08 — `pnpm harness:scan` exits 0.
+- [x] TC-07 — `pnpm build && pnpm typecheck` exit 0 (verified 2026-09-23 in the current checkout).
+- [ ] TC-08 — historical whole-repository `pnpm harness:scan` gate; superseded by the affected verification and CI completion boundary in PR #2827, rather than claimed as historically executed.
 - [x] TC-09 — the SEC-016 record names `nonzero-exit` as the kind the CLI run observes; its two
       lines that asserted `spawn-failure` (62, 226) say so only as the expectation that was wrong,
       and line 246's SDK-surface output is left as recorded.
+
+## Current disposition — 2026-09-23
+
+The product work and CLI evidence were delivered in `develop` merge `3ba741c15` (implementation
+commit `2e5019ca6`) and issue #2225 was closed with the denied/allowed binary evidence. The issue
+closeout reports the binary suite (10 tests) and typecheck passing; it does not report a build or
+`harness:scan`, so those results are not attributed to that historical merge. TC-07 is now checked
+from a current local run: `pnpm build && pnpm typecheck` exited 0.
+
+The historical TC-08 command was run in this checkout and exited 1 with three findings:
+`reference-kind-qualified` (new/unfrozen references in AGREEMENT-013),
+`progress-report-quantification` (stale acknowledgment), and `orphan-exports`
+(`mergePluginHooks`). These are not claimed as SEC-022 failures or as historical merge results;
+they are not attributed to its historical merge. PR #2827 replaced this old whole-repository gate
+with affected verification and selected CI, as defined in `.agents/rules/spec-workflow.md` and
+`.agents/rules/verification.md`. The product outcome is complete; the historical checkbox is not
+converted into a claim that the old command passed. Current retained-scope delivery owns its actual
+affected checks and repairs separately.
 
 ## The mutant this must kill
 

@@ -48,6 +48,7 @@ function repoWithGuardedWorkflow() {
         main: {
           required_status_checks: [
             { context: 'build', workflow: '.github/workflows/ci.yml', job: 'build' },
+            { context: 'security', workflow: '.github/workflows/ci.yml', job: 'security' },
           ],
         },
       },
@@ -69,6 +70,27 @@ function repoWithGuardedWorkflow() {
     ].join('\n'),
   );
   writeFileSync(path.join(dir, 'README.md'), 'base\n');
+  writeFileSync(path.join(dir, '.gitleaks.toml'), '[allowlist]\n');
+  writeFileSync(path.join(dir, 'osv-scanner.toml'), '[IgnoredVulns]\n');
+  mkdirSync(path.join(dir, 'scripts/harness'), { recursive: true });
+  writeFileSync(
+    path.join(dir, 'scripts/harness/generate-dependency-review-license-exemptions.mjs'),
+    'export {};\n',
+  );
+  for (const entry of [
+    'classify-changed-paths.mjs',
+    'product-integration-tests.mjs',
+    'review-verdict-projection.mjs',
+    'harness-test-tiers.mjs',
+    'run-all-scans.mjs',
+  ]) {
+    writeFileSync(path.join(dir, 'scripts/harness', entry), 'export {};\n');
+  }
+  writeFileSync(
+    path.join(dir, 'scripts/harness/scan-workflow-provenance.mjs'),
+    "import './provenance-policy.mjs';\n",
+  );
+  writeFileSync(path.join(dir, 'scripts/harness/provenance-policy.mjs'), 'export {};\n');
   git(dir, 'add', '-A');
   git(dir, 'commit', '--quiet', '-m', 'chore: base');
   return dir;
@@ -84,6 +106,8 @@ describe('workflow-provenance — criteria are READ from the registry (INFRA-097
     // with nothing edited here.
     expect(workflows).toEqual([
       '.github/workflows/ci.yml',
+      '.github/workflows/dependency-review.yml',
+      '.github/workflows/gitleaks.yml',
       '.github/workflows/review-gate.yml',
       '.github/workflows/workflow-provenance-gate.yml',
     ]);
@@ -92,12 +116,28 @@ describe('workflow-provenance — criteria are READ from the registry (INFRA-097
   it('names which contexts each guarded workflow provides', () => {
     const { contextsByWorkflow } = readGuardedWorkflows(WORKSPACE_ROOT);
     const registry = JSON.parse(readFileSync(REGISTRY, 'utf8'));
+    const directWorkflows = new Set();
     const total = Object.values(registry.branches).reduce(
-      (n, b) => n + b.required_status_checks.filter((c) => c.workflow).length,
+      (n, b) =>
+        n +
+        b.required_status_checks.filter((check) => {
+          if (check.workflow) directWorkflows.add(check.workflow);
+          return check.workflow;
+        }).length,
       0,
     );
 
-    expect([...contextsByWorkflow.values()].flat()).toHaveLength(total);
+    expect(
+      [...contextsByWorkflow]
+        .filter(([workflow]) => directWorkflows.has(workflow))
+        .flatMap(([, contexts]) => contexts),
+    ).toHaveLength(total);
+    expect(contextsByWorkflow.get('.github/workflows/gitleaks.yml')).toContain(
+      'security (develop)',
+    );
+    expect(contextsByWorkflow.get('.github/workflows/dependency-review.yml')).toContain(
+      'security (develop)',
+    );
   });
 
   it('reads the trigger off the `on:` block, not off any mention of the string', () => {
@@ -167,6 +207,80 @@ describe('workflow-provenance — a change that moves its own gate (INFRA-097)',
     expect(findings[0].problem).toMatch(/can move its own gate/);
   });
 
+  it('flags the guarded source when its workflow is renamed', () => {
+    const dir = repoWithGuardedWorkflow();
+    const source = '.github/workflows/ci.yml';
+    const destination = '.github/workflows/ci-renamed.yml';
+    git(dir, 'mv', source, destination);
+    writeFileSync(
+      path.join(dir, destination),
+      `${readFileSync(path.join(dir, destination), 'utf8')}# renamed control plane\n`,
+    );
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '--quiet', '-m', 'ci: rename guarded workflow');
+
+    const renameDiff = git(dir, 'diff', '--name-status', '-M', 'HEAD~1...HEAD');
+    expect(renameDiff.stdout).toMatch(/^R\d+\s+\.github\/workflows\/ci\.yml\s+/mu);
+
+    const { findings } = findWorkflowProvenanceFindings(dir, 'HEAD~1');
+
+    expect(findings.map((finding) => finding.file)).toContain(source);
+    expect(findings.find((finding) => finding.file === source)?.problem).toMatch(
+      /can move its own gate/,
+    );
+  });
+
+  it('flags the registry carrier so a change cannot silently shrink the next guarded set', () => {
+    const dir = repoWithGuardedWorkflow();
+    const registryFile = path.join(dir, '.github/required-status-checks.json');
+    const registry = JSON.parse(readFileSync(registryFile, 'utf8'));
+    registry.branches.develop = structuredClone(registry.branches.main);
+    writeFileSync(registryFile, `${JSON.stringify(registry, null, 2)}\n`);
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '--quiet', '-m', 'ci: adjust required checks');
+
+    const { findings } = findWorkflowProvenanceFindings(dir, 'HEAD~1');
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].file).toBe('.github/required-status-checks.json');
+    expect(findings[0].problem).toMatch(/guarded workflow set/);
+    expect(findings[0].problem).toMatch(/live ruleset/);
+  });
+
+  it('flags a verdict-controlling security policy edit before it can allow a secret', () => {
+    const dir = repoWithGuardedWorkflow();
+    writeFileSync(
+      path.join(dir, '.gitleaks.toml'),
+      '[[allowlists]]\nregexTarget = "match"\nregexes = [".*"]\n',
+    );
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '--quiet', '-m', 'security: relax secret policy');
+
+    const { findings } = findWorkflowProvenanceFindings(dir, 'HEAD~1');
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].file).toBe('.gitleaks.toml');
+    expect(findings[0].problem).toMatch(/controls required check\(s\): security \(main\)/);
+    expect(findings[0].problem).toMatch(/make the security scan green over a secret/);
+  });
+
+  it('flags a permissive edit anywhere in the trusted implementation import closure', () => {
+    const dir = repoWithGuardedWorkflow();
+    writeFileSync(
+      path.join(dir, 'scripts/harness/provenance-policy.mjs'),
+      'export const findings = []; // unconditional pass\n',
+    );
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '--quiet', '-m', 'ci: weaken provenance policy');
+
+    const { findings } = findWorkflowProvenanceFindings(dir, 'HEAD~1');
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].file).toBe('scripts/harness/provenance-policy.mjs');
+    expect(findings[0].problem).toMatch(/trusted required-check implementation/);
+    expect(findings[0].problem).toMatch(/later pull request/);
+  });
+
   it('says nothing about a change that leaves the control plane alone', () => {
     // The property that keeps the guard readable: ordinary work draws no comment.
     const dir = repoWithGuardedWorkflow();
@@ -210,21 +324,21 @@ describe('workflow-provenance — a change that moves its own gate (INFRA-097)',
   it('reports the size it examined, and does not accumulate across runs', () => {
     const dir = repoWithGuardedWorkflow();
 
-    // EXACT value against a fixture of known size — one guarded workflow. The counter is asserted
-    // AFTER a second run of the finder, because a counter that accumulated would read 2 there and
-    // a bound would hide it.
+    // EXACT value against a fixture of known size — one registry, one guarded workflow, three
+    // required-security policy inputs, six trusted entries, and one transitive helper. The counter
+    // is asserted after a second run so accumulation behind a bound would hide it.
     findWorkflowProvenanceFindings(dir);
 
-    expect(readExaminedWorkflowCount(dir)).toBe(1);
+    expect(readExaminedWorkflowCount(dir)).toBe(12);
 
     findWorkflowProvenanceFindings(dir);
 
-    expect(readExaminedWorkflowCount(dir)).toBe(1);
+    expect(readExaminedWorkflowCount(dir)).toBe(12);
   });
 });
 
 describe('workflow-provenance — this repository (INFRA-097)', () => {
-  it('reports two of three guarded workflows as PR-loaded — the third is the trusted plane', () => {
+  it('reports only the PR-loaded guarded workflows; reusable children stay in the guarded set', () => {
     const { selfLoading, examined } = findWorkflowProvenanceFindings(WORKSPACE_ROOT);
 
     // The earlier case asserted 2 of 2 and said: "if this ever shrinks, a trusted-provenance design
@@ -233,7 +347,8 @@ describe('workflow-provenance — this repository (INFRA-097)', () => {
     // the one file here that does NOT load from the pull request, because it runs on
     // `pull_request_target`. So the ratio, not the count, is the live signal: the exposure is now
     // named as two specific files rather than as "everything required".
-    expect(examined).toBe(3);
+    // The scan runner's shared source-extension import also guards workspace-packages.mjs.
+    expect(examined).toBe(57);
     expect(selfLoading).toHaveLength(2);
     expect(selfLoading.map((finding) => finding.workflow ?? finding)).not.toContain(
       '.github/workflows/workflow-provenance-gate.yml',

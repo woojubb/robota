@@ -1,11 +1,16 @@
 ---
-status: approved
+status: rejected
 type: INFRA
 tags: [infra]
 lane: L2
 ---
 
 # INFRA-169: Declare GATE-DONE's recorded-pass re-run rule in gate-catalogue.md
+
+## Disposition
+
+**Superseded by issue #2826.** The deleted multi-gate lifecycle has no prospective GATE-DONE
+ordering contract. The remainder of this document is historical evidence only.
 
 Paired with `.agents/tasks/INFRA-169-declare-gate-done-s-recorded-pass-re-run-rule-in-gate-catalogue-md.md`. Arising from [issue #2588](https://github.com/woojubb/robota/issues/2588).
 

@@ -87,11 +87,11 @@ export function parameterTypeRefs(fn) {
   const walk = (node) => {
     if (ts.isTypeReferenceNode(node)) {
       const name = tailName(node);
-      if (!name) return ts.forEachChild(node, walk);
+      if (!name) return node.forEachChild(walk);
       const root = rootName(node);
       refs.set(`${root ?? ''}.${name}`, { name, root });
     }
-    ts.forEachChild(node, walk);
+    node.forEachChild(walk);
   };
   for (const parameter of fn.parameters ?? []) {
     if (parameter.type) walk(parameter.type);
@@ -296,9 +296,9 @@ export function readBarrel(content, fileName) {
     // inside one publishes into the namespace, not out of the module. Round-2 review demonstrated
     // both shapes producing a finding; descending into them treats a nested name as a barrel export.
     if (ts.isModuleDeclaration(node)) return;
-    ts.forEachChild(node, (child) => visit(child, false));
+    node.forEachChild((child) => visit(child, false));
   };
-  ts.forEachChild(sourceFile, (statement) => visit(statement, true));
+  sourceFile.forEachChild((statement) => visit(statement, true));
 
   return { functions, exportedNames, reexports, starExports, importedFrom, importedNamespaces };
 }

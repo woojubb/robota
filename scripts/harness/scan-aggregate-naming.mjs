@@ -173,7 +173,7 @@ function mentionsAggregate(type, aggregates) {
     if (CONSUMED_POSITIONS.has(node.kind)) return;
     const name = tailName(node);
     if (name && aggregates.includes(name)) found = name;
-    else ts.forEachChild(node, walk);
+    else node.forEachChild(walk);
   };
   if (type) walk(type);
   return found;
@@ -225,7 +225,7 @@ function deferredExports(sourceFile) {
       const named = node.expression?.text ?? node.expression?.escapedText;
       if (named) names.add(named);
     }
-    ts.forEachChild(node, visit);
+    node.forEachChild(visit);
   };
   visit(sourceFile);
   return names;
@@ -361,7 +361,7 @@ export function findAggregateAliases(
         }
       }
     }
-    ts.forEachChild(node, visit);
+    node.forEachChild(visit);
   };
   visit(sourceFile);
   return aliases;
@@ -377,7 +377,7 @@ export function findAggregateReferences(content, fileName, aggregates) {
   // accompanies it. Under an alias the specifier is the ONLY place the guarded name appears, so
   // skipping it hides the whole file. Found by review, reproduced before being fixed:
   // `import type { ICommandHostContext as IHost } …` plus `interface IMine extends IHost {}` left
-  // the ratchet at 0. Not hypothetical here — this document's own GATE-WRITE evidence records an
+  // the ratchet at 0. Not hypothetical here — this document's own historical evidence records an
   // aliased import of this very symbol.
   const aliasOf = new Map();
   const canonical = (name) => aliasOf.get(name) ?? name;
@@ -392,7 +392,7 @@ export function findAggregateReferences(content, fileName, aggregates) {
         }
       }
     }
-    ts.forEachChild(node, collectAliases);
+    node.forEachChild(collectAliases);
   };
   collectAliases(sourceFile);
   const guarded = [...local];
@@ -435,7 +435,7 @@ export function findAggregateReferences(content, fileName, aggregates) {
       while (name && ts.isQualifiedName(name)) name = name.right;
       note(name && ts.isIdentifier(name) ? name.text : undefined, node);
     }
-    ts.forEachChild(node, visit);
+    node.forEachChild(visit);
   };
 
   visit(sourceFile);
@@ -461,7 +461,7 @@ export function findAggregateDeclarations(content, fileName, aggregates) {
     ) {
       declared.add(node.name.text);
     }
-    ts.forEachChild(node, visit);
+    node.forEachChild(visit);
   };
   visit(sourceFile);
   return [...declared];

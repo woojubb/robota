@@ -143,10 +143,8 @@ describe('post-findings authorization', () => {
       parsePostFindingsAuthorization(body.replace('GROUND: red-check', 'GROUND: finding')),
     ).toMatchObject({ action: 'push', ground: 'finding' });
     expect(
-      parsePostFindingsAuthorization(
-        body.replace('ACTION: push\nGROUND: red-check', 'ACTION: rebase\nGROUND: rebase'),
-      ),
-    ).toMatchObject({ action: 'rebase', ground: 'rebase' });
+      parsePostFindingsAuthorization(body.replace('GROUND: red-check', 'GROUND: conflict')),
+    ).toMatchObject({ action: 'push', ground: 'conflict' });
 
     expect(
       parsePostFindingsAuthorization(body.replace('GROUND: red-check', 'GROUND: rebase')),
@@ -482,10 +480,15 @@ describe('single-pass remote closeout receipts', () => {
       mergeCommit: { oid: mergeCommit },
       mergedAt: '2026-09-13T10:05:00Z',
     },
-    mergeParentOid: mergeBase,
     issue: { number: 2724, state: 'CLOSED' },
     mergeComments: [mergeComment],
     completionComments: [completionComment],
+    historicalBaseAncestry: {
+      mergeCommit,
+      firstParent: 'f'.repeat(40),
+      historicalBase: mergeBase,
+      status: 'ahead',
+    },
   };
 
   it('parses the two canonical receipt forms', () => {
@@ -535,6 +538,40 @@ describe('single-pass remote closeout receipts', () => {
       mergeDecision: { commentId: 81 },
       completion: { commentId: 82 },
     });
+  });
+
+  it('selects the current PR completion from repeated umbrella deliveries', () => {
+    const previousCompletion = closeoutEnvelope(
+      80,
+      2724,
+      completionBody
+        .replace('PR: 42', 'PR: 41')
+        .replace(`HEAD: ${mergeHead}`, `HEAD: ${'9'.repeat(40)}`)
+        .replace(`MERGE: ${mergeCommit}`, `MERGE: ${'8'.repeat(40)}`),
+      '2026-09-12T10:06:00Z',
+    );
+
+    expect(
+      auditCloseoutReceipts({
+        ...projection,
+        completionComments: [previousCompletion, completionComment],
+      }),
+    ).toMatchObject({
+      ok: true,
+      completion: { commentId: 82, prNumber: 42 },
+    });
+  });
+
+  it('still refuses multiple completion receipts for the current PR', () => {
+    expect(
+      auditCloseoutReceipts({
+        ...projection,
+        completionComments: [
+          completionComment,
+          closeoutEnvelope(83, 2724, completionBody, '2026-09-13T10:07:00Z'),
+        ],
+      }),
+    ).toEqual({ ok: false, reason: 'ambiguous-completion' });
   });
 
   it('binds direct approval to the trusted comment author', () => {
@@ -617,14 +654,20 @@ describe('single-pass remote closeout receipts', () => {
           stderr: '',
         };
       }
-      if (args[0] === 'pr') return { status: 0, stdout: JSON.stringify(projection.pr), stderr: '' };
-      if (args[0] === 'api' && args[1] === `repos/woojubb/robota/git/commits/${mergeCommit}`) {
+      if (args[0] === 'api' && args[1] === `repos/woojubb/robota/commits/${mergeCommit}`) {
         return {
           status: 0,
-          stdout: JSON.stringify({ sha: mergeCommit, parents: [{ sha: mergeBase }] }),
+          stdout: JSON.stringify({ sha: mergeCommit, parents: [{ sha: 'f'.repeat(40) }] }),
           stderr: '',
         };
       }
+      if (
+        args[0] === 'api' &&
+        args[1] === `repos/woojubb/robota/compare/${mergeBase}...${'f'.repeat(40)}`
+      ) {
+        return { status: 0, stdout: JSON.stringify({ status: 'ahead' }), stderr: '' };
+      }
+      if (args[0] === 'pr') return { status: 0, stdout: JSON.stringify(projection.pr), stderr: '' };
       if (args[0] === 'issue')
         return { status: 0, stdout: JSON.stringify(projection.issue), stderr: '' };
       throw new Error(`unexpected gh call: ${args.join(' ')}`);
@@ -639,10 +682,10 @@ describe('single-pass remote closeout receipts', () => {
     };
     const result = fetchCloseoutAudit({
       ...request,
-      runtime: createVerificationRuntime({ queryBudget: 9 }),
+      runtime: createVerificationRuntime({ queryBudget: 10 }),
     });
     expect(result.ok).toBe(true);
-    expect(calls).toHaveLength(9);
+    expect(calls).toHaveLength(10);
     expect(calls.filter((args) => args.includes('--paginate'))).toHaveLength(2);
 
     prComments.push({
@@ -652,7 +695,7 @@ describe('single-pass remote closeout receipts', () => {
     expect(
       fetchCloseoutAudit({
         ...request,
-        runtime: createVerificationRuntime({ queryBudget: 9 }),
+        runtime: createVerificationRuntime({ queryBudget: 8 }),
       }),
     ).toEqual({ ok: false, reason: 'ambiguous-merge-decision' });
   });
@@ -675,11 +718,20 @@ describe('single-pass remote closeout receipts', () => {
       'merge-decision-state-mismatch',
     ],
     [
+      'historical base outside the delivered first-parent history',
+      {
+        historicalBaseAncestry: {
+          ...projection.historicalBaseAncestry,
+          status: 'diverged',
+        },
+      },
+      'merge-decision-state-mismatch',
+    ],
+    [
       'wrong merge commit',
       { pr: { ...projection.pr, mergeCommit: { oid: 'e'.repeat(40) } } },
-      'completion-state-mismatch',
+      'merge-decision-state-mismatch',
     ],
-    ['wrong merge parent', { mergeParentOid: 'e'.repeat(40) }, 'merge-decision-state-mismatch'],
     [
       'open issue for closed outcome',
       { issue: { number: 2724, state: 'OPEN' } },

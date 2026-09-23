@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-2515: coordinate rolling throughput measurement and bounded intake policy'
 issue: https://github.com/woojubb/robota/issues/2515
-status: in-progress
+status: superseded
 created: 2026-09-09
 priority: critical
 urgency: now
@@ -11,6 +11,14 @@ children: [OBSERVABILITY-2515, RULE-2515]
 ---
 
 # AGREEMENT-2515: coordinate rolling throughput measurement and bounded intake policy
+
+## Disposition
+
+**Superseded as an execution initiative by GitHub issue #2826.** `OBSERVABILITY-2515` remains delivered and
+its repeatable throughput measurement is preserved. `RULE-2515` is superseded as a new mandatory
+intake gate: root-cause grouping remains recommended issue-triage guidance, while blocker, security,
+and data-correctness findings remain immediately fileable. No rolling metric or paired Task/spec
+lifecycle is a prerequisite for deleting known delivery overhead.
 
 ## Objective
 
@@ -35,16 +43,15 @@ that measurement semantics and intake enforcement cannot be independently comple
 ## Children
 
 - [x] OBSERVABILITY-2515 — done — `.agents/tasks/completed/OBSERVABILITY-2515-measure-rolling-issue-throughput-with-canonical-boundaries.md`
-- [ ] RULE-2515 — todo — `.agents/tasks/RULE-2515-bound-non-blocking-issue-intake-by-measured-net-growth.md`
+- [x] RULE-2515 — superseded by issue #2826 — `.agents/tasks/RULE-2515-bound-non-blocking-issue-intake-by-measured-net-growth.md`
 
 ## Plan
 
-- [ ] TC-01 — Establish one canonical `[start,end)` UTC measurement envelope and a failure-visible result
+- [x] TC-01 — Establish one canonical `[start,end)` UTC measurement envelope and a failure-visible result
       shape in OBSERVABILITY-2515.
-- [ ] TC-02 — Define and mechanically enforce the non-blocking filing response, including
-      duplicate/root-cause grouping and immediate blocker/security/data-correctness exceptions, in RULE-2515.
-- [ ] TC-03 — Verify both children against the same repository/query semantics and preserve independent
-      external issue lifecycle evidence before closing GitHub issue #2515.
+- [x] TC-02 — Superseded: retain grouping guidance and immediate risk exceptions without a new mechanical
+      rolling-intake gate.
+- [x] TC-03 — Reconciled by issue #2826: delivered measurement retained; mandatory policy/lifecycle work superseded.
 
 ## Constraints and Non-goals
 

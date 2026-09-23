@@ -18,10 +18,10 @@
  *
  *   "lint": "eslint packages apps --ext .ts,.tsx --cache --max-warnings <N>"
  *
- * That script is part of `harness:verify:release` (asserted by `check-release-governance.mjs`), and
- * `release-grade verification` is a REQUIRED context on every pull request to `main`, and the
- * `quality` job runs the same script on every pull request to `develop` (issue #1984). So the
- * ceiling is enforced by the tool itself on BOTH paths.
+ * That script is part of `harness:verify:release` (asserted by `check-release-governance.mjs`) and
+ * `release-grade verification` is a REQUIRED context on every pull request to `main`. On ordinary
+ * develop work, lint is locally owned by explicit affected/full verification rather than duplicated
+ * in PR CI; a new warning is therefore attributed before push instead of rediscovered remotely.
  *
  * It was the promotion path alone until 2026-08-23, and the cost of that is the reason the second
  * one exists: 111 warnings accumulated across 42 commits with every develop pull request green, and
@@ -39,8 +39,7 @@
  * WHAT IT DOES NOT DO, stated rather than discovered: it does not run eslint. A full workspace lint
  * is minutes, and `harness:scan` runs on every pre-push — putting it here would move a required
  * gate onto a path that must stay fast. The COUNT is measured by the lint script itself, on the
- * lint script itself, on the release path AND on every develop pull request; this scan governs the
- * CEILING that script carries.
+ * lint script itself on its local and release owners; this scan governs the CEILING that script carries.
  *
  * NAMED FOR WHAT IT CHECKS (issue #2255). This file was `scan-lint-warning-ratchet` — a name that
  * promised a count. Measured on `c1dd93768`: the scan reported "passed (ceiling 2092, at baseline)"

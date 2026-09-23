@@ -2,7 +2,8 @@
 name: post-merge-cycle
 description: After a merge, verify landing, clean up the source branch when allowed, and return to a fresh integration base.
 loop: over=attempt; bound=2 attempts
-remote-record: DELIVERY_COMPLETION_RECORD
+metadata:
+  remote-record: DELIVERY_COMPLETION_RECORD
 ---
 
 # Post-Merge Cycle — pipeline only

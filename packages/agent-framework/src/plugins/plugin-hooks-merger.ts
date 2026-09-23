@@ -5,6 +5,7 @@
 import { join, dirname } from 'node:path';
 
 import type { ILoadedBundlePlugin } from './bundle-plugin-types.js';
+import type { IHookDefinitionSource } from '../config/config-merge.js';
 import type { THooksConfig } from '@robota-sdk/agent-core';
 
 /** Build plugin env vars for a plugin. */
@@ -42,9 +43,13 @@ function resolvePluginRoot(group: IHookGroup, pluginDir: string): IHookGroup {
   return group;
 }
 
-/** Merge plugin hooks into a single THooksConfig. */
-export function mergePluginHooks(plugins: ILoadedBundlePlugin[]): THooksConfig {
+/** Merge enabled plugin hooks and retain the path of each effective definition. */
+export function mergePluginHooksWithSources(plugins: readonly ILoadedBundlePlugin[]): {
+  hooks: THooksConfig;
+  hookSources: readonly IHookDefinitionSource[];
+} {
   const merged: Record<string, IHookGroup[]> = {};
+  const hookSources: IHookDefinitionSource[] = [];
   for (const plugin of plugins) {
     const hooksObj = plugin.hooks as Record<string, IHookGroup | IHookGroup[]> | undefined;
     if (!hooksObj) continue;
@@ -59,9 +64,21 @@ export function mergePluginHooks(plugins: ILoadedBundlePlugin[]): THooksConfig {
         return r;
       });
       merged[event]!.push(...resolved);
+      for (const group of resolved) {
+        if (!Array.isArray(group.hooks)) continue;
+        for (const definition of group.hooks) {
+          if (typeof definition?.type === 'string') {
+            hookSources.push({
+              event,
+              type: definition.type,
+              source: join(plugin.pluginDir, 'hooks', 'hooks.json'),
+            });
+          }
+        }
+      }
     }
   }
-  return merged as THooksConfig;
+  return { hooks: merged as THooksConfig, hookSources };
 }
 
 /** Merge plugin hooks into config hooks (plugin hooks have lowest priority). */

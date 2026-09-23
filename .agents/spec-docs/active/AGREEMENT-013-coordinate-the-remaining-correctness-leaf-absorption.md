@@ -7,6 +7,12 @@ lane: L2
 
 # AGREEMENT-013: coordinate the remaining correctness-leaf absorption
 
+## Current disposition — 2026-09-23
+
+The issue #2664 dependency is the retained issue #2075 configured-hook slice, delivered by SEC-021 and its PR #2838 source-provenance follow-up (`fe48835ca6c53ada790ec61ee1fd00c437441ba1`). TRANS-016 was separately delivered by PR #2841 (`242a6444bb7489c9edf169f1b53f7fb4e1a90507`) with v1 replay fixtures repaired in PR #2843 (`8e1e77df4f3183d10adc594e96e3a63d21840d25`).
+
+Both product children are implemented. This parent remains in-progress because its broader issue #2079 administrative acceptance and map remain owned here. issue #2664 consumes the completed issue #2075 slice without claiming this entire parent or issue #2423 complete. The old administrative gate procedure below is historical under PR #2827.
+
 ## Problem
 
 The source hierarchy under issue #2079 still represents session event decoding and configured-hook reachability as duplicate GitHub execution entries even though RULE-023 assigns internal implementation ownership to Tasks. Staging the declared Tasks without a relationship owner makes the repository planning-order guard refuse the multi-Task prelude, while processing them one by one repeats equivalent gates and read-backs.
@@ -90,8 +96,8 @@ Not applicable.
 Paired execution record:
 `.agents/tasks/AGREEMENT-013-coordinate-the-remaining-correctness-leaf-absorption.md`.
 
-- [ ] TRANS-016 — todo — `.agents/tasks/TRANS-016-decode-jsonl-events-by-event-name-before-replay.md`
-- [ ] SEC-021 — todo — `.agents/tasks/SEC-021-reject-configured-hook-types-without-reachable-executors.md`
+- [x] TRANS-016 — implemented (PR #2841, fixtures PR #2843) — `.agents/tasks/TRANS-016-decode-jsonl-events-by-event-name-before-replay.md`
+- [x] SEC-021 — done (PR #2838 source-aware follow-up) — `.agents/tasks/SEC-021-reject-configured-hook-types-without-reachable-executors.md`
 
 ## Evidence Log
 

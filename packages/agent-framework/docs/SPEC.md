@@ -326,7 +326,6 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `createSystemCommands`                       | function  | SDK core command factory (returns empty list; built-ins are in command modules)                                                                                                                                                                                                                                                                                                                                                               |
 | `createBuiltinCommandModule`                 | function  | SDK core compatibility module factory                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `applyPresetToSession`                       | function  | Live preset-switching engine: re-applies a resolved preset's option groups to a running session, records the active preset id, returns `{ applied, skipped }` (PRESET-011~017)                                                                                                                                                                                                                                                                |
-| `parseFrontmatter`                           | function  | YAML frontmatter parser for skill/agent definition files                                                                                                                                                                                                                                                                                                                                                                                      |
 | `executeSkill`                               | function  | Internal skill execution helper                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `createSkillExecutionPort`                   | function  | Build the concrete `ISkillExecutionPort` (skill discovery + resolution) for injection at a composition root (ARCH-PROVIDER-005)                                                                                                                                                                                                                                                                                                               |
 | `createDefaultRemoteCommandPolicy`           | function  | Build the **allow-by-default** `IRemoteCommandPolicy` for remote-origin commands (local == remote; an optional custom policy may restrict; REMOTE-006)                                                                                                                                                                                                                                                                                        |
@@ -552,6 +551,12 @@ guardrails, so the schema is not the place to refuse). `createSession()` therefo
 `assertConfiguredHookTypesExecutable` (`src/assembly/hook-type-reachability.ts`) over the resolved
 hooks and the executors it built, and throws before any turn, naming every unrunnable type and the
 option it needs — instead of validating the config and then denying every tool call under SEC-016.
+For file-loaded settings and enabled bundle plugins, the same refusal reports the source path(s)
+that contributed each unrunnable type, including the plugin's `hooks/hooks.json`. Source facts follow
+the effective hook merge, including settings per-event accumulation and `disabledHooks` filtering;
+disabled plugins contribute neither hooks nor sources. When settings and plugins contribute the
+same unrunnable type, the diagnostic includes both sources. A programmatically supplied config with no file provenance still
+fails closed and reports its type and required option without inventing a path.
 
 **Seeding order is load-bearing.** `runHooks` builds its lookup with `Map.set` in array order, so
 the LAST executor of a given type wins. Built-ins are therefore seeded **first**, so a
@@ -925,10 +930,12 @@ The `./testing` subpath (kept out of the runtime bundle) is the agent's standard
 verify a feature at the framework level** — the CLI is a thin wrapper and must not be where feature
 behaviour is verified.
 
-- `scriptedSession({ turns | cassette | record, files?, persistence?, cwd?, resumeSessionId?,
-forkSession?, model?, commandModules?, ... })` / `ScriptedSessionHarness` builds a **real**
+- `scriptedSession({ turns | cassette | record, files?, persistence?, cwd?, projectAccess?,
+resumeSessionId?, forkSession?, model?, commandModules?, ... })` / `ScriptedSessionHarness` builds a **real**
   `InteractiveSession` (real agent loop, builtin tools, persistence, events) in an isolated temp
-  workspace. Provider modes (exactly one): **scripted** (`turns`, hand-written, SSOT
+  workspace. `projectAccess` is an optional test-only trusted workspace authority forwarded to
+  that real session; it lets functional fixtures exercise project skill discovery without changing
+  the production API. Provider modes (exactly one): **scripted** (`turns`, hand-written, SSOT
   `createScriptedProvider`), **cassette** (`cassette: path`, a recorded real-model run replayed
   deterministically — TEST-005; a committed real Qwen goal run is at
   `__fixtures__/goal-satisfied.cassette.json`, recorded by
@@ -1052,6 +1059,12 @@ the SHARED host serving all surfaces — local == remote, REMOTE-006).
 `createHeadlessRunner`, and exposes `getExitCode()`. Output format (`text` / `json` / `stream-json`)
 is selected by the runner options. When supplied, the startup `IModelEffortResolution` is projected
 into ordinary text and structured result output; slash-command results retain their own command data.
+The headless channel accepts the resolved organization policy from print or goal mode and forwards
+it unchanged into the session, where blocked commands are enforced. Its declared session-capability
+options have an explicit projection disposition so optional fields cannot silently disappear between
+the channel and session constructor. The same projection preserves preset `temperature`,
+`maxOutputTokens`, `language`, `presetSystemPrompt` (a seed, not a replacement), and structured
+`responseFormat` including JSON-schema requests.
 
 ### Type Ownership
 
@@ -1539,6 +1552,14 @@ agent-cli (Ink TUI — CLI-specific)
 - **getName()/setName(name)**: Get or set the session's user-facing name. Persists to the session record when a store is configured.
 - **attachTransport(transport)**: `attachTransport(transport: ITransportAdapter)` — attaches a transport adapter to this session. Calls `transport.attach(this)`. Used by consumers to compose transports consistently: `session.attachTransport(transport); await transport.start();`
 - **Testing**: Accepts an optional pre-built `Session` via `options.session` to enable unit testing without I/O setup
+
+Replay-only recovery consumes the session-owned versioned event codec before reconstruction.
+`WorkspaceProjectSessionStore.load()` and `list()` expose malformed JSONL as `corrupt` with located
+issues, and unsupported log versions as `unsupported`; they never turn discarded malformed messages
+into `missing` or omit a damaged replay-only session from a listing. Existing snapshot reads and writes
+remain unchanged. Sidecar integrity/containment failures retain their typed error identity rather than
+being misreported as schema corruption. The replay-validation command surfaces typed decode failures
+with their safe field/line location before attempting correlation validation.
 
 ### Command API Layer (SDK-Specific)
 
@@ -2377,6 +2398,28 @@ registry.getSubcommands('mode'); // ICommand[] — subcommands
 3. `.claude/commands/*.md` (Claude Code compatible)
 4. `.agents/skills/*/SKILL.md`
 
+Skill and command files at every root use the same private strict `skill` frontmatter decoder. Plugin
+`skills/*/SKILL.md` and `commands/*.md` use its `bundle-skill` profile, which additionally accepts
+`tags`. Accepted metadata retains typed invocation, tool, model, effort, and `context: fork` fields
+through command projection. A malformed disabling flag, unsupported context, unknown field,
+duplicate key, invalid YAML shape, or unterminated block is a refusal, never a partially registered
+command. A file with no frontmatter retains its filename fallback and original content bytes; plugin
+files with frontmatter retain the previous body-leading-whitespace trim. The read-only skill inspection
+uses the same decoder and cannot count a refused file as discovered; plugin inspection records a
+malformed plugin as `load-failed` while continuing to inspect other plugins. Loader failures carry a
+private `FrontmatterDecodeError` with the decoder's nonempty structured diagnostics. Its message
+reports source path, location, code, field, and expected shape without repeating untrusted received
+values. The decoder and error class are not public exports. The
+[decoder design](design/frontmatter-decoder.md) owns the schema.
+
+Custom agent definitions from project and user contribution sources (`.robota/agents`,
+`.agents/agents`, and `.claude/agents`) use the same private decoder's `agent` profile. The loader
+accepts positive safe integer `maxTurns` and typed tool lists, and rejects numeric prefixes,
+`NaN`, zero/negative values, wrong types, unknown fields, and invalid or unterminated frontmatter
+with source-file diagnostics. All roots apply the same rules. A file without frontmatter retains its
+filename fallback and existing built-in precedence. No legacy parser or partial-value fallback is
+part of either loader contract.
+
 ### createQuery() — Convenience Factory
 
 `createQuery({ provider })` is a factory that returns a prompt-only function. The caller creates the provider; the factory captures it and returns a simple async function that accepts a prompt string.
@@ -2729,10 +2772,17 @@ user-sourced calls submit the rendered prompt or fork execution into the active 
 | `context: fork`            | Run rendered skill content in an isolated subagent session using `skill.agent` or `general-purpose`   |
 | `allowed-tools`            | Restrict fork-session tools to the listed names, after the selected agent definition denylist applies |
 | `effort`                   | Set the fork effort using the core `TModelEffort` vocabulary; absent values inherit the parent        |
+| `model`                    | Select the fork child model; requires `context: fork`                                                 |
 | `disable-model-invocation` | Hide from model-visible skill metadata; user slash invocation still works                             |
 | `user-invocable: false`    | Hide from user slash menus; model metadata remains available unless model invocation is disabled      |
 
 Fork skill execution must not rely on prompting the parent model to call the `Agent` tool. It must call `createSubagentSession()` directly through the per-session agent tool dependencies so the behavior is deterministic and unit-testable.
+
+The fork model applies to that child invocation only. It overrides the selected agent definition's
+model; if absent, the fork uses the agent model, then the parent's configured model. This path does
+not supply a role-model map. The parent session and provider identity do not change.
+Skill metadata that declares `model` without `context: fork` fails decoding at the `model` field;
+programmatic inject commands with a model are refused by the skill executor as well.
 
 Every activation records an `ISkillActivationEvent`:
 

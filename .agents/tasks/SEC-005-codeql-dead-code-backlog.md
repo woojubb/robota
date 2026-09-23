@@ -176,10 +176,10 @@ the module had no caller and nothing left to gate.
 subsystem. Two husk files look like textbook dead code:
 
 - `agent-session.ts` — an **8-line file containing only import statements** and no code at all
-  (alerts #263, #264, #265)
-- `remote-providers.ts` — two never-exported, never-called functions (alert #266)
+  (CodeQL alerts 263, 264, and 265)
+- `remote-providers.ts` — two never-exported, never-called functions (CodeQL alert 266)
 
-Deleting them was attempted and **reverted**, because `pnpm harness:verify-like-ci` proved they are
+Deleting them was attempted and **reverted**; historical evidence from before issue #2826 proved they are
 load-bearing in two distinct ways:
 
 1. **`agent-server-boundary` (hard gate).** `scripts/harness/check-agent-server-boundary.mjs:144-150`
@@ -285,7 +285,8 @@ request next touches a file on its path — the same round again, for every clas
 
 - Full test suite of **every touched package**, run in the foreground (see evidence below).
 - `pnpm build`, `pnpm typecheck`, `pnpm lint` (0 errors).
-- `pnpm harness:verify-like-ci` — all stages.
+- `pnpm harness:scan`, the applicable harness test tiers, and the required GitHub CI aggregates on
+  the exact PR head.
 - Mutation proof for the category-2 fix: two independent source mutations of
   `WorkerLoopDriver.runLoop`, each shown to turn the rewritten tests red (transcripts in § 2a),
   with the source restored afterwards. This is the HARNESS-041 accidental-green discipline applied

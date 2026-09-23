@@ -120,13 +120,7 @@ function importEqualsViolation(node) {
  * Returns array of { line, kind, detail }.
  */
 export function findRuntimeViolationsInSource(sourceText, fileName = 'fixture.ts') {
-  const sourceFile = ts.createSourceFile(
-    fileName,
-    sourceText,
-    ts.ScriptTarget.Latest,
-    /* setParentNodes */ true,
-    ts.ScriptKind.TS,
-  );
+  const sourceFile = ts.createSourceFile(fileName, sourceText, { scriptKind: ts.ScriptKind.TS });
   const violations = [];
   const record = (node, kind, detail) => {
     const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
@@ -150,7 +144,7 @@ export function findRuntimeViolationsInSource(sourceText, fileName = 'fixture.ts
       const isConst = node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ConstKeyword);
       record(node, 'runtime-construct', `${isConst ? 'const enum' : 'enum'} declaration`);
     }
-    ts.forEachChild(node, visit);
+    node.forEachChild(visit);
   };
   visit(sourceFile);
   return violations;
@@ -218,7 +212,7 @@ export function loadEntryBaseline(baselinePath = ENTRY_BASELINE_PATH) {
 }
 
 function parseSource(fileName, sourceText) {
-  return ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true);
+  return ts.createSourceFile(fileName, sourceText);
 }
 
 function hasExportModifier(node) {

@@ -10,7 +10,6 @@ import {
   GeminiImageEditNodeDefinition,
   GeminiImageComposeNodeDefinition,
 } from '@robota-sdk/dag-node-gemini-image-edit';
-import { McpToolNodeDefinition } from '@robota-sdk/dag-node-mcp-tool';
 import { HttpRequestNodeDefinition } from '@robota-sdk/dag-node-http-request';
 import { FileReadNodeDefinition } from '@robota-sdk/dag-node-file-read';
 import { FileWriteNodeDefinition } from '@robota-sdk/dag-node-file-write';
@@ -25,7 +24,6 @@ export function createCliNodeRegistry(): IDagNodeDefinition[] {
     new LlmTextNodeDefinition(providers),
     new GeminiImageEditNodeDefinition({ imageProviderDefinition }),
     new GeminiImageComposeNodeDefinition({ imageProviderDefinition }),
-    new McpToolNodeDefinition(),
     new HttpRequestNodeDefinition(),
     new FileReadNodeDefinition(),
     new FileWriteNodeDefinition(),

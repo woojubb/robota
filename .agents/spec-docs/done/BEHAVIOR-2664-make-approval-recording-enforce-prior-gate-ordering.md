@@ -7,6 +7,10 @@ lane: L2
 
 # BEHAVIOR-2664: Make approval recording enforce prior-gate ordering
 
+## Current disposition — 2026-09-23
+
+Historical delivery is preserved at replacement child merge `2a98aaf4cc626536e2772f6d2be7e5cf39b66ee9` in R `720eb5e841ba7a5361ac667b9658e034212bb58e`. The done status and original evidence below describe that delivery; importing this record does not restore its historical implementation. PR #2827 (`2a4a84631d24243d8dfb8ef75e04d790e8d60d37`) deliberately retired the legacy gate, checkpoint, and recommendation machinery. This record is historical evidence of a completed child, not an active instruction to recreate its gate, checkpoint, endorsement, or frozen-corpus enforcement machinery.
+
 Paired with `.agents/tasks/BEHAVIOR-2664-make-approval-recording-enforce-prior-gate-ordering.md`.
 Arising from [issue #2664](https://github.com/woojubb/robota/issues/2664).
 

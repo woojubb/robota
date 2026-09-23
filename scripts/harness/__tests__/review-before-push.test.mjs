@@ -7,7 +7,6 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { makeTemp } from './make-temp.mjs';
 
 import { isReviewed, recordPathFor } from '../record-local-review.mjs';
-import { runPostVerdictGuard } from '../pre-push-local-checks.mjs';
 import { dispatchedAgents } from '../scan-orchestration-map.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -92,19 +91,6 @@ function push(dir, command = 'git push -u origin feat/probe', { openPrs = 0 } = 
     timeout: 120_000,
   });
   return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
-}
-
-function bridgePush(dir, declaredBase) {
-  return runPostVerdictGuard({
-    cwd: dir,
-    script: HOOK,
-    env: {
-      ...process.env,
-      CLAUDE_PROJECT_DIR: dir,
-      HARNESS_BASE_REF: declaredBase,
-      PATH: `${stubGh(0)}${path.delimiter}${process.env.PATH}`,
-    },
-  });
 }
 
 function trustedIntegrationRepo({
@@ -303,14 +289,6 @@ printf 'OPEN\\n'
 }
 
 describe('a stacked child declares a trusted integration base', () => {
-  it('routes a safe declaration through the real guard and rejects unsafe projection', () => {
-    const fixture = trustedIntegrationRepo();
-
-    expect(bridgePush(fixture.dir, 'origin/integration/agreement-2664')).toBe(true);
-    expect(bridgePush(fixture.dir, 'origin/integration/agreement-404')).toBe(false);
-    expect(bridgePush(fixture.dir, 'origin/integration/agreement-2664;#')).toBe(false);
-  });
-
   it('allows a child whose foreign merges are contained by the matching remote AGREEMENT base', () => {
     const fixture = trustedIntegrationRepo();
     const verdict = push(
@@ -349,7 +327,7 @@ describe('a stacked child declares a trusted integration base', () => {
     }
   });
 
-  it('requires the matching Task and spec to be open in frontmatter', () => {
+  it('does not require duplicate Task/spec lifecycle state for the authoritative branch identity', () => {
     const fixture = trustedIntegrationRepo({
       taskStatus: 'done',
       specStatus: 'done',
@@ -361,8 +339,7 @@ describe('a stacked child declares a trusted integration base', () => {
       'HARNESS_BASE_REF=origin/integration/agreement-2664 git push origin fix/stacked-child',
     );
 
-    expect(verdict.status, verdict.output).toBe(2);
-    expect(verdict.output).toMatch(/matching open AGREEMENT-2664 Task\/spec pair/);
+    expect(verdict.status, verdict.output).toBe(0);
   });
 
   it('preserves the ordinary foreign-merge refusal without a declaration', () => {
@@ -393,7 +370,7 @@ describe('a stacked child declares a trusted integration base', () => {
     }
   });
 
-  it('requires the remote ref identity to match its AGREEMENT pair', () => {
+  it('accepts an authoritative integration identity without a duplicate repository pair', () => {
     const fixture = trustedIntegrationRepo();
     fixture.git(
       'push',
@@ -407,8 +384,7 @@ describe('a stacked child declares a trusted integration base', () => {
       fixture.dir,
       'HARNESS_BASE_REF=origin/integration/agreement-999 git push origin fix/stacked-child',
     );
-    expect(verdict.status, verdict.output).toBe(2);
-    expect(verdict.output).toMatch(/matching open AGREEMENT-999 Task\/spec pair/);
+    expect(verdict.status, verdict.output).toBe(0);
   });
 
   it('rejects a stale remote-tracking claim instead of trusting its local value', () => {
@@ -940,7 +916,7 @@ describe('a foundational finding must name a root item that exists', () => {
     // `.agents/tasks/` already holds SELFHOST-003-P4, SELFHOST-008-P5 and SELFHOST-011-P3-P4.
     // Truncating at the first number does two wrong things at once: the real ID is refused, and a
     // TRUNCATED id that names no file is accepted as though it did. The repository already parses
-    // this correctly in `check-backlog-placement`, so the pattern has one owner rather than two.
+    // this correctly in the shared frontmatter parser, so the pattern has one owner rather than two.
     const dir = scratchRepo('feat/probe');
     mkdirSync(path.join(dir, '.agents/tasks'), { recursive: true });
     writeFileSync(
@@ -1038,6 +1014,20 @@ describe('the skill still puts the round before the push', () => {
     // push — so this pins the narrowed claim rather than the phrase it replaced.
     expect(skill).toMatch(/before the pull request exists/i);
     expect(skill).toMatch(/harness:review:record/);
+  });
+
+  it('publishes that same review once in the format required by review-policy', () => {
+    expect(skill).toContain('gh pr review "$PR_NUMBER" --comment');
+    for (const marker of [
+      'INDEPENDENT_REVIEW',
+      'REVIEWER: agent:%s',
+      'REVIEWED HEAD: %s',
+      'ACTIONABLE FINDINGS: %s',
+    ]) {
+      expect(skill).toContain(marker);
+    }
+    expect(skill).toMatch(/remote projection of the same review, not a second clean review/i);
+    expect(skill).toMatch(/review-policy/);
   });
 
   it('never dispatches a reviewer on the open pull request', () => {

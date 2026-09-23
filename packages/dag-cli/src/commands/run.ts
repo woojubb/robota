@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
 import { watch } from 'node:fs';
 import { join, dirname, resolve, parse as parsePath } from 'node:path';
 import { homedir } from 'node:os';
+import { randomUUID } from 'node:crypto';
 import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
 import type {
   IDagDefinition,
@@ -30,10 +31,12 @@ import { PlainLogRenderer } from '../progress/plain-log-renderer.js';
 import { StreamLogRenderer } from '../progress/stream-log-renderer.js';
 import { TuiRenderer } from '../progress/tui-renderer.js';
 import { parseDagMd, DAG_MD_SUFFIX } from '../dag-md-parser/parse-dag-md.js';
-import { isWorkflowFileFormat, fromDagWorkflowFile } from '@robota-sdk/dag-builder';
+import { isWorkflowFileFormat } from '@robota-sdk/dag-builder';
+import { decodeDagInput } from './decode-dag-input.js';
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
 import { validateFrozenRun } from './lock.js';
 import { parsePipelineSpec } from '../pipeline-parser.js';
+import { getRunStore } from '../run-store.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const OUTPUT_FORMAT_PRETTY = 'pretty';
@@ -983,11 +986,10 @@ function parseDagJsonText(text: string, source: string): TDagLoadResult {
     };
   }
 
-  if (isWorkflowFileFormat(parsed)) {
-    return { ok: true, value: fromDagWorkflowFile(parsed, undefined) };
-  }
-
-  return { ok: true, value: parsed as IDagDefinition };
+  const decoded = decodeDagInput(parsed);
+  return decoded.ok
+    ? decoded
+    : { ok: false, exitCode: USAGE_ERROR_EXIT_CODE, message: `${source}: ${decoded.message}` };
 }
 
 /**
@@ -1047,13 +1049,10 @@ async function fetchDagFromUrl(url: string): Promise<TDagLoadResult> {
     };
   }
 
-  // New workflow file format: auto-detect and convert (no companion for remote URLs).
-  if (isWorkflowFileFormat(parsed)) {
-    return { ok: true, value: fromDagWorkflowFile(parsed, undefined) };
-  }
-
-  // Legacy IDagDefinition format -- use as-is.
-  return { ok: true, value: parsed as IDagDefinition };
+  const decoded = decodeDagInput(parsed);
+  return decoded.ok
+    ? decoded
+    : { ok: false, exitCode: USAGE_ERROR_EXIT_CODE, message: `${url}: ${decoded.message}` };
 }
 
 /**
@@ -1110,14 +1109,12 @@ async function readDagFile(
     };
   }
 
-  // New workflow file format: auto-detect and convert, reading companion if present.
-  if (isWorkflowFileFormat(parsed)) {
-    const companion = await tryReadCompanion(filePath, io);
-    return { ok: true, value: fromDagWorkflowFile(parsed, companion ?? undefined) };
-  }
-
-  // Legacy IDagDefinition format -- use as-is.
-  return { ok: true, value: parsed as IDagDefinition };
+  // Only workflow-format files use a companion; the decoder remains the acceptance boundary.
+  const companion = isWorkflowFileFormat(parsed) ? await tryReadCompanion(filePath, io) : null;
+  const decoded = decodeDagInput(parsed, companion ?? undefined);
+  return decoded.ok
+    ? decoded
+    : { ok: false, exitCode: USAGE_ERROR_EXIT_CODE, message: `${filePath}: ${decoded.message}` };
 }
 
 /** Derive the companion path for a .dag.json file and try to read it. Returns null on any error. */
@@ -1334,6 +1331,29 @@ function formatJsonRunOutput(
   };
 
   io.write(`${JSON.stringify(jsonResult, null, JSON_INDENT_SPACES)}\n`);
+}
+
+function recordLocalRun(
+  runId: string,
+  dagId: string,
+  status: 'completed' | 'failed',
+  startMs: number,
+  endMs: number,
+  io: IDagCliIo,
+): boolean {
+  try {
+    getRunStore(process.cwd()).insert({
+      runId,
+      dagId,
+      status,
+      completedAt: endMs,
+      durationMs: endMs - startMs,
+    });
+    return true;
+  } catch (error) {
+    io.writeError(`Error: failed to record local run history: ${resolveErrorMessage(error)}\n`);
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1577,6 +1597,7 @@ async function runOnce(
     tuiRenderer?.detach();
     renderer?.detach();
     const endMs = Date.now();
+    recordLocalRun(randomUUID(), dagDefinition.dagId, 'failed', startMs, endMs, io);
     const msg = resolveErrorMessage(runErr);
     if (outputFormat === OUTPUT_FORMAT_JSON) {
       const errorResult = {
@@ -1595,6 +1616,19 @@ async function runOnce(
   tuiRenderer?.detach();
   renderer?.detach();
   const endMs = Date.now();
+
+  if (
+    !recordLocalRun(
+      result.dagRun.dagRunId,
+      dagDefinition.dagId,
+      result.dagRun.status === 'success' ? 'completed' : 'failed',
+      startMs,
+      endMs,
+      io,
+    )
+  ) {
+    return { exitCode: FAILURE_EXIT_CODE, result };
+  }
 
   if (useStream) {
     streamRenderer?.onComplete(endMs - startMs);
@@ -1713,7 +1747,6 @@ function buildRunReport(
 // ---------------------------------------------------------------------------
 
 const RUN_COUNT_FILE = join('.dag', '.run-count');
-const RUN_HISTORY_FILE = join('.dag', '.run-history.json');
 const MAX_HISTORY_ENTRIES = 50; // eslint-disable-line @typescript-eslint/no-magic-numbers
 
 interface IRunHistoryEntry {
@@ -1723,9 +1756,11 @@ interface IRunHistoryEntry {
 }
 
 export async function appendRunHistory(file: string, status: 'success' | 'failed'): Promise<void> {
+  const historyDir = join(process.cwd(), '.dag');
+  const historyFile = join(historyDir, '.run-history.json');
   let entries: IRunHistoryEntry[] = [];
   try {
-    const text = await readFile(RUN_HISTORY_FILE, UTF8_ENCODING);
+    const text = await readFile(historyFile, UTF8_ENCODING);
     const parsed = JSON.parse(text) as unknown;
     if (Array.isArray(parsed)) entries = parsed as IRunHistoryEntry[];
   } catch (_histReadErr) {
@@ -1735,8 +1770,8 @@ export async function appendRunHistory(file: string, status: 'success' | 'failed
   entries.push({ file, date: new Date().toISOString(), status });
   if (entries.length > MAX_HISTORY_ENTRIES) entries = entries.slice(-MAX_HISTORY_ENTRIES);
   try {
-    await mkdir('.dag', { recursive: true });
-    await writeFile(RUN_HISTORY_FILE, JSON.stringify(entries, null, 2) + '\n', UTF8_ENCODING);
+    await mkdir(historyDir, { recursive: true });
+    await writeFile(historyFile, JSON.stringify(entries, null, 2) + '\n', UTF8_ENCODING);
   } catch (_histWriteErr) {
     // allow-fallback: run history write failure is non-fatal
     void _histWriteErr;

@@ -209,7 +209,7 @@ function trackedFiles(...globs) {
   return execFileSync('git', ['ls-files', ...globs], { cwd: ROOT, encoding: 'utf8' })
     .trim()
     .split('\n')
-    .filter(Boolean);
+    .filter((relative) => relative && existsSync(path.join(ROOT, relative)));
 }
 
 /** Collect identifiers from every harness scan source, keyed to the file that emits each. */

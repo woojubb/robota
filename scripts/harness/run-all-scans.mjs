@@ -11,7 +11,7 @@
  * Exit code 0 = all scans passed, 1 = at least one scan failed.
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { classifyRange } from './classify-changed-paths.mjs';
@@ -25,6 +25,7 @@ import {
 } from './diagnostic-run-adapter.mjs';
 import { deliverHookDiagnosticReport } from './hook-diagnostic-adapter.mjs';
 import { collectHookDiagnosticInventoryResults } from './hook-diagnostic-producer.mjs';
+import { collectFiles } from './enumerate-files.mjs';
 import {
   ADVISORY_MARKER,
   EXAMINED_MARKER,
@@ -32,9 +33,13 @@ import {
   extractAdvisories,
   extractExamined,
 } from './output-markers.mjs';
-import { loadScanCommands } from './discovery-loader.mjs';
-import { planScanReuse, scansThatAlwaysRun, writeScanReceipt } from './scan-receipt.mjs';
+import {
+  applyScanSuccessCache,
+  inspectScanSuccessCache,
+  recordSuccessfulScanResults,
+} from './scan-receipt.mjs';
 import { resolveBaseRef, resolveWorkspaceRoot } from './shared.mjs';
+import { SOURCE_EXTENSIONS } from './workspace-packages.mjs';
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 /**
  * Sentinel a scan prints to mark ONE line as an ADVISORY finding (HARNESS-053).
@@ -56,7 +61,7 @@ const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
  * GENERAL, not a special case for one scan: any scan may print it, and several in this repo have
  * advisory output currently thrown away (e.g. `scan-dist-freshness`'s staleness notices).
  */
-// Compatibility exports keep pre-migration scan adapters working while their ownership moves inward.
+// Shared output markers used by scan implementations and their focused tests.
 export {
   ADVISORY_MARKER,
   EXAMINED_MARKER,
@@ -285,6 +290,10 @@ const DEFAULT_SCAN_CONCURRENCY = Math.max(
  *   always: true           the scan reads outside the tree or across it — git history, a diff against
  *                          the base, transcripts, cited paths that may live anywhere — or its subject
  *                          could not be pinned to a glob. It runs on every change. Unsure ⇒ always.
+ *   cacheable: true        an audited, narrower claim: the verdict depends only on the tracked tree
+ *                          plus the execution identity in scan-receipt.mjs. Omitted ⇒ never cache.
+ *   contexts: [...]        run only in the named suite context(s). Omitted ⇒ every context.
+ *   localOnly: true        requires host-local evidence unavailable on CI runners.
  *   advisory: true         the scan grades PROSE the agent itself produced (transcripts, narrative
  *                          references). Under `--context pr` its failure is reported as an advisory
  *                          and does not fail the run; under `--context integration` it fails as ever.
@@ -329,36 +338,30 @@ const CONTENT = under('content');
 const MARKDOWN = ['**', '*.md'].join('/');
 const REGISTRY = 'scripts/harness/run-all-scans.mjs';
 
-const LEGACY_SCAN_COMMANDS = [
-  {
-    name: 'lane-declaration',
-    command: ['node', 'scripts/harness/scan-lane-declaration.mjs'],
-    always: true,
-  },
+export const SCAN_COMMANDS = [
   {
     name: 'consistency',
     command: ['node', 'scripts/harness/scan-consistency.mjs'],
     examines: [AGENTS, 'AGENTS.md', 'CLAUDE.md', CLAUDE, ...WORKSPACE],
+    cacheable: true,
   },
   {
     name: 'memory-mirror',
     command: ['node', 'scripts/harness/scan-memory-mirror.mjs'],
     examines: [under('.agents/memory')],
-  },
-  {
-    name: 'spec-research',
-    command: ['node', 'scripts/harness/scan-spec-research.mjs'],
-    examines: [SPEC_DOCS],
+    cacheable: true,
   },
   {
     name: 'orchestration-map',
     command: ['node', 'scripts/harness/scan-orchestration-map.mjs'],
     examines: [AGENT_DEFS, SKILLS, '.agents/specs/orchestration-map.md'],
+    cacheable: true,
   },
   {
     name: 'deployment-matrix',
     command: ['node', 'scripts/harness/scan-deployment-matrix.mjs'],
     examines: ['.agents/specs/deployment-matrix.md', PACKAGES],
+    cacheable: true,
   },
   {
     name: 'orchestration-neutrality',
@@ -379,11 +382,7 @@ const LEGACY_SCAN_COMMANDS = [
     name: 'hook-registration',
     command: ['node', 'scripts/harness/scan-hook-registration.mjs'],
     examines: ['.claude/settings.json', HOOKS],
-  },
-  {
-    name: 'review-findings',
-    command: ['node', 'scripts/harness/scan-review-findings.mjs'],
-    examines: [AGENT_DEFS, under('.agents/skills/pr-finding-resolution-loop')],
+    cacheable: true,
   },
   {
     name: 'review-token-supply',
@@ -399,6 +398,7 @@ const LEGACY_SCAN_COMMANDS = [
     name: 'workflow-permissions',
     command: ['node', 'scripts/harness/scan-workflow-permissions.mjs'],
     examines: [GITHUB],
+    cacheable: true,
   },
   {
     name: 'action-references',
@@ -409,16 +409,19 @@ const LEGACY_SCAN_COMMANDS = [
     name: 'named-mechanism-resolves',
     command: ['node', 'scripts/harness/scan-named-mechanism-resolves.mjs'],
     examines: [RULES, 'AGENTS.md', SCRIPTS, 'package.json', CLAUDE],
+    cacheable: true,
   },
   {
     name: 'hook-syntax',
     command: ['node', 'scripts/harness/scan-hook-syntax.mjs'],
     examines: [HOOKS],
+    cacheable: true,
   },
   {
     name: 'skill-registration',
     command: ['node', 'scripts/harness/scan-skill-registration.mjs'],
     examines: [under('.claude/skills'), SKILLS, HOOKS, REGISTRY],
+    cacheable: true,
   },
   {
     name: 'document-authority',
@@ -429,6 +432,7 @@ const LEGACY_SCAN_COMMANDS = [
     name: 'commands',
     command: ['node', 'scripts/harness/check-command-layering.mjs'],
     examines: [under('packages/agent-cli'), under('packages/agent-framework')],
+    cacheable: true,
   },
   {
     name: 'capability-placement',
@@ -471,11 +475,13 @@ const LEGACY_SCAN_COMMANDS = [
     name: 'specs',
     command: ['node', 'scripts/harness/audit-spec-coverage.mjs'],
     examines: [...WORKSPACE, DOCS, 'README.md'],
+    cacheable: true,
   },
   {
     name: 'spec-paths',
     command: ['node', 'scripts/harness/check-spec-paths.mjs'],
     examines: [...WORKSPACE, DOCS],
+    cacheable: true,
   },
   {
     name: 'arch-map-paths',
@@ -540,11 +546,17 @@ const LEGACY_SCAN_COMMANDS = [
   {
     name: 'workspace-refs',
     command: ['node', 'scripts/harness/check-workspace-refs.mjs'],
-    examines: [...WORKSPACE, SCRIPTS],
+    examines: [
+      ...WORKSPACE,
+      SCRIPTS,
+      MARKDOWN,
+      '**/*.mmd',
+      `**/*.{${SOURCE_EXTENSIONS.map((extension) => extension.slice(1)).join(',')}}`,
+      '.changeset/pre.json',
+    ],
   },
-  // Issue #2660. Both filter guards ask only whether the package NAME resolves, so a `--filter`
-  // naming a real package that does not declare the script after it passed them both while running
-  // nothing. The class is a package split moving a file away from the filter its comment names.
+  // Package-name resolution belongs to workspace-refs. This guard owns the separate relation:
+  // whether a resolved package declares the script selected by the command (issues #2660, #2796).
   {
     name: 'filter-script-resolves',
     command: ['node', 'scripts/harness/scan-filter-script-resolves.mjs'],
@@ -564,20 +576,18 @@ const LEGACY_SCAN_COMMANDS = [
     name: 'conflict-markers',
     command: ['node', 'scripts/harness/scan-conflict-markers.mjs'],
     examines: [AGENTS, 'AGENTS.md', PACKAGES, APPS, SCRIPTS],
+    cacheable: true,
   },
   {
     name: 'reference-kind-qualified',
     command: ['node', 'scripts/harness/scan-reference-kind-qualified.mjs'],
-    always: true,
+    examines: [
+      MARKDOWN,
+      'scripts/harness/reference-kind-baseline.json',
+      harnessFile('reference-kind'),
+      harnessFile('enumerate-files'),
+    ],
     advisory: true,
-  },
-  // HARNESS-118. A cited task-record path is a fact that a lifecycle move makes false in silence.
-  // Resolution is by ID AND slug, because an ID-only resolver answers three cases in this tree with
-  // a confident wrong document, and a resolved wrong link is one nobody questions.
-  {
-    name: 'task-path-citations',
-    command: ['node', 'scripts/harness/scan-task-path-citations.mjs'],
-    examines: [AGENTS, SCRIPTS, 'AGENTS.md', 'CLAUDE.md'],
   },
   // INFRA-127. A rule catalogue's row IS the unit of obligation, so a row short of the columns its
   // header declares renders with rule text missing and nothing said. Six of 92 entries were in that
@@ -586,6 +596,7 @@ const LEGACY_SCAN_COMMANDS = [
     name: 'rule-table-shape',
     command: ['node', 'scripts/harness/scan-rule-table-shape.mjs'],
     examines: [AGENTS],
+    cacheable: true,
   },
   // INFRA-126. The suite exhausted /tmp's inodes and stopped every push from the host. `makeTemp()`
   // owns creation and teardown together; this refuses a direct call regardless of teardown, because
@@ -594,13 +605,7 @@ const LEGACY_SCAN_COMMANDS = [
     name: 'temp-dir-owner',
     command: ['node', 'scripts/harness/scan-temp-dir-owner.mjs'],
     examines: [under('scripts/harness/__tests__')],
-  },
-  // INFRA-127. `.agents/tasks/README.md` declares seven required fields and only `status` was ever
-  // checked, by two scans that ask about placement and lifecycle rather than presence.
-  {
-    name: 'task-frontmatter-fields',
-    command: ['node', 'scripts/harness/scan-task-frontmatter-fields.mjs'],
-    examines: [TASKS],
+    cacheable: true,
   },
   // INFRA-112. The accepted forms are derived from each hook's own source, so this compares the
   // declarations against the code rather than against a list that would drift beside them.
@@ -634,7 +639,7 @@ const LEGACY_SCAN_COMMANDS = [
   {
     name: 'work-item-id-collision',
     command: ['node', 'scripts/harness/scan-work-item-id-collision.mjs'],
-    always: true,
+    examines: [TASKS, harnessFile('task-record-issue-link'), harnessFile('shared')],
   },
   // INFRA-102. Only the DECLARED edge runs here: it is hermetic. The `--measured` edge asks the
   // host toolchain what a workspace script actually runs on, which no manifest edit can make true
@@ -643,49 +648,6 @@ const LEGACY_SCAN_COMMANDS = [
     name: 'node-version-single-valued',
     command: ['node', 'scripts/harness/scan-node-version-single-valued.mjs'],
     examines: ['package.json', 'pnpm-workspace.yaml', PACKAGES, APPS],
-  },
-  // HARNESS-105. The user-execution gate section is required BEFORE implementation starts, and
-  // nothing enforced it — 217 of 257 `done/` documents had none when this floor was written. The
-  // baseline freezes that set; documents outside it must carry the section.
-  {
-    name: 'spec-user-execution-section',
-    command: ['node', 'scripts/harness/scan-spec-user-execution-section.mjs'],
-    examines: [SPEC_DOCS, RULES, 'scripts/harness/spec-user-execution-baseline.json'],
-  },
-  // HARNESS-121. A final section cannot prove it existed before code. Replay the topic ancestry and
-  // require one exact Task/spec GATE-IMPLEMENT checkpoint before any implementation path changes.
-  {
-    name: 'user-execution-plan-order',
-    command: ['node', 'scripts/harness/scan-user-execution-plan-order.mjs'],
-    always: true,
-  },
-  // RULE-2326. A prose verdict cannot prove which recommendation was reviewed or that its
-  // planning-only checkpoint preceded implementation.
-  {
-    name: 'recommendation-endorsement',
-    command: ['node', 'scripts/harness/scan-recommendation-endorsement.mjs'],
-    always: true,
-  },
-  // RULE-012. GATE-APPROVAL required approval "in the current conversation" while its own example
-  // list admitted a standing instruction. Three sessions counted the affected documents and got 27,
-  // 43 and 52 — not a counting bug, but three private definitions of a term the rule never defined.
-  // The guard reads the route, the registered class, and the registration date; the baseline freezes
-  // the approvals that predate the form and reports them on every run rather than absolving them.
-  {
-    name: 'standing-delegation-evidence',
-    command: ['node', 'scripts/harness/scan-standing-delegation-evidence.mjs'],
-    examines: [SPEC_DOCS, RULES, 'scripts/harness/standing-delegation-baseline.json'],
-  },
-  // Issue #2269. Gate entries must identify the mechanism that judged them; the dated migration
-  // baseline keeps immutable historical evidence visible without rewriting it.
-  {
-    name: 'gate-verdict-attribution',
-    command: ['node', 'scripts/harness/scan-gate-verdict-attribution.mjs'],
-    examines: [
-      SPEC_DOCS,
-      'scripts/harness/gate.mjs',
-      'scripts/harness/gate-verdict-attribution-baseline.json',
-    ],
   },
   // RULE-018. GitHub applies a missing Issue Form label silently, while PR gates consume three
   // exact-name labels from the same repository namespace. The registry and fixed consumer baseline
@@ -699,7 +661,6 @@ const LEGACY_SCAN_COMMANDS = [
       '.github/workflows/review-gate.yml',
       '.claude/hooks/merge-gate.sh',
       harnessFile('record-local-review'),
-      harnessFile('check-review-gate'),
       harnessFile('scan-github-label-registry'),
     ],
   },
@@ -719,11 +680,10 @@ const LEGACY_SCAN_COMMANDS = [
   {
     name: 'ci-base-history',
     command: ['node', 'scripts/harness/scan-ci-base-history.mjs'],
-    // The workflows, plus the four base-history scripts the scan declares by name.
+    // The workflows, plus the base-history scripts the scan declares by name.
     examines: [
       GITHUB,
       harnessFile('check-regression-red-proof'),
-      harnessFile('check-patch-coverage'),
       'scripts/harness/check-document-authority.mjs',
       'scripts/harness/scan-promotion-ancestry.mjs',
     ],
@@ -732,11 +692,6 @@ const LEGACY_SCAN_COMMANDS = [
     name: 'automerge-disarm-permission',
     command: ['node', 'scripts/harness/scan-automerge-disarm-permission.mjs'],
     examines: [GITHUB],
-  },
-  {
-    name: 'promotion-ancestry',
-    command: ['node', 'scripts/harness/scan-promotion-ancestry.mjs'],
-    always: true,
   },
   {
     name: 'main-required-checks',
@@ -762,7 +717,7 @@ const LEGACY_SCAN_COMMANDS = [
   {
     name: 'new-rule-declares-enforcement',
     command: ['node', 'scripts/harness/scan-new-rule-declares-enforcement.mjs'],
-    always: true,
+    examines: [RULES, harnessFile('shared')],
   },
   {
     name: 'named-artifact-resolves',
@@ -772,7 +727,7 @@ const LEGACY_SCAN_COMMANDS = [
   {
     name: 'required-check-local-reachability',
     command: ['node', 'scripts/harness/scan-required-check-local-reachability.mjs'],
-    examines: ['package.json', GITHUB, harnessFile('ci-mirror-map')],
+    examines: ['package.json', '.github/required-status-checks.json'],
   },
   {
     name: 'required-check-needs',
@@ -823,13 +778,6 @@ const LEGACY_SCAN_COMMANDS = [
     name: 'tool-classification',
     command: ['node', 'scripts/harness/scan-tool-classification.mjs'],
     examines: [...WORKSPACE],
-  },
-  {
-    // HARNESS-072 tractable subset: a quantified loop bound has one owner (the skill); the map and
-    // the rules point rather than restate. #1615 produced five contradictions this way in one PR.
-    name: 'loopback-bound-ownership',
-    command: ['node', 'scripts/harness/scan-loopback-bound-ownership.mjs'],
-    examines: ['.agents/specs/orchestration-map.md', SKILLS, RULES, SPEC_DOCS],
   },
   {
     name: 'transport-admission',
@@ -935,6 +883,12 @@ const LEGACY_SCAN_COMMANDS = [
     examines: [HARNESS_CONFIG, 'scripts/harness/option-reachability-baseline.json', PACKAGES, APPS],
   },
   {
+    // #2726: each declared TUI, print/goal and serve capability must cross its session path.
+    name: 'session-capability-projections',
+    command: ['node', 'scripts/harness/scan-session-capability-projections.mjs'],
+    examines: [PACKAGES, 'scripts/harness/scan-session-capability-projections.mjs'],
+  },
+  {
     name: 'publish-registry',
     command: ['node', 'scripts/harness/scan-publish-registry.mjs'],
     examines: ['.agents/publish-registry.md', '.agents/project-structure.md', ...WORKSPACE],
@@ -973,39 +927,15 @@ const LEGACY_SCAN_COMMANDS = [
     examines: [RULES, 'scripts/harness/rule-case-narrative-baseline.json'],
   },
   {
-    name: 'loop-contract',
-    command: ['node', 'scripts/harness/scan-loop-contract.mjs'],
-    examines: [SKILLS, RULES, '.agents/specs/orchestration-map.md'],
-  },
-  {
     // HARNESS-2485 — compare explicit normative claims across distinct rule documents.
     name: 'rule-contradictions',
     command: ['node', 'scripts/harness/scan-rule-contradictions.mjs'],
     examines: [RULES],
   },
   {
-    name: 'loop-run-records',
-    command: ['node', 'scripts/harness/scan-loop-run-records.mjs'],
-    examines: [SKILLS, under('.agents/loop-runs'), RULES, SPECS],
-  },
-  {
-    name: 'architecture-refresh-signals',
-    command: ['node', 'scripts/harness/scan-architecture-refresh-signals.mjs'],
-    examines: [
-      AGENTS,
-      'scripts/harness/task-lifecycle-legacy-baseline.json',
-      'scripts/harness/architecture-refresh-legacy-baseline.json',
-    ],
-  },
-  {
     name: 'retired-agent-references',
     command: ['node', 'scripts/harness/scan-retired-agent-references.mjs'],
     examines: [CLAUDE, AGENTS, HARNESS],
-  },
-  {
-    name: 'loop-proof',
-    command: ['node', 'scripts/harness/scan-loop-proof.mjs'],
-    examines: [AGENTS, 'scripts/harness/loop-proof-baseline.json'],
   },
   {
     name: 'resolving-claims',
@@ -1127,6 +1057,8 @@ const LEGACY_SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-progress-report-quantification.mjs'],
     always: true,
     advisory: true,
+    contexts: ['integration'],
+    localOnly: true,
   },
   {
     name: 'deprecated-markers',
@@ -1134,66 +1066,9 @@ const LEGACY_SCAN_COMMANDS = [
     examines: [...WORKSPACE],
   },
   {
-    name: 'done-evidence',
-    command: ['node', 'scripts/harness/check-done-evidence.mjs'],
-    always: true,
-  },
-  {
-    // HARNESS-050 — the companion to done-evidence: that one guards evidence DECAY (a cited path
-    // that later vanished), this one guards evidence that was NEVER THERE.
-    name: 'unearned-done-claims',
-    command: ['node', 'scripts/harness/scan-unearned-done-claims.mjs'],
-    always: true,
-  },
-  {
-    // Issue #2186 — an open task record whose work-item ID a merged, delivering commit cites is a
-    // reconciliation prompt. Reads git history, so `always`; advisory under `pr` because the history
-    // it grades is moved by OTHER pull requests, not by the change under review.
-    name: 'task-merged-citation',
-    command: ['node', 'scripts/harness/scan-task-merged-citation.mjs'],
-    always: true,
-    advisory: true,
-  },
-  {
-    name: 'item-terminal-state',
-    command: ['node', 'scripts/harness/scan-item-terminal-state.mjs'],
-    always: true,
-  },
-  {
-    name: 'gate-evaluator-isolation',
-    command: ['node', 'scripts/harness/scan-gate-evaluator-isolation.mjs'],
-    always: true,
-  },
-  {
-    name: 'gate-entrypoint-stability',
-    command: ['node', 'scripts/harness/scan-gate-entrypoint-stability.mjs'],
-    always: true,
-  },
-  {
-    name: 'gate-closure-disposition',
-    command: ['node', 'scripts/harness/scan-gate-closure-disposition.mjs'],
-    examines: ['.agents/spec-docs/'],
-  },
-  {
-    // Issue #2375: GATE-VERIFY's Plan-checkbox criterion, mechanised over the `## Plan` section.
-    name: 'task-plan-items',
-    command: ['node', 'scripts/harness/scan-task-plan-items.mjs'],
-    examines: [TASKS, 'scripts/harness/task-plan-items-baseline.json'],
-  },
-  {
-    name: 'task-archival',
-    command: ['node', 'scripts/harness/check-task-archival.mjs'],
-    examines: [AGENTS, REGISTRY, 'scripts/harness/task-lifecycle-legacy-baseline.json'],
-  },
-  {
     name: 'test-module-mocks',
     command: ['node', 'scripts/harness/check-test-module-mocks.mjs'],
     examines: [HARNESS_CONFIG, ...WORKSPACE, TASKS],
-  },
-  {
-    name: 'backlog-placement',
-    command: ['node', 'scripts/harness/check-backlog-placement.mjs'],
-    examines: [AGENTS, 'scripts/harness/task-lifecycle-legacy-baseline.json'],
   },
   {
     name: 'doc-examples',
@@ -1326,11 +1201,6 @@ const LEGACY_SCAN_COMMANDS = [
     examines: [...WORKSPACE, 'tsconfig*.json'],
   },
   {
-    name: 'doc-folder-status',
-    command: ['node', 'scripts/harness/scan-doc-folder-status-agreement.mjs'],
-    examines: [SPEC_DOCS, '.agents/rules/spec-workflow.md'],
-  },
-  {
     name: 'vitest-resource-ceiling',
     command: ['node', 'scripts/harness/scan-vitest-resource-ceiling.mjs'],
     examines: ['vitest.shared.ts', 'vitest.config.*', PACKAGES, APPS, 'pnpm-workspace.yaml'],
@@ -1340,14 +1210,28 @@ const LEGACY_SCAN_COMMANDS = [
     command: ['pnpm', 'docs:validate-structure'],
     examines: [under('scripts/docs'), PACKAGES],
   },
+  {
+    name: 'package-boundary-ownership',
+    command: ['node', 'scripts/harness/scan-package-boundary-ownership.mjs'],
+    examines: [
+      '.agents/package-boundaries.json',
+      'package.json',
+      'pnpm-workspace.yaml',
+      PACKAGES,
+      APPS,
+      harnessFile('workspace-graph'),
+      harnessFile('workspace-source-inventory'),
+      harnessFile('workspace-source-reference-extraction'),
+      harnessFile('workspace-source-reference-resolution'),
+      harnessFile('workspace-source-config-resolution'),
+    ],
+  },
+  {
+    name: 'ssot-five-axis',
+    command: ['node', 'scripts/harness/scan-ssot-five-axis.mjs'],
+    examines: [PACKAGES, harnessFile('scan-ssot-five-axis')],
+  },
 ];
-
-// The legacy table remains the compatibility baseline while individual entrypoints migrate to
-// self-declared discovery. New scan/check modules are appended automatically by their own
-// scanDefinition export; they do not need a second edit in this runner.
-export const SCAN_COMMANDS = await loadScanCommands(LEGACY_SCAN_COMMANDS, {
-  root: WORKSPACE_ROOT,
-});
 
 /** The lanes a run can declare with `--context`; the default is the stricter one. */
 export const SCAN_CONTEXTS = ['pr', 'integration'];
@@ -1355,6 +1239,20 @@ export const SCAN_CONTEXTS = ['pr', 'integration'];
 /** Names of the registered scans whose failure is advisory under `--context pr`. */
 export function advisoryScanNames(scans = SCAN_COMMANDS) {
   return new Set(scans.filter((scan) => scan.advisory === true).map((scan) => scan.name));
+}
+
+/** Remove route-inapplicable scans before affected-path selection; N/A work is not a green check. */
+export function selectScansForExecutionContext(scans, { context, environment = process.env } = {}) {
+  if (!SCAN_CONTEXTS.includes(context)) {
+    throw new Error(
+      `run-all-scans: unknown context \`${context}\` (expected ${SCAN_CONTEXTS.join('|')})`,
+    );
+  }
+  return scans.filter(
+    (scan) =>
+      (!Array.isArray(scan.contexts) || scan.contexts.includes(context)) &&
+      !(scan.localOnly === true && environment.CI),
+  );
 }
 
 /**
@@ -1424,6 +1322,142 @@ export function pathMatchesAny(file, globs) {
   return globs.some((glob) => globToRegExp(glob).test(normalized));
 }
 
+function relativeImportSpecifiers(source) {
+  const uncommented = source
+    .replace(/\/\*[\s\S]*?\*\//gu, '')
+    .replace(/(^|[^:])\/\/[^\n]*/gu, '$1');
+  const pattern =
+    /(?:import|export)[^'"]*from\s*['"](\.[^'"]+)['"]|import\s*\(\s*['"](\.[^'"]+)['"]\s*\)|import\s*['"](\.[^'"]+)['"]/gu;
+  const specifiers = [];
+  let match;
+  while ((match = pattern.exec(uncommented)) !== null) {
+    specifiers.push(match[1] ?? match[2] ?? match[3]);
+  }
+  return specifiers;
+}
+
+function repositoryRelativePath(root, absolute) {
+  const relative = path.relative(root, absolute).replaceAll('\\', '/');
+  return relative === '' || relative.startsWith('../') || path.isAbsolute(relative)
+    ? null
+    : relative;
+}
+
+function localImportResolution(root, importer, specifier) {
+  const raw = path.resolve(path.dirname(path.join(root, importer)), specifier);
+  const candidates = path.extname(raw)
+    ? [raw]
+    : [
+        raw,
+        `${raw}.mjs`,
+        `${raw}.js`,
+        `${raw}.cjs`,
+        `${raw}.json`,
+        path.join(raw, 'index.mjs'),
+        path.join(raw, 'index.js'),
+      ];
+  const withinRepository = candidates
+    .map((candidate) => ({
+      absolute: candidate,
+      relative: repositoryRelativePath(root, candidate),
+    }))
+    .filter((candidate) => candidate.relative !== null);
+  const resolved = withinRepository.find(({ absolute }) => {
+    try {
+      return existsSync(absolute) && statSync(absolute).isFile();
+    } catch {
+      return false;
+    }
+  });
+  return resolved ? [resolved] : withinRepository;
+}
+
+const scanCommandClosureCache = new WeakMap();
+
+function scanCommandEntrypoints(scan, root) {
+  if (
+    scan.command?.[0] === 'node' &&
+    typeof scan.command[1] === 'string' &&
+    !path.isAbsolute(scan.command[1])
+  ) {
+    return [scan.command[1].replaceAll('\\', '/')];
+  }
+  if (scan.command?.[0] !== 'pnpm' || typeof scan.command[1] !== 'string') return [];
+  const manifest = 'package.json';
+  try {
+    const scripts = JSON.parse(readFileSync(path.join(root, manifest), 'utf8')).scripts ?? {};
+    const script = scripts[scan.command[1]];
+    const entrypoint =
+      typeof script === 'string'
+        ? /^\s*node\s+(?:--\S+\s+)*(["']?)([^\s"']+)\1(?:\s|$)/u.exec(script)?.[2]
+        : undefined;
+    return entrypoint && !path.isAbsolute(entrypoint)
+      ? [manifest, entrypoint.replaceAll('\\', '/')]
+      : [manifest];
+  } catch {
+    return [manifest];
+  }
+}
+
+/** Every repository-local module a Node scan can reach through literal import/export edges. */
+export function scanCommandImportClosure(scan, root = WORKSPACE_ROOT) {
+  const normalizedRoot = path.resolve(root);
+  const cachedByRoot = scanCommandClosureCache.get(scan);
+  if (cachedByRoot?.has(normalizedRoot)) return [...cachedByRoot.get(normalizedRoot)];
+  const entrypoints = scanCommandEntrypoints(scan, normalizedRoot);
+  if (entrypoints.length === 0) return [];
+
+  const closure = new Set(entrypoints);
+  const pending = [...entrypoints];
+  const visited = new Set();
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (visited.has(current)) continue;
+    visited.add(current);
+    let source;
+    try {
+      source = readFileSync(path.join(normalizedRoot, current), 'utf8');
+    } catch {
+      continue;
+    }
+    for (const specifier of relativeImportSpecifiers(source)) {
+      for (const resolved of localImportResolution(normalizedRoot, current, specifier)) {
+        closure.add(resolved.relative);
+        if (existsSync(resolved.absolute) && !visited.has(resolved.relative)) {
+          pending.push(resolved.relative);
+        }
+      }
+    }
+  }
+  const result = [...closure].sort();
+  const nextCache = cachedByRoot ?? new Map();
+  nextCache.set(normalizedRoot, result);
+  scanCommandClosureCache.set(scan, nextCache);
+  return [...result];
+}
+
+/** A scan's implementation closure is always input, even when its subject is elsewhere. */
+export function scanInputGlobs(scan, root = WORKSPACE_ROOT) {
+  const declared = Array.isArray(scan.examines) ? scan.examines : [];
+  return [...new Set([...declared, ...scanCommandImportClosure(scan, root)])];
+}
+
+/** Resolve each scan's declared repository inputs once for content-addressed success caching. */
+export function scanSuccessInputs(scans, repositoryFiles, root = WORKSPACE_ROOT) {
+  return new Map(
+    scans.map((scan) => {
+      const patterns = scanInputGlobs(scan, root);
+      return [
+        scan.name,
+        {
+          patterns,
+          files: repositoryFiles.filter((file) => pathMatchesAny(file, patterns)),
+        },
+      ];
+    }),
+  );
+}
+
 /**
  * Select the scans a set of changed paths can reach.
  *
@@ -1455,9 +1489,10 @@ export function selectAffectedScans(scans, changedPaths) {
       reason: 'no changed paths were resolved — selecting the full suite (fail closed)',
     };
   }
-  const declared = scans.filter((scan) => Array.isArray(scan.examines));
+  const globsByScan = new Map(scans.map((scan) => [scan, scanInputGlobs(scan)]));
+  const declared = scans.filter((scan) => globsByScan.get(scan).length > 0);
   const unmatched = changed.filter(
-    (file) => !declared.some((scan) => pathMatchesAny(file, scan.examines)),
+    (file) => !declared.some((scan) => pathMatchesAny(file, globsByScan.get(scan))),
   );
   if (unmatched.length > 0) {
     return {
@@ -1471,7 +1506,8 @@ export function selectAffectedScans(scans, changedPaths) {
     };
   }
   const selected = scans.filter(
-    (scan) => scan.always === true || changed.some((file) => pathMatchesAny(file, scan.examines)),
+    (scan) =>
+      scan.always === true || changed.some((file) => pathMatchesAny(file, globsByScan.get(scan))),
   );
   const chosen = new Set(selected.map((scan) => scan.name));
   return {
@@ -1504,14 +1540,15 @@ function gitLines(args, root) {
   return result.stdout.split('\n').map((line) => line.replace(/\r$/, ''));
 }
 
-/** Paths `git status --porcelain` reports (a rename is reported by its NEW name), tracked or not. */
+/** Paths `git status --porcelain` reports, retaining both sides if a rename is ever emitted. */
 export function parseStatusPorcelain(output) {
   const files = [];
   for (const line of String(output ?? '').split('\n')) {
     if (line.length < 4) continue;
     const entry = line.slice(3);
     const arrow = entry.indexOf(' -> ');
-    files.push(arrow === -1 ? entry : entry.slice(arrow + 4));
+    if (arrow === -1) files.push(entry);
+    else files.push(entry.slice(0, arrow), entry.slice(arrow + 4));
   }
   return files;
 }
@@ -1545,7 +1582,9 @@ export function resolveChangedPaths({
   if (range.error) return { files: [], base, error: range.error };
   let working;
   try {
-    working = parseStatusPorcelain(gitLines(['status', '--porcelain'], root).join('\n'));
+    working = parseStatusPorcelain(
+      gitLines(['status', '--porcelain', '--no-renames'], root).join('\n'),
+    );
   } catch (error) {
     return { files: [], base, error: error?.message ?? String(error) };
   }
@@ -1577,10 +1616,20 @@ function defaultPublicationUnavailableNotice(result) {
   );
 }
 
+function shellQuote(argument) {
+  const value = String(argument);
+  return /^[A-Za-z0-9_./:=@+-]+$/u.test(value) ? value : `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+function reproductionCommand(scan) {
+  return Array.isArray(scan.command) ? scan.command.map(shellQuote).join(' ') : null;
+}
+
 /**
  * Run scans with BOUNDED CONCURRENCY (INFRA-037), never early-exiting, then emit a final summary.
- * Each scan is `{ name, run: () => Promise<{code, output}> | Promise<number> }`. Output is CAPTURED per
- * scan and printed only for FAILURES (passes stay a one-line ✓), so parallel runs do not interleave.
+ * Each scan is `{ name, command?, run: () => Promise<{code, output}> | Promise<number> }`. Output is
+ * captured per scan and a failure plus its exact command is printed as soon as that scan completes;
+ * passing output stays suppressed.
  * Returns the aggregate exit code (0 = all passed). The summary + exit code are order-independent.
  *
  * THREE output channels, not two (HARNESS-053): failures print in full, `ADVISORY_MARKER` lines
@@ -1608,6 +1657,7 @@ export async function runScans(
     context = 'integration',
     advisoryNames = new Set(),
     onOutcome = null,
+    onResults = null,
     diagnosticResults = null,
     onDiagnosticPublicationUnavailable = defaultPublicationUnavailableNotice,
   } = {},
@@ -1657,6 +1707,19 @@ export async function runScans(
   async function settlePublicationUnavailableNotice() {
     if (publicationUnavailableNotice !== null) await publicationUnavailableNotice;
   }
+  function publishFailure(scan, result) {
+    if (result.code === 0) return;
+    const advisory = !result.unavailable && context === 'pr' && advisoryNames.has(result.name);
+    const label = result.unavailable
+      ? 'UNAVAILABLE — failed'
+      : advisory
+        ? 'FAILED — advisory in pr context'
+        : 'FAILED';
+    emit(`\n----- ${result.name} (${label}) -----`);
+    const reproduce = reproductionCommand(scan);
+    if (reproduce) emit(`[harness-scan] reproduce: ${reproduce}`);
+    if (result.output.trim().length > 0) emit(result.output.replace(/\n+$/, ''));
+  }
   let next = 0;
   async function worker() {
     for (;;) {
@@ -1667,10 +1730,17 @@ export async function runScans(
         const outcome = await scan.run();
         const raw = normalizeScanOutcome(scan, index, outcome);
         results[index] = { ...raw, output: ensureExaminedDeclaration(scan, raw.output) };
+        publishFailure(scan, results[index]);
       } catch (error) {
         if (configuredDiagnostics === null) throw error;
         scanFailureDiagnostics[index] = scanUnavailableDiagnostic(scan, index, error);
-        results[index] = { name: scan.name, code: 0, output: '', unavailable: true };
+        results[index] = {
+          name: scan.name,
+          code: 1,
+          output: `scan execution unavailable: ${errorDetail(error)}\n`,
+          unavailable: true,
+        };
+        publishFailure(scan, results[index]);
       }
     }
   }
@@ -1681,18 +1751,15 @@ export async function runScans(
   // failure — the finding is real and the output is where it lives — and differs only in the verdict.
   const tolerated = new Set(
     results
-      .filter((result) => result.code !== 0 && context === 'pr' && advisoryNames.has(result.name))
+      .filter(
+        (result) =>
+          !result.unavailable &&
+          result.code !== 0 &&
+          context === 'pr' &&
+          advisoryNames.has(result.name),
+      )
       .map((result) => result.name),
   );
-
-  // Surface the full captured output of each FAILED scan (in original order) for debuggability.
-  for (const result of results) {
-    if (result.code !== 0 && result.output.trim().length > 0) {
-      const label = tolerated.has(result.name) ? 'FAILED — advisory in pr context' : 'FAILED';
-      emit(`\n----- ${result.name} (${label}) -----`);
-      emit(result.output.replace(/\n+$/, ''));
-    }
-  }
 
   // Judged BEFORE the summary is printed, because the mark a scan gets depends on what it declared.
   const unavailableNames = new Set(
@@ -1816,6 +1883,7 @@ export async function runScans(
   if (typeof onOutcome === 'function') {
     onOutcome({ tolerated: [...tolerated], diagnosticReport });
   }
+  if (typeof onResults === 'function') onResults(results);
   if (failed.length === 0 && unearnedZeros.length === 0 && adoption.ok) {
     // The count states what RAN. "all 97 scans passed" over a suite where two had no subject is a
     // stronger claim than the run supports — and a pass that tolerated an advisory failure says so
@@ -1839,49 +1907,6 @@ export async function runScans(
   if (failed.length > 0) emit(`${failed.length} of ${results.length} scans failed`);
   await settlePublicationUnavailableNotice();
   return 1;
-}
-
-/**
- * Replay a matching receipt without allowing its cached evidence to certify a partial fresh run.
- * A clean receipt skips every covered detector; a non-clean receipt first renders the immutable
- * report then reruns only the covered detector(s) named by that report, alongside tree-external
- * scans. This helper deliberately has no receipt writer: neither form of a receipt hit observed a
- * complete covered suite, so it cannot replace the full-run receipt.
- */
-export async function runReusedScanReceipt({
-  scans,
-  reuse,
-  write = (line) => process.stdout.write(`${line}\n`),
-  runScansImpl = runScans,
-  context = 'integration',
-  advisoryNames = new Set(),
-}) {
-  if (!reuse?.reuse) throw new Error('runReusedScanReceipt requires a matching receipt reuse plan');
-  if (reuse.diagnosticReport !== null && reuse.diagnosticReport !== undefined) {
-    write('scan receipt replaying cached non-clean diagnostics:');
-    publishDiagnosticResults(
-      reuse.diagnosticReport.results,
-      write,
-      defaultPublicationUnavailableNotice,
-    );
-  }
-  const alwaysRun = new Set(scansThatAlwaysRun(scans.map((scan) => scan.name)));
-  const recheck = new Set(reuse.recheckCoveredScans ?? []);
-  const rerun = scans.filter((scan) => alwaysRun.has(scan.name) || recheck.has(scan.name));
-  if (rerun.length === 0) return { exitCode: 0, rerunNames: [], completeSuite: false };
-
-  write(
-    `re-running ${rerun.length} scan(s) after receipt reuse: ${rerun.map((scan) => scan.name).join(', ')}`,
-  );
-  const exitCode = await runScansImpl(rerun, write, undefined, {
-    // The adoption ratchet was judged on the full observed run that wrote this receipt. A partial
-    // reuse follow-up cannot make unrun covered detectors look absent from that measurement.
-    checkAdoption: false,
-    context,
-    advisoryNames,
-    diagnosticResults: [],
-  });
-  return { exitCode, rerunNames: rerun.map((scan) => scan.name), completeSuite: false };
 }
 
 /**
@@ -1959,7 +1984,10 @@ export async function main() {
   for (const name of skips) {
     process.stdout.write(`skipped: ${name} (--skip)\n`);
   }
-  let registry = SCAN_COMMANDS.filter(({ name }) => !skips.has(name));
+  let registry = selectScansForExecutionContext(
+    SCAN_COMMANDS.filter(({ name }) => !skips.has(name)),
+    { context },
+  );
 
   // --affected (PROC-016): select what the change reaches. Every branch that cannot answer the
   // question — no base, no diff, an unclassifiable path — runs the whole registry and says why.
@@ -1996,48 +2024,47 @@ export async function main() {
     return;
   }
 
-  const scans = registry.map(({ name, command }) => ({
+  let scans = registry.map(({ name, command }) => ({
     name,
+    command,
     run: () => spawnScan(command),
   }));
   const advisoryNames = advisoryScanNames(SCAN_COMMANDS);
   // The adoption ratchet is a frozen SET, so it binds over whatever subset ran — CI's
   // `--skip dist --skip build-contracts` included, the one environment the old count-over-a-whole-
   // registry check could never reach (HARNESS-081). It is always judged (unless re-freezing).
-  // HARNESS-109: the same tree is not scanned twice. A miss says WHY, because a reuse mechanism that
-  // silently never fires is indistinguishable from one that is not wired at all.
   const scanNames = scans.map((scan) => scan.name);
-  const reuse = planScanReuse({ scanNames, root: WORKSPACE_ROOT, writeAdoption });
   await publishHookDiagnosticInventory({
     root: WORKSPACE_ROOT,
     scanNames: SCAN_COMMANDS.map((scan) => scan.name),
-    correlationId: reuse.reuse ? 'hook-migration.reuse' : 'hook-migration.full',
+    correlationId: 'hook-migration.full',
   });
-  if (reuse.reuse) {
-    // A receipt speaks for the scans a tree hash can speak for. The rest — the ones reading build
-    // output — are RE-RUN, not skipped: they cost milliseconds, and a run that quietly stopped
-    // reporting dist staleness would be buying speed with the operator's information.
-    const rerunNames = new Set([
-      ...scansThatAlwaysRun(scanNames),
-      ...(reuse.recheckCoveredScans ?? []),
-    ]);
-    const rerun = scans.filter((scan) => rerunNames.has(scan.name));
-    process.stdout.write(
-      `${scanNames.length - rerun.length} scans not re-run: ${reuse.reason}.\n` +
-        'Change any tracked file, or delete the receipt, to force a full run.\n',
-    );
-    const reused = await runReusedScanReceipt({
-      scans,
-      reuse,
-      context,
-      advisoryNames,
-    });
-    process.exitCode = reused.exitCode;
-    return;
-  }
-  process.stdout.write(`▶ scan receipt not reused: ${reuse.reason}\n`);
 
-  let outcome = { tolerated: [], diagnosticReport: null };
+  const invalidCacheDeclarations = registry.filter((scan) => scan.cacheable && scan.always);
+  if (invalidCacheDeclarations.length > 0) {
+    throw new Error(
+      `always-run scans cannot be success-cached: ${invalidCacheDeclarations.map((scan) => scan.name).join(', ')}`,
+    );
+  }
+  const successCache = inspectScanSuccessCache({
+    scanNames,
+    cacheableScanNames: registry.filter((scan) => scan.cacheable).map((scan) => scan.name),
+    scanInputs: scanSuccessInputs(registry, collectFiles([], { cwd: WORKSPACE_ROOT })),
+    scanCommands: new Map(registry.map((scan) => [scan.name, scan.command])),
+    root: WORKSPACE_ROOT,
+    context,
+    writeAdoption,
+  });
+  if (successCache.hits.size > 0) {
+    process.stdout.write(
+      `${successCache.hits.size} independently proven scan success(es) restored; only misses will execute.\n`,
+    );
+    scans = applyScanSuccessCache(scans, successCache);
+  } else {
+    process.stdout.write(`▶ per-scan success cache not reused: ${successCache.reason}.\n`);
+  }
+
+  let outcome = { tolerated: [], diagnosticReport: null, results: [] };
   process.exitCode = await runScans(scans, undefined, undefined, {
     checkAdoption: true,
     writeAdoption,
@@ -2050,25 +2077,15 @@ export async function main() {
     onOutcome: (result) => {
       outcome = result;
     },
+    onResults: (results) => {
+      outcome.results = results;
+    },
   });
 
-  if (process.exitCode === 0 && outcome.tolerated.length > 0) {
-    // A receipt says "this tree passed these scans". A pass that tolerated an advisory failure is
-    // not that: the integration run would reuse it and report green over a scan that failed.
+  const recorded = recordSuccessfulScanResults({ cache: successCache, results: outcome.results });
+  if (recorded > 0) {
     process.stdout.write(
-      `scan receipt NOT written: ${outcome.tolerated.length} advisory failure(s) were tolerated ` +
-        `(${outcome.tolerated.join(', ')}), and a receipt must not certify them.\n`,
-    );
-  } else if (process.exitCode === 0) {
-    const written = writeScanReceipt({
-      scanNames,
-      root: WORKSPACE_ROOT,
-      diagnosticReport: outcome.diagnosticReport,
-    });
-    process.stdout.write(
-      written.written
-        ? 'scan receipt written: an unchanged tree will not be re-scanned.\n'
-        : `scan receipt NOT written: ${written.reason}\n`,
+      `${recorded} independently proven scan success(es) persisted for a retry.\n`,
     );
   }
 }

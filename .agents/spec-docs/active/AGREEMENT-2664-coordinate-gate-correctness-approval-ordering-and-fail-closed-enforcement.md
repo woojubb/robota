@@ -7,6 +7,31 @@ lane: L2
 
 # AGREEMENT-2664: Coordinate gate correctness, approval ordering, and fail-closed enforcement
 
+## Current disposition — 2026-09-23
+
+The 2026-09-22 P2 Closeout Amendment and [the subsequent issue #2664 correction](https://github.com/woojubb/robota/issues/2664#issuecomment-5787034571) govern current execution. PR #2827 (`2a4a84631d24243d8dfb8ef75e04d790e8d60d37`) deliberately retired the legacy gate, checkpoint, and recommendation machinery.
+
+The historical eight-child set and its original records are retained exactly as a historical ownership projection. All historical approval/gate/checkpoint instructions below describe that superseded execution model. Current acceptance is the following owner table plus the P2 closeout criteria. `depends_on` preserves the historical external-owner graph; current dependency scope is explicitly narrowed in this table, so AGREEMENT-013 does not require closing unrelated issue #2079 work.
+
+| Owner                                      | Current outcome and evidence                                                                                                                                                                                                                                       | Remaining acceptance                                                                                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Eight historical children                  | The unchanged L/R manifest contains all eight ordered segments. Six executable scopes were retired by PR #2827; PUSH-2664 retains the stricter develop implementation; RULE-2582 retains the live frontmatter tags contract.                                       | Preserve historical records and R ancestry without restoring retired source.                                                                                |
+| AGREEMENT-012 / issue #2066                | SECURITY-003 and SECURITY-004 delivered by PR #2832 (`4a01a8717cc5d5f7f95e524b8620934f47058b98`); fork-model semantics delivered by PR #2838 (`fe48835ca6c53ada790ec61ee1fd00c437441ba1`). The current owner Task is done.                                         | Preserve the owner result; reconcile its stale spec projection.                                                                                             |
+| AGREEMENT-013 / retained issue #2075 slice | SEC-021 is done; PR #2838 completes source-aware configured-hook refusal. TRANS-016 was separately implemented in PR #2841 and its v1 fixtures repaired in PR #2843.                                                                                               | issue #2664 consumes the issue #2075 slice only. The broader issue #2079 administrative map remains owned by AGREEMENT-013, whose status stays in-progress. |
+| AGREEMENT-2698 / retained issue #2391      | Parent migration is superseded. PR #2827 removed the obsolete stack; PR #2835 (`7f8fcb3409222ac38085c35c56dda1ee2165ce6d`) repairs unavailable review-inspection diagnostics on the surviving path.                                                                | Preserve explicit unavailable-versus-valid-absence behavior; do not revive the retired diagnostic pipeline.                                                 |
+| INFRA-2664                                 | PR #2840 (`c014b9966842550b84dd7474862b619a9bcdfdc9`) supplies canonical dispatch resolution. Branch run 35816450450 attempt 2 and OID run 35816452676 attempt 1 resolve the same pair and finish with identical 20 job outcomes (13 success, 7 intentional skip). | Delivered independently; not a ninth historical child.                                                                                                      |
+| PERF-2664                                  | Superseded with the removed 128-second/11-context CI contract.                                                                                                                                                                                                     | Preserve old measurements as historical; do not claim a current benchmark success.                                                                          |
+| MERGE-2664                                 | Shared helper delivered in PR #2823, then retired by PR #2827. Independent bounded evidence verifies all 16 historical merges are clean and have no own-content delta.                                                                                             | Preserve the historical proof; inspect the deliberate S resolution separately.                                                                              |
+| SECRET-2664                                | Fifteen historical findings reduce to five exact recomputed fingerprints; synthetic same-carrier controls detect all eight planted findings.                                                                                                                       | Exact exceptions must land; final D-to-head scan and hosted security must pass before done.                                                                 |
+| MAP-2664                                   | This table classifies retained external owners and independent issue-owned rows without changing the eight-child set.                                                                                                                                              | Read back matching parent Task/spec and issue #2664 map before done.                                                                                        |
+| BRANCH-2664-P2 / AGREEMENT-2664            | Exact replacement publication and current-develop reconciliation remain the active migration work.                                                                                                                                                                 | Reviewed S with parents [R,D], merge-preserving landing, independent content/ancestry verification, final owner reconciliation, and CLOSED issue #2664.     |
+
+Keep this parent in-progress until P2 final acceptance. D is `fde558ea1b9d09d94b261eb980c96dfb4703201b`; S must preserve R `720eb5e841ba7a5361ac667b9658e034212bb58e` as its first parent and D as its second. The fixed historical manifest is unchanged. This document does not assert future hosted check, final merge, or issue-closure success.
+
+## Test Plan
+
+Verify the unchanged canonical L/R manifest and all 16 historical clean-merge witnesses. Compare the final [R,D] sync tree against the complete 80-path disposition, 14 owner-record exceptions, and three additional edits, then prove every undeclared path equals current D. Run current focused tests, the repository scans, and the pinned historical and final-range secret scans. After publication, require the applicable hosted checks, independent ancestry and tree read-back, matching Task/spec/issue map, and a strict audited completion record before closing issue #2664.
+
 Paired with `.agents/tasks/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md`.
 Arising from [issue #2664](https://github.com/woojubb/robota/issues/2664).
 
@@ -80,7 +105,7 @@ explicitly terminal owner before issue closure.
 
 None
 
-## Solution
+## Historical solution
 
 1. Retain the exact parent/child manifest as the ownership source of truth for issue #2664.
 2. Preserve all eight completed children and their exact terminal Task/spec and landing evidence.
@@ -95,7 +120,7 @@ None
 - The eight exact child Task paths listed under `## Tasks`.
 - `.agents/loop-runs/user-request-gate.jsonl`
 
-## Completion Criteria
+## Historical completion Criteria
 
 - [ ] TC-01: Observable: the parent Task/spec and all eight child Tasks resolve exactly once with matching Children/Tasks projections; all eight children are terminal in declared order.
 - [ ] TC-02: Observable: BEHAVIOR-2664, PUSH-2664, and DATA-2664 precede governance children in that order, while every declared dependency names an existing non-duplicated Task owner.
@@ -105,7 +130,7 @@ None
 - [ ] TC-06: Observable: every child Task/spec reaches its terminal gate with a merged landing witness, and no child absorbs a finding owned by another child or dependency without a new approval record.
 - [ ] TC-07: Observable: final issue #2664 reconciliation maps all eight children and AGREEMENT-012, AGREEMENT-013, and AGREEMENT-2698 to delivered or explicit terminal evidence before the umbrella receives its closure record.
 
-## Test Plan
+## Historical test Plan
 
 | TC-ID | Test Type   | Tool / Approach                                                            | Notes                                                           |
 | ----- | ----------- | -------------------------------------------------------------------------- | --------------------------------------------------------------- |
@@ -215,6 +240,7 @@ Paired execution record:
 
 **Judged by:** `gate.mjs` mechanical evaluator
 **Judged at:** HEAD `8b1dcac3472f` · base `origin/develop@58f24c1b73e2` · document `.agents/spec-docs/todo/AGREEMENT-2664-coordinate-gate-correctness-approval-ordering-and-fail-closed-enforcement.md` blob `acacb33f3725` (modified)
+
 ### [GATE-IMPLEMENT] — ✅ PASS | 2026-09-20
 
 **Status upgrade:** approved → in-progress

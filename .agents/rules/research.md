@@ -1,46 +1,17 @@
 # Research Rules
 
-Rules for implementation research and evidence-based design choices.
 Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
-### Research-First Implementation
+Research is proportional to the decision. Use primary product documentation, standards, API references, or
+papers when external behavior, interoperability, security, cost, or an unfamiliar architecture choice could
+materially change the implementation.
 
-- Before implementing any feature, behavior change, provider, CLI/TUI flow, SDK/API surface, orchestration behavior, or architecture change, complete proportional research first.
-- Research MUST happen before writing implementation code and before finalizing the governing spec.
-- Research targets MUST include comparable commercial products and relevant open-source projects when they exist.
-- Because this repository builds AI agents, prefer AI-agent references such as coding assistants, agent SDKs, agent CLIs, workflow/orchestration tools, and provider integration guides.
-- External research MUST use product documentation, API docs, design docs, release notes, protocol specs, or user-facing manuals as the primary evidence.
-- Do NOT use third-party source code as the basis for design decisions. Source code may identify a public document to read, but it is not itself acceptable prior-art evidence.
-- If no comparable reference is found, document that explicitly.
+Do not require research, a dedicated researcher dispatch, a spec section, or a waiver merely to conclude that
+an ordinary local change has no relevant prior art. When research does affect the decision, record the useful
+sources and resulting constraint once in the authoritative issue/request or optional design document.
 
-### Research Deliverables
+Provide a recommendation when evidence supports one. Ask only for a decision that cannot be derived safely,
+or that changes permissions, destructive scope, public contracts, or release authority.
 
-- Record findings in the active task/backlog/spec under `## Prior Art Research` or `## Research`.
-- Include the references consulted, the observed common behavior, and the constraints that apply to Robota.
-- Extract spec decisions from the research: naming, defaults, UX, lifecycle, timeout, error, compatibility, and migration behavior where relevant.
-- Link or cite the documentation sources used so the decision can be audited later.
-
-### Recommendation Authority
-
-- Always provide a recommended implementation direction when the research supports one.
-- If multiple references converge on the same behavior, the agent may choose that direction without asking the user again, as long as the task/spec records the evidence and impact.
-- If references conflict or the evidence is weak, present options with a recommendation and ask only for the decision that cannot be derived from the evidence.
-- Do not select the easiest implementation merely because it is faster; choose the pattern that is most broadly supported, maintainable, and compatible with Robota's architecture.
-
-### Enforcement (default-on, guarded)
-
-Research is not optional guidance — it is a **default-on, mechanically-guarded** step of backlog authoring
-(see [enforcement-architecture.md](enforcement-architecture.md) for the worker/guardian/orchestrator model).
-
-- **Default-on.** Every `draft` / `todo` / `active` spec MUST carry a `## Prior Art Research` (or `## Research`)
-  section. Opt out ONLY with an explicit `Waived: <reason>` line — either the agent proposes the waiver (when
-  it judges research genuinely unnecessary) or the user requests it. A missing or unsubstantiated section, with
-  no waiver, is a failure. Silent omission is not allowed.
-- **Worker / guardian / floor.** The `prior-art-researcher` agent (worker) produces the section; the
-  `backlog-gate-guard` GATE-WRITE criterion (guardian) judges its adequacy; `scan-spec-research.mjs`
-  (mechanical floor, in `pnpm harness:scan`) fails any in-flight spec lacking a substantiated section or waiver.
-- **Loop-back is hybrid.** On the research guardian's FAIL the orchestrator AUTO-re-drives the researcher toward
-  convergence — the completeness-gate shape of `architecture-refresh`. Like every auto-re-drive loop, it
-  escapes on no-progress detection: if the same finding set recurs unchanged, stop and escalate to the
-  user ([enforcement-architecture.md](enforcement-architecture.md)). A count of iterations may bound it
-  as well and must not be the only bound. Human-decision gates (GATE-APPROVAL) HALT for the user instead.
+Enforced by: none — relevance and sufficiency are design judgement; links and claims are reviewed with the
+decision they support.

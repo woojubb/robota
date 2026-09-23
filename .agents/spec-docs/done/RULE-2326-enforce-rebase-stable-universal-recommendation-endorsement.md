@@ -7,6 +7,10 @@ lane: L2
 
 # RULE-2326: Enforce rebase-stable universal recommendation endorsement
 
+## Current disposition — 2026-09-23
+
+Historical delivery is preserved at replacement child merge `4ebdc67d13603369ae633955f1dfd6814898df66` in R `720eb5e841ba7a5361ac667b9658e034212bb58e`. The done status and original evidence below describe that delivery; importing this record does not restore its historical implementation. PR #2827 (`2a4a84631d24243d8dfb8ef75e04d790e8d60d37`) deliberately retired the legacy gate, checkpoint, and recommendation machinery. This record is historical evidence of a completed child, not an active instruction to recreate its gate, checkpoint, endorsement, or frozen-corpus enforcement machinery.
+
 Paired with `.agents/tasks/RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md`.
 Arising from [issue #2326](https://github.com/woojubb/robota/issues/2326), with the rebase and
 classifier constraints preserved from [issue #2377](https://github.com/woojubb/robota/issues/2377).

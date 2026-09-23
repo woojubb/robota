@@ -65,7 +65,6 @@ export function resolveWorkspaceRoot(
   return root;
 }
 export const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
-const PNPM_WORKSPACE_PATH = path.join(WORKSPACE_ROOT, 'pnpm-workspace.yaml');
 
 export async function pathExists(targetPath) {
   try {
@@ -118,8 +117,8 @@ export function hasCanonicalSpecReference(content) {
     content.includes('](./SPEC.md)')
   );
 }
-export async function readWorkspacePatterns() {
-  const content = await fs.readFile(PNPM_WORKSPACE_PATH, 'utf8');
+export async function readWorkspacePatterns(root = WORKSPACE_ROOT) {
+  const content = await fs.readFile(path.join(root, 'pnpm-workspace.yaml'), 'utf8');
   return content
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -193,7 +192,7 @@ export function resolveBaseRef({ explicitBaseRef = null, env = process.env, refE
  * `resolveBaseRef` owns the base of every scan; nothing owned the head, so each per-commit consumer
  * discovered the same trap in production and patched it differently: on a `pull_request` event
  * `actions/checkout` leaves HEAD at GitHub's synthetic `refs/pull/N/merge`, whose FIRST parent is
- * the base, so a range ending there is not the pull request's commits. The `scans` job exports
+ * the base, so a range ending there is not the pull request's commits. The `repo-checks` job exports
  * `PR_HEAD_SHA` (ci.yml) for exactly this reason, and `scan-ci-base-history` refuses a per-commit
  * job that does not.
  *
@@ -232,9 +231,9 @@ export function resolveHeadSha({ argv = [], env = process.env } = {}) {
   return { head: 'HEAD', error: undefined };
 }
 
-export async function listWorkspaceScopes() {
+export async function listWorkspaceScopes(root = WORKSPACE_ROOT) {
   const scopes = [];
-  const patterns = await readWorkspacePatterns();
+  const patterns = await readWorkspacePatterns(root);
   const rootNames = Array.from(new Set(patterns.map((pattern) => pattern.split('/')[0])));
 
   for (const rootName of rootNames) {
@@ -249,11 +248,11 @@ export async function listWorkspaceScopes() {
     if (rootName === 'scratch') {
       continue;
     }
-    if (!(await pathExists(path.join(WORKSPACE_ROOT, rootName)))) {
+    if (!(await pathExists(path.join(root, rootName)))) {
       continue;
     }
 
-    await collectScopes(rootName, rootName === 'apps' ? 'app' : 'package', scopes, patterns);
+    await collectScopes(root, rootName, rootName === 'apps' ? 'app' : 'package', scopes, patterns);
   }
 
   return scopes
@@ -276,8 +275,8 @@ function matchesWorkspacePattern(relativeDir, pattern) {
   return new RegExp(`^${escaped}$`).test(relativeDir);
 }
 
-async function collectScopes(relativeDir, kind, scopes, patterns) {
-  const absoluteDir = path.join(WORKSPACE_ROOT, relativeDir);
+async function collectScopes(root, relativeDir, kind, scopes, patterns) {
+  const absoluteDir = path.join(root, relativeDir);
   const packageJsonPath = path.join(absoluteDir, 'package.json');
 
   if (
@@ -308,7 +307,7 @@ async function collectScopes(relativeDir, kind, scopes, patterns) {
     if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name.startsWith('.')) {
       continue;
     }
-    await collectScopes(path.posix.join(relativeDir, entry.name), kind, scopes, patterns);
+    await collectScopes(root, path.posix.join(relativeDir, entry.name), kind, scopes, patterns);
   }
 }
 
@@ -505,10 +504,17 @@ export function runCommand(command, args, workdir, dryRun, envOverrides = {}) {
  * INFRA-048 closed for the other half.
  */
 export function detectChangedFiles(baseRef = null) {
-  const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], {
-    cwd: WORKSPACE_ROOT,
-    encoding: 'utf8',
-  });
+  // With rename detection, porcelain/name-only output keeps only the destination path. A move out
+  // of a workspace would then erase the source owner from local affected verification. Treat a
+  // rename as its underlying deletion plus addition so both ownership sides remain visible.
+  const result = spawnSync(
+    'git',
+    ['status', '--porcelain', '--untracked-files=all', '--no-renames'],
+    {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+    },
+  );
 
   if (result.status !== 0) {
     throw new Error('Unable to read changed files from git status.');
@@ -530,7 +536,7 @@ export function detectChangedFiles(baseRef = null) {
 
   const diffResult = spawnSync(
     'git',
-    ['diff', '--name-only', '--diff-filter=ACMRD', `${resolvedBaseRef}...HEAD`],
+    ['diff', '--name-only', '--no-renames', '--diff-filter=ACMRD', `${resolvedBaseRef}...HEAD`],
     {
       cwd: WORKSPACE_ROOT,
       encoding: 'utf8',

@@ -1,6 +1,6 @@
 ---
 name: pr-review-fixer
-description: PR FIXER — the worker that applies fixes for a reviewer's findings in the PR-review orchestration (HARNESS-018). Given the reviewer's MUST/SHOULD findings on a PR branch, it makes the minimal, verified code change that resolves each one, keeping the build and tests green, following the repo's own change process. It PRODUCES ONLY: it does not judge whether the PR is clean and does not emit the findings verdict (re-review is the reviewer's job) — it fixes, then hands back for the reviewer to re-judge. It does not invent scope beyond the findings, and stops-and-reports when a fix is too large/risky to make safely. Universal/neutral — portable to any codebase.
+description: "PR FIXER — the worker that applies fixes for a reviewer's findings in the PR-review orchestration (HARNESS-018). Given the reviewer's MUST/SHOULD findings on a PR branch, it makes the minimal, verified code change that resolves each one, keeping the build and tests green, following the repo's own change process. It PRODUCES ONLY: it does not judge whether the PR is clean and does not emit the findings verdict (re-review is the reviewer's job) — it fixes, then hands back for the reviewer to re-judge. It does not invent scope beyond the findings, and stops-and-reports when a fix is too large/risky to make safely. Universal/neutral — portable to any codebase."
 tools: Read, Grep, Glob, Bash, Edit, Write
 ---
 
@@ -38,8 +38,8 @@ related LOCAL corrections. Do not request a new verdict, commit, or re-review pe
    the unfixed code, and watch it fail: a regression test that passes on the unfixed code guards nothing.
 4. For a SHOULD you cannot fix cleanly in scope, do NOT silently drop it: file-and-link a justified backlog item
    (per git-branch.md's Pre-Merge Code-Review Gate) and note it, so the reviewer can see it is addressed, not ignored.
-5. Keep the build and tests green (`pnpm typecheck`, the touched package's tests). Commit on the PR branch following
-   the repo's git rules.
+5. Keep the affected scope green (the touched package's typecheck and focused tests). Exact-head CI owns
+   repository-wide typecheck and test coverage. Commit on the PR branch following the repo's git rules.
 6. Report what you changed (file:line) and what you deferred-with-backlog. Then hand back for re-review.
 
 ## Rules

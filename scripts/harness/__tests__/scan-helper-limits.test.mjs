@@ -66,7 +66,7 @@ describe('a @limits helper is acknowledged where it is consumed', () => {
     // is the question going unasked, which is what an unannotated import is.
     const { findings } = analyze({
       [OWNER]: ownerText,
-      'scripts/harness/gate.mjs': [
+      'scripts/harness/policy-consumer.mjs': [
         "import { roughRelation } from './owner.mjs';",
         '// LIMITS roughRelation: CONTAINMENT — INFRA-074, held until the gate becomes enforcing.',
       ].join('\n'),

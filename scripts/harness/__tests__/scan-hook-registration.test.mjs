@@ -206,9 +206,9 @@ describe('scan-hook-registration', () => {
     expect(matchersExamined).toBe(2);
   });
 
-  it('reads an argument-carrying command (task-tracking.sh start) as a registration', () => {
+  it('reads an argument-carrying hook command as a registration', () => {
     const root = fixture({
-      hooks: { 'task-tracking.sh': TRIVIAL },
+      hooks: { 'with-args.sh': TRIVIAL },
       settings: {
         hooks: {
           SessionStart: [
@@ -217,7 +217,7 @@ describe('scan-hook-registration', () => {
               hooks: [
                 {
                   type: 'command',
-                  command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/task-tracking.sh start',
+                  command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/with-args.sh start',
                 },
               ],
             },

@@ -70,11 +70,6 @@ export const BASE_HISTORY_INVOCATIONS = [
     script: 'scripts/harness/check-regression-red-proof.mjs',
   },
   {
-    name: 'check-patch-coverage.mjs',
-    pattern: /check-patch-coverage\.mjs/,
-    script: 'scripts/harness/check-patch-coverage.mjs',
-  },
-  {
     name: 'pnpm harness:scan / harness:verify (document-authority gate)',
     pattern: /\bpnpm\s+harness:(scan|verify)/,
     script: 'scripts/harness/check-document-authority.mjs',
@@ -97,7 +92,7 @@ const BASE_HISTORY_READ = /merge-base|\.\.\.?HEAD/;
  */
 export const PER_COMMIT_HISTORY_INVOCATIONS = [
   {
-    name: 'pnpm harness:scan / harness:verify (user-execution-plan-order, promotion-ancestry)',
+    name: 'pnpm harness:scan / harness:verify (promotion-ancestry and base-history scans)',
     pattern: /\bpnpm\s+harness:(?:scan|verify)(?::release)?(?![\w-]*:)/,
   },
   { name: 'scan-promotion-ancestry.mjs', pattern: /scan-promotion-ancestry\.mjs/ },

@@ -41,9 +41,3 @@ fi
 # root developer command makes the deliberate pre-verification run and this commit-time safety net
 # execute the same path without nesting `flock`. (INFRA-082, INFRA-089)
 NODE_OPTIONS="--max-old-space-size=8192" pnpm lint:fix:staged
-
-# Ordering guards read the post-format index. HARNESS-121 proves the GATE-IMPLEMENT checkpoint;
-# RULE-2326 separately proves the independent recommendation checkpoint. Neither accepts
-# implementation in the commit that establishes its gate.
-node scripts/harness/scan-user-execution-plan-order.mjs --staged || exit 1
-node scripts/harness/scan-recommendation-endorsement.mjs --staged || exit 1

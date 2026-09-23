@@ -24,9 +24,7 @@
 {"runId":"r20260919184324","opened":"2026-09-19T18:43:24.163Z","closed":"2026-09-19T18:49:06.452Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":"PERF-2423"}
 {"runId":"r20260920074935","opened":"2026-09-20T07:49:35.988Z","closed":"2026-09-20T07:49:47.852Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"RULE-2664"}
 {"runId":"r20260920154434","opened":"2026-09-20T15:44:34.272Z","closed":"2026-09-20T15:59:40.260Z","roundFindings":[],"extensions":{},"terminal":"converged","ref":null}
-{"runId":"r20260920031502","opened":"2026-09-20T03:15:02.167Z","closed":"2026-09-20T03:17:27.769Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
-{"runId":"r20260920043323","opened":"2026-09-20T04:33:23.686Z","closed":"2026-09-20T04:34:24.004Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
-{"runId":"r20260920102005","opened":"2026-09-20T10:20:05.654Z","closed":"2026-09-20T10:21:49.232Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"BEHAVIOR-2663"}
-{"runId":"r20260920104617","opened":"2026-09-20T10:46:17.750Z","closed":"2026-09-20T10:46:26.844Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"RULE-2665"}
-{"runId":"r20260920125823","opened":"2026-09-20T12:58:23.302Z","closed":"2026-09-20T12:58:26.536Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":null}
-{"runId":"r20260920153644","opened":"2026-09-20T15:36:44.381Z","closed":"2026-09-20T15:38:38.534Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":".agents/tasks/completed/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md"}
+{"runId":"r20260921024704","opened":"2026-09-21T02:47:04.485Z","closed":"2026-09-21T02:50:46.244Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"GATE-2664-first-gate-implement-checkpoint-must-bind-the-clean-paired-task-and-spec.md"}
+{"runId":"r20260921033720","opened":"2026-09-21T03:37:20.065Z","closed":"2026-09-21T03:54:36.602Z","roundFindings":[2,0],"extensions":{},"terminal":"converged","ref":null}
+{"runId":"r20260921045224","opened":"2026-09-21T04:52:24.611Z","closed":"2026-09-21T04:54:10.828Z","roundFindings":[1,0],"extensions":{},"terminal":"converged","ref":"INFRA-2525 post-format verification and scenario-contract correction"}
+{"runId":"r20260921053643","opened":"2026-09-21T05:36:43.251Z","closed":"2026-09-21T05:41:42.698Z","roundFindings":[0],"extensions":{},"terminal":"converged","ref":"GATE-2525; GATE-DONE PASS; live PR #2788 closeout audit ok:true; 62 focused tests pass; affected scans exit 0"}

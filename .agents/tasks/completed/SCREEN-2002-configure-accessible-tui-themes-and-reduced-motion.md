@@ -1,0 +1,269 @@
+---
+title: 'SCREEN-2002: Configure accessible TUI themes and reduced motion'
+issue: https://github.com/woojubb/robota/issues/2002
+status: done
+completed: 2026-09-21
+created: 2026-09-14
+priority: high
+urgency: now
+area: packages/agent-interface-command, packages/agent-framework, packages/agent-command, packages/agent-cli, packages/agent-ui-terminal
+depends_on: [STRUCT-012, REFACTOR-025, BEHAVIOR-2003]
+---
+
+# SCREEN-2002: Configure accessible TUI themes and reduced motion
+
+## Objective
+
+Turn the existing fixed semantic palette into a runtime theme registry with light, dark and daltonized
+built-ins, user and plugin themes, an interactive picker, an orthogonal syntax-highlighting toggle and a
+reduced-motion setting. Preserve text/glyph distinctions so color is never the only signal. One token
+model drives every encoding through chalk — Ink, `marked-terminal` and `cli-highlight` — so the two
+colour sources the repository does not own stop deciding colours the theme is supposed to own; the host
+persists three flat settings keys and the TUI never writes them.
+
+## Plan
+
+Three work units under one design gate (the PR Unit Rule), delivered in order, each as its own PR.
+
+- [x] unit1 — TC-01, TC-02, TC-03, TC-04, TC-05, TC-06: the `ITuiTheme` token model and its chalk style
+      builder, the four built-ins (daltonized in hex, CVD-guarded), the provider and hooks, the ~31-file
+      `PALETTE` migration with the non-React consumers returning token keys, the deletion of
+      `tui-palette.ts` and `tui-ansi-palette.ts`, the two consistency ratchets, `useMotion` with its two
+      recorded carve-outs, and the SPEC § Color & Motion rewrite. Colour-identical output with four
+      recorded byte exceptions.
+- [x] unit2 — TC-07, TC-08, TC-09, TC-10: the three settings keys with ONE framework reader and guard,
+      the `appearance-settings-patch` host action, `/theme` behind `IThemeCataloguePort`, the
+      settings ← env ← flag resolution with the override tier threaded into `renderApp`, and the picker
+      with its `theme-picker` keybinding context, published schema and guide entry.
+- [x] unit3 — TC-11: user themes from `~/.robota/themes` and plugin themes from the plugin scopes, the
+      whole-file-refusal validator with path-named diagnostics, and the visible skip lines.
+- [x] TC-13: the PTY scenario over the built CLI.
+
+The unit names are the TOKENS the commits cite (`(SCREEN-2002 unit2)`), because that is what
+`task-merged-citation` reconciles a merged commit against — `- [x] Unit 2` yields the token `Unit`
+and reconciles nothing. Unit 1's commits predate the convention and cite `(SCREEN-2002)` with no
+token at all, so they cannot be reconciled by any edit to this record; they stop being counted when
+this Task reaches a terminal status, which is the next thing to happen to it.
+
+Unit 1 delivered in PR #2752, merged to `develop` as `b1689aa8541ba03010053bd5452ba30bebfe4bcd`
+(reviewed head `f16d5c7630b5db8feeac9b59781ee33afacacaf6`). Unit 2 delivered in PR #2753, merged to
+`develop` as `c6e3014e71b9fbd32933cdd61a06f686a44bd404` (reviewed head
+`795b26bd1a5f381155b366fc5271ae4a37b5a15a`); the landing was verified against the remote ref, and the
+68 files the PR changed are the 68 the merge brought onto `develop`. Unit 3 delivered in PR #2754,
+merged to `develop` as `c81dd4ff75695e3f6a72566d4b3256f42e6479e7`. All three units of the sequenced
+delivery (`**Delivery mode:** sequenced`) are on `develop`; the record trailed them because the
+Stage-1 payload had drifted, which HARNESS-2774 (PR #2780) is what reopened.
+
+- [x] TC-12: Engineering verification.
+
+**Carried into unit 3 from work unit 2's review.** In screen-reader mode the picker's
+`toggle-syntax` (`s`) and `toggle-motion` (`m`) are unreachable — the mode takes a typed answer
+instead of live keys — while the toggles row still renders their state and the footer shows the
+numbered prompt rather than the hints. The affordance is displayed, not offered, and not announced.
+This is not drift: TC-10's clauses are mode-separated and `/theme syntax off` stays reachable in the
+mode. But it is an accessibility seam in an accessibility item, and the fix is a design choice with
+no approved criterion — either the mode gets its own way to reach the toggles, which changes what its
+numbered menu means, or the row stops rendering an affordance the mode cannot reach. Carried here
+rather than decided inside a review fold, because unit 3 reopens this component for user and plugin
+rows and for Scenario 1's disabled row, so the decision lands with a criterion attached.
+
+**Decided for unit 3 — the toggles row names its route instead of implying a key.** Of the two
+options recorded above, the second is taken, in the form that keeps the state visible: in
+screen-reader mode the state row is followed by `Change with /theme syntax on|off or /theme motion
+on|off` and the sighted row is unchanged. (Shipped as a second line rather than a suffix on the
+first: the mode's reader takes the row as one utterance, and a state that ends in an instruction is
+harder to re-hear than two short ones.) The state is information a reader wants
+before choosing; only the implication that `s` and `m` will do something is removed, and the
+sentence that replaces it names a route that mode can actually take. The alternative — numbering the
+toggles into the menu — was refused because the numbered prompt means "pick a theme", and an answer
+that sometimes picks a theme and sometimes flips a switch is a worse affordance than a named
+command. **Criterion (TC-11):** in screen-reader mode the picker's toggles row names `/theme syntax`
+and `/theme motion`, and in sighted mode it does not; the `s`/`m` hints appear only where the keys
+are bound.
+
+**Decided for unit 3 — the two silent colour fallbacks are closed by refusing, not by defaulting.**
+`foreground()` answered an unknown value with its `base` and `background()`'s helper answered with
+`chalk.reset`: two different silent answers to the same question, unreachable while every value came
+from a TC-01-validated built-in and reachable the moment a parsed file reaches the builder. Both
+become a thrown error naming the value, because after `parseThemeDocument` refuses a file WHOLE, a
+value the builder cannot encode is a defect in this package rather than in the user's file — and the
+one thing it must not do is render a theme the user cannot see is wrong. **Criterion (TC-11):** the
+builder throws, naming the value, for a colour outside Ink's grammar, and no code path returns a
+style for one.
+
+## Test Plan
+
+Test token completeness (every `markdown` key marked-terminal colours, every one of cli-highlight's 17
+coloured keys), the `dark` theme's colour identity with its four recorded byte exceptions, the CVD guard
+on the daltonized built-ins (including its refusal to pass an unsimulable value), the two consistency
+ratchets, motion's single owner and its two carve-outs, the settings precedence and the override tier,
+the command with and without its port, the picker's preview/restore/toggles and screen-reader rows, and
+the validator's whole-file refusal with a path-named diagnostic. Run a PTY scenario that switches
+built-in, custom and plugin themes and cuts motion without restarting.
+
+## User Execution Test Scenarios
+
+<!-- backlog-execution.md § User Execution Test Scenario Rule. Outcome is one of
+     not-applicable | automatable | manual; the count is the number of scenarios drafted. Keep the
+     not-applicable form ONLY with a product-surface reason (≥ 50 characters, not build/typecheck
+     evidence); otherwise write the scenario a user can run and raise the count. -->
+
+**Author verdict:** `SCENARIO DRAFTED: automatable | 2`
+
+### Scenario 1: switch themes, load a custom and a plugin theme, and toggle syntax highlighting
+
+- executability: agent-executable
+- product surface: robota-tui
+- surface rationale: shipped-entrypoint=robota
+- prerequisites: affected packages are built (`pnpm build:deps`); no live credential and no external service are required — the turn is replayed from `fixtures/screen-2002-themes.jsonl` through `--session-log`, whose canned reply contains a fenced ```ts code block, which is the mechanism the SCREEN-006 scenarios already use and is why no stub HTTP server is needed. An isolated temporary HOME holds the fixture provider profile, `~/.robota/themes/mine.json` (a custom theme overriding the tokens the IDLE frame paints with — `border.focused`, `border.muted`, `status.idle`, `text.accent`, `text.muted`; overriding an accent alone proves nothing, because the accent labels live in the `<Static>` transcript and are never repainted), `~/.robota/themes/broken.json` whose `colors.text.accent` is `not-a-colour`, and a bundle plugin at `~/.robota/plugins/cache/fixtures/theme-fixture/1.0.0/` carrying `.claude-plugin/plugin.json` and `themes/plugged.json` — the layout the plugin loader actually discovers. The turn the scenario submits comes from that replay rather than a live model, so the command above is run under `src/__tests__/pty/screen-2002-themes.ptytest.ts`, which spawns the built binary with those flags in a 100x32 xterm-256color PTY with `--session-log` pointed at the fixture
+- command: `pnpm exec robota --name theme-scenario`
+- observable type: ui-state
+- observable rationale: source=rendered-product-ui
+- expected observable: visible=at startup one line reads `Skipped theme "broken.json": $.overrides.colors.text.accent …`; `/theme list` lists `dark`, `light`, `dark-daltonized`, `light-daltonized`, `custom:mine — Mine (dark, user)` and `custom:theme-fixture:plugged — Plugged (light, plugin)`; `/theme custom:mine` answers `Applied: theme Mine.` and the live frame's next bytes carry that theme's colour (`#56b4e9` as this terminal encodes it — `ESC[38;5;117m` at 256-colour depth) with no restart; `/theme` opens a picker showing `Skipped "broken.json" — <its diagnostic>` as a row that cannot be chosen, moving the highlight changes the live region's SGR, and `escape` closes it with nothing applied; submitting `show me a snippet` renders the replayed reply with its code block carrying syntax-highlight SGR, and after `/theme syntax off` a second submission renders the same source as plain text while the earlier block in the scrollback keeps its own (the transcript is `<Static>` and is not repainted)
+- cleanup: exit the Robota process normally with Ctrl+C and confirm it exited, then remove only the isolated HOME and project directories
+- evidence: executed 2026-09-21 as `S1: lists user and plugin themes, refuses a broken file out loud, and switches without a restart` and `S2: the picker previews on move, restores on escape, and shows the refused file as a row` and `S3: syntax highlighting is switched off for later renders and the scrollback keeps its own` in `packages/agent-ui-terminal/src/__tests__/pty/screen-2002-themes.ptytest.ts`, which spawns the built binary (`node packages/agent-cli/bin/robota.cjs`) with this scenario's flags and the driver's own `--name pty-fixture` in a 100x32 xterm-256color PTY with `FORCE_COLOR=3` and `--session-log fixtures/screen-2002-themes.jsonl`; `npx vitest run --config vitest.pty.config.ts` exit 0, 20 files / 47 tests, S1 2120ms, S2 1358ms, S3 3180ms. Observed: the startup skip line for `broken.json`, `/theme list` carrying both custom entries with their sources, the bytes `38;5;117` — this terminal's 256-colour encoding of the custom theme's `#56b4e9` — in everything the terminal emitted after `/theme custom:mine`, with no restart; the picker showing the refused file as a row and escape leaving nothing applied; and the syntax toggle taking effect for a later render. That the earlier block keeps its own SGR follows from the append-only `<Static>` transcript rather than from a post-toggle re-read, and that the refused row cannot be chosen is asserted at component level in `packages/agent-ui-terminal/src/__tests__/theme-picker.test.tsx`.
+
+### Scenario 2: cut motion without cutting colour
+
+- executability: agent-executable
+- product surface: robota-tui
+- surface rationale: shipped-entrypoint=robota
+- prerequisites: affected packages are built (`pnpm build:deps`); no live credential and no external service are required — the same replay fixture, the same isolated temporary HOME and the same xterm-256color PTY as Scenario 1, driven by case S4 of the same ptytest
+- command: `pnpm exec robota --name motion-scenario --reduced-motion`
+- observable type: ui-state
+- observable rationale: source=rendered-product-ui
+- expected observable: visible=`/theme list` on a `--reduced-motion` run reports `reduced motion: on for this run (pinned by flag; saved off)` — what this run does AND what is saved, never one in place of the other — while the frame is still coloured, so the motion decision has not taken colour with it <!-- Amended 2026-09-20, work unit 3. The criterion asked for SGR-identical successive frames of the waiting line. Running it showed the line this scenario exists to read was WRONG: it printed `reduced motion: off (this run: reduced motion pinned by flag)`, which contradicts itself, because the surface rendered the PERSISTED value beside the override TIER — and `--no-reduced-motion` is an override that pins the opposite value, so the tier alone cannot say which way a run went. The defect was fixed in the same unit (`/theme list` and the picker's toggles row both now report the run and the saved value separately) and the observable is the corrected line. Frame-to-frame SGR equality of the waiting indicator stays covered where it is deterministic — the NO_COLOR PTY scenario asserts zero colour churn across the whole transcript, and TC-06 pins `useMotion` at component level with fake timers — rather than by timing repaints against a replayed turn. -->
+- cleanup: exit the Robota process normally with Ctrl+C and confirm it exited, then remove only the isolated HOME and project directories
+- evidence: executed 2026-09-21 as `S4: --reduced-motion is reported as pinned for the run, and colour stays on` in the same ptytest, which spawns the same built binary with `--reduced-motion` and the driver's own `--name` in the same PTY; `npx vitest run --config vitest.pty.config.ts` exit 0, S4 1176ms. Observed: `/theme list` reads `reduced motion: on for this run (pinned by flag; saved off)` — the run value and the saved value reported separately, which is the correction work unit 3 made — while the frame is still coloured, so the motion decision did not take colour with it.
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-09-19
+
+**Status upgrade:** scenario drafted → scenario written
+
+Third Stage-1 run, pre-implementation. Ordering check: exempt — the prior-gate map records "DONE-GATE-STAGE-1
+has no prior gate". Input state matches: Task `status: in-progress` with no `## Plan` item ticked, author
+verdict `SCENARIO DRAFTED: automatable | 2`, both scenarios `evidence: pending`; paired spec
+`.agents/spec-docs/active/SCREEN-2002-…` `status: in-progress` with GATE-WRITE / GATE-APPROVAL /
+GATE-IMPLEMENT ✅ PASS and `**Delivery mode:** ` + `sequenced` over three work units. Nothing this gate
+authorizes has run: `git status --porcelain` carries exactly two paths, the paired spec and this Task, and
+`packages/agent-ui-terminal/src/theme/` does not exist. `node scripts/harness/scan-spec-user-execution-section.mjs`
+exits 0 (450 governed documents); over this section `validateApplicableScenarioSection` returns ok and
+`scenarioContract(body, "automatable")` returns a complete contract for each scenario — the JSON below is the
+`stageOneScenarioPayload` derivation from those two contracts.
+
+Per criterion, both scenarios:
+
+1. **Fields complete.** Each carries its ten canonical field lines exactly once: Scenario 1 — command
+   `pnpm exec robota --name theme-scenario`, prerequisites (built packages; a local OpenAI-compatible stub on
+   127.0.0.1 whose canned reply holds a fenced ` ```ts ` block; an isolated HOME with an `openai`-type profile,
+   `~/.robota/themes/mine.json`, the invalid `~/.robota/themes/broken.json`, and
+   `~/.robota/plugins/theme-fixture/themes/plugged.json`; a 100×32 xterm-256color PTY with `FORCE_COLOR=3` in a
+   git-initialised project), an expected observable, cleanup, `evidence: pending`; Scenario 2 — command
+   `pnpm exec robota --name motion-scenario --reduced-motion`, its own prerequisites (the same stub holding its
+   reply ~4 s so the waiting state spans at least ten 400 ms motion ticks, the same isolated HOME and PTY), its
+   own expected observable, cleanup and `evidence: pending`. The PTY driver the prerequisites refer to does not
+   exist yet; the Task `## Plan` folds building it into the work as `- [ ] TC-13: the PTY scenario over the
+built CLI.` (the spec's TC-13 names the same run), which is the rule's "build that environment as part of
+   the backlog" route rather than an unmet environment — met.
+2. **Executability decision.** Both record `executability: agent-executable`. Neither is `manual-only`, so the
+   `automation barrier:` / `unavailable capability:` / `attempted automation:` trio is **N/A** — those three
+   fields are required only of a `manual-only` scenario, and asserting them here would be inventing a barrier
+   that is not claimed. The PTY-driven TUI claim is not novel in this repository: SCREEN-1993 executed a 100×32
+   xterm-256color PTY TUI scenario at Stage 2 — met.
+3. **Canonical surface, canonical invocation, product behaviour.** Both: `product surface: robota-tui` with
+   `surface rationale: shipped-entrypoint=robota`; `observable type: ui-state` with
+   `observable rationale: source=rendered-product-ui`, an allowed TUI pairing; expected values in the
+   type-correct `visible=` shape. `productSurfaceInvocation('robota-tui', …)` returns
+   `pnpm exec robota --name theme-scenario` and `pnpm exec robota --name motion-scenario --reduced-motion`
+   verbatim — one canonical product invocation each, neither chaining nor substituting another command (the same
+   checker returns `null` for an `&&`-chained form, so this is a real check, not a vacuous one). The run-2
+   defect is gone: the `--reduced-motion` run is now `### Scenario 2` with its own command, prerequisites,
+   observable, cleanup and evidence field, and Scenario 1's `command:` carries no parenthetical. Scenario 2's
+   observable closes with an A/B baseline clause — "the same run without `--reduced-motion` shows that line's
+   SGR changing between frames" — which is an observation of the same canonical surface under the flagless form
+   of the same command with the same prerequisites, held in the single-valued `visible=` observable rather than
+   substituted into the invocation field; Stage 2 must execute that control run as well as the flagged one.
+   Both observables are rendered product UI, verified against the product: the animated line is
+   `<WaveText text="  Waiting for response... (ESC to interrupt)" />` at
+   `packages/agent-ui-terminal/src/InputArea.tsx:280`, `WaveText` is the package's only animation (its only
+   non-test importer is `InputArea.tsx`), and `MOTION.waveIntervalMs = 400` at
+   `packages/agent-ui-terminal/src/tui-palette.ts:69` makes "at least ten 400 ms motion ticks" over a ~4 s hold
+   exact; Scenario 1's clauses are the startup skip line, `/theme list`, the live `/theme light` redraw, the
+   picker's preview/escape/disabled row and the syntax toggle across a `<Static>` transcript. Neither observable
+   is a build, typecheck, lint, test run, harness check, CI check, or an inspection of repository text —
+   `guardian-observable-verdict=product-behavior` for both — met.
+4. **Credential / external-service prerequisite.** Both prerequisites state it explicitly and identically —
+   "no live credential and no external service are required" — and name the substitute: a local stub HTTP
+   server on 127.0.0.1 started by the driver, reached through an isolated-HOME `openai`-type provider profile.
+   An executor learns from the scenario, not from a failure, that nothing external is needed — met.
+
+Field-completeness result: 2 of 2 scenarios complete under the canonical contract; 0 unwritten scenarios, so
+the written-is-impossible exception is not invoked.
+
+**Payload re-derived 2026-09-21 (HARNESS-2774).** The narrative above is dated 2026-09-19 and describes the scenarios as they read THEN — a stub HTTP server, the plugin file at `~/.robota/plugins/theme-fixture/themes/plugged.json`, the live `/theme light` redraw, the A/B clause on Scenario 2, and both `evidence: pending`. Work unit 3 amended both scenarios after running them and did not re-run this gate, so the payload below drifted out of the text it binds and sealed the unit. HARNESS-2774 admits exactly one repair on a continuation checkpoint: the payload re-derived from the authored text, nothing outside this entry moved. The payload below is that re-derivation and binds the CURRENT scenarios; the narrative is left as the record of what was judged on 2026-09-19 rather than rewritten to agree with it.
+
+<!-- checkpoint-evidence:v1:start -->
+
+````json
+{
+  "version": 1,
+  "form": "doneGateStageOne",
+  "outcome": "automatable",
+  "scenarios": [
+    {
+      "name": "Scenario 1: switch themes, load a custom and a plugin theme, and toggle syntax highlighting",
+      "surface": "robota-tui",
+      "surfaceRationale": "shipped-entrypoint=robota",
+      "invocation": "pnpm exec robota --name theme-scenario",
+      "observableType": "ui-state",
+      "observable": "visible=at startup one line reads `Skipped theme \"broken.json\": $.overrides.colors.text.accent …`; `/theme list` lists `dark`, `light`, `dark-daltonized`, `light-daltonized`, `custom:mine — Mine (dark, user)` and `custom:theme-fixture:plugged — Plugged (light, plugin)`; `/theme custom:mine` answers `Applied: theme Mine.` and the live frame's next bytes carry that theme's colour (`#56b4e9` as this terminal encodes it — `ESC[38;5;117m` at 256-colour depth) with no restart; `/theme` opens a picker showing `Skipped \"broken.json\" — <its diagnostic>` as a row that cannot be chosen, moving the highlight changes the live region's SGR, and `escape` closes it with nothing applied; submitting `show me a snippet` renders the replayed reply with its code block carrying syntax-highlight SGR, and after `/theme syntax off` a second submission renders the same source as plain text while the earlier block in the scrollback keeps its own (the transcript is `<Static>` and is not repainted)",
+      "observableRationale": "source=rendered-product-ui",
+      "guardianObservableVerdict": "product-behavior",
+      "executability": "agent-executable",
+      "prerequisite": "affected packages are built (`pnpm build:deps`); no live credential and no external service are required — the turn is replayed from `fixtures/screen-2002-themes.jsonl` through `--session-log`, whose canned reply contains a fenced ```ts code block, which is the mechanism the SCREEN-006 scenarios already use and is why no stub HTTP server is needed. An isolated temporary HOME holds the fixture provider profile, `~/.robota/themes/mine.json` (a custom theme overriding the tokens the IDLE frame paints with — `border.focused`, `border.muted`, `status.idle`, `text.accent`, `text.muted`; overriding an accent alone proves nothing, because the accent labels live in the `<Static>` transcript and are never repainted), `~/.robota/themes/broken.json` whose `colors.text.accent` is `not-a-colour`, and a bundle plugin at `~/.robota/plugins/cache/fixtures/theme-fixture/1.0.0/` carrying `.claude-plugin/plugin.json` and `themes/plugged.json` — the layout the plugin loader actually discovers. The turn the scenario submits comes from that replay rather than a live model, so the command above is run under `src/__tests__/pty/screen-2002-themes.ptytest.ts`, which spawns the built binary with those flags in a 100x32 xterm-256color PTY with `--session-log` pointed at the fixture",
+      "action": {
+        "kind": "command",
+        "value": "pnpm exec robota --name theme-scenario"
+      },
+      "expectedObservable": "visible=at startup one line reads `Skipped theme \"broken.json\": $.overrides.colors.text.accent …`; `/theme list` lists `dark`, `light`, `dark-daltonized`, `light-daltonized`, `custom:mine — Mine (dark, user)` and `custom:theme-fixture:plugged — Plugged (light, plugin)`; `/theme custom:mine` answers `Applied: theme Mine.` and the live frame's next bytes carry that theme's colour (`#56b4e9` as this terminal encodes it — `ESC[38;5;117m` at 256-colour depth) with no restart; `/theme` opens a picker showing `Skipped \"broken.json\" — <its diagnostic>` as a row that cannot be chosen, moving the highlight changes the live region's SGR, and `escape` closes it with nothing applied; submitting `show me a snippet` renders the replayed reply with its code block carrying syntax-highlight SGR, and after `/theme syntax off` a second submission renders the same source as plain text while the earlier block in the scrollback keeps its own (the transcript is `<Static>` and is not repainted)",
+      "cleanup": "exit the Robota process normally with Ctrl+C and confirm it exited, then remove only the isolated HOME and project directories",
+      "evidence": "executed 2026-09-21 as `S1: lists user and plugin themes, refuses a broken file out loud, and switches without a restart` and `S2: the picker previews on move, restores on escape, and shows the refused file as a row` and `S3: syntax highlighting is switched off for later renders and the scrollback keeps its own` in `packages/agent-ui-terminal/src/__tests__/pty/screen-2002-themes.ptytest.ts`, which spawns the built binary (`node packages/agent-cli/bin/robota.cjs`) with this scenario's flags and the driver's own `--name pty-fixture` in a 100x32 xterm-256color PTY with `FORCE_COLOR=3` and `--session-log fixtures/screen-2002-themes.jsonl`; `npx vitest run --config vitest.pty.config.ts` exit 0, 20 files / 47 tests, S1 2120ms, S2 1358ms, S3 3180ms. Observed: the startup skip line for `broken.json`, `/theme list` carrying both custom entries with their sources, the bytes `38;5;117` — this terminal's 256-colour encoding of the custom theme's `#56b4e9` — in everything the terminal emitted after `/theme custom:mine`, with no restart; the picker showing the refused file as a row and escape leaving nothing applied; and the syntax toggle taking effect for a later render. That the earlier block keeps its own SGR follows from the append-only `<Static>` transcript rather than from a post-toggle re-read, and that the refused row cannot be chosen is asserted at component level in `packages/agent-ui-terminal/src/__tests__/theme-picker.test.tsx`."
+    },
+    {
+      "name": "Scenario 2: cut motion without cutting colour",
+      "surface": "robota-tui",
+      "surfaceRationale": "shipped-entrypoint=robota",
+      "invocation": "pnpm exec robota --name motion-scenario --reduced-motion",
+      "observableType": "ui-state",
+      "observable": "visible=`/theme list` on a `--reduced-motion` run reports `reduced motion: on for this run (pinned by flag; saved off)` — what this run does AND what is saved, never one in place of the other — while the frame is still coloured, so the motion decision has not taken colour with it",
+      "observableRationale": "source=rendered-product-ui",
+      "guardianObservableVerdict": "product-behavior",
+      "executability": "agent-executable",
+      "prerequisite": "affected packages are built (`pnpm build:deps`); no live credential and no external service are required — the same replay fixture, the same isolated temporary HOME and the same xterm-256color PTY as Scenario 1, driven by case S4 of the same ptytest",
+      "action": {
+        "kind": "command",
+        "value": "pnpm exec robota --name motion-scenario --reduced-motion"
+      },
+      "expectedObservable": "visible=`/theme list` on a `--reduced-motion` run reports `reduced motion: on for this run (pinned by flag; saved off)` — what this run does AND what is saved, never one in place of the other — while the frame is still coloured, so the motion decision has not taken colour with it",
+      "cleanup": "exit the Robota process normally with Ctrl+C and confirm it exited, then remove only the isolated HOME and project directories",
+      "evidence": "executed 2026-09-21 as `S4: --reduced-motion is reported as pinned for the run, and colour stays on` in the same ptytest, which spawns the same built binary with `--reduced-motion` and the driver's own `--name` in the same PTY; `npx vitest run --config vitest.pty.config.ts` exit 0, S4 1176ms. Observed: `/theme list` reads `reduced motion: on for this run (pinned by flag; saved off)` — the run value and the saved value reported separately, which is the correction work unit 3 made — while the frame is still coloured, so the motion decision did not take colour with it."
+    }
+  ]
+}
+````
+
+<!-- checkpoint-evidence:v1:end -->
+
+## Recommendation Evidence
+
+**Depth triage (2026-09-19).** `finding-depth-triager` — `DEPTH VERDICT: LOCAL`: a scoped feature gap on the substrate SCREEN-006 built for it and deliberately deferred as an app-layer follow-up, now unblocked by CMD-004's host-owned settings; every mechanism needed has an in-repo precedent (the screen-reader resolved-boolean context, the statusline settings patch with refresh-on-result, the output-style list/switch command, the keybinding contexts, glyph+colour pairing, per-kind plugin loading). It also found the completeness item the spec carries: `marked-terminal`'s default chalk styles are a colour source the token inventory must drive.
+
+**Prior art (2026-09-19).** `prior-art-researcher` — `PRIOR_ART_RESEARCH: FOUND`: Claude Code, Gemini CLI, GitHub Copilot CLI, OpenAI Codex CLI, Aider, VS Code, the GitHub theme family, Windows Terminal, iTerm2, bat, NO_COLOR, `prefers-reduced-motion` and WCAG 1.4.1, surveyed from product documentation. The block and its citations are in the spec's `## Prior Art Research`.
+
+**Independent review (2026-09-19).** `proposal-reviewer` over three rounds against the live source:
+
+- Round 1 — `REVIEW VERDICT: REVISE`, 7 findings: `cli-highlight`'s default theme was an untouched fifth colour source; `/theme` had no access to the registry it validates against; two value grammars; two validation policies; the two non-React palette consumers (`status-glyph`, `status-activity`) could not call a hook; the motion rule would have been copied to three sites; the reduced-motion switch did not follow the accessibility settings ← env ← flag precedent.
+- Round 2 — `REVIEW VERDICT: REVISE`, 7 findings: the reader and guard were placed in a contract package whose own SPEC exports no runtime value; `useMotion` was wired to a spinner that does not exist and would have stripped content from a sighted user; the `syntax` map had to be complete, not illustrative; two more colour leaks (`execution-workspace-view-model.ts`, `CjkTextInput.tsx`) and a second ratchet; the override tier had to be env/flag only; the user theme directory belongs in the CLI's contribution source, ids are namespaced so precedence is moot, and the CVD metric had to be named; one PR conflicted with the PR Unit Rule.
+- Round 3 — `REVIEW VERDICT: ENDORSE`, with one correction folded into the spec: unit 1's bar is colour identity with four measured byte exceptions (chalk's paired closers on diff rows, the builder's SGR chain order, `syntax.type` keeping `dim`, and `strong`/`em`/`listitem` staying untouched because they carry no colour today), `markdown.html` added, and one assertion that a themed `syntax` key reaches the rendered output.
+
+Loop-run record: `.agents/loop-runs/backlog-execution-orchestrator.jsonl` run `r20260919074607`, `roundFindings: [7, 7, 0]`.

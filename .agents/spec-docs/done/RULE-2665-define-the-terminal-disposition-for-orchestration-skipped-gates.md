@@ -7,6 +7,10 @@ lane: L2
 
 # RULE-2665: Define the terminal disposition for orchestration-skipped gates
 
+## Current disposition — 2026-09-23
+
+Historical delivery is preserved at replacement child merge `43fb665e23988443bea9f720e7b8392bd19f540b` in R `720eb5e841ba7a5361ac667b9658e034212bb58e`. The done status and original evidence below describe that delivery; importing this record does not restore its historical implementation. PR #2827 (`2a4a84631d24243d8dfb8ef75e04d790e8d60d37`) deliberately retired the legacy gate, checkpoint, and recommendation machinery. This record is historical evidence of a completed child, not an active instruction to recreate its gate, checkpoint, endorsement, or frozen-corpus enforcement machinery.
+
 Paired with
 `.agents/tasks/completed/RULE-2665-define-the-terminal-disposition-for-orchestration-skipped-gates.md`.
 Arising from [issue #2665](https://github.com/woojubb/robota/issues/2665).

@@ -19,10 +19,10 @@
  * command someone wrote down — not an author's typo, which is why fixing the one line does not close
  * it.
  *
- * ## Why the two existing filter guards do not cover it
+ * ## Why package-name resolution does not cover it
  *
- * `check-workspace-refs` and `check-ghost-package-refs` both ask whether the package NAME resolves.
- * Here it did: `agent-transport` is a real package, so both were satisfied while the command was
+ * `check-workspace-refs` asks whether the package NAME resolves.
+ * Here it did: `agent-transport` is a real package, so that guard was satisfied while the command was
  * useless. The wrong half was the SCRIPT, and nothing related a filter to it.
  *
  * ## What is reported, and what deliberately is not
@@ -31,7 +31,7 @@
  * `package.json` does not declare the script named after it.
  *
  * NOT REPORTED — a filter token that does not resolve to any workspace package. That question
- * already has two owners (above), and a third would be a second answer to one fact. It is also the
+ * already has one owner (above), and another would be a second answer to one fact. It is also the
  * noisier half by two orders of magnitude: measured on `develop` when this landed, the corpus
  * carried 350 unresolvable occurrences over 74 distinct tokens, nearly all deliberate — `<pkg>`
  * placeholders, `./packages/**` path filters, `@robota-sdk/dag-*` globs, `!`-negations and fixture
@@ -44,7 +44,7 @@
  * are not script-shaped, selectors — is owned by `lib/pnpm-invocation.mjs`, which states which way
  * its own enumeration fails. Two more live here because they are about the CORPUS, not the syntax:
  *
- *  - an IMMUTABLE HISTORICAL RECORD, on exactly the grounds `check-ghost-package-refs` already
+ *  - an IMMUTABLE HISTORICAL RECORD, on exactly the grounds `check-workspace-refs` already
  *    excludes the same trees, via the predicate this module imports rather than copies. A command
  *    that was correct when the record was written is history: CLI-074's spec document names the
  *    pre-split filter three times and every one of them ran green on 2026-06-12. Rewriting them to
@@ -61,11 +61,10 @@
  * Exit code 0 = every filtered package declares the script named after it.
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { isImmutableHistoricalRecord } from './check-ghost-package-refs.mjs';
-import { readWorkspaceManifests } from './check-workspace-refs.mjs';
+import { isImmutableHistoricalRecord, readWorkspaceManifests } from './check-workspace-refs.mjs';
 import { collectFiles } from './enumerate-files.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 import {
@@ -106,7 +105,7 @@ export function judgeText(text, file, scriptsByPackage) {
     for (const token of occurrence.packages) {
       if (isSelector(token)) continue;
       const scripts = scriptsByPackage.get(token);
-      // Unresolvable: check-workspace-refs and check-ghost-package-refs own that question.
+      // Unresolvable: check-workspace-refs alone owns that question.
       if (!scripts) continue;
       if (scripts.has(occurrence.script)) continue;
       findings.push({
@@ -143,6 +142,7 @@ export function findFilterScriptFindings(root = WORKSPACE_ROOT) {
   for (const relative of collectFiles(PATHSPECS, { cwd: root })) {
     const normalized = relative.split(path.sep).join('/');
     if (isImmutableHistoricalRecord(normalized)) continue;
+    if (!existsSync(path.join(root, relative))) continue;
     examinedFiles += 1;
     findings.push(
       ...judgeText(readFileSync(path.join(root, relative), 'utf8'), normalized, scriptsByPackage),

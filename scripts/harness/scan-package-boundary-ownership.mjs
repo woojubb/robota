@@ -14,12 +14,6 @@ import {
 } from './workspace-source-config-resolution.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
-export const scanDefinition = {
-  name: 'package-boundary-ownership',
-  always: true,
-  command: ['node', 'scripts/harness/scan-package-boundary-ownership.mjs'],
-};
-
 let examined = 0;
 export function examinedPopulationCount() {
   return examined;

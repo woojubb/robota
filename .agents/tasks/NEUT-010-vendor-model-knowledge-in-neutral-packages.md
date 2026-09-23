@@ -101,7 +101,8 @@ not a no-op refactor.
 - A neutrality check over `agent-core` for concrete provider/model name literals, so the table cannot
   regrow — and reconcile `agent-core/docs/SPEC.md` §§ _Boundaries_ / _Model Definitions (SSOT)_ so the
   check has an unambiguous rule to enforce.
-- `pnpm harness:verify-like-ci` green.
+- Targeted package tests/build/typecheck, `pnpm harness:scan`, and the required GitHub CI aggregates
+  on the exact PR head are green.
 
 ## User Execution Test Scenarios
 

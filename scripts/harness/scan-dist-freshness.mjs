@@ -309,8 +309,7 @@ export async function collectDistFreshnessResults(
 /**
  * The workspace names whose dist/ is older than their src/ — the packages a whole-workspace
  * typecheck reads stale cross-package types from. Measured, not read from a cache, so it costs one
- * tree walk; `verify-like-ci` spends it only on a typecheck stage that has already failed
- * (issue #2200).
+ * tree walk; callers should spend it only when stale output is relevant (issue #2200).
  */
 export async function staleDistScopes(root = ROOT) {
   const { results } = await collectDistFreshnessResults(root, await listWorkspaceScopes());

@@ -1,7 +1,7 @@
 ---
 title: 'PERF-2664: Restore the 128-second CI benchmark for control-plane changes without fail-open caching'
 issue: https://github.com/woojubb/robota/issues/2664
-status: todo
+status: superseded
 created: 2026-09-20
 priority: low
 urgency: later
@@ -10,6 +10,10 @@ depends_on: []
 ---
 
 # PERF-2664: Restore the 128-second CI benchmark for control-plane changes without fail-open caching
+
+## Current disposition — 2026-09-23
+
+PR #2827 (`2a4a84631d24243d8dfb8ef75e04d790e8d60d37`) deliberately retired the legacy gate, checkpoint, and recommendation machinery. The old 128-second benchmark and 11-context CI contract no longer define current acceptance. The 507/530-second measurements and original plan below remain historical evidence, not a passing benchmark. This independent issue-owned row is superseded and is not a ninth historical child. Current workflow acceptance uses the live affected-job contract; INFRA-2664 records actual branch/OID equivalence separately.
 
 ## Objective
 

@@ -170,6 +170,10 @@ const CLI_FORBIDDEN_PATTERNS = [
         category: 'entrypoint',
         reason: 'composition root — concrete runner wiring',
       },
+      'packages/agent-cli/src/headless-bin.ts': {
+        category: 'entrypoint',
+        reason: 'composition root — headless binary injects the same concrete runner wiring',
+      },
       'packages/agent-cli/src/modes/print-mode.ts': {
         category: 'type-only-contract',
         reason: 'composition root — type-only runner contract',

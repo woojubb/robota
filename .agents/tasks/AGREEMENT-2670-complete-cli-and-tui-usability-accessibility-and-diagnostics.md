@@ -42,7 +42,7 @@ The source register is exhaustive:
 | Issue #2054 | REFACTOR-025       | narrow TUI ports and responsibility-based coordinator extraction  |
 | Issue #2197 | STRUCT-012         | transport substrate consolidation and presentation package rename |
 | Issue #2437 | BEHAVIOR-2437      | first-class Git status, diff and confirmed commit commands        |
-| Issue #2442 | SCREEN-2442        | real Terminal.app/iTerm2 Korean IME evidence and policy decision  |
+| Issue #2773 | SCREEN-2442        | real Terminal.app Korean IME evidence and policy decision         |
 | Issue #2670 | SCREEN-2670        | asynchronous screen-reader pre-write park and ordered frame queue |
 
 The five SCREEN Tasks remain separate because they have different causes, owners and evidence:
@@ -61,11 +61,11 @@ attention state, stored-history query, palette configuration, OS/IME integration
 - [x] OBSERVABILITY-1991 — done — `.agents/tasks/completed/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md`
 - [x] SCREEN-1992 — done — `.agents/tasks/completed/SCREEN-1992-recap-unattended-session-and-background-activity.md`
 - [x] SCREEN-1993 — done — `.agents/tasks/completed/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md`
-- [ ] SCREEN-2002 — in-progress — `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`
+- [x] SCREEN-2002 — done — `.agents/tasks/completed/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`
 - [x] BEHAVIOR-2003 — done — `.agents/tasks/completed/BEHAVIOR-2003-configure-contextual-tui-key-bindings.md`
 - [x] FLOW-2006 — done — `.agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`
 - [x] BEHAVIOR-2437 — done — `.agents/tasks/completed/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md`
-- [ ] SCREEN-2442 — todo — `.agents/tasks/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md`
+- [x] SCREEN-2442 — done — `.agents/tasks/completed/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md`
 - [x] SCREEN-2670 — done — `.agents/tasks/completed/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md`
 
 ## Test Plan

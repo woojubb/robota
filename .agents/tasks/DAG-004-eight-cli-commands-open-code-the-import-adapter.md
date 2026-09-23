@@ -1,6 +1,6 @@
 ---
 title: 'DAG-004: eight dag-cli commands open-code the DAG import adapter, so an invalid definition still enters through them'
-status: todo
+status: done
 created: 2026-08-02
 priority: medium
 urgency: next
@@ -65,7 +65,8 @@ try/catch. A companion-aware sibling would serve the remaining eight.
 - **Required red-first regression, per site:** feed each command a definition file carrying
   `status: 'active'` and assert it is reported. Against current code every one of them accepts it.
 - One case per command asserting an unrecognised shape is reported rather than passed on.
-- `pnpm harness:verify-like-ci` green.
+- Targeted DAG tests/build/typecheck, `pnpm harness:scan`, and the required GitHub CI aggregates on
+  the exact PR head are green.
 
 ## User Execution Test Scenarios
 
@@ -78,4 +79,41 @@ try/catch. A companion-aware sibling would serve the remaining eight.
 - **Expected observable result (before the fix, for contrast):** each proceeds as if the file were
   valid.
 - **Cleanup:** delete the scratch file.
-- **Evidence (fill in after implementation):** the command output for each site.
+- **Evidence:** the completed implementation and executable results below; hosted CI and landing are recorded on the delivering PR.
+
+## Implementation and verification — 2026-09-23
+
+The live canonical owner is now `decodeDagFile` in `@robota-sdk/dag-builder`, replacing the
+historical adapter name above. A private CLI adapter formats its failure result; all twelve JSON
+read sites route through it. The original inventory contained nine sites (three run inputs plus
+six other commands); the audit also found diff, validate, and lint. Their existing error envelopes
+and semantic-validation results are preserved. This change does not alter DAG cancellation or
+storage adapters.
+
+The package suite passed 938/938 tests across 62 files, and the CLI typecheck and owning build
+passed. Regressions cover invalid status, unknown object shape, nested fields, both supported disk
+formats, optional companion validation, and structurally valid definitions reaching semantic
+validation/lint. Independent patch review reported zero actionable findings.
+
+A real CLI scenario ran the built `dist/node/bin.js` in a disposable workspace, using a local HTTP
+fixture for URL input and the real Studio HTTP server. The existing executable admitted all twelve
+invalid-status imports without the required import error (some later semantic checks failed for
+unrelated empty-node reasons). The rebuilt executable rejected all twelve at the decoder. Each
+result below named the invalid status; no `TypeError` was accepted as a successful test.
+
+| Input path | Rebuilt result                    |
+| ---------- | --------------------------------- |
+| run file   | exit 2; invalid status reported   |
+| run stdin  | exit 2; invalid status reported   |
+| run URL    | exit 2; invalid status reported   |
+| view       | exit 2; invalid status reported   |
+| cost       | exit 2; invalid status reported   |
+| explain    | exit 2; invalid status reported   |
+| benchmark  | exit 2; invalid status reported   |
+| fix        | exit 1; invalid status reported   |
+| diff       | exit 2; invalid status reported   |
+| validate   | exit 2; invalid status reported   |
+| lint       | exit 1; invalid status reported   |
+| studio     | HTTP 400; invalid status reported |
+
+The temporary files, local fixture server and Studio process were removed after the scenario.

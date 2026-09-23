@@ -190,7 +190,6 @@ describe('check-agent-def-convention (INFRA-030) — real corpus', () => {
   // token is registered, AND the agent that emits it still emits it.
   it.each([
     ['CI TRIAGE', 'ci-failure-triager.md'],
-    ['GATE VERDICT', 'backlog-gate-guard.md'],
     ['SCENARIO DRAFTED', 'user-execution-scenario-author.md'],
   ])('registers %s and its emitting agent %s still emits it', (token, agentFile) => {
     expect(CLOSED_SIGNAL_VOCAB.has(token)).toBe(true);

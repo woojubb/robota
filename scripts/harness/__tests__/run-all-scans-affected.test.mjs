@@ -1,8 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { makeTemp } from './make-temp.mjs';
 
 import {
   SCAN_COMMANDS,
@@ -14,7 +16,11 @@ import {
   parseStatusPorcelain,
   pathMatchesAny,
   runScans,
+  resolveChangedPaths,
+  scanCommandImportClosure,
+  scanInputGlobs,
   selectAffectedScans,
+  selectScansForExecutionContext,
 } from '../run-all-scans.mjs';
 
 /**
@@ -58,6 +64,26 @@ describe('globToRegExp / pathMatchesAny', () => {
   });
 });
 describe('selectAffectedScans (fixture registry, nothing spawned)', () => {
+  it('binds package-name resolution to every live reference corpus', () => {
+    const owner = SCAN_COMMANDS.find((scan) => scan.name === 'workspace-refs');
+    const inputs = scanInputGlobs(owner);
+    for (const file of [
+      'docs/guide.md',
+      'diagrams/current.mmd',
+      '.changeset/pre.json',
+      '.changeset/pending.md',
+      'vitest.config.ts',
+      'ui/view.tsx',
+      'config.mts',
+      'config.cts',
+      'config.js',
+      'ui/view.jsx',
+      'config.cjs',
+    ]) {
+      expect(pathMatchesAny(file, inputs), file).toBe(true);
+    }
+  });
+
   it('selects the scans whose globs a changed path reaches, plus every `always` scan', () => {
     const selection = selectAffectedScans(FIXTURE, ['scripts/harness/x.mjs']);
     expect(selection.full).toBe(false);
@@ -129,12 +155,35 @@ describe('parseRunOptions / parseStatusPorcelain', () => {
     expect(parseRunOptions([]).changed).toBeNull();
   });
 
-  it('reads a rename by its new name and an untracked entry as a path', () => {
+  it('retains both rename sides and an untracked entry as paths', () => {
     expect(parseStatusPorcelain('R  old.mjs -> new.mjs\n?? fresh/\n M x.md\n')).toEqual([
+      'old.mjs',
       'new.mjs',
       'fresh/',
       'x.md',
     ]);
+  });
+
+  it('retains a staged source moved out of a scan-owned path', () => {
+    const root = makeTemp('robota-scan-affected-rename-');
+    mkdirSync(path.join(root, 'scripts/harness'), { recursive: true });
+    mkdirSync(path.join(root, 'archive'), { recursive: true });
+    writeFileSync(path.join(root, 'scripts/harness/owned.mjs'), 'export {};\n');
+    spawnSync('git', ['init', '--quiet', '--initial-branch=base', root]);
+    spawnSync('git', ['-C', root, 'config', 'user.email', 'harness@example.test']);
+    spawnSync('git', ['-C', root, 'config', 'user.name', 'Harness']);
+    spawnSync('git', ['-C', root, 'add', '-A']);
+    spawnSync('git', ['-C', root, 'commit', '--quiet', '-m', 'base']);
+    spawnSync('git', ['-C', root, 'checkout', '--quiet', '-b', 'work']);
+    spawnSync('git', ['-C', root, 'mv', 'scripts/harness/owned.mjs', 'archive/owned.mjs']);
+
+    const resolved = resolveChangedPaths({ explicitBase: 'base', root, env: {} });
+
+    expect(resolved.error).toBeNull();
+    expect(resolved.files).toEqual(['archive/owned.mjs', 'scripts/harness/owned.mjs']);
+    expect(selectAffectedScans(FIXTURE, resolved.files).selected.map(({ name }) => name)).toContain(
+      'harness-only',
+    );
   });
 });
 
@@ -202,24 +251,17 @@ describe('the live registry declares what every scan reads', () => {
     console.log(`::examined:: ${SCAN_COMMANDS.length} registered scans`);
   });
 
-  it('registers lane-declaration as an always-run scan (PROC-016)', () => {
-    const lane = SCAN_COMMANDS.find((scan) => scan.name === 'lane-declaration');
-    expect(lane).toBeDefined();
-    expect(lane.always).toBe(true);
-    expect(lane.command).toEqual(['node', 'scripts/harness/scan-lane-declaration.mjs']);
-  });
-
-  it('marks exactly the prose/transcript graders and the history grader advisory, and every advisory scan is always-run', () => {
-    // task-merged-citation (issue #2186) grades git history that OTHER pull requests move, so it
-    // prompts a reconciliation rather than blocking the change under review.
+  it('marks exactly the prose/transcript graders advisory and routes transcript work locally', () => {
     expect([...advisoryScanNames()].sort()).toEqual([
       'progress-report-quantification',
       'reference-kind-qualified',
-      'task-merged-citation',
     ]);
-    for (const scan of SCAN_COMMANDS) {
-      if (scan.advisory) expect(scan.always, `${scan.name} is advisory but not always`).toBe(true);
-    }
+    expect(SCAN_COMMANDS.find((scan) => scan.name === 'reference-kind-qualified')).toHaveProperty(
+      'examines',
+    );
+    expect(
+      SCAN_COMMANDS.find((scan) => scan.name === 'progress-report-quantification'),
+    ).toMatchObject({ always: true, contexts: ['integration'], localOnly: true });
   });
 
   it('every declared glob points at something that exists in the tree (no stale path constants)', () => {
@@ -252,9 +294,66 @@ describe('the live registry declares what every scan reads', () => {
     }
     expect(missing).toEqual([]);
   });
+
+  it('selects every Node scan when its own implementation entrypoint changes', () => {
+    for (const scan of SCAN_COMMANDS.filter((entry) => entry.command?.[0] === 'node')) {
+      const entrypoint = scan.command[1];
+      expect(scanInputGlobs(scan), scan.name).toContain(entrypoint);
+      expect(
+        selectAffectedScans(SCAN_COMMANDS, [entrypoint]).selected.map((entry) => entry.name),
+        scan.name,
+      ).toContain(scan.name);
+    }
+  });
+
+  it('selects every cacheable Node scan for each file in its transitive local import closure', () => {
+    for (const scan of SCAN_COMMANDS.filter(
+      (entry) => entry.cacheable === true && entry.command?.[0] === 'node',
+    )) {
+      const closure = scanCommandImportClosure(scan);
+      expect(closure.length, scan.name).toBeGreaterThan(0);
+      for (const importedFile of closure) {
+        expect(
+          selectAffectedScans(SCAN_COMMANDS, [importedFile]).selected.map((entry) => entry.name),
+          `${scan.name}: ${importedFile}`,
+        ).toContain(scan.name);
+      }
+    }
+  });
+
+  it('owns the shared helper changes that previously skipped their importing scans', () => {
+    for (const [file, expected] of [
+      ['scripts/harness/hook-registration-facts.mjs', ['hook-registration']],
+      ['scripts/harness/cited-paths.mjs', ['spec-paths']],
+      ['scripts/harness/workspace-packages.mjs', ['spec-paths']],
+      ['scripts/harness/frontmatter.mjs', ['orchestration-map', 'skill-registration']],
+    ]) {
+      const selected = selectAffectedScans(SCAN_COMMANDS, [file]).selected.map(
+        (entry) => entry.name,
+      );
+      expect(selected, file).toEqual(expect.arrayContaining(expected));
+    }
+  });
+
+  it('owns a pnpm script mapping and the script entrypoint it resolves', () => {
+    const docsStructure = SCAN_COMMANDS.find((scan) => scan.name === 'docs-structure');
+    expect(scanCommandImportClosure(docsStructure)).toEqual(
+      expect.arrayContaining(['package.json', 'scripts/docs/validate-package-docs-structure.mjs']),
+    );
+    for (const changed of ['package.json', 'scripts/docs/validate-package-docs-structure.mjs']) {
+      expect(
+        selectAffectedScans(SCAN_COMMANDS, [changed]).selected.map((scan) => scan.name),
+        changed,
+      ).toContain('docs-structure');
+    }
+  });
 });
 
 describe('the runner on the live registry (TC-07)', () => {
+  const integrationRegistry = selectScansForExecutionContext(SCAN_COMMANDS, {
+    context: 'integration',
+    environment: process.env,
+  });
   function list(args) {
     const result = spawnSync(process.execPath, [RUNNER, '--affected', '--list', ...args], {
       cwd: REPO_ROOT,
@@ -279,17 +378,16 @@ describe('the runner on the live registry (TC-07)', () => {
   it('a one-file change under scripts/harness/ selects fewer than 41 scans and prints the excluded count', () => {
     const run = list(['--changed', 'scripts/harness/x.mjs']);
     expect(run.selected).toBeLessThan(41);
-    expect(run.selected + run.excluded).toBe(SCAN_COMMANDS.length);
+    expect(run.selected + run.excluded).toBe(integrationRegistry.length);
     expect(run.excluded).toBeGreaterThan(0);
     expect(run.stdout).toMatch(/excluded \(/);
-    expect(run.names).toContain('lane-declaration');
     expect(run.names).toContain('harness-script-import-safety');
     expect(run.names).not.toContain('memory-mirror');
   });
 
   it('an unclassifiable path selects the full suite and says why', () => {
     const run = list(['--changed', 'some/unknown/path']);
-    expect(run.selected).toBe(SCAN_COMMANDS.length);
+    expect(run.selected).toBe(integrationRegistry.length);
     expect(run.excluded).toBe(0);
     expect(run.stdout).toContain('`some/unknown/path`');
     expect(run.stdout).toContain('full suite');
@@ -299,6 +397,6 @@ describe('the runner on the live registry (TC-07)', () => {
     const run = list(['--changed', 'packages/agent-core/src/index.ts', '--skip', 'dist']);
     expect(run.stdout).toContain('skipped: dist (--skip)');
     expect(run.names).not.toContain('dist');
-    expect(run.selected + run.excluded).toBe(SCAN_COMMANDS.length - 1);
+    expect(run.selected + run.excluded).toBe(integrationRegistry.length - 1);
   });
 });

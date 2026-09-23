@@ -15,7 +15,7 @@ Issue #2670 consolidates eleven unfinished CLI/TUI outcomes. On current `origin/
 CLI still exposes no complete doctor/checkup, unattended recap, history search, runtime theme picker,
 configurable keybindings, deep-link launch surface or first-class Git command family. The terminal UI
 packages still carry transport names and broad concrete runtime dependencies; real Korean IME evidence
-is missing on Terminal.app/iTerm2; and screen-reader mode has no pre-write cursor park.
+is missing on Terminal.app; and screen-reader mode has no pre-write cursor park.
 
 Closing only the retained screen-reader defect would discard ten explicitly transferred outcomes.
 Conversely, implementing all eleven as one unstructured patch would make independent completion claims
@@ -113,7 +113,7 @@ None
 ## Affected Files
 
 - `.agents/tasks/AGREEMENT-2670-complete-cli-and-tui-usability-accessibility-and-diagnostics.md`
-- `.agents/tasks/{OBSERVABILITY-1991,SCREEN-1992,SCREEN-1993,SCREEN-2002,BEHAVIOR-2003,FLOW-2006,BEHAVIOR-2437,SCREEN-2442,SCREEN-2670}-*.md`
+- `.agents/tasks/SCREEN-2442-*.md` and `.agents/tasks/completed/{OBSERVABILITY-1991,SCREEN-1992,SCREEN-1993,SCREEN-2002,BEHAVIOR-2003,FLOW-2006,BEHAVIOR-2437,SCREEN-2670}-*.md`
 - `.agents/tasks/STRUCT-012-*.md`, `.agents/spec-docs/active/STRUCT-012-*.md`
 - `.agents/tasks/REFACTOR-025-*.md` and its paired spec when reconciled
 - child-owned package, app, test and SPEC paths declared by each later child plan
@@ -129,7 +129,7 @@ None
 - [x] TC-07: REFACTOR-025 archives after Issue #2054's narrow TUI ports and responsibility extractions pass characterization, type-boundary and functional tests; the obsolete deleted scan is explicitly removed from scope.
 - [ ] TC-08: STRUCT-012 archives after S3-S5 consolidate protocol into the parent, rename presentation packages, delete the old protocol package and pass all declared conformance/build tests.
 - [ ] TC-09: BEHAVIOR-2437 archives with argument-safe `/status`, `/diff` and confirmed staged-only `/commit` behavior in a real temporary repository.
-- [ ] TC-10: SCREEN-2442 archives with recorded Terminal.app/iTerm2 Korean IME versions and all four real-cell outcomes, the resulting Apple Terminal policy decision and green regression suites.
+- [x] TC-10: SCREEN-2442 archives with recorded Terminal.app Korean IME versions, both real-cell outcomes, the iTerm2 cells recorded as out of scope, the resulting Apple Terminal policy decision and green regression suites.
 - [ ] TC-11: SCREEN-2670 archives with a bounded asynchronous pre-write park queue whose timing, FIFO frame integrity, errors/backpressure, teardown and IME cursor order are verified RED→GREEN and in PTY.
 - [ ] TC-12: all eleven owner rows are terminal with exact delivery commits ancestral to `origin/develop`; Issue #2670 and each source issue contain read-back delivery evidence before the umbrella closes.
 
@@ -146,7 +146,7 @@ None
 | TC-07 | Characterization/Type/Functional | REFACTOR-025 declared focused suites                     | Existing behavior plus narrowed capabilities      |
 | TC-08 | Build/Conformance                | STRUCT-012 TC-01 through TC-13                           | Preserve its accepted staged design and evidence  |
 | TC-09 | Integration/CLI                  | BEHAVIOR-2437 temporary Git repository scenario          | Refusal and accepted staged-only commit           |
-| TC-10 | Manual/PTY                       | SCREEN-2442 four real macOS cells + existing suites      | Real Korean IME evidence, not env simulation      |
+| TC-10 | Manual/PTY                       | SCREEN-2442 two real macOS cells + existing suites       | Real Korean IME evidence, not env simulation      |
 | TC-11 | Unit/PTY                         | SCREEN-2670 fake timers, stream and PTY byte capture     | RED unwrapped, GREEN queued                       |
 | TC-12 | Remote audit                     | GitHub PR/check/issue readback and Git ancestry          | No aggregate scan substitutes for row evidence    |
 
@@ -164,11 +164,11 @@ The exact paired parent is `.agents/tasks/AGREEMENT-2670-complete-cli-and-tui-us
 - [x] OBSERVABILITY-1991 — done — `.agents/tasks/completed/OBSERVABILITY-1991-diagnose-cli-configuration-and-runtime-readiness-before-a-session-starts.md`
 - [x] SCREEN-1992 — done — `.agents/tasks/completed/SCREEN-1992-recap-unattended-session-and-background-activity.md`
 - [x] SCREEN-1993 — done — `.agents/tasks/completed/SCREEN-1993-search-prompt-history-and-conversation-transcripts.md`
-- [ ] SCREEN-2002 — in-progress — `.agents/tasks/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`
+- [x] SCREEN-2002 — done — `.agents/tasks/completed/SCREEN-2002-configure-accessible-tui-themes-and-reduced-motion.md`
 - [x] BEHAVIOR-2003 — done — `.agents/tasks/completed/BEHAVIOR-2003-configure-contextual-tui-key-bindings.md`
 - [x] FLOW-2006 — done — `.agents/tasks/completed/FLOW-2006-launch-a-safe-prefilled-local-session-from-a-deep-link.md`
 - [x] BEHAVIOR-2437 — done — `.agents/tasks/completed/BEHAVIOR-2437-deliver-first-class-git-status-diff-and-commit-commands.md`
-- [ ] SCREEN-2442 — todo — `.agents/tasks/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md`
+- [x] SCREEN-2442 — done — `.agents/tasks/completed/SCREEN-2442-validate-korean-ime-cursor-positioning-on-macos-terminals.md`
 - [x] SCREEN-2670 — done — `.agents/tasks/completed/SCREEN-2670-queue-screen-reader-frames-with-a-pre-write-cursor-park.md`
 
 ## Evidence Log

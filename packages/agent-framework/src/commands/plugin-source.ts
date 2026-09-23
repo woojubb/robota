@@ -1,5 +1,33 @@
 import type { ICommandSource, ICommand } from '../command-api/types.js';
 import type { ILoadedBundlePlugin } from '../plugins/index.js';
+import type { IBundleSkill } from '../plugins/index.js';
+
+function skillCommandMetadata(
+  skill: IBundleSkill,
+): Pick<
+  ICommand,
+  | 'argumentHint'
+  | 'disableModelInvocation'
+  | 'userInvocable'
+  | 'allowedTools'
+  | 'model'
+  | 'effort'
+  | 'context'
+  | 'agent'
+> {
+  return {
+    ...(skill.argumentHint !== undefined ? { argumentHint: skill.argumentHint } : {}),
+    ...(skill.disableModelInvocation !== undefined
+      ? { disableModelInvocation: skill.disableModelInvocation }
+      : {}),
+    ...(skill.userInvocable !== undefined ? { userInvocable: skill.userInvocable } : {}),
+    ...(skill.allowedTools !== undefined ? { allowedTools: skill.allowedTools } : {}),
+    ...(skill.model !== undefined ? { model: skill.model } : {}),
+    ...(skill.effort !== undefined ? { effort: skill.effort } : {}),
+    ...(skill.context !== undefined ? { context: skill.context } : {}),
+    ...(skill.agent !== undefined ? { agent: skill.agent } : {}),
+  };
+}
 
 /**
  * Command source that discovers skills and commands from loaded BundlePlugins.
@@ -28,6 +56,7 @@ export class PluginCommandSource implements ICommandSource {
           source: 'plugin',
           skillContent: skill.skillContent,
           pluginDir: plugin.pluginDir,
+          ...skillCommandMetadata(skill),
         });
       }
 
@@ -39,6 +68,7 @@ export class PluginCommandSource implements ICommandSource {
           source: 'plugin',
           skillContent: cmd.skillContent,
           pluginDir: plugin.pluginDir,
+          ...skillCommandMetadata(cmd),
         });
       }
     }

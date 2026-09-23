@@ -1,7 +1,7 @@
 ---
 title: 'AGREEMENT-2698: Coordinate the diagnostic-first harness migration'
 issue: https://github.com/woojubb/robota/issues/2698
-status: in-progress
+status: superseded
 created: 2026-09-11
 priority: medium
 urgency: soon
@@ -18,6 +18,16 @@ children:
 ---
 
 # AGREEMENT-2698: Coordinate the diagnostic-first harness migration
+
+## Current disposition — 2026-09-23
+
+The existing superseded Task / rejected spec disposition is unchanged. PR #2827 (`2a4a84631d24243d8dfb8ef75e04d790e8d60d37`) deliberately retired the legacy gate, checkpoint, and recommendation machinery. The retained issue #2391 requirement on surviving code is independently delivered by PR #2835 (`7f8fcb3409222ac38085c35c56dda1ee2165ce6d`): failed review inspection is reported explicitly, while a valid absent review remains distinct. That bounded delivery is not evidence that every historical diagnostic detector was repaired; obsolete detector incidents are retired with their owner machinery. No diagnostic migration pipeline is reopened.
+
+## Disposition
+
+**Superseded as a separate initiative by issue #2826.** The diagnostic-first migration is performed
+directly by the simplified harness: policy findings remain visible, detector failures are explicit,
+and obsolete gate/ledger machinery is deleted rather than kept as a compatibility layer.
 
 ## Objective
 

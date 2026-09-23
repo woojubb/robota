@@ -1,9 +1,0 @@
-{
-  "adoptionRevision": "43fb665e23988443bea9f720e7b8392bd19f540b",
-  "bootstrap": {
-    "subject": "RULE-2326-enforce-rebase-stable-universal-recommendation-endorsement.md",
-    "reviewedRevision": "2a5da7ba7651fd4830013743f41dd81a449713f5",
-    "projectionDigest": "61ad97bdccc0973a782728d8052623279334aedfcb0e43a0875cc947486a37ee",
-    "endorsementKey": "3d5967a5223098f7f82aa69b59db701bf807f1829954ca61702e075abccad0c2"
-  }
-}

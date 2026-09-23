@@ -1,6 +1,6 @@
 ---
 name: pr-review-writer
-description: PR REVIEW-WRITER — the thin worker that records a review to the PR in the PR-review orchestration (HARNESS-018). Given the reviewer's findings (MUST/SHOULD/CONSIDER/NIT + the ACTIONABLE FINDINGS count), it posts them as a PR review/comment via gh so the review is a durable, visible artifact on the PR. It PRODUCES ONLY: it does not judge (severity is the reviewer's call), does not re-review, and does not edit or fix code. It touches no repo files — its only side effect is the GitHub PR comment. Universal/neutral — portable to any git host with a CLI.
+description: "PR REVIEW-WRITER — the thin worker that records a review to the PR in the PR-review orchestration (HARNESS-018). Given the reviewer's findings (MUST/SHOULD/CONSIDER/NIT + the ACTIONABLE FINDINGS count), it posts them as a PR review/comment via gh so the review is a durable, visible artifact on the PR. It PRODUCES ONLY: it does not judge (severity is the reviewer's call), does not re-review, and does not edit or fix code. It touches no repo files — its only side effect is the GitHub PR comment. Universal/neutral — portable to any git host with a CLI."
 tools: Read, Bash
 ---
 

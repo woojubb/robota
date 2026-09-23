@@ -40,14 +40,7 @@ const SSOT_MODULE = 'frontmatter.mjs';
  * Scripts still carrying their own frontmatter regex, each with a REASON (a reason-less entry is
  * itself a failure — the anti-rot rule this repo applies to every suppression list).
  */
-const ALLOWLIST = new Map([
-  [
-    'check-backlog-placement.mjs',
-    'HARNESS-046: reads only the `status`/`completed` scalars, which prettier never reflows, so it is ' +
-      'latent rather than live; the file was under concurrent edit when HARNESS-046 landed. Convert it ' +
-      'to frontmatter.mjs and delete this entry.',
-  ],
-]);
+const ALLOWLIST = new Map();
 
 /**
  * Regex literals in a source file, as their raw pattern text.

@@ -16,7 +16,6 @@ import { runsCommand } from './commands/runs.js';
 import { validateCommand } from './commands/validate.js';
 import { nodeCommand } from './commands/node.js';
 import { initCommand } from './commands/init.js';
-import { mcpCommand } from './commands/mcp.js';
 import { catalogCommand } from './commands/catalog.js';
 import { templateCommand } from './commands/template.js';
 import { runMigrateCommand } from './commands/migrate.js';
@@ -46,7 +45,6 @@ import { describeCommand } from './commands/describe.js';
 import { fixCommand } from './commands/fix.js';
 import { studioCommand } from './commands/studio.js';
 import { viewCommand } from './commands/view.js';
-import { sessionCommand } from './commands/session.js';
 
 const UTF8_ENCODING = 'utf8';
 
@@ -127,7 +125,6 @@ const RUNS_SUBCOMMAND = 'runs';
 const VALIDATE_SUBCOMMAND = 'validate';
 const NODE_SUBCOMMAND = 'node';
 const INIT_SUBCOMMAND = 'init';
-const MCP_SUBCOMMAND = 'mcp';
 const CATALOG_SUBCOMMAND = 'catalog';
 const TEMPLATE_SUBCOMMAND = 'template';
 const MIGRATE_SUBCOMMAND = 'migrate';
@@ -156,22 +153,15 @@ const DESCRIBE_SUBCOMMAND = 'describe';
 const FIX_SUBCOMMAND = 'fix';
 const STUDIO_SUBCOMMAND = 'studio';
 const VIEW_SUBCOMMAND = 'view';
-const SESSION_SUBCOMMAND = 'session';
 const SERVER_FLAG = '--server';
 
-const TOP_LEVEL_HELP_TEXT = `dag — The DAG built for AI agents. Local-first, MCP-native, no server required.
+const TOP_LEVEL_HELP_TEXT = `dag — The DAG built for AI agents. Local-first, no server required.
 
 [Quick Start]
   dag demo                          Try it now — no API key required
   dag run --pipeline \\
     "input | llm-text[provider=anthropic] | text-output" \\
     --input text="Hello"            Run a pipeline in one line
-
-[For AI Agents (Claude Code / MCP)]
-  dag init --claude                 Auto-configure .claude/mcp.json
-  dag mcp --transport stdio         Start MCP server (28 tools for agents)
-  dag mcp --inspect                 List all MCP tools with descriptions
-  dag mcp schema                    Output tool schemas as JSON
 
 [Getting Started]
   dag init                          Create a new DAG project
@@ -261,11 +251,6 @@ export async function runDagCli(
   // Route `init` to project scaffolding.
   if (args[0] === INIT_SUBCOMMAND) {
     return initCommand(args.slice(1), { io: wrappedIo });
-  }
-
-  // Route `mcp` to local MCP server.
-  if (args[0] === MCP_SUBCOMMAND) {
-    return mcpCommand(args.slice(1));
   }
 
   // Route `catalog` to local file catalog commands.
@@ -408,11 +393,6 @@ export async function runDagCli(
   // Route `view` to the ASCII flow diagram viewer.
   if (args[0] === VIEW_SUBCOMMAND) {
     return viewCommand(args.slice(1), { io: wrappedIo });
-  }
-
-  // Route `session` to bounded agent session management.
-  if (args[0] === SESSION_SUBCOMMAND) {
-    return sessionCommand(args.slice(1), { io: wrappedIo });
   }
 
   const config = parseGlobalConfig(args, options.env?.ROBOTA_DAG_SERVER_URL);

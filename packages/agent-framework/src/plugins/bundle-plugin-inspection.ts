@@ -7,6 +7,7 @@
 import { join } from 'node:path';
 
 import { HooksSchema } from '../config/config-types.js';
+import { FrontmatterDecodeError } from '../frontmatter/frontmatter-error.js';
 
 import type {
   IBundlePluginHookIssue,
@@ -32,6 +33,17 @@ const JSON_POSITION = /position (\d+)/;
  */
 export function skipDetail(error: Error | undefined): string {
   if (error === undefined) return 'Error';
+  if (error instanceof FrontmatterDecodeError) {
+    return error.diagnostics
+      .map((diagnostic) => {
+        const location =
+          diagnostic.line === undefined
+            ? diagnostic.source
+            : `${diagnostic.source}:${diagnostic.line}${diagnostic.column === undefined ? '' : `:${diagnostic.column}`}`;
+        return `${location} [${diagnostic.code}]${diagnostic.field === undefined ? '' : ` ${diagnostic.field}`}`;
+      })
+      .join('; ');
+  }
   const position = JSON_POSITION.exec(error.message);
   return position === null ? error.name : `${error.name} at position ${position[1]}`;
 }

@@ -1,6 +1,6 @@
 ---
 name: wiring-guardian
-description: Independent, read-only guardian that judges whether a harness artifact is WIRED — and, critically, whether the check that says so would actually have gone red had it not been. It JUDGES ONLY - it never wires, never fixes, and never edits. Its second question is the reason it exists: a guardian that confirms only "the name appears in the index" installs an unfalsifiable check in the wiring-verification slot, which is the same defect one layer up. Returns exactly one verdict — PASS, FAIL, or NON-COMPLIANCE. Universal/neutral — portable to any repository with a registry of dispatchable artifacts. Use after a wiring worker reports, never on your own work.
+description: 'Independent, read-only guardian that judges whether a harness artifact is WIRED — and, critically, whether the check that says so would actually have gone red had it not been. It JUDGES ONLY - it never wires, never fixes, and never edits. Its second question is the reason it exists: a guardian that confirms only "the name appears in the index" installs an unfalsifiable check in the wiring-verification slot, which is the same defect one layer up. Returns exactly one verdict — PASS, FAIL, or NON-COMPLIANCE. Universal/neutral — portable to any repository with a registry of dispatchable artifacts. Use after a wiring worker reports, never on your own work.'
 tools: Read, Grep, Glob, Bash
 signal: GATE VERDICT
 ---

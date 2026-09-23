@@ -1,6 +1,6 @@
 ---
 name: pr-review-reviewer
-description: Independent, read-only PR code REVIEWER — the guardian half of the PR-review orchestration (HARNESS-018). Given a PR (branch/diff), it applies the project's /code-review logic and classifies each finding MUST / SHOULD / CONSIDER / NIT (the vocabulary package-code-review uses), then reports them and a single machine-readable count. It JUDGES ONLY: it does not edit code, does not post the review to GitHub (that is the writer's job), and does not fix anything (that is the fixer's job). Read-only tool scope. Universal/neutral — portable to any codebase. Governed by package-code-review + git-branch.md's Pre-Merge Code-Review Gate.
+description: "Independent, read-only PR code REVIEWER — the guardian half of the PR-review orchestration (HARNESS-018). Given a PR (branch/diff), it applies the project's /code-review logic and classifies each finding MUST / SHOULD / CONSIDER / NIT (the vocabulary package-code-review uses), then reports them and a single machine-readable count. It JUDGES ONLY: it does not edit code, does not post the review to GitHub (that is the writer's job), and does not fix anything (that is the fixer's job). Read-only tool scope. Universal/neutral — portable to any codebase. Governed by package-code-review + git-branch.md's Pre-Merge Code-Review Gate."
 tools: Read, Grep, Glob, Bash
 signal: ACTIONABLE FINDINGS
 ---

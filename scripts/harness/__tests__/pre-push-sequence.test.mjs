@@ -232,57 +232,40 @@ describe('pre-push prerequisites follow its local work, not the product change c
 });
 
 describe('post-verdict guard reaches the real Git pre-push boundary', () => {
-  it('preserves a trusted integration-base declaration in the synthetic push command', () => {
-    const result = runPostVerdictGuard({
-      cwd: '/tmp/fixture-repo',
-      script: '/tmp/fixture-repo/.claude/hooks/pre-push-check.sh',
-      env: { HARNESS_BASE_REF: 'origin/integration/agreement-2664' },
-      spawn(_command, _args, options) {
-        expect(JSON.parse(options.input)).toMatchObject({
-          tool_name: 'Bash',
-          tool_input: {
-            command: 'HARNESS_BASE_REF=origin/integration/agreement-2664 git push',
-          },
-        });
-        return { status: 0 };
-      },
-    });
-    expect(result).toBe(true);
-  });
-
-  it.each([undefined, ''])(
-    'preserves the bare push command when the declaration is %s',
-    (declaredBase) => {
-      const env = {};
-      if (declaredBase !== undefined) env.HARNESS_BASE_REF = declaredBase;
-      const result = runPostVerdictGuard({
-        env,
-        spawn(_command, _args, options) {
-          expect(JSON.parse(options.input).tool_input.command).toBe('git push');
-          return { status: 0 };
-        },
-      });
-      expect(result).toBe(true);
-    },
-  );
-
-  it.each([
-    'origin/integration/agreement-2664;#',
-    'origin/integration/agreement-2664; touch /tmp/not-executed',
-    '"origin/integration/agreement-2664"',
-    'origin/integration/agreement-2664\ngit push origin main',
-  ])('rejects an adversarial declaration before shell-command projection: %s', (declaredBase) => {
+  it('preserves a trusted integration-base declaration in the replayed command', () => {
     const spawn = vi.fn(() => ({ status: 0 }));
 
-    expect(runPostVerdictGuard({ env: { HARNESS_BASE_REF: declaredBase }, spawn })).toBe(false);
+    expect(
+      runPostVerdictGuard({
+        env: { HARNESS_BASE_REF: 'origin/integration/agreement-014' },
+        spawn,
+      }),
+    ).toBe(true);
+    expect(JSON.parse(spawn.mock.calls[0][2].input)).toMatchObject({
+      tool_name: 'Bash',
+      tool_input: {
+        command: 'HARNESS_BASE_REF=origin/integration/agreement-014 git push',
+      },
+    });
+  });
+
+  it('rejects a malformed non-empty base declaration before spawning the guard', () => {
+    const spawn = vi.fn(() => ({ status: 0 }));
+
+    expect(
+      runPostVerdictGuard({
+        env: { HARNESS_BASE_REF: 'origin/integration/agreement-014; false' },
+        spawn,
+      }),
+    ).toBe(false);
     expect(spawn).not.toHaveBeenCalled();
   });
 
   it('refuses when the shared agent guard returns a non-zero status', () => {
     const result = runPostVerdictGuard({
       cwd: '/tmp/fixture-repo',
-      script: '/tmp/fixture-repo/.claude/hooks/pre-push-check.sh',
       env: {},
+      script: '/tmp/fixture-repo/.claude/hooks/pre-push-check.sh',
       spawn(_command, _args, options) {
         expect(JSON.parse(options.input)).toMatchObject({
           tool_name: 'Bash',
@@ -340,21 +323,19 @@ describe('pre-push command runner characterization (INFRA-148)', () => {
 });
 
 describe('LOCAL-2655 local pre-push execution', () => {
-  it('keeps unresolved-base formatting on checkout changes instead of a diagnostic default base', () => {
+  it('keeps unresolved-base planning on checkout changes without repeating commit-hook checks', () => {
     const calls = [];
     const writes = [];
     runPrePushVerification(
       { baseRef: null, baseArgs: [], scopeExpansionArgs: [], prePushMode: 'full' },
       { run: (command, args) => calls.push([command, args]), write: (value) => writes.push(value) },
     );
-    expect(calls).toEqual([
-      ['pnpm', ['harness:plan', '--']],
-      ['pnpm', ['harness:verify-like-ci', '--', '--base-ref', 'HEAD', '--only', 'format-check']],
-    ]);
+    expect(calls).toEqual([['pnpm', ['harness:plan', '--']]]);
     expect(writes.join('')).toContain('base: unresolved; using working-tree changes only');
+    expect(writes.join('')).toContain('reused from commit hooks: formatting and commit messages');
   });
 
-  it('wires only planning and formatting, even for a full product-code push', () => {
+  it('runs changed-input planning only, even for a full product-code push', () => {
     const calls = [];
     const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     try {
@@ -375,24 +356,13 @@ describe('LOCAL-2655 local pre-push execution', () => {
 
       expect(calls).toEqual([
         ['pnpm', ['harness:plan', '--', '--base-ref', 'origin/develop']],
-        [
-          'pnpm',
-          [
-            'harness:verify-like-ci',
-            '--',
-            '--base-ref',
-            'origin/develop',
-            '--only',
-            'format-check',
-          ],
-        ],
       ]);
       expect(steps).not.toHaveProperty('findReusableReceipt');
       expect(steps).not.toHaveProperty('reportReceiptReused');
       expect(steps).not.toHaveProperty('pruneAndWarnStaleWorktrees');
       const output = write.mock.calls.map(([value]) => value).join('');
-      expect(output).toContain('Local checks passed: planning, formatting');
-      expect(output).toContain('not CI-equivalent');
+      expect(output).toContain('reused from commit hooks: formatting and commit messages');
+      expect(output).toContain('did not repeat completed local checks');
       expect(output).toContain(
         'CI-owned (not run locally): repository-contract, hermetic, pristine',
       );
@@ -402,9 +372,7 @@ describe('LOCAL-2655 local pre-push execution', () => {
     }
   });
 
-  it.each(['harness:plan', 'harness:verify-like-ci'])(
-    'propagates a failing %s without claiming local success',
-    (failingScript) => {
+  it('propagates a failing plan without claiming local success', () => {
       const calls = [];
       const writes = [];
       expect(() =>
@@ -419,19 +387,13 @@ describe('LOCAL-2655 local pre-push execution', () => {
             write: (value) => writes.push(value),
             run: (command, args) => {
               calls.push([command, args]);
-              if (args[0] === failingScript) throw new Error('local check failed');
+              if (args[0] === 'harness:plan') throw new Error('local check failed');
             },
           },
         ),
       ).toThrow('local check failed');
-      expect(calls.map(([, args]) => args[0])).toEqual(
-        failingScript === 'harness:plan'
-          ? ['harness:plan']
-          : ['harness:plan', 'harness:verify-like-ci'],
-      );
-      expect(writes.join('')).not.toContain('Local checks passed');
+      expect(calls.map(([, args]) => args[0])).toEqual(['harness:plan']);
+      expect(writes.join('')).not.toContain('did not repeat completed local checks');
       expect(calls[0][1]).toContain('--skip-dependent-scopes');
-      if (calls.length === 2) expect(calls[1][1]).not.toContain('--skip-dependent-scopes');
-    },
-  );
+  });
 });

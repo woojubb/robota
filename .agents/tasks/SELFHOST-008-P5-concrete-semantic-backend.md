@@ -54,6 +54,7 @@ the port stays in `agent-framework`.
 
 ## Notes
 
-Deferred at the SELFHOST-008 library build-out completion (P1–P4 done, all gates). Follow the full spec-gate pipeline
-(GATE-WRITE → APPROVAL → IMPLEMENT → VERIFY → COMPLETE) when implementation begins; the GATE-COMPLETE user-execution
-scenario should demonstrate a real paraphrased-recall hit end-to-end through a surface with the concrete adapter.
+Deferred at the SELFHOST-008 library build-out completion (P1–P4 done). When implementation begins,
+make one scope/design entry decision, implement and verify the focused change, then make one completion
+decision. The user-execution scenario should demonstrate a real paraphrased-recall hit end-to-end
+through a surface with the concrete adapter.

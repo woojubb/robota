@@ -13,7 +13,9 @@ import path from 'node:path';
 import { appendFileSync } from 'node:fs';
 
 import { resolveCapabilityReachability } from './changed-path-capabilities.mjs';
-import { classifyRootManifestChange } from './shared.mjs';
+import { classifyPackageManifestChange, classifyRootManifestChange } from './shared.mjs';
+import { changedManifestKeys } from './manifest-change-classification.mjs';
+import { HERMETIC_TEST_FILES } from './harness-test-classification.mjs';
 
 export { resolveCapabilityReachability } from './changed-path-capabilities.mjs';
 
@@ -35,6 +37,7 @@ export function isDocsOnlyPath(file) {
 // code; a `.jsonl` ledger append must not make a push owe 81 packages' build output (PROC-016).
 const INFRASTRUCTURE_ONLY_PATTERN =
   /^(scripts\/harness\/|scripts\/build-|\.github\/|\.husky\/|\.claude\/|\.agents\/)/;
+const INFRASTRUCTURE_ONLY_FILES = new Set(['osv-scanner.toml']);
 
 function failClosedCapabilities(reason) {
   return {
@@ -45,12 +48,17 @@ function failClosedCapabilities(reason) {
     windows: true,
     cli: true,
     harness: true,
+    hermetic: true,
+    buildMachinery: true,
+    workflow: true,
+    dependencies: true,
     full: true,
     reason,
   };
 }
 
 const HARNESS_OWNER_FILES = new Set([
+  'AGENTS.md',
   '.agents/harness.config.json',
   '.npmrc',
   'package.json',
@@ -58,6 +66,25 @@ const HARNESS_OWNER_FILES = new Set([
   'vitest.config.ts',
   'vitest.shared.ts',
 ]);
+// Every `.agents/` artifact is harness/governance input. The fine-grained contract selector decides
+// which tests actually own a changed record; this outer boundary must only guarantee that selector
+// is reached. Keeping a narrower duplicate path list here creates a fail-open gap whenever a
+// contract begins reading a new Task, spec, memory, or project-structure owner.
+const HARNESS_GOVERNANCE_PATTERN = /^\.agents\//u;
+const HERMETIC_EXECUTION_OWNER_FILES = new Set([
+  '.agents/harness.config.json',
+  '.github/workflows/ci.yml',
+  '.github/workflows/scans-full.yml',
+  'scripts/harness/canonical-temporary-directory.mjs',
+  'scripts/harness/entrypoint.mjs',
+  'scripts/harness/git-base-ref-resolution.mjs',
+  'scripts/harness/harness-hermetic-runner.mjs',
+  'scripts/harness/harness-test-classification.mjs',
+  'scripts/harness/harness-test-tiers.mjs',
+  'scripts/harness/harness-vitest-process.mjs',
+  'scripts/harness/shared.mjs',
+]);
+const HERMETIC_TEST_FILE_SET = new Set(HERMETIC_TEST_FILES);
 
 /** Whether one repository-relative path can change the harness implementation or its execution. */
 export function isHarnessOwnerPath(file) {
@@ -68,16 +95,137 @@ export function isHarnessOwnerPath(file) {
     normalized.startsWith('scripts/harness/') ||
     normalized.startsWith('scripts/build-') ||
     normalized.startsWith('.github/workflows/') ||
+    normalized === '.github/PULL_REQUEST_TEMPLATE.md' ||
+    normalized.startsWith('.claude/agents/') ||
+    normalized.startsWith('.claude/hooks/') ||
+    normalized === '.claude/settings.json' ||
+    normalized.startsWith('.husky/') ||
+    HARNESS_GOVERNANCE_PATTERN.test(normalized) ||
     HARNESS_OWNER_FILES.has(normalized)
   );
 }
 
-const WORKSPACE_FULL_FILES = new Set([
+function isDirectHermeticOwnerPath(file) {
+  const normalized = String(file ?? '').replaceAll('\\', '/');
+  return HERMETIC_EXECUTION_OWNER_FILES.has(normalized) || HERMETIC_TEST_FILE_SET.has(normalized);
+}
+
+/**
+ * Keep the pre-install CI classifier dependency-free and fail closed for harness implementation
+ * changes. The hermetic tier is intentionally cheap; deriving its exact import closure belongs to
+ * the installed contract selector, not to the checkout-only `changes` job.
+ */
+function classifyHermeticChangesFromTree({ files }) {
+  return files.some(isDirectHermeticOwnerPath);
+}
+
+const DEPENDENCY_MANIFEST_FIELDS = new Set([
+  'dependencies',
+  'devDependencies',
+  'optionalDependencies',
+  'peerDependencies',
+  'packageManager',
+  'overrides',
+  'resolutions',
+  'pnpm',
+]);
+const DEPENDENCY_POLICY_FILES = new Set([
+  'pnpm-lock.yaml',
+  'osv-scanner.toml',
+  '.github/workflows/dependency-review.yml',
+  '.github/workflows/security-scheduled.yml',
+  'scripts/harness/generate-dependency-review-license-exemptions.mjs',
+]);
+
+const PACKAGE_BUILD_FIELDS = new Set([
+  'bin',
+  'exports',
+  'files',
+  'main',
+  'module',
+  'sideEffects',
+  'tsdown',
+  'tsup',
+  'tsupConfig',
+  'type',
+  'types',
+  'typings',
+]);
+const BUILD_SCRIPT_PATTERN = /^(?:build|prebuild|postbuild|prepack|postpack|pack|prepare)(?::|$)/u;
+
+function classifyManifestPair(before, after) {
+  const classification = classifyPackageManifestChange({ before, after });
+  const changedScriptKeys = classification.changedKeys.includes('scripts')
+    ? changedManifestKeys(before?.scripts ?? {}, after?.scripts ?? {})
+    : [];
+  const buildMachinery =
+    classification.changedKeys.some((field) => PACKAGE_BUILD_FIELDS.has(field)) ||
+    changedScriptKeys.some((script) => BUILD_SCRIPT_PATTERN.test(script));
+  return {
+    ...classification,
+    changedScriptKeys,
+    buildMachinery,
+    needsProductVerification:
+      classification.hasDependencyChanges ||
+      classification.hasScriptOrBuildChanges ||
+      buildMachinery ||
+      classification.hasUnknownManifestChanges,
+  };
+}
+
+function combineManifestChanges(changes) {
+  return {
+    changedKeys: [...new Set(changes.flatMap((change) => change.changedKeys))].sort(),
+    changedScriptKeys: [...new Set(changes.flatMap((change) => change.changedScriptKeys))].sort(),
+    hasDependencyChanges: changes.some((change) => change.hasDependencyChanges),
+    hasUnknownManifestChanges: changes.some((change) => change.hasUnknownManifestChanges),
+    buildMachinery: changes.some((change) => change.buildMachinery),
+    needsProductVerification: changes.some((change) => change.needsProductVerification),
+  };
+}
+
+/** Resolve manifest capabilities from immutable Git objects; unreadable content fails closed. */
+function classifyManifestChangesFromGit({ files, bases, head, cwd, runGit }) {
+  let dependencyChanges = files.some((file) => DEPENDENCY_POLICY_FILES.has(file));
+  const manifests = files.filter((file) => /(^|\/)package\.json$/u.test(file));
+  const packageManifestChanges = new Map();
+  if (manifests.length === 0) return { dependencyChanges, packageManifestChanges };
+
+  for (const manifest of manifests) {
+    const headResult = runGit(['show', `${head}:${manifest}`], { cwd });
+    if (!headResult.ok) return { dependencyChanges: true, packageManifestChanges: null };
+    let after;
+    try {
+      after = JSON.parse(headResult.stdout);
+    } catch {
+      return { dependencyChanges: true, packageManifestChanges: null };
+    }
+    const changes = [];
+    for (const base of bases) {
+      const baseResult = runGit(['show', `${base}:${manifest}`], { cwd });
+      if (!baseResult.ok) return { dependencyChanges: true, packageManifestChanges: null };
+      try {
+        const change = classifyManifestPair(JSON.parse(baseResult.stdout), after);
+        changes.push(change);
+        dependencyChanges ||= change.changedKeys.some((field) =>
+          DEPENDENCY_MANIFEST_FIELDS.has(field),
+        );
+      } catch {
+        return { dependencyChanges: true, packageManifestChanges: null };
+      }
+    }
+    packageManifestChanges.set(manifest, combineManifestChanges(changes));
+  }
+  return { dependencyChanges, packageManifestChanges };
+}
+
+export const WORKSPACE_FULL_FILES = new Set([
   '.eslintignore',
   '.eslintrc.json',
   '.npmrc',
   'pnpm-lock.yaml',
   'pnpm-workspace.yaml',
+  'scripts/harness/product-integration-tests.mjs',
   'tsconfig.base.json',
   'tsconfig.eslint.json',
   'tsconfig.json',
@@ -86,31 +234,41 @@ const WORKSPACE_FULL_FILES = new Set([
 ]);
 
 /** Build machinery changes need the clean partial-build regression, not ordinary product edits. */
-export function isBuildMachineryPath(file) {
+export function isBuildMachineryPath(
+  file,
+  { rootManifestChange = null, packageManifestChanges = null } = {},
+) {
   const normalized = String(file ?? '').replaceAll('\\', '/');
   if (isDocsOnlyPath(normalized)) return false;
   return (
     /^(scripts\/artifacts\/|scripts\/build-|scripts\/harness\/workspace-)/u.test(normalized) ||
     [
       '.github/workflows/ci.yml',
-      'package.json',
       'pnpm-lock.yaml',
       'pnpm-workspace.yaml',
       '.npmrc',
       'tsconfig.base.json',
       'tsconfig.json',
     ].includes(normalized) ||
-    /^packages\/.*\/(package\.json|(?:tsdown|vite)\.config\.[cm]?[jt]s|tsconfig\.build\.json)$/u.test(
-      normalized,
-    )
+    (normalized === 'package.json' ? rootManifestChange?.workspaceWide !== false : false) ||
+    (/^packages\/.*\/package\.json$/u.test(normalized)
+      ? (packageManifestChanges?.get(normalized)?.buildMachinery ?? true)
+      : /^packages\/.*\/(?:tsdown|vite)\.config\.[cm]?[jt]s$/u.test(normalized) ||
+        /^packages\/.*\/tsconfig\.build\.json$/u.test(normalized))
   );
 }
 
 /** Inputs that can change product ownership, graph traversal, or root product configuration. */
-export function isFullVerificationPath(file, { rootManifestChange = null } = {}) {
+export function isFullVerificationPath(
+  file,
+  { rootManifestChange = null, packageManifestChanges = null } = {},
+) {
   const normalized = String(file ?? '').replaceAll('\\', '/');
   if (normalized === 'package.json') return rootManifestChange?.workspaceWide !== false;
-  return WORKSPACE_FULL_FILES.has(normalized) || /(^|\/)package\.json$/u.test(normalized);
+  if (/(^|\/)package\.json$/u.test(normalized)) {
+    return packageManifestChanges?.get(normalized)?.hasUnknownManifestChanges ?? true;
+  }
+  return WORKSPACE_FULL_FILES.has(normalized);
 }
 
 /**
@@ -119,7 +277,17 @@ export function isFullVerificationPath(file, { rootManifestChange = null } = {})
  * @param {string[]} files repository-relative paths changed by the PR
  * @returns {{code: boolean, reason: string}}
  */
-export function classifyFiles(files, { rootManifestChange = null, capabilities = null } = {}) {
+export function classifyFiles(
+  files,
+  {
+    rootManifestChange = null,
+    capabilities = null,
+    dependencyChanges = null,
+    hermeticChanges = null,
+    packageManifestChanges = null,
+    buildMachineryChanges = null,
+  } = {},
+) {
   const changed = (files ?? []).map((file) => String(file).trim()).filter(Boolean);
   if (changed.length === 0) {
     return failClosedCapabilities(
@@ -137,21 +305,41 @@ export function classifyFiles(files, { rootManifestChange = null, capabilities =
       windows: false,
       cli: false,
       harness,
+      hermetic: false,
+      buildMachinery: false,
+      workflow: false,
+      dependencies: false,
       full: false,
       reason: 'docs-only PR: no analyzable code changed.',
     };
   }
 
   const full =
-    codeFiles.some((file) => isFullVerificationPath(file, { rootManifestChange })) ||
-    Boolean(capabilities?.error);
+    codeFiles.some((file) =>
+      isFullVerificationPath(file, { rootManifestChange, packageManifestChanges }),
+    ) || Boolean(capabilities?.error);
 
   const product = codeFiles.some((file) => {
     if (file === 'package.json' && rootManifestChange?.workspaceWide === false) return false;
-    if (isBuildMachineryPath(file)) return true;
-    if (INFRASTRUCTURE_ONLY_PATTERN.test(file)) return false;
+    const manifestChange = packageManifestChanges?.get(file);
+    if (manifestChange) return manifestChange.needsProductVerification;
+    if (isBuildMachineryPath(file, { rootManifestChange, packageManifestChanges })) return true;
+    if (INFRASTRUCTURE_ONLY_PATTERN.test(file) || INFRASTRUCTURE_ONLY_FILES.has(file)) return false;
     return true;
   });
+  const workflow = codeFiles.some((file) => /^\.github\/workflows\/.*\.ya?ml$/u.test(file));
+  const dependencies =
+    dependencyChanges ??
+    codeFiles.some(
+      (file) => DEPENDENCY_POLICY_FILES.has(file) || /(^|\/)package\.json$/u.test(file),
+    );
+  const hermetic = full || hermeticChanges || codeFiles.some(isDirectHermeticOwnerPath);
+  const buildMachinery =
+    full ||
+    buildMachineryChanges ||
+    codeFiles.some((file) =>
+      isBuildMachineryPath(file, { rootManifestChange, packageManifestChanges }),
+    );
   return {
     code: true,
     product,
@@ -160,6 +348,10 @@ export function classifyFiles(files, { rootManifestChange = null, capabilities =
     windows: full || capabilities?.windows === true,
     cli: full || capabilities?.cli === true,
     harness,
+    hermetic,
+    buildMachinery,
+    workflow,
+    dependencies,
     full,
     reason: capabilities?.error
       ? `${capabilities.error}; full verification runs fail closed.`
@@ -193,9 +385,6 @@ function classifyRootManifestFromGit({ files, bases, head, cwd, runGit }) {
         before: JSON.parse(baseManifest.stdout),
         after,
       });
-      if (classification.changedKeys.length === 1 && classification.changedKeys[0] === 'scripts') {
-        continue;
-      }
       if (classification.workspaceWide !== false) return classification;
     }
     return { kind: 'developer-quality-only', workspaceWide: false };
@@ -224,7 +413,13 @@ export function classifyRange({ baseRef, head = 'HEAD', cwd, runGit = git } = {}
 
   const files = new Set();
   for (const base of bases) {
-    const diff = runGit(['diff', '--name-only', '--diff-filter=ACMRD', base, head], { cwd });
+    // `--name-only` emits only the destination when rename detection is active. Disable it so a
+    // move out of a product-owned tree still contributes the deleted source path and cannot make
+    // the corresponding capability job disappear.
+    const diff = runGit(
+      ['diff', '--name-only', '--no-renames', '--diff-filter=ACMRD', base, head],
+      { cwd },
+    );
     if (!diff.ok) {
       return {
         ...failClosedCapabilities('Classifying as CODE so no required check is silently skipped.'),
@@ -247,10 +442,39 @@ export function classifyRange({ baseRef, head = 'HEAD', cwd, runGit = git } = {}
     cwd,
     runGit,
   });
-  const capabilities = sorted.some((file) => isFullVerificationPath(file, { rootManifestChange }))
+  const { dependencyChanges, packageManifestChanges } = classifyManifestChangesFromGit({
+    files: sorted,
+    bases,
+    head,
+    cwd,
+    runGit,
+  });
+  const hermeticChanges = classifyHermeticChangesFromTree({ files: sorted, cwd });
+  const fullInput = sorted.some((file) =>
+    isFullVerificationPath(file, { rootManifestChange, packageManifestChanges }),
+  );
+  const capabilityFiles = sorted.filter((file) => {
+    const manifestChange = packageManifestChanges?.get(file);
+    return manifestChange?.needsProductVerification !== false;
+  });
+  const capabilities = fullInput
     ? null
-    : resolveCapabilityReachability(sorted, { cwd: cwd ?? process.cwd() });
-  return { ...classifyFiles(sorted, { rootManifestChange, capabilities }), bases, files: sorted };
+    : resolveCapabilityReachability(capabilityFiles, { cwd: cwd ?? process.cwd() });
+  const buildMachineryChanges = sorted.some((file) =>
+    isBuildMachineryPath(file, { rootManifestChange, packageManifestChanges }),
+  );
+  return {
+    ...classifyFiles(sorted, {
+      rootManifestChange,
+      capabilities,
+      dependencyChanges,
+      hermeticChanges,
+      packageManifestChanges,
+      buildMachineryChanges,
+    }),
+    bases,
+    files: sorted,
+  };
 }
 
 function argValue(argv, flag) {
@@ -287,12 +511,16 @@ export function main(argv = process.argv.slice(2), write = (text) => process.std
   write(`windows=${result.windows}\n`);
   write(`cli=${result.cli}\n`);
   write(`harness=${result.harness}\n`);
+  write(`hermetic=${result.hermetic}\n`);
+  write(`build_machinery=${result.buildMachinery}\n`);
+  write(`workflow=${result.workflow}\n`);
+  write(`dependencies=${result.dependencies}\n`);
   write(`full=${result.full}\n`);
 
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `code=${result.code}\nproduct=${result.product}\ntui=${result.tui}\nexamples=${result.examples}\nwindows=${result.windows}\ncli=${result.cli}\nharness=${result.harness}\nfull=${result.full}\n`,
+      `code=${result.code}\nproduct=${result.product}\ntui=${result.tui}\nexamples=${result.examples}\nwindows=${result.windows}\ncli=${result.cli}\nharness=${result.harness}\nhermetic=${result.hermetic}\nbuild_machinery=${result.buildMachinery}\nworkflow=${result.workflow}\ndependencies=${result.dependencies}\nfull=${result.full}\n`,
     );
   }
   return result;

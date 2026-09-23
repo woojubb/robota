@@ -1,26 +1,10 @@
 #!/usr/bin/env node
 
-/** Public compatibility facade for package-wise pnpm workspace planning. */
+/** CLI for package-wise pnpm workspace planning. */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createWorkspaceAffectedPlan, planWorkspaceAffected } from './workspace-affected-plan.mjs';
-
-export { parseNameStatusDiff, resolveChangedFiles } from './workspace-affected-git.mjs';
-export {
-  createWorkspaceReachability,
-  parseWorkspacePatterns,
-  readWorkspaceGraph,
-  workspaceDependenciesForOperation,
-} from './workspace-graph.mjs';
-export { createWorkspaceAffectedPlan, planWorkspaceAffected };
-export { WORKSPACE_OPERATIONS } from './workspace-plan-shapes.mjs';
-export {
-  extractLiteralModuleSpecifiers,
-  hasLiteralWorkspaceReference,
-  isIntegrationTestEvidencePath,
-  readWorkspaceImportDependencies,
-} from './workspace-source-dependencies.mjs';
+import { planWorkspaceAffected } from './workspace-affected-plan.mjs';
 
 export function formatWorkspaceAffectedPlan(plan, format = 'text') {
   if (format === 'json') return `${JSON.stringify(plan, null, 2)}\n`;

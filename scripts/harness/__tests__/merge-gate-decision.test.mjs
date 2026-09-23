@@ -50,6 +50,8 @@ function stubbedPath({
   movedFiles,
   prFiles,
   mergeable,
+  mergeTreeConflicts = false,
+  mergeTreeFails = false,
   reviewedBase,
   ancestor = true,
   absentLocally = [],
@@ -81,6 +83,8 @@ function stubbedPath({
       movedFiles,
       prFiles,
       mergeable,
+      mergeTreeConflicts,
+      mergeTreeFails,
       reviewedBase,
       ancestor,
       absentLocally,
@@ -131,6 +135,17 @@ function stubbedPath({
       '}',
       'if (sub === "merge-base" && rest[0] === "--is-ancestor") {',
       '  process.exit(f.ancestor === false ? 1 : 0);',
+      '}',
+      'if (sub === "merge-tree" && rest[0] === "--write-tree") {',
+      '  const pair = rest.slice(1);',
+      '  if (pair[0] !== (f.liveBaseOid ?? f.baseOid) || pair[1] !== f.headOid) process.exit(128);',
+      '  if (f.mergeTreeFails) process.exit(128);',
+      '  if (f.mergeTreeConflicts || f.mergeable === "CONFLICTING") {',
+      '    console.error("CONFLICT (content): fixture conflict");',
+      '    process.exit(1);',
+      '  }',
+      '  console.log("3333333333333333333333333333333333333333");',
+      '  process.exit(0);',
       '}',
       'if (sub === "diff" && rest.includes("--name-status")) {',
       '  // A fixture that states no moved set is answered with a FAILED diff, never an empty one —',
@@ -218,6 +233,14 @@ function stubbedPath({
       '  process.exit(0);',
       '}',
       'if (args.includes("mergeStateStatus")) { console.log(f.state); process.exit(0); }',
+      '// INFRA-2804: a CLEAN pull request that ran NO repository check is refused between the',
+      '// merge-state read and the review checks below, because CLEAN only means nothing FAILED.',
+      '// These fixtures are about the review decision, so they report one gate check present',
+      '// unless a case sets `gateChecks` deliberately.',
+      'if (args.includes("statusCheckRollup")) {',
+      '  console.log(String(f.gateChecks ?? 1));',
+      '  process.exit(0);',
+      '}',
       'if (args.includes("baseRefOid") && args.includes("headRefOid")) {',
       '  // issue #2309: the base branch NAME rides along, so the hook can read the branch itself.',
       '  console.log(`${f.baseOid ?? ""} ${f.headOid ?? ""} ${f.baseRefName ?? "develop"}`);',
@@ -749,73 +772,41 @@ describe('the merge gate decides on CI and on a current review', () => {
   });
 });
 
-describe('a moved base is judged by interaction, not identity (PROC-016, #2386)', () => {
-  /**
-   * RULE-015 measured what the identity rule cost. Fixture B (#2385): the base moved over 15 files
-   * while the branch touched 2 — overlap 0, rebase conflicts 0, `range-diff` identical — and the
-   * rebase bought a push, a CI cycle and a review that could only repeat the last one. Fixture C
-   * (#2382) was the mirror image: 15 against 2, overlap 0. The verdict is a statement about a
-   * comparison, and a base moving over files the comparison never contained does not change it.
-   *
-   * So the gate now asks three things when the reviewed base is not the current one — what the base
-   * moved over, what the PR touches, whether GitHub calls the merge clean now — and accepts only
-   * "disjoint and MERGEABLE". Every other answer, including no answer, refuses.
-   */
+describe('a conflict-free target advance preserves the historical review (issue #2826)', () => {
   const MOVED_BASE = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-  const BRANCH_FILES = ['packages/agents/src/index.ts', 'packages/agents/docs/SPEC.md'];
-  const MOVED_FILES = Array.from({ length: 15 }, (_, i) => `scripts/harness/scan-${i}.mjs`);
-
   const world = (extra = {}) => ({
     state: 'CLEAN',
     headAt: '2026-07-28T10:00:00Z',
     comments: [REVIEW('2026-07-28T10:05:00Z', undefined, { baseOid: MOVED_BASE })],
     reviewedBase: MOVED_BASE,
-    prFiles: BRANCH_FILES,
-    movedFiles: MOVED_FILES,
+    prFiles: ['packages/agents/src/index.ts'],
+    movedFiles: ['packages/agents/src/index.ts'],
     mergeable: 'MERGEABLE',
     ...extra,
   });
 
-  it('accepts fixture B: 2 branch files, 15 moved, overlap 0, MERGEABLE', () => {
-    const verdict = judge(world());
+  it('accepts a MERGEABLE descendant even when the same file changed on the base', () => {
+    const verdict = judge(world({ state: 'BEHIND' }));
 
     expect(verdict.status, verdict.output).toBe(0);
-    expect(
-      verdict.output,
-      'the acceptance must say the base moved, not pretend it did not',
-    ).toMatch(/base moved disjointly/);
+    expect(verdict.output).toMatch(/base advanced without conflict/);
     expect(verdict.output).toMatch(/READ IT/);
   });
 
-  it('accepts fixture C: the mirror image, 15 branch files against 2 moved', () => {
-    const verdict = judge(world({ prFiles: MOVED_FILES, movedFiles: BRANCH_FILES }));
+  it('accepts a historical retired-reviewer merge decision on a MERGEABLE descendant', () => {
+    const verdict = judge(
+      world({
+        state: 'BEHIND',
+        comments: [MERGE_DECISION('2026-07-28T10:05:00Z', { baseOid: MOVED_BASE })],
+      }),
+    );
 
     expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output).toMatch(/historical base\/current head PR_MERGE_DECISION/);
+    expect(verdict.output).toMatch(/base advanced without conflict/);
   });
 
-  it('refuses one overlapping file, and names it', () => {
-    const verdict = judge(world({ movedFiles: [...MOVED_FILES, BRANCH_FILES[0]] }));
-
-    expect(verdict.status, 'an interaction the review never saw was merged past').toBe(2);
-    expect(verdict.output).toMatch(/base.*does not match/i);
-    expect(verdict.output, 'the refusal does not name the file').toMatch(
-      /^\[merge-gate\] {3}packages\/agents\/src\/index\.ts$/m,
-    );
-    expect(verdict.output).toMatch(/1 of the 2 file\(s\) this PR touches/);
-    expect(verdict.output, 'a refusal without its override line').toMatch(/MERGE_GATE_ACK=1/);
-  });
-
-  it('names EVERY overlapping file, not the first', () => {
-    const verdict = judge(world({ movedFiles: [...BRANCH_FILES, ...MOVED_FILES] }));
-
-    expect(verdict.status).toBe(2);
-    for (const file of BRANCH_FILES) expect(verdict.output).toContain(`[merge-gate]   ${file}`);
-    expect(verdict.output).toMatch(/2 of the 2 file\(s\)/);
-  });
-
-  it('reads a rename on the base as touching the OLD name the PR edits', () => {
-    // The base moved `a/old.ts` to `b/new.ts`; the PR edits `a/old.ts`. On the new name alone the (allow-missing-artifact: fixture names inside the stubbed gh world)
-    // sets are disjoint, and that is exactly the interaction a three-way merge has to guess at.
+  it('does not use rename overlap as a revalidation trigger', () => {
     const verdict = judge(
       world({
         prFiles: ['packages/agents/src/old.ts'],
@@ -828,98 +819,45 @@ describe('a moved base is judged by interaction, not identity (PROC-016, #2386)'
       }),
     );
 
-    expect(verdict.status, 'a rename hid the overlap').toBe(2);
-    expect(verdict.output).toContain('[merge-gate]   packages/agents/src/old.ts');
-  });
-
-  it("names an overlap past the compare API's 300-file cap: 351 moved, the overlap at 350", () => {
-    // GitHub caps the compare endpoint's `files` at 300 and says nothing about it, so a base that
-    // moved over more than 300 files hid every overlap past the cap and the merge was ACCEPTED.
-    // The moved set has to come from git, where a diff is the whole diff.
-    const wide = Array.from({ length: 350 }, (_, i) => `scripts/harness/wide-${i}.mjs`);
-    const verdict = judge(world({ movedFiles: [...wide, BRANCH_FILES[0]] }));
-
-    expect(verdict.status, 'an overlap past the 300th moved file was merged past').toBe(2);
-    expect(verdict.output, 'the refusal does not name the file').toMatch(
-      /^\[merge-gate\] {3}packages\/agents\/src\/index\.ts$/m,
-    );
-    expect(verdict.output).toMatch(/1 of the 2 file\(s\) this PR touches/);
-  });
-
-  it('fetches a current base the checkout does not have, then judges the diff', () => {
-    const verdict = judge(world({ absentLocally: [BASE_OID] }));
-
     expect(verdict.status, verdict.output).toBe(0);
-    expect(verdict.output).toMatch(/base moved disjointly/);
   });
 
-  it('refuses when the current base cannot be fetched, naming the commit', () => {
-    const verdict = judge(world({ absentLocally: [BASE_OID], fetchFails: true }));
-
-    expect(verdict.status, 'an unfetchable base was read as "nothing moved"').toBe(2);
-    expect(verdict.output).toMatch(/base.*does not match/i);
-    expect(verdict.output, 'the refusal does not name the commit').toMatch(
-      new RegExp(`${BASE_OID}.*could not be fetched`),
-    );
-    expect(verdict.output).toMatch(/MERGE_GATE_ACK=1/);
-  });
-
-  it('refuses when the REVIEWED base is gone from the checkout and cannot be fetched', () => {
-    const verdict = judge(world({ absentLocally: [MOVED_BASE], fetchFails: true }));
-
-    expect(verdict.status, verdict.output).toBe(2);
-    expect(verdict.output).toMatch(new RegExp(`${MOVED_BASE}.*could not be fetched`));
-  });
-
-  it('refuses a disjoint set that GitHub reports CONFLICTING, and says so', () => {
+  it('refuses an actual conflict', () => {
     const verdict = judge(world({ mergeable: 'CONFLICTING' }));
 
-    expect(verdict.status, 'a conflicting merge was accepted on file lists alone').toBe(2);
-    expect(verdict.output).toMatch(/mergeable: CONFLICTING/);
-    expect(verdict.output).toMatch(/MERGE_GATE_ACK=1/);
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).toMatch(/real merge conflict/);
   });
 
-  it('refuses while GitHub still says UNKNOWN — not yet mergeable is not mergeable', () => {
-    const verdict = judge(world({ mergeable: 'UNKNOWN' }));
+  it('refuses when the exact live-pair merge computation fails', () => {
+    const verdict = judge(world({ mergeable: 'UNKNOWN', mergeTreeFails: true }));
 
     expect(verdict.status).toBe(2);
-    expect(verdict.output).toMatch(/mergeable: UNKNOWN/);
-    expect(verdict.output).toMatch(/still computing/);
+    expect(verdict.output).toMatch(/could not be verified/);
   });
 
-  it('refuses an unreadable mergeability', () => {
-    const verdict = judge(world({ mergeable: undefined }));
+  it('refuses unreadable mergeability', () => {
+    const verdict = judge(world({ mergeable: undefined, mergeTreeFails: true }));
 
-    expect(verdict.status, verdict.output).toBe(2);
-    expect(verdict.output).toMatch(/mergeability could not be read/);
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).toMatch(/could not be verified/);
   });
 
-  it('refuses when the diff cannot be read — unknown is not zero', () => {
-    const verdict = judge(world({ movedFiles: undefined }));
+  it('refuses an unavailable base identity', () => {
+    const verdict = judge(world({ absentLocally: [MOVED_BASE], fetchFails: true }));
 
-    expect(verdict.status, 'an unreadable diff was read as "nothing moved"').toBe(2);
-    expect(verdict.output).toMatch(/base.*does not match/i);
-    expect(verdict.output).toMatch(/what the base moved over could not be read/);
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).toMatch(new RegExp(`commit ${MOVED_BASE} is unavailable`));
   });
 
-  it("refuses when the PR's own file list cannot be read", () => {
-    const verdict = judge(world({ prFiles: undefined }));
-
-    expect(verdict.status, verdict.output).toBe(2);
-    expect(verdict.output).toMatch(/own file list could not be read/);
-  });
-
-  it('refuses a base the reviewed one is not an ancestor of', () => {
-    // A two-commit diff lists what differs between them, not what the base MOVED over; the two are
-    // the same thing only when the reviewed base is an ancestor of the current one. A force-pushed
-    // or retargeted base is the state where they part, so a disjoint list there proves nothing.
+  it('refuses a rewritten or retargeted base', () => {
     const verdict = judge(world({ ancestor: false }));
 
-    expect(verdict.status, 'a diff between unrelated bases was trusted').toBe(2);
-    expect(verdict.output).toMatch(/not a descendant of the reviewed one/);
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).toMatch(/not a readable descendant/);
   });
 
-  it('still refuses a stale HEAD, however cleanly the base moved', () => {
+  it('still refuses a stale source head', () => {
     const verdict = judge(
       world({
         comments: [
@@ -931,42 +869,61 @@ describe('a moved base is judged by interaction, not identity (PROC-016, #2386)'
       }),
     );
 
-    expect(verdict.status, 'the interaction rule leaked onto the head').toBe(2);
-    expect(verdict.output).toMatch(/head.*does not match/i);
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).toMatch(/reviewed head .* does not match current head/);
   });
 
-  it("judges the base by the branch's live tip, not GitHub's lagging baseRefOid (issue #2309)", () => {
-    // Measured on PR #2307: the verdict's REVIEWED BASE matched `baseRefOid` exactly, both 1542 s
-    // behind origin/develop, and the gate passed a review of a base that had moved over another
-    // commit. Here the API still reports the reviewed base — identity would pass — while the
-    // branch has moved over a file the PR touches: the merge must be refused on the LIVE tip.
+  it("uses the branch's live tip and accepts it when MERGEABLE", () => {
     const verdict = judge(
-      world({ baseOid: MOVED_BASE, liveBaseOid: BASE_OID, movedFiles: [BRANCH_FILES[0]] }),
+      world({ baseOid: MOVED_BASE, liveBaseOid: BASE_OID, movedFiles: ['same-file.ts'] }),
     );
 
-    expect(verdict.status, 'a lagging baseRefOid that matched the verdict was accepted').toBe(2);
-    expect(verdict.output).toMatch(new RegExp(`origin/develop is at ${BASE_OID}`));
-    expect(verdict.output).toMatch(/moved over 1 of the 2 file\(s\)/);
-  });
-
-  it('accepts a live tip that moved disjointly, even though the API field still lags', () => {
-    const verdict = judge(world({ baseOid: MOVED_BASE, liveBaseOid: BASE_OID }));
-
     expect(verdict.status, verdict.output).toBe(0);
-    expect(verdict.output).toMatch(/base moved disjointly/);
+    expect(verdict.output).toMatch(new RegExp(`origin/develop is at ${BASE_OID}`));
+    expect(verdict.output).toMatch(/base advanced without conflict/);
   });
 
-  it('refuses when the live base tip cannot be read, rather than trusting the API field', () => {
+  it('refuses a live-tip conflict even when the cached API comparison says mergeable', () => {
+    const verdict = judge(
+      world({
+        baseOid: MOVED_BASE,
+        liveBaseOid: BASE_OID,
+        mergeable: 'MERGEABLE',
+        mergeTreeConflicts: true,
+      }),
+    );
+
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).toMatch(/live target\/head pair has a real merge conflict/);
+  });
+
+  it('proves the live pair even when the review already names a tip newer than the cached API base', () => {
+    const verdict = judge(
+      world({
+        baseOid: MOVED_BASE,
+        liveBaseOid: BASE_OID,
+        comments: [
+          REVIEW('2026-07-28T10:05:00Z', undefined, {
+            baseOid: BASE_OID,
+          }),
+        ],
+        mergeable: 'MERGEABLE',
+        mergeTreeConflicts: true,
+      }),
+    );
+
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).toMatch(/live target\/head pair has a real merge conflict/);
+  });
+
+  it('refuses when the live base tip cannot be read', () => {
     const verdict = judge(world({ lsRemoteFails: true }));
 
-    expect(verdict.status, 'an unreadable branch tip fell back to baseRefOid').toBe(2);
+    expect(verdict.status).toBe(2);
     expect(verdict.output).toMatch(/live tip of origin\/develop/);
-    expect(verdict.output).toMatch(/MERGE_GATE_ACK=1/);
   });
 
-  it('does not consult git or the file list at all when the bases are identical', () => {
-    // The identity case is unchanged: the stub FAILS every diff and file read here, and the
-    // merge is still accepted — so the reads are reached only when there is something to compare.
+  it('accepts the exact historical pair without an advance', () => {
     const verdict = judge({
       state: 'CLEAN',
       headAt: '2026-07-28T10:00:00Z',
@@ -975,45 +932,6 @@ describe('a moved base is judged by interaction, not identity (PROC-016, #2386)'
 
     expect(verdict.status, verdict.output).toBe(0);
     expect(verdict.output).toMatch(/exact base/);
-  });
-});
-
-describe('the file-list jq program the hook actually sends', () => {
-  /**
-   * Same reasoning as the two blocks below: the stub above honours the SHAPE of the program but
-   * never runs it. This reads the program out of the hook and runs it under the real jq over a
-   * REST-shaped payload, so an escaping slip in the hook is caught here and not by the first
-   * moved-base merge that meets it. (The moved set itself no longer comes through jq: it is read
-   * from `git diff --name-status`, and the stub above answers that in git's own format.)
-   */
-  const HOOK_SOURCE = readFileSync(HOOK, 'utf8');
-
-  function programFromHook(opener) {
-    const start = HOOK_SOURCE.indexOf(opener);
-    expect(
-      start,
-      `the hook no longer contains ${opener} — this case is reading nothing`,
-    ).toBeGreaterThan(-1);
-    const end = HOOK_SOURCE.indexOf("' || echo", start);
-    return HOOK_SOURCE.slice(start + "--jq '".length, end);
-  }
-
-  function run(program, payload) {
-    const result = spawnSync('jq', ['-r', program], {
-      input: JSON.stringify(payload),
-      encoding: 'utf8',
-    });
-    expect(result.status, `jq rejected the hook's own program: ${result.stderr}`).toBe(0);
-    return result.stdout.trim().split('\n');
-  }
-
-  it('lists the PR files with the sentinel and every rename source', () => {
-    const lines = run(programFromHook(`--jq '"__files__"`), [
-      { filename: 'x.ts', previous_filename: 'w.ts' },
-      { filename: 'y.ts' },
-    ]);
-
-    expect(lines).toStrictEqual(['__files__', 'x.ts', 'w.ts', 'y.ts']);
   });
 });
 

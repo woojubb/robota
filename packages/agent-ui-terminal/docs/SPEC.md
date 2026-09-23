@@ -51,6 +51,13 @@ cannot carry the full TUI state. `IInteractionChannel` remains the port for
 Both `IRenderOptions` and `ITuiInteractionChannelOptions` carry the composition root's optional
 `TWorkspaceProjectAccess` decision unchanged. A bare `cwd` is provenance only; omission produces the
 framework's explicit Restricted decision and cannot enable project contribution discovery.
+The same render-to-channel-to-session path forwards the resolved organization policy unchanged, so
+the session enforces `blockedCommands` in the default TUI. Session-capability projections declare
+every field's forwarding, rename (for example `modelId` to `model`), or presentation-only disposition;
+the projection check rejects a missing edge instead of silently dropping an optional field.
+Preset `temperature`, `maxOutputTokens`, `presetSystemPrompt` (a seed, not a replacement), and
+`responseFormat` traverse both render-to-channel and channel-to-session edges.
+CLI-composed `appendSystemPrompt` also traverses render-to-channel and retains its additive meaning.
 The same surfaces forward an optional `EditCheckpointStore`; trusted project access alone never
 creates checkpoint mutation authority inside the TUI.
 
@@ -779,6 +786,14 @@ fail/blur/unmount → exactly today's drawn-cursor rendering; I5 Apple_Terminal 
 `ROBOTA_IME_CURSOR=1` opt-in / `=0` kill switch via
 `supportsImeCursorPositioning()`) each exist as a code comment AND a test; the drawn inverse
 cursor is suppressed only while real positioning is active.
+
+**Terminal.app hardware evidence (2026-09-22).** On macOS 27.0 (build 26A428) with Terminal.app
+2.15 (488) and the 2-Set Korean input source, both `pnpm exec robota` and
+`ROBOTA_IME_CURSOR=1 pnpm exec robota` survived a mid-line `한` composition followed by Left and Right.
+The opt-in cell did **not** place its initial composition display at the mid-line input point: it appeared
+below the input line at its left edge. That is an incorrect placement even without a crash, so the I5
+Apple_Terminal default-off branch remains required. The full per-cell evidence, including screenshot
+paths and process checks, is recorded in `SCREEN-2442`.
 
 ## Extension Points
 

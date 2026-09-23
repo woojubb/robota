@@ -122,6 +122,35 @@ describe('validateCommand', () => {
   });
 
   describe('file errors', () => {
+    it('reports invalid status in the established JSON error envelope', async () => {
+      const dag = { ...createValidDag(), status: 'active' };
+      const options = createOptions({ 'bad.dag.json': JSON.stringify(dag) });
+      const exitCode = await validateCommand(['bad.dag.json', '--output', 'json'], options);
+      expect(exitCode).toBe(2);
+      const result = JSON.parse(getOutput(options)) as {
+        valid: boolean;
+        errors: { message: string }[];
+      };
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]?.message).toMatch(/Malformed DAG definition.*status/);
+    });
+
+    it('rejects an unknown JSON shape', async () => {
+      const options = createOptions({ 'unknown.dag.json': '{"something":"else"}' });
+      expect(await validateCommand(['unknown.dag.json'], options)).toBe(2);
+      expect(getOutput(options)).toContain('Not a DAG file');
+    });
+
+    it('reports a malformed nested field path as a file error', async () => {
+      const malformed = {
+        ...createValidDag(),
+        nodes: [{ nodeId: 42, nodeType: 'input', dependsOn: [], config: {} }],
+      };
+      const options = createOptions({ 'bad.dag.json': JSON.stringify(malformed) });
+      expect(await validateCommand(['bad.dag.json'], options)).toBe(2);
+      expect(getOutput(options)).toMatch(/nodes\[0\].*nodeId/);
+    });
+
     it('fails with exit code 2 when the file does not exist', async () => {
       const options = createOptions(); // no fileContents
 

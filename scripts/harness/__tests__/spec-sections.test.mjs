@@ -139,7 +139,7 @@ describe('the parser refuses a bad parse instead of shrinking the contract', () 
 describe('enumeration universe — defect 1', () => {
   it('includes the nested dag-nodes group', () => {
     const dirs = listWorkspacePackageDirs(WORKSPACE_ROOT).map(String);
-    expect(dirs.filter((dir) => dir.includes('/packages/dag-nodes/')).length).toBe(20);
+    expect(dirs.filter((dir) => dir.includes('/packages/dag-nodes/')).length).toBe(19);
   });
 
   it('includes apps as well as packages', () => {

@@ -112,10 +112,10 @@ Each implementer produces exactly one PR and does **not** self-merge:
 ### 5. Orchestrator merges serially
 
 The orchestrator — never the implementer — merges, and **one PR at a time**, via the armed auto-merge form
-the git rules permit (the merge-time branch-deletion flag is banned there; do not reintroduce it). On a
-stale base or a CI flake, **rebase the branch onto the freshly-fetched integration branch and re-arm**.
-Diagnose real failures; a known fresh-worktree environment artifact (e.g. build outputs absent because
-that worktree was never built) is not a code failure.
+the git rules permit (the merge-time branch-deletion flag is banned there; do not reintroduce it). A
+conflict-free target-branch advance does not require a rebase, push, test rerun, or replacement review.
+Resolve and verify only a real conflict; diagnose real failures. A known fresh-worktree environment
+artifact (e.g. build outputs absent because that worktree was never built) is not a code failure.
 
 **After each merge, run [post-merge-cycle](../post-merge-cycle/SKILL.md)** — it confirms the merge actually
 landed, and only then deletes the branch and prunes its worktree. Release an item held in step 3 only once
@@ -133,14 +133,12 @@ Passing checks answer "did it break anything"; the review answers "should it lan
 fix → push → re-review loop this hands off to is
 [automated-review-convergence](../automated-review-convergence/SKILL.md).
 
-### 6. Spec-gated (code) work clears its gate BEFORE implementation
+### 6. Settle material design decisions before parallel implementation
 
-For code items requiring a spec, run draft → GATE-WRITE → **independent** GATE-APPROVAL first — independent
-meaning a `proposal-reviewer` that did not author the spec. When architecture evidence is additionally
-required, dispatch the complete `architecture-audit-fanout` or an explicitly scoped dimension; dimensional
-auditors emit coverage signals, not GATE-APPROVAL verdicts.
-Fold every REVISE finding, then approve — all per the spec-workflow / backlog-execution rules. Only
-APPROVED items enter the parallel implementation wave.
+Record the entry decision and the file-ownership partition before dispatch. Update the governing package
+contract first when public behavior or API changes. Add an independent design review only when material
+architecture risk justifies it; ordinary code work does not require a separate proposal-review role or
+multi-gate lifecycle. Resolve actionable design findings before the parallel implementation wave.
 
 ### 7. Resume, don't respawn
 

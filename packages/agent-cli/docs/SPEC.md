@@ -34,6 +34,17 @@ turn's persisted usage surface reflects the launch path rather than a client-pro
 usage reporters are passed to paired and reconnecting WebRTC surfaces. `agent-framework` owns the neutral
 build-session + transport-lifecycle seam.
 
+The product shell resolves organization policy once and forwards the same policy into each mode's
+`InteractiveSession`: TUI through render/channel options, print and goal through the headless
+channel, and serve through its runtime-session options. A configured `blockedCommands` policy must
+not be lost in a mode-specific options projection. The declared session-capability fields at each
+mode boundary have an explicit forwarded, renamed, or presentation-only disposition; a mechanical
+projection check rejects an added or dropped field without one. Print and goal also forward resolved
+generation and prompt fields (`temperature`, `maxOutputTokens`, `language`, preset prompt seed, and
+`responseFormat`) through the headless channel rather than accepting them only at the CLI surface.
+The TUI preserves the same generation, prompt-seed, and response-format fields through its render
+and channel options; serve projects `responseFormat` with the other preset fields.
+
 ARCH-011 runner propagation is explicit in serve mode. The host's `waitForFailure()` returns the
 first named nonzero runner outcome without waiting for unrelated runners; serve mode assigns that
 exact exit code and enters its existing owned shutdown path. A rejected runner wait assigns exit 1.
@@ -828,6 +839,18 @@ The remaining third-party entries in `package.json` `dependencies` (`openai`, `@
 `@google/genai`, `werift`, `ws`, `zod`, `croner`, `fast-glob`, `jssha`, `open`, `p-limit`,
 `@marcbachmann/cel-js`, `zod-to-json-schema`, …) are not imported by CLI source; they are the hoisted
 runtime dependencies of the bundled workspace packages (see § Self-contained bundle, INFRA-028).
+
+### Headless desktop binary (RUNTIME-002)
+
+The desktop app bundles a separately compiled `robota-headless-<os>-<arch>` Bun artifact from
+`dist-bun-headless`; the full `robota` CLI artifact, npm bin, and five-target `dist-bun` release
+remain available. The headless entry owns the same `--serve` startup, provider/preset/session
+composition, loopback token and port, diagnostics, and graceful shutdown as the full CLI. It accepts
+only `--serve` user launches, plus the private self-reexecuted subagent-worker IPC mode required by
+served sessions. Its transitive value-import graph excludes Ink and terminal presentation modules.
+The two Bun artifacts are measured for the same target from the same verified Node generation;
+headless must be strictly smaller. The desktop's fixed `resources/robota[.exe]` path and spawn
+arguments remain unchanged; only its copied source changes.
 
 ### Distribution — Bun single binary (DIST-001)
 

@@ -81,7 +81,7 @@ export {
   resolveEnvDefaultProvider,
 } from '../command-api/provider/provider-factory.js';
 export { commandToCapabilityDescriptor } from './capability-descriptors.js';
-export { SkillCommandSource, inspectSkillSources, parseFrontmatter } from './skill-source.js';
+export { SkillCommandSource, inspectSkillSources } from './skill-source.js';
 export type {
   ISkillRootInspection,
   ISkillSourceInspection,

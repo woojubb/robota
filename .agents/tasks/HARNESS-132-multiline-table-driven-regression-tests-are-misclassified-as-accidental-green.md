@@ -52,7 +52,8 @@ implemented independently.
 
 ## Plan
 
-- [ ] Record a recommendation and planning checkpoint for the checker change before implementation.
+- [ ] Confirm the focused checker scope at the implementation entry boundary; no separate planning
+      checkpoint artifact is required.
 - [ ] Add harness fixtures for multiline parameterized declarations and each supported placeholder
       family, including a non-added neighboring case.
 - [ ] Generalize added-case title extraction so source declarations and runtime-expanded titles are

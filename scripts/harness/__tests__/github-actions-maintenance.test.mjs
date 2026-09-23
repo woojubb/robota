@@ -1,10 +1,14 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 const ROOT = path.resolve(import.meta.dirname, '../../..');
 const WORKFLOWS = path.join(ROOT, '.github', 'workflows');
-const CI_PATH = path.join(WORKFLOWS, 'ci.yml');
+const CI = readFileSync(path.join(WORKFLOWS, 'ci.yml'), 'utf8');
+const REQUIRED = JSON.parse(
+  readFileSync(path.join(ROOT, '.github', 'required-status-checks.json'), 'utf8'),
+);
 
 function workflowSources() {
   return readdirSync(WORKFLOWS)
@@ -12,29 +16,8 @@ function workflowSources() {
     .map((name) => ({ name, source: readFileSync(path.join(WORKFLOWS, name), 'utf8') }));
 }
 
-function jobBlock(source, jobId) {
-  const start = source.indexOf(`\n  ${jobId}:\n`);
-  if (start < 0) throw new Error(`missing job ${jobId}`);
-  const next = source.slice(start + 1).search(/\n  [a-zA-Z0-9_-]+:\n/u);
-  return next < 0 ? source.slice(start) : source.slice(start, start + 1 + next);
-}
-
-const REQUIRED_BENCHMARK_JOBS = new Map([
-  ['build', 'build'],
-  ['quality', 'quality'],
-  ['scans', 'scans'],
-  ['dependency-audit', 'dependency audit'],
-  ['commitlint', 'commitlint'],
-  ['tui-e2e', 'tui-e2e'],
-  ['examples-typecheck', 'examples-typecheck'],
-  ['windows-shell', 'windows-shell'],
-  ['benchmark-review-gate', 'review-gate'],
-  ['benchmark-workflow-provenance', 'workflow provenance'],
-  ['regression-red-proof', 'regression-red-proof (enforcing: accidental-green only)'],
-]);
-
 describe('GitHub Actions runtime maintenance', () => {
-  it('uses the current v6 majors for setup-node, pnpm setup, and cache references', () => {
+  it('uses the current v6 major for every retained setup and cache reference', () => {
     const references = workflowSources().flatMap(({ name, source }) =>
       [
         ...source.matchAll(
@@ -47,15 +30,12 @@ describe('GitHub Actions runtime maintenance', () => {
     expect(references.filter(({ version }) => version !== 'v6')).toEqual([]);
     expect(references.some(({ action }) => action === 'actions/setup-node')).toBe(true);
     expect(references.some(({ action }) => action === 'pnpm/action-setup')).toBe(true);
-    expect(references.some(({ action }) => action === 'actions/cache')).toBe(true);
   });
 });
 
-describe('PR-free develop required-context benchmark', () => {
-  const ci = readFileSync(CI_PATH, 'utf8');
-
-  it('accepts an explicit base, head, and synthetic PR body from one workflow dispatch', () => {
-    const trigger = ci.slice(ci.indexOf('\non:\n'), ci.indexOf('\nconcurrency:\n'));
+describe('develop verification interface', () => {
+  it('accepts explicit refs for a PR-free benchmark run', () => {
+    const trigger = CI.slice(CI.indexOf('\non:\n'), CI.indexOf('\nconcurrency:\n'));
     expect(trigger).toContain('\n  pull_request:\n');
     expect(trigger).toContain('\n  workflow_dispatch:\n');
     expect(trigger).toContain('\n      base_ref:\n');
@@ -63,35 +43,16 @@ describe('PR-free develop required-context benchmark', () => {
     expect(trigger).toContain('\n      pr_body:\n');
   });
 
-  it('runs and measures exactly one job for each of the 11 required contexts', () => {
-    for (const [jobId, context] of REQUIRED_BENCHMARK_JOBS) {
-      const block = jobBlock(ci, jobId);
-      const escaped = context.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-      expect(block).toMatch(new RegExp(`^    name: ['"]?${escaped}['"]?$`, 'mu'));
-      expect(block).toContain('Refuse unsafe benchmark check attachment');
-    }
-
-    const summary = jobBlock(ci, 'benchmark-summary');
-    expect(summary).toContain('Measure all 11 develop-required contexts');
-    expect(summary).toContain('/actions/runs/${RUN_ID}/jobs?per_page=100');
-    expect(summary).toContain('duration_seconds');
-    expect(summary).toContain('elapsed_seconds');
-    expect(summary).toContain('map(.elapsed_seconds) | max) <= 128');
-    expect(summary).toContain('length == 11');
-    for (const context of REQUIRED_BENCHMARK_JOBS.values()) {
-      expect(summary).toContain(JSON.stringify(context));
-    }
-  });
-
-  it('attaches manual check runs only to develop, never to a feature PR head', () => {
-    for (const jobId of REQUIRED_BENCHMARK_JOBS.keys()) {
-      const block = jobBlock(ci, jobId);
-      expect(block).toContain("github.ref != 'refs/heads/develop'");
-      expect(block).toContain('core.setFailed');
-    }
-    expect(ci).toContain(
-      "ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_ref || '' }}",
-    );
+  it('declares exactly four stable develop decisions', () => {
+    expect(REQUIRED.branches.develop.required_status_checks.map(({ context }) => context)).toEqual([
+      'pr-validation',
+      'security',
+      'review-policy',
+      'workflow provenance',
+    ]);
+    expect(REQUIRED.branches.develop.strict_required_status_checks_policy).toBe(false);
+    expect(CI).toMatch(/^  pr-validation:\n    name: pr-validation$/m);
+    expect(CI).toMatch(/^  security:\n    name: security$/m);
   });
 
   it('keeps normal PR-only review and provenance workflows free of manual bypass contexts', () => {
@@ -101,18 +62,16 @@ describe('PR-free develop required-context benchmark', () => {
     }
   });
 
-  it('measures the required PR policy gate while CodeQL runs post-merge', () => {
-    const review = jobBlock(ci, 'benchmark-review-gate');
-    expect(review).not.toContain('github/codeql-action/');
-    expect(review).toContain('CodeQL runs after merge on develop/main');
-    expect(review).toContain('N/A without a pull request');
-  });
-
-  it('marks PR-only governance scans N/A during a manual benchmark', () => {
-    const scans = jobBlock(ci, 'scans');
-    expect(scans).toContain("BENCHMARK_MODE: ${{ github.event_name == 'workflow_dispatch' }}");
-    expect(scans).toContain(
-      'scan_args+=(--skip lane-declaration --skip user-execution-plan-order)',
-    );
+  it('does not recreate removed required contexts as benchmark companions', () => {
+    for (const removed of [
+      'quality',
+      'scans',
+      'commitlint',
+      'dependency audit',
+      'benchmark review-gate',
+      'benchmark workflow provenance',
+    ]) {
+      expect(CI).not.toMatch(new RegExp(`^    name: ${removed}$`, 'm'));
+    }
   });
 });

@@ -8,6 +8,7 @@ overrides:
   fast-xml-parser: '>=4.5.5'
   fast-xml-builder: 1.2.0
   '@xmldom/xmldom': '>=0.9.12 <1.0.0'
+  plist: 3.1.1
   browserslist: '>=4.28.7 <5.0.0'
   fast-uri: '>=3.1.6 <4.0.0'
   node-forge: '>=1.4.0'
@@ -53,6 +54,7 @@ overrides:
   js-yaml@>=4.0.0 <4.3.2: '>=4.3.2 <5.0.0'
   ip-address@<10.3.1: '>=10.3.1 <11.0.0'
   mermaid@<11.16.1: '>=11.16.1 <12.0.0'
+  devalue: '>=5.9.2 <6.0.0'
 
 importers:
 
@@ -2668,9 +2670,6 @@ importers:
       '@google/genai':
         specifier: ^1.52.0
         version: 1.52.0(@modelcontextprotocol/sdk@1.29.0)
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.29.0
-        version: 1.29.0(zod@3.25.76)
       '@robota-sdk/agent-builtin-providers':
         specifier: workspace:*
         version: link:../agent-builtin-providers
@@ -2710,9 +2709,6 @@ importers:
       '@robota-sdk/dag-node-llm-text':
         specifier: workspace:*
         version: link:../dag-nodes/llm-text
-      '@robota-sdk/dag-node-mcp-tool':
-        specifier: workspace:*
-        version: link:../dag-nodes/mcp-tool
       '@robota-sdk/dag-nodes-default':
         specifier: workspace:*
         version: link:../dag-nodes-default
@@ -2827,30 +2823,6 @@ importers:
         specifier: ^0.22.14
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
 
-  packages/dag-mcp-server:
-    dependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.29.0
-        version: 1.29.0(zod@3.25.76)
-      '@robota-sdk/dag-builder':
-        specifier: workspace:*
-        version: link:../dag-builder
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-      '@robota-sdk/dag-orchestration-client':
-        specifier: workspace:*
-        version: link:../dag-orchestration-client
-    devDependencies:
-      '@robota-sdk/dag-framework':
-        specifier: workspace:*
-        version: link:../dag-framework
-      '@robota-sdk/dag-nodes-default':
-        specifier: workspace:*
-        version: link:../dag-nodes-default
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
 
   packages/dag-node:
     dependencies:
@@ -3260,39 +3232,6 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/dag-nodes/mcp-tool:
-    dependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.29.0
-        version: 1.29.0(zod@3.25.76)
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: ^3.24.4
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.43
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/dag-nodes/multi-input:
     dependencies:
@@ -11890,7 +11829,7 @@ packages:
       lazy-val: 1.0.5
       minimatch: 10.2.5
       pkijs: 3.4.0
-      plist: 3.1.0
+      plist: 3.1.1
       proper-lockfile: 4.1.2
       resedit: 1.7.2
       semver: 7.7.4
@@ -12118,7 +12057,7 @@ packages:
       clsx: 2.1.1
       common-ancestor-path: 2.0.0
       cookie: 2.0.1
-      devalue: 5.8.1
+      devalue: 5.9.4
       diff: 8.0.4
       dset: 3.1.4
       es-module-lexer: 2.1.0
@@ -13769,8 +13708,8 @@ packages:
     dev: true
     optional: true
 
-  /devalue@5.8.1:
-    resolution: {integrity: sha512-4CXDYRBGqN+57wVJkuXBYmpAVUSg3L6JAQa/DFqm238G73E1wuyc/JhGQJzN7vUf/CMphYau2zXbfWzDR5aTEw==}
+  /devalue@5.9.4:
+    resolution: {integrity: sha512-sPAT4pztbu6586/hrhOnMKS17IJrvg12mXiSPSS3W5qDeN2RGgvZ0diZCm31dBbnevfVmujNO3IM2wrS4Y2Rhg==}
     dev: false
 
   /devlop@1.1.0:
@@ -19901,15 +19840,6 @@ packages:
       playwright-core: 1.61.1
     optionalDependencies:
       fsevents: 2.3.2
-    dev: true
-
-  /plist@3.1.0:
-    resolution: {integrity: sha512-uysumyrvkUX0rX/dEVqt8gC3sTBzd4zoWfLeS29nb53imdaXVvLINYXTI2GNqzaMuvacNx4uJQ8+b3zXR0pkgQ==}
-    engines: {node: '>=10.4.0'}
-    dependencies:
-      '@xmldom/xmldom': 0.9.12
-      base64-js: 1.5.1
-      xmlbuilder: 15.1.1
     dev: true
 
   /plist@3.1.1:

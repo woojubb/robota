@@ -22,6 +22,7 @@ import type {
   ICommandResult,
   ISystemCommandSemanticRoles,
 } from '../commands/index.js';
+import type { IHookDefinitionSource } from '../config/config-merge.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IMemoryStore } from '../memory/types.js';
@@ -117,6 +118,8 @@ export interface IInitOptions {
   isModelCommandInvocable?: (command: string) => boolean;
   /** Preloaded config to avoid duplicate discovery when caller needs it too. */
   config?: IResolvedConfig;
+  /** Internal settings-file provenance carried to the assembly refusal diagnostic. */
+  hookSources?: readonly IHookDefinitionSource[];
   /** Recorder used to snapshot files before Write/Edit tools mutate them. */
   editCheckpointRecorder?: IEditCheckpointRecorder;
   /** Opt-in local-first reversible execution policy for write/shell tools. */

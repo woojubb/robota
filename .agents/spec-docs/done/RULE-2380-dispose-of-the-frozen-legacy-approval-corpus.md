@@ -7,6 +7,10 @@ lane: L2
 
 # RULE-2380: Dispose of the frozen legacy approval corpus
 
+## Current disposition — 2026-09-23
+
+Historical delivery is preserved at replacement child merge `720eb5e841ba7a5361ac667b9658e034212bb58e` in R `720eb5e841ba7a5361ac667b9658e034212bb58e`. The done status and original evidence below describe that delivery; importing this record does not restore its historical implementation. PR #2827 (`2a4a84631d24243d8dfb8ef75e04d790e8d60d37`) deliberately retired the legacy gate, checkpoint, and recommendation machinery. This record is historical evidence of a completed child, not an active instruction to recreate its gate, checkpoint, endorsement, or frozen-corpus enforcement machinery.
+
 Paired with `.agents/tasks/completed/RULE-2380-dispose-of-the-frozen-legacy-approval-corpus.md`.
 The historical source is [issue #2380](https://github.com/woojubb/robota/issues/2380); its unfinished
 scope was transferred to the open execution owner [issue #2664](https://github.com/woojubb/robota/issues/2664).

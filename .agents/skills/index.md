@@ -7,31 +7,30 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 
 ## Process & Planning
 
-| Skill                                                                       | Description                                                                                                                                                                                                    |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [backlog-pipeline](backlog-pipeline/SKILL.md)                               | Spec document gate pipeline orchestrator: draft → backlog → todo → active → done                                                                                                                               |
-| [backlog-writer](backlog-writer/SKILL.md)                                   | Author a new spec document with all required sections and frontmatter                                                                                                                                          |
-| [user-request-gate](user-request-gate/SKILL.md)                             | Entry-point gate: backlog draft first, then implementation — invoked on every user impl request                                                                                                                |
-| [spec-first-development](spec-first-development/SKILL.md)                   | Enforce spec-first workflow before touching contract boundaries                                                                                                                                                |
-| [spec-writing-standard](spec-writing-standard/SKILL.md)                     | Required sections and quality gates for SPEC.md authoring                                                                                                                                                      |
-| [spec-code-conformance](spec-code-conformance/SKILL.md)                     | Verification loop to align code with spec after spec changes                                                                                                                                                   |
-| [tdd-red-green-refactor](tdd-red-green-refactor/SKILL.md)                   | Kent Beck TDD cycle: Red → Green → Refactor                                                                                                                                                                    |
-| [task-tracking](task-tracking/SKILL.md)                                     | Create and update task files in `.agents/tasks/`                                                                                                                                                               |
-| [find-to-issue](find-to-issue/SKILL.md)                                     | Record a mid-task finding in `.agents/learn.md` and keep going — recording is not authorization                                                                                                                |
-| [github-issue-triage](github-issue-triage/SKILL.md)                         | Enforce Issue intake labels, audit and triage the pre-Task queue, finalize one-way Task handoff, and reconcile live labels without deletion                                                                    |
-| [issue-to-backlog](issue-to-backlog/SKILL.md)                               | Convert a filed issue into the Task(s) it actually is, grouped by cause rather than by item count                                                                                                              |
-| [backlog-execution-orchestrator](backlog-execution-orchestrator/SKILL.md)   | One backlog item end to end: recommendation gate → scenario plan → implement → done gate → completion, with per-phase routing                                                                                  |
-| [user-execution-scenario](user-execution-scenario/SKILL.md)                 | Scenario lifecycle in two modes — PLAN (author + written-stage gate) and GATE (execute + executed-stage gate), with bounded redesign                                                                           |
-| [multi-backlog-initiative](multi-backlog-initiative/SKILL.md)               | Outer loop for an initiative: base branch → one item pipeline per backlog → final PR left unmerged for the user                                                                                                |
-| [post-implementation-checklist](post-implementation-checklist/SKILL.md)     | Router: mandatory post-implementation order + gates (SPEC sync → build/test → README → PR → publish → docs)                                                                                                    |
-| [delegated-refactor-green-gate](delegated-refactor-green-gate/SKILL.md)     | Route-only: specify → focused worker verification → one integrated gate and independent batch review → batch commit                                                                                            |
-| [worktree-parallel-orchestration](worktree-parallel-orchestration/SKILL.md) | Run ≥2 independent backlog items in parallel via worktree-isolated subagents with zero merge conflicts (partition → spawn → serial merge)                                                                      |
-| [worktree-traffic-control](worktree-traffic-control/SKILL.md)               | The two gates around any worktree-isolated work — entry gate before the first command, exit gate before the work leaves                                                                                        |
-| [repo-change-loop](repo-change-loop/SKILL.md)                               | Standard change loop: impact → build → verify → summarize                                                                                                                                                      |
-| [pr-finding-resolution-loop](pr-finding-resolution-loop/SKILL.md)           | RESOLVE loop: retain one local reviewer context before the PR and review repair deltas until `ACTIONABLE FINDINGS: 0`, then resolve published automation findings and enter the gated merge path (HARNESS-018) |
-| [automated-review-convergence](automated-review-convergence/SKILL.md)       | Iterate on a PR's automated review feedback until it converges: fetch findings → judge → fix/refute → push → re-read the re-run round                                                                          |
-| [post-merge-cycle](post-merge-cycle/SKILL.md)                               | Shared post-merge tail: verify the landing → delete the merged branch → reset onto a fresh base, with a defined edge per failure                                                                               |
-| [version-management](version-management/SKILL.md)                           | Coordinated version bumps with changesets across all packages + semver impact of public API surface changes                                                                                                    |
+| Skill                                                                       | Description                                                                                                                                 |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| [backlog-writer](backlog-writer/SKILL.md)                                   | Author an optional detailed design when alternatives or material risks need durable reasoning                                               |
+| [user-request-gate](user-request-gate/SKILL.md)                             | One entry decision for a direct request: stable identity, scope, risks, then implementation                                                 |
+| [spec-first-development](spec-first-development/SKILL.md)                   | Enforce spec-first workflow before touching contract boundaries                                                                             |
+| [spec-writing-standard](spec-writing-standard/SKILL.md)                     | Required sections and quality gates for SPEC.md authoring                                                                                   |
+| [spec-code-conformance](spec-code-conformance/SKILL.md)                     | Verification loop to align code with spec after spec changes                                                                                |
+| [tdd-red-green-refactor](tdd-red-green-refactor/SKILL.md)                   | Kent Beck TDD cycle: Red → Green → Refactor                                                                                                 |
+| [task-tracking](task-tracking/SKILL.md)                                     | Use one fixed Task only when durable repository-local tracking is actually needed                                                           |
+| [find-to-issue](find-to-issue/SKILL.md)                                     | Record a mid-task finding in `.agents/learn.md` and keep going — recording is not authorization                                             |
+| [github-issue-triage](github-issue-triage/SKILL.md)                         | Enforce Issue intake labels, audit and triage the pre-Task queue, finalize one-way Task handoff, and reconcile live labels without deletion |
+| [issue-to-backlog](issue-to-backlog/SKILL.md)                               | Keep the issue authoritative by default; create a Task only when durable local tracking adds distinct value                                 |
+| [backlog-execution-orchestrator](backlog-execution-orchestrator/SKILL.md)   | Execute one authoritative work record through one entry boundary and one integrated completion boundary                                     |
+| [user-execution-scenario](user-execution-scenario/SKILL.md)                 | Plan and run direct user-visible scenarios only when observable behavior is affected                                                        |
+| [multi-backlog-initiative](multi-backlog-initiative/SKILL.md)               | Outer loop for an initiative: base branch → one item pipeline per backlog → final PR left unmerged for the user                             |
+| [post-implementation-checklist](post-implementation-checklist/SKILL.md)     | One integrated completion boundary across affected docs, local checks, selected CI, final review, merge verification, and issue closeout    |
+| [delegated-refactor-green-gate](delegated-refactor-green-gate/SKILL.md)     | Route-only: specify → focused worker verification → one integrated gate and independent batch review → batch commit                         |
+| [worktree-parallel-orchestration](worktree-parallel-orchestration/SKILL.md) | Run ≥2 independent backlog items in parallel via worktree-isolated subagents with zero merge conflicts (partition → spawn → serial merge)   |
+| [worktree-traffic-control](worktree-traffic-control/SKILL.md)               | The two gates around any worktree-isolated work — entry gate before the first command, exit gate before the work leaves                     |
+| [repo-change-loop](repo-change-loop/SKILL.md)                               | Standard change loop: impact → build → verify → summarize                                                                                   |
+| [pr-finding-resolution-loop](pr-finding-resolution-loop/SKILL.md)           | One independent final review, then focused review of meaningful repair deltas until actionable findings reach zero                          |
+| [automated-review-convergence](automated-review-convergence/SKILL.md)       | Iterate on a PR's automated review feedback until it converges: fetch findings → judge → fix/refute → push → re-read the re-run round       |
+| [post-merge-cycle](post-merge-cycle/SKILL.md)                               | Shared post-merge tail: verify the landing → delete the merged branch → reset onto a fresh base, with a defined edge per failure            |
+| [version-management](version-management/SKILL.md)                           | Coordinated version bumps with changesets across all packages + semver impact of public API surface changes                                 |
 
 ## Release
 
@@ -66,7 +65,7 @@ release invariants stay in [publish.md](../rules/publish.md); these skills carry
 | [architecture-refresh](architecture-refresh/SKILL.md)                     | Outer architecture loop: separate conformance + four-dimension fanout → draft/final synthesis → verify → depth → reconcile/apply → re-audit                                                  |
 | [architecture-audit-fanout](architecture-audit-fanout/SKILL.md)           | Thin bounded coverage loop for mutually blind structure/design/runtime/gate auditors; returns raw reports and never synthesizes findings                                                     |
 | [capability-extraction](capability-extraction/SKILL.md)                   | Thin pipeline that sequences capability-scout→proposal-reviewer→agent-skill-author, gating authoring on ENDORSE and convergence on the `agent-def-convention` guard (agents hold all policy) |
-| [architecture-conformance-audit](architecture-conformance-audit/SKILL.md) | Thin router: conformance audit = mechanical conformance scan + the architecture-refresh agent loop (GATE-CONFORMANCE)                                                                        |
+| [architecture-conformance-audit](architecture-conformance-audit/SKILL.md) | Thin router: conformance audit = mechanical conformance scan + the architecture-refresh agent loop                                                                                           |
 | [design-quality-audit](design-quality-audit/SKILL.md)                     | Pointer stub → structure/design/runtime/gate auditors own design-quality judgement through architecture-audit-fanout                                                                         |
 | [doc-claim-verification](doc-claim-verification/SKILL.md)                 | Pointer stub → the `architecture-conformance-auditor` agent emits per-claim doc↔code verdicts natively                                                                                       |
 | [conformance-finding-report](conformance-finding-report/SKILL.md)         | Pointer stub → the `architecture-conformance-auditor` agent returns classified findings + ACTIONABLE FINDINGS natively                                                                       |
@@ -102,7 +101,6 @@ for orchestrator/worker/guardian wiring). One-line roles:
 | `doc-auditor`                      | Read-only documentation staleness/quality audit                                                            |
 | `doc-fixer`                        | Applies doc findings (edits docs only, verify-before-write)                                                |
 | `ci-failure-triager`               | Read-only CI/gate triage: one failure class + the five-field triage note                                   |
-| `backlog-gate-guard`               | Gate guardian: one gate, one document → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`                           |
 | `wiring-worker`                    | Wires an authored artifact into every touchpoint; produces only, issues no verdict                         |
 | `wiring-guardian`                  | Judges wiring AND whether the registration check could have gone red (`GATE VERDICT`)                      |
 | `worktree-entry-gate`              | Before work starts in a worktree → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`                                |
@@ -112,13 +110,13 @@ for orchestrator/worker/guardian wiring). One-line roles:
 
 The **agent-definition convention** they follow is a document-type contract in
 [`document-standards/index.md`](../specs/document-standards/index.md), mechanically enforced by
-`pnpm harness:scan` → `agent-def-convention`.
+`node scripts/harness/check-agent-def-convention.mjs`.
 
 ## Documentation
 
-| Skill                                                   | Description                                                                                                                                 |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| [documentation-refresh](documentation-refresh/SKILL.md) | Thin pipeline that re-calls doc-auditor→finding-depth-triager→doc-fixer until every finding of a round is RESOLVED (agents hold all policy) |
+| Skill                                                   | Description                                                                                                               |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [documentation-refresh](documentation-refresh/SKILL.md) | Focused documentation audit and repair; specialist classification is optional when a finding is ambiguous or foundational |
 
 ## Testing
 

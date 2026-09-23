@@ -32,15 +32,8 @@ export function runPrePushVerification(runtime, input) {
     ...runtime.baseArgs,
     ...runtime.scopeExpansionArgs,
   ]);
-  operations.run('pnpm', [
-    'harness:verify-like-ci',
-    '--',
-    '--base-ref',
-    runtime.baseRef ?? 'HEAD',
-    '--only',
-    'format-check',
-  ]);
-  operations.write('\nLocal checks passed: planning, formatting — not CI-equivalent\n');
+  operations.write('\nLocal checks reused from commit hooks: formatting and commit messages\n');
+  operations.write('Pre-push ran only changed-input planning; it did not repeat completed local checks.\n');
   operations.write('CI-owned (not run locally): repository-contract, hermetic, pristine\n');
   operations.write(
     'Manual (not run by pre-push): focused changed-code tests and affected product diagnostics\n',

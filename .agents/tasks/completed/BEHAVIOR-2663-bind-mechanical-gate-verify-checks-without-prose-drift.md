@@ -12,6 +12,10 @@ depends_on: [BEHAVIOR-2664]
 
 # BEHAVIOR-2663: Bind mechanical GATE-VERIFY checks without prose drift
 
+## Current disposition — 2026-09-23
+
+Historical delivery is preserved at replacement child merge `994dc2c4f32eac9c0de6f3307b7530d944824198` in R `720eb5e841ba7a5361ac667b9658e034212bb58e`. The done status and original evidence below describe that delivery; importing this record does not restore its historical implementation. PR #2827 (`2a4a84631d24243d8dfb8ef75e04d790e8d60d37`) deliberately retired the legacy gate, checkpoint, and recommendation machinery. This record is historical evidence of a completed child, not an active instruction to recreate its gate, checkpoint, endorsement, or frozen-corpus enforcement machinery.
+
 ## Objective
 
 Bind the two Task-plan GATE-VERIFY criteria to their mechanical evaluators through a stable catalogue

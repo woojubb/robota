@@ -37,8 +37,9 @@ import { reconcileLive } from './scan-main-required-checks.mjs';
 import {
   collectClosingLines,
   createGitHubReaders,
-  parsePullRequestNumbers,
+  firstParentLandingOids,
   renderBlock,
+  resolveLandingPullNumbers,
   resolveRepository,
 } from './promotion-closes.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
@@ -86,14 +87,15 @@ function flag(argv, name, fallback) {
  * `93d061dd3`, the squash of PR #1802).
  */
 function defaultClosesBlock({ mainRef, developRef, git }) {
-  const log = git(['log', '--format=%s', `${mainRef}..${developRef}`]);
-  if (log.code !== 0) {
-    throw new Error(`git log ${mainRef}..${developRef} failed: ${log.stderr || log.stdout}`);
-  }
-  const subjects = log.stdout.split('\n').filter((line) => line.trim() !== '');
+  const readers = createGitHubReaders(resolveRepository(process.env.GITHUB_REPOSITORY));
+  const pullNumbers = resolveLandingPullNumbers({
+    landingOids: firstParentLandingOids({ base: mainRef, head: developRef, git }),
+    baseRefName: 'develop',
+    readAssociatedPull: readers.readAssociatedPull,
+  });
   const { lines } = collectClosingLines({
-    pullNumbers: parsePullRequestNumbers(subjects),
-    ...createGitHubReaders(resolveRepository(process.env.GITHUB_REPOSITORY)),
+    pullNumbers,
+    ...readers,
   });
   const block = renderBlock(lines);
   return block ? `\npromote: paste this into the promotion PR body —\n\n${block}` : '';

@@ -119,7 +119,7 @@ function forbiddenImports(content, fileName) {
         noteBinding((element.propertyName ?? element.name).text);
       }
     }
-    ts.forEachChild(node, visit);
+    node.forEachChild(visit);
   };
 
   const namespaceAliases = new Set();

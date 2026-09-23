@@ -37,8 +37,7 @@ three-line catalogue is the same manufacturing error as minting a skill to match
 in increment 5: `dependency-graph-extraction` split into one rule bullet and one audit step, and no new
 file.) When a fact does stay concrete inside a skill, the neutrality section requires saying why.
 
-Members today: [`gate-catalogue.md`](gate-catalogue.md) (every named gate's criteria),
-[`orchestration-map.md`](orchestration-map.md) (every pipeline and agent),
+Members today: [`orchestration-map.md`](orchestration-map.md) (every pipeline and agent),
 [`deployment-matrix.md`](deployment-matrix.md) (surface × runtime × transport). The test that
 distinguishes it from a rule: **delete it and ask what is lost.** Losing a rule loses force; losing a
 fact catalogue loses an enumeration whose force lives elsewhere.

@@ -9,6 +9,7 @@
 import { createLogger } from '@robota-sdk/agent-core';
 
 import { isSafeSessionId } from './session-id.js';
+import { SESSION_LOG_SCHEMA_VERSION } from './session-log-events.js';
 import { normalizeLogData } from './session-log-payload.js';
 
 import type { ISessionLogSink } from './session-log-sinks.js';
@@ -131,10 +132,11 @@ export class FileSessionLogger implements ISessionLogger {
       );
       const entry =
         JSON.stringify({
+          ...normalizedData,
+          schemaVersion: SESSION_LOG_SCHEMA_VERSION,
           timestamp: new Date().toISOString(),
           sessionId,
           event,
-          ...normalizedData,
         }) + '\n';
 
       if (HOT_PATH_EVENTS.has(event)) {

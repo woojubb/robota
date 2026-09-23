@@ -35,14 +35,29 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
+import { literalLocalImportClosure } from './literal-local-import-closure.mjs';
 import { triggersFromPullRequestTarget } from './scan-pull-request-target-promotion-lag.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta);
 const REGISTRY_RELATIVE = '.github/required-status-checks.json';
+const TRUSTED_CONTROL_PLANE_ENTRIES = [
+  'scripts/harness/scan-workflow-provenance.mjs',
+  'scripts/harness/classify-changed-paths.mjs',
+  'scripts/harness/product-integration-tests.mjs',
+  'scripts/harness/review-verdict-projection.mjs',
+  'scripts/harness/harness-test-tiers.mjs',
+  'scripts/harness/run-all-scans.mjs',
+];
+const SECURITY_POLICY_INPUTS = [
+  '.gitleaks.toml',
+  'osv-scanner.toml',
+  'scripts/harness/generate-dependency-review-license-exemptions.mjs',
+];
 
 /**
- * Every workflow file that provides a required status check, for any protected branch.
+ * Every workflow file that provides a required status check, directly or through a repository-local
+ * reusable workflow, for any protected branch.
  *
  * Returns `{ workflows, contextsByWorkflow }`. An empty `workflows` is a failure for the caller, not
  * a clean result — see the fail-closed note in the header.
@@ -58,6 +73,27 @@ export function readGuardedWorkflows(root = WORKSPACE_ROOT) {
       const entry = contextsByWorkflow.get(check.workflow) ?? [];
       entry.push(`${check.context} (${branch})`);
       contextsByWorkflow.set(check.workflow, entry);
+    }
+  }
+  const pending = [...contextsByWorkflow.keys()];
+  const visited = new Set();
+  while (pending.length > 0) {
+    const workflow = pending.shift();
+    if (visited.has(workflow)) continue;
+    visited.add(workflow);
+    const workflowFile = path.join(root, workflow);
+    if (!existsSync(workflowFile)) continue;
+    const source = readFileSync(workflowFile, 'utf8');
+    const localUses = [
+      ...source.matchAll(/^\s*uses:\s*(\.\/\.github\/workflows\/[^\s#]+)\s*$/gmu),
+    ].map((match) => match[1].replace(/^\.\//u, ''));
+    for (const dependency of localUses) {
+      const contexts = contextsByWorkflow.get(dependency) ?? [];
+      for (const context of contextsByWorkflow.get(workflow) ?? []) {
+        if (!contexts.includes(context)) contexts.push(context);
+      }
+      contextsByWorkflow.set(dependency, contexts);
+      pending.push(dependency);
     }
   }
   return { workflows: [...contextsByWorkflow.keys()].sort(), contextsByWorkflow };
@@ -85,7 +121,9 @@ export function triggersFromPullRequest(workflowText) {
 }
 
 /**
- * The files a change touches, as NAMES only.
+ * The files a change touches, as NAMES only. Rename detection is deliberately disabled so both
+ * sides of a rename are returned. Otherwise Git reports only the destination for `--name-only`,
+ * and renaming a guarded workflow would hide the guarded source path from this scan.
  *
  * `headRef` is explicit so this can judge a pull request from a checkout that is NOT the pull
  * request — the trusted-plane guard (INFRA-097) checks out the BASE, fetches the PR head without
@@ -93,10 +131,14 @@ export function triggersFromPullRequest(workflowText) {
  * which is the whole property that lets a guard be trusted while its subject is not.
  */
 function changedFiles(root, baseRef, headRef = 'HEAD') {
-  const result = spawnSync('git', ['diff', '--name-only', `${baseRef}...${headRef}`], {
-    cwd: root,
-    encoding: 'utf8',
-  });
+  const result = spawnSync(
+    'git',
+    ['diff', '--name-only', '--no-renames', `${baseRef}...${headRef}`],
+    {
+      cwd: root,
+      encoding: 'utf8',
+    },
+  );
   if (result.status !== 0) {
     throw new Error(
       `workflow-provenance: could not read the diff against \`${baseRef}\` — the measurement ` +
@@ -118,6 +160,27 @@ export function findWorkflowProvenanceFindings(root = WORKSPACE_ROOT, baseRef, h
         'scan guards is unreadable, so a pass would assert something it never measured.',
     );
   }
+  const securityContexts = [
+    ...new Set(
+      [...contextsByWorkflow.values()].flat().filter((context) => context.startsWith('security (')),
+    ),
+  ].sort();
+  const securityPolicyInputs = securityContexts.length > 0 ? SECURITY_POLICY_INPUTS : [];
+  requireGovernedTree(root, securityPolicyInputs, {
+    scan: 'workflow-provenance',
+    why: 'These files control the verdict of the required security context; if one is absent, the trusted guard cannot establish which policy the pull request executes.',
+  });
+  const controlPlaneInputs = literalLocalImportClosure(root, TRUSTED_CONTROL_PLANE_ENTRIES);
+  requireGovernedTree(root, controlPlaneInputs, {
+    scan: 'workflow-provenance',
+    why: 'These base-executed modules select or judge required CI work. A trusted guard must protect its own implementation closure and the PR-side selector/scheduler closure from two-PR self-bypass.',
+  });
+  const guardedInputs = new Set([
+    REGISTRY_RELATIVE,
+    ...workflows,
+    ...securityPolicyInputs,
+    ...controlPlaneInputs,
+  ]);
 
   const findings = [];
   // The standing property, checked on every run: a guarded workflow that loads itself from the PR
@@ -129,8 +192,46 @@ export function findWorkflowProvenanceFindings(root = WORKSPACE_ROOT, baseRef, h
   });
 
   if (baseRef !== undefined) {
-    const touched = changedFiles(root, baseRef, headRef).filter((f) => workflows.includes(f));
+    const touched = changedFiles(root, baseRef, headRef).filter((file) => guardedInputs.has(file));
     for (const file of touched) {
+      if (file === REGISTRY_RELATIVE) {
+        findings.push({
+          file,
+          problem:
+            'is edited by this change AND defines the guarded workflow set. Removing or changing ' +
+            'an entry can make a later required-workflow self-edit invisible to this trusted gate. ' +
+            'Treat this registry edit as a control-plane change: state why the guarded set changes, ' +
+            'have a reviewer compare it with the live ruleset, and use .agents/rules/git-branch.md ' +
+            '§ "Landing a control-plane change" for the owner-authorized landing record.',
+        });
+        continue;
+      }
+      if (securityPolicyInputs.includes(file)) {
+        findings.push({
+          file,
+          problem:
+            `is edited by this change AND controls required check(s): ${securityContexts.join(', ')}. ` +
+            'A permissive policy edit can make the security scan green over a secret or accepted ' +
+            'vulnerability without changing its guarded workflow. Treat this policy edit as a ' +
+            'control-plane change, have a reviewer inspect its verdict effect, and use ' +
+            '.agents/rules/git-branch.md § "Landing a control-plane change" for the ' +
+            'owner-authorized landing record.',
+        });
+        continue;
+      }
+      if (controlPlaneInputs.includes(file)) {
+        findings.push({
+          file,
+          problem:
+            'is edited by this change AND belongs to the trusted required-check implementation or ' +
+            'selector/scheduler import closure. A permissive edit can suppress a required verdict ' +
+            'in this or a later pull request. Treat this as a control-plane change, have a reviewer ' +
+            'inspect the affected required jobs and selection behavior, and use ' +
+            '.agents/rules/git-branch.md § "Landing a control-plane change" for the ' +
+            'owner-authorized landing record.',
+        });
+        continue;
+      }
       const contexts = contextsByWorkflow.get(file) ?? [];
       const full = path.join(root, file);
       // The two triggers fail in OPPOSITE directions, so one message would be wrong for one of them.
@@ -160,7 +261,7 @@ export function findWorkflowProvenanceFindings(root = WORKSPACE_ROOT, baseRef, h
     }
   }
 
-  return { findings, workflows, selfLoading, examined: workflows.length };
+  return { findings, workflows, selfLoading, examined: guardedInputs.size };
 }
 
 /** Exported so a test can read the size this scan reports (measurement-provenance.md). */
@@ -189,6 +290,6 @@ if (process.argv[1] === new URL(import.meta.url).pathname) {
         `it does not make the control plane trusted.`,
     );
   }
-  console.log(`::examined:: ${examined} guarded workflow(s)`);
+  console.log(`::examined:: ${examined} guarded control-plane input(s)`);
   process.exit(findings.length > 0 ? 1 : 0);
 }

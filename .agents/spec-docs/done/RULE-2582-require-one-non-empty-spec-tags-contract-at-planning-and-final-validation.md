@@ -7,6 +7,10 @@ lane: L2
 
 # RULE-2582: Require one non-empty spec tags contract at planning and final validation
 
+## Current disposition — 2026-09-23
+
+Historical delivery is preserved at replacement child merge `c0e660dd0d0f05cccb968a47001c0461a5ad8648` in R `720eb5e841ba7a5361ac667b9658e034212bb58e`. The done status and original evidence below describe that delivery; importing this record does not restore its historical implementation. PR #2827 (`2a4a84631d24243d8dfb8ef75e04d790e8d60d37`) deliberately retired the legacy gate, checkpoint, and recommendation machinery. Its scaffold and gate consumers are superseded. The surviving `check-spec-doc-frontmatter.mjs` non-empty tags contract remains owned by current develop; only applicable missing/empty/scalar regressions are retained against that live checker.
+
 Paired with `.agents/tasks/RULE-2582-require-one-non-empty-spec-tags-contract-at-planning-and-final-validation.md`. Arising from [issue #2582](https://github.com/woojubb/robota/issues/2582).
 
 ## Problem

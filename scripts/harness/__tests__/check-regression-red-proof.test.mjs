@@ -279,19 +279,17 @@ describe('HARNESS-041 file classification', () => {
     const afterAFlag = [
       "import { spawnSync } from 'node:child_process';",
       "import path from 'node:path';",
-      "spawnSync('bash', ['-n', path.join(HOOKS_DIR, 'spec-first-gate.sh')]);",
+      "spawnSync('bash', ['-n', path.join(HOOKS_DIR, 'branch-guard.sh')]);",
     ].join('\n');
     const asAnArgumentToSomethingElse = [
       "import { spawnSync } from 'node:child_process';",
       "import path from 'node:path';",
-      "spawnSync('node', [path.join(HARNESS_DIR, 'scan-hook-registration.mjs'), 'spec-first-gate.sh']);",
+      "spawnSync('node', [path.join(HARNESS_DIR, 'scan-hook-registration.mjs'), 'branch-guard.sh']);",
     ].join('\n');
 
-    expect(testExecutesHook(afterAFlag, '.claude/hooks/spec-first-gate.sh')).toBe(
-      EXECUTION.EXECUTES,
-    );
+    expect(testExecutesHook(afterAFlag, '.claude/hooks/branch-guard.sh')).toBe(EXECUTION.EXECUTES);
     expect(
-      testExecutesHook(asAnArgumentToSomethingElse, '.claude/hooks/spec-first-gate.sh'),
+      testExecutesHook(asAnArgumentToSomethingElse, '.claude/hooks/branch-guard.sh'),
       'a name handed to a scanner AS DATA was read as the file that ran',
     ).toBe(EXECUTION.NOT_EXECUTED);
   });
@@ -1036,6 +1034,184 @@ describe('HARNESS-041 orchestrator fixtures', () => {
     });
   });
 
+  it('isolates a reverse-apply failure to its source and restores a partial mutation', async () => {
+    const failedSource = 'packages/x/src/a-failed.ts';
+    const judgedSource = 'packages/x/src/b-judged.ts';
+    const failedTest = 'packages/x/src/a-failed.test.ts';
+    const judgedTest = 'packages/x/src/b-judged.test.ts';
+    const sourceText = new Map([
+      [abs(failedSource), `export const a = 1;`],
+      [abs(judgedSource), `export const b = 1;`],
+    ]);
+    const testText = new Map([
+      [abs(failedTest), `import { a } from './a-failed.js';`],
+      [abs(judgedTest), `import { b } from './b-judged.js';`],
+    ]);
+    const restoreCalls = [];
+    const judgedTests = [];
+
+    const { verdict, decisions } = await runRegressionRedProof(
+      baseIo({
+        changedFiles: [failedSource, judgedSource, failedTest, judgedTest],
+        readText: (file) => testText.get(file) ?? sourceText.get(file) ?? '',
+        fileExists: (file) => sourceText.has(file) || testText.has(file),
+        reverseApply: ([source]) => {
+          if (source === failedSource) {
+            sourceText.set(abs(source), 'partially reversed before git rejected the patch');
+            throw new Error('cannot apply binary patch');
+          }
+          sourceText.set(abs(source), `export const b = 0;`);
+        },
+        restore: ([source]) => {
+          restoreCalls.push(source);
+          sourceText.set(
+            abs(source),
+            source === failedSource ? `export const a = 1;` : `export const b = 1;`,
+          );
+        },
+        runVitest: (_pkg, testFiles) => {
+          judgedTests.push(...testFiles);
+          return {
+            testResults: testFiles.map((file) => ({
+              name: abs(file),
+              assertionResults: [{ status: 'failed' }],
+            })),
+          };
+        },
+      }),
+    );
+
+    expect(
+      decisions.map(({ source, verdict: pairVerdict, reason }) => ({
+        source,
+        verdict: pairVerdict,
+        reason,
+      })),
+    ).toEqual([
+      {
+        source: failedSource,
+        verdict: VERDICT.INCONCLUSIVE,
+        reason: 'reverse-apply-failed: cannot apply binary patch',
+      },
+      { source: judgedSource, verdict: VERDICT.RED_PROOF_OK, reason: undefined },
+    ]);
+    expect(restoreCalls).toEqual([failedSource, judgedSource]);
+    expect(sourceText.get(abs(failedSource))).toBe(`export const a = 1;`);
+    expect(judgedTests).toEqual([judgedTest]);
+    expect(verdict).toBe(VERDICT.INCONCLUSIVE);
+    expect(exitCodeFor(verdict, true)).toBe(0);
+    expect(renderDecisionSummary({ verdict, decisions })).toContain(
+      `| \`${failedSource}\` | inconclusive | reverse-apply-failed: cannot apply binary patch |`,
+    );
+  });
+
+  it('isolates a declared-mutant write failure and restores its partial mutation', async () => {
+    const failedSource = 'packages/x/src/a-mutant.ts';
+    const judgedSource = 'packages/x/src/b-reversal.ts';
+    const failedTest = 'packages/x/src/a-mutant.test.ts';
+    const judgedTest = 'packages/x/src/b-reversal.test.ts';
+    const sourceText = new Map([
+      [abs(failedSource), `export const a = 1;`],
+      [abs(judgedSource), `export const b = 1;`],
+    ]);
+    const testText = new Map([
+      [abs(failedTest), `import { a } from './a-mutant.js';`],
+      [abs(judgedTest), `import { b } from './b-reversal.js';`],
+    ]);
+    const restoreCalls = [];
+    const judgedTests = [];
+
+    const { verdict, decisions } = await runRegressionRedProof(
+      baseIo({
+        changedFiles: [failedSource, judgedSource, failedTest, judgedTest],
+        commitSubjects: ['feat: declared mutant'],
+        declarationText:
+          'red-proof-mutant: packages/x/src/a-mutant.ts :: export const a = 1; => export const a = 2;\n',
+        readText: (file) => testText.get(file) ?? sourceText.get(file) ?? '',
+        fileExists: (file) => sourceText.has(file) || testText.has(file),
+        writeMutant: (source) => {
+          sourceText.set(abs(source), 'partially written declared mutant');
+          throw new Error('disk write interrupted');
+        },
+        reverseApply: ([source]) => {
+          sourceText.set(abs(source), `export const b = 0;`);
+        },
+        restore: ([source]) => {
+          restoreCalls.push(source);
+          sourceText.set(
+            abs(source),
+            source === failedSource ? `export const a = 1;` : `export const b = 1;`,
+          );
+        },
+        runVitest: (_pkg, testFiles) => {
+          judgedTests.push(...testFiles);
+          return {
+            testResults: testFiles.map((file) => ({
+              name: abs(file),
+              assertionResults: [{ status: 'failed' }],
+            })),
+          };
+        },
+      }),
+    );
+
+    expect(
+      decisions.map(({ source, verdict: pairVerdict, reason }) => ({
+        source,
+        verdict: pairVerdict,
+        reason,
+      })),
+    ).toEqual([
+      {
+        source: failedSource,
+        verdict: VERDICT.INCONCLUSIVE,
+        reason: 'declared-mutant-write-failed: disk write interrupted',
+      },
+      { source: judgedSource, verdict: VERDICT.RED_PROOF_OK, reason: undefined },
+    ]);
+    expect(restoreCalls).toEqual([failedSource, judgedSource]);
+    expect(sourceText.get(abs(failedSource))).toBe(`export const a = 1;`);
+    expect(judgedTests).toEqual([judgedTest]);
+    expect(verdict).toBe(VERDICT.INCONCLUSIVE);
+  });
+
+  it('aborts the run when restoring a failed mutation fails', async () => {
+    const failedSource = 'packages/x/src/a-failed.ts';
+    const nextSource = 'packages/x/src/b-next.ts';
+    const failedTest = 'packages/x/src/a-failed.test.ts';
+    const nextTest = 'packages/x/src/b-next.test.ts';
+    const files = new Map([
+      [abs(failedSource), `export const a = 1;`],
+      [abs(nextSource), `export const b = 1;`],
+      [abs(failedTest), `import { a } from './a-failed.js';`],
+      [abs(nextTest), `import { b } from './b-next.js';`],
+    ]);
+    let nextSourceAttempted = false;
+
+    await expect(
+      runRegressionRedProof(
+        baseIo({
+          changedFiles: [failedSource, nextSource, failedTest, nextTest],
+          readText: (file) => files.get(file) ?? '',
+          fileExists: (file) => files.has(file),
+          reverseApply: ([source]) => {
+            if (source === failedSource) {
+              files.set(abs(source), 'partially reversed');
+              throw new Error('binary patch rejected');
+            }
+            nextSourceAttempted = true;
+          },
+          restore: () => {
+            throw new Error('git checkout failed');
+          },
+        }),
+      ),
+    ).rejects.toThrow(
+      'Failed to restore packages/x/src/a-failed.ts after reverse-apply-failed: binary patch rejected: git checkout failed',
+    );
+    expect(nextSourceAttempted).toBe(false);
+  });
+
   it('hands git a byte-exact patch, final newline included', () => {
     // The defect that made every verdict impossible. The diff was read through the trimming helper,
     // so the patch reached `git apply -R` without its final newline and git rejected it as corrupt —
@@ -1098,20 +1274,15 @@ describe('what blocks a merge once the gate is enforcing (INFRA-046)', () => {
   });
 
   it('does not turn its own crash into a merge refusal while advisory', () => {
-    // The reasoning this replaces was wrong in a way worth keeping: it said a red here "blocks
-    // nothing" because the job is not a required check. In THIS repository that is false. The
-    // merge gate refuses on any `mergeStateStatus` other than CLEAN, and GitHub reports UNSTABLE
-    // precisely when a NON-required check fails — so an unconditional non-zero on a network
-    // hiccup, a bad worktree or a vitest infra failure would push EVERY merge through the manual
-    // override until someone fixed it. That is the untested refusal in the merge path this
-    // promotion holds required-check membership specifically to avoid, arriving by another door.
+    // The merge gate accepts GitHub's conflict-free BEHIND state so a moving target does not cause
+    // a rebase/retest loop. It still rejects conflicting or otherwise blocked states. This local
+    // proof therefore remains advisory on infrastructure failure and enforcement is explicit.
     const gate = readFileSync(
       path.resolve(import.meta.dirname, '../../../.claude/hooks/merge-gate.sh'),
       'utf8',
     );
-    expect(gate, 'the merge gate no longer refuses a non-CLEAN state — re-decide this').toMatch(
-      /"\$STATE" != "CLEAN"/,
-    );
+    expect(gate).toContain('CLEAN | BEHIND)');
+    expect(gate).toContain('is $STATE, not CLEAN or conflict-free BEHIND');
 
     expect(enforceOnCrash({})).toBe(false);
     expect(enforceOnCrash({ REGRESSION_RED_PROOF_ENFORCE: '1' })).toBe(true);
@@ -1140,16 +1311,17 @@ describe('what blocks a merge once the gate is enforcing (INFRA-046)', () => {
     expect(advisory.said).toMatch(/could not|failed|error/i);
   });
 
-  it('is enforcing in the workflow that runs it', () => {
-    // The flag is the promotion. Without this the mapping above is a capability nothing switches on —
-    // and a policy that no run applies is the vacuity this harness spends its time removing.
+  it('keeps mutation proof out of pull-request CI', () => {
+    // RED→GREEN evidence belongs to the local defect workflow and independent review. Re-running
+    // source mutation for every pull request duplicated those decisions and made the stable aggregate
+    // wait for a compatibility job that was not part of product correctness.
     const ci = readFileSync(
       path.resolve(import.meta.dirname, '../../../.github/workflows/ci.yml'),
       'utf8',
     );
-    const job = ci.slice(ci.indexOf('  regression-red-proof:'), ci.indexOf('  patch-coverage:'));
 
-    expect(job).toMatch(/REGRESSION_RED_PROOF_ENFORCE:\s*'1'/);
+    expect(ci).not.toContain('regression-red-proof:');
+    expect(ci).not.toContain('REGRESSION_RED_PROOF_ENFORCE');
   });
 });
 

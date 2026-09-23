@@ -6,7 +6,7 @@ describe('repository-check-classification', () => {
   it('selects harness tests and consistency for a harness-only root script change', () => {
     expect(
       classifyRepositoryChecks(['package.json'], {
-        changedScriptKeys: ['harness:work-run'],
+        changedScriptKeys: ['harness:review'],
       }),
     ).toEqual(['harness-tests', 'harness-consistency']);
   });
@@ -14,7 +14,7 @@ describe('repository-check-classification', () => {
   it('deduplicates checks while preserving the first-seen order', () => {
     expect(
       classifyRepositoryChecks([
-        'scripts/harness/work-run.mjs',
+        'scripts/harness/record-local-review.mjs',
         '.github/workflows/ci.yml',
         '.agents/tasks/OBSERVABILITY-002.md',
       ]),

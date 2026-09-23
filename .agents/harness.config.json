@@ -164,9 +164,8 @@
       "$comment": "ARCH-054 DAG-NODE-COMPOSITION POLICY. Every @robota-sdk/dag-node-* package is a composable leaf: provider SDKs, provider construction, ambient credentials, and product choices belong to a composition root or an injected definition registry.",
       "familyNamePrefix": "@robota-sdk/dag-node-",
       "familyHomeDir": "packages/dag-nodes",
-      "minMembers": 20,
+      "minMembers": 19,
       "allowedDependencies": [
-        "@modelcontextprotocol/sdk",
         "@robota-sdk/agent-core",
         "@robota-sdk/agent-interface-command",
         "@robota-sdk/agent-tools",
@@ -178,7 +177,6 @@
         "node:",
         "vitest",
         "zod",
-        "@modelcontextprotocol/sdk",
         "@robota-sdk/agent-core",
         "@robota-sdk/agent-tools",
         "@robota-sdk/agent-interface-command",
@@ -187,15 +185,7 @@
       ],
       "forbiddenIdentifiers": ["process.env", "globalThis.process"],
       "productNameConditionals": false,
-      "exemptions": [
-        {
-          "package": "@robota-sdk/dag-node-mcp-tool",
-          "kind": "forbidden-io-identifier",
-          "id": "process.env",
-          "file": "packages/dag-nodes/mcp-tool/src/index.ts",
-          "reason": "The node resolves an explicit $ENV: reference authored in config; this is declared indirection, not ambient credential lookup."
-        }
-      ],
+      "exemptions": [],
       "reason": "ARCH-054: the family gate makes provider composition explicit and keeps every DAG node installable and reusable by any orchestrator."
     }
   ],
@@ -543,7 +533,6 @@
       "packages/dag-core/src/index.ts",
       "packages/dag-cost/src/index.ts",
       "packages/dag-framework/src/index.ts",
-      "packages/dag-mcp-server/src/index.ts",
       "packages/dag-node/src/index.ts",
       "packages/dag-nodes-default/src/index.ts",
       "packages/dag-orchestration-client/src/index.ts",

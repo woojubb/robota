@@ -14,6 +14,10 @@ Spec: `.agents/spec-docs/done/PUSH-2664-preserve-trusted-integration-base-declar
 
 # PUSH-2664: preserve trusted integration-base declarations through the Git pre-push wrapper
 
+## Current disposition — 2026-09-23
+
+Historical delivery is preserved at replacement child merge `845ec3f0b409fa57158856eeede96430b17e9417` in R `720eb5e841ba7a5361ac667b9658e034212bb58e`. The done status and original evidence below describe that delivery; importing this record does not restore its historical implementation. The surviving bridge was independently delivered to develop by `a7b28b9ddd475df571fbc8c5930c7879a9021a8f`. The sync retains D’s stricter `origin/integration/agreement-[0-9]+` declaration validation and current consumers; it does not replace them with R’s broader validation.
+
 ## Objective
 
 Preserve the documented statement-bound `HARNESS_BASE_REF` declaration when the Git pre-push hook
