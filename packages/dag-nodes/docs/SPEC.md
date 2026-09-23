@@ -44,15 +44,13 @@ representative subset — each node package documents its own definitions in its
 
 ### Static registration identity ownership
 
-This table is the authoritative map from each literal `nodeType` to the package that exports its
-definition. The `dag-node-registration-owner` scan compares it with every static definition in
-`packages/dag-nodes/*/src/` production TypeScript; additions, removals, moves and duplicate identities fail
-until the map agrees. A static identity must be a direct string or constant template literal
-`nodeType` class property; other declaration syntax fails the scan so an unmeasured identity
-cannot silently pass. The default registry chooses which definitions to assemble; it does not own
-their identities. Optional definitions and definitions absent from the default catalog remain
-owned by their leaf package. One package may own several identities when installation and release
-are intentionally bundled (ADR-007).
+This table is the authoritative map from each static `nodeType` to the package that exports its
+definition. Update it when a definition is added, removed, or moved. No automated
+registration-owner scan currently verifies the table; source and contract review keep it in sync.
+The default registry chooses which definitions to assemble; it does not own their identities.
+Optional definitions and definitions absent from the default catalog remain owned by their leaf
+package. One package may own several identities when those definitions are intentionally installed
+and released together, as with `utility-text` and `gemini-image-edit`.
 
 <!-- dag-node-registration-owner-map:start -->
 
@@ -87,8 +85,8 @@ enumerated in this static map; the factory package owns validation and persisten
 
 | Port (Owner)                        | Consumer                | Notes                                                            |
 | ----------------------------------- | ----------------------- | ---------------------------------------------------------------- |
-| `AbstractNodeDefinition` (dag-node) | All 35 node definitions | Each implements `executeWithConfig` and `estimateCostWithConfig` |
-| `NodeIoAccessor` (dag-node)         | All 35 node definitions | Used for input reading and output assembly                       |
+| `AbstractNodeDefinition` (dag-node) | All 34 node definitions | Each implements `executeWithConfig` and `estimateCostWithConfig` |
+| `NodeIoAccessor` (dag-node)         | All 34 node definitions | Used for input reading and output assembly                       |
 
 ### Provider Composition
 
