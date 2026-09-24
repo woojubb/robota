@@ -1,6 +1,7 @@
 import {
   type IToolResultsOutcome,
   addToolResultsToHistory,
+  isArgumentDecodeErrorResult,
   isUnknownToolExecutionResult,
 } from './execution-round-tool-results';
 import { type IExecutionRoundState } from './execution-types';
@@ -159,7 +160,7 @@ export async function executeAndRecordToolCalls(
 
   roundState.toolsExecuted.push(
     ...toolSummary.results
-      .filter((result) => !isUnknownToolExecutionResult(result))
+      .filter((result) => !isUnknownToolExecutionResult(result) && !isArgumentDecodeErrorResult(result))
       .map((r) => {
         if (!r.toolName || r.toolName.length === 0) {
           throw new Error('[EXECUTION] Tool result missing toolName');

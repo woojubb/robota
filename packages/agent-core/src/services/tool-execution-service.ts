@@ -22,6 +22,7 @@ export {
   TOOL_EVENTS,
   TOOL_EVENT_PREFIX,
   UNKNOWN_TOOL_ERROR_CODE,
+  ARGUMENT_DECODE_ERROR_CODE,
 } from './tool-execution-constants';
 import { TOOL_EVENTS, UNKNOWN_TOOL_ERROR_CODE } from './tool-execution-constants';
 
@@ -202,14 +203,17 @@ export class ToolExecutionService {
     },
   ): IToolExecutionRequest[] {
     return toolCalls.map((toolCall) => {
-      const parsedParameters = decodeToolCallArguments(
+      const decoded = decodeToolCallArguments(
         toolCall.id,
         toolCall.function.name,
         toolCall.function.arguments,
       );
       return {
         toolName: toolCall.function.name,
-        parameters: parsedParameters,
+        // Issue #2875 (follow-up to #2078): a decode failure carries a placeholder here — the
+        // batch executor checks `argumentDecodeError` and returns a failed result WITHOUT ever
+        // passing `parameters` to the tool.
+        parameters: decoded.ok ? decoded.parameters : ({} as TToolParameters),
         executionId: toolCall.id,
         ownerType: 'tool',
         ownerId: toolCall.id,
@@ -217,6 +221,7 @@ export class ToolExecutionService {
         metadata: context.metadataFactory ? context.metadataFactory(toolCall) : undefined,
         ...(this.askHandler ? { ask: this.askHandler } : {}),
         deferredTools: this.deferredToolCatalog,
+        ...(decoded.ok ? {} : { argumentDecodeError: decoded.error }),
       };
     });
   }
@@ -233,28 +238,43 @@ export class ToolExecutionService {
   }
 }
 
+type TDecodedToolCallArguments =
+  | { ok: true; parameters: TToolParameters }
+  | { ok: false; error: string };
+
 /**
  * Issue #2078: `TToolParameters` is a record contract, so a syntactically valid JSON body whose root
  * is `null`, a scalar, or an array is refused HERE. The parameter validator downstream enumerates
- * fields with `in` and assumes a non-null object; the former bare cast let those roots reach it.
+ * fields with `in` and assumes a non-null object; a bare cast would let those roots reach it.
+ *
+ * Issue #2875 (follow-up to #2078): this returns a result instead of throwing. One provider batch
+ * can name several tool calls; a malformed call is THIS call's failure, not a reason to abort request
+ * construction for the rest of the batch — the caller turns a decode failure into the same per-call
+ * failed outcome an unknown tool name already gets, so every call still gets a result.
  */
-function decodeToolCallArguments(callId: string, toolName: string, raw: string): TToolParameters {
+function decodeToolCallArguments(
+  callId: string,
+  toolName: string,
+  raw: string,
+): TDecodedToolCallArguments {
   let decoded: unknown;
   try {
     decoded = JSON.parse(raw);
   } catch {
-    throw new ValidationError(
-      `Failed to parse arguments for tool "${toolName}" (call ${callId}): invalid JSON`,
-    );
+    return {
+      ok: false,
+      error: `Failed to parse arguments for tool "${toolName}" (call ${callId}): invalid JSON`,
+    };
   }
   if (decoded === null || typeof decoded !== 'object' || Array.isArray(decoded)) {
     const root =
       decoded === null ? 'null' : Array.isArray(decoded) ? 'an array' : `a ${typeof decoded}`;
-    throw new ValidationError(
-      `Failed to parse arguments for tool "${toolName}" (call ${callId}): expected a JSON object at the root, got ${root}`,
-    );
+    return {
+      ok: false,
+      error: `Failed to parse arguments for tool "${toolName}" (call ${callId}): expected a JSON object at the root, got ${root}`,
+    };
   }
-  return decoded as TToolParameters;
+  return { ok: true, parameters: decoded as TToolParameters };
 }
 
 function formatUnknownToolError(
