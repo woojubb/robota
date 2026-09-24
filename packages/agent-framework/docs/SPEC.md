@@ -61,6 +61,10 @@ React/Ink UI.
   or invalid settings file without prescribing a product command. A terminal fork-attach refusal
   carries its resume session id separately so a host can add its own reopen command while neutral
   consumers still receive an actionable session identifier.
+- **User contributions are host-selected.** Skill discovery uses only explicitly supplied
+  contribution sources and roots; neutral SDK helpers do not infer the current process home.
+- **Headless shell execution is host-owned.** The host supplies the shell adapter for explicit
+  skill interpolation; the framework does not construct a child-process fallback.
 - **Command modules own product behavior.** SDK core ships no user-visible built-in commands; command
   packages (`agent-command-*`) contribute behavior through `ICommandModule`, consuming SDK command
   contracts and common APIs. The SDK does not know command ids in advance.

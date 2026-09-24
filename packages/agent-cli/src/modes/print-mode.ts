@@ -22,6 +22,7 @@ import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
 import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../startup/loop-options.js';
+import { runShellCommand } from '../startup/shell-exec.js';
 
 /**
  * ARCH-006: the tool surface the kernel overlay resolved. `additionalTools` carries the capability packs'
@@ -114,6 +115,7 @@ export async function runPrintMode(
   const channel = new HeadlessInteractionChannel({
     cwd,
     provider,
+    shellExec: runShellCommand,
     ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
     ...(orgPolicy !== undefined ? { orgPolicy } : {}),
     ...(projectAccess !== undefined ? { projectAccess } : {}),

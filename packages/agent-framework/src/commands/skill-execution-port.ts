@@ -1,7 +1,5 @@
 import { executeSkill } from './skill-executor.js';
 import { SkillCommandSource } from './skill-source.js';
-import { createDefaultUserContributionSources } from '../contributions/index.js';
-
 import type { IContributionSource } from '../contributions/index.js';
 import type { ISkillRootDescriptor } from './skill-source.js';
 import type {
@@ -48,8 +46,11 @@ class AgentFrameworkSkillExecutionPort implements ISkillExecutionPort {
 
 /** Build the agent-framework-backed {@link ISkillExecutionPort} for injection at a composition root. */
 export function createSkillExecutionPort(
-  contributionSources: readonly IContributionSource[] = createDefaultUserContributionSources(),
+  contributionSources: readonly IContributionSource[],
   skillRoots: readonly ISkillRootDescriptor[] = [],
 ): ISkillExecutionPort {
+  if (!Array.isArray(contributionSources)) {
+    throw new Error('Contribution sources must be provided by the host.');
+  }
   return new AgentFrameworkSkillExecutionPort(contributionSources, skillRoots);
 }

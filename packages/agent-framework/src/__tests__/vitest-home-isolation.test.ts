@@ -85,15 +85,7 @@ describe('vitest home isolation (TEST-013)', () => {
       rmSync(plantedHome, { recursive: true, force: true });
     });
 
-    it('the production default, called with NO argument, discovers no user skill', () => {
-      const names = createTestSkillCommandSource(createDefaultUserContributionSources())
-        .getCommands()
-        .map((command) => command.name);
-
-      expect(names).toEqual([]);
-    });
-
-    it('and that emptiness is not the discovery path being broken', () => {
+    it('discovers user skills only beneath the explicitly selected host root', () => {
       const names = createTestSkillCommandSource(createDefaultUserContributionSources(plantedHome))
         .getCommands()
         .map((command) => command.name);

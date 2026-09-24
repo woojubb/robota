@@ -79,7 +79,7 @@ export class NodeToolResultSpillStore implements IToolResultSpillStore {
     try {
       const stat = lstatSync(parent);
       if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('unsafe parent');
-      this.directory = mkdtempSync(join(parent, 'robota-tool-results-'));
+      this.directory = mkdtempSync(join(parent, 'agent-tool-results-'));
       if (process.platform !== 'win32') chmodSync(this.directory, 0o700);
       this.assertRoot();
     } catch {

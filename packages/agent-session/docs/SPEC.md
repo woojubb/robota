@@ -287,7 +287,8 @@ Oversized tool results are spilled to disk without exposing where or what they a
 an unpredictable, owner-only directory (created with `mkdtemp`, mode `0700`); each result is written to
 an exclusively created `0600` file and addressed by a random, opaque `tool-result:` reference. No path,
 digest or payload appears in references or diagnostics, failures carry no secret material, and spilled
-results are removed on expiry and on shutdown.
+results are removed on expiry and on shutdown. The temporary directory prefix is product-neutral and
+does not disclose the host product's name.
 
 ## Error Taxonomy
 
