@@ -6,7 +6,7 @@
 '@robota-sdk/dag-framework': patch
 ---
 
-Persist composite child run lineage (`IDagRun.lineage`) across restarts (#2875), so a restarted
+Persist composite child run lineage (`IDagRun.lineage`) across restarts, so a restarted
 worker enforces composite depth/ancestry from the persisted run rather than an in-process default.
 
 - `dag-adapters-sqlite` adds migration v3 (`dag_runs.lineage_json`) and reads it back unvalidated —
@@ -18,6 +18,4 @@ worker enforces composite depth/ancestry from the persisted run rather than an i
 - `dag-runtime`'s run-key idempotency now also compares lineage: a duplicate run key whose
   requested composite lineage differs from the existing run's persisted lineage is rejected with
   `DAG_VALIDATION_RUN_KEY_LINEAGE_MISMATCH` instead of silently handing back the existing run.
-- `decodeDagExecutionLineage` now accepts a root lineage (depth 0, no parent, no ancestors) that
-  only carries a depth cap, rather than rejecting it — a caller starting a fresh root run with
-  `maxDepth` set to bound composite recursion underneath it no longer fails every run.
+- A root lineage that only carries a depth cap remains valid for starting a fresh root run.
