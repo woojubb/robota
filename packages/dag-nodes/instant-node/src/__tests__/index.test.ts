@@ -350,6 +350,47 @@ describe('composite nested-run lineage', () => {
     }, { snapshotBudget: ctx.snapshotBudget, byteLimits: ctx.byteLimits });
   });
 
+  it('passes the exact parent signal and refuses a pre-aborted child launch', async () => {
+    const controller = new AbortController();
+    const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
+    const node = composite('bounded', ['input'], runner);
+    const ctx = { ...context('bounded'), signal: controller.signal };
+    expect((await node.taskHandler.execute({ text: 'x' }, ctx)).ok).toBe(true);
+    expect(runner).toHaveBeenCalledWith(
+      expect.any(Object), expect.any(Object), expect.any(Object),
+      expect.objectContaining({ signal: controller.signal }),
+    );
+
+    controller.abort();
+    const cancelled = await node.taskHandler.execute({ text: 'x' }, ctx);
+    expect(cancelled).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_CANCELLED', retryable: false },
+    });
+    expect(runner).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['success', 'throw'])('parent abort wins a late child %s', async (outcome) => {
+    const controller = new AbortController();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const runner = vi.fn(async () => {
+      await held;
+      if (outcome === 'throw') throw new Error('late child failure');
+      return { ok: true, outputs: {} };
+    });
+    const node = composite('bounded', ['input'], runner);
+    const execution = node.taskHandler.execute({ text: 'x' }, {
+      ...context('bounded'), signal: controller.signal,
+    });
+    controller.abort();
+    release();
+    expect(await execution).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_CANCELLED', retryable: false },
+    });
+  });
+
   it('keeps the tightest ancestor depth ceiling', async () => {
     const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
     const node = composite('child', ['input'], runner);

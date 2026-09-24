@@ -65,7 +65,7 @@ function buildCompositeRunner(
         byteLimits: capabilities?.byteLimits,
         ...(liveDefs.length > 0 ? { instantNodes: liveDefs } : {}),
       });
-      const result = await provider.execute(dag, input);
+      const result = await provider.execute(dag, input, { signal: capabilities?.signal });
       return {
         ok: result.ok,
         outputs: toNestedOutputs(result.outputs),

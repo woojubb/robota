@@ -31,11 +31,13 @@ Before launching a child run, the composite rejects a child DAG that contains it
 any ancestor composite node type, and rejects launches beyond `maxDepth` (default and hard maximum:
 three nested DAG boundaries; zero disables child launches). This is a runtime guard, not a
 constructor-time guess — direct and indirect recursion fail before the next child run starts.
-Composite runners also forward the same trusted task snapshot authority and per-operation byte
-limits to children; they never reconstruct these capabilities from a saved manifest. Cancellation
-propagation and generation-time aggregate limits remain unfinished parts of issue #2163. If a child
-fails, its terminal error code and retryability are preserved rather than replaced with a generic
-composite failure.
+Composite runners also forward the same trusted task snapshot authority, per-operation byte
+limits, and active parent attempt signal to children; they never reconstruct these capabilities
+from a saved manifest. A parent abort prevents child entry and takes precedence over a late child
+result or thrown error. This propagates cancellation intent, but does not promise that arbitrary
+child work has stopped before the parent settles. Generation-time aggregate limits remain open.
+If a child fails without parent abort, its terminal error code and retryability are preserved
+rather than replaced with a generic composite failure.
 
 ## Provider registry
 
@@ -72,5 +74,6 @@ callers can distinguish transient from configuration failures without inspecting
 
 Prompt-backed nodes forward the trusted node-context signal to the agent run, refuse provider
 entry after abort, and discard a late completion. Cancellation is a non-retryable
-`DAG_TASK_EXECUTION_CANCELLED`, rather than a retryable LLM failure. This contract does not yet
-forward cancellation through composite child runners or guarantee provider transport shutdown.
+`DAG_TASK_EXECUTION_CANCELLED`, rather than a retryable LLM failure. Composite runners forward
+the parent attempt signal into the child execution path; provider transport shutdown remains
+outside this guarantee.
