@@ -6,7 +6,7 @@ import {
   commitHandoff,
   handoffOutcome,
   sourceStillOwns,
-} from '../handoff-ownership.js';
+} from '../index.js';
 
 import type {
   IHandoffCommitAck,

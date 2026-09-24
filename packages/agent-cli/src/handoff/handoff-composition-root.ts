@@ -1,27 +1,25 @@
 /**
- * Where the hand-off orchestration meets the wire layer (HANDOFF-001, issue #1864).
+ * Where handoff orchestration meets domain authority and wire codecs (HANDOFF-001, issue #1864).
  *
  * `agent-framework` owns the orchestration and declares what it needs as `IHandoffComposition`.
- * `agent-transport` owns the manifest, the integrity seal, the chunker and the ownership
- * transaction. The framework deliberately does not depend on the wire package — every consumer of
- * it is a transport package or a composition root, and ARCH-021 is the precedent for keeping an
- * assembly package clear of an edge like this by having the root supply the collaborator instead.
+ * `agent-transport` owns the manifest, integrity seal and chunker; session mobility owns the
+ * authority transaction. The framework does not depend on the wire package — every consumer of it
+ * is a transport package or a composition root. The root supplies that collaborator here.
  *
  * This file is that root. It is the ONLY place the two names appear together, which is what makes
  * the boundary checkable by reading one file rather than by trusting a rule.
  */
 
 import type { IHandoffComposition, IHandoffTransactionPort } from '@robota-sdk/agent-framework';
-import type { IHandoffManifest } from '@robota-sdk/agent-interface-session-mobility';
 import {
-  HandoffChunkAssembler,
   advanceHandoff,
   beginHandoff,
-  chunkHandoffPayload,
   commitHandoff,
   sourceStillOwns,
   type IHandoffTransaction,
-} from '@robota-sdk/agent-transport';
+  type IHandoffManifest,
+} from '@robota-sdk/agent-interface-session-mobility';
+import { HandoffChunkAssembler, chunkHandoffPayload } from '@robota-sdk/agent-transport';
 import { buildHandoffManifest, verifyHandoffPayload } from '@robota-sdk/agent-transport/node';
 
 /**

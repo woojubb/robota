@@ -2,7 +2,7 @@
  * HANDOFF-001 (#1811): what actually gets built and sent, and how the destination knows it arrived
  * whole.
  *
- * `handoff-ownership.ts` owns the phase transitions — who is authoritative when. This owns the two
+ * Session mobility owns the phase transitions — who is authoritative when. This owns the two
  * things that have to be true before those transitions mean anything: the inventory is COMPLETE, and
  * the payload is INTACT.
  *
@@ -194,7 +194,7 @@ function inventory(
  * Build the offer, or refuse to.
  *
  * Refusal comes first and is not a failure of the transfer — it is the transfer declining to start
- * on state that is not settled. `handoff-ownership.ts` never sees an offer that should not have been
+ * on state that is not settled. The authority transaction never sees an offer that should not have been
  * made.
  */
 export function buildHandoffManifest(input: IBuildManifestInput): TManifestResult {
