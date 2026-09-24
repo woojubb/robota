@@ -1,6 +1,6 @@
 /**
  * Issue #2875 — Edit must refuse a file that exceeds its per-operation input ceiling
- * before materializing the whole content, including when stat() reports a stale size
+ * before materializing the whole content, including a source with no stable size
  * (a growing regular file, or a named pipe). A refusal must leave the file unmodified.
  */
 import { spawn, spawnSync } from 'node:child_process';
@@ -15,26 +15,9 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import type { IToolInvocationResult } from '../types/tool-result.js';
-
-const fixture = vi.hoisted(() => ({ pipe: '' }));
-
-// A pipe has no stable size. Present it as a regular file with stale size metadata to
-// exercise the same read path as a regular file that grows after stat() — mirrors
-// grep-bounded-input.test.ts.
-vi.mock('node:fs/promises', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs/promises')>();
-  return {
-    ...actual,
-    stat: async (path: string) => {
-      const result = await actual.stat(path);
-      if (path === fixture.pipe) Object.assign(result, { size: 0, isFile: () => true });
-      return result;
-    },
-  };
-});
 
 const { createEditTool } = await import('../builtins/edit-tool.js');
 
@@ -72,7 +55,6 @@ describe('Edit bounds its file input before materializing content', () => {
     async () => {
       const root = realpathSync(mkdtempSync(join(tmpdir(), 'edit-bounded-pipe-')));
       const pipe = join(root, 'growing.txt');
-      fixture.pipe = pipe;
       const created = spawnSync('mkfifo', [pipe], { encoding: 'utf8' });
       expect(created.error).toBeUndefined();
       expect(created.status, created.stderr).toBe(0);
@@ -118,7 +100,6 @@ describe('Edit bounds its file input before materializing content', () => {
         if (writer.exitCode === null && writer.signalCode === null) {
           await new Promise<void>((resolve) => writer.once('exit', () => resolve()));
         }
-        fixture.pipe = '';
         rmSync(root, { recursive: true, force: true });
       }
     },

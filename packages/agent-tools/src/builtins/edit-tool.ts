@@ -63,7 +63,7 @@ class EditByteLimitError extends Error {
 async function readBoundedUtf8File(
   filePath: string,
   maxBytes: number,
-): Promise<{ content: string; byteLength: number }> {
+): Promise<string> {
   const stream = createReadStream(filePath, { highWaterMark: READ_CHUNK_BYTES });
   const chunks: Buffer[] = [];
   let bytes = 0;
@@ -77,7 +77,7 @@ async function readBoundedUtf8File(
   } finally {
     stream.destroy();
   }
-  return { content: Buffer.concat(chunks, bytes).toString('utf8'), byteLength: bytes };
+  return Buffer.concat(chunks, bytes).toString('utf8');
 }
 
 async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Promise<string> {
@@ -93,19 +93,15 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Prom
   }
 
   let content: string;
-  let contentBytes: number;
   try {
     if (options.sandboxClient) {
       content = await options.sandboxClient.readFile(filePath);
-      contentBytes = Buffer.byteLength(content, 'utf8');
       // This API already returns a complete string; admission here still bounds the
       // string operations below, while a streaming sandbox read API is needed to bound
       // provider memory the way the host path's stream does.
-      if (contentBytes > MAX_EDIT_FILE_BYTES) throw new EditByteLimitError('input');
+      if (Buffer.byteLength(content, 'utf8') > MAX_EDIT_FILE_BYTES) throw new EditByteLimitError('input');
     } else {
-      const bounded = await readBoundedUtf8File(filePath, MAX_EDIT_FILE_BYTES);
-      content = bounded.content;
-      contentBytes = bounded.byteLength;
+      content = await readBoundedUtf8File(filePath, MAX_EDIT_FILE_BYTES);
     }
   } catch (err) {
     if (err instanceof EditByteLimitError) {
@@ -161,7 +157,9 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Prom
   const count = replaceAll ? parts.length - 1 : 1;
   const oldBytes = Buffer.byteLength(oldString, 'utf8');
   const newBytes = Buffer.byteLength(newString, 'utf8');
-  const expectedOutputBytes = contentBytes - count * oldBytes + count * newBytes;
+  // Decoded length, not raw file bytes: invalid UTF-8 re-encodes as U+FFFD (3 bytes) on write.
+  const decodedBytes = Buffer.byteLength(content, 'utf8');
+  const expectedOutputBytes = decodedBytes - count * oldBytes + count * newBytes;
   if (expectedOutputBytes > MAX_EDIT_FILE_BYTES) {
     const result: IToolInvocationResult = {
       success: false,

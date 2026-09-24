@@ -110,7 +110,7 @@ Grep executes pattern matching outside the caller's event loop; exhaustion, work
 cancellation are hard execution errors surfaced only after the isolated operation has stopped.
 Read admits host file bytes independent of the requested line slice and bounds formatted output;
 budget exhaustion and cancellation are hard errors, while missing and binary files remain ordinary
-tool results. Edit admits host file bytes under the same per-operation ceiling as Read/Grep before
+tool results. Edit admits file content under the same per-operation ceiling as Read/Grep before
 running its string operations, and rejects a replacement whose output would exceed it, but reports
 either as an ordinary failed tool result rather than a thrown error, consistent with the rest of
 Edit's error handling.
