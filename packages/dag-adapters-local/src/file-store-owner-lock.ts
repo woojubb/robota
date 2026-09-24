@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync, unlinkSync } from 'node:fs';
+import { linkSync, readFileSync, renameSync, unlinkSync } from 'node:fs';
 import {
   link,
   open,
@@ -16,9 +16,42 @@ const OWNER_LOCK_FILE_NAME = '.owner.lock';
 /** Suffix, not a standalone filename: the guard always lives alongside a specific lock file, as
  *  `${lockFilePath}${TAKEOVER_GUARD_SUFFIX}` (e.g. `.owner.lock.takeover`). */
 const TAKEOVER_GUARD_SUFFIX = '.takeover';
-/** Bounded so a pathological number of concurrent racers cannot loop forever; real contention (a
- *  handful of processes racing one stale lock) resolves in a small number of retries. */
-const MAX_ACQUIRE_ATTEMPTS = 50;
+
+/**
+ * Upper bound on the age past which an unheld takeover guard is presumed abandoned — see
+ * `guardStaleTimeoutMs` (an instance field, since it also depends on `leaseTimeoutMs`) for the actual
+ * threshold used. Deliberately its own short constant, independent of the (typically much longer) lease
+ * timeout: a guard is only ever held for the duration of one guarded acquisition attempt — a handful of
+ * small file operations — never for as long as a live owner's lease. Reusing the full lease timeout here
+ * once meant a leftover guard (its holder crashed before releasing it) could wedge every `acquire()` on
+ * the root for as long as that lease timeout; this cap is instead sized for the slowest a single guarded
+ * attempt should plausibly take (a slow disk, a GC pause), with generous margin.
+ */
+const GUARD_STALE_TIMEOUT_CAP_MS = 5_000;
+/** Base delay between contested-guard retries, so a run of them is a slow poll rather than a tight
+ *  spin. Jittered (see the call site) rather than fixed: several racers all sleeping the exact same
+ *  fixed interval wake in lockstep on every cycle, which can let bad luck alone make the SAME racer
+ *  keep losing the guard race to whichever other racer's promise happens to be scheduled microseconds
+ *  earlier, cycle after cycle — jitter breaks that synchronization. */
+const ACQUIRE_RETRY_DELAY_MS = 20;
+/** How many contested retries `acquireInternal` makes with NO deliberate delay before it starts
+ *  sleeping between them — see the call site for why immediate retries are both safe and important for
+ *  a caller with a short `leaseTimeoutMs`. */
+const FAST_RETRY_ATTEMPTS = 200;
+/** A hard cap on retry iterations, independent of the time budget below — a pure safety valve against
+ *  a pathological spin should the wall clock itself misbehave (e.g. moves backwards). Sized generously
+ *  so it is never the thing that cuts off a legitimate wait in practice. */
+const MAX_ACQUIRE_ATTEMPTS = 1_000;
+
+/** Deliberately NOT `.unref()`'d — unlike the heartbeat's long-lived interval (which must not keep an
+ *  otherwise-idle process alive), this backs an in-progress `acquire()` call: the caller is actively
+ *  awaiting it, so the process must stay alive to deliver that result, even if every other handle in the
+ *  process happens to be unref'd (e.g. no live heartbeats yet). */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 /**
  * The heartbeat lease timing. A live owner rewrites `refreshedAt` on this interval; a lock whose
@@ -84,6 +117,37 @@ interface IOwnerLockRecord {
   acquiredAt: string;
   /** Epoch ms of the last heartbeat. The authoritative clock for lease staleness. */
   refreshedAt: number;
+}
+
+interface IGuardRecord {
+  pid: number;
+  hostname: string;
+  /** Identifies this specific guard acquisition, so a reclaim or release can confirm it is acting on
+   *  the exact guard it observed rather than one that has since replaced it. */
+  token: string;
+  /** ISO timestamp the guard was created — used both to judge staleness (age-based, since a guard is
+   *  never renewed the way the lock's lease is) and to name the current holder in a contention error. */
+  createdAt: string;
+}
+
+function parseGuardRecord(raw: string): IGuardRecord | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (
+    typeof parsed !== 'object' ||
+    parsed === null ||
+    typeof (parsed as { pid?: unknown }).pid !== 'number' ||
+    typeof (parsed as { hostname?: unknown }).hostname !== 'string' ||
+    typeof (parsed as { token?: unknown }).token !== 'string' ||
+    typeof (parsed as { createdAt?: unknown }).createdAt !== 'string'
+  ) {
+    return undefined;
+  }
+  return parsed as IGuardRecord;
 }
 
 interface IStaleInspection {
@@ -170,15 +234,68 @@ async function statMtimeMs(filePath: string): Promise<number | undefined> {
   }
 }
 
-async function writeRecordAtomically(lockFilePath: string, record: IOwnerLockRecord): Promise<void> {
-  const temporaryFilePath = `${lockFilePath}.tmp-${process.pid}-${randomUUID()}`;
+/**
+ * Renew `lockFilePath` to `newRecord`, but ONLY if, at the moment of the swap, it still names
+ * `expectedToken` — and only by an EXCLUSIVE create of the new content, never a bare overwrite.
+ *
+ * A plain "read, confirm it's still ours, then overwrite" has a gap between the confirmation and the
+ * write: a takeover landing in that gap would have its brand-new lock clobbered by this instance's own
+ * stale renewal, which is exactly the double-owner outcome the whole lease/self-expiry design exists to
+ * prevent. Renaming the current file aside first (as {@link verifiedRemove} does for removal) closes the
+ * confirmation half of that gap; publishing the new content via exclusive `link()` rather than `rename`
+ * closes the other half — if a different acquisition's `tryCreate()` already recreated the path in the
+ * instant between this call's removal and its own publish, that `link()` fails with `EEXIST` instead of
+ * silently overwriting it, and this call reports the renewal lost rather than having won it.
+ *
+ * Returns `true` on a successful, verified renewal, `false` when the lock no longer named this
+ * acquisition or a different acquisition won the recreation race — either way, ownership must be
+ * treated as lost.
+ */
+async function verifiedRenew(
+  lockFilePath: string,
+  expectedToken: string,
+  newRecord: IOwnerLockRecord,
+): Promise<boolean> {
+  const asidePath = `${lockFilePath}.aside-${randomUUID()}`;
   try {
-    await writeFile(temporaryFilePath, JSON.stringify(record));
-    await rename(temporaryFilePath, lockFilePath);
+    await rename(lockFilePath, asidePath);
   } catch (error) {
-    await unlinkIgnoringMissing(temporaryFilePath);
+    if (isErrnoException(error) && error.code === 'ENOENT') return false; // already gone
     throw error;
   }
+
+  let raw: string | undefined;
+  try {
+    raw = await readFileAsync(asidePath, 'utf8');
+  } catch {
+    raw = undefined;
+  }
+  const stillOurs = raw !== undefined && parseLockRecord(raw)?.token === expectedToken;
+  if (!stillOurs) {
+    try {
+      await link(asidePath, lockFilePath);
+    } catch (error) {
+      if (!isErrnoException(error) || error.code !== 'EEXIST') throw error;
+      // Something else already occupies the path now — not ours to restore.
+    }
+    await unlinkIgnoringMissing(asidePath);
+    return false;
+  }
+  await unlinkIgnoringMissing(asidePath);
+
+  const temporaryFilePath = `${lockFilePath}.tmp-${process.pid}-${randomUUID()}`;
+  try {
+    await writeFile(temporaryFilePath, JSON.stringify(newRecord));
+    try {
+      await link(temporaryFilePath, lockFilePath);
+    } catch (error) {
+      if (isErrnoException(error) && error.code === 'EEXIST') return false; // lost the recreation race
+      throw error;
+    }
+  } finally {
+    await unlinkIgnoringMissing(temporaryFilePath);
+  }
+  return true;
 }
 
 /**
@@ -239,6 +356,51 @@ async function verifiedRemove(
   return 'mismatch';
 }
 
+function unlinkIgnoringMissingSync(filePath: string): void {
+  try {
+    unlinkSync(filePath);
+  } catch (error) {
+    if (isErrnoException(error) && error.code === 'ENOENT') return;
+    throw error;
+  }
+}
+
+/** Synchronous counterpart of {@link verifiedRemove}, for the process `exit` handler — which must run
+ *  synchronously and so cannot use the promise-based fs API. Same rename-aside-then-verify shape, same
+ *  guarantee: never removes, and never leaves removed, anything but the exact content `matches` names. */
+function verifiedRemoveSync(
+  targetPath: string,
+  matches: (raw: string) => boolean,
+): 'removed' | 'mismatch' | 'gone' {
+  const asidePath = `${targetPath}.aside-${randomUUID()}`;
+  try {
+    renameSync(targetPath, asidePath);
+  } catch (error) {
+    if (isErrnoException(error) && error.code === 'ENOENT') return 'gone';
+    throw error;
+  }
+
+  let raw: string | undefined;
+  try {
+    raw = readFileSync(asidePath, 'utf8');
+  } catch {
+    raw = undefined;
+  }
+
+  if (raw !== undefined && matches(raw)) {
+    unlinkIgnoringMissingSync(asidePath);
+    return 'removed';
+  }
+
+  try {
+    linkSync(asidePath, targetPath);
+  } catch (error) {
+    if (!isErrnoException(error) || error.code !== 'EEXIST') throw error;
+  }
+  unlinkIgnoringMissingSync(asidePath);
+  return 'mismatch';
+}
+
 // A SINGLE module-level `exit` listener, rather than one per lock: many `FileStoragePort`s can be
 // acquired and released over a process's lifetime (tests do this heavily), and a per-instance
 // `process.once('exit', ...)` would otherwise accumulate one listener per acquisition. `liveLocks`
@@ -296,31 +458,30 @@ function ensureProcessExitHandlerRegistered(): void {
  *
  * EVERY ACQUISITION ATTEMPT IS SERIALIZED by a second, short-lived exclusive file (the "takeover
  * guard") — not only the stale-lock-removal step, but also the fast path where the lock file does not
- * exist at all. Guarding only the removal-and-recreate step once looked sufficient, but it left the
- * lock file's plain, unguarded, exclusive create (the same call this fast path uses) able to win the
- * gap between one racer's guard-protected removal of a stale lock and that racer's own recreation of a
- * fresh one: that gap makes the path briefly absent, and an absent path is indistinguishable, to a
- * bystander racer's create, from a root nobody has ever raced for. Requiring the guard around every
- * create closes that gap by construction — only its single current holder ever creates or removes the
- * lock file, so no two racers' creates can ever land on the same emptied path. Every destructive step
- * under the guard — reclaiming an abandoned guard, and removing a lock judged stale — is further
- * TOKEN-VERIFIED via {@link verifiedRemove} rather than a bare check-then-unlink: a bare `unlink` acts
- * on whatever is CURRENTLY at the path, not on the specific file a caller earlier judged stale, so
- * removal itself could still destroy something that has since legitimately replaced it (a live
- * owner's fresh lease, or another guard generation). `verifiedRemove` closes that narrower gap by
- * renaming (atomic, unconditional) before ever inspecting content, so the content check that follows
- * is provably about the exact file just removed from the path, not a snapshot that may already be
- * stale itself.
+ * exist at all: only the guard's single current holder may ever create or remove the lock file, so no
+ * two racers' creates can ever land on the same emptied path. Every destructive step under the guard —
+ * reclaiming an abandoned guard, and removing a lock judged stale — is further TOKEN-VERIFIED via
+ * {@link verifiedRemove} rather than a bare check-then-unlink: a bare `unlink` acts on whatever is
+ * CURRENTLY at the path, not on the specific file a caller earlier judged stale, so removal itself could
+ * still destroy something that has since legitimately replaced it (a live owner's fresh lease, or
+ * another guard generation). `verifiedRemove` closes that gap by renaming (atomic, unconditional) before
+ * ever inspecting content, so the content check that follows is provably about the exact file just
+ * removed from the path, not a snapshot that may already be stale itself.
  *
- * A guard itself found older than the lease timeout is presumed abandoned (its holder crashed
- * mid-takeover) and reclaimed the same verified way: its current token is read, and only a
+ * A guard is presumed abandoned once it is older than its own short staleness threshold — deliberately
+ * NOT the (typically much longer) lease timeout, since a guard is only ever held for the duration of one
+ * guarded attempt, never as long as a live owner's lease — or once it names a same-host process that is
+ * no longer alive. It is reclaimed the same verified way: its current token is read, and only a
  * `verifiedRemove` that confirms that SAME token is actually gone counts as a successful reclaim — if
  * something else already holds the guard under a different token by the time the removal runs, this
  * call restores it and reports no reclaim, rather than assuming its earlier read was still current.
+ * `acquire()` retries a contested guard with a bounded, backed-off wait rather than a small fixed number
+ * of immediate attempts, so a genuinely abandoned guard's short staleness window is reliably waited out
+ * within the SAME `acquire()` call instead of the caller needing to retry.
  *
  * RESIDUAL RISKS, both bounded and never a double-owner outcome:
- * - a taker that stalls (GC pause, scheduler starvation) for longer than the lease timeout WHILE
- *   holding the guard makes its own guard reclaimable by someone else, who may then complete an
+ * - a taker that stalls (GC pause, scheduler starvation) for longer than the guard's own staleness
+ *   threshold WHILE holding it makes its own guard reclaimable by someone else, who may then complete an
  *   entire takeover before the stalled taker resumes. This is still safe: the stalled taker's own
  *   final step — creating the lock file via the same exclusive `link()` every acquisition uses —
  *   fails with `EEXIST` against whatever the other taker already created, so at most one of them ever
@@ -332,15 +493,19 @@ function ensureProcessExitHandlerRegistered(): void {
  *   a third party's concurrent reclaim of what H thought was still its own guard, and that third
  *   party's mismatch-handling restore then puts H's (now orphaned) guard content back. Nobody owns
  *   cleaning that copy up, but its `link()`-refreshed mtime means it is not immediately reclaimable
- *   either — it self-heals once its age exceeds the lease timeout, the same as any other abandoned
- *   guard. Observed in stress testing at roughly the 1-2% level under five-way contention on one root;
- *   it delays, but never breaks, a later takeover of that specific root.
+ *   either — it self-heals once its age exceeds the guard's staleness threshold, the same as any other
+ *   abandoned guard. Observed in stress testing at a low single-digit percentage of rounds under
+ *   five-way-or-more contention on one root; it delays, but never breaks, a later takeover of that
+ *   specific root, and the delay is bounded by the same short threshold, not by the lease timeout.
  *
  * The live owner renews its lease on an unref'd interval. Each renewal first checks that the lock
  * file still names THIS acquisition (by a random per-acquisition token, not just pid/hostname, since
  * a later acquisition in the same process can share both) — if it does not, another owner has taken
  * over (this owner's lease lapsed during a long stall) and `onOwnershipLost` fires so the caller can
- * poison itself rather than silently continuing to write as an unaccounted-for second owner.
+ * poison itself rather than silently continuing to write as an unaccounted-for second owner. The renewal
+ * write itself is token-verified via {@link verifiedRenew}, not a bare overwrite: a takeover landing in
+ * the gap between this check and an unconditional write could otherwise have this instance's own stale
+ * renewal clobber the new owner's freshly created lock.
  *
  * An owner must stop acting before anyone else may consider its lease stale — a heartbeat that keeps
  * FAILING to write (an unwritable directory, a stalled event loop that only gets to run once the
@@ -355,11 +520,8 @@ function ensureProcessExitHandlerRegistered(): void {
  * to also run it before every persist, since a stall long enough to matter delays both equally, and
  * whichever runs first when the event loop resumes must still catch it.
  *
- * Losing the lock — to a real takeover or to self-expiry — is PERMANENT. An earlier design let an
- * instance resume if it discovered nothing had actually taken over, but that recovery reset the
- * in-memory working set out from under a queue of already-admitted operations and could itself lose
- * updates across the recovery boundary; simplicity here is a deliberate choice, not an oversight. Once
- * lost, the only way to use this root again is to open a new instance.
+ * Losing the lock — to a real takeover or to self-expiry — is PERMANENT: the only way to use this root
+ * again is to open a new instance.
  *
  * Release removes the lock file (only if it still names this acquisition) on `close()` and,
  * best-effort, on process `exit` via one shared process-level handler (see `liveLocks` above) — `exit`
@@ -372,6 +534,16 @@ export class FileStoreOwnerLock {
   private readonly refreshIntervalMs: number;
   private readonly leaseTimeoutMs: number;
   private readonly selfExpiryMs: number;
+  /** {@link GUARD_STALE_TIMEOUT_CAP_MS}, but never more than this instance's OWN `leaseTimeoutMs`: a
+   *  caller configuring a short lease (fast failover) must not have guard contention take LONGER to
+   *  resolve than that lease's own staleness window — a delayed contender who finally gets the guard
+   *  after outlasting a longer, fixed guard threshold could otherwise see an otherwise-healthy, just
+   *  created lock as stale simply because ITS OWN wait took longer than the lease timeout it is bound
+   *  by, legitimately but spuriously taking over a lock nobody actually abandoned. */
+  private readonly guardStaleTimeoutMs: number;
+  /** Wall-clock budget `acquireInternal` waits out a contested guard, derived from
+   *  `guardStaleTimeoutMs` with margin for the reclaim itself — see there for why it is capped at all. */
+  private readonly acquireWaitBudgetMs: number;
   private readonly onOwnershipLost: ((reason: string) => void) | undefined;
   private readonly afterRefresh: (() => void) | undefined;
   private readonly guardPath: string;
@@ -381,6 +553,9 @@ export class FileStoreOwnerLock {
   /** Set while `acquireGuard()` holds the takeover guard; identifies which acquisition of it this is,
    *  so `releaseGuard()` only removes the guard if it still holds exactly that acquisition. */
   private currentGuardToken: string | undefined;
+  /** The last OTHER acquisition's guard this instance observed still fresh (not yet reclaimable) while
+   *  contested — used only to name the current holder in the error thrown if the wait budget runs out. */
+  private lastGuardHolder: { pid: number; hostname: string; createdAt: string } | undefined;
 
   private constructor(
     private readonly lockFilePath: string,
@@ -390,6 +565,8 @@ export class FileStoreOwnerLock {
     this.leaseTimeoutMs = options.leaseTimeoutMs ?? DEFAULT_LOCK_LEASE_TIMEOUT_MS;
     this.selfExpiryMs =
       options.selfExpiryMs ?? computeSelfExpiryMs(this.refreshIntervalMs, this.leaseTimeoutMs);
+    this.guardStaleTimeoutMs = Math.min(GUARD_STALE_TIMEOUT_CAP_MS, this.leaseTimeoutMs);
+    this.acquireWaitBudgetMs = this.guardStaleTimeoutMs + 2_000;
     this.onOwnershipLost = options.onOwnershipLost;
     this.afterRefresh = options.afterRefresh;
     this.guardPath = `${this.lockFilePath}${TAKEOVER_GUARD_SUFFIX}`;
@@ -418,8 +595,22 @@ export class FileStoreOwnerLock {
   /**
    * Returns `true` on success (acquired outright, or won a guarded takeover), or the conflict to
    * throw when every attempt was refused or exhausted without ever owning the root.
+   *
+   * The first {@link FAST_RETRY_ATTEMPTS} contested retries have NO deliberate delay: real racers hold
+   * the guard for microseconds (a handful of small file operations), so contention among them resolves
+   * within a few immediate retries — and a caller with a short `leaseTimeoutMs` (fast failover) is
+   * relying on exactly that speed, which an unconditional sleep here would eat into for no benefit,
+   * risking an otherwise-healthy just-acquired lock being seen as stale by a straggler that took longer
+   * to get its turn only because THIS loop made it wait. Only once contention has outlasted that many
+   * immediate retries — meaning it is very unlikely to be ordinary live contention — does this fall back
+   * to a small delay ({@link ACQUIRE_RETRY_DELAY_MS}, jittered) rather than spinning tightly, bounded by
+   * wall-clock time (`acquireWaitBudgetMs`) rather than a fixed attempt count: a guard left behind by a
+   * crashed taker only becomes reclaimable once it ages past `guardStaleTimeoutMs`, and a small fixed
+   * attempt count could exhaust itself and report "contested" well before that. `MAX_ACQUIRE_ATTEMPTS`
+   * remains as a hard iteration cap purely as a safety valve.
    */
   private async acquireInternal(): Promise<FileStoreOwnerConflictError | true> {
+    const deadline = Date.now() + this.acquireWaitBudgetMs;
     for (let attempt = 0; attempt < MAX_ACQUIRE_ATTEMPTS; attempt += 1) {
       const outcome = await this.attemptOneAcquisition();
       if (outcome === true) {
@@ -430,24 +621,38 @@ export class FileStoreOwnerLock {
         return outcome;
       }
       // Contested — the guard itself, or the lock changed underneath this attempt — retry the whole
-      // detect-and-take cycle.
+      // detect-and-take cycle, unless the wait budget is spent.
+      if (Date.now() >= deadline) break;
+      if (attempt >= FAST_RETRY_ATTEMPTS) {
+        await sleep(Math.random() * ACQUIRE_RETRY_DELAY_MS * 4);
+      }
     }
-    return new FileStoreOwnerConflictError(
-      `file store owner lock at ${this.lockFilePath} is contested by concurrent takeover attempts`,
-    );
+    return new FileStoreOwnerConflictError(this.describeGuardContention());
+  }
+
+  /** The message for a contended-guard timeout — names the current holder when it was ever observed
+   *  (a valid, parseable guard record), or falls back to a generic message when it was not (unreadable
+   *  content, or the guard kept changing hands without this instance ever reading a valid record). */
+  private describeGuardContention(): string {
+    const holder = this.lastGuardHolder;
+    if (holder) {
+      return (
+        `file store owner lock at ${this.lockFilePath} is contested: its takeover guard has been held ` +
+        `by pid ${String(holder.pid)} on host ${holder.hostname} since ${holder.createdAt}, past the ` +
+        `${String(this.acquireWaitBudgetMs)}ms this instance waited for it to either finish or become ` +
+        `reclaimable as abandoned`
+      );
+    }
+    return `file store owner lock at ${this.lockFilePath} is contested by concurrent takeover attempts`;
   }
 
   /**
    * One full attempt, entirely serialized by the takeover guard — including the FAST path where the
-   * lock file does not exist at all. An earlier version only took the guard around the stale-lock
-   * removal step and called the ordinary exclusive `tryCreate()` unguarded both for that first-time
-   * fast path and at the top of every retry: that left a window, between one racer's guard-protected
-   * removal of a stale lock and that SAME racer's own recreation of a fresh one, where a DIFFERENT
-   * racer's unguarded `tryCreate()` retry could win the gap — the lock path is briefly absent, and
-   * `tryCreate()` cannot tell "nobody has ever raced this root" from "someone else just cleared it and
-   * is about to recreate it". Requiring the guard around every create, not just around removal, closes
-   * that gap: only the guard's single current holder ever creates or removes the lock file, so no two
-   * racers' create attempts can ever land on the same emptied path.
+   * lock file does not exist at all: an absent path is indistinguishable, to a bystander racer's plain
+   * exclusive create, from a root nobody has ever raced for, so ONLY the guard's single current holder
+   * may ever create or remove the lock file — otherwise two racers' creates could land on the same
+   * emptied path (one racer's guard-protected removal of a stale lock, followed by its own recreation of
+   * a fresh one, briefly leaves the path absent).
    *
    * Returns `true` on success, the conflict to throw when the current occupant is a live owner, or
    * `false` when this attempt was contested and the caller should retry the whole cycle.
@@ -511,7 +716,6 @@ export class FileStoreOwnerLock {
       await unlinkIgnoringMissing(temporaryFilePath);
     }
     this.lastSuccessfulRefreshAt = now;
-    this.released = false;
     liveLocks.add(this);
     ensureProcessExitHandlerRegistered();
     return true;
@@ -532,10 +736,16 @@ export class FileStoreOwnerLock {
   }
 
   private async tryCreateGuard(token: string): Promise<boolean> {
+    const record: IGuardRecord = {
+      pid: process.pid,
+      hostname: os.hostname(),
+      token,
+      createdAt: new Date().toISOString(),
+    };
     try {
       const handle = await open(this.guardPath, 'wx');
       try {
-        await handle.writeFile(token);
+        await handle.writeFile(JSON.stringify(record));
       } finally {
         await handle.close();
       }
@@ -551,7 +761,7 @@ export class FileStoreOwnerLock {
     this.currentGuardToken = undefined;
     if (token === undefined) return;
     try {
-      await verifiedRemove(this.guardPath, (raw) => raw === token);
+      await verifiedRemove(this.guardPath, (raw) => parseGuardRecord(raw)?.token === token);
     } catch {
       // Best-effort: releasing must not throw and mask the caller's own path (the takeover's own
       // `finally`, or eventually this instance's `release()`/exit cleanup).
@@ -559,27 +769,48 @@ export class FileStoreOwnerLock {
   }
 
   /**
-   * A guard older than the lease timeout is presumed abandoned (its holder crashed mid-takeover,
-   * never reaching its own `releaseGuard()`). Its current token is read first, and only a
-   * `verifiedRemove` confirming that SAME token counts as a genuine reclaim — a bare
-   * "check age, then unlink" would act on whatever is at the path by the time the unlink runs, which
-   * can be a brand-new guard a different taker created after the old one was legitimately released.
+   * A guard is presumed abandoned (its holder crashed mid-acquisition, never reaching its own
+   * `releaseGuard()`) once it is older than `guardStaleTimeoutMs` — deliberately a short,
+   * fixed threshold, since a guard is only ever meant to be held for the duration of one guarded
+   * attempt, never as long as a live owner's lease — OR once it names a process on THIS host that is no
+   * longer alive, the same same-host-dead-pid fast path the lock itself uses. Its current record is
+   * read first, and only a `verifiedRemove` confirming that SAME token counts as a genuine reclaim — a
+   * bare "check age, then unlink" would act on whatever is at the path by the time the unlink runs,
+   * which can be a brand-new guard a different taker created after the old one was legitimately
+   * released. When the guard is still fresh and genuinely contested, its holder is recorded so a caller
+   * that eventually gives up can name it rather than reporting generic contention.
    */
   private async reclaimStaleGuardIfAbandoned(): Promise<boolean> {
-    let existingToken: string;
+    let raw: string;
     try {
-      existingToken = await readFileAsync(this.guardPath, 'utf8');
+      raw = await readFileAsync(this.guardPath, 'utf8');
     } catch (error) {
       if (isErrnoException(error) && error.code === 'ENOENT') return true; // already gone; retry create
       return false; // unreadable; be conservative rather than guess
     }
 
+    const record = parseGuardRecord(raw);
+    if (record) {
+      const createdAtMs = Date.parse(record.createdAt);
+      const ageMs = Number.isNaN(createdAtMs) ? undefined : Date.now() - createdAtMs;
+      const staleByAge = ageMs !== undefined && ageMs > this.guardStaleTimeoutMs;
+      const sameHostDead = record.hostname === os.hostname() && !isProcessAlive(record.pid);
+      if (!staleByAge && !sameHostDead) {
+        this.lastGuardHolder = { pid: record.pid, hostname: record.hostname, createdAt: record.createdAt };
+        return false; // still fresh, and its holder (on a host we can check) is alive; genuinely contested
+      }
+      const outcome = await verifiedRemove(this.guardPath, (r) => parseGuardRecord(r)?.token === record.token);
+      return outcome !== 'mismatch'; // 'removed' or 'gone' both leave the path free to retry create
+    }
+
+    // Unparseable content (a hand-placed file, or something from a different version of this code):
+    // no token or timestamp to reason about, so fall back to the guard path's own mtime, the same
+    // defence-in-depth age check the lock's own unreadable-content path uses.
     const mtimeMs = await statMtimeMs(this.guardPath).catch(() => undefined);
     if (mtimeMs === undefined) return true; // gone since the read above; retry create
-    if (Date.now() - mtimeMs <= this.leaseTimeoutMs) return false; // still fresh; genuinely contested
-
-    const outcome = await verifiedRemove(this.guardPath, (raw) => raw === existingToken);
-    return outcome !== 'mismatch'; // 'removed' or 'gone' both leave the path free to retry create
+    if (Date.now() - mtimeMs <= this.guardStaleTimeoutMs) return false; // still young; genuinely contested
+    const outcome = await verifiedRemove(this.guardPath, (r) => r === raw);
+    return outcome !== 'mismatch';
   }
 
   private async inspectExistingLock(): Promise<IStaleInspection> {
@@ -596,9 +827,10 @@ export class FileStoreOwnerLock {
 
     const record = parseLockRecord(raw);
     if (!record) {
-      // Unreadable content could be a half-written file from a genuinely dead owner (creation is
-      // atomic now, but this is defence in depth), or something a person or tool put there
-      // deliberately. Age is the only signal available: young is left alone, old is presumed
+      // This code's own creation path cannot produce unreadable content (always a full write to a
+      // temp file, published only by an atomic `link`) — this path exists for content THIS code never
+      // wrote: disk corruption, a hand-placed file, or a lock left by a different version of this
+      // format. Age is the only signal available for those: young is left alone, old is presumed
       // abandoned.
       const mtimeMs = await statMtimeMs(this.lockFilePath).catch(() => undefined);
       const abandoned = mtimeMs !== undefined && Date.now() - mtimeMs > this.leaseTimeoutMs;
@@ -703,8 +935,12 @@ export class FileStoreOwnerLock {
 
       try {
         const refreshedAt = Date.now();
-        await writeRecordAtomically(this.lockFilePath, { ...record, refreshedAt });
-        this.lastSuccessfulRefreshAt = refreshedAt;
+        const renewed = await verifiedRenew(this.lockFilePath, this.token, { ...record, refreshedAt });
+        if (renewed) {
+          this.lastSuccessfulRefreshAt = refreshedAt;
+        } else {
+          this.handleOwnershipLost('the storage root is now owned by a different instance');
+        }
       } catch {
         // Same reasoning as the read above: a transient write failure does not by itself mean the
         // lease was lost, and does not update `lastSuccessfulRefreshAt`. If failures persist past
@@ -737,6 +973,10 @@ export class FileStoreOwnerLock {
     if (this.released) return;
     this.released = true;
     this.stopHeartbeat();
+    // Prune eagerly rather than leaving a poisoned entry for `liveLocks` to skip forever: a
+    // long-running process that opens and loses many short-lived locks over its lifetime would
+    // otherwise accumulate one dead entry per loss, never freed until the process itself exits.
+    liveLocks.delete(this);
     this.onOwnershipLost?.(reason);
   }
 
@@ -752,25 +992,21 @@ export class FileStoreOwnerLock {
     this.stopHeartbeat();
     liveLocks.delete(this);
     try {
-      const raw = await readFileAsync(this.lockFilePath, 'utf8');
-      const record = parseLockRecord(raw);
-      if (record && this.isOurs(record)) {
-        await unlinkIgnoringMissing(this.lockFilePath);
-      }
-    } catch (error) {
-      if (isErrnoException(error) && error.code === 'ENOENT') return;
+      // Token-verified, not a plain "read, confirm, then unlink": a bare check-then-act here could
+      // delete a NEW owner's freshly created lock if that takeover lands between the read and the
+      // unlink — e.g. a late `release()` racing a self-expired instance's own lease being taken over.
+      await verifiedRemove(this.lockFilePath, (raw) => parseLockRecord(raw)?.token === this.token);
+    } catch {
       // Best-effort: releasing must not throw and mask the caller's own close()/dispose path.
     }
   }
 
-  /** Synchronous, best-effort cleanup run from the shared process `exit` handler. Never throws. */
+  /** Synchronous, best-effort cleanup run from the shared process `exit` handler. Never throws. Uses
+   *  the same token-verified rename-aside-then-check shape as `release()`, via sync fs calls since an
+   *  `exit` handler cannot await. */
   public cleanupOnExitSync(): void {
     try {
-      const raw = readFileSync(this.lockFilePath, 'utf8');
-      const record = parseLockRecord(raw);
-      if (record && this.isOurs(record)) {
-        unlinkSync(this.lockFilePath);
-      }
+      verifiedRemoveSync(this.lockFilePath, (raw) => parseLockRecord(raw)?.token === this.token);
     } catch {
       // Best-effort only: a missing file, a race with another cleanup, or a read error here must
       // never turn process shutdown into a crash. Also never fires on SIGKILL or a hard crash — the

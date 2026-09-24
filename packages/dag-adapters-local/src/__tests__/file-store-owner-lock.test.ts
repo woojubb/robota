@@ -1,6 +1,7 @@
 import {
   chmodSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   rmSync,
   utimesSync,
@@ -521,6 +522,41 @@ describe('a storage root has exactly one live file-adapter owner, across process
 });
 
 /**
+ * ISSUE-2875 round-3 SHOULD-2 — `release()` and the process-`exit` cleanup path used to read the lock
+ * file, confirm it still named this acquisition, and THEN unconditionally unlink it — a check-then-act
+ * gap in which a takeover landing between the read and the unlink would have its brand-new lock deleted
+ * by this instance's late release, rather than the release correctly no-op'ing. Both paths now use a
+ * token-verified removal (`verifiedRemove`/`verifiedRemoveSync`) that captures whatever currently
+ * occupies the path atomically before ever checking its content.
+ */
+describe('release() and exit cleanup never remove a different acquisition\'s lock (ISSUE-2875 round-3 SHOULD-2)', () => {
+  it('release() after a takeover leaves the new owner\'s lock file untouched', async () => {
+    const root = storageRoot();
+    const original = await FileStoreOwnerLock.acquire(root);
+
+    // Simulate a real takeover having already happened underneath `original` (e.g. it self-expired and
+    // a different instance won a legitimate takeover) by directly replacing the lock file's content
+    // with a different acquisition's record, bypassing `original` entirely.
+    const lockPath = path.join(root, '.owner.lock');
+    const newOwnerRecord = {
+      pid: process.pid,
+      hostname: os.hostname(),
+      token: 'a-different-acquisition',
+      acquiredAt: new Date().toISOString(),
+      refreshedAt: Date.now(),
+    };
+    writeFileSync(lockPath, JSON.stringify(newOwnerRecord));
+
+    // `original`'s own release() must not remove the new owner's lock — even though a NAIVE
+    // check-then-unlink might have raced its own read against exactly this kind of concurrent swap.
+    await original.release();
+
+    const onDisk = JSON.parse(readFileSync(lockPath, 'utf8')) as typeof newOwnerRecord;
+    expect(onDisk.token).toBe('a-different-acquisition');
+  });
+});
+
+/**
  * ISSUE-2875 MUST-1 — a bare "judge stale, unlink, create" is NOT atomic across racing takers: A and
  * B can both judge the same lock stale, both `unlink` it (the second racing whichever the first has
  * already recreated), and both then `open(.., 'wx')` successfully, each believing it alone won.
@@ -626,4 +662,60 @@ describe('stale-lock takeover is atomic under concurrency (ISSUE-2875 MUST-1)', 
       }
     }
   }, 60_000);
+});
+
+/**
+ * ISSUE-2875 round-3 SHOULD-1 — a takeover guard's own staleness reused `leaseTimeoutMs`, so a guard
+ * left behind by a taker that crashed before its own `releaseGuard()` (no lock file involved at all —
+ * e.g. the process died between creating the guard and ever touching the lock) wedged EVERY later
+ * `acquire()` on the root for up to that full lease timeout (30s by default) — vastly longer than a
+ * guard is ever legitimately held for (a handful of small file operations, normally microseconds). A
+ * tight, small, fixed retry-attempt count made this worse: it could exhaust itself and report a
+ * misleading "contested by concurrent takeover attempts" long before the guard even became reclaimable.
+ * The guard now has its own short staleness threshold, independent of `leaseTimeoutMs`, and `acquire()`
+ * paces its retries with a small backoff bounded by wall-clock time so it waits out exactly that
+ * threshold — long enough to self-heal, short enough not to wedge the root.
+ */
+describe('an abandoned takeover guard self-heals quickly instead of wedging the root (ISSUE-2875 round-3 SHOULD-1)', () => {
+  it('a fresh orphan guard with no lock at all does not wedge acquire() anywhere near the full lease timeout', async () => {
+    const root = storageRoot();
+    // A guard left behind by a taker that crashed before ever creating the lock it was guarding —
+    // fresh (not yet old enough to be presumed abandoned by AGE), so the only way `acquire()` succeeds
+    // is by waiting the guard's own short staleness window out, not the full (default 30s) lease
+    // timeout this call never even configures.
+    writeFileSync(path.join(root, '.owner.lock.takeover'), 'orphan-token');
+
+    const startedAt = Date.now();
+    const lock = await FileStoreOwnerLock.acquire(root);
+    const elapsedMs = Date.now() - startedAt;
+
+    expect(elapsedMs).toBeLessThan(DEFAULT_LOCK_LEASE_TIMEOUT_MS / 2);
+    await lock.release();
+  }, 20_000);
+
+  it('names the current guard holder, not a generic message, when contention genuinely outlasts the wait budget', async () => {
+    const root = storageRoot();
+    const guardPath = path.join(root, '.owner.lock.takeover');
+    // A guard whose recorded holder is THIS process (alive) and whose age never crosses staleness —
+    // continuously refreshed so it is never reclaimable and `acquire()` must genuinely give up.
+    const refreshHolder = setInterval(() => {
+      writeFileSync(
+        guardPath,
+        JSON.stringify({ pid: process.pid, hostname: os.hostname(), token: 'x', createdAt: new Date().toISOString() }),
+      );
+    }, 50);
+    refreshHolder.unref?.();
+    writeFileSync(
+      guardPath,
+      JSON.stringify({ pid: process.pid, hostname: os.hostname(), token: 'x', createdAt: new Date().toISOString() }),
+    );
+    try {
+      await expect(FileStoreOwnerLock.acquire(root, { leaseTimeoutMs: 500 })).rejects.toMatchObject({
+        name: 'FileStoreOwnerConflictError',
+        message: expect.stringContaining(`pid ${String(process.pid)} on host ${os.hostname()}`) as unknown as string,
+      });
+    } finally {
+      clearInterval(refreshHolder);
+    }
+  }, 20_000);
 });

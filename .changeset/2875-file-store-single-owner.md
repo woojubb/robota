@@ -14,8 +14,20 @@ pid liveness alone cannot: a lock whose lease has lapsed is taken over regardles
 process recorded it — including a container recreated after `docker stop`/a crash, which gets a new
 hostname and never runs Node's `exit` handler on SIGTERM/SIGKILL, and a same-host pid reused by an
 unrelated process. A same-host owner found to no longer be running is still taken over immediately as
-a fast path, without waiting out the full lease. Takeover of a stale lock is serialized by a short-lived
-guard file, so concurrent takers cannot both believe they won.
+a fast path, without waiting out the full lease.
+
+Every acquisition attempt — not only a stale-lock takeover, but also the fast path where no lock exists
+yet — is serialized end-to-end by a short-lived takeover guard, so concurrent acquirers cannot both
+believe they won. Every destructive step (removing a stale lock, reclaiming an abandoned guard,
+releasing a lock or a guard, including on process exit) is token-verified rather than check-then-act: it
+atomically captures whatever currently occupies the path before checking its content, and restores it
+if that content does not match what was expected, so a lock or guard freshly written by someone else can
+never be destroyed out from under its rightful holder. The takeover guard's own staleness is judged on a
+short, fixed threshold sized for how long one guarded attempt should plausibly take (never the full lease
+timeout, which could otherwise wedge every `acquire()` on the root for as long as that timeout once
+abandoned), and `acquire()` retries a contested guard with a bounded, gently backed-off wait rather than
+a small fixed number of immediate attempts, so it reliably waits out that short threshold instead of
+giving up early with a misleading "contested" error.
 
 An owner whose lease is reclaimed out from under it during a long stall notices on its next renewal
 and stops accepting further reads and writes, rather than continuing unaware as a second,
@@ -25,17 +37,7 @@ its lease as expired, closing the lost-update window a heartbeat that keeps fail
 unwritable directory, a stalled event loop) would otherwise leave open. Losing the lock this way, or
 merely being unable to prove it was never lost, is permanent for that instance: every later read and
 write rejects with `FileStoreOwnerConflictError`, and using the root again means opening a new instance,
-which acquires it the ordinary way rather than resuming the old one's in-memory state. An earlier design
-let an instance resume once it found nothing had actually taken over; that reset the working set out
-from under already-admitted operations and could itself lose writes across the recovery boundary, so it
-was removed in favor of this simpler, always-safe stop.
-
-Reclaiming a stale lock is serialized end-to-end with token-verified destructive steps, not
-check-then-remove: the guard and lock files are only ever deleted after atomically capturing whatever
-currently occupies that path and confirming its content is still the exact stale instance a taker
-observed, restoring it otherwise. This closes a window where a fresh guard or lock, written between a
-taker's check and its unconditional removal, could be destroyed out from under its rightful holder,
-letting two takers both believe they won a stale-lock takeover.
+which acquires it the ordinary way rather than resuming the old one's in-memory state.
 
 `FileStoragePort` gains a `close()` method that releases ownership; closing is final — every later
 operation on that instance rejects with a typed `FileStoragePortClosedError`. Only operations invoked
