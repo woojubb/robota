@@ -58,3 +58,11 @@ zero external runtime-server process dependencies.
 - Does not own the HTTP/byte mapping for assets — that belongs to the runtime server.
 - Does not scan a workspace's authored workflow files beyond returning their metadata; it does not
   interpret or validate their contents.
+
+## Text expansion ceiling
+
+The local provider snapshots trusted host byte limits before executing any workflow. Omitted
+limits retain the core default, so the default catalog used by `/workflows` bounds `text-repeat`
+without any workflow-controlled opt-out. A tighter host limit travels through the worker into the
+node context independently of workflow input and config. This limits one text expansion only; it
+is not a root aggregate budget, a snapshot-size limit, or CPU preemption.

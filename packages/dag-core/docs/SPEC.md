@@ -180,3 +180,16 @@ takes precedence over its returned failure and disposes the node, including part
 Cancellation returns non-retryable `DAG_TASK_EXECUTION_CANCELLED` and does not publish a late node
 output. Disposal remains cooperative and may itself take time. This signal does not establish a
 root budget owner, propagate cancellation to nested runs, or preempt synchronous code.
+
+## Per-operation byte limits
+
+Execution byte limits are immutable host policy, carried separately from definitions, node config,
+queue payloads and snapshots. The initial policy bounds only `text-repeat` output: 4 MiB of UTF-8
+by default. A trusted host may tighten it to a nonnegative safe integer, including zero, but may
+not raise that built-in ceiling. Invalid host limits fail at composition rather than disabling the
+bound. Worker/provider construction snapshots the policy to prevent later caller mutation.
+
+Exhaustion returns non-retryable `DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED`. This is a per-operation
+ceiling, not a mutable consumed-byte counter or root aggregate authority. It does not bound other
+nodes, input already materialized upstream, serialized/escaped snapshots, total memory, nested or
+parallel runs, or CPU time. Root-owned reservations and CPU preemption remain separate work.

@@ -53,3 +53,8 @@ authoring does not search the process home for a provider profile.
   authority/mutation capability, a file, or a DAG is missing or invalid.
 - The `workflows` command is model-invocable: an agent can author and run (or author and save) a
   workflow from a chat request, subject to the same privilege split between `create` and `build`.
+
+The supported sync catalog's `text-repeat` rejects output beyond the runtime's default 4 MiB UTF-8
+ceiling before expanding it, including when a saved workflow attempts to supply higher limits.
+`run` surfaces that rejection as a failed command. This is a per-operation output bound, separate
+from the existing trusted file-read bound; it is not an aggregate workflow budget or CPU preemption.

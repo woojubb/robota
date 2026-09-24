@@ -1,6 +1,8 @@
+import { repeatWithinByteLimit } from './text-repeat.js';
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
   buildValidationError,
+  resolveDagExecutionByteLimits,
   type ICostEstimate,
   type IDagError,
   type IDagNodeDefinition,
@@ -548,7 +550,7 @@ export class TextCountLinesNodeDefinition extends AbstractNodeDefinition<
 // ─── text-repeat ──────────────────────────────────────────────────────────────
 
 const TextRepeatConfigSchema = z.object({
-  times: z.number().int().min(0).default(2),
+  times: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(2),
   separator: z.string().default(''),
 });
 
@@ -580,8 +582,12 @@ export class TextRepeatNodeDefinition extends AbstractNodeDefinition<
     const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
     const r = io.requireInputString('text');
     if (!r.ok) return r;
-    const parts = Array.from({ length: config.times }, () => r.value);
-    io.setOutput('text', parts.join(config.separator));
+    const limits = resolveDagExecutionByteLimits(context.byteLimits);
+    const repeated = repeatWithinByteLimit(
+      r.value, config.separator, config.times, limits.maxTextRepeatOutputBytes,
+    );
+    if (!repeated.ok) return repeated;
+    io.setOutput('text', repeated.value);
     return { ok: true, value: io.toOutput() };
   }
 }

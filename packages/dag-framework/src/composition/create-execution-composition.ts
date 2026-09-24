@@ -1,5 +1,6 @@
 import type {
   IClockPort,
+  IDagExecutionByteLimits,
   ILeasePort,
   IQueuePort,
   IStoragePort,
@@ -17,6 +18,8 @@ import type { IDagExecutionComposition } from '../types.js';
 
 /** Infrastructure dependencies required for DAG execution. */
 export interface IDagExecutionCompositionDependencies {
+  /** Trusted host ceiling, independent of serialized definitions and queue messages. */
+  byteLimits?: IDagExecutionByteLimits;
   executionRoot: string;
   storage: IStoragePort;
   queue: IQueuePort;
@@ -51,6 +54,7 @@ export function createExecutionComposition(
   const workerLoop = createWorkerLoopService(
     {
       executionRoot: dependencies.executionRoot,
+      byteLimits: dependencies.byteLimits,
       storage: dependencies.storage,
       queue: dependencies.queue,
       deadLetterQueue: dependencies.deadLetterQueue,

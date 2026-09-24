@@ -1,5 +1,7 @@
 import {
   TaskRunStateMachine,
+  resolveDagExecutionByteLimits,
+  type IDagExecutionByteLimits,
   buildValidationError,
   type IClockPort,
   type IDagDefinition,
@@ -45,6 +47,7 @@ export type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-types.
  */
 export class WorkerLoopService {
   private readonly executionRoot: string;
+  private readonly byteLimits: IDagExecutionByteLimits;
   private readonly activeAttempts = new Set<{
     dagRunId: string;
     taskRunId: string;
@@ -68,8 +71,10 @@ export class WorkerLoopService {
     executionRoot: string,
     private readonly options: IWorkerLoopOptions,
     private readonly runProgressEventReporter?: IRunProgressEventReporter,
+    byteLimits?: IDagExecutionByteLimits,
   ) {
     this.executionRoot = resolveTrustedExecutionRoot(executionRoot);
+    this.byteLimits = resolveDagExecutionByteLimits(byteLimits);
   }
 
   /** DAG-001: the idle-branch sweep, throttled — see `task-lease-recovery.ts`. */
@@ -222,6 +227,7 @@ export class WorkerLoopService {
     const currentTotalCredits = resolveCurrentTotalCredits(allTaskRunsForCost);
     return {
       executionRoot: this.executionRoot,
+      byteLimits: this.byteLimits,
       dagId: dagRun.dagId,
       dagRunId: message.dagRunId,
       taskRunId: message.taskRunId,
