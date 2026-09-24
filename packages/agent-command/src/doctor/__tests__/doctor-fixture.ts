@@ -102,6 +102,7 @@ export function createDoctorFixture(options: IDoctorFixtureOptions = {}): IDocto
     providerDefinitions: options.providerDefinitions ?? [fixtureProviderDefinition()],
     env,
     contributionSources: [createNodeHostContributionSource(home)],
+    skillRoots: [{ root: join('.robota', 'skills'), kind: 'skills' }],
     pluginsDirs: [join(home, '.robota', 'plugins')],
     hostChecks: [
       { id: 'host.fixture', label: 'Fixture host check', status: 'ok', cause: 'present' },

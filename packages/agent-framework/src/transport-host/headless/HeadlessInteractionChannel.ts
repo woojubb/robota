@@ -13,6 +13,8 @@ import { buildRuntimeSession } from '../../runtime/runtime-host.js';
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../../assembly/create-session-types.js';
 import type { IProjectSettingsPath } from '../../config/settings-source.js';
+import type { IContributionSource } from '../../contributions/index.js';
+import type { ISkillRootDescriptor } from '../../commands/skill-source.js';
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandHostAdapters } from '../../command-api/host-adapters.js';
 import type { IOrgPolicy } from '../../command-api/org-policy/org-policy-types.js';
@@ -37,6 +39,8 @@ export interface IHeadlessInteractionChannelOptions {
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  contributionSources?: readonly IContributionSource[];
+  skillRoots?: readonly ISkillRootDescriptor[];
   outputFormat: TOutputFormat;
   /**
    * CLI-076: the resolved model id (the same value the CLI header displays). Forwarded verbatim to the
@@ -169,6 +173,10 @@ export class HeadlessInteractionChannel {
       ...(this.opts.projectSettingsPaths !== undefined
         ? { projectSettingsPaths: this.opts.projectSettingsPaths }
         : {}),
+      ...(this.opts.contributionSources !== undefined
+        ? { contributionSources: this.opts.contributionSources }
+        : {}),
+      ...(this.opts.skillRoots !== undefined ? { skillRoots: this.opts.skillRoots } : {}),
       permissionMode: this.opts.permissionMode ?? 'bypassPermissions',
       // CMD-004 / REMOTE-007 D4a: headless subscribes to none of the session's `ask_request` surface,
       // so getUserInteraction() is gated to undefined (the framework's event-emitting ask default is

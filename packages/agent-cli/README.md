@@ -719,7 +719,8 @@ other session is busy.
 | `/reset` | Delete user settings and return to first-run state |
 | `/exit`  | Exit CLI                                           |
 
-Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
+Skill commands from the CLI's ordered `.robota/skills/`, `.claude/skills/`, `.claude/commands/`, and
+`.agents/skills/` roots appear alongside built-in commands.
 
 ## Talking to another session
 

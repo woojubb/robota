@@ -49,6 +49,7 @@ vi.mock('../../../runtime/runtime-host.js', async (importOriginal) => {
 });
 
 import { HeadlessInteractionChannel } from '../HeadlessInteractionChannel.js';
+import { createNodeHostContributionSource } from '../../../contributions/node-host-contribution-source.js';
 
 describe('HeadlessInteractionChannel session options', () => {
   beforeEach(() => {
@@ -68,6 +69,26 @@ describe('HeadlessInteractionChannel session options', () => {
     await channel.run('hello');
 
     expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({ providerErrorGuidance });
+  });
+
+  it('forwards the host-selected skill roots and sources to the live session', async () => {
+    const contributionSources = [createNodeHostContributionSource(process.cwd())];
+    const skillRoots = [{ root: 'custom/skills', kind: 'skills' as const }];
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      contributionSources,
+      skillRoots,
+      outputFormat: 'text',
+      shellExec: () => '',
+    });
+
+    await channel.run('hello');
+
+    expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({
+      contributionSources,
+      skillRoots,
+    });
   });
 
   it('TC-01: passes deniedTools through to the InteractiveSession options', async () => {

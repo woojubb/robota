@@ -9,6 +9,7 @@ import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IProjectInfo } from '../context/project-detector.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IContributionSource } from '../contributions/index.js';
+import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { TSessionFactory } from '../hooks/agent-executor.js';
 import type { TProviderFactory } from '../hooks/prompt-executor.js';
 import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
@@ -76,6 +77,8 @@ export interface ICreateSessionOptions {
   cwd?: string;
   /** Explicit contribution sources; absence means no skill or agent-definition file access. */
   contributionSources?: readonly IContributionSource[];
+  /** Ordered skill and legacy-command roots selected by the host; absence disables file discovery. */
+  skillRoots?: readonly ISkillRootDescriptor[];
   /** Loaded AGENTS.md / CLAUDE.md context */
   context: ILoadedContext;
   /** Terminal I/O for permission prompts */

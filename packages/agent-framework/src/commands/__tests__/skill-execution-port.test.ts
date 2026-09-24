@@ -1,7 +1,12 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 import type { ICommand } from '@robota-sdk/agent-interface-command';
 
 import { createSkillExecutionPort } from '../skill-execution-port.js';
+import { createNodeHostContributionSource } from '../../contributions/node-host-contribution-source.js';
 
 /**
  * ARCH-PROVIDER-005 TC-02: the concrete skill-execution port must reproduce the REAL inject-prompt shape
@@ -42,5 +47,27 @@ describe('createSkillExecutionPort (ARCH-PROVIDER-005 TC-02)', () => {
     const port = createSkillExecutionPort();
     // A directory with no skills yields an array (no throw); real discovery is filesystem-backed.
     expect(Array.isArray(port.loadCommands())).toBe(true);
+  });
+
+  it('discovers skills only under host-selected roots', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-skill-port-roots-'));
+    try {
+      const skillDir = join(cwd, 'custom', 'skills', 'audit');
+      mkdirSync(skillDir, { recursive: true });
+      writeFileSync(
+        join(skillDir, 'SKILL.md'),
+        ['---', 'name: audit', 'description: Audit code', '---', 'Audit.'].join('\n'),
+      );
+      const source = createNodeHostContributionSource(cwd);
+
+      expect(createSkillExecutionPort([source]).loadCommands()).toEqual([]);
+      expect(
+        createSkillExecutionPort([source], [{ root: join('custom', 'skills'), kind: 'skills' }])
+          .loadCommands()
+          .map((command) => command.name),
+      ).toContain('audit');
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 });

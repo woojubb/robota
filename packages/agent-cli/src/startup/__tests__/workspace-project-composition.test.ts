@@ -10,6 +10,8 @@ import {
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createCliWorkspaceComposition } from '../workspace-project-composition.js';
+import { ROBOTA_SKILL_ROOTS } from '../../product/robota-skill-roots.js';
+import { SkillCommandSource } from '@robota-sdk/agent-framework';
 
 import type { IWorkspaceIdentity, IWorkspaceTrustStoreSnapshot } from '@robota-sdk/agent-framework';
 
@@ -52,6 +54,11 @@ describe('CLI workspace project composition', () => {
     const userHome = tempRoot('robota-cli-restricted-user-');
     mkdirSync(join(cwd, '.robota'), { recursive: true });
     writeFileSync(join(cwd, '.robota', 'settings.json'), JSON.stringify({ canary: 'project' }));
+    mkdirSync(join(cwd, '.robota', 'skills', 'project-only'), { recursive: true });
+    writeFileSync(
+      join(cwd, '.robota', 'skills', 'project-only', 'SKILL.md'),
+      '---\nname: project-only\n---\n',
+    );
 
     const composition = createCliWorkspaceComposition({
       cwd,
@@ -61,6 +68,10 @@ describe('CLI workspace project composition', () => {
 
     expect(composition.projectAccess.status).toBe('restricted');
     expect(composition.contributionSources.map((source) => source.kind)).toEqual(['host']);
+    expect(composition.skillRoots).toBe(ROBOTA_SKILL_ROOTS);
+    expect(
+      new SkillCommandSource(composition.contributionSources, composition.skillRoots).getCommands(),
+    ).toEqual([]);
     expect(composition.settingsSources.map((source) => source.kind)).toEqual(['host', 'host']);
     expect(composition.settingsStores.map((store) => store.kind)).toEqual(['host']);
     expect(composition.memoryStore).toBeUndefined();

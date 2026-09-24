@@ -88,27 +88,27 @@ function scanCommandsDir(commandsDir: string, source: IContributionSource): ICom
   return commands;
 }
 
-/** The four discovery roots, in precedence order — shared by discovery and by `inspectSkillSources`. */
-export const SKILL_ROOTS: ReadonlyArray<{ readonly root: string; readonly kind: 'skills' | 'commands' }> =
-  [
-    { root: join('.robota', 'skills'), kind: 'skills' },
-    { root: join('.claude', 'skills'), kind: 'skills' },
-    { root: join('.claude', 'commands'), kind: 'commands' },
-    { root: join('.agents', 'skills'), kind: 'skills' },
-  ];
+/** One host-selected skill or legacy-command directory, ordered by host precedence. */
+export interface ISkillRootDescriptor {
+  readonly root: string;
+  readonly kind: 'skills' | 'commands';
+}
 
 /** Command source that discovers skills from multiple directories */
 export class SkillCommandSource implements ICommandSource {
   readonly name = 'skill';
   private cachedCommands: ICommand[] | null = null;
 
-  constructor(private readonly sources: readonly IContributionSource[]) {}
+  constructor(
+    private readonly sources: readonly IContributionSource[],
+    private readonly roots: readonly ISkillRootDescriptor[] = [],
+  ) {}
 
   getCommands(): ICommand[] {
     if (this.cachedCommands) return this.cachedCommands;
 
     const discovered = this.sources.flatMap((source) =>
-      SKILL_ROOTS.map(({ root, kind }) =>
+      this.roots.map(({ root, kind }) =>
         kind === 'skills' ? scanSkillsDir(root, source) : scanCommandsDir(root, source),
       ),
     );
@@ -230,16 +230,17 @@ function inspectRoot(
 }
 
 /**
- * The read-only counterpart of `SkillCommandSource.getCommands()`: the same four roots over the same
- * contribution sources, reporting what discovery silently skips — a skill directory without
+ * The read-only counterpart of `SkillCommandSource.getCommands()`: the same supplied roots over the
+ * same contribution sources, reporting what discovery silently skips — a skill directory without
  * `SKILL.md`, an unreadable definition, or a missing or refused frontmatter block.
  */
 export function inspectSkillSources(
   sources: readonly IContributionSource[],
+  roots: readonly ISkillRootDescriptor[] = [],
 ): ISkillSourceInspection {
   return {
     roots: sources.flatMap((source) =>
-      SKILL_ROOTS.map(({ root, kind }) => inspectRoot(source, root, kind)),
+      roots.map(({ root, kind }) => inspectRoot(source, root, kind)),
     ),
   };
 }

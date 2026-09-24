@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 import { createTrustedProjectAccessFixture } from '../trusted-project-state-fixture.js';
+import { createNodeHostContributionSourcesFixture } from '../contribution-source-fixture.js';
 
 import type { ICommandModule } from '../../command-api/index.js';
 
@@ -66,6 +67,8 @@ describe('strict skill discovery through a real session', () => {
       seedSkill(workspace, 'private-strict-skill', 'true', PRIVATE_BODY);
       harness = scriptedSession({
         cwd: workspace,
+        contributionSources: createNodeHostContributionSourcesFixture(workspace),
+        skillRoots: [{ root: join('.robota', 'skills'), kind: 'skills' }],
         projectAccess: await createTrustedProjectAccessFixture(workspace),
         commandModules: [skillActivationModule],
         turns: [
@@ -95,6 +98,8 @@ describe('strict skill discovery through a real session', () => {
       seedSkill(workspace, 'malformed-strict-skill', 'treu', PRIVATE_BODY);
       harness = scriptedSession({
         cwd: workspace,
+        contributionSources: createNodeHostContributionSourcesFixture(workspace),
+        skillRoots: [{ root: join('.robota', 'skills'), kind: 'skills' }],
         projectAccess: await createTrustedProjectAccessFixture(workspace),
         commandModules: [skillActivationModule],
         turns: [{ text: 'This must never be requested.' }],

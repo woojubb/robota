@@ -597,6 +597,8 @@ async function runCliCore(
       robotaPluginDirectories(cwd, homedir()),
       ROBOTA_PROJECT_SETTINGS,
       createRobotaUserSettingsSources(homedir()),
+      workspaceComposition.contributionSources,
+      workspaceComposition.skillRoots,
     );
     try {
       await printRun;
@@ -623,6 +625,8 @@ async function runCliCore(
       pluginDirectories: robotaPluginDirectories(cwd, homedir()),
       projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
+      contributionSources: workspaceComposition.contributionSources,
+      skillRoots: workspaceComposition.skillRoots,
       ...toolOptions,
       ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
@@ -665,6 +669,8 @@ async function runCliCore(
       pluginDirectories: robotaPluginDirectories(cwd, homedir()),
       projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
+      contributionSources: workspaceComposition.contributionSources,
+      skillRoots: workspaceComposition.skillRoots,
       ...toolOptions,
       ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
@@ -743,6 +749,8 @@ async function runCliCore(
     pluginDirectories: robotaPluginDirectories(cwd, homedir()),
     projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
     userSettingsSources: createRobotaUserSettingsSources(homedir()),
+    contributionSources: workspaceComposition.contributionSources,
+    skillRoots: workspaceComposition.skillRoots,
     ...toolOptions,
     commandModules,
     commandHostAdapters,

@@ -23,6 +23,8 @@ import type {
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import type { IProjectSettingsPath } from '../config/settings-source.js';
+import type { IContributionSource } from '../contributions/index.js';
+import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
@@ -58,6 +60,10 @@ export interface IInteractiveSessionStandardOptions {
   projectSettingsPaths?: readonly IProjectSettingsPath[];
   /** Explicit user settings layers; absent means no ambient user file is read. */
   userSettingsSources?: readonly INodeHostSettingsSource[];
+  /** Host-composed filesystem sources for skill activation; absence disables skill file reads. */
+  contributionSources?: readonly IContributionSource[];
+  /** Ordered host-owned roots scanned against the provided contribution sources. */
+  skillRoots?: readonly ISkillRootDescriptor[];
   /** Host-selected bundle plugin directories; project plugins require trusted project access. */
   pluginDirectories?: { readonly user?: string; readonly project?: string };
   permissionMode?: ICreateSessionOptions['permissionMode'];

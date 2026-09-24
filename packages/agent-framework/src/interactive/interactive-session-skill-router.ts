@@ -33,6 +33,7 @@ import type {
 } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContributionSource } from '../contributions/index.js';
+import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
@@ -58,6 +59,7 @@ export class SessionSkillRouter {
   constructor(
     commandModules: readonly ICommandModule[],
     contributionSources: readonly IContributionSource[],
+    skillRoots: readonly ISkillRootDescriptor[],
     commandHostAdapters: ICommandHostAdapters | undefined,
     private readonly getSession: () => ICommandHostContext,
     private readonly getSessionId: () => string,
@@ -91,7 +93,7 @@ export class SessionSkillRouter {
     this.commandExecutor = new SystemCommandExecutor(
       commandModules.flatMap((module) => module.systemCommands ?? []),
     );
-    this.skillCommandSource = new SkillCommandSource(contributionSources);
+    this.skillCommandSource = new SkillCommandSource(contributionSources, skillRoots);
     this.commandHostAdapters = commandHostAdapters;
   }
   /**

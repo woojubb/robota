@@ -106,7 +106,10 @@ export async function createSession(
   const provider = options.provider;
   const cwd = options.cwd ?? process.cwd();
   const sessionId = options.sessionId ?? createSessionId();
-  const skillCommandSource = new SkillCommandSource(options.contributionSources ?? []);
+  const skillCommandSource = new SkillCommandSource(
+    options.contributionSources ?? [],
+    options.skillRoots ?? [],
+  );
   const modelInvocableCommandDescriptors = getModelInvocableCommandDescriptors(
     options.commandDescriptors,
   );

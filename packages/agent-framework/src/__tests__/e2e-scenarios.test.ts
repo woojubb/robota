@@ -16,12 +16,14 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { CommandRegistry } from '../commands/command-registry.js';
 import { PluginCommandSource } from '../commands/plugin-source.js';
 import { executeSkill } from '../commands/skill-executor.js';
-import { SkillCommandSource } from '../commands/skill-source.js';
 import { loadConfig as loadConfigFromSources } from '../config/config-loader.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
 import { BundlePluginLoader } from '../plugins/index.js';
 import { createTrustedSettingsSourcesFixture } from '../testing/trusted-project-state-fixture.js';
-import { createNodeHostContributionSourcesFixture } from '../testing/contribution-source-fixture.js';
+import {
+  createNodeHostContributionSourcesFixture,
+  createTestSkillCommandSource,
+} from '../testing/contribution-source-fixture.js';
 import { substituteVariables } from '../utils/skill-prompt.js';
 
 import type { IForkExecutionOptions } from '../commands/skill-executor.js';
@@ -90,7 +92,7 @@ describe('E2E: Skill lifecycle', () => {
     );
 
     // 2. Create SkillCommandSource pointing at temp dir
-    const source = new SkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
+    const source = createTestSkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
 
     // 3. Verify skill appears in getCommands()
     const commands = source.getCommands();
@@ -147,7 +149,7 @@ describe('E2E: Skill lifecycle', () => {
       '# Internal Tool\nThis tool is for human operators.',
     );
 
-    const source = new SkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
+    const source = createTestSkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
 
     // 2. Verify it appears in getUserInvocableSkills() (visible in menu)
     const userSkills = source.getUserInvocableSkills();
@@ -196,7 +198,7 @@ describe('E2E: Skill lifecycle', () => {
     );
 
     // 2. Discover skill
-    const source = new SkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
+    const source = createTestSkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
     const skill = source.getCommands().find((c) => c.name === 'analyze');
     expect(skill).toBeDefined();
 
@@ -465,7 +467,7 @@ describe('E2E: Skill invocation', () => {
       '# Summarize\nProvide a concise summary of $ARGUMENTS.',
     );
 
-    const source = new SkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
+    const source = createTestSkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
     const skill = source.getCommands().find((c) => c.name === 'summarize');
     expect(skill).toBeDefined();
 
@@ -497,7 +499,7 @@ describe('E2E: Skill invocation', () => {
       '# Deep Review\nPerform deep analysis of $ARGUMENTS.',
     );
 
-    const source = new SkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
+    const source = createTestSkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
     const skill = source.getCommands().find((c) => c.name === 'deep-review');
     expect(skill).toBeDefined();
     expect(skill!.context).toBe('fork');
@@ -546,7 +548,7 @@ describe('E2E: Skill invocation', () => {
       '# Fork Skill\nDo something with $ARGUMENTS.',
     );
 
-    const source = new SkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
+    const source = createTestSkillCommandSource(createNodeHostContributionSourcesFixture(projectDir));
     const skill = source.getCommands().find((c) => c.name === 'fork-skill');
     expect(skill).toBeDefined();
 
@@ -602,7 +604,7 @@ describe('E2E: CommandRegistry aggregation', () => {
       getCommands: () => [{ name: 'help', description: 'Show available commands', source: 'help' }],
     });
     registry.addSource(
-      new SkillCommandSource(createNodeHostContributionSourcesFixture(projectDir)),
+      createTestSkillCommandSource(createNodeHostContributionSourcesFixture(projectDir)),
     );
     registry.addSource(new PluginCommandSource(plugins));
 

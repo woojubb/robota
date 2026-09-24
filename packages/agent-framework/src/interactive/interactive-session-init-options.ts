@@ -26,6 +26,8 @@ import type { IHookDefinitionSource } from '../config/config-merge.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import type { IProjectSettingsPath } from '../config/settings-source.js';
+import type { IContributionSource } from '../contributions/index.js';
+import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IMemoryStore } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
@@ -55,6 +57,8 @@ export interface IInitOptions {
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
   userSettingsSources?: readonly INodeHostSettingsSource[];
+  contributionSources?: readonly IContributionSource[];
+  skillRoots?: readonly ISkillRootDescriptor[];
   permissionMode?: ICreateSessionOptions['permissionMode'];
   /** CMD-005: unified ask renderer, forwarded into the session as the model-question tool seam. */
   askHandler?: IUserInteraction['ask'];

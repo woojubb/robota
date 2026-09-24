@@ -24,6 +24,8 @@ import {
 } from '@robota-sdk/agent-core/testing';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 import { NodeSessionLogSink, NodeSessionStore } from '@robota-sdk/agent-session';
+import type { IContributionSource } from '../contributions/contribution-source.js';
+import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 
 import { peerTurnOptions } from './harness-peer-driver.js';
 import {
@@ -94,6 +96,10 @@ export interface IScriptedSessionOptions {
   cwd?: string;
   /** Explicit host-issued project authority for contribution-discovery fixtures. */
   projectAccess?: TWorkspaceProjectAccess;
+  /** Explicit host contribution sources used by skill discovery fixtures. */
+  contributionSources?: readonly IContributionSource[];
+  /** Ordered host-owned skill roots used by skill discovery fixtures. */
+  skillRoots?: readonly ISkillRootDescriptor[];
   resolveDefaultLoopPrompt?: () => string;
   /** Ordered host-owned agent-definition roots for discovery tests. */
   agentDefinitionRoots?: readonly string[];
@@ -209,6 +215,10 @@ export class ScriptedSessionHarness {
       cwd: this.cwd,
       provider,
       ...(options.projectAccess ? { projectAccess: options.projectAccess } : {}),
+      ...(options.contributionSources !== undefined
+        ? { contributionSources: options.contributionSources }
+        : {}),
+      ...(options.skillRoots !== undefined ? { skillRoots: options.skillRoots } : {}),
       ...(options.resolveDefaultLoopPrompt ? { resolveDefaultLoopPrompt: options.resolveDefaultLoopPrompt } : {}),
       ...(options.agentDefinitionRoots !== undefined
         ? { agentDefinitionRoots: options.agentDefinitionRoots }

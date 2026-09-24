@@ -50,7 +50,6 @@ import {
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
-import { createContributionSourcesForProjectAccess } from '../contributions/index.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
 import { PlanController } from '../plan/index.js';
@@ -323,10 +322,14 @@ export class InteractiveSession
     const shellExec = 'shellExec' in options ? options.shellExec : undefined;
     const remoteCommandPolicy =
       'remoteCommandPolicy' in options ? options.remoteCommandPolicy : undefined;
+    const contributionSources =
+      'contributionSources' in options ? (options.contributionSources ?? []) : [];
+    const skillRoots = 'skillRoots' in options ? (options.skillRoots ?? []) : [];
 
     this.skillRouter = new SessionSkillRouter(
       commandModules,
-      createContributionSourcesForProjectAccess(this.projectAccess),
+      contributionSources,
+      skillRoots,
       commandHostAdapters,
       // ARCH-029 S1: no cast — `implements ICommandHostContext` above makes this compiler-checked.
       () => this,

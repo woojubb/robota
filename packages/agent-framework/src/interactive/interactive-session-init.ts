@@ -158,6 +158,7 @@ export async function createInteractiveSession(
       sessionId,
       contextCapacityHint,
       contributionSources,
+      skillRoots: options.skillRoots,
     }),
     effectiveHookSources,
   );
@@ -246,6 +247,8 @@ export async function initializeInteractiveSessionAsync(
       : {}),
     config,
     hookSources,
+    contributionSources: options.contributionSources,
+    skillRoots: options.skillRoots,
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
     permissionHandler: deps.permissionHandler,

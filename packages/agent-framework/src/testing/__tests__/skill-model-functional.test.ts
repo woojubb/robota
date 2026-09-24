@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { retrieveAgentToolDeps } from '../../tools/agent-tool.js';
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 import { createTrustedProjectAccessFixture } from '../trusted-project-state-fixture.js';
+import { createNodeHostContributionSourcesFixture } from '../contribution-source-fixture.js';
 
 import type { ICommandModule } from '../../command-api/index.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
@@ -99,6 +100,8 @@ describe('fork skill model through a real scripted child Session', () => {
     };
     harness = scriptedSession({
       cwd: workspace,
+      contributionSources: createNodeHostContributionSourcesFixture(workspace),
+      skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
       projectAccess: await createTrustedProjectAccessFixture(workspace),
       agentDefinitionRoots: [join('.agents', 'agents')],
       model: 'parent-model',
@@ -179,6 +182,8 @@ describe('fork skill model through a real scripted child Session', () => {
     );
     harness = scriptedSession({
       cwd: workspace,
+      contributionSources: createNodeHostContributionSourcesFixture(workspace),
+      skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
       projectAccess: await createTrustedProjectAccessFixture(workspace),
       commandModules: [skillActivationModule],
       turns: [{ text: 'must not run' }],

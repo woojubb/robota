@@ -126,6 +126,7 @@ async function assembledSystemMessage(
     config: CONFIG,
     cwd,
     contributionSources: createContributionSourcesForProjectAccess(projectAccess, userHome),
+    skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
     context: { agentsMd: '', projectNotesMd: '' },
     terminal: TERMINAL as never,
     provider: createScriptedProvider([]).provider,

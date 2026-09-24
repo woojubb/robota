@@ -11,6 +11,7 @@ import { projectOutputStyleDirectories } from './output-style-sources.js';
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from '../product/robota-agent-roots.js';
 import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
 import { ROBOTA_PLUGIN_DIRECTORY } from '../product/robota-plugin-paths.js';
+import { ROBOTA_SKILL_ROOTS } from '../product/robota-skill-roots.js';
 
 import type { IProjectContributionPath, IWorkspaceIdentity } from '@robota-sdk/agent-framework';
 
@@ -29,7 +30,7 @@ function currentWorkspaceDirectory(identity: IWorkspaceIdentity, cwd: string): s
 /** CLI-owned sources extend the framework owners without copying their path definitions. */
 export function listProjectContributionPaths(cwdRelative: string): readonly IProjectContributionPath[] {
   return [
-    ...listFrameworkProjectContributionPaths(cwdRelative),
+    ...listFrameworkProjectContributionPaths(cwdRelative, ROBOTA_SKILL_ROOTS),
     ...ROBOTA_PROJECT_SETTINGS.map(({ relativePath }) => ({
       id: `settings:${relativePath}`,
       label: 'Project settings and hooks',

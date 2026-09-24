@@ -25,8 +25,8 @@ the concrete adapter and plugin source loader.
 here. Any `enabled`/`disabled` module name that matched no built module (a short form, or a typo) is
 returned as `unknownModuleNames` data rather than silently dropped, so the host can surface a
 non-fatal notice instead of failing closed or pretending the name took effect. Skills discovery
-consumes only the explicit contribution sources it is given; it never reconstructs project reads from
-`cwd`.
+consumes only the explicit contribution sources and ordered skill/command roots it is given; it never
+selects product directories or reconstructs project reads from `cwd`.
 
 **User-local commands.** The direct command and the assembled slash command use the same
 host-supplied storage root for inspection and memory operations. Neither command chooses a home

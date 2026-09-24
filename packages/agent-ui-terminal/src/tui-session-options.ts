@@ -25,6 +25,10 @@ export function buildTuiSessionOptions(
     ...(opts.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: opts.projectSettingsPaths }
       : {}),
+    ...(opts.contributionSources !== undefined
+      ? { contributionSources: opts.contributionSources }
+      : {}),
+    ...(opts.skillRoots !== undefined ? { skillRoots: opts.skillRoots } : {}),
     ...(opts.userSettingsSources !== undefined
       ? { userSettingsSources: opts.userSettingsSources }
       : {}),
