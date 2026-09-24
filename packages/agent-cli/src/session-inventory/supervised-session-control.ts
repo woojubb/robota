@@ -12,6 +12,7 @@ import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezv
 
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const MAX_FRAME_BYTES = 4_096;
+const MAX_STATUS_RESPONSE_BYTES = 32_768;
 const REQUEST_TIMEOUT_MS = 2_000;
 const MAX_ENTRIES = 256;
 const MAX_NAME_BYTES = 240;
@@ -150,7 +151,7 @@ function readRegistration(directory: string, id: string): IRegistration {
   return record as IRegistration;
 }
 
-function readLine(socket: Socket): Promise<string> {
+function readLine(socket: Socket, maxBytes = MAX_FRAME_BYTES): Promise<string> {
   return new Promise((resolve, reject) => {
     let received = '';
     let done = false;
@@ -166,7 +167,7 @@ function readLine(socket: Socket): Promise<string> {
     };
     const onData = (chunk: string): void => {
       received += chunk;
-      if (Buffer.byteLength(received, 'utf8') > MAX_FRAME_BYTES) {
+      if (Buffer.byteLength(received, 'utf8') > maxBytes) {
         finish(() => reject(new Error('Supervised session control frame is too large.')));
         return;
       }
@@ -208,7 +209,7 @@ async function request(
     signal?.throwIfAborted();
     socket.write(`${JSON.stringify({ command, id, ...(command === 'rename' ? { name } : {}),
       ...(command === 'link-pr' ? { url } : {}) })}\n`);
-    return JSON.parse(await readLine(socket)) as unknown;
+    return JSON.parse(await readLine(socket, command === 'status' ? MAX_STATUS_RESPONSE_BYTES : MAX_FRAME_BYTES)) as unknown;
   } finally {
     signal?.removeEventListener('abort', onAbort);
     socket.destroy();
@@ -451,7 +452,7 @@ export async function startSupervisedControl(
           // A failed association observation cannot create a link.
         }
         socket.end(`${JSON.stringify({ id, status: 'running', activity: isCurrentActivity(observed) ? observed : 'unknown',
-          ...(cwd === undefined ? {} : { cwd }),
+          ...(typeof cwd === 'string' && isAbsolute(cwd) && cwd.length <= 4_096 ? { cwd } : {}),
           ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}),
           ...(isSupervisedSessionName(name) ? { name } : {}),
           ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}) })}\n`);

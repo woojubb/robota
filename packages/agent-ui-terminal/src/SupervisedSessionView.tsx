@@ -440,7 +440,9 @@ export async function renderSupervisedSessionView(
     <ScreenReaderProvider enabled={options.screenReader}>
       <SupervisedSessionView loadRows={options.loadRows} onStop={options.onStop}
         onStart={options.onStart}
+        onOpenPr={options.onOpenPr}
         filteredByCwd={options.filteredByCwd} filteredByName={options.filteredByName}
+        filteredByPr={options.filteredByPr}
         stateFilter={options.stateFilter} refreshMs={options.refreshMs} />
     </ScreenReaderProvider>,
     { isScreenReaderEnabled: options.screenReader, exitOnCtrlC: false },

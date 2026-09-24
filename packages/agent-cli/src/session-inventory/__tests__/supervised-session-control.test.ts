@@ -70,6 +70,29 @@ describe('supervised session control', () => {
     await expect(linkSupervisedPr(ID, first, root)).rejects.toThrow();
     await expect(getVerifiedSupervisedPr(ID, root)).rejects.toThrow();
   });
+
+  it('keeps a verified status readable when bounded PR, cwd, and name are all long', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-pr-frame-'));
+    const root = join(scratch, 'supervised');
+    const url = `https://git.example.org/${'g'.repeat(1900)}/repo/-/merge_requests/24`;
+    const pr = parseSupervisedPr(url)!;
+    const cwd = `/projects/${'x'.repeat(1900)}`;
+    const name = 'N'.repeat(80);
+    const control = await startSupervisedControl(
+      ID, () => undefined, root, () => 'idle', () => cwd, undefined, () => name, undefined,
+      { get: () => pr, set: () => undefined },
+    );
+    try {
+      expect(await listSupervisedSessions(root, undefined, {
+        includePr: true, includeCwd: true, includeName: true, pr: 24,
+      })).toEqual([{
+        id: ID, liveness: 'alive', control: 'available', activity: 'idle', cwd, name, pr,
+      }]);
+    } finally {
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
   it('aborts an in-flight listing probe and closes its control socket', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-abrt-'));
     const root = join(scratch, 'supervised');
