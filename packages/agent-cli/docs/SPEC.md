@@ -90,8 +90,9 @@ bounded host-owned resource identity rather than ambient OpenTelemetry identity 
 prompt/provider/tool spans with session/turn correlation, validated tool-call IDs on tool traces
 and logs, and safe provider/model metadata,
 low-cardinality prompt/tool counts and per-call usage/cost metrics only when child records are complete,
-and observed completion logs, including a spanless tool-permission-decision log and metric joined to
-its tool by the same validated call ID, never a metric label. Omitted children or unknown prices remain visible
+and observed completion logs, including a spanless tool-permission-decision log joined to its tool by
+the same validated call ID and a permission-decision count by decision value, never a metric label.
+Omitted children or unknown prices remain visible
 as coverage gaps rather than fabricated totals. It does not replay stored usage, read ambient
 OpenTelemetry credentials, invent other lifecycle events, or let delivery failure change a turn result.
 

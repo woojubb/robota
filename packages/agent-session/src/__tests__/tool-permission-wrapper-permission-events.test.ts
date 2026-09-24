@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 
-import { TOOL_PERMISSION_EVENTS } from '@robota-sdk/agent-core';
+import { TOOL_BODY_EVENTS, TOOL_PERMISSION_EVENTS } from '@robota-sdk/agent-core';
 import { wrapToolWithPermission } from '../tool-permission-wrapper.js';
 
 import type { IToolWrapperDeps } from '../tool-permission-wrapper.js';
@@ -73,6 +73,10 @@ describe('tool-permission-wrapper — permission decision events', () => {
     const decisions = seen.filter((e) => e.type === TOOL_PERMISSION_EVENTS.DECIDED);
     expect(decisions).toHaveLength(1);
     expect(decisions[0]!.data).toMatchObject({ executionId: 'call-1', decision: 'allowed' });
+    const decisionIndex = seen.findIndex((e) => e.type === TOOL_PERMISSION_EVENTS.DECIDED);
+    const bodyIndex = seen.findIndex((e) => e.type === TOOL_BODY_EVENTS.COMPLETED);
+    expect(bodyIndex).toBeGreaterThan(-1);
+    expect(decisionIndex).toBeLessThan(bodyIndex);
   });
 
   it('emits exactly one denied decision and never runs the tool body', async () => {
@@ -109,6 +113,21 @@ describe('tool-permission-wrapper — permission decision events', () => {
     const decisions = seen.filter((e) => e.type === TOOL_PERMISSION_EVENTS.DECIDED);
     expect(decisions).toHaveLength(1);
     expect(decisions[0]!.data).toMatchObject({ executionId: 'call-3', decision: 'hook-blocked' });
+    expect(bodyExecuted).not.toHaveBeenCalled();
+  });
+
+  it('emits no permission decision when checkPermission itself rejects', async () => {
+    const { eventService, seen } = makeRecordingEventService();
+    const bodyExecuted = vi.fn(async () => ({ success: true, data: 'ok' }) as IToolResult);
+    const tool = makeTool(bodyExecuted);
+    const wrapped = wrapToolWithPermission(tool, makeDeps({
+      checkPermission: vi.fn().mockRejectedValue(new Error('permission check exploded')),
+    }));
+    const context: IToolExecutionContext = { toolName: 'demo', parameters: {}, executionId: 'call-5', eventService };
+    await wrapped.execute({}, context);
+
+    const decisions = seen.filter((e) => e.type === TOOL_PERMISSION_EVENTS.DECIDED);
+    expect(decisions).toHaveLength(0);
     expect(bodyExecuted).not.toHaveBeenCalled();
   });
 
