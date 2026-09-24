@@ -1,7 +1,7 @@
 import type { IEventService, IOwnerPathSegment } from './event-service';
 import type { IUserInteraction } from './interaction';
 import type { IToolSchema } from './provider';
-import type { IOutboundTraceContext } from './trace-context';
+import type { IOutboundTraceContext, ISubprocessTraceEnv } from './trace-context';
 import type { IDeferredToolCatalog } from './tool-search';
 import type { TContextData, TLoggerData, TToolParameters, TUniversalValue } from './types';
 
@@ -164,6 +164,19 @@ export interface IToolExecutionContext {
    * to a listed origin.
    */
   outboundTraceContext?: IOutboundTraceContext;
+
+  /**
+   * Present only when the host lets shell children inherit the trace: the environment naming this
+   * body's span. Only the foreground shell tool applies it, to its own child.
+   */
+  shellTraceEnv?: ISubprocessTraceEnv;
+
+  /**
+   * Present only when the host lets command hooks inherit the trace: the environment naming the
+   * prompt root, for the hooks fired around this body. Separate from {@link shellTraceEnv}, whose
+   * span is the body's own.
+   */
+  hookTraceEnv?: ISubprocessTraceEnv;
 }
 
 /**

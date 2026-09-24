@@ -1,6 +1,6 @@
 import { ValidationError } from '../utils/errors';
 import { randomId } from '../utils/random-id.js';
-import { toolTraceContextFor } from '../utils/trace-context';
+import { spanIdFromMintedId, toolTraceContextFor, traceEnvFor } from '../utils/trace-context';
 
 import { ARGUMENT_DECODE_ERROR_CODE, TOOL_EVENTS } from './tool-execution-constants';
 
@@ -70,6 +70,10 @@ function createExecutionContext(
   const outboundTraceContext = request.traceContext
     ? toolTraceContextFor(request.traceContext, toolBodyId)
     : undefined;
+  const shellTraceEnv = traceEnvFor('shell', request.traceContext, spanIdFromMintedId(toolBodyId));
+  const hookTraceEnv = request.traceContext
+    ? traceEnvFor('hooks', request.traceContext, request.traceContext.parentSpanId)
+    : undefined;
   return {
     toolName: request.toolName,
     parameters: request.parameters,
@@ -85,6 +89,8 @@ function createExecutionContext(
     ...(request.deferredTools ? { deferredTools: request.deferredTools } : {}),
     toolBodyId,
     ...(outboundTraceContext ? { outboundTraceContext } : {}),
+    ...(shellTraceEnv ? { shellTraceEnv } : {}),
+    ...(hookTraceEnv ? { hookTraceEnv } : {}),
   };
 }
 

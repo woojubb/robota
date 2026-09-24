@@ -16,7 +16,9 @@ export {
   outboundTraceContextFor,
   providerCallSpanId,
   spanIdFromMintedId,
+  subprocessTraceEnvironment,
   toolTraceContextFor,
+  traceEnvFor,
   traceHeadersFor,
 } from './trace-context';
 export type { TTimerId } from './timer-types';

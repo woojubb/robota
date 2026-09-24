@@ -91,6 +91,36 @@ describe('trusted trace context propagation', () => {
     }
   });
 
+  it('builds the prompt trace context when only subprocess classes are configured', async () => {
+    const mock = createMockSession(async () => 'response');
+    const enqueue = vi.fn();
+    const session = new InteractiveSession({
+      session: mock.session as never, cwd: '/tmp',
+      livePromptTrace: { enqueue, traceContextPropagation: { allowedOrigins: [], subprocesses: ['shell', 'hooks'] } },
+    });
+    await session.submit('prompt');
+    const options = mock.session.run.mock.calls[0]![2] as { traceContext: IRunTraceContext };
+    const batch = enqueue.mock.calls[0]![0] as ILivePromptTraceBatch;
+    expect(options.traceContext).toMatchObject({
+      traceId: batch.root.traceId,
+      parentSpanId: batch.root.spanId,
+      allowedOrigins: [],
+      subprocessClasses: ['shell', 'hooks'],
+    });
+    expect(options.traceContext.onPropagationUnavailable).toBeUndefined();
+  });
+
+  it('passes no trace context for an empty origin list and no subprocess class', async () => {
+    const mock = createMockSession(async () => 'response');
+    const session = new InteractiveSession({
+      session: mock.session as never, cwd: '/tmp',
+      livePromptTrace: { enqueue: vi.fn(), traceContextPropagation: { allowedOrigins: [], subprocesses: [] } },
+    });
+    await session.submit('prompt');
+    const options = mock.session.run.mock.calls[0]![2] as Record<string, unknown> | undefined;
+    expect(options?.['traceContext']).toBeUndefined();
+  });
+
   it('reports a provider that cannot propagate once per process, by provider ID only', async () => {
     const onDiagnostic = vi.fn();
     const makeSession = () => {

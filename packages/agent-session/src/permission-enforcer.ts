@@ -118,8 +118,8 @@ export class PermissionEnforcer {
       hookTypeExecutors: this.hookTypeExecutors,
       getPermissionMode: this.getPermissionMode,
       log: (event, detail) => this.log(event, detail),
-      checkPermission: (toolName, toolArgs, signal, interaction) =>
-        this.checkPermission(toolName, toolArgs, signal, interaction),
+      checkPermission: (toolName, toolArgs, signal, interaction, hookTraceEnv) =>
+        this.checkPermission(toolName, toolArgs, signal, interaction, hookTraceEnv),
     };
 
     return tools.map((tool) => wrapToolWithPermission(tool, deps));
@@ -188,6 +188,7 @@ export class PermissionEnforcer {
     toolArgs: TToolArgs,
     signal?: AbortSignal,
     interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
+    hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
   ): Promise<boolean> {
     // CORE-025: a background/subagent task permission policy is resolved BEFORE the session-mode gate, so
     // `deny`/`preapproved`/`inherit-allowlist` override even a permissive mode (e.g. bypassPermissions).
@@ -199,7 +200,7 @@ export class PermissionEnforcer {
         parentAllow: this.config.permissions.allow,
         parentDeny: this.config.permissions.deny,
       });
-      this.firePermissionDecisionHook(toolName, toolArgs, policyDecision);
+      this.firePermissionDecisionHook(toolName, toolArgs, policyDecision, hookTraceEnv);
       if (policyDecision === 'allow') return true;
       if (policyDecision === 'deny') return false;
       // 'prompt' → route to the human-approval path (fail-closed to deny with no approver).
@@ -213,7 +214,7 @@ export class PermissionEnforcer {
 
     // SELFHOST-009: fire PermissionDecision (INFORMATIONAL-ONLY, non-blocking) right after the
     // decision is made. Fire-and-forget — the hook cannot change the outcome that follows.
-    this.firePermissionDecisionHook(toolName, toolArgs, decision);
+    this.firePermissionDecisionHook(toolName, toolArgs, decision, hookTraceEnv);
 
     if (decision === 'auto') return true;
     if (decision === 'deny') return false;
@@ -265,6 +266,7 @@ export class PermissionEnforcer {
     toolName: string,
     toolArgs: TToolArgs,
     decision: string,
+    hookTraceEnv: IToolExecutionContext['hookTraceEnv'],
   ): void {
     const permissionMode = this.getPermissionMode();
     void runHooks(
@@ -285,6 +287,7 @@ export class PermissionEnforcer {
         },
       },
       this.hookTypeExecutors,
+      hookTraceEnv,
     ).catch(() => undefined);
   }
 

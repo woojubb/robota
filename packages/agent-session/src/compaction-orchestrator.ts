@@ -16,6 +16,7 @@ import type {
   THooksConfig,
   IHookInput,
   IHookTypeExecutor,
+  ISubprocessTraceEnv,
 } from '@robota-sdk/agent-core';
 
 /**
@@ -90,6 +91,7 @@ export class CompactionOrchestrator {
    * @param signal - The turn's cancellation signal (RUNTIME-004). Checked before the provider call
    *   and again after it: an abort throws rather than returning, so the caller's existing
    *   leave-history-untouched path covers a cancel as well as a failure.
+   * @param hookTraceEnv - The prompt's trace for PreCompact's command hooks, only inside a prompt
    * @returns The generated summary string (always a non-empty string)
    * @throws {CompactionError} when `history` is empty, or when the provider returns a non-string or
    *   empty summary — callers must leave the conversation history untouched in every such case
@@ -100,6 +102,7 @@ export class CompactionOrchestrator {
     instructions?: string,
     signal?: AbortSignal,
     trigger: TCompactTrigger = 'manual',
+    hookTraceEnv?: ISubprocessTraceEnv,
   ): Promise<string> {
     // RUNTIME-004: FIRST, before the emptiness check. Review found that ordering the other way
     // returned a summary for an already-cancelled turn — and the caller replaces the conversation
@@ -128,6 +131,7 @@ export class CompactionOrchestrator {
       'PreCompact',
       preHookInput,
       this.hookTypeExecutors,
+      hookTraceEnv,
     );
 
     // Build compaction prompt

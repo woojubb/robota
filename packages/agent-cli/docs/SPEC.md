@@ -89,8 +89,8 @@ It fails visibly on an incomplete store or collector rejection and never auto-ex
 live telemetry path needs an explicit Robota enable switch, individually selected signals, and an
 explicit protocol with a validated destination (OTLP or a local console sink). It uses host-owned
 resource and trace identity, never ambient OpenTelemetry identity, trace context or credentials, and
-sends a trace's identifiers to a provider only at origins the operator listed exactly while traces
-are exported — the collector's origin and credentials are never implied by that. Its spans, metrics
+sends a trace's identifiers to a provider only at origins the operator listed exactly, and to a
+child process only of a class the operator listed, while traces are exported — the collector's origin and credentials are never implied by that. Its spans, metrics
 and console output are always content-free, correlated by validated IDs; the only content it can
 send is the typed prompt, the final response and the arguments and output of the turn's own tool
 calls, of an owner-typed turn in the interactive terminal (other modes refuse the opt-in rather than
@@ -282,6 +282,11 @@ is named on purpose and a subdomain, port or scheme change is a different recipi
 providers and MCP HTTP servers alike, because the trust is in the origin, not in the kind of client
 that reaches it. An entry must
 already be its own origin, so the value compared is exactly the value written.
+`ROBOTA_TELEMETRY_PROPAGATE_TO_SUBPROCESSES` is a closed list of classes rather than a pattern,
+because each class is a place Robota knows how to hand the trace to — the foreground shell and
+command hooks — and every other child (the `!` passthrough, background, managed and scheduled
+shells, stdio MCP servers, HTTP, prompt and agent hooks) must never receive it. It is independent of
+the origin list, since a child process is not an origin.
 
 ### Opt-in metric attributes
 

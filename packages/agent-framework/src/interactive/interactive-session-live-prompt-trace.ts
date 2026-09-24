@@ -8,6 +8,8 @@ import type {
 } from '@robota-sdk/agent-interface-analytics';
 import { isSafeSessionId } from '@robota-sdk/agent-session';
 
+import type { TSubprocessTraceClass } from '@robota-sdk/agent-core';
+
 const MAX_CHILDREN = 256;
 const ID = /^[A-Za-z0-9_-]{1,128}$/u;
 const TRACE_ID = /^(?!0{32}$)[0-9a-f]{32}$/u;
@@ -21,10 +23,14 @@ export interface ILivePromptTracePort {
   onFailure?(code: 'projection-failed' | 'enqueue-failed'): void;
   /**
    * Host-resolved trust for W3C trace context. Present only when the host exports traces and the
-   * operator listed exact origins; a prompt's provider calls then carry that prompt's trace to
-   * those origins. Subagent, worker and background runs never inherit it.
+   * operator listed exact origins, subprocess classes, or both; a prompt's provider calls then carry
+   * that prompt's trace to those origins, and its shell and command-hook children receive it in
+   * their environment. Subagent, worker and background runs never inherit it.
    */
-  readonly traceContextPropagation?: { readonly allowedOrigins: readonly string[] };
+  readonly traceContextPropagation?: {
+    readonly allowedOrigins: readonly string[];
+    readonly subprocesses?: readonly TSubprocessTraceClass[];
+  };
   /**
    * A content-free, human-readable diagnostic the host surfaces (the CLI writes it to stderr). The
    * framework never writes to the process streams itself.

@@ -17,7 +17,8 @@ export function resolveProviderCallTraceContext(
   providerId: string,
   callId: string,
 ): IOutboundTraceContext | undefined {
-  if (traceContext === undefined) return undefined;
+  // No origin listed: nothing could be sent, so there is nothing to probe or report.
+  if (traceContext === undefined || traceContext.allowedOrigins.length === 0) return undefined;
   let capable = false;
   try {
     capable = provider.canPropagateTraceContext?.() === true;

@@ -2,7 +2,12 @@
  * Pure helpers for trusted W3C trace context. Strings and the WHATWG `URL` only, so they are the
  * same in the browser build and in every adapter that attaches the header.
  */
-import type { IOutboundTraceContext, IRunTraceContext } from '../interfaces/trace-context';
+import type {
+  IOutboundTraceContext,
+  IRunTraceContext,
+  ISubprocessTraceEnv,
+  TSubprocessTraceClass,
+} from '../interfaces/trace-context';
 
 const TRACE_ID = /^(?!0{32}$)[0-9a-f]{32}$/;
 const SPAN_ID = /^(?!0{16}$)[0-9a-f]{16}$/;
@@ -45,6 +50,36 @@ export function toolTraceContextFor(
   toolBodyId: string,
 ): IOutboundTraceContext | undefined {
   return outboundTraceContextFor(traceContext, toolBodyId);
+}
+
+/**
+ * The environment one child process of `subprocessClass` receives, naming `spanId` as its parent,
+ * or undefined when the host did not enable that class. Independent of the origin allowlist.
+ */
+export function traceEnvFor(
+  subprocessClass: TSubprocessTraceClass,
+  traceContext: IRunTraceContext | undefined,
+  spanId: string,
+): ISubprocessTraceEnv | undefined {
+  if (traceContext?.subprocessClasses?.includes(subprocessClass) !== true) return undefined;
+  const traceparent = buildTraceparent(traceContext.traceId, spanId);
+  return traceparent === undefined ? undefined : { TRACEPARENT: traceparent };
+}
+
+/**
+ * A fresh child environment: `base`, then Robota's trace, then `overrides`. When Robota's value
+ * applies, the ambient `TRACESTATE` is dropped because it belongs to a different parent. When
+ * `overrides` sets its own `TRACEPARENT`, Robota's value does not apply and `base` passes unchanged.
+ * `base` itself is never modified.
+ */
+export function subprocessTraceEnvironment(
+  base: Readonly<Record<string, string | undefined>>,
+  traceEnv: ISubprocessTraceEnv | undefined,
+  overrides: Readonly<Record<string, string>> = {},
+): Record<string, string | undefined> {
+  if (traceEnv === undefined || overrides['TRACEPARENT'] !== undefined) return { ...base, ...overrides };
+  const { TRACESTATE: _ambientState, ...rest } = base;
+  return { ...rest, ...traceEnv, ...overrides };
 }
 
 /**

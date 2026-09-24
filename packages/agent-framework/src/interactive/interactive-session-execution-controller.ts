@@ -642,18 +642,23 @@ export class SessionExecutionController {
   }
 
   /**
-   * The trace a prompt's provider calls carry, only while that prompt's root exists and only when
-   * the host configured propagation. Built per prompt, so no other run can inherit it.
+   * The trace a prompt's provider calls and child processes carry, only while that prompt's root
+   * exists and only when the host configured origins or subprocess classes. Built per prompt, so no
+   * other run can inherit it.
    */
   private promptTraceContext(promptRoot: { traceId: string; spanId: string }): IRunTraceContext | undefined {
     const port = this.callbacks.livePromptTrace;
-    const allowedOrigins = port?.traceContextPropagation?.allowedOrigins;
-    if (!port || !allowedOrigins || allowedOrigins.length === 0) return undefined;
+    const allowedOrigins = port?.traceContextPropagation?.allowedOrigins ?? [];
+    const subprocessClasses = port?.traceContextPropagation?.subprocesses ?? [];
+    if (!port || (allowedOrigins.length === 0 && subprocessClasses.length === 0)) return undefined;
     return {
       traceId: promptRoot.traceId,
       parentSpanId: promptRoot.spanId,
       allowedOrigins: [...allowedOrigins],
-      onPropagationUnavailable: (providerId) => reportTraceContextUnavailable(port, providerId),
+      ...(subprocessClasses.length > 0 ? { subprocessClasses: [...subprocessClasses] } : {}),
+      ...(allowedOrigins.length > 0
+        ? { onPropagationUnavailable: (providerId: string) => reportTraceContextUnavailable(port, providerId) }
+        : {}),
     };
   }
 

@@ -30,7 +30,11 @@
 
 import { spawn } from 'node:child_process';
 
-import { createBoundedOutput, resolvePlatformShell } from '@robota-sdk/agent-core';
+import {
+  createBoundedOutput,
+  resolvePlatformShell,
+  subprocessTraceEnvironment,
+} from '@robota-sdk/agent-core';
 import { killProcessTree } from '@robota-sdk/agent-process';
 import { z } from 'zod';
 
@@ -43,7 +47,7 @@ import { createZodFunctionTool } from '../implementations/function-tool';
 import type { ISandboxBuiltinToolOptions } from './tool-options.js';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
-import type { FunctionTool, IPlatformShell } from '@robota-sdk/agent-core';
+import type { FunctionTool, IPlatformShell, ISubprocessTraceEnv } from '@robota-sdk/agent-core';
 
 // CORE-030: defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
@@ -107,6 +111,7 @@ async function runShell(
   options: ISandboxToolOptions,
   shell: IPlatformShell,
   signal?: AbortSignal,
+  traceEnv?: ISubprocessTraceEnv,
 ): Promise<string> {
   const { command, timeout: rawTimeout = DEFAULT_TIMEOUT_MS, workingDirectory } = args;
   const timeout = Math.min(rawTimeout, 600_000);
@@ -149,7 +154,9 @@ async function runShell(
 
     const child = spawn(shell.command, shell.commandArgs(command), {
       cwd: effectiveCwd,
-      env: process.env,
+      // A fresh copy carrying this call's trace when the host enabled it; `process.env` itself is
+      // never modified, so no other child can inherit the value.
+      env: traceEnv === undefined ? process.env : subprocessTraceEnvironment(process.env, traceEnv),
       stdio: ['pipe', 'pipe', 'pipe'],
       detached: SPAWN_DETACHED,
     });
@@ -258,7 +265,7 @@ function createHostShellTool(name: string, options: IShellToolOptions): Function
     options.description ?? buildShellToolDescription(shell, options.availableTools),
     ShellSchema,
     async (params, context) => {
-      return runShell(params, options, shell, context?.signal);
+      return runShell(params, options, shell, context?.signal, context?.shellTraceEnv);
     },
   );
 }

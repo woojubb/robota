@@ -57,6 +57,7 @@ export interface IToolWrapperDeps {
     toolArgs: TToolArgs,
     signal?: AbortSignal,
     interaction?: IToolExecutionContext['permissionInteraction'],
+    hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
   ): Promise<boolean>;
 }
 
@@ -115,6 +116,7 @@ export function wrapToolWithPermission(
         enforcer.config.hooks,
         hookInput,
         enforcer.hookTypeExecutors,
+        context?.hookTraceEnv,
       );
       if (preResult) {
         enforcer.log('tool_blocked', { tool: toolName, reason: 'hook' });
@@ -128,6 +130,7 @@ export function wrapToolWithPermission(
         parameters as TToolArgs,
         context?.signal,
         context?.permissionInteraction,
+        context?.hookTraceEnv,
       );
       if (!allowed) {
         enforcer.log('tool_denied', { tool: toolName, reason: 'permission' });
@@ -218,6 +221,7 @@ export function wrapToolWithPermission(
         hookInput,
         truncatedResult,
         enforcer.hookTypeExecutors,
+        context?.hookTraceEnv,
       );
       return truncatedResult;
     } catch (err) {

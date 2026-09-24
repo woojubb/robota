@@ -22,13 +22,29 @@ import { matchesGroup, getMatcherTarget } from './hook-matching.js';
 import { PERMISSION_PRIORITY, interpretAllowOutcome } from './response-protocol.js';
 
 import type { TPermissionDecision } from './response-protocol.js';
+import type { ISubprocessTraceEnv } from '../interfaces/trace-context.js';
 import type {
   THookEvent,
   THooksConfig,
   IHookInput,
   IHookTypeExecutor,
   IHookErrorOutcome,
+  ICommandHookDefinition,
+  THookOutcome,
 } from './types.js';
+
+/**
+ * The command slot's call shape: the trace environment is a third argument that only a command
+ * executor is handed, so it never enters `IHookInput` — which command hooks read as stdin JSON and
+ * HTTP hooks receive as the body — and no other hook type ever sees it.
+ */
+interface ICommandHookTraceExecutor {
+  execute(
+    definition: ICommandHookDefinition,
+    input: IHookInput,
+    traceEnv: ISubprocessTraceEnv,
+  ): Promise<THookOutcome>;
+}
 
 /**
  * The default executors, loaded only when a caller supplies none (CORE-028).
@@ -100,12 +116,14 @@ export interface IRunHooksResult {
  * @param event - The lifecycle event being fired
  * @param input - Hook input data passed to executors
  * @param executors - Optional array of hook type executors (defaults to command + http)
+ * @param traceEnv - The prompt's trace for command hook children, when the host enabled it
  */
 export async function runHooks(
   config: THooksConfig | undefined,
   event: THookEvent,
   input: IHookInput,
   executors?: IHookTypeExecutor[],
+  traceEnv?: ISubprocessTraceEnv,
 ): Promise<IRunHooksResult> {
   if (!config) return { blocked: false, stdout: '' };
 
@@ -155,7 +173,10 @@ export async function runHooks(
         continue;
       }
 
-      const outcome = await executor.execute(hook, groupInput);
+      const outcome =
+        hook.type === 'command' && traceEnv !== undefined
+          ? await (executor as unknown as ICommandHookTraceExecutor).execute(hook, groupInput, traceEnv)
+          : await executor.execute(hook, groupInput);
 
       // An explicit denial blocks, exactly as exit code 2 did.
       if (outcome.outcome === 'deny') {

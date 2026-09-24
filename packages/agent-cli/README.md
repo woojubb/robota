@@ -339,8 +339,26 @@ Listing a vendor's origin lets that vendor link its own request logs to your tra
 followed by the SDK carries the header to the redirect target. A provider call whose span was omitted or
 dropped from export still sent its `traceparent`, so the vendor's parent span may be missing from your
 trace; `robota.omitted.provider_count` on the prompt span shows when that happened. Ambient
-`TRACEPARENT` and `OTEL_*` values are never adopted, and propagation into subprocesses (hooks, stdio
-MCP servers) is not supported yet.
+`TRACEPARENT` and `OTEL_*` values are never adopted.
+
+`ROBOTA_TELEMETRY_PROPAGATE_TO_SUBPROCESSES` hands the prompt's trace to child processes through the
+`TRACEPARENT` environment variable. It is a comma list drawn from exactly `shell` and `hooks`, each at
+most once; it needs the same `ROBOTA_TELEMETRY_ENABLED=1` and exported traces, is inert while
+telemetry is off, works with or without `ROBOTA_TELEMETRY_PROPAGATE_TO`, and a malformed entry stops
+startup naming only the setting and entry position. With `shell`, each foreground `Bash`/`Shell`
+command runs with `00-<prompt trace id>-<tool span id>-01`, where the span ID is the one that call's
+exported tool span carries. With `hooks`, command hooks fired during a prompt — `UserPromptSubmit`,
+`PreToolUse`, `PostToolUse`, `PermissionDecision`, the model-call hooks, `Stop`, `StopFailure` and
+the `PreCompact` and `PostCompact` of an automatic compaction — run with `00-<prompt trace id>-<prompt span id>-01`, so
+their spans sit beside the provider and tool spans; a hook fired outside a prompt (`SessionStart`,
+`SessionEnd`, both hooks of `/compact`, background tasks, subagent worktrees) gets nothing. The value
+is only ever in the child's environment, never in a hook's stdin JSON. A `TRACEPARENT` that a hook
+group's own `env` sets wins, and the child then sees its environment unchanged; otherwise the ambient
+`TRACESTATE` is removed, because it belonged to a different parent. The `!` shell passthrough,
+background, managed and scheduled shells, the monitor UI launcher, a sandboxed shell, stdio MCP
+servers, and HTTP, prompt and agent hooks never receive it. Robota never modifies its own process
+environment, so while the setting is off every child sees exactly the ambient `TRACEPARENT` and
+`TRACESTATE` it would have seen anyway.
 
 Upgrading: an origin already listed for a provider now also sends `traceparent` to an MCP HTTP server
 at that exact origin. Remove the origin, or move the MCP server to a different origin, if that server
