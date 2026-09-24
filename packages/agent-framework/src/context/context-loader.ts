@@ -130,7 +130,7 @@ export async function loadContext(
   const memoryMd = startupMemory?.content || undefined;
   // NEUT-004: task-context injection is off-switchable; disabled ⇒ no scan is performed.
   const taskContextEnabled =
-    options.taskContext?.enabled !== false && options.taskContext?.dir !== undefined;
+    options.taskContext?.enabled !== false && Boolean(options.taskContext?.dir);
   const loadedTaskContext =
     taskContextEnabled && source !== undefined
       ? loadTaskContext(source.reader, {

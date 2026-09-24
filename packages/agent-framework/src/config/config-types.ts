@@ -186,7 +186,7 @@ export const SettingsSchema = z.object({
   taskContext: z
     .object({
       enabled: z.boolean().optional(),
-      dir: z.string().optional(),
+      dir: z.string().min(1).optional(),
     })
     .optional(),
 });

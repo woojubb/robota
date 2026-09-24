@@ -60,7 +60,7 @@ export function listFrameworkProjectContributionPaths(
       expectedKind: 'directory' as const,
     })),
     ...instructionPaths(cwdRelative),
-    ...(taskContext?.enabled === false || taskContext?.dir === undefined
+    ...(taskContext?.enabled === false || !taskContext?.dir
       ? []
       : [
           {

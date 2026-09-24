@@ -61,6 +61,17 @@ describe('NEUT-004 task-context injection discipline', () => {
     expect(context.taskContext).toBeUndefined();
   });
 
+  it('does not fall back to the ambient directory for an empty host path', async () => {
+    const cwd = makeWorkspace();
+    writeTaskFile(cwd);
+
+    const context = await loadContext(await projectSource(cwd), undefined, {
+      taskContext: { enabled: true, dir: '' },
+    });
+
+    expect(context.taskContext).toBeUndefined();
+  });
+
   it('loads only the custom host-selected directory', async () => {
     const cwd = makeWorkspace();
     writeTaskFile(cwd, 'my-tasks');
@@ -80,5 +91,11 @@ describe('NEUT-004 task-context injection discipline', () => {
   it('settings schema accepts the taskContext toggle', () => {
     const parsed = SettingsSchema.parse({ taskContext: { enabled: false, dir: 'my-tasks' } });
     expect(parsed.taskContext).toEqual({ enabled: false, dir: 'my-tasks' });
+  });
+
+  it('rejects an empty task-context path in settings', () => {
+    expect(SettingsSchema.safeParse({ taskContext: { enabled: true, dir: '' } }).success).toBe(
+      false,
+    );
   });
 });

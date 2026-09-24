@@ -23,8 +23,7 @@ export interface ITaskSelectionOptions {
   currentBranch?: string;
   maxTasks?: number;
   /**
-   * NEUT-004: task-file scan directory relative to cwd. Defaults to the supported
-   * `.agents/tasks` convention.
+   * NEUT-004: host-selected task-file scan directory relative to cwd; absence disables the scan.
    */
   dir?: string;
 }
@@ -151,10 +150,7 @@ export function readCurrentGitBranchFromNodeHost(
   return branch?.trim();
 }
 
-export function discoverTaskFiles(
-  reader: IWorkspaceProjectReader,
-  dir: string,
-): string[] {
+export function discoverTaskFiles(reader: IWorkspaceProjectReader, dir: string): string[] {
   const accepted = assertWorkspaceProjectReader(reader);
   return accepted
     .listDirectory(dir, 'discover project task context')
@@ -206,7 +202,7 @@ export function loadTaskContext(
   reader: IWorkspaceProjectReader,
   options: ITaskSelectionOptions = {},
 ): string {
-  if (options.dir === undefined) return '';
+  if (!options.dir) return '';
   const currentBranch = options.currentBranch;
   const tasks = discoverTaskFiles(reader, options.dir).map((path) => parseTaskFile(path, reader));
   return formatTaskContext(selectRelevantTasks(tasks, { ...options, currentBranch }));
