@@ -193,7 +193,8 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
   /**
    * Only the Gemini API's own endpoint, reached through the client this provider built, can carry
    * trace context: an executor sends elsewhere, and a base-URL environment override or Vertex mode
-   * sends to an origin this provider does not know. Each of those answers false.
+   * sends to an origin this provider does not know, and a base URL the SDK does not let it read
+   * cannot be compared. Each of those answers false.
    */
   canPropagateTraceContext(): boolean {
     if (this.executor || !this.client) return false;
@@ -201,7 +202,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     const env = typeof process === 'undefined' ? {} : process.env;
     if (env['GOOGLE_GEMINI_BASE_URL'] || env['GOOGLE_VERTEX_BASE_URL']) return false;
     const effective = readGeminiClientBaseUrl(this.client);
-    if (effective !== undefined && originOf(effective) !== GEMINI_API_ORIGIN) return false;
+    if (effective === undefined || originOf(effective) !== GEMINI_API_ORIGIN) return false;
     return true;
   }
 

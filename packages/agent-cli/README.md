@@ -275,7 +275,9 @@ span ID is the one the exported `robota.provider_call` span carries. It needs
 `ROBOTA_TELEMETRY_ENABLED=1` and `ROBOTA_TELEMETRY_TRACES=otlp` or `console`, and is inert while
 telemetry is off. Each entry must be exactly its own origin: `https`, or `http` only on loopback, with no
 path, trailing slash, query, credentials, wildcard or spelled-out default port; a scheme, port or
-subdomain difference is a different origin and gets nothing. Malformed, duplicate or too many entries
+subdomain difference is a different origin and gets nothing. An internationalized host must be listed
+in its punycode (`xn--`) form, and an origin with a trailing dot never matches; both fail closed
+(refused at startup or sent nothing). Malformed, duplicate or too many entries
 stop startup with an error that names only the setting and entry position. `tracestate` and `baggage`
 are never sent, the collector's origin is never trusted implicitly, and collector headers are never
 reused for provider requests. The Anthropic and OpenAI (Responses and Chat Completions) adapters

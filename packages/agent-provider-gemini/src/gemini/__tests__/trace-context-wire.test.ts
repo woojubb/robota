@@ -79,6 +79,24 @@ describe('Gemini trusted trace context', () => {
     expect(seen.map((request) => request.traceparent)).toEqual([null, null, null, null, null, null]);
   });
 
+  it('cannot propagate when the SDK base URL is unreadable (missing or throwing)', async () => {
+    const unreadable = [
+      undefined,
+      () => {
+        throw new Error('unreadable');
+      },
+    ];
+    for (const getBaseUrl of unreadable) {
+      const provider = new GeminiProvider({ apiKey: 'test-key' });
+      const client = (provider as unknown as { client: { apiClient: { getBaseUrl?: unknown } } }).client;
+      client.apiClient.getBaseUrl = getBaseUrl;
+      expect(provider.canPropagateTraceContext()).toBe(false);
+      seen = [];
+      await provider.chat(messages, { model: 'gemini-test', outboundTraceContext: traceTo(GEMINI_ORIGIN) });
+      expect(seen.map((request) => request.traceparent)).toEqual([null]);
+    }
+  });
+
   it('cannot propagate with a base-URL override, in Vertex mode, or through an executor', async () => {
     vi.stubEnv('GOOGLE_GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com');
     const overridden = new GeminiProvider({ apiKey: 'test-key' });
