@@ -52,6 +52,14 @@ function value(batch: ILivePromptTraceBatch, name: string): number | undefined {
 }
 
 describe('Node live OTLP metrics', () => {
+  it('exposes the host failure callback for metrics-only queue overflow', () => {
+    const onFailure = vi.fn();
+    const port = createNodeOtlpLiveMetricPort('http://127.0.0.1:9/v1/metrics', onFailure);
+    expect(port.onFailure).toBe(onFailure);
+    port.onFailure?.('enqueue-failed');
+    expect(onFailure).toHaveBeenCalledWith('enqueue-failed');
+  });
+
   it('uses per-invocation complete usage and table-estimated cost without charging cache/preflight', () => {
     const batch = { ...base, children: [
       provider('invoked', 'complete', 'gpt-4o'),
