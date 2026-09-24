@@ -24,7 +24,7 @@ function createAgentSubcommands(): ICommand[] {
     { name: 'send', description: 'Send follow-up input to an agent job', source: 'agent' },
     { name: 'stop', description: 'Cancel a running agent job', source: 'agent' },
     { name: 'close', description: 'Dismiss a terminal agent job', source: 'agent' },
-    { name: 'open', description: 'Focus an agent job detail view when supported', source: 'agent' },
+    { name: 'open', description: 'Read an agent job log page (alias for read)', source: 'agent' },
   ];
 }
 
@@ -62,6 +62,7 @@ export function createAgentSystemCommand(): ISystemCommand {
     ...(entry.userInvocable !== undefined ? { userInvocable: entry.userInvocable } : {}),
     ...(entry.argumentHint !== undefined ? { argumentHint: entry.argumentHint } : {}),
     ...(entry.safety !== undefined ? { safety: entry.safety } : {}),
+    ...(entry.subcommands !== undefined ? { subcommands: entry.subcommands } : {}),
   };
 }
 

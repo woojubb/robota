@@ -109,6 +109,28 @@ describe('agent command module', () => {
     expect(module.systemCommands).toHaveLength(1);
   });
 
+  it('keeps the palette agent actions on the executable command', () => {
+    const module = createAgentCommandModule();
+    const palette = module.commandSources?.[0]?.getCommands()[0];
+    const executable = module.systemCommands?.[0];
+
+    expect(palette?.subcommands?.map(({ name }) => name)).toEqual([
+      'list',
+      'run',
+      'parallel',
+      'wait',
+      'read',
+      'send',
+      'stop',
+      'close',
+      'open',
+    ]);
+    expect(executable?.subcommands).toEqual(palette?.subcommands);
+    expect(palette?.subcommands?.find(({ name }) => name === 'open')?.description).toBe(
+      'Read an agent job log page (alias for read)',
+    );
+  });
+
   it('projects agent from its injected command source', () => {
     const module = createAgentCommandModule();
     const registry = new CommandRegistry();
