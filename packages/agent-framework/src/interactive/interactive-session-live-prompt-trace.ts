@@ -46,12 +46,6 @@ function projectProvider(trace: IProviderCallTraceEntry): IProviderCallTraceEntr
     !SPAN_ID.test(trace.spanId) || !validInterval(trace.startedAt, trace.endedAt) ||
     !Number.isSafeInteger(trace.round) || trace.round < 1 ||
     (trace.outcome !== 'success' && trace.outcome !== 'failure' && trace.outcome !== 'interrupted')) return undefined;
-  // A provider-returned request ID is only ever attached to an invoked call — an unsafe string or
-  // one arriving on a non-invoked disposition means something upstream is confused, so the whole
-  // child is omitted rather than exported half-trusted (mirrors the tool-call-ID rule).
-  if (trace.providerRequestId !== undefined &&
-    (trace.disposition !== 'invoked' || typeof trace.providerRequestId !== 'string' ||
-      !ID.test(trace.providerRequestId))) return undefined;
   const complete = trace.usageProvenance === 'complete' &&
     safeTokens(trace.promptTokens) && safeTokens(trace.completionTokens) && safeTokens(trace.totalTokens);
   const usageProvenance = trace.usageProvenance === 'complete' && !complete
@@ -59,6 +53,13 @@ function projectProvider(trace: IProviderCallTraceEntry): IProviderCallTraceEntr
   const providerId = safeLabel(trace.providerId);
   const modelId = safeLabel(trace.modelId);
   const callId = typeof trace.callId === 'string' && ID.test(trace.callId) ? trace.callId : undefined;
+  // A provider-returned request ID is only ever attested for an invoked call. An unsafe value or one
+  // arriving on a non-invoked disposition is dropped like any other unsafe label (`providerId`,
+  // `modelId`) — a gateway ID outside the opaque-ID shape must not withhold usage/cost for the whole
+  // child, unlike the tool-call-ID rule this otherwise mirrors.
+  const providerRequestId = trace.disposition === 'invoked' &&
+    typeof trace.providerRequestId === 'string' && ID.test(trace.providerRequestId)
+    ? trace.providerRequestId : undefined;
   return {
     traceId: trace.traceId,
     parentSpanId: trace.parentSpanId,
@@ -79,7 +80,7 @@ function projectProvider(trace: IProviderCallTraceEntry): IProviderCallTraceEntr
       completionTokens: trace.completionTokens,
       totalTokens: trace.totalTokens,
     } : {}),
-    ...(trace.providerRequestId !== undefined ? { providerRequestId: trace.providerRequestId } : {}),
+    ...(providerRequestId !== undefined ? { providerRequestId } : {}),
   };
 }
 

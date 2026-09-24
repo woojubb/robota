@@ -175,7 +175,7 @@ export function createSpanEntry(event: ISpanCompletionEventData): IHistoryEntry<
  * `providerRequestId` is a raw event value — the live projection (`projectProvider`) validates it
  * before export, the same way `IToolBodyTraceObservation.toolCallId` stays raw here.
  */
-export type TRawProviderCallTraceObservation = IProviderCallTraceObservation & {
+export type TRawProviderCallTraceObservation = Omit<IProviderCallTraceObservation, 'providerRequestId'> & {
   readonly providerRequestId?: unknown;
 };
 
@@ -291,7 +291,10 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
           }),
           ...(data['providerRequestId'] !== undefined && { providerRequestId: data['providerRequestId'] }),
         };
-        providerCalls.push(observation);
+        // `providerCalls` feeds usage/cost extraction only, which never reads providerRequestId — kept
+        // strictly typed rather than widened for a field it does not use.
+        const { providerRequestId: _providerRequestId, ...usageObservation } = observation;
+        providerCalls.push(usageObservation);
         completions.push({ kind: 'provider', observation });
       } else {
         omittedCompletions.provider += 1;

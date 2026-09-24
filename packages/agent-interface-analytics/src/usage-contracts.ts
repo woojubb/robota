@@ -84,7 +84,12 @@ export interface IProviderCallTraceEntry {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
-  /** Opaque ID the provider returned for this invoked call; live projection only, not written to history. */
+  /**
+   * Opaque ID the provider returned for this invoked call. On THIS entry it is live-projection
+   * only — never written to the persisted `provider-call-trace` history entry. The adapter also
+   * leaves it on the assistant message's own metadata, so it does reach session history and logs by
+   * that separate route; among telemetry signals, only live traces and logs export it, never metrics.
+   */
   providerRequestId?: string;
 }
 

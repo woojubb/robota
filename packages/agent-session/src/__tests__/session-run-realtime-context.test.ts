@@ -145,6 +145,58 @@ describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
     });
   });
 
+  it('forwards providerRequestId only for an invoked call, never a non-string value', async () => {
+    const { agent, run } = createFakeRobota(0);
+    run.mockImplementation(
+      async (
+        _message: string,
+        options?: { onExecutionEvent?: (event: string, data: Record<string, unknown>) => void },
+      ) => {
+        options?.onExecutionEvent?.('provider_call_completed', {
+          round: 1,
+          startedAt: '2026-09-24T00:00:59.100Z',
+          endedAt: '2026-09-24T00:00:59.900Z',
+          outcome: 'success',
+          disposition: 'invoked',
+          providerRequestId: 'req_abc123',
+        });
+        options?.onExecutionEvent?.('provider_call_completed', {
+          round: 2,
+          startedAt: '2026-09-24T00:00:59.100Z',
+          endedAt: '2026-09-24T00:00:59.900Z',
+          outcome: 'success',
+          disposition: 'cache-hit',
+          providerRequestId: 'req_should_not_forward',
+        });
+        options?.onExecutionEvent?.('provider_call_completed', {
+          round: 3,
+          startedAt: '2026-09-24T00:00:59.100Z',
+          endedAt: '2026-09-24T00:00:59.900Z',
+          outcome: 'success',
+          disposition: 'invoked',
+          providerRequestId: 42,
+        });
+        return 'done';
+      },
+    );
+    const ctx = createContext(agent, () => {});
+    const emit = vi.fn();
+    ctx.emitProviderCallCompleted = emit;
+
+    await executeRun('hello', undefined, ctx, new AbortController().signal);
+
+    expect(emit).toHaveBeenCalledTimes(3);
+    expect(emit).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      round: 1, providerRequestId: 'req_abc123',
+    }));
+    expect(emit).toHaveBeenNthCalledWith(2, expect.not.objectContaining({
+      providerRequestId: expect.anything(),
+    }));
+    expect(emit).toHaveBeenNthCalledWith(3, expect.not.objectContaining({
+      providerRequestId: expect.anything(),
+    }));
+  });
+
   it('TC-01: emits a context update per round, not only at start and end', async () => {
     const updates: IContextWindowState[] = [];
     const { agent } = createFakeRobota(2);

@@ -40,7 +40,7 @@ describe('live prompt trace boundary', () => {
     expect(JSON.stringify(batch)).not.toMatch(/private|secret/);
   });
 
-  it('carries a provider-returned request ID only for an invoked call with a safe value', () => {
+  it('carries a provider-returned request ID only for an invoked call with a safe value, and only drops the field — never the child — otherwise', () => {
     const accumulator = makeAccumulator();
     const base = {
       traceId: TRACE_ID, parentSpanId: ROOT_SPAN_ID, startedAt: AT, endedAt: AT,
@@ -51,16 +51,25 @@ describe('live prompt trace boundary', () => {
       ...base, spanId: 'bbbbbbbbbbbbbbbb', providerRequestId: 'private\nsecret',
     });
     accumulator.addProvider({
-      ...base, spanId: 'cccccccccccccccc', disposition: 'cache-hit', providerRequestId: 'req_should_omit',
+      ...base, spanId: 'cccccccccccccccc', disposition: 'cache-hit', providerRequestId: 'req_should_drop',
     });
-    accumulator.addProvider({ ...base, spanId: 'dddddddddddddddd' });
+    accumulator.addProvider({
+      ...base, spanId: 'dddddddddddddddd', providerRequestId: 'x'.repeat(129),
+    });
     const batch = finish(accumulator);
     expect(batch.children).toMatchObject([
-      { kind: 'provider', trace: { providerRequestId: 'req_abc123' } },
+      { kind: 'provider', trace: { spanId: 'aaaaaaaaaaaaaaaa', providerRequestId: 'req_abc123' } },
+      { kind: 'provider', trace: { spanId: 'bbbbbbbbbbbbbbbb' } },
+      { kind: 'provider', trace: { spanId: 'cccccccccccccccc' } },
       { kind: 'provider', trace: { spanId: 'dddddddddddddddd' } },
     ]);
-    expect(batch.omittedChildren.provider).toBe(2);
-    expect(JSON.stringify(batch)).not.toMatch(/private|secret|req_should_omit/);
+    for (const child of batch.children.slice(1)) {
+      expect(child).not.toHaveProperty('trace.providerRequestId');
+    }
+    // Unsafe or non-invoked providerRequestId values only drop the field — the child (and its
+    // usage/cost data) is never withheld, unlike an unsafe tool-call ID.
+    expect(batch.omittedChildren.provider).toBe(0);
+    expect(JSON.stringify(batch)).not.toMatch(/private|secret|req_should_drop|x{129}/);
   });
 
   it('carries a safe permission decision with its call ID and omits unsafe ones under the shared cap', () => {
