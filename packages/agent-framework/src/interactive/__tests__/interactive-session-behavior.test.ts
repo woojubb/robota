@@ -226,6 +226,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       listener?.('tool.tool_body_completed', {
         startedAt: 'private malformed timestamp', endedAt: at, outcome: 'success',
       });
+      listener?.('tool.tool_body_completed', {
+        startedAt: at, endedAt: at, outcome: 'success', executionId: 42,
+      });
       listener?.('provider_call_completed', {
         startedAt: at, endedAt: at, outcome: 'success', round: 0,
       });
@@ -244,7 +247,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       schemaVersion: 1, sessionId: 'session.1',
       root: { outcome: 'success' },
       children: [{ kind: 'tool', trace: { toolCallId: 'call-123' } }, { kind: 'provider' }],
-      omittedChildren: { provider: 1, tool: 1 },
+      omittedChildren: { provider: 1, tool: 2 },
     });
     expect(JSON.stringify(session.getFullHistory())).not.toContain('call-123');
     expect(batch).toHaveProperty('turnId');

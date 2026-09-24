@@ -403,10 +403,14 @@ export class SessionExecutionController {
             },
           };
           toolBodyEntries.push(entry);
-          if (entry.data) liveTrace?.addTool({
-            ...entry.data,
-            ...(observation.toolCallId !== undefined ? { toolCallId: observation.toolCallId } : {}),
-          });
+          if (entry.data) {
+            const toolCallId = observation.toolCallId;
+            if (toolCallId !== undefined && typeof toolCallId !== 'string') {
+              liveTrace?.omit({ provider: 0, tool: 1 });
+            } else {
+              liveTrace?.addTool({ ...entry.data, ...(toolCallId !== undefined ? { toolCallId } : {}) });
+            }
+          }
         },
         onCompletionsOmitted: (counts) => liveTrace?.omit(counts),
         onInterrupted: (result: IExecutionResult) => {
