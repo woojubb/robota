@@ -80,7 +80,9 @@ export function runMigrations(db: Database.Database): void {
 
   for (const migration of MIGRATIONS) {
     if (appliedVersions.has(migration.version)) continue;
-    db.exec(migration.sql);
-    insertMigration.run(migration.version, Date.now());
+    db.transaction(() => {
+      db.exec(migration.sql);
+      insertMigration.run(migration.version, Date.now());
+    })();
   }
 }
