@@ -90,3 +90,15 @@ it.each(['maxTextJoinOutputBytes', 'maxTextSplitOutputBytes'] as const)('rejects
   source[name] = 1;
   expect(resolved[name]).toBe(0);
 });
+
+it('keeps the HTTP response ceiling for older hosts and rejects malformed tightening', () => {
+  expect(resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1 }).maxHttpResponseBodyBytes).toBe(4_194_304);
+  for (const value of [NaN, Infinity, -1, 0.5, 4_194_305, null, undefined]) {
+    // @ts-expect-error intentionally exercise malformed JavaScript host policy
+    expect(() => resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1, maxHttpResponseBodyBytes: value })).toThrow(RangeError);
+  }
+  const source = { maxTextRepeatOutputBytes: 1, maxHttpResponseBodyBytes: 0 };
+  const resolved = resolveDagExecutionByteLimits(source);
+  source.maxHttpResponseBodyBytes = 1;
+  expect(resolved.maxHttpResponseBodyBytes).toBe(0);
+});
