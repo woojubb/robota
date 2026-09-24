@@ -26,6 +26,8 @@ export interface ISessionViewCommandOptions {
   readonly root?: string;
   readonly render?: typeof renderSupervisedSessionView;
   readonly stop?: typeof stopSupervisedSession;
+  readonly start?: (cwd: string) => Promise<string>;
+  readonly launchCwd?: string;
 }
 
 /** Run the global supervised view without constructing a foreground interactive session. */
@@ -78,9 +80,11 @@ export async function runSessionViewCommand(
   }
   try {
     const root = options.root ?? resolveSupervisedDirectory();
+    const start = options.start;
     await (options.render ?? renderSupervisedSessionView)({
       loadRows: (signal) => listSupervisedSessions(root, signal, { cwd, name: nameFilter, includeName: true }),
       onStop: (id) => (options.stop ?? stopSupervisedSession)(id, root),
+      ...(start === undefined ? {} : { onStart: () => start(cwd ?? options.launchCwd ?? process.cwd()) }),
       filteredByCwd: cwd !== undefined,
       filteredByName: nameFilter !== undefined,
       stateFilter,

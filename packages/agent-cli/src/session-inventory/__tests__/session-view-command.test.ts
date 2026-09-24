@@ -127,6 +127,24 @@ describe('session view command', () => {
     expect(stop).toHaveBeenCalledExactlyOnceWith(id, '/tmp/supervised-view-test');
   });
 
+  it('starts in the selected directory while keeping the view alive', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-view-start-'));
+    const project = join(scratch, 'project');
+    mkdirSync(project);
+    const start = vi.fn(async () => '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
+    const render = vi.fn(async (options: Parameters<typeof renderSupervisedSessionView>[0]) => {
+      expect(await options.onStart?.()).toBe('8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
+    });
+    try {
+      expect(await runSessionViewCommand(['--cwd', project], {
+        isTTY: true, settings: {}, env: {}, render, start,
+      })).toBe(0);
+      expect(start).toHaveBeenCalledExactlyOnceWith(realpathSync(project));
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
   it('accepts a cwd filter with screen-reader flags and shows only verified matching sessions', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-view-cwd-'));
     const root = join(scratch, 'supervised');

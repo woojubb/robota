@@ -20,6 +20,7 @@ export interface ISupervisedViewRow {
 export interface ISupervisedSessionViewProps {
   readonly loadRows: (signal: AbortSignal) => Promise<readonly ISupervisedViewRow[]>;
   readonly onStop?: (id: string) => Promise<void>;
+  readonly onStart?: () => Promise<string>;
   readonly filteredByCwd?: boolean;
   readonly filteredByName?: boolean;
   readonly stateFilter?: TGroup;
@@ -62,6 +63,7 @@ function loopWaitLabel(nextLoopAt: string, observedAtMs: number): string {
 export default function SupervisedSessionView({
   loadRows,
   onStop,
+  onStart,
   filteredByCwd = false,
   filteredByName = false,
   stateFilter,
@@ -79,6 +81,9 @@ export default function SupervisedSessionView({
   const [stopStatus, setStopStatus] = useState<'idle' | 'unavailable' | 'stopping' | 'stopped' | 'failed'>('idle');
   const [lastStoppedId, setLastStoppedId] = useState<string | undefined>();
   const stoppingRef = useRef(false);
+  const [startStatus, setStartStatus] = useState<'idle' | 'starting' | 'started' | 'failed'>('idle');
+  const [lastStartedId, setLastStartedId] = useState<string | undefined>();
+  const startingRef = useRef(false);
   const mountedRef = useRef(true);
   const ordered = useMemo(() => sortedRows(rows).filter((row) => stateFilter === undefined || groupOf(row) === stateFilter),
     [rows, stateFilter]);
@@ -133,6 +138,7 @@ export default function SupervisedSessionView({
 
   useInput((input, key) => {
     if (stoppingRef.current) return;
+    if (startingRef.current && input !== 'q' && !(!screenReader && key.escape) && !(key.ctrl && input === 'c')) return;
     if (confirmStopId !== undefined) {
       if (input === 'n' || key.escape) {
         setConfirmStopId(undefined);
@@ -163,6 +169,18 @@ export default function SupervisedSessionView({
     }
     if (input === '?') {
       setShowHelp((value) => !value);
+      return;
+    }
+    if (input === 'n' && onStart !== undefined) {
+      startingRef.current = true;
+      setStartStatus('starting');
+      void Promise.resolve().then(onStart).then((id) => {
+        if (!mountedRef.current) return;
+        setLastStartedId(id);
+        setStartStatus('started');
+      }).catch(() => {
+        if (mountedRef.current) setStartStatus('failed');
+      }).finally(() => { startingRef.current = false; });
       return;
     }
     if (input === 's' && onStop !== undefined) {
@@ -203,28 +221,11 @@ export default function SupervisedSessionView({
     ? loopWaitLabel(selectedRow.nextLoopAt, observedAtMs) : '';
 
   const height = Math.max(8, stdout.rows ?? 24);
-  // Reserve all fixed chrome plus both possible overflow indicators before choosing row lines.
-  const helpVisible = showHelp && confirmStopId === undefined && stopStatus !== 'stopping';
-  const fixedLines = 2 + (stateFilter === undefined ? 0 : 1)
-    + (status === 'loading' || status === 'unavailable' || (status === 'ready' && ordered.length === 0) ? 1 : 0)
-    + (selectedId === undefined ? 0 : 1)
-    + (selectedName === undefined ? 0 : 1)
-    + (selectedLoopStatus ? 1 : 0)
-    + (confirmStopId !== undefined ? (screenReader ? 1 : 2) : stopStatus !== 'idle' ? 1 : 0)
-    + 1 + (helpVisible ? 10 : 0) + 2;
-  const viewport = Math.max(1, height - fixedLines);
-  const selectedLine = Math.max(0, displayLines.findIndex((line) => line.kind === 'row' && line.row.id === selectedId));
-  const start = Math.min(Math.max(0, selectedLine - Math.floor(viewport / 2)), Math.max(0, displayLines.length - viewport));
-  const visible = screenReader ? displayLines : displayLines.slice(start, start + viewport);
-  const chromeWrap = screenReader ? {} : { wrap: 'truncate-end' as const };
-  const footer = stopStatus === 'stopping' ? 'Stop in progress; wait for result.'
-    : confirmStopId !== undefined ? 'Confirm stop or cancel before closing.'
-      : screenReader ? 'Type a number and Enter to select; s Stop; Escape to close; ? Help.'
-        : '↑↓ Navigate  s Stop  ? Help  q/Esc Close';
   const helpLines = [
     'Keys:',
     screenReader ? 'Number+Enter Select' : '↑/↓ Select',
     's Request stop',
+    ...(onStart === undefined ? [] : ['n New session']),
     'y Confirm stop',
     'n/Esc Cancel stop',
     'q/Esc/Ctrl+C Close',
@@ -233,7 +234,25 @@ export default function SupervisedSessionView({
     'Idle ≠ attach-ready',
     'Close keeps sessions',
   ];
-
+  // Reserve all fixed chrome plus both possible overflow indicators before choosing row lines.
+  const helpVisible = showHelp && confirmStopId === undefined && stopStatus !== 'stopping';
+  const fixedLines = 2 + (stateFilter === undefined ? 0 : 1)
+    + (status === 'loading' || status === 'unavailable' || (status === 'ready' && ordered.length === 0) ? 1 : 0)
+    + (selectedId === undefined ? 0 : 1)
+    + (selectedName === undefined ? 0 : 1)
+    + (selectedLoopStatus ? 1 : 0)
+    + (startStatus === 'idle' ? 0 : 1)
+    + (confirmStopId !== undefined ? (screenReader ? 1 : 2) : stopStatus !== 'idle' ? 1 : 0)
+    + 1 + (helpVisible ? helpLines.length : 0) + 2;
+  const viewport = Math.max(1, height - fixedLines);
+  const selectedLine = Math.max(0, displayLines.findIndex((line) => line.kind === 'row' && line.row.id === selectedId));
+  const start = Math.min(Math.max(0, selectedLine - Math.floor(viewport / 2)), Math.max(0, displayLines.length - viewport));
+  const visible = screenReader ? displayLines : displayLines.slice(start, start + viewport);
+  const chromeWrap = screenReader ? {} : { wrap: 'truncate-end' as const };
+  const footer = stopStatus === 'stopping' ? 'Stop in progress; wait for result.'
+    : confirmStopId !== undefined ? 'Confirm stop or cancel before closing.'
+      : screenReader ? `Type a number and Enter to select; s Stop;${onStart ? ' n New;' : ''} Escape to close; ? Help.`
+        : `↑↓ Navigate  s Stop${onStart ? '  n New' : ''}  ? Help  q/Esc Close`;
   return (
     <Box flexDirection="column" {...(screenReader ? {} : { height })}>
       <Text {...chromeWrap}>
@@ -265,6 +284,9 @@ export default function SupervisedSessionView({
       {selectedId !== undefined && <Text {...chromeWrap}>Selected {selectedId}</Text>}
       {selectedName !== undefined && <Text {...chromeWrap}>Name: {selectedName}</Text>}
       {selectedLoopStatus && <Text {...chromeWrap}>{selectedLoopStatus}</Text>}
+      {startStatus === 'starting' && <Text {...chromeWrap}>Starting a background session...</Text>}
+      {startStatus === 'started' && <Text {...chromeWrap}>Started {lastStartedId}{filteredByName || stateFilter !== undefined ? ' (may be hidden by filter)' : ''}</Text>}
+      {startStatus === 'failed' && <Text {...chromeWrap}>Start failed; check workspace trust or run session start --background for details.</Text>}
       {confirmStopId !== undefined && (screenReader
         ? <Text>Stop {confirmStopId}? y Yes / n No</Text>
         : <>
@@ -300,6 +322,7 @@ export async function renderSupervisedSessionView(
   const instance = render(
     <ScreenReaderProvider enabled={options.screenReader}>
       <SupervisedSessionView loadRows={options.loadRows} onStop={options.onStop}
+        onStart={options.onStart}
         filteredByCwd={options.filteredByCwd} filteredByName={options.filteredByName}
         stateFilter={options.stateFilter} refreshMs={options.refreshMs} />
     </ScreenReaderProvider>,
