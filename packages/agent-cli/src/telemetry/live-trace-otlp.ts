@@ -8,6 +8,7 @@ import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytic
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import { createNodeOtlpLiveMetricPort } from './live-metric-otlp.js';
 import { createNodeOtlpLiveLogPort } from './live-log-otlp.js';
+import { createNodeLiveConsolePort } from './live-console.js';
 
 const MAX_PENDING_BATCHES = 8;
 
@@ -35,6 +36,7 @@ function resolveNodeOtlpLiveSignalEndpoint(
   const label = signal === 'traces' ? 'trace' : signal === 'metrics' ? 'metric' : 'log';
   const selector = env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`];
   if (selector === undefined || selector === 'off') return undefined;
+  if (selector === 'console') return undefined;
   if (selector !== 'otlp') throw new Error(`Unsupported Robota ${label} exporter.`);
   if (env['ROBOTA_TELEMETRY_OTLP_PROTOCOL'] !== 'http/protobuf') {
     throw new Error(`Robota ${label} export requires explicit http/protobuf protocol.`);
@@ -221,6 +223,9 @@ export function createNodeOtlpLiveTracePort(options: INodeOtlpLiveTraceOptions):
 export function createConfiguredNodeOtlpLiveTelemetryPort(
   env: Readonly<Record<string, string | undefined>>,
   onFailure?: INodeOtlpLiveTraceOptions['onFailure'],
+  writeConsole: (line: string) => void | Promise<void> = (line) => new Promise<void>((resolve, reject) => {
+    process.stderr.write(line, (error) => error ? reject(error) : resolve());
+  }),
 ): INodeOtlpLiveTracePort | undefined {
   const traceEndpoint = resolveNodeOtlpLiveTraceEndpoint(env);
   const metricEndpoint = resolveNodeOtlpLiveMetricEndpoint(env);
@@ -231,6 +236,13 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
   }));
   if (metricEndpoint) ports.push(createNodeOtlpLiveMetricPort(metricEndpoint, onFailure));
   if (logEndpoint) ports.push(createNodeOtlpLiveLogPort(logEndpoint, onFailure));
+  if (env['ROBOTA_TELEMETRY_ENABLED'] === '1') {
+    for (const signal of ['traces', 'metrics', 'logs'] as const) {
+      if (env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`] === 'console') {
+        ports.push(createNodeLiveConsolePort(signal, writeConsole, onFailure));
+      }
+    }
+  }
   if (ports.length === 0) return undefined;
   if (ports.length === 1) return ports[0];
   return {
