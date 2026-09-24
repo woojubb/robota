@@ -27,6 +27,8 @@ import type { ISandboxClient } from '@robota-sdk/agent-tools';
 export interface ICodingPackOptions {
   /** Product-host shell choice for tools and the interactive /shell command. */
   shellExecutable?: string;
+  /** Product-owned prefix for the interactive editor's temporary directory. */
+  editorTemporaryDirectoryPrefix?: string;
   /**
    * Working-directory root the host file tools (`Read`/`Write`/`Edit`) are restricted to. Required: see
    * the interface note above. Pass the same value the session is assembled with.
@@ -94,7 +96,7 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
     tools: createDefaultTools(toolOptions),
     commandModules: [
       createShellCommandModule(options.shellExecutable),
-      createEditorCommandModule(),
+      createEditorCommandModule(options.editorTemporaryDirectoryPrefix),
       createGitCommandModule(),
     ],
     subagents: BUILT_IN_AGENTS,

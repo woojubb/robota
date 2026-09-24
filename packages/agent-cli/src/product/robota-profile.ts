@@ -14,6 +14,7 @@
  */
 
 import { createCodingPack } from '@robota-sdk/pack-coding';
+import { ROBOTA_EDITOR_TEMPORARY_DIRECTORY_PREFIX } from './robota-command-vocabulary.js';
 
 import type {
   IAIProvider,
@@ -54,7 +55,12 @@ export const ROBOTA_SUBAGENT_HOOK_ENVIRONMENT_NAMES = {
  * they are built with, and a context-free pack would carry a disarmed working-directory path guard.
  */
 export function createRobotaPacks(context: ICodingPackOptions): readonly TCapabilityPack[] {
-  return [createCodingPack(context)];
+  return [
+    createCodingPack({
+      ...context,
+      editorTemporaryDirectoryPrefix: ROBOTA_EDITOR_TEMPORARY_DIRECTORY_PREFIX,
+    }),
+  ];
 }
 
 /**

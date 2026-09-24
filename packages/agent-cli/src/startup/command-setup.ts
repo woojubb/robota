@@ -44,6 +44,7 @@ import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
 import {
   formatRobotaResumeCommand,
   ROBOTA_DOCTOR_SLASH_DISPLAY,
+  ROBOTA_EDITOR_TEMPORARY_DIRECTORY_PREFIX,
 } from '../product/robota-command-vocabulary.js';
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
@@ -229,6 +230,7 @@ export function buildCommandSetup(
   const { modules: baseCommandModules } = createDefaultCommandModules({
     cwd,
     userLocalStorageRoot: userLocalStorageRoot(),
+    editorTemporaryDirectoryPrefix: ROBOTA_EDITOR_TEMPORARY_DIRECTORY_PREFIX,
     providerDefinitions,
     providerSettingsAdapter,
     contributionSources: workspaceComposition.contributionSources,

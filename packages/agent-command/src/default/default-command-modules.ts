@@ -53,6 +53,8 @@ import type { IThemeCataloguePort } from '@robota-sdk/agent-interface-command';
 export interface IDefaultCommandModulesOptions {
   cwd: string;
   userLocalStorageRoot: string;
+  /** Product-owned prefix for the interactive editor's temporary directory. */
+  editorTemporaryDirectoryPrefix?: string;
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   providerDefinitions: readonly IProviderDefinition[];
@@ -125,6 +127,7 @@ export interface IDefaultCommandModulesResult {
 export function createDefaultCommandModules({
   cwd: _cwd,
   userLocalStorageRoot,
+  editorTemporaryDirectoryPrefix,
   contributionSources,
   skillRoots,
   providerDefinitions,
@@ -156,7 +159,7 @@ export function createDefaultCommandModules({
     createGoalCommandModule(),
     createPlanCommandModule(),
     createShellCommandModule(),
-    createEditorCommandModule(),
+    createEditorCommandModule(editorTemporaryDirectoryPrefix),
     createGitCommandModule(),
     ...(keybindingsFilePort === undefined
       ? []
