@@ -49,7 +49,8 @@ persist only through the CLI-selected project-local settings path and the live w
 an unavailable writer rejects the approval explicitly. Disabled plugins stay disabled across every
 command, theme, and discovery surface. The CLI attaches its own setup, diagnostics, and resume
 guidance to typed SDK failures — missing provider configuration, invalid settings, or a completed
-fork.
+fork — and supplies the product's diagnostic and resume commands to command modules, which name no
+Robota executable or product on their own.
 
 Local peer-activity publishing exposes only fixed, content-free activity states for the current
 interactive session into a guarded, same-user rendezvous, kept separate from process-liveness checks

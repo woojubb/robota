@@ -34,9 +34,17 @@ import {
 } from '@robota-sdk/agent-command-workflows';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { buildDoctorInputs } from './doctor-inputs.js';
-import { areSessionLoopsDisabled, createLoopDefaultPromptResolver, DEFAULT_LOOP_MAINTENANCE_PROMPT } from './loop-options.js';
+import {
+  areSessionLoopsDisabled,
+  createLoopDefaultPromptResolver,
+  DEFAULT_LOOP_MAINTENANCE_PROMPT,
+} from './loop-options.js';
 import { createDefaultPluginCommandAdapter } from '../plugins/default-plugin-command-adapter.js';
 import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
+import {
+  formatRobotaResumeCommand,
+  ROBOTA_DOCTOR_SLASH_DISPLAY,
+} from '../product/robota-command-vocabulary.js';
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
 import type { IOutputStyleRegistry } from '@robota-sdk/agent-preset';
@@ -225,9 +233,14 @@ export function buildCommandSetup(
     ...(keybindingsFilePort === undefined ? {} : { keybindingsFilePort }),
     ...(themeCataloguePort === undefined ? {} : { themeCataloguePort }),
     doctorInputs,
+    doctorDisplay: ROBOTA_DOCTOR_SLASH_DISPLAY,
+    formatForkResumeCommand: formatRobotaResumeCommand,
     loopOptions: {
       defaultPrompt: DEFAULT_LOOP_MAINTENANCE_PROMPT,
-      resolveDefaultPrompt: createLoopDefaultPromptResolver({ projectAccess: workspaceComposition.projectAccess, userHome: homedir() }),
+      resolveDefaultPrompt: createLoopDefaultPromptResolver({
+        projectAccess: workspaceComposition.projectAccess,
+        userHome: homedir(),
+      }),
       disabled: areSessionLoopsDisabled(process.env),
     },
     ...(orgPolicy === null ? {} : { orgPolicy }),

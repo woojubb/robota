@@ -205,7 +205,7 @@ function formatProjectedModelCommandToolDescription(
   commandName: string,
   descriptor: TModelCommandDescriptor,
 ): string {
-  const lines = [descriptor.description.trim(), `Robota command id: ${commandName}.`];
+  const lines = [descriptor.description.trim(), `Command id: ${commandName}.`];
   if (descriptor.argumentHint) {
     lines.push(`Argument grammar: ${descriptor.argumentHint}`);
   }

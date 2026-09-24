@@ -37,7 +37,7 @@ import { createStatusLineCommandModule } from '../statusline/index.js';
 import { createThemeCommandModule } from '../theme/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
 
-import type { IDoctorInputs } from '../doctor/index.js';
+import type { IDoctorDisplayVocabulary, IDoctorInputs } from '../doctor/index.js';
 import type { IKeybindingsFilePort } from '../keybindings/index.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
@@ -76,6 +76,10 @@ export interface IDefaultCommandModulesOptions {
   themeCataloguePort?: IThemeCataloguePort;
   /** OBSERVABILITY-1991: host-composed doctor inputs; absence means `/doctor` is not registered. */
   doctorInputs?: IDoctorInputs;
+  /** Product-owned diagnostic wording; absent keeps `/doctor` product-neutral. */
+  doctorDisplay?: IDoctorDisplayVocabulary;
+  /** Product-owned command to resume a saved fork; absent yields neutral host guidance. */
+  formatForkResumeCommand?: (sessionId: string) => string;
   /** Host-owned fallback text and kill switch for session-local repeat. */
   loopOptions?: { defaultPrompt?: string; resolveDefaultPrompt?: () => string; disabled?: boolean };
   /**
@@ -129,6 +133,8 @@ export function createDefaultCommandModules({
   keybindingsFilePort,
   themeCataloguePort,
   doctorInputs,
+  doctorDisplay,
+  formatForkResumeCommand,
   loopOptions,
   enabledCommandModules,
   disabledCommandModules,
@@ -146,7 +152,7 @@ export function createDefaultCommandModules({
     createBackgroundCommandModule(),
     // CLI-1994: beside `/background`, because a fork IS a background job — the one it starts is
     // listed, peeked at, stopped and attached to through that command and its panel.
-    createForkCommandModule(),
+    createForkCommandModule(formatForkResumeCommand),
     createGoalCommandModule(),
     createPlanCommandModule(),
     createShellCommandModule(),
@@ -156,7 +162,9 @@ export function createDefaultCommandModules({
       ? []
       : [createKeybindingsCommandModule(keybindingsFilePort)]),
     ...(themeCataloguePort === undefined ? [] : [createThemeCommandModule(themeCataloguePort)]),
-    ...(doctorInputs === undefined ? [] : [createDoctorCommandModule(doctorInputs)]),
+    ...(doctorInputs === undefined
+      ? []
+      : [createDoctorCommandModule(doctorInputs, undefined, doctorDisplay)]),
     createMemoryCommandModule(),
     createMCPActivationCommandModule(),
     createUserLocalCommandModule(userLocalStorageRoot),

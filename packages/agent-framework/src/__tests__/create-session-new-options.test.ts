@@ -511,7 +511,8 @@ describe('createSession — command descriptor tool guidance', () => {
 
     expect(tools.some((tool) => tool.getName() === 'ExecuteCommand')).toBe(false);
     expect(compactTool?.schema.description).toContain('explicitly requests compaction');
-    expect(compactTool?.schema.description).toContain('Robota command id: compact.');
+    expect(compactTool?.schema.description).toContain('Command id: compact.');
+    expect(compactTool?.schema.description).not.toContain('Robota');
     expect(compactTool?.schema.description).not.toContain('/compact');
   });
 });

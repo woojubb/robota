@@ -6,7 +6,7 @@ export const builtInOutputStyles: readonly IOutputStyle[] = [
   {
     id: 'default',
     name: 'Default',
-    description: 'The ordinary Robota response style.',
+    description: 'The ordinary response style.',
     instructions: DEFAULT_INSTRUCTIONS,
     keepCodingInstructions: true,
     tokenCost: 'baseline',

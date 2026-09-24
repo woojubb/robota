@@ -101,16 +101,22 @@ function describeFork(name: string, taskId: string, isolation: TBackgroundTaskIs
  * The copy is on disk and the job is not. Both facts are reported, because the record is still
  * resumable by name and an operator told only "failed" would not know that.
  */
-function describeSpawnFailure(fork: { sessionId: string; name: string }, reason: string): string {
+function describeSpawnFailure(
+  fork: { sessionId: string; name: string },
+  reason: string,
+  formatResumeCommand?: (sessionId: string) => string,
+): string {
+  const resumeHint = formatResumeCommand?.(fork.sessionId);
   return (
     `The fork "${fork.name}" was written (${fork.sessionId}) but its background job could not ` +
-    `start: ${reason}\nResume it in a new terminal with: robota --resume "${fork.name}"`
+    `start: ${reason}\n${resumeHint === undefined ? 'Resume the saved session through your host.' : `Resume it in a new terminal with: ${resumeHint}`}`
   );
 }
 
 export async function executeForkCommand(
   context: TForkCommandContext,
   args = '',
+  formatResumeCommand?: (sessionId: string) => string,
 ): Promise<ICommandResult> {
   const parsed = parseForkArgs(args);
   if ('error' in parsed) return { message: parsed.error, success: false };
@@ -148,6 +154,9 @@ export async function executeForkCommand(
       data: { sessionId: fork.sessionId, name: fork.name, taskId: state.id },
     };
   } catch (error) {
-    return { message: describeSpawnFailure(fork, formatError(error)), success: false };
+    return {
+      message: describeSpawnFailure(fork, formatError(error), formatResumeCommand),
+      success: false,
+    };
   }
 }
