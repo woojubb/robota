@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createKoffiBunPlugin } from '../../../scripts/artifacts/koffi-bun-plugin.mjs';
+import { createKoffiBunPlugin } from '../../../scripts/bun/koffi-bun-plugin.mjs';
 
 const outputArgument = process.argv.slice(2).find((argument) => argument !== '--');
 const output = resolve(outputArgument ?? 'dist-qualification/native-qualification');

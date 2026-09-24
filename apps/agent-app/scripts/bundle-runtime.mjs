@@ -7,25 +7,23 @@
  * `apps/agent-app/resources-bin/robota(.exe)` — the fixed path `extraResources` bundles into `resources/`,
  * where `sidecar.ts:resolveSidecarCommand` resolves it in a packaged app.
  */
-import { copyFileSync, mkdirSync, rmSync } from 'node:fs';
-import { pinGeneration } from '../../../scripts/artifacts/generation.mjs';
+import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const appDir = join(here, '..'); // apps/agent-app
 const cliDir = join(appDir, '..', '..', 'packages', 'agent-cli');
-const pinned = pinGeneration(cliDir, { outputName: 'dist-bun-headless' });
 
 const os = process.platform === 'win32' ? 'windows' : process.platform; // darwin | linux | windows
 const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
 const isWin = process.platform === 'win32';
 const srcName = `robota-headless-${os}-${arch}${isWin ? '.exe' : ''}`;
-const src = join(pinned.root, srcName);
+const src = join(cliDir, 'dist-bun-headless', srcName);
 
-if (!pinned.manifest.files.some((file) => file.path === srcName)) {
+if (!existsSync(src)) {
   throw new Error(
-    `bundle-runtime: verified headless generation lacks ${srcName}. ` +
+    `bundle-runtime: ${src} is missing. ` +
       `Build it first: pnpm --filter @robota-sdk/agent-cli build:bun:headless:${os}-${arch}`,
   );
 }

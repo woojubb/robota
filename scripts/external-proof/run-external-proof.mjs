@@ -4,7 +4,7 @@
  *
  * Proves, from genuinely OUTSIDE the monorepo, that a third party can build a product on Robota's
  * PUBLISHED package surface. It is deliberately not a workspace link and not a relative import: the
- * runner packs verified physical generations through the artifact pack owner, installs them with `npm install`
+ * runner packs each package with `pnpm pack` (which rewrites `workspace:` specifiers), installs them with `npm install`
  * into a throwaway directory outside the repo, type-checks the consumer against the SHIPPED `.d.ts`
  * files, and runs the Mode A/B/C assertions.
  *
@@ -26,8 +26,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { packVerifiedPackage } from '../artifacts/pack.mjs';
-import { readWorkspaceVersions } from '../artifacts/pack-image.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..', '..');
@@ -87,22 +85,21 @@ function resolveClosure(manifests) {
   return [...closure].sort();
 }
 
-/** Pack each verified generation; returns name → verified absolute tarball path. */
-export async function packAll(
-  closure,
-  manifests,
-  tarballDir,
-  workspaceVersions = readWorkspaceVersions(REPO_ROOT),
-) {
+/** Pack each package with `pnpm pack`; returns name → absolute tarball path. */
+export async function packAll(closure, manifests, tarballDir) {
   fs.mkdirSync(tarballDir, { recursive: true });
   const tarballs = new Map();
   for (const name of closure) {
     const { dir } = manifests.get(name);
-    const { tarballPath } = await packVerifiedPackage(dir, {
-      destination: tarballDir,
-      workspaceRoot: REPO_ROOT,
-      workspaceVersions,
+    const output = execFileSync('pnpm', ['pack', '--pack-destination', tarballDir], {
+      cwd: dir,
+      encoding: 'utf8',
     });
+    const tarballPath = path.resolve(
+      tarballDir,
+      path.basename(output.trim().split('\n').filter(Boolean).at(-1)),
+    );
+    if (!fs.existsSync(tarballPath)) throw new Error(`pnpm pack produced no tarball for ${name}`);
     tarballs.set(name, tarballPath);
     log(`  packed ${name} → ${path.basename(tarballPath)}`);
   }

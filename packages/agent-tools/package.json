@@ -33,14 +33,8 @@
   "files": [
     "dist"
   ],
-  "robota": {
-    "artifact": {
-      "builder": "tsdown"
-    }
-  },
   "scripts": {
-    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
-    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build": "rimraf dist && tsdown",
     "build:js": "pnpm run build",
     "build:types": "pnpm run build",
     "test": "vitest run --passWithNoTests",

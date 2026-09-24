@@ -10,8 +10,6 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { readArtifactCapability } from '../artifacts/capability.mjs';
-import { pinGeneration } from '../artifacts/generation.mjs';
 import { ADVISORY_MARKER } from './output-markers.mjs';
 import { listWorkspaceScopes, readJson, WORKSPACE_ROOT } from './shared.mjs';
 
@@ -67,28 +65,12 @@ function collectExportTypesPaths(value, paths = []) {
 export function hasDistContract(packageJson) {
   const exportedPaths = collectExportPaths(packageJson.exports);
   return (
-    Boolean(readArtifactCapability(packageJson)) ||
     typeof packageJson.main === 'string' ||
     typeof packageJson.module === 'string' ||
     typeof packageJson.types === 'string' ||
     exportedPaths.some((exportPath) => DIST_PATH_PATTERN.test(exportPath)) ||
     Boolean(packageJson.bin)
   );
-}
-
-export function findScriptPairFindings(workspaceName, packageJson) {
-  // Compatibility export: the pair is optional; when present it must delegate to complete build.
-  if (!readArtifactCapability(packageJson)) return [];
-  const findings = [];
-  if (!packageJson.scripts?.build)
-    findings.push(`${workspaceName}: missing build for managed assembly`);
-  for (const alias of ['build:js', 'build:types']) {
-    const command = packageJson.scripts?.[alias];
-    if (command !== undefined && command !== 'pnpm run build') {
-      findings.push(`${workspaceName}: ${alias} must alias complete build with "pnpm run build"`);
-    }
-  }
-  return findings;
 }
 
 export function findPackageFieldFindings(workspaceName, packageJson) {
@@ -180,30 +162,9 @@ export function findDtsExtensionFindings(workspaceName, packageJson) {
   return findings;
 }
 
-export function findDistFileFindings(
-  workspaceName,
-  packageJson,
-  pkgDir,
-  { requireVerifiedGeneration = false } = {},
-) {
+export function findDistFileFindings(workspaceName, packageJson, pkgDir) {
   const findings = [];
-  const distDir = path.join(pkgDir, 'dist');
-  const capability = readArtifactCapability(packageJson);
-  // lstat distinguishes a genuinely absent output from a dangling/corrupt managed pointer.
-  if (!fs.lstatSync(distDir, { throwIfNoEntry: false })) {
-    return requireVerifiedGeneration
-      ? [`${workspaceName}: verified generation required, dist/ is missing`]
-      : [];
-  }
-  let emittedPaths;
-  if (capability || requireVerifiedGeneration) {
-    try {
-      const generation = pinGeneration(pkgDir);
-      emittedPaths = new Set(generation.manifest.files.map((file) => `dist/${file.path}`));
-    } catch (error) {
-      return [`${workspaceName}: invalid managed generation: ${error.message}`];
-    }
-  }
+  if (!fs.existsSync(path.join(pkgDir, 'dist'))) return [];
 
   const entries = ['main', 'module', 'types'].map((key) => [key, packageJson[key]]);
   entries.push(...collectExportPaths(packageJson.exports).map((value) => ['exports path', value]));
@@ -214,10 +175,7 @@ export function findDistFileFindings(
   );
   for (const [label, value] of entries) {
     if (typeof value !== 'string' || !DIST_PATH_PATTERN.test(value)) continue;
-    const exists = emittedPaths
-      ? emittedPaths.has(value.replace(/^\.\//u, ''))
-      : fs.existsSync(path.join(pkgDir, value));
-    if (!exists) {
+    if (!fs.existsSync(path.join(pkgDir, value))) {
       findings.push(`${workspaceName}: ${label}="${value}" declared but file not found`);
     }
   }
@@ -239,7 +197,6 @@ async function inspectBuildOutputContracts(root, options) {
     checkedPackages += 1;
     if (fs.existsSync(path.join(pkgDir, 'dist'))) distPresentPackages += 1;
     const name = scope.workspaceName;
-    findings.push(...findScriptPairFindings(name, packageJson));
     findings.push(...findPackageFieldFindings(name, packageJson));
     findings.push(...findExportPathFindings(name, packageJson));
     findings.push(...findBinPathFindings(name, packageJson));
@@ -282,10 +239,8 @@ export function renderDistCoverage({ checked, distPresent }) {
   return lines;
 }
 
-export async function main(root = WORKSPACE_ROOT, argv = process.argv.slice(2)) {
-  const options = {
-    requireVerifiedGeneration: argv.includes('--require-verified-generation'),
-  };
+export async function main(root = WORKSPACE_ROOT) {
+  const options = {};
   const { findings, checkedPackages, distPresentPackages } = await inspectBuildOutputContracts(
     root,
     options,
