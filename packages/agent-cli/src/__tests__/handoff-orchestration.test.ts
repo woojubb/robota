@@ -14,7 +14,6 @@
  */
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
-import { buildHandoffManifest } from '@robota-sdk/agent-transport/node';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -22,6 +21,7 @@ import {
   HandoffSource,
   type IHandoffCarrier,
   type IHandoffChunkFrame,
+  type IHandoffManifestRequest,
 } from '@robota-sdk/agent-framework';
 
 import { createHandoffComposition } from '../handoff/handoff-composition-root.js';
@@ -56,7 +56,7 @@ function record(id = 'session-1'): IInteractiveSessionRecord {
   };
 }
 
-function offerRequest(overrides: Partial<Parameters<typeof buildHandoffManifest>[0]> = {}) {
+function offerRequest(overrides: Partial<IHandoffManifestRequest> = {}): IHandoffManifestRequest {
   return {
     handoffId: 'handoff-1',
     sessionId: 'session-1',
@@ -339,6 +339,20 @@ describe('TC-07: the destination has no provider credential', () => {
 });
 
 describe('what the source refuses to start', () => {
+  it('checks unsettled work before serializing the session record', () => {
+    const unsettledRecord = Object.defineProperty(record(), 'messages', {
+      get: () => {
+        throw new Error('record was serialized before readiness');
+      },
+    });
+
+    expect(
+      composition.buildManifest(
+        offerRequest({ record: unsettledRecord, runtime: { modelCallInFlight: true } }),
+      ),
+    ).toMatchObject({ built: false, refusal: 'in-flight-work' });
+  });
+
   it('will not offer a session with a model call in flight', () => {
     const source = new HandoffSource({
       composition,

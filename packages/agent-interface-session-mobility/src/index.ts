@@ -47,3 +47,11 @@ export {
   handoffOutcome,
   sourceStillOwns,
 } from './handoff-ownership.js';
+
+export type {
+  IPrepareHandoffOfferInput,
+  ISourceRuntimeState,
+  THandoffOfferResult,
+  THandoffReadiness,
+} from './handoff-offer.js';
+export { assessHandoffReadiness, prepareHandoffOffer } from './handoff-offer.js';
