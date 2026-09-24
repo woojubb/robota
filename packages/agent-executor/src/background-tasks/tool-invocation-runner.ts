@@ -60,8 +60,8 @@ function startAdoptedTask(
   taskId: string,
   toolName: string,
   work: IAdoptedToolInvocation,
-): IBackgroundTaskHandle {
-  const result: Promise<IBackgroundTaskResult> = work.settled.then(
+): IBackgroundTaskHandle<'tool-invocation'> {
+  const result: Promise<IBackgroundTaskResult<'tool-invocation'>> = work.settled.then(
     (toolResult) => ({
       taskId,
       kind: 'tool-invocation',
@@ -106,7 +106,7 @@ export function createToolInvocationBackgroundTaskRunner(): IBackgroundTaskRunne
       };
     },
 
-    start(task: IBackgroundTaskStart<'tool-invocation'>): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'tool-invocation'>): IBackgroundTaskHandle<'tool-invocation'> {
       const request = requireToolInvocationRequest(task);
       const work = registry.get(request.adoptionToken);
       if (!work) {

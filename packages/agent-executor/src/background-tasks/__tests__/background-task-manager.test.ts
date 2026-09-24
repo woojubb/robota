@@ -5,40 +5,44 @@ import type {
   IBackgroundTaskResult,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
+  TBackgroundTaskKind,
 } from '../types.js';
 
-interface ITestDeferred {
-  promise: Promise<IBackgroundTaskResult>;
-  resolve: (result: IBackgroundTaskResult) => void;
+interface ITestDeferred<K extends TBackgroundTaskKind = 'agent'> {
+  promise: Promise<IBackgroundTaskResult<K>>;
+  resolve: (result: IBackgroundTaskResult<K>) => void;
   reject: (error: Error) => void;
 }
 
-interface IStartedTask {
+interface IStartedTask<K extends TBackgroundTaskKind = 'agent'> {
   taskId: string;
-  deferred: ITestDeferred;
+  deferred: ITestDeferred<K>;
   cancelReason?: string;
   emit?: IBackgroundTaskStart['emit'];
 }
 
-function createTestDeferred(): ITestDeferred {
-  let resolveFn: (result: IBackgroundTaskResult) => void = () => {};
+function createTestDeferred<K extends TBackgroundTaskKind = 'agent'>(): ITestDeferred<K> {
+  let resolveFn: (result: IBackgroundTaskResult<K>) => void = () => {};
   let rejectFn: (error: Error) => void = () => {};
-  const promise = new Promise<IBackgroundTaskResult>((resolve, reject) => {
+  const promise = new Promise<IBackgroundTaskResult<K>>((resolve, reject) => {
     resolveFn = resolve;
     rejectFn = reject;
   });
   return { promise, resolve: resolveFn, reject: rejectFn };
 }
 
-function createControllableRunner(): { runner: IBackgroundTaskRunner; started: IStartedTask[] } {
-  const started: IStartedTask[] = [];
+function createControllableRunner(): {
+  runner: IBackgroundTaskRunner<'agent'>;
+  started: IStartedTask<'agent'>[];
+} {
+  const started: IStartedTask<'agent'>[] = [];
   return {
     started,
     runner: {
       kind: 'agent',
-      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
-        const deferred = createTestDeferred();
-        const startedTask: IStartedTask = { taskId: task.taskId, deferred, emit: task.emit };
+      start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
+        const deferred = createTestDeferred<'agent'>();
+        const startedTask: IStartedTask<'agent'> = { taskId: task.taskId, deferred, emit: task.emit };
         started.push(startedTask);
         return {
           taskId: task.taskId,
@@ -54,17 +58,17 @@ function createControllableRunner(): { runner: IBackgroundTaskRunner; started: I
 }
 
 function createRejectingCancelRunner(): {
-  runner: IBackgroundTaskRunner;
-  started: IStartedTask[];
+  runner: IBackgroundTaskRunner<'agent'>;
+  started: IStartedTask<'agent'>[];
 } {
-  const started: IStartedTask[] = [];
+  const started: IStartedTask<'agent'>[] = [];
   return {
     started,
     runner: {
       kind: 'agent',
-      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
-        const deferred = createTestDeferred();
-        const startedTask: IStartedTask = { taskId: task.taskId, deferred, emit: task.emit };
+      start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
+        const deferred = createTestDeferred<'agent'>();
+        const startedTask: IStartedTask<'agent'> = { taskId: task.taskId, deferred, emit: task.emit };
         started.push(startedTask);
         return {
           taskId: task.taskId,
@@ -80,10 +84,10 @@ function createRejectingCancelRunner(): {
   };
 }
 
-function createResolvedRunner(output: string): IBackgroundTaskRunner {
+function createResolvedRunner(output: string): IBackgroundTaskRunner<'agent'> {
   return {
     kind: 'agent',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
       return {
         taskId: task.taskId,
         result: Promise.resolve({ taskId: task.taskId, kind: 'agent', output }),
@@ -145,15 +149,19 @@ describe('BackgroundTaskManager', () => {
     { mismatch: 'task ID', result: { taskId: 'other', kind: 'agent' as const, output: 'wrong' } },
   ])('fails a task when its runner returns a different $mismatch', async ({ result }) => {
     const eventSink = vi.fn();
+    // The runner deliberately returns a result whose kind/taskId disagrees with the task it started
+    // (the mismatch this test exists to exercise), so `IBackgroundTaskResult<'agent'>` — sound for
+    // every OTHER fixture in this file — cannot describe it; only the runtime guard can.
+    const runner: IBackgroundTaskRunner<'agent'> = {
+      kind: 'agent',
+      start: (task) => ({
+        taskId: task.taskId,
+        result: Promise.resolve(result) as Promise<IBackgroundTaskResult<'agent'>>,
+        cancel: () => Promise.resolve(),
+      }),
+    };
     const manager = new BackgroundTaskManager({
-      runners: [{
-        kind: 'agent',
-        start: (task) => ({
-          taskId: task.taskId,
-          result: Promise.resolve(result),
-          cancel: () => Promise.resolve(),
-        }),
-      }],
+      runners: [runner],
       eventSink,
     });
 
@@ -169,9 +177,9 @@ describe('BackgroundTaskManager', () => {
   });
 
   it('projects runner worktree metadata onto completed task state', async () => {
-    const runner: IBackgroundTaskRunner = {
+    const runner: IBackgroundTaskRunner<'agent'> = {
       kind: 'agent',
-      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+      start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
         return {
           taskId: task.taskId,
           result: Promise.resolve({
@@ -231,11 +239,11 @@ describe('BackgroundTaskManager', () => {
 
   it('a sleeping scheduled task releases its concurrency slot (CORE-024 RUNTIME-17)', async () => {
     // A scheduled runner that goes to sleep immediately after start (like the real cron runner).
-    const scheduledStarted: IStartedTask[] = [];
-    const scheduledRunner: IBackgroundTaskRunner = {
+    const scheduledStarted: IStartedTask<'scheduled'>[] = [];
+    const scheduledRunner: IBackgroundTaskRunner<'scheduled'> = {
       kind: 'scheduled',
-      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
-        const deferred = createTestDeferred();
+      start(task: IBackgroundTaskStart<'scheduled'>): IBackgroundTaskHandle<'scheduled'> {
+        const deferred = createTestDeferred<'scheduled'>();
         scheduledStarted.push({ taskId: task.taskId, deferred, emit: task.emit });
         // Emit sleeping on the next tick, as the real scheduled runner does.
         queueMicrotask(() =>
@@ -376,9 +384,9 @@ describe('BackgroundTaskManager', () => {
 
   it('projects runner text and tool events into task state and subscribers', async () => {
     const eventSink = vi.fn();
-    const runner: IBackgroundTaskRunner = {
+    const runner: IBackgroundTaskRunner<'agent'> = {
       kind: 'agent',
-      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+      start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
         task.emit?.({
           type: 'background_task_tool_start',
           toolName: 'Read',

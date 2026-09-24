@@ -6,7 +6,7 @@
  * same members, and one decoder per contract is the property this codec exists to establish.
  */
 
-import { atKey, setOptional } from './decode-outcome.js';
+import { addIssue, atKey, setOptional } from './decode-outcome.js';
 import {
   decodeBackgroundPrimitive,
   decodeBoolean,
@@ -155,28 +155,33 @@ export function decodeBackgroundTaskResult(
   const kind = decodeLiteral(raw['kind'], TASK_KINDS, atKey(path, 'kind'), issues);
   const output = decodeString(raw['output'], atKey(path, 'output'), issues);
   if (taskId === undefined || kind === undefined || output === undefined) return undefined;
-  const result: IBackgroundTaskResult = { taskId, kind, output };
-  setOptional(
-    result,
-    'exitCode',
-    decodeOptional(raw['exitCode'], atKey(path, 'exitCode'), issues, decodeInteger),
-  );
-  setOptional(
-    result,
-    'signalCode',
-    decodeOptional(raw['signalCode'], atKey(path, 'signalCode'), issues, decodeString),
-  );
-  setOptional(
-    result,
-    'metadata',
-    decodeOptional(raw['metadata'], atKey(path, 'metadata'), issues, decodePrimitiveMap),
-  );
-  setOptional(
-    result,
-    'usage',
-    decodeOptional(raw['usage'], atKey(path, 'usage'), issues, decodeTokenUsage),
-  );
-  return result;
+  const exitCode = decodeOptional(raw['exitCode'], atKey(path, 'exitCode'), issues, decodeInteger);
+  const signalCode = decodeOptional(raw['signalCode'], atKey(path, 'signalCode'), issues, decodeString);
+  const metadata = decodeOptional(raw['metadata'], atKey(path, 'metadata'), issues, decodePrimitiveMap);
+  const usage = decodeOptional(raw['usage'], atKey(path, 'usage'), issues, decodeTokenUsage);
+  // #2079: `exitCode`/`signalCode` are process-only and `usage` is agent-only — a persisted result
+  // carrying a field outside its own kind is corrupt, reported the same way the #3041 taskId/kind
+  // identity check is: an issue at the offending field's own path, not a thrown error.
+  if (kind !== 'process' && exitCode !== undefined) {
+    addIssue(issues, atKey(path, 'exitCode'), `must not be set for a '${kind}' result`);
+  }
+  if (kind !== 'process' && signalCode !== undefined) {
+    addIssue(issues, atKey(path, 'signalCode'), `must not be set for a '${kind}' result`);
+  }
+  if (kind !== 'agent' && usage !== undefined) {
+    addIssue(issues, atKey(path, 'usage'), `must not be set for a '${kind}' result`);
+  }
+  // `kind` is decoded generically (any of the four literals), so no single member of the
+  // discriminated union is the structural target here — the same runtime-only correlation
+  // `background-task-manager-state.ts` casts around when dispatching to a runner by kind. The cross-
+  // kind checks above are what make the cast sound: an object carrying a foreign field never reaches
+  // a caller without also carrying an issue that turns the whole decode `corrupt`.
+  const result: Record<string, unknown> = { taskId, kind, output };
+  if (exitCode !== undefined) result['exitCode'] = exitCode;
+  if (signalCode !== undefined) result['signalCode'] = signalCode;
+  if (metadata !== undefined) result['metadata'] = metadata;
+  if (usage !== undefined) result['usage'] = usage;
+  return result as unknown as IBackgroundTaskResult;
 }
 
 export function decodeBackgroundTaskSchedule(

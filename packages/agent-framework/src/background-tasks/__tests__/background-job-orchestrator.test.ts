@@ -19,7 +19,7 @@ import type {
 
 interface IControlledTask {
   taskId: string;
-  resolve: (result: IBackgroundTaskResult) => void;
+  resolve: (result: IBackgroundTaskResult<'agent'>) => void;
   reject: (error: Error) => void;
 }
 
@@ -37,13 +37,13 @@ function createAgentRequest(label: string): TBackgroundTaskRequest {
   };
 }
 
-function createControlledRunner(tasks: IControlledTask[]): IBackgroundTaskRunner {
+function createControlledRunner(tasks: IControlledTask[]): IBackgroundTaskRunner<'agent'> {
   return {
     kind: 'agent',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
-      let resolveResult: (result: IBackgroundTaskResult) => void = () => {};
+    start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
+      let resolveResult: (result: IBackgroundTaskResult<'agent'>) => void = () => {};
       let rejectResult: (error: Error) => void = () => {};
-      const tracked = new Promise<IBackgroundTaskResult>((resolve, reject) => {
+      const tracked = new Promise<IBackgroundTaskResult<'agent'>>((resolve, reject) => {
         resolveResult = resolve;
         rejectResult = reject;
       });

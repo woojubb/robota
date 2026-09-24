@@ -228,7 +228,7 @@ export class SubagentManager implements ISubagentManager {
 function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTaskRunner<'agent'> {
   return {
     kind: 'agent',
-    start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
       if (task.request.kind !== 'agent') {
         throw new BackgroundTaskError('runner', `Invalid subagent task kind: ${task.request.kind}`);
       }
@@ -238,7 +238,7 @@ function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTas
         request: toSubagentStartRequest(task.request),
         emit: task.emit,
       });
-      const handle: IBackgroundTaskHandle = {
+      const handle: IBackgroundTaskHandle<'agent'> = {
         taskId: task.taskId,
         pid: subagentHandle.pid,
         logPath: subagentHandle.logPath,
@@ -274,10 +274,10 @@ function toSubagentStartRequest(request: IAgentBackgroundTaskRequest): ISubagent
 
 /**
  * ARCH-031: a spread. `ISubagentJobResult` IS
- * `Omit<IBackgroundTaskResult, 'kind' | 'exitCode' | 'signalCode'>`, so the only addition is the
- * discriminant. `usage` cannot be dropped here any more — there is no key list to forget it from,
- * which is what the ARCH-025 repair had to add back by hand.
+ * `Omit<IBackgroundTaskResult<'agent'>, 'kind'>`, so the only addition is the discriminant. `usage`
+ * cannot be dropped here any more — there is no key list to forget it from, which is what the
+ * ARCH-025 repair had to add back by hand.
  */
-function toBackgroundResult(result: ISubagentJobResult): IBackgroundTaskResult {
+function toBackgroundResult(result: ISubagentJobResult): IBackgroundTaskResult<'agent'> {
   return { kind: 'agent', ...result };
 }

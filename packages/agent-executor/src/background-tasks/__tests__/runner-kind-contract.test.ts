@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { BackgroundTaskManager } from '../background-task-manager.js';
 import { createToolInvocationBackgroundTaskRunner } from '../tool-invocation-runner.js';
 import { createManagedShellProcessRunner } from '../runners/managed-shell-process-runner.js';
 import { createScheduledTaskRunner } from '../runners/scheduled-task-runner.js';
 
 import type {
+  IBackgroundTaskHandle,
+  IBackgroundTaskResult,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
   IProcessBackgroundTaskRequest,
@@ -70,6 +72,39 @@ function checkConcreteRunnerKinds(): void {
   agent.start({ taskId: 'scheduled', request: scheduledRequest });
 }
 void checkConcreteRunnerKinds;
+
+/**
+ * #2079: compiled by the package typecheck. `IBackgroundTaskHandle<K>` resolves `result` to the
+ * `K`-specific member of the discriminated `IBackgroundTaskResult`, so a runner started for a known
+ * kind gets a correctly-narrowed result with no cast, and a cross-kind field on it is a compile error.
+ */
+function checkResultKindNarrowing(): void {
+  const processHandle: IBackgroundTaskHandle<'process'> = {
+    taskId: 'process_1',
+    result: Promise.resolve({ taskId: 'process_1', kind: 'process', output: '', exitCode: 0 }),
+    cancel: async () => undefined,
+  };
+  void processHandle.result.then((result) => {
+    expectTypeOf(result).toEqualTypeOf<IBackgroundTaskResult<'process'>>();
+    void result.exitCode;
+    void result.signalCode;
+    // @ts-expect-error A process result never carries agent-only token usage.
+    void result.usage;
+  });
+
+  const agentHandle: IBackgroundTaskHandle<'agent'> = {
+    taskId: 'agent_1',
+    result: Promise.resolve({ taskId: 'agent_1', kind: 'agent', output: '' }),
+    cancel: async () => undefined,
+  };
+  void agentHandle.result.then((result) => {
+    expectTypeOf(result).toEqualTypeOf<IBackgroundTaskResult<'agent'>>();
+    void result.usage;
+    // @ts-expect-error An agent result never carries process-only exit information.
+    void result.exitCode;
+  });
+}
+void checkResultKindNarrowing;
 
 describe('background runner kind contracts', () => {
   it('dispatches process and scheduled requests to the matching registered runner', async () => {

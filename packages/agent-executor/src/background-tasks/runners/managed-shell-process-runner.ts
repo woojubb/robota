@@ -80,7 +80,7 @@ export function createManagedShellProcessRunner(
 
   return {
     kind: 'process',
-    start(task: IBackgroundTaskStart<'process'>): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'process'>): IBackgroundTaskHandle<'process'> {
       if (task.request.kind !== 'process') {
         throw new BackgroundTaskError('runner', `Invalid process task kind: ${task.request.kind}`);
       }
@@ -101,7 +101,7 @@ function startProcessTask(
   killGraceMs: number,
   emit: ((event: TBackgroundTaskRunnerEvent) => void) | undefined,
   shellExecutable: string | undefined,
-): IBackgroundTaskHandle {
+): IBackgroundTaskHandle<'process'> {
   const shell = resolveBackgroundTaskShellCommand(request, { executable: shellExecutable });
   const wakeMatcher = createWakeMatcher(request, emit);
   const runtime: IProcessTaskRuntime = {
@@ -124,9 +124,9 @@ function startProcessTask(
   return createProcessHandle(runtime, result);
 }
 
-function createProcessResult(runtime: IProcessTaskRuntime): Promise<IBackgroundTaskResult> {
+function createProcessResult(runtime: IProcessTaskRuntime): Promise<IBackgroundTaskResult<'process'>> {
   let settled = false;
-  return new Promise<IBackgroundTaskResult>((resolve, reject) => {
+  return new Promise<IBackgroundTaskResult<'process'>>((resolve, reject) => {
     const timeoutTimer = runtime.request.timeoutMs
       ? setTimeout(() => {
           appendPrefixedLogLines(
@@ -191,8 +191,8 @@ function createProcessResult(runtime: IProcessTaskRuntime): Promise<IBackgroundT
 
 function createProcessHandle(
   runtime: IProcessTaskRuntime,
-  result: Promise<IBackgroundTaskResult>,
-): IBackgroundTaskHandle {
+  result: Promise<IBackgroundTaskResult<'process'>>,
+): IBackgroundTaskHandle<'process'> {
   return {
     taskId: runtime.taskId,
     ...(runtime.child.pid !== undefined ? { pid: runtime.child.pid } : {}),

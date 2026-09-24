@@ -143,8 +143,6 @@ function maximalRecord(): IInteractiveSessionRecord {
           taskId: 't1',
           kind: 'agent',
           output: 'done',
-          exitCode: 0,
-          signalCode: 'SIGTERM',
           metadata: { lines: 12 },
           usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
         },
@@ -434,6 +432,34 @@ describe('decodeInteractiveSessionRecord — TC-02 a maximal record round-trips'
     expect(outcome.record.history?.at(-3)?.data).toEqual(root);
     expect(outcome.record.history?.at(-2)?.data).toEqual(child);
     expect(outcome.record.history?.at(-1)?.data).toEqual(toolChild);
+  });
+});
+
+describe('decodeInteractiveSessionRecord — background task result kind discrimination (#2079)', () => {
+  it('rejects an agent-kind result carrying process-only exitCode', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('backgroundTasks[0].result.exitCode', 0),
+    );
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[0].result.exitCode');
+  });
+
+  it('rejects an agent-kind result carrying process-only signalCode', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('backgroundTasks[0].result.signalCode', 'SIGTERM'),
+    );
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[0].result.signalCode');
+  });
+
+  it('rejects a process-kind result carrying agent-only usage', () => {
+    const record = persisted() as { backgroundTasks: Array<Record<string, unknown>> };
+    const task = record.backgroundTasks[0]!;
+    task['kind'] = 'process';
+    (task['result'] as Record<string, unknown>)['kind'] = 'process';
+    const outcome = decodeInteractiveSessionRecord(record);
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[0].result.usage');
   });
 });
 

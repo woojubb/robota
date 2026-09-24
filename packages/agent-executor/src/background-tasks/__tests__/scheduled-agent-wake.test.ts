@@ -36,16 +36,16 @@ function scheduledRequest(
 }
 
 interface IFakeScheduled {
-  runner: IBackgroundTaskRunner;
+  runner: IBackgroundTaskRunner<'scheduled'>;
   started: Array<{ taskId: string; emit?: IBackgroundTaskStart['emit'] }>;
 }
 
 /** A scheduled runner that never fires on its own — the test drives its emit() directly. */
 function createFakeScheduledRunner(): IFakeScheduled {
   const started: IFakeScheduled['started'] = [];
-  const runner: IBackgroundTaskRunner = {
+  const runner: IBackgroundTaskRunner<'scheduled'> = {
     kind: 'scheduled',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'scheduled'>): IBackgroundTaskHandle<'scheduled'> {
       started.push({ taskId: task.taskId, emit: task.emit });
       return {
         taskId: task.taskId,

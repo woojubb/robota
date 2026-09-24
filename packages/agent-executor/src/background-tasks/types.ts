@@ -95,12 +95,11 @@ export type IBackgroundTaskStart<K extends TBackgroundTaskKind = TBackgroundTask
     ? IBaseBackgroundTaskStart & { request: Extract<TBackgroundTaskRequest, { kind: K }> }
     : never;
 
-export interface IBackgroundTaskHandle {
+interface IBaseBackgroundTaskHandle {
   readonly taskId: string;
   readonly pid?: number;
   readonly logPath?: string;
   readonly transcriptPath?: string;
-  result: Promise<IBackgroundTaskResult>;
   cancel(reason?: string): Promise<void>;
   send?(input: IBackgroundTaskInput): Promise<void>;
   readLog?(cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
@@ -112,6 +111,19 @@ export interface IBackgroundTaskHandle {
   /** SELFHOST-012: re-arm the schedule in place from a patched cron expression / instruction (same task id). */
   editSchedule?(patch: IScheduleEditPatch): Promise<void>;
 }
+
+/**
+ * #2079: parameterized like {@link IBackgroundTaskStart} — a runner that declares kind `K` resolves
+ * its handle's `result` to the `K`-specific member of `IBackgroundTaskResult`, so a caller that
+ * starts a known-kind runner gets a correctly-narrowed result without a cast, and accessing a
+ * cross-kind field on it is a compile error. The manager's dynamic dispatch (a heterogeneous
+ * registry of runners looked up by kind at runtime) uses the default `K` and keeps the handle typed
+ * to the full result union, exactly as before.
+ */
+export type IBackgroundTaskHandle<K extends TBackgroundTaskKind = TBackgroundTaskKind> =
+  K extends TBackgroundTaskKind
+    ? IBaseBackgroundTaskHandle & { result: Promise<IBackgroundTaskResult<K>> }
+    : never;
 
 /** SELFHOST-012: an in-place schedule edit — any provided field replaces the current value; identity is kept. */
 export interface IScheduleEditPatch {
@@ -135,7 +147,7 @@ interface IKindedBackgroundTaskRunner<K extends TBackgroundTaskKind> {
    * (`background-task-manager.ts`).
    */
   readonly admission?: 'queued' | 'already-running';
-  start(task: IBackgroundTaskStart<K>): IBackgroundTaskHandle;
+  start(task: IBackgroundTaskStart<K>): IBackgroundTaskHandle<K>;
 }
 
 /** A runner is paired with the request of its declared kind; the default is all supported kinds. */

@@ -45,9 +45,9 @@ function setup(
   run?: ReturnType<typeof vi.fn>,
 ) {
   const cancel = vi.fn().mockResolvedValue(undefined);
-  const runner: IBackgroundTaskRunner = {
+  const runner: IBackgroundTaskRunner<'scheduled'> = {
     kind: 'scheduled',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'scheduled'>): IBackgroundTaskHandle<'scheduled'> {
       task.emit?.({ type: 'background_task_sleeping', nextFireAt: '2999-01-01T00:00:00.000Z' });
       return {
         taskId: task.taskId,

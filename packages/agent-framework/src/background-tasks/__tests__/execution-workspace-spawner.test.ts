@@ -9,10 +9,10 @@ import type {
   IBackgroundTaskStart,
 } from '@robota-sdk/agent-executor';
 
-function createProcessRunner(): IBackgroundTaskRunner {
+function createProcessRunner(): IBackgroundTaskRunner<'process'> {
   return {
     kind: 'process',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'process'>): IBackgroundTaskHandle<'process'> {
       return {
         taskId: task.taskId,
         result: Promise.resolve({ taskId: task.taskId, kind: 'process', output: 'done' }),
