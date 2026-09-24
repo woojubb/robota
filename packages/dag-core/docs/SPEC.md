@@ -145,8 +145,10 @@ after its own execution has exited or rejects shutdown — it is not general nod
 
 - **Result pattern (`TResult<T, E>`)**: domain operations return discriminated unions instead of
   throwing, so error handling is explicit at every call site. Every error shares one shape — code,
-  category, message, retryable, optional context — and each category carries a retryable default
-  (only dispatch failures are retryable by default).
+  category, message, retryable, optional context — validation, state-transition and lease errors default
+  to non-retryable, dispatch errors to retryable, and task-execution errors set it per failure.
+- **Two node authoring levels**: a full node lifecycle, or a lighter task handler where only
+  `execute` is required and a wrapper supplies the defaults and base port validation.
 - **Port/adapter (hexagonal)**: infrastructure concerns are port interfaces owned here; consumer
   packages provide adapters. In-memory adapters for test harnesses live in
   `@robota-sdk/dag-adapters-local`. A queue port may long-poll up to an optional timeout; adapters

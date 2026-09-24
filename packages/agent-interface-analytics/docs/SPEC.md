@@ -27,13 +27,15 @@ A canonical usage observation may also carry an optional prompt-execution root i
 only the prompt call through its first terminal callback, not final turn settlement — that
 first-callback outcome may later differ from the observation's turn outcome. Related child-span
 entries (provider-call, tool-body) carry the same root linkage and timing. A provider-call child may
-also carry attested usage evidence for a table-derived cost estimate. No entry ever carries prompt,
+also carry only attested usage evidence for a table-derived cost estimate. No entry ever carries prompt,
 response, tool, user, or session content.
 
 A bounded live prompt-trace projection exposes only this execution evidence, plus correlation IDs
-that are validated or opaque: a tool-call ID that joins tool and permission-decision children, and a
-provider-returned request ID on an invoked provider-call child. The request ID exists only in the
-live projection — it is never written to the persisted trace and never becomes a metric. None of
+that are validated or opaque: a tool-call ID that joins tool children to live-only
+permission-decision children, and a provider-returned request ID on an invoked provider-call child.
+This entry's request-ID field is live-projection-only: it is never written to the persisted
+provider-call trace and never becomes a metric (the same value reaches assistant-message metadata
+and live traces and logs by separate routes). None of
 these entries represents final turn settlement, a cost total, detached-work completion, or collector
 receipt. Older observations without the root identity remain valid.
 

@@ -63,8 +63,8 @@ sibling reservations share each live authority and balance. Credits are reserved
 executes, committed on successful lifecycle completion, and released when it fails; a child run
 cannot replace the root's limit with its own. Snapshot accounting includes run definition and input
 snapshots consumed before dispatch. Encoding stops before building a complete oversized snapshot,
-returning a structured non-retryable refusal. The root owns both authorities' lifetimes and closes them on completion; committed cancellation of a
-participating run closes new snapshot and credit admissions across the root's children, though it
+returning a structured non-retryable refusal. The root owns both authorities' lifetimes and closes
+them on completion; committed cancellation of a participating run closes new snapshot and credit admissions across the root's children, though it
 does not interrupt child execution already admitted elsewhere. A host composing lower-level
 services directly must explicitly supply these same authorities to its orchestrator and every
 worker — persisted lineage cannot recreate or authorize a budget on its own.

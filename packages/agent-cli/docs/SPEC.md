@@ -32,7 +32,7 @@ the CLI is owned below it first unless it is listed as CLI-owned below.
 The CLI owns: argument parsing and process lifecycle assembly, `TransportRegistry`, provider
 composition (selecting an injected `IProviderDefinition`, not implementing providers), concrete local
 host adapters (background runner, child-process subagent, Git worktree, settings I/O), package-version
-update checks, and the per-mode host-action adapters (`/remote-control`, process exit) that the command ask seam uses.
+update checks, and the per-mode host-action adapters (`/remote-control`, process exit) through which the session executes a command's host actions.
 Remote control is host-owned: it receives only the session capabilities its wire protocol needs, and
 promoting a confirmed reconnect winner replaces the registered peer so host shutdown always reaches
 the live connection; pairing failure or reconnect-window expiry releases the transport, signaling,
@@ -213,7 +213,7 @@ refuses a relative token path or an existing file.
 ### Memory, screen-reader, theme, and prompt-history enablement
 
 Each of these product surfaces is **opt-in and resolved by the CLI**, not the library it configures
-(HARNESS-029 library neutrality) — precedence order and defaults for each are non-obvious and stated
+(library neutrality) — precedence order and defaults for each are non-obvious and stated
 here because the reasoning differs between them:
 
 - **Durable memory:** default OFF. Precedence lowest→highest: `settings.json`

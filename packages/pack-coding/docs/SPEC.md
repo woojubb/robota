@@ -37,8 +37,8 @@ The pack is built by `createCodingPack({ cwd, sandboxClient })`. There is delibe
 module-level `codingPack` constant, and that absence is a safety property, not an omission:
 
 - A product may hand its whole tool surface to its packs (`defaultTools: []`), so the pack's tools can
-  be the only file tools a session has. A context-free pack in that position would expose file tools
-  with no working-directory root.
+  be the only file tools a session has. Without either guard, a context-free pack in that position would
+  expose file tools with no working-directory root.
 - The tool layer itself refuses a missing root; requiring `cwd` here is a second, assembly-time
   guarantee rather than the only one.
 

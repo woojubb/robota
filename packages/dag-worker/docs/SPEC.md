@@ -30,9 +30,9 @@ run running, so a sibling finishing while another dispatcher awaits admission ca
 
 After dequeuing a task and acquiring its lease, the worker checks the parent run's status before
 claiming the task and again immediately before invoking the executor. A cancelled run cancels the
-task, clears its lease and acknowledges the message without invoking the executor (a claim that
-raced may already have published `task.started`). These checks close admission only at the checked
-points; they do not make the read and the invocation atomic. The worker registers a local attempt
+task, clears its lease and acknowledges the message without publishing `task.started` or invoking
+the executor (a claim that raced may already have published `task.started`). These checks close
+admission only at the checked points; they do not make the read and the invocation atomic. The worker registers a local attempt
 signal before its final read, so a committed cancellation still aborts an attempt a stale read let
 through, and while active it observes durable run state at a bounded interval, so cancellation
 committed by another owner aborts the attempt once storage reflects it. An unreadable or missing run
@@ -110,8 +110,8 @@ processing step, so at most one step is in flight however many callers request a
 observe a run's terminal state. Aborting or timing out an observer removes only that observer and
 never cancels the run. A step failure is queue-wide, so the actor logs, backs off and retries while
 demand exists; a query failure settles only the waiters for that run. The lifecycle is terminal:
-start and stop are idempotent, start after stop is rejected, and stop closes admission, wakes any
-backoff, settles pending observers and waits only for the in-flight query or step — it neither waits
+start and stop are idempotent, start after stop is rejected, and stop closes admission synchronously, wakes
+any backoff, settles pending observers and waits only for the in-flight query or step — it neither waits
 for runs to finish nor persists a cancelled state. An optional idle-wait duration is passed to the
 queue's dequeue so long-polling adapters wake the worker as soon as a task is enqueued.
 
@@ -137,6 +137,7 @@ message or definition.
   too: the attempt advances before the enqueue (message ids derive from the attempt, so a crash
   burns an attempt instead of colliding), the message exists before the status becomes `queued` (so
   a task is never `queued` with nothing in the queue), and the lease is written before the status
-  (so a concurrent sweeper never sees `running` with no lease on a task still starting).
+  (so a concurrent sweeper never sees `running` with no lease on a task still starting) and cleared
+  only after the status is `queued`.
 - **The sweeper takes the same lease a worker would**, so two idle workers cannot sweep one task
   concurrently and double its attempts or enqueue duplicate message ids.

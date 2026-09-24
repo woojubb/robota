@@ -4,7 +4,7 @@
 
 Model Context Protocol (MCP) server transport for the Robota SDK — stdio and authenticated loopback
 Streamable HTTP, both served from the same exact runtime session port. Split out of the consolidated
-`agent-transport` package (DQ-AUDIT-005) so MCP SDK dependencies remain isolated.
+`agent-transport` package so MCP SDK dependencies remain isolated.
 
 ## Transport Admission
 
