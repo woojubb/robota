@@ -15,7 +15,8 @@ authenticate; the OS user who started the process is the boundary.
 
 - Owns the Ink/React rendering pipeline, the TUI interaction channel, the default TUI CLI adapter,
   and a presentation-only supervised-session view of host-verified, content-free observations. That
-  view neither constructs nor stops sessions, and it does not infer ownership from matching IDs.
+  view does not construct a session or infer ownership from matching IDs; a requested stop is delegated
+  to the host's owner-verifying control path, never decided by the displayed row alone.
 - Depends on the TUI interaction contracts and the framework's interactive-session runtime; does
   not depend on any other transport implementation package, and no other transport package depends
   on this one.

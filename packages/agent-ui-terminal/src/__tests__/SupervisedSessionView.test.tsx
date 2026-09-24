@@ -13,6 +13,10 @@ const SECOND: ISupervisedViewRow = {
   id: 'fe2c7f72-ecb3-4a05-9bb1-2563ec80e615',
   liveness: 'dead', control: 'unavailable', activity: 'unknown',
 };
+const THIRD: ISupervisedViewRow = {
+  id: '4fa26e15-b17d-4908-afed-a156f8a8a17c',
+  liveness: 'alive', control: 'available', activity: 'idle',
+};
 
 describe('supervised session view', () => {
   it('shows a navigable global background list without inventing completion or attach', async () => {
@@ -108,6 +112,144 @@ describe('supervised session view', () => {
       expect(frame.split('\n').length).toBeLessThanOrEqual(24);
       expect(frame).toContain('more below');
       expect(frame).toContain('↑↓ Navigate');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('keeps stop confirmation and controls visible in a narrow 24-line terminal', async () => {
+    const rows: ISupervisedViewRow[] = Array.from({ length: 22 }, (_, index) => ({
+      ...FIRST,
+      id: `8bf9bc27-d773-4e88-b88f-${String(index).padStart(12, '0')}`,
+    }));
+    const view = render(<SupervisedSessionView loadRows={async () => rows} onStop={async () => undefined} />);
+    try {
+      Object.defineProperty(view.stdout, 'columns', { value: 40 });
+      view.stdout.emit('resize');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Selected'));
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Stop …00000000?'));
+      expect(view.lastFrame()).toContain('y Yes / n No');
+      const frame = view.lastFrame() ?? '';
+      expect(frame.split('\n').length).toBeLessThanOrEqual(24);
+      expect(frame).toContain('Confirm stop or cancel before closing.');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('identifies the selected stop target even at 20 columns with matching UUID prefixes', async () => {
+    const similar = { ...FIRST, id: `${FIRST.id.slice(0, -8)}ffffffff` };
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST, similar]} onStop={async () => undefined} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('\x1B[B');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${similar.id}`));
+      Object.defineProperty(view.stdout, 'columns', { value: 20 });
+      view.stdout.emit('resize');
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Stop …ffffffff?'));
+      expect(view.lastFrame()).toContain('y Yes / n No');
+      expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('requires confirmation and stops only the selected owner-controllable row', async () => {
+    let finishStop: (() => void) | undefined;
+    const stop = vi.fn(() => new Promise<void>((resolve) => { finishStop = resolve; }));
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST, SECOND]} onStop={stop} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+      expect(stop).not.toHaveBeenCalled();
+      view.stdin.write('n');
+      expect(stop).not.toHaveBeenCalled();
+      await vi.waitFor(() => expect(view.lastFrame()).not.toContain('y Yes / n No'));
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+      view.stdin.write('y');
+      await vi.waitFor(() => expect(stop).toHaveBeenCalledExactlyOnceWith(FIRST.id));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Stopping'));
+      expect(view.lastFrame()).toContain('Stop in progress; wait for result.');
+      expect(view.lastFrame()).not.toContain('q/Esc Close');
+      view.stdin.write('q');
+      view.stdin.write('\x1B');
+      view.stdin.write('\x03');
+      await new Promise<void>((resolve) => setTimeout(resolve, 20));
+      expect(view.lastFrame()).toContain('Stopping');
+      finishStop?.();
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Stopped ${FIRST.id}`));
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('refuses a stop when polling removes control while confirmation is open', async () => {
+    let finishRefresh: ((rows: readonly ISupervisedViewRow[]) => void) | undefined;
+    const refresh = new Promise<readonly ISupervisedViewRow[]>((resolve) => { finishRefresh = resolve; });
+    const loadRows = vi.fn()
+      .mockResolvedValueOnce([FIRST])
+      .mockImplementation(() => refresh);
+    const stop = vi.fn(async () => undefined);
+    const view = render(<SupervisedSessionView loadRows={loadRows} onStop={stop} refreshMs={100} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+      await vi.waitFor(() => expect(loadRows).toHaveBeenCalledTimes(2));
+      finishRefresh?.([{ ...FIRST, control: 'unavailable', activity: 'unknown' }]);
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('control unavailable'));
+      view.stdin.write('y');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('cannot be stopped'));
+      expect(stop).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('never offers stop for unavailable rows and leaves failures visible', async () => {
+    const stop = vi.fn(async () => { throw new Error('private path must not be shown'); });
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST, SECOND]} onStop={stop} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('\x1B[B');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${SECOND.id}`));
+      view.stdin.write('s');
+      expect(stop).not.toHaveBeenCalled();
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('cannot be stopped'));
+      view.stdin.write('\x1B[A');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+      view.stdin.write('y');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Stop failed'));
+      expect(view.lastFrame()).toContain(FIRST.id);
+      expect(view.lastFrame()).not.toContain('private path');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('uses the same confirmed stop action after screen-reader selection', async () => {
+    const stop = vi.fn(async () => undefined);
+    const view = render(
+      <ScreenReaderProvider enabled>
+        <SupervisedSessionView loadRows={async () => [FIRST, SECOND, THIRD]} onStop={stop} />
+      </ScreenReaderProvider>,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('2');
+      view.stdin.write('\r');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`));
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Stop ${THIRD.id}?`));
+      expect(view.lastFrame()).not.toContain('Enter selection');
+      view.stdin.write('y');
+      await vi.waitFor(() => expect(stop).toHaveBeenCalledExactlyOnceWith(THIRD.id));
     } finally {
       view.unmount();
     }
