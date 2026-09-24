@@ -270,6 +270,15 @@ describe('fixed in-session loop', () => {
     expect(result.data).toMatchObject({ requestedMs: 420_000, cadenceLabel: '10m' });
   });
 
+  it('parses a malformed trailing interval in bounded time even after a long whitespace run', async () => {
+    const host = createTestAgentJobHost();
+    const started = performance.now();
+    const result = await executeLoopCommand(host, vi.fn(), `check${' '.repeat(50_000)}every nope`);
+
+    expect(result.success).toBe(false);
+    expect(performance.now() - started).toBeLessThan(250);
+  });
+
   it('does not treat a prompt beginning with stop as a management command', async () => {
     const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'loop_task_3' });
     const host = createTestAgentJobHost({ spawnScheduledWake });
