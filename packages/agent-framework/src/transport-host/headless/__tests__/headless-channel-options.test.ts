@@ -90,6 +90,7 @@ describe('HeadlessInteractionChannel session options', () => {
       promptFileReferenceTag: 'acme_files',
       modelCommandToolPrefix: 'acme_command_',
       subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID' },
+      commandHookShell: '/bin/bash',
       outputFormat: 'text',
       shellExec: () => '',
     });
@@ -98,6 +99,7 @@ describe('HeadlessInteractionChannel session options', () => {
       promptFileReferenceTag: 'acme_files',
       modelCommandToolPrefix: 'acme_command_',
       subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID' },
+      commandHookShell: '/bin/bash',
     });
   });
 

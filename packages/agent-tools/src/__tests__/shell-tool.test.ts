@@ -32,6 +32,16 @@ describe('createShellTool / createBashTool', () => {
     );
   });
 
+  it('uses the host-selected executable for both description and execution', async () => {
+    if (process.platform === 'win32') return;
+    const tool = createShellTool({ cwd: SHELL_ROOT, shellExecutable: '/bin/bash' });
+    expect(tool.getDescription()).toContain('bash on');
+    const raw = await tool.execute({ command: 'echo shell-override-ok' });
+    const result = JSON.parse(raw.data as string) as IToolInvocationResult;
+    expect(result).toMatchObject({ success: true, exitCode: 0 });
+    expect(result.output).toContain('shell-override-ok');
+  }, 60_000);
+
   /**
    * SEC-007: an explicit timeout, because this case SPAWNS A REAL SHELL and vitest's 10 s default is
    * sized for in-process units. The `windows-shell` CI job exists to run exactly this test against

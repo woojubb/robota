@@ -93,7 +93,8 @@ export async function createInteractiveSession(
   // Project plugins may contain executable hooks. Include that scope only after the host has
   // granted workspace trust; a restricted session still sees user-installed plugins.
   const pluginsDirs = [
-    ...(options.projectAccess?.status === 'trusted' && options.pluginDirectories?.project !== undefined
+    ...(options.projectAccess?.status === 'trusted' &&
+    options.pluginDirectories?.project !== undefined
       ? [options.pluginDirectories.project]
       : []),
     ...(options.pluginDirectories?.user !== undefined ? [options.pluginDirectories.user] : []),
@@ -267,6 +268,7 @@ export async function initializeInteractiveSessionAsync(
     onToolExecution: deps.onToolExecution,
     bare: options.bare,
     disableBuiltInHookExecutors: options.disableBuiltInHookExecutors,
+    commandHookShell: options.commandHookShell,
     allowedTools: options.allowedTools,
     deniedTools: options.deniedTools,
     model: options.model,

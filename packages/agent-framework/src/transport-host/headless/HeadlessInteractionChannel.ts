@@ -37,6 +37,7 @@ export interface IHeadlessInteractionChannelOptions {
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
+  commandHookShell?: string;
   /** Resolved organization policy enforced by the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
@@ -180,6 +181,9 @@ export class HeadlessInteractionChannel {
         : {}),
       ...(this.opts.subagentHookEnvironmentNames !== undefined
         ? { subagentHookEnvironmentNames: this.opts.subagentHookEnvironmentNames }
+        : {}),
+      ...(this.opts.commandHookShell !== undefined
+        ? { commandHookShell: this.opts.commandHookShell }
         : {}),
       ...(this.opts.orgPolicy !== undefined ? { orgPolicy: this.opts.orgPolicy } : {}),
       ...(this.opts.projectAccess !== undefined ? { projectAccess: this.opts.projectAccess } : {}),

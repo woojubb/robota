@@ -85,6 +85,7 @@ import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
 import { resolveFocusReportingOverride } from './startup/focus-reporting-enablement.js';
 import { resolvePromptHistoryRenderFields } from './startup/prompt-history-enablement.js';
 import { resolveScreenReaderRenderFields } from './startup/screen-reader-enablement.js';
+import { resolveRobotaShellExecutable } from './product/robota-shell.js';
 import {
   formatHeadlessWorkspaceTrustError,
   requiresHeadlessWorkspaceTrust,
@@ -104,7 +105,7 @@ export interface ICliPresentation {
 
 export async function startCliCore(
   options: IStartCliOptions,
-  createBackgroundTaskRunners: () => IBackgroundTaskRunner[],
+  createBackgroundTaskRunners: (shellExecutable?: string) => IBackgroundTaskRunner[],
   presentation?: ICliPresentation,
 ): Promise<void> {
   // FLOW-2006: `robota open <url>` is decided BEFORE the working directory is read and before the
@@ -141,7 +142,7 @@ export async function startCliCore(
 
 async function runCliCore(
   options: IStartCliOptions,
-  createBackgroundTaskRunners: () => IBackgroundTaskRunner[],
+  createBackgroundTaskRunners: (shellExecutable?: string) => IBackgroundTaskRunner[],
   presentation?: ICliPresentation,
   initialInput?: string,
   mcpProtocolStdout?: Writable,
@@ -283,7 +284,8 @@ async function runCliCore(
   const resolvedPreset = preset.options;
   const selectedPresetId = preset.presetId;
 
-  const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd);
+  const shellExecutable = resolveRobotaShellExecutable();
+  const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd, { shellExecutable });
   const keybindingsSource =
     args.printMode || args.goal !== undefined || args.serve || mcpServe || !presentation
       ? undefined
@@ -464,7 +466,7 @@ async function runCliCore(
   // CLI-078 (issue #2443): these are the fold's INPUTS. The modes below never read them — they bind
   // to the identities `assembleProduct` returns (`bindAssembledCollaborators`), like every other
   // product-owned collaborator.
-  const backgroundTaskRunnerInput = createBackgroundTaskRunners();
+  const backgroundTaskRunnerInput = createBackgroundTaskRunners(shellExecutable);
   const subagentRunnerFactoryInput = createRobotaSubagentRunnerFactory({
     packContext,
     providerConfig: { ...providerSettings, model: modelId },
@@ -622,6 +624,7 @@ async function runCliCore(
       promptFileReferenceTag,
       modelCommandToolPrefix,
       subagentHookEnvironmentNames,
+      shellExecutable,
     );
     try {
       await printRun;
@@ -641,6 +644,7 @@ async function runCliCore(
       promptFileReferenceTag,
       modelCommandToolPrefix,
       subagentHookEnvironmentNames,
+      commandHookShell: shellExecutable,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
       orgPolicy,
@@ -689,6 +693,7 @@ async function runCliCore(
       promptFileReferenceTag,
       modelCommandToolPrefix,
       subagentHookEnvironmentNames,
+      commandHookShell: shellExecutable,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
       orgPolicy,
@@ -747,6 +752,7 @@ async function runCliCore(
     productDisplayName: 'Robota',
     modelCommandToolPrefix,
     subagentHookEnvironmentNames,
+    commandHookShell: shellExecutable,
     promptFileReferenceTag,
     providerDefinitions,
     ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),

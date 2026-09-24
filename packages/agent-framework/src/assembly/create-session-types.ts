@@ -213,6 +213,8 @@ export interface ICreateSessionOptions {
   sessionFactory?: TSessionFactory;
   /** Additional hook type executors beyond the defaults (prompt, agent). */
   additionalHookExecutors?: IHookTypeExecutor[];
+  /** Host-selected executable for the built-in command hook executor. */
+  commandHookShell?: string;
   /** Explicitly omit the built-in command and HTTP hook executors. */
   disableBuiltInHookExecutors?: boolean;
   /**

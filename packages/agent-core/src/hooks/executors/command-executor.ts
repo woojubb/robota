@@ -62,11 +62,6 @@ function wireChildIo(
   return { stdoutOutput, stderrOutput };
 }
 
-/** The platform shell's argv for a hook command. */
-function shellArgs(command: string): string[] {
-  return resolvePlatformShell().commandArgs(command);
-}
-
 function outcomeOfExit(
   code: number | null,
   signal: NodeJS.Signals | null,
@@ -94,6 +89,8 @@ function outcomeOfExit(
 export class CommandExecutor implements IHookTypeExecutor {
   readonly type = 'command' as const;
 
+  constructor(private readonly shellExecutable?: string) {}
+
   execute(definition: ICommandHookDefinition, input: IHookInput): Promise<THookOutcome> {
     const timeoutSeconds = definition.timeout ?? DEFAULT_TIMEOUT_SECONDS;
     const timeoutMs = timeoutSeconds * 1000;
@@ -101,7 +98,8 @@ export class CommandExecutor implements IHookTypeExecutor {
 
     return new Promise<THookOutcome>((resolve) => {
       let settled = false;
-      const child = spawn(resolvePlatformShell().command, shellArgs(definition.command), {
+      const shell = resolvePlatformShell({ executable: this.shellExecutable });
+      const child = spawn(shell.command, shell.commandArgs(definition.command), {
         cwd: input.cwd,
         env: { ...process.env, ...input.env },
       });

@@ -50,8 +50,26 @@ describe('resolveBackgroundTaskShellCommand', () => {
     expect(
       resolveBackgroundTaskShellCommand(
         { command: 'sentinel', shell: '   ' },
-        { env: { ROBOTA_SHELL: '/bin/bash' }, platform: 'linux' },
+        { executable: '/bin/bash', platform: 'linux' },
       ),
     ).toEqual({ executable: '/bin/bash', args: ['-c', 'sentinel'] });
+  });
+
+  it('uses a host-selected default below a request shell', () => {
+    const options = {
+      executable: '/bin/bash',
+      env: { ROBOTA_SHELL: '/bin/fish' },
+      platform: 'linux' as const,
+    };
+    expect(resolveBackgroundTaskShellCommand({ command: 'sentinel' }, options)).toEqual({
+      executable: '/bin/bash',
+      args: ['-c', 'sentinel'],
+    });
+    expect(
+      resolveBackgroundTaskShellCommand({ command: 'sentinel', shell: '/bin/sh' }, options),
+    ).toEqual({
+      executable: '/bin/sh',
+      args: ['-c', 'sentinel'],
+    });
   });
 });

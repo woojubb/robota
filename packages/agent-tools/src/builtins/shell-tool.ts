@@ -43,7 +43,7 @@ import { createZodFunctionTool } from '../implementations/function-tool';
 import type { ISandboxBuiltinToolOptions } from './tool-options.js';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
-import type { FunctionTool } from '@robota-sdk/agent-core';
+import type { FunctionTool, IPlatformShell } from '@robota-sdk/agent-core';
 
 // CORE-030: defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
@@ -105,6 +105,7 @@ async function runInSandbox(
 async function runShell(
   args: TShellArgs,
   options: ISandboxToolOptions,
+  shell: IPlatformShell,
   signal?: AbortSignal,
 ): Promise<string> {
   const { command, timeout: rawTimeout = DEFAULT_TIMEOUT_MS, workingDirectory } = args;
@@ -133,8 +134,6 @@ async function runShell(
   if (options.sandboxClient) {
     return runInSandbox(command, timeout, workingDirectory ?? options.cwd, options);
   }
-
-  const shell = resolvePlatformShell();
 
   if (signal?.aborted) {
     return JSON.stringify({ success: false, output: '', error: 'Aborted before start' });
@@ -236,6 +235,8 @@ async function runShell(
 
 /** Options for the shell tool factories (sandbox + description seam + routing-hint derivation). */
 export interface IShellToolOptions extends ISandboxBuiltinToolOptions {
+  /** Host-selected executable; absence uses the neutral platform/SHELL default. */
+  shellExecutable?: string;
   /**
    * Registered names of the sibling tools available in this assembly (NEUT-002). When provided,
    * the default description's dedicated-tool routing hints are restricted to this set; when
@@ -251,13 +252,13 @@ export interface IShellToolOptions extends ISandboxBuiltinToolOptions {
  * model writes the right syntax regardless of which alias it calls.
  */
 function createHostShellTool(name: string, options: IShellToolOptions): FunctionTool {
+  const shell = resolvePlatformShell({ executable: options.shellExecutable });
   return createZodFunctionTool(
     name,
-    options.description ??
-      buildShellToolDescription(resolvePlatformShell(), options.availableTools),
+    options.description ?? buildShellToolDescription(shell, options.availableTools),
     ShellSchema,
     async (params, context) => {
-      return runShell(params, options, context?.signal);
+      return runShell(params, options, shell, context?.signal);
     },
   );
 }
