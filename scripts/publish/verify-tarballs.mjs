@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 /**
- * Check packed tarballs before publishing: every file a package declares (main, module, types, exports,
- * bin) must be inside its tarball, and no `workspace:` specifier may remain. Catches a build that left
- * `dist` empty or unpacked (for example a symlinked `dist`, which `pnpm pack` skips).
+ * Check packed tarballs before publishing:
+ * - every file a package declares (main, module, types, exports, bin) is inside its tarball, and no
+ *   `workspace:` specifier remains — catches a build that left `dist` empty or unpacked (for example a
+ *   symlinked `dist`, which `pnpm pack` skips);
+ * - `publint --strict` finds no errors or warnings in the package layout;
+ * - `attw` (Are The Types Wrong) finds no type-resolution problem for Node 16+ ESM/CJS and bundlers.
+ *   `cjs-resolves-to-esm` is ignored: a few browser-only subpaths are ESM-only by design, and Node
+ *   22.12+ (our minimum) can `require()` ESM.
  *
  * Usage: node scripts/publish/verify-tarballs.mjs <directory-with-tgz-files>
  */
@@ -27,6 +32,23 @@ function declaredPaths(manifest) {
     .map((entry) => path.posix.normalize(entry.replace(/^\.\//u, '')));
 }
 
+const BIN = path.join(import.meta.dirname, '..', '..', 'node_modules', '.bin');
+const TOOLS = {
+  publint: ['publint', '--strict'],
+  attw: ['attw', '--profile', 'node16', '--ignore-rules', 'cjs-resolves-to-esm'],
+};
+
+function runTool(name, tarball) {
+  const [bin, ...args] = TOOLS[name];
+  try {
+    execFileSync(path.join(BIN, bin), [tarball, ...args], { encoding: 'utf8', stdio: 'pipe' });
+    return [];
+  } catch (error) {
+    const output = `${error.stdout ?? ''}${error.stderr ?? ''}`.trim();
+    return [`${name} failed:\n${output}`];
+  }
+}
+
 export function verifyTarball(tarball) {
   const files = new Set(
     execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' })
@@ -40,6 +62,7 @@ export function verifyTarball(tarball) {
     .filter((entry) => !files.has(entry))
     .map((entry) => `declares ${entry} but the tarball does not contain it`);
   if (raw.includes('"workspace:')) problems.push('still contains a workspace: specifier');
+  problems.push(...runTool('publint', tarball), ...runTool('attw', tarball));
   return { name: manifest.name, problems };
 }
 
@@ -60,5 +83,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.met
     process.stderr.write(`Tarball check failed (${failed} of ${tarballs.length} packages).\n`);
     process.exit(1);
   }
-  process.stdout.write(`✓ ${tarballs.length} tarballs contain every declared file\n`);
+  process.stdout.write(
+    `✓ ${tarballs.length} tarballs contain every declared file and pass publint and attw\n`,
+  );
 }

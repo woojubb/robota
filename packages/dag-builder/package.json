@@ -8,14 +8,25 @@
   "types": "dist/node/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/node/index.d.ts",
       "node": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       },
       "default": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       }
     }
   },

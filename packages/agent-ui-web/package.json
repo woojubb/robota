@@ -9,14 +9,21 @@
   "types": "dist/node/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/node/index.d.ts",
-      "import": "./dist/node/index.js",
-      "require": "./dist/node/index.cjs",
+      "import": {
+        "types": "./dist/node/index.d.ts",
+        "default": "./dist/node/index.js"
+      },
+      "require": {
+        "types": "./dist/node/index.d.cts",
+        "default": "./dist/node/index.cjs"
+      },
       "default": "./dist/node/index.js"
     },
     "./client": {
-      "types": "./dist/browser/index.d.ts",
-      "import": "./dist/browser/index.js",
+      "import": {
+        "types": "./dist/browser/index.d.ts",
+        "default": "./dist/browser/index.js"
+      },
       "default": "./dist/browser/index.js"
     },
     "./styles/theme.css": "./src/styles/theme.css"

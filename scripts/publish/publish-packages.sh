@@ -52,7 +52,6 @@ fi
 echo "🔎 Release checks..."
 node scripts/harness/check-publish-safety.mjs
 node scripts/harness/check-sdk-public-surface.mjs
-node scripts/harness/check-build-output-contracts.mjs
 
 # Public packages that belong to this lockstep release (name and directory).
 PACKAGES=()
