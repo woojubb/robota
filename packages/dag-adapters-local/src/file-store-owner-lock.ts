@@ -1,5 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  readdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { link, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -55,13 +62,19 @@ export interface IOwnerLockTiming {
   selfExpiryMs: number;
 }
 
+function isPositiveFinite(value: number): boolean {
+  return Number.isFinite(value) && value > 0;
+}
+
 /** Resolve and validate lease timing. Throws `RangeError` for a configuration whose self-expiry
  *  could not precede the lease timeout by at least two refresh intervals. */
 export function resolveOwnerLockTiming(options: IFileStoreOwnerLockOptions = {}): IOwnerLockTiming {
   const refreshIntervalMs = options.refreshIntervalMs ?? DEFAULT_LOCK_REFRESH_INTERVAL_MS;
   const leaseTimeoutMs = options.leaseTimeoutMs ?? DEFAULT_LOCK_LEASE_TIMEOUT_MS;
-  if (!(refreshIntervalMs > 0) || !(leaseTimeoutMs > 0)) {
-    throw new RangeError('owner lock refreshIntervalMs and leaseTimeoutMs must be positive');
+  if (!isPositiveFinite(refreshIntervalMs) || !isPositiveFinite(leaseTimeoutMs)) {
+    throw new RangeError(
+      'owner lock refreshIntervalMs and leaseTimeoutMs must be positive finite numbers',
+    );
   }
   if (refreshIntervalMs * 3 > leaseTimeoutMs) {
     throw new RangeError(
@@ -70,7 +83,7 @@ export function resolveOwnerLockTiming(options: IFileStoreOwnerLockOptions = {})
   }
   const maxSelfExpiryMs = leaseTimeoutMs - 2 * refreshIntervalMs;
   const selfExpiryMs = options.selfExpiryMs ?? maxSelfExpiryMs;
-  if (!(selfExpiryMs > 0) || selfExpiryMs > maxSelfExpiryMs) {
+  if (!isPositiveFinite(selfExpiryMs) || selfExpiryMs > maxSelfExpiryMs) {
     throw new RangeError(
       `owner lock selfExpiryMs (${String(selfExpiryMs)}) must be positive and at most leaseTimeoutMs - 2 * refreshIntervalMs (${String(maxSelfExpiryMs)})`,
     );
@@ -94,6 +107,8 @@ interface IEpochRecord {
   token: string;
   pid: number;
   hostname: string;
+  /** Machine boot and PID namespace of `pid`; empty when unknown. See {@link currentHostIdentity}. */
+  hostIdentity: string;
   acquiredAt: string;
   /** Epoch ms of the holder's last renewal — the authoritative lease clock. */
   refreshedAt: number;
@@ -115,6 +130,7 @@ function parseRecord(raw: string): IEpochRecord | undefined {
       typeof value.token === 'string' &&
       typeof value.pid === 'number' &&
       typeof value.hostname === 'string' &&
+      typeof value.hostIdentity === 'string' &&
       typeof value.acquiredAt === 'string' &&
       typeof value.refreshedAt === 'number' &&
       typeof value.leaseTimeoutMs === 'number' &&
@@ -138,11 +154,41 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
+let hostIdentity: string | undefined;
+
+/**
+ * Identifies the PID space a recorded pid belongs to: hostname, boot, and (on Linux) PID namespace.
+ * The same-host dead-pid shortcut applies only when this matches exactly — a hostname alone can be
+ * shared by containers with separate PID namespaces or by cloned machines, where a live holder's pid
+ * looks dead. Empty when any component is unavailable, which disables the shortcut (the lease still
+ * applies).
+ */
+export function currentHostIdentity(): string {
+  if (hostIdentity !== undefined) return hostIdentity;
+  try {
+    if (process.platform === 'linux') {
+      const bootId = readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
+      const pidNamespace = statSync('/proc/self/ns/pid').ino;
+      hostIdentity = bootId ? `${os.hostname()}|boot:${bootId}|pidns:${String(pidNamespace)}` : '';
+    } else {
+      // No PID namespaces here; the boot second (uptime is whole seconds) distinguishes reboots and
+      // cloned machines. A wall-clock step between two processes' readings only yields a mismatch,
+      // which falls back to the lease.
+      const bootSecond = Math.floor((Date.now() - os.uptime() * 1_000) / 1_000);
+      hostIdentity = `${os.hostname()}|boot:${String(bootSecond)}|pidns:host`;
+    }
+  } catch {
+    hostIdentity = '';
+  }
+  return hostIdentity;
+}
+
 function epochNumbers(names: string[]): number[] {
   const epochs: number[] = [];
   for (const name of names) {
     const match = EPOCH_FILE_PATTERN.exec(name);
-    if (match?.[1] !== undefined) epochs.push(Number(match[1]));
+    const epoch = Number(match?.[1]);
+    if (Number.isSafeInteger(epoch)) epochs.push(epoch);
   }
   return epochs.sort((a, b) => a - b);
 }
@@ -238,7 +284,10 @@ export class FileStoreOwnerLock {
       );
     }
     if (record.released) return undefined;
-    if (record.hostname === os.hostname() && !isProcessAlive(record.pid)) return undefined;
+    const identity = currentHostIdentity();
+    if (identity !== '' && record.hostIdentity === identity && !isProcessAlive(record.pid)) {
+      return undefined;
+    }
     if (Date.now() - record.refreshedAt > record.leaseTimeoutMs) return undefined;
     return new FileStoreOwnerConflictError(
       `file store root ${this.root} is already owned by ${describeHolder(record)}`,
@@ -258,7 +307,7 @@ export class FileStoreOwnerLock {
       if (isErrno(error, 'EEXIST')) return false;
       throw error;
     } finally {
-      await unlinkIfPresent(temp);
+      await unlinkIfPresent(temp).catch(() => undefined);
     }
   }
 
@@ -276,13 +325,24 @@ export class FileStoreOwnerLock {
         token: this.token,
         pid: process.pid,
         hostname: os.hostname(),
+        hostIdentity: currentHostIdentity(),
         acquiredAt: new Date(now).toISOString(),
         refreshedAt: now,
         leaseTimeoutMs: this.timing.leaseTimeoutMs,
         released: false,
       };
       if (await this.tryCreate(next, record)) {
-        if (((await this.listEpochs()).at(-1) ?? 0) === next) {
+        let highest: number;
+        try {
+          highest = (await this.listEpochs()).at(-1) ?? 0;
+        } catch (error) {
+          // Never leave a claimed but unowned epoch blocking the root for a full lease.
+          this.epoch = next;
+          this.record = record;
+          await this.writeOwnRecord({ ...record, released: true }).catch(() => undefined);
+          throw error;
+        }
+        if (highest === next) {
           this.epoch = next;
           this.record = record;
           this.lastRenewedAt = now;

@@ -125,8 +125,9 @@ export class FileStoragePort implements IStoragePort {
     await this.acquireOwnerLockOnce();
     // Before every operation, not only on the heartbeat: a stall delays a queued persist as much as it
     // delays the timer, so whichever resumes first must catch a displaced or self-expired owner.
-    await this.ownerLock?.verifyOwnership();
+    const owned = (await this.ownerLock?.verifyOwnership()) ?? false;
     if (this.ownershipLostError !== undefined) throw this.ownershipLostError;
+    if (!owned) throw new FileStoragePortClosedError(this.storageRootPath);
     await this.hydration.ensure();
   }
 

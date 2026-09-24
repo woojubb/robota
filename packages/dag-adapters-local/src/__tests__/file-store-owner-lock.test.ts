@@ -18,6 +18,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FileStoragePort, FileStoragePortClosedError } from '../file-storage-port.js';
 import type { IFileStoragePortOwnerLockOptions } from '../file-storage-port.js';
 import {
+  currentHostIdentity,
   DEFAULT_LOCK_LEASE_TIMEOUT_MS,
   FileStoreOwnerConflictError,
   FileStoreOwnerLock,
@@ -50,6 +51,7 @@ interface IEpochFile {
   token: string;
   pid: number;
   hostname: string;
+  hostIdentity: string;
   acquiredAt: string;
   refreshedAt: number;
   leaseTimeoutMs: number;
@@ -65,6 +67,7 @@ function writeEpoch(root: string, epoch: number, overrides: Partial<IEpochFile> 
     token: `planted-${String(epoch)}`,
     pid: process.pid,
     hostname: os.hostname(),
+    hostIdentity: currentHostIdentity(),
     acquiredAt: new Date().toISOString(),
     refreshedAt: Date.now(),
     leaseTimeoutMs: DEFAULT_LOCK_LEASE_TIMEOUT_MS,
@@ -133,6 +136,12 @@ describe('lease timing validation', () => {
     expect(
       () => new FileStoragePort(storageRoot(), { refreshIntervalMs: 400, leaseTimeoutMs: 1_000 }),
     ).toThrow(RangeError);
+  });
+
+  it('rejects non-finite timing', () => {
+    expect(() => resolveOwnerLockTiming({ leaseTimeoutMs: Infinity })).toThrow(RangeError);
+    expect(() => resolveOwnerLockTiming({ refreshIntervalMs: Number.NaN })).toThrow(RangeError);
+    expect(() => resolveOwnerLockTiming({ selfExpiryMs: Number.NaN })).toThrow(RangeError);
   });
 
   it('rejects a self-expiry that leaves less than two refresh intervals before the lease timeout', () => {
@@ -223,12 +232,42 @@ describe('a storage root has exactly one live file-adapter owner', () => {
 
 describe('a crashed or departed owner never wedges the root', () => {
   it('takes over an epoch held by a dead process on this host immediately', async () => {
+    expect(currentHostIdentity()).not.toBe('');
     const root = storageRoot();
     writeEpoch(root, 1, { pid: 999_999 });
 
     const storage = new FileStoragePort(root);
     await expect(storage.createDagRun(dagRun())).resolves.toBeUndefined();
     expect(epochsOnDisk(root)).toContain('.owner.2');
+    await storage.close();
+  });
+
+  it('does not trust a dead-looking pid from another PID namespace or boot with the same hostname', async () => {
+    const root = storageRoot();
+    writeEpoch(root, 1, { pid: 999_999, hostIdentity: `${os.hostname()}|boot:other|pidns:other` });
+
+    const storage = new FileStoragePort(root);
+    await expect(storage.createDagRun(dagRun())).rejects.toBeInstanceOf(
+      FileStoreOwnerConflictError,
+    );
+    expect(epochsOnDisk(root)).toEqual(['.owner.1']);
+  });
+
+  it('ignores epoch names beyond the safe integer range', async () => {
+    const root = storageRoot();
+    writeEpoch(root, 1, { pid: 1, hostname: 'some-other-host', released: true });
+    // A fresh, live-looking holder under a name that parses beyond Number.MAX_SAFE_INTEGER.
+    const live = readFileSync(epochFile(root, 1), 'utf8').replace(
+      '"released":true',
+      '"released":false',
+    );
+    writeFileSync(path.join(root, '.owner.9007199254740993'), live);
+    writeFileSync(path.join(root, '.owner.99999999999999999999'), 'not json');
+    writeFileSync(path.join(root, '.owner.01'), 'not json');
+
+    const storage = new FileStoragePort(root);
+    await expect(storage.createDagRun(dagRun())).resolves.toBeUndefined();
+    expect(readEpoch(root, 2).released).toBe(false);
     await storage.close();
   });
 
