@@ -47,6 +47,23 @@ const CLEAN_SETTINGS = {
 };
 
 describe('runDoctor (OBSERVABILITY-1991)', () => {
+  it('uses neutral provider and trust guidance unless the host supplies its own commands', async () => {
+    const f = fixture({ env: {} });
+    const neutral = await runDoctor(f.inputs, f.deps);
+    expect(byId(neutral, 'provider.resolution').detail?.join(' ')).not.toMatch(/robota/i);
+    expect(byId(neutral, 'workspace.trust').detail?.join(' ')).not.toMatch(/robota/i);
+
+    const hosted = await runDoctor({
+      ...f.inputs,
+      diagnosticGuidance: {
+        providerResolution: 'Run atlas configure.',
+        projectTrust: 'Run atlas trust.',
+      },
+    }, f.deps);
+    expect(byId(hosted, 'provider.resolution').detail).toEqual(['Run atlas configure.']);
+    expect(byId(hosted, 'workspace.trust').detail).toEqual(['Run atlas trust.']);
+  });
+
   it('shows each effective settings hook source without embedding payloads in provenance', async () => {
     const f = fixture({ env: {} });
     const userPath = f.write(

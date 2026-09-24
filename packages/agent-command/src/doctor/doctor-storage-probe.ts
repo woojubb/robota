@@ -129,7 +129,10 @@ function trustCheck(inputs: IDoctorInputs): IDoctorCheck {
         : 'warn',
     ...(access.displayPath === undefined ? {} : { path: access.displayPath }),
     cause,
-    detail: ['Project sources are disabled. Run: robota trust --yes'],
+    detail: [
+      inputs.diagnosticGuidance?.projectTrust ??
+        'Project sources are disabled. Approve this workspace with the host.',
+    ],
   };
 }
 

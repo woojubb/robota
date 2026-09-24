@@ -70,6 +70,11 @@ export interface IDoctorInputs {
   readonly settingsSources: readonly TSettingsSource[];
   readonly projectAccess: TWorkspaceProjectAccess;
   readonly providerDefinitions: readonly IProviderDefinition[];
+  /** Optional host wording for remediation; omitted values use product-neutral guidance. */
+  readonly diagnosticGuidance?: {
+    readonly providerResolution?: string;
+    readonly projectTrust?: string;
+  };
   /** Environment map (test seam; default `process.env`). */
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly contributionSources: readonly IContributionSource[];
