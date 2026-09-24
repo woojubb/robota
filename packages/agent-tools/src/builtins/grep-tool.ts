@@ -120,10 +120,13 @@ async function grepFileTool(args: TGrepArgs, options: IGrepToolOptions): Promise
   }
 
   let files: string[];
+  let filesTruncated = false;
   if (targetStat.isFile()) {
     files = [targetPath];
   } else {
-    files = await collectFiles(targetPath, glob, containmentRoot);
+    const collected = await collectFiles(targetPath, glob, containmentRoot);
+    files = collected.files;
+    filesTruncated = collected.truncated;
   }
 
   // A fixed number of readers prevents a directory's file count from creating
@@ -234,6 +237,12 @@ async function grepFileTool(args: TGrepArgs, options: IGrepToolOptions): Promise
     outputLines = [
       ...outputLines.slice(0, headLimit),
       `(+${truncatedCount} more results truncated by headLimit)`,
+    ];
+  }
+  if (filesTruncated) {
+    outputLines = [
+      ...outputLines,
+      `[File enumeration stopped early; the search tree has more files than this tool scans in one call. Results may be incomplete — narrow the path or glob.]`,
     ];
   }
 

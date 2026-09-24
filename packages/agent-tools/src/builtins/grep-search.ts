@@ -28,7 +28,25 @@ function matchesGlob(filename: string, glob: string | undefined): boolean {
 }
 
 /**
- * Gather all files under a directory recursively, excluding node_modules/.git.
+ * Ceiling on how many directory entries `collectFiles` will `stat` before it stops walking.
+ *
+ * Without a cap, enumeration and stat fan-out scale with the whole tree under the search root,
+ * not with any result limit — a directory with millions of files makes every `Grep` call walk and
+ * stat millions of entries before `headLimit` ever gets a chance to truncate the OUTPUT. This bounds
+ * the WALK itself. Exported so a caller with a narrower budget can tighten it; not wired to any
+ * tool-facing option because no caller has needed one yet (see docs/SPEC.md).
+ */
+export const DEFAULT_MAX_COLLECTED_FILES = 50_000;
+
+export interface ICollectFilesResult {
+  files: string[];
+  /** True when the walk stopped at `maxFiles` with more of the tree left unvisited. */
+  truncated: boolean;
+}
+
+/**
+ * Gather files under a directory recursively, excluding node_modules/.git, stopping once `maxFiles`
+ * entries have been visited.
  *
  * `containmentRoot` (SEC-007) drops any entry whose CANONICAL path escapes the root, before it is
  * descended into or read. `stat` follows symlinks, so without this a link inside the root pointing
@@ -38,10 +56,14 @@ export async function collectFiles(
   dirPath: string,
   glob: string | undefined,
   containmentRoot: string | undefined,
-): Promise<string[]> {
+  maxFiles: number = DEFAULT_MAX_COLLECTED_FILES,
+): Promise<ICollectFilesResult> {
   const results: string[] = [];
+  let visited = 0;
+  let truncated = false;
 
   async function walk(current: string): Promise<void> {
+    if (truncated) return;
     let entryNames: string[];
     try {
       entryNames = await readdir(current);
@@ -50,10 +72,18 @@ export async function collectFiles(
     }
 
     for (const name of entryNames) {
+      if (truncated) return;
       if (name === 'node_modules' || name === '.git') continue;
 
       const fullPath = join(current, name);
       if (!isWithinCwd(fullPath, containmentRoot)) continue;
+
+      if (visited >= maxFiles) {
+        truncated = true;
+        return;
+      }
+      visited++;
+
       let fileStat: Awaited<ReturnType<typeof stat>>;
       try {
         fileStat = await stat(fullPath);
@@ -72,7 +102,7 @@ export async function collectFiles(
   }
 
   await walk(dirPath);
-  return results;
+  return { files: results, truncated };
 }
 
 /** Search a single file for lines matching the regex. */

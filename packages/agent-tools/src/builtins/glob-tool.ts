@@ -2,7 +2,9 @@
  * GlobTool — fast file pattern search using fast-glob.
  *
  * Excludes node_modules and .git by default.
- * Results are sorted by modification time (most recently modified first).
+ * Results are sorted by modification time (most recently modified first) among the candidates
+ * enumerated before any candidate ceiling was hit (see DEFAULT_MAX_GLOB_CANDIDATES) — ordering is
+ * not guaranteed across the full match set when the search tree is larger than that ceiling.
  *
  * SEC-007: when a containment root is configured the enumeration is confined to it. Listing the
  * filesystem is a disclosure in its own right — a sandbox that stops the model reading a file but
@@ -27,6 +29,19 @@ import type { FunctionTool } from '@robota-sdk/agent-core';
 import '../tool-permission-profiles.js';
 
 const DEFAULT_MAX_RESULTS = 1000;
+
+/**
+ * Ceiling on how many raw glob matches are pulled off `fast-glob`'s match STREAM before enumeration
+ * stops, independent of `limit`/`DEFAULT_MAX_RESULTS`.
+ *
+ * `fg(pattern)` (the promise form) materializes every match into memory and only then stats and
+ * slices to `limit` — a pattern like `**\/*` under a huge tree allocates and stats the whole match
+ * set no matter how small `limit` is. Streaming lets the walk stop as soon as this many CANDIDATES
+ * have been seen, so memory and stat fan-out scale with this ceiling, not with the tree. Exported so
+ * a caller with a narrower budget can tighten it; not wired to any tool-facing option because no
+ * caller has needed one yet (see docs/SPEC.md).
+ */
+export const DEFAULT_MAX_GLOB_CANDIDATES = 50_000;
 
 const GlobSchema = z.object({
   pattern: z
@@ -90,30 +105,69 @@ async function containedMatchesByMtime(
     .sort((a, b) => b.mtime - a.mtime);
 }
 
-async function globFileTool(
+export interface IGlobMatchesResult {
+  matches: string[];
+  /** True when the candidate stream was stopped at `maxCandidates` with more matches unseen. */
+  truncated: boolean;
+}
+
+/**
+ * Pull matches off `fast-glob`'s streaming API one at a time, stopping at `maxCandidates` instead of
+ * materializing the whole match set (see {@link DEFAULT_MAX_GLOB_CANDIDATES}). Exported for tests that
+ * need a smaller ceiling than the real default.
+ */
+export async function collectGlobMatches(
+  pattern: string,
+  options: fg.Options,
+  maxCandidates: number,
+): Promise<IGlobMatchesResult> {
+  const matches: string[] = [];
+  let truncated = false;
+  const stream = fg.stream(pattern, options) as unknown as AsyncIterable<string>;
+  for await (const entry of stream) {
+    if (matches.length >= maxCandidates) {
+      truncated = true;
+      break;
+    }
+    matches.push(entry);
+  }
+  return { matches, truncated };
+}
+
+/**
+ * Exported (rather than module-private) so tests can drive it with a `maxCandidates` far smaller than
+ * {@link DEFAULT_MAX_GLOB_CANDIDATES} — the real default is too large to exercise cheaply — without
+ * adding any test-only knob to the public `createGlobTool` factory or its schema.
+ */
+export async function globFileTool(
   args: TGlobArgs,
   options: IContainedBuiltinToolOptions,
+  maxCandidates: number = DEFAULT_MAX_GLOB_CANDIDATES,
 ): Promise<string> {
   const { pattern, path: basePath } = args;
   const containmentRoot = options.cwd;
   const { root: cwd, error: rootError } = resolveSearchRoot(basePath, containmentRoot);
   if (rootError) return rootError;
 
-  let matches: string[];
+  let candidates: IGlobMatchesResult;
   try {
-    matches = await fg(pattern, {
-      cwd,
-      ignore: ['**/node_modules/**', '**/.git/**'],
-      dot: true,
-      absolute: false,
-      // A symlinked directory is a BOUNDARY, not a doorway. Descending through one both escapes the
-      // sandbox and turns a single Glob call into a whole-disk walk when the link points at `/`.
-      //
-      // Unconditional since ARCH-010. This used to be `containmentRoot === undefined` — following
-      // links when there was no root — but a rootless call now fails at `resolveSearchRoot` above and
-      // never reaches here, so that branch described a state that can no longer exist.
-      followSymbolicLinks: false,
-    });
+    candidates = await collectGlobMatches(
+      pattern,
+      {
+        cwd,
+        ignore: ['**/node_modules/**', '**/.git/**'],
+        dot: true,
+        absolute: false,
+        // A symlinked directory is a BOUNDARY, not a doorway. Descending through one both escapes the
+        // sandbox and turns a single Glob call into a whole-disk walk when the link points at `/`.
+        //
+        // Unconditional since ARCH-010. This used to be `containmentRoot === undefined` — following
+        // links when there was no root — but a rootless call now fails at `resolveSearchRoot` above and
+        // never reaches here, so that branch described a state that can no longer exist.
+        followSymbolicLinks: false,
+      },
+      maxCandidates,
+    );
   } catch (err) {
     const result: IToolInvocationResult = {
       success: false,
@@ -122,6 +176,7 @@ async function globFileTool(
     };
     return JSON.stringify(result);
   }
+  const { matches, truncated: candidatesTruncated } = candidates;
 
   const withMtime = await containedMatchesByMtime(matches, cwd, containmentRoot);
 
@@ -134,6 +189,9 @@ async function globFileTool(
   let output = sorted.length > 0 ? sorted.join('\n') : '(no matches)';
   if (truncated) {
     output += `\n\n[Showing ${maxResults} of ${totalMatches} matches. Use limit parameter to see more.]`;
+  }
+  if (candidatesTruncated) {
+    output += `\n\n[Candidate search stopped early; the search tree has more matches than this tool scans in one call. Results are ordered among the scanned candidates only — narrow the pattern or path to see the rest.]`;
   }
 
   const result: IToolInvocationResult = {
