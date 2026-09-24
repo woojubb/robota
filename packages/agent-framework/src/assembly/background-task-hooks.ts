@@ -7,6 +7,7 @@ import type {
   THookEvent,
 } from '@robota-sdk/agent-core';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
+import type { ICreateSessionOptions } from './create-session-types.js';
 
 const logger = createLogger('BackgroundTaskHooks');
 
@@ -30,6 +31,7 @@ export function fireSubagentLifecycleHook(
   cwd: string,
   hooks: THooksConfig | undefined,
   hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  environmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'],
 ): void {
   const hookEventName = getSubagentHookEvent(event);
   if (!hookEventName || !('task' in event)) return;
@@ -60,8 +62,10 @@ export function fireSubagentLifecycleHook(
     env: {
       CLAUDE_PROJECT_DIR: cwd,
       CLAUDE_SESSION_ID: event.task.parentSessionId,
-      ROBOTA_AGENT_ID: event.task.id,
-      ROBOTA_AGENT_TYPE: event.task.agentType ?? event.task.label,
+      ...(environmentNames?.agentId === undefined
+        ? {} : { [environmentNames.agentId]: event.task.id }),
+      ...(environmentNames?.agentType === undefined
+        ? {} : { [environmentNames.agentType]: event.task.agentType ?? event.task.label }),
     },
   };
 

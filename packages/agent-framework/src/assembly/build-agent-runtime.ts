@@ -103,7 +103,9 @@ export function buildAgentRuntime(
     );
   }
   backgroundTaskManager.subscribe((event) =>
-    fireSubagentLifecycleHook(event, cwd, options.config.hooks, hookTypeExecutors),
+    fireSubagentLifecycleHook(
+      event, cwd, options.config.hooks, hookTypeExecutors, options.subagentHookEnvironmentNames,
+    ),
   );
 
   return { agentToolDeps, agentDefinitions, backgroundTaskManager };

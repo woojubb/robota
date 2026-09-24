@@ -40,6 +40,10 @@ type TCapabilityPack = NonNullable<IProductProfile['packs']>[number];
 const ROBOTA_PRODUCT_ID = 'robota';
 export const ROBOTA_MODEL_COMMAND_TOOL_PREFIX = 'robota_command_';
 export const ROBOTA_PROMPT_FILE_REFERENCE_TAG = 'robota_file_references';
+export const ROBOTA_SUBAGENT_HOOK_ENVIRONMENT_NAMES = {
+  agentId: 'ROBOTA_AGENT_ID',
+  agentType: 'ROBOTA_AGENT_TYPE',
+} as const;
 
 /**
  * The capability packs `robota` composes. Removing one genuinely removes its capability from the product —
@@ -106,6 +110,7 @@ export function createRobotaProfile(input: IRobotaProfileInput): IProductProfile
     providerDefinitions: input.providerDefinitions,
     promptFileReferenceTag: ROBOTA_PROMPT_FILE_REFERENCE_TAG,
     modelCommandToolPrefix: ROBOTA_MODEL_COMMAND_TOOL_PREFIX,
+    subagentHookEnvironmentNames: ROBOTA_SUBAGENT_HOOK_ENVIRONMENT_NAMES,
     providerErrorGuidance: {
       authentication:
         'Run `/provider` to reconfigure, or check your settings file (~/.robota/settings.json).',

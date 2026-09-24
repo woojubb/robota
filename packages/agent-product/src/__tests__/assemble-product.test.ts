@@ -53,6 +53,7 @@ describe('assembleProduct — capability fold', () => {
       providerErrorGuidance: 'consumed',
       promptFileReferenceTag: 'consumed',
       modelCommandToolPrefix: 'consumed',
+      subagentHookEnvironmentNames: 'consumed',
       presets: 'consumed',
       presetRegistry: 'consumed-and-surfaced',
       defaultPresetId: 'consumed-and-surfaced',
@@ -100,12 +101,18 @@ describe('assembleProduct — capability fold', () => {
       provider: testProvider(),
       promptFileReferenceTag: 'acme_file_references',
       modelCommandToolPrefix: 'acme_command_',
+      subagentHookEnvironmentNames: {
+        agentId: 'ACME_AGENT_ID', agentType: 'ACME_AGENT_TYPE',
+      },
     });
     const options = acme.buildRuntimeOptions({
       session: { cwd: '/tmp/acme', provider: testProvider(), bare: true },
     });
     expect(options.promptFileReferenceTag).toBe('acme_file_references');
     expect(options.modelCommandToolPrefix).toBe('acme_command_');
+    expect(options.subagentHookEnvironmentNames).toEqual({
+      agentId: 'ACME_AGENT_ID', agentType: 'ACME_AGENT_TYPE',
+    });
 
     const shellOverride = acme.buildRuntimeOptions({
       session: {
@@ -114,10 +121,12 @@ describe('assembleProduct — capability fold', () => {
         bare: true,
         promptFileReferenceTag: 'shell_files',
         modelCommandToolPrefix: 'shell_command_',
+        subagentHookEnvironmentNames: { agentId: 'SHELL_AGENT_ID' },
       },
     });
     expect(shellOverride.promptFileReferenceTag).toBe('shell_files');
     expect(shellOverride.modelCommandToolPrefix).toBe('shell_command_');
+    expect(shellOverride.subagentHookEnvironmentNames).toEqual({ agentId: 'SHELL_AGENT_ID' });
   });
 
   it('runs a second product with its own model prompt and command tool identifiers', async () => {
