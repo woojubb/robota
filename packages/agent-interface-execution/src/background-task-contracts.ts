@@ -219,9 +219,10 @@ export interface IToolInvocationBackgroundTaskResult extends IBaseBackgroundTask
 /**
  * #2079: the outcome hop discriminates by kind exactly as the request hop
  * (`TBackgroundTaskRequest`) does — `exitCode`/`signalCode` are producible only by the process
- * runner and `usage` only by the agent runner (`ISubagentJobResult` is now `IBackgroundTaskResult<'agent'>`
- * exactly, not a hand-maintained `Omit`). `IBackgroundTaskResult<K>` narrows to the kind-specific
- * member for a caller that knows `K` statically (a runner's `start()`, the decoder once it has
+ * runner and `usage` only by the agent runner (`ISubagentJobResult` is now
+ * `Omit<IBackgroundTaskResult<'agent'>, 'kind'>`, not a hand-maintained `Omit` off the flat shape).
+ * `IBackgroundTaskResult<K>` narrows to the kind-specific member for a caller that knows `K`
+ * statically (a runner's `start()`, the decoder once it has
  * checked `kind`); called with no type argument it stays the full union, which is what
  * `IBackgroundTaskState.result` still holds — that field is not itself correlated with `state.kind`
  * (untouched by this change; revisit only if `IBackgroundTaskState` is ever discriminated).
@@ -232,8 +233,10 @@ export type TBackgroundTaskResult =
   | IScheduledBackgroundTaskResult
   | IToolInvocationBackgroundTaskResult;
 
-export type IBackgroundTaskResult<K extends TBackgroundTaskKind = TBackgroundTaskKind> =
-  Extract<TBackgroundTaskResult, { kind: K }>;
+export type IBackgroundTaskResult<K extends TBackgroundTaskKind = TBackgroundTaskKind> = Extract<
+  TBackgroundTaskResult,
+  { kind: K }
+>;
 
 export interface IBackgroundTaskState {
   id: string;

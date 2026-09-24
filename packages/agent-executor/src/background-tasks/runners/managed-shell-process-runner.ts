@@ -124,7 +124,9 @@ function startProcessTask(
   return createProcessHandle(runtime, result);
 }
 
-function createProcessResult(runtime: IProcessTaskRuntime): Promise<IBackgroundTaskResult<'process'>> {
+function createProcessResult(
+  runtime: IProcessTaskRuntime,
+): Promise<IBackgroundTaskResult<'process'>> {
   let settled = false;
   return new Promise<IBackgroundTaskResult<'process'>>((resolve, reject) => {
     const timeoutTimer = runtime.request.timeoutMs

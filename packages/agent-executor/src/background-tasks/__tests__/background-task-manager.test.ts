@@ -42,7 +42,11 @@ function createControllableRunner(): {
       kind: 'agent',
       start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
         const deferred = createTestDeferred<'agent'>();
-        const startedTask: IStartedTask<'agent'> = { taskId: task.taskId, deferred, emit: task.emit };
+        const startedTask: IStartedTask<'agent'> = {
+          taskId: task.taskId,
+          deferred,
+          emit: task.emit,
+        };
         started.push(startedTask);
         return {
           taskId: task.taskId,
@@ -68,7 +72,11 @@ function createRejectingCancelRunner(): {
       kind: 'agent',
       start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
         const deferred = createTestDeferred<'agent'>();
-        const startedTask: IStartedTask<'agent'> = { taskId: task.taskId, deferred, emit: task.emit };
+        const startedTask: IStartedTask<'agent'> = {
+          taskId: task.taskId,
+          deferred,
+          emit: task.emit,
+        };
         started.push(startedTask);
         return {
           taskId: task.taskId,

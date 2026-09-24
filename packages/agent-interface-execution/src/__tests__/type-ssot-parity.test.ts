@@ -69,7 +69,9 @@ describe('TYPE-003 type-SSOT parity', () => {
   it('ISubagentJobResult is the agent-kind background-task result minus the discriminant (#2079)', () => {
     // `IBackgroundTaskResult` is discriminated by kind; `exitCode`/`signalCode` (process-only) are
     // structurally absent from the agent member rather than omitted by a hand-written key list.
-    expectTypeOf<ISubagentJobResult>().toEqualTypeOf<Omit<IBackgroundTaskResult<'agent'>, 'kind'>>();
+    expectTypeOf<ISubagentJobResult>().toEqualTypeOf<
+      Omit<IBackgroundTaskResult<'agent'>, 'kind'>
+    >();
     expectTypeOf<keyof ISubagentJobResult>().toEqualTypeOf<
       Exclude<keyof IBackgroundTaskResult<'agent'>, 'kind'>
     >();
