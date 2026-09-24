@@ -32,6 +32,7 @@ function buildRunContext(
     ...(options.driverId && { driverId: options.driverId }),
     ...(options.metadata && { metadata: options.metadata }),
     ...(options.signal && { signal: options.signal }),
+    awaitProviderSettlement: options.awaitProviderSettlement,
     ...(options.onTextDelta && { onTextDelta: options.onTextDelta }),
     ...(options.onExecutionEvent && { onExecutionEvent: options.onExecutionEvent }),
     ...(options.maxExecutionRounds !== undefined && {

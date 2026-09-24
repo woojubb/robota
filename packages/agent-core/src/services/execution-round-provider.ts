@@ -116,6 +116,7 @@ export async function callProviderWithCache(
    * passed in would not reconstruct what the model was actually asked.
    */
   onRequestAssembled?: (request: IAssembledProviderRequest) => void,
+  awaitProviderSettlement?: boolean,
 ): Promise<TUniversalMessage> {
   if (!config.defaultModel?.model) {
     throw new Error('Model is required in defaultModel configuration. Please specify a model.');
@@ -176,6 +177,7 @@ export async function callProviderWithCache(
       outgoing,
       chatOptions,
       config.timeout,
+      awaitProviderSettlement,
     );
     if (typeof response.content === 'string') {
       cacheService.store(
@@ -189,7 +191,7 @@ export async function callProviderWithCache(
     return response;
   }
 
-  return callProviderWithIdleTimeout(providerChat, outgoing, chatOptions, config.timeout);
+  return callProviderWithIdleTimeout(providerChat, outgoing, chatOptions, config.timeout, awaitProviderSettlement);
 }
 
 /** Validate and normalize the provider response */

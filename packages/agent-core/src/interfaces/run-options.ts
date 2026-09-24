@@ -49,6 +49,8 @@ export interface IRunOptions {
   ephemeralSystemContext?: string;
   /** AbortSignal for cancelling execution */
   signal?: AbortSignal;
+  /** Join an aborted/timed-out provider call before completing; an uncooperative call may remain pending. */
+  awaitProviderSettlement?: boolean;
   /** Per-run streaming text callback. Prefer this over mutating provider callback state. */
   onTextDelta?: TTextDeltaCallback;
   /** Per-run replay event callback for provider/tool execution boundaries. */

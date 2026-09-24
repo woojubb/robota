@@ -127,6 +127,7 @@ export async function forceSummaryCall(
         messagesForProvider,
         chatOptions,
         config.timeout,
+        fullContext.awaitProviderSettlement,
       );
       providerOutcome = 'success';
     } catch (error) {

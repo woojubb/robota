@@ -153,7 +153,7 @@ export class LlmTextNodeDefinition extends AbstractNodeDefinition<typeof LlmText
         ...(typeof config.maxTokens === 'number' && { maxTokens: config.maxTokens }),
       },
     });
-    return agent.run(prompt, { signal });
+    return agent.run(prompt, { signal, awaitProviderSettlement: true });
   }
 
   protected override async validateInputWithConfig(

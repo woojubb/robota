@@ -61,8 +61,9 @@ authoring never searches the process home for a provider profile.
   never saved workflow data, can configure that allowance, and independent `run` invocations get
   independent allowances.
 - Cancelling or timing out a run propagates into any saved composite's child runtime, so an active
-  prompt provider is notified rather than left running merely because the call crossed a composite
-  boundary.
+  prompt provider receives the abort signal across composite boundaries; command completion waits
+  for admitted local node calls and their child runtimes to settle, so a provider that ignores abort
+  keeps the command pending instead of reporting completion while its call is still active.
 - The default text-replace regex operation runs in isolated execution outside the parent event loop,
   so a timeout or cancellation can interrupt it without leaking late output into snapshots or
   downstream nodes and without leaving a subsequent independent workflow unable to run; this
