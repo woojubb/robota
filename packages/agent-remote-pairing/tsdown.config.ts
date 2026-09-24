@@ -12,5 +12,8 @@ export default defineConfig({
   sourcemap: false,
   treeshake: true,
   minify: true,
-  outExtensions: ({ format }) => ({ js: format === 'cjs' ? '.cjs' : '.js', dts: format === 'cjs' ? '.d.cts' : '.d.ts' }),
+  outExtensions: ({ format }) => ({
+    js: format === 'cjs' ? '.cjs' : '.js',
+    dts: format === 'cjs' ? '.d.cts' : '.d.ts',
+  }),
 });
