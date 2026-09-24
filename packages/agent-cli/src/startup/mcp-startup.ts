@@ -158,6 +158,7 @@ export async function composeMcpClientForStartup(
   const mcp = createMcpClientComposition({
     resolvedEntries: entries,
     workspace,
+    clientInfo: { name: 'robota-agent-mcp', version: '0.0.0' },
     ...(input.stdioAuthorities === undefined ? {} : { stdioAuthorities: input.stdioAuthorities }),
     ...(input.approvalStore === undefined ? {} : { approvalStore: input.approvalStore }),
     ...(input.httpTransportDeps === undefined ? {} : { transport: input.httpTransportDeps }),

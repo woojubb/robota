@@ -126,8 +126,8 @@ not bundled in published installs.
 ### MCP client composition (MCP-002)
 
 `@robota-sdk/agent-mcp` owns definition decoding, precedence, admission policy, and the
-connection/catalog manager; this package's one job is making that manager reachable from the
-product's own startup rather than only from tests. Every unreadable/corrupt settings layer and every
+connection/catalog manager; this package makes that manager reachable from product startup and
+supplies the product's MCP client identity there. Every unreadable/corrupt settings layer and every
 decode refusal is reported as a problem, never silently dropped; zero resolved definitions is a
 normal, silent-diagnostic outcome. A caller-supplied `mcpActivationAdapter` always wins over CLI
 composition and skips it entirely.

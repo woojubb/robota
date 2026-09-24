@@ -133,7 +133,7 @@ export class MCPSessionError extends Error {
   }
 }
 
-const DEFAULT_CLIENT_INFO = { name: 'robota-agent-mcp', version: '0.0.0' } as const;
+const DEFAULT_CLIENT_INFO = { name: 'mcp-client', version: '0.0.0' } as const;
 
 /** Feature-detects the negotiated protocol version the SDK stamped onto the transport at connect(). */
 function readNegotiatedProtocolVersion(transport: Transport): string | undefined {

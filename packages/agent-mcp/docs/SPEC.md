@@ -20,8 +20,8 @@ had no discovery, and two client stacks cannot both be authoritative.
 - Allowed dependencies: `@robota-sdk/agent-core` (sole workspace peer; shared egress policy comes
   from its `./node` subpath) and `@modelcontextprotocol/sdk`. Must not import `agent-framework`,
   `agent-session`, `agent-cli`, or any other `agent-*` package.
-- Does not own a tool registry or factory — the consumer (composition root or CLI) selects and
-  wires tools at construction time.
+- Does not own a tool registry, factory, or product client identity — the consumer (composition
+  root or CLI) selects its protocol identity and wires tools at construction time.
 - Transport set is Streamable HTTP and stdio only, behind an admit-then-construct seam. Deprecated
   HTTP+SSE and custom WebSocket are refusals surfaced in the catalog's rejected bucket, never
   adapters and never silent.
