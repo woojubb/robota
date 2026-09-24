@@ -72,6 +72,55 @@ describe('supervised session view', () => {
     }
   });
 
+  it('starts a new background session without closing the view', async () => {
+    const start = vi.fn(async () => SECOND.id);
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST]} onStart={start} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(start).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Started ${SECOND.id}`));
+      expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`);
+      view.stdin.write('?');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('n New session'));
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('keeps stop cancellation separate from starting a session', async () => {
+    const start = vi.fn(async () => SECOND.id);
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST]} onStart={start}
+      onStop={async () => undefined} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(view.lastFrame()).not.toContain('y Yes / n No'));
+      expect(start).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('can start from an empty view and hides private launch errors', async () => {
+    const start = vi.fn().mockRejectedValueOnce(new Error('/private/token-path'))
+      .mockResolvedValueOnce(SECOND.id);
+    const view = render(<SupervisedSessionView loadRows={async () => []} onStart={start} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('No supervised sessions'));
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Start failed'));
+      expect(view.lastFrame()).not.toContain('/private/token-path');
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Started ${SECOND.id}`));
+      expect(start).toHaveBeenCalledTimes(2);
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('does not stop a row that leaves the selected state while confirmation is open', async () => {
     let finishRefresh: ((rows: readonly ISupervisedViewRow[]) => void) | undefined;
     const refresh = new Promise<readonly ISupervisedViewRow[]>((resolve) => { finishRefresh = resolve; });
@@ -97,14 +146,14 @@ describe('supervised session view', () => {
     const rows = Array.from({ length: 18 }, (_, index) => ({
       ...FIRST, id: `8bf9bc27-d773-4e88-b88f-${String(index).padStart(12, '0')}`,
     }));
-    const view = render(<SupervisedSessionView loadRows={async () => rows} />);
+    const view = render(<SupervisedSessionView loadRows={async () => rows} onStart={async () => SECOND.id} />);
     try {
       Object.defineProperty(view.stdout, 'columns', { value: 20 });
       view.stdout.emit('resize');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('18 supervised'));
       view.stdin.write('?');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Keys:'));
-      for (const key of ['↑/↓ Select', 's Request stop', 'y Confirm stop', 'n/Esc Cancel stop', 'q/Esc/Ctrl+C Close', '? Toggle help']) {
+      for (const key of ['↑/↓ Select', 's Request stop', 'n New session', 'y Confirm stop', 'n/Esc Cancel stop', 'q/Esc/Ctrl+C Close', '? Toggle help']) {
         expect(view.lastFrame()).toContain(key);
       }
       expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);

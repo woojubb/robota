@@ -64,7 +64,16 @@ export async function runPreparsedCliCommand(
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'view') {
-    process.exitCode = await runSessionViewCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX));
+    process.exitCode = await runSessionViewCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
+      launchCwd: cwd,
+      start: async (targetCwd) => {
+        const access = await resolveInitialCliWorkspaceProjectAccess(targetCwd);
+        if (requiresHeadlessWorkspaceTrust(access)) {
+          throw new Error(formatHeadlessWorkspaceTrustError(access, targetCwd));
+        }
+        return launchSupervisedSession(targetCwd);
+      },
+    });
     return true;
   }
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);

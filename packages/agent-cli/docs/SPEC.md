@@ -70,7 +70,8 @@ when observed from the live owner; it does not promise that a future wake will r
 supervised view observes only that guarded inventory and narrows by owner-reported name or
 directory only on a live owner-verified path: it does not join peer or saved-record identities,
 expose conversation content or project paths in rows, or treat an exited
-process as completed; closing the view never stops a supervised session. A damaged registration is
+process as completed; starting a session from the view still requires headless workspace trust for
+its target directory, and closing the view never stops a supervised session. A damaged registration is
 shown as unavailable without hiding healthy sessions,
 and a stop request acts only
 through the live owner's control endpoint, failing explicitly rather than guessing when ownership or
