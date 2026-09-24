@@ -19,6 +19,7 @@ import {
   observeProviderNativeRawPayloadStream,
   OpenAICompatibleResponseParser,
 } from '../shared/openai-compatible/index.js';
+import { awaitWithProviderRequestId, readOpenAICompatibleRequestId, withProviderRequestId } from '../shared/openai-compatible/request-id.js';
 
 import type { IQwenProviderOptions } from './types';
 import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
@@ -151,7 +152,10 @@ export class QwenProvider extends AbstractAIProvider {
         payloadKind: 'response',
         payload: response,
       });
-      return this.responseParser.parseResponse(response);
+      return withProviderRequestId(
+        this.responseParser.parseResponse(response),
+        readOpenAICompatibleRequestId(response),
+      );
     } catch (error) {
       const qwenError = error as IOpenAICompatibleError;
       const errorMessage = qwenError.message || 'Qwen API request failed';
@@ -208,7 +212,9 @@ export class QwenProvider extends AbstractAIProvider {
         payloadKind: 'request',
         payload: requestParams,
       });
-      const stream = await this.client.chat.completions.create(requestParams);
+      const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+        this.client.chat.completions.create(requestParams),
+      );
 
       const observedStream = observeProviderNativeRawPayloadStream(stream, {
         provider: 'qwen',
@@ -219,7 +225,7 @@ export class QwenProvider extends AbstractAIProvider {
       for await (const chunk of this.streamWithAbort(observedStream, options?.signal)) {
         const universalMessage = this.responseParser.parseStreamingChunk(chunk);
         if (universalMessage) {
-          yield universalMessage;
+          yield withProviderRequestId(universalMessage, providerRequestId);
         }
       }
     } catch (error) {
