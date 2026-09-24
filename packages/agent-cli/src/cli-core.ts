@@ -598,6 +598,12 @@ async function runCliCore(
   const livePromptTracePort = createConfiguredNodeOtlpLiveTelemetryPort(
     process.env,
     () => process.stderr.write('Robota telemetry export failed.\n'),
+    undefined,
+    {
+      serviceVersion: version,
+      surface: mcpServe ? 'mcp-serve' : args.serve ? 'serve'
+        : args.printMode || args.goal !== undefined ? 'print' : 'interactive',
+    },
   );
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.

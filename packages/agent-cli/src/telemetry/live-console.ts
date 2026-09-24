@@ -1,8 +1,9 @@
-import { randomUUID } from 'node:crypto';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import { projectLivePromptMetrics } from './live-metric-otlp.js';
 import { projectLivePromptLogs } from './live-log-otlp.js';
+import { createLiveTelemetryResource } from './live-resource.js';
+import type { ILiveTelemetryResource } from './live-resource.js';
 
 type TSignal = 'traces' | 'metrics' | 'logs';
 const MAX_PENDING_BATCHES = 8;
@@ -25,28 +26,28 @@ async function writeWithDeadline(write: (line: string) => void | Promise<void>, 
 }
 
 /** Console is a diagnostic projection of the same content-free facts, never a batch dump. */
-function projectConsoleRecord(batch: ILivePromptTraceBatch, signal: TSignal): object {
+function projectConsoleRecord(batch: ILivePromptTraceBatch, signal: TSignal, resource: ILiveTelemetryResource): object {
   if (signal === 'metrics') {
     const end = Date.now();
     const metricBatch = projectLivePromptMetrics(batch, {
-      instanceId: randomUUID(),
+      instanceId: resource.instanceId, resource,
       startTime: [Math.floor((end - 1) / 1000), ((end - 1) % 1000) * 1_000_000],
       endTime: [Math.floor(end / 1000), (end % 1000) * 1_000_000],
     });
-    return { signal, metrics: metricBatch.scopeMetrics.flatMap((scope) => scope.metrics.map((metric) => ({
+    return { signal, resource: resource.attributes, metrics: metricBatch.scopeMetrics.flatMap((scope) => scope.metrics.map((metric) => ({
       name: metric.descriptor.name, unit: metric.descriptor.unit,
       points: metric.dataPoints.map((point) => ({ value: point.value, attributes: point.attributes })),
     }))) };
   }
   if (signal === 'logs') {
-    return { signal, events: projectLivePromptLogs(batch, new Date()).map((log) => ({
+    return { signal, resource: resource.attributes, events: projectLivePromptLogs(batch, new Date(), resource).map((log) => ({
       name: log.eventName, severity: log.severityText,
       traceId: log.spanContext?.traceId, spanId: log.spanContext?.spanId,
       time: log.hrTime, attributes: log.attributes,
     })) };
   }
   return {
-    signal, traceId: batch.root.traceId,
+    signal, resource: resource.attributes, traceId: batch.root.traceId,
     sessionId: boundedLabel(batch.sessionId), turnId: boundedLabel(batch.turnId),
     spans: [
       { name: 'robota.prompt_execution', spanId: batch.root.spanId,
@@ -79,6 +80,7 @@ export function createNodeLiveConsolePort(
   signal: TSignal,
   write: (line: string) => void | Promise<void>,
   onFailure?: (code: 'projection-failed' | 'enqueue-failed' | 'delivery-failed') => void,
+  resource: ILiveTelemetryResource = createLiveTelemetryResource(),
 ): ILivePromptTracePort & { shutdown(): Promise<void> } {
   const pending: ILivePromptTraceBatch[] = [];
   let worker: Promise<void> | undefined;
@@ -91,7 +93,7 @@ export function createNodeLiveConsolePort(
     while (pending.length > 0) {
       const batch = pending.shift()!;
       let line: string;
-      try { line = `${JSON.stringify(projectConsoleRecord(batch, signal))}\n`; }
+      try { line = `${JSON.stringify(projectConsoleRecord(batch, signal, resource))}\n`; }
       catch { reportFailure('projection-failed'); continue; }
       try { await writeWithDeadline(write, line); }
       catch {

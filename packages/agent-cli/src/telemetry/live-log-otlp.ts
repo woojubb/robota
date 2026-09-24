@@ -6,6 +6,8 @@ import { resourceFromAttributes } from '@opentelemetry/resources';
 import type { ReadableLogRecord } from '@opentelemetry/sdk-logs';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
+import { createLiveTelemetryResource } from './live-resource.js';
+import type { ILiveTelemetryResource } from './live-resource.js';
 
 const MAX_PENDING_BATCHES = 8;
 
@@ -18,8 +20,11 @@ function hrTime(iso: string): HrTime {
 }
 
 /** Only canonical completion facts cross the log boundary; no message or tool body is serialized. */
-export function projectLivePromptLogs(batch: ILivePromptTraceBatch, observedAt: Date): ReadableLogRecord[] {
-  const resource = resourceFromAttributes({ 'service.name': 'robota' });
+export function projectLivePromptLogs(
+  batch: ILivePromptTraceBatch, observedAt: Date,
+  identity: ILiveTelemetryResource = createLiveTelemetryResource(),
+): ReadableLogRecord[] {
+  const resource = resourceFromAttributes(identity.attributes);
   const instrumentationScope = { name: 'robota.live-prompt-logs', version: '1' };
   const hrTimeObserved = hrTime(observedAt.toISOString());
   const record = (
@@ -59,8 +64,8 @@ export function projectLivePromptLogs(batch: ILivePromptTraceBatch, observedAt: 
   return logs;
 }
 
-async function sendLogs(batch: ILivePromptTraceBatch, endpoint: string): Promise<void> {
-  const body = ProtobufLogsSerializer.serializeRequest(projectLivePromptLogs(batch, new Date()));
+async function sendLogs(batch: ILivePromptTraceBatch, endpoint: string, resource: ILiveTelemetryResource): Promise<void> {
+  const body = ProtobufLogsSerializer.serializeRequest(projectLivePromptLogs(batch, new Date(), resource));
   if (!body || body.byteLength > 1_048_576) throw new Error('Invalid OTLP log payload.');
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -94,6 +99,7 @@ async function sendLogs(batch: ILivePromptTraceBatch, endpoint: string): Promise
 export function createNodeOtlpLiveLogPort(
   endpoint: string,
   onFailure?: (code: 'projection-failed' | 'enqueue-failed' | 'delivery-failed') => void,
+  resource: ILiveTelemetryResource = createLiveTelemetryResource(),
 ): ILivePromptTracePort & { shutdown(): Promise<void> } {
   const pending: ILivePromptTraceBatch[] = [];
   let worker: Promise<void> | undefined;
@@ -104,7 +110,7 @@ export function createNodeOtlpLiveLogPort(
   };
   const drain = async (): Promise<void> => {
     while (pending.length > 0) {
-      try { await sendLogs(pending.shift()!, endpoint); }
+      try { await sendLogs(pending.shift()!, endpoint, resource); }
       catch {
         pending.length = 0;
         reportFailure();
