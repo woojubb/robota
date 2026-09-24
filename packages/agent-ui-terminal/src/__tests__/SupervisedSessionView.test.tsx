@@ -111,6 +111,39 @@ describe('supervised session view', () => {
     }
   });
 
+  it('keeps the differing path portion visible when long parent names share a prefix', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [
+      { ...FIRST, cwd: '/projects/alpha-very-long-parent/app' },
+      { ...THIRD, cwd: '/projects/alpha-very-long-pardon/app' },
+    ]} />);
+    try {
+      Object.defineProperty(view.stdout, 'columns', { value: 20 });
+      view.stdout.emit('resize');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('2 supervised'));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('ent/app'));
+      expect(view.lastFrame()).toContain('don/app');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('escapes layout controls in verified directory headings', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [
+      { ...FIRST, cwd: '/projects/line\nbreak/app' },
+    ]} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Dir 1:'));
+      expect(view.lastFrame()).toContain('line\\u{a}break/app');
+      expect(view.lastFrame()).not.toContain('line\nbreak/app');
+      expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('clears a pending screen-reader number before directory regrouping', async () => {
     const view = render(
       <ScreenReaderProvider enabled>
@@ -125,7 +158,7 @@ describe('supervised session view', () => {
       view.stdin.write('1');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Escape to cancel 1'));
       view.stdin.write('g');
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('Dir 1: a'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Dir 1: projects/a'));
       expect(view.lastFrame()).not.toContain('Escape to cancel 1');
       view.stdin.write('\r');
       expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`);

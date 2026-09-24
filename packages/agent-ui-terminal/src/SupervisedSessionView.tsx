@@ -52,16 +52,34 @@ function sortedDirectoryRows(rows: readonly ISupervisedViewRow[]): readonly ISup
     GROUP_ORDER.indexOf(groupOf(a)) - GROUP_ORDER.indexOf(groupOf(b)) || a.id.localeCompare(b.id));
 }
 
-function uniqueDirectorySuffix(cwd: string, directories: readonly string[]): string {
-  const parts = cwd.split(/[\\/]/u).filter(Boolean);
-  for (let count = 1; count <= parts.length; count++) {
-    const suffix = parts.slice(-count).join('/');
-    if (directories.every((other) => other === cwd ||
-      other.split(/[\\/]/u).filter(Boolean).slice(-count).join('/') !== suffix)) {
-      return suffix;
-    }
+function uniqueDirectorySuffix(cwd: string, directories: readonly string[], budget: number): string {
+  if (cwd === '/') return cwd;
+  let longestSharedSuffix = 0;
+  for (const other of directories) {
+    if (other === cwd) continue;
+    let shared = 0;
+    while (shared < cwd.length && shared < other.length &&
+      cwd[cwd.length - shared - 1] === other[other.length - shared - 1]) shared++;
+    longestSharedSuffix = Math.max(longestSharedSuffix, shared);
   }
-  return cwd;
+  const basenameLength = cwd.split(/[\\/]/u).filter(Boolean).at(-1)?.length ?? cwd.length;
+  const uniqueLength = Math.min(cwd.length, Math.max(basenameLength, longestSharedSuffix + 3));
+  const suffixStart = cwd.length - uniqueLength;
+  const boundary = Math.max(cwd.lastIndexOf('/', suffixStart - 1), cwd.lastIndexOf('\\', suffixStart - 1));
+  const componentSuffix = cwd.slice(boundary + 1);
+  return displayPath(componentSuffix).length <= budget ? componentSuffix : cwd.slice(suffixStart);
+}
+
+function displayPath(path: string): string {
+  return path.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu,
+    (character) => `\\u{${character.codePointAt(0)!.toString(16)}}`);
+}
+
+function compactPath(path: string, budget: number): string {
+  const safe = Array.from(displayPath(path));
+  if (safe.length <= budget) return safe.join('');
+  const head = Math.ceil((budget - 1) / 2);
+  return `${safe.slice(0, head).join('')}…${safe.slice(-(budget - head - 1)).join('')}`;
 }
 
 function sameRows(a: readonly ISupervisedViewRow[], b: readonly ISupervisedViewRow[]): boolean {
@@ -91,6 +109,7 @@ export default function SupervisedSessionView({
 }: ISupervisedSessionViewProps): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
+  const columns = Math.max(12, stdout.columns ?? 80);
   const screenReader = useScreenReader();
   const [rows, setRows] = useState<readonly ISupervisedViewRow[]>([]);
   const [observedAtMs, setObservedAtMs] = useState(Date.now);
@@ -120,7 +139,12 @@ export default function SupervisedSessionView({
       if (group !== previousGroup) {
         const label = groupByDirectory
           ? row.cwd === undefined ? 'Directory: unverified'
-            : `Dir ${++directoryNumber}: ${uniqueDirectorySuffix(row.cwd, directories)} — ${row.cwd}`
+            : (() => {
+              const prefix = `Dir ${++directoryNumber}: `;
+              const budget = Math.max(4, columns - prefix.length);
+              const suffix = compactPath(uniqueDirectorySuffix(row.cwd, directories, budget), budget);
+              return `${prefix}${suffix} — ${displayPath(row.cwd)}`;
+            })()
           : `${group}:`;
         lines.push({ kind: 'group', label });
       }
@@ -128,7 +152,7 @@ export default function SupervisedSessionView({
       previousGroup = group;
     });
     return lines;
-  }, [ordered, groupByDirectory]);
+  }, [ordered, groupByDirectory, columns]);
 
   useEffect(() => {
     const controller = new AbortController();
