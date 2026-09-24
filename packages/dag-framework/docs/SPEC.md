@@ -75,14 +75,18 @@ is not a root aggregate budget, a snapshot-size limit, or CPU preemption.
 
 ## Shared local root snapshot authority
 
-Each independent local provider execution creates a fresh task snapshot authority from a snapshot
+Each independent local provider execution creates a fresh snapshot authority from a snapshot
 of trusted host limits. Nested executions inherit the same live authority; a new provider or local
 storage instance does not create a new allowance for that child. Concurrent sibling reservations
 share one balance even while a storage write awaits completion. The default cumulative input and
-output allowances are 16 MiB each. This accounts for persisted task I/O admission only, not generated
-values, run-level snapshots, memory, CPU, durable budget recovery or multiple processes. A host
-composing lower-level workers must explicitly supply the same authority to every participating
-worker. Persisted lineage identifies ancestry but cannot recreate or authorize a budget. The
+output allowances are 16 MiB each. Run definition and input snapshots also consume the input
+allowance before run persistence or entry dispatch. Encoding stops at the remaining allowance,
+including JSON escapes and UTF-8 bytes, before building a complete oversized snapshot. This
+pre-entry refusal retains its structured non-retryable code in the local provider result. This
+accounts for persisted snapshots, not generated values, memory, CPU, durable budget recovery or
+multiple processes. A host composing lower-level services must explicitly supply the same
+authority to its run orchestrator and every participating worker. Persisted lineage identifies
+ancestry but cannot recreate or authorize a budget. The
 root owns authority lifetime and closes it on completion; committed cancellation closes new
 admissions across its children. This does not interrupt child execution or atomically cancel
 writes already admitted to another child storage instance.

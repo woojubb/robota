@@ -194,17 +194,19 @@ ceiling, not a mutable consumed-byte counter or root aggregate authority. It doe
 nodes, input already materialized upstream, serialized/escaped snapshots, total memory, nested or
 parallel runs, or CPU time. Generator-side aggregate reservations and CPU preemption remain separate work.
 
-## Cumulative task snapshot admission
+## Cumulative root snapshot admission
 
 A live root invocation may carry one trusted shared snapshot authority through every child run.
 Input and output allowances are separate nonnegative safe-integer UTF-8 byte totals, with defaults
-of 16 MiB each in the local product runtime. They count serialized task snapshots, including JSON
+of 16 MiB each in the local product runtime. They count persisted run definition and input snapshots
+on the input side as well as task snapshots, including JSON
 escaping, keys, structure and summaries. Every accepted snapshot write consumes its full size,
-including retry writes; this is cumulative admission, not retained-size accounting. Run-level input
-and definition snapshots are outside this contract. Host policy and the authority are never
+including retry writes; this is cumulative admission, not retained-size accounting. Host policy and the authority are never
 deserialized from workflow config, lineage, queue data or saved manifests.
 
-Pending writes reserve capacity synchronously before persistence. A successful exact-attempt write
+Encoding stops as soon as the remaining UTF-8 allowance is exceeded, before a complete oversized
+snapshot exists. The encoder accepts plain JSON data and never invokes data-defined `toJSON` methods
+or accessors. Pending writes reserve capacity synchronously before persistence. A successful exact-attempt write
 commits consumption before any later publication or dispatch; downstream failures do not refund it.
 A definitively rejected commit releases its reservation. A thrown persistence operation can have
 reached durable storage, so it retains the reservation and closes both admission directions for
@@ -215,7 +217,7 @@ as an accepted snapshot. Cancellation and stale attempts reject input snapshots 
 run/attempt/lease predicates used for output settlement.
 
 The authority is an in-process capability with no crash recovery or cross-process coordination.
-Input and output values, and their serialized strings, already exist at admission. This is not a
+Input and output values already exist at admission. This is not a
 pre-allocation memory bound, provider-generation limit, CPU limit, queue-size bound, snapshot-read
 limit, or bound on adapter collection encoding. The per-operation text-repeat ceiling is separate.
 

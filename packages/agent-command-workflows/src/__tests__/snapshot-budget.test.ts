@@ -60,3 +60,23 @@ it('/workflows shares snapshot allowance between a parent and its saved composit
   });
   expect(separateRoot.success).toBe(true);
 });
+
+it('/workflows rejects an oversized unused definition config before node entry', async () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'workflow-budget-')));
+  roots.push(root);
+  vi.stubEnv('HOME', root);
+  writeFileSync(join(root, 'large.json'), JSON.stringify({
+    dagId: 'large', version: 1, status: 'draft',
+    nodes: [{ nodeId: 'entry', nodeType: 'input', dependsOn: [], config: {
+      text: 'would execute', unused: 'x'.repeat(4_000),
+    } }],
+    edges: [],
+  }));
+  const project = await createWorkflowProjectFixture(root);
+  const result = await executeWorkflowsRun('large.json', project, undefined, [], {
+    inputBytes: 1_000, outputBytes: 1_000,
+  });
+  expect(result.success).toBe(false);
+  expect(result.message).toContain('startRun failed');
+  expect(result.message).toContain('DAG_TASK_SNAPSHOT_BUDGET_EXCEEDED');
+});

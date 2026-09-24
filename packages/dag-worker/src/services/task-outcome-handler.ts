@@ -54,8 +54,7 @@ export class TaskOutcomeHandler {
     estimatedCredits?: number,
     totalCredits?: number,
   ): Promise<TResult<IWorkerLoopResult, IDagError>> {
-    const snapshot = JSON.stringify(output);
-    const persist = () => this.storage.commitExecution(message.dagRunId, {
+    const persist = (snapshot: string) => this.storage.commitExecution(message.dagRunId, {
       kind: 'settle',
       taskRunId,
       attempt: message.attempt,
@@ -66,8 +65,8 @@ export class TaskOutcomeHandler {
       totalCredits,
     });
     const admission = this.snapshotBudget
-      ? await this.snapshotBudget.admit('output', snapshot, persist)
-      : { ok: true as const, value: await persist() };
+      ? await this.snapshotBudget.admitValue('output', output, persist)
+      : { ok: true as const, value: await persist(JSON.stringify(output)) };
     if (!admission.ok) return this.handleFailurePath(message, taskRunId, admission.error);
     const committed = admission.value;
     if (!committed.applied) return successAfterAck(this.queue, message.messageId, taskRunId, false);

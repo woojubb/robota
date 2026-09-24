@@ -31,14 +31,16 @@ it('snapshots a trusted smaller limit through worker and lifecycle into the supp
   expect(success.outputs).toMatchObject({ 'repeat.text': 'é' });
 });
 
-it('isolates independent root invocations while summing each roots task inputs', async () => {
+it('isolates independent roots while summing each run and task input snapshot', async () => {
   const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-snapshot-cap-')));
   roots.push(root);
-  const provider = new LocalDagRuntimeProvider({ executionRoot: root, snapshotBudgetLimits: { inputBytes: 12, outputBytes: 1000 } });
   const dag: IDagDefinition = {
     dagId: 'snapshot-cap', version: 1, status: 'draft',
     nodes: [{ nodeId: 'repeat', nodeType: 'text-repeat', dependsOn: [], config: { times: 1 } }], edges: [],
   };
+  const inputBytes = Buffer.byteLength(JSON.stringify({ ...dag, status: 'published' })) +
+    2 * Buffer.byteLength(JSON.stringify({ text: 'x' }));
+  const provider = new LocalDagRuntimeProvider({ executionRoot: root, snapshotBudgetLimits: { inputBytes, outputBytes: 1000 } });
   const results = await Promise.all([provider.execute(dag, { text: 'x' }), provider.execute(dag, { text: 'x' })]);
   expect(results.map((result) => result.ok)).toEqual([true, true]);
   const denied = await provider.execute(dag, { text: 'xx' });
@@ -46,6 +48,25 @@ it('isolates independent root invocations while summing each roots task inputs',
   expect(denied.outputs).toEqual({});
   expect(denied.errorCode).toBe('DAG_TASK_SNAPSHOT_BUDGET_EXCEEDED');
   expect(denied.errorRetryable).toBe(false);
+});
+
+it('preserves structured exhaustion when run snapshots are denied before entry', async () => {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-run-snapshot-cap-')));
+  roots.push(root);
+  const provider = new LocalDagRuntimeProvider({
+    executionRoot: root,
+    snapshotBudgetLimits: { inputBytes: 10, outputBytes: 1000 },
+  });
+  const result = await provider.execute({
+    dagId: 'oversized', version: 1, status: 'draft',
+    nodes: [{ nodeId: 'entry', nodeType: 'input', dependsOn: [], config: { unused: 'x'.repeat(1000) } }],
+    edges: [],
+  }, {});
+  expect(result).toMatchObject({
+    ok: false,
+    errorCode: 'DAG_TASK_SNAPSHOT_BUDGET_EXCEEDED',
+    errorRetryable: false,
+  });
 });
 
 it('closes the root authority after completion so abandoned descendants cannot admit more snapshots', async () => {

@@ -2,6 +2,7 @@ import {
   TimeSemanticsService,
   buildDispatchError,
   buildValidationError,
+  buildTaskExecutionError,
   type IClockPort,
   type IDagError,
   type IRunProgressEventReporter,
@@ -11,6 +12,7 @@ import {
   type TDagTriggerType,
   type TPortPayload,
   type TResult,
+  type ITaskSnapshotBudget,
 } from '@robota-sdk/dag-core';
 import { parsePortPayload, parseDefinitionSnapshot } from './snapshot-parser.js';
 import { dispatchEntryTasks } from './entry-task-dispatcher.js';
@@ -59,6 +61,7 @@ export class RunOrchestratorService {
     private readonly queue: IQueuePort,
     private readonly clock: IClockPort,
     private readonly runProgressEventReporter?: IRunProgressEventReporter,
+    private readonly snapshotBudget?: ITaskSnapshotBudget,
   ) {
     this.timeSemanticsService = new TimeSemanticsService(clock);
   }
@@ -121,19 +124,32 @@ export class RunOrchestratorService {
       input.rerunKey,
     );
     try {
-      await this.storage.createDagRun({
+      const persist = (definitionSnapshot: string, inputSnapshot: string) => this.storage.createDagRun({
         dagRunId,
         dagId: definition.dagId,
         version: definition.version,
         status: 'created',
-        definitionSnapshot: JSON.stringify(definition),
-        inputSnapshot: JSON.stringify(input.input),
+        definitionSnapshot,
+        inputSnapshot,
         runKey,
         logicalDate: resolvedTime.value.logicalDate,
         trigger: input.trigger,
         startedAt: this.clock.nowIso(),
       });
+      if (this.snapshotBudget) {
+        const admission = await this.snapshotBudget.admitRun(definition, input.input, persist);
+        if (!admission.ok) return admission;
+      } else {
+        await persist(JSON.stringify(definition), JSON.stringify(input.input));
+      }
     } catch (error) {
+      if (this.snapshotBudget) {
+        return { ok: false, error: buildTaskExecutionError(
+          'DAG_RUN_SNAPSHOT_PERSISTENCE_UNCERTAIN',
+          'Run snapshot persistence outcome is uncertain; root snapshot admission is closed',
+          false,
+        ) };
+      }
       return {
         ok: false,
         error: buildDispatchError('DAG_DISPATCH_DAG_RUN_CREATE_FAILED', 'Failed to create DagRun', {

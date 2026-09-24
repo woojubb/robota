@@ -37,6 +37,12 @@ run status, cancelling runs, and publishing execution progress events.
   by re-querying the existing run rather than failing.
 - All service methods return `TResult<T, IDagError>` — no fallback paths, no silent error
   swallowing.
+- When supplied with a live root snapshot authority, run creation admits its published definition
+  and run input together against the shared input allowance before persisting the run or dispatching
+  entry tasks. A rejected admission creates no run. An uncertain storage write closes future root
+  admissions rather than refunding capacity and returns a stable non-retryable error. Lower-level
+  callers must supply this authority. Definition and input share the existing input pool with task
+  inputs, so nested runs cannot reset a separate run allowance.
 
 Cancellation commits against current run state. A terminal result that wins first remains terminal;
 a cancellation that wins first cannot be overwritten by a stale start or dispatch-failure result.
