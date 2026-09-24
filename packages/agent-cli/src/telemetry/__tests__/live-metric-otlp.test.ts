@@ -52,6 +52,26 @@ function value(batch: ILivePromptTraceBatch, name: string): number | undefined {
 }
 
 describe('Node live OTLP metrics', () => {
+  it('counts canonical prompt executions and observed tool completions without claiming truncated totals', () => {
+    const tool = (spanId: string): ILivePromptTraceBatch['children'][number] => ({
+      kind: 'tool', trace: {
+        traceId: base.root.traceId, parentSpanId: base.root.spanId, spanId,
+        startedAt: base.root.startedAt, endedAt: base.root.endedAt, outcome: 'success',
+      },
+    });
+    const complete = { ...base, children: [tool('1111111111111111'), tool('2222222222222222')] };
+    expect(value(complete, 'robota.prompt.executions')).toBe(1);
+    expect(value(complete, 'robota.tool.body_completions')).toBe(2);
+    const truncated = { ...complete, omittedChildren: { provider: 0, tool: 3 } };
+    expect(value(truncated, 'robota.telemetry.tool_events_omitted')).toBe(3);
+    expect(value(truncated, 'robota.tool.body_completions')).toBeUndefined();
+    expect(value(truncated, 'robota.prompt.executions')).toBe(1);
+    expect(value({ ...complete, omittedChildren: { provider: 4, tool: 0 } },
+      'robota.tool.body_completions')).toBe(2);
+    const metrics = projectLivePromptMetrics(complete, metricWindow).scopeMetrics[0]!.metrics;
+    expect(JSON.stringify(metrics)).not.toMatch(/private-session|private-turn/);
+  });
+
   it('exposes the host failure callback for metrics-only queue overflow', () => {
     const onFailure = vi.fn();
     const port = createNodeOtlpLiveMetricPort('http://127.0.0.1:9/v1/metrics', onFailure);

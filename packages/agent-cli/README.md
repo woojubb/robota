@@ -214,7 +214,8 @@ Live prompt telemetry is a separate, opt-in Node CLI feature (interactive, print
 `ROBOTA_TELEMETRY_OTLP_ENDPOINT=https://collector.example` to send content-free prompt/provider/tool
 spans to the base URL's `/v1/traces`. `ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT` overrides the base with
 an exact traces URL. Select `ROBOTA_TELEMETRY_METRICS=otlp` independently to send per-invoked-call
-delta counts, complete-usage token totals and price-table-estimated USD cost to `/v1/metrics`;
+delta counts, complete-usage token totals and price-table-estimated USD cost, plus observed prompt and
+tool-completion counts, to `/v1/metrics`;
 `ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT` overrides that destination. Missing usage or prices are
 counted separately, never treated as zero cost. A truncated provider-event batch reports omissions
 and does not claim a complete usage/cost total. Metric datapoints omit session, turn, provider and
