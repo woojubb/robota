@@ -579,6 +579,20 @@ describe('TextCountLinesNodeDefinition', () => {
     if (r.ok) expect(r.value.text).toBe('2');
   });
 
+  it.each([
+    ['a\r\n\u00a0\n\ufeff\nlast\n', false, '5'],
+    ['a\r\n\u00a0\n\ufeff\nlast\n', true, '2'],
+    ['', false, '1'],
+    ['', true, '0'],
+  ])('preserves split and trim semantics for %j with skipEmpty=%s', async (text, skipEmpty, count) => {
+    const r = await node.taskHandler.execute(
+      { text },
+      ctx('text-count-lines', { skipEmpty }),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.text).toBe(count);
+  });
+
   it('returns error when text missing', async () => {
     const r = await node.taskHandler.execute({}, ctx('text-count-lines'));
     expect(r.ok).toBe(false);

@@ -540,6 +540,32 @@ const TextCountLinesConfigSchema = z.object({
   skipEmpty: z.boolean().default(false),
 });
 
+const NON_TRIM_WHITESPACE = /\S/;
+
+function countLines(text: string, skipEmpty: boolean): number {
+  if (!skipEmpty) {
+    let count = 1;
+    for (let index = 0; index < text.length; index++) {
+      if (text[index] === '\n') count++;
+    }
+    return count;
+  }
+
+  let count = 0;
+  let lineHasContent = false;
+  for (let index = 0; index < text.length; index++) {
+    const character = text[index]!;
+    if (character === '\n') {
+      if (lineHasContent) count++;
+      lineHasContent = false;
+    } else if (!lineHasContent && NON_TRIM_WHITESPACE.test(character)) {
+      lineHasContent = true;
+    }
+  }
+  if (lineHasContent) count++;
+  return count;
+}
+
 export class TextCountLinesNodeDefinition extends AbstractNodeDefinition<
   typeof TextCountLinesConfigSchema
 > {
@@ -568,9 +594,7 @@ export class TextCountLinesNodeDefinition extends AbstractNodeDefinition<
     const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
     const r = io.requireInputString('text');
     if (!r.ok) return r;
-    const lines = r.value.split('\n');
-    const count = config.skipEmpty ? lines.filter((l) => l.trim() !== '').length : lines.length;
-    io.setOutput('text', String(count));
+    io.setOutput('text', String(countLines(r.value, config.skipEmpty)));
     return { ok: true, value: io.toOutput() };
   }
 }
