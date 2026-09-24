@@ -107,8 +107,8 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
           data: {
             taskId: event.task.id,
             label: event.task.label,
-            agentType: event.task.agentType ?? 'general-purpose',
-            promptPreview: event.task.promptPreview,
+            agentType: event.task.kind === 'agent' ? (event.task.agentType ?? 'general-purpose') : 'general-purpose',
+            promptPreview: event.task.kind === 'agent' ? event.task.promptPreview : undefined,
             ...(typeof originToolCallId === 'string' ? { originToolCallId } : {}),
           },
         });
@@ -146,7 +146,7 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
           data: {
             taskId: event.task.id,
             label: event.task.label,
-            agentType: event.task.agentType,
+            agentType: event.task.kind === 'agent' ? event.task.agentType : undefined,
           },
         });
         tryClose();

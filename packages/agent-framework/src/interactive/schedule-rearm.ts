@@ -14,7 +14,9 @@ import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution
  * again, and a `paused` one re-arms but is kept paused (the tracker re-spawns then immediately pauses). Both are
  * kept rather than reconciled to `failed` as a stale worker.
  */
-export function isReArmableScheduledTask(task: IBackgroundTaskState): boolean {
+export function isReArmableScheduledTask(
+  task: IBackgroundTaskState,
+): task is IBackgroundTaskState<'scheduled'> {
   return (
     task.kind === 'scheduled' &&
     (task.status === 'sleeping' || task.status === 'paused') &&

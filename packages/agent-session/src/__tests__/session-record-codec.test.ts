@@ -117,7 +117,6 @@ function maximalRecord(): IInteractiveSessionRecord {
         lastActivityAt: '2026-08-01T00:01:30.000Z',
         completedAt: '2026-08-01T00:02:00.000Z',
         promptPreview: 'do the thing',
-        commandPreview: 'ls',
         isolation: 'worktree',
         currentAction: 'writing',
         unread: false,
@@ -130,15 +129,7 @@ function maximalRecord(): IInteractiveSessionRecord {
         worktreeBaseRevision: 'abc1234',
         parentWorktreeStatus: 'clean',
         timeoutReason: 'idle',
-        nextFireAt: '2026-08-03T00:00:00.000Z',
         metadata: { retries: 0, flagged: false, owner: 'me' },
-        schedule: {
-          cronExpression: '0 * * * *',
-          agentInstruction: 'wake up',
-          command: 'echo hi',
-          shell: '/bin/zsh',
-          env: { KEY: 'value' },
-        },
         result: {
           taskId: 't1',
           kind: 'agent',
@@ -165,6 +156,29 @@ function maximalRecord(): IInteractiveSessionRecord {
           output: 'exited',
           exitCode: 1,
           signalCode: 'SIGTERM',
+        },
+      },
+      {
+        // #2079: a scheduled-kind task, so `commandPreview`/`nextFireAt`/`schedule` — no longer
+        // legal on the agent-kind `t1` above — are still covered by the maximal fixture.
+        id: 't3',
+        kind: 'scheduled',
+        label: 'a scheduled task',
+        status: 'sleeping',
+        mode: 'background',
+        parentSessionId: 'session-1',
+        depth: 0,
+        cwd: '/work',
+        updatedAt: '2026-08-01T00:04:00.000Z',
+        unread: false,
+        commandPreview: 'echo hi',
+        nextFireAt: '2026-08-03T00:00:00.000Z',
+        schedule: {
+          cronExpression: '0 * * * *',
+          agentInstruction: 'wake up',
+          command: 'echo hi',
+          shell: '/bin/zsh',
+          env: { KEY: 'value' },
         },
       },
     ],
@@ -482,6 +496,73 @@ describe('decodeInteractiveSessionRecord — background task result kind discrim
   });
 });
 
+describe('decodeInteractiveSessionRecord — background task state kind discrimination (#2079)', () => {
+  it('rejects a process-kind task carrying agent-only agentType', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('backgroundTasks[1].agentType', 'general-purpose'),
+    );
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[1].agentType');
+  });
+
+  it('rejects a process-kind task carrying agent-only isolation', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('backgroundTasks[1].isolation', 'worktree'),
+    );
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[1].isolation');
+  });
+
+  it('rejects a process-kind task carrying agent-only resumeSessionId', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('backgroundTasks[1].resumeSessionId', 'session-1-fork'),
+    );
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[1].resumeSessionId');
+  });
+
+  it('rejects a process-kind task carrying agent-only worktreePath', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('backgroundTasks[1].worktreePath', '/wt/t1'),
+    );
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[1].worktreePath');
+  });
+
+  it('rejects an agent-kind task carrying non-agent-only commandPreview', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('backgroundTasks[0].commandPreview', 'ls'),
+    );
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[0].commandPreview');
+  });
+
+  it('rejects an agent-kind task carrying scheduled-only schedule', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('backgroundTasks[0].schedule', {
+        cronExpression: '0 * * * *',
+      }),
+    );
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[0].schedule');
+  });
+
+  it('rejects a process-kind task carrying scheduled-only nextFireAt', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('backgroundTasks[1].nextFireAt', '2026-08-03T00:00:00.000Z'),
+    );
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[1].nextFireAt');
+  });
+
+  it('permits pid/logPath/transcriptPath on a process-kind task — shared, not agent-exclusive', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('backgroundTasks[1].pid', 555),
+    );
+    expect(outcome.status).toBe('valid');
+  });
+});
+
 describe('decodeInteractiveSessionRecord — TC-03 every nested family reports its path', () => {
   const mutations: Array<[string, string, unknown]> = [
     ['root scalar', 'id', 42],
@@ -496,7 +577,7 @@ describe('decodeInteractiveSessionRecord — TC-03 every nested family reports i
     ['background task result', 'backgroundTasks[0].result.output', 12],
     ['background task result exitCode', 'backgroundTasks[1].result.exitCode', 'x'],
     ['background task error', 'backgroundTasks[0].error.category', 'nope'],
-    ['background task schedule', 'backgroundTasks[0].schedule.cronExpression', 3],
+    ['background task schedule', 'backgroundTasks[2].schedule.cronExpression', 3],
     ['background task event', 'backgroundTaskEvents[3].delta', 9],
     ['background task event payload', 'backgroundTaskEvents[0].task.id', null],
     ['job group', 'backgroundJobGroups[0].waitPolicy', 'whenever'],

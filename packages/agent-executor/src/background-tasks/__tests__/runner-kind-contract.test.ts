@@ -9,6 +9,7 @@ import type {
   IBackgroundTaskResult,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
+  IBackgroundTaskState,
   IProcessBackgroundTaskRequest,
   IScheduledBackgroundTaskRequest,
 } from '../types.js';
@@ -105,6 +106,57 @@ function checkResultKindNarrowing(): void {
   });
 }
 void checkResultKindNarrowing;
+
+/**
+ * #2079: compiled by the package typecheck. `IBackgroundTaskState<K>` resolves kind-specific fields
+ * (and `result`) to the `K`-specific member the same way `IBackgroundTaskHandle<K>` does above — a
+ * caller that knows the kind statically gets a correctly-narrowed state with no cast, and a
+ * cross-kind field on it is a compile error.
+ */
+function checkStateKindNarrowing(): void {
+  const processState: IBackgroundTaskState<'process'> = {
+    id: 'process_1',
+    kind: 'process',
+    label: 'proc',
+    status: 'completed',
+    mode: 'background',
+    parentSessionId: 'session_1',
+    depth: 0,
+    cwd: '/workspace',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    unread: false,
+    commandPreview: 'echo hi',
+    result: { taskId: 'process_1', kind: 'process', output: '', exitCode: 0 },
+  };
+  void processState.commandPreview;
+  void processState.pid; // shared base field (agent subagents can carry a pid too)
+  // @ts-expect-error A process-kind state never carries the agent-only `agentType`.
+  void processState.agentType;
+  // @ts-expect-error A process-kind state never carries the scheduled-only `schedule`.
+  void processState.schedule;
+
+  const agentState: IBackgroundTaskState<'agent'> = {
+    id: 'agent_1',
+    kind: 'agent',
+    label: 'agent',
+    status: 'completed',
+    mode: 'background',
+    parentSessionId: 'session_1',
+    depth: 0,
+    cwd: '/workspace',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    unread: false,
+    agentType: 'general-purpose',
+    result: { taskId: 'agent_1', kind: 'agent', output: '' },
+  };
+  void agentState.agentType;
+  void agentState.result?.usage;
+  // @ts-expect-error An agent-kind state never carries the non-agent-only `commandPreview`.
+  void agentState.commandPreview;
+  // @ts-expect-error An agent-kind state's result never carries process-only exit information.
+  void agentState.result?.exitCode;
+}
+void checkStateKindNarrowing;
 
 describe('background runner kind contracts', () => {
   it('dispatches process and scheduled requests to the matching registered runner', async () => {
