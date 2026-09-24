@@ -2,11 +2,13 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import type { IRegexReplaceRequest } from '@robota-sdk/dag-core';
+import { boundedRegexReplace } from './bounded-regex-replace.js';
 
 const MAX_BYTES = 4 * 1024 * 1024;
 // JSON escaping can expand each admitted byte up to six ASCII bytes.
 const MAX_WIRE_BYTES = MAX_BYTES * 6 + 1024;
 const BOOTSTRAP = `
+const boundedRegexReplace = ${boundedRegexReplace.toString()};
 const send = (message) => process.stdout.write(JSON.stringify(message) + '\\n');
 let input = '';
 process.stdin.setEncoding('utf8');
@@ -18,9 +20,7 @@ process.stdin.on('end', () => {
   const request = JSON.parse(input);
   send({ type: 'entered' });
   try {
-    const value = request.text.replace(new RegExp(request.search, request.flags), request.replacement);
-    send(Buffer.byteLength(value, 'utf8') > ${MAX_BYTES}
-      ? { type: 'oversized' } : { type: 'result', value });
+    send(boundedRegexReplace(request, request.maxOutputBytes));
   } catch { send({ type: 'invalid-regex' }); }
 });
 send({ type: 'ready' });
@@ -76,7 +76,7 @@ export class RegexProcessWorker extends EventEmitter {
     });
   }
 
-  public postMessage(request: IRegexReplaceRequest): void {
+  public postMessage(request: IRegexReplaceRequest & { maxOutputBytes: number }): void {
     this.child.stdin.end(JSON.stringify(request));
   }
 

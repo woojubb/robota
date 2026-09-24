@@ -3,6 +3,7 @@ import type {
   ITaskExecutorPort,
   TTaskExecutionResult,
 } from '@robota-sdk/dag-core';
+import { resolveDagExecutionByteLimits } from '@robota-sdk/dag-core';
 import { IsolatedRegexOperation } from './isolated-regex-operation.js';
 
 /** Leaves lifecycle, trusted capabilities and persistence in the parent. */
@@ -17,7 +18,10 @@ export class IsolatedRegexTaskExecutor implements ITaskExecutorPort {
   }
   public async execute(input: ITaskExecutionInput): Promise<TTaskExecutionResult> {
     const key = this.key(input);
-    const operation = new IsolatedRegexOperation(input.taskRunId, input.nodeId);
+    const operation = new IsolatedRegexOperation(
+      input.taskRunId, input.nodeId, undefined,
+      resolveDagExecutionByteLimits(input.byteLimits).maxTextReplaceOutputBytes,
+    );
     let complete!: () => void;
     const completion = new Promise<void>((resolve) => { complete = resolve; });
     this.active.set(key, { operation, completion });
