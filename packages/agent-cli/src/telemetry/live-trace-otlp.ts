@@ -223,7 +223,9 @@ export function createNodeOtlpLiveTracePort(options: INodeOtlpLiveTraceOptions):
 export function createConfiguredNodeOtlpLiveTelemetryPort(
   env: Readonly<Record<string, string | undefined>>,
   onFailure?: INodeOtlpLiveTraceOptions['onFailure'],
-  writeConsole: (line: string) => void = (line) => { process.stderr.write(line); },
+  writeConsole: (line: string) => void | Promise<void> = (line) => new Promise<void>((resolve, reject) => {
+    process.stderr.write(line, (error) => error ? reject(error) : resolve());
+  }),
 ): INodeOtlpLiveTracePort | undefined {
   const traceEndpoint = resolveNodeOtlpLiveTraceEndpoint(env);
   const metricEndpoint = resolveNodeOtlpLiveMetricEndpoint(env);

@@ -5,6 +5,8 @@ import { projectLivePromptMetrics } from './live-metric-otlp.js';
 import { projectLivePromptLogs } from './live-log-otlp.js';
 
 type TSignal = 'traces' | 'metrics' | 'logs';
+const MAX_PENDING_BATCHES = 8;
+const boundedLabel = (value: string | undefined): string | undefined => value?.slice(0, 128);
 
 /** Console is a diagnostic projection of the same content-free facts, never a batch dump. */
 function projectConsoleRecord(batch: ILivePromptTraceBatch, signal: TSignal): object {
@@ -29,6 +31,7 @@ function projectConsoleRecord(batch: ILivePromptTraceBatch, signal: TSignal): ob
   }
   return {
     signal, traceId: batch.root.traceId,
+    sessionId: boundedLabel(batch.sessionId), turnId: boundedLabel(batch.turnId),
     spans: [
       { name: 'robota.prompt_execution', spanId: batch.root.spanId,
         startedAt: batch.root.startedAt, endedAt: batch.root.endedAt,
@@ -40,6 +43,17 @@ function projectConsoleRecord(batch: ILivePromptTraceBatch, signal: TSignal): ob
         spanId: child.trace.spanId, parentSpanId: child.trace.parentSpanId,
         startedAt: child.trace.startedAt, endedAt: child.trace.endedAt,
         outcome: child.trace.outcome,
+        ...(child.kind === 'provider' ? {
+          round: child.trace.round, disposition: child.trace.disposition,
+          providerId: boundedLabel(child.trace.providerId),
+          modelId: boundedLabel(child.trace.modelId),
+          usageProvenance: child.trace.usageProvenance,
+          ...(child.trace.usageProvenance === 'complete' ? {
+            promptTokens: child.trace.promptTokens,
+            completionTokens: child.trace.completionTokens,
+            totalTokens: child.trace.totalTokens,
+          } : {}),
+        } : {}),
       })),
     ],
   };
@@ -50,17 +64,43 @@ export function createNodeLiveConsolePort(
   write: (line: string) => void | Promise<void>,
   onFailure?: (code: 'projection-failed' | 'enqueue-failed' | 'delivery-failed') => void,
 ): ILivePromptTracePort & { shutdown(): Promise<void> } {
-  const reportFailure = (): void => {
-    try { void Promise.resolve(onFailure?.('delivery-failed')).catch(() => undefined); }
+  const pending: ILivePromptTraceBatch[] = [];
+  let worker: Promise<void> | undefined;
+  let closed = false;
+  const reportFailure = (code: 'projection-failed' | 'delivery-failed'): void => {
+    try { void Promise.resolve(onFailure?.(code)).catch(() => undefined); }
     catch { /* diagnostics must not affect the turn */ }
+  };
+  const drain = async (): Promise<void> => {
+    while (pending.length > 0) {
+      const batch = pending.shift()!;
+      let line: string;
+      try { line = `${JSON.stringify(projectConsoleRecord(batch, signal))}\n`; }
+      catch { reportFailure('projection-failed'); continue; }
+      try { await write(line); }
+      catch {
+        pending.length = 0;
+        reportFailure('delivery-failed');
+      }
+    }
+  };
+  const start = (): void => {
+    if (worker || pending.length === 0) return;
+    worker = drain().finally(() => {
+      worker = undefined;
+      start();
+    });
   };
   return {
     ...(onFailure ? { onFailure } : {}),
     enqueue(batch) {
-      try { void Promise.resolve(write(`${JSON.stringify(projectConsoleRecord(batch, signal))}\n`))
-        .catch(reportFailure); }
-      catch { reportFailure(); }
+      if (closed || pending.length >= MAX_PENDING_BATCHES) throw new Error('Live console queue unavailable.');
+      pending.push(batch);
+      start();
     },
-    async shutdown() { /* no background worker */ },
+    async shutdown() {
+      closed = true;
+      while (worker) await worker;
+    },
   };
 }

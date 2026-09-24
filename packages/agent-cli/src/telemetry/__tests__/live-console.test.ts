@@ -45,6 +45,11 @@ describe('live console telemetry', () => {
       } else {
         expect(lines[0]).toContain('robota.prompt_execution');
         expect(lines[0]).toContain(batch.root.traceId);
+        expect(lines[0]).toContain('session-1');
+        expect(lines[0]).toContain('turn-1');
+        expect(lines[0]).toContain('test-provider');
+        expect(lines[0]).toContain('gpt-4o');
+        expect(lines[0]).toContain('promptTokens');
       }
     },
   );
@@ -69,5 +74,23 @@ describe('live console telemetry', () => {
     expect(() => asyncPort!.enqueue(batch)).not.toThrow();
     await asyncPort!.shutdown();
     await vi.waitFor(() => expect(asyncFailure).toHaveBeenCalledWith('delivery-failed'));
+  });
+
+  it('bounds a blocked sink and waits for its accepted write before shutdown', async () => {
+    let unblock: (() => void) | undefined;
+    const blocked = new Promise<void>((resolve) => { unblock = resolve; });
+    const write = vi.fn(() => blocked);
+    const port = createConfiguredNodeOtlpLiveTelemetryPort({
+      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'console',
+    }, undefined, write)!;
+    for (let index = 0; index < 9; index++) port.enqueue(batch);
+    expect(() => port.enqueue(batch)).toThrow(/queue/i);
+    let settled = false;
+    const closing = port.shutdown().then(() => { settled = true; });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    unblock!();
+    await closing;
+    expect(write).toHaveBeenCalledTimes(9);
   });
 });
