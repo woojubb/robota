@@ -5,6 +5,8 @@ import { executeWorkflowsValidate } from './validate-command.js';
 import { executeWorkflowsCreate } from './create-command.js';
 import { executeWorkflowsBuild } from './build-command.js';
 import { renderWorkflowsUsage, WORKFLOWS_SUBCOMMANDS } from './subcommands.js';
+import { DetachedWorkflowRuns } from './detached-runs.js';
+import { parseFileArg } from './args.js';
 
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
@@ -75,6 +77,7 @@ async function executeWorkflowsCommand(
   providerDefinitions: readonly IProviderDefinition[],
   project: IWorkflowProject | undefined,
   settingsSources: readonly TSettingsSource[] | undefined,
+  detachedRuns: DetachedWorkflowRuns,
 ): Promise<ICommandResult> {
   const { sub, rest } = splitSubcommand(args);
 
@@ -125,7 +128,26 @@ async function executeWorkflowsCommand(
       case 'validate':
         return executeWorkflowsValidate(rest, requiredProject(), workspace, providerDefinitions);
       case 'run':
+        if (/\s+--detach$/.test(rest)) {
+          const fileArgs = rest.replace(/\s+--detach$/, '');
+          const parsed = parseFileArg(fileArgs, 'run');
+          if (!parsed.ok) return { success: false, message: parsed.error };
+          return detachedRuns.start((signal) =>
+            executeWorkflowsRun(
+              fileArgs,
+              requiredProject(),
+              workspace,
+              providerDefinitions,
+              undefined,
+              signal,
+            ),
+          );
+        }
         return executeWorkflowsRun(rest, requiredProject(), workspace, providerDefinitions);
+      case 'status':
+        return detachedRuns.status(rest);
+      case 'cancel':
+        return detachedRuns.cancel(rest);
       default:
         return { success: false, message: `Unknown subcommand "${sub}".\n${USAGE}` };
     }
@@ -158,6 +180,7 @@ function createWorkflowsSystemCommand(
   settingsSources: readonly TSettingsSource[] | undefined,
 ): ISystemCommand {
   const entry = createWorkflowsCommandEntry();
+  const detachedRuns = new DetachedWorkflowRuns();
   return {
     name: entry.name,
     displayName: entry.displayName,
@@ -176,6 +199,7 @@ function createWorkflowsSystemCommand(
         providerDefinitions,
         project,
         settingsSources,
+        detachedRuns,
       ),
   };
 }

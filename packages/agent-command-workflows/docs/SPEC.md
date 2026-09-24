@@ -5,7 +5,7 @@
 Provides the agent-cli `/workflows` command module — a bridge that surfaces the DAG workflow
 engine inside the agent CLI by composing `@robota-sdk/dag-framework` in-process. Owns the
 `workflows` command, its subcommand dispatch (`create`, `build`, `list`, `catalog`, `validate`,
-`run`), and the natural-language authoring pipeline behind `create` and `build`.
+`run`, `status`, `cancel`), and the natural-language authoring pipeline behind `create` and `build`.
 
 ## Non-goals / Boundaries
 
@@ -19,11 +19,12 @@ engine inside the agent CLI by composing `@robota-sdk/dag-framework` in-process.
 ## Contract
 
 `createWorkflowsCommandModule(...)` returns an `ICommandModule` whose dispatch reads a leading
-subcommand token. It holds no state: providers are created per invocation from explicit settings
-sources, and the workflow project capability is passed in rather than discovered — absence of the
-project is a restriction for every subcommand rather than an implicit fallback to `cwd`.
+subcommand token. Providers are created per invocation from explicit settings sources; an explicit
+detached run retains its cancellation handle and terminal result only within the command module's
+live CLI process. The workflow project capability is passed in rather than discovered — absence of
+the project is a restriction for every subcommand rather than an implicit fallback to `cwd`.
 
-The six subcommands are one surface sharing exactly one owner per shared concern (subcommand
+The subcommands are one surface sharing exactly one owner per shared concern (subcommand
 registry, argument grammar, node catalog, authoring pipeline) rather than six independent copies —
 this is a design invariant, not an implementation detail: an advertised subcommand cannot be
 unroutable, and a subcommand's usage hint cannot drift from its actual usage text, because both are
@@ -64,6 +65,8 @@ authoring never searches the process home for a provider profile.
   prompt provider receives the abort signal across composite boundaries; command completion waits
   for admitted local node calls and their child runtimes to settle, so a provider that ignores abort
   keeps the command pending instead of reporting completion while its call is still active.
+- A detached run's operator cancellation reaches its live DAG execution; the final result cannot
+  become success after cancellation, and status is scoped to the module instance that started it.
 - The default text-replace regex operation runs in isolated execution outside the parent event loop,
   so a timeout or cancellation can interrupt it without leaking late output into snapshots or
   downstream nodes and without leaving a subsequent independent workflow unable to run; this
