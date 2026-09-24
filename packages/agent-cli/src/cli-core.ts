@@ -46,6 +46,7 @@ import {
 import { createRemoteControlController } from './remote-control/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
+import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
 import {
   createRobotaPackSet,
   createRobotaSubagentRunnerFactory,
@@ -601,9 +602,7 @@ async function runCliCore(
     undefined,
     {
       serviceVersion: version,
-      surface: args.printMode || args.goal !== undefined ? 'print'
-        : mcpServe ? 'mcp-serve'
-          : args.serve ? 'serve' : 'interactive',
+      surface: resolveLiveTelemetrySurface(args, mcpServe),
     },
   );
 

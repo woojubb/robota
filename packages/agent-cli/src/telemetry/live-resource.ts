@@ -2,6 +2,15 @@ import { randomUUID } from 'node:crypto';
 
 export type TLiveTelemetrySurface = 'interactive' | 'print' | 'serve' | 'mcp-serve';
 
+export function resolveLiveTelemetrySurface(
+  args: { readonly printMode: boolean; readonly goal: string | undefined; readonly serve: boolean },
+  mcpServe: boolean,
+): TLiveTelemetrySurface {
+  if (args.printMode || args.goal) return 'print';
+  if (mcpServe) return 'mcp-serve';
+  return args.serve ? 'serve' : 'interactive';
+}
+
 export interface ILiveTelemetryHostResource {
   readonly serviceVersion: string;
   readonly surface: TLiveTelemetrySurface;

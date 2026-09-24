@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import { describe, expect, it, vi } from 'vitest';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from '../live-trace-otlp.js';
+import { resolveLiveTelemetrySurface } from '../live-resource.js';
 
 const batch: ILivePromptTraceBatch = {
   schemaVersion: 1, sessionId: 'session-1', turnId: 'turn-1',
@@ -14,6 +15,12 @@ const batch: ILivePromptTraceBatch = {
 };
 
 describe('Node live telemetry resource identity', () => {
+  it('labels the actual dispatch mode when a goal value is empty', () => {
+    expect(resolveLiveTelemetrySurface({ printMode: false, goal: '', serve: true }, false)).toBe('serve');
+    expect(resolveLiveTelemetrySurface({ printMode: false, goal: '', serve: false }, false)).toBe('interactive');
+    expect(resolveLiveTelemetrySurface({ printMode: true, goal: '', serve: true }, false)).toBe('print');
+  });
+
   it('uses one explicit, bounded host identity across all three OTLP signals', async () => {
     vi.stubEnv('OTEL_SERVICE_NAME', 'ambient-secret');
     const requests: Array<{ path: string; text: string }> = [];
