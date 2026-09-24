@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -90,4 +90,5 @@ try {
   );
 } finally {
   await framework.stop();
+  rmSync(root, { recursive: true, force: true });
 }

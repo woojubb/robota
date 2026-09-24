@@ -154,8 +154,12 @@ export async function createDagFramework(
       new StaticNodeLifecycleFactory(new StaticNodeTaskHandlerRegistry(assembly.handlersByType)),
     );
   const assetAwareExecutor = new AssetAwareTaskExecutorPort(baseExecutor, assetStore);
+  // This composition hosts arbitrary node types, not just the regex-isolated one, so its
+  // `stopAndWait` must join only the isolated regex operation's own shutdown — never the
+  // delegate's full node completion, or a node that ignores its abort signal would block every
+  // timeout, cancel, and `framework.stop()` on this composition until that node finally returns.
   const executor: ITaskExecutorPort = isDefaultExecutor
-    ? new IsolatedRegexTaskExecutor(assetAwareExecutor)
+    ? new IsolatedRegexTaskExecutor(assetAwareExecutor, false)
     : assetAwareExecutor;
 
   // 6. Execution composition (run orchestrator + worker loop)
