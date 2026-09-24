@@ -89,9 +89,10 @@ It fails visibly on an incomplete store or collector rejection and never auto-ex
 live telemetry path needs an explicit Robota enable switch, individually selected signals, and an
 explicit protocol with a validated destination (OTLP or a local console sink). It uses host-owned
 resource identity, never ambient OpenTelemetry identity or credentials, and emits only content-free
-spans, logs and low-cardinality metrics correlated by validated IDs; nothing identifying becomes a
-metric label. Metrics derived from child records are emitted only when those records are complete,
-and omitted children or unknown prices stay visible as coverage gaps rather than fabricated totals.
+spans, logs and low-cardinality metrics correlated by validated IDs; a metric label requires the
+operator's explicit opt-in and is never added by default. Metrics derived from child records are
+emitted only when those records are complete, and omitted children or unknown prices stay visible
+as coverage gaps rather than fabricated totals.
 It does not replay stored usage or invent lifecycle events, delivery failure never changes a turn
 result, and an unsupported telemetry setting, or a credential that would be silently unused, refuses
 startup instead of being ignored. Telemetry credentials are scoped to the destination they were
@@ -264,6 +265,14 @@ only state and canonical display path — credentials and project-controlled con
 Generic OTLP headers go only to signals that use the generic endpoint, never to a signal with its own
 endpoint, even though OpenTelemetry would apply them there: a per-signal endpoint may be a different
 collector, and generic credentials belong to the generic destination.
+
+### Opt-in metric attributes
+
+`ROBOTA_TELEMETRY_METRIC_ATTRIBUTES` keys its labels `robota.session.id`, `robota.provider.id` and
+`robota.model.id` — matching the live trace spans — rather than `session.id` or `gen_ai.*`: a
+metric/trace join needs the same key on both sides, the provider id is whatever the host configured
+rather than a well-known system, and which model actually answered a request cannot be verified
+against which model the request named.
 
 ### Deep links (`robota open`)
 

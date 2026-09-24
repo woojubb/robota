@@ -219,7 +219,17 @@ tool-completion counts, to `/v1/metrics`;
 `ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT` overrides that destination. Missing usage or prices are
 counted separately, never treated as zero cost. A truncated provider-event batch reports omissions
 and does not claim a complete usage/cost total. Metric datapoints omit session, turn, provider and
-model labels by default. Select `ROBOTA_TELEMETRY_LOGS=otlp` independently for content-free
+model labels by default; set `ROBOTA_TELEMETRY_METRIC_ATTRIBUTES` to a comma list drawn from
+`session`, `provider` and `model` (canonical lower case, no duplicates) to add them, and only when
+metrics export over `otlp` or `console` — the setting is refused otherwise, and startup is refused
+for any token that is not exactly one of the three. `session` adds `robota.session.id` (the same key
+the trace spans use) to every metric datapoint of the batch. `provider`/`model` add
+`robota.provider.id`/`robota.model.id` only to provider-derived metrics (calls, tokens, cost, and the
+unpriced/usage-unavailable counts), splitting them into one datapoint per distinct id (or pair); a
+call with no id gets its own datapoint without that attribute. In `--serve`/`robota mcp serve`, how
+many distinct session ids appear is set by the connecting clients, not by the CLI; provider and model
+values come from whatever the host's provider configuration reports, not from a fixed catalog. Select
+`ROBOTA_TELEMETRY_LOGS=otlp` independently for content-free
 prompt/provider/tool completion events, plus a tool's own permission decision (allowed, denied, or
 hook-blocked), at `/v1/logs`; `ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT`
 overrides that destination. Tool spans and logs carry a validated opaque call ID when available, and an
